@@ -4,6 +4,6 @@
 A Julia library to build flexible and composable aquatic ecosystems that can represent uncertainties.
 
 
-##Documentation
+## Documentation
 
-- [**DEV**][[docs-dev-url](https://agate-model.github.io/Agate.jl/dev/)] &mdash; *documentation of the in-development version.*
+- [**DEV**][https://agate-model.github.io/Agate.jl/dev/] &mdash; *documentation of the in-development version.*
