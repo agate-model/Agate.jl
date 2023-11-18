@@ -6,4 +6,4 @@ A Julia library to build flexible and composable aquatic ecosystems that can rep
 
 ## Documentation
 
-- [**DEV**][https://agate-model.github.io/Agate.jl/dev/] &mdash; *documentation of the in-development version.*
+- [**DEV**](https://agate-model.github.io/Agate.jl/dev/) &mdash; *documentation of the in-development version.*
