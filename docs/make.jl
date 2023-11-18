@@ -14,7 +14,8 @@ PAGES = [
     DevDocs
     ]
 
-makedocs(sitename="Agate.jl Documentation"),
+makedocs(
+    sitename="Agate.jl Documentation",
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", nothing) == "true"
     )
