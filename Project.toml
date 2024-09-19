@@ -3,6 +3,9 @@ uuid = "41889b7c-c35c-4f16-abd7-94b299d9fd29"
 authors = ["Joost de Vries"]
 version = "0.0.1"
 
+[deps]
+Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
+
 [compat]
 julia = "1"
 
