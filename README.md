@@ -1,4 +1,5 @@
-# Agate.jl &middot; [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/agate-model/Agate.jl/blob/main/LICENSE) [![Documentation](https://img.shields.io/badge/docs-dev-blue)](https://agate-model.github.io/Agate.jl/dev/) [![Build Status](https://github.com/nanophyto/AGATE.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/agate-model/Agate.jl/actions/workflows/CI.yml?query=branch%3Amain)
+# Agate.jl &middot; [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/agate-model/Agate.jl/blob/main/LICENSE) [![Documentation](https://img.shields.io/badge/docs-dev-blue)](https://agate-model.github.io/Agate.jl/dev/) [![Build Status](https://github.com/agate-model/AGATE.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/agate-model/Agate.jl/actions/workflows/CI.yml?query=branch%3Amain) 
+
 ## Aquatic Gcm-Agnostic Tunable Ecosystems 
 
 A Julia library to build flexible and composable aquatic ecosystems.
@@ -19,20 +20,45 @@ https://github.com/agate-model/Agate.jl.git
 cd Agate.jl
 ```
 
-To update project dependencies (`]` enters Julia package manager mode):
+To activate the project:
+
+```bash
+julia --project -e 'using Pkg; Pkg.instantiate()'
+```
+
+Which is equivalent to running the below in the Julia REPL (`]` enters Julia package manager mode):
+
+```julia
+]
+activate Agate
+instantiate
+```
+
+You can then use the package interactively, in the terminal:
 
 ```bash
 julia --project=.
-]
-add <package>
 ```
 
-To use the package in a notebook:
+To use the package in a Jupyter notebook run:
 
-```bash
+```julia
 using Pkg
+Pkg.activate("Agate")
+```
 
-Pkg.develop(path="<your_path_to_the_package>/Agate.jl")
+## Development 
 
-using Agate
+We follow the [Blue](https://github.com/JuliaDiff/BlueStyle) style guide for Julia.
+
+To update project dependencies:
+
+```julia
+] add <package>
+```
+
+To run tests:
+
+```julia
+] test
 ```
