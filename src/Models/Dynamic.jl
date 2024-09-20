@@ -1,29 +1,33 @@
 """
-Module to dynamically created Oceananigans.Biogeochmistry types from model equations....
+Module to dynamically create Oceananigans.Biogeochmistry types.
 """
 
 module Dynamic
 
-export DynamicBGC, create_bgc_model
-
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 
+include("Library.jl")
 
-"""
+export DynamicBGC, construct_bgc_model
 
-"""
+
 struct DynamicBGC <: AbstractContinuousFormBiogeochemistry end
 
 
 """
-
+Construct a concrete Oceananigans biogeochemical model instance from a dictionary of
+tracer equations. Optionally can also include additonal auxiliary fields.
 """
-# TODO: add types
-function create_bgc_model(tracers, aux_field_vars)
-    
+function construct_bgc_model(tracers)
+    return construct_bgc_model(tracers, [])
+end
+
+function construct_bgc_model(tracers, auxiliary_fields)
+
     # all BGC models require these base variables
     base_vars = [:x, :y, :z, :t]
     tracer_vars = Symbol.(keys(tracers))
+    aux_field_vars = Symbol.(auxiliary_fields)
     all_state_vars = vcat(base_vars , tracer_vars, aux_field_vars)
 
     required_biogeochemical_tracers(::DynamicBGC) = Tuple(tracer_vars)

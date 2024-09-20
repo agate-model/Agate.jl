@@ -5,6 +5,6 @@ include("Growth/Growth.jl")
 include("Models/Models.jl")
 using .Models
 
-export DynamicBGC, create_bgc_model
+export construct_bgc_model
 
 end # module
