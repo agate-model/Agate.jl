@@ -19,20 +19,32 @@ https://github.com/agate-model/Agate.jl.git
 cd Agate.jl
 ```
 
-To update project dependencies (`]` enters Julia package manager mode):
+To activate the project:
+
+```bash
+julia --project -e 'using Pkg; Pkg.instantiate()'
+```
+
+Which is (I think) equivalent to running the below in the Julia REPL (`]` enters Julia package manager mode):
+
+```julia
+]
+activate Agate
+instantiate
+```
+
+You can then use the package interactively, in the terminal:
 
 ```bash
 julia --project=.
-]
-add <package>
+using Agate
 ```
 
-To use the package in a notebook:
+or in a notebook:
 
-```bash
+```julia
 using Pkg
-
-Pkg.develop(path="<your_path_to_the_package>/Agate.jl")
+Pkg.activate("Agate")
 
 using Agate
 ```
