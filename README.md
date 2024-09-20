@@ -26,7 +26,7 @@ To activate the project:
 julia --project -e 'using Pkg; Pkg.instantiate()'
 ```
 
-Which is (I think) equivalent to running the below in the Julia REPL (`]` enters Julia package manager mode):
+Which is equivalent to running the below in the Julia REPL (`]` enters Julia package manager mode):
 
 ```julia
 ]
