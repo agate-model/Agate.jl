@@ -1,8 +1,8 @@
 module Growth
 
+include("default.jl")
+
 export
     default_PCⱼ
-
-include("default.jl")
 
 end # module

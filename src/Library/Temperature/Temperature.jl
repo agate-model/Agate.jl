@@ -1,8 +1,8 @@
 module Temperature
 
+include("q10.jl")
+
 export 
     Q₁₀_temperature
-
-include("q10.jl")
 
 end # module

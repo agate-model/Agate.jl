@@ -1,0 +1,81 @@
+"""
+
+Updated model description from OceanBioME.jl based on paper by Kuhn et al., 2015
+
+"""
+
+include("Library/Nutrient/Monod.jl")
+include("Library/Temperature/Q10.jl")
+include("Library/Light/Smith.jl")
+
+#@inline nutrient_limitation(N, kₙ) = N / (kₙ + N)
+#@inline Q₁₀(T) = 1.88 ^ (T / 10) # T in °C
+#@inline light_limitation(PAR, α, μ₀) = α * PAR / sqrt(μ₀ ^ 2 + α ^ 2 * PAR ^ 2)
+
+
+@inline function (bgc::NPZD_static)(::Val{:N}, x, y, z, t, N, P, Z, D, T, PAR)
+    μ₀ = bgc.base_maximum_growth
+    kₙ = bgc.nutrient_half_saturation
+    α = bgc.initial_photosynthetic_slope
+    lᵖⁿ = bgc.base_respiration_rate
+    lᶻⁿ = bgc.base_excretion_rate
+    rᵈⁿ = bgc.remineralization_rate
+    Q₁₀ = bgc.Q10
+
+    phytoplankton_growth = μ₀ * Q₁₀_temperature(Q₁₀, T)) * monod_limitation(N, kₙ) * smith_light_limitation(PAR, α, μ₀  * Q₁₀_temperature(Q₁₀, T)) * P
+    phytoplankton_metabolic_loss = lᵖⁿ * Q₁₀_temperature(Q₁₀, T)) * P
+    zooplankton_metabolic_loss = lᶻⁿ * Q₁₀_temperature(Q₁₀, T)) * Z
+    remineralization = rᵈⁿ * D
+
+    return phytoplankton_metabolic_loss + zooplankton_metabolic_loss + remineralization - phytoplankton_growth
+end
+
+@inline function (bgc::NPZD_static)(::Val{:P}, x, y, z, t, N, P, Z, D, T, PAR)
+    μ₀ = bgc.base_maximum_growth
+    kₙ = bgc.nutrient_half_saturation
+    α = bgc.initial_photosynthetic_slope
+    gₘₐₓ = bgc.maximum_grazing_rate
+    kₚ = bgc.grazing_half_saturation
+    lᵖⁿ = bgc.base_respiration_rate
+    lᵖᵈ = bgc.phyto_base_mortality_rate
+    Q₁₀ = bgc.Q10
+
+    phytoplankton_growth = μ₀ * Q₁₀_temperature(Q₁₀, T) * monod_limitation(N, kₙ) * smith_light_limitation(PAR, α, μ₀  * Q₁₀_temperature(Q₁₀, T)) * P
+    phytoplankton_grazing_loss = gₘₐₓ * monod_limitation(P ^ 2, kₚ ^ 2) * Z
+    phytoplankton_metabolic_loss = lᵖⁿ * Q₁₀_temperature(Q₁₀, T) * P
+    phytoplankton_mortality_loss = lᵖᵈ * Q₁₀_temperature(Q₁₀, T) * P
+
+    return phytoplankton_growth - phytoplankton_grazing_loss - phytoplankton_metabolic_loss - phytoplankton_mortality_loss
+end
+
+@inline function (bgc::NPZD_static)(::Val{:Z}, x, y, z, t, N, P, Z, D, T, PAR)
+    gₘₐₓ = bgc.maximum_grazing_rate
+    kₚ = bgc.grazing_half_saturation
+    lᶻⁿ = bgc.base_excretion_rate
+    lᶻᵈ = bgc.zoo_base_mortality_rate
+    β = bgc.assimulation_efficiency
+    Q₁₀ = bgc.Q10
+
+    zooplankton_grazing_gain = β * gₘₐₓ * monod_limitation(P ^ 2, kₚ ^ 2) * Z
+    zooplankton_metabolic_loss = lᶻⁿ * Q₁₀_temperature(Q₁₀, T) * Z
+    zooplankton_mortality_loss = lᶻᵈ * Q₁₀_temperature(Q₁₀, T) * Z ^ 2
+
+    return zooplankton_grazing_gain - zooplankton_metabolic_loss - zooplankton_mortality_loss 
+end
+
+@inline function (bgc::NPZD_static)(::Val{:D}, x, y, z, t, N, P, Z, D, T, PAR)
+    lᵖᵈ = bgc.phyto_base_mortality_rate
+    gₘₐₓ = bgc.maximum_grazing_rate
+    kₚ = bgc.grazing_half_saturation
+    β = bgc.assimulation_efficiency
+    lᶻᵈ = bgc.zoo_base_mortality_rate
+    rᵈⁿ = bgc.remineralization_rate
+    Q₁₀ = bgc.Q10
+
+    phytoplankton_mortality_loss = lᵖᵈ * Q₁₀_temperature(Q₁₀, T) * P
+    zooplankton_assimilation_loss = (1 - β) * gₘₐₓ * monod_limitation(P ^ 2, kₚ ^ 2) * Z
+    zooplankton_mortality_loss = lᶻᵈ * Q₁₀_temperature(Q₁₀, T) * Z ^ 2
+    remineralization = rᵈⁿ * D
+
+    return phytoplankton_mortality_loss + zooplankton_assimilation_loss + zooplankton_mortality_loss - remineralization
+end

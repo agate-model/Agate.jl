@@ -1,9 +1,9 @@
 module Nutrients
 
-export
-    monod_limitation
-
 include("monod.jl")
 include("droop.jl")
+
+export
+    monod_limitation
 
 end # module
