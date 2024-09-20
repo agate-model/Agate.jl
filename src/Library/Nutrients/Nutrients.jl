@@ -4,9 +4,6 @@ Modules related to plankton nutrient uptake
 """
 module Nutrients
 
-export
-    monod_limitation
-
 "
     N / (kₙ + N)
 
@@ -23,4 +20,6 @@ function monod_limitation(R, kᵣ)
     R / (kᵣ + R)
 end
 
+export
+    monod_limitation
 end # module

@@ -4,8 +4,6 @@ Modules related to phytoplankton photosynthetic growth
 """
 module Growth
 
-export
-    default_PCⱼ
 
 "
     PCⱼ = PCⱼᵐᵃˣ * γⱼⁿᵘᵗ *  γⱼˡⁱᵍʰᵗ * fⱼᵗᵉᵐᵖ *  γⱼᶜᵒ²
@@ -24,4 +22,6 @@ function default_PCⱼ(PCⱼᵐᵃˣ, γⱼⁿᵘᵗ,  γⱼˡⁱᵍʰᵗ, fⱼ�
     PCⱼᵐᵃˣ * γⱼⁿᵘᵗ *  γⱼˡⁱᵍʰᵗ * fⱼᵗᵉᵐᵖ *  γⱼᶜᵒ²
 end
 
+export
+    default_PCⱼ
 end # module

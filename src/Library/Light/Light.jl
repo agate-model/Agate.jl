@@ -4,10 +4,6 @@ Modules related to phytoplankton light uptake
 """
 module Light
 
-export
-    γⱼˡⁱᵍʰᵗ
-    smith_light_limitation
-
 "
     γⱼˡⁱᵍʰᵗ = (1 - ℯ^(kⱼˢᵃᵗ*I)) * ℯ^kⱼⁱⁿʰ * nⱼˡⁱᵍʰᵗ
 
@@ -39,4 +35,7 @@ function smith_light_limitation(PAR, α, μ₀)
     α * PAR / sqrt(μ₀ ^ 2 + α ^ 2 * PAR ^ 2)
 end
 
+export
+    γⱼˡⁱᵍʰᵗ
+    smith_light_limitation
 end # module
