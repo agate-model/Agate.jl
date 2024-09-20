@@ -1,0 +1,3 @@
+module Mortality
+
+end # module
