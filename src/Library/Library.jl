@@ -1,21 +1,21 @@
 module Library
 
-#Growth
-export
-    default_PCⱼ
+# #Growth
+# export
+#     default_PCⱼ
 
-#Light    
-export 
-    γⱼˡⁱᵍʰᵗ
-    smith_light_limitation
+# #Light    
+# export 
+#     γⱼˡⁱᵍʰᵗ
+#     smith_light_limitation
 
-# Nutrients
-export 
-    monod_limitation
+# # Nutrients
+# export 
+#     monod_limitation
 
-#Temperature
-export
-    Q₁₀_temperature
+# #Temperature
+# export
+#     Q₁₀_temperature
 
 
 include("Allometry/Allometry.jl")
