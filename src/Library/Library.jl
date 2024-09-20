@@ -1,23 +1,5 @@
 module Library
 
-# #Growth
-# export
-#     default_PCⱼ
-
-# #Light    
-# export 
-#     γⱼˡⁱᵍʰᵗ
-#     smith_light_limitation
-
-# # Nutrients
-# export 
-#     monod_limitation
-
-# #Temperature
-# export
-#     Q₁₀_temperature
-
-
 include("Allometry/Allometry.jl")
 include("Chlorophyll/Chlorophyll.jl")
 include("Growth/Growth.jl")
