@@ -1,11 +1,10 @@
 module Light
 
+include("smith.jl")
+include("darwin.jl")
+
 export
     γⱼˡⁱᵍʰᵗ
     smith_light_limitation
-
-
-include("smith.jl")
-include("darwin.jl")
 
 end # module
