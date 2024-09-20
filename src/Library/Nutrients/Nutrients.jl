@@ -1,4 +1,11 @@
+"""
+Modules related to plankton nutrient uptake
+
+"""
 module Nutrients
+
+export
+    monod_limitation
 
 "
     N / (kₙ + N)
@@ -15,8 +22,5 @@ Note that sometimes this formulation is also used for Predation.
 function monod_limitation(R, kᵣ)
     R / (kᵣ + R)
 end
-
-export
-    monod_limitation
 
 end # module

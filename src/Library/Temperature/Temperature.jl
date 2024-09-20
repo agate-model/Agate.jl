@@ -1,4 +1,11 @@
+"""
+Modules related to temperature controls on plankton and biogeochemistry
+
+"""
 module Temperature
+
+export 
+    Q₁₀_temperature
 
 "
     Q10 ^ (T / 10)
@@ -13,8 +20,5 @@ T = Temperature (in degree C or K)
 function Q₁₀_temperature(Q₁₀, T)
     Q₁₀ ^ (T / 10)
 end
-
-export 
-    Q₁₀_temperature
 
 end # module

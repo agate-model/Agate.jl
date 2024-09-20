@@ -1,4 +1,11 @@
+"""
+Modules related to phytoplankton photosynthetic growth
+
+"""
 module Growth
+
+export
+    default_PCⱼ
 
 "
     PCⱼ = PCⱼᵐᵃˣ * γⱼⁿᵘᵗ *  γⱼˡⁱᵍʰᵗ * fⱼᵗᵉᵐᵖ *  γⱼᶜᵒ²
@@ -16,8 +23,5 @@ fᵗᵉᵐᵖⱼ = temperature limitation,
 function default_PCⱼ(PCⱼᵐᵃˣ, γⱼⁿᵘᵗ,  γⱼˡⁱᵍʰᵗ, fⱼᵗᵉᵐᵖ,  γⱼᶜᵒ²)
     PCⱼᵐᵃˣ * γⱼⁿᵘᵗ *  γⱼˡⁱᵍʰᵗ * fⱼᵗᵉᵐᵖ *  γⱼᶜᵒ²
 end
-
-export
-    default_PCⱼ
 
 end # module
