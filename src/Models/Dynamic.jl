@@ -18,11 +18,12 @@ struct DynamicBGC <: AbstractContinuousFormBiogeochemistry end
 Construct a concrete Oceananigans biogeochemical model instance from a dictionary of
 tracer equations. Optionally can also include additonal auxiliary fields.
 """
-function construct_bgc_model(tracers)
-    return construct_bgc_model(tracers, [])
-end
+function construct_bgc_model(tracers; auxiliary_fields=[], priors=Dict())
 
-function construct_bgc_model(tracers, auxiliary_fields)
+    for (k,v) in priors
+        exp = :($k = $v)
+        eval(exp)
+    end
 
     # all BGC models require these base variables
     base_vars = [:x, :y, :z, :t]
