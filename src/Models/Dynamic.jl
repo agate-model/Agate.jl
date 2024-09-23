@@ -6,6 +6,7 @@ module Dynamic
 
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 
+# all Agate functions have to be in scope to evaluate expressions that might contain them
 include("Library.jl")
 
 export DynamicBGC, construct_bgc_model
@@ -16,7 +17,7 @@ struct DynamicBGC <: AbstractContinuousFormBiogeochemistry end
 
 """
 Construct a concrete Oceananigans biogeochemical model instance from a dictionary of
-tracer equations. Optionally can also include additonal auxiliary fields.
+tracer equations. Optionally can include auxiliary fields and priors.
 """
 function construct_bgc_model(tracers; auxiliary_fields=[], priors=Dict())
 
