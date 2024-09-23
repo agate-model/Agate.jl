@@ -1,6 +1,6 @@
 module Agate
 
 include("functions.jl")
-include("Growth/Growth.jl")
+include("Library/Library.jl")
 
 end
