@@ -1,8 +1,8 @@
 module Agate
 
 include("functions.jl")
-include("Models/Models.jl")
 include("Library/Library.jl")
+include("Models/Models.jl")
 using .Models
 
 

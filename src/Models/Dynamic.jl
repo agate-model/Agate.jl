@@ -76,12 +76,8 @@ function construct_bgc_model(bgc_struct, tracers; auxiliary_fields=[])
     aux_field_vars = Symbol.(auxiliary_fields)
     all_state_vars = vcat(base_vars , tracer_vars, aux_field_vars)
 
-    eval(:(required_biogeochemical_tracers(
-        ::$(typeof(bgc_struct))) = Tuple(tracer_vars)
-        ))
-    eval(:(required_biogeochemical_auxiliary_fields(
-        ::$(typeof(bgc_struct))) = Tuple(aux_field_vars)
-        ))
+    eval(:(required_biogeochemical_tracers(::$(typeof(bgc_struct))) = Tuple(tracer_vars)))
+    eval(:(required_biogeochemical_auxiliary_fields(::$(typeof(bgc_struct))) = Tuple(aux_field_vars)))
 
     # the variable expressions are evaluated inside the tracer methods built below
     method_vars = []
