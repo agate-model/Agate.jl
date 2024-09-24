@@ -1,0 +1,3 @@
+module Predation
+
+end # module
