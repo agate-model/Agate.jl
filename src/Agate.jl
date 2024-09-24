@@ -5,6 +5,7 @@ include("Growth/Growth.jl")
 include("Models/Models.jl")
 using .Models
 
-export construct_bgc_model
+export create_struct, construct_bgc_model
+
 
 end # module
