@@ -16,6 +16,9 @@ export create_struct, construct_bgc_model
 Create a struct of type AbstractContinuousFormBiogeochemistry. Uses field names and default
 values defined in priors (which can be, for example, a Dict or NamedTuple).
 
+Q: should there be a version which takes in Tuple of symbols and creates struct without
+default values?
+
 # Arguments
 - `struct_name`: name for the new struct
 - `priors`: named sequence of values of the form (field name = default value, ...)
@@ -38,16 +41,15 @@ end
 
 
 """
-    construct_bgc_model(bgc_struct, tracers, auxiliary_fields=[])
+    construct_bgc_model(bgc_type, tracers, auxiliary_fields=[])
 
 Add required methods to bgc_model struct:
     - method per tracer
     - required_biogeochemical_tracers
     - required_biogeochemical_auxiliary_fields
-Optionally can include auxiliary fields.
 
 # Arguments
-- `bgc_struct``: struct (of type AbstractContinuousFormBiogeochemistry)
+- `bgc_type``: subtype AbstractContinuousFormBiogeochemistry
 - `tracers`: Dict of named function expressions of the form (name = expression, ...)
 - `auxiliary_fields`: optional iterable of auxiliary field variables
 
@@ -64,10 +66,10 @@ tracers = Dict(
     "R" => :(α*R - β*R*F),
     "F" => :(-γ*F + δ*R*F)
 )
-model = construct_bgc_model(bgc_struct, tracers)
+model = construct_bgc_model(bgc_type, tracers)
 ```
 """
-function construct_bgc_model(bgc_struct, tracers; auxiliary_fields=[])
+function construct_bgc_model(bgc_type, tracers; auxiliary_fields=[])
 
     # all BGC models require these base variables
     base_vars = [:x, :y, :z, :t]
@@ -76,19 +78,20 @@ function construct_bgc_model(bgc_struct, tracers; auxiliary_fields=[])
     aux_field_vars = Symbol.(auxiliary_fields)
     all_state_vars = vcat(base_vars , tracer_vars, aux_field_vars)
 
-    eval(:(required_biogeochemical_tracers(::$(typeof(bgc_struct))) = Tuple(tracer_vars)))
-    eval(:(required_biogeochemical_auxiliary_fields(::$(typeof(bgc_struct))) = Tuple(aux_field_vars)))
+    eval(:(required_biogeochemical_tracers(::$(bgc_type)) = Tuple(tracer_vars)))
+    eval(:(required_biogeochemical_auxiliary_fields(::$(bgc_type)) = Tuple(aux_field_vars)))
 
-    # the variable expressions are evaluated inside the tracer methods built below
+    # the variable expressions are evaluated inside the tracer methods built below, which
+    # take in a `bgc` object (of bgc_type)
     method_vars = []
-    for field in fieldnames(typeof(bgc_struct))
+    for field in fieldnames(bgc_type)
         exp = :($field = bgc.$field)
         push!(method_vars, exp)
     end
 
     for (tracer_name, func_expression) in pairs(tracers)
         tracer_method = quote
-            function (bgc::$(typeof(bgc_struct)))(::Val{Symbol($tracer_name)}, $(all_state_vars...))
+            function (bgc::$(bgc_type))(::Val{Symbol($tracer_name)}, $(all_state_vars...))
                 $(method_vars...)
                 return $(func_expression)
             end
@@ -96,7 +99,7 @@ function construct_bgc_model(bgc_struct, tracers; auxiliary_fields=[])
         eval(tracer_method)
     end
 
-    return bgc_struct
+    return bgc_type
 end
 
 end #module
