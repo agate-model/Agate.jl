@@ -7,23 +7,23 @@ module Dynamic
 
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 
-export create_struct, construct_bgc_model
+export create_bgc_struct, add_bgc_methods
 
 
 """
-    create_struct(struct_name, priors::Dict) -> AbstractContinuousFormBiogeochemistry
+    create_bgc_type(struct_name, priors::Dict) -> DataType
 
-Create a struct of type AbstractContinuousFormBiogeochemistry. Uses field names and default
+Create a subtype of AbstractContinuousFormBiogeochemistry. Uses field names and default
 values defined in priors (which can be, for example, a Dict or NamedTuple).
-
-Q: should there be a version which takes in Tuple of symbols and creates struct without
-default values?
 
 # Arguments
 - `struct_name`: name for the new struct
 - `priors`: named sequence of values of the form (field name = default value, ...)
+
+# Example
+create_bgc_struct(:LV, (α=2/3, β=4/3,  δ=1, γ=1))
 """
-function create_struct(struct_name, priors)
+function create_bgc_struct(struct_name, priors)
 
     fields = []
     for (k,v) in pairs(priors)
@@ -36,40 +36,43 @@ function create_struct(struct_name, priors)
             $(fields...)
         end
     end
-    eval(exp)
+    return eval(exp)
 end
 
 
 """
-    construct_bgc_model(bgc_type, tracers, auxiliary_fields=[])
+    add_bgc_methods(bgc_type, tracers, auxiliary_fields=[]) -> DataType
 
-Add required methods to bgc_model struct:
+Add required methods to bgc_type:
     - method per tracer
     - required_biogeochemical_tracers
     - required_biogeochemical_auxiliary_fields
 
 # Arguments
-- `bgc_type``: subtype AbstractContinuousFormBiogeochemistry
+- `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry
 - `tracers`: Dict of named function expressions of the form (name = expression, ...)
 - `auxiliary_fields`: optional iterable of auxiliary field variables
 
 # Example
 ```julia
+using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
+
 struct LV <: AbstractContinuousFormBiogeochemistry
     α
     β
     δ
     γ
 end
-bgc_struct = LV(2/3, 4/3, 1, 1)
+
 tracers = Dict(
     "R" => :(α*R - β*R*F),
     "F" => :(-γ*F + δ*R*F)
 )
-model = construct_bgc_model(bgc_type, tracers)
+
+add_bgc_methods(LV, tracers)
 ```
 """
-function construct_bgc_model(bgc_type, tracers; auxiliary_fields=[])
+function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[])
 
     # all BGC models require these base variables
     base_vars = [:x, :y, :z, :t]
@@ -99,6 +102,7 @@ function construct_bgc_model(bgc_type, tracers; auxiliary_fields=[])
         eval(tracer_method)
     end
 
+    # Q: this return statement is unnecessary - is it good practice to leave it or remove it?
     return bgc_type
 end
 

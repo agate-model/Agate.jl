@@ -6,7 +6,7 @@ include("Models/Models.jl")
 using .Models
 
 
-export create_struct, construct_bgc_model
+export create_bgc_struct, add_bgc_methods
 
 
 end # module
