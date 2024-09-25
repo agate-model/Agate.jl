@@ -61,8 +61,8 @@ struct LV <: AbstractContinuousFormBiogeochemistry
 end
 bgc_struct = LV(2/3, 4/3, 1, 1)
 tracers = Dict(
-    "F" => :(α*F - β*F*R),
-    "R" => :(-γ*R + δ*F*R)
+    "R" => :(α*R - β*R*F),
+    "F" => :(-γ*F + δ*R*F)
 )
 model = construct_bgc_model(bgc_struct, tracers)
 ```
