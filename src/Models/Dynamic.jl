@@ -7,6 +7,9 @@ module Dynamic
 
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 
+import Oceananigans.Biogeochemistry: required_biogeochemical_tracers,
+                                     required_biogeochemical_auxiliary_fields
+
 export create_bgc_struct, add_bgc_methods
 
 
@@ -37,7 +40,7 @@ function create_bgc_struct(struct_name, priors)
     end
 
     exp = quote
-        @kwdef struct $struct_name <: AbstractContinuousFormBiogeochemistry
+        Base.@kwdef struct $struct_name <: AbstractContinuousFormBiogeochemistry
             $(fields...)
         end
     end
@@ -90,8 +93,8 @@ function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[])
     aux_field_vars = Symbol.(auxiliary_fields)
     all_state_vars = vcat(base_vars , tracer_vars, aux_field_vars)
 
-    eval(:(required_biogeochemical_tracers(::$(bgc_type)) = Tuple(tracer_vars)))
-    eval(:(required_biogeochemical_auxiliary_fields(::$(bgc_type)) = Tuple(aux_field_vars)))
+    eval(:(required_biogeochemical_tracers(::$(bgc_type)) = $(Tuple(tracer_vars...))))
+    eval(:(required_biogeochemical_auxiliary_fields(::$(bgc_type)) = $(Tuple(aux_field_vars...))))
 
     # the variable expressions are evaluated inside the tracer methods built below, which
     # take in a `bgc` object (of bgc_type)
