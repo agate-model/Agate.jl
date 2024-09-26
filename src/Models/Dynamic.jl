@@ -16,13 +16,11 @@ export create_bgc_struct, add_bgc_methods
 Create a subtype of AbstractContinuousFormBiogeochemistry. Uses field names and default
 values defined in priors (which can be, for example, a Dict or NamedTuple).
 
-Note that the field names cannot be x,y,z or t
-
-TODO:  check whether any of the field names are x,y,z,t - raise error if yes
-
 # Arguments
 - `struct_name`: name for the new struct
 - `priors`: named sequence of values of the form (field name = default value, ...)
+
+Note that the field names in priors can't be any of [:x,:y,:z,:t].
 
 # Example
 create_bgc_struct(:LV, (α=2/3, β=4/3,  δ=1, γ=1))
@@ -31,6 +29,9 @@ function create_bgc_struct(struct_name, priors)
 
     fields = []
     for (k,v) in pairs(priors)
+        if k in [:x,:y,:z,:t]
+            throw(DomainError(k, "field names in priors can't be any of [:x,:y,:z,:t]"))
+        end
         exp = :($k = $v)
         push!(fields, exp)
     end
@@ -47,20 +48,19 @@ end
 """
     add_bgc_methods(bgc_type, tracers, auxiliary_fields=[]) -> DataType
 
-Add required methods to bgc_type:
-    - method per tracer
+Add methods to bgc_type required of AbstractContinuousFormBiogeochemistry type:
     - required_biogeochemical_tracers
     - required_biogeochemical_auxiliary_fields
-
-Note that the field names of bgc_type cannot be x,y,z or t.
-
-TODO:  check whether any of the field names are x,y,z,t - raise error if yes
-TODO: check whether all parameters for tracer functions are provided - if not, raise error
+    - a method per tracer
 
 # Arguments
 - `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry
-- `tracers`: Dict of named function expressions of the form (name = expression, ...)
+- `tracers`: dictionary of the form (name => expression, ...)
 - `auxiliary_fields`: optional iterable of auxiliary field variables
+
+Note that the field names of bgc_type can't be any of [:x,:y,:z,:t] and they must include
+all parameters used in the tracers expressions. The expressions must only use methods
+defined within this module.
 
 # Example
 ```julia
@@ -97,18 +97,22 @@ function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[])
     # take in a `bgc` object (of bgc_type)
     method_vars = []
     for field in fieldnames(bgc_type)
+        if field in [:x,:y,:z,:t]
+            throw(DomainError(field, "$bgc_type field names can't be any of [:x,:y,:z,:t]"))
+        end
         exp = :($field = bgc.$field)
         push!(method_vars, exp)
     end
 
-    for (tracer_name, func_expression) in pairs(tracers)
+    for (tracer_name, tracer_expression) in pairs(tracers)
 
-
+        # throws an exception if there are any issues with tracer_expression
+        expression_check(all_state_vars, tracer_expression)
 
         tracer_method = quote
             function (bgc::$(bgc_type))(::Val{Symbol($tracer_name)}, $(all_state_vars...))
                 $(method_vars...)
-                return $(func_expression)
+                return $(tracer_expression)
             end
         end
         eval(tracer_method)
@@ -120,14 +124,13 @@ end
 
 
 """
-    parse_expression(f_expr) -> Vector
+    parse_expression(f_expr) -> Tuple(Vector, Vector)
 
 Returns all argument names and methods called in expression.
 
 # Example
 ```Julia
-f_expr = :(α * x - β * x * y)
-parse_expression(f_expr)
+parse_expression(:(α * x - β * x * y))
 """
 function parse_expression(f_expr)
     argnames = []
@@ -137,10 +140,11 @@ function parse_expression(f_expr)
     for exp in expressions
         args = exp.args
         push!(methods, args[1])
+        # if the arg isn't a symbol or another expression, it's a value --> ignore
         for arg in args[2:end]
             if typeof(arg) == Expr
                 push!(expressions, arg)
-            else
+            elseif typeof(arg) == Symbol
                 push!(argnames, arg)
             end
         end
@@ -151,25 +155,25 @@ end
 
 
 """
-    consistency_check(params, f_expr) -> bool
+    expression_check(params, f_expr) -> bool
 
-Check that:
-- vector params contains all arguments of expression f_expr
-- all methods called in expression are defined in module (e.g., Base, Main, Agate, Dynamic)
+Checks that all methods and arguments are defined. Specifically:
+    - vector params contains all arguments of expression f_expr
+    - all methods called in expression are defined in module (e.g., Base, Main, Agate)
+If not, throws an UnderVarError.
 """
-function consistency_check(params, f_expr; module_name=Dynamic)
+function expression_check(params, f_expr; module_name=Dynamic)
     argnames, methods = parse_expression(f_expr)
     for arg in argnames
         if arg ∉ params
-            return false
+            throw(UndefVarError(arg))
         end
     end
     for m in methods
         if !isdefined(module_name, m)
-            return false
+            throw(UndefVarError(m))
         end
     end
-    return true
 end
 
 end #module
