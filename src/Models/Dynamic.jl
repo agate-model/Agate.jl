@@ -16,6 +16,10 @@ export create_bgc_struct, add_bgc_methods
 Create a subtype of AbstractContinuousFormBiogeochemistry. Uses field names and default
 values defined in priors (which can be, for example, a Dict or NamedTuple).
 
+Note that the field names cannot be x,y,z or t
+
+TODO:  check whether any of the field names are x,y,z,t - raise error if yes
+
 # Arguments
 - `struct_name`: name for the new struct
 - `priors`: named sequence of values of the form (field name = default value, ...)
@@ -48,6 +52,11 @@ Add required methods to bgc_type:
     - required_biogeochemical_tracers
     - required_biogeochemical_auxiliary_fields
 
+Note that the field names of bgc_type cannot be x,y,z or t.
+
+TODO:  check whether any of the field names are x,y,z,t - raise error if yes
+TODO: check whether all parameters for tracer functions are provided - if not, raise error
+
 # Arguments
 - `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry
 - `tracers`: Dict of named function expressions of the form (name = expression, ...)
@@ -74,7 +83,7 @@ add_bgc_methods(LV, tracers)
 """
 function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[])
 
-    # all BGC models require these base variables
+    # all BGC models require these 4 base variables
     base_vars = [:x, :y, :z, :t]
     # use collect here in case tracers are NamedTuple rather than Dict
     tracer_vars = Symbol.(collect(keys(tracers)))
@@ -93,6 +102,9 @@ function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[])
     end
 
     for (tracer_name, func_expression) in pairs(tracers)
+
+
+
         tracer_method = quote
             function (bgc::$(bgc_type))(::Val{Symbol($tracer_name)}, $(all_state_vars...))
                 $(method_vars...)
@@ -104,6 +116,60 @@ function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[])
 
     # Q: this return statement is unnecessary - is it good practice to leave it or remove it?
     return bgc_type
+end
+
+
+"""
+    parse_expression(f_expr) -> Vector
+
+Returns all argument names and methods called in expression.
+
+# Example
+```Julia
+f_expr = :(α * x - β * x * y)
+parse_expression(f_expr)
+"""
+function parse_expression(f_expr)
+    argnames = []
+    methods = []
+
+    expressions = [f_expr]
+    for exp in expressions
+        args = exp.args
+        push!(methods, args[1])
+        for arg in args[2:end]
+            if typeof(arg) == Expr
+                push!(expressions, arg)
+            else
+                push!(argnames, arg)
+            end
+        end
+    end
+
+    return argnames, methods
+end
+
+
+"""
+    consistency_check(params, f_expr) -> bool
+
+Check that:
+- vector params contains all arguments of expression f_expr
+- all methods called in expression are defined in module (e.g., Base, Main, Agate, Dynamic)
+"""
+function consistency_check(params, f_expr; module_name=Dynamic)
+    argnames, methods = parse_expression(f_expr)
+    for arg in argnames
+        if arg ∉ params
+            return false
+        end
+    end
+    for m in methods
+        if !isdefined(module_name, m)
+            return false
+        end
+    end
+    return true
 end
 
 end #module
