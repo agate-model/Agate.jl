@@ -95,19 +95,20 @@ function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[])
 
     # the variable expressions are evaluated inside the tracer methods built below, which
     # take in a `bgc` object (of bgc_type)
+    params = fieldnames(bgc_type)
     method_vars = []
-    for field in fieldnames(bgc_type)
-        if field in [:x,:y,:z,:t]
+    for param in params
+        if param in [:x,:y,:z,:t]
             throw(DomainError(field, "$bgc_type field names can't be any of [:x,:y,:z,:t]"))
         end
-        exp = :($field = bgc.$field)
+        exp = :($param = bgc.$param)
         push!(method_vars, exp)
     end
 
     for (tracer_name, tracer_expression) in pairs(tracers)
 
         # throws an exception if there are any issues with tracer_expression
-        expression_check(all_state_vars, tracer_expression)
+        expression_check(vcat(all_state_vars, collect(params)), tracer_expression)
 
         tracer_method = quote
             function (bgc::$(bgc_type))(::Val{Symbol($tracer_name)}, $(all_state_vars...))
