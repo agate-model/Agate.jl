@@ -1,5 +1,7 @@
 using Agate.Models.Dynamic: expression_check
-using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
+using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
+                                    required_biogeochemical_tracers,
+                                    required_biogeochemical_auxiliary_fields
 
 @testset "Models.Dynamic" begin
 
@@ -54,41 +56,31 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 
     @testset "add_bgc_methods" begin
 
-        @testset "create struct manually" begin
-            tracers = Dict(
-                "R" => :(α*R - β*R*F),
-                "F" => :(-γ*F + δ*R*F)
-            )
-            struct LV <: AbstractContinuousFormBiogeochemistry
-                α
-                β
-                δ
-                γ
-            end
-
-            @test typeof(add_bgc_methods(LV, tracers)) === DataType
-        end
-
-        @testset "create struct dynammically" begin
+        @testset "all methods exist and behave as expected" begin
 
             priors = (α=2/3, β=4/3, δ=1, γ=1)
             tracers = Dict(
                 "R" => :(α*R - β*R*F),
                 "F" => :(-γ*F + δ*R*F)
             )
+            auxiliary_fields = [:PAR,]
 
             LV = create_bgc_struct(:LV, priors)
-            add_bgc_methods(LV, tracers)
+            add_bgc_methods(LV, tracers, auxiliary_fields=auxiliary_fields)
 
             # instantiate the same model with different priors
             model1 = LV()
             model2 = LV(1, 1, 2, 2)
 
-            @test model1(Val(:R), 0, 0, 0, 0, 10, 2) == 2/3 * 10 - 4/3 * 10 * 2
-            @test model1(Val(:F), 0, 0, 0, 0, 10, 2) == -1 * 2 + 1 * 10 * 2
+            @test all(required_biogeochemical_tracers(model1) .=== [:R, :F])
+            @test all(required_biogeochemical_auxiliary_fields(model1) .=== [:PAR])
 
-            @test model2(Val(:R), 0, 0, 0, 0, 10, 2) == 1 * 10 - 1 * 10 * 2
-            @test model2(Val(:F), 0, 0, 0, 0, 10, 2) == -2 * 2 + 2 * 10 * 2
+            # the inputs to the tracer methods are: x,y,z,t,R,F,PAR
+            @test model1(Val(:R), 0, 0, 0, 0, 10, 2, 0) == 2/3 * 10 - 4/3 * 10 * 2
+            @test model1(Val(:F), 0, 0, 0, 0, 10, 2, 0) == -1 * 2 + 1 * 10 * 2
+
+            @test model2(Val(:R), 0, 0, 0, 0, 10, 2, 0) == 1 * 10 - 1 * 10 * 2
+            @test model2(Val(:F), 0, 0, 0, 0, 10, 2, 0) == -2 * 2 + 2 * 10 * 2
 
         end
 
