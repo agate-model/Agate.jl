@@ -84,7 +84,18 @@ tracers = Dict(
 add_bgc_methods(LV, tracers)
 ```
 """
-function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[])
+function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[], helper_functions=())
+
+    for (k,f) in collect(pairs(helper_functions))
+        all_args, _ = parse_expression(f)
+        argnames = unique!(all_args)
+        func = quote
+            function $k($(argnames...))
+                return $(f)
+            end
+        end
+        eval(func)
+    end
 
     # all BGC models require these 4 base variables
     base_vars = [:x, :y, :z, :t]
