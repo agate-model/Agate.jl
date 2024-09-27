@@ -142,6 +142,9 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
             add_bgc_methods(NPZD, tracers, auxiliary_fields=aux_field_vars, helper_functions=helper_functions)
             model = NPZD()
 
+            # TODO: check output values
+
+
         end
 
     end
