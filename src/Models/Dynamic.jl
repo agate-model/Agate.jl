@@ -49,7 +49,7 @@ end
 
 
 """
-    add_bgc_methods(bgc_type, tracers, auxiliary_fields=[]) -> DataType
+    add_bgc_methods(bgc_type, tracers, auxiliary_fields=[], helper_functions=()) -> DataType
 
 Add methods to bgc_type required of AbstractContinuousFormBiogeochemistry type:
     - required_biogeochemical_tracers
@@ -60,10 +60,12 @@ Add methods to bgc_type required of AbstractContinuousFormBiogeochemistry type:
 - `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry
 - `tracers`: dictionary of the form (name => expression, ...)
 - `auxiliary_fields`: optional iterable of auxiliary field variables
+- `helper_functions`: optional NamedTuple of user defined helper functions used in tracer
+        expressions of the form (name => expression, ...)
 
 Note that the field names of bgc_type can't be any of [:x,:y,:z,:t] and they must include
-all parameters used in the tracers expressions. The expressions must only use methods
-defined within this module.
+all parameters used in the tracers expressions. The expressions must use methods that are
+either defined within this module or passed in the helper_functions NamedTuple.
 
 # Example
 ```julia
