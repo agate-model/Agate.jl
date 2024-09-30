@@ -41,9 +41,9 @@ Chl¨Cⱼ = chlorophyll to carbon ratio of plankton j
 fᵃᴵⱼ = summed response to irradiance for all wavelenghts of plankton j
 
 "
-function geider_carbon_growth(PCᵐⱼ, γⱼⁱⁿʰ, Iₜₒₜ, Iₘᵢₙ, Chl¨Cⱼ, γⱼᶜᶠᵉ, fⱼᵃᴵ)
+function geider_carbon_growth(PCᵐⱼ, γⱼⁱⁿʰ, Iₜₒₜ, Iₘᵢₙ)
     if Iₜₒₜ > Iₘᵢₙ
-        return PCᵐⱼ*(1-exp(-(γⱼᶜᶠᵉ*fⱼᵃᴵ*Chl¨Cⱼ)/(PCᵐⱼ)))*γⱼⁱⁿʰ
+        return PCᵐⱼ* γⱼˡⁱᵐ *γⱼⁱⁿʰ
     else
         return 0
     end
