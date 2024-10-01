@@ -5,11 +5,11 @@ Modules related to plankton nutrient uptake
 module Nutrients
 
 "
-    N / (kₙ + N)
+    R / (kᵣ + R)
 
-Monod formulation of nutrient limitation, which is based on Michaelis-Menten enzyme kinetics. 
+Monod formulation of nutrient limitation, which is based on Michaelis-Menten enzyme kinetics.
 
-Where: 
+Where:
 R = nutrient (e.g. N, P, Si)
 kᵣ = nutrient half saturation constant
 
