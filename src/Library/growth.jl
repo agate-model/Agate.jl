@@ -16,9 +16,6 @@ PCᵐᵃˣⱼ = maximum carbon-specific growth rate for plankton j,
 fᵗᵉᵐᵖⱼ = temperature limitation,
 γᶜᵒ²ⱼ = carbon dioxide limitation.
 
-#Is this a useful function?
-#could set default to 1 for all limitations?
-
 "
 function default_carbon_growth(PCⱼᵐᵃˣ, γⱼⁿᵘᵗ,  γⱼˡⁱᵍʰᵗ, fⱼᵗᵉᵐᵖ,  γⱼᶜᵒ²)
     PCⱼᵐᵃˣ * γⱼⁿᵘᵗ *  γⱼˡⁱᵍʰᵗ * fⱼᵗᵉᵐᵖ *  γⱼᶜᵒ²
@@ -26,7 +23,7 @@ end
 
 "
     if Iₜₒₜ > Iₘᵢₙ
-        PCᵐⱼ*(1-exp(-(γᶜᶠᵉⱼ*αⱼ*I*Chl¨Cⱼ)/(PCᵐⱼ)))*γⁱⁿʰⱼ
+        PCⱼ = PCᵐⱼ*(1-exp(-(γᶜᶠᵉⱼ*fᵃᴵⱼ*Chl¨Cⱼ)/(PCᵐⱼ)))*γⁱⁿʰⱼ
     else
         PCⱼ = 0
 
@@ -39,6 +36,7 @@ Iₘᵢₙ = minimum irradiance for photosynthesis to occur
 Chl¨Cⱼ = chlorophyll to carbon ratio of plankton j
 γⁱⁿʰⱼ = light inhibition of plankton j
 fᵃᴵⱼ = summed response to irradiance for all wavelenghts of plankton j
+PCᵐⱼ = light saturated carbon-specific growth rate
 
 "
 function geider_carbon_growth(PCᵐⱼ, γⱼⁱⁿʰ, Iₜₒₜ, Iₘᵢₙ)
