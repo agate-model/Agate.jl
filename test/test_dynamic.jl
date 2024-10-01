@@ -86,21 +86,9 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
 
         @testset "use helper functions" begin
 
-            # NPZD model
-            helper_functions = (
-                nutrient_limitation = :(N / (kₙ + N)),
-                Q₁₀ = :(1.88 ^ (T / 10)),
-                light_limation = :(α * PAR / sqrt(μ₀ ^ 2 + α ^ 2 * PAR ^ 2)),
-                phytoplankton_metabolic_loss = :(lᵖⁿ  * P),
-                zooplankton_metabolic_loss =  :(lᶻⁿ  * Z),
-                remineralization = :(rᵈⁿ * D),
-                phytoplankton_growth = :(μ₀ * nutrient_limitation(N, kₙ) * light_limitation(PAR, α, μ₀) * P),
-                phytoplankton_grazing_loss = :(gₘₐₓ * nutrient_limitation(P ^ 2, kₚ ^ 2) * Z),
-                phytoplankton_mortality_loss = :(lᵖᵈ * P),
-                zooplankton_grazing_gain = :(β * gₘₐₓ * nutrient_limitation(P ^ 2, kₚ ^ 2) * Z),
-                zooplankton_mortality_loss = :(lᶻᵈ * Z ^ 2),
-                zooplankton_assimilation_loss = :((1 - β) * gₘₐₓ * nutrient_limitation(P ^ 2, kₚ ^ 2) * Z)
-            )
+            # # NPZD model
+            # Q: should this be a temp file
+            helper_functions = "./fixtures/NPZD.jl"
 
             priors = Dict(
                 :μ₀ => 0.6989,
@@ -126,7 +114,7 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
                 "D" => :(phytoplankton_mortality_loss(P, lᵖᵈ)
                 + zooplankton_assimilation_loss(P, Z, β, gₘₐₓ, kₚ)
                 + zooplankton_mortality_loss(Z, lᶻᵈ)
-                - remineralization(D, rᵈⁿ) ),
+                - remineralization(D, rᵈⁿ)),
 
                 "P" => :(phytoplankton_growth(N, PAR, P, μ₀, kₙ, α)
                 - phytoplankton_grazing_loss(P, Z, gₘₐₓ, kₚ)
@@ -142,8 +130,16 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
             add_bgc_methods(NPZD, tracers, auxiliary_fields=aux_field_vars, helper_functions=helper_functions)
             model = NPZD()
 
-            # TODO: check output values
+            Z = 0.05
+            P = 0.01
+            N = 7.0
+            D = 1
+            PAR = 1
 
+            @test isapprox(model(Val(:N), 0, 0, 0, 0, Z,P,N,D,PAR), 0.12101359881701153)
+            @test isapprox(model(Val(:D), 0, 0, 0, 0, Z,P,N,D,PAR), -0.12034718812821411)
+            @test isapprox(model(Val(:P), 0, 0, 0, 0, Z,P,N,D,PAR), 0.000660764624324505)
+            @test isapprox(model(Val(:Z), 0, 0, 0, 0, Z,P,N,D,PAR), -0.0013271753131219258)
 
         end
 
