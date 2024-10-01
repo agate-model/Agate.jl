@@ -60,12 +60,11 @@ Add methods to bgc_type required of AbstractContinuousFormBiogeochemistry type:
 - `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry
 - `tracers`: dictionary of the form (name => expression, ...)
 - `auxiliary_fields`: optional iterable of auxiliary field variables
-- `helper_functions`: optional NamedTuple of user defined helper functions used in tracer
-        expressions of the form (name => expression, ...)
+- `helper_functions`: optional path to a file of helper functions used in tracer expressions
 
 Note that the field names of bgc_type can't be any of [:x,:y,:z,:t] and they must include
 all parameters used in the tracers expressions. The expressions must use methods that are
-either defined within this module or passed in the helper_functions NamedTuple.
+either defined within this module or passed in the helper_functions file.
 
 # Example
 ```julia
@@ -86,17 +85,10 @@ tracers = Dict(
 add_bgc_methods(LV, tracers)
 ```
 """
-function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[], helper_functions=())
+function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[], helper_functions="")
 
-    for (k,f) in collect(pairs(helper_functions))
-        all_args, _ = parse_expression(f)
-        argnames = unique!(all_args)
-        func = quote
-            function $k($(argnames...))
-                return $(f)
-            end
-        end
-        eval(func)
+    if helper_functions != ""
+        include(helper_functions)
     end
 
     # all BGC models require these 4 base variables
@@ -132,6 +124,7 @@ function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[], helper_function
                 return $(tracer_expression)
             end
         end
+        # println(tracer_method)
         eval(tracer_method)
     end
 
