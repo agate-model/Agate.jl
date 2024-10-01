@@ -17,12 +17,12 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
         params = [:α, :β, :x, :y]
         @test_throws UndefVarError expression_check(params, f_expr)
 
-        # no errors - only use base methods
+        # no errors - using base methods
         f_expr = :(α * x - β * x * y)
         params = [:α, :β, :x, :y]
         @test expression_check(params, f_expr) === nothing
 
-        # no erors - method not in base
+        # no erors - method defined in Dynamic module
         f_expr = :(create_bgc_struct(sn, p))
         params = [:sn, :p]
         @test expression_check(params, f_expr) === nothing
@@ -86,22 +86,23 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
 
         @testset "use helper functions" begin
 
-            # # NPZD model
-            # Q: should this be a temp file
+            # NPZD model
+
+            # Q: should this be a temp file?
             helper_functions = "./fixtures/NPZD.jl"
 
-            priors = Dict(
-                :μ₀ => 0.6989,
-                :kₙ => 2.3868,
-                :lᵖⁿ => 0.066,
-                :lᶻⁿ => 0.0102,
-                :lᵖᵈ => 0.0101,
-                :gₘₐₓ => 2.1522,
-                :kₚ => 0.5573,
-                :β => 0.9116,
-                :lᶻᵈ => 0.3395,
-                :rᵈⁿ => 0.1213,
-                :α => 0.1953,
+            priors = (
+                μ₀ = 0.6989,
+                kₙ = 2.3868,
+                lᵖⁿ = 0.066,
+                lᶻⁿ = 0.0102,
+                lᵖᵈ = 0.0101,
+                gₘₐₓ = 2.1522,
+                kₚ = 0.5573,
+                β = 0.9116,
+                lᶻᵈ = 0.3395,
+                rᵈⁿ = 0.1213,
+                α = 0.1953,
             )
             aux_field_vars = [:PAR]
 

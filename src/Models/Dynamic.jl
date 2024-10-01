@@ -51,7 +51,7 @@ end
 """
     add_bgc_methods(bgc_type, tracers, auxiliary_fields=[], helper_functions=()) -> DataType
 
-Add methods to bgc_type required of AbstractContinuousFormBiogeochemistry type:
+Add methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
     - required_biogeochemical_tracers
     - required_biogeochemical_auxiliary_fields
     - a method per tracer
@@ -95,27 +95,29 @@ function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[], helper_function
     base_vars = [:x, :y, :z, :t]
     # use collect here in case tracers are NamedTuple rather than Dict
     tracer_vars = Symbol.(collect(keys(tracers)))
+    println(tracer_vars)
     aux_field_vars = Symbol.(auxiliary_fields)
     all_state_vars = vcat(base_vars , tracer_vars, aux_field_vars)
+    println()
 
     eval(:(required_biogeochemical_tracers(::$(bgc_type)) = $tracer_vars))
     eval(:(required_biogeochemical_auxiliary_fields(::$(bgc_type)) = $aux_field_vars))
 
-    # the variable expressions are evaluated inside the tracer methods built below, which
-    # take in a `bgc` object (of bgc_type)
     params = fieldnames(bgc_type)
     method_vars = []
     for param in params
         if param in [:x,:y,:z,:t]
             throw(DomainError(field, "$bgc_type field names can't be any of [:x,:y,:z,:t]"))
         end
+        # the expressions are evaluated inside the tracer methods below, which take in a
+        # `bgc` object (of bgc_type)
         exp = :($param = bgc.$param)
         push!(method_vars, exp)
     end
 
     for (tracer_name, tracer_expression) in pairs(tracers)
 
-        # throws an exception if there are any issues with tracer_expression
+        # throws an exception if there are any issues with tracer_expression (see docstring)
         expression_check(vcat(all_state_vars, collect(params)), tracer_expression)
 
         tracer_method = quote
@@ -127,7 +129,7 @@ function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[], helper_function
         eval(tracer_method)
     end
 
-    # Q: this return statement is unnecessary - is it good practice to leave it or remove it?
+    # Q: this return statement is unnecessary - is it good practice to leave or remove it?
     return bgc_type
 end
 
@@ -164,7 +166,7 @@ end
 
 
 """
-    expression_check(params, f_expr) -> bool
+    expression_check(params, f_expr) -> nothing
 
 Checks that all methods and arguments are defined. Specifically:
     - vector params contains all arguments of expression f_expr
