@@ -14,26 +14,26 @@ export create_bgc_struct, add_bgc_methods
 
 
 """
-    create_bgc_type(struct_name, priors::Dict) -> DataType
+    create_bgc_type(struct_name, parameters::Dict) -> DataType
 
 Create a subtype of AbstractContinuousFormBiogeochemistry. Uses field names and default
-values defined in priors (which can be, for example, a Dict or NamedTuple).
+values defined in parameters (which can be, for example, a Dict or NamedTuple).
 
 # Arguments
 - `struct_name`: name for the new struct
-- `priors`: named sequence of values of the form (field name = default value, ...)
+- `parameters`: named sequence of values of the form (field name = default value, ...)
 
-Note that the field names in priors can't be any of [:x,:y,:z,:t].
+Note that the field names in parameters can't be any of [:x,:y,:z,:t].
 
 # Example
 create_bgc_struct(:LV, (α=2/3, β=4/3,  δ=1, γ=1))
 """
-function create_bgc_struct(struct_name, priors)
+function create_bgc_struct(struct_name, parameters)
 
     fields = []
-    for (k,v) in pairs(priors)
+    for (k,v) in pairs(parameters)
         if k in [:x,:y,:z,:t]
-            throw(DomainError(k, "field names in priors can't be any of [:x,:y,:z,:t]"))
+            throw(DomainError(k, "field names in parameters can't be any of [:x,:y,:z,:t]"))
         end
         exp = :($k = $v)
         push!(fields, exp)

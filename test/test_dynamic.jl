@@ -32,22 +32,22 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
     @testset "create_bgc_struct" begin
 
         @testset "invalid fieldnames throw an error" begin
-            priors = (x=1,)
-            @test_throws DomainError create_bgc_struct(:name, priors)
+            parameters = (x=1,)
+            @test_throws DomainError create_bgc_struct(:name, parameters)
 
-            priors = (y=2,)
-            @test_throws DomainError create_bgc_struct(:name, priors)
+            parameters = (y=2,)
+            @test_throws DomainError create_bgc_struct(:name, parameters)
 
-            priors = (z=3,)
-            @test_throws DomainError create_bgc_struct(:name, priors)
+            parameters = (z=3,)
+            @test_throws DomainError create_bgc_struct(:name, parameters)
 
-            priors = (t=4,)
-            @test_throws DomainError create_bgc_struct(:name, priors)
+            parameters = (t=4,)
+            @test_throws DomainError create_bgc_struct(:name, parameters)
         end
 
         @testset "data type created succesfully" begin
-            priors = (α=2/3, β=4/3, δ=1, γ=1)
-            name = create_bgc_struct(:name, priors)
+            parameters = (α=2/3, β=4/3, δ=1, γ=1)
+            name = create_bgc_struct(:name, parameters)
 
             @test typeof(name) == DataType
             @test fieldnames(name) == (:α, :β, :δ, :γ)
@@ -58,17 +58,17 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
 
         @testset "all methods exist and behave as expected" begin
 
-            priors = (α=2/3, β=4/3, δ=1, γ=1)
+            parameters = (α=2/3, β=4/3, δ=1, γ=1)
             tracers = Dict(
                 "R" => :(α*R - β*R*F),
                 "F" => :(-γ*F + δ*R*F)
             )
             auxiliary_fields = [:PAR,]
 
-            LV = create_bgc_struct(:LV, priors)
+            LV = create_bgc_struct(:LV, parameters)
             add_bgc_methods(LV, tracers, auxiliary_fields=auxiliary_fields)
 
-            # instantiate the same model with different priors
+            # instantiate the same model with different parameters
             model1 = LV()
             model2 = LV(1, 1, 2, 2)
 
@@ -91,7 +91,7 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
             # Q: should this be a temp file?
             helper_functions = "./fixtures/NPZD.jl"
 
-            priors = (
+            parameters = (
                 μ₀ = 0.6989,
                 kₙ = 2.3868,
                 lᵖⁿ = 0.066,
@@ -127,7 +127,7 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
                 - zooplankton_mortality_loss(Z, lᶻᵈ))
             )
 
-            NPZD = create_bgc_struct(:NPZD, priors)
+            NPZD = create_bgc_struct(:NPZD, parameters)
             add_bgc_methods(NPZD, tracers, auxiliary_fields=aux_field_vars, helper_functions=helper_functions)
             model = NPZD()
 
