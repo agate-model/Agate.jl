@@ -124,7 +124,6 @@ function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[], helper_function
                 return $(tracer_expression)
             end
         end
-        # println(tracer_method)
         eval(tracer_method)
     end
 
