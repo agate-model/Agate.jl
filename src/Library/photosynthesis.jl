@@ -12,7 +12,7 @@ Smith 1936 formulation of light limitation (also see Evans and Parslow, 1985).
 Where: 
 α = Initial photosynthetic slope
 PAR = Photosynthetic Active Radiation
-μ₀ = Maximum growth rate at T = 0 °C (this seems weird?, from Kuhn 2015)
+μ₀ = Maximum growth rate at T = 0 °C
 
 "
 function smith_light_limitation(PAR, α, μ₀)
@@ -35,9 +35,8 @@ function darwin_default_light_limitation(I, kⱼˢᵃᵗ, kⱼⁱⁿʰ, nⱼˡ�
     (1 - ℯ^(kⱼˢᵃᵗ*I)) * ℯ^kⱼⁱⁿʰ * nⱼˡⁱᵍʰᵗ
 end
 
-
 "
-    fᵃᴵⱼ = sum(aᶜʰˡⱼₗ, Iₗ)
+    fᵃᴵⱼ = aⱼᶜʰˡ * Iₜₒₜ
 
 Non-spectral maximum carbon yield of photosynthesis.
 
@@ -51,9 +50,8 @@ Iₜₒₜ = total PAR.
 
 "
 function non_spectral_carbon_yield(aⱼᶜʰˡ, Iₜₒₜ)
-    aᶜʰˡⱼ * Itot
+    aⱼᶜʰˡ * Iₜₒₜ
 end
-
 
 "
     fᵃᴵⱼ = sum(aᶜʰˡⱼₗ, Iₗ)
@@ -70,10 +68,9 @@ aᶜʰˡⱼₗ = chlorophyll specific slope of irradiance curve at wavelenght l
 Iₗ = irradiance at wavelenght l
 
 "
-function spectral_carbon_yield(aⱼₗᶜʰˡ, I)
+function spectral_carbon_yield(aⱼₗᶜʰˡ, Iₗ)
     sum(aⱼₗᶜʰˡ, Iₗ)
 end
-
 
 "
     Chl¨Cⱼ = Chlⱼ/Cⱼ
@@ -85,26 +82,21 @@ function chlorophyll_carbon_ratio(Chlⱼ, Cⱼ)
     Chlⱼ/Cⱼ
 end
 
-
-
-
 "
     γⱼˡⁱᵐ = (1-exp(-(γⱼᶜᶠᵉ*fⱼᵃᴵ*Chl¨Cⱼ)/(PCᵐⱼ)))
 
 Estimates geider light limitation 
 
 Where: 
-Chl¨Cⱼ =
-γⱼᶜᶠᵉ = 
-fⱼᵃᴵ =
-PCᵐⱼ = geider_light_saturated_growth
+Chl¨Cⱼ = chlorophyll to carbon ratio
+γⱼᶜᶠᵉ = iron limitation
+fⱼᵃᴵ = carbon yield from photosynthesis
+PCᵐⱼ = geider light saturated growth
 
 "
 function geider_light_limitation(Chl¨Cⱼ, γⱼᶜᶠᵉ, fⱼᵃᴵ, PCᵐⱼ)
     (1-exp(-(γⱼᶜᶠᵉ*fⱼᵃᴵ*Chl¨Cⱼ)/(PCᵐⱼ)))
 end
-
-#### Geider no CHL quota:
 
 "
     Chl¨Cᵃᶜˡⱼ = (Chl¨Cᵐᵃˣⱼ/((1 + Chl¨Cᵐᵃˣⱼ*aⱼ*I)/(2*PCᵐⱼ)))
@@ -135,7 +127,7 @@ function acclimated_chl_carbon_ratio(Chl¨Cⱼᵐⁱⁿ, Chl¨Cⱼᵐᵃˣ, aⱼ
 end
 
 "
-    a̅ⱼ = sum(Δλαⱼₗᶜʰˡ)/sum(Δλ)
+    a̅ⱼ = sum(Δλₗ*αⱼₗᶜʰˡ)/sum(Δλ)
 
 Summed slope of irradiance curve (across wavelenghts) for plankton j.
 
@@ -145,42 +137,23 @@ Where:
 αᶜʰˡⱼₗ = chlorophyll specific slope of irradiance curve at wavelenght l
 
 "
-function summed_irradiance_curve(Δλαⱼₗᶜʰˡ, Δλ)
-    sum(Δλαⱼₗᶜʰˡ)/sum(Δλ)
-end
-
-
-"
-    fᵃᴵⱼ = sum(aᶜʰˡⱼₗ, Iₗ)
-
-Summed response to irradiance for all wavelenghts of plankton j.
-
-Where: 
-aᶜʰˡⱼₗ = chlorophyll specific slope of irradiance curve at wavelenght l
-Iₗ = irradiance at wavelenght l
-
-"
-function fⱼᵃᴵ(aⱼₗᶜʰˡ, I)
-    sum(aⱼₗᶜʰˡ, Iₗ)
+function summed_irradiance_curve(Δλₗ, αⱼₗᶜʰˡ)
+    sum(Δλₗ*αⱼₗᶜʰˡ)/sum(Δλₗ)
 end
 
 "
     aᶜʰˡⱼₗ = Φₘⱼ * apsᶜʰˡⱼₗ
 
-chlorophyll specific slope of irradiance curve for plankton j.
+chlorophyll-a specific slope of irradiance curve for plankton j.
 
 Where: 
 Φₘⱼ = maximum quantum yield
 apsᶜʰˡⱼₗ = absorption by PS active pigments
 
 "
-function aⱼₗᶜʰˡ(Φₘⱼ, apsⱼₗᶜʰˡ)
+function chlorophyll_irradiance_slope(Φₘⱼ, apsⱼₗᶜʰˡ)
     Φₘⱼ * apsⱼₗᶜʰˡ
 end
-
-
-
-#Photo inhibition:
 
 "
     if EKoverE<=1
@@ -188,11 +161,11 @@ end
     else
         γⁱⁿʰⱼ = 1
 
-Light limitation (Geider formulation)
+Photo inhibition (Geider formulation)
 
 Where: 
-cⁱⁿʰⱼ =
-EKoverE = 
+cⁱⁿʰⱼ = photo-inhibition coefficient for Geider growth
+EKoverE = growth potential based on chl:c and light response
 
 "
 function geider_light_inhibition(EKoverE, cⱼⁱⁿʰ) 
@@ -218,17 +191,16 @@ function EKoverE(PCⱼᵐ, Chl¨C, a̅ⱼ, aⱼ, I)
     (PCⱼᵐ/(Chl¨C*a̅ⱼ))/((aⱼ*I)/(a̅ⱼ))
 end
 
-
 export
-    darwin_default_light_limitation
     smith_light_limitation
+    darwin_default_light_limitation
     geider_light_limitation
     non_spectral_carbon_yield
     spectral_carbon_yield
     chlorophyll_carbon_ratio
     acclimated_chl_carbon_ratio
     summed_irradiance_curve
-    fⱼᵃᴵ
+    chlorophyll_irradiance_slope
     geider_light_inhibition
     EKoverE
 end # module
