@@ -51,7 +51,7 @@ end
 """
     add_bgc_methods(bgc_type, tracers, auxiliary_fields=[], helper_functions=()) -> DataType
 
-Add methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
+Add core methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
     - required_biogeochemical_tracers
     - required_biogeochemical_auxiliary_fields
     - a method per tracer
@@ -95,10 +95,8 @@ function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[], helper_function
     base_vars = [:x, :y, :z, :t]
     # use collect here in case tracers are NamedTuple rather than Dict
     tracer_vars = Symbol.(collect(keys(tracers)))
-    println(tracer_vars)
     aux_field_vars = Symbol.(auxiliary_fields)
     all_state_vars = vcat(base_vars , tracer_vars, aux_field_vars)
-    println()
 
     eval(:(required_biogeochemical_tracers(::$(bgc_type)) = $tracer_vars))
     eval(:(required_biogeochemical_auxiliary_fields(::$(bgc_type)) = $aux_field_vars))
