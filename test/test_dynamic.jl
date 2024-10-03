@@ -110,14 +110,14 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
                 "N" => :(phytoplankton_metabolic_loss(P, lᵖⁿ)
                 + zooplankton_metabolic_loss(Z, lᶻⁿ)
                 + remineralization(D, rᵈⁿ)
-                - phytoplankton_growth(N, PAR, P, μ₀, kₙ, α)),
+                - phytoplankton_growth(N, P, PAR, μ₀, kₙ, α)),
 
                 "D" => :(phytoplankton_mortality_loss(P, lᵖᵈ)
                 + zooplankton_assimilation_loss(P, Z, β, gₘₐₓ, kₚ)
                 + zooplankton_mortality_loss(Z, lᶻᵈ)
                 - remineralization(D, rᵈⁿ)),
 
-                "P" => :(phytoplankton_growth(N, PAR, P, μ₀, kₙ, α)
+                "P" => :(phytoplankton_growth(N, P, PAR, μ₀, kₙ, α)
                 - phytoplankton_grazing_loss(P, Z, gₘₐₓ, kₚ)
                 - phytoplankton_metabolic_loss(P, lᵖⁿ)
                 - phytoplankton_mortality_loss(P, lᵖᵈ)),
@@ -137,9 +137,9 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
             D = 1
             PAR = 1
 
-            @test isapprox(model(Val(:N), 0, 0, 0, 0, Z,P,N,D,PAR), 0.12101359881701153)
+            @test isapprox(model(Val(:N), 0, 0, 0, 0, Z,P,N,D,PAR), 0.12106732850635774)
             @test isapprox(model(Val(:D), 0, 0, 0, 0, Z,P,N,D,PAR), -0.12034718812821411)
-            @test isapprox(model(Val(:P), 0, 0, 0, 0, Z,P,N,D,PAR), 0.000660764624324505)
+            @test isapprox(model(Val(:P), 0, 0, 0, 0, Z,P,N,D,PAR), 0.000607034934978301)
             @test isapprox(model(Val(:Z), 0, 0, 0, 0, Z,P,N,D,PAR), -0.0013271753131219258)
 
         end
