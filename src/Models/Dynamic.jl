@@ -58,7 +58,7 @@ Add core methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
     - a method per tracer
 
 # Arguments
-- `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry
+- `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry (returned by `create_bgc_struct`)
 - `tracers`: dictionary of the form (name => expression, ...)
 - `auxiliary_fields`: optional iterable of auxiliary field variables
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
