@@ -16,10 +16,10 @@ PAR⁰(t) = 60 * (1 - cos((t + 15days) * 2π / year)) * (1 / (1 + 0.2 * exp(-((m
 PAR_f(t) = PAR⁰(t) * exp(0.2z) # Modify the PAR based on the nominal depth and exponential decay
 
 
-# TODO: add parameters
-function run_npzd_boxmodel(init_cond; Δt=5minutes, stop_time=3years, save_interval=1day, filename="box.jld2", overwrite=true)
+function run_npzd_boxmodel(init_cond, parameters; Δt=5minutes, stop_time=3years, save_interval=1day, filename="box.jld2", overwrite=true)
 
     N,P,Z,D = init_cond
+    base_maximum_growth, maximum_grazing_rate = parameters
 
     grid = BoxModelGrid() # 1x1x1 grid
     clock = Clock(time = zero(grid))
@@ -27,6 +27,8 @@ function run_npzd_boxmodel(init_cond; Δt=5minutes, stop_time=3years, save_inter
 
     biogeochemistry = NutrientPhytoplanktonZooplanktonDetritus(;
         grid,
+        base_maximum_growth = base_maximum_growth,
+        maximum_grazing_rate = maximum_grazing_rate,
 
         # this just returns the value of PAR at time t
         light_attenuation_model = PrescribedPhotosyntheticallyActiveRadiation(PAR),
