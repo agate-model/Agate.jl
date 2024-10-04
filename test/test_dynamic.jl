@@ -88,7 +88,6 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
 
             # NPZD model
 
-            # Q: should this be a temp file?
             helper_functions = "./fixtures/NPZD.jl"
 
             parameters = (

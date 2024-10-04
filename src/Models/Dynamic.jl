@@ -14,16 +14,17 @@ export create_bgc_struct, add_bgc_methods
 
 
 """
-    create_bgc_type(struct_name, parameters::Dict) -> DataType
+    create_bgc_type(struct_name, parameters) -> DataType
 
 Create a subtype of AbstractContinuousFormBiogeochemistry. Uses field names and default
-values defined in parameters (which can be, for example, a Dict or NamedTuple).
+values defined in `parameters` (which can be, for example, a Dict or NamedTuple).
 
 # Arguments
-- `struct_name`: name for the new struct
+- `struct_name`: name for the new struct passed as a Symbol
 - `parameters`: named sequence of values of the form (field name = default value, ...)
 
-Note that the field names in parameters can't be any of [:x,:y,:z,:t].
+Note that the field names defined in `parameters` can't be any of [:x,:y,:z,:t], which are
+reserved for coordinates.
 
 # Example
 create_bgc_struct(:LV, (α=2/3, β=4/3,  δ=1, γ=1))
@@ -62,9 +63,9 @@ Add core methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
 - `auxiliary_fields`: optional iterable of auxiliary field variables
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
 
-Note that the field names of bgc_type can't be any of [:x,:y,:z,:t] and they must include
-all parameters used in the tracers expressions. The expressions must use methods that are
-either defined within this module or passed in the helper_functions file.
+Note that the field names of bgc_type can't be any of [:x,:y,:z,:t] (as these are reserved for
+coordinates) and they must include all parameters used in the tracers expressions. The expressions
+must use methods that are either defined within this module or passed in the helper_functions file.
 
 # Example
 ```julia
@@ -127,7 +128,6 @@ function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[], helper_function
         eval(tracer_method)
     end
 
-    # Q: this return statement is unnecessary - is it good practice to leave or remove it?
     return bgc_type
 end
 
