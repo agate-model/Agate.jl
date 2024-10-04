@@ -1,4 +1,6 @@
 using OceanBioME
+using Oceananigans
+using Oceananigans: Clock
 using Oceananigans.Fields: FunctionField
 using Oceananigans.Units
 
@@ -14,11 +16,10 @@ PAR⁰(t) = 60 * (1 - cos((t + 15days) * 2π / year)) * (1 / (1 + 0.2 * exp(-((m
 PAR_f(t) = PAR⁰(t) * exp(0.2z) # Modify the PAR based on the nominal depth and exponential decay
 
 
-function run_npzd_boxmodel(init_cond, parameters; Δt=5minutes, stop_time=3years, save_interval=8hours, filename="box.jld2", overwrite=true)
+# TODO: add parameters
+function run_npzd_boxmodel(init_cond; Δt=5minutes, stop_time=3years, save_interval=1day, filename="box.jld2", overwrite=true)
 
     N,P,Z,D = init_cond
-    # are there other parameters we want to pass here?
-    base_maximum_growth, maximum_grazing_rate = parameters
 
     grid = BoxModelGrid() # 1x1x1 grid
     clock = Clock(time = zero(grid))
@@ -26,13 +27,12 @@ function run_npzd_boxmodel(init_cond, parameters; Δt=5minutes, stop_time=3years
 
     biogeochemistry = NutrientPhytoplanktonZooplanktonDetritus(;
         grid,
-        base_maximum_growth = base_maximum_growth,
-        maximum_grazing_rate = maximum_grazing_rate,
+
         # this just returns the value of PAR at time t
         light_attenuation_model = PrescribedPhotosyntheticallyActiveRadiation(PAR),
+
         # by default P and D are set to sink at a constant rate although it probably
-        # doesn't matter whether this is set or not for a BoxModel (unless it has an
-        # open bottom?)
+        # doesn't matter whether this is set or not for a BoxModel
         sinking_speeds = NamedTuple()
     )
 
