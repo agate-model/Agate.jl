@@ -22,7 +22,7 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
         params = [:α, :β, :x, :y]
         @test expression_check(params, f_expr) === nothing
 
-        # no erors - method defined in Dynamic module
+        # no errors - method defined in Dynamic module
         f_expr = :(create_bgc_struct(sn, p))
         params = [:sn, :p]
         @test expression_check(params, f_expr) === nothing
