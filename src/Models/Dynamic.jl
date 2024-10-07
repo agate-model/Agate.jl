@@ -133,33 +133,32 @@ end
 
 
 """
-    parse_expression(f_expr) -> Tuple(Vector, Vector)
+    parse_expression(f_expr) -> Vector
 
-Returns all argument names and methods called in expression.
+Returns all symbols (argument names and method names) called in expression.
 
 # Example
 ```Julia
 parse_expression(:(α * x - β * x * y))
 """
 function parse_expression(f_expr)
-    argnames = []
-    methods = []
+    symbols = []
 
     expressions = [f_expr]
     for exp in expressions
         args = exp.args
-        push!(methods, args[1])
+        push!(symbols, args[1])
         # if the arg isn't a symbol or another expression, it's a value --> ignore
         for arg in args[2:end]
             if typeof(arg) == Expr
                 push!(expressions, arg)
             elseif typeof(arg) == Symbol
-                push!(argnames, arg)
+                push!(symbols, arg)
             end
         end
     end
 
-    return argnames, methods
+    return symbols
 end
 
 
@@ -172,15 +171,10 @@ Checks that all methods and arguments are defined. Specifically:
 If not, throws an UnderVarError.
 """
 function expression_check(params, f_expr; module_name=Dynamic)
-    argnames, methods = parse_expression(f_expr)
-    for arg in argnames
-        if arg ∉ params
-            throw(UndefVarError(arg))
-        end
-    end
-    for m in methods
-        if !isdefined(module_name, m)
-            throw(UndefVarError(m))
+    symbols = parse_expression(f_expr)
+    for s in symbols
+        if s ∉ params && !isdefined(module_name, s)
+            throw(UndefVarError(s))
         end
     end
 end
