@@ -10,9 +10,9 @@ const z = -10 # specify the nominal depth of the box for the PAR profile
 
 @testset "NPZD box model" begin
 
-    # ==============================
+    # ==================================================
     # Agate NPZD model
-    # ==============================
+    # ==================================================
 
     # get parameter and tracer definitions from examples
     # the values here are the same as OceanBioME defaults
@@ -29,9 +29,9 @@ const z = -10 # specify the nominal depth of the box for the PAR profile
     init_conditions = (N = 7.0, P = 0.01, Z = 0.05, D=0.0)
     agate_box_model = create_box_model(npzd_model, init_conditions)
 
-    # ==============================
+    # ==================================================
     # OceanBioME NPZD model
-    # ==============================
+    # ==================================================
 
     PAR⁰(t) = 60 * (1 - cos((t + 15days) * 2π / year)) * (1 / (1 + 0.2 * exp(-((mod(t, year) - 200days) / 50days)^2))) + 2
     PAR_f(t) = PAR⁰(t) * exp(0.2z) # Modify the PAR based on the nominal depth and exponential decay
@@ -49,9 +49,9 @@ const z = -10 # specify the nominal depth of the box for the PAR profile
     oceanbiome_box_model = BoxModel(;biogeochemistry, clock)
     set!(oceanbiome_box_model, N=7, P=0.01, Z=0.05, D=0.0)
 
-    # ==============================
+    # ==================================================
     # Compare
-    # ==============================
+    # ==================================================
 
     Δt = 1day
     for i in range(1,1000)
