@@ -18,4 +18,4 @@ linear_loss(P, l) = l  * P
 
 quadratic_loss(P, l) = l  * P ^ 2
 
-summed_linear_loss(P, l) = linear_loss(P[1], l[1]) + linear_loss(P[2], l[2])
+summed_linear_loss(P, l) = sum([linear_loss(P[i], l[i]) for i in eachindex(P)])
