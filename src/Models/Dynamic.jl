@@ -148,9 +148,9 @@ function parse_expression(f_expr)
     for exp in expressions
         # if the arg isn't a symbol or another expression, it's a value --> ignore
         for arg in exp.args
-            if typeof(arg) == Expr
+            if isa(arg, Expr)
                 push!(expressions, arg)
-            elseif typeof(arg) == Symbol
+            elseif isa(arg, Symbol)
                 push!(symbols, arg)
             end
         end
