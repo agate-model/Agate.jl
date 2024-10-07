@@ -18,6 +18,7 @@ const z = -10 # specify the nominal depth of the box for the PAR profile
 PAR⁰(t) = 60 * (1 - cos((t + 15days) * 2π / year)) * (1 / (1 + 0.2 * exp(-((mod(t, year) - 200days) / 50days)^2))) + 2
 PAR_f(t) = PAR⁰(t) * exp(0.2z) # Modify the PAR based on the nominal depth and exponential decay
 
+
 """
 
 """
@@ -37,6 +38,7 @@ function create_box_model(bgc_model, init_conditions)
 
     return model
 end
+
 
 """
 

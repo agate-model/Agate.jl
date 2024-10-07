@@ -1,14 +1,15 @@
 using Agate
 using Plots
 
-include("NPZD_definition.jl")
+# parameters and tracers are defined here
+include("NPZD/model_definition.jl")
 
 NPZD = create_bgc_struct(:NPZD, parameters)
 add_bgc_methods(
     NPZD,
     tracers,
     auxiliary_fields=aux_field_vars,
-    helper_functions="NPZD_functions.jl"
+    helper_functions="NPZD/functions.jl"
 )
 npzd_model = NPZD()
 
