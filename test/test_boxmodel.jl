@@ -16,7 +16,7 @@ const z = -10 # specify the nominal depth of the box for the PAR profile
 
     # get parameter and tracer definitions from examples
     # the values here are the same as OceanBioME defaults
-    include("../examples/npzd_definition.jl")
+    include("../examples/NPZD_definition.jl")
 
     NPZD = create_bgc_struct(:NPZD, parameters)
     add_bgc_methods(
