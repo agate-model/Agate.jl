@@ -20,7 +20,14 @@ PAR_f(t) = PAR⁰(t) * exp(0.2z) # Modify the PAR based on the nominal depth and
 
 
 """
+    create_box_model(bgc_model, init_conditions) -> OceanBioME.BoxModel
 
+Create an OceanBioME.BoxModel object and set initial values.
+
+# Arguments
+- `bgc_model`: biogeochemistry model, a subtype of AbstractContinuousFormBiogeochemistry
+    (e.g., returned by `Agate.create_bgc_struct`)
+- init_conditions: NamedTuple of initial values
 """
 function create_box_model(bgc_model, init_conditions)
 
@@ -41,7 +48,22 @@ end
 
 
 """
+    run_boxmodel(bgc_model, init_conditions; kwargs...) -> NamedTuple
 
+Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, ...], ...)
+(results are also saved to a file).
+
+# Arguments
+- `bgc_model`: biogeochemistry model, a subtype of AbstractContinuousFormBiogeochemistry
+    (e.g., returned by `Agate.create_bgc_struct`)
+- init_conditions: NamedTuple of initial values
+
+# Keywords
+- Δt: simulation step time
+- stop_time: until when to run the simulation
+- save_interval: interval at which to save simulation results
+- filename: name of file to save results to
+- overwrite: whether to overwrite existing files
 """
 function run_boxmodel(
         bgc_model,
@@ -62,8 +84,6 @@ function run_boxmodel(
                             schedule = TimeInterval(save_interval),
                             overwrite_existing = overwrite
                             )
-    # this is pretty slow - investigate whether we actually need this
-    # alternative is to just timestep manually with `time_step!(model, Δt)`
     run!(simulation)
 
     # to access value of each tracer: model.fields.$tracer.data[1,1,1]
@@ -76,19 +96,16 @@ end
 
 
 """
-    set!(model::BoxModel, init_values)
+    set!(model::BoxModel, init_conditions) -> nothing
 
-Set the `values` for a `BoxModel`
+Set the `BoxModel` initial conditions (values).
 
-Arguments
-=========
-
+# Arguments
 - `model` - the model to set the arguments for
-
-
+- init_conditions: NamedTuple of initial values
 """
-function set!(model::BoxModel, init_values::NamedTuple)
-    for (fldname, value) in pairs(init_values)
+function set!(model::BoxModel, init_conditions::NamedTuple)
+    for (fldname, value) in pairs(init_conditions)
         if fldname ∈ propertynames(model.fields)
             ϕ = getproperty(model.fields, fldname)
         else
