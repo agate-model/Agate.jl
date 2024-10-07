@@ -7,7 +7,7 @@ using Oceananigans.Fields: FunctionField
 
 import Oceananigans: set!
 
-export create_box_model, run_boxmodel
+export create_box_model, run_box_model
 
 const year = years = 365day
 
@@ -25,8 +25,8 @@ PAR_f(t) = PAR⁰(t) * exp(0.2z) # Modify the PAR based on the nominal depth and
 Create an OceanBioME.BoxModel object and set initial values.
 
 # Arguments
-- `bgc_model`: biogeochemistry model, a subtype of AbstractContinuousFormBiogeochemistry
-    (e.g., returned by `Agate.create_bgc_struct`)
+- `bgc_model`: biogeochemistry model, a subtype of AbstractContinuousFormBiogeochemistry,
+    e.g., returned by `Agate.create_bgc_struct()`
 - init_conditions: NamedTuple of initial values
 """
 function create_box_model(bgc_model, init_conditions)
@@ -48,7 +48,7 @@ end
 
 
 """
-    run_boxmodel(bgc_model, init_conditions; kwargs...) -> NamedTuple
+    run_box_model(bgc_model, init_conditions; kwargs...) -> NamedTuple
 
 Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, ...], ...)
 (results are also saved to a file).
@@ -65,7 +65,7 @@ Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, .
 - filename: name of file to save results to
 - overwrite: whether to overwrite existing files
 """
-function run_boxmodel(
+function run_box_model(
         bgc_model,
         init_conditions;
         Δt=5minutes,
@@ -98,7 +98,7 @@ end
 """
     set!(model::BoxModel, init_conditions) -> nothing
 
-Set the `BoxModel` initial conditions (values).
+Set the `BoxModel` initial conditions (Field values).
 
 # Arguments
 - `model` - the model to set the arguments for
