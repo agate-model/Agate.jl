@@ -86,22 +86,24 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
 
         @testset "use helper functions" begin
 
+            using Oceananigans.Units
+
             # NPZD model
 
-            helper_functions = "./fixtures/NPZD.jl"
+            helper_functions = "../examples/NPZD_functions.jl"
 
             parameters = (
-                μ₀ = 0.6989,
+                μ₀ = 0.6989/day,
                 kₙ = 2.3868,
-                lᵖⁿ = 0.066,
-                lᶻⁿ = 0.0102,
-                lᵖᵈ = 0.0101,
-                gₘₐₓ = 2.1522,
+                lᵖⁿ = 0.066/day,
+                lᶻⁿ = 0.0102/day,
+                lᵖᵈ = 0.0101/day,
+                gₘₐₓ = 2.1522/day,
                 kₚ = 0.5573,
                 β = 0.9116,
-                lᶻᵈ = 0.3395,
-                rᵈⁿ = 0.1213,
-                α = 0.1953,
+                lᶻᵈ = 0.3395/day,
+                rᵈⁿ = 0.1213/day,
+                α = 0.1953/day,
             )
             aux_field_vars = [:PAR]
 
@@ -136,10 +138,10 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
             D = 1
             PAR = 1
 
-            @test isapprox(model(Val(:N), 0, 0, 0, 0, Z,P,N,D,PAR), 0.12106732850635774)
-            @test isapprox(model(Val(:D), 0, 0, 0, 0, Z,P,N,D,PAR), -0.12034718812821411)
-            @test isapprox(model(Val(:P), 0, 0, 0, 0, Z,P,N,D,PAR), 0.000607034934978301)
-            @test isapprox(model(Val(:Z), 0, 0, 0, 0, Z,P,N,D,PAR), -0.0013271753131219258)
+            @test isapprox(model(Val(:N), 0, 0, 0, 0, Z,P,N,D,PAR), 1.4012422280828442e-6)
+            @test isapprox(model(Val(:D), 0, 0, 0, 0, Z,P,N,D,PAR), -1.3929072700024781e-6)
+            @test isapprox(model(Val(:P), 0, 0, 0, 0, Z,P,N,D,PAR), 7.025867302989598e-9)
+            @test isapprox(model(Val(:Z), 0, 0, 0, 0, Z,P,N,D,PAR), -1.5360825383355622e-8)
 
         end
 
