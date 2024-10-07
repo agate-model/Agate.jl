@@ -108,24 +108,24 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
             aux_field_vars = [:PAR]
 
             tracers = Dict(
-                "N" => :(phytoplankton_metabolic_loss(P, lᵖⁿ)
-                + zooplankton_metabolic_loss(Z, lᶻⁿ)
+                "N" => :(linear_loss(P, lᵖⁿ)
+                + linear_loss(Z, lᶻⁿ)
                 + remineralization(D, rᵈⁿ)
-                - phytoplankton_growth(N, P, PAR, μ₀, kₙ, α)),
+                - photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)),
 
-                "D" => :(phytoplankton_mortality_loss(P, lᵖᵈ)
-                + zooplankton_assimilation_loss(P, Z, β, gₘₐₓ, kₚ)
-                + zooplankton_mortality_loss(Z, lᶻᵈ)
+                "D" => :(linear_loss(P, lᵖᵈ)
+                + predation_assimilation_loss(P, Z, β, gₘₐₓ, kₚ)
+                + quadratic_loss(Z, lᶻᵈ)
                 - remineralization(D, rᵈⁿ)),
 
-                "P" => :(phytoplankton_growth(N, P, PAR, μ₀, kₙ, α)
-                - phytoplankton_grazing_loss(P, Z, gₘₐₓ, kₚ)
-                - phytoplankton_metabolic_loss(P, lᵖⁿ)
-                - phytoplankton_mortality_loss(P, lᵖᵈ)),
+                "P" => :(photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)
+                - predation_loss(P, Z, gₘₐₓ, kₚ)
+                - linear_loss(P, lᵖⁿ)
+                - linear_loss(P, lᵖᵈ)),
 
-                "Z" => :(zooplankton_grazing_gain(P, Z, β, gₘₐₓ, kₚ)
-                - zooplankton_metabolic_loss(Z, lᶻⁿ)
-                - zooplankton_mortality_loss(Z, lᶻᵈ))
+                "Z" => :(predation_gain(P, Z, β, gₘₐₓ, kₚ)
+                - linear_loss(Z, lᶻⁿ)
+                - quadratic_loss(Z, lᶻᵈ))
             )
 
             NPZD = create_bgc_struct(:NPZD, parameters)
