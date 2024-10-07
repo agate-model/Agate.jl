@@ -44,7 +44,7 @@ To use the package in a Jupyter notebook run:
 
 ```julia
 using Pkg
-Pkg.activate("Agate")
+Pkg.activate("<path to Agate.jl repo>")
 ```
 
 ## Development 
