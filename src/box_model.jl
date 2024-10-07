@@ -7,7 +7,7 @@ using Oceananigans.Fields: FunctionField
 
 import Oceananigans: set!
 
-export run_boxmodel
+export create_box_model, run_boxmodel
 
 const year = years = 365day
 
@@ -18,16 +18,10 @@ const z = -10 # specify the nominal depth of the box for the PAR profile
 PAR⁰(t) = 60 * (1 - cos((t + 15days) * 2π / year)) * (1 / (1 + 0.2 * exp(-((mod(t, year) - 200days) / 50days)^2))) + 2
 PAR_f(t) = PAR⁰(t) * exp(0.2z) # Modify the PAR based on the nominal depth and exponential decay
 
+"""
 
-function run_boxmodel(
-        bgc_model,
-        init_conditions;
-        Δt=5minutes,
-        stop_time=3years,
-        save_interval=1day,
-        filename="box.jld2",
-        overwrite=true
-    )
+"""
+function create_box_model(bgc_model, init_conditions)
 
     grid = BoxModelGrid() # 1x1x1 grid
     clock = Clock(time = zero(grid))
@@ -39,15 +33,35 @@ function run_boxmodel(
     )
 
     model = BoxModel(;biogeochemistry, clock)
-
     set!(model, init_conditions)
+
+    return model
+end
+
+"""
+
+"""
+function run_boxmodel(
+        bgc_model,
+        init_conditions;
+        Δt=5minutes,
+        stop_time=3years,
+        save_interval=1day,
+        filename="box.jld2",
+        overwrite=true
+    )
+
+    model = create_box_model(bgc_model, init_conditions)
 
     simulation = Simulation(model; Δt = Δt, stop_time = stop_time)
     simulation.output_writers[:fields] = JLD2OutputWriter(model,
                             model.fields;
                             filename = filename,
                             schedule = TimeInterval(save_interval),
-                            overwrite_existing = overwrite)
+                            overwrite_existing = overwrite
+                            )
+    # this is pretty slow - investigate whether we actually need this
+    # alternative is to just timestep manually with `time_step!(model, Δt)`
     run!(simulation)
 
     # to access value of each tracer: model.fields.$tracer.data[1,1,1]
