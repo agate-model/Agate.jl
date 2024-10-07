@@ -27,6 +27,11 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
         params = [:sn, :p]
         @test expression_check(params, f_expr) === nothing
 
+        # no errors - use of vectors
+        f_expr = :(sum[a, b, c])
+        params = [:a, :b, :c]
+        @test expression_check(params, f_expr) === nothing
+
     end
 
     @testset "create_bgc_struct" begin
