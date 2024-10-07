@@ -1,7 +1,5 @@
 using Oceananigans.Units
 
-const year = years = 365day
-
 parameters = (
     μ₀ = 0.6989/day,
     kₙ = 2.3868,
