@@ -17,5 +17,3 @@ phytoplankton_mortality_loss(P, lᵖᵈ) = lᵖᵈ * P
 zooplankton_grazing_gain(P, Z, β, gₘₐₓ, kₚ) = β * gₘₐₓ * nutrient_limitation(P ^ 2, kₚ ^ 2) * Z
 zooplankton_mortality_loss(Z, lᶻᵈ) = lᶻᵈ * Z ^ 2
 zooplankton_assimilation_loss(P, Z, β, gₘₐₓ, kₚ) = (1 - β) * gₘₐₓ * nutrient_limitation(P ^ 2, kₚ ^ 2) * Z
-
-dummy_gmax_function(gₘₐₓ, a, b) = ((gₘₐₓ*a) + b-b)/a # this will always return gₘₐₓ
