@@ -25,7 +25,7 @@ bgc_model = BGC()
 # ==================================================
 
 init_conditions = (N = 7.0, P = 0.01, Z = 0.05, D=0.0)
-timeseries = run_box_model(npzd_model, init_conditions)
+timeseries = run_box_model(bgc_model, init_conditions)
 
 # ==================================================
 # Plotting
