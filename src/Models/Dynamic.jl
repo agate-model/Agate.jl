@@ -146,10 +146,8 @@ function parse_expression(f_expr)
 
     expressions = [f_expr]
     for exp in expressions
-        args = exp.args
-        push!(symbols, args[1])
         # if the arg isn't a symbol or another expression, it's a value --> ignore
-        for arg in args[2:end]
+        for arg in exp.args
             if typeof(arg) == Expr
                 push!(expressions, arg)
             elseif typeof(arg) == Symbol
