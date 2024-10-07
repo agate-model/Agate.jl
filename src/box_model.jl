@@ -1,10 +1,13 @@
 using OceanBioME
 using Oceananigans
 using Oceananigans: Clock
-using Oceananigans.Fields: FunctionField
-using Oceananigans.Units
 
-export run_npzd_boxmodel
+using Oceananigans.Units
+using Oceananigans.Fields: FunctionField
+
+import Oceananigans: set!
+
+export run_boxmodel
 
 const year = years = 365day
 
@@ -16,32 +19,28 @@ PAR⁰(t) = 60 * (1 - cos((t + 15days) * 2π / year)) * (1 / (1 + 0.2 * exp(-((m
 PAR_f(t) = PAR⁰(t) * exp(0.2z) # Modify the PAR based on the nominal depth and exponential decay
 
 
-function run_npzd_boxmodel(init_cond, parameters; Δt=5minutes, stop_time=3years, save_interval=1day, filename="box.jld2", overwrite=true)
-
-    N,P,Z,D = init_cond
-    base_maximum_growth, maximum_grazing_rate = parameters
+function run_boxmodel(
+        bgc_model,
+        init_conditions;
+        Δt=5minutes,
+        stop_time=3years,
+        save_interval=1day,
+        filename="box.jld2",
+        overwrite=true
+    )
 
     grid = BoxModelGrid() # 1x1x1 grid
     clock = Clock(time = zero(grid))
     PAR = FunctionField{Center, Center, Center}(PAR_f, grid; clock)
 
-    biogeochemistry = NutrientPhytoplanktonZooplanktonDetritus(;
-        grid,
-        base_maximum_growth = base_maximum_growth,
-        maximum_grazing_rate = maximum_grazing_rate,
-
-        # this just returns the value of PAR at time t
-        light_attenuation_model = PrescribedPhotosyntheticallyActiveRadiation(PAR),
-
-        # by default P and D are set to sink at a constant rate although it probably
-        # doesn't matter whether this is set or not for a BoxModel
-        sinking_speeds = NamedTuple()
+    biogeochemistry = Biogeochemistry(
+        bgc_model,
+        light_attenuation=PrescribedPhotosyntheticallyActiveRadiation(PAR)
     )
 
-    # temperature is set to 0 by default
     model = BoxModel(;biogeochemistry, clock)
-    # to access value of each tracer: model.fields.$tracer.data[1,1,1]
-    set!(model, N=N, P=P, Z=Z, D=D)
+
+    set!(model, init_conditions)
 
     simulation = Simulation(model; Δt = Δt, stop_time = stop_time)
     simulation.output_writers[:fields] = JLD2OutputWriter(model,
@@ -51,7 +50,35 @@ function run_npzd_boxmodel(init_cond, parameters; Δt=5minutes, stop_time=3years
                             overwrite_existing = overwrite)
     run!(simulation)
 
-    timeseries = NamedTuple{keys(model.fields)}(FieldTimeSeries("box.jld2", "$field")[1, 1, 1, :] for field in keys(model.fields))
+    # to access value of each tracer: model.fields.$tracer.data[1,1,1]
+    timeseries = NamedTuple{keys(model.fields)}(
+        FieldTimeSeries("box.jld2", "$field")[1, 1, 1, :] for field in keys(model.fields)
+    )
 
     return timeseries
+end
+
+
+"""
+    set!(model::BoxModel, init_values)
+
+Set the `values` for a `BoxModel`
+
+Arguments
+=========
+
+- `model` - the model to set the arguments for
+
+
+"""
+function set!(model::BoxModel, init_values::NamedTuple)
+    for (fldname, value) in pairs(init_values)
+        if fldname ∈ propertynames(model.fields)
+            ϕ = getproperty(model.fields, fldname)
+        else
+            throw(ArgumentError("name $fldname not found in model.fields."))
+        end
+        set!(ϕ, value)
+    end
+    return nothing
 end

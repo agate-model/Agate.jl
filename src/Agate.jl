@@ -7,7 +7,7 @@ include("Models/Models.jl")
 using .Models
 
 
-export run_npzd_boxmodel
+export run_boxmodel
 export create_bgc_struct, add_bgc_methods
 
 
