@@ -174,7 +174,7 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
             aux_field_vars = [:PAR]
 
             tracers = Dict(
-                "N" => :(summed_linear_loss(P, Z, lⁿ)
+                "N" => :(summed_linear_loss([P, Z], lⁿ)
                 + remineralization(D, rᵈⁿ)
                 - photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)),
 
