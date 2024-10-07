@@ -17,3 +17,5 @@ predation_assimilation_loss(P, Z, β, gₘₐₓ, kₚ) = (1 - β) * gₘₐₓ 
 linear_loss(P, l) = l  * P
 
 quadratic_loss(P, l) = l  * P ^ 2
+
+summed_linear_loss(P, Z, l) = linear_loss(P, l[1]) + linear_loss(Z, l[2])
