@@ -52,7 +52,7 @@ Pkg.activate("<path to Agate.jl repo>")
 
 ## Development
 
-We follow the [Blue](https://github.com/JuliaDiff/BlueStyle) style guide for Julia. To automatically format all Julia files in the project use the JuliaFormatter, e.g.:
+We follow the [Blue](https://github.com/JuliaDiff/BlueStyle) style guide for Julia. To automatically format all Julia files in the project you can use the JuliaFormatter. Once you have installed it (`add JuliaFormatter`) run:
 
 ```Julia
 using JuliaFormatter
