@@ -1,10 +1,10 @@
 using Agate.Models.Dynamic: expression_check
-using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
-                                    required_biogeochemical_tracers,
-                                    required_biogeochemical_auxiliary_fields
+using Oceananigans.Biogeochemistry:
+    AbstractContinuousFormBiogeochemistry,
+    required_biogeochemical_tracers,
+    required_biogeochemical_auxiliary_fields
 
 @testset "Models.Dynamic" begin
-
     @testset "expression_check" begin
 
         # missing args
@@ -31,11 +31,9 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
         f_expr = :(sum[a, b, c])
         params = [:a, :b, :c]
         @test expression_check(params, f_expr) === nothing
-
     end
 
     @testset "create_bgc_struct" begin
-
         @testset "invalid fieldnames throw an error" begin
             parameters = (x=1,)
             @test_throws DomainError create_bgc_struct(:name, parameters)
@@ -51,7 +49,7 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
         end
 
         @testset "data type created succesfully" begin
-            parameters = (α=2/3, β=4/3, δ=1, γ=1)
+            parameters = (α=2 / 3, β=4 / 3, δ=1, γ=1)
             name = create_bgc_struct(:name, parameters)
 
             @test typeof(name) == DataType
@@ -60,18 +58,13 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
     end
 
     @testset "add_bgc_methods" begin
-
         @testset "all methods exist and behave as expected" begin
-
-            parameters = (α=2/3, β=4/3, δ=1, γ=1)
-            tracers = Dict(
-                "R" => :(α*R - β*R*F),
-                "F" => :(-γ*F + δ*R*F)
-            )
-            auxiliary_fields = [:PAR,]
+            parameters = (α=2 / 3, β=4 / 3, δ=1, γ=1)
+            tracers = Dict("R" => :(α * R - β * R * F), "F" => :(-γ * F + δ * R * F))
+            auxiliary_fields = [:PAR]
 
             LV = create_bgc_struct(:LV, parameters)
-            add_bgc_methods(LV, tracers, auxiliary_fields=auxiliary_fields)
+            add_bgc_methods(LV, tracers; auxiliary_fields=auxiliary_fields)
 
             # instantiate the same model with different parameters
             model1 = LV()
@@ -81,16 +74,14 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
             @test all(required_biogeochemical_auxiliary_fields(model1) .=== [:PAR])
 
             # the inputs to the tracer methods are: x,y,z,t,R,F,PAR
-            @test model1(Val(:R), 0, 0, 0, 0, 10, 2, 0) == 2/3 * 10 - 4/3 * 10 * 2
+            @test model1(Val(:R), 0, 0, 0, 0, 10, 2, 0) == 2 / 3 * 10 - 4 / 3 * 10 * 2
             @test model1(Val(:F), 0, 0, 0, 0, 10, 2, 0) == -1 * 2 + 1 * 10 * 2
 
             @test model2(Val(:R), 0, 0, 0, 0, 10, 2, 0) == 1 * 10 - 1 * 10 * 2
             @test model2(Val(:F), 0, 0, 0, 0, 10, 2, 0) == -2 * 2 + 2 * 10 * 2
-
         end
 
         @testset "use helper functions" begin
-
             using Oceananigans.Units
 
             # NPZD model
@@ -98,43 +89,48 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
             helper_functions = "../examples/NPZD_functions.jl"
 
             parameters = (
-                μ₀ = 0.6989/day,
-                kₙ = 2.3868,
-                lᵖⁿ = 0.066/day,
-                lᶻⁿ = 0.0102/day,
-                lᵖᵈ = 0.0101/day,
-                gₘₐₓ = 2.1522/day,
-                kₚ = 0.5573,
-                β = 0.9116,
-                lᶻᵈ = 0.3395/day,
-                rᵈⁿ = 0.1213/day,
-                α = 0.1953/day,
+                μ₀=0.6989 / day,
+                kₙ=2.3868,
+                lᵖⁿ=0.066 / day,
+                lᶻⁿ=0.0102 / day,
+                lᵖᵈ=0.0101 / day,
+                gₘₐₓ=2.1522 / day,
+                kₚ=0.5573,
+                β=0.9116,
+                lᶻᵈ=0.3395 / day,
+                rᵈⁿ=0.1213 / day,
+                α=0.1953 / day,
             )
             aux_field_vars = [:PAR]
 
             tracers = Dict(
-                "N" => :(linear_loss(P, lᵖⁿ)
-                + linear_loss(Z, lᶻⁿ)
-                + remineralization(D, rᵈⁿ)
-                - photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)),
-
-                "D" => :(linear_loss(P, lᵖᵈ)
-                + predation_assimilation_loss(P, Z, β, gₘₐₓ, kₚ)
-                + quadratic_loss(Z, lᶻᵈ)
-                - remineralization(D, rᵈⁿ)),
-
-                "P" => :(photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)
-                - predation_loss(P, Z, gₘₐₓ, kₚ)
-                - linear_loss(P, lᵖⁿ)
-                - linear_loss(P, lᵖᵈ)),
-
-                "Z" => :(predation_gain(P, Z, β, gₘₐₓ, kₚ)
-                - linear_loss(Z, lᶻⁿ)
-                - quadratic_loss(Z, lᶻᵈ))
+                "N" => :(
+                    linear_loss(P, lᵖⁿ) + linear_loss(Z, lᶻⁿ) + remineralization(D, rᵈⁿ) -
+                    photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)
+                ),
+                "D" => :(
+                    linear_loss(P, lᵖᵈ) +
+                    predation_assimilation_loss(P, Z, β, gₘₐₓ, kₚ) +
+                    quadratic_loss(Z, lᶻᵈ) - remineralization(D, rᵈⁿ)
+                ),
+                "P" => :(
+                    photosynthetic_growth(N, P, PAR, μ₀, kₙ, α) -
+                    predation_loss(P, Z, gₘₐₓ, kₚ) - linear_loss(P, lᵖⁿ) -
+                    linear_loss(P, lᵖᵈ)
+                ),
+                "Z" => :(
+                    predation_gain(P, Z, β, gₘₐₓ, kₚ) - linear_loss(Z, lᶻⁿ) -
+                    quadratic_loss(Z, lᶻᵈ)
+                ),
             )
 
             NPZD = create_bgc_struct(:NPZD, parameters)
-            add_bgc_methods(NPZD, tracers, auxiliary_fields=aux_field_vars, helper_functions=helper_functions)
+            add_bgc_methods(
+                NPZD,
+                tracers;
+                auxiliary_fields=aux_field_vars,
+                helper_functions=helper_functions,
+            )
             model = NPZD()
 
             Z = 0.05
@@ -143,13 +139,18 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
             D = 1
             PAR = 1
 
-            @test isapprox(model(Val(:N), 0, 0, 0, 0, Z,P,N,D,PAR), 1.4012422280828442e-6)
-            @test isapprox(model(Val(:D), 0, 0, 0, 0, Z,P,N,D,PAR), -1.3929072700024781e-6)
-            @test isapprox(model(Val(:P), 0, 0, 0, 0, Z,P,N,D,PAR), 7.025867302989598e-9)
-            @test isapprox(model(Val(:Z), 0, 0, 0, 0, Z,P,N,D,PAR), -1.5360825383355622e-8)
-
+            @test isapprox(
+                model(Val(:N), 0, 0, 0, 0, Z, P, N, D, PAR), 1.4012422280828442e-6
+            )
+            @test isapprox(
+                model(Val(:D), 0, 0, 0, 0, Z, P, N, D, PAR), -1.3929072700024781e-6
+            )
+            @test isapprox(
+                model(Val(:P), 0, 0, 0, 0, Z, P, N, D, PAR), 7.025867302989598e-9
+            )
+            @test isapprox(
+                model(Val(:Z), 0, 0, 0, 0, Z, P, N, D, PAR), -1.5360825383355622e-8
+            )
         end
-
     end
-
 end

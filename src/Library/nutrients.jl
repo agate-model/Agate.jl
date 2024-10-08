@@ -17,9 +17,8 @@ Note that sometimes this formulation is also used for Predation.
 
 "
 function monod_limitation(R, kᵣ)
-    R / (kᵣ + R)
+    return R / (kᵣ + R)
 end
 
-export
-    monod_limitation
+export monod_limitation
 end # module

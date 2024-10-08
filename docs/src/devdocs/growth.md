@@ -5,7 +5,7 @@
 ```math
 PC_j = PC_j^{max} \cdot \gamma^{nut}_j \cdot \gamma^{light}_j \cdot f^{temp}_j \cdot \gamma^{CO2}_j
 ```
-   
+
 ```@docs
 Agate.default_PCⱼ(PCⱼᵐᵃˣ, γⱼⁿᵘᵗ,  γⱼˡⁱᵍʰᵗ, fⱼᵗᵉᵐᵖ,  γⱼᶜᵒ²)
 ```

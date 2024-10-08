@@ -17,7 +17,7 @@ nⱼˡⁱᵍʰᵗ = light penalty term of plankton j
 
 "
 function γⱼˡⁱᵍʰᵗ(I, kⱼˢᵃᵗ, kⱼⁱⁿʰ, nⱼˡⁱᵍʰᵗ)
-    (1 - ℯ^(kⱼˢᵃᵗ*I)) * ℯ^kⱼⁱⁿʰ * nⱼˡⁱᵍʰᵗ
+    return (1 - ℯ^(kⱼˢᵃᵗ * I)) * ℯ^kⱼⁱⁿʰ * nⱼˡⁱᵍʰᵗ
 end
 
 "
@@ -32,10 +32,9 @@ PAR = Photosynthetic Active Radiation
 
 "
 function smith_light_limitation(PAR, α, μ₀)
-    α * PAR / sqrt(μ₀ ^ 2 + α ^ 2 * PAR ^ 2)
+    return α * PAR / sqrt(μ₀^2 + α^2 * PAR^2)
 end
 
-export
-    γⱼˡⁱᵍʰᵗ
-    smith_light_limitation
+export γⱼˡⁱᵍʰᵗ
+smith_light_limitation
 end # module
