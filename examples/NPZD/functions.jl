@@ -6,15 +6,17 @@ smith_light_limitation(PAR, α, μ₀) = α * PAR / sqrt(μ₀^2 + α^2 * PAR^2)
 
 remineralization(D, r) = r * D
 
-photosynthetic_growth(N, P, PAR, μ₀, kₙ, α) =
-    μ₀ * menden_limitation(N, kₙ) * smith_light_limitation(PAR, α, μ₀) * P
+function photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)
+    return μ₀ * menden_limitation(N, kₙ) * smith_light_limitation(PAR, α, μ₀) * P
+end
 
 predation_loss(P, Z, gₘₐₓ, kₚ) = gₘₐₓ * menden_limitation(P^2, kₚ^2) * Z
 
 predation_gain(P, Z, β, gₘₐₓ, kₚ) = β * gₘₐₓ * menden_limitation(P^2, kₚ^2) * Z
 
-predation_assimilation_loss(P, Z, β, gₘₐₓ, kₚ) =
-    (1 - β) * gₘₐₓ * menden_limitation(P^2, kₚ^2) * Z
+function predation_assimilation_loss(P, Z, β, gₘₐₓ, kₚ)
+    return (1 - β) * gₘₐₓ * menden_limitation(P^2, kₚ^2) * Z
+end
 
 linear_loss(P, l) = l * P
 

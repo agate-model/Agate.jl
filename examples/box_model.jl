@@ -15,14 +15,14 @@ model = NPZD()
 # Run box model
 # ==================================================
 
-init_conditions = (N = 7.0, P = 0.01, Z = 0.05, D = 0.0)
+init_conditions = (N=7.0, P=0.01, Z=0.05, D=0.0)
 timeseries = run_box_model(model, init_conditions)
 
 # ==================================================
 # Plotting
 # ==================================================
 
-p = plot(timeseries.P, label = "P")
-plot!(p, timeseries.Z, label = "Z")
-plot!(p, timeseries.D, label = "D")
+p = plot(timeseries.P; label="P")
+plot!(p, timeseries.Z; label="Z")
+plot!(p, timeseries.D; label="D")
 savefig(p, "NPZD_box_oceananigans.png")

@@ -15,7 +15,6 @@ export create_box_model, run_box_model
 
 const year = years = 365day
 
-
 """
     create_box_model(bgc_model, init_conditions, PAR_f) -> OceanBioME.BoxModel
 
@@ -28,14 +27,12 @@ Create an OceanBioME.BoxModel object and set initial values.
 - `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.PAR_box``)
 """
 function create_box_model(bgc_model, init_conditions; PAR_f=PAR_box)
-
     grid = BoxModelGrid() # 1x1x1 grid
-    clock = Clock(time = zero(grid))
+    clock = Clock(; time=zero(grid))
     PAR = FunctionField{Center,Center,Center}(PAR_f, grid; clock)
 
     biogeochemistry = Biogeochemistry(
-        bgc_model,
-        light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR),
+        bgc_model; light_attenuation=PrescribedPhotosyntheticallyActiveRadiation(PAR)
     )
 
     model = BoxModel(; biogeochemistry, clock)
@@ -43,7 +40,6 @@ function create_box_model(bgc_model, init_conditions; PAR_f=PAR_box)
 
     return model
 end
-
 
 """
     run_box_model(bgc_model, init_conditions; kwargs...) -> NamedTuple
@@ -66,22 +62,21 @@ Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, .
 function run_box_model(
     bgc_model,
     init_conditions;
-    Δt = 5minutes,
-    stop_time = 3years,
-    save_interval = 1day,
-    filename = "box.jld2",
-    overwrite = true,
+    Δt=5minutes,
+    stop_time=3years,
+    save_interval=1day,
+    filename="box.jld2",
+    overwrite=true,
 )
-
     model = create_box_model(bgc_model, init_conditions)
 
-    simulation = Simulation(model; Δt = Δt, stop_time = stop_time)
+    simulation = Simulation(model; Δt=Δt, stop_time=stop_time)
     simulation.output_writers[:fields] = JLD2OutputWriter(
         model,
         model.fields;
-        filename = filename,
-        schedule = TimeInterval(save_interval),
-        overwrite_existing = overwrite,
+        filename=filename,
+        schedule=TimeInterval(save_interval),
+        overwrite_existing=overwrite,
     )
     run!(simulation)
 
@@ -92,7 +87,6 @@ function run_box_model(
 
     return timeseries
 end
-
 
 """
     set!(model::BoxModel, init_conditions) -> nothing
