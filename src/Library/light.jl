@@ -10,25 +10,18 @@ using Oceananigans.Units
 const year = years = 365day
 
 """
-    PAR⁰(t) -> Float
+    cyclical_PAR(t, z) -> Float
 
-Time-dependent surface-level PAR.
+Time-dependent cyclical PAR at depth z (suitable for use with box models).
 """
-function PAR⁰(t)
-    return 60 *
-           (1 - cos((t + 15days) * 2π / year)) *
-           (1 / (1 + 0.2 * exp(-((mod(t, year) - 200days) / 50days)^2))) + 2
+function cyclical_PAR(t; z=-10)
+    PAR⁰ =
+        60 *
+        (1 - cos((t + 15days) * 2π / year)) *
+        (1 / (1 + 0.2 * exp(-((mod(t, year) - 200days) / 50days)^2))) + 2
+    return PAR⁰ * exp(0.2z)
 end
 
-"""
-    PAR_box(t, z) -> Float
-
-Time-dependent PAR at depth z.
-"""
-function PAR_box(t; z=-10)
-    return PAR⁰(t) * exp(0.2z)
-end
-
-export PAR_box
+export cyclical_PAR
 
 end # module

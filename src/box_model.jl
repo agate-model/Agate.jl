@@ -24,9 +24,9 @@ Create an OceanBioME.BoxModel object and set initial values.
 - `bgc_model`: biogeochemistry model, a subtype of AbstractContinuousFormBiogeochemistry,
     e.g., returned by `Agate.create_bgc_struct()`
 - `init_conditions`: NamedTuple of initial values
-- `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.PAR_box``)
+- `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.cyclical_PAR`)
 """
-function create_box_model(bgc_model, init_conditions; PAR_f=PAR_box)
+function create_box_model(bgc_model, init_conditions; PAR_f=cyclical_PAR)
     grid = BoxModelGrid() # 1x1x1 grid
     clock = Clock(; time=zero(grid))
     PAR = FunctionField{Center,Center,Center}(PAR_f, grid; clock)

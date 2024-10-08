@@ -26,7 +26,7 @@ function model_ODEs(du, u, p, t)
 
     # NOTE: in more complex examples there might be other auxiliary fields that should be
     # calculated here and passed to the function below
-    PAR = PAR_box(t)
+    PAR = cyclical_PAR(t)
 
     for (i, tracer) in enumerate(tracers)
         du[i] = model(Val(tracer), 0, 0, 0, t, u..., PAR)
