@@ -1,13 +1,16 @@
-# Agate.jl &middot; [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/agate-model/Agate.jl/blob/main/LICENSE) [![Documentation](https://img.shields.io/badge/docs-dev-blue)](https://agate-model.github.io/Agate.jl/dev/) [![Build Status](https://github.com/agate-model/AGATE.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/agate-model/Agate.jl/actions/workflows/CI.yml?query=branch%3Amain) 
+# Agate.jl
 
-## Aquatic Gcm-Agnostic Tunable Ecosystems 
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/agate-model/Agate.jl/blob/main/LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-dev-blue)](https://agate-model.github.io/Agate.jl/dev/)
+[![Build Status](https://github.com/agate-model/AGATE.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/agate-model/Agate.jl/actions/workflows/CI.yml?query=branch%3Amain)
+
+## Aquatic Gcm-Agnostic Tunable Ecosystems
 
 A Julia library to build flexible and composable aquatic ecosystems.
 
-
 ## Documentation
 
-- [**DEV**](https://agate-model.github.io/Agate.jl/dev/) &mdash; *documentation of the in-development version.*
+  - [**DEV**](https://agate-model.github.io/Agate.jl/dev/) — *documentation of the in-development version.*
 
 ## Getting started
 
@@ -28,7 +31,7 @@ julia --project -e 'using Pkg; Pkg.instantiate()'
 
 Which is equivalent to running the below in the Julia REPL (`]` enters Julia package manager mode):
 
-```julia
+```Julia
 ]
 activate Agate
 instantiate
@@ -42,16 +45,16 @@ julia --project=.
 
 To use the package in a Jupyter notebook run:
 
-```julia
+```Julia
 using Pkg
 Pkg.activate("<path to Agate.jl repo>")
 ```
 
-## Development 
+## Development
 
 We follow the [Blue](https://github.com/JuliaDiff/BlueStyle) style guide for Julia. To automatically format all Julia files in the project use the JuliaFormatter, e.g.:
 
-```julia
+```Julia
 using JuliaFormatter
 
 format(".")
@@ -59,12 +62,12 @@ format(".")
 
 To update project dependencies:
 
-```julia
+```Julia
 ] add <package>
 ```
 
 To run tests:
 
-```julia
+```Julia
 ] test
 ```
