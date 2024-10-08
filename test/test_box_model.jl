@@ -1,4 +1,5 @@
 using Agate
+using Agate.Light
 using OceanBioME
 using Oceananigans
 using Oceananigans: Clock
@@ -6,7 +7,6 @@ using Oceananigans.Units
 using Oceananigans.Fields: FunctionField
 
 const year = years = 365day
-const z = -10 # specify the nominal depth of the box for the PAR profile
 
 @testset "NPZD box model" begin
 
@@ -22,16 +22,9 @@ const z = -10 # specify the nominal depth of the box for the PAR profile
     # ==================================================
     # OceanBioME NPZD model
     # ==================================================
-
-    PAR⁰(t) =
-        60 *
-        (1 - cos((t + 15days) * 2π / year)) *
-        (1 / (1 + 0.2 * exp(-((mod(t, year) - 200days) / 50days)^2))) + 2
-    PAR_f(t) = PAR⁰(t) * exp(0.2z) # Modify the PAR based on the nominal depth and exponential decay
-
     grid = BoxModelGrid()
     clock = Clock(time = zero(grid))
-    PAR = FunctionField{Center,Center,Center}(PAR_f, grid; clock)
+    PAR = FunctionField{Center,Center,Center}(PAR_box, grid; clock)
 
     biogeochemistry = NutrientPhytoplanktonZooplanktonDetritus(;
         grid,

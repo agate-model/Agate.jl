@@ -1,3 +1,7 @@
+include("Library/light.jl")
+
+using .Light
+
 using OceanBioME
 using Oceananigans
 using Oceananigans: Clock
@@ -11,28 +15,19 @@ export create_box_model, run_box_model
 
 const year = years = 365day
 
-# do we ever want to change this constant?
-const z = -10 # specify the nominal depth of the box for the PAR profile
-
-# should this be defined somewhere else in the library?
-PAR⁰(t) =
-    60 *
-    (1 - cos((t + 15days) * 2π / year)) *
-    (1 / (1 + 0.2 * exp(-((mod(t, year) - 200days) / 50days)^2))) + 2
-PAR_f(t) = PAR⁰(t) * exp(0.2z) # Modify the PAR based on the nominal depth and exponential decay
-
 
 """
-    create_box_model(bgc_model, init_conditions) -> OceanBioME.BoxModel
+    create_box_model(bgc_model, init_conditions, PAR_f) -> OceanBioME.BoxModel
 
 Create an OceanBioME.BoxModel object and set initial values.
 
 # Arguments
 - `bgc_model`: biogeochemistry model, a subtype of AbstractContinuousFormBiogeochemistry,
     e.g., returned by `Agate.create_bgc_struct()`
-- init_conditions: NamedTuple of initial values
+- `init_conditions`: NamedTuple of initial values
+- `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.PAR_box``)
 """
-function create_box_model(bgc_model, init_conditions)
+function create_box_model(bgc_model, init_conditions; PAR_f=PAR_box)
 
     grid = BoxModelGrid() # 1x1x1 grid
     clock = Clock(time = zero(grid))
@@ -59,7 +54,7 @@ Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, .
 # Arguments
 - `bgc_model`: biogeochemistry model, a subtype of AbstractContinuousFormBiogeochemistry
     (e.g., returned by `Agate.create_bgc_struct`)
-- init_conditions: NamedTuple of initial values
+- `init_conditions`: NamedTuple of initial values
 
 # Keywords
 - Δt: simulation step time
@@ -106,7 +101,7 @@ Set the `BoxModel` initial conditions (Field values).
 
 # Arguments
 - `model` - the model to set the arguments for
-- init_conditions: NamedTuple of initial values
+- `init_conditions`: NamedTuple of initial values
 """
 function set!(model::BoxModel, init_conditions::NamedTuple)
     for (fldname, value) in pairs(init_conditions)
