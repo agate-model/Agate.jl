@@ -3,6 +3,7 @@ uuid = "41889b7c-c35c-4f16-abd7-94b299d9fd29"
 version = "0.0.1"
 
 [deps]
+JuliaFormatter = "98e50ef6-434e-11e9-1051-2b60c6c9e899"
 Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
 
 [compat]
