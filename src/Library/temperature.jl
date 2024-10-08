@@ -15,9 +15,8 @@ T = Temperature (in degree C or K)
 
 "
 function Q₁₀_temperature(Q₁₀, T)
-    Q₁₀ ^ (T / 10)
+    return Q₁₀^(T / 10)
 end
 
-export 
-    Q₁₀_temperature
+export Q₁₀_temperature
 end # module

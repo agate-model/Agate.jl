@@ -7,11 +7,10 @@ module Dynamic
 
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 
-import Oceananigans.Biogeochemistry: required_biogeochemical_tracers,
-                                     required_biogeochemical_auxiliary_fields
+import Oceananigans.Biogeochemistry:
+    required_biogeochemical_tracers, required_biogeochemical_auxiliary_fields
 
 export create_bgc_struct, add_bgc_methods
-
 
 """
     create_bgc_type(struct_name, parameters) -> DataType
@@ -30,10 +29,9 @@ reserved for coordinates.
 create_bgc_struct(:LV, (α=2/3, β=4/3,  δ=1, γ=1))
 """
 function create_bgc_struct(struct_name, parameters)
-
     fields = []
-    for (k,v) in pairs(parameters)
-        if k in [:x,:y,:z,:t]
+    for (k, v) in pairs(parameters)
+        if k in [:x, :y, :z, :t]
             throw(DomainError(k, "field names in parameters can't be any of [:x,:y,:z,:t]"))
         end
         exp = :($k = $v)
@@ -47,7 +45,6 @@ function create_bgc_struct(struct_name, parameters)
     end
     return eval(exp)
 end
-
 
 """
     add_bgc_methods(bgc_type, tracers, auxiliary_fields=[], helper_functions=()) -> DataType
@@ -87,7 +84,6 @@ add_bgc_methods(LV, tracers)
 ```
 """
 function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[], helper_functions="")
-
     if helper_functions != ""
         include(helper_functions)
     end
@@ -97,7 +93,7 @@ function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[], helper_function
     # use collect here in case tracers are NamedTuple rather than Dict
     tracer_vars = Symbol.(collect(keys(tracers)))
     aux_field_vars = Symbol.(auxiliary_fields)
-    all_state_vars = vcat(base_vars , tracer_vars, aux_field_vars)
+    all_state_vars = vcat(base_vars, tracer_vars, aux_field_vars)
 
     eval(:(required_biogeochemical_tracers(::$(bgc_type)) = $(tracer_vars...,)))
     eval(:(required_biogeochemical_auxiliary_fields(::$(bgc_type)) = $(aux_field_vars...,)))
@@ -105,7 +101,7 @@ function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[], helper_function
     params = fieldnames(bgc_type)
     method_vars = []
     for param in params
-        if param in [:x,:y,:z,:t]
+        if param in [:x, :y, :z, :t]
             throw(DomainError(field, "$bgc_type field names can't be any of [:x,:y,:z,:t]"))
         end
         # the expressions are evaluated inside the tracer methods below, which take in a
@@ -130,7 +126,6 @@ function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[], helper_function
 
     return bgc_type
 end
-
 
 """
     parse_expression(f_expr) -> Vector
@@ -158,7 +153,6 @@ function parse_expression(f_expr)
 
     return symbols
 end
-
 
 """
     expression_check(params, f_expr) -> nothing
