@@ -89,19 +89,8 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
             using Oceananigans.Units
 
             # NPZD model
+            include("../examples/NPZD/model.jl")
 
-            # get parameter and tracer definitions from examples
-            include("../examples/NPZD/model_definition.jl")
-
-            helper_functions = "../examples/NPZD/functions.jl"
-
-            NPZD = create_bgc_struct(:NPZD, parameters)
-            add_bgc_methods(
-                NPZD,
-                tracers,
-                auxiliary_fields=aux_field_vars,
-                helper_functions=helper_functions
-            )
             model = NPZD()
 
             Z = 0.05

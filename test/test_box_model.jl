@@ -14,17 +14,7 @@ const z = -10 # specify the nominal depth of the box for the PAR profile
     # Agate NPZD model
     # ==================================================
 
-    # get parameter and tracer definitions from examples
-    # the values here are the same as OceanBioME defaults
-    include("../examples/NPZD/model_definition.jl")
-
-    NPZD = create_bgc_struct(:NPZD, parameters)
-    add_bgc_methods(
-        NPZD,
-        tracers,
-        auxiliary_fields=aux_field_vars,
-        helper_functions="../examples/NPZD/functions.jl"
-    )
+    include("../examples/NPZD/model.jl")
     npzd_model = NPZD()
     init_conditions = (N = 7.0, P = 0.01, Z = 0.05, D=0.0)
     agate_box_model = create_box_model(npzd_model, init_conditions)

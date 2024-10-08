@@ -21,27 +21,19 @@ PAR_f(t) = PAR⁰(t) * exp(0.2z)
 # Define BGC model (NPZD)
 # ==================================================
 
-# NPZD `parameters` and `tracers` are defined here
-include("../examples/NPZD/model_definition.jl")
-
-BGC = create_bgc_struct(:BGC, parameters)
-add_bgc_methods(
-    BGC,
-    tracers,
-    # we are only expecting PAR as an auxiliary field
-    auxiliary_fields=[:PAR,],
-    helper_functions="NPZD/functions.jl"
-    )
-model = BGC()
+include("NPZD/model.jl")
+model = NPZD()
 
 # ==================================================
 # DifferentialEquations
 # ==================================================
 
-function model_DE(du, u, p, t)
+function model_ODEs(du, u, p, t)
 
-    model = BGC(p...)
+    model = NPZD(p...)
 
+    # NOTE: in more complex examples there might be other auxiliary fields that should be
+    # calculated here and passed to the function below
     PAR = PAR_f(t)
 
     for (i, tracer) in enumerate(tracers)
@@ -56,11 +48,12 @@ init_conditions = (N = 7.0, P = 0.01, Z = 0.05, D=0.0)
 tracers = required_biogeochemical_tracers(model)
 u0 = [eval(:(init_conditions.$t)) for t in tracers]
 
+# get model parameters
 p = [getfield(model,f) for f in fieldnames(typeof(model))]
 
 tspan = (0.0, 3years)
 
-prob = ODEProblem(model_DE, u0, tspan, p)
+prob = ODEProblem(model_ODEs, u0, tspan, p)
 
 sol = solve(prob, Tsit5())
 
