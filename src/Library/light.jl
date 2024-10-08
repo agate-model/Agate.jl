@@ -1,40 +1,27 @@
 """
-Modules related to phytoplankton light uptake
+Modules related to photosynthetically available radiation (PAR)
 
 """
+
 module Light
 
-"
-    γⱼˡⁱᵍʰᵗ = (1 - ℯ^(kⱼˢᵃᵗ*I)) * ℯ^kⱼⁱⁿʰ * nⱼˡⁱᵍʰᵗ
+using Oceananigans.Units
 
-Light limitation for plankton j (Default MITgcm-DARWIN formulation). 
+const year = years = 365day
 
-Where: 
-kⱼˢᵃᵗ = half saturation constant of light saturation of plankton j,
-I = irradiance,
-kⱼⁱⁿʰ = half saturation constant of light inhibition of plankton j,
-nⱼˡⁱᵍʰᵗ = light penalty term of plankton j
+"""
+    cyclical_PAR(t, z) -> Float
 
-"
-function γⱼˡⁱᵍʰᵗ(I, kⱼˢᵃᵗ, kⱼⁱⁿʰ, nⱼˡⁱᵍʰᵗ)
-    return (1 - ℯ^(kⱼˢᵃᵗ * I)) * ℯ^kⱼⁱⁿʰ * nⱼˡⁱᵍʰᵗ
+Time-dependent cyclical PAR at depth z (suitable for use with box models).
+"""
+function cyclical_PAR(t; z=-10)
+    PAR⁰ =
+        60 *
+        (1 - cos((t + 15days) * 2π / year)) *
+        (1 / (1 + 0.2 * exp(-((mod(t, year) - 200days) / 50days)^2))) + 2
+    return PAR⁰ * exp(0.2z)
 end
 
-"
-    α * PAR / sqrt(μ₀ ^ 2 + α ^ 2 * PAR ^ 2)
+export cyclical_PAR
 
-Smith 1936 formulation of light limitation (also see Evans and Parslow, 1985).
-
-Where: 
-α = Initial photosynthetic slope
-PAR = Photosynthetic Active Radiation
-μ₀ = Maximum growth rate at T = 0 °C (this seems weird?, from Kuhn 2015)
-
-"
-function smith_light_limitation(PAR, α, μ₀)
-    return α * PAR / sqrt(μ₀^2 + α^2 * PAR^2)
-end
-
-export γⱼˡⁱᵍʰᵗ
-smith_light_limitation
 end # module

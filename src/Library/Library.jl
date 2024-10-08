@@ -10,6 +10,7 @@ include("growth.jl")
 include("light.jl")
 include("mortality.jl")
 include("nutrients.jl")
+include("photosynthesis.jl")
 include("predation.jl")
 include("remineralization.jl")
 include("temperature.jl")
@@ -20,6 +21,7 @@ using .Growth
 using .Light
 using .Mortality
 using .Nutrients
+using .Photosynthesis
 using .Predation
 using .Remineralization
 using .Temperature
