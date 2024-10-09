@@ -24,7 +24,7 @@ const year = years = 365day
     # ==================================================
     grid = BoxModelGrid()
     clock = Clock(; time=zero(grid))
-    PAR = FunctionField{Center,Center,Center}(cyclical_PAR, grid; clock)
+    PAR = FunctionField{Center,Center,Center}(cyclical_PAR, grid; clock, parameters=[-10])
 
     biogeochemistry = NutrientPhytoplanktonZooplanktonDetritus(;
         grid,

@@ -28,14 +28,13 @@ Create an OceanBioME.BoxModel object and set initial values.
 # Keywords
 - `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.cyclical_PAR`)
 """
-function create_box_model(bgc_model, init_conditions; PAR_f=cyclical_PAR)
+function create_box_model(bgc_model, init_conditions; PAR_f=cyclical_PAR, parameters=[-10])
     grid = BoxModelGrid() # 1x1x1 grid
     clock = Clock(; time=zero(grid))
-
     if isnothing(PAR_f)
         light_attenuation = nothing
     else
-        PAR = FunctionField{Center,Center,Center}(PAR_f, grid; clock)
+        PAR = FunctionField{Center,Center,Center}(PAR_f, grid; clock, parameters)
         light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
     end
 
@@ -60,6 +59,7 @@ Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, .
 
 # Keywords
 - `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.cyclical_PAR`)
+- `PAR_parameters`: any addditional parameters of the PAR function (e.g., depth)
 - `Δt``: simulation step time
 - `stop_time`: until when to run the simulation
 - `save_interval`: interval at which to save simulation results
@@ -70,13 +70,16 @@ function run_box_model(
     bgc_model,
     init_conditions;
     PAR_f=cyclical_PAR,
+    PAR_parameters=[-10],
     Δt=5minutes,
     stop_time=3years,
     save_interval=1day,
     filename="box.jld2",
     overwrite=true,
 )
-    model = create_box_model(bgc_model, init_conditions; PAR_f=PAR_f)
+    model = create_box_model(
+        bgc_model, init_conditions; PAR_f=PAR_f, parameters=PAR_parameters
+    )
 
     simulation = Simulation(model; Δt=Δt, stop_time=stop_time)
     simulation.output_writers[:fields] = JLD2OutputWriter(
