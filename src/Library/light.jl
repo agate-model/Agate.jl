@@ -12,10 +12,9 @@ const year = years = 365day
 """
     cyclical_PAR(t, parameters) -> Float
 
-Time-dependent cyclical PAR at depth defined in `parameters` (suitable for use with box models).
+Time-dependent cyclical PAR at depth `z` (suitable for use with box models).
 """
-function cyclical_PAR(t, parameters=[-10])
-    z = parameters[1]
+function cyclical_PAR(t, z=-10)
     PAR⁰ =
         60 *
         (1 - cos((t + 15days) * 2π / year)) *
