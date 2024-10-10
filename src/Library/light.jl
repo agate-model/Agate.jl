@@ -25,4 +25,4 @@ end
 
 export cyclical_PAR
 
-end # modulePAR
+end # module

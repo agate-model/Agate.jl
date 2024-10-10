@@ -16,7 +16,7 @@ export create_box_model, run_box_model
 const year = years = 365day
 
 """
-    create_box_model(bgc_model, init_conditions, PAR_f) -> OceanBioME.BoxModel
+    create_box_model(bgc_model, init_conditions, PAR_f, parameters) -> OceanBioME.BoxModel
 
 Create an OceanBioME.BoxModel object and set initial values.
 
@@ -27,6 +27,7 @@ Create an OceanBioME.BoxModel object and set initial values.
 
 # Keywords
 - `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.cyclical_PAR`)
+- `parameters`: any fixed parameters of the PAR function (e.g., depth) passed as an Array
 """
 function create_box_model(bgc_model, init_conditions; PAR_f=cyclical_PAR, parameters=[-10])
     grid = BoxModelGrid() # 1x1x1 grid
@@ -59,11 +60,11 @@ Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, .
 
 # Keywords
 - `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.cyclical_PAR`)
-- `PAR_parameters`: any addditional parameters of the PAR function (e.g., depth)
+- `PAR_parameters`: any fixed parameters of the PAR function (e.g., depth) passed as an Array
 - `Δt``: simulation step time
 - `stop_time`: until when to run the simulation
 - `save_interval`: interval at which to save simulation results
-- `filename`: name of file to save results to
+- `filename`: name of file to save simulation results to
 - `overwrite`: whether to overwrite existing files
 """
 function run_box_model(
@@ -100,12 +101,12 @@ function run_box_model(
 end
 
 """
-    set!(model::BoxModel, init_conditions) -> nothing
+    set!(model::BoxModel, init_conditions::NamedTuple)
 
 Set the `BoxModel` initial conditions (Field values).
 
 # Arguments
-- `model` - the model to set the arguments for
+- `model`: the model to set the arguments for
 - `init_conditions`: NamedTuple of initial values
 """
 function set!(model::BoxModel, init_conditions::NamedTuple)
