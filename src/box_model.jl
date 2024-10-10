@@ -16,7 +16,7 @@ export create_box_model, run_box_model
 const year = years = 365day
 
 """
-    create_box_model(bgc_model, init_conditions, PAR_f) -> OceanBioME.BoxModel
+    create_box_model(bgc_model, init_conditions, PAR_f, z) -> OceanBioME.BoxModel
 
 Create an OceanBioME.BoxModel object and set initial values.
 
@@ -24,16 +24,26 @@ Create an OceanBioME.BoxModel object and set initial values.
 - `bgc_model`: biogeochemistry model, a subtype of AbstractContinuousFormBiogeochemistry,
     e.g., returned by `Agate.create_bgc_struct()`
 - `init_conditions`: NamedTuple of initial values
+
+# Keywords
 - `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.cyclical_PAR`)
+- `PAR_parameters`: any fixed parameters of the PAR function (e.g., depth)
 """
-function create_box_model(bgc_model, init_conditions; PAR_f=cyclical_PAR)
+function create_box_model(
+    bgc_model, init_conditions; PAR_f=cyclical_PAR, PAR_parameters=-10
+)
     grid = BoxModelGrid() # 1x1x1 grid
     clock = Clock(; time=zero(grid))
-    PAR = FunctionField{Center,Center,Center}(PAR_f, grid; clock)
+    if isnothing(PAR_f)
+        light_attenuation = nothing
+    else
+        PAR = FunctionField{Center,Center,Center}(
+            PAR_f, grid; clock, parameters=PAR_parameters
+        )
+        light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
+    end
 
-    biogeochemistry = Biogeochemistry(
-        bgc_model; light_attenuation=PrescribedPhotosyntheticallyActiveRadiation(PAR)
-    )
+    biogeochemistry = Biogeochemistry(bgc_model; light_attenuation=light_attenuation)
 
     model = BoxModel(; biogeochemistry, clock)
     set!(model, init_conditions)
@@ -53,22 +63,28 @@ Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, .
 - `init_conditions`: NamedTuple of initial values
 
 # Keywords
-- Δt: simulation step time
-- stop_time: until when to run the simulation
-- save_interval: interval at which to save simulation results
-- filename: name of file to save results to
-- overwrite: whether to overwrite existing files
+- `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.cyclical_PAR`)
+- `PAR_parameters`: any fixed parameters of the PAR function (e.g., depth)
+- `Δt``: simulation step time
+- `stop_time`: until when to run the simulation
+- `save_interval`: interval at which to save simulation results
+- `filename`: name of file to save simulation results to
+- `overwrite`: whether to overwrite existing files
 """
 function run_box_model(
     bgc_model,
     init_conditions;
+    PAR_f=cyclical_PAR,
+    PAR_parameters=-10,
     Δt=5minutes,
     stop_time=3years,
     save_interval=1day,
     filename="box.jld2",
     overwrite=true,
 )
-    model = create_box_model(bgc_model, init_conditions)
+    model = create_box_model(
+        bgc_model, init_conditions; PAR_f=PAR_f, PAR_parameters=PAR_parameters
+    )
 
     simulation = Simulation(model; Δt=Δt, stop_time=stop_time)
     simulation.output_writers[:fields] = JLD2OutputWriter(
@@ -89,12 +105,12 @@ function run_box_model(
 end
 
 """
-    set!(model::BoxModel, init_conditions) -> nothing
+    set!(model::BoxModel, init_conditions::NamedTuple)
 
 Set the `BoxModel` initial conditions (Field values).
 
 # Arguments
-- `model` - the model to set the arguments for
+- `model`: the model to set the arguments for
 - `init_conditions`: NamedTuple of initial values
 """
 function set!(model::BoxModel, init_conditions::NamedTuple)
