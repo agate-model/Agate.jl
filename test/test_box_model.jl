@@ -18,7 +18,9 @@ const year = years = 365day
         @test agate_box_model.biogeochemistry.light_attenuation.fields[1][1, 1, 1] ===
             0.5398701925529049
 
-        agate_box_model = create_box_model(npzd_model, init_conditions; PAR_parameters=-5)
+        agate_box_model = create_box_model(
+            npzd_model, init_conditions; PAR_parameters=(; z=-5)
+        )
         @test agate_box_model.biogeochemistry.light_attenuation.fields[1][1, 1, 1] ===
             1.4675193341432473
     end
@@ -35,7 +37,9 @@ const year = years = 365day
         # ==================================================
         grid = BoxModelGrid()
         clock = Clock(; time=zero(grid))
-        PAR = FunctionField{Center,Center,Center}(cyclical_PAR, grid; clock)
+        PAR = FunctionField{Center,Center,Center}(
+            cyclical_PAR, grid; clock, parameters=(; z=-10)
+        )
 
         biogeochemistry = NutrientPhytoplanktonZooplanktonDetritus(;
             grid,

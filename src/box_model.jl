@@ -16,7 +16,9 @@ export create_box_model, run_box_model
 const year = years = 365day
 
 """
-    create_box_model(bgc_model, init_conditions, PAR_f, z) -> OceanBioME.BoxModel
+    create_box_model(
+        bgc_model, init_conditions; PAR_f=cyclical_PAR, PAR_parameters=(; z=-10)
+    ) -> OceanBioME.BoxModel
 
 Create an OceanBioME.BoxModel object and set initial values.
 
@@ -27,10 +29,10 @@ Create an OceanBioME.BoxModel object and set initial values.
 
 # Keywords
 - `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.cyclical_PAR`)
-- `PAR_parameters`: any fixed parameters of the PAR function (e.g., depth)
+- `PAR_parameters`: any fixed parameters of the PAR function (e.g., depth `z`) passed as NamedTuple
 """
 function create_box_model(
-    bgc_model, init_conditions; PAR_f=cyclical_PAR, PAR_parameters=-10
+    bgc_model, init_conditions; PAR_f=cyclical_PAR, PAR_parameters=(; z=-10)
 )
     grid = BoxModelGrid() # 1x1x1 grid
     clock = Clock(; time=zero(grid))
@@ -64,7 +66,7 @@ Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, .
 
 # Keywords
 - `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.cyclical_PAR`)
-- `PAR_parameters`: any fixed parameters of the PAR function (e.g., depth)
+- `PAR_parameters`: any fixed parameters of the PAR function (e.g., depth `z`) passed as NamedTuple
 - `Δt``: simulation step time
 - `stop_time`: until when to run the simulation
 - `save_interval`: interval at which to save simulation results
@@ -75,7 +77,7 @@ function run_box_model(
     bgc_model,
     init_conditions;
     PAR_f=cyclical_PAR,
-    PAR_parameters=-10,
+    PAR_parameters=(; z=-10),
     Δt=5minutes,
     stop_time=3years,
     save_interval=1day,
