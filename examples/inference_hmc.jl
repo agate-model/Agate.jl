@@ -111,13 +111,17 @@ posterior_samples = sample(chain[[:μ₀, :kₙ, :lᵖᵈ, :α]], 300; replace=f
 for p in eachrow(Array(posterior_samples))
     sol_p = solve(prob, Tsit5(); p=p, saveat=Δt)
     # Z and P
-    plot!(dataplot, [sol_p.u[i][1] for i in range(1, length(sol))]; alpha=0.1, color="#BBBBBB")
-    plot!(dataplot, [sol_p.u[i][2] for i in range(1, length(sol))]; alpha=0.1, color="#BBBBBB")
+    plot!(
+        dataplot, [sol_p.u[i][1] for i in range(1, length(sol))]; alpha=0.1, color="#BBBBBB"
+    )
+    plot!(
+        dataplot, [sol_p.u[i][2] for i in range(1, length(sol))]; alpha=0.1, color="#BBBBBB"
+    )
 end
 
 # add original simulation and generated observations to plot (Z and P)
-plot!(dataplot, [sol.u[i][1] for i in range(1, length(sol))], linewidth=1; label="Z")
-plot!(dataplot, [sol.u[i][2] for i in range(1, length(sol))], linewidth=1; label="P")
+plot!(dataplot, [sol.u[i][1] for i in range(1, length(sol))]; linewidth=1, label="Z")
+plot!(dataplot, [sol.u[i][2] for i in range(1, length(sol))]; linewidth=1, label="P")
 scatter!(dataplot, data[1, :]; color=1, alpha=0.3, label="")
 scatter!(dataplot, data[2, :]; color=2, alpha=0.3, label="")
 
