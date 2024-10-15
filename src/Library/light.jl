@@ -19,7 +19,7 @@ function cyclical_PAR(t, parameters)
         60 *
         (1 - cos((t + 15days) * 2π / year)) *
         (1 / (1 + 0.2 * exp(-((mod(t, year) - 200days) / 50days)^2))) + 2
-    return PAR⁰ * exp(0.2parameters.z)
+    return PAR⁰ * exp(0.2 * parameters.z)
 end
 
 export cyclical_PAR
