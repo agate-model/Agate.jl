@@ -171,20 +171,39 @@ function summed_predation_gain(
 end
 
 #mortality
-linear_loss(P, l) = l * P
-quadratic_loss(P, l) = l * P^2
+linear_loss(P, linear_mortality) = linear_mortality * P
+quadratic_loss(P, quadratic_mortality) = quadratic_mortality * P^2
 #detritus
 remineralization(D, detritus_remineralization) = D * detritus_remineralization
 #sums
-net_linear_loss(P, l) = sum([linear_loss(P[i], l[i]) for i in eachindex(P)])
-net_quadratic_loss(P, l) = sum([quadratic_loss(P[i], l[i]) for i in eachindex(P)])
-function net_photosynthetic_growth(N, P, μ₀, kₙ)
-    return sum([photosynthetic_growth(N, P[i], μ₀[i], kₙ[i]) for i in eachindex(P)])
+function net_linear_loss(P, linear_mortality)
+    return sum([linear_loss(P[i], linear_mortality[i]) for i in eachindex(P)])
 end
-function net_predation_assimilation_loss(P, β, gₘₐₓ, kₚ, palat)
+function net_quadratic_loss(P, quadratic_mortality)
+    return sum([quadratic_loss(P[i], quadratic_mortality[i]) for i in eachindex(P)])
+end
+function net_photosynthetic_growth(N, P, maximum_growth_rate, nitrogen_half_saturation)
     return sum([
-        summed_predation_assimilation_loss(i, P, β[j, i], gₘₐₓ[j], kₚ[j], palat[j, i]) *
-        β[i] for i in eachindex(P)
+        photosynthetic_growth(N, P[i], maximum_growth_rate[i], nitrogen_half_saturation[i])
+        for i in eachindex(P)
+    ])
+end
+function net_predation_assimilation_loss(
+    P,
+    holling_half_saturation,
+    maximum_predation_rate,
+    assimilation_efficiency,
+    palatability,
+)
+    return sum([
+        summed_predation_assimilation_loss(
+            i,
+            P,
+            assimilation_efficiency[j, i],
+            maximum_predation_rate[j],
+            holling_half_saturation[j],
+            palatability[j, i],
+        ) * assimilation_efficiency[i] for i in eachindex(P)
     ])
 end
 #generic plankton
