@@ -1,6 +1,8 @@
 # phytoplankton growth
-menden_limitation(R, k) = R / (k + R)
-photosynthetic_growth(N, P, μ₀, kₙ) = μ₀ * menden_limitation(N, kₙ) * P
+menden_limitation(N, nitrogen_half_saturation) = N / (nitrogen_half_saturation + N)
+function photosynthetic_growth(N, P, maximum_growth_rate, nitrogen_half_saturation)
+    return maximum_growth_rate * menden_limitation(N, nitrogen_half_saturation) * P
+end
 # zooplankton growth
 holling_type_2(R, k) = R / (k + R)
 
