@@ -83,7 +83,7 @@ data = Array(sol) + 0.025 * randn(size(Array(sol)))
     α ~ truncated(Normal(0.1953 / day, 0.05 / day); lower=0, upper=0.3 / day)
 
     # observation noise
-    σ ~ truncated(Cauchy(0, 1), lower=0)
+    σ ~ truncated(Cauchy(0, 1); lower=0)
 
     # simulate model
     p = [μ₀, kₙ, lᵖᵈ, α]
