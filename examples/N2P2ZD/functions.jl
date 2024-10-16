@@ -178,18 +178,59 @@ quadratic_loss(P, quadratic_mortality) = quadratic_mortality * P^2
 #detritus
 remineralization(D, detritus_remineralization) = D * detritus_remineralization
 #sums
+"""
+Net loss of all plankton due to linear mortality.
+
+# Arguments
+- `P::Vector{Symbol}`: Vector which includes all plankton.
+- `linear_mortality::Vector{Float}`: Vector of all plankton linear mortality rates.
+
+"""
 function net_linear_loss(P, linear_mortality)
     return sum([linear_loss(P[i], linear_mortality[i]) for i in eachindex(P)])
 end
+"""
+Net loss of all plankton due to quadratic mortality.
+
+# Arguments
+- `P::Vector{Symbol}`: Vector which includes all plankton.
+- `linear_mortality::Vector{Float}`: Vector of all plankton quadratic mortality rates.
+
+"""
 function net_quadratic_loss(P, quadratic_mortality)
     return sum([quadratic_loss(P[i], quadratic_mortality[i]) for i in eachindex(P)])
 end
+"""
+Net photosynthetic growth of all plankton.
+
+# Arguments
+- `N::Symbol`: Nitrogen
+- `P::Vector{Symbol}`: Vector which includes all plankton.
+- `maximum_growth_rate::Vector{Float}`: Vector of all plankton maximum growth rates.
+- `nitrogen_half_saturation::Vector{Float}`: Vector of all plankton nitrogen half saturation constants.
+
+"""
 function net_photosynthetic_growth(N, P, maximum_growth_rate, nitrogen_half_saturation)
     return sum([
         photosynthetic_growth(N, P[i], maximum_growth_rate[i], nitrogen_half_saturation[i])
         for i in eachindex(P)
     ])
 end
+
+"""
+Net predator assimilation loss of all plankton.
+
+# Arguments
+- `P::Vector{Symbol}`: Vector which includes all plankton.
+- `holling_half_saturation::Vector{Float}`: Vector of all plankton maximum growth rates.
+- `maximum_predation_rate::Vector{Float}`: Vector of all plankton maximum predation rates.
+- `palatability::Matrix{Float}`: Matrix of all plankton palatabilities where:
+    each row is a predator and each column is a prey (palat[predator, prey]). 
+    For a non-predator [i,:]=0. 
+- `assimilation efficiency::Matrix{Float}`: Matrix of all plankton assimilation efficiencies where:
+    each row is a predator and each column is a prey (palat[predator, prey]). 
+    For a non-predator [i,:]=0. 
+"""
 function net_predation_assimilation_loss(
     P,
     holling_half_saturation,
@@ -210,6 +251,24 @@ function net_predation_assimilation_loss(
 end
 #generic plankton
 
+"""
+Wrapper function to estimate the rate at which plankton biomass changes over time.
+
+# Arguments
+- `plankton_index:Int`: The index of the plankton for which the rate of change is estimated
+- `N::Symbol`: Nitrogen
+- `P::Vector{Symbol}`: Vector which includes all plankton.
+- `linear_mortality::Vector{Float}`: Vector of all plankton linear mortality rates.
+- `maximum_growth_rate::Vector{Float}`: Vector of all plankton maximum growth rates.
+- `holling_half_saturation::Vector{Float}`: Vector of all plankton maximum growth rates.
+- `maximum_predation_rate::Vector{Float}`: Vector of all plankton maximum predation rates.
+- `assimilation efficiency::Matrix{Float}`: Matrix of all plankton assimilation efficiencies where:
+    each row is a predator and each column is a prey (palat[predator, prey]). 
+    For a non-predator [i,:]=0. 
+- `palatability::Matrix{Float}`: Matrix of all plankton palatabilities where:
+    each row is a predator and each column is a prey (palat[predator, prey]). 
+    For a non-predator [i,:]=0. 
+"""
 function plankton_dt(
     plankton_index,
     N,
