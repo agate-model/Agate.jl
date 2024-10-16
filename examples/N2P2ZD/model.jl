@@ -36,7 +36,7 @@ tracers = Dict(
     + net_quadratic_loss([P1, P2, Z1, Z2], linear_mortality),
     - remineralization(D, 
         detritus_remineralization_rate)),
-    "P1" => :(plankton_dt(o=1, N, [P1, P2, Z1, Z2],  
+    "P1" => :(plankton_dt(1, N, [P1, P2, Z1, Z2],  
         maximum_growth_rate, 
         nitrogen_half_saturation,
         maximum_predation_rate, 
