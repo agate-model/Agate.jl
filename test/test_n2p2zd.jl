@@ -10,8 +10,8 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry,
     model = N2P2ZD()
     P1 = 0.01
     P2 = 0.01
-    P3 = 0.05
-    P4 = 0.05
+    Z1 = 0.05
+    Z2 = 0.05
     N = 7.0
     D = 1
     model(Val(:O), 0, 0, 0, 0, P1, P2, Z1,Z2,N,D)
