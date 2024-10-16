@@ -22,4 +22,8 @@ linear_loss(P, l) = l * P
 
 quadratic_loss(P, l) = l * P^2
 
-summed_linear_loss(P, l) = sum([linear_loss(P[i], l[i]) for i in eachindex(P)])
+function summed_linear_loss(P, l)
+    return sum([
+        linear_loss(P[plankton_index], l[plankton_index]) for plankton_index in eachindex(P)
+    ])
+end
