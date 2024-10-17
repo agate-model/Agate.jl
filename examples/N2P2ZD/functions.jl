@@ -1,10 +1,17 @@
 # phytoplankton growth
-menden_limitation(N, nitrogen_half_saturation) = N / (nitrogen_half_saturation + N)
-function smith_light_limitation(PAR, alpha, maximum_growth_rate)
+function menden_limitation(N::Float64, nitrogen_half_saturation::Float64)
+    return N / (nitrogen_half_saturation + N)
+end
+function smith_light_limitation(PAR::Float64, alpha::Float64, maximum_growth_rate::Float64)
     return alpha * PAR / sqrt(maximum_growth_rate^2 + alpha^2 * PAR^2)
 end
 function photosynthetic_growth(
-    N, P, PAR, maximum_growth_rate, nitrogen_half_saturation, alpha
+    N::Float64,
+    P::Float64,
+    PAR::Float64,
+    maximum_growth_rate::Float64,
+    nitrogen_half_saturation::Float64,
+    alpha::Float64,
 )
     return maximum_growth_rate *
            menden_limitation(N, nitrogen_half_saturation) *
@@ -28,7 +35,13 @@ Estimates the loss rate of P (prey), to Z (predator).
 - `loss`: The rate of predation loss of P to Z.
 
 """
-function predation_loss(P, Z, maximum_predation_rate, holling_half_saturation, palatability)
+function predation_loss(
+    P::Float64,
+    Z::Float64,
+    maximum_predation_rate::Float64,
+    holling_half_saturation::Float64,
+    palatability::Int,
+)
     loss =
         maximum_predation_rate *
         palatability *
@@ -53,12 +66,12 @@ Estimates the gain rate of Z (predator) feeding on P (prey).
 
 """
 function predation_gain(
-    P,
-    Z,
-    assimilation_efficiency,
-    maximum_predation_rate,
-    holling_half_saturation,
-    palatability,
+    P::Float64,
+    Z::Float64,
+    assimilation_efficiency::Float64,
+    maximum_predation_rate::Float64,
+    holling_half_saturation::Float64,
+    palatability::Int,
 )
     gain =
         predation_loss(
@@ -87,12 +100,12 @@ organic matter (DOM and POM).
 
 """
 function predation_assimilation_loss(
-    P,
-    Z,
-    assimilation_efficiency,
-    maximum_predation_rate,
-    holling_half_saturation,
-    palatability,
+    P::Float64,
+    Z::Float64,
+    assimilation_efficiency::Float64,
+    maximum_predation_rate::Float64,
+    holling_half_saturation::Float64,
+    palatability::Int,
 )
     assimilation_loss =
         predation_loss(
@@ -121,7 +134,11 @@ estimate the total loss of plankton i due to predation.
 
 """
 function summed_predation_loss(
-    prey_index, P, maximum_predation_rate, holling_half_saturation, palatability
+    prey_index::Int,
+    P::Vector{Float64},
+    maximum_predation_rate::Vector{Float64},
+    holling_half_saturation::Vector{Float64},
+    palatability::Matrix{Int},
 )
     loss = sum(
         predation_loss(
@@ -159,12 +176,12 @@ estimate the total gain due to predation.
 
 """
 function summed_predation_gain(
-    predator_index,
-    P,
-    assimilation_efficiency,
-    maximum_predation_rate,
-    holling_half_saturation,
-    palatability,
+    predator_index::Int,
+    P::Vector{Float64},
+    assimilation_efficiency::Matrix{Float64},
+    maximum_predation_rate::Vector{Float64},
+    holling_half_saturation::Vector{Float64},
+    palatability::Matrix{Int},
 )
     gain = sum(
         predation_gain(
@@ -203,12 +220,12 @@ estimate the total assimlation loss during predation.
 
 """
 function summed_predation_assimilation_loss(
-    predator_index,
-    P,
-    assimilation_efficiency,
-    maximum_predation_rate,
-    holling_half_saturation,
-    palatability,
+    predator_index::Int,
+    P::Vector{Float64},
+    assimilation_efficiency::Matrix{Float64},
+    maximum_predation_rate::Vector{Float64},
+    holling_half_saturation::Vector{Float64},
+    palatability::Matrix{Int},
 )
     assimilation_loss = sum(
         predation_assimilation_loss(
@@ -225,10 +242,12 @@ function summed_predation_assimilation_loss(
 end
 
 #mortality
-linear_loss(P, linear_mortality) = linear_mortality * P
-quadratic_loss(P, quadratic_mortality) = quadratic_mortality * P^2
+linear_loss(P::Float64, linear_mortality::Float64) = linear_mortality * P
+quadratic_loss(P::Float64, quadratic_mortality::Float64) = quadratic_mortality * P^2
 #detritus
-remineralization(D, detritus_remineralization) = D * detritus_remineralization
+function remineralization(D::Float64, detritus_remineralization::Float64)
+    return D * detritus_remineralization
+end
 #sums
 """
 Net loss of all plankton due to linear mortality.
@@ -238,7 +257,7 @@ Net loss of all plankton due to linear mortality.
 - `linear_mortality::Vector{Float}`: Vector of all plankton linear mortality rates.
 
 """
-function net_linear_loss(P, linear_mortality)
+function net_linear_loss(P::Vector{Float64}, linear_mortality::Vector{Float64})
     return sum([linear_loss(P[i], linear_mortality[i]) for i in eachindex(P)])
 end
 """
@@ -249,7 +268,7 @@ Net loss of all plankton due to quadratic mortality.
 - `linear_mortality::Vector{Float}`: Vector of all plankton quadratic mortality rates.
 
 """
-function net_quadratic_loss(P, quadratic_mortality)
+function net_quadratic_loss(P::Vector{Float64}, quadratic_mortality::Vector{Float64})
     return sum([quadratic_loss(P[i], quadratic_mortality[i]) for i in eachindex(P)])
 end
 """
@@ -264,7 +283,12 @@ Net photosynthetic growth of all plankton.
 
 """
 function net_photosynthetic_growth(
-    N, P, PAR, maximum_growth_rate, nitrogen_half_saturation, alpha
+    N::Float64,
+    P::Vector{Float64},
+    PAR::Float64,
+    maximum_growth_rate::Vector{Float64},
+    nitrogen_half_saturation::Vector{Float64},
+    alpha::Vector{Float64},
 )
     return sum([
         photosynthetic_growth(
@@ -288,11 +312,11 @@ Net predator assimilation loss of all plankton.
     For a non-predator [i,:]=0. 
 """
 function net_predation_assimilation_loss(
-    P,
-    holling_half_saturation,
-    maximum_predation_rate,
-    assimilation_efficiency,
-    palatability,
+    P::Vector{Float64},
+    holling_half_saturation::Vector{Float64},
+    maximum_predation_rate::Vector{Float64},
+    assimilation_efficiency::Matrix{Float64},
+    palatability::Matrix{Int},
 )
     return sum([
         summed_predation_assimilation_loss(
@@ -326,18 +350,19 @@ Wrapper function to estimate the rate at which plankton biomass changes over tim
     For a non-predator [i,:]=0. 
 """
 function plankton_dt(
-    plankton_index,
-    N,
-    P,
-    linear_mortality,
-    quadratic_mortality,
-    maximum_growth_rate,
-    holling_half_saturation,
-    nitrogen_half_saturation,
-    alpha,
-    maximum_predation_rate,
-    assimilation_efficiency,
-    palatability,
+    plankton_index::Int,
+    N::Float64,
+    P::Vector{Float64},
+    PAR::Float64,
+    linear_mortality::Vector{Float64},
+    quadratic_mortality::Vector{Float64},
+    maximum_growth_rate::Vector{Float64},
+    holling_half_saturation::Vector{Float64},
+    nitrogen_half_saturation::Vector{Float64},
+    alpha::Vector{Float64},
+    maximum_predation_rate::Vector{Float64},
+    assimilation_efficiency::Matrix{Float64},
+    palatability::Matrix{Int},
 )
     growth =
         photosynthetic_growth(

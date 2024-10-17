@@ -4,8 +4,8 @@ using Oceananigans.Units
 parameters = (
     maximum_growth_rate=[7.190e-6, 2.216e-5, 0, 0] / second,
     nitrogen_half_saturation=[6.73e-3, 0.12, 0, 0],
-    detritus_remineralization=[0.0102] / day,
-    holling_half_saturation=[0, 0, 5, 5],
+    detritus_remineralization=0.0102 / day,
+    holling_half_saturation=[0, 0, 5.0, 5.0],
     linear_mortality=[8e-7, 8e-7, 8e-7, 8e-7] / second,
     quadratic_mortality=[0, 0, 1e-6, 1e-6] / second,
     maximum_predation_rate=[0, 0, 8.86e-5, 4.88e-5] / second,
@@ -19,8 +19,8 @@ parameters = (
     assimilation_efficiency=[
         0 0 0 0
         0 0 0 0
-        1 1 0 0
-        0 1 0 0
+        0.68 0.68 0 0
+        0 0.68 0 0
     ],
 )
 tracers = Dict(
@@ -51,6 +51,7 @@ tracers = Dict(
         1,
         N,
         [P1, P2, Z1, Z2],
+        PAR,
         linear_mortality,
         quadratic_mortality,
         maximum_growth_rate,
@@ -65,6 +66,7 @@ tracers = Dict(
         2,
         N,
         [P1, P2, Z1, Z2],
+        PAR,
         linear_mortality,
         quadratic_mortality,
         maximum_growth_rate,
@@ -79,6 +81,7 @@ tracers = Dict(
         3,
         N,
         [P1, P2, Z1, Z2],
+        PAR,
         linear_mortality,
         quadratic_mortality,
         maximum_growth_rate,
@@ -93,6 +96,7 @@ tracers = Dict(
         4,
         N,
         [P1, P2, Z1, Z2],
+        PAR,
         linear_mortality,
         quadratic_mortality,
         maximum_growth_rate,
