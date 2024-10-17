@@ -28,15 +28,6 @@ To activate the project:
 ```bash
 julia --project -e 'using Pkg; Pkg.instantiate()'
 ```
-
-Which is equivalent to running the below in the Julia REPL (`]` enters Julia package manager mode):
-
-```Julia
-]
-activate Agate
-instantiate
-```
-
 You can then use the package interactively, in the terminal:
 
 ```bash
