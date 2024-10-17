@@ -34,6 +34,12 @@ You can then use the package interactively, in the terminal:
 julia --project=.
 ```
 
+To run an example script:
+
+```bash
+julia --project <path to script>
+```
+
 To use the package in a Jupyter notebook run:
 
 ```Julia
