@@ -1,7 +1,15 @@
 # phytoplankton growth
 menden_limitation(N, nitrogen_half_saturation) = N / (nitrogen_half_saturation + N)
-function photosynthetic_growth(N, P, maximum_growth_rate, nitrogen_half_saturation)
-    return maximum_growth_rate * menden_limitation(N, nitrogen_half_saturation) * P
+function smith_light_limitation(PAR, alpha, maximum_growth_rate)
+    return alpha * PAR / sqrt(maximum_growth_rate^2 + alpha^2 * PAR^2)
+end
+function photosynthetic_growth(
+    N, P, PAR, maximum_growth_rate, nitrogen_half_saturation, alpha
+)
+    return maximum_growth_rate *
+           menden_limitation(N, nitrogen_half_saturation) *
+           smith_light_limitation(PAR, alpha, maximum_growth_rate) *
+           P
 end
 # zooplankton growth
 holling_type_2(R, k) = R / (k + R)
@@ -162,7 +170,7 @@ function summed_predation_gain(
         predation_gain(
             P[prey_index],
             P[predator_index],
-            assimilation_efficiency[predator_index],
+            assimilation_efficiency[predator_index, prey_index],
             maximum_predation_rate[predator_index],
             holling_half_saturation[predator_index],
             palatability[predator_index, prey_index],
@@ -170,6 +178,50 @@ function summed_predation_gain(
     )
 
     return gain
+end
+
+"""
+Estimates the total assimilation loss of the predator (P[predator_index]) feeding on all plankton.
+
+For plankton P[predator_index], the function loops over each prey (P[prey_index]) to 
+estimate the total assimlation loss during predation.
+
+# Arguments
+- `predator_index::Int`: Index of the predator, e.g. P[predator_index].
+- `P::Vector{Symbol}`: Vector which includes all plankton.
+- `maximum_predation_rate::Vector{Float}`: Vector of all plankton predation rates.
+- `holling_half_saturation::Vector{Float}`: Vector of all plankton predation rates.
+- `palatability::Matrix{Float}`: Matrix of all plankton palatabilities where:
+    each row is a predator and each column is a prey (palat[predator, prey]). 
+    For a non-predator [i,:]=0. 
+- `assimilation efficiency::Matrix{Float}`: Matrix of all plankton assimilation efficiencies where:
+    each row is a predator and each column is a prey (palat[predator, prey]). 
+    For a non-predator [i,:]=0. 
+
+# Returns
+- `assimilation_loss`: The summed rate of predation gain for plankton[predator_index]
+
+"""
+function summed_predation_assimilation_loss(
+    predator_index,
+    P,
+    assimilation_efficiency,
+    maximum_predation_rate,
+    holling_half_saturation,
+    palatability,
+)
+    assimilation_loss = sum(
+        predation_assimilation_loss(
+            P[prey_index],
+            P[predator_index],
+            assimilation_efficiency[predator_index, prey_index],
+            maximum_predation_rate[predator_index],
+            holling_half_saturation[predator_index],
+            palatability[predator_index, prey_index],
+        ) for prey_index in eachindex(P)
+    )
+
+    return assimilation_loss
 end
 
 #mortality
@@ -206,14 +258,18 @@ Net photosynthetic growth of all plankton.
 # Arguments
 - `N::Symbol`: Nitrogen
 - `P::Vector{Symbol}`: Vector which includes all plankton.
+- `PAR::Symbol`: PAR
 - `maximum_growth_rate::Vector{Float}`: Vector of all plankton maximum growth rates.
 - `nitrogen_half_saturation::Vector{Float}`: Vector of all plankton nitrogen half saturation constants.
 
 """
-function net_photosynthetic_growth(N, P, maximum_growth_rate, nitrogen_half_saturation)
+function net_photosynthetic_growth(
+    N, P, PAR, maximum_growth_rate, nitrogen_half_saturation, alpha
+)
     return sum([
-        photosynthetic_growth(N, P[i], maximum_growth_rate[i], nitrogen_half_saturation[i])
-        for i in eachindex(P)
+        photosynthetic_growth(
+            N, P[i], PAR, maximum_growth_rate[i], nitrogen_half_saturation[i], alpha[i]
+        ) for i in eachindex(P)
     ])
 end
 
@@ -240,13 +296,13 @@ function net_predation_assimilation_loss(
 )
     return sum([
         summed_predation_assimilation_loss(
-            i,
+            predator_index,
             P,
-            assimilation_efficiency[j, i],
-            maximum_predation_rate[j],
-            holling_half_saturation[j],
-            palatability[j, i],
-        ) * assimilation_efficiency[i] for i in eachindex(P)
+            assimilation_efficiency,
+            maximum_predation_rate,
+            holling_half_saturation,
+            palatability,
+        ) for predator_index in eachindex(P)
     ])
 end
 #generic plankton
@@ -274,30 +330,34 @@ function plankton_dt(
     N,
     P,
     linear_mortality,
+    quadratic_mortality,
     maximum_growth_rate,
     holling_half_saturation,
+    nitrogen_half_saturation,
+    alpha,
     maximum_predation_rate,
     assimilation_efficiency,
     palatability,
 )
     growth =
-        +photosynthetic_growth(
+        photosynthetic_growth(
             N,
             P[plankton_index],
+            PAR,
             maximum_growth_rate[plankton_index],
-            holling_half_saturation[plankton_index],
+            nitrogen_half_saturation[plankton_index],
+            alpha[plankton_index],
+        ) - linear_loss(P[plankton_index], linear_mortality[plankton_index]) -
+        quadratic_loss(P[plankton_index], quadratic_mortality[plankton_index]) -
+        summed_predation_loss(
+            plankton_index, P, maximum_predation_rate, holling_half_saturation, palatability
+        ) + summed_predation_gain(
+            plankton_index,
+            P,
+            assimilation_efficiency,
+            maximum_predation_rate,
+            holling_half_saturation,
+            palatability,
         )
-    -plankton_mortality_loss(P[plankton_index], linear_mortality[plankton_index])
-    -summed_predation_loss(
-        prey_index, P, maximum_predation_rate, holling_half_saturation, palatability
-    )
-    +summed_predation_gain(
-        predator_index,
-        P,
-        assimilation_efficiency,
-        maximum_predation_rate,
-        holling_half_saturation,
-        palatability,
-    )
     return growth
 end
