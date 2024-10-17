@@ -9,21 +9,21 @@ PAR = 100.0
 maximum_growth_rate = [7.190e-6, 2.216e-5, 0, 0]
 nitrogen_half_saturation = [6.73e-3, 0.12, 0, 0]
 detritus_remineralization = [0.0102]
-holling_half_saturation = [0, 0, 5, 5]
+holling_half_saturation = [0, 0, 5.0, 5.0]
 linear_mortality = [8e-7, 8e-7, 8e-7, 8e-7]
 quadratic_mortality = [0, 0, 1e-6, 1e-6]
 maximum_predation_rate = [0, 0, 8.86e-5, 4.88e-5]
 palatability = [
     0 0 0 0
     0 0 0 0
-    1 1 0 0
-    0 1 0 0
+    1 0.3 0 0
+    0.3 1 0 0
 ]
 assimilation_efficiency = [
     0 0 0 0
     0 0 0 0
-    1 1 0 0
-    0 1 0 0
+    0.3 0.3 0 0
+    0 0.3 0 0
 ]
 alpha = [0.1, 0.1, 0.1, 0.1]
 plankton_index = 1
@@ -39,7 +39,7 @@ plankton_index = 1
 # 2. Test net_photosynthetic_growth
 @assert isa(
     net_photosynthetic_growth(
-        N, [P1, P2], PAR, maximum_growth_rate, nitrogen_half_saturation
+        N, [P1, P2], PAR, maximum_growth_rate, nitrogen_half_saturation, alpha
     ),
     Number,
 ) "net_photosynthetic_growth is returning a non-scalar!"
@@ -123,6 +123,7 @@ plankton_index = 1
         plankton_index,
         N,
         [P1, P2, Z1, Z2],
+        PAR,
         linear_mortality,
         quadratic_mortality,
         maximum_growth_rate,
