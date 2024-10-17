@@ -40,7 +40,7 @@ function predation_loss(
     Z::Float64,
     maximum_predation_rate::Float64,
     holling_half_saturation::Float64,
-    palatability::Int,
+    palatability::Float64,
 )
     loss =
         maximum_predation_rate *
@@ -71,7 +71,7 @@ function predation_gain(
     assimilation_efficiency::Float64,
     maximum_predation_rate::Float64,
     holling_half_saturation::Float64,
-    palatability::Int,
+    palatability::Float64,
 )
     gain =
         predation_loss(
@@ -105,7 +105,7 @@ function predation_assimilation_loss(
     assimilation_efficiency::Float64,
     maximum_predation_rate::Float64,
     holling_half_saturation::Float64,
-    palatability::Int,
+    palatability::Float64,
 )
     assimilation_loss =
         predation_loss(
@@ -138,7 +138,7 @@ function summed_predation_loss(
     P::Vector{Float64},
     maximum_predation_rate::Vector{Float64},
     holling_half_saturation::Vector{Float64},
-    palatability::Matrix{Int},
+    palatability::Matrix{Float64},
 )
     loss = sum(
         predation_loss(
@@ -181,7 +181,7 @@ function summed_predation_gain(
     assimilation_efficiency::Matrix{Float64},
     maximum_predation_rate::Vector{Float64},
     holling_half_saturation::Vector{Float64},
-    palatability::Matrix{Int},
+    palatability::Matrix{Float64},
 )
     gain = sum(
         predation_gain(
@@ -225,7 +225,7 @@ function summed_predation_assimilation_loss(
     assimilation_efficiency::Matrix{Float64},
     maximum_predation_rate::Vector{Float64},
     holling_half_saturation::Vector{Float64},
-    palatability::Matrix{Int},
+    palatability::Matrix{Float64},
 )
     assimilation_loss = sum(
         predation_assimilation_loss(
@@ -316,7 +316,7 @@ function net_predation_assimilation_loss(
     holling_half_saturation::Vector{Float64},
     maximum_predation_rate::Vector{Float64},
     assimilation_efficiency::Matrix{Float64},
-    palatability::Matrix{Int},
+    palatability::Matrix{Float64},
 )
     return sum([
         summed_predation_assimilation_loss(
@@ -362,7 +362,7 @@ function plankton_dt(
     alpha::Vector{Float64},
     maximum_predation_rate::Vector{Float64},
     assimilation_efficiency::Matrix{Float64},
-    palatability::Matrix{Int},
+    palatability::Matrix{Float64},
 )
     growth =
         photosynthetic_growth(

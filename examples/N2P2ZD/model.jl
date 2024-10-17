@@ -13,14 +13,14 @@ parameters = (
     palatability=[
         0 0 0 0 #P1 
         0 0 0 0 #P2
-        1 1 0 0 #Z1
-        0 1 0 0
+        1 0.3 0 0 #Z1
+        0.3 1 0 0
     ], #Z2 
     assimilation_efficiency=[
         0 0 0 0
         0 0 0 0
-        0.68 0.68 0 0
-        0 0.68 0 0
+        0.32 0.32 0 0
+        0.32 0.32 0 0
     ],
 )
 tracers = Dict(
