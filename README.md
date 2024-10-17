@@ -23,7 +23,7 @@ https://github.com/agate-model/Agate.jl.git
 cd Agate.jl
 ```
 
-To activate the project:
+To activate the project (this takes a while as it installs all the packages):
 
 ```bash
 julia --project -e 'using Pkg; Pkg.instantiate()'
