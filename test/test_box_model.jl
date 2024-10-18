@@ -9,7 +9,9 @@ using Oceananigans.Fields: FunctionField
 const year = years = 365day
 
 @testset "box_model" begin
-    include("../examples/NPZD/model.jl")
+    model_path = joinpath("..", "examples", "NPZD", "model.jl")
+    include(model_path)
+
     npzd_model = NPZD()
     init_conditions = (N=7.0, P=0.01, Z=0.05, D=0.0)
 
