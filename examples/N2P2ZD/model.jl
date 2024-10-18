@@ -4,18 +4,18 @@ using Oceananigans.Units
 parameters = (
     maximum_growth_rate=[7.190e-6, 2.216e-5, 0, 0] / second,
     nitrogen_half_saturation=[6.73e-3, 0.12, 0, 0],
-    detritus_remineralization=0.0102 / day,
+    detritus_remineralization=0.1213 / day,
     holling_half_saturation=[0, 0, 5.0, 5.0],
     linear_mortality=[8e-7, 8e-7, 8e-7, 8e-7] / second,
     quadratic_mortality=[0, 0, 1e-6, 1e-6] / second,
     maximum_predation_rate=[0, 0, 8.86e-5, 4.88e-5] / second,
-    alpha=[0.1953, 0.1953, 0, 0],
+    alpha=[0.1953, 0.1953, 1e-99, 1e-99] / day,
     palatability=[
         0 0 0 0 #P1 
         0 0 0 0 #P2
         1 0.3 0 0 #Z1
-        0.3 1 0 0
-    ], #Z2 
+        0.3 1 0 0 #Z2 
+    ],
     assimilation_efficiency=[
         0 0 0 0
         0 0 0 0
