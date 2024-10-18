@@ -29,20 +29,14 @@ Create an OceanBioME.BoxModel object and set initial values.
 
 # Keywords
 - `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.cyclical_PAR`)
-- `PAR_parameters`: any fixed parameters of the PAR function (e.g., depth `z`) passed as a
-   NamedTuple (set to `nothing` if there are none)
 """
-function create_box_model(
-    bgc_model, init_conditions; PAR_f=cyclical_PAR, PAR_parameters=(; z=-10)
-)
+function create_box_model(bgc_model, init_conditions; PAR_f=cyclical_PAR(; z=-10))
     grid = BoxModelGrid() # 1x1x1 grid
     clock = Clock(; time=zero(grid))
     if isnothing(PAR_f)
         light_attenuation = nothing
     else
-        PAR = FunctionField{Center,Center,Center}(
-            PAR_f, grid; clock, parameters=PAR_parameters
-        )
+        PAR = FunctionField{Center,Center,Center}(PAR_f, grid; clock)
         light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
     end
 
@@ -67,8 +61,6 @@ Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, .
 
 # Keywords
 - `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.cyclical_PAR`)
-- `PAR_parameters`: any fixed parameters of the PAR function (e.g., depth `z`) passed as a
-   NamedTuple (set to `nothing` if there are none)
 - `Δt``: simulation step time
 - `stop_time`: until when to run the simulation
 - `save_interval`: interval at which to save simulation results
@@ -78,17 +70,14 @@ Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, .
 function run_box_model(
     bgc_model,
     init_conditions;
-    PAR_f=cyclical_PAR,
-    PAR_parameters=(; z=-10),
+    PAR_f=cyclical_PAR(; z=-10),
     Δt=5minutes,
     stop_time=3years,
     save_interval=1day,
     filename="box.jld2",
     overwrite=true,
 )
-    model = create_box_model(
-        bgc_model, init_conditions; PAR_f=PAR_f, PAR_parameters=PAR_parameters
-    )
+    model = create_box_model(bgc_model, init_conditions; PAR_f=PAR_f)
 
     simulation = Simulation(model; Δt=Δt, stop_time=stop_time)
     simulation.output_writers[:fields] = JLD2OutputWriter(
