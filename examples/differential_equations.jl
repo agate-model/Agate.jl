@@ -14,7 +14,8 @@ const year = years = 365day
 # Define BGC model (NPZD)
 # ==================================================
 
-include("NPZD/model.jl")
+model_path = joinpath("NPZD", "model.jl")
+include(model_path)
 model = NPZD()
 
 # ==================================================
@@ -26,7 +27,7 @@ function model_ODEs(du, u, p, t)
 
     # NOTE: in more complex examples there might be other auxiliary fields that should be
     # calculated here and passed to the function below
-    PAR = cyclical_PAR(t)
+    PAR = cyclical_PAR(t, (; z=-10))
 
     for (i, tracer) in enumerate(tracers)
         du[i] = model(Val(tracer), 0, 0, 0, t, u..., PAR)
