@@ -17,7 +17,7 @@ const year = years = 365day
 
 """
     create_box_model(
-        bgc_model, init_conditions; PAR_f=cyclical_PAR, PAR_parameters=(; z=-10)
+        bgc_model, init_conditions; PAR_f=cyclical_PAR(; z=-10)
     ) -> OceanBioME.BoxModel
 
 Create an OceanBioME.BoxModel object and set initial values.
