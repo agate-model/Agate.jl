@@ -10,9 +10,9 @@ using Oceananigans.Units
 const year = years = 365day
 
 """
-    cyclical_PAR(t, parameters) -> Float
+    cyclical_PAR(t, z) -> Float
 
-Time-dependent cyclical PAR at depth `parameters.z` (suitable for use with box models).
+Time-dependent cyclical PAR at depth `z` (suitable for use with box models).
 """
 function cyclical_PAR(t, z)
     PAR⁰ =
