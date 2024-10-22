@@ -9,7 +9,9 @@ parameters = (
     linear_mortality=[8e-7, 8e-7, 8e-7, 8e-7] / second,
     quadratic_mortality=[0, 0, 1e-6, 1e-6] / second,
     maximum_predation_rate=[0, 0, 8.86e-5, 4.88e-5] / second,
-    alpha=[0.1953, 0.1953, 1e-99, 1e-99] / day,
+    alpha= [0.5, 0.1953, 1e-99, 1e-99] / day,
+    feeding_export_poc_doc_fraction = 0.5,
+    mortality_export_fraction = 0.5,
     palatability=[
         0 0 0 0 #P1 
         0 0 0 0 #P2
@@ -25,8 +27,10 @@ parameters = (
 )
 tracers = Dict(
     "N" => :(
-        net_linear_loss([P1, P2, Z1, Z2], linear_mortality) +
-        remineralization(D, detritus_remineralization) - net_photosynthetic_growth(
+        + net_linear_loss([P1, P2, Z1, Z2], linear_mortality, mortality_export_fraction) 
+        + net_quadratic_loss([P1, P2, Z1, Z2], quadratic_mortality, mortality_export_fraction) 
+        + remineralization(D, detritus_remineralization) 
+        - net_photosynthetic_growth(
             N,
             [P1, P2, Z1, Z2],
             PAR,
@@ -36,16 +40,16 @@ tracers = Dict(
         )
     ),
     "D" => :(
-        net_linear_loss([P1, P2, Z1, Z2], linear_mortality) +
+        + net_linear_loss([P1, P2, Z1, Z2], linear_mortality, 1-mortality_export_fraction) +
         net_predation_assimilation_loss(
             [P1, P2, Z1, Z2],
             holling_half_saturation,
             maximum_predation_rate,
             assimilation_efficiency,
             palatability,
-        ) +
-        net_quadratic_loss([P1, P2, Z1, Z2], quadratic_mortality) -
-        remineralization(D, detritus_remineralization)
+        ) 
+        + net_quadratic_loss([P1, P2, Z1, Z2], quadratic_mortality, 1-mortality_export_fraction)
+        - remineralization(D, detritus_remineralization)
     ),
     "P1" => :(plankton_dt(
         1,
