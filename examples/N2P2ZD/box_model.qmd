@@ -11,7 +11,7 @@ OceanBioME.jl and Oceananigans.jl.
 
 The model formulation and parameter specification of this example is found in `model.jl` with specific functions such as e.g. `menden_limitation` called from `functions.jl`.
 
-In this model, a single plankton functional type is defined, which can then be specified as predator or prey based on the parameter values. For example, for prey `maximum_grazing_rate` are set to 0, while for predators `maximum_growth_rate` are set to 0. 
+In this model, a single plankton functional type is defined, which can then be specified as predator or prey based on the parameter values. For example, for prey `maximum_grazing_rate` are set to 0, while for predators `maximum_growth_rate` are set to 0.
 
 ```{julia}
 # Import necessary packages
