@@ -5,6 +5,8 @@ Oceananigans.Biogeochemistry).
 
 module Dynamic
 
+using OceanBioME
+
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 
 import Oceananigans.Biogeochemistry:
@@ -13,7 +15,14 @@ import Oceananigans.Biogeochemistry:
 export create_bgc_model
 
 """
-    create_bgc_model(model_name, parameters, tracers, auxiliary_fields=[:PAR,], helper_functions=nothing)
+    create_bgc_model(
+        model_name,
+        parameters,
+        tracers,
+        grid=BoxModelGrid(),
+        auxiliary_fields=[:PAR,],
+        helper_functions=nothing
+    )
 
 Creates an Oceananigans biogeochemical model. The model will be accessible as:
     - `Agate.Models.Dynamic.<model_name>`
@@ -31,15 +40,25 @@ helper_functions file.
 # Keywords
 - `auxiliary_fields`: an iterable of auxiliary field variables, defaults to [:PAR,]
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
+
+# Example
+```julia
+parameters = (α=2 / 3, β=4 / 3, δ=1, γ=1)
+tracers = Dict("R" => :(α * R - β * R * F), "F" => :(-γ * F + δ * R * F))
+LV = create_bgc_model(:LV, parameters, tracers)
+```
 """
 function create_bgc_model(
     model_name, parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
 )
-    m = create_bgc_struct(model_name, parameters)
+    bgc_model = create_bgc_struct(model_name, parameters)
     add_bgc_methods(
-        m, tracers; auxiliary_fields=auxiliary_fields, helper_functions=helper_functions
+        bgc_model,
+        tracers;
+        auxiliary_fields=auxiliary_fields,
+        helper_functions=helper_functions,
     )
-    return m
+    return bgc_model
 end
 
 """
@@ -79,10 +98,11 @@ end
 """
     add_bgc_methods(bgc_type, tracers, auxiliary_fields=[], helper_functions=()) -> DataType
 
-Add core methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
-    - required_biogeochemical_tracers
-    - required_biogeochemical_auxiliary_fields
+Add most of core methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
+    - `required_biogeochemical_tracers``
+    - `required_biogeochemical_auxiliary_fields``
     - a method per tracer
+WARNING: a full model also requires a `biogeochenical_auxiliary_fields` method to be defined.
 
 # Arguments
 - `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry (returned by `create_bgc_struct`)
