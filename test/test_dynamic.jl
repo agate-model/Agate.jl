@@ -1,4 +1,4 @@
-using Agate.Models.Dynamic: expression_check
+using Agate.Models.Dynamic: expression_check, create_bgc_struct, add_bgc_methods
 using Oceananigans.Biogeochemistry:
     AbstractContinuousFormBiogeochemistry,
     required_biogeochemical_tracers,

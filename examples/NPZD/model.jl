@@ -34,7 +34,4 @@ tracers = Dict(
         :(predation_gain(P, Z, β, gₘₐₓ, kₚ) - linear_loss(Z, lᶻⁿ) - quadratic_loss(Z, lᶻᵈ)),
 )
 
-NPZD = create_bgc_struct(:NPZD, parameters)
-add_bgc_methods(
-    NPZD, tracers; helper_functions="functions.jl"
-)
+NPZD = create_bgc_model(:NPZD, parameters, tracers; helper_functions="functions.jl")
