@@ -2,13 +2,16 @@
 title: "Four plankton box model simulation"
 format: html
 jupyter: julia-1.10
-
 ---
 
 # Four plankton box model simulation
 
 In this notebook, we'll create a simple four plankton model using Agate.jl which is then simulated using
 OceanBioME.jl and Oceananigans.jl.
+
+The model formulation and parameter specification of this example is found in `model.jl` with specific functions such as e.g. `menden_limitation` called from `functions.jl`.
+
+In this model, a single plankton functional type is defined, which can then be specified as predator or prey based on the parameter values. For example, for prey `maximum_grazing_rate` are set to 0, while for predators `maximum_growth_rate` are set to 0. 
 
 ```{julia}
 # Import necessary packages
@@ -22,7 +25,7 @@ using Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers, required_biogeochemical_auxiliary_fields
 
 # ==================================================
-# Define BGC model (N_2P_2Z_D)
+# Define BGC model (N2P2ZD)
 # ==================================================
 
 include("model.jl")
