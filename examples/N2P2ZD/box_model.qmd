@@ -7,7 +7,7 @@ jupyter: julia-1.10
 
 # Four plankton box model simulation
 
-In this notebook, we'll create a simple four plankton model using Agate.jl which is them simulated using
+In this notebook, we'll create a simple four plankton model using Agate.jl which is then simulated using
 OceanBioME.jl and Oceananigans.jl.
 
 ```{julia}
