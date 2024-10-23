@@ -13,12 +13,18 @@ import Oceananigans.Biogeochemistry:
 export create_bgc_model
 
 """
-    create_bgc_model(struct_name, parameters, tracers, auxiliary_fields=[:PAR,], helper_functions=nothing)
+    create_bgc_model(model_name, parameters, tracers, auxiliary_fields=[:PAR,], helper_functions=nothing)
 
-Creates a
+Creates an Oceananigans biogeochemical model. The model will be accessible as:
+    - `Agate.Models.Dynamic.<model_name>`.
+
+Note that the field names defined in `parameters` can't be any of [:x,:y,:z,:t] (as these are
+reserved for coordinates) and they must include all parameters used in the tracers expressions.
+The expressions must use methods that are either defined within this module or passed in the
+helper_functions file.
 
 # Arguments
-- `struct_name`: name for the new struct passed as a Symbol
+- `model_name`: name for the new model passed as a Symbol
 - `parameters`: named sequence of values of the form (field name = default value, ...)
 - `tracers`: dictionary of the form (name => expression, ...)
 
@@ -28,9 +34,9 @@ Creates a
 
 """
 function create_bgc_model(
-    struct_name, parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
+    model_name, parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
 )
-    m = create_bgc_struct(struct_name, parameters)
+    m = create_bgc_struct(model_name, parameters)
     add_bgc_methods(
         m, tracers; auxiliary_fields=auxiliary_fields, helper_functions=helper_functions
     )
