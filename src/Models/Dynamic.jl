@@ -57,7 +57,7 @@ Add core methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
 # Arguments
 - `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry (returned by `create_bgc_struct`)
 - `tracers`: dictionary of the form (name => expression, ...)
-- `auxiliary_fields`: optional iterable of auxiliary field variables
+- `auxiliary_fields`: an iterable of auxiliary field variables, defaults to [:PAR,]
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
 
 Note that the field names of bgc_type can't be any of [:x,:y,:z,:t] (as these are reserved for
@@ -83,7 +83,7 @@ tracers = Dict(
 add_bgc_methods(LV, tracers)
 ```
 """
-function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[], helper_functions="")
+function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[:PAR,], helper_functions="")
     if helper_functions != ""
         include(helper_functions)
     end
