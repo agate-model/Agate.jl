@@ -1,0 +1,52 @@
+---
+title: "Four plankton box model simulation"
+format: html
+jupyter: julia-1.10
+
+---
+
+# Four plankton box model simulation
+
+In this notebook, we'll create a simple four plankton model using Agate.jl which is them simulated using 
+OceanBioME.jl and Oceananigans.jl.
+
+```{julia}
+# Import necessary packages
+using Agate
+using Plots
+using Oceananigans.Units
+
+const year = years = 365day
+
+using Oceananigans.Biogeochemistry:
+    required_biogeochemical_tracers, required_biogeochemical_auxiliary_fields
+
+include("model.jl")
+model = N_4P_D()
+
+# Set initial conditions for the model
+init_conditions = (N=7.0, Z2=0.05, D=0.0, P1=0.1, P2=0.1, Z1=0.05)
+
+# Run the box model simulation
+timeseries = run_box_model(
+    model, 
+    Δt=10minutes,
+    stop_time=10years,   
+    init_conditions
+)
+
+# Plotting
+p1 = plot(timeseries.P1; label="P1", title="Phytoplankton 1")
+p2 = plot(timeseries.P2; label="P2", title="Phytoplankton 2")
+p3 = plot(timeseries.Z1; label="Z1", title="Zooplankton 1")
+p4 = plot(timeseries.Z2; label="Z2", title="Zooplankton 2")
+p5 = plot(timeseries.D; label="D", title="Detritus")
+p6 = plot(timeseries.N; label="N", title="Nitrogen")
+
+# Arrange plots in a 2x3 layout
+p = plot(p1, p2, p3, p4, p5, p6; layout=(2, 3), size=(900, 600))
+
+# Display the plot inline
+display(p)
+
+```
