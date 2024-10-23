@@ -19,7 +19,7 @@ function photosynthetic_growth(
            P
 end
 # zooplankton growth
-holling_type_2(R, k) = R / (k + R)
+holling_type_2(R::Real, k::Real) = R / (k + R)
 
 """
 Estimates the loss rate of P (prey), to Z (predator).
