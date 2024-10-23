@@ -21,8 +21,17 @@ const year = years = 365day
 using Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers, required_biogeochemical_auxiliary_fields
 
+# ==================================================
+# Define BGC model (N_2P_2Z_D)
+# ==================================================
+
 include("model.jl")
-model = N_4P_D()
+model = N_2P_2Z_D()
+
+# ==================================================
+# Run box model
+# ==================================================
+print(required_biogeochemical_tracers(model))
 
 # Set initial conditions for the model
 init_conditions = (N=7.0, Z2=0.05, D=0.0, P1=0.1, P2=0.1, Z1=0.05)
@@ -35,7 +44,10 @@ timeseries = run_box_model(
     init_conditions
 )
 
+# ==================================================
 # Plotting
+# ==================================================
+
 p1 = plot(timeseries.P1; label="P1", title="Phytoplankton 1")
 p2 = plot(timeseries.P2; label="P2", title="Phytoplankton 2")
 p3 = plot(timeseries.Z1; label="Z1", title="Zooplankton 1")
