@@ -16,7 +16,7 @@ export create_bgc_model
     create_bgc_model(model_name, parameters, tracers, auxiliary_fields=[:PAR,], helper_functions=nothing)
 
 Creates an Oceananigans biogeochemical model. The model will be accessible as:
-    - `Agate.Models.Dynamic.<model_name>`.
+    - `Agate.Models.Dynamic.<model_name>`
 
 Note that the field names defined in `parameters` can't be any of [:x,:y,:z,:t] (as these are
 reserved for coordinates) and they must include all parameters used in the tracers expressions.
@@ -31,7 +31,6 @@ helper_functions file.
 # Keywords
 - `auxiliary_fields`: an iterable of auxiliary field variables, defaults to [:PAR,]
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
-
 """
 function create_bgc_model(
     model_name, parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
