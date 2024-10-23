@@ -7,7 +7,7 @@ jupyter: julia-1.10
 
 # Four plankton box model simulation
 
-In this notebook, we'll create a simple four plankton model using Agate.jl which is them simulated using 
+In this notebook, we'll create a simple four plankton model using Agate.jl which is them simulated using
 OceanBioME.jl and Oceananigans.jl.
 
 ```{julia}
@@ -26,7 +26,7 @@ using Oceananigans.Biogeochemistry:
 # ==================================================
 
 include("model.jl")
-model = N_2P_2Z_D()
+model = N2P2ZD()
 
 # ==================================================
 # Run box model
@@ -37,12 +37,7 @@ print(required_biogeochemical_tracers(model))
 init_conditions = (N=7.0, Z2=0.05, D=0.0, P1=0.1, P2=0.1, Z1=0.05)
 
 # Run the box model simulation
-timeseries = run_box_model(
-    model, 
-    Δt=10minutes,
-    stop_time=10years,   
-    init_conditions
-)
+timeseries = run_box_model(model, init_conditions; Δt=10minutes, stop_time=10years)
 
 # ==================================================
 # Plotting
@@ -60,5 +55,4 @@ p = plot(p1, p2, p3, p4, p5, p6; layout=(2, 3), size=(900, 600))
 
 # Display the plot inline
 display(p)
-
 ```

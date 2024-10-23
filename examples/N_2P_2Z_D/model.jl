@@ -113,7 +113,7 @@ tracers = Dict(
     )),
 )
 aux_field_vars = [:PAR]
-N_2P_2Z_D = create_bgc_struct(:N_2P_2Z_D, parameters)
+N2P2ZD = create_bgc_struct(:N2P2ZD, parameters)
 add_bgc_methods(
-    N_2P_2Z_D, tracers; auxiliary_fields=aux_field_vars, helper_functions="functions.jl"
+    N2P2ZD, tracers; auxiliary_fields=aux_field_vars, helper_functions="functions.jl"
 )

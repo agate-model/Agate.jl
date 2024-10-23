@@ -257,8 +257,10 @@ Net loss of all plankton due to linear mortality.
 - `linear_mortality::Vector{Float}`: Vector of all plankton linear mortality rates.
 
 """
-function net_linear_loss(P::Vector{Float64}, linear_mortality::Vector{Float64}, fraction::Float64)
-    return sum([linear_loss(P[i], linear_mortality[i]) for i in eachindex(P)])*fraction
+function net_linear_loss(
+    P::Vector{Float64}, linear_mortality::Vector{Float64}, fraction::Float64
+)
+    return sum([linear_loss(P[i], linear_mortality[i]) for i in eachindex(P)]) * fraction
 end
 """
 Net loss of all plankton due to quadratic mortality.
@@ -268,8 +270,12 @@ Net loss of all plankton due to quadratic mortality.
 - `linear_mortality::Vector{Float}`: Vector of all plankton quadratic mortality rates.
 
 """
-function net_quadratic_loss(P::Vector{Float64}, quadratic_mortality::Vector{Float64}, fraction::Float64)
-    return sum([quadratic_loss(P[i], quadratic_mortality[i]) for i in eachindex(P)]*fraction)
+function net_quadratic_loss(
+    P::Vector{Float64}, quadratic_mortality::Vector{Float64}, fraction::Float64
+)
+    return sum(
+        [quadratic_loss(P[i], quadratic_mortality[i]) for i in eachindex(P)] * fraction
+    )
 end
 """
 Net photosynthetic growth of all plankton.
