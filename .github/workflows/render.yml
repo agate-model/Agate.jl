@@ -23,6 +23,9 @@ jobs:
         run: |
           curl -fsSL https://install.julialang.org | sh -s -- --yes
           ~/.juliaup/bin/julia -e 'using Pkg; Pkg.add(["QuartoNotebookRunner"])'
+          
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
 
       - name: Render
         env:
