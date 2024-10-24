@@ -92,8 +92,8 @@ end
     add_bgc_methods!(bgc_type, tracers, auxiliary_fields=[], helper_functions=()) -> DataType
 
 Add most of core methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
-    - `required_biogeochemical_tracers``
-    - `required_biogeochemical_auxiliary_fields``
+    - `required_biogeochemical_tracers`
+    - `required_biogeochemical_auxiliary_fields`
     - a method per tracer
 WARNING: a model that makes use of auxiliary fields also requires a
 `biogeochenical_auxiliary_fields` method to be defined.
