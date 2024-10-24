@@ -5,8 +5,6 @@ Oceananigans.Biogeochemistry).
 
 module Dynamic
 
-using OceanBioME
-
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 
 import Oceananigans.Biogeochemistry:
@@ -16,13 +14,8 @@ export create_bgc_model
 
 """
     create_bgc_model(
-        model_name,
-        parameters,
-        tracers,
-        grid=BoxModelGrid(),
-        auxiliary_fields=[:PAR,],
-        helper_functions=nothing
-    )
+        model_name, parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
+    ) -> DataType
 
 Creates an Oceananigans biogeochemical model. The model will be accessible as:
     - `Agate.Models.Dynamic.<model_name>`
@@ -52,7 +45,7 @@ function create_bgc_model(
     model_name, parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
 )
     bgc_model = create_bgc_struct(model_name, parameters)
-    add_bgc_methods(
+    add_bgc_methods!(
         bgc_model,
         tracers;
         auxiliary_fields=auxiliary_fields,
@@ -96,13 +89,14 @@ function create_bgc_struct(struct_name, parameters)
 end
 
 """
-    add_bgc_methods(bgc_type, tracers, auxiliary_fields=[], helper_functions=()) -> DataType
+    add_bgc_methods!(bgc_type, tracers, auxiliary_fields=[], helper_functions=()) -> DataType
 
 Add most of core methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
     - `required_biogeochemical_tracers``
     - `required_biogeochemical_auxiliary_fields``
     - a method per tracer
-WARNING: a full model also requires a `biogeochenical_auxiliary_fields` method to be defined.
+WARNING: a model that makes use of auxiliary fields also requires a
+`biogeochenical_auxiliary_fields` method to be defined.
 
 # Arguments
 - `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry (returned by `create_bgc_struct`)
@@ -132,10 +126,10 @@ tracers = Dict(
     "F" => :(-γ*F + δ*R*F)
 )
 
-add_bgc_methods(LV, tracers)
+add_bgc_methods!(LV, tracers)
 ```
 """
-function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[], helper_functions=nothing)
+function add_bgc_methods!(bgc_type, tracers; auxiliary_fields=[], helper_functions=nothing)
     if !isnothing(helper_functions)
         include(helper_functions)
     end

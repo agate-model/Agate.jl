@@ -5,7 +5,11 @@ Modules related to photosynthetically available radiation (PAR)
 
 module Light
 
+using OceanBioME
+using Oceananigans
+using Oceananigans: Clock
 using Oceananigans.Units
+using Oceananigans.Fields: FunctionField
 
 const year = years = 365day
 
