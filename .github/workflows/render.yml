@@ -1,0 +1,38 @@
+name: 'Render Quarto project'
+on:
+  push:
+    branches: ["quarto"]
+  workflow_dispatch:
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set Up Micromamba
+        uses: mamba-org/setup-micromamba@v1.9.0
+      
+      - name: Set Up Julia
+        run: |
+          curl -fsSL https://install.julialang.org | sh -s -- --yes
+          ~/.juliaup/bin/julia -e 'using Pkg; Pkg.add(["GeoDataFrames", "QuartoNotebookRunner", "StatsKit", "TuringGLM"])'
+
+      - name: Check Chromium
+        run: |
+          echo $(which chromium-browser)
+          $(which chromium-browser) --headless https://www.chromestatus.com
+        shell: bash
+
+      - name: Render
+        env:
+          QUARTO_PRINT_STACK: true
+        run: |
+           eval "$(micromamba shell hook --shell bash)" && micromamba activate base && cd ./writing && quarto render --to html
+        shell: bash
