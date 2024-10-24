@@ -23,7 +23,7 @@ jobs:
         run: |
           curl -fsSL https://install.julialang.org | sh -s -- --yes
           export PATH="$HOME/.juliaup/bin:$PATH"  # Add Julia to PATH
-          ~/.juliaup/bin/julia -e 'using Pkg; Pkg.add([PackageSpec(path="src"), "Oceananigans", "OceanBioME"])'
+          ~/.juliaup/bin/julia -e 'using Pkg; Pkg.add(["Oceananigans", "OceanBioME"])'
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
