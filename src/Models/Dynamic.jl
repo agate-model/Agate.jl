@@ -10,7 +10,49 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 import Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers, required_biogeochemical_auxiliary_fields
 
-export create_bgc_struct, add_bgc_methods
+export create_bgc_model
+
+"""
+    create_bgc_model(
+        model_name, parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
+    ) -> DataType
+
+Creates an Oceananigans biogeochemical model. The model will be accessible as:
+    - `Agate.Models.Dynamic.<model_name>`
+
+Note that the field names defined in `parameters` can't be any of [:x,:y,:z,:t] (as these are
+reserved for coordinates) and they must include all parameters used in the tracers expressions.
+The expressions must use methods that are either defined within this module or passed in the
+helper_functions file.
+
+# Arguments
+- `model_name`: name for the new model passed as a Symbol
+- `parameters`: named sequence of values of the form (field name = default value, ...)
+- `tracers`: dictionary of the form (name => expression, ...)
+
+# Keywords
+- `auxiliary_fields`: an iterable of auxiliary field variables, defaults to [:PAR,]
+- `helper_functions`: optional path to a file of helper functions used in tracer expressions
+
+# Example
+```julia
+parameters = (α=2 / 3, β=4 / 3, δ=1, γ=1)
+tracers = Dict("R" => :(α * R - β * R * F), "F" => :(-γ * F + δ * R * F))
+LV = create_bgc_model(:LV, parameters, tracers)
+```
+"""
+function create_bgc_model(
+    model_name, parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
+)
+    bgc_model = create_bgc_struct(model_name, parameters)
+    add_bgc_methods!(
+        bgc_model,
+        tracers;
+        auxiliary_fields=auxiliary_fields,
+        helper_functions=helper_functions,
+    )
+    return bgc_model
+end
 
 """
     create_bgc_type(struct_name, parameters) -> DataType
@@ -47,17 +89,21 @@ function create_bgc_struct(struct_name, parameters)
 end
 
 """
-    add_bgc_methods(bgc_type, tracers, auxiliary_fields=[], helper_functions=()) -> DataType
+    add_bgc_methods!(bgc_type, tracers, auxiliary_fields=[], helper_functions=()) -> DataType
 
-Add core methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
-    - required_biogeochemical_tracers
-    - required_biogeochemical_auxiliary_fields
+Add most of core methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
+    - `required_biogeochemical_tracers`
+    - `required_biogeochemical_auxiliary_fields`
     - a method per tracer
+WARNING: a model that makes use of auxiliary fields also requires a
+`biogeochenical_auxiliary_fields` method to be defined.
 
 # Arguments
 - `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry (returned by `create_bgc_struct`)
 - `tracers`: dictionary of the form (name => expression, ...)
-- `auxiliary_fields`: optional iterable of auxiliary field variables
+
+# Keywords
+- `auxiliary_fields`: an optional iterable of auxiliary field variables
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
 
 Note that the field names of bgc_type can't be any of [:x,:y,:z,:t] (as these are reserved for
@@ -80,11 +126,11 @@ tracers = Dict(
     "F" => :(-γ*F + δ*R*F)
 )
 
-add_bgc_methods(LV, tracers)
+add_bgc_methods!(LV, tracers)
 ```
 """
-function add_bgc_methods(bgc_type, tracers; auxiliary_fields=[], helper_functions="")
-    if helper_functions != ""
+function add_bgc_methods!(bgc_type, tracers; auxiliary_fields=[], helper_functions=nothing)
+    if !isnothing(helper_functions)
         include(helper_functions)
     end
 

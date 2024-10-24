@@ -15,7 +15,6 @@ parameters = (
     rᵈⁿ=0.1213 / day,
     α=0.1953 / day,
 )
-aux_field_vars = [:PAR]
 
 tracers = Dict(
     "N" => :(
@@ -35,7 +34,4 @@ tracers = Dict(
         :(predation_gain(P, Z, β, gₘₐₓ, kₚ) - linear_loss(Z, lᶻⁿ) - quadratic_loss(Z, lᶻᵈ)),
 )
 
-NPZD = create_bgc_struct(:NPZD, parameters)
-add_bgc_methods(
-    NPZD, tracers; auxiliary_fields=aux_field_vars, helper_functions="functions.jl"
-)
+NPZD = create_bgc_model(:NPZD, parameters, tracers; helper_functions="functions.jl")
