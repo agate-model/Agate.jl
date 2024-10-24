@@ -27,9 +27,12 @@ jobs:
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
-      - name: Render
-        env:
-            QUARTO_PRINT_STACK: true
-        run: |
-             eval "$(micromamba shell hook --shell bash)" && micromamba activate base && cd ./examples && quarto render --to html
-        shell: bash
+    #   - name: Render
+    #     env:
+    #         QUARTO_PRINT_STACK: true
+    #     run: |
+    #          eval "$(micromamba shell hook --shell bash)" && micromamba activate base && cd examples && quarto render --to html
+    #     shell: bash
+      - name: Render Quarto document
+        run: quarto render ../examples/box_model.qmd
+        
