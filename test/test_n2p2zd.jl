@@ -21,9 +21,4 @@ using Oceananigans.Biogeochemistry:
     model(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D)
     model(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D)
     model(Val(:Z2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D)
-
-    # @test isapprox(model(Val(:N), 0, 0, 0, 0, Z,P,N,D,PAR), 1.4012422280828442e-6)
-    # @test isapprox(model(Val(:D), 0, 0, 0, 0, Z,P,N,D,PAR), -1.3929072700024781e-6)
-    # @test isapprox(model(Val(:P), 0, 0, 0, 0, Z,P,N,D,PAR), 7.025867302989598e-9)
-    # @test isapprox(model(Val(:Z), 0, 0, 0, 0, Z,P,N,D,PAR), -1.5360825383355622e-8)
 end
