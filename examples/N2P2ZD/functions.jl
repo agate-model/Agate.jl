@@ -201,7 +201,7 @@ end
 Estimates the total assimilation loss of the predator (P[predator_index]) feeding on all plankton.
 
 For plankton P[predator_index], the function loops over each prey (P[prey_index]) to 
-estimate the total assimlation loss during predation.
+estimate the total assimilation loss during predation.
 
 # Arguments
 - `predator_index::Int`: Index of the predator, e.g. P[predator_index].
