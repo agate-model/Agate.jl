@@ -22,8 +22,11 @@ jobs:
       - name: Set Up Julia
         run: |
           curl -fsSL https://install.julialang.org | sh -s -- --yes
-          ~/.juliaup/bin/julia -e 'using Pkg; Pkg.add(["Oceananigans", "OceanBioME"])'
+          export PATH="$HOME/.juliaup/bin:$PATH"  # Add Julia to PATH
+          ~/.juliaup/bin/julia -e 'using Pkg; Pkg.add([PackageSpec(path="src"), "Oceananigans", "OceanBioME"])'
+
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
+
       - name: Render Quarto document
-        run: quarto render ../examples/box_model.qmd
+        run: quarto render examples/box_model.qmd
