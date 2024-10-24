@@ -22,7 +22,7 @@ jobs:
       - name: Set Up Julia
         run: |
           curl -fsSL https://install.julialang.org | sh -s -- --yes
-          ~/.juliaup/bin/julia -e 'using Pkg; Pkg.add(["QuartoNotebookRunner"])'
+          ~/.juliaup/bin/julia -e 'using Pkg; Pkg.add(["QuartoNotebookRunner", "IJulia"])'
           
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
