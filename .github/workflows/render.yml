@@ -23,10 +23,7 @@ jobs:
         run: |
           curl -fsSL https://install.julialang.org | sh -s -- --yes
           ~/.juliaup/bin/julia -e 'using Pkg; Pkg.add(["Oceananigans", "OceanBioME"])'
-
-      - name: Render
-        env:
-          QUARTO_PRINT_STACK: true
-        run: |
-           eval "$(micromamba shell hook --shell bash)" && micromamba activate base && cd ./writing && quarto render --to html
-        shell: bash
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+      - name: Render Quarto document
+        run: quarto render ../examples/box_model.qmd
