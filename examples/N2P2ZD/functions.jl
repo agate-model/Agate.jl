@@ -25,8 +25,8 @@ holling_type_2(R::Real, k::Real) = R / (k + R)
 Estimates the loss rate of P (prey), to Z (predator).
 
 # Arguments
-- `P::Symbol`: Prey plankton.
-- `Z::Symbol`: Predator plankton.
+- `P::Real`: Prey plankton.
+- `Z::Real`: Predator plankton.
 - `maximum_predation_rate::Float`: maximum predation rate of the predator
 - `holling_half_saturation::Float`: holling half saturation constant of the predator.
 - `palatability::Float`: palatability of prey to the predator.
@@ -54,8 +54,8 @@ end
 Estimates the gain rate of Z (predator) feeding on P (prey).
 
 # Arguments
-- `P::Symbol`: Prey plankton.
-- `Z::Symbol`: Predator plankton.
+- `P::Real`: Prey plankton.
+- `Z::Real`: Predator plankton.
 - `maximum_predation_rate::Float`: maximum predation rate of the predator
 - `holling_half_saturation::Float`: holling half saturation constant of the predator.
 - `palatability::Float`: palatability of prey to the predator.
@@ -88,8 +88,8 @@ Usually, this is used to estimate fluxes from predation to dissolved and particu
 organic matter (DOM and POM).
 
 # Arguments
-- `P::Symbol`: Prey plankton.
-- `Z::Symbol`: Predator plankton.
+- `P::Real`: Prey plankton.
+- `Z::Real`: Predator plankton.
 - `maximum_predation_rate::Float`: maximum predation rate of the predator
 - `holling_half_saturation::Float`: holling half saturation constant of the predator.
 - `palatability::Float`: palatability of prey to the predator.
@@ -122,7 +122,7 @@ estimate the total loss of plankton i due to predation.
 
 # Arguments
 - `prey_index::Int`: Index of the prey, e.g. P[prey_index].
-- `P::Vector{Symbol}`: Vector which includes all plankton.
+- `P::Vector{<:Real}`: Vector which includes all plankton.
 - `maximum_predation_rate::Vector{Float}`: Vector of all plankton predation rates.
 - `holling_half_saturation::Vector{Float}`: Vector of all plankton predation half saturation constants.
 - `palatability::Matrix{Float}`: Matrix of all plankton palatabilities where:
@@ -161,7 +161,7 @@ estimate the total gain due to predation.
 
 # Arguments
 - `predator_index::Int`: Index of the predator, e.g. P[predator_index].
-- `P::Vector{Symbol}`: Vector which includes all plankton.
+- `P::Vector{<:Real}`: Vector which includes all plankton.
 - `maximum_predation_rate::Vector{Float}`: Vector of all plankton predation rates.
 - `holling_half_saturation::Vector{Float}`: Vector of all plankton predation half saturation constants.
 - `palatability::Matrix{Float}`: Matrix of all plankton palatabilities where:
@@ -205,7 +205,7 @@ estimate the total assimilation loss during predation.
 
 # Arguments
 - `predator_index::Int`: Index of the predator, e.g. P[predator_index].
-- `P::Vector{Symbol}`: Vector which includes all plankton.
+- `P::Vector{<:Real}`: Vector which includes all plankton.
 - `maximum_predation_rate::Vector{Float}`: Vector of all plankton predation rates.
 - `holling_half_saturation::Vector{Float}`: Vector of all plankton predation half saturation constants.
 - `palatability::Matrix{Float}`: Matrix of all plankton palatabilities where:
@@ -253,7 +253,7 @@ end
 Net loss of all plankton due to linear mortality.
 
 # Arguments
-- `P::Vector{Symbol}`: Vector which includes all plankton.
+- `P::Vector{<:Real}`: Vector which includes all plankton.
 - `linear_mortality::Vector{Float}`: Vector of all plankton linear mortality rates.
 
 """
@@ -266,7 +266,7 @@ end
 Net loss of all plankton due to quadratic mortality.
 
 # Arguments
-- `P::Vector{Symbol}`: Vector which includes all plankton.
+- `P::Vector{<:Real}`: Vector which includes all plankton.
 - `linear_mortality::Vector{Float}`: Vector of all plankton quadratic mortality rates.
 
 """
@@ -281,9 +281,9 @@ end
 Net photosynthetic growth of all plankton.
 
 # Arguments
-- `N::Symbol`: Nitrogen
-- `P::Vector{Symbol}`: Vector which includes all plankton.
-- `PAR::Symbol`: PAR
+- `N::Real`: Nitrogen
+- `P::Vector{<:Real}`: Vector which includes all plankton.
+- `PAR::Real`: PAR
 - `maximum_growth_rate::Vector{Float}`: Vector of all plankton maximum growth rates.
 - `nitrogen_half_saturation::Vector{Float}`: Vector of all plankton nitrogen half saturation constants.
 
@@ -307,7 +307,7 @@ end
 Net predator assimilation loss of all plankton.
 
 # Arguments
-- `P::Vector{Symbol}`: Vector which includes all plankton.
+- `P::Vector{<:Real}`: Vector which includes all plankton.
 - `holling_half_saturation::Vector{Float}`: Vector of all plankton predation half saturation constants.
 - `maximum_predation_rate::Vector{Float}`: Vector of all plankton maximum predation rates.
 - `palatability::Matrix{Float}`: Matrix of all plankton palatabilities where:
@@ -342,8 +342,8 @@ Wrapper function to estimate the rate at which plankton biomass changes over tim
 
 # Arguments
 - `plankton_index:Int`: The index of the plankton for which the rate of change is estimated
-- `N::Symbol`: Nitrogen
-- `P::Vector{Symbol}`: Vector which includes all plankton.
+- `N::Real`: Nitrogen
+- `P::Vector{<:Real}`: Vector which includes all plankton.
 - `linear_mortality::Vector{Float}`: Vector of all plankton linear mortality rates.
 - `maximum_growth_rate::Vector{Float}`: Vector of all plankton maximum growth rates.
 - `holling_half_saturation::Vector{Float}`: Vector of all plankton predation half saturation constants.
