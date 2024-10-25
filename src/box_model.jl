@@ -17,20 +17,20 @@ const year = years = 365day
 
 """
     create_box_model(
-        bgc_model, init_conditions; PAR_f=cyclical_PAR(; z=-10)
+        bgc_tracers, init_conditions; PAR_f=cyclical_PAR(; z=-10)
     ) -> OceanBioME.BoxModel
 
 Create an OceanBioME.BoxModel object and set initial values.
 
 # Arguments
-- `bgc_model`: biogeochemistry model, a subtype of AbstractContinuousFormBiogeochemistry,
+- `bgc_tracers`: biogeochemistry model tracers, a subtype of AbstractContinuousFormBiogeochemistry,
     e.g., returned by `Agate.define_tracer_functions()`
 - `init_conditions`: NamedTuple of initial values
 
 # Keywords
 - `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.cyclical_PAR`)
 """
-function create_box_model(bgc_model, init_conditions; PAR_f=cyclical_PAR(; z=-10))
+function create_box_model(bgc_tracers, init_conditions; PAR_f=cyclical_PAR(; z=-10))
     grid = BoxModelGrid() # 1x1x1 grid
     clock = Clock(; time=zero(grid))
     if isnothing(PAR_f)
@@ -40,7 +40,7 @@ function create_box_model(bgc_model, init_conditions; PAR_f=cyclical_PAR(; z=-10
         light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
     end
 
-    biogeochemistry = Biogeochemistry(bgc_model; light_attenuation=light_attenuation)
+    biogeochemistry = Biogeochemistry(bgc_tracers; light_attenuation=light_attenuation)
 
     model = BoxModel(; biogeochemistry, clock)
     set!(model, init_conditions)
@@ -56,7 +56,7 @@ Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, .
 
 # Arguments
 - `bgc_tracers`: biogeochemistry model tracers, a subtype of AbstractContinuousFormBiogeochemistry
-    (e.g., returned by `Agate.define_tracer_functions`)
+    e.g., returned by `Agate.define_tracer_functions`
 - `init_conditions`: NamedTuple of initial values
 
 # Keywords
