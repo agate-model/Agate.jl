@@ -9,14 +9,14 @@ using Plots
 # ==================================================
 
 include(joinpath("NPZD", "tracers.jl"))
-model = NPZD()
+bgc_tracers = NPZD()
 
 # ==================================================
 # Run box model
 # ==================================================
 
 init_conditions = (N=7.0, P=0.01, Z=0.05, D=0.0)
-timeseries = run_box_model(model, init_conditions)
+timeseries = run_box_model(bgc_tracers, init_conditions)
 
 # ==================================================
 # Plotting
