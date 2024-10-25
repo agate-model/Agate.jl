@@ -85,7 +85,7 @@ using Oceananigans.Biogeochemistry:
             using Oceananigans.Units
 
             # NPZD model
-            include("../examples/NPZD/model.jl")
+            include(joinpath("..", "examples", "NPZD", "tracers.jl"))
             model = NPZD()
 
             Z = 0.05

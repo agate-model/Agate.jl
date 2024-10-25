@@ -3,6 +3,6 @@ module Models
 include("Dynamic.jl")
 using .Dynamic
 
-export create_bgc_model
+export define_tracer_functions
 
 end # module

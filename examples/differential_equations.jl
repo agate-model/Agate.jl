@@ -14,8 +14,7 @@ const year = years = 365day
 # Define BGC model (NPZD)
 # ==================================================
 
-model_path = joinpath("NPZD", "model.jl")
-include(model_path)
+include(joinpath("NPZD", "tracers.jl"))
 model = NPZD()
 
 # ==================================================

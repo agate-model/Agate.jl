@@ -24,7 +24,7 @@ Create an OceanBioME.BoxModel object and set initial values.
 
 # Arguments
 - `bgc_model`: biogeochemistry model, a subtype of AbstractContinuousFormBiogeochemistry,
-    e.g., returned by `Agate.create_bgc_struct()`
+    e.g., returned by `Agate.define_tracer_functions()`
 - `init_conditions`: NamedTuple of initial values
 
 # Keywords
@@ -49,14 +49,14 @@ function create_box_model(bgc_model, init_conditions; PAR_f=cyclical_PAR(; z=-10
 end
 
 """
-    run_box_model(bgc_model, init_conditions; kwargs...) -> NamedTuple
+    run_box_model(bgc_tracers, init_conditions; kwargs...) -> NamedTuple
 
 Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, ...], ...)
 (results are also saved to a file).
 
 # Arguments
-- `bgc_model`: biogeochemistry model, a subtype of AbstractContinuousFormBiogeochemistry
-    (e.g., returned by `Agate.create_bgc_struct`)
+- `bgc_tracers`: biogeochemistry model tracers, a subtype of AbstractContinuousFormBiogeochemistry
+    (e.g., returned by `Agate.define_tracer_functions`)
 - `init_conditions`: NamedTuple of initial values
 
 # Keywords
@@ -68,7 +68,7 @@ Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, .
 - `overwrite`: whether to overwrite existing files
 """
 function run_box_model(
-    bgc_model,
+    bgc_tracers,
     init_conditions;
     PAR_f=cyclical_PAR(; z=-10),
     Δt=5minutes,
@@ -77,7 +77,7 @@ function run_box_model(
     filename="box.jld2",
     overwrite=true,
 )
-    model = create_box_model(bgc_model, init_conditions; PAR_f=PAR_f)
+    model = create_box_model(bgc_tracers, init_conditions; PAR_f=PAR_f)
 
     simulation = Simulation(model; Δt=Δt, stop_time=stop_time)
     simulation.output_writers[:fields] = JLD2OutputWriter(

@@ -1,32 +1,31 @@
 """
-Module to dynamically create AbstractContinuousFormBiogeochemistry types (imported from
-Oceananigans.Biogeochemistry).
+Module to dynamically create Oceananigans.AbstractContinuousFormBiogeochemistry types.
 """
 
 module Dynamic
+
+using Random
 
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 
 import Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers, required_biogeochemical_auxiliary_fields
 
-export create_bgc_model
+export define_tracer_functions
 
 """
-    create_bgc_model(
-        model_name, parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
+    define_tracer_functions(
+        parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
     ) -> DataType
 
-Creates an Oceananigans biogeochemical model. The model will be accessible as:
-    - `Agate.Models.Dynamic.<model_name>`
+Creates an Oceananigans biogeochemical model type with a method for each tracer function.
 
-Note that the field names defined in `parameters` can't be any of [:x,:y,:z,:t] (as these are
+Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] (as these are
 reserved for coordinates) and they must include all parameters used in the tracers expressions.
 The expressions must use methods that are either defined within this module or passed in the
 helper_functions file.
 
 # Arguments
-- `model_name`: name for the new model passed as a Symbol
 - `parameters`: named sequence of values of the form (field name = default value, ...)
 - `tracers`: dictionary of the form (name => expression, ...)
 
@@ -38,12 +37,14 @@ helper_functions file.
 ```julia
 parameters = (α=2 / 3, β=4 / 3, δ=1, γ=1)
 tracers = Dict("R" => :(α * R - β * R * F), "F" => :(-γ * F + δ * R * F))
-LV = create_bgc_model(:LV, parameters, tracers)
+LV = define_tracer_functions(parameters, tracers)
 ```
 """
-function create_bgc_model(
-    model_name, parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
+function define_tracer_functions(
+    parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
 )
+    # need a "unique" enough name in case the user creates multiple models in one session
+    model_name = Symbol(randstring(['A':'Z'; 'a':'z'], 12))
     bgc_model = create_bgc_struct(model_name, parameters)
     add_bgc_methods!(
         bgc_model,
@@ -55,16 +56,17 @@ function create_bgc_model(
 end
 
 """
-    create_bgc_type(struct_name, parameters) -> DataType
+    create_bgc_struct(struct_name, parameters) -> DataType
 
 Create a subtype of AbstractContinuousFormBiogeochemistry. Uses field names and default
 values defined in `parameters` (which can be, for example, a Dict or NamedTuple).
 
 # Arguments
-- `struct_name`: name for the new struct passed as a Symbol
+- `struct_name`: name for the new struct passed as a Symbol. The struct will be accessible
+   as: `Agate.Models.Dynamic.<struct_name>`
 - `parameters`: named sequence of values of the form (field name = default value, ...)
 
-Note that the field names defined in `parameters` can't be any of [:x,:y,:z,:t], which are
+Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t], which are
 reserved for coordinates.
 
 # Example
@@ -74,7 +76,9 @@ function create_bgc_struct(struct_name, parameters)
     fields = []
     for (k, v) in pairs(parameters)
         if k in [:x, :y, :z, :t]
-            throw(DomainError(k, "field names in parameters can't be any of [:x,:y,:z,:t]"))
+            throw(
+                DomainError(k, "field names in parameters can't be any of [:x, :y, :z, :t]")
+            )
         end
         exp = :($k = $v)
         push!(fields, exp)
@@ -106,7 +110,7 @@ WARNING: a model that makes use of auxiliary fields also requires a
 - `auxiliary_fields`: an optional iterable of auxiliary field variables
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
 
-Note that the field names of bgc_type can't be any of [:x,:y,:z,:t] (as these are reserved for
+Note that the field names of bgc_type can't be any of [:x, :y, :z, :t] (as these are reserved for
 coordinates) and they must include all parameters used in the tracers expressions. The expressions
 must use methods that are either defined within this module or passed in the helper_functions file.
 
@@ -148,7 +152,9 @@ function add_bgc_methods!(bgc_type, tracers; auxiliary_fields=[], helper_functio
     method_vars = []
     for param in params
         if param in [:x, :y, :z, :t]
-            throw(DomainError(field, "$bgc_type field names can't be any of [:x,:y,:z,:t]"))
+            throw(
+                DomainError(field, "$bgc_type field names can't be any of [:x, :y, :z, :t]")
+            )
         end
         # the expressions are evaluated inside the tracer methods below, which take in a
         # `bgc` object (of bgc_type)
@@ -201,17 +207,17 @@ function parse_expression(f_expr)
 end
 
 """
-    expression_check(params, f_expr) -> nothing
+    expression_check(args, f_expr) -> nothing
 
 Checks that all methods and arguments are defined. Specifically:
-    - vector params contains all arguments of expression f_expr
+    - vector args contains all arguments of expression f_expr
     - all methods called in expression are defined in module (e.g., Base, Main, Agate)
 If not, throws an UnderVarError.
 """
-function expression_check(params, f_expr; module_name=Dynamic)
+function expression_check(args, f_expr; module_name=Dynamic)
     symbols = parse_expression(f_expr)
     for s in symbols
-        if s ∉ params && !isdefined(module_name, s)
+        if s ∉ args && !isdefined(module_name, s)
             throw(UndefVarError(s))
         end
     end
