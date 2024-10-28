@@ -2,21 +2,26 @@
 # definitions and run a box model (0D) simulation using OceanBioME and Oceananigans.
 
 using Agate
+using OceanBioME
 using Plots
 
 # ==================================================
-# Define BGC model (NPZD)
+# Define BGC model (NPZD with cyclical PAR)
 # ==================================================
 
 include(joinpath("NPZD", "tracers.jl"))
 bgc_tracers = NPZD()
+bgc_model = create_bgc_model(bgc_tracers)
 
 # ==================================================
 # Run box model
+# NOTE: this could be an Oceananigans model instead
 # ==================================================
 
+full_model = BoxModel(; biogeochemistry=bgc_model)
 init_conditions = (N=7.0, P=0.01, Z=0.05, D=0.0)
-timeseries = run_box_model(bgc_tracers, init_conditions)
+
+timeseries = run_simulation(full_model, init_conditions)
 
 # ==================================================
 # Plotting

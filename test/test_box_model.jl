@@ -14,24 +14,14 @@ const year = years = 365day
     npzd_model = NPZD()
     init_conditions = (N=7.0, P=0.01, Z=0.05, D=0.0)
 
-    @testset "PAR parameters" begin
-        agate_box_model = create_box_model(npzd_model, init_conditions)
-        @test agate_box_model.biogeochemistry.light_attenuation.fields[1][1, 1, 1] ===
-            0.5398701925529049
-
-        agate_box_model = create_box_model(
-            npzd_model, init_conditions; PAR_f=cyclical_PAR(; z=-5)
-        )
-        @test agate_box_model.biogeochemistry.light_attenuation.fields[1][1, 1, 1] ===
-            1.4675193341432473
-    end
-
     @testset "NPZD box model" begin
 
         # ==================================================
         # Agate NPZD model
         # ==================================================
-        agate_box_model = create_box_model(npzd_model, init_conditions)
+        agate_bgc_model = create_bgc_model(npzd_model)
+        agate_box_model = BoxModel(; biogeochemistry=agate_bgc_model)
+        set!(agate_box_model, init_conditions)
 
         # ==================================================
         # OceanBioME NPZD model
