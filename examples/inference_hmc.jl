@@ -45,7 +45,7 @@ function NPZD_problem(du, u, p, t)
 
     model = NPZD(μ₀, kₙ, lᵖⁿ, lᶻⁿ, lᵖᵈ, gₘₐₓ, kₚ, β, lᶻᵈ, rᵈⁿ, α)
 
-    PAR = cyclical_PAR(t, -10)
+    PAR = cyclical_PAR(-10, t)
 
     for (i, tracer) in enumerate((:Z, :P, :N, :D))
         du[i] = model(Val(tracer), 0, 0, 0, t, u..., PAR)
