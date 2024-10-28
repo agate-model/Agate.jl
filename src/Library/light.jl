@@ -53,9 +53,7 @@ end
 - `grid`: the geometry to build the model on defined as an Oceananigans grid object
 - `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.cyclical_PAR`)
 """
-function CyclicalPhotosyntheticallyActiveRadiation(;
-    grid, PAR_f=cyclical_PAR(; z=-10)
-)
+function CyclicalPhotosyntheticallyActiveRadiation(; grid, PAR_f=cyclical_PAR(; z=-10))
     clock = Clock(; time=zero(grid))
     PAR = FunctionField{Center,Center,Center}(PAR_f, grid; clock)
     return CyclicalPhotosyntheticallyActiveRadiation(PAR)
