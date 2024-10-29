@@ -16,7 +16,7 @@ Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, .
 (results are also saved to a file).
 
 # Arguments
-- `model`: full Biogeochemistry & Ocean physics specification (can be a BoxModel)
+- `model`: BoxModel
 - `init_conditions`: NamedTuple of initial values
 
 # Keywords
@@ -27,7 +27,7 @@ Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, .
 - `overwrite`: whether to overwrite existing files
 """
 function run_simulation(
-    model,
+    model::BoxModel,
     init_conditions;
     Δt=5minutes,
     stop_time=3years,
@@ -49,7 +49,7 @@ function run_simulation(
 
     # to access value of each tracer: model.fields.$tracer.data[1,1,1]
     timeseries = NamedTuple{keys(model.fields)}(
-        FieldTimeSeries("box.jld2", "$field")[1, 1, 1, :] for field in keys(model.fields)
+        FieldTimeSeries(filename, "$field")[1, 1, 1, :] for field in keys(model.fields)
     )
 
     return timeseries
@@ -58,7 +58,7 @@ end
 """
     set!(model::BoxModel, init_conditions::NamedTuple)
 
-Set the `BoxModel` initial conditions (Field values).
+Set the `BoxModel` initial conditions (tracer values).
 
 # Arguments
 - `model`: the model to set the arguments for
