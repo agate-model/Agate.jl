@@ -56,6 +56,52 @@ function run_simulation(
 end
 
 """
+    run_simulation(model, init_conditions; kwargs...) -> NamedTuple
+
+Returns timeseries for each tracer of the form (<tracer name>: [<value at t1>, ...], ...)
+(results are also saved to a file).
+
+# Arguments
+- `model`: Oceananigans NonhydrostaticModel containing Biogeochemistry
+- `init_conditions`: NamedTuple of initial values
+
+# Keywords
+- `Δt`: simulation step time
+- `stop_time`: until when to run the simulation
+- `save_interval`: interval at which to save simulation results
+- `filename`: name of file to save simulation results to
+- `overwrite`: whether to overwrite existing files
+
+"""
+function run_simulation(
+    model::NonhydrostaticModel,
+    init_conditions;
+    Δt=5minutes,
+    stop_time=3years,
+    save_interval=1day,
+    filename="column.jld2",
+    overwrite=true,
+)
+    set!(model, init_conditions)
+
+    simulation = Simulation(model; Δt=Δt, stop_time=stop_time)
+    simulation.output_writers[:profiles] = JLD2OutputWriter(
+        model,
+        model.tracers;
+        filename=filename,
+        schedule=TimeInterval(save_interval),
+        overwrite_existing=overwrite,
+    )
+    run!(simulation)
+
+    timeseries = NamedTuple{keys(model.tracers)}(
+        FieldTimeSeries(filename, "$field") for field in keys(model.tracers)
+    )
+
+    return timeseries
+end
+
+"""
     set!(model::BoxModel, init_conditions::NamedTuple)
 
 Set the `BoxModel` initial conditions (tracer values).
@@ -70,6 +116,27 @@ function set!(model::BoxModel, init_conditions::NamedTuple)
             ϕ = getproperty(model.fields, fldname)
         else
             throw(ArgumentError("name $fldname not found in model.fields."))
+        end
+        set!(ϕ, value)
+    end
+    return nothing
+end
+
+"""
+    set!(model::NonhydrostaticModel, init_conditions::NamedTuple)
+
+Set the `NonhydrostaticModel` initial conditions (tracer values).
+
+# Arguments
+- `model`: the model to set the arguments for
+- `init_conditions`: NamedTuple of initial values
+"""
+function set!(model::NonhydrostaticModel, init_conditions::NamedTuple)
+    for (tracer, value) in pairs(init_conditions)
+        if tracer ∈ propertynames(model.tracers)
+            ϕ = getproperty(model.tracers, tracer)
+        else
+            throw(ArgumentError("name $tracer not found in model.tracers."))
         end
         set!(ϕ, value)
     end
