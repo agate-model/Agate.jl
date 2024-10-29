@@ -17,9 +17,7 @@ export create_bgc_model
 - `light_attenuation`: model for attenuation of PAR through water
 """
 function create_bgc_model(
-    bgc_tracers;
-    grid=BoxModelGrid(),
-    light_attenuation=CyclicalPhotosyntheticallyActiveRadiation(; grid=grid),
+    bgc_tracers; grid=BoxModelGrid(), light_attenuation=FunctionPAR(; grid=grid)
 )
     return Biogeochemistry(bgc_tracers; light_attenuation=light_attenuation)
 end

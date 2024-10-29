@@ -30,45 +30,45 @@ end
 cyclical_PAR(; z) = t -> cyclical_PAR(z, t)
 
 """
-Time-dependent cyclical PAR at depth `z` (suitable for use with column models).
+Time and depth dependent cyclical PAR (suitable for use with column models).
 """
 function cyclical_PAR(x, y, z, t)
     return cyclical_PAR(z, t)
 end
 
 """
-Light module for cyclical PAR (can be used with box or column models).
+Light module for PAR defined by simple functions (can be used with box or column models).
 
 # Fields
 - `field`: Oceananigans.FunctionField
 """
-struct CyclicalPhotosyntheticallyActiveRadiation
+struct FunctionPAR
     field
 end
 
 """
-    CyclicalPhotosyntheticallyActiveRadiation() -> DataType
+    FunctionPAR() -> DataType
 
 # Keywords
 - `grid`: the geometry to build the model on defined as an Oceananigans grid object
-- `PAR_f`: a time dependant PAR function (defaults to `Agate.Library.Light.cyclical_PAR`)
+- `PAR_f`: a PAR function of time (and depth), defaults to `cyclical_PAR`
 """
-function CyclicalPhotosyntheticallyActiveRadiation(; grid, PAR_f=cyclical_PAR(; z=-10))
+function FunctionPAR(; grid, PAR_f=cyclical_PAR(; z=-10))
     clock = Clock(; time=zero(grid))
-    PAR = FunctionField{Center,Center,Center}(PAR_f, grid; clock)
-    return CyclicalPhotosyntheticallyActiveRadiation(PAR)
+    PAR_field = FunctionField{Center,Center,Center}(PAR_f, grid; clock)
+    return FunctionPAR(PAR_field)
 end
 
-function update_biogeochemical_state!(model, PAR::CyclicalPhotosyntheticallyActiveRadiation)
+function update_biogeochemical_state!(model, PAR::FunctionPAR)
     PAR.field.clock.time = model.clock.time
     compute!(PAR.field)
     return nothing
 end
 
-function biogeochemical_auxiliary_fields(par::CyclicalPhotosyntheticallyActiveRadiation)
+function biogeochemical_auxiliary_fields(par::FunctionPAR)
     return (PAR=par.field,)
 end
 
-export cyclical_PAR, CyclicalPhotosyntheticallyActiveRadiation
+export cyclical_PAR, FunctionPAR
 
 end # module
