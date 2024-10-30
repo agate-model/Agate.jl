@@ -3,6 +3,9 @@ function menden_limitation(N::Real, nitrogen_half_saturation::Real)
     return N / (nitrogen_half_saturation + N)
 end
 function smith_light_limitation(PAR::Real, alpha::Real, maximum_growth_rate::Real)
+    if alpha == 0
+        @warn "Parameter 'alpha' is equal to zero, which will lead to NaNs."
+    end
     return alpha * PAR / sqrt(maximum_growth_rate^2 + alpha^2 * PAR^2)
 end
 function photosynthetic_growth(
