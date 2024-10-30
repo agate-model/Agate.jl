@@ -2,7 +2,9 @@
 # definitions and run a box model (0D) simulation using OceanBioME and Oceananigans.
 
 using Agate
+using Agate.Library.Light
 using OceanBioME
+using OceanBioME: Biogeochemistry
 using Plots
 
 # ==================================================
@@ -10,8 +12,7 @@ using Plots
 # ==================================================
 
 include(joinpath("NPZD", "tracers.jl"))
-bgc_tracers = NPZD()
-bgc_model = create_bgc_model(bgc_tracers)
+bgc_model = Biogeochemistry(NPZD(); light_attenuation=FunctionPAR(; grid=BoxModelGrid()))
 
 # ==================================================
 # Run box model

@@ -1,6 +1,7 @@
 using Agate
-using Agate.Light
+using Agate.Library.Light
 using OceanBioME
+using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans: Clock
 using Oceananigans.Units
@@ -11,7 +12,6 @@ const year = years = 365day
 @testset "box_model" begin
     include(joinpath("..", "examples", "NPZD", "tracers.jl"))
 
-    npzd_model = NPZD()
     init_conditions = (N=7.0, P=0.01, Z=0.05, D=0.0)
 
     @testset "NPZD box model" begin
@@ -19,7 +19,9 @@ const year = years = 365day
         # ==================================================
         # Agate NPZD model
         # ==================================================
-        agate_bgc_model = create_bgc_model(npzd_model)
+        agate_bgc_model = Biogeochemistry(
+            NPZD(); light_attenuation=FunctionPAR(; grid=BoxModelGrid())
+        )
         agate_box_model = BoxModel(; biogeochemistry=agate_bgc_model)
         set!(agate_box_model, init_conditions)
 
