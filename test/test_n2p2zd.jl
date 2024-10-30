@@ -1,13 +1,7 @@
-using Agate.Models.Dynamic: expression_check
-using Oceananigans.Biogeochemistry:
-    AbstractContinuousFormBiogeochemistry,
-    required_biogeochemical_tracers,
-    required_biogeochemical_auxiliary_fields
 
 @testset "N2P2ZD" begin
-    using Oceananigans.Units
     # N2P2ZD model
-    include("../examples/N2P2ZD/model.jl")
+    include(joinpath("..", "examples", "N2P2ZD", "tracers.jl"))
     model = N2P2ZD()
     P1 = 0.01
     P2 = 0.01
