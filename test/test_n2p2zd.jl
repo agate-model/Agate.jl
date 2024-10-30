@@ -15,10 +15,12 @@ using Oceananigans.Biogeochemistry:
     Z2 = 0.05
     N = 7.0
     D = 1
-    model(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D)
-    model(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D)
-    model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D)
-    model(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D)
-    model(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D)
-    model(Val(:Z2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D)
+    PAR = 100
+
+    @test !iszero(model(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+    @test !iszero(model(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+    @test !iszero(model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+    @test !iszero(model(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+    @test !iszero(model(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+    @test !iszero(model(Val(:Z2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
 end
