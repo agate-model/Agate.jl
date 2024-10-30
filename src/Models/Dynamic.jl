@@ -44,7 +44,9 @@ function define_tracer_functions(
     parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
 )
     model_name = Symbol(randstring(['A':'Z'; 'a':'z'], 20))
-    # model_name ∈ names(Dynamic, all=true) #can check if this already exists
+    while model_name ∈ names(Dynamic; all=true)
+        model_name = Symbol(randstring(['A':'Z'; 'a':'z'], 20))
+    end
     bgc_model = create_bgc_struct(model_name, parameters)
     add_bgc_methods!(
         bgc_model,
