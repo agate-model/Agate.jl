@@ -2,27 +2,29 @@
 # For example, for prey # maximum_grazing_rate are set to 0, while for predators maximum_growth_rate are set to 0.
 
 using Agate
-using Plots
+using Agate.Library.Light
+using OceanBioME
+using OceanBioME: Biogeochemistry
 using Oceananigans.Units
+using Plots
 
 const year = years = 365day
-
-using Oceananigans.Biogeochemistry:
-    required_biogeochemical_tracers, required_biogeochemical_auxiliary_fields
 
 # ==================================================
 # Define BGC model (N2P2ZD)
 # ==================================================
 
 include("tracers.jl")
-model = N2P2ZD()
+bgc_model = Biogeochemistry(N2P2ZD(); light_attenuation=FunctionPAR(; grid=BoxModelGrid()))
 
 # ==================================================
 # Run box model
 # ==================================================
 
+full_model = BoxModel(; biogeochemistry=bgc_model)
 init_conditions = (N=7.0, Z2=0.05, D=0.0, P1=0.1, P2=0.1, Z1=0.05)
-timeseries = run_box_model(model, init_conditions; Δt=10minutes, stop_time=10years)
+
+timeseries = run_simulation(full_model, init_conditions; Δt=10minutes, stop_time=10years)
 
 # ==================================================
 # Plotting
