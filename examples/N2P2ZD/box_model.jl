@@ -1,4 +1,4 @@
-# In this model, a single plankton functional type is defined, which can then be specified as predator or prey based on the parameter values. 
+# In this model, a single plankton functional type is defined, which can then be specified as predator or prey based on the parameter values.
 # For example, for prey # maximum_grazing_rate are set to 0, while for predators maximum_growth_rate are set to 0.
 
 using Agate
@@ -14,7 +14,7 @@ using Oceananigans.Biogeochemistry:
 # Define BGC model (N2P2ZD)
 # ==================================================
 
-include("model.jl")
+include("tracers.jl")
 model = N2P2ZD()
 
 # ==================================================
