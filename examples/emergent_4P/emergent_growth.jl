@@ -1,5 +1,4 @@
 function dummy_emergent_growth(volume_a, volume_b, volume)
-    
     if volume_a == 0
         return rate = 0  # Early return if volume_a is zero
     else
