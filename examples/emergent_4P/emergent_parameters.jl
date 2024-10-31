@@ -35,7 +35,7 @@ end
 function estimate_emergent_vectors(plankton, growth_function, params)
     emergent_vector = Dict(
         name => growth_function(
-            [plankton[name][key] for key in params]...  # Use splatting to unpack the vector
+            [plankton[name][key] for key in params]...,  # Use splatting to unpack the vector
         ) for name in keys(plankton)
     )
     return emergent_vector
@@ -66,7 +66,7 @@ function create_palatability_matrix(plankton, volume_key, opt_ratio_key, protect
 
     # Create a NamedArray with the palatability values and names
     palatability_matrix = NamedArray(palatability_values, names)
-    
+
     return palatability_matrix
 end
 
