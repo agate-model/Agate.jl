@@ -1,7 +1,5 @@
 using NamedArrays
 
-
-
 # Define the dynamic palatability matrix creation function
 function emergent_matrix(plankton, func, params)
     # Extract predator and prey names
@@ -28,12 +26,11 @@ function emergent_matrix(plankton, func, params)
     return NamedArray(palatability_values, names)
 end
 
-
 # Function to generate a dictionary of emergent values for each species
 function emergent_dict(plankton, func, params)
     emergent_values = Dict(
         name => func(
-            [plankton[name][key] for key in params]...  # Extract parameters dynamically
+            [plankton[name][key] for key in params]...,  # Extract parameters dynamically
         ) for name in keys(plankton)
     )
     return emergent_values
@@ -58,19 +55,21 @@ end
 # Handle NamedArray result (matrix logic)
 function handle_result(result::NamedArray)
     println("Handling NamedArray (Matrix) result")
-    display(result)
+    return display(result)
 end
 
 # Handle Dict result (dictionary logic)
 function handle_result(result::Dict)
     println("Handling Dict result")
-    display(result)
+    return display(result)
 end
 
 # Test with sample data
 plankton = Dict(
-    "species1" => Dict("value" => 1.0, "pred" => 2.0, "opt_ratio" => 0.5, "protection" => 0.1),
-    "species2" => Dict("value" => 1.5, "pred" => 1.8, "opt_ratio" => 0.6, "protection" => 0.2)
+    "species1" =>
+        Dict("value" => 1.0, "pred" => 2.0, "opt_ratio" => 0.5, "protection" => 0.1),
+    "species2" =>
+        Dict("value" => 1.5, "pred" => 1.8, "opt_ratio" => 0.6, "protection" => 0.2),
 )
 keys = ["value", "pred", "opt_ratio", "protection"]
 params = ["value", "pred", "opt_ratio", "protection"]

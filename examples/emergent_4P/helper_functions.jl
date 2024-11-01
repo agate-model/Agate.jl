@@ -7,7 +7,6 @@ function estimate_emergent_dictionary(plankton, growth_function, params)
     return emergent_vector
 end
 
-
 using NamedArrays
 
 # Define the dynamic palatability matrix creation function
@@ -35,4 +34,3 @@ function estimate_emergent_matrix(plankton, func, keys)
     # Create and return a NamedArray with the palatability values and names
     return NamedArray(palatability_values, names)
 end
-

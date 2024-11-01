@@ -41,7 +41,8 @@ emergent_functions = Dict(
         prey_volume, predator_volume, optimum_predator_prey_ratio, protection
     )),
     "predation_rate" => :(dummy_emergent_predation_rate(volume_a, volume_b, volume)),
-    "nitrogen_half_saturation" => :(dummy_emergent_nitrogen_half_saturation(volume_a, volume_b, volume)),
+    "nitrogen_half_saturation" =>
+        :(dummy_emergent_nitrogen_half_saturation(volume_a, volume_b, volume)),
 )
 
 #then pass to multiple dispatch
