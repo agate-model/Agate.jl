@@ -15,8 +15,6 @@ end
 
 """
 
-instead of prey_volume and predator_volume it should be an array containing both?
-
 """
 function dummy_emergent_palat(
     args...; prey_volume_key, predator_volume_key, optimum_ratio_key, protection_key
