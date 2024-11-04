@@ -1,6 +1,6 @@
 using NamedArrays
 
-```
+"""
 
 #Example usage:
 
@@ -12,8 +12,7 @@ plankton = Dict(
 )
 
 result = emergent_1D_array(plankton, dummy_emergent_predation_rate, ["volume_a", "volume_b", "volume"])
-
-```
+"""
 function emergent_1D_array(plankton, func, params)
     # Get species names
     species_names = collect(keys(plankton))
