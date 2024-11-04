@@ -78,4 +78,13 @@ end
 # Display the results dictionary
 println("All results:", results_dict)
 
-println(results_dict["growth_rate"])
+#check named arrays:
+
+#growth rate of P2:
+println(results_dict["growth_rate"]["P2"])
+
+#palability of P2 to P1:
+println(results_dict["palatability"]["P1", "P2"])
+
+#palability of Z1 to P1:
+println(results_dict["palatability"]["Z1", "P2"])
