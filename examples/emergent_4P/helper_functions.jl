@@ -74,7 +74,6 @@ function emergent_2D_array(plankton, func, key_list)
     return NamedArray(palatability_values, names)
 end
 
-
 """
 #Example: 
 
@@ -106,4 +105,3 @@ function emergent_analysis(plankton, func, params)
 
     return result
 end
-
