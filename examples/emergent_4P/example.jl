@@ -1,26 +1,50 @@
 include("emergent_functions.jl")
 include("helper_functions.jl")
-# Sample plankton data with required keys
+
 plankton = Dict(
-    "species1" => Dict(
-        "volume" => 1.0,
-        "volume_a" => 1.0,
-        "volume_b" => 1.0,
-        "pred" => 2.0,
-        "optimum_predator_prey_ratio" => 10,
-        "protection" => 0,
+    "P1" => Dict(
+        "volume" => 1,
         "growth_a" => 1,
         "growth_b" => 1,
+        "protection" => 0,
+        "optimum_predator_prey_ratio" => 0,
+        "nitrogen_half_saturation_a" => 1,
+        "nitrogen_half_saturation_b" => 1,
+        "predation_rate_a" => 0,
+        "predation_rate_b" => 0,
     ),
-    "species2" => Dict(
-        "volume" => 1.5,
-        "volume_a" => 1.0,
-        "volume_b" => 1.0,
-        "pred" => 1.8,
-        "optimum_predator_prey_ratio" => 10,
-        "protection" => 0,
+    "P2" => Dict(
+        "volume" => 10,
         "growth_a" => 1,
         "growth_b" => 1,
+        "protection" => 0,
+        "optimum_predator_prey_ratio" => 0,
+        "nitrogen_half_saturation_a" => 1,
+        "nitrogen_half_saturation_b" => 1,
+        "predation_rate_a" => 0,
+        "predation_rate_b" => 0,
+    ),
+    "Z1" => Dict(
+        "volume" => 10,
+        "growth_a" => 0,
+        "growth_b" => 0,
+        "protection" => 1,
+        "optimum_predator_prey_ratio" => 10,
+        "nitrogen_half_saturation_a" => 0,
+        "nitrogen_half_saturation_b" => 0,
+        "predation_rate_a" => 1,
+        "predation_rate_b" => 1,
+    ),
+    "Z2" => Dict(
+        "volume" => 100,
+        "growth_a" => 0,
+        "growth_b" => 0,
+        "protection" => 1,
+        "optimum_predator_prey_ratio" => 10,
+        "nitrogen_half_saturation_a" => 0,
+        "nitrogen_half_saturation_b" => 0,
+        "predation_rate_a" => 1,
+        "predation_rate_b" => 1,
     ),
 )
 
@@ -29,9 +53,12 @@ emergent_functions = Dict(
     "growth_rate" => (dummy_emergent_growth, ["growth_a", "growth_b", "volume"]),
     "palatability" =>
         (dummy_emergent_palat, ["volume", "optimum_predator_prey_ratio", "protection"]),
-    "predation_rate" => (dummy_emergent_predation_rate, ["volume_a", "volume_b", "volume"]),
-    "nitrogen_half_saturation" =>
-        (dummy_emergent_nitrogen_half_saturation, ["volume_a", "volume_b", "volume"]),
+    "predation_rate" =>
+        (dummy_emergent_predation_rate, ["predation_rate_a", "predation_rate_b", "volume"]),
+    "nitrogen_half_saturation" => (
+        dummy_emergent_nitrogen_half_saturation,
+        ["nitrogen_half_saturation_a", "nitrogen_half_saturation_b", "volume"],
+    ),
 )
 
 # Dictionary to store results
@@ -50,3 +77,5 @@ end
 
 # Display the results dictionary
 println("All results:", results_dict)
+
+println(results_dict["growth_rate"])

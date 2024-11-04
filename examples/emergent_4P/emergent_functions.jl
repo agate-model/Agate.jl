@@ -36,9 +36,9 @@ function dummy_emergent_palat(
     return palat
 end
 
-function dummy_emergent_predation_rate(volume_a, volume_b, volume)
+function dummy_emergent_predation_rate(predation_rate_a, predation_rate_b, volume)
     rate = 0
-    if volume_a == 0
+    if predation_rate_a == 0
         return rate = 0  # Early return if volume_a is zero
     else
         # Set rate based on the value of volume
@@ -52,8 +52,10 @@ function dummy_emergent_predation_rate(volume_a, volume_b, volume)
     return rate
 end
 
-function dummy_emergent_nitrogen_half_saturation(volume_a, volume_b, volume)
-    if volume_a == 0
+function dummy_emergent_nitrogen_half_saturation(
+    nitrogen_half_saturation_a, nitrogen_half_saturation_b, volume
+)
+    if nitrogen_half_saturation_a == 0
         return rate = 0  # Early return if volume_a is zero
     else
         # Set rate based on the value of volume
