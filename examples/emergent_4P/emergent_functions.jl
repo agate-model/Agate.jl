@@ -13,13 +13,14 @@ function dummy_emergent_growth(growth_a, growth_b, volume)
     return rate
 end
 
-
 """
 
 instead of prey_volume and predator_volume it should be an array containing both?
 
 """
-function dummy_emergent_palat(args...; prey_volume_key, predator_volume_key, optimum_ratio_key, protection_key)
+function dummy_emergent_palat(
+    args...; prey_volume_key, predator_volume_key, optimum_ratio_key, protection_key
+)
     prey_volume = args[1][prey_volume_key]
     predator_volume = args[2][predator_volume_key]
     optimum_predator_prey_ratio = args[2][optimum_ratio_key]
@@ -38,7 +39,7 @@ function dummy_emergent_palat(args...; prey_volume_key, predator_volume_key, opt
 end
 
 function dummy_emergent_predation_rate(volume_a, volume_b, volume)
-    rate=0
+    rate = 0
     if volume_a == 0
         return rate = 0  # Early return if volume_a is zero
     else

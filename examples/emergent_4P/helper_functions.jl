@@ -16,17 +16,15 @@ result = emergent_1D_array(plankton, dummy_emergent_predation_rate, ["volume_a",
 function emergent_1D_array(plankton, func, params)
     # Get species names
     species_names = collect(keys(plankton))
-    
+
     # Calculate emergent values for each species
-    emergent_values = [func([plankton[name][key] for key in params]...) for name in species_names]
-    
+    emergent_values = [
+        func([plankton[name][key] for key in params]...) for name in species_names
+    ]
+
     # Create a NamedArray with species names as row labels
-    emergent_array = NamedArray(
-        emergent_values,
-        (species_names,),
-        ("Species",)
-    )
-    
+    emergent_array = NamedArray(emergent_values, (species_names,), ("Species",))
+
     return emergent_array
 end
 
@@ -61,11 +59,14 @@ function emergent_2D_array(plankton, func, key_list)
             predator_data = plankton[pred_name]
 
             # Pass prey and predator data dictionaries to the function with dynamic keys
-            palatability_values[i, j] = func(prey_data, predator_data;
-                                             prey_volume_key=key_list[1],
-                                             predator_volume_key=key_list[1],
-                                             optimum_ratio_key=key_list[2],
-                                             protection_key=key_list[3])
+            palatability_values[i, j] = func(
+                prey_data,
+                predator_data;
+                prey_volume_key=key_list[1],
+                predator_volume_key=key_list[1],
+                optimum_ratio_key=key_list[2],
+                protection_key=key_list[3],
+            )
         end
     end
 
