@@ -43,8 +43,10 @@ LV = define_tracer_functions(parameters, tracers)
 function define_tracer_functions(
     parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
 )
-    # need a "unique" enough name in case the user creates multiple models in one session
-    model_name = Symbol(randstring(['A':'Z'; 'a':'z'], 12))
+    model_name = Symbol(randstring(['A':'Z'; 'a':'z'], 20))
+    while model_name ∈ names(Dynamic; all=true)
+        model_name = Symbol(randstring(['A':'Z'; 'a':'z'], 20))
+    end
     bgc_model = create_bgc_struct(model_name, parameters)
     add_bgc_methods!(
         bgc_model,

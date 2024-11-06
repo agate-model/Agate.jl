@@ -24,8 +24,6 @@ model = NPZD()
 function model_ODEs(du, u, p, t)
     model = NPZD(p...)
 
-    # NOTE: in more complex examples there might be other auxiliary fields that should be
-    # calculated here and passed to the function below
     PAR = cyclical_PAR(-10, t)
 
     for (i, tracer) in enumerate(tracers)
