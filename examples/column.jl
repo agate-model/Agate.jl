@@ -6,8 +6,8 @@
 using Agate
 using Agate.Library.Light
 using OceanBioME
+using OceanBioME: Biogeochemistry
 using Oceananigans
-
 using Oceananigans.Units
 
 const year = years = 365days
@@ -17,13 +17,12 @@ const year = years = 365days
 # ==================================================
 
 include(joinpath("NPZD", "tracers.jl"))
-bgc_tracers = NPZD()
 
 # column grid 1x1x40 (depth at increments of 5m)
 grid = RectilinearGrid(; size=(1, 1, 40), extent=(20meters, 20meters, 200meters))
 
-bgc_model = create_bgc_model(
-    bgc_tracers; grid=grid, light_attenuation=FunctionPAR(; grid, PAR_f=cyclical_PAR)
+bgc_model = Biogeochemistry(
+    NPZD(); light_attenuation=FunctionPAR(; grid, PAR_f=cyclical_PAR)
 )
 
 # ==================================================
@@ -50,12 +49,31 @@ full_model = NonhydrostaticModel(;
 )
 
 # ==================================================
+# Set initial conditions
+# ==================================================
+
+set!(full_model; N=7.0, P=0.01, Z=0.05, D=0.0)
+
+# ==================================================
 # Simulate
 # ==================================================
 
-init_conditions = (N=7.0, P=0.01, Z=0.05, D=0.0)
-set!(full_model, init_conditions)
-timeseries = run_simulation(full_model, init_conditions)
+filename = "column.jld2"
+
+simulation = Simulation(full_model; Δt=5minutes, stop_time=3years)
+simulation.output_writers[:profiles] = JLD2OutputWriter(
+    full_model,
+    full_model.tracers;
+    filename=filename,
+    schedule=TimeInterval(1day),
+    overwrite_existing=true,
+)
+
+run!(simulation)
+
+timeseries = NamedTuple{keys(full_model.tracers)}(
+    FieldTimeSeries(filename, "$field") for field in keys(full_model.tracers)
+)
 
 # ==================================================
 # Plotting
