@@ -5,7 +5,11 @@ using Agate
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
+using Oceananigans
+using Oceananigans.Units
 using Plots
+
+const year = years = 365day
 
 # ==================================================
 # Define BGC model (NPZD with cyclical PAR)
@@ -13,16 +17,29 @@ using Plots
 
 include(joinpath("NPZD", "tracers.jl"))
 bgc_model = Biogeochemistry(NPZD(); light_attenuation=FunctionPAR(; grid=BoxModelGrid()))
-
-# ==================================================
-# Run box model
-# NOTE: this could be an Oceananigans model instead
-# ==================================================
-
 full_model = BoxModel(; biogeochemistry=bgc_model)
-init_conditions = (N=7.0, P=0.01, Z=0.05, D=0.0)
+set!(full_model; N=7.0, P=0.01, Z=0.05, D=0.0)
 
-timeseries = run_simulation(full_model, init_conditions)
+# ==================================================
+# Simulate
+# ==================================================
+
+filename = "box.jld2"
+
+simulation = Simulation(full_model; Δt=5minutes, stop_time=3years)
+simulation.output_writers[:fields] = JLD2OutputWriter(
+    full_model,
+    full_model.fields;
+    filename=filename,
+    schedule=TimeInterval(1day),
+    overwrite_existing=true,
+)
+
+run!(simulation)
+
+timeseries = NamedTuple{keys(full_model.fields)}(
+    FieldTimeSeries(filename, "$field")[1, 1, 1, :] for field in keys(full_model.fields)
+)
 
 # ==================================================
 # Plotting

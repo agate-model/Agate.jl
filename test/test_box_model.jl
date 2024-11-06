@@ -12,8 +12,6 @@ const year = years = 365day
 @testset "box_model" begin
     include(joinpath("..", "examples", "NPZD", "tracers.jl"))
 
-    init_conditions = (N=7.0, P=0.01, Z=0.05, D=0.0)
-
     @testset "NPZD box model" begin
 
         # ==================================================
@@ -23,7 +21,7 @@ const year = years = 365day
             NPZD(); light_attenuation=FunctionPAR(; grid=BoxModelGrid())
         )
         agate_box_model = BoxModel(; biogeochemistry=agate_bgc_model)
-        set!(agate_box_model, init_conditions)
+        set!(agate_box_model; N=7.0, P=0.01, Z=0.05, D=0.0)
 
         # ==================================================
         # OceanBioME NPZD model
