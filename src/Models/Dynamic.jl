@@ -59,18 +59,20 @@ end
     create_bgc_struct(struct_name, parameters) -> DataType
 
 Create a subtype of AbstractContinuousFormBiogeochemistry. Uses field names and default
-values defined in `parameters` (which can be, for example, a Dict or NamedTuple).
+values defined in `parameters`.
 
 # Arguments
 - `struct_name`: name for the new struct passed as a Symbol. The struct will be accessible
    as: `Agate.Models.Dynamic.<struct_name>`
 - `parameters`: named sequence of values of the form (field name = default value, ...)
 
-Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t], which are
-reserved for coordinates.
+Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] as these
+are reserved for coordinates.
 
 # Example
+```julia
 create_bgc_struct(:LV, (α=2/3, β=4/3,  δ=1, γ=1))
+````
 """
 function create_bgc_struct(struct_name, parameters)
     fields = []
@@ -138,12 +140,11 @@ function add_bgc_methods!(bgc_type, tracers; auxiliary_fields=[], helper_functio
         include(helper_functions)
     end
 
-    # all BGC models require these 4 base variables
-    base_vars = [:x, :y, :z, :t]
+    coordinates = [:x, :y, :z, :t]
     # use collect here in case tracers are NamedTuple rather than Dict
     tracer_vars = Symbol.(collect(keys(tracers)))
     aux_field_vars = Symbol.(auxiliary_fields)
-    all_state_vars = vcat(base_vars, tracer_vars, aux_field_vars)
+    all_state_vars = vcat(coordinates, tracer_vars, aux_field_vars)
 
     eval(:(required_biogeochemical_tracers(::$(bgc_type)) = $(tracer_vars...,)))
     eval(:(required_biogeochemical_auxiliary_fields(::$(bgc_type)) = $(aux_field_vars...,)))
@@ -185,8 +186,9 @@ end
 Returns all symbols (argument names and method names) called in expression.
 
 # Example
-```Julia
+```julia
 parse_expression(:(α * x - β * x * y))
+````
 """
 function parse_expression(f_expr)
     symbols = []
