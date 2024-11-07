@@ -189,3 +189,42 @@ function linear_splitting(min_volume, max_volume, n)
     linear_step = (max_volume - min_volume) / (n - 1)
     return [min_volume + i * linear_step for i in 0:(n - 1)]
 end
+
+"""
+Function to do final step of emergent analysis
+"""
+function analyze_and_merge(emergent_functions, intermediate_parameters)
+    # Dictionary to store results
+    emergent_parameters = Dict()
+
+    # First, handle parameters defined in `emergent_functions`
+    for (func_name, (func, param_names)) in emergent_functions
+        println("Analyzing function: $func_name")
+
+        # Run the analysis with the specified function and store the result
+        result = emergent_analysis(intermediate_parameters, func, param_names)
+        emergent_parameters[func_name] = result
+    end
+
+    # Next, copy parameters directly for those not in `emergent_functions`
+    for param_name in keys(intermediate_parameters["P1"])  # Assumes all sub-dicts have the same keys
+        if !haskey(emergent_functions, param_name)
+            println("Copying parameter directly: $param_name")
+
+            # Collect values across species in an array
+            values = [
+                intermediate_parameters[species][param_name] for
+                species in keys(intermediate_parameters)
+            ]
+            species_names = collect(keys(intermediate_parameters))
+
+            # Store as a NamedArray
+            emergent_parameters[param_name] = NamedArray(
+                values, (species_names,), ("Species",)
+            )
+        end
+    end
+
+    # Return the full emergent_parameters dictionary
+    return emergent_parameters
+end

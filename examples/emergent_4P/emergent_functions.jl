@@ -68,3 +68,10 @@ function dummy_emergent_nitrogen_half_saturation(
 
     return rate
 end
+
+"""
+Default fall-back function if no emergent function is defined
+"""
+function default_emergent(my_parameter)
+    return my_parameter
+end

@@ -1,11 +1,13 @@
+using Oceananigans.Units
+
 include("emergent_functions.jl")
 include("helper_functions.jl")
 
 defined_parameters = Dict(
     "P" => Dict(
-        "n" => 4,
+        "n" => 2,
         "min_volume" => 1,
-        "max_volume" => 100,
+        "max_volume" => 10,
         "splitting" => log_splitting,
         "growth_a" => 1,
         "growth_b" => 1,
@@ -15,11 +17,12 @@ defined_parameters = Dict(
         "nitrogen_half_saturation_b" => 1,
         "predation_rate_a" => 0,
         "predation_rate_b" => 0,
+        "linear_mortality" => 8e-7 / second,
     ),
     "Z" => Dict(
-        "n" => 4,
-        "min_volume" => 100,
-        "max_volume" => 1000,
+        "n" => 2,
+        "min_volume" => 10,
+        "max_volume" => 100,
         "splitting" => linear_splitting,
         "growth_a" => 0,
         "growth_b" => 0,
@@ -29,6 +32,7 @@ defined_parameters = Dict(
         "nitrogen_half_saturation_b" => 0,
         "predation_rate_a" => 1,
         "predation_rate_b" => 1,
+        "linear_mortality" => 8e-7 / second,
     ),
 )
 
@@ -48,19 +52,7 @@ emergent_functions = Dict(
     ),
 )
 
-# Dictionary to store results
-emergent_parameters = Dict()
-
-# Main loop: analyze each function in `emergent_functions` dynamically and store the results
-for (func_name, (func, param_names)) in emergent_functions
-    println("Analyzing function: $func_name")
-
-    # Run the analysis and get the result
-    result = emergent_analysis(intermediate_parameters, func, param_names)
-
-    # Store the result in the dictionary
-    emergent_parameters[func_name] = result
-end
+emergent_parameters = analyze_and_merge(emergent_functions, intermediate_parameters)
 
 # Display the results dictionary
 println("All results:", emergent_parameters)
