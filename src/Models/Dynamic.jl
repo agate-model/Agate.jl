@@ -133,7 +133,9 @@ Add core methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
     - `required_biogeochemical_auxiliary_fields`
     - a method per tracer
     - optionally adds `biogeochemical_drift_velocity` (if `sinking_tracers` is defined)
-WARNING: `biogeochenical_auxiliary_fields` must be defined to make use of auxiliary fields
+
+WARNING: `biogeochenical_auxiliary_fields` must also be defined to make use of auxiliary
+fields. This method is added when OceanBioME.Biogeochemistry(bgc_type()) is instantiated.
 
 # Arguments
 - `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry (returned by `create_bgc_struct`)
