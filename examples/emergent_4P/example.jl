@@ -67,3 +67,15 @@ println(emergent_parameters["palatability"]["P1", "P2"])
 
 #palability of Z1 to P1:
 println(emergent_parameters["palatability"]["Z1", "P2"])
+
+#for simplicity define the biogeochemistry dict seperately
+
+biogeochemistry_parameters = Dict(
+    "detritus_remineralization" => 0.1213 / day,
+    "feeding_export_poc_doc_fraction" => 0.5,
+    "mortality_export_fraction" => 0.5,
+)
+
+parameters = merge(biogeochemistry_parameters, emergent_parameters)
+
+print(parameters)
