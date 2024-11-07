@@ -4,7 +4,7 @@ Module to dynamically create Oceananigans.AbstractContinuousFormBiogeochemistry 
 
 module Dynamic
 
-using Random
+using UUIDs
 
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 
@@ -43,10 +43,8 @@ LV = define_tracer_functions(parameters, tracers)
 function define_tracer_functions(
     parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
 )
-    model_name = Symbol(randstring(['A':'Z'; 'a':'z'], 20))
-    while model_name ∈ names(Dynamic; all=true)
-        model_name = Symbol(randstring(['A':'Z'; 'a':'z'], 20))
-    end
+    # create a universaly unique identifier (UUID) for the model struct
+    model_name = Symbol(uuid1())
     bgc_model = create_bgc_struct(model_name, parameters)
     add_bgc_methods!(
         bgc_model,
