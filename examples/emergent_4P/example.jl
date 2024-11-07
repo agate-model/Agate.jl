@@ -1,9 +1,12 @@
 include("emergent_functions.jl")
 include("helper_functions.jl")
 
-intermediate_parameters = Dict(
-    "P1" => Dict(
-        "volume" => 1,
+defined_parameters = Dict(
+    "P" => Dict(
+        "n" => 4,
+        "min_volume" => 1,
+        "max_volume" => 100,
+        "splitting" => log_splitting,
         "growth_a" => 1,
         "growth_b" => 1,
         "protection" => 0,
@@ -13,30 +16,11 @@ intermediate_parameters = Dict(
         "predation_rate_a" => 0,
         "predation_rate_b" => 0,
     ),
-    "P2" => Dict(
-        "volume" => 10,
-        "growth_a" => 1,
-        "growth_b" => 1,
-        "protection" => 0,
-        "optimum_predator_prey_ratio" => 0,
-        "nitrogen_half_saturation_a" => 1,
-        "nitrogen_half_saturation_b" => 1,
-        "predation_rate_a" => 0,
-        "predation_rate_b" => 0,
-    ),
-    "Z1" => Dict(
-        "volume" => 10,
-        "growth_a" => 0,
-        "growth_b" => 0,
-        "protection" => 1,
-        "optimum_predator_prey_ratio" => 10,
-        "nitrogen_half_saturation_a" => 0,
-        "nitrogen_half_saturation_b" => 0,
-        "predation_rate_a" => 1,
-        "predation_rate_b" => 1,
-    ),
-    "Z2" => Dict(
-        "volume" => 100,
+    "Z" => Dict(
+        "n" => 4,
+        "min_volume" => 100,
+        "max_volume" => 1000,
+        "splitting" => linear_splitting,
         "growth_a" => 0,
         "growth_b" => 0,
         "protection" => 1,
@@ -48,7 +32,10 @@ intermediate_parameters = Dict(
     ),
 )
 
-# Dictionary of emergent functions with symbolic expressions
+# Generate intermediate parameters 
+intermediate_parameters = split_size_parameters(defined_parameters)
+
+# Dictionary of emergent functions
 emergent_functions = Dict(
     "growth_rate" => (dummy_emergent_growth, ["growth_a", "growth_b", "volume"]),
     "palatability" =>
