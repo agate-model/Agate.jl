@@ -44,7 +44,7 @@ Creates an Oceananigans.Biogeochemistry model type.
    at the bottom to prevent the tracers leaving the domain, defaults to false
 
 Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] (as these
-are reserved for coordinates) and they must include all parameters used in the tracers
+are reserved for coordinates) and they must include all parameters used in the `tracers`
 expressions. The expressions must use methods that are either defined within this module or
 passed in the `helper_functions` file.
 
@@ -128,7 +128,7 @@ end
         open_bottom=false,
     ) -> DataType
 
-Add core methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
+Add methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
     - `required_biogeochemical_tracers`
     - `required_biogeochemical_auxiliary_fields`
     - a method per tracer
@@ -139,7 +139,7 @@ fields. This method is added when OceanBioME.Biogeochemistry(bgc_type()) is inst
 
 # Arguments
 - `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry (returned by `create_bgc_struct`)
-- `tracers`: dictionary of the form (name => expression, ...)
+- `tracers`: dictionary of the form (<name> => <expression>, ...)
 
 # Keywords
 - `auxiliary_fields`: an optional iterable of auxiliary field variables
@@ -151,9 +151,10 @@ fields. This method is added when OceanBioME.Biogeochemistry(bgc_type()) is inst
 - `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
    at the bottom to prevent the tracers leaving the domain, defaults to false
 
-Note that the field names of bgc_type can't be any of [:x, :y, :z, :t] (as these are reserved for
-coordinates) and they must include all parameters used in the tracers expressions. The expressions
-must use methods that are either defined within this module or passed in the helper_functions file.
+Note that the field names of bgc_type can't be any of [:x, :y, :z, :t] (as these are reserved
+for coordinates) and they must include all parameters used in the tracers expressions. The
+expressions must use methods that are either defined within this module or passed in the
+`helper_functions` file.
 
 # Example
 ```julia
@@ -283,8 +284,8 @@ end
     expression_check(args, f_expr) -> nothing
 
 Checks that all methods and arguments are defined. Specifically:
-    - vector args contains all arguments of expression f_expr
-    - all methods called in expression are defined in module (e.g., Base, Main, Agate)
+    - vector `args` contains all arguments of expression `f_expr`
+    - all methods called in `f_expr` are defined in module (e.g., Base, Main, Agate)
 If not, throws an UnderVarError.
 """
 function expression_check(args, f_expr; module_name=Dynamic)
