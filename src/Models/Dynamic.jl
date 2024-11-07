@@ -18,20 +18,20 @@ export define_tracer_functions
         parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
     ) -> DataType
 
-Creates an Oceananigans biogeochemical model type with a method for each tracer function.
-
-Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] (as these are
-reserved for coordinates) and they must include all parameters used in the tracers expressions.
-The expressions must use methods that are either defined within this module or passed in the
-helper_functions file.
+Creates an Oceananigans.Biogeochemistry model type.
 
 # Arguments
-- `parameters`: named sequence of values of the form (field name = default value, ...)
-- `tracers`: dictionary of the form (name => expression, ...)
+- `parameters`: named sequence of values of the form ((<field name> = <default value>, ...)
+- `tracers`: dictionary of the form (<name> => <expression>n, ...)
 
 # Keywords
 - `auxiliary_fields`: an iterable of auxiliary field variables, defaults to [:PAR,]
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
+
+Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] (as these
+are reserved for coordinates) and they must include all parameters used in the `tracers`
+expressions. The expressions must use methods that are either defined within this module or
+passed in the `helper_functions` file.
 
 # Example
 ```julia
@@ -58,13 +58,12 @@ end
 """
     create_bgc_struct(struct_name, parameters) -> DataType
 
-Create a subtype of AbstractContinuousFormBiogeochemistry. Uses field names and default
-values defined in `parameters`.
+Create a subtype of Oceananigans.Biogeochemistry with field names defined in `parameters`.
 
 # Arguments
 - `struct_name`: name for the new struct passed as a Symbol. The struct will be accessible
    as: `Agate.Models.Dynamic.<struct_name>`
-- `parameters`: named sequence of values of the form (field name = default value, ...)
+- `parameters`: named sequence of values of the form (<field name> = <default value>, ...)
 
 Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] as these
 are reserved for coordinates.
@@ -97,24 +96,24 @@ end
 """
     add_bgc_methods!(bgc_type, tracers, auxiliary_fields=[], helper_functions=()) -> DataType
 
-Add most of core methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
+Add methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
     - `required_biogeochemical_tracers`
     - `required_biogeochemical_auxiliary_fields`
     - a method per tracer
-WARNING: a model that makes use of auxiliary fields also requires a
-`biogeochenical_auxiliary_fields` method to be defined.
+WARNING: `biogeochenical_auxiliary_fields` must be also defined to make use of auxiliary fields
 
 # Arguments
 - `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry (returned by `create_bgc_struct`)
-- `tracers`: dictionary of the form (name => expression, ...)
+- `tracers`: dictionary of the form (<name> => <expression>, ...)
 
 # Keywords
 - `auxiliary_fields`: an optional iterable of auxiliary field variables
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
 
-Note that the field names of bgc_type can't be any of [:x, :y, :z, :t] (as these are reserved for
-coordinates) and they must include all parameters used in the tracers expressions. The expressions
-must use methods that are either defined within this module or passed in the helper_functions file.
+Note that the field names of bgc_type can't be any of [:x, :y, :z, :t] (as these are reserved
+for coordinates) and they must include all parameters used in the `tracers` expressions. The
+expressions must use methods that are either defined within this module or passed in the
+`helper_functions` file.
 
 # Example
 ```julia
@@ -212,8 +211,8 @@ end
     expression_check(args, f_expr) -> nothing
 
 Checks that all methods and arguments are defined. Specifically:
-    - vector args contains all arguments of expression f_expr
-    - all methods called in expression are defined in module (e.g., Base, Main, Agate)
+    - vector `args` contains all arguments of expression `f_expr`
+    - all methods called in `f_expr` are defined in module (e.g., Base, Main, Agate)
 If not, throws an UnderVarError.
 """
 function expression_check(args, f_expr; module_name=Dynamic)
