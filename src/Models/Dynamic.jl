@@ -128,17 +128,18 @@ end
         open_bottom=false,
     ) -> DataType
 
-Add methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
+Add methods to `bgc_type` required of `AbstractContinuousFormBiogeochemistry`:
     - `required_biogeochemical_tracers`
     - `required_biogeochemical_auxiliary_fields`
-    - a method per tracer
+    - a method per tracer specifying how it evolves in time
     - optionally adds `biogeochemical_drift_velocity` (if `sinking_tracers` is defined)
 
-WARNING: `biogeochenical_auxiliary_fields` must also be defined to make use of auxiliary
-fields. This method is added when OceanBioME.Biogeochemistry(bgc_type()) is instantiated.
+WARNING: `biogeochenical_auxiliary_fields` method must also be defined to make use of the
+`auxiliary_fields`. This method is added when `OceanBioME.Biogeochemistry(bgc_type())` is
+instantiated alongside an `update_biogeochemical_state!` method.
 
 # Arguments
-- `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry (returned by `create_bgc_struct`)
+- `bgc_type`: subtype of `AbstractContinuousFormBiogeochemistry` (returned by `create_bgc_struct`)
 - `tracers`: dictionary of the form (<name> => <expression>, ...)
 
 # Keywords
@@ -151,8 +152,8 @@ fields. This method is added when OceanBioME.Biogeochemistry(bgc_type()) is inst
 - `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
    at the bottom to prevent the tracers leaving the domain, defaults to false
 
-Note that the field names of bgc_type can't be any of [:x, :y, :z, :t] (as these are reserved
-for coordinates) and they must include all parameters used in the tracers expressions. The
+Note that the field names of `bgc_type` can't be any of [:x, :y, :z, :t] (as these are reserved
+for coordinates) and they must include all parameters used in the `tracers` expressions. The
 expressions must use methods that are either defined within this module or passed in the
 `helper_functions` file.
 
@@ -232,9 +233,8 @@ function add_bgc_methods!(
             throw(ArgumentError("grid must be defined to setup tracer sinking"))
         end
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
-        eval(:(sinking_tracers(bgc::$(bgc_type)) = $(keys(sinking_velocities)...)))
 
-        # biogeochemical_drift_velocity is an optional Oceananigans.Biogeochemistry method
+        # `biogeochemical_drift_velocity` is an optional Oceananigans.Biogeochemistry method
         sink_velocity_method = quote
             function biogeochemical_drift_velocity(
                 bgc::$(bgc_type), ::Val{tracer_name}
@@ -247,6 +247,20 @@ function add_bgc_methods!(
             end
         end
         eval(sink_velocity_method)
+
+        # this function is used in the OceanBioME sediment models
+        eval(:(sinking_tracers(bgc::$(bgc_type)) = $(keys(sinking_velocities)...)))
+
+        # OceanBioME has utils that extend the Oceananigans time stepper which use this function
+        max_speed_idx = findmax(values(sinking_tracers))[2]
+        fastest_sinking_tracer = keys(sinking_tracers)[max_speed_idx]
+        eval(
+            :(
+                function maximum_sinking_velocity(bgc::$(bgc_type))
+                    return maximum(abs, bgc.sinking_velocities.$(fastest_sinking_tracer).w)
+                end
+            ),
+        )
     end
 
     return bgc_type
