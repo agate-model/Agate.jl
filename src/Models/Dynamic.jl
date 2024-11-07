@@ -43,7 +43,7 @@ LV = define_tracer_functions(parameters, tracers)
 function define_tracer_functions(
     parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
 )
-    # create a universaly unique identifier (UUID) for the struct
+    # create a universaly unique identifier (UUID) for the model struct
     model_name = Symbol(uuid1())
     bgc_model = create_bgc_struct(model_name, parameters)
     add_bgc_methods!(
