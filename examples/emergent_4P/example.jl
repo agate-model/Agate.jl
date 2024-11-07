@@ -1,7 +1,7 @@
 include("emergent_functions.jl")
 include("helper_functions.jl")
 
-plankton = Dict(
+intermediate_parameters = Dict(
     "P1" => Dict(
         "volume" => 1,
         "growth_a" => 1,
@@ -62,29 +62,29 @@ emergent_functions = Dict(
 )
 
 # Dictionary to store results
-results_dict = Dict()
+emergent_parameters = Dict()
 
 # Main loop: analyze each function in `emergent_functions` dynamically and store the results
 for (func_name, (func, param_names)) in emergent_functions
     println("Analyzing function: $func_name")
 
     # Run the analysis and get the result
-    result = emergent_analysis(plankton, func, param_names)
+    result = emergent_analysis(intermediate_parameters, func, param_names)
 
     # Store the result in the dictionary
-    results_dict[func_name] = result
+    emergent_parameters[func_name] = result
 end
 
 # Display the results dictionary
-println("All results:", results_dict)
+println("All results:", emergent_parameters)
 
 #check named arrays:
 
 #growth rate of P2:
-println(results_dict["growth_rate"]["P2"])
+println(emergent_parameters["growth_rate"]["P2"])
 
 #palability of P2 to P1:
-println(results_dict["palatability"]["P1", "P2"])
+println(emergent_parameters["palatability"]["P1", "P2"])
 
 #palability of Z1 to P1:
-println(results_dict["palatability"]["Z1", "P2"])
+println(emergent_parameters["palatability"]["Z1", "P2"])
