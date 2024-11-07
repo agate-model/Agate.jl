@@ -18,6 +18,9 @@ defined_parameters = Dict(
         "predation_rate_a" => 0,
         "predation_rate_b" => 0,
         "linear_mortality" => 8e-7 / second,
+        "holling_half_saturation" => 0,
+        "quadratic_mortality" => 0,
+        "alpha" => 0.1953,
     ),
     "Z" => Dict(
         "n" => 2,
@@ -33,6 +36,9 @@ defined_parameters = Dict(
         "predation_rate_a" => 1,
         "predation_rate_b" => 1,
         "linear_mortality" => 8e-7 / second,
+        "holling_half_saturation" => 0.5,
+        "quadratic_mortality" => 1e-6 / second,
+        "alpha" => 1e-99,
     ),
 )
 
@@ -41,10 +47,10 @@ intermediate_parameters = split_size_parameters(defined_parameters)
 
 # Dictionary of emergent functions
 emergent_functions = Dict(
-    "growth_rate" => (dummy_emergent_growth, ["growth_a", "growth_b", "volume"]),
+    "maximum_growth_rate" => (dummy_emergent_growth, ["growth_a", "growth_b", "volume"]),
     "palatability" =>
         (dummy_emergent_palat, ["volume", "optimum_predator_prey_ratio", "protection"]),
-    "predation_rate" =>
+    "maximum_predation_rate" =>
         (dummy_emergent_predation_rate, ["predation_rate_a", "predation_rate_b", "volume"]),
     "nitrogen_half_saturation" => (
         dummy_emergent_nitrogen_half_saturation,
@@ -60,7 +66,7 @@ println("All results:", emergent_parameters)
 #check named arrays:
 
 #growth rate of P2:
-println(emergent_parameters["growth_rate"]["P2"])
+println(emergent_parameters["maximum_growth_rate"]["P2"])
 
 #palability of P2 to P1:
 println(emergent_parameters["palatability"]["P1", "P2"])
