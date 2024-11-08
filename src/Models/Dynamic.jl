@@ -39,12 +39,13 @@ Creates an Oceananigans.Biogeochemistry model type.
 # Keywords
 - `auxiliary_fields`: an iterable of auxiliary field variables, defaults to `[:PAR,]`
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
-- `sinking_tracers`: optional NamedTuple of sinking speeds of the form
-   (<tracer name> = <speed>, ...), convention is that speeds are defined as positive values
+- `sinking_tracers`: optional NamedTuple of sinking speeds (passed as positive values) of
+   the form (<tracer name> = <speed>, ...)
 - `grid`: optional Oceananigans grid object defining the geometry to build the model in, must
    be passed if `sinking_tracers` is defined
 - `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
-   at the bottom to prevent the tracers leaving the domain, defaults to `true`
+   at the bottom to prevent the tracers leaving the domain, defaults to `true`, which means
+   the bottom is open and the tracers leave (i.e., no slowing of velocity to 0 is applied)
 
 Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] (as these
 are reserved for coordinates) and they must include all parameters used in the `tracers`
@@ -104,7 +105,8 @@ Create a subtype of Oceananigans.Biogeochemistry with field names defined in `pa
 - `grid`: optional Oceananigans grid object defining the geometry to build the model in, must
    be passed if `sinking_tracers` is defined
 - `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
-   at the bottom to prevent the tracers leaving the domain, defaults to `false`
+   at the bottom to prevent the tracers leaving the domain, defaults to `true`, which means
+   the bottom is open and the tracers leave (i.e., no slowing of velocity to 0 is applied)
 
 Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] as these
 are reserved for coordinates.
@@ -128,10 +130,14 @@ function create_bgc_struct(
         push!(fields, exp)
     end
 
+    # additional parameters required if tracers sink
     if !isnothing(sinking_tracers)
         if isnothing(grid)
             throw(ArgumentError("grid must be defined to setup tracer sinking"))
         end
+        # `setup_velocity_fields` multiplies tracer speeds by -1 when creating the fields
+        # to define swimming tracers simply pass negative values in `sinking_tracers` with
+        # `open_bottom=false`
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
         exp = :(sinking_velocities = $(sinking_velocities))
         push!(fields, exp)
@@ -232,7 +238,7 @@ function add_bgc_methods!(
         push!(method_vars, exp)
     end
 
-    # create tracer methods
+    # create core tracer methods
     for (tracer_name, tracer_expression) in pairs(tracers)
 
         # throws an exception if there are any issues with tracer_expression (see docstring)
@@ -247,11 +253,11 @@ function add_bgc_methods!(
         eval(tracer_method)
     end
 
-    # set up tracer sinking - requires grid
+    # set up tracer sinking
     if !isnothing(sinking_tracers)
 
         # `biogeochemical_drift_velocity` is an optional Oceananigans.Biogeochemistry method
-        # that returns a NamedTuple of velocity fields with keys `u`, `v`, `w` for a tracer
+        # that returns a NamedTuple of velocity fields for a tracer with keys `u`, `v`, `w`
         sink_velocity_method = quote
             function biogeochemical_drift_velocity(
                 bgc::$(bgc_type), ::Val{tracer_name}
@@ -266,7 +272,7 @@ function add_bgc_methods!(
         eval(sink_velocity_method)
 
         # this function is used in the OceanBioME sediment models
-        eval(:(sinking_tracers(bgc::$(bgc_type)) = $(keys(sinking_tracers)...,)))
+        eval(:(sinking_tracers(bgc::$(bgc_type)) = keys(bgc.sinking_velocities)))
     end
 
     return bgc_type
