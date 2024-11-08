@@ -1,5 +1,5 @@
 """
-Module to dynamically create Oceananigans.AbstractContinuousFormBiogeochemistry types.
+Module to dynamically create Oceananigans.Biogeochemistry types.
 """
 
 module Dynamic
@@ -12,7 +12,10 @@ using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 using Oceananigans.Fields: ZeroField
 
 import Oceananigans.Biogeochemistry:
-    required_biogeochemical_tracers, required_biogeochemical_auxiliary_fields
+    required_biogeochemical_tracers,
+    required_biogeochemical_auxiliary_fields,
+    biogeochemical_drift_velocity
+import OceanBioME.Models.Sediments: sinking_tracers
 
 export define_tracer_functions
 
@@ -31,17 +34,17 @@ Creates an Oceananigans.Biogeochemistry model type.
 
 # Arguments
 - `parameters`: named sequence of values of the form ((<field name> = <default value>, ...)
-- `tracers`: dictionary of the form (<name> => <expression>n, ...)
+- `tracers`: dictionary of the form (<name> => <expression>, ...)
 
 # Keywords
-- `auxiliary_fields`: an iterable of auxiliary field variables, defaults to [:PAR,]
+- `auxiliary_fields`: an iterable of auxiliary field variables, defaults to `[:PAR,]`
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
 - `sinking_tracers`: optional NamedTuple of sinking speeds of the form
    (<tracer name> = <speed>, ...), convention is that speeds are defined as positive values
 - `grid`: optional Oceananigans grid object defining the geometry to build the model in, must
    be passed if `sinking_tracers` is defined
 - `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
-   at the bottom to prevent the tracers leaving the domain, defaults to false
+   at the bottom to prevent the tracers leaving the domain, defaults to `false`
 
 Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] (as these
 are reserved for coordinates) and they must include all parameters used in the `tracers`
@@ -66,21 +69,27 @@ function define_tracer_functions(
 )
     # create a universaly unique identifier (UUID) for the model struct
     model_name = Symbol(uuid1())
-    bgc_model = create_bgc_struct(model_name, parameters)
+    bgc_model = create_bgc_struct(
+        model_name, parameters, sinking_tracers, grid, open_bottom
+    )
     add_bgc_methods!(
         bgc_model,
         tracers;
         auxiliary_fields=auxiliary_fields,
         helper_functions=helper_functions,
         sinking_tracers=sinking_tracers,
-        grid=grid,
-        open_bottom=open_bottom,
     )
     return bgc_model
 end
 
 """
-    create_bgc_struct(struct_name, parameters) -> DataType
+    create_bgc_struct(
+        struct_name,
+        parameters;
+        sinking_tracers=nothing,
+        grid=nothing,
+        open_bottom=false,
+    ) -> DataType
 
 Create a subtype of Oceananigans.Biogeochemistry with field names defined in `parameters`.
 
@@ -89,15 +98,25 @@ Create a subtype of Oceananigans.Biogeochemistry with field names defined in `pa
    as: `Agate.Models.Dynamic.<struct_name>`
 - `parameters`: named sequence of values of the form (<field name> = <default value>, ...)
 
+# Keywords
+- `sinking_tracers`: optional NamedTuple of sinking speeds of the form
+   (<tracer name> = <speed>, ...), convention is that speeds are defined as positive values
+- `grid`: optional Oceananigans grid object defining the geometry to build the model in, must
+   be passed if `sinking_tracers` is defined
+- `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
+   at the bottom to prevent the tracers leaving the domain, defaults to `false`
+
 Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] as these
 are reserved for coordinates.
 
 # Example
 ```julia
 create_bgc_struct(:LV, (α=2/3, β=4/3,  δ=1, γ=1))
-````
+```
 """
-function create_bgc_struct(struct_name, parameters)
+function create_bgc_struct(
+    struct_name, parameters, sinking_tracers=nothing, grid=nothing, open_bottom=nothing
+)
     fields = []
     for (k, v) in pairs(parameters)
         if k in [:x, :y, :z, :t]
@@ -106,6 +125,15 @@ function create_bgc_struct(struct_name, parameters)
             )
         end
         exp = :($k = $v)
+        push!(fields, exp)
+    end
+
+    if !isnothing(sinking_tracers)
+        if isnothing(grid)
+            throw(ArgumentError("grid must be defined to setup tracer sinking"))
+        end
+        sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
+        exp = :(sinking_velocities = $(sinking_velocities))
         push!(fields, exp)
     end
 
@@ -124,8 +152,6 @@ end
         auxiliary_fields=[:PAR],
         helper_functions=nothing,
         sinking_tracers=nothing,
-        grid=nothing,
-        open_bottom=false,
     ) -> DataType
 
 Add methods to `bgc_type` required of `AbstractContinuousFormBiogeochemistry`:
@@ -146,11 +172,7 @@ instantiated alongside an `update_biogeochemical_state!` method.
 - `auxiliary_fields`: an optional iterable of auxiliary field variables
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
 - `sinking_tracers`: optional NamedTuple of sinking speeds of the form
-  (<tracer name> = <speed>, ...), convention is that speeds are defined as positive values
-- `grid`: optional Oceananigans grid object defining the geometry to build the model in, must
-   be passed if `sinking_tracers` is defined
-- `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
-   at the bottom to prevent the tracers leaving the domain, defaults to false
+   (<tracer name> = <speed>, ...), convention is that speeds are defined as positive values
 
 Note that the field names of `bgc_type` can't be any of [:x, :y, :z, :t] (as these are reserved
 for coordinates) and they must include all parameters used in the `tracers` expressions. The
@@ -182,8 +204,6 @@ function add_bgc_methods!(
     auxiliary_fields=[],
     helper_functions=nothing,
     sinking_tracers=nothing,
-    grid=nothing,
-    open_bottom=false,
 )
     if !isnothing(helper_functions)
         include(helper_functions)
@@ -229,18 +249,15 @@ function add_bgc_methods!(
 
     # set up tracer sinking - requires grid
     if !isnothing(sinking_tracers)
-        if isnothing(grid)
-            throw(ArgumentError("grid must be defined to setup tracer sinking"))
-        end
-        sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
 
         # `biogeochemical_drift_velocity` is an optional Oceananigans.Biogeochemistry method
+        # that returns a NamedTuple of velocity fields with keys `u`, `v`, `w` for a tracer
         sink_velocity_method = quote
             function biogeochemical_drift_velocity(
                 bgc::$(bgc_type), ::Val{tracer_name}
             ) where {tracer_name}
-                if tracer_name in keys(sinking_velocities)
-                    return (u=ZeroField(), v=ZeroField(), w=sinking_velocities[tracer_name])
+                if tracer_name in keys(bgc.sinking_velocities)
+                    return (u=ZeroField(), v=ZeroField(), w=bgc.sinking_velocities[tracer_name])
                 else
                     return (u=ZeroField(), v=ZeroField(), w=ZeroField())
                 end
@@ -249,18 +266,7 @@ function add_bgc_methods!(
         eval(sink_velocity_method)
 
         # this function is used in the OceanBioME sediment models
-        eval(:(sinking_tracers(bgc::$(bgc_type)) = $(keys(sinking_velocities)...)))
-
-        # OceanBioME has utils that extend the Oceananigans time stepper which use this function
-        max_speed_idx = findmax(values(sinking_tracers))[2]
-        fastest_sinking_tracer = keys(sinking_tracers)[max_speed_idx]
-        eval(
-            :(
-                function maximum_sinking_velocity(bgc::$(bgc_type))
-                    return maximum(abs, bgc.sinking_velocities.$(fastest_sinking_tracer).w)
-                end
-            ),
-        )
+        eval(:(sinking_tracers(bgc::$(bgc_type)) = $(keys(sinking_tracers)...,)))
     end
 
     return bgc_type
@@ -274,7 +280,7 @@ Returns all symbols (argument names and method names) called in expression.
 # Example
 ```julia
 parse_expression(:(α * x - β * x * y))
-````
+```
 """
 function parse_expression(f_expr)
     symbols = []
