@@ -12,14 +12,13 @@ parameters = (
     kₚ=0.5573,
     β=0.9116,
     lᶻᵈ=0.3395 / day,
-    lⁿ=[0.066, 0.0102] / day,  #[lᵖⁿ, lᶻⁿ]
     rᵈⁿ=0.1213 / day,
     α=0.1953 / day,
 )
 
 tracers = Dict(
     "N" => :(
-        summed_linear_loss([P, Z], lⁿ) + remineralization(D, rᵈⁿ) -
+        linear_loss(P, lᵖⁿ) + linear_loss(Z, lᶻⁿ) + remineralization(D, rᵈⁿ) -
         photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)
     ),
     "D" => :(
