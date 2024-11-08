@@ -44,7 +44,7 @@ Creates an Oceananigans.Biogeochemistry model type.
 - `grid`: optional Oceananigans grid object defining the geometry to build the model in, must
    be passed if `sinking_tracers` is defined
 - `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
-   at the bottom to prevent the tracers leaving the domain, defaults to `false`
+   at the bottom to prevent the tracers leaving the domain, defaults to `true`
 
 Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] (as these
 are reserved for coordinates) and they must include all parameters used in the `tracers`
@@ -65,7 +65,7 @@ function define_tracer_functions(
     helper_functions=nothing,
     sinking_tracers=nothing,
     grid=nothing,
-    open_bottom=false,
+    open_bottom=true,
 )
     # create a universaly unique identifier (UUID) for the model struct
     model_name = Symbol(uuid1())
