@@ -1,5 +1,5 @@
 # This example shows how to integrate a Biogeochemistry (BGC) box model with DifferentialEquations.
-using Agate.Light
+using Agate.Library.Light
 
 using DifferentialEquations
 using Plots
