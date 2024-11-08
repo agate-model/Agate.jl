@@ -1,12 +1,10 @@
 # This example shows how to integrate a Biogeochemistry (BGC) box model with DifferentialEquations.
+using Agate
 using Agate.Library.Light
 
-using DifferentialEquations
 using Plots
 
 using Oceananigans.Units
-using Oceananigans.Biogeochemistry:
-    required_biogeochemical_tracers, required_biogeochemical_auxiliary_fields
 
 const year = years = 365day
 
@@ -15,35 +13,15 @@ const year = years = 365day
 # ==================================================
 
 include(joinpath("NPZD", "tracers.jl"))
-model = NPZD()
 
 # ==================================================
 # DifferentialEquations
 # ==================================================
 
-function model_ODEs(du, u, p, t)
-    model = NPZD(p...)
-
-    PAR = cyclical_PAR(-10, t)
-
-    for (i, tracer) in enumerate(tracers)
-        du[i] = model(Val(tracer), 0, 0, 0, t, u..., PAR)
-    end
-
-    return nothing
-end
-
-# make sure initial values are passed in right order (Z,P,N,D)
 init_conditions = (N=7.0, P=0.01, Z=0.05, D=0.0)
-tracers = required_biogeochemical_tracers(model)
-u0 = [eval(:(init_conditions.$t)) for t in tracers]
-
-# get model parameters
-p = [getfield(model, f) for f in fieldnames(typeof(model))]
-
 tspan = (0.0, 3years)
 
-prob = ODEProblem(model_ODEs, u0, tspan, p)
+prob = bgc_to_ode(NPZD, cyclical_PAR(; z=-10), init_conditions, tspan)
 
 sol = solve(prob, Tsit5())
 
