@@ -1,4 +1,4 @@
-using DifferentialEquations
+using OrdinaryDiffEq
 
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 
