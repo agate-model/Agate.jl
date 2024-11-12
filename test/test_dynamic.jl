@@ -1,4 +1,4 @@
-using Agate.Models.Dynamic: expression_check
+using Agate.Models.Dynamic: expression_check, create_bgc_struct, add_bgc_methods!
 using Oceananigans.Biogeochemistry:
     AbstractContinuousFormBiogeochemistry,
     required_biogeochemical_tracers,
@@ -64,7 +64,7 @@ using Oceananigans.Biogeochemistry:
             auxiliary_fields = [:PAR]
 
             LV = create_bgc_struct(:LV, parameters)
-            add_bgc_methods(LV, tracers; auxiliary_fields=auxiliary_fields)
+            add_bgc_methods!(LV, tracers; auxiliary_fields=auxiliary_fields)
 
             # instantiate the same model with different parameters
             model1 = LV()
@@ -85,7 +85,7 @@ using Oceananigans.Biogeochemistry:
             using Oceananigans.Units
 
             # NPZD model
-            include("../examples/NPZD/model.jl")
+            include(joinpath("..", "examples", "NPZD", "tracers.jl"))
             model = NPZD()
 
             Z = 0.05

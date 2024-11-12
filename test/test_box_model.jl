@@ -1,6 +1,7 @@
 using Agate
-using Agate.Light
+using Agate.Library.Light
 using OceanBioME
+using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans: Clock
 using Oceananigans.Units
@@ -9,39 +10,25 @@ using Oceananigans.Fields: FunctionField
 const year = years = 365day
 
 @testset "box_model" begin
-    model_path = joinpath("..", "examples", "NPZD", "model.jl")
-    include(model_path)
-
-    npzd_model = NPZD()
-    init_conditions = (N=7.0, P=0.01, Z=0.05, D=0.0)
-
-    @testset "PAR parameters" begin
-        agate_box_model = create_box_model(npzd_model, init_conditions)
-        @test agate_box_model.biogeochemistry.light_attenuation.fields[1][1, 1, 1] ===
-            0.5398701925529049
-
-        agate_box_model = create_box_model(
-            npzd_model, init_conditions; PAR_parameters=(; z=-5)
-        )
-        @test agate_box_model.biogeochemistry.light_attenuation.fields[1][1, 1, 1] ===
-            1.4675193341432473
-    end
+    include(joinpath("..", "examples", "NPZD", "tracers.jl"))
 
     @testset "NPZD box model" begin
 
         # ==================================================
         # Agate NPZD model
         # ==================================================
-        agate_box_model = create_box_model(npzd_model, init_conditions)
+        agate_bgc_model = Biogeochemistry(
+            NPZD(); light_attenuation=FunctionPAR(; grid=BoxModelGrid())
+        )
+        agate_box_model = BoxModel(; biogeochemistry=agate_bgc_model)
+        set!(agate_box_model; N=7.0, P=0.01, Z=0.05, D=0.0)
 
         # ==================================================
         # OceanBioME NPZD model
         # ==================================================
         grid = BoxModelGrid()
         clock = Clock(; time=zero(grid))
-        PAR = FunctionField{Center,Center,Center}(
-            cyclical_PAR, grid; clock, parameters=(; z=-10)
-        )
+        PAR = FunctionField{Center,Center,Center}(cyclical_PAR(; z=-10), grid; clock)
 
         biogeochemistry = NutrientPhytoplanktonZooplanktonDetritus(;
             grid,
