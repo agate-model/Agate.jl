@@ -30,39 +30,14 @@ include(joinpath("NPZD", "tracers.jl"))
 # Set up DifferentialEquations
 # ==================================================
 
-function NPZD_problem(du, u, p, t)
-
-    # in this example we only do inference for some parameters
-    μ₀, kₙ, lᵖᵈ, α = p
-
-    lᵖⁿ = 0.066 / day
-    lᶻⁿ = 0.0102 / day
-    gₘₐₓ = 2.1522 / day
-    kₚ = 0.5573
-    β = 0.9116
-    lᶻᵈ = 0.3395 / day
-    rᵈⁿ = 0.1213 / day
-
-    model = NPZD(μ₀, kₙ, lᵖⁿ, lᶻⁿ, lᵖᵈ, gₘₐₓ, kₚ, β, lᶻᵈ, rᵈⁿ, α)
-
-    PAR = cyclical_PAR(-10, t)
-
-    for (i, tracer) in enumerate((:Z, :P, :N, :D))
-        du[i] = model(Val(tracer), 0, 0, 0, t, u..., PAR)
-    end
-
-    return nothing
-end
-
-# initial conditions: Z, P, N, D
-u0 = [0.05, 0.01, 7.0, 0.0]
-
-# parameters: μ₀, kₙ, lᵖᵈ, α
-p = [0.6989 / day, 2.3868, 0.0101 / day, 0.1953 / day]
-
+init_conditions = (Z=0.05, P=0.01, N=7.0, D=0.0)
+# specify which parameters to do inference for (if not all)
+# should we be passing values here too ?!  the user might
+# not always want to stick to the BGC defaults
+params = (:μ₀, :kₙ, :lᵖᵈ, :α)
 tspan = (0.0, stop_time)
 
-prob = ODEProblem(NPZD_problem, u0, tspan, p)
+prob = bgc_to_ode(NPZD, cyclical_PAR(; z=-10), init_conditions, tspan, params)
 
 # ==================================================
 # Generate noisy data

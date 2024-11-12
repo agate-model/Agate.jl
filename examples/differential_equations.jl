@@ -22,6 +22,7 @@ include(joinpath("NPZD", "tracers.jl"))
 init_conditions = (N=7.0, P=0.01, Z=0.05, D=0.0)
 tspan = (0.0, 3years)
 
+# will use default parameter values unless otherwise specified
 prob = bgc_to_ode(NPZD, cyclical_PAR(; z=-10), init_conditions, tspan)
 
 sol = solve(prob, Tsit5())
