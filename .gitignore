@@ -1,2 +1,14 @@
 /Manifest.toml
+
+# Documenter.jl
 docs/build/
+
+# Model output
+*.jld
+*.jld2
+
+# Plots
+*.png
+*.svg
+*.gif
+*.mp4

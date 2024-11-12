@@ -2,22 +2,44 @@
 # definitions and run a box model (0D) simulation using OceanBioME and Oceananigans.
 
 using Agate
+using Agate.Library.Light
+using OceanBioME
+using OceanBioME: Biogeochemistry
+using Oceananigans
+using Oceananigans.Units
 using Plots
 
-# ==================================================
-# Define BGC model (NPZD)
-# ==================================================
-
-model_path = joinpath("NPZD", "model.jl")
-include(model_path)
-model = NPZD()
+const year = years = 365day
 
 # ==================================================
-# Run box model
+# Define BGC model (NPZD with cyclical PAR)
 # ==================================================
 
-init_conditions = (N=7.0, P=0.01, Z=0.05, D=0.0)
-timeseries = run_box_model(model, init_conditions)
+include(joinpath("NPZD", "tracers.jl"))
+bgc_model = Biogeochemistry(NPZD(); light_attenuation=FunctionPAR(; grid=BoxModelGrid()))
+full_model = BoxModel(; biogeochemistry=bgc_model)
+set!(full_model; N=7.0, P=0.01, Z=0.05, D=0.0)
+
+# ==================================================
+# Simulate
+# ==================================================
+
+filename = "box.jld2"
+
+simulation = Simulation(full_model; Δt=5minutes, stop_time=3years)
+simulation.output_writers[:fields] = JLD2OutputWriter(
+    full_model,
+    full_model.fields;
+    filename=filename,
+    schedule=TimeInterval(1day),
+    overwrite_existing=true,
+)
+
+run!(simulation)
+
+timeseries = NamedTuple{keys(full_model.fields)}(
+    FieldTimeSeries(filename, "$field")[1, 1, 1, :] for field in keys(full_model.fields)
+)
 
 # ==================================================
 # Plotting

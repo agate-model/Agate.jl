@@ -13,10 +13,10 @@ parameters = (
     feeding_export_poc_doc_fraction=0.5,
     mortality_export_fraction=0.5,
     palatability=[
-        0 0 0 0 #P1 
+        0 0 0 0 #P1
         0 0 0 0 #P2
         1 0.3 0 0 #Z1
-        0.3 1 0 0 #Z2 
+        0.3 1 0 0 #Z2
     ],
     assimilation_efficiency=[
         0 0 0 0
@@ -114,8 +114,4 @@ tracers = Dict(
         palatability,
     )),
 )
-aux_field_vars = [:PAR]
-N2P2ZD = create_bgc_struct(:N2P2ZD, parameters)
-add_bgc_methods(
-    N2P2ZD, tracers; auxiliary_fields=aux_field_vars, helper_functions="functions.jl"
-)
+N2P2ZD = define_tracer_functions(parameters, tracers; helper_functions="functions.jl")

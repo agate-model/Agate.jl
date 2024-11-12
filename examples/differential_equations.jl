@@ -1,5 +1,5 @@
 # This example shows how to integrate a Biogeochemistry (BGC) box model with DifferentialEquations.
-using Agate.Light
+using Agate.Library.Light
 
 using DifferentialEquations
 using Plots
@@ -14,8 +14,7 @@ const year = years = 365day
 # Define BGC model (NPZD)
 # ==================================================
 
-model_path = joinpath("NPZD", "model.jl")
-include(model_path)
+include(joinpath("NPZD", "tracers.jl"))
 model = NPZD()
 
 # ==================================================
@@ -25,9 +24,7 @@ model = NPZD()
 function model_ODEs(du, u, p, t)
     model = NPZD(p...)
 
-    # NOTE: in more complex examples there might be other auxiliary fields that should be
-    # calculated here and passed to the function below
-    PAR = cyclical_PAR(t, (; z=-10))
+    PAR = cyclical_PAR(-10, t)
 
     for (i, tracer) in enumerate(tracers)
         du[i] = model(Val(tracer), 0, 0, 0, t, u..., PAR)
