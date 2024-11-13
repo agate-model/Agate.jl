@@ -4,9 +4,18 @@ using Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers, required_biogeochemical_auxiliary_fields
 
 """
-    bgc_to_ode(biogeochemistry, PAR_f, init_conditions, tspan, p=nothing)
+    bgc_to_ode(biogeochemistry, PAR_f, init_conditions, tspan, parameters=nothing) -> ODEProblem
 
+Generate ODEProblem from Biogeochemistry.
 
+# Arguments
+- `biogeochemistry`: subtype of Oceananigans.Biogeochemistry
+- `PAR_f`: a time dependant PAR function
+- `init_conditions`: a NamedTuple of initial tracer values
+- `tspan`: a Tuple of Floats indicating simulation start and stop times
+- `parameters`: ordered names of parameters that will be pasesed to ODEProblem, specified as
+   a Tuple of Symbols. Defaults to `nothing`, in which case all `biogeochemistry` parameters
+   are used.
 """
 function bgc_to_ode(biogeochemistry, PAR_f, init_conditions, tspan, parameters=nothing)
 
@@ -15,6 +24,7 @@ function bgc_to_ode(biogeochemistry, PAR_f, init_conditions, tspan, parameters=n
     tracers = required_biogeochemical_tracers(model)
 
     # if no parameters specified, get all of them
+    # Q: what if sinking velocities are included here ?!
     if isnothing(parameters)
         parameters = fieldnames(biogeochemistry)
     end
@@ -25,7 +35,7 @@ function bgc_to_ode(biogeochemistry, PAR_f, init_conditions, tspan, parameters=n
         params = NamedTuple{parameters}(p)
         model = biogeochemistry(; params...)
 
-        # TODO: what if there are additional auxiliary fields here?
+        # NOTE: in the future could have additional auxiliary fields here
         PAR = PAR_f(t)
         for (i, tracer) in enumerate(tracers)
             du[i] = model(Val(tracer), 0, 0, 0, t, u..., PAR)

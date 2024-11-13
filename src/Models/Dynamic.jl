@@ -96,7 +96,7 @@ end
 """
     add_bgc_methods!(bgc_type, tracers, auxiliary_fields=[], helper_functions=()) -> DataType
 
-Add methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
+Add methods to bgc_type required of Oceananigans.Biogeochemistry:
     - `required_biogeochemical_tracers`
     - `required_biogeochemical_auxiliary_fields`
     - a method per tracer
@@ -104,7 +104,7 @@ WARNING: `biogeochenical_auxiliary_fields` must also be defined to make use of a
 fields. This method is added when OceanBioME.Biogeochemistry(bgc_type()) is instantiated.
 
 # Arguments
-- `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry (returned by `create_bgc_struct`)
+- `bgc_type`: subtype of Oceananigans.Biogeochemistry (returned by `create_bgc_struct`)
 - `tracers`: dictionary of the form (<name> => <expression>, ...)
 
 # Keywords
