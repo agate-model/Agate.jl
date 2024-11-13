@@ -13,7 +13,7 @@ plankton = Dict(
 
 result = emergent_1D_array(plankton, dummy_emergent_predation_rate, ["volume_a", "volume_b", "volume"])
 """
-function emergent_1D_array(plankton, func, params)
+function emergent_1D_array(plankton::Dict, func::Function, params::Vector{String})
     # Get species names
     species_names = collect(keys(plankton))
 
@@ -43,7 +43,7 @@ plankton = Dict(
 result = emergent_matrix(plankton, dummy_emergent_palat, ["volume", "optimum_predator_prey_ratio", "protection"])
 
 """
-function emergent_2D_array(plankton, func, key_list)
+function emergent_2D_array(plankton::Dict, func::Function, key_list::Vector{String})
     # Extract predator and prey names
     predator_names = collect(keys(plankton))
     prey_names = collect(keys(plankton))
@@ -82,7 +82,7 @@ emergent_analysis(
 )
 
 """
-function emergent_analysis(plankton, func, params)
+function emergent_analysis(plankton::Dict, func::Function, params::Vector{String})
     result = nothing
     try
         result = emergent_1D_array(plankton, func, params)
@@ -134,7 +134,7 @@ defined_parameters = Dict(
 intermediate_parameters = split_size_parameters(defined_parameters)
 
 """
-function split_size_parameters(defined_parameters)
+function split_size_parameters(defined_parameters::Dict)
     # Initialize the resulting dictionary
     intermediate_parameters = Dict()
 
@@ -175,7 +175,7 @@ end
 """
 Log splitting function to generate a set of volumes based on min_volume, max_volume and n
 """
-function log_splitting(min_volume, max_volume, n)
+function log_splitting(min_volume::Real, max_volume::Real, n::Int)
     log_min = log10(min_volume)
     log_max = log10(max_volume)
     log_step = (log_max - log_min) / (n - 1)
@@ -185,7 +185,7 @@ end
 """
 Linear splitting function to generate a set of volumes based on min_volume, max_volume and n
 """
-function linear_splitting(min_volume, max_volume, n)
+function linear_splitting(min_volume::Real, max_volume::Real, n::Int)
     linear_step = (max_volume - min_volume) / (n - 1)
     return [min_volume + i * linear_step for i in 0:(n - 1)]
 end
@@ -193,7 +193,7 @@ end
 """
 Function to do final step of emergent analysis
 """
-function analyze_and_merge(emergent_functions, intermediate_parameters)
+function analyze_and_merge(emergent_functions::Dict, intermediate_parameters::Dict)
     # Dictionary to store results
     emergent_parameters = Dict()
 

@@ -21,6 +21,7 @@ defined_parameters = Dict(
         "holling_half_saturation" => 0,
         "quadratic_mortality" => 0,
         "alpha" => 0.1953,
+        "assimilation_efficiency" => 0,
     ),
     "Z" => Dict(
         "n" => 2,
@@ -39,6 +40,7 @@ defined_parameters = Dict(
         "holling_half_saturation" => 0.5,
         "quadratic_mortality" => 1e-6 / second,
         "alpha" => 1e-99,
+        "assimilation_efficiency" => 0,
     ),
 )
 
@@ -56,6 +58,8 @@ emergent_functions = Dict(
         dummy_emergent_nitrogen_half_saturation,
         ["nitrogen_half_saturation_a", "nitrogen_half_saturation_b", "volume"],
     ),
+    "assimilation_efficiency" =>
+        (dummy_emergent_assimilation_efficiency, ["assimilation_efficiency"]),
 )
 
 emergent_parameters = analyze_and_merge(emergent_functions, intermediate_parameters)
@@ -74,14 +78,22 @@ println(emergent_parameters["palatability"]["P1", "P2"])
 #palability of Z1 to P1:
 println(emergent_parameters["palatability"]["Z1", "P2"])
 
-#for simplicity define the biogeochemistry dict seperately
+#assimilation efficiency of Z1 to P1:
+#println(emergent_parameters["assimilation_efficiency"]["Z1", "P2"]) #currently broken
 
+#just a test - redefine a palat link to be something else:
+emergent_parameters["palatability"]["Z1", "P2"] = 10
+
+#for simplicity define the biogeochemistry dict seperately
 biogeochemistry_parameters = Dict(
     "detritus_remineralization" => 0.1213 / day,
     "feeding_export_poc_doc_fraction" => 0.5,
     "mortality_export_fraction" => 0.5,
 )
 
+#merge into one dictionary 
 parameters = merge(biogeochemistry_parameters, emergent_parameters)
 
-print(parameters)
+println(parameters)
+
+#note that this dictionary would need to be converted to a named tuple to work with create_bgc_struc()...

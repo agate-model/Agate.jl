@@ -1,4 +1,4 @@
-function dummy_emergent_growth(growth_a, growth_b, volume)
+function dummy_emergent_growth(growth_a::Real, growth_b::Real, volume::Real)
     rate = 0.0
     if growth_a == 0
         return rate
@@ -17,7 +17,7 @@ end
 
 """
 function dummy_emergent_palat(
-    args...; prey_volume_key, predator_volume_key, optimum_ratio_key, protection_key
+    args...; prey_volume_key::String, predator_volume_key::String, optimum_ratio_key::String, protection_key::String
 )
     prey_volume = args[1][prey_volume_key]
     predator_volume = args[2][predator_volume_key]
@@ -36,7 +36,7 @@ function dummy_emergent_palat(
     return palat
 end
 
-function dummy_emergent_predation_rate(predation_rate_a, predation_rate_b, volume)
+function dummy_emergent_predation_rate(predation_rate_a::Real, predation_rate_b::Real, volume::Real)
     rate = 0
     if predation_rate_a == 0
         return rate = 0  # Early return if volume_a is zero
@@ -53,7 +53,7 @@ function dummy_emergent_predation_rate(predation_rate_a, predation_rate_b, volum
 end
 
 function dummy_emergent_nitrogen_half_saturation(
-    nitrogen_half_saturation_a, nitrogen_half_saturation_b, volume
+    nitrogen_half_saturation_a::Real, nitrogen_half_saturation_b::Real, volume::Real
 )
     if nitrogen_half_saturation_a == 0
         return rate = 0  # Early return if volume_a is zero
@@ -72,6 +72,17 @@ end
 """
 Default fall-back function if no emergent function is defined
 """
-function default_emergent(my_parameter)
+function default_emergent(my_parameter::Real)
     return my_parameter
+end
+
+"""
+
+"""
+function dummy_emergent_assimilation_efficiency(
+    args...; prey_assimilation_efficiency_key::String, predator_assimilation_efficiency_key::String
+)
+    predator_assimilation_efficiency = args[2][predator_assimilation_efficiency_key]
+
+    return predator_assimilation_efficiency
 end
