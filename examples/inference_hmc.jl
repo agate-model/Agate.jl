@@ -32,8 +32,7 @@ include(joinpath("NPZD", "tracers.jl"))
 
 init_conditions = (Z=0.05, P=0.01, N=7.0, D=0.0)
 # specify which parameters to do inference for (if not all)
-# should we be passing values here too ?!  the user might
-# not always want to stick to the BGC defaults
+# parameter values will be passed when sampled during inference
 params = (:μ₀, :kₙ, :lᵖᵈ, :α)
 tspan = (0.0, stop_time)
 
