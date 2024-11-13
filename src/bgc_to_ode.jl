@@ -25,7 +25,7 @@ function bgc_to_ode(biogeochemistry, PAR_f, init_conditions, tspan, parameters=n
 
     # if no parameters specified, get all of them (except `sinking_velocities`)
     if isnothing(parameters)
-        parameters = filter(p -> p ∉ (:sinking_velocities,), fieldnames(biogeochemistry))
+        parameters = filter(f -> f ∉ (:sinking_velocities,), fieldnames(biogeochemistry))
     end
     # retrieve parameter values from model struct
     p = [getfield(model, f) for f in fieldnames(biogeochemistry) if f ∈ parameters]
