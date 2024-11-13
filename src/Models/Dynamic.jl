@@ -41,7 +41,7 @@ Creates an Oceananigans.Biogeochemistry model type.
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
 - `sinking_tracers`: optional NamedTuple of sinking speeds (passed as positive values) of
    the form (<tracer name> = <speed>, ...)
-- `grid`: optional Oceananigans grid object defining the geometry to build the model in, must
+- `grid`: optional Oceananigans grid object defining the geometry to build the model on, must
    be passed if `sinking_tracers` is defined
 - `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
    at the bottom to prevent the tracers leaving the domain, defaults to `true`, which means
@@ -100,9 +100,9 @@ Create a subtype of Oceananigans.Biogeochemistry with field names defined in `pa
 - `parameters`: named sequence of values of the form (<field name> = <default value>, ...)
 
 # Keywords
-- `sinking_tracers`: optional NamedTuple of sinking speeds of the form
-   (<tracer name> = <speed>, ...), convention is that speeds are defined as positive values
-- `grid`: optional Oceananigans grid object defining the geometry to build the model in, must
+- `sinking_tracers`: optional NamedTuple of sinking speeds (passed as positive values) of
+   the form (<tracer name> = <speed>, ...)
+- `grid`: optional Oceananigans grid object defining the geometry to build the model on, must
    be passed if `sinking_tracers` is defined
 - `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
    at the bottom to prevent the tracers leaving the domain, defaults to `true`, which means
@@ -136,8 +136,6 @@ function create_bgc_struct(
             throw(ArgumentError("grid must be defined to setup tracer sinking"))
         end
         # `setup_velocity_fields` multiplies tracer speeds by -1 when creating the fields
-        # to define swimming tracers simply pass negative values in `sinking_tracers` with
-        # `open_bottom=false`
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
         exp = :(sinking_velocities = $(sinking_velocities))
         push!(fields, exp)
