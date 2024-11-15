@@ -48,8 +48,8 @@ function emergent_2D_array(plankton::Dict, func::Function, key_list::Vector{Stri
     predator_names = collect(keys(plankton))
     prey_names = collect(keys(plankton))
 
-    # Initialize a NamedArray to hold palatability values
-    palatability_values = zeros(Float64, length(predator_names), length(prey_names))
+    # Initialize a NamedArray to hold values
+    values = zeros(Float64, length(predator_names), length(prey_names))
     names = (predator=predator_names, prey=prey_names)
 
     # Populate the NamedArray with calculated values
@@ -58,24 +58,17 @@ function emergent_2D_array(plankton::Dict, func::Function, key_list::Vector{Stri
             prey_data = plankton[prey_name]
             predator_data = plankton[pred_name]
 
-            # Pass prey and predator data dictionaries to the function with dynamic keys
-            palatability_values[i, j] = func(
-                prey_data,
-                predator_data;
-                prey_volume_key=key_list[1],
-                predator_volume_key=key_list[1],
-                optimum_ratio_key=key_list[2],
-                protection_key=key_list[3],
-            )
+            # Pass prey and predator data dictionaries to the function
+            values[i, j] = func(prey_data, predator_data;)
         end
     end
 
-    # Create and return a NamedArray with the palatability values and names
-    return NamedArray(palatability_values, names)
+    # Create and return a NamedArray with the values and names
+    return NamedArray(values, names)
 end
 
 """
-#Example: 
+#Example:
 
 emergent_analysis(
     plankton, dummy_emergent_palat, ["volume", "optimum_predator_prey_ratio", "protection"]
@@ -107,7 +100,7 @@ function emergent_analysis(plankton::Dict, func::Function, params::Vector{String
 end
 
 """
-A function which takes a dictionary containing n, min_size, max_size, a splitting function, 
+A function which takes a dictionary containing n, min_size, max_size, a splitting function,
 and other biogeochemical parameters.
 
 #Example:
