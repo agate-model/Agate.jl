@@ -158,7 +158,7 @@ end
         sinking_tracers=nothing,
     ) -> DataType
 
-Add methods to `bgc_type` required of `AbstractContinuousFormBiogeochemistry`:
+Add methods to bgc_type required of Oceananigans.Biogeochemistry:
     - `required_biogeochemical_tracers`
     - `required_biogeochemical_auxiliary_fields`
     - a method per tracer specifying how it evolves in time
@@ -169,7 +169,7 @@ WARNING: `biogeochenical_auxiliary_fields` method must also be defined to make u
 instantiated alongside an `update_biogeochemical_state!` method.
 
 # Arguments
-- `bgc_type`: subtype of `AbstractContinuousFormBiogeochemistry` (returned by `create_bgc_struct`)
+- `bgc_type`: subtype of Oceananigans.Biogeochemistry (returned by `create_bgc_struct`)
 - `tracers`: dictionary of the form (<name> => <expression>, ...)
 
 # Keywords
