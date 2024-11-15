@@ -107,4 +107,35 @@ function palatability(plankton::Dict, func::Function, key_list::Vector{String})
     return NamedArray(palatability_values, names)
 end
 
+function assimilation_efficiency(
+    plankton::Dict, func::Function; key_list::Vector{String}=["assimulation_efficiency"]
+)
+    # Extract predator and prey names
+    predator_names = collect(keys(plankton))
+    prey_names = collect(keys(plankton))
+
+    # Initialize a NamedArray to hold palatability values
+    palatability_values = zeros(Float64, length(predator_names), length(prey_names))
+    names = (predator=predator_names, prey=prey_names)
+
+    # Populate the NamedArray with calculated values
+    for (i, pred_name) in enumerate(predator_names)
+        for (j, prey_name) in enumerate(prey_names)
+            prey_data = plankton[prey_name]
+            predator_data = plankton[pred_name]
+
+            # Pass prey and predator data dictionaries to the function with dynamic keys
+            palatability_values[i, j] = func(
+                prey_data,
+                predator_data;
+                prey_assimilation_efficiency=key_list[1],
+                predator_assimilation_efficiency_key=key_list[1],
+            )
+        end
+    end
+
+    # Create and return a NamedArray with the palatability values and names
+    return NamedArray(palatability_values, names)
+end
+
 end #module
