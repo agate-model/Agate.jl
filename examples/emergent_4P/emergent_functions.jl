@@ -87,8 +87,8 @@ end
 """
 function dummy_emergent_assimilation_efficiency(
     args...;
-    prey_assimilation_efficiency_key::String="prey_assimilation_efficiency",
-    predator_assimilation_efficiency_key::String="predator_assimilation_efficiency",
+    prey_assimilation_efficiency_key::String="assimilation_efficiency",
+    predator_assimilation_efficiency_key::String="assimilation_efficiency",
 )
     predator_assimilation_efficiency = args[2][predator_assimilation_efficiency_key]
 

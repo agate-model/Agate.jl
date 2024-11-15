@@ -57,7 +57,7 @@ function emergent_2D_array(plankton::Dict, func::Function, key_list::Vector{Stri
         for (j, prey_name) in enumerate(prey_names)
             prey_data = plankton[prey_name]
             predator_data = plankton[pred_name]
-
+            # println("prey_data", predator_data)
             # Pass prey and predator data dictionaries to the function
             values[i, j] = func(prey_data, predator_data;)
         end
@@ -77,6 +77,7 @@ emergent_analysis(
 """
 function emergent_analysis(plankton::Dict, func::Function, params::Vector{String})
     result = nothing
+    # println(func)
     try
         result = emergent_1D_array(plankton, func, params)
         if ndims(result_1D) == 1
@@ -88,6 +89,7 @@ function emergent_analysis(plankton::Dict, func::Function, params::Vector{String
     end
     try
         result = emergent_2D_array(plankton, func, params)
+
         if ndims(result_2D) == 2
             println("2D")
         else
@@ -196,6 +198,7 @@ function analyze_and_merge(emergent_functions::Dict, intermediate_parameters::Di
 
         # Run the analysis with the specified function and store the result
         result = emergent_analysis(intermediate_parameters, func, param_names)
+        println(result)
         emergent_parameters[func_name] = result
     end
 
