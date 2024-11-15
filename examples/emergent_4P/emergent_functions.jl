@@ -18,13 +18,12 @@ end
 """
 function dummy_emergent_palat(
     args...;
-    prey_volume_key::String="volume",
-    predator_volume_key::String="volume",
+    volume_key::String="volume",
     optimum_ratio_key::String="optimum_predator_prey_ratio",
     protection_key::String="protection",
 )
-    prey_volume = args[1][prey_volume_key]
-    predator_volume = args[2][predator_volume_key]
+    prey_volume = args[1][volume_key]
+    predator_volume = args[2][volume_key]
     optimum_predator_prey_ratio = args[2][optimum_ratio_key]
     protection = args[1][protection_key]
 
@@ -87,10 +86,9 @@ end
 """
 function dummy_emergent_assimilation_efficiency(
     args...;
-    prey_assimilation_efficiency_key::String="assimilation_efficiency",
-    predator_assimilation_efficiency_key::String="assimilation_efficiency",
+    assimilation_efficiency_key::String="assimilation_efficiency",
 )
-    predator_assimilation_efficiency = args[2][predator_assimilation_efficiency_key]
+    predator_assimilation_efficiency = args[2][assimilation_efficiency_key]
 
     return predator_assimilation_efficiency
 end
