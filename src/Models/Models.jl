@@ -1,7 +1,7 @@
 module Models
 
 include("Dynamic.jl")
-include("Models/Parameters.jl")
+include("Parameters.jl")
 
 using .Dynamic
 using .Parameters
