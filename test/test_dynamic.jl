@@ -1,8 +1,13 @@
+using Agate
 using Agate.Models.Dynamic: expression_check, create_bgc_struct, add_bgc_methods!
+using OceanBioME
+using Oceananigans.Units
+using Oceananigans.Fields: ZeroField
 using Oceananigans.Biogeochemistry:
     AbstractContinuousFormBiogeochemistry,
     required_biogeochemical_tracers,
-    required_biogeochemical_auxiliary_fields
+    required_biogeochemical_auxiliary_fields,
+    biogeochemical_drift_velocity
 
 @testset "Models.Dynamic" begin
     @testset "expression_check" begin
@@ -58,7 +63,7 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "add_bgc_methods" begin
-        @testset "all methods exist and behave as expected" begin
+        @testset "core methods exist and behave as expected" begin
             parameters = (α=2 / 3, β=4 / 3, δ=1, γ=1)
             tracers = Dict("R" => :(α * R - β * R * F), "F" => :(-γ * F + δ * R * F))
             auxiliary_fields = [:PAR]
@@ -82,7 +87,6 @@ using Oceananigans.Biogeochemistry:
         end
 
         @testset "use helper functions" begin
-            using Oceananigans.Units
 
             # NPZD model
             include(joinpath("..", "examples", "NPZD", "tracers.jl"))
@@ -106,6 +110,28 @@ using Oceananigans.Biogeochemistry:
             @test isapprox(
                 model(Val(:Z), 0, 0, 0, 0, Z, P, N, D, PAR), -1.5360825383355622e-8
             )
+        end
+
+        @testset "tracer sinking" begin
+            include(joinpath("..", "examples", "NPZD", "tracers.jl"))
+
+            NPZD_sink = define_tracer_functions(
+                parameters,
+                tracers;
+                helper_functions=joinpath("..", "examples", "NPZD", "functions.jl"),
+                sinking_tracers=(P=0.2551 / day, D=2.7489 / day),
+                grid=BoxModelGrid(),
+            )
+
+            model = NPZD_sink()
+
+            @test OceanBioME.Models.Sediments.sinking_tracers(model) == (:P, :D)
+
+            @test biogeochemical_drift_velocity(model, Val(:P)).w.data[1, 1, 1] ==
+                -0.2551 / day
+            @test biogeochemical_drift_velocity(model, Val(:D)).w.data[1, 1, 1] ==
+                -2.7489 / day
+            @test biogeochemical_drift_velocity(model, Val(:Z)).w == ZeroField()
         end
     end
 end

@@ -1,32 +1,51 @@
 """
-Module to dynamically create Oceananigans.AbstractContinuousFormBiogeochemistry types.
+Module to dynamically create Oceananigans.Biogeochemistry types.
 """
 
 module Dynamic
 
 using UUIDs
 
+using OceanBioME: setup_velocity_fields
+
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
+using Oceananigans.Fields: ZeroField
 
 import Oceananigans.Biogeochemistry:
-    required_biogeochemical_tracers, required_biogeochemical_auxiliary_fields
+    required_biogeochemical_tracers,
+    required_biogeochemical_auxiliary_fields,
+    biogeochemical_drift_velocity
+import OceanBioME.Models.Sediments: sinking_tracers
 
 export define_tracer_functions
 
 """
     define_tracer_functions(
-        parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
+        parameters,
+        tracers;
+        auxiliary_fields=[:PAR],
+        helper_functions=nothing,
+        sinking_tracers=nothing,
+        grid=nothing,
+        open_bottom=false,
     ) -> DataType
 
 Creates an Oceananigans.Biogeochemistry model type.
 
 # Arguments
 - `parameters`: named sequence of values of the form ((<field name> = <default value>, ...)
-- `tracers`: dictionary of the form (<name> => <expression>n, ...)
+- `tracers`: dictionary of the form (<name> => <expression>, ...)
 
 # Keywords
-- `auxiliary_fields`: an iterable of auxiliary field variables, defaults to [:PAR,]
+- `auxiliary_fields`: an iterable of auxiliary field variables, defaults to `[:PAR,]`
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
+- `sinking_tracers`: optional NamedTuple of sinking speeds (passed as positive values) of
+   the form (<tracer name> = <speed>, ...)
+- `grid`: optional Oceananigans grid object defining the geometry to build the model on, must
+   be passed if `sinking_tracers` is defined
+- `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
+   at the bottom to prevent the tracers leaving the domain, defaults to `true`, which means
+   the bottom is open and the tracers leave (i.e., no slowing of velocity to 0 is applied)
 
 Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] (as these
 are reserved for coordinates) and they must include all parameters used in the `tracers`
@@ -41,22 +60,37 @@ LV = define_tracer_functions(parameters, tracers)
 ```
 """
 function define_tracer_functions(
-    parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
+    parameters,
+    tracers;
+    auxiliary_fields=[:PAR],
+    helper_functions=nothing,
+    sinking_tracers=nothing,
+    grid=nothing,
+    open_bottom=true,
 )
     # create a universaly unique identifier (UUID) for the model struct
     model_name = Symbol(uuid1())
-    bgc_model = create_bgc_struct(model_name, parameters)
+    bgc_model = create_bgc_struct(
+        model_name, parameters, sinking_tracers, grid, open_bottom
+    )
     add_bgc_methods!(
         bgc_model,
         tracers;
         auxiliary_fields=auxiliary_fields,
         helper_functions=helper_functions,
+        sinking_tracers=sinking_tracers,
     )
     return bgc_model
 end
 
 """
-    create_bgc_struct(struct_name, parameters) -> DataType
+    create_bgc_struct(
+        struct_name,
+        parameters;
+        sinking_tracers=nothing,
+        grid=nothing,
+        open_bottom=false,
+    ) -> DataType
 
 Create a subtype of Oceananigans.Biogeochemistry with field names defined in `parameters`.
 
@@ -65,15 +99,26 @@ Create a subtype of Oceananigans.Biogeochemistry with field names defined in `pa
    as: `Agate.Models.Dynamic.<struct_name>`
 - `parameters`: named sequence of values of the form (<field name> = <default value>, ...)
 
+# Keywords
+- `sinking_tracers`: optional NamedTuple of sinking speeds (passed as positive values) of
+   the form (<tracer name> = <speed>, ...)
+- `grid`: optional Oceananigans grid object defining the geometry to build the model on, must
+   be passed if `sinking_tracers` is defined
+- `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
+   at the bottom to prevent the tracers leaving the domain, defaults to `true`, which means
+   the bottom is open and the tracers leave (i.e., no slowing of velocity to 0 is applied)
+
 Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] as these
 are reserved for coordinates.
 
 # Example
 ```julia
 create_bgc_struct(:LV, (α=2/3, β=4/3,  δ=1, γ=1))
-````
+```
 """
-function create_bgc_struct(struct_name, parameters)
+function create_bgc_struct(
+    struct_name, parameters, sinking_tracers=nothing, grid=nothing, open_bottom=nothing
+)
     fields = []
     for (k, v) in pairs(parameters)
         if k in [:x, :y, :z, :t]
@@ -82,6 +127,17 @@ function create_bgc_struct(struct_name, parameters)
             )
         end
         exp = :($k = $v)
+        push!(fields, exp)
+    end
+
+    # additional parameters required if tracers sink
+    if !isnothing(sinking_tracers)
+        if isnothing(grid)
+            throw(ArgumentError("grid must be defined to setup tracer sinking"))
+        end
+        # `setup_velocity_fields` multiplies tracer speeds by -1 when creating the fields
+        sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
+        exp = :(sinking_velocities = $(sinking_velocities))
         push!(fields, exp)
     end
 
@@ -94,24 +150,35 @@ function create_bgc_struct(struct_name, parameters)
 end
 
 """
-    add_bgc_methods!(bgc_type, tracers, auxiliary_fields=[], helper_functions=()) -> DataType
+    add_bgc_methods!(
+        bgc_type,
+        tracers;
+        auxiliary_fields=[:PAR],
+        helper_functions=nothing,
+        sinking_tracers=nothing,
+    ) -> DataType
 
-Add methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
+Add methods to `bgc_type` required of `AbstractContinuousFormBiogeochemistry`:
     - `required_biogeochemical_tracers`
     - `required_biogeochemical_auxiliary_fields`
-    - a method per tracer
-WARNING: `biogeochenical_auxiliary_fields` must also be defined to make use of auxiliary
-fields. This method is added when OceanBioME.Biogeochemistry(bgc_type()) is instantiated.
+    - a method per tracer specifying how it evolves in time
+    - optionally adds `biogeochemical_drift_velocity` (if `sinking_tracers` is defined)
+
+WARNING: `biogeochenical_auxiliary_fields` method must also be defined to make use of the
+`auxiliary_fields`. This method is added when `OceanBioME.Biogeochemistry(bgc_type())` is
+instantiated alongside an `update_biogeochemical_state!` method.
 
 # Arguments
-- `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry (returned by `create_bgc_struct`)
+- `bgc_type`: subtype of `AbstractContinuousFormBiogeochemistry` (returned by `create_bgc_struct`)
 - `tracers`: dictionary of the form (<name> => <expression>, ...)
 
 # Keywords
 - `auxiliary_fields`: an optional iterable of auxiliary field variables
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
+- `sinking_tracers`: optional NamedTuple of sinking speeds of the form
+   (<tracer name> = <speed>, ...), convention is that speeds are defined as positive values
 
-Note that the field names of bgc_type can't be any of [:x, :y, :z, :t] (as these are reserved
+Note that the field names of `bgc_type` can't be any of [:x, :y, :z, :t] (as these are reserved
 for coordinates) and they must include all parameters used in the `tracers` expressions. The
 expressions must use methods that are either defined within this module or passed in the
 `helper_functions` file.
@@ -135,7 +202,13 @@ tracers = Dict(
 add_bgc_methods!(LV, tracers)
 ```
 """
-function add_bgc_methods!(bgc_type, tracers; auxiliary_fields=[], helper_functions=nothing)
+function add_bgc_methods!(
+    bgc_type,
+    tracers;
+    auxiliary_fields=[],
+    helper_functions=nothing,
+    sinking_tracers=nothing,
+)
     if !isnothing(helper_functions)
         include(helper_functions)
     end
@@ -163,6 +236,7 @@ function add_bgc_methods!(bgc_type, tracers; auxiliary_fields=[], helper_functio
         push!(method_vars, exp)
     end
 
+    # create core tracer methods
     for (tracer_name, tracer_expression) in pairs(tracers)
 
         # throws an exception if there are any issues with tracer_expression (see docstring)
@@ -177,6 +251,28 @@ function add_bgc_methods!(bgc_type, tracers; auxiliary_fields=[], helper_functio
         eval(tracer_method)
     end
 
+    # set up tracer sinking
+    if !isnothing(sinking_tracers)
+
+        # `biogeochemical_drift_velocity` is an optional Oceananigans.Biogeochemistry method
+        # that returns a NamedTuple of velocity fields for a tracer with keys `u`, `v`, `w`
+        sink_velocity_method = quote
+            function biogeochemical_drift_velocity(
+                bgc::$(bgc_type), ::Val{tracer_name}
+            ) where {tracer_name}
+                if tracer_name in keys(bgc.sinking_velocities)
+                    return (u=ZeroField(), v=ZeroField(), w=bgc.sinking_velocities[tracer_name])
+                else
+                    return (u=ZeroField(), v=ZeroField(), w=ZeroField())
+                end
+            end
+        end
+        eval(sink_velocity_method)
+
+        # this function is used in the OceanBioME sediment models
+        eval(:(sinking_tracers(bgc::$(bgc_type)) = keys(bgc.sinking_velocities)))
+    end
+
     return bgc_type
 end
 
@@ -188,7 +284,7 @@ Returns all symbols (argument names and method names) called in expression.
 # Example
 ```julia
 parse_expression(:(α * x - β * x * y))
-````
+```
 """
 function parse_expression(f_expr)
     symbols = []
