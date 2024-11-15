@@ -3,7 +3,7 @@ module Parameters
 using NamedArrays
 
 """
-Log splitting function to generate a set of volumes based on min_volume, max_volume and n
+Log splitting function to generate a set of volumes.
 """
 function log_splitting(min_volume::Real, max_volume::Real, n::Int)
     log_min = log10(min_volume)
@@ -13,7 +13,7 @@ function log_splitting(min_volume::Real, max_volume::Real, n::Int)
 end
 
 """
-Linear splitting function to generate a set of volumes based on min_volume, max_volume and n
+Linear splitting function to generate a set of volumes.
 """
 function linear_splitting(min_volume::Real, max_volume::Real, n::Int)
     linear_step = (max_volume - min_volume) / (n - 1)
@@ -21,9 +21,8 @@ function linear_splitting(min_volume::Real, max_volume::Real, n::Int)
 end
 
 """
-Generate volumes....
-
-Key (e.g., "P", "Z", "cocco")
+Generate a set of volumes for the named plankton (e.g., "P", "Z" or "cocco") based on
+    `min_volume`, `max_volume` and `n_plankton` using the given `splitting_function`.
 """
 function split_size_parameters(
     plankton_name, n_plankton, min_volume, max_volume, splitting_function=linear_splitting
@@ -76,13 +75,13 @@ function emergent_1D_array(plankton::Dict, func::Function, params::Vector{String
     return emergent_array
 end
 
-function palatability(plankton::Dict, func::Function, key_list::Vector{String})
+function emergent_2D_array(plankton::Dict, func::Function, key_list::Vector{String})
     # Extract predator and prey names
     predator_names = collect(keys(plankton))
     prey_names = collect(keys(plankton))
 
-    # Initialize a NamedArray to hold palatability values
-    palatability_values = zeros(Float64, length(predator_names), length(prey_names))
+    # Initialize a NamedArray to hold values
+    values = zeros(Float64, length(predator_names), length(prey_names))
     names = (predator=predator_names, prey=prey_names)
 
     # Populate the NamedArray with calculated values
@@ -91,51 +90,13 @@ function palatability(plankton::Dict, func::Function, key_list::Vector{String})
             prey_data = plankton[prey_name]
             predator_data = plankton[pred_name]
 
-            # Pass prey and predator data dictionaries to the function with dynamic keys
-            palatability_values[i, j] = func(
-                prey_data,
-                predator_data;
-                prey_volume_key=key_list[1],
-                predator_volume_key=key_list[1],
-                optimum_ratio_key=key_list[2],
-                protection_key=key_list[3],
-            )
+            # Pass prey and predator data dictionaries to the function
+            values[i, j] = func(prey_data, predator_data;)
         end
     end
 
-    # Create and return a NamedArray with the palatability values and names
-    return NamedArray(palatability_values, names)
-end
-
-function assimilation_efficiency(
-    plankton::Dict, func::Function; key_list::Vector{String}=["assimulation_efficiency"]
-)
-    # Extract predator and prey names
-    predator_names = collect(keys(plankton))
-    prey_names = collect(keys(plankton))
-
-    # Initialize a NamedArray to hold palatability values
-    palatability_values = zeros(Float64, length(predator_names), length(prey_names))
-    names = (predator=predator_names, prey=prey_names)
-
-    # Populate the NamedArray with calculated values
-    for (i, pred_name) in enumerate(predator_names)
-        for (j, prey_name) in enumerate(prey_names)
-            prey_data = plankton[prey_name]
-            predator_data = plankton[pred_name]
-
-            # Pass prey and predator data dictionaries to the function with dynamic keys
-            palatability_values[i, j] = func(
-                prey_data,
-                predator_data;
-                prey_assimilation_efficiency=key_list[1],
-                predator_assimilation_efficiency_key=key_list[1],
-            )
-        end
-    end
-
-    # Create and return a NamedArray with the palatability values and names
-    return NamedArray(palatability_values, names)
+    # Create and return a NamedArray with the values and names
+    return NamedArray(values, names)
 end
 
 end #module
