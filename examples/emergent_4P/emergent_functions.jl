@@ -1,3 +1,12 @@
+# NOTE: func_name = String(Symbol(func))
+# params_tracking = Dict(
+#     "maximum_growth_rate" => ["growth_a", "growth_b", "volume"],
+#     "palatability" => ["volume", "optimum_predator_prey_ratio", "protection"],
+#     "maximum_predation_rate" => ["predation_rate_a", "predation_rate_b", "volume"],
+#     "nitrogen_half_saturation" => ["nitrogen_half_saturation_a", "nitrogen_half_saturation_b", "volume"],
+#     "assimilation_efficiency" => ["assimilation_efficiency"],
+# )
+
 function dummy_emergent_growth(growth_a::Real, growth_b::Real, volume::Real)
     rate = 0.0
     if growth_a == 0
@@ -17,15 +26,16 @@ end
 
 """
 function dummy_emergent_palat(
-    args...;
+    prey_data,
+    predator_data;
     volume_key::String="volume",
     optimum_ratio_key::String="optimum_predator_prey_ratio",
     protection_key::String="protection",
 )
-    prey_volume = args[1][volume_key]
-    predator_volume = args[2][volume_key]
-    optimum_predator_prey_ratio = args[2][optimum_ratio_key]
-    protection = args[1][protection_key]
+    prey_volume = prey_data[volume_key]
+    predator_volume = predator_data[volume_key]
+    optimum_predator_prey_ratio = predator_data[optimum_ratio_key]
+    protection = prey_data[protection_key]
 
     ratio = predator_volume / prey_volume
 
@@ -85,10 +95,9 @@ end
 
 """
 function dummy_emergent_assimilation_efficiency(
-    args...;
-    assimilation_efficiency_key::String="assimilation_efficiency",
+    prey_data, predator_data; assimilation_efficiency_key::String="assimilation_efficiency"
 )
-    predator_assimilation_efficiency = args[2][assimilation_efficiency_key]
+    predator_assimilation_efficiency = predator_data[assimilation_efficiency_key]
 
     return predator_assimilation_efficiency
 end
