@@ -46,19 +46,20 @@ function split_size_parameters(
 end
 
 """
-To use with:
-    - maximum_growth_rate
-    - maximum_predation_rate
-    - nitrogen_half_saturation
+Calculate value for each `plankton` species using `func`, returning a 1D NamedArray.
+The functions passed here are expected to return one of:
+    - maximum growth rate
+    - maximum predation rate
+    - nitrogen half saturation
 
-plankton = Dict(
-    "species1" =>
-        Dict("volume" => 1.0,"volume_a" => 1.0,"volume_b" => 1.0, "pred" => 2.0),
-    "species2" =>
-        Dict("volume" => 1.5,"volume_a" => 1.0,"volume_b" => 1.0, "pred" => 1.8),
-)
-
-result = emergent_1D_array(plankton, dummy_emergent_predation_rate)
+The `plankton` Dictionary has to contain keys that correspond to the argument names of the
+function to apply to it and should look something like:
+    ```
+    plankton = Dict(
+        <species name> => Dict(<arg name> => <val>, ...),
+        <species name> => Dict(<arg name> => <val>, ...),
+    )
+    ```
 """
 function emergent_1D_array(plankton::Dict, func::Function)
     # Get species names
@@ -78,6 +79,21 @@ function emergent_1D_array(plankton::Dict, func::Function)
     return emergent_array
 end
 
+"""
+Calculate value for every pair of `plankton` species using `func`, returning a 2D NamedArray.
+The functions passed here are expected to return one of:
+    - assimilation efficiency
+    - palatability
+
+The `plankton` Dictionary has to contain keys that correspond to the argument names of the
+function to apply to it and should look something like:
+    ```
+    plankton = Dict(
+        <species name> => Dict(<arg name> => <val>, ...),
+        <species name> => Dict(<arg name> => <val>, ...),
+    )
+    ```
+"""
 function emergent_2D_array(plankton::Dict, func::Function)
     # Extract predator and prey names
     predator_names = collect(keys(plankton))
