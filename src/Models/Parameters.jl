@@ -58,15 +58,18 @@ plankton = Dict(
         Dict("volume" => 1.5,"volume_a" => 1.0,"volume_b" => 1.0, "pred" => 1.8),
 )
 
-result = emergent_1D_array(plankton, dummy_emergent_predation_rate, ["volume_a", "volume_b", "volume"])
+result = emergent_1D_array(plankton, dummy_emergent_predation_rate)
 """
-function emergent_1D_array(plankton::Dict, func::Function, params::Vector{String})
+function emergent_1D_array(plankton::Dict, func::Function)
     # Get species names
     species_names = collect(keys(plankton))
 
+    # first argname is self --> skip
+    argnames = Base.method_argnames.(methods(func))[1][2:end]
+
     # Calculate emergent values for each species
     emergent_values = [
-        func([plankton[name][key] for key in params]...) for name in species_names
+        func([plankton[name][String(key)] for key in argnames]...) for name in species_names
     ]
 
     # Create a NamedArray with species names as row labels
@@ -75,7 +78,7 @@ function emergent_1D_array(plankton::Dict, func::Function, params::Vector{String
     return emergent_array
 end
 
-function emergent_2D_array(plankton::Dict, func::Function, key_list::Vector{String})
+function emergent_2D_array(plankton::Dict, func::Function)
     # Extract predator and prey names
     predator_names = collect(keys(plankton))
     prey_names = collect(keys(plankton))
@@ -91,7 +94,7 @@ function emergent_2D_array(plankton::Dict, func::Function, key_list::Vector{Stri
             predator_data = plankton[pred_name]
 
             # Pass prey and predator data dictionaries to the function
-            values[i, j] = func(prey_data, predator_data;)
+            values[i, j] = func(prey_data, predator_data)
         end
     end
 
