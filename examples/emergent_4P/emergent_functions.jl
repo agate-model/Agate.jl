@@ -22,9 +22,6 @@ function dummy_emergent_growth(growth_a::Real, growth_b::Real, volume::Real)
     return rate
 end
 
-"""
-
-"""
 function dummy_emergent_palat(
     prey_data,
     predator_data;
@@ -91,9 +88,6 @@ function default_emergent(my_parameter::Real)
     return my_parameter
 end
 
-"""
-
-"""
 function dummy_emergent_assimilation_efficiency(
     prey_data, predator_data; assimilation_efficiency_key::String="assimilation_efficiency"
 )
