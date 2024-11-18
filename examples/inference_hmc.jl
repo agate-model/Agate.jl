@@ -5,7 +5,7 @@
 using Agate
 using Agate.Library.Light
 
-using DifferentialEquations
+using OrdinaryDiffEq
 using LinearAlgebra
 using Plots
 using StatsPlots
