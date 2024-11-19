@@ -78,7 +78,7 @@ function compute_darwin_parameters(plankton::Dict)
 
     for (f, name) in zip(
         [emergent_palatability_f, emergent_assimilation_efficiency_f],
-        [["maximum_growth_rate", "maximum_predation_rate", "nitrogen_half_saturation"]],
+        ["palatability", "assimilation_efficiency"],
     )
         emergent_results[name] = emergent_2D_array(parameters_with_volume, f)
     end
