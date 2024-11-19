@@ -46,34 +46,34 @@ defined_parameters = Dict(
 
 emergent_parameters = compute_darwin_parameters(defined_parameters)
 
+# simple test --> compare to parameters in N2P2ZD example
+
+plankton_order = ["P1", "P2", "Z1", "Z2"]
+
+for (key, params) in emergent_parameters
+    # start with arrays of values
+    if !(key ∈ ["assimilation_efficiency", "palatability", "volume"])
+        comparison = all(
+            parameters[Symbol(key)] .==
+            [params[p] for p in plankton_order],
+        )
+        println(key, " values are the same: ", comparison)
+    # matrices of values -> compare row at a time
+    elseif !(key == "volume")
+        for (i, p) in enumerate(plankton_order)
+            emergent_row = params[p, :]
+            true_row = parameters[Symbol(key)][i, :]
+            comparison = all(true_row .== [emergent_row[p] for p in plankton_order])
+            println(key, " ", p,  " values are the same: ", comparison)
+        end
+    end
+end
+
 # for simplicity define the biogeochemistry dict seperately
 biogeochemistry_parameters = Dict(
     "detritus_remineralization" => 0.1213 / day,
     "feeding_export_poc_doc_fraction" => 0.5,
     "mortality_export_fraction" => 0.5,
 )
-
-#merge into one dictionary
-# created_parameters = merge(biogeochemistry_parameters, emergent_parameters)
-
-# compare to parameters in N2P2ZD example
-# TODO: extract vals in the right oder to compare to parameters
-plankton_order = ["P1", "P2", "Z1", "Z2"]
-
-for key in keys(emergent_parameters)
-    if !(key ∈ ["assimilation_efficiency", "palatability", "volume"])
-        println(key)
-
-        println(parameters[Symbol(key)] .==
-            [emergent_parameters[key][p] for p in plankton_order])
-    elseif !(key=="volume")
-
-    end
-
-end
-
-# println(created_parameters)
-# println(parameters)
-
-
+created_parameters = merge(biogeochemistry_parameters, emergent_parameters)
 #note that this dictionary would need to be converted to a named tuple to work with create_bgc_struc()...
