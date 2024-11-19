@@ -82,7 +82,10 @@ end
 function dummy_emergent_assimilation_efficiency(
     prey_data, predator_data; assimilation_efficiency_key::String="assimilation_efficiency"
 )
-    predator_assimilation_efficiency = predator_data[assimilation_efficiency_key]
-
-    return predator_assimilation_efficiency
+    assimilation_efficiency = 0
+    # predators don't eat other predators
+    if prey_data[assimilation_efficiency_key] == 0
+        assimilation_efficiency = predator_data[assimilation_efficiency_key]
+    end
+    return assimilation_efficiency
 end
