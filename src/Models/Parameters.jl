@@ -12,7 +12,7 @@ emergent_nitrogen_half_saturation_f = dummy_emergent_nitrogen_half_saturation
 emergent_palatability_f = dummy_emergent_palat
 emergent_assimilation_efficiency_f = dummy_emergent_assimilation_efficiency
 
-# parameters the user has to pass to compute_darwin_parameters
+# parameters the user has to define in the dictionary passed to `compute_darwin_parameters`
 EXPECTED_EMERGENT_PARAMS = [
     "growth_a",
     "growth_b",
@@ -28,29 +28,22 @@ EXPECTED_EMERGENT_PARAMS = [
 EXPECTED_VOLUME_PARAMS = ["n", "min_volume", "max_volume", "splitting"]
 
 """
+    compute_darwin_parameters(plankton::Dict) -> Dict
+
 Generate `n` volumes for each `plankton` species (e.g., "P", "Z" or "cocco") and for each
 species-volume combination compute:
-    - maximum growth rate
-    - maximum predation rate
-    - nitrogen half saturation
-    - assimilation efficiency
+    - maximum_growth_rate
+    - maximum_predation_rate
+    - nitrogen_half_saturation
+    - assimilation_efficiency
     - palatability
+All computed and other species specific parameters are returned as a Dictionary of the form:
+`Dict(<parameter> => <NamedArray of values>, ....)`.
 
-The `plankton` Dictionary keys have to contain argument names of the emergent functions as
-well as `["n", "min_volume", "max_volume", "splitting"]` and should look something like:
-    ```
-    plankton = Dict(
-        <species name> => Dict(
-            "n" => <value>,
-            "min_volume" => <value>,
-            "max_volume" => <value>,
-            "splitting" => <one of "linear_splitting" or "log_splitting">,
-            <function arg name> => <value>,
-            ...
-        ),
-        <species name> => Dict(...),
-    )
-    ```
+# Arguments
+- `plankton`: a Dictionary of plankton species specific parameters of the form:
+   `Dict(<species name> => Dict(<param> => <value>, ....), ...)` with the species Dictionary
+   keys containing at least those in `EXPECTED_EMERGENT_PARAMS` and `EXPECTED_VOLUME_PARAMS`
 """
 function compute_darwin_parameters(plankton::Dict)
 

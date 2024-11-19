@@ -18,7 +18,7 @@ export define_tracer_functions
         parameters, tracers; auxiliary_fields=[:PAR], helper_functions=nothing
     ) -> DataType
 
-Creates an Oceananigans.Biogeochemistry model type.
+Create an Oceananigans.Biogeochemistry model type.
 
 # Arguments
 - `parameters`: named sequence of values of the form ((<field name> = <default value>, ...)
@@ -61,8 +61,8 @@ end
 Create a subtype of Oceananigans.Biogeochemistry with field names defined in `parameters`.
 
 # Arguments
-- `struct_name`: name for the new struct passed as a Symbol. The struct will be accessible
-   as: `Agate.Models.Dynamic.<struct_name>`
+- `struct_name`: name for the struct to create passed as a Symbol (the new struct will be
+   accessible as `Agate.Models.Dynamic.<struct_name>`)
 - `parameters`: named sequence of values of the form (<field name> = <default value>, ...)
 
 Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] as these
@@ -183,7 +183,7 @@ end
 """
     parse_expression(f_expr) -> Vector
 
-Returns all symbols (argument names and method names) called in expression.
+Return all symbols (argument names and method names) called in expression.
 
 # Example
 ```julia
@@ -211,7 +211,7 @@ end
 """
     expression_check(args, f_expr) -> nothing
 
-Checks that all methods and arguments are defined. Specifically:
+Check that all methods and arguments are defined. Specifically:
     - vector `args` contains all arguments of expression `f_expr`
     - all methods called in `f_expr` are defined in module (e.g., Base, Main, Agate)
 If not, throws an UnderVarError.
