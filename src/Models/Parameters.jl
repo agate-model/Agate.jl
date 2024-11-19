@@ -5,7 +5,7 @@ using NamedArrays
 export compute_darwin_parameters
 
 # TODO: the DARWIN emergent functions should eventually be defined here - use dummy for now
-include("../../examples/emergent_4P/emergent_functions.jl")
+include(joinpath("..", "..", "examples", "emergent_4P", "emergent_functions.jl"))
 emergent_max_growth_rate_f = dummy_emergent_growth
 emergent_max_predation_rate_f = dummy_emergent_predation_rate
 emergent_nitrogen_half_saturation_f = dummy_emergent_nitrogen_half_saturation
