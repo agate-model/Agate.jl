@@ -46,8 +46,9 @@ defined_parameters = Dict(
 
 emergent_parameters = compute_darwin_parameters(defined_parameters)
 
-# simple test --> compare to parameters in N2P2ZD example
-
+# sanity check --> compare generated values to parameters in N2P2ZD example
+# NOTE: eventually the emergent functions will be updated to true ones
+# that's why we don't include this in tests
 plankton_order = ["P1", "P2", "Z1", "Z2"]
 
 for (key, params) in emergent_parameters
