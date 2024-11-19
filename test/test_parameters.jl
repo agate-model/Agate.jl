@@ -62,4 +62,6 @@ include(joinpath("..", "examples", "emergent_4P", "emergent_functions.jl"))
         @test isapprox(result["Z2", "P2"], 1)
     end
 
+    # TODO: test create_darwin_parameters
+
 end
