@@ -1,12 +1,3 @@
-# NOTE: func_name = String(Symbol(func))
-# params_tracking = Dict(
-#     "maximum_growth_rate" => ["growth_a", "growth_b", "volume"],
-#     "palatability" => ["volume", "optimum_predator_prey_ratio", "protection"],
-#     "maximum_predation_rate" => ["predation_rate_a", "predation_rate_b", "volume"],
-#     "nitrogen_half_saturation" => ["nitrogen_half_saturation_a", "nitrogen_half_saturation_b", "volume"],
-#     "assimilation_efficiency" => ["assimilation_efficiency"],
-# )
-
 function dummy_emergent_growth(growth_a::Real, growth_b::Real, volume::Real)
     rate = 0.0
     if growth_a == 0

@@ -2,6 +2,116 @@ module Parameters
 
 using NamedArrays
 
+export compute_darwin_parameters
+
+# TODO: the DARWIN emergent functions should eventually be defined here - use dummy for now
+include("../../examples/emergent_4P/emergent_functions.jl")
+emergent_max_growth_rate_f = dummy_emergent_growth
+emergent_max_predation_rate_f = dummy_emergent_predation_rate
+emergent_nitrogen_half_saturation_f = dummy_emergent_nitrogen_half_saturation
+emergent_palatability_f = dummy_emergent_palat
+emergent_assimilation_efficiency_f = dummy_emergent_assimilation_efficiency
+
+# parameters the user has to pass to compute_darwin_parameters
+EXPECTED_EMERGENT_PARAMS = [
+    "maximum_growth_rate",
+    "maximum_predation_rate",
+    "nitrogen_half_saturation",
+    "maximum_growth_rate",
+    "maximum_predation_rate",
+    "nitrogen_half_saturation",
+    "growth_a",
+    "growth_b",
+    "nitrogen_half_saturation_a",
+    "nitrogen_half_saturation_b",
+    "predation_rate_a",
+    "predation_rate_b",
+    "optimum_predator_prey_ratio",
+    "protection",
+]
+EXPECTED_VOLUME_PARAMS = ["n", "min_volume", "max_volume", "splitting"]
+
+"""
+Generate `n` volumes for each `plankton` species (e.g., "P", "Z" or "cocco") and for each
+species-volume combination compute:
+    - maximum growth rate
+    - maximum predation rate
+    - nitrogen half saturation
+    - assimilation efficiency
+    - palatability
+
+The `plankton` Dictionary keys have to contain argument names of the emergent functions as
+well as `["n", "min_volume", "max_volume", "splitting"]` and should look something like:
+    ```
+    plankton = Dict(
+        <species name> => Dict(
+            "n" => <value>,
+            "min_volume" => <value>,
+            "max_volume" => <value>,
+            "splitting" => <one of "linear_splitting" or "log_splitting">,
+            <function arg name> => <value>,
+            ...
+        ),
+        <species name> => Dict(...),
+    )
+    ```
+"""
+function compute_darwin_parameters(plankton::Dict)
+
+    # validate that `plankton` has the required parameters for each plankton species
+    for (plankton_name, params) in plankton
+        for p in vcat(EXPECTED_EMERGENT_PARAMS, EXPECTED_VOLUME_PARAMS)
+            if p
+                not in params
+                throw(ArgumentError("$plankton_name parameter dictionary missing $p"))
+            end
+        end
+    end
+
+    # generate n volumes for the species and compute emergent parameters
+    parameters_with_volume = split_size_parameters(plankton)
+
+    emergent_results = Dict()
+    for (f, name) in zip(
+        [
+            emergent_max_growth_rate_f,
+            emergent_max_predation_rate_f,
+            emergent_nitrogen_half_saturation_f,
+        ],
+        ["maximum_growth_rate", "maximum_predation_rate", "nitrogen_half_saturation"],
+    )
+        emergent_results[name] = emergent_1D_array(parameters_with_volume, f)
+    end
+
+    for (f, name) in zip(
+        [emergent_palatability_f, emergent_assimilation_efficiency_f],
+        [["maximum_growth_rate", "maximum_predation_rate", "nitrogen_half_saturation"]],
+    )
+        emergent_results[name] = emergent_2D_array(parameters_with_volume, f)
+    end
+
+    # add remaining parameters (except those used in emergent computations)
+    # we are assuming each species has the same parameters - so just get the first name
+    species = collect(keys(parameters_with_volume))
+    for param_name in keys(parameters_with_volume[species])
+        if !(param_name ∈ EXPECTED_EMERGENT_PARAMS)
+            # Collect values across species in an array
+            values = [
+                parameters_with_volume[species][param_name] for
+                species in keys(parameters_with_volume)
+            ]
+            species_names = collect(keys(parameters_with_volume))
+
+            # Store as a NamedArray
+            emergent_parameters[param_name] = NamedArray(
+                values, (species_names,), ("Species",)
+            )
+        end
+    end
+
+    return emergent_results
+end
+
 """
 Log splitting function to generate a set of volumes.
 """
@@ -21,28 +131,33 @@ function linear_splitting(min_volume::Real, max_volume::Real, n::Int)
 end
 
 """
-Generate a set of volumes for the named plankton (e.g., "P", "Z" or "cocco") based on
-    `min_volume`, `max_volume` and `n_plankton` using the given `splitting_function`.
+Generate `n` volumes for each `plankton` species (e.g., "P", "Z" or "cocco") and return
+Dictionary of parameters for each species-volume combination.
+
+The returned Dictionary keys contain `volume` as well as any other species specific parameters
+passed in the `plankton` Dictionary.
 """
-function split_size_parameters(
-    plankton_name, n_plankton, min_volume, max_volume, splitting_function=linear_splitting
-)
-    volumes = splitting_function(min_volume, max_volume, n_plankton)
+function split_size_parameters(plankton::Dict)
+    parameters_with_volume = Dict()
 
-    # Initialize the resulting dictionary
-    intermediate_parameters = Dict()
-    # Create sub-dictionaries for each instance in this category
-    for i in 1:n_plankton
-        # Create a sub-dictionary for each "P1", "P2", etc.
-        sub_dict = Dict()
+    for (plankton_name, params) in plankton
+        n = params["n"]
+        # expect the splitting function is defined within this module
+        splitting_function = getfield(Parameters, Symbol(params["splitting"]))
+        volumes = splitting_function(n, params["min_volume"], params["max_volume"])
 
-        # Set the volume parameter for this entry
-        sub_dict["volume"] = volumes[i]
+        for p in EXPECTED_VOLUME_PARAMS
+            delete!(params, p)
+        end
 
-        intermediate_parameters["$plantkon_name$i"] = sub_dict
+        for i in 1:n
+            parameters_with_volume["$plankton_name$i"] = merge(
+                Dict("volume" => volumes[i]), params
+            )
+        end
     end
 
-    return intermediate_parameters
+    return parameters_with_volume
 end
 
 """
@@ -52,14 +167,8 @@ The functions passed here are expected to return one of:
     - maximum predation rate
     - nitrogen half saturation
 
-The `plankton` Dictionary has to contain keys that correspond to the argument names of the
-function to apply to it and should look something like:
-    ```
-    plankton = Dict(
-        <species name> => Dict(<arg name> => <val>, ...),
-        <species name> => Dict(<arg name> => <val>, ...),
-    )
-    ```
+The `plankton` Dictionary keys have to contain argument names of the function to apply to it
+and should be of the form `Dict(<species name> => Dict(<arg name> => <val>, ...), ... )`
 """
 function emergent_1D_array(plankton::Dict, func::Function)
     # Get species names
@@ -85,14 +194,8 @@ The functions passed here are expected to return one of:
     - assimilation efficiency
     - palatability
 
-The `plankton` Dictionary has to contain keys that correspond to the argument names of the
-function to apply to it and should look something like:
-    ```
-    plankton = Dict(
-        <species name> => Dict(<arg name> => <val>, ...),
-        <species name> => Dict(<arg name> => <val>, ...),
-    )
-    ```
+The `plankton` Dictionary keys have to contain argument names of the function to apply to it
+and should be of the form `Dict(<species name> => Dict(<arg name> => <val>, ...), ... )`
 """
 function emergent_2D_array(plankton::Dict, func::Function)
     # Extract predator and prey names
