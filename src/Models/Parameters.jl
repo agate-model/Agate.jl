@@ -22,6 +22,8 @@ EXPECTED_EMERGENT_PARAMS = [
     "predation_rate_b",
     "optimum_predator_prey_ratio",
     "protection",
+    # QUESTION: we also generate a parameter called assimilation_efficiency - rename input?
+    "assimilation_efficiency",
 ]
 EXPECTED_VOLUME_PARAMS = ["n", "min_volume", "max_volume", "splitting"]
 
@@ -87,6 +89,7 @@ function compute_darwin_parameters(plankton::Dict)
     # we are assuming each species has the same parameters - so just get the first name
     species = collect(keys(parameters_with_volume))
     for param_name in keys(parameters_with_volume[species[1]])
+        # TODO: the input parameter shouldn't be the same as what
         if !(param_name ∈ EXPECTED_EMERGENT_PARAMS)
             # Collect values across species in an array
             values = [
