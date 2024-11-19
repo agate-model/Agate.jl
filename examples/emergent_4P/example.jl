@@ -35,36 +35,14 @@ defined_parameters = Dict(
         "predation_rate_a" => 1,
         "predation_rate_b" => 1,
         "linear_mortality" => 8e-7 / second,
-        "holling_half_saturation" => 0.5,
+        "holling_half_saturation" => 5.0,
         "quadratic_mortality" => 1e-6 / second,
         "alpha" => 1e-99,
-        "assimilation_efficiency" => 0,
+        "assimilation_efficiency" => 0.32,
     ),
 )
 
 emergent_parameters = compute_darwin_parameters(defined_parameters)
-
-# Display the results dictionary
-println("All results:", emergent_parameters)
-
-#check named arrays:
-
-# growth rate of P2:
-println(emergent_parameters["maximum_growth_rate"]["P2"])
-
-println(emergent_parameters["palatability"])
-
-# palability of P2 to P1:
-println(emergent_parameters["palatability"]["P1", "P2"])
-
-# palability of Z1 to P1:
-println(emergent_parameters["palatability"]["Z1", "P2"])
-
-# #assimilation efficiency of Z1 to P1:
-println(emergent_parameters["assimilation_efficiency"]["Z1", "P2"]) #curreassimintly broken
-
-# just a test - redefine a palat link to be something else:
-emergent_parameters["palatability"]["Z1", "P2"] = 10
 
 # for simplicity define the biogeochemistry dict seperately
 biogeochemistry_parameters = Dict(
@@ -77,5 +55,7 @@ biogeochemistry_parameters = Dict(
 parameters = merge(biogeochemistry_parameters, emergent_parameters)
 
 println(parameters)
+
+# compare to parameters in N2P2ZD example
 
 #note that this dictionary would need to be converted to a named tuple to work with create_bgc_struc()...
