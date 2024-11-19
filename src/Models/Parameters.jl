@@ -14,12 +14,6 @@ emergent_assimilation_efficiency_f = dummy_emergent_assimilation_efficiency
 
 # parameters the user has to pass to compute_darwin_parameters
 EXPECTED_EMERGENT_PARAMS = [
-    "maximum_growth_rate",
-    "maximum_predation_rate",
-    "nitrogen_half_saturation",
-    "maximum_growth_rate",
-    "maximum_predation_rate",
-    "nitrogen_half_saturation",
     "growth_a",
     "growth_b",
     "nitrogen_half_saturation_a",
@@ -61,8 +55,7 @@ function compute_darwin_parameters(plankton::Dict)
     # validate that `plankton` has the required parameters for each plankton species
     for (plankton_name, params) in plankton
         for p in vcat(EXPECTED_EMERGENT_PARAMS, EXPECTED_VOLUME_PARAMS)
-            if p
-                not in params
+            if !(p ∈ keys(params))
                 throw(ArgumentError("$plankton_name parameter dictionary missing $p"))
             end
         end
@@ -93,7 +86,7 @@ function compute_darwin_parameters(plankton::Dict)
     # add remaining parameters (except those used in emergent computations)
     # we are assuming each species has the same parameters - so just get the first name
     species = collect(keys(parameters_with_volume))
-    for param_name in keys(parameters_with_volume[species])
+    for param_name in keys(parameters_with_volume[species[1]])
         if !(param_name ∈ EXPECTED_EMERGENT_PARAMS)
             # Collect values across species in an array
             values = [
@@ -103,7 +96,7 @@ function compute_darwin_parameters(plankton::Dict)
             species_names = collect(keys(parameters_with_volume))
 
             # Store as a NamedArray
-            emergent_parameters[param_name] = NamedArray(
+            emergent_results[param_name] = NamedArray(
                 values, (species_names,), ("Species",)
             )
         end
