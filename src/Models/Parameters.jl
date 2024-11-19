@@ -140,7 +140,7 @@ function split_size_parameters(plankton::Dict)
         n = params["n"]
         # expect the splitting function is defined within this module
         splitting_function = getfield(Parameters, Symbol(params["splitting"]))
-        volumes = splitting_function(n, params["min_volume"], params["max_volume"])
+        volumes = splitting_function(params["min_volume"], params["max_volume"], n)
 
         for p in EXPECTED_VOLUME_PARAMS
             delete!(params, p)
