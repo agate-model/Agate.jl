@@ -1,8 +1,6 @@
 using Oceananigans.Units
 using Agate
 
-include(joinpath("..", "N2P2ZD", "tracers.jl"))
-
 defined_parameters = Dict(
     "P" => Dict(
         "n" => 2,
@@ -49,6 +47,9 @@ emergent_parameters = compute_darwin_parameters(defined_parameters)
 # sanity check --> compare generated values to parameters in N2P2ZD example
 # NOTE: eventually the emergent functions will be updated to true ones
 # that's why we don't include this in tests
+
+include(joinpath("..", "N2P2ZD", "tracers.jl"))
+
 plankton_order = ["P1", "P2", "Z1", "Z2"]
 
 for (key, params) in emergent_parameters
