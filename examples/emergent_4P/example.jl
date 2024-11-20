@@ -54,14 +54,14 @@ plankton_order = ["P1", "P2", "Z1", "Z2"]
 
 for (key, params) in emergent_parameters
     # start with arrays of values
-    if !(key ∈ ["assimilation_efficiency", "palatability", "volume"])
+    if !(key ∈ ["assimilation_efficiency_matrix", "palatability_matrix", "volume"])
         comparison = all(parameters[Symbol(key)] .== [params[p] for p in plankton_order])
         println(key, " values are the same: ", comparison)
         # matrices of values -> compare row at a time
     elseif !(key == "volume")
         for (i, p) in enumerate(plankton_order)
             emergent_row = params[p, :]
-            true_row = parameters[Symbol(key)][i, :]
+            true_row = parameters[Symbol(replace(key, "_matrix" => ""))][i, :]
             comparison = all(true_row .== [emergent_row[p] for p in plankton_order])
             println(key, " ", p, " values are the same: ", comparison)
         end

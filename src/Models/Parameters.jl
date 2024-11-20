@@ -22,7 +22,6 @@ EXPECTED_EMERGENT_PARAMS = [
     "predation_rate_b",
     "optimum_predator_prey_ratio",
     "protection",
-    # QUESTION: we also generate a parameter called assimilation_efficiency - rename input?
     "assimilation_efficiency",
 ]
 EXPECTED_VOLUME_PARAMS = ["n", "min_volume", "max_volume", "splitting"]
@@ -42,8 +41,9 @@ All computed and other species specific parameters are returned as a Dictionary 
 
 # Arguments
 - `plankton`: a Dictionary of plankton species specific parameters of the form:
-   `Dict(<species name> => Dict(<param> => <value>, ....), ...)` with the species Dictionary
-   keys containing at least those in `EXPECTED_EMERGENT_PARAMS` and `EXPECTED_VOLUME_PARAMS`
+       `Dict(<species name> => Dict(<parameter> => <value>, ....), ...)`
+   the species all have to have the same parameters and these have to include at least the
+   parameters in `EXPECTED_EMERGENT_PARAMS` and `EXPECTED_VOLUME_PARAMS`
 """
 function compute_darwin_parameters(plankton::Dict)
 
@@ -73,7 +73,7 @@ function compute_darwin_parameters(plankton::Dict)
 
     for (f, name) in zip(
         [emergent_palatability_f, emergent_assimilation_efficiency_f],
-        ["palatability", "assimilation_efficiency"],
+        ["palatability_matrix", "assimilation_efficiency_matrix"],
     )
         emergent_results[name] = emergent_2D_array(parameters_with_volume, f)
     end
@@ -82,7 +82,6 @@ function compute_darwin_parameters(plankton::Dict)
     # we are assuming each species has the same parameters - so just get the first name
     species = collect(keys(parameters_with_volume))
     for param_name in keys(parameters_with_volume[species[1]])
-        # TODO: the input parameter shouldn't be the same as what
         if !(param_name ∈ EXPECTED_EMERGENT_PARAMS)
             # Collect values across species in an array
             values = [
