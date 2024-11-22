@@ -1,78 +1,87 @@
 using Oceananigans.Units
 using Agate
 
+# Q: SHOULD THIS BE A NAMEDTUPLE INSTEAD?
+# TODO: users shouldn't have to specify 0 parameters
+# NOTE: assimilation efficiency has to create an array of values rather than compute anything --> is there a better way to do that?
+# Q: related to assimilation - do the Zs ever have assimilation related to each other? what if there was a third species, what would that look like?
+
 defined_parameters = Dict(
     "P" => Dict(
         "n" => 2,
-        "min_volume" => 1,
-        "max_volume" => 10,
-        "splitting" => "log_splitting",
-        "growth_a" => 1,
-        "growth_b" => 1,
-        "protection" => 0,
-        "optimum_predator_prey_ratio" => 0,
-        "nitrogen_half_saturation_a" => 1,
-        "nitrogen_half_saturation_b" => 1,
-        "predation_rate_a" => 0,
-        "predation_rate_b" => 0,
+        "volumes" =>
+            Dict("min_volume" => 1, "max_volume" => 10, "splitting" => "log_splitting"),
+        "allometry" => Dict(
+            "maximum_growth_rate" => Dict("a" => 1, "b" => 1),
+            "nitrogen_half_saturation" => Dict("a" => 1, "b" => 1),
+            # "maximum_predation_rate" => Dict("a" => 0, "b" => 0),
+        ),
+        "palatability" => Dict("optimum_predator_prey_ratio" => 0, "protection" => 0),
+        "assimilation_efficiency" =>
+            Dict("can_be_eaten" => 1, "can_eat" => 0, "assimilation_efficiency" => 0),
+        # anything else goes here
         "linear_mortality" => 8e-7 / second,
-        "holling_half_saturation" => 0,
-        "quadratic_mortality" => 0,
+        # "holling_half_saturation" => 0,
+        # "quadratic_mortality" => 0,
         "alpha" => 0.1953 / day,
-        "assimilation_efficiency" => 0,
     ),
     "Z" => Dict(
         "n" => 2,
-        "min_volume" => 10,
-        "max_volume" => 100,
-        "splitting" => "linear_splitting",
-        "growth_a" => 0,
-        "growth_b" => 0,
-        "protection" => 1,
-        "optimum_predator_prey_ratio" => 10,
-        "nitrogen_half_saturation_a" => 0,
-        "nitrogen_half_saturation_b" => 0,
-        "predation_rate_a" => 1,
-        "predation_rate_b" => 1,
-        "linear_mortality" => 8e-7 / second,
+        "volumes" => Dict(
+            "min_volume" => 10,
+            "max_volume" => 100,
+            "splitting" => "linear_splitting",
+        ),
+        "allometry" => Dict(
+            # "maximum_growth_rate" => Dict("a" => 0, "b" => 0),
+            # "nitrogen_half_saturation" => Dict("a" => 0, "b" => 0),
+            "maximum_predation_rate" => Dict("a" => 1, "b" => 1),
+        ),
+        "palatability" => Dict("optimum_predator_prey_ratio" => 10, "protection" => 1),
+        "assimilation_efficiency" => Dict(
+            "can_be_eaten" => 0, "can_eat" => 1, "assimilation_efficiency" => 0.32
+        ),
+        # anything else goes here
+        "linear_mortality" => 1e-6 / second,
         "holling_half_saturation" => 5.0,
-        "quadratic_mortality" => 1e-6 / second,
-        "alpha" => 1e-99 / day,
-        "assimilation_efficiency" => 0.32,
+        "quadratic_mortality" => 1e-6,
+        # this should be 0
+        # "alpha" => 1e-99 / day,
     ),
 )
 
 emergent_parameters = compute_darwin_parameters(defined_parameters)
+println(emergent_parameters)
 
 # sanity check --> compare generated values to parameters in N2P2ZD example
 # NOTE: eventually the emergent functions will be updated to true ones
 # that's why we don't include this in tests
 
-include(joinpath("..", "N2P2ZD", "tracers.jl"))
+# include(joinpath("..", "N2P2ZD", "tracers.jl"))
 
-plankton_order = ["P1", "P2", "Z1", "Z2"]
+# plankton_order = ["P1", "P2", "Z1", "Z2"]
 
-for (key, params) in emergent_parameters
-    # start with arrays of values
-    if !(key ∈ ["assimilation_efficiency_matrix", "palatability_matrix", "volume"])
-        comparison = all(parameters[Symbol(key)] .== [params[p] for p in plankton_order])
-        println(key, " values are the same: ", comparison)
-        # matrices of values -> compare row at a time
-    elseif !(key == "volume")
-        for (i, p) in enumerate(plankton_order)
-            emergent_row = params[p, :]
-            true_row = parameters[Symbol(replace(key, "_matrix" => ""))][i, :]
-            comparison = all(true_row .== [emergent_row[p] for p in plankton_order])
-            println(key, " ", p, " values are the same: ", comparison)
-        end
-    end
-end
+# for (key, params) in emergent_parameters
+#     # start with arrays of values
+#     if !(key ∈ ["assimilation_efficiency_matrix", "palatability_matrix", "volume"])
+#         comparison = all(parameters[Symbol(key)] .== [params[p] for p in plankton_order])
+#         println(key, " values are the same: ", comparison)
+#         # matrices of values -> compare row at a time
+#     elseif !(key == "volume")
+#         for (i, p) in enumerate(plankton_order)
+#             emergent_row = params[p, :]
+#             true_row = parameters[Symbol(replace(key, "_matrix" => ""))][i, :]
+#             comparison = all(true_row .== [emergent_row[p] for p in plankton_order])
+#             println(key, " ", p, " values are the same: ", comparison)
+#         end
+#     end
+# end
 
-# for simplicity define the biogeochemistry dict seperately
-biogeochemistry_parameters = Dict(
-    "detritus_remineralization" => 0.1213 / day,
-    "feeding_export_poc_doc_fraction" => 0.5,
-    "mortality_export_fraction" => 0.5,
-)
-created_parameters = merge(biogeochemistry_parameters, emergent_parameters)
+# # for simplicity define the biogeochemistry dict seperately
+# biogeochemistry_parameters = Dict(
+#     "detritus_remineralization" => 0.1213 / day,
+#     "feeding_export_poc_doc_fraction" => 0.5,
+#     "mortality_export_fraction" => 0.5,
+# )
+# created_parameters = merge(biogeochemistry_parameters, emergent_parameters)
 #note that this dictionary would need to be converted to a named tuple to work with create_bgc_struc()...
