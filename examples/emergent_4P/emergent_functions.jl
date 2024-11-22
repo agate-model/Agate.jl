@@ -1,3 +1,4 @@
+
 function dummy_emergent_growth(growth_a::Real, growth_b::Real, volume::Real)
     rate = 0.0
     if growth_a == 0
@@ -11,30 +12,6 @@ function dummy_emergent_growth(growth_a::Real, growth_b::Real, volume::Real)
     end
 
     return rate
-end
-
-function dummy_emergent_palat(
-    prey_data,
-    predator_data;
-    volume_key::String="volume",
-    optimum_ratio_key::String="optimum_predator_prey_ratio",
-    protection_key::String="protection",
-)
-    prey_volume = prey_data[volume_key]
-    predator_volume = predator_data[volume_key]
-    optimum_predator_prey_ratio = predator_data[optimum_ratio_key]
-    protection = prey_data[protection_key]
-
-    ratio = predator_volume / prey_volume
-
-    if optimum_predator_prey_ratio == 0
-        palat = 0.0
-    elseif ratio == optimum_predator_prey_ratio
-        palat = 1 * (1 - protection)
-    else
-        palat = 0.3 * (1 - protection)
-    end
-    return palat
 end
 
 function dummy_emergent_predation_rate(
@@ -72,20 +49,30 @@ function dummy_emergent_nitrogen_half_saturation(
     return rate
 end
 
-"""
-Default fall-back function if no emergent function is defined
-"""
-function default_emergent(my_parameter::Real)
-    return my_parameter
+function dummy_emergent_palat(prey_data, predator_data)
+    prey_volume = prey_data["volumes"]
+    predator_volume = predator_data["volumes"]
+    optimum_predator_prey_ratio = predator_data["optimum_predator_prey_ratio"]
+    protection = prey_data["protection"]
+
+    ratio = predator_volume / prey_volume
+
+    if optimum_predator_prey_ratio == 0
+        palat = 0.0
+    elseif ratio == optimum_predator_prey_ratio
+        palat = 1 * (1 - protection)
+    else
+        palat = 0.3 * (1 - protection)
+    end
+    return palat
 end
 
-function dummy_emergent_assimilation_efficiency(
-    prey_data, predator_data; assimilation_efficiency_key::String="assimilation_efficiency"
-)
+function dummy_emergent_assimilation_efficiency(prey_data, predator_data)
     assimilation_efficiency = 0
     # predators don't eat other predators
-    if prey_data[assimilation_efficiency_key] == 0
-        assimilation_efficiency = predator_data[assimilation_efficiency_key]
+    # Q: is this the right condition for determining whether to retrieve this value?
+    if prey_data["assimilation_efficiency"] == 0
+        assimilation_efficiency = predator_data["assimilation_efficiency"]
     end
     return assimilation_efficiency
 end
