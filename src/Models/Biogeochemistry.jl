@@ -1,8 +1,8 @@
 """
-Module to dynamically create Oceananigans.AbstractContinuousFormBiogeochemistry types.
+Module to dynamically create Oceananigans.Biogeochemistry types.
 """
 
-module Dynamic
+module Biogeochemistry
 
 using UUIDs
 
@@ -62,7 +62,7 @@ Create a subtype of Oceananigans.Biogeochemistry with field names defined in `pa
 
 # Arguments
 - `struct_name`: name for the struct to create passed as a Symbol (the new struct will be
-   accessible as `Agate.Models.Dynamic.<struct_name>`)
+   accessible as `Agate.Models.Biogeochemistry.<struct_name>`)
 - `parameters`: named sequence of values of the form (<field name> = <default value>, ...)
 
 Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] as these
@@ -96,7 +96,7 @@ end
 """
     add_bgc_methods!(bgc_type, tracers, auxiliary_fields=[], helper_functions=()) -> DataType
 
-Add methods to bgc_type required of AbstractContinuousFormBiogeochemistry:
+Add methods to bgc_type required of Oceananigans.Biogeochemistry:
     - `required_biogeochemical_tracers`
     - `required_biogeochemical_auxiliary_fields`
     - a method per tracer
@@ -104,7 +104,7 @@ WARNING: `biogeochenical_auxiliary_fields` must also be defined to make use of a
 fields. This method is added when OceanBioME.Biogeochemistry(bgc_type()) is instantiated.
 
 # Arguments
-- `bgc_type`: subtype of AbstractContinuousFormBiogeochemistry (returned by `create_bgc_struct`)
+- `bgc_type`: subtype of Oceananigans.Biogeochemistry (returned by `create_bgc_struct`)
 - `tracers`: dictionary of the form (<name> => <expression>, ...)
 
 # Keywords
@@ -216,7 +216,7 @@ Check that all methods and arguments are defined. Specifically:
     - all methods called in `f_expr` are defined in module (e.g., Base, Main, Agate)
 If not, throws an UnderVarError.
 """
-function expression_check(args, f_expr; module_name=Dynamic)
+function expression_check(args, f_expr; module_name=Biogeochemistry)
     symbols = parse_expression(f_expr)
     for s in symbols
         if s ∉ args && !isdefined(module_name, s)

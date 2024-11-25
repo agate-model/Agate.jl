@@ -1,9 +1,9 @@
 module Models
 
-include("Dynamic.jl")
+include("Biogeochemistry.jl")
 include("Parameters.jl")
 
-using .Dynamic
+using .Biogeochemistry
 using .Parameters
 
 export compute_darwin_parameters

@@ -27,20 +27,15 @@ end
     compute_darwin_parameters(plankton::Dict) -> Dict
 
 Generate `n` volumes for each `plankton` species (e.g., "P", "Z" or "cocco") and for each
-species-volume combination compute:
-    - maximum_growth_rate
-    - maximum_predation_rate
-    - nitrogen_half_saturation
-    - assimilation_efficiency
-    - palatability
+species-volume combination compute any `allometric` functions as well as `palatability` and
+`assimilation_efficiency` (if specified).
+
 All computed and other species specific parameters are returned as a Dictionary of the form:
 `Dict(<parameter> => <NamedArray of values>, ....)`.
 
 # Arguments
 - `plankton`: a Dictionary of plankton species specific parameters of the form:
        `Dict(<species name> => Dict(<parameter> => <value>, ....), ...)`
-   the species all have to have the same parameters and these have to include at least the
-   parameters in `EXPECTED_EMERGENT_PARAMS` and `EXPECTED_VOLUME_PARAMS`
 """
 function compute_darwin_parameters(plankton::Dict)
 

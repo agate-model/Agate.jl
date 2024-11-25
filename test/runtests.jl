@@ -2,7 +2,7 @@ using Agate
 using Test
 
 # modules
-include("test_dynamic.jl")
+include("test_biogeochemistry.jl")
 # include("test_parameters.jl")
 
 # examples

@@ -1,10 +1,10 @@
-using Agate.Models.Dynamic: expression_check, create_bgc_struct, add_bgc_methods!
+using Agate.Models.Biogeochemistry: expression_check, create_bgc_struct, add_bgc_methods!
 using Oceananigans.Biogeochemistry:
     AbstractContinuousFormBiogeochemistry,
     required_biogeochemical_tracers,
     required_biogeochemical_auxiliary_fields
 
-@testset "Models.Dynamic" begin
+@testset "Models.Biogeochemistry" begin
     @testset "expression_check" begin
 
         # missing args
@@ -22,7 +22,7 @@ using Oceananigans.Biogeochemistry:
         params = [:α, :β, :x, :y]
         @test expression_check(params, f_expr) === nothing
 
-        # no errors - method defined in Dynamic module
+        # no errors - method defined in Biogeochemistry module
         f_expr = :(create_bgc_struct(sn, p))
         params = [:sn, :p]
         @test expression_check(params, f_expr) === nothing
