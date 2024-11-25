@@ -2,10 +2,8 @@ using Oceananigans.Units
 using Agate
 
 # Q: SHOULD THIS BE A NAMEDTUPLE INSTEAD?
-# TODO: users shouldn't have to specify 0 parameters
+# TODO: users shouldn't have to specify 0 parameters --> do we just assume 0 and fill it OR can we update tracers to do without them entirely?
 # NOTE: assimilation efficiency has to create an array of values rather than compute anything --> is there a better way to do that?
-# Q: related to assimilation - do the Zs ever have assimilation related to each other? what if there was a third species, what would that look like?
-
 # NOTE: don't need to declare units as per second since this is the default time unit i.e., 1 == 1/sec
 
 defined_parameters = Dict(

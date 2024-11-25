@@ -10,9 +10,7 @@ include(joinpath("..", "..", "examples", "emergent_4P", "emergent_functions.jl")
 emergent_palatability_f = dummy_emergent_palat
 emergent_assimilation_efficiency_f = dummy_emergent_assimilation_efficiency
 
-"""
-THIS FUNCTION IS A PLACEHOLDER -- TO BE UPDATED!
-"""
+# TODO: THIS FUNCTION IS A PLACEHOLDER -- TO BE UPDATED!
 function allometry_f(param, a, b, volume)
     if param == "maximum_growth_rate"
         return dummy_emergent_growth(a, b, volume)
@@ -26,20 +24,20 @@ end
 """
     compute_darwin_parameters(plankton::Dict) -> Dict
 
-Generate `n` volumes for each `plankton` species (e.g., "P", "Z" or "cocco") and for each
-species-volume combination compute any `allometric` functions as well as `palatability` and
-`assimilation_efficiency` (if specified).
+Generate `n` volumes for each `plankton` group (e.g., "P", "Z" or "cocco") and for each
+group-volume combination compute any `allometric` functions as well as `palatability` and
+`assimilation_efficiency` (if either of those are specified by the user in `plankton`).
 
-All computed and other species specific parameters are returned as a Dictionary of the form:
+All computed and other group specific parameters are returned as a Dictionary of the form:
 `Dict(<parameter> => <NamedArray of values>, ....)`.
 
 # Arguments
-- `plankton`: a Dictionary of plankton species specific parameters of the form:
-       `Dict(<species name> => Dict(<parameter> => <value>, ....), ...)`
+- `plankton`: a Dictionary of plankton groups' specific parameters of the form:
+       `Dict(<group name> => Dict(<parameter> => <value>, ....), ...)`
 """
 function compute_darwin_parameters(plankton::Dict)
 
-    # intermediate representations
+    # intermediate representations for parameters that are output as matrices
     intermediate_palatability = DefaultDict{AbstractString,NamedArray}(NamedArray([], []))
     intermediate_assimilation = DefaultDict{AbstractString,NamedArray}(NamedArray([], []))
     # final outputs here
@@ -50,14 +48,14 @@ function compute_darwin_parameters(plankton::Dict)
 
         plankton_names = ["$plankton_name$i" for i in 1:n]
 
-        # 1. compute plankton volumes
+        # 1. compute volumes
         splitting_function = getfield(Parameters, Symbol(params["volumes"]["splitting"]))
         volumes = splitting_function(
             params["volumes"]["min_volume"], params["volumes"]["max_volume"], n
         )
         results["volumes"] = vcat(results["volumes"], NamedArray(volumes, plankton_names))
 
-        # 2. compute allometric functions if specified
+        # 2. compute allometric functions (if any specified by user)
         if "allometry" ∈ keys(results)
             for (param, args) in params["allometry"]
                 # TODO: once `allometry_f` is updated, it should not have `param` as argument
@@ -67,25 +65,25 @@ function compute_darwin_parameters(plankton::Dict)
         end
 
         # 3. reshape remaining parameters
-        # NOTE: for palatability and assimilation_efficiency, `value` is a Dictionary
         for (param, value) in params
             if !(param ∈ ["n", "volumes", "allometry"])
-                if param == "palatability"
+                # NOTE: for palatability and assimilation_efficiency, `value` is a Dictionary
+                # store the values in intermediate form to use later when creating matrices
+                if param ∈ ["palatability", "assimilation_efficiency"]
                     for (arg, val) in value
-                        intermediate_palatability[arg] = vcat(
-                            intermediate_palatability[arg],
-                            NamedArray(repeat([val], n), plankton_names),
-                        )
-                    end
-                elseif param == "assimilation_efficiency"
-                    for (arg, val) in value
-                        intermediate_assimilation[arg] = vcat(
-                            intermediate_assimilation[arg],
-                            NamedArray(repeat([val], n), plankton_names),
-                        )
+                        values = NamedArray(repeat([val], n), plankton_names)
+                        if param == "palatability"
+                            intermediate_palatability[arg] = vcat(
+                                intermediate_palatability[arg], values
+                            )
+                        elseif param == "assimilation_efficiency"
+                            intermediate_assimilation[arg] = vcat(
+                                intermediate_assimilation[arg], values
+                            )
+                        end
                     end
                 else
-                    # in this case val is a single value
+                    # NOTE: expect here that in all other cases `value` is a single number
                     results[param] = vcat(
                         results[param], NamedArray(repeat([value], n), plankton_names)
                     )
@@ -94,9 +92,8 @@ function compute_darwin_parameters(plankton::Dict)
         end
     end
 
-    # 4. TODO: palatability & assimilation efficiency
+    # 4. palatability & assimilation efficiency matrices (if specified by user)
     if !(isempty(intermediate_palatability))
-        # println(intermediate_palatability)
         intermediate_palatability["volumes"] = results["volumes"]
         results["palatability_matrix"] = emergent_2D_array(
             intermediate_palatability, emergent_palatability_f
@@ -104,7 +101,6 @@ function compute_darwin_parameters(plankton::Dict)
     end
 
     if !(isempty(intermediate_assimilation))
-        # println(intermediate_assimilation)
         intermediate_assimilation["volumes"] = results["volumes"]
         results["assimilation_efficiency_matrix"] = emergent_2D_array(
             intermediate_assimilation, emergent_assimilation_efficiency_f
@@ -132,14 +128,11 @@ function linear_splitting(min_volume::Real, max_volume::Real, n::Int)
     return [min_volume + i * linear_step for i in 0:(n - 1)]
 end
 
-# TODO: update docstring
 """
 Apply function `func` to every every pair of `plankton` groups, returning a 2D NamedArray.
 
 The `plankton` Dictionary keys have to contain argument names of the function to calculate
 and be of the form `Dict(<function arg name> => NamedArray(<values>, <names>), ...)`
-
-The function takes in a pair of NamedArray that capture the required values...
 
 # Example
 ```julia
