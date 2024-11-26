@@ -24,19 +24,24 @@ end
 """
     compute_darwin_parameters(plankton::Dict) -> Dict
 
-Generate `n` volumes for each `plankton` group (e.g., "P", "Z" or "cocco") using either a
-linear or a log splitting scale (user specified). The volumes are returned as a NamedArray
-with names of the form: `["P1", ..., "P<n>", "Z1", ....]`. For each group-volume combination
-compute emergent parameters (allometric functions, palatability and assimilation matrix). Any
-other group specific parameters (e.g., `linear_mortality`) are included in the output. All
-parameters are returned as: `Dict(<parameter> => <NamedArray of values>, ....)`.
+This function:
+    - generates `n` names for each `plankton` group (e.g., "P", "Z" or "cocco") of the form:
+      `["P1", ..., "P<n>", "Z1", ...., "Z<n>", ...]`
+    - generates `n` volumes for each `plankton` group using either a linear or a log
+      splitting scale
+    - optionally computes emergent parameters (allometric functions, assimilation matrix,
+      palatability matrix) for each group-volume combination
+    - reshapes any other group specific parameters (e.g., `linear_mortality`) to length `n`
+All parameters are returned as:
+    `Dict(<parameter> => <NamedArray of `n` values>, ....)`
+using names generated in the first step.
 
 # Arguments
 - `plankton`: a Dictionary of plankton groups' specific parameters of the form:
        `Dict(<group name> => Dict(<parameter> => <value>, ....), ...)`
 
-    The Dictionary of parameters for each group (e.g., "P", "Z" or "cocco") has to contain
-        at least `n` and `volumes` keys in the following format:
+    The Dictionary for each group (e.g., "P", "Z" or "cocco") has to contain at least the
+    keys "n" and "volumes" and have the following form:
         ```
         Dict(
             "P" => Dict(
@@ -49,11 +54,15 @@ parameters are returned as: `Dict(<parameter> => <NamedArray of values>, ....)`.
         )
         ```
 
-    The group dictioonaries can optionally include the following keys:
-        - `allometry`: compute functions that define volume dependent parameters
-        - `palatability`: generate a palatability matrix
-        - `assimilation efficiency`: generate assimilation efficiency  matrix
-    If specified, an example of the expected format is:
+    The Dictionary for each group can optionally include the following keys and values:
+        - key: "allometry" (compute volume dependent parameters)
+            - value: Dictionary of the form
+                `Dict(<param name> => Dict("a" => <value>, "b" => <value>), ...)`
+        - key: "palatability" (generate a palatability matrix)
+            - value: Dictionary with "optimum_predator_prey_ratio" and "protection" keys
+        - key: "assimilation_efficiency" (generate assimilation efficiency matrix)
+            - value: Dictionary with "assimilation_efficiency" key
+    For example:
         ```
         Dict(
             "P" => Dict(
