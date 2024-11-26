@@ -5,12 +5,12 @@ using NamedArrays
 
 export compute_darwin_parameters
 
-# TODO: the DARWIN emergent functions should eventually be defined here - use dummy for now
+# TODO: the real palatability and assimilation functions should eventually be defined here
 include(joinpath("..", "..", "examples", "emergent_4P", "emergent_functions.jl"))
 emergent_palatability_f = dummy_emergent_palat
 emergent_assimilation_efficiency_f = dummy_emergent_assimilation_efficiency
 
-# TODO: THIS FUNCTION IS A PLACEHOLDER -- TO BE UPDATED!
+# TODO: update this placeholder function (should only take in `a`, `b` and `volume`)
 function allometry_f(param, a, b, volume)
     if param == "maximum_growth_rate"
         return dummy_emergent_growth(a, b, volume)
@@ -24,16 +24,54 @@ end
 """
     compute_darwin_parameters(plankton::Dict) -> Dict
 
-Generate `n` volumes for each `plankton` group (e.g., "P", "Z" or "cocco") and for each
-group-volume combination compute any `allometric` functions as well as `palatability` and
-`assimilation_efficiency` (if either of those are specified by the user in `plankton`).
-
-All computed and other group specific parameters are returned as a Dictionary of the form:
-`Dict(<parameter> => <NamedArray of values>, ....)`.
+Generate `n` volumes for each `plankton` group (e.g., "P", "Z" or "cocco") using either a
+linear or a log splitting scale (user specified). The volumes are returned as a NamedArray
+with names of the form: `["P1", ..., "P<n>", "Z1", ....]`. For each group-volume combination
+compute emergent parameters (allometric functions, palatability and assimilation matrix). Any
+other group specific parameters (e.g., `linear_mortality`) are included in the output. All
+parameters are returned as: `Dict(<parameter> => <NamedArray of values>, ....)`.
 
 # Arguments
 - `plankton`: a Dictionary of plankton groups' specific parameters of the form:
        `Dict(<group name> => Dict(<parameter> => <value>, ....), ...)`
+
+    The Dictionary of parameters for each group (e.g., "P", "Z" or "cocco") has to contain
+        at least `n` and `volumes` keys in the following format:
+        ```
+        Dict(
+            "P" => Dict(
+                "n" => 2,
+                "volumes" =>
+                    Dict("min_volume" => 1, "max_volume" => 10, "splitting" => "log_splitting"),
+                ...
+                ),
+            "Z" => ...
+        )
+        ```
+
+    The group dictioonaries can optionally include the following keys:
+        - `allometry`: compute functions that define volume dependent parameters
+        - `palatability`: generate a palatability matrix
+        - `assimilation efficiency`: generate assimilation efficiency  matrix
+    If specified, an example of the expected format is:
+        ```
+        Dict(
+            "P" => Dict(
+                ...,
+                "allometry" => Dict(
+                    "maximum_growth_rate" => Dict("a" => 1, "b" => 1),
+                    "nitrogen_half_saturation" => Dict("a" => 1, "b" => 1),
+                ),
+                ...
+            ),
+            "Z" => Dict(
+                ...,
+                "palatability" => Dict("optimum_predator_prey_ratio" => 10, "protection" => 1),
+                "assimilation_efficiency" => Dict("assimilation_efficiency" => 0.32),
+                ...
+            )
+        )
+        ```
 """
 function compute_darwin_parameters(plankton::Dict)
 
@@ -136,12 +174,16 @@ and be of the form `Dict(<function arg name> => NamedArray(<values>, <names>), .
 
 # Example
 ```julia
-function check(prey, pred) return prey["a"] + pred["b] end
+function add_ab(prey, pred)
+    return prey["a"] + pred["b]
+end
+
 plankton = Dict(
     "a" => NamedArray([1, 2, 3], ["A1", "B2", "C3"]),
     "b" => NamedArray([9, 8, 7], ["A1", "B2", "C3"]),
 )
-values_matrix = emergent_2D_array(plankton, check)
+
+values_matrix = emergent_2D_array(plankton, add_ab)
 ```
 """
 function emergent_2D_array(plankton, func)
