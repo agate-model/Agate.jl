@@ -42,33 +42,33 @@ Light module for PAR defined by simple functions (can be used with box or column
 # Fields
 - `field`: Oceananigans.FunctionField
 """
-struct FunctionPAR
+struct FunctionFieldPAR
     field
 end
 
 """
-    FunctionPAR() -> DataType
+    FunctionFieldPAR() -> DataType
 
 # Keywords
 - `grid`: the geometry to build the model on defined as an Oceananigans grid object
 - `PAR_f`: a PAR function of time (and depth), defaults to `cyclical_PAR`
 """
-function FunctionPAR(; grid, PAR_f=cyclical_PAR(; z=-10))
+function FunctionFieldPAR(; grid, PAR_f=cyclical_PAR(; z=-10))
     clock = Clock(; time=zero(grid))
     PAR_field = FunctionField{Center,Center,Center}(PAR_f, grid; clock)
-    return FunctionPAR(PAR_field)
+    return FunctionFieldPAR(PAR_field)
 end
 
-function update_biogeochemical_state!(model, PAR::FunctionPAR)
+function update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
     PAR.field.clock.time = model.clock.time
     compute!(PAR.field)
     return nothing
 end
 
-function biogeochemical_auxiliary_fields(par::FunctionPAR)
+function biogeochemical_auxiliary_fields(par::FunctionFieldPAR)
     return (PAR=par.field,)
 end
 
-export cyclical_PAR, FunctionPAR
+export cyclical_PAR, FunctionFieldPAR
 
 end # module
