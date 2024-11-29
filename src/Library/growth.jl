@@ -1,7 +1,7 @@
 """
-Modules related to phytoplankton photosynthetic growth
-
+Functions related to phytoplankton photosynthetic growth
 """
+
 module Growth
 
 "
@@ -9,13 +9,12 @@ module Growth
 
 Carbon-specific growth rate for plankton j (Default MITgcm-DARWIN formulation).
 
-Where: 
+Where:
 PCᵐᵃˣⱼ = maximum carbon-specific growth rate for plankton j,
 γⁿᵘᵗⱼ = nutrient limition,
 γˡⁱᵍʰᵗⱼ = light limition,
 fᵗᵉᵐᵖⱼ = temperature limitation,
 γᶜᵒ²ⱼ = carbon dioxide limitation
-
 "
 function default_PCⱼ(PCⱼᵐᵃˣ, γⱼⁿᵘᵗ, γⱼˡⁱᵍʰᵗ, fⱼᵗᵉᵐᵖ, γⱼᶜᵒ²)
     return PCⱼᵐᵃˣ * γⱼⁿᵘᵗ * γⱼˡⁱᵍʰᵗ * fⱼᵗᵉᵐᵖ * γⱼᶜᵒ²

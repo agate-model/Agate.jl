@@ -16,7 +16,7 @@ const year = years = 365day
 # ==================================================
 
 include("tracers.jl")
-bgc_model = Biogeochemistry(N2P2ZD(); light_attenuation=FunctionPAR(; grid=BoxModelGrid()))
+bgc_model = Biogeochemistry(N2P2ZD(); light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid()))
 full_model = BoxModel(; biogeochemistry=bgc_model)
 set!(full_model; N=7.0, Z2=0.05, D=0.0, P1=0.1, P2=0.1, Z1=0.05)
 
