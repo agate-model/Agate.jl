@@ -4,20 +4,19 @@ Functions related to phytoplankton light uptake
 
 module Photosynthesis
 
-export γⱼˡⁱᵍʰᵗ, smith_light_limitation, idealized_photosynthetic_growth
+export γˡⁱᵍʰᵗ, smith_light_limitation, idealized_photosynthetic_growth
 
-# TODO: get rid of j subscript in the function args
-"
-    γⱼˡⁱᵍʰᵗ = (1 - ℯ^(kⱼˢᵃᵗ*I)) * ℯ^kⱼⁱⁿʰ * nⱼˡⁱᵍʰᵗ
+"""
+    γˡⁱᵍʰᵗ = (1 - ℯ^(kˢᵃᵗ*I)) * ℯ^kⁱⁿʰ * nˡⁱᵍʰᵗ
 
-Light limitation for plankton j (Default MITgcm-DARWIN formulation).
+Light limitation for plankton (Default MITgcm-DARWIN formulation).
 
 # Arguments
 - `I`: irradiance,
-- `kⱼˢᵃᵗ`:  half saturation constant of light saturation of plankton j,
-- `kⱼⁱⁿʰ`: half saturation constant of light inhibition of plankton j,
-- `nⱼˡⁱᵍʰᵗ`: light penalty term of plankton j
-"
+- `kˢᵃᵗ`:  half saturation constant of light saturation of plankton
+- `kⁱⁿʰ`: half saturation constant of light inhibition of plankton
+- `nˡⁱᵍʰᵗ`: light penalty term of plankton
+"""
 function γⱼˡⁱᵍʰᵗ(I, kⱼˢᵃᵗ, kⱼⁱⁿʰ, nⱼˡⁱᵍʰᵗ)
     return (1 - ℯ^(kⱼˢᵃᵗ * I)) * ℯ^kⱼⁱⁿʰ * nⱼˡⁱᵍʰᵗ
 end
