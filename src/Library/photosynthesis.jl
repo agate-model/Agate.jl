@@ -43,7 +43,7 @@ end
 Single nutrient monod smith photosynthetic growth (used, for example, in Kuhn 2015).
 
 # Arguments
-- `N`: nutrients concentration
+- `N`: nutrient concentration
 - `P`: phytoplankton concentration
 - `PAR`: photosynthetic active radiation
 - `α`: initial photosynthetic slope

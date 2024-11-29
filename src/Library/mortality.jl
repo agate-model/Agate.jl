@@ -3,6 +3,8 @@ module Mortality
 export linear_loss, quadratic_loss
 
 """
+Linear mortality rate.
+
 # Arguments
 - `P`: plankton concentration
 - `l`: mortality rate
@@ -10,6 +12,8 @@ export linear_loss, quadratic_loss
 linear_loss(P, l) = l * P
 
 """
+Quadratic mortality coefficient.
+
 # Arguments
 - `P`: plankton concentration
 - `l`: mortality rate
