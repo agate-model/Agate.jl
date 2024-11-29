@@ -1,5 +1,5 @@
 """
-Functions related to phytoplankton light uptake
+Functions related to phytoplankton light uptake.
 """
 
 module Photosynthesis
@@ -12,13 +12,13 @@ export γˡⁱᵍʰᵗ, smith_light_limitation, idealized_photosynthetic_growth
 Light limitation for plankton (Default MITgcm-DARWIN formulation).
 
 # Arguments
-- `I`: irradiance,
-- `kˢᵃᵗ`:  half saturation constant of light saturation of plankton
-- `kⁱⁿʰ`: half saturation constant of light inhibition of plankton
-- `nˡⁱᵍʰᵗ`: light penalty term of plankton
+- `I`: irradiance
+- `kˢᵃᵗ`:  half saturation constant of light saturation
+- `kⁱⁿʰ`: half saturation constant of light inhibition
+- `nˡⁱᵍʰᵗ`: light penalty term
 """
-function γⱼˡⁱᵍʰᵗ(I, kⱼˢᵃᵗ, kⱼⁱⁿʰ, nⱼˡⁱᵍʰᵗ)
-    return (1 - ℯ^(kⱼˢᵃᵗ * I)) * ℯ^kⱼⁱⁿʰ * nⱼˡⁱᵍʰᵗ
+function γˡⁱᵍʰᵗ(I, kˢᵃᵗ, kⁱⁿʰ, nˡⁱᵍʰᵗ)
+    return (1 - ℯ^(kˢᵃᵗ * I)) * ℯ^kⁱⁿʰ * nˡⁱᵍʰᵗ
 end
 
 "
@@ -27,9 +27,9 @@ end
 Smith 1936 formulation of light limitation (also see Evans and Parslow, 1985).
 
 # Arguments
-- `PAR`: Photosynthetic Active Radiation
-- `α`: Initial photosynthetic slope
-- `μ₀`: Maximum growth rate at T = 0 °C (this seems weird?, from Kuhn 2015)
+- `PAR`: photosynthetic active radiation
+- `α`: initial photosynthetic slope
+- `μ₀`: maximum growth rate at T = 0 °C (this seems weird?, from Kuhn 2015)
 "
 function smith_light_limitation(PAR, α, μ₀)
     # here to avoid division by 0 when α and μ₀ are both 0
@@ -40,15 +40,15 @@ function smith_light_limitation(PAR, α, μ₀)
 end
 
 """
-Single nutrient monod smith photosynthetic growth (used, for example, in Kuhn 2015)
+Single nutrient monod smith photosynthetic growth (used, for example, in Kuhn 2015).
 
 # Arguments
-- `N`: nutrients concentration ?
-- `P`: phytoplankton concentration ?
-- `PAR`: Photosynthetic Active Radiation
-- `α`: Initial photosynthetic slope
-- `μ₀`: Maximum growth rate at T = 0 °C
-- `kₙ`: ??
+- `N`: nutrients concentration
+- `P`: phytoplankton concentration
+- `PAR`: photosynthetic active radiation
+- `α`: initial photosynthetic slope
+- `μ₀`: maximum growth rate at T = 0 °C
+- `kₙ`: nutrient half saturation
 """
 function idealized_photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)
     return μ₀ * menden_limitation(N, kₙ) * smith_light_limitation(PAR, α, μ₀) * P

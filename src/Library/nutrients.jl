@@ -1,5 +1,5 @@
 """
-Functions related to plankton nutrient uptake
+Functions related to plankton nutrient uptake.
 """
 
 module Nutrients
@@ -11,9 +11,9 @@ export monod_limitation
 
 Monod formulation of nutrient limitation, which is based on Michaelis-Menten enzyme kinetics.
 
-Where:
-R = nutrient (e.g. N, P, Si)
-kᵣ = nutrient half saturation constant
+# Arguments
+- `R`: nutrient (e.g. N, P, Si)
+- `kᵣ`: nutrient half saturation constant
 
 Note that sometimes this formulation is also used for Predation.
 "

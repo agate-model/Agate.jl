@@ -1,5 +1,5 @@
 """
-Functions related to photosynthetically available radiation (PAR)
+Functions related to photosynthetically available radiation (PAR).
 """
 
 module Light
