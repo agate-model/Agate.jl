@@ -8,7 +8,7 @@ export holling_type_2,
     idealized_predation_assimilation_loss
 
 """
-Zookplankton growth
+Zookplankton growth.
 """
 holling_type_2(R::Real, k::Real) = R / (k + R)
 
