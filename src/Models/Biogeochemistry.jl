@@ -158,11 +158,7 @@ end
         sinking_tracers=nothing,
     ) -> DataType
 
-<<<<<<< HEAD:src/Models/Biogeochemistry.jl
 Add methods to bgc_type required of Oceananigans.Biogeochemistry:
-=======
-Add methods to `bgc_type` required of `AbstractContinuousFormBiogeochemistry`:
->>>>>>> mv_functions:src/Models/Dynamic.jl
     - `required_biogeochemical_tracers`
     - `required_biogeochemical_auxiliary_fields`
     - a method per tracer specifying how it evolves in time
