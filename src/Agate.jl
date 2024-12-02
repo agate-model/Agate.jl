@@ -3,6 +3,7 @@ module Agate
 include("Library/Library.jl")
 include("Models/Models.jl")
 
+using .Library
 using .Models
 
 export compute_darwin_parameters

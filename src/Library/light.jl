@@ -1,5 +1,5 @@
 """
-Modules related to photosynthetically available radiation (PAR)
+Functions related to photosynthetically available radiation (PAR).
 """
 
 module Light
@@ -13,6 +13,8 @@ import Oceananigans.Biogeochemistry:
     update_biogeochemical_state!, biogeochemical_auxiliary_fields
 
 const year = years = 365day
+
+export cyclical_PAR, FunctionFieldPAR
 
 """
     cyclical_PAR(t, z) -> Float
@@ -68,7 +70,5 @@ end
 function biogeochemical_auxiliary_fields(par::FunctionFieldPAR)
     return (PAR=par.field,)
 end
-
-export cyclical_PAR, FunctionFieldPAR
 
 end # module
