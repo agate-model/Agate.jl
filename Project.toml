@@ -12,9 +12,11 @@ Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]
-OceanBioME = "0.11"
+OceanBioME = "0.13.2"
+Oceananigans = "0.93.3"
 OrdinaryDiffEq = "6.90.1"
 StochasticDiffEq = "6.71.1"
+Turing = "0.35.3"
 julia = "1.9"
 
 [extras]
