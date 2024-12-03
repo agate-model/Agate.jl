@@ -1,5 +1,5 @@
 # phytoplankton growth
-function menden_limitation(N::Real, nitrogen_half_saturation::Real)
+function monod_limitation(N::Real, nitrogen_half_saturation::Real)
     return N / (nitrogen_half_saturation + N)
 end
 function smith_light_limitation(PAR::Real, alpha::Real, maximum_growth_rate::Real)
@@ -17,7 +17,7 @@ function photosynthetic_growth(
     alpha::Real,
 )
     return maximum_growth_rate *
-           menden_limitation(N, nitrogen_half_saturation) *
+           monod_limitation(N, nitrogen_half_saturation) *
            smith_light_limitation(PAR, alpha, maximum_growth_rate) *
            P
 end
