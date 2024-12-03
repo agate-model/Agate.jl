@@ -3,7 +3,7 @@ module Remineralization
 export idealized_remineralization
 
 """
-Idealized remineralization of detritus into nutrients.
+Idealized remineralization of detritus into dissolved nutrients.
 
 # Arguments
 - `D`: detritus

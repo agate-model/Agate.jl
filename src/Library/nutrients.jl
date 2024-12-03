@@ -15,7 +15,7 @@ Monod formulation of nutrient limitation, which is based on Michaelis-Menten enz
 - `R`: nutrient (e.g. N, P, Si)
 - `kᵣ`: nutrient half saturation constant
 
-Note that sometimes this formulation is also used for Predation.
+Note that sometimes this formulation is also used for Predation ('Holling type 2').
 "
 function monod_limitation(R, kᵣ)
     return R / (kᵣ + R)

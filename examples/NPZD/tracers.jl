@@ -19,20 +19,23 @@ parameters = (
 
 tracers = Dict(
     "N" => :(
-        summed_linear_loss([P, Z], lⁿ) + remineralization(D, rᵈⁿ) -
-        photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)
+        summed_linear_loss([P, Z], lⁿ) + idealized_remineralization(D, rᵈⁿ) -
+        idealized_photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)
     ),
     "D" => :(
         linear_loss(P, lᵖᵈ) +
-        predation_assimilation_loss(P, Z, β, gₘₐₓ, kₚ) +
-        quadratic_loss(Z, lᶻᵈ) - remineralization(D, rᵈⁿ)
+        idealized_predation_assimilation_loss(P, Z, β, gₘₐₓ, kₚ) +
+        quadratic_loss(Z, lᶻᵈ) - idealized_remineralization(D, rᵈⁿ)
     ),
     "P" => :(
-        photosynthetic_growth(N, P, PAR, μ₀, kₙ, α) - predation_loss(P, Z, gₘₐₓ, kₚ) -
-        linear_loss(P, lᵖⁿ) - linear_loss(P, lᵖᵈ)
+        idealized_photosynthetic_growth(N, P, PAR, μ₀, kₙ, α) -
+        idealized_predation_loss(P, Z, gₘₐₓ, kₚ) - linear_loss(P, lᵖⁿ) -
+        linear_loss(P, lᵖᵈ)
     ),
-    "Z" =>
-        :(predation_gain(P, Z, β, gₘₐₓ, kₚ) - linear_loss(Z, lᶻⁿ) - quadratic_loss(Z, lᶻᵈ)),
+    "Z" => :(
+        idealized_predation_gain(P, Z, β, gₘₐₓ, kₚ) - linear_loss(Z, lᶻⁿ) -
+        quadratic_loss(Z, lᶻᵈ)
+    ),
 )
 
 NPZD = define_tracer_functions(parameters, tracers; helper_functions="functions.jl")
