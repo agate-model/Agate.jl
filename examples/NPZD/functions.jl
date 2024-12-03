@@ -1,5 +1,5 @@
-monod_limitation(R, k) = R / (k + R) 
-holling_type_2(R, k) = R / (k + R) 
+monod_limitation(R, k) = R / (k + R)
+holling_type_2(R, k) = R / (k + R)
 
 Q₁₀(T) = 1.88^(T / 10) # T in °C
 

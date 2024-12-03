@@ -74,9 +74,7 @@ function idealized_predation_assimilation_loss(P, Z, β, gₘₐₓ, kₚ)
     return (1 - β) * idealized_predation_loss(P, Z, gₘₐₓ, kₚ)
 end
 
-
 #preferential predation (intermediate complexity model)
-
 
 """
 Estimates the loss rate of P (prey), to Z (predator).
