@@ -51,7 +51,7 @@ Single nutrient monod smith photosynthetic growth (used, for example, in Kuhn 20
 - `kₙ`: nutrient half saturation
 """
 function idealized_photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)
-    return μ₀ * menden_limitation(N, kₙ) * smith_light_limitation(PAR, α, μ₀) * P
+    return μ₀ * monod_limitation(N, kₙ) * smith_light_limitation(PAR, α, μ₀) * P
 end
 
 end # module
