@@ -25,18 +25,14 @@ end
 holling_type_2(R, k) = R / (k + R)
 
 """
-Estimates the loss rate of P (prey), to Z (predator).
+Estimates the loss rate of P (prey) to Z (predator).
 
 # Arguments
-- `P`: Prey plankton.
-- `Z`: Predator plankton.
+- `P`: prey plankton
+- `Z`: predator plankton
 - `maximum_predation_rate`: maximum predation rate of the predator
-- `holling_half_saturation`: holling half saturation constant of the predator.
-- `palatability`: palatability of prey to the predator.
-
-# Returns
-- `loss`: The rate of predation loss of P to Z.
-
+- `holling_half_saturation`: holling half saturation constant of the predator
+- `palatability`: palatability of prey to the predator
 """
 function predation_loss(
     P,
@@ -57,16 +53,12 @@ end
 Estimates the gain rate of Z (predator) feeding on P (prey).
 
 # Arguments
-- `P`: Prey plankton.
-- `Z`: Predator plankton.
+- `P`: prey plankton
+- `Z`: predator plankton
 - `maximum_predation_rate`: maximum predation rate of the predator
-- `holling_half_saturation`: holling half saturation constant of the predator.
-- `palatability`: palatability of prey to the predator.
-- `assimilation_efficiency`: assimilation efficiency of prey to the predator.
-
-# Returns
-- `gain`: The rate of predation gain of Z to P.
-
+- `holling_half_saturation`: holling half saturation constant of the predator
+- `palatability`: palatability of prey to the predator
+- `assimilation_efficiency`: assimilation efficiency of prey to the predator
 """
 function predation_gain(
     P,
@@ -84,23 +76,19 @@ function predation_gain(
 end
 
 """
-Estimates the rate at which plankton predation gain is lost due to inefficient assimilation efficiency
-(e.g. 'sloppy feeding').
+Estimates the rate at which plankton predation gain is lost due to inefficient assimilation
+efficiency (e.g. 'sloppy feeding').
 
 Usually, this is used to estimate fluxes from predation to dissolved and particulate
 organic matter (DOM and POM).
 
 # Arguments
-- `P`: Prey plankton.
-- `Z`: Predator plankton.
+- `P`: prey plankton
+- `Z`: predator plankton
 - `maximum_predation_rate`: maximum predation rate of the predator
-- `holling_half_saturation`: holling half saturation constant of the predator.
-- `palatability`: palatability of prey to the predator.
-- `assimilation_efficiency`: assimilation efficiency of prey to the predator.
-
-# Returns
-- `assimilation_loss`: The rate at which predation gain is lost to the environment.
-
+- `holling_half_saturation`: holling half saturation constant of the predator
+- `palatability`: palatability of prey to the predator
+- `assimilation_efficiency`: assimilation efficiency of prey to the predator
 """
 function predation_assimilation_loss(
     P,
@@ -118,23 +106,21 @@ function predation_assimilation_loss(
 end
 
 """
-Estimates the total loss rate of the prey (P[prey_name]) to predation.
+Estimates the total loss rate of the prey `P[prey_name]` to predation.
 
-For plankton P[prey_name], the function loops over each predator to
-estimate the total loss of plankton i due to predation.
+For plankton `P[prey_name]`, the function loops over each predator to
+estimate the total loss of plankton `prey_name` due to predation.
 
 # Arguments
-- `prey_name`: name of the prey, e.g. P[prey_name].
-- `P`: NamedArray which includes all plankton.
-- `maximum_predation_rate`: NamedArray of all plankton predation rates.
-- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants.
+- `prey_name`: name of the prey plankton to access value as `P[prey_name]`
+- `P`: NamedArray which includes all plankton
+- `maximum_predation_rate`: NamedArray of all plankton predation rates
+- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants
 - `palatability`: NamedArray of all plankton palatabilities where:
-    each row is a predator and each column is a prey (palat[predator, prey]).
-    For a non-predator [i,:]=0.
-
-# Returns
-- `loss`: The summed rate of predation loss for plankton[prey_name]
-
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
 """
 function summed_predation_loss(
     prey_name,
@@ -164,20 +150,20 @@ For plankton P[predator_name], the function loops over each prey (P[prey_name]) 
 estimate the total gain due to predation.
 
 # Arguments
-- `predator_name`: name of the predator, e.g. P[predator_name].
-- `P`: NamedArray which includes all plankton.
-- `maximum_predation_rate`: NamedArray of all plankton predation rates.
-- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants.
+- `predator_name`: name of the predator, e.g. P[predator_name]
+- `P`: NamedArray which includes all plankton
+- `maximum_predation_rate`: NamedArray of all plankton predation rates
+- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants
 - `palatability`: NamedArray of all plankton palatabilities where:
-    each row is a predator and each column is a prey (palat[predator, prey]).
-    For a non-predator [i,:]=0.
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
 - `assimilation efficiency`: NamedArray of all plankton assimilation efficiencies where:
-    each row is a predator and each column is a prey (palat[predator, prey]).
-    For a non-predator [i,:]=0.
-
-# Returns
-- `gain`: The summed rate of predation gain for plankton[predator_name]
-
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
 """
 function summed_predation_gain(
     predator_name,
@@ -209,20 +195,20 @@ For plankton P[predator_name], the function loops over each prey (P[prey_name]) 
 estimate the total assimilation loss during predation.
 
 # Arguments
-- `predator_name`: name of the predator, e.g. P[predator_name].
-- `P`: NamedArray which includes all plankton.
-- `maximum_predation_rate`: NamedArray of all plankton predation rates.
-- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants.
+- `predator_name`: name of the predator, e.g. P[predator_name]
+- `P`: NamedArray which includes all plankton
+- `maximum_predation_rate`: NamedArray of all plankton predation rates
+- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants
 - `palatability`: NamedArray of all plankton palatabilities where:
-    each row is a predator and each column is a prey (palat[predator, prey]).
-    For a non-predator [i,:]=0.
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
 - `assimilation efficiency`: NamedArray of all plankton assimilation efficiencies where:
-    each row is a predator and each column is a prey (palat[predator, prey]).
-    For a non-predator [i,:]=0.
-
-# Returns
-- `assimilation_loss`: The summed rate of predation gain for plankton[predator_name]
-
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
 """
 function summed_predation_assimilation_loss(
     predator_name,
@@ -259,9 +245,8 @@ end
 Net loss of all plankton due to linear mortality.
 
 # Arguments
-- `P`: NamedArray which includes all plankton.
-- `linear_mortality`: NamedArray of all plankton linear mortality rates.
-
+- `P`: NamedArray which includes all plankton
+- `linear_mortality`: NamedArray of all plankton linear mortality rates
 """
 function net_linear_loss(P, linear_mortality, fraction)
     # all plankton have a linear loss value --> get all P names
@@ -271,9 +256,8 @@ end
 Net loss of all plankton due to quadratic mortality.
 
 # Arguments
-- `P`: NamedArray which includes all plankton.
-- `quadratic_mortality`: NamedArray of all plankton quadratic mortality rates.
-
+- `P`: NamedArray which includes all plankton
+- `quadratic_mortality`: NamedArray of all plankton quadratic mortality rates
 """
 function net_quadratic_loss(P, quadratic_mortality, fraction)
     # only zooplankton have quadratic mortality --> get names from associated array
@@ -286,11 +270,10 @@ Net photosynthetic growth of all plankton.
 
 # Arguments
 - `N`: Nitrogen
-- `P`: NamedArray which includes all plankton.
+- `P`: NamedArray which includes all plankton
 - `PAR`: PAR
-- `maximum_growth_rate`: NamedArray of all plankton maximum growth rates.
-- `nitrogen_half_saturation`: NamedArray of all plankton nitrogen half saturation constants.
-
+- `maximum_growth_rate`: NamedArray of all plankton maximum growth rates
+- `nitrogen_half_saturation`: NamedArray of all plankton nitrogen half saturation constants
 """
 function net_photosynthetic_growth(
     N,
@@ -313,15 +296,19 @@ end
 Net predator assimilation loss of all plankton.
 
 # Arguments
-- `P`: NamedArray which includes all plankton.
-- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants.
-- `maximum_predation_rate`: NamedArray of all plankton maximum predation rates.
+- `P`: NamedArray which includes all plankton
+- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants
+- `maximum_predation_rate`: NamedArray of all plankton maximum predation rates
 - `palatability`: NamedArray of all plankton palatabilities where:
-    each row is a predator and each column is a prey (palat[predator, prey]).
-    For a non-predator [i,:]=0.
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
 - `assimilation efficiency`: NamedArray of all plankton assimilation efficiencies where:
-    each row is a predator and each column is a prey (palat[predator, prey]).
-    For a non-predator [i,:]=0.
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
 """
 function net_predation_assimilation_loss(
     P,
@@ -349,15 +336,17 @@ Wrapper function to estimate the rate at which phytoplankton biomass changes ove
 # Arguments
 - `plankton_name`: The name of the plankton for which the rate of change is estimated
 - `N`: Nitrogen
-- `P`: NamedArray which includes all plankton.
-- `linear_mortality`: NamedArray of all plankton linear mortality rates.
+- `P`: NamedArray which includes all plankton
+- `linear_mortality`: NamedArray of all plankton linear mortality rates
 - `quadratic_mortality`: ....
-- `maximum_growth_rate`: NamedArray of all plankton maximum growth rates.
-- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants.
-- `maximum_predation_rate`: NamedArray of all plankton maximum predation rates.
+- `maximum_growth_rate`: NamedArray of all plankton maximum growth rates
+- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants
+- `maximum_predation_rate`: NamedArray of all plankton maximum predation rates
 - `palatability`: NamedArray of all plankton palatabilities where:
-    each row is a predator and each column is a prey (palat[predator, prey]).
-    For a non-predator [i,:]=0.
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
 """
 function phytoplankton_dt(
     plankton_name,
@@ -393,17 +382,21 @@ Wrapper function to estimate the rate at which zooplankton biomass changes over 
 
 # Arguments
 - `plankton_name`: The name of the plankton for which the rate of change is estimated
-- `P`: NamedArray which includes all plankton.
-- `linear_mortality`: NamedArray of all plankton linear mortality rates.
+- `P`: NamedArray which includes all plankton
+- `linear_mortality`: NamedArray of all plankton linear mortality rates
 - `quadratic_mortality`: ....
-- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants.
-- `maximum_predation_rate`: NamedArray of all plankton maximum predation rates.
+- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants
+- `maximum_predation_rate`: NamedArray of all plankton maximum predation rates
 - `assimilation efficiency`: NamedArray of all plankton assimilation efficiencies where:
-    each row is a predator and each column is a prey (palat[predator, prey]).
-    For a non-predator [i,:]=0.
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
 - `palatability`: NamedArray of all plankton palatabilities where:
-    each row is a predator and each column is a prey (palat[predator, prey]).
-    For a non-predator [i,:]=0.
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
 """
 function zooplankton_dt(
     plankton_name,
