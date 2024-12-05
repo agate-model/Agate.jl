@@ -18,7 +18,7 @@ parameters = (
 
 tracers = Dict(
     "N" => :(
-        linear_loss(P, lᵖⁿ) + linear_loss(P, lᶻⁿ) + idealized_remineralization(D, rᵈⁿ) -
+        linear_loss(P, lᵖⁿ) + linear_loss(Z, lᶻⁿ) + idealized_remineralization(D, rᵈⁿ) -
         idealized_photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)
     ),
     "D" => :(
