@@ -78,10 +78,9 @@ for (key, params) in emergent_parameters
 end
 
 # # for simplicity define the biogeochemistry dict seperately
-# biogeochemistry_parameters = Dict(
-#     "detritus_remineralization" => 0.1213 / day,
-#     "feeding_export_poc_doc_fraction" => 0.5,
-#     "mortality_export_fraction" => 0.5,
-# )
-# created_parameters = merge(biogeochemistry_parameters, emergent_parameters)
-#note that this dictionary would need to be converted to a named tuple to work with create_bgc_struc()...
+biogeochemistry_parameters = Dict(
+    "detritus_remineralization" => 0.1213 / day,
+    "feeding_export_poc_doc_fraction" => 0.5,
+    "mortality_export_fraction" => 0.5,
+)
+created_parameters = merge(biogeochemistry_parameters, emergent_parameters)

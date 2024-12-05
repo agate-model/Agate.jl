@@ -9,12 +9,7 @@ function smith_light_limitation(PAR, alpha, maximum_growth_rate)
     return alpha * PAR / sqrt(maximum_growth_rate^2 + alpha^2 * PAR^2)
 end
 function photosynthetic_growth(
-    N,
-    P,
-    PAR,
-    maximum_growth_rate,
-    nitrogen_half_saturation,
-    alpha,
+    N, P, PAR, maximum_growth_rate, nitrogen_half_saturation, alpha
 )
     return maximum_growth_rate *
            menden_limitation(N, nitrogen_half_saturation) *
@@ -34,13 +29,7 @@ Estimates the loss rate of P (prey) to Z (predator).
 - `holling_half_saturation`: holling half saturation constant of the predator
 - `palatability`: palatability of prey to the predator
 """
-function predation_loss(
-    P,
-    Z,
-    maximum_predation_rate,
-    holling_half_saturation,
-    palatability,
-)
+function predation_loss(P, Z, maximum_predation_rate, holling_half_saturation, palatability)
     loss =
         maximum_predation_rate *
         palatability *
@@ -123,11 +112,7 @@ estimate the total loss of plankton `prey_name` due to predation.
     - for a non-predator [i,:]=0
 """
 function summed_predation_loss(
-    prey_name,
-    P,
-    maximum_predation_rate,
-    holling_half_saturation,
-    palatability,
+    prey_name, P, maximum_predation_rate, holling_half_saturation, palatability
 )
     # get predator names from maximum_predation_rate array (prey has none)
     loss = sum(
@@ -262,7 +247,10 @@ Net loss of all plankton due to quadratic mortality.
 function net_quadratic_loss(P, quadratic_mortality, fraction)
     # only zooplankton have quadratic mortality --> get names from associated array
     return sum(
-        [quadratic_loss(P[name], quadratic_mortality[name]) for name in names(quadratic_mortality)] * fraction
+        [
+            quadratic_loss(P[name], quadratic_mortality[name]) for
+            name in names(quadratic_mortality)
+        ] * fraction,
     )
 end
 """
@@ -276,18 +264,18 @@ Net photosynthetic growth of all plankton.
 - `nitrogen_half_saturation`: NamedArray of all plankton nitrogen half saturation constants
 """
 function net_photosynthetic_growth(
-    N,
-    P,
-    PAR,
-    maximum_growth_rate,
-    nitrogen_half_saturation,
-    alpha,
+    N, P, PAR, maximum_growth_rate, nitrogen_half_saturation, alpha
 )
     return sum([
         # only phytoplankton have maximum_growth_rate, nitrogen_half_saturation and alpha
         # --> get names from either of those arrays
         photosynthetic_growth(
-            N, P[name], PAR, maximum_growth_rate[name], nitrogen_half_saturation[name], alpha[name]
+            N,
+            P[name],
+            PAR,
+            maximum_growth_rate[name],
+            nitrogen_half_saturation[name],
+            alpha[name],
         ) for name in names(maximum_growth_rate)
     ])
 end
@@ -408,7 +396,8 @@ function zooplankton_dt(
     assimilation_efficiency,
     palatability,
 )
-    growth = summed_predation_gain(
+    growth =
+        summed_predation_gain(
             plankton_name,
             P,
             assimilation_efficiency,
