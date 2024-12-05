@@ -103,11 +103,11 @@ function compute_darwin_parameters(plankton::Dict)
         results["volumes"] = vcat(results["volumes"], NamedArray(volumes, plankton_names))
 
         # 2. compute allometric functions (if any specified by user)
-        if "allometry" ∈ keys(results)
+        if "allometry" ∈ keys(params)
             for (param, args) in params["allometry"]
                 # TODO: once `allometry_f` is updated, it should not have `param` as argument
                 values = [allometry_f(param, args["a"], args["b"], v) for v in volumes]
-                results[param] = vcat(result[name], NamedArray(values, plankton_names))
+                results[param] = vcat(results[param], NamedArray(values, plankton_names))
             end
         end
 
