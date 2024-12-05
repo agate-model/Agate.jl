@@ -41,10 +41,9 @@ function NPZD_problem(du, u, p, t)
     kₚ = 0.5573
     β = 0.9116
     lᶻᵈ = 0.3395 / day
-    lⁿ = [0.066, 0.0102] / day
     rᵈⁿ = 0.1213 / day
 
-    model = NPZD(μ₀, kₙ, lᵖⁿ, lᶻⁿ, lᵖᵈ, gₘₐₓ, kₚ, β, lᶻᵈ, lⁿ, rᵈⁿ, α)
+    model = NPZD(μ₀, kₙ, lᵖⁿ, lᶻⁿ, lᵖᵈ, gₘₐₓ, kₚ, β, lᶻᵈ, rᵈⁿ, α)
 
     PAR = cyclical_PAR(-10, t)
 
