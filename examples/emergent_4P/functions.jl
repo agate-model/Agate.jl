@@ -167,7 +167,7 @@ function summed_predation_gain(
             maximum_predation_rate[predator_name],
             holling_half_saturation[predator_name],
             palatability[predator_name, prey_name],
-        ) for prey_name in names(P)
+        ) for prey_name in names(palatability)
     )
 
     return gain
