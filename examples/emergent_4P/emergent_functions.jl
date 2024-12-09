@@ -70,7 +70,6 @@ end
 function dummy_emergent_assimilation_efficiency(prey_data, predator_data)
     assimilation_efficiency = 0
     # predators don't eat other predators
-    # Q: is this the right condition for determining whether to retrieve this value?
     if prey_data["assimilation_efficiency"] == 0
         assimilation_efficiency = predator_data["assimilation_efficiency"]
     end
