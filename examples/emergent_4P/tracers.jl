@@ -1,4 +1,5 @@
 using Agate
+using Agate.Models.Tracers
 
 using NamedArrays
 using Oceananigans.Units
@@ -48,93 +49,12 @@ defined_parameters = Dict(
 
 plankton_array = [:P1, :P2, :Z1, :Z2]
 tracers = Dict(
-    "N" => :(
-        net_linear_loss(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            linear_mortality,
-            mortality_export_fraction,
-        ) +
-        net_quadratic_loss(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            quadratic_mortality,
-            mortality_export_fraction,
-        ) +
-        remineralization(D, detritus_remineralization) - net_photosynthetic_growth(
-            N,
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            PAR,
-            maximum_growth_rate,
-            nitrogen_half_saturation,
-            alpha,
-        )
-    ),
-    "D" => :(
-        net_linear_loss(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            linear_mortality,
-            1 - mortality_export_fraction,
-        ) +
-        net_predation_assimilation_loss(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            holling_half_saturation,
-            maximum_predation_rate,
-            assimilation_efficiency_matrix,
-            palatability_matrix,
-        ) +
-        net_quadratic_loss(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            quadratic_mortality,
-            1 - mortality_export_fraction,
-        ) - remineralization(D, detritus_remineralization)
-    ),
-    "P1" => :(phytoplankton_dt(
-        "P1",
-        N,
-        NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-        PAR,
-        linear_mortality,
-        quadratic_mortality,
-        maximum_growth_rate,
-        holling_half_saturation,
-        nitrogen_half_saturation,
-        alpha,
-        maximum_predation_rate,
-        palatability_matrix,
-    )),
-    "P2" => :(phytoplankton_dt(
-        "P2",
-        N,
-        NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-        PAR,
-        linear_mortality,
-        quadratic_mortality,
-        maximum_growth_rate,
-        holling_half_saturation,
-        nitrogen_half_saturation,
-        alpha,
-        maximum_predation_rate,
-        palatability_matrix,
-    )),
-    "Z1" => :(zooplankton_dt(
-        "Z1",
-        NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-        linear_mortality,
-        quadratic_mortality,
-        holling_half_saturation,
-        maximum_predation_rate,
-        assimilation_efficiency_matrix,
-        palatability_matrix,
-    )),
-    "Z2" => :(zooplankton_dt(
-        "Z2",
-        NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-        linear_mortality,
-        quadratic_mortality,
-        holling_half_saturation,
-        maximum_predation_rate,
-        assimilation_efficiency_matrix,
-        palatability_matrix,
-    )),
+    "N" => typical_nutrients(plankton_array),
+    "D" => typical_detritus(plankton_array),
+    "P1" => simplified_phytoplankton_growth(plankton_array, "P1"),
+    "P2" => simplified_phytoplankton_growth(plankton_array, "P2"),
+    "Z1" => simplified_zooplankton_growth(plankton_array, "Z1"),
+    "Z2" => simplified_zooplankton_growth(plankton_array, "Z2"),
 )
 
 # merge everything and convert to NamedTuple
