@@ -72,22 +72,20 @@ Build expression for a simplified phytoplankton growth function....
     `[:P1, :P2, :Z1, :Z2]`
 """
 function simplified_phytoplankton_growth(plankton_array, name)
-    return :(
-        phytoplankton_dt(
-            $name,
-            N,
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            PAR,
-            linear_mortality,
-            quadratic_mortality,
-            maximum_growth_rate,
-            holling_half_saturation,
-            nitrogen_half_saturation,
-            alpha,
-            maximum_predation_rate,
-            palatability_matrix,
-        )
-    )
+    return :(phytoplankton_dt(
+        $name,
+        N,
+        NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+        PAR,
+        linear_mortality,
+        quadratic_mortality,
+        maximum_growth_rate,
+        holling_half_saturation,
+        nitrogen_half_saturation,
+        alpha,
+        maximum_predation_rate,
+        palatability_matrix,
+    ))
 end
 
 """
@@ -98,18 +96,16 @@ Build expression for simplified zooplankton growth function...
     `[:P1, :P2, :Z1, :Z2]`
 """
 function simplified_zooplankton_growth(plankton_array, name)
-    return :(
-        zooplankton_dt(
-            $name,
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            linear_mortality,
-            quadratic_mortality,
-            holling_half_saturation,
-            maximum_predation_rate,
-            assimilation_efficiency_matrix,
-            palatability_matrix,
-        )
-    )
+    return :(zooplankton_dt(
+        $name,
+        NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+        linear_mortality,
+        quadratic_mortality,
+        holling_half_saturation,
+        maximum_predation_rate,
+        assimilation_efficiency_matrix,
+        palatability_matrix,
+    ))
 end
 
 end # module
