@@ -1,10 +1,10 @@
 module Mortality
 
-export linear_loss, quadratic_loss
+export linear_loss, quadratic_loss, net_linear_loss, net_quadratic_loss
 
 """
-Linear mortality rate. 
-In this formulation mortality is constant, and can be interpreted as 
+Linear mortality rate.
+In this formulation mortality is constant, and can be interpreted as
 a "closure term" for low density predation and and other death terms.
 
 # Arguments
@@ -23,5 +23,34 @@ and is often interpreted to represent viral processes and non-represented densit
 - `l`: mortality rate
 """
 quadratic_loss(P, l) = l * P^2
+
+"""
+Net loss of all plankton due to linear mortality.
+
+# Arguments
+- `P`: NamedArray which includes all plankton
+- `linear_mortality`: NamedArray of all plankton linear mortality rates
+"""
+function net_linear_loss(P, linear_mortality, fraction)
+    # all plankton have a linear loss value --> get all P names
+    return sum([linear_loss(P[name], linear_mortality[name]) for name in names(P)[1]]) * fraction
+end
+
+"""
+Net loss of all plankton due to quadratic mortality.
+
+# Arguments
+- `P`: NamedArray which includes all plankton
+- `quadratic_mortality`: NamedArray of all plankton quadratic mortality rates
+"""
+function net_quadratic_loss(P, quadratic_mortality, fraction)
+    # only zooplankton have quadratic mortality --> get names from associated array
+    return sum(
+        [
+            quadratic_loss(P[name], quadratic_mortality[name]) for
+            name in names(quadratic_mortality)[1]
+        ] * fraction,
+    )
+end
 
 end # module
