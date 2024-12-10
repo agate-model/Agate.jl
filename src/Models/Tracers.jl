@@ -7,7 +7,9 @@ export typical_detritus,
 
 function typical_nutrients(plankton_array)
     return :(
-        net_linear_loss([$(plankton_array...)], linear_mortality, mortality_export_fraction) +
+        net_linear_loss(
+            [$(plankton_array...)], linear_mortality, mortality_export_fraction
+        ) +
         net_quadratic_loss(
             [$(plankton_array...)], quadratic_mortality, mortality_export_fraction
         ) +
@@ -24,7 +26,9 @@ end
 
 function typical_detritus(plankton_array)
     return :(
-        net_linear_loss([$(plankton_array...)], linear_mortality, 1 - mortality_export_fraction) +
+        net_linear_loss(
+            [$(plankton_array...)], linear_mortality, 1 - mortality_export_fraction
+        ) +
         net_predation_assimilation_loss(
             [$(plankton_array...)],
             holling_half_saturation,
@@ -40,36 +44,38 @@ end
 
 function simplified_phytoplankton_growth(plankton_array, name)
     return :(phytoplankton_dt(
-                $name,
-                N,
-                NamedArray([$(plankton_array...)], String.($(plankton_array)),
-                PAR,
-                linear_mortality,
-                quadratic_mortality,
-                maximum_growth_rate,
-                holling_half_saturation,
-                nitrogen_half_saturation,
-                alpha,
-                maximum_predation_rate,
-                palatability,
-            )
-        )
-    )
+        $name,
+        N,
+        NamedArray(
+            [$(plankton_array...)],
+            String.($(plankton_array)),
+            PAR,
+            linear_mortality,
+            quadratic_mortality,
+            maximum_growth_rate,
+            holling_half_saturation,
+            nitrogen_half_saturation,
+            alpha,
+            maximum_predation_rate,
+            palatability,
+        ),
+    ))
 end
 
 function simplified_zooplankton_growth(plankton_array, name)
     return :(zooplankton_dt(
-                $name,
-                NamedArray([$(plankton_array...)], String.($(plankton_array)),
-                linear_mortality,
-                quadratic_mortality,
-                holling_half_saturation,
-                maximum_predation_rate,
-                assimilation_efficiency,
-                palatability,
-            )
-        )
-    )
+        $name,
+        NamedArray(
+            [$(plankton_array...)],
+            String.($(plankton_array)),
+            linear_mortality,
+            quadratic_mortality,
+            holling_half_saturation,
+            maximum_predation_rate,
+            assimilation_efficiency,
+            palatability,
+        ),
+    ))
 end
 
 end # module
