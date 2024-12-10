@@ -5,6 +5,13 @@ using NamedArrays
 export typical_detritus,
     typical_nutrients, simplified_phytoplankton_growth, simplified_zooplankton_growth
 
+"""
+Build expression for a single nutrient....
+
+# Arguments
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
+"""
 function typical_nutrients(plankton_array)
     return :(
         net_linear_loss(
@@ -28,6 +35,13 @@ function typical_nutrients(plankton_array)
     )
 end
 
+"""
+Build expression for a simplified detritus...
+
+# Arguments
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
+"""
 function typical_detritus(plankton_array)
     return :(
         net_linear_loss(
@@ -50,6 +64,13 @@ function typical_detritus(plankton_array)
     )
 end
 
+"""
+Build expression for a simplified phytoplankton growth function....
+
+# Arguments
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
+"""
 function simplified_phytoplankton_growth(plankton_array, name)
     return :(
         phytoplankton_dt(
@@ -69,6 +90,13 @@ function simplified_phytoplankton_growth(plankton_array, name)
     )
 end
 
+"""
+Build expression for simplified zooplankton growth function...
+
+# Arguments
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
+"""
 function simplified_zooplankton_growth(plankton_array, name)
     return :(
         zooplankton_dt(
