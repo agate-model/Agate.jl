@@ -1,5 +1,4 @@
 using Agate
-using Agate.Models.Parameters: split_size_parameters, emergent_1D_array, emergent_2D_array
 
 using Oceananigans.Units
 
