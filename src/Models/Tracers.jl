@@ -53,13 +53,13 @@ function typical_detritus(plankton_array)
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             holling_half_saturation,
             maximum_predation_rate,
-            assimilation_efficiency,
-            palatability,
+            assimilation_efficiency_matrix,
+            palatability_matrix,
         ) +
         net_quadratic_loss(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             quadratic_mortality,
-            1 - mortality_export_fractio,
+            1 - mortality_export_fraction,
         ) - remineralization(D, detritus_remineralization)
     )
 end
@@ -85,8 +85,8 @@ function simplified_phytoplankton_growth(plankton_array, name)
             nitrogen_half_saturation,
             alpha,
             maximum_predation_rate,
-            palatability,
-        ),
+            palatability_matrix,
+        )
     )
 end
 
@@ -106,9 +106,9 @@ function simplified_zooplankton_growth(plankton_array, name)
             quadratic_mortality,
             holling_half_saturation,
             maximum_predation_rate,
-            assimilation_efficiency,
-            palatability,
-        ),
+            assimilation_efficiency_matrix,
+            palatability_matrix,
+        )
     )
 end
 
