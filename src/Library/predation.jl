@@ -11,10 +11,10 @@ export holling_type_2,
     preferential_predation_loss,
     preferential_predation_gain,
     preferential_predation_assimilation_loss,
-    summed_predation_gain,
-    summed_predation_loss,
-    summed_predation_assimilation_loss,
-    net_predation_assimilation_loss
+    summed_preferential_predation_gain,
+    summed_preferential_predation_loss,
+    summed_preferential_predation_assimilation_loss,
+    net_preferential_predation_assimilation_loss
 
 """
 Holling's "type II" functional response as describe in Holling 1959.
@@ -152,7 +152,7 @@ estimate the total loss of plankton `prey_name` due to predation.
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
 """
-function summed_predation_loss(
+function summed_preferential_predation_loss(
     prey_name, P, maximum_predation_rate, holling_half_saturation, palatability
 )
     # get predator names from maximum_predation_rate array (prey has none)
@@ -191,7 +191,7 @@ estimate the total gain due to predation.
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
 """
-function summed_predation_gain(
+function summed_preferential_predation_gain(
     predator_name,
     P,
     assimilation_efficiency,
@@ -236,7 +236,7 @@ estimate the total assimilation loss during predation.
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
 """
-function summed_predation_assimilation_loss(
+function summed_preferential_predation_assimilation_loss(
     predator_name,
     P,
     assimilation_efficiency,
@@ -277,7 +277,7 @@ Net predator assimilation loss of all plankton.
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
 """
-function net_predation_assimilation_loss(
+function net_preferential_predation_assimilation_loss(
     P,
     holling_half_saturation,
     maximum_predation_rate,
@@ -286,7 +286,7 @@ function net_predation_assimilation_loss(
 )
     # get predator names from maximum_predation_rate array (prey has none)
     return sum([
-        summed_predation_assimilation_loss(
+        summed_preferential_predation_assimilation_loss(
             predator_name,
             P,
             assimilation_efficiency,

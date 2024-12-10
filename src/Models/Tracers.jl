@@ -25,7 +25,7 @@ function typical_nutrients(plankton_array)
             mortality_export_fraction,
         ) +
         idealized_remineralization(D, detritus_remineralization) -
-        net_photosynthetic_growth(
+        net_idealized_photosynthetic_growth(
             N,
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             PAR,
@@ -50,7 +50,7 @@ function typical_detritus(plankton_array)
             linear_mortality,
             1 - mortality_export_fraction,
         ) +
-        net_predation_assimilation_loss(
+        net_preferential_predation_assimilation_loss(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             holling_half_saturation,
             maximum_predation_rate,
@@ -97,7 +97,7 @@ function simplified_phytoplankton_growth(plankton_array, plankton_name)
             maximum_growth_rate[$plankton_name],
             nitrogen_half_saturation[$plankton_name],
             alpha[$plankton_name],
-        ) - summed_predation_loss(
+        ) - summed_preferential_predation_loss(
             $plankton_name,
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             maximum_predation_rate,
@@ -136,7 +136,7 @@ Build expression for simplified zooplankton growth function...
 function simplified_zooplankton_growth(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
     return :(
-        summed_predation_gain(
+        summed_preferential_predation_gain(
             $plankton_name,
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             assimilation_efficiency_matrix,

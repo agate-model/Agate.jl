@@ -7,7 +7,7 @@ module Photosynthesis
 using Agate.Library.Nutrients
 
 export γˡⁱᵍʰᵗ,
-    smith_light_limitation, idealized_photosynthetic_growth, net_photosynthetic_growth
+    smith_light_limitation, idealized_photosynthetic_growth, net_idealized_photosynthetic_growth
 
 """
     γˡⁱᵍʰᵗ = (1 - ℯ^(kˢᵃᵗ*I)) * ℯ^kⁱⁿʰ * nˡⁱᵍʰᵗ
@@ -67,7 +67,7 @@ Net photosynthetic growth of all plankton.
 - `maximum_growth_rate`: NamedArray of all plankton maximum growth rates
 - `nitrogen_half_saturation`: NamedArray of all plankton nitrogen half saturation constants
 """
-function net_photosynthetic_growth(
+function net_idealized_photosynthetic_growth(
     N, P, PAR, maximum_growth_rate, nitrogen_half_saturation, alpha
 )
     return sum([
