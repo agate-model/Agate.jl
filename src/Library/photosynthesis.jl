@@ -46,9 +46,9 @@ Single nutrient monod smith photosynthetic growth (used, for example, in Kuhn 20
 - `N`: nutrient concentration
 - `P`: phytoplankton concentration
 - `PAR`: photosynthetic active radiation
-- `α`: initial photosynthetic slope
 - `μ₀`: maximum growth rate at T = 0 °C
 - `kₙ`: nutrient half saturation
+- `α`: initial photosynthetic slope
 """
 function idealized_photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)
     return μ₀ * monod_limitation(N, kₙ) * smith_light_limitation(PAR, α, μ₀) * P
