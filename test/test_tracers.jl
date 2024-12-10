@@ -1,7 +1,8 @@
 
-@testset "N2P2ZD" begin
+@testset "Models.Tracers" begin
     # N2P2ZD model
-    include(joinpath("..", "examples", "N2P2ZD", "tracers.jl"))
+    # TODO: use functions in Models library
+    include(joinpath("..", "examples", "emergent_4P", "tracers.jl"))
     model = N2P2ZD()
     P1 = 0.01
     P2 = 0.01
