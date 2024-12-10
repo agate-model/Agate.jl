@@ -106,7 +106,6 @@ function simplified_phytoplankton_growth(plankton_array, plankton_name)
         ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_name]) -
         quadratic_loss($(plankton_symbol), quadratic_mortality[$plankton_name])
     )
-
 end
 
 """
@@ -147,7 +146,6 @@ function simplified_zooplankton_growth(plankton_array, plankton_name)
         ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_name]) -
         quadratic_loss($(plankton_symbol), quadratic_mortality[$plankton_name])
     )
-
 end
 
 end # module
