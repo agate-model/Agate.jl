@@ -24,7 +24,8 @@ function typical_nutrients(plankton_array)
             quadratic_mortality,
             mortality_export_fraction,
         ) +
-        idealized_remineralization(D, detritus_remineralization) - net_photosynthetic_growth(
+        idealized_remineralization(D, detritus_remineralization) -
+        net_photosynthetic_growth(
             N,
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             PAR,
