@@ -1,98 +1,9 @@
-# phytoplankton growth
-function menden_limitation(N, nitrogen_half_saturation)
-    return N / (nitrogen_half_saturation + N)
-end
-function smith_light_limitation(PAR, alpha, maximum_growth_rate)
-    if alpha == 0 && maximum_growth_rate == 0
-        return 0.0
-    end
-    return alpha * PAR / sqrt(maximum_growth_rate^2 + alpha^2 * PAR^2)
-end
-function photosynthetic_growth(
-    N, P, PAR, maximum_growth_rate, nitrogen_half_saturation, alpha
-)
-    return maximum_growth_rate *
-           menden_limitation(N, nitrogen_half_saturation) *
-           smith_light_limitation(PAR, alpha, maximum_growth_rate) *
-           P
-end
-# zooplankton growth
-holling_type_2(R, k) = R / (k + R)
-
-"""
-Estimates the loss rate of P (prey) to Z (predator).
-
-# Arguments
-- `P`: prey plankton
-- `Z`: predator plankton
-- `maximum_predation_rate`: maximum predation rate of the predator
-- `holling_half_saturation`: holling half saturation constant of the predator
-- `palatability`: palatability of prey to the predator
-"""
-function predation_loss(P, Z, maximum_predation_rate, holling_half_saturation, palatability)
-    loss =
-        maximum_predation_rate *
-        palatability *
-        holling_type_2(P, holling_half_saturation) *
-        Z
-    return loss
-end
-
-"""
-Estimates the gain rate of Z (predator) feeding on P (prey).
-
-# Arguments
-- `P`: prey plankton
-- `Z`: predator plankton
-- `maximum_predation_rate`: maximum predation rate of the predator
-- `holling_half_saturation`: holling half saturation constant of the predator
-- `palatability`: palatability of prey to the predator
-- `assimilation_efficiency`: assimilation efficiency of prey to the predator
-"""
-function predation_gain(
-    P,
-    Z,
-    assimilation_efficiency,
-    maximum_predation_rate,
-    holling_half_saturation,
-    palatability,
-)
-    gain =
-        predation_loss(
-            P, Z, maximum_predation_rate, holling_half_saturation, palatability
-        ) * assimilation_efficiency
-    return gain
-end
-
-"""
-Estimates the rate at which plankton predation gain is lost due to inefficient assimilation
-efficiency (e.g. 'sloppy feeding').
-
-Usually, this is used to estimate fluxes from predation to dissolved and particulate
-organic matter (DOM and POM).
-
-# Arguments
-- `P`: prey plankton
-- `Z`: predator plankton
-- `maximum_predation_rate`: maximum predation rate of the predator
-- `holling_half_saturation`: holling half saturation constant of the predator
-- `palatability`: palatability of prey to the predator
-- `assimilation_efficiency`: assimilation efficiency of prey to the predator
-"""
-function predation_assimilation_loss(
-    P,
-    Z,
-    assimilation_efficiency,
-    maximum_predation_rate,
-    holling_half_saturation,
-    palatability,
-)
-    assimilation_loss =
-        predation_loss(
-            P, Z, maximum_predation_rate, holling_half_saturation, palatability
-        ) * (1 - assimilation_efficiency)
-    return assimilation_loss
-end
+using Agate.Library.Growth
+using Agate.Library.Mortality
+using Agate.Library.Nutrients
+using Agate.Library.Photosynthesis
+using Agate.Library.Predation
+using Agate.Library.Remineralization
 
 """
 Estimates the total loss rate of the prey `P[prey_name]` to predation.
@@ -116,7 +27,7 @@ function summed_predation_loss(
 )
     # get predator names from maximum_predation_rate array (prey has none)
     loss = sum(
-        predation_loss(
+        preferential_predation_loss(
             P[prey_name],
             P[predator_name],
             maximum_predation_rate[predator_name],
@@ -160,7 +71,7 @@ function summed_predation_gain(
 )
     # sum over all plankton in P (return 0 if not suitable prey for this predator)
     gain = sum(
-        predation_gain(
+        preferential_predation_gain(
             P[prey_name],
             P[predator_name],
             assimilation_efficiency[predator_name, prey_name],
@@ -205,7 +116,7 @@ function summed_predation_assimilation_loss(
 )
     # sum over all plankton in P (return 0 if not suitable prey for this predator)
     assimilation_loss = sum(
-        predation_assimilation_loss(
+        preferential_predation_assimilation_loss(
             P[prey_name],
             P[predator_name],
             assimilation_efficiency[predator_name, prey_name],
@@ -269,7 +180,7 @@ function net_photosynthetic_growth(
     return sum([
         # only phytoplankton have maximum_growth_rate, nitrogen_half_saturation and alpha
         # --> get names from either of those arrays
-        photosynthetic_growth(
+        idealized_photosynthetic_growth(
             N,
             P[name],
             PAR,
@@ -351,7 +262,7 @@ function phytoplankton_dt(
     palatability,
 )
     growth =
-        photosynthetic_growth(
+        idealized_photosynthetic_growth(
             N,
             P[plankton_name],
             PAR,
