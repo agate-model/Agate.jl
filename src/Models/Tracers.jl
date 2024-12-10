@@ -8,14 +8,18 @@ export typical_detritus,
 function typical_nutrients(plankton_array)
     return :(
         net_linear_loss(
-            [$(plankton_array...)], linear_mortality, mortality_export_fraction
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            linear_mortality,
+            mortality_export_fraction,
         ) +
         net_quadratic_loss(
-            [$(plankton_array...)], quadratic_mortality, mortality_export_fraction
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            quadratic_mortality,
+            mortality_export_fraction,
         ) +
         remineralization(D, detritus_remineralization) - net_photosynthetic_growth(
             N,
-            [$(plankton_array...)],
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             PAR,
             maximum_growth_rate,
             nitrogen_half_saturation,
@@ -27,17 +31,21 @@ end
 function typical_detritus(plankton_array)
     return :(
         net_linear_loss(
-            [$(plankton_array...)], linear_mortality, 1 - mortality_export_fraction
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            linear_mortality,
+            1 - mortality_export_fraction,
         ) +
         net_predation_assimilation_loss(
-            [$(plankton_array...)],
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             holling_half_saturation,
             maximum_predation_rate,
             assimilation_efficiency,
             palatability,
         ) +
         net_quadratic_loss(
-            [$(plankton_array...)], quadratic_mortality, 1 - mortality_export_fractio
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            quadratic_mortality,
+            1 - mortality_export_fractio,
         ) - remineralization(D, detritus_remineralization)
     )
 end
@@ -47,7 +55,7 @@ function simplified_phytoplankton_growth(plankton_array, name)
         phytoplankton_dt(
             $name,
             N,
-            NamedArray([$(plankton_array...)], String.($(plankton_array))),
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             PAR,
             linear_mortality,
             quadratic_mortality,
@@ -65,7 +73,7 @@ function simplified_zooplankton_growth(plankton_array, name)
     return :(
         zooplankton_dt(
             $name,
-            NamedArray([$(plankton_array...)], String.($(plankton_array))),
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             linear_mortality,
             quadratic_mortality,
             holling_half_saturation,
