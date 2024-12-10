@@ -122,7 +122,7 @@ function summed_predation_loss(
             maximum_predation_rate[predator_name],
             holling_half_saturation[predator_name],
             palatability[predator_name, prey_name],
-        ) for predator_name in names(maximum_predation_rate)
+        ) for predator_name in names(maximum_predation_rate)[1]
     )
 
     return loss
@@ -167,7 +167,7 @@ function summed_predation_gain(
             maximum_predation_rate[predator_name],
             holling_half_saturation[predator_name],
             palatability[predator_name, prey_name],
-        ) for prey_name in names(palatability)
+        ) for prey_name in names(P)[1]
     )
 
     return gain
@@ -212,7 +212,7 @@ function summed_predation_assimilation_loss(
             maximum_predation_rate[predator_name],
             holling_half_saturation[predator_name],
             palatability[predator_name, prey_name],
-        ) for prey_name in names(P)
+        ) for prey_name in names(P)[1]
     )
 
     return assimilation_loss
@@ -235,7 +235,7 @@ Net loss of all plankton due to linear mortality.
 """
 function net_linear_loss(P, linear_mortality, fraction)
     # all plankton have a linear loss value --> get all P names
-    return sum([linear_loss(P[name], linear_mortality[name]) for name in names(P)]) * fraction
+    return sum([linear_loss(P[name], linear_mortality[name]) for name in names(P)[1]]) * fraction
 end
 """
 Net loss of all plankton due to quadratic mortality.
@@ -249,7 +249,7 @@ function net_quadratic_loss(P, quadratic_mortality, fraction)
     return sum(
         [
             quadratic_loss(P[name], quadratic_mortality[name]) for
-            name in names(quadratic_mortality)
+            name in names(quadratic_mortality)[1]
         ] * fraction,
     )
 end
@@ -276,8 +276,8 @@ function net_photosynthetic_growth(
             maximum_growth_rate[name],
             nitrogen_half_saturation[name],
             alpha[name],
-        ) for name in names(maximum_growth_rate)
-    ])
+        ) for name in names(maximum_growth_rate)[1]
+    ],)
 end
 
 """
@@ -314,7 +314,7 @@ function net_predation_assimilation_loss(
             maximum_predation_rate,
             holling_half_saturation,
             palatability,
-        ) for predator_name in names(maximum_predation_rate)
+        ) for predator_name in names(maximum_predation_rate)[1]
     ])
 end
 
@@ -360,8 +360,8 @@ function phytoplankton_dt(
             alpha[plankton_name],
         ) - summed_predation_loss(
             plankton_name, P, maximum_predation_rate, holling_half_saturation, palatability
-        ) - linear_loss(P[name], linear_mortality[plankton_name]) -
-        quadratic_loss(P[name], quadratic_mortality[plankton_name])
+        ) - linear_loss(P[plankton_name], linear_mortality[plankton_name]) -
+        quadratic_loss(P[plankton_name], quadratic_mortality[plankton_name])
     return growth
 end
 
@@ -406,5 +406,6 @@ function zooplankton_dt(
             palatability,
         ) - linear_loss(P[plankton_name], linear_mortality[plankton_name]) -
         quadratic_loss(P[plankton_name], quadratic_mortality[plankton_name])
+
     return growth
 end
