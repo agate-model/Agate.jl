@@ -4,6 +4,8 @@ Functions related to phytoplankton light uptake.
 
 module Photosynthesis
 
+using Agate.Library.Nutrients
+
 export γˡⁱᵍʰᵗ, smith_light_limitation, idealized_photosynthetic_growth
 
 """
@@ -33,7 +35,7 @@ Smith 1936 formulation of light limitation (also see Evans and Parslow, 1985).
 "
 function smith_light_limitation(PAR, α, μ₀)
     # here to avoid division by 0 when α and μ₀ are both 0
-    if alpha == 0
+    if α == 0
         return 0.0
     end
     return α * PAR / sqrt(μ₀^2 + α^2 * PAR^2)
