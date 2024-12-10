@@ -6,7 +6,8 @@ module Photosynthesis
 
 using Agate.Library.Nutrients
 
-export γˡⁱᵍʰᵗ, smith_light_limitation, idealized_photosynthetic_growth, net_photosynthetic_growth
+export γˡⁱᵍʰᵗ,
+    smith_light_limitation, idealized_photosynthetic_growth, net_photosynthetic_growth
 
 """
     γˡⁱᵍʰᵗ = (1 - ℯ^(kˢᵃᵗ*I)) * ℯ^kⁱⁿʰ * nˡⁱᵍʰᵗ
@@ -82,7 +83,5 @@ function net_photosynthetic_growth(
         ) for name in names(maximum_growth_rate)[1]
     ],)
 end
-
-
 
 end # module
