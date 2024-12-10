@@ -37,18 +37,17 @@ function typical_detritus(plankton_array)
             palatability,
         ) +
         net_quadratic_loss(
-            [$(plankton_array...)], quadratic_mortality, 1 - mortality_export_fraction
+            [$(plankton_array...)], quadratic_mortality, 1 - mortality_export_fractio
         ) - remineralization(D, detritus_remineralization)
     )
 end
 
 function simplified_phytoplankton_growth(plankton_array, name)
-    return :(phytoplankton_dt(
-        $name,
-        N,
-        NamedArray(
-            [$(plankton_array...)],
-            String.($(plankton_array)),
+    return :(
+        phytoplankton_dt(
+            $name,
+            N,
+            NamedArray([$(plankton_array...)], String.($(plankton_array))),
             PAR,
             linear_mortality,
             quadratic_mortality,
@@ -59,15 +58,14 @@ function simplified_phytoplankton_growth(plankton_array, name)
             maximum_predation_rate,
             palatability,
         ),
-    ))
+    )
 end
 
 function simplified_zooplankton_growth(plankton_array, name)
-    return :(zooplankton_dt(
-        $name,
-        NamedArray(
-            [$(plankton_array...)],
-            String.($(plankton_array)),
+    return :(
+        zooplankton_dt(
+            $name,
+            NamedArray([$(plankton_array...)], String.($(plankton_array))),
             linear_mortality,
             quadratic_mortality,
             holling_half_saturation,
@@ -75,7 +73,7 @@ function simplified_zooplankton_growth(plankton_array, name)
             assimilation_efficiency,
             palatability,
         ),
-    ))
+    )
 end
 
 end # module
