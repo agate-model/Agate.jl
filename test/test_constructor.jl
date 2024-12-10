@@ -1,7 +1,8 @@
+using Agate
 
-@testset "Models.Tracers" begin
+@testset "Models.Constructor" begin
     # N2P2ZD model
-    # TODO: use functions in Models library
+    # TODO: eventually use constructor here
     include(joinpath("..", "examples", "emergent_4P", "tracers.jl"))
     model = N2P2ZD()
     P1 = 0.01
