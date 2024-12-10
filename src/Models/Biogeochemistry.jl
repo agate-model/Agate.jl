@@ -4,6 +4,7 @@ Module to dynamically create Oceananigans.Biogeochemistry types.
 
 module Biogeochemistry
 
+using NamedArrays
 using UUIDs
 
 using OceanBioME: setup_velocity_fields
