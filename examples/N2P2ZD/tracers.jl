@@ -114,4 +114,7 @@ tracers = Dict(
         palatability,
     )),
 )
+
+# add helper functions
+# also use net_linear_loss and net_quadratic_loss from Agate.Library
 N2P2ZD = define_tracer_functions(parameters, tracers; helper_functions="functions.jl")

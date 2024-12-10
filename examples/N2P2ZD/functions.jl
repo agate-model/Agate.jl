@@ -84,10 +84,10 @@ function predation_gain(
 end
 
 """
-Estimates the rate at which plankton predation gain is lost due to inefficient assimilation efficiency 
+Estimates the rate at which plankton predation gain is lost due to inefficient assimilation efficiency
 (e.g. 'sloppy feeding').
 
-Usually, this is used to estimate fluxes from predation to dissolved and particulate 
+Usually, this is used to estimate fluxes from predation to dissolved and particulate
 organic matter (DOM and POM).
 
 # Arguments
@@ -120,7 +120,7 @@ end
 """
 Estimates the total loss rate of the prey (P[prey_index]) to predation.
 
-For plankton P[prey_index], the function loops over each predator to 
+For plankton P[prey_index], the function loops over each predator to
 estimate the total loss of plankton i due to predation.
 
 # Arguments
@@ -129,8 +129,8 @@ estimate the total loss of plankton i due to predation.
 - `maximum_predation_rate::Vector{Float}`: Vector of all plankton predation rates.
 - `holling_half_saturation::Vector{Float}`: Vector of all plankton predation half saturation constants.
 - `palatability::Matrix{Float}`: Matrix of all plankton palatabilities where:
-    each row is a predator and each column is a prey (palat[predator, prey]). 
-    For a non-predator [i,:]=0. 
+    each row is a predator and each column is a prey (palat[predator, prey]).
+    For a non-predator [i,:]=0.
 
 # Returns
 - `loss`: The summed rate of predation loss for plankton[prey_index]
@@ -159,7 +159,7 @@ end
 """
 Estimates the total predation gain of the predator (P[predator_index]) feeding on all plankton.
 
-For plankton P[predator_index], the function loops over each prey (P[prey_index]) to 
+For plankton P[predator_index], the function loops over each prey (P[prey_index]) to
 estimate the total gain due to predation.
 
 # Arguments
@@ -168,11 +168,11 @@ estimate the total gain due to predation.
 - `maximum_predation_rate::Vector{Float}`: Vector of all plankton predation rates.
 - `holling_half_saturation::Vector{Float}`: Vector of all plankton predation half saturation constants.
 - `palatability::Matrix{Float}`: Matrix of all plankton palatabilities where:
-    each row is a predator and each column is a prey (palat[predator, prey]). 
-    For a non-predator [i,:]=0. 
+    each row is a predator and each column is a prey (palat[predator, prey]).
+    For a non-predator [i,:]=0.
 - `assimilation efficiency::Matrix{Float}`: Matrix of all plankton assimilation efficiencies where:
-    each row is a predator and each column is a prey (palat[predator, prey]). 
-    For a non-predator [i,:]=0. 
+    each row is a predator and each column is a prey (palat[predator, prey]).
+    For a non-predator [i,:]=0.
 
 # Returns
 - `gain`: The summed rate of predation gain for plankton[predator_index]
@@ -203,7 +203,7 @@ end
 """
 Estimates the total assimilation loss of the predator (P[predator_index]) feeding on all plankton.
 
-For plankton P[predator_index], the function loops over each prey (P[prey_index]) to 
+For plankton P[predator_index], the function loops over each prey (P[prey_index]) to
 estimate the total assimilation loss during predation.
 
 # Arguments
@@ -212,11 +212,11 @@ estimate the total assimilation loss during predation.
 - `maximum_predation_rate::Vector{Float}`: Vector of all plankton predation rates.
 - `holling_half_saturation::Vector{Float}`: Vector of all plankton predation half saturation constants.
 - `palatability::Matrix{Float}`: Matrix of all plankton palatabilities where:
-    each row is a predator and each column is a prey (palat[predator, prey]). 
-    For a non-predator [i,:]=0. 
+    each row is a predator and each column is a prey (palat[predator, prey]).
+    For a non-predator [i,:]=0.
 - `assimilation efficiency::Matrix{Float}`: Matrix of all plankton assimilation efficiencies where:
-    each row is a predator and each column is a prey (palat[predator, prey]). 
-    For a non-predator [i,:]=0. 
+    each row is a predator and each column is a prey (palat[predator, prey]).
+    For a non-predator [i,:]=0.
 
 # Returns
 - `assimilation_loss`: The summed rate of predation gain for plankton[predator_index]
@@ -252,34 +252,7 @@ function remineralization(D::Real, detritus_remineralization::Real)
     return D * detritus_remineralization
 end
 #sums
-"""
-Net loss of all plankton due to linear mortality.
 
-# Arguments
-- `P::Vector{<:Real}`: Vector which includes all plankton.
-- `linear_mortality::Vector{Float}`: Vector of all plankton linear mortality rates.
-
-"""
-function net_linear_loss(
-    P::Vector{<:Real}, linear_mortality::Vector{<:Real}, fraction::Real
-)
-    return sum([linear_loss(P[i], linear_mortality[i]) for i in eachindex(P)]) * fraction
-end
-"""
-Net loss of all plankton due to quadratic mortality.
-
-# Arguments
-- `P::Vector{<:Real}`: Vector which includes all plankton.
-- `linear_mortality::Vector{Float}`: Vector of all plankton quadratic mortality rates.
-
-"""
-function net_quadratic_loss(
-    P::Vector{<:Real}, quadratic_mortality::Vector{<:Real}, fraction::Real
-)
-    return sum(
-        [quadratic_loss(P[i], quadratic_mortality[i]) for i in eachindex(P)] * fraction
-    )
-end
 """
 Net photosynthetic growth of all plankton.
 
@@ -314,11 +287,11 @@ Net predator assimilation loss of all plankton.
 - `holling_half_saturation::Vector{Float}`: Vector of all plankton predation half saturation constants.
 - `maximum_predation_rate::Vector{Float}`: Vector of all plankton maximum predation rates.
 - `palatability::Matrix{Float}`: Matrix of all plankton palatabilities where:
-    each row is a predator and each column is a prey (palat[predator, prey]). 
-    For a non-predator [i,:]=0. 
+    each row is a predator and each column is a prey (palat[predator, prey]).
+    For a non-predator [i,:]=0.
 - `assimilation efficiency::Matrix{Float}`: Matrix of all plankton assimilation efficiencies where:
-    each row is a predator and each column is a prey (palat[predator, prey]). 
-    For a non-predator [i,:]=0. 
+    each row is a predator and each column is a prey (palat[predator, prey]).
+    For a non-predator [i,:]=0.
 """
 function net_predation_assimilation_loss(
     P::Vector{<:Real},
@@ -352,11 +325,11 @@ Wrapper function to estimate the rate at which plankton biomass changes over tim
 - `holling_half_saturation::Vector{Float}`: Vector of all plankton predation half saturation constants.
 - `maximum_predation_rate::Vector{Float}`: Vector of all plankton maximum predation rates.
 - `assimilation efficiency::Matrix{Float}`: Matrix of all plankton assimilation efficiencies where:
-    each row is a predator and each column is a prey (palat[predator, prey]). 
-    For a non-predator [i,:]=0. 
+    each row is a predator and each column is a prey (palat[predator, prey]).
+    For a non-predator [i,:]=0.
 - `palatability::Matrix{Float}`: Matrix of all plankton palatabilities where:
-    each row is a predator and each column is a prey (palat[predator, prey]). 
-    For a non-predator [i,:]=0. 
+    each row is a predator and each column is a prey (palat[predator, prey]).
+    For a non-predator [i,:]=0.
 """
 function plankton_dt(
     plankton_index::Int,

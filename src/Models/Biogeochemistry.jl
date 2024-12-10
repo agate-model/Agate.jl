@@ -4,6 +4,14 @@ Module to dynamically create Oceananigans.Biogeochemistry types.
 
 module Biogeochemistry
 
+using Agate.Library.Growth
+using Agate.Library.Mortality
+using Agate.Library.Nutrients
+using Agate.Library.Photosynthesis
+using Agate.Library.Predation
+using Agate.Library.Remineralization
+
+using NamedArrays
 using UUIDs
 
 using OceanBioME: setup_velocity_fields
