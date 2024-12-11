@@ -1,13 +1,4 @@
-# phytoplankton growth
-function monod_limitation(N::Real, nitrogen_half_saturation::Real)
-    return N / (nitrogen_half_saturation + N)
-end
-function smith_light_limitation(PAR::Real, alpha::Real, maximum_growth_rate::Real)
-    if alpha == 0 && maximum_growth_rate == 0
-        @warn "Parameter 'alpha' and 'maximum_growth_rate' are both equal to zero, which will lead to NaNs."
-    end
-    return alpha * PAR / sqrt(maximum_growth_rate^2 + alpha^2 * PAR^2)
-end
+
 function photosynthetic_growth(
     N::Real,
     P::Real,
@@ -244,14 +235,36 @@ function summed_predation_assimilation_loss(
     return assimilation_loss
 end
 
-#mortality
-linear_loss(P::Real, linear_mortality::Real) = linear_mortality * P
-quadratic_loss(P::Real, quadratic_mortality::Real) = quadratic_mortality * P^2
 #detritus
 function remineralization(D::Real, detritus_remineralization::Real)
     return D * detritus_remineralization
 end
 #sums
+"""
+ Net loss of all plankton due to linear mortality.
+ # Arguments
+ - `P::Vector{<:Real}`: Vector which includes all plankton.
+ - `linear_mortality::Vector{Float}`: Vector of all plankton linear mortality rates.
+
+ """
+function custom_net_linear_loss(
+    P::Vector{<:Real}, linear_mortality::Vector{<:Real}, fraction::Real
+)
+    return sum([linear_loss(P[i], linear_mortality[i]) for i in eachindex(P)]) * fraction
+end
+"""
+Net loss of all plankton due to quadratic mortality.
+# Arguments
+- `P::Vector{<:Real}`: Vector which includes all plankton.
+- `linear_mortality::Vector{Float}`: Vector of all plankton quadratic mortality rates.
+"""
+function custom_net_quadratic_loss(
+    P::Vector{<:Real}, quadratic_mortality::Vector{<:Real}, fraction::Real
+)
+    return sum(
+        [quadratic_loss(P[i], quadratic_mortality[i]) for i in eachindex(P)] * fraction
+    )
+end
 
 """
 Net photosynthetic growth of all plankton.

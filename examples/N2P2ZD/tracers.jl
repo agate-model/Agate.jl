@@ -27,8 +27,10 @@ parameters = (
 )
 tracers = Dict(
     "N" => :(
-        net_linear_loss([P1, P2, Z1, Z2], linear_mortality, mortality_export_fraction) +
-        net_quadratic_loss(
+        custom_net_linear_loss(
+            [P1, P2, Z1, Z2], linear_mortality, mortality_export_fraction
+        ) +
+        custom_net_quadratic_loss(
             [P1, P2, Z1, Z2], quadratic_mortality, mortality_export_fraction
         ) +
         remineralization(D, detritus_remineralization) - net_photosynthetic_growth(
@@ -41,7 +43,9 @@ tracers = Dict(
         )
     ),
     "D" => :(
-        net_linear_loss([P1, P2, Z1, Z2], linear_mortality, 1 - mortality_export_fraction) +
+        custom_net_linear_loss(
+            [P1, P2, Z1, Z2], linear_mortality, 1 - mortality_export_fraction
+        ) +
         net_predation_assimilation_loss(
             [P1, P2, Z1, Z2],
             holling_half_saturation,
@@ -49,7 +53,7 @@ tracers = Dict(
             assimilation_efficiency,
             palatability,
         ) +
-        net_quadratic_loss(
+        custom_net_quadratic_loss(
             [P1, P2, Z1, Z2], quadratic_mortality, 1 - mortality_export_fraction
         ) - remineralization(D, detritus_remineralization)
     ),
@@ -115,6 +119,6 @@ tracers = Dict(
     )),
 )
 
-# add helper functions
-# also use net_linear_loss and net_quadratic_loss from Agate.Library
+# `linear_loss`, `quadratic_loss` etc are functions defined in Agate.Library
+# here import remaining "custom" functions from file
 N2P2ZD = define_tracer_functions(parameters, tracers; helper_functions="functions.jl")
