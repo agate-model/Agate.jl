@@ -68,4 +68,4 @@ biogeochemistry_parameters = Dict(
 parameters = NamedTuple(
     Symbol(k) => v for (k, v) in merge(biogeochemistry_parameters, emergent_parameters)
 )
-N2P2ZD = define_tracer_functions(parameters, tracers)
+N2P2ZD_emergent = define_tracer_functions(parameters, tracers)
