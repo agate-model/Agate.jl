@@ -166,7 +166,7 @@ end
         sinking_tracers=nothing,
     ) -> DataType
 
-Add methods to bgc_type required of Oceananigans.Biogeochemistry:
+Add methods to `bgc_type` required of Oceananigans.Biogeochemistry:
     - `required_biogeochemical_tracers`
     - `required_biogeochemical_auxiliary_fields`
     - a method per tracer specifying how it evolves in time

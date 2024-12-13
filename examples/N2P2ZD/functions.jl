@@ -1,4 +1,8 @@
+function remineralization(D::Real, detritus_remineralization::Real)
+    return D * detritus_remineralization
+end
 
+# phytoplankton growth
 function photosynthetic_growth(
     N::Real,
     P::Real,
@@ -27,7 +31,6 @@ Estimates the loss rate of P (prey), to Z (predator).
 
 # Returns
 - `loss`: The rate of predation loss of P to Z.
-
 """
 function predation_loss(
     P::Real,
@@ -57,7 +60,6 @@ Estimates the gain rate of Z (predator) feeding on P (prey).
 
 # Returns
 - `gain`: The rate of predation gain of Z to P.
-
 """
 function predation_gain(
     P::Real,
@@ -75,8 +77,8 @@ function predation_gain(
 end
 
 """
-Estimates the rate at which plankton predation gain is lost due to inefficient assimilation efficiency
-(e.g. 'sloppy feeding').
+Estimates the rate at which plankton predation gain is lost due to inefficient assimilation
+efficiency (e.g. 'sloppy feeding').
 
 Usually, this is used to estimate fluxes from predation to dissolved and particulate
 organic matter (DOM and POM).
@@ -91,7 +93,6 @@ organic matter (DOM and POM).
 
 # Returns
 - `assimilation_loss`: The rate at which predation gain is lost to the environment.
-
 """
 function predation_assimilation_loss(
     P::Real,
@@ -111,8 +112,8 @@ end
 """
 Estimates the total loss rate of the prey (P[prey_index]) to predation.
 
-For plankton P[prey_index], the function loops over each predator to
-estimate the total loss of plankton i due to predation.
+For plankton P[prey_index], the function loops over each predator to estimate the total loss
+of plankton i due to predation.
 
 # Arguments
 - `prey_index::Int`: Index of the prey, e.g. P[prey_index].
@@ -125,7 +126,6 @@ estimate the total loss of plankton i due to predation.
 
 # Returns
 - `loss`: The summed rate of predation loss for plankton[prey_index]
-
 """
 function summed_predation_loss(
     prey_index::Int,
@@ -167,7 +167,6 @@ estimate the total gain due to predation.
 
 # Returns
 - `gain`: The summed rate of predation gain for plankton[predator_index]
-
 """
 function summed_predation_gain(
     predator_index::Int,
@@ -211,7 +210,6 @@ estimate the total assimilation loss during predation.
 
 # Returns
 - `assimilation_loss`: The summed rate of predation gain for plankton[predator_index]
-
 """
 function summed_predation_assimilation_loss(
     predator_index::Int,
@@ -235,10 +233,6 @@ function summed_predation_assimilation_loss(
     return assimilation_loss
 end
 
-#detritus
-function remineralization(D::Real, detritus_remineralization::Real)
-    return D * detritus_remineralization
-end
 #sums
 """
  Net loss of all plankton due to linear mortality.
@@ -275,7 +269,6 @@ Net photosynthetic growth of all plankton.
 - `PAR::Real`: PAR
 - `maximum_growth_rate::Vector{Float}`: Vector of all plankton maximum growth rates.
 - `nitrogen_half_saturation::Vector{Float}`: Vector of all plankton nitrogen half saturation constants.
-
 """
 function net_photosynthetic_growth(
     N::Real,

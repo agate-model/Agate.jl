@@ -120,5 +120,5 @@ tracers = Dict(
 )
 
 # `linear_loss`, `quadratic_loss` etc are functions defined in Agate.Library
-# here import remaining "custom" functions from file
+# import remaining "custom" functions from file
 N2P2ZD = define_tracer_functions(parameters, tracers; helper_functions="functions.jl")
