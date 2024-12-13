@@ -1,8 +1,10 @@
 using Agate
 using Agate.Models.Biogeochemistry: expression_check, create_bgc_struct, add_bgc_methods!
+
 using OceanBioME
 using Oceananigans.Units
 using Oceananigans.Fields: ZeroField
+
 using Oceananigans.Biogeochemistry:
     AbstractContinuousFormBiogeochemistry,
     required_biogeochemical_tracers,

@@ -1,8 +1,6 @@
 monod_limitation(R, k) = R / (k + R)
 holling_type_2(R, k) = R / (k + R)
 
-Q₁₀(T) = 1.88^(T / 10) # T in °C
-
 smith_light_limitation(PAR, α, μ₀) = α * PAR / sqrt(μ₀^2 + α^2 * PAR^2)
 
 idealized_remineralization(D, r) = r * D
@@ -22,9 +20,3 @@ end
 linear_loss(P, l) = l * P
 
 quadratic_loss(P, l) = l * P^2
-
-function summed_linear_loss(P, l)
-    return sum([
-        linear_loss(P[plankton_index], l[plankton_index]) for plankton_index in eachindex(P)
-    ])
-end
