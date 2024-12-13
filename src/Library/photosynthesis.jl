@@ -33,7 +33,7 @@ Smith 1936 formulation of light limitation (also see Evans and Parslow, 1985).
 "
 function smith_light_limitation(PAR, α, μ₀)
     # here to avoid division by 0 when α and μ₀ are both 0
-    if alpha == 0
+    if α == 0
         return 0.0
     end
     return α * PAR / sqrt(μ₀^2 + α^2 * PAR^2)
@@ -46,9 +46,9 @@ Single nutrient monod smith photosynthetic growth (used, for example, in Kuhn 20
 - `N`: nutrient concentration
 - `P`: phytoplankton concentration
 - `PAR`: photosynthetic active radiation
-- `α`: initial photosynthetic slope
 - `μ₀`: maximum growth rate at T = 0 °C
 - `kₙ`: nutrient half saturation
+- `α`: initial photosynthetic slope
 """
 function idealized_photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)
     return μ₀ * monod_limitation(N, kₙ) * smith_light_limitation(PAR, α, μ₀) * P

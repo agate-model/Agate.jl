@@ -7,7 +7,10 @@ module Predation
 export holling_type_2,
     idealized_predation_loss,
     idealized_predation_gain,
-    idealized_predation_assimilation_loss
+    idealized_predation_assimilation_loss,
+    preferential_predation_loss,
+    preferential_predation_gain,
+    preferential_predation_assimilation_loss
 
 """
 Holling's "type II" functional response as describe in Holling 1959.
