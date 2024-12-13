@@ -55,24 +55,21 @@ function construct_NPZD_instance(
         "volumes" => Dict(
             "min_volume" => 10, "max_volume" => 100, "splitting" => "linear_splitting"
         ),
-        "allometry" => Dict(
-            "maximum_predation_rate" => Dict("a" => 1, "b" => 1),
-        ),
+        "allometry" => Dict("maximum_predation_rate" => Dict("a" => 1, "b" => 1)),
         "linear_mortality" => 8e-7 / second,
         "holling_half_saturation" => 5.0,
         "quadratic_mortality" => 1e-6 / second,
     ),
-    palatability_args = Dict(
+    palatability_args=Dict(
         "P" => Dict("optimum_predator_prey_ratio" => 0, "protection" => 0),
-        "Z" => Dict("optimum_predator_prey_ratio" => 10, "protection" => 1)
+        "Z" => Dict("optimum_predator_prey_ratio" => 10, "protection" => 1),
     ),
-    assimilation_efficiency_args = Dict(
+    assimilation_efficiency_args=Dict(
         "P" => Dict("can_be_eaten" => 1, "can_eat" => 0, "assimilation_efficiency" => 0),
-        "Z" => Dict("can_be_eaten" => 0, "can_eat" => 1, "assimilation_efficiency" => 0.32)
+        "Z" => Dict("can_be_eaten" => 0, "can_eat" => 1, "assimilation_efficiency" => 0.32),
     ),
     bgc_args=Dict(
-        "detritus_remineralization" => 0.1213 / day,
-        "mortality_export_fraction" => 0.5,
+        "detritus_remineralization" => 0.1213 / day, "mortality_export_fraction" => 0.5
     ),
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
