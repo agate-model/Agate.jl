@@ -236,10 +236,10 @@ end
 #sums
 """
  Net loss of all plankton due to linear mortality.
+
  # Arguments
  - `P::Vector{<:Real}`: Vector which includes all plankton.
  - `linear_mortality::Vector{Float}`: Vector of all plankton linear mortality rates.
-
  """
 function custom_net_linear_loss(
     P::Vector{<:Real}, linear_mortality::Vector{<:Real}, fraction::Real
@@ -248,6 +248,7 @@ function custom_net_linear_loss(
 end
 """
 Net loss of all plankton due to quadratic mortality.
+
 # Arguments
 - `P::Vector{<:Real}`: Vector which includes all plankton.
 - `linear_mortality::Vector{Float}`: Vector of all plankton quadratic mortality rates.
