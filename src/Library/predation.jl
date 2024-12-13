@@ -128,7 +128,7 @@ rather than the transfer of biomass from the prey to the predator.
 - `β`: assimilation efficiency of prey to the predator
 - `gₘₐₓ`: maximum grazing rate of the predator
 - `kₚ`: grazing/holling half saturation
-- `palatability`: ...
+- `palatability`: the likelihood at which the predator feeds on the prey
 """
 function preferential_predation_assimilation_loss(P, Z, β, gₘₐₓ, kₚ, palatability)
     return (1 - β) * preferential_predation_loss(P, Z, gₘₐₓ, kₚ, palatability)
@@ -184,7 +184,7 @@ estimate the total gain due to predation.
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
-- `assimilation efficiency`: NamedArray of all plankton assimilation efficiencies where:
+- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
     - each row is a predator
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
@@ -229,7 +229,7 @@ estimate the total assimilation loss during predation.
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
-- `assimilation efficiency`: NamedArray of all plankton assimilation efficiencies where:
+- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
     - each row is a predator
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
@@ -270,7 +270,7 @@ Net predator assimilation loss of all plankton.
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
-- `assimilation efficiency`: NamedArray of all plankton assimilation efficiencies where:
+- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
     - each row is a predator
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
