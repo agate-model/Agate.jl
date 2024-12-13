@@ -6,7 +6,10 @@ export typical_detritus,
     typical_nutrients, simplified_phytoplankton_growth, simplified_zooplankton_growth
 
 """
-Build expression for a single nutrient....
+Build expression for a single nutrient function of time.
+
+The functions used in the expression are all within the Agate.Library, see their docstring
+for overview. All arguments in the functions are either a NamedArray or a Float.
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
@@ -37,7 +40,10 @@ function typical_nutrients(plankton_array)
 end
 
 """
-Build expression for a simplified detritus...
+Build expression for a simplified detritus function of time.
+
+The functions used in the expression are all within the Agate.Library, see their docstring
+for overview. All arguments in the functions are either a NamedArray or a Float.
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
@@ -66,26 +72,16 @@ function typical_detritus(plankton_array)
 end
 
 """
-Build expression for a simplified phytoplankton growth function....
+Build expression for a simplified phytoplankton growth function.
+
+The functions used in the expression are all within the Agate.Library, see their docstring
+for overview. All arguments in the functions are either a NamedArray or a Float.
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
     `[:P1, :P2, :Z1, :Z2]`
-
-# Notes on args in the expression
-- `plankton_name`: The name of the plankton for which the rate of change is estimated
-- `N`: Nitrogen
-- `P`: NamedArray which includes all plankton
-- `linear_mortality`: NamedArray of all plankton linear mortality rates
-- `quadratic_mortality`: ....
-- `maximum_growth_rate`: NamedArray of all plankton maximum growth rates
-- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants
-- `maximum_predation_rate`: NamedArray of all plankton maximum predation rates
-- `palatability`: NamedArray of all plankton palatabilities where:
-    - each row is a predator
-    - each column is a prey
-    - values are accessed as `palat[predator, prey]`
-    - for a non-predator [i,:]=0
+- `plankton_name`: name of the phytoplankton for which we are returning the expression passed
+    as a String (e.g., "P1").
 """
 function simplified_phytoplankton_growth(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
@@ -109,29 +105,16 @@ function simplified_phytoplankton_growth(plankton_array, plankton_name)
 end
 
 """
-Build expression for simplified zooplankton growth function...
+Build expression for simplified zooplankton growth function.
+
+The functions used in the expression are all within the Agate.Library, see their docstring
+for overview. All arguments in the functions are either a NamedArray or a Float.
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
     `[:P1, :P2, :Z1, :Z2]`
-
-# Notes on args in the expression
-- `plankton_name`: The name of the plankton for which the rate of change is estimated
-- `P`: NamedArray which includes all plankton
-- `linear_mortality`: NamedArray of all plankton linear mortality rates
-- `quadratic_mortality`: ....
-- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants
-- `maximum_predation_rate`: NamedArray of all plankton maximum predation rates
-- `assimilation efficiency`: NamedArray of all plankton assimilation efficiencies where:
-    - each row is a predator
-    - each column is a prey
-    - values are accessed as `palat[predator, prey]`
-    - for a non-predator [i,:]=0
-- `palatability`: NamedArray of all plankton palatabilities where:
-    - each row is a predator
-    - each column is a prey
-    - values are accessed as `palat[predator, prey]`
-    - for a non-predator [i,:]=0
+- `plankton_name`: name of the zooplankton for which we are returning the expression passed
+    as a String (e.g., "Z1").
 """
 function simplified_zooplankton_growth(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
