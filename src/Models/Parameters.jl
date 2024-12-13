@@ -92,7 +92,6 @@ function compute_darwin_parameters(plankton::Dict)
 
     for (plankton_name, params) in plankton
         n = params["n"]
-
         plankton_names = ["$plankton_name$i" for i in 1:n]
 
         # 1. compute volumes

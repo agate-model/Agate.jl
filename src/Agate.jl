@@ -8,5 +8,6 @@ using .Models
 
 export compute_darwin_parameters
 export define_tracer_functions
+export construct_NPZD_instance
 
 end # module
