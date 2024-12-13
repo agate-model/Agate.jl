@@ -2,7 +2,7 @@
 Module to dynamically create Oceananigans.Biogeochemistry types.
 """
 
-module Dynamic
+module Biogeochemistry
 
 using UUIDs
 
@@ -96,7 +96,7 @@ Create a subtype of Oceananigans.Biogeochemistry with field names defined in `pa
 
 # Arguments
 - `struct_name`: name for the new struct passed as a Symbol. The struct will be accessible
-   as: `Agate.Models.Dynamic.<struct_name>`
+   as: `Agate.Models.Biogeochemistry.<struct_name>`
 - `parameters`: named sequence of values of the form (<field name> = <default value>, ...)
 
 # Keywords
@@ -312,7 +312,7 @@ Checks that all methods and arguments are defined. Specifically:
     - all methods called in `f_expr` are defined in module (e.g., Base, Main, Agate)
 If not, throws an UnderVarError.
 """
-function expression_check(args, f_expr; module_name=Dynamic)
+function expression_check(args, f_expr; module_name=Biogeochemistry)
     symbols = parse_expression(f_expr)
     for s in symbols
         if s ∉ args && !isdefined(module_name, s)

@@ -1,7 +1,7 @@
 module Models
 
-include("Dynamic.jl")
-using .Dynamic
+include("Biogeochemistry.jl")
+using .Biogeochemistry
 
 export define_tracer_functions
 
