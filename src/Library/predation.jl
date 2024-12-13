@@ -16,6 +16,7 @@ export holling_type_2,
     summed_preferential_predation_assimilation_loss,
     net_preferential_predation_assimilation_loss
 
+
 """
 Holling's "type II" functional response as describe in Holling 1959.
 The function is similar to the Monod equation and Michaelis-Menten equation of for enzyme kinetics.
