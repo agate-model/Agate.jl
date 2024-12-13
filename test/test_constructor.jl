@@ -8,6 +8,8 @@ using Agate
     include(joinpath("..", "examples", "N2P2ZD", "tracers.jl"))
 
     model = N2P2ZD()
+    # model_emergent = N2P2ZD_emergent()
+    N2P2ZD_emergent = construct_NPZD_instance()
     model_emergent = N2P2ZD_emergent()
 
     P1 = 0.01
