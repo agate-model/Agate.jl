@@ -47,11 +47,8 @@ function construct_NPZD_instance(
         "allometry" => Dict(
             "maximum_growth_rate" => Dict("a" => 1, "b" => 1),
             "nitrogen_half_saturation" => Dict("a" => 1, "b" => 1),
-            "maximum_predation_rate" => Dict("a" => 0, "b" => 0),
         ),
         "linear_mortality" => 8e-7 / second,
-        "holling_half_saturation" => 0,
-        "quadratic_mortality" => 0,
         "alpha" => 0.1953 / day,
     ),
     zoo_args=Dict(
@@ -59,14 +56,11 @@ function construct_NPZD_instance(
             "min_volume" => 10, "max_volume" => 100, "splitting" => "linear_splitting"
         ),
         "allometry" => Dict(
-            "maximum_growth_rate" => Dict("a" => 0, "b" => 0),
-            "nitrogen_half_saturation" => Dict("a" => 0, "b" => 0),
             "maximum_predation_rate" => Dict("a" => 1, "b" => 1),
         ),
         "linear_mortality" => 8e-7 / second,
         "holling_half_saturation" => 5.0,
         "quadratic_mortality" => 1e-6 / second,
-        "alpha" => 0,
     ),
     palatability_args = Dict(
         "P" => Dict("optimum_predator_prey_ratio" => 0, "protection" => 0),

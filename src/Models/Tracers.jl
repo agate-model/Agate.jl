@@ -99,8 +99,7 @@ function simplified_phytoplankton_growth(plankton_array, plankton_name)
             maximum_predation_rate,
             holling_half_saturation,
             palatability_matrix,
-        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_name]) -
-        quadratic_loss($(plankton_symbol), quadratic_mortality[$plankton_name])
+        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_name])
     )
 end
 
