@@ -250,6 +250,7 @@ function custom_net_linear_loss(
 )
     return sum([linear_loss(P[i], linear_mortality[i]) for i in eachindex(P)]) * fraction
 end
+
 """
 Net loss of all plankton due to quadratic mortality.
 
