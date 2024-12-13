@@ -82,7 +82,7 @@ function net_idealized_photosynthetic_growth(
             maximum_growth_rate[name],
             nitrogen_half_saturation[name],
             alpha[name],
-        ) for name in names(maximum_growth_rate)[1]
+        ) for name in names(maximum_growth_rate, 1)
     ],)
 end
 

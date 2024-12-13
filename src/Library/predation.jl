@@ -162,7 +162,7 @@ function summed_preferential_predation_loss(
             maximum_predation_rate[predator_name],
             holling_half_saturation[predator_name],
             palatability[predator_name, prey_name],
-        ) for predator_name in names(maximum_predation_rate)[1]
+        ) for predator_name in names(maximum_predation_rate, 1)
     )
 
     return loss
@@ -207,7 +207,7 @@ function summed_preferential_predation_gain(
             maximum_predation_rate[predator_name],
             holling_half_saturation[predator_name],
             palatability[predator_name, prey_name],
-        ) for prey_name in names(P)[1]
+        ) for prey_name in names(P, 1)
     )
 
     return gain
@@ -252,7 +252,7 @@ function summed_preferential_predation_assimilation_loss(
             maximum_predation_rate[predator_name],
             holling_half_saturation[predator_name],
             palatability[predator_name, prey_name],
-        ) for prey_name in names(P)[1]
+        ) for prey_name in names(P, 1)
     )
 
     return assimilation_loss
@@ -292,7 +292,7 @@ function net_preferential_predation_assimilation_loss(
             maximum_predation_rate,
             holling_half_saturation,
             palatability,
-        ) for predator_name in names(maximum_predation_rate)[1]
+        ) for predator_name in names(maximum_predation_rate, 1)
     ])
 end
 

@@ -33,7 +33,7 @@ Net loss of all plankton due to linear mortality.
 """
 function net_linear_loss(P, linear_mortality, fraction)
     # sum over all plankton in `P`
-    return sum([linear_loss(P[name], linear_mortality[name]) for name in names(P)[1]]) * fraction
+    return sum([linear_loss(P[name], linear_mortality[name]) for name in names(P, 1)]) * fraction
 end
 
 """
@@ -48,7 +48,7 @@ function net_quadratic_loss(P, quadratic_mortality, fraction)
     return sum(
         [
             quadratic_loss(P[name], quadratic_mortality[name]) for
-            name in names(quadratic_mortality)[1]
+            name in names(quadratic_mortality, 1)
         ] * fraction,
     )
 end
