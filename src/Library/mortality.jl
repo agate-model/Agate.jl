@@ -28,11 +28,11 @@ quadratic_loss(P, l) = l * P^2
 Net loss of all plankton due to linear mortality.
 
 # Arguments
-- `P`: NamedArray which includes all plankton
+- `P`: NamedArray which includes all plankton concentration values
 - `linear_mortality`: NamedArray of all plankton linear mortality rates
 """
 function net_linear_loss(P, linear_mortality, fraction)
-    # all plankton have a linear loss value --> get all P names
+    # sum over all plankton in `P`
     return sum([linear_loss(P[name], linear_mortality[name]) for name in names(P)[1]]) * fraction
 end
 
@@ -40,11 +40,11 @@ end
 Net loss of all plankton due to quadratic mortality.
 
 # Arguments
-- `P`: NamedArray which includes all plankton
+- `P`: NamedArray which includes all plankton concentration values
 - `quadratic_mortality`: NamedArray of all plankton quadratic mortality rates
 """
 function net_quadratic_loss(P, quadratic_mortality, fraction)
-    # only zooplankton have quadratic mortality --> get names from associated array
+    # sum over plankton that have a `quadratic_mortality`
     return sum(
         [
             quadratic_loss(P[name], quadratic_mortality[name]) for
