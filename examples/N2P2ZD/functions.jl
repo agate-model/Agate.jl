@@ -1,3 +1,7 @@
+using Agate.Library.Mortality
+using Agate.Library.Nutrients
+using Agate.Library.Photosynthesis
+
 function remineralization(D::Real, detritus_remineralization::Real)
     return D * detritus_remineralization
 end
