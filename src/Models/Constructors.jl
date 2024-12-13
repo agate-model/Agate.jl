@@ -13,7 +13,26 @@ using Oceananigans.Units
 export construct_NPZD_instance
 
 """
+Construct an instance of an NPZD type model.... TODO: describe model here!
 
+# Arguments
+- `n_phyto`: number of phytoplankton to include in the model
+- `n_zoo`: number of zooplankton to include in the model
+- `nutrients_dt`: expression describing how nutrients change over time
+- `detritus_dt`: expression describing how detritus evolves over time
+- `phyto_growth`: expressing describing how phytoplankton grow
+- `zoo_growth`: expressing describing how zooplankton grow
+- `phyto_args`: dictionary of Phytoplankton parameters
+- `zoo_args`: Dictionary of zooplankton parameters
+- `palatability_args`: Dictionary of arguments from which a palatability matrix between all
+   plankton can be computed
+- `assimilation_effificency_args`: Dictionary of arguments from which an assimilation
+   efficiency matrix between all plankton can be computed
+- `bgc_args`: biogeochemistry parameters related to detritus
+- `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided then
+   `paralatability_args` are ignored
+- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
+   NamedArray, if provided then `assimilation_args` are ignored
 """
 function construct_NPZD_instance(
     n_phyto=2,
@@ -59,7 +78,6 @@ function construct_NPZD_instance(
     ),
     bgc_args=Dict(
         "detritus_remineralization" => 0.1213 / day,
-        "feeding_export_poc_doc_fraction" => 0.5,
         "mortality_export_fraction" => 0.5,
     ),
     palatability_matrix=nothing,
