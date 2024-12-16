@@ -6,7 +6,7 @@ include("Parameters.jl")
 using .Biogeochemistry
 using .Parameters
 
-export compute_darwin_parameters
+export compute_allometric_parameters
 export define_tracer_functions
 
 end # module

@@ -6,7 +6,7 @@ include("Models/Models.jl")
 using .Library
 using .Models
 
-export compute_darwin_parameters
+export compute_allometric_parameters
 export define_tracer_functions
 
 end # module

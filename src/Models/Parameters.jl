@@ -3,7 +3,7 @@ module Parameters
 using DataStructures: DefaultDict
 using NamedArrays
 
-export compute_darwin_parameters
+export compute_allometric_parameters
 
 # TODO: the real palatability and assimilation functions should eventually be defined here
 include(joinpath("..", "..", "examples", "emergent_4P", "emergent_functions.jl"))
@@ -22,7 +22,7 @@ function allometry_f(param, a, b, volume)
 end
 
 """
-    compute_darwin_parameters(plankton::Dict) -> Dict
+    compute_allometric_parameters(plankton::Dict) -> Dict
 
 This function:
     - generates `n` names for each `plankton` group (e.g., "P", "Z" or "cocco") of the form:
@@ -82,7 +82,7 @@ using names generated in the first step.
         )
         ```
 """
-function compute_darwin_parameters(plankton::Dict)
+function compute_allometric_parameters(plankton::Dict)
 
     # intermediate representations for parameters that are output as matrices
     intermediate_palatability = DefaultDict{AbstractString,NamedArray}(NamedArray([], []))
