@@ -10,7 +10,7 @@ using .Constructors
 using .Parameters
 using .Tracers
 
-export compute_darwin_parameters
+export compute_allometric_parameters
 export define_tracer_functions
 export construct_NPZD_instance
 

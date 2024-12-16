@@ -3,7 +3,7 @@ module Parameters
 using DataStructures: DefaultDict
 using NamedArrays
 
-export compute_darwin_parameters
+export compute_allometric_parameters
 
 # TODO: the real palatability and assimilation functions should eventually be defined here
 include(joinpath("..", "..", "examples", "emergent_4P", "emergent_functions.jl"))
@@ -22,7 +22,7 @@ function allometry_f(param, a, b, volume)
 end
 
 """
-    compute_darwin_parameters(plankton::Dict) -> Dict
+    compute_allometric_parameters(plankton::Dict) -> Dict
 
 This function:
     - generates `n` names for each `plankton` group (e.g., "P", "Z" or "cocco") of the form:
@@ -82,7 +82,7 @@ using names generated in the first step.
         )
         ```
 """
-function compute_darwin_parameters(plankton::Dict)
+function compute_allometric_parameters(plankton::Dict)
 
     # intermediate representations for parameters that are output as matrices
     intermediate_palatability = DefaultDict{AbstractString,NamedArray}(NamedArray([], []))
@@ -203,9 +203,9 @@ function emergent_2D_array(plankton, func)
     # Q: is there a better way to populate this ?!
     # Populate the NamedArray with calculated values
     for pred_name in plankton_names
+        predator_data = Dict(arg => plankton[arg][pred_name] for arg in arg_names)
         for prey_name in plankton_names
             prey_data = Dict(arg => plankton[arg][prey_name] for arg in arg_names)
-            predator_data = Dict(arg => plankton[arg][pred_name] for arg in arg_names)
             # Pass prey and predator data dictionaries to the function
             plankton_matrix[pred_name, prey_name] = func(prey_data, predator_data)
         end

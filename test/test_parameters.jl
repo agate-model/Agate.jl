@@ -6,7 +6,7 @@ using Oceananigans.Units
 include(joinpath("..", "examples", "emergent_4P", "emergent_functions.jl"))
 
 @testset "Models.Parameters" begin
-    @testset "create_darwin_parameters" begin
+    @testset "create_allometric_parameters" begin
 
         # include the 0 parameters to make it comparable to the N2P2ZD example
         defined_parameters = Dict(
@@ -60,7 +60,7 @@ include(joinpath("..", "examples", "emergent_4P", "emergent_functions.jl"))
             ),
         )
 
-        emergent_parameters = compute_darwin_parameters(defined_parameters)
+        emergent_parameters = compute_allometric_parameters(defined_parameters)
 
         # compare against hand computer `parameters` in examples
         include(joinpath("..", "examples", "N2P2ZD", "tracers.jl"))
