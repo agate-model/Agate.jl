@@ -23,6 +23,7 @@ During model construction, the size of each plankton determines photosynthetic g
 predator-prey assimilation and palatability values. Alternatively, if manually defined predator-prey assimilation and palatability values are desired, these can 
 be defined using the `palatability_matrix` and `assimilation_efficiency_matrix` arguments.
 
+Note that if non-default `*_dynamics` expressions are passed, the relevant `*_args` also need to be specified.
 
 # Arguments
 - `n_phyto`: number of phytoplankton to include in the model
@@ -37,7 +38,7 @@ be defined using the `palatability_matrix` and `assimilation_efficiency_matrix` 
    plankton can be computed
 - `assimilation_effificency_args`: Dictionary of arguments from which an assimilation
    efficiency matrix between all plankton can be computed
-- `bgc_args`: biogeochemistry parameters related to detritus
+- `bgc_args`: biogeochemistry parameters related to nutrient and detritus
 - `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided then
    `paralatability_args` are ignored
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
