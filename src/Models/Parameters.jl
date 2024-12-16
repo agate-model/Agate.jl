@@ -204,9 +204,9 @@ function emergent_2D_array(plankton, func)
     # Q: is there a better way to populate this ?!
     # Populate the NamedArray with calculated values
     for pred_name in plankton_names
+        predator_data = Dict(arg => plankton[arg][pred_name] for arg in arg_names)
         for prey_name in plankton_names
             prey_data = Dict(arg => plankton[arg][prey_name] for arg in arg_names)
-            predator_data = Dict(arg => plankton[arg][pred_name] for arg in arg_names)
             # Pass prey and predator data dictionaries to the function
             plankton_matrix[pred_name, prey_name] = func(prey_data, predator_data)
         end
