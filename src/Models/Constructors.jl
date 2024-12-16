@@ -127,7 +127,8 @@ function construct_size_structured_NPZD(;
             )
         end
 
-        emergent_parameters["assimilation_efficiency_matrix"] = assimilation_efficiency_matrix
+        emergent_parameters["assimilation_efficiency_matrix"] =
+            assimilation_efficiency_matrix
     end
 
     # combine emergent parameters with remaining user defined parameters

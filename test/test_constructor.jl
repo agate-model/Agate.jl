@@ -2,7 +2,6 @@ using Agate
 using NamedArrays
 
 @testset "Models.Constructor" begin
-
     @testset "N2P2ZD model" begin
         # N2P2ZD model defined using low level syntax
         include(joinpath("..", "examples", "N2P2ZD", "tracers.jl"))
@@ -54,7 +53,7 @@ using NamedArrays
         # doesn't throw error if dimensions are correct
         names = ["P1", "P2", "Z1", "Z2"]
         correct_size_matrix = NamedArray(zeros(Float64, 4, 4), (predator=names, prey=names))
-        new_model = construct_size_structured_NPZD(
+        new_model = construct_size_structured_NPZD(;
             palatability_matrix=correct_size_matrix,
             assimilation_efficiency_matrix=correct_size_matrix,
         )
