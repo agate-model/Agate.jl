@@ -12,6 +12,6 @@ using .Tracers
 
 export compute_allometric_parameters
 export define_tracer_functions
-export construct_NPZD_instance
+export construct_size_structured_NPZD
 
 end # module

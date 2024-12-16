@@ -6,7 +6,7 @@ using Agate
     model = N2P2ZD()
 
     # N2P2ZD model constructed from emergent parameters
-    N2P2ZD_constructed = construct_NPZD_instance()
+    N2P2ZD_constructed = construct_size_structured_NPZD()
     model_constructed = N2P2ZD_constructed()
 
     P1 = 0.01

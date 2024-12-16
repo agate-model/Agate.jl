@@ -10,7 +10,7 @@ using .Tracers
 
 using Oceananigans.Units
 
-export construct_NPZD_instance
+export construct_size_structured_NPZD
 
 """
 Construct an instance of an size-structured NPZD model.
@@ -44,7 +44,7 @@ Note that if non-default `*_dynamics` expressions are passed, the relevant `*_ar
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
    NamedArray, if provided then `assimilation_args` are ignored
 """
-function construct_NPZD_instance(
+function construct_size_structured_NPZD(
     n_phyto=2,
     n_zoo=2,
     nutrient_dynamics=typical_nutrients,
