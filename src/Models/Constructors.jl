@@ -13,7 +13,16 @@ using Oceananigans.Units
 export construct_NPZD_instance
 
 """
-Construct an instance of an NPZD type model.... TODO: describe model here!
+Construct an instance of an size-structured NPZD model.
+
+This constructor builds a size-structured plankton model with two plankton functional types: phytoplankton (P) and zooplankton (Z), each of which 
+can be specified to have any number of size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor implements idealized detritus (D) and 
+nitrogen (N) cycling by default, although more complex N and D cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics` arguments.
+
+During model construction, the size of each plankton determines photosynthetic growth rates, nitrogen half saturation constants, predation rates, and optionally 
+predator-prey assimilation and palatability values. Alternatively, if manually defined predator-prey assimilation and palatability values are desired, these can 
+be defined using the `palatability_matrix` and `assimilation_efficiency_matrix` arguments.
+
 
 # Arguments
 - `n_phyto`: number of phytoplankton to include in the model
