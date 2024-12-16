@@ -18,10 +18,10 @@ Construct an instance of an NPZD type model.... TODO: describe model here!
 # Arguments
 - `n_phyto`: number of phytoplankton to include in the model
 - `n_zoo`: number of zooplankton to include in the model
-- `nutrients_dt`: expression describing how nutrients change over time
-- `detritus_dt`: expression describing how detritus evolves over time
-- `phyto_growth`: expressing describing how phytoplankton grow
-- `zoo_growth`: expressing describing how zooplankton grow
+- `nutrient_dynamics`: expression describing how nutrients change over time
+- `detritus_dynamics`: expression describing how detritus evolves over time
+- `phyto_dynamics`: expression describing how phytoplankton grow
+- `zoo_dynamics`: expression describing how zooplankton grow
 - `phyto_args`: dictionary of Phytoplankton parameters
 - `zoo_args`: Dictionary of zooplankton parameters
 - `palatability_args`: Dictionary of arguments from which a palatability matrix between all
@@ -37,10 +37,10 @@ Construct an instance of an NPZD type model.... TODO: describe model here!
 function construct_NPZD_instance(
     n_phyto=2,
     n_zoo=2,
-    nutrients_dt=typical_nutrients,
-    detritus_dt=typical_detritus,
-    phyto_growth=simplified_phytoplankton_growth,
-    zoo_growth=simplified_zooplankton_growth,
+    nutrient_dynamics=typical_nutrients,
+    detritus_dynamics=typical_detritus,
+    phyto_dynamics=simplified_phytoplankton_growth,
+    zoo_dynamics=simplified_zooplankton_growth,
     phyto_args=Dict(
         "volumes" =>
             Dict("min_volume" => 1, "max_volume" => 10, "splitting" => "log_splitting"),
@@ -109,14 +109,16 @@ function construct_NPZD_instance(
     plankton_array = vcat(
         [Symbol("P$i") for i in 1:n_phyto], [Symbol("Z$i") for i in 1:n_zoo]
     )
-    tracers = Dict("N" => nutrients_dt(plankton_array), "D" => detritus_dt(plankton_array))
+    tracers = Dict(
+        "N" => nutrient_dynamics(plankton_array), "D" => detritus_dynamics(plankton_array)
+    )
     for i in 1:n_phyto
         name = "P$i"
-        tracers[name] = phyto_growth(plankton_array, name)
+        tracers[name] = phyto_dynamics(plankton_array, name)
     end
     for i in 1:n_zoo
         name = "Z$i"
-        tracers[name] = zoo_growth(plankton_array, name)
+        tracers[name] = zoo_dynamics(plankton_array, name)
     end
 
     # return Oceananigans.Biogeochemistry object
