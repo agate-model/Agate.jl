@@ -15,15 +15,20 @@ export construct_size_structured_NPZD
 """
 Construct an instance of an size-structured NPZD model.
 
-This constructor builds a size-structured plankton model with two plankton functional types: phytoplankton (P) and zooplankton (Z), each of which 
-can be specified to have any number of size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor implements idealized detritus (D) and 
-nitrogen (N) cycling by default, although more complex N and D cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics` arguments.
+This constructor builds a size-structured plankton model with two plankton functional types:
+phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
+size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor implements
+idealized detritus (D) and nitrogen (N) cycling by default, although more complex N and D
+cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics` arguments.
 
-During model construction, the size of each plankton determines photosynthetic growth rates, nitrogen half saturation constants, predation rates, and optionally 
-predator-prey assimilation and palatability values. Alternatively, if manually defined predator-prey assimilation and palatability values are desired, these can 
-be defined using the `palatability_matrix` and `assimilation_efficiency_matrix` arguments.
+During model construction, the size of each plankton determines photosynthetic growth rates,
+nitrogen half saturation constants, predation rates, and optionally predator-prey assimilation
+and palatability values. Alternatively, if manually defined predator-prey assimilation and
+palatability values are desired, these can be defined using the `palatability_matrix` and
+`assimilation_efficiency_matrix` arguments.
 
-Note that if non-default `*_dynamics` expressions are passed, the relevant `*_args` also need to be specified.
+Note that if non-default `*_dynamics` expressions are passed, the relevant `*_args` also
+need to be specified.
 
 # Arguments
 - `n_phyto`: number of phytoplankton to include in the model
@@ -32,15 +37,15 @@ Note that if non-default `*_dynamics` expressions are passed, the relevant `*_ar
 - `detritus_dynamics`: expression describing how detritus evolves over time
 - `phyto_dynamics`: expression describing how phytoplankton grow
 - `zoo_dynamics`: expression describing how zooplankton grow
-- `phyto_args`: dictionary of Phytoplankton parameters
+- `phyto_args`: Dictionary of phytoplankton parameters
 - `zoo_args`: Dictionary of zooplankton parameters
 - `palatability_args`: Dictionary of arguments from which a palatability matrix between all
    plankton can be computed
 - `assimilation_effificency_args`: Dictionary of arguments from which an assimilation
    efficiency matrix between all plankton can be computed
 - `bgc_args`: biogeochemistry parameters related to nutrient and detritus
-- `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided then
-   `paralatability_args` are ignored
+- `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
+   then `paralatability_args` are ignored
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
    NamedArray, if provided then `assimilation_args` are ignored
 """
