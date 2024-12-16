@@ -4,7 +4,12 @@ Functions related to phytoplankton light uptake.
 
 module Photosynthesis
 
-export γˡⁱᵍʰᵗ, smith_light_limitation, idealized_photosynthetic_growth
+using Agate.Library.Nutrients
+
+export γˡⁱᵍʰᵗ,
+    smith_light_limitation,
+    idealized_photosynthetic_growth,
+    net_idealized_photosynthetic_growth
 
 """
     γˡⁱᵍʰᵗ = (1 - ℯ^(kˢᵃᵗ*I)) * ℯ^kⁱⁿʰ * nˡⁱᵍʰᵗ
@@ -52,6 +57,33 @@ Single nutrient monod smith photosynthetic growth (used, for example, in Kuhn 20
 """
 function idealized_photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)
     return μ₀ * monod_limitation(N, kₙ) * smith_light_limitation(PAR, α, μ₀) * P
+end
+
+"""
+Net photosynthetic growth of all plankton.
+
+# Arguments
+- `N`: Nitrogen
+- `P`: NamedArray which includes all plankton concentration values
+- `PAR`: PAR
+- `maximum_growth_rate`: NamedArray of all plankton maximum growth rates
+- `nitrogen_half_saturation`: NamedArray of all plankton nitrogen half saturation constants
+"""
+function net_idealized_photosynthetic_growth(
+    N, P, PAR, maximum_growth_rate, nitrogen_half_saturation, alpha
+)
+    return sum([
+        # sum over plankton that have a `maximum_growth_rate` (these will also have
+        # `nitrogen_half_saturation` and `alpha` values)
+        idealized_photosynthetic_growth(
+            N,
+            P[name],
+            PAR,
+            maximum_growth_rate[name],
+            nitrogen_half_saturation[name],
+            alpha[name],
+        ) for name in names(maximum_growth_rate, 1)
+    ],)
 end
 
 end # module

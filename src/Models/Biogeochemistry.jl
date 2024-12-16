@@ -11,6 +11,7 @@ using Agate.Library.Photosynthesis
 using Agate.Library.Predation
 using Agate.Library.Remineralization
 
+using NamedArrays
 using UUIDs
 
 using OceanBioME: setup_velocity_fields
