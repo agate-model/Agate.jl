@@ -100,7 +100,7 @@ function construct_NPZD_instance(
         defined_parameters["Z"]["assimilation_efficiency"] = assimilation_efficiency_args["Z"]
     end
 
-    emergent_parameters = compute_darwin_parameters(defined_parameters)
+    emergent_parameters = compute_allometric_parameters(defined_parameters)
 
     # combine emergent parameters with remaining user defined parameters
     parameters = NamedTuple(
