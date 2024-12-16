@@ -49,7 +49,7 @@ need to be specified.
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
    NamedArray, if provided then `assimilation_args` are ignored
 """
-function construct_size_structured_NPZD(
+function construct_size_structured_NPZD(;
     n_phyto=2,
     n_zoo=2,
     nutrient_dynamics=typical_nutrients,
@@ -107,18 +107,33 @@ function construct_size_structured_NPZD(
 
     emergent_parameters = compute_allometric_parameters(defined_parameters)
 
+    if !isnothing(palatability_matrix)
+        if !(size(palatability_matrix) == (n_phyto + n_zoo, n_phyto + n_zoo))
+            throw(
+                ArgumentError(
+                    "palatability_matrix must have size $((n_phyto+n_zoo, n_phyto+n_zoo))"
+                ),
+            )
+        end
+        emergent_parameters["palatability_matrix"] = palatability_matrix
+    end
+
+    if !isnothing(assimilation_efficiency_matrix)
+        if !(size(assimilation_efficiency_matrix) == (n_phyto + n_zoo, n_phyto + n_zoo))
+            throw(
+                ArgumentError(
+                    "assimilation_efficiency_matrix must have size $((n_phyto+n_zoo, n_phyto+n_zoo))",
+                ),
+            )
+        end
+
+        emergent_parameters["assimilation_efficiency_matrix"] = assimilation_efficiency_matrix
+    end
+
     # combine emergent parameters with remaining user defined parameters
     parameters = NamedTuple(
         Symbol(k) => v for (k, v) in merge(bgc_args, emergent_parameters)
     )
-
-    if !isnothing(palatability_matrix)
-        parameters["palatability_matrix"] = palatability_matrix
-    end
-
-    if !isnothing(assimilation_efficiency_matrix)
-        parameters["assimilation_efficiency_matrix"] = assimilation_efficiency_matrix
-    end
 
     # create tracer functions
     plankton_array = vcat(
