@@ -92,7 +92,6 @@ function compute_allometric_parameters(plankton::Dict)
 
     for (plankton_name, params) in plankton
         n = params["n"]
-
         plankton_names = ["$plankton_name$i" for i in 1:n]
 
         # 1. compute volumes
@@ -196,7 +195,7 @@ values_matrix = emergent_2D_array(plankton, add_ab)
 ```
 """
 function emergent_2D_array(plankton, func)
-    plankton_names = names(plankton["volumes"])[1]
+    plankton_names = names(plankton["volumes"], 1)
     arg_names = keys(plankton)
     values = zeros(Float64, length(plankton_names), length(plankton_names))
     plankton_matrix = NamedArray(values, (predator=plankton_names, prey=plankton_names))
