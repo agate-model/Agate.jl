@@ -5,8 +5,8 @@ module Allometry
 
 Allometric scaling function using the power law for cell volume.
 
-Note that for cells with a diameter < ~6 micrometers, `b` tends to be negative.
-For cells > ~6 micrometers, `b` tends to be positive.
+Note that for cells with a diameter > ~6 micrometers, `b` tends to be negative.
+For cells < ~6 micrometers, `b` tends to be positive.
 
 # Arguments
 - `a`: scale
@@ -25,6 +25,9 @@ diameter to volume assuming a spherical shape.
 
 Note that if diameter is passed instead of volume this should be done explicitly:
 `x = (2.19, -0.16, d=10)`
+
+Note that for cells with a diameter > ~6 micrometers, `b` tends to be negative.
+For cells < ~6 micrometers, `b` tends to be positive.
 
 # Arguments
 - `a`: scale
