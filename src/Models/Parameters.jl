@@ -13,14 +13,14 @@ using .Allometry
 emergent_palatability_f = allometric_palatability_unimodal_protection
 emergent_assimilation_efficiency_f = dummy_emergent_assimilation_efficiency
 
-# TODO: update this placeholder function (should only take in `a`, `b` and `volume`)
-function allometry_f(param, a, b, volume)
+# TODO: update this placeholder function (should only take in `a`, `b` and `diameter`)
+function allometry_f(param, a, b, diameter)
     if param == "maximum_growth_rate"
-        return dummy_emergent_growth(a, b, volume)
+        return dummy_emergent_growth(a, b, diameter)
     elseif param == "nitrogen_half_saturation"
-        return dummy_emergent_nitrogen_half_saturation(a, b, volume)
+        return dummy_emergent_nitrogen_half_saturation(a, b, diameter)
     elseif param == "maximum_predation_rate"
-        return dummy_emergent_predation_rate(a, b, volume)
+        return dummy_emergent_predation_rate(a, b, diameter)
     end
 end
 
@@ -30,10 +30,10 @@ end
 This function:
     - generates `n` names for each `plankton` group (e.g., "P", "Z" or "cocco") of the form:
       `["P1", ..., "P<n>", "Z1", ...., "Z<n>", ...]`
-    - generates `n` volumes for each `plankton` group using either a linear or a log
+    - generates `n` diameters for each `plankton` group using either a linear or a log
       splitting scale
     - optionally computes emergent parameters (allometric functions, assimilation matrix,
-      palatability matrix) for each group-volume combination
+      palatability matrix) for each group-diameter combination
     - reshapes any other group specific parameters (e.g., `linear_mortality`) to length `n`
 All parameters are returned as:
     `Dict(<parameter> => <NamedArray of `n` values>, ....)`
@@ -44,13 +44,13 @@ using names generated in the first step.
        `Dict(<group name> => Dict(<parameter> => <value>, ....), ...)`
 
     The Dictionary for each group (e.g., "P", "Z" or "cocco") has to contain at least the
-    keys "n" and "volumes" and have the following form:
+    keys "n" and "diameters" and have the following form:
         ```
         Dict(
             "P" => Dict(
                 "n" => 2,
-                "volumes" =>
-                    Dict("min_volume" => 1, "max_volume" => 10, "splitting" => "log_splitting"),
+                "diameters" =>
+                    Dict("min_diameter" => 1, "max_diameter" => 10, "splitting" => "log_splitting"),
                 ...
                 ),
             "Z" => ...
@@ -58,7 +58,7 @@ using names generated in the first step.
         ```
 
     The Dictionary for each group can optionally include the following keys and values:
-        - key: "allometry" (compute volume dependent parameters)
+        - key: "allometry" (compute diameter dependent parameters)
             - value: Dictionary of the form
                 `Dict(<param name> => Dict("a" => <value>, "b" => <value>), ...)`
         - key: "palatability" (generate a palatability matrix)
@@ -97,25 +97,25 @@ function compute_allometric_parameters(plankton::Dict)
         n = params["n"]
         plankton_names = ["$plankton_name$i" for i in 1:n]
 
-        # 1. compute volumes
-        splitting_function = getfield(Parameters, Symbol(params["volumes"]["splitting"]))
-        volumes = splitting_function(
-            params["volumes"]["min_volume"], params["volumes"]["max_volume"], n
+        # 1. compute diameters
+        splitting_function = getfield(Parameters, Symbol(params["diameters"]["splitting"]))
+        diameters = splitting_function(
+            params["diameters"]["min_diameter"], params["diameters"]["max_diameter"], n
         )
-        results["volumes"] = vcat(results["volumes"], NamedArray(volumes, plankton_names))
+        results["diameters"] = vcat(results["diameters"], NamedArray(diameters, plankton_names))
 
         # 2. compute allometric functions (if any specified by user)
         if "allometry" ∈ keys(params)
             for (param, args) in params["allometry"]
                 # TODO: once `allometry_f` is updated, it should not have `param` as argument
-                values = [allometry_f(param, args["a"], args["b"], v) for v in volumes]
+                values = [allometry_f(param, args["a"], args["b"], v) for v in diameters]
                 results[param] = vcat(results[param], NamedArray(values, plankton_names))
             end
         end
 
         # 3. reshape remaining parameters
         for (param, value) in params
-            if !(param ∈ ["n", "volumes", "allometry"])
+            if !(param ∈ ["n", "diameters", "allometry"])
                 # NOTE: for palatability and assimilation_efficiency, `value` is a Dictionary
                 # store the values in intermediate form to use later when creating matrices
                 if param ∈ ["palatability", "assimilation_efficiency"]
@@ -143,14 +143,14 @@ function compute_allometric_parameters(plankton::Dict)
 
     # 4. palatability & assimilation efficiency matrices (if specified by user)
     if !(isempty(intermediate_palatability))
-        intermediate_palatability["volumes"] = results["volumes"]
+        intermediate_palatability["diameters"] = results["diameters"]
         results["palatability_matrix"] = emergent_2D_array(
             intermediate_palatability, emergent_palatability_f
         )
     end
 
     if !(isempty(intermediate_assimilation))
-        intermediate_assimilation["volumes"] = results["volumes"]
+        intermediate_assimilation["diameters"] = results["diameters"]
         results["assimilation_efficiency_matrix"] = emergent_2D_array(
             intermediate_assimilation, emergent_assimilation_efficiency_f
         )
@@ -160,21 +160,21 @@ function compute_allometric_parameters(plankton::Dict)
 end
 
 """
-Log splitting function to generate a set of volumes.
+Log splitting function to generate a set of diameters.
 """
-function log_splitting(min_volume::Real, max_volume::Real, n::Int)
-    log_min = log10(min_volume)
-    log_max = log10(max_volume)
+function log_splitting(min_diameter::Real, max_diameter::Real, n::Int)
+    log_min = log10(min_diameter)
+    log_max = log10(max_diameter)
     log_step = (log_max - log_min) / (n - 1)
     return [10^(log_min + i * log_step) for i in 0:(n - 1)]
 end
 
 """
-Linear splitting function to generate a set of volumes.
+Linear splitting function to generate a set of diameters.
 """
-function linear_splitting(min_volume::Real, max_volume::Real, n::Int)
-    linear_step = (max_volume - min_volume) / (n - 1)
-    return [min_volume + i * linear_step for i in 0:(n - 1)]
+function linear_splitting(min_diameter::Real, max_diameter::Real, n::Int)
+    linear_step = (max_diameter - min_diameter) / (n - 1)
+    return [min_diameter + i * linear_step for i in 0:(n - 1)]
 end
 
 """
@@ -198,7 +198,7 @@ values_matrix = emergent_2D_array(plankton, add_ab)
 ```
 """
 function emergent_2D_array(plankton, func)
-    plankton_names = names(plankton["volumes"], 1)
+    plankton_names = names(plankton["diameters"], 1)
     arg_names = keys(plankton)
     values = zeros(Float64, length(plankton_names), length(plankton_names))
     plankton_matrix = NamedArray(values, (predator=plankton_names, prey=plankton_names))

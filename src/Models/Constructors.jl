@@ -57,8 +57,8 @@ function construct_size_structured_NPZD(;
     phyto_dynamics=simplified_phytoplankton_growth,
     zoo_dynamics=simplified_zooplankton_growth,
     phyto_args=Dict(
-        "volumes" =>
-            Dict("min_volume" => 1, "max_volume" => 10, "splitting" => "log_splitting"),
+        "diameters" =>
+            Dict("min_diameter" => 1, "max_diameter" => 10, "splitting" => "log_splitting"),
         "allometry" => Dict(
             "maximum_growth_rate" => Dict("a" => 1, "b" => 1),
             "nitrogen_half_saturation" => Dict("a" => 1, "b" => 1),
@@ -67,8 +67,8 @@ function construct_size_structured_NPZD(;
         "alpha" => 0.1953 / day,
     ),
     zoo_args=Dict(
-        "volumes" => Dict(
-            "min_volume" => 10, "max_volume" => 100, "splitting" => "linear_splitting"
+        "diameters" => Dict(
+            "min_diameter" => 10, "max_diameter" => 100, "splitting" => "linear_splitting"
         ),
         "allometry" => Dict("maximum_predation_rate" => Dict("a" => 1, "b" => 1)),
         "linear_mortality" => 8e-7 / second,
