@@ -1,5 +1,7 @@
 module Allometry
 
+export allometric_scaling_power, allometric_palatability_unimodal, allometric_palatability_unimodal_protection
+
 """
     allometric_scaling_power(a, b, V::Number)
 
