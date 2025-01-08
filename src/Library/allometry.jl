@@ -13,7 +13,7 @@ Allometric scaling function using the power law for cell volume.
 - `b`: exponent
 - `d`: cell equivalent spherical diameter (ESD)
 """
-function allometric_scaling_power(a::Number, b::Number,  d::Number)
+function allometric_scaling_power(a::Number, b::Number, d::Number)
     V = (4 / 3) * π * (d / 2)^3
     return a * V^b
 end
@@ -39,12 +39,9 @@ Note that this formulation differs from the currently operational MITgcm-DARWIN 
 # Returns
 - `palatability`: A number between 0 and 1 representing the palatability.
 """
-function allometric_palatability_unimodal(
-    prey_data::Dict,
-    predator_data::Dict,
-)
-    prey_diameter = prey_data["diameter"]
-    predator_diameter = predator_data["diameter"]
+function allometric_palatability_unimodal(prey_data::Dict, predator_data::Dict)
+    prey_diameter = prey_data["diameters"]
+    predator_diameter = predator_data["diameters"]
     predator_prey_optimum = predator_data["optimum_predator_prey_ratio"]
     predator_specificity = 1 #predator_data["specificity"] default to 1 for now for debugging
 
@@ -74,12 +71,9 @@ The function uses a modified unimodal relationship defined by:
 # Returns
 - `palatability`: A number between 0 and `prey_protection` representing the palatability.
 """
-function allometric_palatability_unimodal_protection(
-    prey_data::Dict,
-    predator_data::Dict,
-)
-    prey_diameter = prey_data["diameter"]
-    predator_diameter = predator_data["diameter"]
+function allometric_palatability_unimodal_protection(prey_data::Dict, predator_data::Dict)
+    prey_diameter = prey_data["diameters"]
+    predator_diameter = predator_data["diameters"]
     predator_prey_optimum = predator_data["optimum_predator_prey_ratio"]
     predator_specificity = predator_data["specificity"]
     prey_protection = prey_data["protection"]
