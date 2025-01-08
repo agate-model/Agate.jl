@@ -104,10 +104,10 @@ The function uses a modified unimodal relationship defined by:
 - `predator_volume`: Volume of the predator (assumed to be spherical if diameter is provided).
 - `predator_prey_optimum`: The optimal predator-prey ratio for the predator.
 - `predator_specificity`: A parameter controlling how sharply the palatability decreases away from the optimal ratio.
-- `prey_protection`: A scaling factor representing additional protection mechanisms of the prey.
+- `prey_protection`: A scaling factor between 0 and 1 representing additional protection mechanisms of the prey.
 
 # Returns
-- `palatability`: A number representing the palatability, modified by prey protection.
+- `palatability`: A number between 0 and `prey_protection` representing the palatability.
 """
 function allometric_palatability_unimodal_protection(
     prey_volume::Number,
@@ -133,10 +133,10 @@ This method converts prey and predator diameters into their respective volumes (
 - `predator_diameter`: Diameter of the predator (assumed to be spherical).
 - `predator_prey_optimum`: The optimal predator-prey ratio for the predator.
 - `predator_specificity`: A parameter controlling how sharply the palatability decreases away from the optimal ratio.
-- `prey_protection`: A scaling factor representing additional protection mechanisms of the prey.
+- `prey_protection`: A scaling factor between 0 and 1 representing additional protection mechanisms of the prey.
 
 # Returns
-- `palatability`: A number representing the palatability, modified by prey protection.
+- `palatability`: A number between 0 and `prey_protection` representing the palatability.
 """
 function allometric_palatability_unimodal_protection(
     prey_diameter::Number,
