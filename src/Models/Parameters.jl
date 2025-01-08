@@ -7,8 +7,8 @@ export compute_allometric_parameters
 
 # TODO: the real palatability and assimilation functions should eventually be defined here
 include(joinpath("..", "..", "examples", "emergent_4P", "emergent_functions.jl"))
-include(joinpath("..", "Library","allometry.jl"))
-using .Allometry 
+include(joinpath("..", "Library", "allometry.jl"))
+using .Allometry
 
 emergent_palatability_f = allometric_palatability_unimodal_protection
 emergent_assimilation_efficiency_f = dummy_emergent_assimilation_efficiency
@@ -102,7 +102,9 @@ function compute_allometric_parameters(plankton::Dict)
         diameters = splitting_function(
             params["diameters"]["min_diameter"], params["diameters"]["max_diameter"], n
         )
-        results["diameters"] = vcat(results["diameters"], NamedArray(diameters, plankton_names))
+        results["diameters"] = vcat(
+            results["diameters"], NamedArray(diameters, plankton_names)
+        )
 
         # 2. compute allometric functions (if any specified by user)
         if "allometry" ∈ keys(params)

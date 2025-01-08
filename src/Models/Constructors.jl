@@ -68,7 +68,9 @@ function construct_size_structured_NPZD(;
     ),
     zoo_args=Dict(
         "diameters" => Dict(
-            "min_diameter" => 10, "max_diameter" => 100, "splitting" => "linear_splitting"
+            "min_diameter" => 10,
+            "max_diameter" => 100,
+            "splitting" => "linear_splitting",
         ),
         "allometry" => Dict("maximum_predation_rate" => Dict("a" => 1, "b" => 1)),
         "linear_mortality" => 8e-7 / second,
