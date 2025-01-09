@@ -15,7 +15,7 @@ Allometric scaling function using the power law for cell volume.
 """
 function allometric_scaling_power(a::Number, b::Number, d::Number)
     V = (4 / 3) * π * (d / 2)^3
-    return a * V^b
+    return a * V^b 
 end
 
 """
@@ -75,7 +75,7 @@ function allometric_palatability_unimodal_protection(prey_data::Dict, predator_d
     prey_diameter = prey_data["diameters"]
     predator_diameter = predator_data["diameters"]
     predator_prey_optimum = predator_data["optimum_predator_prey_ratio"]
-    predator_specificity = predator_data["specificity"]
+    predator_specificity = 1 #predator_data["specificity"]
     prey_protection = prey_data["protection"]
 
     predator_prey_ratio = prey_diameter / predator_diameter
