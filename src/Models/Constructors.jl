@@ -58,7 +58,7 @@ function construct_size_structured_NPZD(;
     zoo_dynamics=simplified_zooplankton_growth,
     phyto_args=Dict(
         "diameters" =>
-            Dict("min_diameter" => 1, "max_diameter" => 10, "splitting" => "log_splitting"),
+            Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
         "allometry" => Dict(
             "maximum_growth_rate" => Dict("a" => 1, "b" => 1),
             "nitrogen_half_saturation" => Dict("a" => 1, "b" => 1),
