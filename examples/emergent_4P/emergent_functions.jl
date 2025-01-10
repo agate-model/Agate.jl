@@ -4,7 +4,7 @@ function dummy_emergent_growth(growth_a::Real, growth_b::Real, diameter::Real)
     if growth_a == 0
         return rate
     else
-        if diameter == 1
+        if diameter == 2
             rate = 7.190e-6
         elseif diameter == 10
             rate = 2.216e-5
@@ -39,7 +39,7 @@ function dummy_emergent_nitrogen_half_saturation(
         return rate = 0  # Early return if diameter_a is zero
     else
         # Set rate based on the value of diameter
-        if diameter == 1
+        if diameter == 2
             rate = 6.73e-3
         elseif diameter == 10
             rate = 0.12
