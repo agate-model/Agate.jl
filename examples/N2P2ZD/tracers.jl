@@ -2,7 +2,7 @@ using Agate
 using Oceananigans.Units
 
 parameters = (
-    maximum_growth_rate=[9.05e-06, 1.87e-05, 0, 0] / second,
+    maximum_growth_rate=[1.8691e-05, 9.0594e-06, 0, 0] / second,
     nitrogen_half_saturation=[6.73e-3, 0.12, 0, 0],
     detritus_remineralization=0.1213 / day,
     holling_half_saturation=[0, 0, 5.0, 5.0],
