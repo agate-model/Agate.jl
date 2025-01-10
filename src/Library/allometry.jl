@@ -15,7 +15,7 @@ Allometric scaling function using the power law for cell volume.
 """
 function allometric_scaling_power(a::Number, b::Number, d::Number)
     V = (4 / 3) * π * (d / 2)^3
-    return a * V^b 
+    return a * V^b
 end
 
 """
