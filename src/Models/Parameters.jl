@@ -7,10 +7,10 @@ export compute_allometric_parameters
 
 # TODO: the real palatability and assimilation functions should eventually be defined here
 include(joinpath("..", "..", "examples", "emergent_4P", "emergent_functions.jl"))
-include(joinpath("..", "Library", "allometry.jl"))
-using .Allometry
+#include(joinpath("..", "Library", "allometry.jl"))
+#using .Allometry
 
-emergent_palatability_f = allometric_palatability_unimodal_protection
+emergent_palatability_f = dummy_emergent_palat #allometric_palatability_unimodal_protection
 emergent_assimilation_efficiency_f = dummy_emergent_assimilation_efficiency
 
 # TODO: update this placeholder function (should only take in `a`, `b` and `diameter`)
