@@ -16,11 +16,11 @@ emergent_assimilation_efficiency_f = dummy_emergent_assimilation_efficiency
 # TODO: update this placeholder function (should only take in `a`, `b` and `diameter`)
 function allometry_f(param, a, b, diameter)
     if param == "maximum_growth_rate"
-        return allometric_scaling_power(a, b, diameter)#dummy_emergent_growth(a, b, diameter)
+        return allometric_scaling_power(a, b, diameter) #dummy_emergent_growth(a, b, diameter)
     elseif param == "nitrogen_half_saturation"
         return dummy_emergent_nitrogen_half_saturation(a, b, diameter)
     elseif param == "maximum_predation_rate"
-        return dummy_emergent_predation_rate(a, b, diameter)
+        return allometric_scaling_power(a, b, diameter)  #dummy_emergent_predation_rate(a, b, diameter)
     end
 end
 

@@ -72,7 +72,8 @@ function construct_size_structured_NPZD(;
             "max_diameter" => 100,
             "splitting" => "linear_splitting",
         ),
-        "allometry" => Dict("maximum_predation_rate" => Dict("a" => 1, "b" => 1)),
+        "allometry" =>
+            Dict("maximum_predation_rate" => Dict("a" => 30.84 / 86400, "b" => -0.16)),
         "linear_mortality" => 8e-7 / second,
         "holling_half_saturation" => 5.0,
         "quadratic_mortality" => 1e-6 / second,
