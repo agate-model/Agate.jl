@@ -14,7 +14,8 @@ export holling_type_2,
     summed_preferential_predation_gain,
     summed_preferential_predation_loss,
     summed_preferential_predation_assimilation_loss,
-    net_preferential_predation_assimilation_loss
+    net_preferential_predation_assimilation_loss,
+    assimilation_efficiency_emergent_binary
 
 """
 Holling's "type II" functional response as describe in Holling 1959.
@@ -294,6 +295,36 @@ function net_preferential_predation_assimilation_loss(
             palatability,
         ) for predator_name in names(maximum_predation_rate, 1)
     ])
+end
+
+"""
+    assimilation_efficiency_emergent_binary(prey_data, predator_data)
+
+Determines the assimilation efficiency of a predator consuming prey, based on binary conditions of edibility.
+
+The function evaluates whether the predator can eat the prey and whether the prey can be consumed, and assigns the assimilation efficiency accordingly.
+
+# Arguments
+- `prey_data`: A dictionary containing prey-specific data:
+  - `can_be_eaten`: A binary value (1 or 0) indicating if the prey can be consumed by the predator.
+- `predator_data`: A dictionary containing predator-specific data:
+  - `can_eat`: A binary value (1 or 0) indicating if the predator can consume prey.
+  - `assimilation_efficiency`: The efficiency with which the predator assimilates nutrients from the prey if the conditions are met.
+
+# Returns
+- `assimilation_efficiency`: 
+  - If `can_eat` is 1 and `can_be_eaten` is 1, returns the predator's `assimilation_efficiency`.
+  - Otherwise, returns 0.
+"""
+function assimilation_efficiency_emergent_binary(prey_data, predator_data)
+    if predator_data["can_eat"] == 1 && prey_data["can_be_eaten"] == 1
+        assimilation_efficiency = predator_data["assimilation_efficiency"]
+    elseif predator_data["can_eat"] == 1 && prey_data["can_be_eaten"] == 0
+        assimilation_efficiency = 0
+    elseif predator_data["can_eat"] == 0
+        assimilation_efficiency = 0
+    end
+    return assimilation_efficiency
 end
 
 end # module

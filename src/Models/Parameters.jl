@@ -5,13 +5,14 @@ using NamedArrays
 
 export compute_allometric_parameters
 
-# TODO: the real palatability and assimilation functions should eventually be defined here
-include(joinpath("..", "..", "examples", "emergent_4P", "emergent_functions.jl"))
 include(joinpath("..", "Library", "allometry.jl"))
+include(joinpath("..", "Library", "predation.jl"))
+
 using .Allometry
+using .Predation
 
 emergent_palatability_f = allometric_palatability_unimodal_protection #dummy_emergent_palat #allometric_palatability_unimodal_protection
-emergent_assimilation_efficiency_f = dummy_emergent_assimilation_efficiency
+emergent_assimilation_efficiency_f = assimilation_efficiency_emergent_binary #dummy_emergent_assimilation_efficiency
 
 # TODO: update this placeholder function (should only take in `a`, `b` and `diameter`)
 function allometry_f(param, a, b, diameter)

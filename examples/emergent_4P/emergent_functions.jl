@@ -73,6 +73,6 @@ function dummy_emergent_assimilation_efficiency(prey_data, predator_data)
         assimilation_efficiency = 0
     elseif predator_data["can_eat"] == 0
         assimilation_efficiency = 0
-    end    
+    end
     return assimilation_efficiency
 end
