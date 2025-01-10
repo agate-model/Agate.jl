@@ -5,12 +5,11 @@ function dummy_emergent_growth(growth_a::Real, growth_b::Real, diameter::Real)
         return rate
     else
         if diameter == 2
-            rate = 7.190e-6
+            rate = 9.05e-06
         elseif diameter == 10
-            rate = 2.216e-5
+            rate = 1.87e-05
         end
     end
-
     return rate
 end
 
