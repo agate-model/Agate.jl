@@ -7,8 +7,8 @@ export compute_allometric_parameters
 
 # TODO: the real palatability and assimilation functions should eventually be defined here
 include(joinpath("..", "..", "examples", "emergent_4P", "emergent_functions.jl"))
-#include(joinpath("..", "Library", "allometry.jl"))
-#using .Allometry
+include(joinpath("..", "Library", "allometry.jl"))
+using .Allometry
 
 emergent_palatability_f = dummy_emergent_palat #allometric_palatability_unimodal_protection
 emergent_assimilation_efficiency_f = dummy_emergent_assimilation_efficiency
@@ -16,7 +16,7 @@ emergent_assimilation_efficiency_f = dummy_emergent_assimilation_efficiency
 # TODO: update this placeholder function (should only take in `a`, `b` and `diameter`)
 function allometry_f(param, a, b, diameter)
     if param == "maximum_growth_rate"
-        return dummy_emergent_growth(a, b, diameter)
+        return allometric_scaling_power(a, b, diameter)#dummy_emergent_growth(a, b, diameter)
     elseif param == "nitrogen_half_saturation"
         return dummy_emergent_nitrogen_half_saturation(a, b, diameter)
     elseif param == "maximum_predation_rate"
