@@ -67,10 +67,12 @@ function dummy_emergent_palat(prey_data, predator_data)
 end
 
 function dummy_emergent_assimilation_efficiency(prey_data, predator_data)
-    assimilation_efficiency = 0
-    # predators don't eat other predators
-    if prey_data["assimilation_efficiency"] == 0
+    if predator_data["can_eat"] == 1 && prey_data["can_be_eaten"] == 1
         assimilation_efficiency = predator_data["assimilation_efficiency"]
-    end
+    elseif predator_data["can_eat"] == 1 && prey_data["can_be_eaten"] == 0
+        assimilation_efficiency = 0
+    elseif predator_data["can_eat"] == 0
+        assimilation_efficiency = 0
+    end    
     return assimilation_efficiency
 end
