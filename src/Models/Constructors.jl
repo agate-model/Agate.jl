@@ -68,7 +68,7 @@ function construct_size_structured_NPZD(;
     ),
     zoo_args=Dict(
         "diameters" => Dict(
-            "min_diameter" => 10,
+            "min_diameter" => 20,
             "max_diameter" => 100,
             "splitting" => "linear_splitting",
         ),

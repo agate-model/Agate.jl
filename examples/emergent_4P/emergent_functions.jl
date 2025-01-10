@@ -21,7 +21,7 @@ function dummy_emergent_predation_rate(
         return rate = 0  # Early return if diameter_a is zero
     else
         # Set rate based on the value of diameter
-        if diameter == 10
+        if diameter == 20
             rate = 8.86e-5
         elseif diameter == 100
             rate = 4.88e-5
