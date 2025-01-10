@@ -18,7 +18,7 @@ function allometry_f(param, a, b, diameter)
     if param == "maximum_growth_rate"
         return allometric_scaling_power(a, b, diameter) #dummy_emergent_growth(a, b, diameter)
     elseif param == "nitrogen_half_saturation"
-        return dummy_emergent_nitrogen_half_saturation(a, b, diameter)
+        return allometric_scaling_power(a, b, diameter)  #dummy_emergent_nitrogen_half_saturation(a, b, diameter)
     elseif param == "maximum_predation_rate"
         return allometric_scaling_power(a, b, diameter)  #dummy_emergent_predation_rate(a, b, diameter)
     end

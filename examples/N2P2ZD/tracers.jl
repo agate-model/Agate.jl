@@ -3,7 +3,7 @@ using Oceananigans.Units
 
 parameters = (
     maximum_growth_rate=[1.8691e-05, 9.0594e-06, 0, 0] / second,
-    nitrogen_half_saturation=[6.73e-3, 0.12, 0, 0],
+    nitrogen_half_saturation=[2.5027e-01, 9.2168e-01, 0, 0],
     detritus_remineralization=0.1213 / day,
     holling_half_saturation=[0, 0, 5.0, 5.0],
     linear_mortality=[8e-7, 8e-7, 8e-7, 8e-7] / second,
