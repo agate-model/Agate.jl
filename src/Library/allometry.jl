@@ -78,9 +78,10 @@ function allometric_palatability_unimodal_protection(prey_data::Dict, predator_d
     predator_specificity = predator_data["specificity"]
     prey_protection = prey_data["protection"]
 
-    predator_prey_ratio =  predator_diameter  / prey_diameter    
+    predator_prey_ratio = predator_diameter / prey_diameter
 
-    return (1-prey_protection) / (1 + (predator_prey_ratio - predator_prey_optimum)^2)^predator_specificity
+    return (1 - prey_protection) /
+           (1 + (predator_prey_ratio - predator_prey_optimum)^2)^predator_specificity
 end
 
 end
