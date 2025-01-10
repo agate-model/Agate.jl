@@ -3,25 +3,23 @@ module Parameters
 using DataStructures: DefaultDict
 using NamedArrays
 
+include(joinpath("..", "Library", "Library.jl"))
+
+using .Library.Allometry
+using .Library.Predation
+
 export compute_allometric_parameters
 
-include(joinpath("..", "Library", "allometry.jl"))
-include(joinpath("..", "Library", "predation.jl"))
+emergent_palatability_f = allometric_palatability_unimodal_protection
+emergent_assimilation_efficiency_f = assimilation_efficiency_emergent_binary
 
-using .Allometry
-using .Predation
-
-emergent_palatability_f = allometric_palatability_unimodal_protection #dummy_emergent_palat #allometric_palatability_unimodal_protection
-emergent_assimilation_efficiency_f = assimilation_efficiency_emergent_binary #dummy_emergent_assimilation_efficiency
-
-# TODO: update this placeholder function (should only take in `a`, `b` and `diameter`)
 function allometry_f(param, a, b, diameter)
     if param == "maximum_growth_rate"
-        return allometric_scaling_power(a, b, diameter) #dummy_emergent_growth(a, b, diameter)
+        return allometric_scaling_power(a, b, diameter)
     elseif param == "nitrogen_half_saturation"
-        return allometric_scaling_power(a, b, diameter)  #dummy_emergent_nitrogen_half_saturation(a, b, diameter)
+        return allometric_scaling_power(a, b, diameter)
     elseif param == "maximum_predation_rate"
-        return allometric_scaling_power(a, b, diameter)  #dummy_emergent_predation_rate(a, b, diameter)
+        return allometric_scaling_power(a, b, diameter)
     end
 end
 
