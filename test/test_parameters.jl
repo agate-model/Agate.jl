@@ -24,8 +24,12 @@ using .Library.Predation
                     "nitrogen_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
                     "maximum_predation_rate" => Dict("a" => 0, "b" => 0),
                 ),
-                "palatability" =>
-                    Dict("optimum_predator_prey_ratio" => 0, "protection" => 0, "specificity" => 0),
+                "palatability" => Dict(
+                    "can_eat" => 0,
+                    "optimum_predator_prey_ratio" => 0,
+                    "protection" => 0,
+                    "specificity" => 0,
+                ),
                 "assimilation_efficiency" => Dict(
                     "can_be_eaten" => 1,
                     "can_eat" => 0,
@@ -46,10 +50,15 @@ using .Library.Predation
                 "allometry" => Dict(
                     "maximum_growth_rate" => Dict("a" => 0, "b" => 0),
                     "nitrogen_half_saturation" => Dict("a" => 0, "b" => 0),
-                    "maximum_predation_rate" => Dict("a" => 30.84 / 86400, "b" => -0.16),
+                    "maximum_predation_rate" =>
+                        Dict("a" => 30.84 / 86400, "b" => -0.16),
                 ),
-                "palatability" =>
-                    Dict("optimum_predator_prey_ratio" => 10, "protection" => 1, "specificity" => 0.3),
+                "palatability" => Dict(
+                    "can_eat" => 1,
+                    "optimum_predator_prey_ratio" => 10,
+                    "protection" => 1,
+                    "specificity" => 0.3,
+                ),
                 "assimilation_efficiency" => Dict(
                     "can_be_eaten" => 0,
                     "can_eat" => 1,
@@ -67,25 +76,37 @@ using .Library.Predation
         # compare against hand computed `parameters` in examples
         include(joinpath("..", "examples", "N2P2ZD", "tracers.jl"))
 
-        plankton_order = [ "P1",  "P2",  "Z1", "Z2"]
+        plankton_order = ["P1", "P2", "Z1", "Z2"]
 
         for (key, emerge_params) in emergent_parameters
             # start with arrays of values
-            if !(key in ["assimilation_efficiency_matrix", "palatability_matrix", "diameters"])
+            if !(
+                key in
+                ["assimilation_efficiency_matrix", "palatability_matrix", "diameters"]
+            )
                 @test all(
-                    isapprox.(parameters[Symbol(key)], [emerge_params[p] for p in plankton_order], rtol=0.01)) || 
-                    println("Test failed for parameter: $(key). Expected: $(parameters[Symbol(key)]), Got: $([emerge_params[p] for p in plankton_order])")
+                    isapprox.(
+                        parameters[Symbol(key)],
+                        [emerge_params[p] for p in plankton_order],
+                        rtol=0.01,
+                    ),
+                ) || println(
+                    "Test failed for parameter: $(key). Expected: $(parameters[Symbol(key)]), Got: $([emerge_params[p] for p in plankton_order])",
+                )
                 # matrices of values -> compare row at a time
             elseif !(key == "diameters")
                 for (i, p) in enumerate(plankton_order)
                     emergent_row = emerge_params[p, :]
                     true_row = parameters[Symbol(replace(key, "_matrix" => ""))][i, :]
                     @test all(
-                        isapprox.(true_row, [emergent_row[p] for p in plankton_order], rtol=0.01)) || 
-                        println("Test failed for parameter: $(key), row: $(i). Expected: $(true_row), Got: $([emergent_row[p] for p in plankton_order])")
+                        isapprox.(
+                            true_row, [emergent_row[p] for p in plankton_order], rtol=0.01
+                        ),
+                    ) || println(
+                        "Test failed for parameter: $(key), row: $(i). Expected: $(true_row), Got: $([emergent_row[p] for p in plankton_order])",
+                    )
                 end
             end
         end
-
     end
 end

@@ -16,7 +16,7 @@ parameters = (
         0 0 0 0 #P1
         0 0 0 0 #P2
         1 0.2858 0 0 #Z1
-        0.2858 1 0 0 #Z2
+        0.1093 1 0 0 #Z2
     ],
     assimilation_efficiency=[
         0 0 0 0

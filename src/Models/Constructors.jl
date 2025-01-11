@@ -79,10 +79,17 @@ function construct_size_structured_NPZD(;
         "quadratic_mortality" => 1e-6 / second,
     ),
     palatability_args=Dict(
-        "P" =>
-            Dict("optimum_predator_prey_ratio" => 0, "protection" => 0, "specificity" => 0),
+        "P" => Dict(
+            "can_eat" => 0,
+            "optimum_predator_prey_ratio" => 0,
+            "protection" => 0,
+            "specificity" => 0,
+        ),
         "Z" => Dict(
-            "optimum_predator_prey_ratio" => 10, "protection" => 1, "specificity" => 0.3
+            "can_eat" => 1,
+            "optimum_predator_prey_ratio" => 10,
+            "protection" => 1,
+            "specificity" => 0.3,
         ),
     ),
     assimilation_efficiency_args=Dict(
