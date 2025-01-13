@@ -50,8 +50,7 @@ using .Library.Predation
                 "allometry" => Dict(
                     "maximum_growth_rate" => Dict("a" => 0, "b" => 0),
                     "nitrogen_half_saturation" => Dict("a" => 0, "b" => 0),
-                    "maximum_predation_rate" =>
-                        Dict("a" => 30.84 / day, "b" => -0.16),
+                    "maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16),
                 ),
                 "palatability" => Dict(
                     "can_eat" => 1,

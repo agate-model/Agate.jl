@@ -109,7 +109,9 @@ function compute_allometric_parameters(plankton::Dict)
         if "allometry" ∈ keys(params)
             for (param, args) in params["allometry"]
                 # TODO: once `allometry_f` is updated, it should not have `param` as argument
-                values = [allometric_scaling_power(args["a"], args["b"], d) for d in diameters]
+                values = [
+                    allometric_scaling_power(args["a"], args["b"], d) for d in diameters
+                ]
                 results[param] = vcat(results[param], NamedArray(values, plankton_names))
             end
         end
