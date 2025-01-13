@@ -40,15 +40,15 @@ Note that this formulation differs from the currently operational MITgcm-DARWIN 
 - `palatability`: A number between 0 and 1 representing the palatability.
 """
 function allometric_palatability_unimodal(prey_data::Dict, predator_data::Dict)
-    prey_diameter = prey_data["diameters"]
-    predator_diameter = predator_data["diameters"]
-    predator_prey_optimum = predator_data["optimum_predator_prey_ratio"]
-    predator_specificity = predator_data["specificity"]
     can_eat = predator_data["can_eat"]
 
     if can_eat == 0
         palatability = 0
     elseif can_eat == 1
+        prey_diameter = prey_data["diameters"]
+        predator_diameter = predator_data["diameters"]
+        predator_prey_optimum = predator_data["optimum_predator_prey_ratio"]
+        predator_specificity = predator_data["specificity"]
         predator_prey_ratio = prey_diameter / predator_diameter
         palatability =
             1 / (1 + (predator_prey_ratio - predator_prey_optimum)^2)^predator_specificity
@@ -77,16 +77,17 @@ The function uses a modified unimodal relationship defined by:
 - `palatability`: A number between 0 and `prey_protection` representing the palatability.
 """
 function allometric_palatability_unimodal_protection(prey_data::Dict, predator_data::Dict)
-    prey_diameter = prey_data["diameters"]
-    predator_diameter = predator_data["diameters"]
-    predator_prey_optimum = predator_data["optimum_predator_prey_ratio"]
-    predator_specificity = predator_data["specificity"]
-    prey_protection = prey_data["protection"]
     can_eat = predator_data["can_eat"]
 
     if can_eat == 0
         palatability = 0
     elseif can_eat == 1
+        prey_diameter = prey_data["diameters"]
+        predator_diameter = predator_data["diameters"]
+        predator_prey_optimum = predator_data["optimum_predator_prey_ratio"]
+        predator_specificity = predator_data["specificity"]
+        prey_protection = prey_data["protection"]
+
         predator_prey_ratio = predator_diameter / prey_diameter
         palatability =
             (1 - prey_protection) /
