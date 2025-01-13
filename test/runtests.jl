@@ -7,4 +7,4 @@ include("test_constructor.jl")
 include("test_parameters.jl")
 
 # integration tests
-#include("test_box_model.jl")
+include("test_box_model.jl")
