@@ -69,7 +69,7 @@ The function uses a modified unimodal relationship defined by:
   - `diameters`: Diameter of the prey.
   - `protection`: A scaling factor between 0 and 1 representing additional protection mechanisms of the prey.
 - `predator_data`: A dictionary containing predator-specific data:
-  - `diameter`: Diameter of the predator.
+  - `diameters`: Diameter of the predator.
   - `optimum_predator_prey_ratio`: The optimal predator-prey diameter ratio for the predator.
   - `specificity`: A parameter controlling how sharply the palatability decreases away from the optimal ratio.
 
