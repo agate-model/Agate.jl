@@ -30,7 +30,7 @@ Note that this formulation differs from the currently operational MITgcm-DARWIN 
 
 # Arguments
 - `prey_data`: A dictionary containing prey-specific data:
-  - `diameter`: Diameter of the prey.
+  - `diameters`: Diameter of the prey.
 - `predator_data`: A dictionary containing predator-specific data:
   - `diameter`: Diameter of the predator.
   - `optimum_predator_prey_ratio`: The optimal predator-prey diameter ratio for the predator.
