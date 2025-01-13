@@ -13,16 +13,6 @@ export compute_allometric_parameters
 emergent_palatability_f = allometric_palatability_unimodal_protection
 emergent_assimilation_efficiency_f = assimilation_efficiency_emergent_binary
 
-function allometry_f(param, a, b, diameter)
-    if param == "maximum_growth_rate"
-        return allometric_scaling_power(a, b, diameter)
-    elseif param == "nitrogen_half_saturation"
-        return allometric_scaling_power(a, b, diameter)
-    elseif param == "maximum_predation_rate"
-        return allometric_scaling_power(a, b, diameter)
-    end
-end
-
 """
     compute_allometric_parameters(plankton::Dict) -> Dict
 
