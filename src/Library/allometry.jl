@@ -66,7 +66,7 @@ The function uses a modified unimodal relationship defined by:
 
 # Arguments
 - `prey_data`: A dictionary containing prey-specific data:
-  - `diameter`: Diameter of the prey.
+  - `diameters`: Diameter of the prey.
   - `protection`: A scaling factor between 0 and 1 representing additional protection mechanisms of the prey.
 - `predator_data`: A dictionary containing predator-specific data:
   - `diameter`: Diameter of the predator.
