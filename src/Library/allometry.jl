@@ -32,7 +32,7 @@ Note that this formulation differs from the currently operational MITgcm-DARWIN 
 - `prey_data`: A dictionary containing prey-specific data:
   - `diameters`: Diameter of the prey.
 - `predator_data`: A dictionary containing predator-specific data:
-  - `diameter`: Diameter of the predator.
+  - `diameters`: Diameter of the predator.
   - `optimum_predator_prey_ratio`: The optimal predator-prey diameter ratio for the predator.
   - `specificity`: A parameter controlling how sharply the palatability decreases away from the optimal ratio.
 
