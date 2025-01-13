@@ -32,6 +32,7 @@ Note that this formulation differs from the currently operational MITgcm-DARWIN 
 - `prey_data`: A dictionary containing prey-specific data:
   - `diameters`: Diameter of the prey.
 - `predator_data`: A dictionary containing predator-specific data:
+  - `can_eat`: A binary value (1 or 0) indicating if the predator can consume prey. If this is set to 0, palatability is set to 0.
   - `diameters`: Diameter of the predator.
   - `optimum_predator_prey_ratio`: The optimal predator-prey diameter ratio for the predator.
   - `specificity`: A parameter controlling how sharply the palatability decreases away from the optimal ratio.
@@ -69,6 +70,7 @@ The function uses a modified unimodal relationship defined by:
   - `diameters`: Diameter of the prey.
   - `protection`: A scaling factor between 0 and 1 representing additional protection mechanisms of the prey.
 - `predator_data`: A dictionary containing predator-specific data:
+  - `can_eat`: A binary value (1 or 0) indicating if the predator can consume prey. If this is set to 0, palatability is set to 0.
   - `diameters`: Diameter of the predator.
   - `optimum_predator_prey_ratio`: The optimal predator-prey diameter ratio for the predator.
   - `specificity`: A parameter controlling how sharply the palatability decreases away from the optimal ratio.
