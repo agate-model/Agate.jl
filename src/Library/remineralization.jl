@@ -1,6 +1,6 @@
 module Remineralization
 
-export idealized_remineralization
+export remineralization_idealized
 
 """
 Idealized remineralization of detritus into dissolved nutrients.
@@ -9,7 +9,7 @@ Idealized remineralization of detritus into dissolved nutrients.
 - `D`: detritus
 - `r`: remineralization rate
 """
-function idealized_remineralization(D, r)
+function remineralization_idealized(D, r)
     return r * D
 end
 

@@ -18,21 +18,21 @@ parameters = (
 
 tracers = Dict(
     "N" => :(
-        linear_loss(P, lᵖⁿ) + linear_loss(Z, lᶻⁿ) + idealized_remineralization(D, rᵈⁿ) -
-        idealized_photosynthetic_growth(N, P, PAR, μ₀, kₙ, α)
+        linear_loss(P, lᵖⁿ) + linear_loss(Z, lᶻⁿ) + remineralization_idealized(D, rᵈⁿ) -
+        photosynthetic_growth_idealized(N, P, PAR, μ₀, kₙ, α)
     ),
     "D" => :(
         linear_loss(P, lᵖᵈ) +
-        idealized_predation_assimilation_loss(P, Z, β, gₘₐₓ, kₚ) +
-        quadratic_loss(Z, lᶻᵈ) - idealized_remineralization(D, rᵈⁿ)
+        predation_assimilation_loss_idealized(P, Z, β, gₘₐₓ, kₚ) +
+        quadratic_loss(Z, lᶻᵈ) - remineralization_idealized(D, rᵈⁿ)
     ),
     "P" => :(
-        idealized_photosynthetic_growth(N, P, PAR, μ₀, kₙ, α) -
-        idealized_predation_loss(P, Z, gₘₐₓ, kₚ) - linear_loss(P, lᵖⁿ) -
+        photosynthetic_growth_idealized(N, P, PAR, μ₀, kₙ, α) -
+        predation_loss_idealized(P, Z, gₘₐₓ, kₚ) - linear_loss(P, lᵖⁿ) -
         linear_loss(P, lᵖᵈ)
     ),
     "Z" => :(
-        idealized_predation_gain(P, Z, β, gₘₐₓ, kₚ) - linear_loss(Z, lᶻⁿ) -
+        predation_gain_idealized(P, Z, β, gₘₐₓ, kₚ) - linear_loss(Z, lᶻⁿ) -
         quadratic_loss(Z, lᶻᵈ)
     ),
 )
