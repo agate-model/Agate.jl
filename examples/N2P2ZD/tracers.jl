@@ -2,21 +2,21 @@ using Agate
 using Oceananigans.Units
 
 parameters = (
-    maximum_growth_rate=[7.190e-6, 2.216e-5, 0, 0] / second,
-    nitrogen_half_saturation=[6.73e-3, 0.12, 0, 0],
+    maximum_growth_rate=[1.8691e-05, 9.0594e-06, 0, 0] / second,
+    nitrogen_half_saturation=[2.5027e-01, 9.2168e-01, 0, 0],
     detritus_remineralization=0.1213 / day,
     holling_half_saturation=[0, 0, 5.0, 5.0],
     linear_mortality=[8e-7, 8e-7, 8e-7, 8e-7] / second,
     quadratic_mortality=[0, 0, 1e-6, 1e-6] / second,
-    maximum_predation_rate=[0, 0, 8.86e-5, 4.88e-5] / second,
+    maximum_predation_rate=[0, 0, 9.3991e-05, 4.3409e-05] / second,
     alpha=[0.1953, 0.1953, 1e-99, 1e-99] / day,
     feeding_export_poc_doc_fraction=0.5,
     mortality_export_fraction=0.5,
     palatability=[
         0 0 0 0 #P1
         0 0 0 0 #P2
-        1 0.3 0 0 #Z1
-        0.3 1 0 0 #Z2
+        1 0.2858 0 0 #Z1
+        0.1093 1 0 0 #Z2
     ],
     assimilation_efficiency=[
         0 0 0 0

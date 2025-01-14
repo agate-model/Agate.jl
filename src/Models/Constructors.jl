@@ -57,27 +57,40 @@ function construct_size_structured_NPZD(;
     phyto_dynamics=simplified_phytoplankton_growth,
     zoo_dynamics=simplified_zooplankton_growth,
     phyto_args=Dict(
-        "volumes" =>
-            Dict("min_volume" => 1, "max_volume" => 10, "splitting" => "log_splitting"),
+        "diameters" =>
+            Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
         "allometry" => Dict(
-            "maximum_growth_rate" => Dict("a" => 1, "b" => 1),
-            "nitrogen_half_saturation" => Dict("a" => 1, "b" => 1),
+            "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
+            "nitrogen_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
         ),
         "linear_mortality" => 8e-7 / second,
         "alpha" => 0.1953 / day,
     ),
     zoo_args=Dict(
-        "volumes" => Dict(
-            "min_volume" => 10, "max_volume" => 100, "splitting" => "linear_splitting"
+        "diameters" => Dict(
+            "min_diameter" => 20,
+            "max_diameter" => 100,
+            "splitting" => "linear_splitting",
         ),
-        "allometry" => Dict("maximum_predation_rate" => Dict("a" => 1, "b" => 1)),
+        "allometry" =>
+            Dict("maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16)),
         "linear_mortality" => 8e-7 / second,
         "holling_half_saturation" => 5.0,
         "quadratic_mortality" => 1e-6 / second,
     ),
     palatability_args=Dict(
-        "P" => Dict("optimum_predator_prey_ratio" => 0, "protection" => 0),
-        "Z" => Dict("optimum_predator_prey_ratio" => 10, "protection" => 1),
+        "P" => Dict(
+            "can_eat" => 0,
+            "optimum_predator_prey_ratio" => 0,
+            "protection" => 0,
+            "specificity" => 0,
+        ),
+        "Z" => Dict(
+            "can_eat" => 1,
+            "optimum_predator_prey_ratio" => 10,
+            "protection" => 1,
+            "specificity" => 0.3,
+        ),
     ),
     assimilation_efficiency_args=Dict(
         "P" => Dict("can_be_eaten" => 1, "can_eat" => 0, "assimilation_efficiency" => 0),
