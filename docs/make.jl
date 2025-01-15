@@ -5,7 +5,7 @@ using Documenter, Agate
 makedocs(;
     sitename="Agate.jl Documentation",
     format=Documenter.HTML(; prettyurls=get(ENV, "CI", nothing) == "true"),
-    modules=[Agate],
+    # modules=[Agate],
     pages=[
         "About" => "index.md",
     ]
