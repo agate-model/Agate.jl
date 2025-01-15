@@ -1,3 +1,4 @@
+push!(LOAD_PATH, "../src/")
 using Documenter, Agate
 
 # by default `source="src"`
@@ -6,7 +7,7 @@ makedocs(;
     format=Documenter.HTML(; prettyurls=get(ENV, "CI", nothing) == "true"),
     modules=[Agate],
     pages=[
-        "Home" => "index.md",
+        "About" => "index.md",
     ]
 )
 
