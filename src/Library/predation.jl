@@ -14,7 +14,7 @@ export holling_type_2,
     summed_predation_gain_preferential,
     summed_predation_loss_preferential,
     summed_predation_assimilation_loss_preferential,
-    net_predation_assimilation_loss_preferential
+    net_predation_assimilation_loss_preferential,
     assimilation_efficiency_emergent_binary
 
 
@@ -313,7 +313,7 @@ The function evaluates whether the predator can eat the prey and whether the pre
   - `assimilation_efficiency`: The efficiency with which the predator assimilates nutrients from the prey if the conditions are met.
 
 # Returns
-- `assimilation_efficiency`: 
+- `assimilation_efficiency`:
   - If `can_eat` is 1 and `can_be_eaten` is 1, returns the predator's `assimilation_efficiency`.
   - Otherwise, returns 0.
 """
