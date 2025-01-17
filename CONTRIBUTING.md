@@ -34,69 +34,12 @@ Discussions are recommended for asking questions about (for example) the user in
 We appreciate all contributions to Agate.
 **THANK YOU** for helping us.
 
-We follow the [ColPrac guide](https://github.com/SciML/ColPrac) for collaborative practices.
-We ask that new contributors read that guide before submitting a pull request.
+We follow the contributing guidelines developed by [The Turing Way](https://github.com/the-turing-way/the-turing-way/blob/main/CONTRIBUTING.md#making-a-change-with-a-pull-request). Please read the full guide, especially if you are new to contributing to open source projects. In short, there are four steps to adding changes to this repository:
 
-The following steps are a guide to help you contribute in a way that will be easy for everyone to review and accept with ease.
-
-### 1. Comment on an [existing issue](https://github.com/agate-model/Agate.jl/issues) or open a new issue referencing your addition
-
-This allows other members of the Agate team to confirm that you aren't overlapping with work that's currently underway and that everyone is on the same page with the goal of the work you're going to carry out.
-
-[This blog](https://www.igvita.com/2011/12/19/dont-push-your-pull-requests/) is a nice explanation of why putting this work in up front is so useful to everyone involved.
-
-### 2. [Fork][github-fork] the [Agate repository][Agate-repo] to your profile
-
-This is now your own unique copy of Agate.
-Changes here won't affect anyone else's work, so it's a safe space to explore edits to the code!
-
-Make sure to [keep your fork up to date][github-syncfork] with the master repository, otherwise you can end up with lots of dreaded [merge conflicts][github-mergeconflicts].
-
-### 3. Make the changes you've discussed
-
-Try to keep the changes focused.
-If you submit a large amount of work all in one go it will be much more work for whomever is reviewing your pull request.
-
-While making your changes, commit often and write good, detailed commit messages.
-[This blog](https://chris.beams.io/posts/git-commit/) explains how to write a good Git commit message and why it matters.
-It is also perfectly fine to have a lot of commits - including ones that break code.
-A good rule of thumb is to push up to GitHub when you _do_ have passing tests then the continuous integration (CI) has a good chance of passing everything.
-
-If you feel tempted to "branch out" then please make a [new branch][github-branches] and a [new issue][Agate-issues] to go with it. [This blog](https://nvie.com/posts/a-successful-git-branching-model/) details the different Git branching models.
-
-Please do not re-write history!
-That is, please do not use the [rebase](https://help.github.com/en/articles/about-git-rebase) command to edit previous commit messages, combine multiple commits into one, or delete or revert commits that are no longer necessary.
-
-### 4. Submit a [pull request][github-pullrequest]
-
-We encourage you to open a pull request as early in your contributing process as possible.
-This allows everyone to see what is currently being worked on.
-It also provides you, the contributor, feedback in real time from both the community and the continuous integration as you make commits (which will help prevent stuff from breaking).
-
-When you are ready to submit a pull request, make sure the contents of the pull request body do the following:
-- Describe the problem you're trying to fix in the pull request, reference any related issues and use keywords fixes/close to automatically close them, if pertinent.
-- List changes proposed in the pull request.
-- Describe what the reviewer should concentrate their feedback on.
-
-If you have opened the pull request early and know that its contents are not ready for review or to be merged, add "[WIP]" at the start of the pull request title, which stands for "Work in Progress".
-When you are happy with it and are happy for it to be merged into the main repository, change the "[WIP]" in the title of the pull request to "[Ready for review]".
-
-A member of the Agate team will then review your changes to confirm that they can be merged into the main repository.
-A [review][github-review] will probably consist of a few questions to help clarify the work you've done.
-Keep an eye on your GitHub notifications and be prepared to join in that conversation.
-
-You can update your [fork][github-fork] of Agate [repository][Agate-repo] and the pull request will automatically update with those changes.
-You don't need to submit a new pull request when you make a change in response to a review.
-
-You can also submit pull requests to other contributors' branches!
-Do you see an [open pull request](https://github.com/agate-model/Agate.jl/pulls) that you find interesting and want to contribute to?
-Simply make your edits on their files and open a pull request to their branch!
-
-What happens if the continuous integration (CI) fails (for example, if the pull request notifies you that "Some checks were not successful")?
-The CI could fail for a number of reasons.
-At the bottom of the pull request, where it says whether your build passed or failed, you can click “Details” next to the test, which takes you to the GitHub Actions page.
-
-GitHub has a [nice introduction][github-flow] to the pull request workflow, but please get in touch if you have any questions.
+1. **Capture the change in an issue**: Comment on an [existing issue](https://github.com/agate-model/Agate.jl/issues) or open a new issue referencing your addition.
+2. **Fork the Repository**: [Fork the Agate repository](https://github.com/agate-model/Agate.jl/fork).
+3. **Make Changes**: Commit often and write good, detailed commit messages (see [this blog](https://chris.beams.io/posts/git-commit/)).
+4. **Open a Pull Request**: Ensure you describe the changes made and what the reviewer should focus on as well as any additional details.
 
 ## Setting up your development environment
 
