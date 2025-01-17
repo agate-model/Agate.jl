@@ -5,7 +5,9 @@ on:
     branches:
       - main # update to match your development branch (master, main, dev, trunk, ...)
     tags: '*'
-  pull_request:
+  pull_request:   
+    types:
+      - closed # Trigger only when a pull request is closed
 
 jobs:
   build:
