@@ -55,8 +55,8 @@ Create an Oceananigans.Biogeochemistry model type.
    at the bottom to prevent the tracers leaving the domain, defaults to `true`, which means
    the bottom is open and the tracers leave (i.e., no slowing of velocity to 0 is applied)
 
-Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] (as these
-are reserved for coordinates) and they must include all parameters used in the `tracers`
+Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t], as these
+are reserved for coordinates, and they must include all parameters used in the `tracers`
 expressions. The expressions must use methods that are either defined within this module or
 passed in the `helper_functions` file.
 
