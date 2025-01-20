@@ -39,9 +39,7 @@ need to be specified.
 - `zoo_dynamics`: expression describing how zooplankton grow
 - `phyto_args`: Dictionary of phytoplankton parameters
 - `zoo_args`: Dictionary of zooplankton parameters
-- `palatability_args`: Dictionary of arguments from which a palatability matrix between all
-   plankton can be computed
-- `assimilation_effificency_args`: Dictionary of arguments from which an assimilation
+- `predation_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed
 - `bgc_args`: biogeochemistry parameters related to nutrient and detritus
 - `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
@@ -78,23 +76,23 @@ function construct_size_structured_NPZD(;
         "holling_half_saturation" => 5.0,
         "quadratic_mortality" => 1e-6 / second,
     ),
-    palatability_args=Dict(
+    predation_args=Dict(
         "P" => Dict(
             "can_eat" => 0,
+            "can_be_eaten" => 1,
             "optimum_predator_prey_ratio" => 0,
             "protection" => 0,
             "specificity" => 0,
+            "assimilation_efficiency" => 0,
         ),
         "Z" => Dict(
             "can_eat" => 1,
+            "can_be_eaten" => 0,
             "optimum_predator_prey_ratio" => 10,
             "protection" => 1,
             "specificity" => 0.3,
+            "assimilation_efficiency" => 0.32,
         ),
-    ),
-    assimilation_efficiency_args=Dict(
-        "P" => Dict("can_be_eaten" => 1, "can_eat" => 0, "assimilation_efficiency" => 0),
-        "Z" => Dict("can_be_eaten" => 0, "can_eat" => 1, "assimilation_efficiency" => 0.32),
     ),
     bgc_args=Dict(
         "detritus_remineralization" => 0.1213 / day, "mortality_export_fraction" => 0.5
@@ -109,13 +107,23 @@ function construct_size_structured_NPZD(;
     defined_parameters = Dict("P" => phyto_args, "Z" => zoo_args)
 
     if isnothing(palatability_matrix)
-        defined_parameters["P"]["palatability"] = palatability_args["P"]
-        defined_parameters["Z"]["palatability"] = palatability_args["Z"]
+        defined_parameters["P"]["palatability"] = Dict(
+            k => predation_args["P"][k] for
+            k in ["can_eat", "optimum_predator_prey_ratio", "protection", "specificity"]
+        )
+        defined_parameters["Z"]["palatability"] = Dict(
+            k => predation_args["Z"][k] for
+            k in ["can_eat", "optimum_predator_prey_ratio", "protection", "specificity"]
+        )
     end
 
     if isnothing(assimilation_efficiency_matrix)
-        defined_parameters["P"]["assimilation_efficiency"] = assimilation_efficiency_args["P"]
-        defined_parameters["Z"]["assimilation_efficiency"] = assimilation_efficiency_args["Z"]
+        defined_parameters["P"]["assimilation_efficiency"] = Dict(
+            k => predation_args["P"][k] for k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
+        )
+        defined_parameters["Z"]["assimilation_efficiency"] = Dict(
+            k => predation_args["Z"][k] for k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
+        )
     end
 
     emergent_parameters = compute_allometric_parameters(defined_parameters)
