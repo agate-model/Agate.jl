@@ -51,9 +51,10 @@ using names generated in the first step.
             - value: Dictionary of the form
                 `Dict(<param name> => Dict("a" => <value>, "b" => <value>), ...)`
         - key: "palatability" (generate a palatability matrix)
-            - value: Dictionary with "optimum_predator_prey_ratio" and "protection" keys
+            - value: Dictionary with "can_eat", "optimum_predator_prey_ratio", "protection",
+              "specificity" keys
         - key: "assimilation_efficiency" (generate assimilation efficiency matrix)
-            - value: Dictionary with "assimilation_efficiency" key
+            - value: Dictionary with "can_eat", "can_be_eaten", "assimilation_efficiency" keys
     For example:
         ```
         Dict(
@@ -67,8 +68,17 @@ using names generated in the first step.
             ),
             "Z" => Dict(
                 ...,
-                "palatability" => Dict("optimum_predator_prey_ratio" => 10, "protection" => 1),
-                "assimilation_efficiency" => Dict("assimilation_efficiency" => 0.32),
+                "palatability" => Dict(
+                    "can_eat" => 1,
+                    "optimum_predator_prey_ratio" => 10,
+                    "protection" => 1,
+                    "specificity" => 0.3,
+                ),
+                "assimilation_efficiency" => Dict(
+                    "can_be_eaten" => 0,
+                    "can_eat" => 1,
+                    "assimilation_efficiency" => 0.32
+                ),
                 ...
             )
         )
