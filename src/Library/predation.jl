@@ -5,17 +5,18 @@ Functions related to zooplankton predation.
 module Predation
 
 export holling_type_2,
-    idealized_predation_loss,
-    idealized_predation_gain,
-    idealized_predation_assimilation_loss,
-    preferential_predation_loss,
-    preferential_predation_gain,
-    preferential_predation_assimilation_loss,
-    summed_preferential_predation_gain,
-    summed_preferential_predation_loss,
-    summed_preferential_predation_assimilation_loss,
-    net_preferential_predation_assimilation_loss,
+    predation_loss_idealized,
+    predation_gain_idealized,
+    predation_assimilation_loss_idealized,
+    predation_loss_preferential,
+    predation_gain_preferential,
+    predation_assimilation_loss_preferential,
+    summed_predation_gain_preferential,
+    summed_predation_loss_preferential,
+    summed_predation_assimilation_loss_preferential,
+    net_predation_assimilation_loss_preferential,
     assimilation_efficiency_emergent_binary
+
 
 """
 Holling's "type II" functional response as describe in Holling 1959.
@@ -43,7 +44,7 @@ and the prey-predator palatability.
 - `gₘₐₓ`: maximum grazing rate
 - `kₚ`: prey density at which predation is half it's maximum rate
 """
-function idealized_predation_loss(P, Z, gₘₐₓ, kₚ)
+function predation_loss_idealized(P, Z, gₘₐₓ, kₚ)
     return gₘₐₓ * holling_type_2(P^2, kₚ^2) * Z
 end
 
@@ -59,15 +60,15 @@ represents 'sloppy feeding'.
 - `gₘₐₓ`: maximum grazing rate
 - `kₚ`: grazing/holling half saturation
 """
-function idealized_predation_gain(P, Z, β, gₘₐₓ, kₚ)
-    return β * idealized_predation_loss(P, Z, gₘₐₓ, kₚ)
+function predation_gain_idealized(P, Z, β, gₘₐₓ, kₚ)
+    return β * predation_loss_idealized(P, Z, gₘₐₓ, kₚ)
 end
 
 """
 Estimates the rate at which plankton predation gain is lost to the environment due to inefficient assimilation efficiency
 (e.g. 'sloppy feeding').
 
-Note that this differs from the idealized_predation_gain as this function represents the transfer of biomass from the prey to the environment
+Note that this differs from the predation_gain_idealized as this function represents the transfer of biomass from the prey to the environment
 rather than the transfer of biomass from the prey to the predator.
 
 # Arguments
@@ -77,8 +78,8 @@ rather than the transfer of biomass from the prey to the predator.
 - `gₘₐₓ`: maximum grazing rate of the predator
 - `kₚ`: grazing/holling half saturation
 """
-function idealized_predation_assimilation_loss(P, Z, β, gₘₐₓ, kₚ)
-    return (1 - β) * idealized_predation_loss(P, Z, gₘₐₓ, kₚ)
+function predation_assimilation_loss_idealized(P, Z, β, gₘₐₓ, kₚ)
+    return (1 - β) * predation_loss_idealized(P, Z, gₘₐₓ, kₚ)
 end
 
 #preferential predation (intermediate complexity model)
@@ -95,7 +96,7 @@ and the prey-predator palatability.
 - `kₚ`: prey density at which predation is half it's maximum rate
 - `palatability`: the likelihood at which the predator feeds on the prey
 """
-function preferential_predation_loss(P, Z, gₘₐₓ, kₚ, palatability)
+function predation_loss_preferential(P, Z, gₘₐₓ, kₚ, palatability)
     return gₘₐₓ * palatability * holling_type_2(P, kₚ) * Z
 end
 
@@ -112,15 +113,15 @@ represents 'sloppy feeding'.
 - `kₚ`: grazing/holling half saturation
 - `palatability`: the likelihood at which the predator feeds on the prey
 """
-function preferential_predation_gain(P, Z, β, gₘₐₓ, kₚ, palatability)
-    return β * preferential_predation_loss(P, Z, gₘₐₓ, kₚ, palatability)
+function predation_gain_preferential(P, Z, β, gₘₐₓ, kₚ, palatability)
+    return β * predation_loss_preferential(P, Z, gₘₐₓ, kₚ, palatability)
 end
 
 """
 Estimates the rate at which plankton predation gain is lost to the environment due to inefficient assimilation efficiency
 (e.g. 'sloppy feeding').
 
-Note that this differs from the preferential_predation_gain as this function represents the transfer of biomass from the prey to the environment
+Note that this differs from the predation_gain_preferential as this function represents the transfer of biomass from the prey to the environment
 rather than the transfer of biomass from the prey to the predator.
 
 # Arguments
@@ -131,8 +132,8 @@ rather than the transfer of biomass from the prey to the predator.
 - `kₚ`: grazing/holling half saturation
 - `palatability`: the likelihood at which the predator feeds on the prey
 """
-function preferential_predation_assimilation_loss(P, Z, β, gₘₐₓ, kₚ, palatability)
-    return (1 - β) * preferential_predation_loss(P, Z, gₘₐₓ, kₚ, palatability)
+function predation_assimilation_loss_preferential(P, Z, β, gₘₐₓ, kₚ, palatability)
+    return (1 - β) * predation_loss_preferential(P, Z, gₘₐₓ, kₚ, palatability)
 end
 
 """
@@ -152,12 +153,12 @@ estimate the total loss of plankton `prey_name` due to predation.
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
 """
-function summed_preferential_predation_loss(
+function summed_predation_loss_preferential(
     prey_name, P, maximum_predation_rate, holling_half_saturation, palatability
 )
     # get predator names from `maximum_predation_rate` array (prey has none)
     loss = sum(
-        preferential_predation_loss(
+        predation_loss_preferential(
             P[prey_name],
             P[predator_name],
             maximum_predation_rate[predator_name],
@@ -191,7 +192,7 @@ estimate the total gain due to predation.
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
 """
-function summed_preferential_predation_gain(
+function summed_predation_gain_preferential(
     predator_name,
     P,
     assimilation_efficiency,
@@ -201,7 +202,7 @@ function summed_preferential_predation_gain(
 )
     # sum over all plankton in P (return 0 if not suitable prey for this predator)
     gain = sum(
-        preferential_predation_gain(
+        predation_gain_preferential(
             P[prey_name],
             P[predator_name],
             assimilation_efficiency[predator_name, prey_name],
@@ -236,7 +237,7 @@ estimate the total assimilation loss during predation.
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
 """
-function summed_preferential_predation_assimilation_loss(
+function summed_predation_assimilation_loss_preferential(
     predator_name,
     P,
     assimilation_efficiency,
@@ -246,7 +247,7 @@ function summed_preferential_predation_assimilation_loss(
 )
     # sum over all plankton in P (return 0 if not suitable prey for this predator)
     assimilation_loss = sum(
-        preferential_predation_assimilation_loss(
+        predation_assimilation_loss_preferential(
             P[prey_name],
             P[predator_name],
             assimilation_efficiency[predator_name, prey_name],
@@ -277,7 +278,7 @@ Net predator assimilation loss of all plankton.
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
 """
-function net_preferential_predation_assimilation_loss(
+function net_predation_assimilation_loss_preferential(
     P,
     holling_half_saturation,
     maximum_predation_rate,
@@ -286,7 +287,7 @@ function net_preferential_predation_assimilation_loss(
 )
     # get predator names from `maximum_predation_rate` array (prey has none)
     return sum([
-        summed_preferential_predation_assimilation_loss(
+        summed_predation_assimilation_loss_preferential(
             predator_name,
             P,
             assimilation_efficiency,
@@ -312,7 +313,7 @@ The function evaluates whether the predator can eat the prey and whether the pre
   - `assimilation_efficiency`: The efficiency with which the predator assimilates nutrients from the prey if the conditions are met.
 
 # Returns
-- `assimilation_efficiency`: 
+- `assimilation_efficiency`:
   - If `can_eat` is 1 and `can_be_eaten` is 1, returns the predator's `assimilation_efficiency`.
   - Otherwise, returns 0.
 """
