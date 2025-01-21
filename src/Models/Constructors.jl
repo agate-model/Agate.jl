@@ -39,7 +39,7 @@ need to be specified.
 - `zoo_dynamics`: expression describing how zooplankton grow
 - `phyto_args`: Dictionary of phytoplankton parameters
 - `zoo_args`: Dictionary of zooplankton parameters
-- `predation_args`: Dictionary of arguments from which a palatability and assimilation
+- `interaction_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed
 - `bgc_args`: biogeochemistry parameters related to nutrient and detritus
 - `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
@@ -76,7 +76,7 @@ function construct_size_structured_NPZD(;
         "holling_half_saturation" => 5.0,
         "quadratic_mortality" => 1e-6 / second,
     ),
-    predation_args=Dict(
+    interaction_args=Dict(
         "P" => Dict(
             "can_eat" => 0,
             "can_be_eaten" => 1,
@@ -108,21 +108,21 @@ function construct_size_structured_NPZD(;
 
     if isnothing(palatability_matrix)
         defined_parameters["P"]["palatability"] = Dict(
-            k => predation_args["P"][k] for
+            k => interaction_args["P"][k] for
             k in ["can_eat", "optimum_predator_prey_ratio", "protection", "specificity"]
         )
         defined_parameters["Z"]["palatability"] = Dict(
-            k => predation_args["Z"][k] for
+            k => interaction_args["Z"][k] for
             k in ["can_eat", "optimum_predator_prey_ratio", "protection", "specificity"]
         )
     end
 
     if isnothing(assimilation_efficiency_matrix)
         defined_parameters["P"]["assimilation_efficiency"] = Dict(
-            k => predation_args["P"][k] for k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
+            k => interaction_args["P"][k] for k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
         )
         defined_parameters["Z"]["assimilation_efficiency"] = Dict(
-            k => predation_args["Z"][k] for k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
+            k => interaction_args["Z"][k] for k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
         )
     end
 
