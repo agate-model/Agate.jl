@@ -3,7 +3,7 @@ module Tracers
 using NamedArrays
 
 export typical_detritus,
-    typical_nutrients, simplified_phytoplankton_growth, simplified_zooplankton_growth
+    typical_nutrients, single_nutrient_phytoplankton_growth, simplified_zooplankton_growth
 
 """
 Build expression for a single nutrient function of time.
@@ -28,12 +28,12 @@ function typical_nutrients(plankton_array)
             mortality_export_fraction,
         ) +
         remineralization_idealized(D, detritus_remineralization) -
-        net_photosynthetic_growth_idealized(
-            N,
+        net_photosynthetic_growth_single_nutrient(
+            R,
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             PAR,
             maximum_growth_rate,
-            nitrogen_half_saturation,
+            nutrient_half_saturation,
             alpha,
         )
     )
@@ -83,15 +83,15 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 - `plankton_name`: name of the phytoplankton for which we are returning the expression passed
     as a String (e.g., "P1").
 """
-function simplified_phytoplankton_growth(plankton_array, plankton_name)
+function single_nutrient_phytoplankton_growth(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
     return :(
-        photosynthetic_growth_idealized(
-            N,
+        photosynthetic_growth_single_nutrient(
+            R,
             $(plankton_symbol),
             PAR,
             maximum_growth_rate[$plankton_name],
-            nitrogen_half_saturation[$plankton_name],
+            nutrient_half_saturation[$plankton_name],
             alpha[$plankton_name],
         ) - summed_predation_loss_preferential(
             $plankton_name,

@@ -62,7 +62,7 @@ using names generated in the first step.
                 ...,
                 "allometry" => Dict(
                     "maximum_growth_rate" => Dict("a" => 1, "b" => 1),
-                    "nitrogen_half_saturation" => Dict("a" => 1, "b" => 1),
+                    "nutrient_half_saturation" => Dict("a" => 1, "b" => 1),
                 ),
                 ...
             ),

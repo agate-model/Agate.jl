@@ -18,7 +18,7 @@ Construct an instance of an size-structured NPZD model.
 This constructor builds a size-structured plankton model with two plankton functional types:
 phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
 size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor implements
-idealized detritus (D) and nitrogen (N) cycling by default, although more complex N and D
+idealized detritus (D) and nutrient (R) cycling by default, although more complex N and D
 cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics` arguments.
 
 During model construction, the size of each plankton determines photosynthetic growth rates,
@@ -52,14 +52,14 @@ function construct_size_structured_NPZD(;
     n_zoo=2,
     nutrient_dynamics=typical_nutrients,
     detritus_dynamics=typical_detritus,
-    phyto_dynamics=simplified_phytoplankton_growth,
+    phyto_dynamics=single_nutrient_phytoplankton_growth,
     zoo_dynamics=simplified_zooplankton_growth,
     phyto_args=Dict(
         "diameters" =>
             Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
         "allometry" => Dict(
             "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
-            "nitrogen_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
+            "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
         ),
         "linear_mortality" => 8e-7 / second,
         "alpha" => 0.1953 / day,
