@@ -15,44 +15,44 @@ using NamedArrays
         P2 = 0.01
         Z1 = 0.05
         Z2 = 0.05
-        N = 7.0
+        N, R = 7.0
         D = 1
         PAR = 100
 
-        @test !iszero(model_constructed(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model_constructed(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model_constructed(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model_constructed(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model_constructed(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model_constructed(Val(:Z2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model_constructed(Val(:R), 0, 0, 0, 0, P1, P2, Z1, Z2, R, D, PAR))
+        @test !iszero(model_constructed(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, R, D, PAR))
+        @test !iszero(model_constructed(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, R, D, PAR))
+        @test !iszero(model_constructed(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, R, D, PAR))
+        @test !iszero(model_constructed(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, R, D, PAR))
+        @test !iszero(model_constructed(Val(:Z2), 0, 0, 0, 0, P1, P2, Z1, Z2, R, D, PAR))
 
         @test isapprox(
-            model_constructed(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR),
+            model_constructed(Val(:R), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR),
             model(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR);
             rtol=0.01,
         )
         @test isapprox(
-            model_constructed(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR),
+            model_constructed(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, R, D, PAR),
             model(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR);
             rtol=0.01,
         )
         @test isapprox(
-            model_constructed(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR),
+            model_constructed(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, R, D, PAR),
             model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR);
             rtol=0.01,
         )
         @test isapprox(
-            model_constructed(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR),
+            model_constructed(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, R, D, PAR),
             model(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR);
             rtol=0.01,
         )
         @test isapprox(
-            model_constructed(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR),
+            model_constructed(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, R, D, PAR),
             model(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR);
             rtol=0.01,
         )
         @test isapprox(
-            model_constructed(Val(:Z2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR),
+            model_constructed(Val(:Z2), 0, 0, 0, 0, P1, P2, Z1, Z2, R, D, PAR),
             model(Val(:Z2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR);
             rtol=0.01,
         )
