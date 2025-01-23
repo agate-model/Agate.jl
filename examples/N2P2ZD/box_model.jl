@@ -52,7 +52,7 @@ p2 = plot(timeseries.P2; label="P2", title="Phytoplankton 2")
 p3 = plot(timeseries.Z1; label="Z1", title="Zooplankton 1")
 p4 = plot(timeseries.Z2; label="Z2", title="Zooplankton 2")
 p5 = plot(timeseries.D; label="D", title="Detritus")
-p6 = plot(timeseries.N; label="N", title="Nitrogen")
+p6 = plot(timeseries.N; label="N", title="nutrient")
 
 # Arrange plots in a 2x3 layout
 p = plot(p1, p2, p3, p4, p5, p6; layout=(2, 3), size=(900, 600))

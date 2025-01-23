@@ -12,11 +12,11 @@ function photosynthetic_growth(
     P::Real,
     PAR::Real,
     maximum_growth_rate::Real,
-    nitrogen_half_saturation::Real,
+    nutrient_half_saturation::Real,
     alpha::Real,
 )
     return maximum_growth_rate *
-           monod_limitation(N, nitrogen_half_saturation) *
+           monod_limitation(N, nutrient_half_saturation) *
            smith_light_limitation(PAR, alpha, maximum_growth_rate) *
            P
 end
@@ -270,23 +270,23 @@ end
 Net photosynthetic growth of all plankton.
 
 # Arguments
-- `N::Real`: Nitrogen
+- `N::Real`: nutrient
 - `P::Vector{<:Real}`: Vector which includes all plankton.
 - `PAR::Real`: PAR
 - `maximum_growth_rate::Vector{Float}`: Vector of all plankton maximum growth rates.
-- `nitrogen_half_saturation::Vector{Float}`: Vector of all plankton nitrogen half saturation constants.
+- `nutrient_half_saturation::Vector{Float}`: Vector of all plankton nutrient half saturation constants.
 """
 function net_photosynthetic_growth(
     N::Real,
     P::Vector{<:Real},
     PAR::Real,
     maximum_growth_rate::Vector{<:Real},
-    nitrogen_half_saturation::Vector{<:Real},
+    nutrient_half_saturation::Vector{<:Real},
     alpha::Vector{<:Real},
 )
     return sum([
         photosynthetic_growth(
-            N, P[i], PAR, maximum_growth_rate[i], nitrogen_half_saturation[i], alpha[i]
+            N, P[i], PAR, maximum_growth_rate[i], nutrient_half_saturation[i], alpha[i]
         ) for i in eachindex(P)
     ])
 end
@@ -330,7 +330,7 @@ Wrapper function to estimate the rate at which plankton biomass changes over tim
 
 # Arguments
 - `plankton_index:Int`: The index of the plankton for which the rate of change is estimated
-- `N::Real`: Nitrogen
+- `N::Real`: nutrient
 - `P::Vector{<:Real}`: Vector which includes all plankton.
 - `linear_mortality::Vector{Float}`: Vector of all plankton linear mortality rates.
 - `maximum_growth_rate::Vector{Float}`: Vector of all plankton maximum growth rates.
@@ -352,7 +352,7 @@ function plankton_dt(
     quadratic_mortality::Vector{<:Real},
     maximum_growth_rate::Vector{<:Real},
     holling_half_saturation::Vector{<:Real},
-    nitrogen_half_saturation::Vector{<:Real},
+    nutrient_half_saturation::Vector{<:Real},
     alpha::Vector{<:Real},
     maximum_predation_rate::Vector{<:Real},
     assimilation_efficiency::Matrix{<:Real},
@@ -364,7 +364,7 @@ function plankton_dt(
             P[plankton_index],
             PAR,
             maximum_growth_rate[plankton_index],
-            nitrogen_half_saturation[plankton_index],
+            nutrient_half_saturation[plankton_index],
             alpha[plankton_index],
         ) - linear_loss(P[plankton_index], linear_mortality[plankton_index]) -
         quadratic_loss(P[plankton_index], quadratic_mortality[plankton_index]) -

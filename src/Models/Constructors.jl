@@ -22,7 +22,7 @@ idealized detritus (D) and nutrient (N) cycling by default, although more comple
 cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics` arguments.
 
 During model construction, the size of each plankton determines photosynthetic growth rates,
-nitrogen half saturation constants, predation rates, and optionally predator-prey assimilation
+nutrient half saturation constants, predation rates, and optionally predator-prey assimilation
 and palatability values. Alternatively, if manually defined predator-prey assimilation and
 palatability values are desired, these can be defined using the `palatability_matrix` and
 `assimilation_efficiency_matrix` arguments.
@@ -50,10 +50,10 @@ need to be specified.
 function construct_size_structured_NPZD(;
     n_phyto=2,
     n_zoo=2,
-    nutrient_dynamics=typical_nutrients,
-    detritus_dynamics=typical_detritus,
-    phyto_dynamics=single_nutrient_phytoplankton_growth,
-    zoo_dynamics=simplified_zooplankton_growth,
+    nutrient_dynamics=nutrients_typical,
+    detritus_dynamics=detritus_typical,
+    phyto_dynamics=phytoplankton_growth_single_nutrient,
+    zoo_dynamics=zooplankton_growth_simplified,
     phyto_args=Dict(
         "diameters" =>
             Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),

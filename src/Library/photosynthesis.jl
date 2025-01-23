@@ -74,7 +74,7 @@ function net_photosynthetic_growth_single_nutrient(
 )
     return sum([
         # sum over plankton that have a `maximum_growth_rate` (these will also have
-        # `nitrogen_half_saturation` and `alpha` values)
+        # `nutrient_half_saturation` and `alpha` values)
         photosynthetic_growth_single_nutrient(
             N,
             P[name],

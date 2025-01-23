@@ -2,8 +2,8 @@ module Tracers
 
 using NamedArrays
 
-export typical_detritus,
-    typical_nutrients, phytoplankton_growth_single_nutrient, zooplankton_growth_simplified
+export detritus_typical,
+    nutrients_typical, phytoplankton_growth_single_nutrient, zooplankton_growth_simplified
 
 """
 Build expression for a single nutrient function of time.
@@ -15,7 +15,7 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
     `[:P1, :P2, :Z1, :Z2]`
 """
-function typical_nutrients(plankton_array)
+function nutrients_typical(plankton_array)
     return :(
         net_linear_loss(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
@@ -49,7 +49,7 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
     `[:P1, :P2, :Z1, :Z2]`
 """
-function typical_detritus(plankton_array)
+function detritus_typical(plankton_array)
     return :(
         net_linear_loss(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
@@ -83,7 +83,7 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 - `plankton_name`: name of the phytoplankton for which we are returning the expression passed
     as a String (e.g., "P1").
 """
-function single_nutrient_phytoplankton_growth(plankton_array, plankton_name)
+function phytoplankton_growth_single_nutrient(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
     return :(
         photosynthetic_growth_single_nutrient(
@@ -115,7 +115,7 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 - `plankton_name`: name of the zooplankton for which we are returning the expression passed
     as a String (e.g., "Z1").
 """
-function simplified_zooplankton_growth(plankton_array, plankton_name)
+function zooplankton_growth_simplified(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
     return :(
         summed_predation_gain_preferential(
