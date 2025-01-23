@@ -21,7 +21,7 @@ using .Library.Predation
                 ),
                 "allometry" => Dict(
                     "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
-                    "nitrogen_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
+                    "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
                     "maximum_predation_rate" => Dict("a" => 0, "b" => 0),
                 ),
                 "palatability" => Dict(
@@ -49,7 +49,7 @@ using .Library.Predation
                 ),
                 "allometry" => Dict(
                     "maximum_growth_rate" => Dict("a" => 0, "b" => 0),
-                    "nitrogen_half_saturation" => Dict("a" => 0, "b" => 0),
+                    "nutrient_half_saturation" => Dict("a" => 0, "b" => 0),
                     "maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16),
                 ),
                 "palatability" => Dict(

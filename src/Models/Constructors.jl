@@ -18,11 +18,11 @@ Construct an instance of an size-structured NPZD model.
 This constructor builds a size-structured plankton model with two plankton functional types:
 phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
 size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor implements
-idealized detritus (D) and nitrogen (N) cycling by default, although more complex N and D
+idealized detritus (D) and nutrient (N) cycling by default, although more complex N and D
 cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics` arguments.
 
 During model construction, the size of each plankton determines photosynthetic growth rates,
-nitrogen half saturation constants, predation rates, and optionally predator-prey assimilation
+nutrient half saturation constants, predation rates, and optionally predator-prey assimilation
 and palatability values. Alternatively, if manually defined predator-prey assimilation and
 palatability values are desired, these can be defined using the `palatability_matrix` and
 `assimilation_efficiency_matrix` arguments.
@@ -50,16 +50,16 @@ need to be specified.
 function construct_size_structured_NPZD(;
     n_phyto=2,
     n_zoo=2,
-    nutrient_dynamics=typical_nutrients,
-    detritus_dynamics=typical_detritus,
-    phyto_dynamics=simplified_phytoplankton_growth,
-    zoo_dynamics=simplified_zooplankton_growth,
+    nutrient_dynamics=nutrients_typical,
+    detritus_dynamics=detritus_typical,
+    phyto_dynamics=phytoplankton_growth_single_nutrient,
+    zoo_dynamics=zooplankton_growth_simplified,
     phyto_args=Dict(
         "diameters" =>
             Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
         "allometry" => Dict(
             "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
-            "nitrogen_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
+            "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
         ),
         "linear_mortality" => 8e-7 / second,
         "alpha" => 0.1953 / day,
@@ -119,10 +119,12 @@ function construct_size_structured_NPZD(;
 
     if isnothing(assimilation_efficiency_matrix)
         defined_parameters["P"]["assimilation_efficiency"] = Dict(
-            k => interaction_args["P"][k] for k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
+            k => interaction_args["P"][k] for
+            k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
         )
         defined_parameters["Z"]["assimilation_efficiency"] = Dict(
-            k => interaction_args["Z"][k] for k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
+            k => interaction_args["Z"][k] for
+            k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
         )
     end
 

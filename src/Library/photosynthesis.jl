@@ -8,8 +8,8 @@ using Agate.Library.Nutrients
 
 export γˡⁱᵍʰᵗ,
     smith_light_limitation,
-    photosynthetic_growth_idealized,
-    net_photosynthetic_growth_idealized
+    photosynthetic_growth_single_nutrient,
+    net_photosynthetic_growth_single_nutrient
 
 """
     γˡⁱᵍʰᵗ = (1 - ℯ^(kˢᵃᵗ*I)) * ℯ^kⁱⁿʰ * nˡⁱᵍʰᵗ
@@ -55,7 +55,7 @@ Single nutrient monod smith photosynthetic growth (used, for example, in Kuhn 20
 - `kₙ`: nutrient half saturation
 - `α`: initial photosynthetic slope
 """
-function photosynthetic_growth_idealized(N, P, PAR, μ₀, kₙ, α)
+function photosynthetic_growth_single_nutrient(N, P, PAR, μ₀, kₙ, α)
     return μ₀ * monod_limitation(N, kₙ) * smith_light_limitation(PAR, α, μ₀) * P
 end
 
@@ -63,24 +63,24 @@ end
 Net photosynthetic growth of all plankton.
 
 # Arguments
-- `N`: Nitrogen
+- `N`: Nutrient
 - `P`: NamedArray which includes all plankton concentration values
 - `PAR`: PAR
 - `maximum_growth_rate`: NamedArray of all plankton maximum growth rates
-- `nitrogen_half_saturation`: NamedArray of all plankton nitrogen half saturation constants
+- `nutrient_half_saturation`: NamedArray of all plankton nutrient half saturation constants
 """
-function net_photosynthetic_growth_idealized(
-    N, P, PAR, maximum_growth_rate, nitrogen_half_saturation, alpha
+function net_photosynthetic_growth_single_nutrient(
+    N, P, PAR, maximum_growth_rate, nutrient_half_saturation, alpha
 )
     return sum([
         # sum over plankton that have a `maximum_growth_rate` (these will also have
-        # `nitrogen_half_saturation` and `alpha` values)
-        photosynthetic_growth_idealized(
+        # `nutrient_half_saturation` and `alpha` values)
+        photosynthetic_growth_single_nutrient(
             N,
             P[name],
             PAR,
             maximum_growth_rate[name],
-            nitrogen_half_saturation[name],
+            nutrient_half_saturation[name],
             alpha[name],
         ) for name in names(maximum_growth_rate, 1)
     ],)
