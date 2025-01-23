@@ -3,7 +3,7 @@ module Tracers
 using NamedArrays
 
 export typical_detritus,
-    typical_nutrients, single_nutrient_phytoplankton_growth, simplified_zooplankton_growth
+    typical_nutrients, phytoplankton_growth_single_nutrient, zooplankton_growth_simplified
 
 """
 Build expression for a single nutrient function of time.
