@@ -1,8 +1,8 @@
 ## Constructors
 
-```@docs 
+```@docs
 Agate.Models.Constructors.construct_size_structured_NPZD
-``` 
+```
 
 ## Low level API
 

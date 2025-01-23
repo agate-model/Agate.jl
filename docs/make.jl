@@ -9,8 +9,8 @@ makedocs(;
         "About" => "index.md",
         "API" => "api.md",
         "Library" => "library.md",
-        "Examples" => "examples.md"
-    ]
+        "Examples" => "examples.md",
+    ],
 )
 
 deploydocs(; repo="https://github.com/agate-model/Agate.jl.git")
