@@ -29,7 +29,7 @@ function typical_nutrients(plankton_array)
         ) +
         remineralization_idealized(D, detritus_remineralization) -
         net_photosynthetic_growth_single_nutrient(
-            R,
+            N,
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             PAR,
             maximum_growth_rate,
@@ -87,7 +87,7 @@ function single_nutrient_phytoplankton_growth(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
     return :(
         photosynthetic_growth_single_nutrient(
-            R,
+            N,
             $(plankton_symbol),
             PAR,
             maximum_growth_rate[$plankton_name],

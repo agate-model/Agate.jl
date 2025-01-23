@@ -48,35 +48,35 @@ end
 Single nutrient monod smith photosynthetic growth (used, for example, in Kuhn 2015).
 
 # Arguments
-- `R`: nutrient concentration
+- `N`: nutrient concentration
 - `P`: phytoplankton concentration
 - `PAR`: photosynthetic active radiation
 - `μ₀`: maximum growth rate at T = 0 °C
-- `kᵣ`: nutrient half saturation
+- `kₙ`: nutrient half saturation
 - `α`: initial photosynthetic slope
 """
-function photosynthetic_growth_single_nutrient(R, P, PAR, μ₀, kᵣ, α)
-    return μ₀ * monod_limitation(R, kᵣ) * smith_light_limitation(PAR, α, μ₀) * P
+function photosynthetic_growth_single_nutrient(N, P, PAR, μ₀, kₙ, α)
+    return μ₀ * monod_limitation(N, kₙ) * smith_light_limitation(PAR, α, μ₀) * P
 end
 
 """
 Net photosynthetic growth of all plankton.
 
 # Arguments
-- `R`: Nutrient
+- `N`: Nutrient
 - `P`: NamedArray which includes all plankton concentration values
 - `PAR`: PAR
 - `maximum_growth_rate`: NamedArray of all plankton maximum growth rates
 - `nutrient_half_saturation`: NamedArray of all plankton nutrient half saturation constants
 """
 function net_photosynthetic_growth_single_nutrient(
-    R, P, PAR, maximum_growth_rate, nutrient_half_saturation, alpha
+    N, P, PAR, maximum_growth_rate, nutrient_half_saturation, alpha
 )
     return sum([
         # sum over plankton that have a `maximum_growth_rate` (these will also have
         # `nitrogen_half_saturation` and `alpha` values)
         photosynthetic_growth_single_nutrient(
-            R,
+            N,
             P[name],
             PAR,
             maximum_growth_rate[name],

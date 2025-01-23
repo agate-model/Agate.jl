@@ -18,7 +18,7 @@ Construct an instance of an size-structured NPZD model.
 This constructor builds a size-structured plankton model with two plankton functional types:
 phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
 size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor implements
-idealized detritus (D) and nutrient (R) cycling by default, although more complex N and D
+idealized detritus (D) and nutrient (N) cycling by default, although more complex N and D
 cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics` arguments.
 
 During model construction, the size of each plankton determines photosynthetic growth rates,
@@ -119,10 +119,12 @@ function construct_size_structured_NPZD(;
 
     if isnothing(assimilation_efficiency_matrix)
         defined_parameters["P"]["assimilation_efficiency"] = Dict(
-            k => interaction_args["P"][k] for k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
+            k => interaction_args["P"][k] for
+            k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
         )
         defined_parameters["Z"]["assimilation_efficiency"] = Dict(
-            k => interaction_args["Z"][k] for k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
+            k => interaction_args["Z"][k] for
+            k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
         )
     end
 
