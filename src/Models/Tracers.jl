@@ -44,7 +44,7 @@ function nutrients_typical(plankton_array)
 end
 
 """
-Build expression for a single nutrient function of time.
+Build expression for a single nutrient function of time where photosynthetic growth is limited based on the Geider formulation.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
 for overview. All arguments in the functions are either a NamedArray or a Float.
