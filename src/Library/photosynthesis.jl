@@ -7,8 +7,8 @@ module Photosynthesis
 using Agate.Library.Nutrients
 
 export γˡⁱᵍʰᵗ,
-    smith_light_limitation,
-    geider_light_limitation,
+    light_limitation_smith,
+    light_limitation_geider,
     photosynthetic_growth_single_nutrient,
     photosynthetic_growth_single_nutrient_geider_light,
     net_photosynthetic_growth_single_nutrient,
@@ -38,7 +38,7 @@ Smith 1936 formulation of light limitation (also see Evans and Parslow, 1985).
 - `α`: initial photosynthetic slope
 - `μ₀`: maximum growth rate at T = 0 °C (this seems weird?, from Kuhn 2015)
 "
-function smith_light_limitation(PAR, α, μ₀)
+function light_limitation_smith(PAR, α, μ₀)
     # here to avoid division by 0 when α and μ₀ are both 0
     if α == 0
         return 0.0
@@ -58,7 +58,7 @@ This formulation is based on equation (4) from Geider et al., 1998.
 - `photosynthetic_slope`: initial photosynthetic slope (αᶜʰˡ)
 - `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon (θᶜ)
 """
-function geider_light_limitation(
+function light_limitation_geider(
     PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio
 )
     if maximum_growth_rate == 0
@@ -83,7 +83,7 @@ Single nutrient monod smith photosynthetic growth (used, for example, in Kuhn 20
 - `α`: initial photosynthetic slope
 """
 function photosynthetic_growth_single_nutrient(N, P, PAR, μ₀, kₙ, α)
-    return μ₀ * monod_limitation(N, kₙ) * smith_light_limitation(PAR, α, μ₀) * P
+    return μ₀ * monod_limitation(N, kₙ) * light_limitation_smith(PAR, α, μ₀) * P
 end
 
 """
@@ -101,7 +101,7 @@ function photosynthetic_growth_single_nutrient_geider_light(
     N, P, PAR, maximum_growth_rate, kₙ, photosynthetic_slope, chlorophyll_to_carbon_ratio
 )
     return monod_limitation(N, kₙ) *
-           geider_light_limitation(
+           light_limitation_geider(
                PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio
            ) *
            P
