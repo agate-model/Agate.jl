@@ -45,6 +45,29 @@ function smith_light_limitation(PAR, α, μ₀)
 end
 
 """
+    Pᶜₘₐₓ[1-exp((-αᶜʰˡθᶜE₀)/Pᶜₘₐₓ)]
+
+A light limitation function which depends on the cellular ratio of chlorophyll to carbon.
+This formulation is based on equation (4) from Geider et al., 1998.
+
+# Arguments
+- `PAR`: photosynthetic active radiation (E₀)
+- `maximum_photosynthetic_rate`: maximum growth rate before nutrient limitation (Pᶜₘₐₓ)
+- `photosynthetic_slope`: initial photosynthetic slope (αᶜʰˡ)
+- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon (θᶜ)
+"""
+function geider_light_limitation()
+    if maximum_photosynthetic_rate == 0
+        return 0.0
+    end
+    return maximum_photosynthetic_rate * (
+        1 - exp(
+            (-photosynthetic_slope * chlorophyll_to_carbon_ratio * PAR) /
+            maximum_photosynthetic_rate,
+        )
+    )
+end
+"""
 Single nutrient monod smith photosynthetic growth (used, for example, in Kuhn 2015).
 
 # Arguments
