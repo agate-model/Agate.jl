@@ -8,9 +8,11 @@ using Agate.Library.Nutrients
 
 export γˡⁱᵍʰᵗ,
     smith_light_limitation,
+    geider_light_limitation,
     photosynthetic_growth_single_nutrient,
-    net_photosynthetic_growth_single_nutrient
-
+    photosynthetic_growth_single_nutrient_geider_light,
+    net_photosynthetic_growth_single_nutrient,
+    net_photosynthetic_growth_single_nutrient_geider_light
 """
     γˡⁱᵍʰᵗ = (1 - ℯ^(kˢᵃᵗ*I)) * ℯ^kⁱⁿʰ * nˡⁱᵍʰᵗ
 
@@ -52,18 +54,20 @@ This formulation is based on equation (4) from Geider et al., 1998.
 
 # Arguments
 - `PAR`: photosynthetic active radiation (E₀)
-- `maximum_photosynthetic_rate`: maximum growth rate before nutrient limitation (Pᶜₘₐₓ)
+- `maximum_growth_rate`: maximum growth rate before nutrient limitation (Pᶜₘₐₓ)
 - `photosynthetic_slope`: initial photosynthetic slope (αᶜʰˡ)
 - `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon (θᶜ)
 """
-function geider_light_limitation()
-    if maximum_photosynthetic_rate == 0
+function geider_light_limitation(
+    PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio
+)
+    if maximum_growth_rate == 0
         return 0.0
     end
-    return maximum_photosynthetic_rate * (
+    return maximum_growth_rate * (
         1 - exp(
             (-photosynthetic_slope * chlorophyll_to_carbon_ratio * PAR) /
-            maximum_photosynthetic_rate,
+            maximum_growth_rate,
         )
     )
 end
@@ -83,7 +87,62 @@ function photosynthetic_growth_single_nutrient(N, P, PAR, μ₀, kₙ, α)
 end
 
 """
+Single nutrient geider photosynthetic growth.
+
+# Arguments
+- `N`: nutrient concentration
+- `P`: phytoplankton concentration
+- `PAR`: photosynthetic active radiation
+- `maximum_growth_rate`: maximum growth rate before nutrient limitation (Pᶜₘₐₓ)
+- `photosynthetic_slope`: initial photosynthetic slope (αᶜʰˡ)
+- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon (θᶜ)
+"""
+function photosynthetic_growth_single_nutrient_geider_light(
+    N, P, PAR, maximum_growth_rate, kₙ, photosynthetic_slope, chlorophyll_to_carbon_ratio
+)
+    return monod_limitation(N, kₙ) *
+           geider_light_limitation(
+               PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio
+           ) *
+           P
+end
+
+"""
 Net photosynthetic growth of all plankton.
+
+# Arguments
+- `N`: Nutrient
+- `P`: NamedArray which includes all plankton concentration values
+- `PAR`: PAR
+- `maximum_growth_rate`: NamedArray of all plankton maximum growth rates
+- `nutrient_half_saturation`: NamedArray of all plankton nutrient half saturation constants
+"""
+function net_photosynthetic_growth_single_nutrient_geider_light(
+    N,
+    P,
+    PAR,
+    maximum_growth_rate,
+    nutrient_half_saturation,
+    photosynthetic_slope,
+    chlorophyll_to_carbon_ratio,
+)
+    return sum([
+        # sum over plankton that have a `maximum_growth_rate` (these will also have
+        # `nutrient_half_saturation` and `alpha` values)
+        photosynthetic_growth_single_nutrient_geider_light(
+            N,
+            P[name],
+            PAR,
+            maximum_growth_rate[name],
+            nutrient_half_saturation[name],
+            photosynthetic_slope[name],
+            chlorophyll_to_carbon_ratio[name],
+        ) for name in names(maximum_growth_rate, 1)
+    ],)
+end
+
+"""
+Net photosynthetic growth of all plankton assuming geider light limitation.
 
 # Arguments
 - `N`: Nutrient
