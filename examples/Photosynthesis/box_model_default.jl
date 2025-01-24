@@ -37,7 +37,7 @@ simulation_default_photosynthesis = Simulation(
 simulation_default_photosynthesis.output_writers[:fields] = JLD2OutputWriter(
     full_model_default_photosynthesis,
     full_model_default_photosynthesis.fields;
-    filename=filename,
+    filename=filename_default_photosynthesis,
     schedule=TimeInterval(1day),
     overwrite_existing=true,
 )
