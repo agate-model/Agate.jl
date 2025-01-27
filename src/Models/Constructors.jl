@@ -13,8 +13,6 @@ using Oceananigans.Units
 export construct_size_structured_NPZD
 
 DEFAULT_PHYTO_ARGS = Dict(
-    "diameters" =>
-        Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
     "allometry" => Dict(
         "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
         "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
@@ -24,9 +22,6 @@ DEFAULT_PHYTO_ARGS = Dict(
 )
 
 DEFAULT_ZOO_ARGS = Dict(
-    "diameters" => Dict(
-        "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
-    ),
     "allometry" => Dict("maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16)),
     "linear_mortality" => 8e-7 / second,
     "holling_half_saturation" => 5.0,
@@ -35,16 +30,16 @@ DEFAULT_ZOO_ARGS = Dict(
 
 DEFAULT_INTERACTION_ARGS = Dict(
     "P" => Dict(
-        "can_eat" => 0,
-        "can_be_eaten" => 1,
+        "can_eat" => 0, # bool
+        "can_be_eaten" => 1, # bool
         "optimum_predator_prey_ratio" => 0,
         "protection" => 0,
         "specificity" => 0,
         "assimilation_efficiency" => 0,
     ),
     "Z" => Dict(
-        "can_eat" => 1,
-        "can_be_eaten" => 0,
+        "can_eat" => 1, # bool
+        "can_be_eaten" => 0, # bool
         "optimum_predator_prey_ratio" => 10,
         "protection" => 1,
         "specificity" => 0.3,
@@ -77,27 +72,39 @@ need to be specified.
 # Arguments
 - `n_phyto`: number of phytoplankton to include in the model
 - `n_zoo`: number of zooplankton to include in the model
-- `nutrient_dynamics`: expression describing how nutrients change over time
-- `detritus_dynamics`: expression describing how detritus evolves over time
-- `phyto_dynamics`: expression describing how phytoplankton grow
-- `zoo_dynamics`: expression describing how zooplankton grow
-- `phyto_args`: Dictionary of phytoplankton parameters, for default values see:
+- `phyto_diameters`: dictionary from which `n_phyto` diameters can be computed or a list of
+    values to use
+- `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
+    values to use
+- `nutrient_dynamics`: expression describing how nutrients change over time, see
+    `Agate.Models.Tracers`
+- `detritus_dynamics`: expression describing how detritus evolves over time, see
+    `Agate.Models.Tracers`
+- `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
+- `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
+- `phyto_args`: Dictionary of phytoplankton parameters, for default values see
     `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
-- `zoo_args`: Dictionary of zooplankton parameters, for default values see:
+- `zoo_args`: Dictionary of zooplankton parameters, for default values see
     `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
-   efficiency matrix between all plankton can be computed, for default values  see:
+   efficiency matrix between all plankton can be computed, for default values see
     `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
 - `bgc_args`: biogeochemistry parameters related to nutrient and detritus, for default
-    values see: `Agate.Models.Constructors.DEFAULT_BGC_ARGS`
+    values see `Agate.Models.Constructors.DEFAULT_BGC_ARGS`
 - `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
-   then `paralatability_args` are ignored
+   then `interaction_args` are not used to compute this
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
-   NamedArray, if provided then `assimilation_args` are ignored
+   NamedArray, if provided then `interaction_args` are not used to compute this
 """
 function construct_size_structured_NPZD(;
     n_phyto=2,
     n_zoo=2,
+    phyto_diameters = Dict(
+        "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+    ),
+    zoo_diameters = Dict(
+        "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+    ),
     nutrient_dynamics=nutrients_typical,
     detritus_dynamics=detritus_typical,
     phyto_dynamics=phytoplankton_growth_single_nutrient,
@@ -110,7 +117,9 @@ function construct_size_structured_NPZD(;
     assimilation_efficiency_matrix=nothing,
 )
     phyto_args["n"] = n_phyto
+    phyto_args["diameters"] =  phyto_diameters
     zoo_args["n"] = n_zoo
+    zoo_args["diameters"] =  zoo_diameters
 
     # compute emergent parameters
     defined_parameters = Dict("P" => phyto_args, "Z" => zoo_args)

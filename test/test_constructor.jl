@@ -82,12 +82,12 @@ using Agate.Models.Tracers
 
         # N2P2ZD model constructed with user-defined functions (geider growth)
         N2P2ZD_geider = construct_size_structured_NPZD(;
+            phyto_diameters = Dict(
+                "min_diameter" => 2,
+                "max_diameter" => 10,
+                "splitting" => "log_splitting",
+            ),
             phyto_args=Dict(
-                "diameters" => Dict(
-                    "min_diameter" => 2,
-                    "max_diameter" => 10,
-                    "splitting" => "log_splitting",
-                ),
                 "allometry" => Dict(
                     "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
                     "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),

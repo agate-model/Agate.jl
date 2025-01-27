@@ -33,7 +33,8 @@ using names generated in the first step.
        `Dict(<group name> => Dict(<parameter> => <value>, ....), ...)`
 
     The Dictionary for each group (e.g., "P", "Z" or "cocco") has to contain at least the
-    keys "n" and "diameters" and have the following form:
+    keys "n" and "diameters", which are either an array of values or a dictionary of the
+    following form:
         ```
         Dict(
             "P" => Dict(
@@ -61,8 +62,8 @@ using names generated in the first step.
             "P" => Dict(
                 ...,
                 "allometry" => Dict(
-                    "maximum_growth_rate" => Dict("a" => 1, "b" => 1),
-                    "nutrient_half_saturation" => Dict("a" => 1, "b" => 1),
+                    "maximum_growth_rate" => Dict("a" => 2.3148e-5, "b" => -0.15),
+                    "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
                 ),
                 ...
             ),
