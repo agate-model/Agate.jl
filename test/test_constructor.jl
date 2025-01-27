@@ -1,5 +1,6 @@
 using Agate
 using NamedArrays
+using Agate.Models.Tracers
 
 @testset "Models.Constructor" begin
     @testset "N2P2ZD model" begin
@@ -75,5 +76,45 @@ using NamedArrays
             palatability_matrix=correct_size_matrix,
             assimilation_efficiency_matrix=correct_size_matrix,
         )
+    end
+
+    @testset "Alternative instantiation" begin
+
+        # N2P2ZD model constructed with user-defined functions (geider growth)
+        N2P2ZD_geider = construct_size_structured_NPZD(;
+            phyto_args=Dict(
+                "diameters" => Dict(
+                    "min_diameter" => 2,
+                    "max_diameter" => 10,
+                    "splitting" => "log_splitting",
+                ),
+                "allometry" => Dict(
+                    "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
+                    "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
+                ),
+                "linear_mortality" => 8e-7 / second,
+                "photosynthetic_slope" => 0.46e-5,
+                "chlorophyll_to_carbon_ratio" => 0.1,
+            ),
+            nutrient_dynamics=nutrients_geider_light,
+            phyto_dynamics=phytoplankton_growth_single_nutrient_geider_light,
+        )
+
+        model_geider = N2P2ZD_geider()
+
+        P1 = 0.01
+        P2 = 0.01
+        Z1 = 0.05
+        Z2 = 0.05
+        N = 7.0
+        D = 1
+        PAR = 100
+
+        @test !iszero(model_geider(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model_geider(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model_geider(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model_geider(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model_geider(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model_geider(Val(:Z2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
     end
 end
