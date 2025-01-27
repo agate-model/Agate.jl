@@ -94,6 +94,7 @@ Single nutrient geider photosynthetic growth.
 - `P`: phytoplankton concentration
 - `PAR`: photosynthetic active radiation
 - `maximum_growth_rate`: maximum growth rate before nutrient limitation (Pᶜₘₐₓ)
+- `kₙ`: nutrient half saturation
 - `photosynthetic_slope`: initial photosynthetic slope (αᶜʰˡ)
 - `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon (θᶜ)
 """
@@ -116,6 +117,9 @@ Net photosynthetic growth of all plankton.
 - `PAR`: PAR
 - `maximum_growth_rate`: NamedArray of all plankton maximum growth rates
 - `nutrient_half_saturation`: NamedArray of all plankton nutrient half saturation constants
+- `photosynthetic_slope`: initial photosynthetic slope (αᶜʰˡ)
+- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon (θᶜ)
+
 """
 function net_photosynthetic_growth_single_nutrient_geider_light(
     N,
