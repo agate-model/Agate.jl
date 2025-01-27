@@ -128,7 +128,7 @@ function net_photosynthetic_growth_single_nutrient_geider_light(
 )
     return sum([
         # sum over plankton that have a `maximum_growth_rate` (these will also have
-        # `nutrient_half_saturation` and `alpha` values)
+        # `nutrient_half_saturation` values)
         photosynthetic_growth_single_nutrient_geider_light(
             N,
             P[name],
