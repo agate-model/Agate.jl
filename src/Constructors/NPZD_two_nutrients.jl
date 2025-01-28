@@ -49,8 +49,8 @@ DEFAULT_INTERACTION_ARGS = Dict(
 )
 
 DEFAULT_BGC_ARGS = Dict(
-    "POC_remineralization" => 0.1213 / day, 
-    "DOC_remineralization" => 0.1213 / day, 
+    "POC_remineralization" => 0.1213 / day,
+    "DOC_remineralization" => 0.1213 / day,
     "mortality_export_fraction" => 0.5,
     "nitrogen_to_carbon" => 1,
     "phosphorus_to_carbon" => 1,
@@ -190,12 +190,12 @@ function construct_size_structured_P_Z_POC_DOC_DIN_PO4(;
         [Symbol("P$i") for i in 1:n_phyto], [Symbol("Z$i") for i in 1:n_zoo]
     )
     tracers = Dict(
-        "DIC" => DIC_dynamics(plankton_array), 
-        "DIN" => DIN_dynamics(plankton_array), 
-        "PO4" => PO4_dynamics(plankton_array), 
+        "DIC" => DIC_dynamics(plankton_array),
+        "DIN" => DIN_dynamics(plankton_array),
+        "PO4" => PO4_dynamics(plankton_array),
         "POC" => POC_dynamics(plankton_array),
-        "DOC" => DOC_dynamics(plankton_array),    
-        )
+        "DOC" => DOC_dynamics(plankton_array),
+    )
     for i in 1:n_phyto
         name = "P$i"
         tracers[name] = phyto_dynamics(plankton_array, name)
