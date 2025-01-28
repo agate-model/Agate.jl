@@ -28,9 +28,6 @@ set!(full_model_default_photosynthesis; P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, N=7.
 
 # Geider photosynthesis model
 N2P2ZD_geider_photosynthesis = construct_size_structured_NPZD(;
-    phyto_diameters=Dict(
-        "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
-    ),
     phyto_args=Dict(
         "allometry" => Dict(
             "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
