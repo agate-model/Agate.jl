@@ -1,12 +1,12 @@
-module Constructors
+"""
+Module to construct an instance of an size-structured NPZD model.
+"""
 
-include("Biogeochemistry.jl")
-include("Parameters.jl")
-include("Tracers.jl")
+module NPZD_size_structured
 
-using .Biogeochemistry
-using .Parameters
-using .Tracers
+using Agate.Models.Biogeochemistry
+using Agate.Models.Parameters
+using Agate.Models.Tracers
 
 using Oceananigans.Units
 

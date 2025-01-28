@@ -3,10 +3,8 @@ module Parameters
 using DataStructures: DefaultDict
 using NamedArrays
 
-include(joinpath("..", "Library", "Library.jl"))
-
-using .Library.Allometry
-using .Library.Predation
+using Agate.Library.Allometry
+using Agate.Library.Predation
 
 export compute_allometric_parameters
 
