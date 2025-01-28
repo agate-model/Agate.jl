@@ -5,7 +5,7 @@ using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans.Units
 using Plots
-using Agate.Models.Constructors
+using Agate.Constructors
 using Agate.Models.Tracers
 using Agate.Library.Photosynthesis
 
@@ -29,8 +29,6 @@ set!(full_model_default_photosynthesis; P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, N=7.
 # Geider photosynthesis model
 N2P2ZD_geider_photosynthesis = construct_size_structured_NPZD(;
     phyto_args=Dict(
-        "diameters" =>
-            Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
         "allometry" => Dict(
             "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
             "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),

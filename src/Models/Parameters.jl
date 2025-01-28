@@ -3,10 +3,8 @@ module Parameters
 using DataStructures: DefaultDict
 using NamedArrays
 
-include(joinpath("..", "Library", "Library.jl"))
-
-using .Library.Allometry
-using .Library.Predation
+using Agate.Library.Allometry
+using Agate.Library.Predation
 
 export compute_allometric_parameters
 
@@ -33,7 +31,8 @@ using names generated in the first step.
        `Dict(<group name> => Dict(<parameter> => <value>, ....), ...)`
 
     The Dictionary for each group (e.g., "P", "Z" or "cocco") has to contain at least the
-    keys "n" and "diameters" and have the following form:
+    keys "n" and "diameters", which are either an array of values or a dictionary of the
+    following form:
         ```
         Dict(
             "P" => Dict(
@@ -61,8 +60,8 @@ using names generated in the first step.
             "P" => Dict(
                 ...,
                 "allometry" => Dict(
-                    "maximum_growth_rate" => Dict("a" => 1, "b" => 1),
-                    "nutrient_half_saturation" => Dict("a" => 1, "b" => 1),
+                    "maximum_growth_rate" => Dict("a" => 2.3148e-5, "b" => -0.15),
+                    "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
                 ),
                 ...
             ),
@@ -96,11 +95,21 @@ function compute_allometric_parameters(plankton::Dict)
         n = params["n"]
         plankton_names = ["$plankton_name$i" for i in 1:n]
 
-        # 1. compute diameters
-        splitting_function = getfield(Parameters, Symbol(params["diameters"]["splitting"]))
-        diameters = splitting_function(
-            params["diameters"]["min_diameter"], params["diameters"]["max_diameter"], n
-        )
+        # 1. compute diameters (unless already specified)
+        if isa(params["diameters"], Dict)
+            # get the appropriate splitting function from the Parameters module
+            splitting_function = getfield(
+                Parameters, Symbol(params["diameters"]["splitting"])
+            )
+            diameters = splitting_function(
+                params["diameters"]["min_diameter"], params["diameters"]["max_diameter"], n
+            )
+        else
+            if length(params["diameters"]) != n
+                throw(ArgumentError("diameters array must have length $(n)"))
+            end
+            diameters = params["diameters"]
+        end
         results["diameters"] = vcat(
             results["diameters"], NamedArray(diameters, plankton_names)
         )
