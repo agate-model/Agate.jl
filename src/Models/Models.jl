@@ -9,6 +9,6 @@ using .Parameters
 using .Tracers
 
 export compute_allometric_parameters
-export define_tracer_functions
+export define_tracer_functions, revise_bgc_params
 
 end # module

@@ -25,7 +25,7 @@ import Oceananigans.Biogeochemistry:
     biogeochemical_drift_velocity
 import OceanBioME.Models.Sediments: sinking_tracers
 
-export define_tracer_functions
+export define_tracer_functions, revise_bgc_params
 
 """
     define_tracer_functions(
@@ -62,6 +62,8 @@ passed in the `helper_functions` file.
 
 # Example
 ```julia
+using Agate
+
 parameters = (α=2 / 3, β=4 / 3, δ=1, γ=1)
 tracers = Dict("R" => :(α * R - β * R * F), "F" => :(-γ * F + δ * R * F))
 LV = define_tracer_functions(parameters, tracers)
@@ -121,6 +123,8 @@ are reserved for coordinates.
 
 # Example
 ```julia
+using Agate.Models.Biogeochemistry: create_bgc_struct
+
 create_bgc_struct(:LV, (α=2/3, β=4/3,  δ=1, γ=1))
 ```
 """
@@ -155,6 +159,48 @@ function create_bgc_struct(
         end
     end
     return eval(exp)
+end
+
+"""
+    revise_bgc_params(bgc_object, params)
+
+Update parameter values of a concrete instance of a Biogeochemistry model type.
+
+# Arguments
+- `bgc_object`: a concrete instance of a Biogeochemistry model
+- `params`: a Dictionary of `{<parameter symbol> => <new value>}` to update to, where value
+   is either a single Number or a NamedArray of values in the case of multiple tracers with
+   the same parameter (e.g., multiple phyto/zooplankton)
+
+# Example
+```julia
+using Agate
+using NamedArrays
+
+N2P2ZD = construct_size_structured_NPZD()
+model = N2P2ZD()
+new_alpha = NamedArray([0, 1], ["P1", "P2"])
+new_model = revise_params(model, {:alpha = new_alpha, :detritus_remineralization = 0.5})
+```
+"""
+function revise_bgc_params(bgc_object, params)
+    for (k,v) in params
+        # if value is not a Number, it has to be a NamedArray
+        if !(typeof(v) <:Number)
+            if !(typeof(v) <: NamedArray)
+                throw(ArgumentError("$k has to be a Number or a NamedArray"))
+            end
+        end
+    end
+
+    bgc_type = typeof(bgc_object)
+    for field in fieldnames(bgc_type)
+        # get parameter values stored in bgc_object and add them to the user defined params
+        if !haskey(params, field)
+            params[field] = getfield(bgc_object, field)
+        end
+    end
+    return bgc_type(; (Symbol(k) => v for (k, v) in params)...)
 end
 
 """
@@ -194,6 +240,7 @@ expressions must use methods that are either defined within this module or passe
 # Example
 ```julia
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
+using using Agate.Models.Biogeochemistry: add_bgc_methods!
 
 struct LV <: AbstractContinuousFormBiogeochemistry
     α
@@ -291,6 +338,8 @@ Return all symbols (argument names and method names) called in expression.
 
 # Example
 ```julia
+using Agate.Models.Biogeochemistry: parse_expression
+
 parse_expression(:(α * x - β * x * y))
 ```
 """
