@@ -98,14 +98,19 @@ function compute_allometric_parameters(plankton::Dict)
         # 1. compute diameters (unless already specified)
         if isa(params["diameters"], Dict)
             # get the appropriate splitting function from the Parameters module
-            splitting_function = getfield(Parameters, Symbol(params["diameters"]["splitting"]))
+            splitting_function = getfield(
+                Parameters, Symbol(params["diameters"]["splitting"])
+            )
             diameters = splitting_function(
                 params["diameters"]["min_diameter"], params["diameters"]["max_diameter"], n
             )
         else
+            if length(params["diameters"]) != n
+                throw(ArgumentError("diameters array must have length $(n)"))
+            end
             diameters = params["diameters"]
         end
-            results["diameters"] = vcat(
+        results["diameters"] = vcat(
             results["diameters"], NamedArray(diameters, plankton_names)
         )
 

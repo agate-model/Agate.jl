@@ -99,10 +99,10 @@ need to be specified.
 function construct_size_structured_NPZD(;
     n_phyto=2,
     n_zoo=2,
-    phyto_diameters = Dict(
+    phyto_diameters=Dict(
         "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
     ),
-    zoo_diameters = Dict(
+    zoo_diameters=Dict(
         "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
     ),
     nutrient_dynamics=nutrients_typical,
@@ -117,9 +117,9 @@ function construct_size_structured_NPZD(;
     assimilation_efficiency_matrix=nothing,
 )
     phyto_args["n"] = n_phyto
-    phyto_args["diameters"] =  phyto_diameters
+    phyto_args["diameters"] = phyto_diameters
     zoo_args["n"] = n_zoo
-    zoo_args["diameters"] =  zoo_diameters
+    zoo_args["diameters"] = zoo_diameters
 
     # compute emergent parameters
     defined_parameters = Dict("P" => phyto_args, "Z" => zoo_args)
