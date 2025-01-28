@@ -3,6 +3,16 @@ using NamedArrays
 using Agate.Models.Tracers
 
 @testset "Models.Constructor" begin
+
+    # declare constants reused in all tests
+    P1 = 0.01
+    P2 = 0.01
+    Z1 = 0.05
+    Z2 = 0.05
+    N = 7.0
+    D = 1
+    PAR = 100
+
     @testset "N2P2ZD model" begin
         # N2P2ZD model defined using low level syntax
         include(joinpath("..", "examples", "N2P2ZD", "tracers.jl"))
@@ -11,14 +21,6 @@ using Agate.Models.Tracers
         # N2P2ZD model constructed from emergent parameters
         N2P2ZD_constructed = construct_size_structured_NPZD()
         model_constructed = N2P2ZD_constructed()
-
-        P1 = 0.01
-        P2 = 0.01
-        Z1 = 0.05
-        Z2 = 0.05
-        N = 7.0
-        D = 1
-        PAR = 100
 
         @test !iszero(model_constructed(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
         @test !iszero(model_constructed(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
@@ -78,16 +80,35 @@ using Agate.Models.Tracers
         )
     end
 
+    @testset "Diameters passed as an array" begin
+
+        # diameters can be passed as an array of values rather than a dictionary
+        # this is useful in the case where we want 1 phytoplankton with a given diameter
+        # it could also be used to fix the diameters of multiple phytoplankton in the model
+        NP2ZD = construct_size_structured_NPZD(; n_phyto=1, phyto_diameters=[2])
+        model = NP2ZD()
+
+        # only 1 phyto, 2 zoo tracers (unlike other tests here)
+        @test !iszero(model(Val(:N), 0, 0, 0, 0, P1, Z1, Z2, N, D, PAR))
+        @test !iszero(model(Val(:D), 0, 0, 0, 0, P1, Z1, Z2, N, D, PAR))
+        @test !iszero(model(Val(:P1), 0, 0, 0, 0, P1, Z1, Z2, N, D, PAR))
+        @test !iszero(model(Val(:Z1), 0, 0, 0, 0, P1, Z1, Z2, N, D, PAR))
+        @test !iszero(model(Val(:Z2), 0, 0, 0, 0, P1, Z1, Z2, N, D, PAR))
+
+        # by default have 2 phyto so expect 2 diameters
+        @test_throws ArgumentError construct_size_structured_NPZD(;
+            phyto_diameters=[1, 2, 3]
+        )
+    end
+
     @testset "Alternative instantiation" begin
 
         # N2P2ZD model constructed with user-defined functions (geider growth)
         N2P2ZD_geider = construct_size_structured_NPZD(;
+            phyto_diameters=Dict(
+                "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+            ),
             phyto_args=Dict(
-                "diameters" => Dict(
-                    "min_diameter" => 2,
-                    "max_diameter" => 10,
-                    "splitting" => "log_splitting",
-                ),
                 "allometry" => Dict(
                     "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
                     "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
@@ -101,14 +122,6 @@ using Agate.Models.Tracers
         )
 
         model_geider = N2P2ZD_geider()
-
-        P1 = 0.01
-        P2 = 0.01
-        Z1 = 0.05
-        Z2 = 0.05
-        N = 7.0
-        D = 1
-        PAR = 100
 
         @test !iszero(model_geider(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
         @test !iszero(model_geider(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
