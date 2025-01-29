@@ -186,10 +186,8 @@ new_model = revise_params(model, {:alpha = new_alpha, :detritus_remineralization
 function revise_bgc_params(bgc_object, params)
     for (k,v) in params
         # if value is not a Number, it has to be a NamedArray
-        if !(typeof(v) <:Number)
-            if !(typeof(v) <: NamedArray)
-                throw(ArgumentError("$k has to be a Number or a NamedArray"))
-            end
+        if !(typeof(v) <:Number || typeof(v) <: NamedArray)
+            throw(ArgumentError("$k has to be a Number or a NamedArray"))
         end
     end
 
