@@ -140,17 +140,15 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "revise_bgc_params" begin
-
         @testset "update numeric parameters" begin
-
             parameters = (α=1, β=2, δ=3, γ=4)
             tracers = Dict("R" => :(α * R - β * R * F), "F" => :(-γ * F + δ * R * F))
             LV = create_bgc_struct(:LV, parameters)
             add_bgc_methods!(LV, tracers)
 
-            # revise model to have different alpha value and keeping everything else as is
+            # revise model to have different alpha value while keeping everything else as is
             model1 = LV()
-            model2 = revise_bgc_params(model1, Dict(:α => 5))
+            model2 = revise_bgc_params(model1, (α=5,))
 
             @test getfield(model2, :α) == 5
             @test getfield(model2, :β) == 2
@@ -162,19 +160,16 @@ using Oceananigans.Biogeochemistry:
         end
 
         @testset "handle arrays of values" begin
-
             parameters = (α=NamedArray([1, 2], ["a", "b"]), β=3)
             M = create_bgc_struct(:M, parameters)
             model = M()
 
             # if not passing a numeric value, expect a NamedArray
-            @test_throws ArgumentError revise_bgc_params(model, Dict(:α => [10, 20]))
+            @test_throws ArgumentError revise_bgc_params(model, (α=[10, 20],))
 
             new_array_params = NamedArray([10, 20], ["a", "b"])
-
-            # TODO: currently doesn't work
-            # updated_model = revise_bgc_params(model, Dict(:α => new_array_params))
-            # @test getfield(updated_model, :α) == new_array_params
+            updated_model = revise_bgc_params(model, (α=new_array_params,))
+            @test getfield(updated_model, :α) == new_array_params
         end
     end
 end

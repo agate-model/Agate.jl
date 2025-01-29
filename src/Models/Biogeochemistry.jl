@@ -168,9 +168,8 @@ Update parameter values of a concrete instance of a Biogeochemistry model type.
 
 # Arguments
 - `bgc_object`: a concrete instance of a Biogeochemistry model
-- `params`: a Dictionary of `{<parameter symbol> => <new value>}` to update to, where value
-   is either a single Number or a NamedArray of values in the case of multiple tracers with
-   the same parameter (e.g., multiple phyto/zooplankton)
+- `params`: a NamedTuple of `(<parameter> = <new value>,...)` to revise, where the value is
+   either a single Number or a NamedArray of values (e.g., for multiple phyto/zooplankton)
 
 # Example
 ```julia
@@ -180,25 +179,30 @@ using NamedArrays
 N2P2ZD = construct_size_structured_NPZD()
 model = N2P2ZD()
 new_alpha = NamedArray([0, 1], ["P1", "P2"])
-new_model = revise_params(model, {:alpha = new_alpha, :detritus_remineralization = 0.5})
+new_model = revise_params(model, (alpha = new_alpha, detritus_remineralization = 0.5))
 ```
 """
 function revise_bgc_params(bgc_object, params)
-    for (k,v) in params
-        # if value is not a Number, it has to be a NamedArray
-        if !(typeof(v) <:Number || typeof(v) <: NamedArray)
+    # Dictionary value types are inferred based on what is passed in params, which might not
+    # be fully representative of all param types in bgc_object --> declare here that values
+    # can be anything otherwise get errors when start appending additional key-value pairs
+    params_dict = Dict{Symbol,Any}(pairs(params))
+
+    for (k, v) in params_dict
+        # enforce that the values are either a Number or a NamedArray
+        if !(typeof(v) <: Number || typeof(v) <: NamedArray)
             throw(ArgumentError("$k has to be a Number or a NamedArray"))
         end
     end
 
     bgc_type = typeof(bgc_object)
     for field in fieldnames(bgc_type)
-        # get parameter values stored in bgc_object and add them to the user defined params
-        if !haskey(params, field)
-            params[field] = getfield(bgc_object, field)
+        # get parameter values stored in bgc_object and add them to the new params
+        if !haskey(params_dict, field)
+            params_dict[field] = getfield(bgc_object, field)
         end
     end
-    return bgc_type(; (Symbol(k) => v for (k, v) in params)...)
+    return bgc_type(; params_dict...)
 end
 
 """
