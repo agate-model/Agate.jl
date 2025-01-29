@@ -12,6 +12,7 @@ export detritus_typical,
     DOC_typical,
     phytoplankton_growth_single_nutrient,
     phytoplankton_growth_single_nutrient_geider_light,
+    phytoplankton_growth_two_nutrients_geider_light,
     zooplankton_growth_simplified
 
 """
@@ -282,6 +283,41 @@ function phytoplankton_growth_single_nutrient(plankton_array, plankton_name)
             maximum_growth_rate[$plankton_name],
             nutrient_half_saturation[$plankton_name],
             alpha[$plankton_name],
+        ) - summed_predation_loss_preferential(
+            $plankton_name,
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            maximum_predation_rate,
+            holling_half_saturation,
+            palatability_matrix,
+        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_name])
+    )
+end
+
+"""
+Build expression for a simplified phytoplankton growth function.
+
+The functions used in the expression are all within the Agate.Library, see their docstring
+for overview. All arguments in the functions are either a NamedArray or a Float.
+
+# Arguments
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
+- `plankton_name`: name of the phytoplankton for which we are returning the expression passed
+    as a String (e.g., "P1").
+"""
+function phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankton_name)
+    plankton_symbol = Symbol(plankton_name)
+    return :(
+        photosynthetic_growth_two_nutrients_geider_light(
+            DIN,
+            PO4,
+            $(plankton_symbol),
+            PAR,
+            maximum_growth_rate[$plankton_name],
+            half_saturation_DIN[$plankton_name],
+            half_saturation_PO4[$plankton_name],
+            photosynthetic_slope[$plankton_name], 
+            chlorophyll_to_carbon_ratio[$plankton_name],
         ) - summed_predation_loss_preferential(
             $plankton_name,
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
