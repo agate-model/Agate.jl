@@ -65,7 +65,7 @@ function DIC_geider_light(plankton_array)
             nutrient_half_saturation,
             photosynthetic_slope,
             chlorophyll_to_carbon_ratio,
-        ) 
+        )
     )
 end
 
@@ -90,7 +90,7 @@ function DIN_geider_light_fixed_ratios(plankton_array)
             nutrient_half_saturation,
             photosynthetic_slope,
             chlorophyll_to_carbon_ratio,
-        ) 
+        )
     ) * carbon_to_nitrogen
 end
 
@@ -115,7 +115,7 @@ function PO4_geider_light_fixed_ratios(plankton_array)
             nutrient_half_saturation,
             photosynthetic_slope,
             chlorophyll_to_carbon_ratio,
-        ) 
+        )
     ) * carbon_to_phosphorus
 end
 
