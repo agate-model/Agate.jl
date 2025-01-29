@@ -11,6 +11,6 @@ using .NPZD_size_structured
 using .NPZD_two_nutrients
 
 export construct_size_structured_NPZD
-export construct_size_structured_P_Z_POC_DOC_DIN_PO4
+export construct_thunder_egg_1
 
 end # module

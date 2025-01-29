@@ -10,7 +10,7 @@ using Agate.Models.Tracers
 
 using Oceananigans.Units
 
-export construct_size_structured_P_Z_POC_DOC_DIN_PO4
+export construct_thunder_egg_1
 
 DEFAULT_PHYTO_ARGS = Dict(
     "allometry" => Dict(
@@ -122,7 +122,7 @@ need to be specified.
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
    NamedArray, if provided then `interaction_args` are not used to compute this
 """
-function construct_size_structured_P_Z_POC_DOC_DIN_PO4(;
+function construct_thunder_egg_1(;
     n_phyto=2,
     n_zoo=2,
     phyto_diameters=Dict(
