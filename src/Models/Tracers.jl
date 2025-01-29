@@ -225,7 +225,7 @@ function DOC_typical(plankton_array)
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             quadratic_mortality,
             1 - mortality_export_fraction,
-        ) - remineralization_idealized(DOC, DOC_remineralizatio)
+        ) - remineralization_idealized(DOC, DOC_remineralization)
     )
 end
 
