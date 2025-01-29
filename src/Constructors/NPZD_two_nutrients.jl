@@ -59,6 +59,26 @@ DEFAULT_BGC_ARGS = Dict(
 """
 Construct an instance of an size-structured NPZD model.
 
+    TRACERS:
+    ∂t c_j = DIC_uptake_j - mortality + predation_gain_j - predation_loss_j
+    ∂t DIC = DOC_remineralization - sum(DIC_uptake_j)
+    ∂t DIN = carbon_to_nitrogen * (DOC_remineralization - sum(DIC_uptake_j)) 
+    ∂t PO4 = carbon_to_phosphorus * (DOC_remineralization - sum(DIC_uptake_j)) 
+    ∂t DOC = mortality_to_DOC + predation_loss_to_DOC - DOC_remineralization
+    ∂t POC = mortality_to_POC + predation_loss_to_POC - POC_remineralization
+
+    where:
+    - c_j = plankton carbon
+    - DIC = dissolved inorganic carbon
+    - DIN = dissolved inorganic nitrogen
+    - PO4 = phosphate
+    - DOC = dissolved organic carbon
+    - POC = particulate organic carbon
+
+    TRAITS:
+    - max_growth, half_saturation, max_predation = a*Volume^b
+    - palatability=prey_protection/(1+(predator_prey_ratio-predator_prey_optimum)^2)^predator_specificity
+
 This constructor builds a size-structured plankton model with two plankton functional types:
 phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
 size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor implements
@@ -111,9 +131,9 @@ function construct_size_structured_P_Z_POC_DOC_DIN_PO4(;
     zoo_diameters=Dict(
         "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
     ),
-    DIC_dynamics=DIC_typical,
-    PO4_dynamics=PO4_fixed_quota,
-    DIN_dynamics=DIN_fixed_quota,
+    DIC_dynamics=DIC_geider_light,
+    PO4_dynamics=PO4_geider_light_fixed_ratios,
+    DIN_dynamics=DIN_geider_light_fixed_ratios,
     POC_dynamics=POC_typical,
     DOC_dynamics=DOC_typical,
     phyto_dynamics=phytoplankton_growth_single_nutrient,
