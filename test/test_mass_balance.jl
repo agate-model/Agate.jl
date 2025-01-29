@@ -45,7 +45,7 @@ const year = years = 365day
             model(); light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
         )
         box_model = BoxModel(; biogeochemistry=bgc_model)
-        set!(box_model; DIN=7, PO4=3, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, D=0.0)
+        set!(box_model; DIN=7, PO4=3, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, DOC=0, POC=0.0)
 
         function estimate_carbon_mass(box_model)
             return box_model.fields.DIC.data[1, 1, 1] +
