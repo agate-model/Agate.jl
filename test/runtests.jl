@@ -8,3 +8,6 @@ include("test_parameters.jl")
 
 # integration tests
 include("test_box_model.jl")
+
+# model checks
+include("test_mass_balance.jl")
