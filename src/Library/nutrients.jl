@@ -31,7 +31,7 @@ Liebig's law of the minimum, which states that growth is limited by the scarcest
 
 Returns the minimum value among the given nutrient limitations.
 """
-function liebig_minimum()
+function liebig_minimum(nutrient_limitations)
     return minimum(nutrient_limitations)
 end
 
