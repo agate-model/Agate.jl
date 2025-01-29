@@ -52,7 +52,7 @@ DEFAULT_INTERACTION_ARGS = Dict(
 DEFAULT_BGC_ARGS = Dict(
     "POC_remineralization" => 0.1213 / day,
     "DOC_remineralization" => 0.1213 / day,
-    "mortality_export_fraction" => 0.5,
+    "DOM_POM_fractionation" => 0.5,
     "nitrogen_to_carbon" => 1,
     "phosphorus_to_carbon" => 1,
 )

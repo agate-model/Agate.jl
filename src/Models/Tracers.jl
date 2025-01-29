@@ -212,19 +212,20 @@ function DOC_typical(plankton_array)
         net_linear_loss(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             linear_mortality,
-            1 - mortality_export_fraction,
+            1 - DOM_POM_fractionation,
         ) +
-        net_predation_assimilation_loss_preferential(
+        net_predation_assimilation_loss_preferential_fractionated(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             holling_half_saturation,
             maximum_predation_rate,
             assimilation_efficiency_matrix,
             palatability_matrix,
+            1 - DOM_POM_fractionation,
         ) +
         net_quadratic_loss(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             quadratic_mortality,
-            1 - mortality_export_fraction,
+            1 - DOM_POM_fractionation,
         ) - remineralization_idealized(DOC, DOC_remineralization)
     )
 end
@@ -244,19 +245,20 @@ function POC_typical(plankton_array)
         net_linear_loss(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             linear_mortality,
-            1 - mortality_export_fraction,
+            DOM_POM_fractionation,
         ) +
-        net_predation_assimilation_loss_preferential(
+        net_predation_assimilation_loss_preferential_fractionated(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             holling_half_saturation,
             maximum_predation_rate,
             assimilation_efficiency_matrix,
             palatability_matrix,
+            DOM_POM_fractionation,
         ) +
         net_quadratic_loss(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             quadratic_mortality,
-            1 - mortality_export_fraction,
+            DOM_POM_fractionation,
         ) - remineralization_idealized(POC, POC_remineralization)
     )
 end
