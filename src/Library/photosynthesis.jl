@@ -185,12 +185,12 @@ Net photosynthetic growth of all plankton assuming geider light limitation.
 - `nutrient_half_saturation`: NamedArray of all plankton nutrient half saturation constants
 """
 function net_photosynthetic_growth_two_nutrient_geider_light(
-    DIN, PO4, P, PAR, maximum_growth_rate, half_saturation_DIN, half_saturation_PO4, alpha
+    DIN, PO4, P, PAR, maximum_growth_rate, half_saturation_DIN, half_saturation_PO4, photosynthetic_slope, chlorophyll_to_carbon_ratio
 )
     return sum([
         # sum over plankton that have a `maximum_growth_rate` (these will also have
         # `nutrient_half_saturation` and `alpha` values)
-        photosynthetic_growth_two_nutrients(
+        photosynthetic_growth_two_nutrients_geider_light(
             DIN,
             PO4,
             P[name],
@@ -198,7 +198,8 @@ function net_photosynthetic_growth_two_nutrient_geider_light(
             maximum_growth_rate[name],
             half_saturation_DIN[name],
             half_saturation_PO4[name],
-            alpha[name],
+            photosynthetic_slope[name],
+            chlorophyll_to_carbon_ratio[name],
         ) for name in names(maximum_growth_rate, 1)
     ],)
 end
