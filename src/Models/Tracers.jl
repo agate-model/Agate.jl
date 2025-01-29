@@ -44,6 +44,82 @@ function nutrients_typical(plankton_array)
 end
 
 """
+
+
+The functions used in the expression are all within the Agate.Library, see their docstring
+for overview. All arguments in the functions are either a NamedArray or a Float.
+
+# Arguments
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
+"""
+function DIC_geider_light(plankton_array)
+    return :(
+        remineralization_idealized(DOC, DOC_remineralization) -
+        net_photosynthetic_growth_two_nutrient_geider_light(
+            DIN,
+            PO4,
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            PAR,
+            maximum_growth_rate,
+            nutrient_half_saturation,
+            photosynthetic_slope,
+            chlorophyll_to_carbon_ratio,
+        ) 
+    )
+end
+
+"""
+
+The functions used in the expression are all within the Agate.Library, see their docstring
+for overview. All arguments in the functions are either a NamedArray or a Float.
+
+# Arguments
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
+"""
+function DIN_geider_light_fixed_ratios(plankton_array)
+    return :(
+        remineralization_idealized(DOC, DOC_remineralization) -
+        net_photosynthetic_growth_two_nutrient_geider_light(
+            DIN,
+            PO4,
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            PAR,
+            maximum_growth_rate,
+            nutrient_half_saturation,
+            photosynthetic_slope,
+            chlorophyll_to_carbon_ratio,
+        ) 
+    ) * carbon_to_nitrogen
+end
+
+"""
+
+The functions used in the expression are all within the Agate.Library, see their docstring
+for overview. All arguments in the functions are either a NamedArray or a Float.
+
+# Arguments
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
+"""
+function PO4_geider_light_fixed_ratios(plankton_array)
+    return :(
+        remineralization_idealized(DOC, DOC_remineralization) -
+        net_photosynthetic_growth_two_nutrient_geider_light(
+            DIN,
+            PO4,
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            PAR,
+            maximum_growth_rate,
+            nutrient_half_saturation,
+            photosynthetic_slope,
+            chlorophyll_to_carbon_ratio,
+        ) 
+    ) * carbon_to_phosphorus
+end
+
+"""
 Build expression for a single nutrient function of time where photosynthetic growth is limited based on the Geider formulation.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
