@@ -67,7 +67,8 @@ function DIC_geider_light(plankton_array)
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             PAR,
             maximum_growth_rate,
-            nutrient_half_saturation,
+            half_saturation_DIN,
+            half_saturation_PO4,
             photosynthetic_slope,
             chlorophyll_to_carbon_ratio,
         )
@@ -85,18 +86,21 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 """
 function DIN_geider_light_fixed_ratios(plankton_array)
     return :(
-        remineralization_idealized(DOC, DOC_remineralization) -
-        net_photosynthetic_growth_two_nutrient_geider_light(
-            DIN,
-            PO4,
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            PAR,
-            maximum_growth_rate,
-            nutrient_half_saturation,
-            photosynthetic_slope,
-            chlorophyll_to_carbon_ratio,
-        )
-    ) * nitrogen_to_carbon
+        (
+            remineralization_idealized(DOC, DOC_remineralization) -
+            net_photosynthetic_growth_two_nutrient_geider_light(
+                DIN,
+                PO4,
+                NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+                PAR,
+                maximum_growth_rate,
+                half_saturation_DIN,
+                half_saturation_PO4,
+                photosynthetic_slope,
+                chlorophyll_to_carbon_ratio,
+            )
+        ) * nitrogen_to_carbon
+    )
 end
 
 """
@@ -109,7 +113,7 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
     `[:P1, :P2, :Z1, :Z2]`
 """
 function PO4_geider_light_fixed_ratios(plankton_array)
-    return :(
+    return :((
         remineralization_idealized(DOC, DOC_remineralization) -
         net_photosynthetic_growth_two_nutrient_geider_light(
             DIN,
@@ -117,11 +121,12 @@ function PO4_geider_light_fixed_ratios(plankton_array)
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             PAR,
             maximum_growth_rate,
-            nutrient_half_saturation,
+            half_saturation_DIN,
+            half_saturation_PO4,
             photosynthetic_slope,
             chlorophyll_to_carbon_ratio,
-        )
-    ) * phosphorus_to_carbon
+        ) * phosphorus_to_carbon
+    ))
 end
 
 """
@@ -251,7 +256,7 @@ function POC_typical(plankton_array)
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             quadratic_mortality,
             1 - mortality_export_fraction,
-        ) - remineralization_idealized(POC, POC_remineralizatio)
+        ) - remineralization_idealized(POC, POC_remineralization)
     )
 end
 

@@ -19,7 +19,8 @@ DEFAULT_PHYTO_ARGS = Dict(
         "half_saturation_PO4" => Dict("a" => 0.17, "b" => 0.27),
     ),
     "linear_mortality" => 8e-7 / second,
-    "alpha" => 0.1953 / day,
+    "photosynthetic_slope" => 0.46e-5,
+    "chlorophyll_to_carbon_ratio" => 0.1,
 )
 
 DEFAULT_ZOO_ARGS = Dict(
