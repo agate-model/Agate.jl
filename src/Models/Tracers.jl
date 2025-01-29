@@ -5,6 +5,11 @@ using NamedArrays
 export detritus_typical,
     nutrients_typical,
     nutrients_geider_light,
+    DIC_geider_light,
+    DIN_geider_light_fixed_ratios,
+    PO4_geider_light_fixed_ratios,
+    POC_typical,
+    DOC_typical,
     phytoplankton_growth_single_nutrient,
     phytoplankton_growth_single_nutrient_geider_light,
     zooplankton_growth_simplified
@@ -91,7 +96,7 @@ function DIN_geider_light_fixed_ratios(plankton_array)
             photosynthetic_slope,
             chlorophyll_to_carbon_ratio,
         )
-    ) * carbon_to_nitrogen
+    ) * nitrogen_to_carbon
 end
 
 """
@@ -116,7 +121,7 @@ function PO4_geider_light_fixed_ratios(plankton_array)
             photosynthetic_slope,
             chlorophyll_to_carbon_ratio,
         )
-    ) * carbon_to_phosphorus
+    ) * phosphorus_to_carbon
 end
 
 """
@@ -183,6 +188,70 @@ function detritus_typical(plankton_array)
             quadratic_mortality,
             1 - mortality_export_fraction,
         ) - remineralization_idealized(D, detritus_remineralization)
+    )
+end
+
+"""
+Build expression for a simplified DOC function of time.
+
+The functions used in the expression are all within the Agate.Library, see their docstring
+for overview. All arguments in the functions are either a NamedArray or a Float.
+
+# Arguments
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
+"""
+function DOC_typical(plankton_array)
+    return :(
+        net_linear_loss(
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            linear_mortality,
+            1 - mortality_export_fraction,
+        ) +
+        net_predation_assimilation_loss_preferential(
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            holling_half_saturation,
+            maximum_predation_rate,
+            assimilation_efficiency_matrix,
+            palatability_matrix,
+        ) +
+        net_quadratic_loss(
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            quadratic_mortality,
+            1 - mortality_export_fraction,
+        ) - remineralization_idealized(DOC, DOC_remineralizatio)
+    )
+end
+
+"""
+Build expression for a simplified POC function of time.
+
+The functions used in the expression are all within the Agate.Library, see their docstring
+for overview. All arguments in the functions are either a NamedArray or a Float.
+
+# Arguments
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
+"""
+function POC_typical(plankton_array)
+    return :(
+        net_linear_loss(
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            linear_mortality,
+            1 - mortality_export_fraction,
+        ) +
+        net_predation_assimilation_loss_preferential(
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            holling_half_saturation,
+            maximum_predation_rate,
+            assimilation_efficiency_matrix,
+            palatability_matrix,
+        ) +
+        net_quadratic_loss(
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            quadratic_mortality,
+            1 - mortality_export_fraction,
+        ) - remineralization_idealized(POC, POC_remineralizatio)
     )
 end
 

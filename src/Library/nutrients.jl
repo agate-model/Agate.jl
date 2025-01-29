@@ -4,7 +4,7 @@ Functions related to plankton nutrient uptake.
 
 module Nutrients
 
-export monod_limitation
+export monod_limitation, liebig_minimum
 
 "
     R / (kᵣ + R)
