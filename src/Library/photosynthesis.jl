@@ -14,7 +14,7 @@ export γˡⁱᵍʰᵗ,
     photosynthetic_growth_two_nutrients_geider_light,
     net_photosynthetic_growth_single_nutrient,
     net_photosynthetic_growth_single_nutrient_geider_light,
-    net_photosynthetic_growth_two_nutrient_geider_light
+    net_photosynthetic_growth_two_nutrients_geider_light
 """
     γˡⁱᵍʰᵗ = (1 - ℯ^(kˢᵃᵗ*I)) * ℯ^kⁱⁿʰ * nˡⁱᵍʰᵗ
 
@@ -184,7 +184,7 @@ Net photosynthetic growth of all plankton assuming geider light limitation.
 - `maximum_growth_rate`: NamedArray of all plankton maximum growth rates
 - `nutrient_half_saturation`: NamedArray of all plankton nutrient half saturation constants
 """
-function net_photosynthetic_growth_two_nutrient_geider_light(
+function net_photosynthetic_growth_two_nutrients_geider_light(
     DIN,
     PO4,
     P,

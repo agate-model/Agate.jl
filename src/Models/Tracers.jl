@@ -62,7 +62,7 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 function DIC_geider_light(plankton_array)
     return :(
         remineralization_idealized(DOC, DOC_remineralization) -
-        net_photosynthetic_growth_two_nutrient_geider_light(
+        net_photosynthetic_growth_two_nutrients_geider_light(
             DIN,
             PO4,
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
@@ -89,7 +89,7 @@ function DIN_geider_light_fixed_ratios(plankton_array)
     return :(
         (
             remineralization_idealized(DOC, DOC_remineralization) -
-            net_photosynthetic_growth_two_nutrient_geider_light(
+            net_photosynthetic_growth_two_nutrients_geider_light(
                 DIN,
                 PO4,
                 NamedArray([$(plankton_array...)], $(String.(plankton_array))),
@@ -116,7 +116,7 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 function PO4_geider_light_fixed_ratios(plankton_array)
     return :((
         remineralization_idealized(DOC, DOC_remineralization) -
-        net_photosynthetic_growth_two_nutrient_geider_light(
+        net_photosynthetic_growth_two_nutrients_geider_light(
             DIN,
             PO4,
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
