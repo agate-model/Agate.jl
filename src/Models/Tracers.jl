@@ -316,7 +316,7 @@ function phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankto
             maximum_growth_rate[$plankton_name],
             half_saturation_DIN[$plankton_name],
             half_saturation_PO4[$plankton_name],
-            photosynthetic_slope[$plankton_name], 
+            photosynthetic_slope[$plankton_name],
             chlorophyll_to_carbon_ratio[$plankton_name],
         ) - summed_predation_loss_preferential(
             $plankton_name,

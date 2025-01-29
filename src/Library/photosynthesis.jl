@@ -185,7 +185,15 @@ Net photosynthetic growth of all plankton assuming geider light limitation.
 - `nutrient_half_saturation`: NamedArray of all plankton nutrient half saturation constants
 """
 function net_photosynthetic_growth_two_nutrient_geider_light(
-    DIN, PO4, P, PAR, maximum_growth_rate, half_saturation_DIN, half_saturation_PO4, photosynthetic_slope, chlorophyll_to_carbon_ratio
+    DIN,
+    PO4,
+    P,
+    PAR,
+    maximum_growth_rate,
+    half_saturation_DIN,
+    half_saturation_PO4,
+    photosynthetic_slope,
+    chlorophyll_to_carbon_ratio,
 )
     return sum([
         # sum over plankton that have a `maximum_growth_rate` (these will also have
@@ -217,9 +225,20 @@ Single nutrient geider photosynthetic growth.
 - `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon (θᶜ)
 """
 function photosynthetic_growth_two_nutrients_geider_light(
-    DIN, PO4, P, PAR, maximum_growth_rate, half_saturation_DIN, half_saturation_PO4, photosynthetic_slope, chlorophyll_to_carbon_ratio
+    DIN,
+    PO4,
+    P,
+    PAR,
+    maximum_growth_rate,
+    half_saturation_DIN,
+    half_saturation_PO4,
+    photosynthetic_slope,
+    chlorophyll_to_carbon_ratio,
 )
-    return liebig_minimum([monod_limitation(DIN, half_saturation_DIN), monod_limitation(PO4, half_saturation_PO4)]) *
+    return liebig_minimum([
+               monod_limitation(DIN, half_saturation_DIN),
+               monod_limitation(PO4, half_saturation_PO4),
+           ]) *
            light_limitation_geider(
                PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio
            ) *
