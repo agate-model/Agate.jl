@@ -21,4 +21,18 @@ function monod_limitation(R, kᵣ)
     return R / (kᵣ + R)
 end
 
+"""
+    liebig_minimum(nutrient_limitations)
+
+Liebig's law of the minimum, which states that growth is limited by the scarcest (most limiting) resource.
+
+# Arguments
+- `nutrient_limitations`: an array of nutrient limitation values
+
+Returns the minimum value among the given nutrient limitations.
+"""
+function liebig_minimum()
+    return minimum(nutrient_limitations)
+end
+
 end # module
