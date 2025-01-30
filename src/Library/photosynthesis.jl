@@ -235,14 +235,14 @@ function photosynthetic_growth_two_nutrients_geider_light(
     photosynthetic_slope,
     chlorophyll_to_carbon_ratio,
 )
-    return liebig_minimum([
-               monod_limitation(DIN, half_saturation_DIN),
-               monod_limitation(PO4, half_saturation_PO4),
-           ]) *
-           light_limitation_geider(
-               PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio
-           ) *
-           P
+    nutrient_limited_growth =
+        liebig_minimum([
+            monod_limitation(DIN, half_saturation_DIN),
+            monod_limitation(PO4, half_saturation_PO4),
+        ]) * maximum_growth_rate
+    return light_limitation_geider(
+        PAR, photosynthetic_slope, nutrient_limited_growth, chlorophyll_to_carbon_ratio
+    ) * P
 end
 
 end # module

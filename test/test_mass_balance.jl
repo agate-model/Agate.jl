@@ -88,26 +88,18 @@ const year = years = 365day
         push!(phosphorus_mass_records, initial_phosphorus_mass)
 
         for n in 1:1000
-            time_step!(box_model, 1.0)
-            if n % 100 == 0
-                push!(carbon_mass_records, estimate_carbon_mass(box_model))
-                push!(nitrogen_mass_records, estimate_nitrogen_mass(box_model))
-                push!(phosphorus_mass_records, estimate_phosphorus_mass(box_model))
-            end
+            time_step!(box_model, 0.1)
         end
 
         final_carbon_mass = estimate_carbon_mass(box_model)
         final_nitrogen_mass = estimate_nitrogen_mass(box_model)
         final_phosphorus_mass = estimate_phosphorus_mass(box_model)
-        push!(carbon_mass_records, final_carbon_mass)
-        push!(nitrogen_mass_records, final_nitrogen_mass)
-        push!(phosphorus_mass_records, final_phosphorus_mass)
 
-        atol = 1e-8
+        rtol = 1e-6
 
-        # Ensure there is no systematic mass decrease beyond numerical noise
-        @test all(diff(carbon_mass_records) .≥ -atol)
-        @test all(diff(nitrogen_mass_records) .≥ -atol)
-        @test all(diff(phosphorus_mass_records) .≥ -atol)
+        @test isapprox(initial_carbon_mass, final_carbon_mass, rtol=rtol)
+        @test isapprox(initial_phosphorus_mass, final_phosphorus_mass, rtol=rtol)
+        @test isapprox(initial_nitrogen_mass, final_nitrogen_mass, rtol=rtol)
+
     end
 end
