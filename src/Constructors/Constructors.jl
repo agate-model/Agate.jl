@@ -5,10 +5,10 @@ Module for high level model constructors.
 module Constructors
 
 include("NPZD_size_structured.jl")
-include("NPZD_two_nutrients.jl")
+include("thunder_egg_1.jl")
 
 using .NPZD_size_structured
-using .NPZD_two_nutrients
+using .thunder_egg_1
 
 export construct_size_structured_NPZD
 export construct_thunder_egg_1

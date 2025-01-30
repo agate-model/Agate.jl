@@ -1,8 +1,8 @@
 """
-Module to construct an instance of an size-structured NPZD model.
+Module to construct an instance of an Thunder Egg 1 model.
 """
 
-module NPZD_two_nutrients
+module thunder_egg_1
 
 using Agate.Models.Biogeochemistry
 using Agate.Models.Parameters
@@ -58,13 +58,13 @@ DEFAULT_BGC_ARGS = Dict(
 )
 
 """
-Construct an instance of an size-structured NPZD model.
+Construct an instance of an size structured `thunder egg 1` model model.
 
     TRACERS:
     ∂t c_j = DIC_uptake_j - mortality + predation_gain_j - predation_loss_j
-    ∂t DIC = DOC_remineralization - sum(DIC_uptake_j)
-    ∂t DIN = carbon_to_nitrogen * (DOC_remineralization - sum(DIC_uptake_j)) 
-    ∂t PO4 = carbon_to_phosphorus * (DOC_remineralization - sum(DIC_uptake_j)) 
+    ∂t DIC = DOC_remineralization + POC_remineralization- sum(DIC_uptake_j)
+    ∂t DIN = carbon_to_nitrogen * (DOC_remineralization + POC_remineralization - sum(DIC_uptake_j)) 
+    ∂t PO4 = carbon_to_phosphorus * (DOC_remineralization + POC_remineralization - sum(DIC_uptake_j)) 
     ∂t DOC = mortality_to_DOC + predation_loss_to_DOC - DOC_remineralization
     ∂t POC = mortality_to_POC + predation_loss_to_POC - POC_remineralization
 
@@ -83,8 +83,14 @@ Construct an instance of an size-structured NPZD model.
 This constructor builds a size-structured plankton model with two plankton functional types:
 phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
 size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor implements
-idealized detritus (D) and nutrient (N) cycling by default, although more complex N and D
-cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics` arguments.
+idealized dissolved inorganic carbon (DIC), particulate organic carbon (POC), dissolved organic 
+carbon (POC) and two nutrients (DIN and PO4) cycling by default, although more complex POC, DOC, 
+DIN and PO4 cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics` 
+arguments. 
+
+The model uses carbon as the accounting unit (POC, DOC, plankton_C), and fixed stoichiometry is 
+used to implicitly represent the elemental cycles of nitrogen (PON, DON, plankton_N) and phosphorus 
+(POP, DOP, plankton_P).
 
 During model construction, the size of each plankton determines photosynthetic growth rates,
 nutrient half saturation constants, predation rates, and optionally predator-prey assimilation
@@ -102,11 +108,11 @@ need to be specified.
     values to use
 - `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
     values to use
-- `DIC_dynamics`:
-- `PO4_dynamics`:
-- `DIN_dynamics`:
-- `POC_dynamics`:
-- `DOC_dynamics`:
+- `DIC_dynamics`: expression describing how DIC changes over time, see `Agate.Models.Tracers`
+- `PO4_dynamics`: expression describing how PO4 changes over time, see `Agate.Models.Tracers`
+- `DIN_dynamics`: expression describing how DIN changes over time, see `Agate.Models.Tracers`
+- `POC_dynamics`: expression describing how POC changes over time, see `Agate.Models.Tracers`
+- `DOC_dynamics`: expression describing how DOC changes over time, see `Agate.Models.Tracers`
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
 - `phyto_args`: Dictionary of phytoplankton parameters, for default values see
