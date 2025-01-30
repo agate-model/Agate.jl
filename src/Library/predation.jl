@@ -299,7 +299,7 @@ function net_predation_assimilation_loss_preferential(
 end
 
 """
-Net predator assimilation loss of all plankton.
+Net predator assimilation loss of all plankton which is fractionated between DOC and POC.
 
 # Arguments
 - `P`: NamedArray which includes all plankton concentration values
@@ -315,6 +315,7 @@ Net predator assimilation loss of all plankton.
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
+- `DOM_POM_fractionation`: float representing the fraction of loss going to DOM and POM.
 """
 function net_predation_assimilation_loss_preferential_fractionated(
     P,
