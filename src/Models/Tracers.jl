@@ -50,7 +50,9 @@ function nutrients_typical(plankton_array)
 end
 
 """
+    DIC = DOC_remineralization + POC_remineralization - sum(DIC_uptake_j)
 
+Build expression representing the evolution of DIC over time.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
 for overview. All arguments in the functions are either a NamedArray or a Float.
@@ -78,6 +80,9 @@ function DIC_geider_light(plankton_array)
 end
 
 """
+    DIN = nitrogen_to_carbon*(DOC_remineralization + POC_remineralization - sum(DIC_uptake_j))
+
+Build expression representing the evolution of DIN over time assuming fixed stoichiometry.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
 for overview. All arguments in the functions are either a NamedArray or a Float.
@@ -107,6 +112,9 @@ function DIN_geider_light_fixed_ratios(plankton_array)
 end
 
 """
+    PO4 = phosphorus_to_carbon*(DOC_remineralization + POC_remineralization - sum(DIC_uptake_j))
+
+Build expression representing the evolution of DIN over time assuming fixed stoichiometry.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
 for overview. All arguments in the functions are either a NamedArray or a Float.
@@ -201,6 +209,8 @@ function detritus_typical(plankton_array)
 end
 
 """
+    DOC = mortality_to_DOC + predation_loss_to_DOC - DOC_remineralization
+
 Build expression for a simplified DOC function of time.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
@@ -234,6 +244,8 @@ function DOC_typical(plankton_array)
 end
 
 """
+    POC = mortality_to_POC + predation_loss_to_POC - POC_remineralization
+
 Build expression for a simplified POC function of time.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
