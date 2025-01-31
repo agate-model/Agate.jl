@@ -29,7 +29,7 @@ Net loss of all plankton due to linear mortality.
 
 # Arguments
 - `P`: NamedArray which includes all plankton concentration values
-- `linear_mortality`: plankton linear mortality rates
+- `linear_mortality`: plankton linear mortality rate
 """
 function net_linear_loss(P, linear_mortality, fraction)
     # sum over all plankton in `P`
@@ -41,14 +41,15 @@ Net loss of all plankton due to quadratic mortality.
 
 # Arguments
 - `P`: NamedArray which includes all plankton concentration values
-- `quadratic_mortality`: plankton quadratic mortality rates
+- `quadratic_mortality`: plankton quadratic mortality rate
+- `plankton_prefix`: plankton type to sum over (e.g., "Z" for zooplankton)
 """
-function net_quadratic_loss(P, quadratic_mortality, fraction)
+function net_quadratic_loss(P, quadratic_mortality, fraction, plankton_prefix="Z")
     # sum over plankton that have a `quadratic_mortality`
     return sum(
         [
             quadratic_loss(P[name], quadratic_mortality) for
-            name in names(P, 1) if occursin("Z", name)
+            name in names(P, 1) if occursin(plankton_prefix, name)
         ] * fraction,
     )
 end
