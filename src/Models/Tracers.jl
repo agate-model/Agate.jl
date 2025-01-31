@@ -138,7 +138,9 @@ function phytoplankton_growth_single_nutrient(plankton_array, plankton_name)
             maximum_predation_rate,
             holling_half_saturation,
             palatability_matrix,
-        ) - linear_loss($(plankton_symbol), linear_mortality)
+        ) - linear_loss(
+            $(plankton_symbol), linear_mortality[$(replace(plankton_name, r"\d+" => ""))]
+        )
     )
 end
 
@@ -171,7 +173,9 @@ function phytoplankton_growth_single_nutrient_geider_light(plankton_array, plank
             maximum_predation_rate,
             holling_half_saturation,
             palatability_matrix,
-        ) - linear_loss($(plankton_symbol), linear_mortality)
+        ) - linear_loss(
+            $(plankton_symbol), linear_mortality[$(replace(plankton_name, r"\d+" => ""))]
+        )
     )
 end
 
@@ -197,8 +201,9 @@ function zooplankton_growth_simplified(plankton_array, plankton_name)
             maximum_predation_rate,
             holling_half_saturation,
             palatability_matrix,
-        ) - linear_loss($(plankton_symbol), linear_mortality) -
-        quadratic_loss($(plankton_symbol), quadratic_mortality)
+        ) - linear_loss(
+            $(plankton_symbol), linear_mortality[$(replace(plankton_name, r"\d+" => ""))]
+        ) - quadratic_loss($(plankton_symbol), quadratic_mortality)
     )
 end
 
