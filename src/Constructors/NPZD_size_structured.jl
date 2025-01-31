@@ -17,15 +17,12 @@ DEFAULT_PHYTO_ARGS = Dict(
         "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
         "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
     ),
-    "linear_mortality" => 8e-7 / second,
-    "alpha" => 0.1953 / day,
+    "n" => 2,
 )
 
 DEFAULT_ZOO_ARGS = Dict(
     "allometry" => Dict("maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16)),
-    "linear_mortality" => 8e-7 / second,
-    "holling_half_saturation" => 5.0,
-    "quadratic_mortality" => 1e-6 / second,
+    "n" => 2,
 )
 
 DEFAULT_INTERACTION_ARGS = Dict(
@@ -48,7 +45,12 @@ DEFAULT_INTERACTION_ARGS = Dict(
 )
 
 DEFAULT_BGC_ARGS = Dict(
-    "detritus_remineralization" => 0.1213 / day, "mortality_export_fraction" => 0.5
+    "detritus_remineralization" => 0.1213 / day,
+    "mortality_export_fraction" => 0.5,
+    "linear_mortality" => 8e-7 / second,
+    "holling_half_saturation" => 5.0,
+    "quadratic_mortality" => 1e-6 / second,
+    "alpha" => 0.1953 / day,
 )
 
 """
