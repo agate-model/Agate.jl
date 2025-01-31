@@ -12,17 +12,13 @@ using Oceananigans.Units
 
 export construct_size_structured_NPZD
 
-DEFAULT_PHYTO_ARGS = Dict(
-    "allometry" => Dict(
+
+DEFAULT_ALLOMETRY_ARGS = Dict(
+    "P" => Dict(
         "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
         "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
     ),
-    "n" => 2,
-)
-
-DEFAULT_ZOO_ARGS = Dict(
-    "allometry" => Dict("maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16)),
-    "n" => 2,
+    "Z" => Dict("maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16))
 )
 
 DEFAULT_INTERACTION_ARGS = Dict(
@@ -44,7 +40,7 @@ DEFAULT_INTERACTION_ARGS = Dict(
     ),
 )
 
-DEFAULT_BGC_ARGS = Dict(
+DEFAULT_CONSTANT_ARGS = Dict(
     "detritus_remineralization" => 0.1213 / day,
     "mortality_export_fraction" => 0.5,
     "linear_mortality" => 8e-7 / second,
@@ -84,15 +80,14 @@ need to be specified.
     `Agate.Models.Tracers`
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
-- `phyto_args`: Dictionary of phytoplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
-- `zoo_args`: Dictionary of zooplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
+- `allometry_args`: Dictionary of size dependant plankton parameters defined for both phyto
+    and zooplankton, for default values see `Agate.Models.Constructors.DEFAULT_ALLOMETRY_ARGS`
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed, for default values see
     `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
-- `bgc_args`: biogeochemistry parameters related to nutrient and detritus, for default
-    values see `Agate.Models.Constructors.DEFAULT_BGC_ARGS`
+- `constant_args`: Dictionary of constant parameters used in growth functions (i.e., not size
+    dependant plankton parameters as well as biogeochemistry parameters related to nutrient
+    and detritus, for default values see `Agate.Models.Constructors.DEFAULT_CONSTANT_ARGS`
 - `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
    then `interaction_args` are not used to compute this
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
@@ -111,16 +106,21 @@ function construct_size_structured_NPZD(;
     detritus_dynamics=detritus_typical,
     phyto_dynamics=phytoplankton_growth_single_nutrient,
     zoo_dynamics=zooplankton_growth_simplified,
-    phyto_args=DEFAULT_PHYTO_ARGS,
-    zoo_args=DEFAULT_ZOO_ARGS,
+    allometry_args=DEFAULT_ALLOMETRY_ARGS,
     interaction_args=DEFAULT_INTERACTION_ARGS,
-    bgc_args=DEFAULT_BGC_ARGS,
+    constant_args=DEFAULT_CONSTANT_ARGS,
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 )
+    # split params by plankton type
+    phyto_args = Dict{String,Any}()
     phyto_args["n"] = n_phyto
+    phyto_args["allometry"] = allometry_args["P"]
     phyto_args["diameters"] = phyto_diameters
+
+    zoo_args = Dict{String,Any}()
     zoo_args["n"] = n_zoo
+    zoo_args["allometry"] = allometry_args["Z"]
     zoo_args["diameters"] = zoo_diameters
 
     # compute emergent parameters
@@ -176,7 +176,7 @@ function construct_size_structured_NPZD(;
 
     # combine emergent parameters with remaining user defined parameters
     parameters = NamedTuple(
-        Symbol(k) => v for (k, v) in merge(bgc_args, emergent_parameters)
+        Symbol(k) => v for (k, v) in merge(constant_args, emergent_parameters)
     )
 
     # create tracer functions
