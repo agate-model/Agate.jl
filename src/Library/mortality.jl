@@ -42,14 +42,14 @@ Net loss of all plankton due to quadratic mortality.
 # Arguments
 - `P`: NamedArray which includes all plankton concentration values
 - `quadratic_mortality`: plankton quadratic mortality rate
-- `plankton_prefix`: plankton type to sum over (e.g., "Z" for zooplankton)
+- `plankton_type_prefix`: Array of prefixes used in plankton names to indicate their type,
+    use here to sum over only the relevant plankton (e.g., "Z" for zooplankton)
 """
-function net_quadratic_loss(P, quadratic_mortality, fraction, plankton_prefix="Z")
-    # sum over plankton that have a `quadratic_mortality`
+function net_quadratic_loss(P, quadratic_mortality, fraction, plankton_type_prefix=["Z"])
     return sum(
         [
-            quadratic_loss(P[name], quadratic_mortality) for
-            name in names(P, 1) if occursin(plankton_prefix, name)
+            quadratic_loss(P[name], quadratic_mortality) for name in names(P, 1) if
+            any(prefix -> occursin(prefix, name), plankton_type_prefix)
         ] * fraction,
     )
 end
