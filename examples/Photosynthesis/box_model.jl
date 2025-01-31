@@ -28,15 +28,7 @@ set!(full_model_default_photosynthesis; P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, N=7.
 
 # Geider photosynthesis model
 N2P2ZD_geider_photosynthesis = construct_size_structured_NPZD(;
-    phyto_args=Dict(
-        "allometry" => Dict(
-            "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
-            "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
-        ),
-        "linear_mortality" => 8e-7 / second,
-        "photosynthetic_slope" => 0.46e-5,
-        "chlorophyll_to_carbon_ratio" => 0.1,
-    ),
+    constant_args=Agate.Constructors.NPZD_size_structured.DEFAULT_CONSTANT_ARGS_GEIDER,
     nutrient_dynamics=nutrients_geider_light,
     phyto_dynamics=phytoplankton_growth_single_nutrient_geider_light,
 )
