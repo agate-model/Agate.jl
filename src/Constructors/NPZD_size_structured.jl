@@ -12,13 +12,12 @@ using Oceananigans.Units
 
 export construct_size_structured_NPZD
 
-
 DEFAULT_ALLOMETRY_ARGS = Dict(
     "P" => Dict(
         "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
         "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
     ),
-    "Z" => Dict("maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16))
+    "Z" => Dict("maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16)),
 )
 
 DEFAULT_INTERACTION_ARGS = Dict(
@@ -40,13 +39,23 @@ DEFAULT_INTERACTION_ARGS = Dict(
     ),
 )
 
-DEFAULT_CONSTANT_ARGS = Dict(
+DEFAULT_CONSTANT_ARGS_SINGLE_NUTRIENT = Dict(
     "detritus_remineralization" => 0.1213 / day,
     "mortality_export_fraction" => 0.5,
     "linear_mortality" => 8e-7 / second,
     "holling_half_saturation" => 5.0,
     "quadratic_mortality" => 1e-6 / second,
     "alpha" => 0.1953 / day,
+)
+
+DEFAULT_CONSTANT_ARGS_GEIDER = Dict(
+    "detritus_remineralization" => 0.1213 / day,
+    "mortality_export_fraction" => 0.5,
+    "linear_mortality" => 8e-7 / second,
+    "holling_half_saturation" => 5.0,
+    "quadratic_mortality" => 1e-6 / second,
+    "photosynthetic_slope" => 0.46e-5,
+    "chlorophyll_to_carbon_ratio" => 0.1,
 )
 
 """
@@ -108,7 +117,7 @@ function construct_size_structured_NPZD(;
     zoo_dynamics=zooplankton_growth_simplified,
     allometry_args=DEFAULT_ALLOMETRY_ARGS,
     interaction_args=DEFAULT_INTERACTION_ARGS,
-    constant_args=DEFAULT_CONSTANT_ARGS,
+    constant_args=DEFAULT_CONSTANT_ARGS_SINGLE_NUTRIENT,
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 )

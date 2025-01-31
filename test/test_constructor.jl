@@ -105,15 +105,7 @@ using Agate.Models.Tracers
 
         # N2P2ZD model constructed with user-defined functions (geider growth)
         N2P2ZD_geider = construct_size_structured_NPZD(;
-            constant_args=Dict(
-                "detritus_remineralization" => 0.1213 / day,
-                "mortality_export_fraction" => 0.5,
-                "linear_mortality" => 8e-7 / second,
-                "holling_half_saturation" => 5.0,
-                "quadratic_mortality" => 1e-6 / second,
-                "photosynthetic_slope" => 0.46e-5,
-                "chlorophyll_to_carbon_ratio" => 0.1,
-            ),
+            constant_args=Agate.Constructors.NPZD_size_structured.DEFAULT_CONSTANT_ARGS_GEIDER,
             nutrient_dynamics=nutrients_geider_light,
             phyto_dynamics=phytoplankton_growth_single_nutrient_geider_light,
         )
