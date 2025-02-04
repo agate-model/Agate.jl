@@ -1,7 +1,10 @@
-using OceanBioME, Oceananigans, Printf
+using Oceananigans, Printf
 using Oceananigans.Fields: FunctionField, ConstantField
 using Oceananigans.Units
 using Agate
+using Agate.Library.Light
+using OceanBioME
+using OceanBioME: Biogeochemistry
 
 const year = years = 365days
 nothing #hide
@@ -21,11 +24,12 @@ nothing #hide
 
 grid = RectilinearGrid(GPU(), size = (1, 1, 50), extent = (20meters, 20meters, 200meters))
 
-biogeochemistry = LOBSTER(; grid,
-                            surface_photosynthetically_active_radiation = PAR⁰,
-                            carbonates = true,
-                            scale_negatives = true)
+N2P2ZD = construct_size_structured_NPZD()
 
+biogeochemistry = Biogeochemistry(
+    N2P2ZD();
+    light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid()),
+)
 
 clock = Clock(; time = 0.0)
 T = FunctionField{Center, Center, Center}(temp, grid; clock)
@@ -37,7 +41,7 @@ model = NonhydrostaticModel(; grid,
                               biogeochemistry,
                               auxiliary_fields = (; T, S))
 
-set!(model, P = 0.03, Z = 0.03, NO₃ = 4.0, NH₄ = 0.05, DIC = 2239.8, Alk = 2409.0)
+set!(model, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, N=7.0, D=1)
 
 simulation = Simulation(model, Δt = 3minutes, stop_time = 100days)
 
