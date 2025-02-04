@@ -153,6 +153,33 @@ function construct_size_structured_NPZD(;
     return define_tracer_functions(parameters, tracers)
 end
 
+function size_structured_NPZD(
+    bgc_type,
+    n_phyto,
+    n_zoo,
+    phyto_diameters,
+    zoo_diameters,
+    allometry_args,
+    interaction_args,
+    constant_args,
+    palatability_matrix,
+    assimilation_efficiency_matrix,
+)
+    parameters = construct_params_dict(
+        n_phyto,
+        n_zoo,
+        phyto_diameters,
+        zoo_diameters,
+        allometry_args,
+        interaction_args,
+        constant_args,
+        palatability_matrix,
+        assimilation_efficiency_matrix,
+    )
+
+    return bgc_type(; parameters...)
+end
+
 function construct_params_dict(
     n_phyto=2,
     n_zoo=2,
