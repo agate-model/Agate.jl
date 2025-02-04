@@ -15,6 +15,8 @@ export holling_type_2,
     summed_predation_loss_preferential,
     summed_predation_assimilation_loss_preferential,
     net_predation_assimilation_loss_preferential,
+    net_predation_assimilation_loss_preferential_fractionated,
+    net_predation_assimilation_loss_preferential_fractionated_quota,
     assimilation_efficiency_emergent_binary
 
 """
@@ -260,6 +262,53 @@ function summed_predation_assimilation_loss_preferential(
 end
 
 """
+Estimates the total assimilation loss of the predator (`P[predator_name]`) feeding on all plankton.
+
+For plankton P`[predator_name]`, the function loops over each prey (`P[prey_name]`) to
+estimate the total assimilation loss during predation.
+
+# Arguments
+- `predator_name`: name of the predator, e.g. `P[predator_name]`
+- `P`: NamedArray which includes all plankton concentration values
+- `maximum_predation_rate`: NamedArray of all plankton predation rates
+- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants
+- `palatability`: NamedArray of all plankton palatabilities where:
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
+- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
+"""
+function summed_predation_assimilation_loss_preferential_quota(
+    predator_name,
+    P,
+    assimilation_efficiency,
+    maximum_predation_rate,
+    holling_half_saturation,
+    palatability,
+    quota,
+)
+    # sum over all plankton in P (return 0 if not suitable prey for this predator)
+    assimilation_loss = sum(
+        predation_assimilation_loss_preferential(
+            P[prey_name],
+            P[predator_name],
+            assimilation_efficiency[predator_name, prey_name],
+            maximum_predation_rate[predator_name],
+            holling_half_saturation[predator_name],
+            palatability[predator_name, prey_name],
+        ) * quota[prey_name] for prey_name in names(P, 1)
+    )
+
+    return assimilation_loss
+end
+
+
+"""
 Net predator assimilation loss of all plankton.
 
 # Arguments
@@ -295,6 +344,92 @@ function net_predation_assimilation_loss_preferential(
             palatability,
         ) for predator_name in names(maximum_predation_rate, 1)
     ])
+end
+
+"""
+Net predator assimilation loss of all plankton which is fractionated between DOC and POC.
+
+# Arguments
+- `P`: NamedArray which includes all plankton concentration values
+- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants
+- `maximum_predation_rate`: NamedArray of all plankton maximum predation rates
+- `palatability`: NamedArray of all plankton palatabilities where:
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
+- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
+- `DOM_POM_fractionation`: float representing the fraction of loss going to DOM and POM.
+"""
+function net_predation_assimilation_loss_preferential_fractionated(
+    P,
+    holling_half_saturation,
+    maximum_predation_rate,
+    assimilation_efficiency,
+    palatability,
+    DOM_POM_fractionation,
+)
+    # get predator names from `maximum_predation_rate` array (prey has none)
+    return sum([
+        summed_predation_assimilation_loss_preferential(
+            predator_name,
+            P,
+            assimilation_efficiency,
+            maximum_predation_rate,
+            holling_half_saturation,
+            palatability,
+        ) for predator_name in names(maximum_predation_rate, 1)
+    ]) * DOM_POM_fractionation
+end
+
+"""
+Net predator assimilation loss of all plankton which is fractionated between DOC and POC.
+With a quota term.
+
+# Arguments
+- `P`: NamedArray which includes all plankton concentration values
+- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants
+- `maximum_predation_rate`: NamedArray of all plankton maximum predation rates
+- `palatability`: NamedArray of all plankton palatabilities where:
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
+- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
+- `DOM_POM_fractionation`: float representing the fraction of loss going to DOM and POM.
+- `quota`: NamedArray of all plankton quotas
+
+
+"""
+function net_predation_assimilation_loss_preferential_fractionated_quota(
+    P,
+    holling_half_saturation,
+    maximum_predation_rate,
+    assimilation_efficiency,
+    palatability,
+    DOM_POM_fractionation,
+    quota,
+)
+    # get predator names from `maximum_predation_rate` array (prey has none)
+    return sum([
+        summed_predation_assimilation_loss_preferential_quota(
+            predator_name,
+            P,
+            assimilation_efficiency,
+            maximum_predation_rate,
+            holling_half_saturation,
+            palatability,
+            quota,
+        ) for predator_name in names(maximum_predation_rate, 1)
+    ]) * DOM_POM_fractionation
 end
 
 """
