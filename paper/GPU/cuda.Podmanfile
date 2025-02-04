@@ -41,5 +41,10 @@ WORKDIR /opt/julia_env
 
 RUN julia -e 'using CUDA; CUDA.set_runtime_version!(v"12.2")'
 
+RUN julia -e 'using Pkg; \ 
+    Pkg.resolve(); \
+    Pkg.instantiate(); \
+    Pkg.precompile()'
+
 # Set permissions (if needed)
 RUN chmod 777 /opt/julia_env
