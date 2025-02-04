@@ -21,6 +21,8 @@ DEFAULT_PHYTO_ARGS = Dict(
     "linear_mortality" => 8e-7 / second,
     "photosynthetic_slope" => 0.46e-5,
     "chlorophyll_to_carbon_ratio" => 0.1,
+    "nitrogen_to_carbon" => 0.15,
+    "phosphorus_to_carbon" => 0.009,
 )
 
 DEFAULT_ZOO_ARGS = Dict(
@@ -52,9 +54,11 @@ DEFAULT_INTERACTION_ARGS = Dict(
 DEFAULT_BGC_ARGS = Dict(
     "POC_remineralization" => 0.1213 / day,
     "DOC_remineralization" => 0.1213 / day,
+    "PON_remineralization" => 0.1213 / day,
+    "DON_remineralization" => 0.1213 / day,
+    "POP_remineralization" => 0.1213 / day,
+    "DOP_remineralization" => 0.1213 / day,
     "DOM_POM_fractionation" => 0.45,
-    "nitrogen_to_carbon" => 0.15,
-    "phosphorus_to_carbon" => 0.009,
 )
 
 """
@@ -67,6 +71,10 @@ Construct an instance of an size structured `thunder egg 1` model model.
     ∂t PO4 = carbon_to_phosphorus * (DOC_remineralization + POC_remineralization - sum(DIC_uptake_j)) 
     ∂t DOC = mortality_to_DOC + predation_loss_to_DOC - DOC_remineralization
     ∂t POC = mortality_to_POC + predation_loss_to_POC - POC_remineralization
+    ∂t DON = mortality_to_DON + predation_loss_to_DON - DON_remineralization
+    ∂t PON = mortality_to_PON + predation_loss_to_PON - PON_remineralization
+    ∂t DOP = mortality_to_DOP + predation_loss_to_DOP - DOP_remineralization
+    ∂t POP = mortality_to_POP + predation_loss_to_POP - POP_remineralization
 
     where:
     - c_j = plankton carbon
@@ -75,6 +83,10 @@ Construct an instance of an size structured `thunder egg 1` model model.
     - PO4 = phosphate
     - DOC = dissolved organic carbon
     - POC = particulate organic carbon
+    - DON = dissolved organic carbon
+    - PON = particulate organic carbon
+    - DOP = dissolved organic carbon
+    - POP = particulate organic carbon
 
     TRAITS:
     - max_growth, half_saturation, max_predation = a*Volume^b
@@ -83,14 +95,9 @@ Construct an instance of an size structured `thunder egg 1` model model.
 This constructor builds a size-structured plankton model with two plankton functional types:
 phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
 size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor implements
-idealized dissolved inorganic carbon (DIC), particulate organic carbon (POC), dissolved organic 
-carbon (POC) and two nutrients (DIN and PO4) cycling by default, although more complex POC, DOC, 
-DIN and PO4 cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics` 
+idealized dissolved inorganic carbon (DIC), particulate organic matter (POC, POP, PON), dissolved organic 
+matter (DOC, DOP, DON) and two nutrients (DIN and PO4) cycling by default, although more complex elemental cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics` 
 arguments. 
-
-The model uses carbon as the accounting unit (POC, DOC, plankton_C), and fixed stoichiometry is 
-used to implicitly represent the elemental cycles of nitrogen (PON, DON, plankton_N) and phosphorus 
-(POP, DOP, plankton_P).
 
 During model construction, the size of each plankton determines photosynthetic growth rates,
 nutrient half saturation constants, predation rates, and optionally predator-prey assimilation
@@ -113,6 +120,10 @@ need to be specified.
 - `DIN_dynamics`: expression describing how DIN changes over time, see `Agate.Models.Tracers`
 - `POC_dynamics`: expression describing how POC changes over time, see `Agate.Models.Tracers`
 - `DOC_dynamics`: expression describing how DOC changes over time, see `Agate.Models.Tracers`
+- `PON_dynamics`: expression describing how PON changes over time, see `Agate.Models.Tracers`
+- `DON_dynamics`: expression describing how DON changes over time, see `Agate.Models.Tracers`
+- `POP_dynamics`: expression describing how POP changes over time, see `Agate.Models.Tracers`
+- `DOP_dynamics`: expression describing how DOP changes over time, see `Agate.Models.Tracers`
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
 - `phyto_args`: Dictionary of phytoplankton parameters, for default values see
@@ -143,6 +154,10 @@ function construct_thunder_egg_1(;
     DIN_dynamics=DIN_geider_light_fixed_ratios,
     POC_dynamics=POC_typical,
     DOC_dynamics=DOC_typical,
+    PON_dynamics=PON_typical,
+    DON_dynamics=DON_typical,
+    POP_dynamics=POP_typical,
+    DOP_dynamics=DOP_typical,    
     phyto_dynamics=phytoplankton_growth_two_nutrients_geider_light,
     zoo_dynamics=zooplankton_growth_simplified,
     phyto_args=DEFAULT_PHYTO_ARGS,
@@ -222,6 +237,10 @@ function construct_thunder_egg_1(;
         "PO4" => PO4_dynamics(plankton_array),
         "POC" => POC_dynamics(plankton_array),
         "DOC" => DOC_dynamics(plankton_array),
+        "PON" => PON_dynamics(plankton_array),
+        "DON" => DON_dynamics(plankton_array),
+        "POP" => POP_dynamics(plankton_array),
+        "DOP" => DOP_dynamics(plankton_array),
     )
     for i in 1:n_phyto
         name = "P$i"
