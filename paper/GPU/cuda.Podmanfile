@@ -1,5 +1,5 @@
 # Base image with CUDA support
-FROM docker.io/nvidia/cuda:12.2.2-devel-ubuntu22.04
+FROM docker.io/nvidia/cuda:12.2.2-runtime-ubuntu22.04
 
 # Set environment variables
 ENV JULIA_VERSION=1.11.3
@@ -25,15 +25,19 @@ RUN wget https://julialang-s3.julialang.org/bin/linux/x64/1.11/julia-${JULIA_VER
 # Copy Project.toml (and Manifest.toml if needed)
 COPY Project.toml /opt/julia_env/
 
+COPY src/ /opt/julia_env/src/
+
 # Install Julia dependencies
-RUN julia -e 'using Pkg; Pkg.activate(ENV["JULIA_PROJECT"]); Pkg.Registry.add("General"); Pkg.resolve(); Pkg.instantiate(); Pkg.precompile()'
+RUN julia -e 'using Pkg; \
+    Pkg.activate(ENV["JULIA_PROJECT"]); \
+    Pkg.add("CUDA"); \
+    Pkg.Registry.add("General"); \
+    Pkg.resolve(); \
+    Pkg.instantiate(); \
+    Pkg.precompile()'
 
 # Set the default working directory
 WORKDIR /opt/julia_env
-
-# Ensure CUDA is properly configured during runtime (using CUDA.set_runtime_version!)
-# In case it's not precompiled with CUDA, ensure the correct version is set
-CMD ["julia", "-e", "using CUDA; CUDA.set_runtime_version!(v\"$CUDA_VERSION\"); CUDA.precompile_runtime()"]
 
 RUN julia -e 'using CUDA; CUDA.set_runtime_version!(v"12.2")'
 
