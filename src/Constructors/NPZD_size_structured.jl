@@ -193,6 +193,27 @@ function construct_size_structured_NPZD(;
         tracers[name] = zoo_dynamics(plankton_array, name)
     end
 
+    function replace_any_with_concrete_type(value)
+        if value isa AbstractArray{Any}
+            # Infer the type of the first element and convert the array
+            eltype = typeof(first(value))
+            return convert(AbstractArray{eltype}, value)
+        elseif value isa Dict
+            # Recursively process dictionaries
+            return Dict(k => replace_any_with_concrete_type(v) for (k, v) in value)
+        elseif value isa NamedTuple
+            # Recursively process NamedTuples
+            return NamedTuple{keys(value)}(replace_any_with_concrete_type.(values(value)))
+        else
+            # Return the value as-is if it doesn't contain `Any`
+            return value
+        end
+    end
+
+    # Apply the function to all parameters
+    parameters = replace_any_with_concrete_type(parameters)
+    
+    print(parameters)
     # return Oceananigans.Biogeochemistry object
     return define_tracer_functions(parameters, tracers)
 end
