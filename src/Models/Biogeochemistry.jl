@@ -134,7 +134,13 @@ function create_bgc_struct(
                 DomainError(k, "field names in parameters can't be any of [:x, :y, :z, :t]")
             )
         end
-        exp = :($k = $v)
+
+        # Convert NamedArrays.NamedVector to standard Vector
+        if typeof(v) <: NamedArrays.NamedVector
+            v = Vector(v)  # Convert to a standard Vector
+        end
+
+        exp = :($k::$(typeof(v)) = $v)  # Infer type dynamically
         push!(fields, exp)
     end
 
