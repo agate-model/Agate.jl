@@ -1,6 +1,6 @@
 module Mortality
 
-export linear_loss, quadratic_loss, net_linear_loss, net_quadratic_loss
+export linear_loss, quadratic_loss, net_linear_loss, net_quadratic_loss, net_linear_loss_quota, net_quadratic_loss_quota
 
 """
 Linear mortality rate.
@@ -37,6 +37,19 @@ function net_linear_loss(P, linear_mortality, fraction)
 end
 
 """
+Net loss of all plankton due to linear mortality with a quota term.
+
+# Arguments
+- `P`: NamedArray which includes all plankton concentration values
+- `linear_mortality`: NamedArray of all plankton linear mortality rates
+- `quota`: NamedArray which includes all plankton quota values
+"""
+function net_linear_loss_quota(P, linear_mortality, fraction, quota)
+    # sum over all plankton in `P`
+    return sum([linear_loss(P[name], linear_mortality[name])*quota[name] for name in names(P, 1)]) * fraction
+end
+
+"""
 Net loss of all plankton due to quadratic mortality.
 
 # Arguments
@@ -48,6 +61,24 @@ function net_quadratic_loss(P, quadratic_mortality, fraction)
     return sum(
         [
             quadratic_loss(P[name], quadratic_mortality[name]) for
+            name in names(quadratic_mortality, 1)
+        ] * fraction,
+    )
+end
+
+"""
+Net loss of all plankton due to quadratic mortality with a quota term.
+
+# Arguments
+- `P`: NamedArray which includes all plankton concentration values
+- `quadratic_mortality`: NamedArray of all plankton quadratic mortality rates
+- `quota`: NamedArray which includes all plankton quota values
+"""
+function net_quadratic_loss_quota(P, quadratic_mortality, fraction, quota)
+    # sum over plankton that have a `quadratic_mortality`
+    return sum(
+        [
+            quadratic_loss(P[name], quadratic_mortality[name])*quota[name] for
             name in names(quadratic_mortality, 1)
         ] * fraction,
     )
