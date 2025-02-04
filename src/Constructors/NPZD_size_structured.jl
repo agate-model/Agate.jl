@@ -122,6 +122,52 @@ function construct_size_structured_NPZD(;
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 )
+    parameters = construct_params_dict(
+        n_phyto,
+        n_zoo,
+        phyto_diameters,
+        zoo_diameters,
+        allometry_args,
+        interaction_args,
+        constant_args,
+        palatability_matrix,
+        assimilation_efficiency_matrix,
+    )
+    # create tracer functions
+    plankton_array = vcat(
+        [Symbol("P$i") for i in 1:n_phyto], [Symbol("Z$i") for i in 1:n_zoo]
+    )
+    tracers = Dict(
+        "N" => nutrient_dynamics(plankton_array), "D" => detritus_dynamics(plankton_array)
+    )
+    for i in 1:n_phyto
+        name = "P$i"
+        tracers[name] = phyto_dynamics(plankton_array, name)
+    end
+    for i in 1:n_zoo
+        name = "Z$i"
+        tracers[name] = zoo_dynamics(plankton_array, name)
+    end
+
+    # return Oceananigans.Biogeochemistry object
+    return define_tracer_functions(parameters, tracers)
+end
+
+function construct_params_dict(
+    n_phyto=2,
+    n_zoo=2,
+    phyto_diameters=Dict(
+        "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+    ),
+    zoo_diameters=Dict(
+        "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+    ),
+    allometry_args=DEFAULT_ALLOMETRY_ARGS,
+    interaction_args=DEFAULT_INTERACTION_ARGS,
+    constant_args=DEFAULT_CONSTANT_ARGS_SINGLE_NUTRIENT,
+    palatability_matrix=nothing,
+    assimilation_efficiency_matrix=nothing,
+)
     # split params by plankton type
     phyto_args = Dict{String,Any}()
     phyto_args["n"] = n_phyto
@@ -189,24 +235,7 @@ function construct_size_structured_NPZD(;
         Symbol(k) => v for (k, v) in merge(constant_args, emergent_parameters)
     )
 
-    # create tracer functions
-    plankton_array = vcat(
-        [Symbol("P$i") for i in 1:n_phyto], [Symbol("Z$i") for i in 1:n_zoo]
-    )
-    tracers = Dict(
-        "N" => nutrient_dynamics(plankton_array), "D" => detritus_dynamics(plankton_array)
-    )
-    for i in 1:n_phyto
-        name = "P$i"
-        tracers[name] = phyto_dynamics(plankton_array, name)
-    end
-    for i in 1:n_zoo
-        name = "Z$i"
-        tracers[name] = zoo_dynamics(plankton_array, name)
-    end
-
-    # return Oceananigans.Biogeochemistry object
-    return define_tracer_functions(parameters, tracers)
+    return parameters
 end
 
 end # module
