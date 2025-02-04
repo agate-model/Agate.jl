@@ -29,11 +29,14 @@ Net loss of all plankton due to linear mortality.
 
 # Arguments
 - `P`: NamedArray which includes all plankton concentration values
-- `linear_mortality`: plankton linear mortality rate
+- `linear_mortality`: NamedArray of plankton linear mortality rates
 """
 function net_linear_loss(P, linear_mortality, fraction)
-    # sum over all plankton in `P`
-    return sum([linear_loss(P[name], linear_mortality) for name in names(P, 1)]) * fraction
+    # sum over all plankton in `P` - strip digits from plankton name to get its type (e.g., "Z")
+    return sum([
+        linear_loss(P[name], linear_mortality[replace(name, r"\d+" => "")]) for
+        name in names(P, 1)
+    ]) * fraction
 end
 
 """

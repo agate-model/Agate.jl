@@ -8,6 +8,7 @@ using Agate.Models.Biogeochemistry
 using Agate.Models.Parameters
 using Agate.Models.Tracers
 
+using NamedArrays
 using Oceananigans.Units
 
 export construct_size_structured_NPZD
@@ -42,7 +43,7 @@ DEFAULT_INTERACTION_ARGS = Dict(
 DEFAULT_CONSTANT_ARGS_SINGLE_NUTRIENT = Dict(
     "detritus_remineralization" => 0.1213 / day,
     "mortality_export_fraction" => 0.5,
-    "linear_mortality" => 8e-7 / second,
+    "linear_mortality" => NamedArray([8e-7 / second, 8e-7 / second], ["P", "Z"]),
     "holling_half_saturation" => 5.0,
     "quadratic_mortality" => 1e-6 / second,
     "alpha" => 0.1953 / day,
@@ -51,7 +52,7 @@ DEFAULT_CONSTANT_ARGS_SINGLE_NUTRIENT = Dict(
 DEFAULT_CONSTANT_ARGS_GEIDER = Dict(
     "detritus_remineralization" => 0.1213 / day,
     "mortality_export_fraction" => 0.5,
-    "linear_mortality" => 8e-7 / second,
+    "linear_mortality" => NamedArray([8e-7 / second, 8e-7 / second], ["P", "Z"]),
     "holling_half_saturation" => 5.0,
     "quadratic_mortality" => 1e-6 / second,
     "photosynthetic_slope" => 0.46e-5,
@@ -98,9 +99,9 @@ need to be specified.
     dependant plankton parameters as well as biogeochemistry parameters related to nutrient
     and detritus, for default values see `Agate.Models.Constructors.DEFAULT_CONSTANT_ARGS`
 - `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
-   then `interaction_args` are not used to compute this
+    then `interaction_args` are not used to compute this
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
-   NamedArray, if provided then `interaction_args` are not used to compute this
+    NamedArray, if provided then `interaction_args` are not used to compute this
 """
 function construct_size_structured_NPZD(;
     n_phyto=2,

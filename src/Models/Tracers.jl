@@ -124,6 +124,8 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 """
 function phytoplankton_growth_single_nutrient(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
+    # remove any digits to get just the type identifier
+    plankton_type = replace(plankton_name, r"\d+" => "")
     return :(
         photosynthetic_growth_single_nutrient(
             N,
@@ -138,7 +140,7 @@ function phytoplankton_growth_single_nutrient(plankton_array, plankton_name)
             maximum_predation_rate,
             holling_half_saturation,
             palatability_matrix,
-        ) - linear_loss($(plankton_symbol), linear_mortality)
+        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_type])
     )
 end
 
@@ -156,6 +158,8 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 """
 function phytoplankton_growth_single_nutrient_geider_light(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
+    # remove any digits to get just the type identifier
+    plankton_type = replace(plankton_name, r"\d+" => "")
     return :(
         photosynthetic_growth_single_nutrient_geider_light(
             N,
@@ -171,7 +175,7 @@ function phytoplankton_growth_single_nutrient_geider_light(plankton_array, plank
             maximum_predation_rate,
             holling_half_saturation,
             palatability_matrix,
-        ) - linear_loss($(plankton_symbol), linear_mortality)
+        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_type])
     )
 end
 
@@ -189,6 +193,8 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 """
 function zooplankton_growth_simplified(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
+    # remove any digits to get just the type identifier
+    plankton_type = replace(plankton_name, r"\d+" => "")
     return :(
         summed_predation_gain_preferential(
             $plankton_name,
@@ -197,7 +203,7 @@ function zooplankton_growth_simplified(plankton_array, plankton_name)
             maximum_predation_rate,
             holling_half_saturation,
             palatability_matrix,
-        ) - linear_loss($(plankton_symbol), linear_mortality) -
+        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_type]) -
         quadratic_loss($(plankton_symbol), quadratic_mortality)
     )
 end
