@@ -95,8 +95,6 @@ need to be specified.
     `Agate.Models.Tracers`
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
-- `allometry_args`: Dictionary of size dependant plankton parameters defined for both phyto
-    and zooplankton, for default values see `Agate.Models.Constructors.DEFAULT_ALLOMETRY_ARGS`
 - `phyto_args`: Dictionary of phytoplankton parameters, for default values see
     `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
 - `zoo_args`: Dictionary of zooplankton parameters, for default values see
@@ -189,8 +187,6 @@ A function to instantiate a size structured NPZD model object.
     `Agate.Models.Tracers`
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
-- `allometry_args`: Dictionary of size dependant plankton parameters defined for both phyto
-    and zooplankton, for default values see `Agate.Models.Constructors.DEFAULT_ALLOMETRY_ARGS`
 - `phyto_args`: Dictionary of phytoplankton parameters, for default values see
     `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
 - `zoo_args`: Dictionary of zooplankton parameters, for default values see
@@ -207,17 +203,21 @@ A function to instantiate a size structured NPZD model object.
     NamedArray, if provided then `interaction_args` are not used to compute this
 """
 function instantiate_size_structured_NPZD(
-    bgc_type,
-    n_phyto,
-    n_zoo,
-    phyto_diameters,
-    zoo_diameters,
-    phyto_args,
-    zoo_args,
-    interaction_args,
-    bgc_args,
-    palatability_matrix,
-    assimilation_efficiency_matrix,
+    bgc_type=construct_size_structured_NPZD(),
+    n_phyto=2,
+    n_zoo=2,
+    phyto_diameters=Dict(
+        "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+    ),
+    zoo_diameters=Dict(
+        "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+    ),
+    phyto_args=DEFAULT_PHYTO_ARGS,
+    zoo_args=DEFAULT_ZOO_ARGS,
+    interaction_args=DEFAULT_INTERACTION_ARGS,
+    bgc_args=DEFAULT_BGC_ARGS,
+    palatability_matrix=nothing,
+    assimilation_efficiency_matrix=nothing,
 )
     parameters = construct_params_dict(
         n_phyto,
@@ -235,6 +235,32 @@ function instantiate_size_structured_NPZD(
     return bgc_type(; parameters...)
 end
 
+"""
+Create a dictionary of parameters to pass to `Agate.Models.Biogeochemistry.define_tracer_functions`.
+
+# Arguments
+- `n_phyto`: number of phytoplankton to include in the model
+- `n_zoo`: number of zooplankton to include in the model
+- `phyto_diameters`: dictionary from which `n_phyto` diameters can be computed or a list of
+    values to use
+- `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
+    values to use
+- `phyto_args`: Dictionary of phytoplankton parameters, for default values see
+    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
+- `zoo_args`: Dictionary of zooplankton parameters, for default values see
+    `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
+- `interaction_args`: Dictionary of arguments from which a palatability and assimilation
+   efficiency matrix between all plankton can be computed, for default values see
+    `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
+- `bgc_args`: Dictionary of constant parameters used in growth functions (i.e., not size
+    dependant plankton parameters as well as biogeochemistry parameters related to nutrient
+    and detritus, for default values see `Agate.Models.Constructors.DEFAULT_CONSTANT_ARGS`
+- `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
+    then `interaction_args` are not used to compute this
+- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
+    NamedArray, if provided then `interaction_args` are not used to compute this
+
+"""
 function construct_params_dict(
     n_phyto=2,
     n_zoo=2,
