@@ -28,7 +28,7 @@ set!(full_model_default_photosynthesis; P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, N=7.
 
 # Geider photosynthesis model
 N2P2ZD_geider_photosynthesis = construct_size_structured_NPZD(;
-    constant_args=Agate.Constructors.NPZD_size_structured.DEFAULT_CONSTANT_ARGS_GEIDER,
+    phyto_args=Agate.Constructors.NPZD_size_structured.DEFAULT_PHYTO_GEIDER_ARGS,
     nutrient_dynamics=nutrients_geider_light,
     phyto_dynamics=phytoplankton_growth_single_nutrient_geider_light,
 )

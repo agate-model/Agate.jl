@@ -22,6 +22,16 @@ DEFAULT_PHYTO_ARGS = Dict(
     "alpha" => 0.1953 / day,
 )
 
+DEFAULT_PHYTO_GEIDER_ARGS = Dict(
+    "allometry" => Dict(
+        "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
+        "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
+    ),
+    "linear_mortality" => 8e-7 / second,
+    "photosynthetic_slope" => 0.46e-5,
+    "chlorophyll_to_carbon_ratio" => 0.1,
+)
+
 DEFAULT_ZOO_ARGS = Dict(
     "allometry" => Dict("maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16)),
     "linear_mortality" => 8e-7 / second,

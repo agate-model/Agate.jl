@@ -101,22 +101,22 @@ using Agate.Models.Tracers
         )
     end
 
-    # @testset "Alternative instantiation" begin
+    @testset "Alternative instantiation" begin
 
-    #     # N2P2ZD model constructed with user-defined functions (geider growth)
-    #     N2P2ZD_geider = construct_size_structured_NPZD(;
-    #         constant_args=Agate.Constructors.NPZD_size_structured.DEFAULT_CONSTANT_ARGS_GEIDER,
-    #         nutrient_dynamics=nutrients_geider_light,
-    #         phyto_dynamics=phytoplankton_growth_single_nutrient_geider_light,
-    #     )
+        # N2P2ZD model constructed with user-defined functions (geider growth)
+        N2P2ZD_geider = construct_size_structured_NPZD(;
+            phyto_args=Agate.Constructors.NPZD_size_structured.DEFAULT_PHYTO_GEIDER_ARGS,
+            nutrient_dynamics=nutrients_geider_light,
+            phyto_dynamics=phytoplankton_growth_single_nutrient_geider_light,
+        )
 
-    #     model_geider = N2P2ZD_geider()
+        model_geider = N2P2ZD_geider()
 
-    #     @test !iszero(model_geider(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-    #     @test !iszero(model_geider(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-    #     @test !iszero(model_geider(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-    #     @test !iszero(model_geider(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-    #     @test !iszero(model_geider(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-    #     @test !iszero(model_geider(Val(:Z2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-    # end
+        @test !iszero(model_geider(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model_geider(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model_geider(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model_geider(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model_geider(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model_geider(Val(:Z2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+    end
 end
