@@ -4,9 +4,6 @@ using Documenter, Agate
 using Literate
 
 using OceanBioME
-using OceanBioME: SugarKelp, LOBSTER, NutrientPhytoplanktonZooplanktonDetritus
-using OceanBioME.Sediments: SimpleMultiG, InstantRemineralisation
-using OceanBioME: CarbonChemistry, GasExchange
 
 using Oceananigans.Grids: RectilinearGrid
 

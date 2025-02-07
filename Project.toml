@@ -3,8 +3,11 @@ uuid = "41889b7c-c35c-4f16-abd7-94b299d9fd29"
 version = "0.0.1"
 
 [deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 NamedArrays = "86f7a689-2022-50b4-a561-43c23ac3c673"
 OceanBioME = "a49af516-9db8-4be4-be45-1dad61c5a376"
 Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
