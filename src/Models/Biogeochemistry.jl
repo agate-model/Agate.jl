@@ -131,26 +131,35 @@ create_bgc_struct(:LV, (α=2/3, β=4/3,  δ=1, γ=1))
 function create_bgc_struct(
     struct_name, parameters, sinking_tracers=nothing, grid=nothing, open_bottom=nothing
 )
-    fields = []
-    for (k, v) in pairs(parameters)
-        if k in [:x, :y, :z, :t]
-            throw(
-                DomainError(k, "field names in parameters can't be any of [:x, :y, :z, :t]")
-            )
+    if parameters isa Dict || parameters isa NamedTuple
+        fields = []
+        for (k, v) in pairs(parameters)
+            if k in [:x, :y, :z, :t]
+                throw(
+                    DomainError(
+                        k, "field names in parameters can't be any of [:x, :y, :z, :t]"
+                    ),
+                )
+            end
+            exp = :($k = $v)
+            push!(fields, exp)
         end
-        exp = :($k = $v)
-        push!(fields, exp)
-    end
 
-    # additional parameters required if tracers sink
-    if !isnothing(sinking_tracers)
-        if isnothing(grid)
-            throw(ArgumentError("grid must be defined to setup tracer sinking"))
+        # TODO: better handling of this
+        # additional parameters required if tracers sink
+        if !isnothing(sinking_tracers)
+            if isnothing(grid)
+                throw(ArgumentError("grid must be defined to setup tracer sinking"))
+            end
+            # `setup_velocity_fields` multiplies tracer speeds by -1 when creating the fields
+            sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
+            exp = :(sinking_velocities = $(sinking_velocities))
+            push!(fields, exp)
         end
-        # `setup_velocity_fields` multiplies tracer speeds by -1 when creating the fields
-        sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
-        exp = :(sinking_velocities = $(sinking_velocities))
-        push!(fields, exp)
+
+    else
+        # TODO: check no invalid names are used here
+        fields = [:($(Symbol(p))::Any) for p in parameters]
     end
 
     exp = quote
