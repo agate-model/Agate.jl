@@ -23,25 +23,24 @@ println("Zooplankton 1 diameter: ", phyto_2_zoo_2().diameters["Z1"], "um")
 println("Zooplankton 2 diameter: ", phyto_2_zoo_2().diameters["Z2"], "um")
 
 #to change the number of phytoplankton we can specify n_phyto or n_zoo
-phyto_1_zoo_1 = construct_size_structured_NPZD(n_phyto=1, n_zoo=1)
-
+phyto_1_zoo_1 = construct_size_structured_NPZD(; n_phyto=1, n_zoo=1)
 
 #to run the model we need to wrap it into a OceanBioME biogeochemistry model
-bgc_model_phyto_2_zoo_2  = Biogeochemistry(
+bgc_model_phyto_2_zoo_2 = Biogeochemistry(
     phyto_2_zoo_2();
     light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid()), # more intutive if removed (use default) (?)
 )
 
 # once we have our combined light and ecosystem model we need to define the physical setting
 # here we are using a OceanBioME Boxmodel()
-full_model = BoxModel(; biogeochemistry=bgc_model_phyto_2_zoo_2 )
+full_model = BoxModel(; biogeochemistry=bgc_model_phyto_2_zoo_2)
 
 # Next we need to define the initial tracer concentrations.
 # Here "N" is a nutrient (mmol N m-3)
 # "D" is detritus (mmol N m-3)
 # "Pi" are the phytoplankton (mmol N m-3)
 # "Zi" are the zooplankton (mmol N m-3)
-set!(full_model; N=7.0, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, D=0.0) 
+set!(full_model; N=7.0, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, D=0.0)
 
 # Now that we have setup the model we can run it
 # First we need to define the save location:
