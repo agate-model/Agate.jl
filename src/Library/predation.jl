@@ -167,7 +167,7 @@ function summed_predation_loss_preferential(
             P[prey_name],
             P[predator_name],
             maximum_predation_rate[predator_name],
-            holling_half_saturation,
+            holling_half_saturation[replace(predator_name, r"\d+" => "")],
             palatability[predator_name, prey_name],
         ) for predator_name in names(P, 1) if
         any(prefix -> occursin(prefix, predator_name), plankton_type_prefix)
@@ -213,7 +213,7 @@ function summed_predation_gain_preferential(
             P[predator_name],
             assimilation_efficiency[predator_name, prey_name],
             maximum_predation_rate[predator_name],
-            holling_half_saturation,
+            holling_half_saturation[replace(predator_name, r"\d+" => "")],
             palatability[predator_name, prey_name],
         ) for prey_name in names(P, 1)
     )
@@ -258,7 +258,7 @@ function summed_predation_assimilation_loss_preferential(
             P[predator_name],
             assimilation_efficiency[predator_name, prey_name],
             maximum_predation_rate[predator_name],
-            holling_half_saturation,
+            holling_half_saturation[replace(predator_name, r"\d+" => "")],
             palatability[predator_name, prey_name],
         ) for prey_name in names(P, 1)
     )

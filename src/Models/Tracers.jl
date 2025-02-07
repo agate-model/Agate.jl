@@ -133,7 +133,7 @@ function phytoplankton_growth_single_nutrient(plankton_array, plankton_name)
             PAR,
             maximum_growth_rate[$plankton_name],
             nutrient_half_saturation[$plankton_name],
-            alpha,
+            alpha[$plankton_type],
         ) - summed_predation_loss_preferential(
             $plankton_name,
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
@@ -167,8 +167,8 @@ function phytoplankton_growth_single_nutrient_geider_light(plankton_array, plank
             PAR,
             maximum_growth_rate[$plankton_name],
             nutrient_half_saturation[$plankton_name],
-            photosynthetic_slope,
-            chlorophyll_to_carbon_ratio,
+            photosynthetic_slope[$plankton_type],
+            chlorophyll_to_carbon_ratio[$plankton_type],
         ) - summed_predation_loss_preferential(
             $plankton_name,
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
@@ -204,7 +204,7 @@ function zooplankton_growth_simplified(plankton_array, plankton_name)
             holling_half_saturation,
             palatability_matrix,
         ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_type]) -
-        quadratic_loss($(plankton_symbol), quadratic_mortality)
+        quadratic_loss($(plankton_symbol), quadratic_mortality[$plankton_type])
     )
 end
 

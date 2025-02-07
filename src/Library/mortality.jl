@@ -51,7 +51,8 @@ Net loss of all plankton due to quadratic mortality.
 function net_quadratic_loss(P, quadratic_mortality, fraction, plankton_type_prefix=["Z"])
     return sum(
         [
-            quadratic_loss(P[name], quadratic_mortality) for name in names(P, 1) if
+            quadratic_loss(P[name], quadratic_mortality[replace(name, r"\d+" => "")]) for
+            name in names(P, 1) if
             any(prefix -> occursin(prefix, name), plankton_type_prefix)
         ] * fraction,
     )
