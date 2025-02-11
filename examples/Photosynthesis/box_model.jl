@@ -16,7 +16,7 @@ const year = years = 365day
 # ==================================================
 
 # Default photosynthesis model
-N2P2ZD_default_photosynthesis = construct_size_structured_NPZD()
+N2P2ZD_default_photosynthesis = Agate.Constructors.NPZD_size_structured.construct()
 bgc_model_default_photosynthesis = Biogeochemistry(
     N2P2ZD_default_photosynthesis();
     light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid()),
@@ -27,13 +27,17 @@ full_model_default_photosynthesis = BoxModel(;
 set!(full_model_default_photosynthesis; P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, N=7.0, D=1)
 
 # Geider photosynthesis model
-N2P2ZD_geider_photosynthesis = construct_size_structured_NPZD(;
+N2P2ZD_geider = Agate.Constructors.NPZD_size_structured.construct(;
     phyto_args=Agate.Constructors.NPZD_size_structured.DEFAULT_PHYTO_GEIDER_ARGS,
     nutrient_dynamics=nutrients_geider_light,
     phyto_dynamics=phytoplankton_growth_single_nutrient_geider_light,
 )
+N2P2ZD_geider_photosynthesis = Agate.Constructors.NPZD_size_structured.instantiate(
+    N2P2ZD_geider;
+    phyto_args=Agate.Constructors.NPZD_size_structured.DEFAULT_PHYTO_GEIDER_ARGS,
+)
 bgc_model_geider_photosynthesis = Biogeochemistry(
-    N2P2ZD_geider_photosynthesis();
+    N2P2ZD_geider_photosynthesis;
     light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid()),
 )
 full_model_geider_photosynthesis = BoxModel(;
