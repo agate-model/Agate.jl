@@ -20,10 +20,8 @@ using Agate.Models.Tracers
         include(joinpath("..", "examples", "N2P2ZD", "tracers.jl"))
         model = N2P2ZD()
 
-        # N2P2ZD model constructed from emergent parameters
-        model_constructed = Agate.Constructors.NPZD_size_structured.instantiate(
-            N2P2ZD_constructed
-        )
+        # N2P2ZD model constructed from emergent parameters - just using default vals here
+        model_constructed = N2P2ZD_constructed()
 
         @test !iszero(model_constructed(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
         @test !iszero(model_constructed(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
