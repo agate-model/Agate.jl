@@ -12,6 +12,9 @@ using NamedArrays
 using UUIDs
 using Oceananigans.Units
 
+using OceanBioME: setup_velocity_fields
+using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
+
 export construct, instantiate
 
 DEFAULT_PHYTO_ARGS = Dict(
@@ -87,6 +90,9 @@ need to be specified.
     `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
 - `zoo_args`: Dictionary of zooplankton parameters, for default values see
     `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
+- `interaction_args`: Dictionary of arguments from which a palatability and assimilation
+   efficiency matrix between all plankton can be computed, for default values see
+    `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
 - `bgc_args`: Dictionary of constant parameters used in growth functions (i.e., not size
     dependant plankton parameters as well as biogeochemistry parameters related to nutrient
     and detritus, for default values see `Agate.Models.Constructors.DEFAULT_CONSTANT_ARGS`
@@ -108,25 +114,26 @@ function construct(;
     zoo_dynamics=zooplankton_growth_simplified,
     phyto_args=DEFAULT_PHYTO_ARGS,
     zoo_args=DEFAULT_ZOO_ARGS,
+    interaction_args=DEFAULT_INTERACTION_ARGS,
     bgc_args=DEFAULT_BGC_ARGS,
 )
 
-    # collect all parameter names - phyto, zoo and bgc
-    # the model requires interaction
-    parameters = ["palatability_matrix", "assimilation_efficiency_matrix", "diameters"]
-    for args in [phyto_args, zoo_args, bgc_args]
-        for (k, v) in pairs(args)
-            if k == "allometry"
-                for (k2, _) in pairs(v)
-                    push!(parameters, k2)
-                end
-            else
-                push!(parameters, k)
-            end
-        end
-    end
-    # remove duplicates
-    unique!(parameters)
+    parameters = create_params_dict(
+        n_phyto,
+        n_zoo,
+        # use default diameter splits
+        Dict(
+            "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+        ),
+        Dict(
+            "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+        ),
+        phyto_args,
+        zoo_args,
+        interaction_args,
+        bgc_args
+        # by default compute palatability and assimilation efficiency matrices
+    )
 
     # create tracer functions
     plankton_array = vcat(
@@ -187,8 +194,6 @@ palatability values are desired, these can be defined using the `palatability_ma
 """
 function instantiate(
     bgc_type;
-    n_phyto=2,
-    n_zoo=2,
     phyto_diameters=Dict(
         "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
     ),
@@ -202,10 +207,10 @@ function instantiate(
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 )
+    defaults = bgc_type()
+    n_phyto = Int(defaults.n_phyto)
+    n_zoo = Int(defaults.n_zoo)
 
-    # TODO: can we avoid having to specify n_phyto and n_zoo again here ?!
-    # could just create arrays of right length in previous step?
-    # or maybe from the matrices
     parameters = create_params_dict(
         n_phyto,
         n_zoo,
@@ -246,7 +251,6 @@ Create a dictionary of parameters to pass to `Agate.Models.Biogeochemistry.defin
     then `interaction_args` are not used to compute this
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
     NamedArray, if provided then `interaction_args` are not used to compute this
-
 """
 function create_params_dict(
     n_phyto=2,
@@ -319,6 +323,10 @@ function create_params_dict(
         emergent_parameters["assimilation_efficiency_matrix"] =
             assimilation_efficiency_matrix
     end
+
+    # append information that need access to at instantiation
+    bgc_args["n_phyto"] = n_phyto
+    bgc_args["n_zoo"] = n_zoo
 
     # combine emergent parameters with remaining user defined parameters
     parameters = NamedTuple(
