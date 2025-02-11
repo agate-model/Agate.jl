@@ -143,6 +143,7 @@ function construct(;
     end
 
     # return Oceananigans.Biogeochemistry object
+    # note this adds "PAR" as an auxiliary field by default
     return define_tracer_functions(parameters, tracers)
 end
 
