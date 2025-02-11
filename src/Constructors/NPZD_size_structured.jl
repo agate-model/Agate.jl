@@ -117,22 +117,20 @@ function construct(;
     interaction_args=DEFAULT_INTERACTION_ARGS,
     bgc_args=DEFAULT_BGC_ARGS,
 )
-
     parameters = create_params_dict(
         n_phyto,
         n_zoo,
         # use default diameter splits
-        Dict(
-            "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
-        ),
+        Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
         Dict(
             "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
         ),
         phyto_args,
         zoo_args,
         interaction_args,
-        bgc_args
-        # by default compute palatability and assimilation efficiency matrices
+        bgc_args,
+        nothing,
+        nothing,
     )
 
     # create tracer functions
@@ -211,6 +209,7 @@ function instantiate(
     n_phyto = Int(defaults.n_phyto)
     n_zoo = Int(defaults.n_zoo)
 
+    # returns NamedTuple -> have to convert to Dict
     parameters = create_params_dict(
         n_phyto,
         n_zoo,
@@ -224,7 +223,7 @@ function instantiate(
         assimilation_efficiency_matrix,
     )
 
-    return bgc_type(; parameters...)
+    return bgc_type(; Dict(pairs(parameters))...)
 end
 
 """

@@ -131,14 +131,11 @@ create_bgc_struct(:LV, (α=2/3, β=4/3,  δ=1, γ=1))
 function create_bgc_struct(
     struct_name, parameters, sinking_tracers=nothing, grid=nothing, open_bottom=nothing
 )
-
     fields = []
     for (k, v) in pairs(parameters)
         if k in [:x, :y, :z, :t]
             throw(
-                DomainError(
-                    k, "field names in parameters can't be any of [:x, :y, :z, :t]"
-                ),
+                DomainError(k, "field names in parameters can't be any of [:x, :y, :z, :t]")
             )
         end
         exp = :($k = $v)
