@@ -117,20 +117,13 @@ function construct(;
     interaction_args=DEFAULT_INTERACTION_ARGS,
     bgc_args=DEFAULT_BGC_ARGS,
 )
-    parameters = create_params_dict(
-        n_phyto,
-        n_zoo,
-        # use default diameter splits
-        Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
-        Dict(
-            "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
-        ),
-        phyto_args,
-        zoo_args,
-        interaction_args,
-        bgc_args,
-        nothing,
-        nothing,
+    parameters = create_params_dict(;
+        n_phyto=n_phyto,
+        n_zoo=n_zoo,
+        phyto_args=phyto_args,
+        zoo_args=zoo_args,
+        interaction_args=interaction_args,
+        bgc_args=bgc_args,
     )
 
     # create tracer functions
@@ -210,17 +203,17 @@ function instantiate(
     n_zoo = Int(defaults.n_zoo)
 
     # returns NamedTuple -> have to convert to Dict
-    parameters = create_params_dict(
-        n_phyto,
-        n_zoo,
-        phyto_diameters,
-        zoo_diameters,
-        phyto_args,
-        zoo_args,
-        interaction_args,
-        bgc_args,
-        palatability_matrix,
-        assimilation_efficiency_matrix,
+    parameters = create_params_dict(;
+        n_phyto=n_phyto,
+        n_zoo=n_zoo,
+        phyto_diameters=phyto_diameters,
+        zoo_diameters=zoo_diameters,
+        phyto_args=phyto_args,
+        zoo_args=zoo_args,
+        interaction_args=interaction_args,
+        bgc_args=bgc_args,
+        palatability_matrix=palatability_matrix,
+        assimilation_efficiency_matrix=assimilation_efficiency_matrix,
     )
 
     return bgc_type(; Dict(pairs(parameters))...)
@@ -251,7 +244,7 @@ Create a dictionary of parameters to pass to `Agate.Models.Biogeochemistry.defin
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
     NamedArray, if provided then `interaction_args` are not used to compute this
 """
-function create_params_dict(
+function create_params_dict(;
     n_phyto=2,
     n_zoo=2,
     phyto_diameters=Dict(
