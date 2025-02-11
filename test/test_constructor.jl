@@ -65,7 +65,6 @@ using Agate.Models.Tracers
     end
 
     @testset "User defined matrices" begin
-
         names = ["P", "Z"]
         wrong_size_matrix = NamedArray(zeros(Float64, 2, 2), (predator=names, prey=names))
         @test_throws ArgumentError Agate.Constructors.NPZD_size_structured.instantiate(
@@ -106,7 +105,6 @@ using Agate.Models.Tracers
     #     @test !iszero(model(Val(:P1), 0, 0, 0, 0, P1, Z1, Z2, N, D, PAR))
     #     @test !iszero(model(Val(:Z1), 0, 0, 0, 0, P1, Z1, Z2, N, D, PAR))
     #     @test !iszero(model(Val(:Z2), 0, 0, 0, 0, P1, Z1, Z2, N, D, PAR))
-
 
     #     # the default type defined at the top has 2 phyto so expect 2 diameters
     #     @test_throws ArgumentError Agate.Constructors.NPZD_size_structured.instantiate(
