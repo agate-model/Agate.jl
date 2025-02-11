@@ -37,8 +37,7 @@ N2P2ZD_geider_photosynthesis = Agate.Constructors.NPZD_size_structured.instantia
     phyto_args=Agate.Constructors.NPZD_size_structured.DEFAULT_PHYTO_GEIDER_ARGS,
 )
 bgc_model_geider_photosynthesis = Biogeochemistry(
-    N2P2ZD_geider_photosynthesis;
-    light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid()),
+    N2P2ZD_geider_photosynthesis; light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
 )
 full_model_geider_photosynthesis = BoxModel(;
     biogeochemistry=bgc_model_geider_photosynthesis

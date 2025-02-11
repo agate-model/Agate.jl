@@ -13,9 +13,7 @@ const year = years = 365day
 @testset "mass_balance" begin
     @testset "size_structured_NPZD box model" begin
         N2P2ZD_constructed = Agate.Constructors.NPZD_size_structured.construct()
-        model = Agate.Constructors.NPZD_size_structured.instantiate(
-            N2P2ZD_constructed
-        )
+        model = Agate.Constructors.NPZD_size_structured.instantiate(N2P2ZD_constructed)
 
         bgc_model = Biogeochemistry(
             model; light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
