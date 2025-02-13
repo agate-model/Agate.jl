@@ -30,6 +30,8 @@ DEFAULT_ZOO_ARGS = Dict(
     "linear_mortality" => 8e-7 / second,
     "holling_half_saturation" => 5.0,
     "quadratic_mortality" => 1e-6 / second,
+    "nitrogen_to_carbon" => 0.15,
+    "phosphorus_to_carbon" => 0.009,
 )
 
 DEFAULT_INTERACTION_ARGS = Dict(
