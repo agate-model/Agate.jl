@@ -47,7 +47,7 @@ Net loss of all plankton due to linear mortality with a quota term.
 """
 function net_linear_loss_quota(P, linear_mortality, DOM_POM_fractionation, quota)
     # sum over all plankton in `P`
-    return sum([linear_loss(P[name], linear_mortality[name])*quota[name]*DOM_POM_fractionation for name in names(P, 1)]) 
+    return sum([linear_loss(P[name], linear_mortality[name])*quota[name]*DOM_POM_fractionation for name in names(linear_mortality, 1)]) 
 end
 
 """
