@@ -33,7 +33,7 @@ Net loss of all plankton due to linear mortality.
 """
 function net_linear_loss(P, linear_mortality, fraction)
     # sum over all plankton in `P`
-    return sum([linear_loss(P[name], linear_mortality[name]) for name in names(P, 1)]) * fraction
+    return sum([linear_loss(P[name], linear_mortality[name]) for name in names(P, 1)])
 end
 
 """
@@ -46,7 +46,7 @@ Net loss of all plankton due to linear mortality with a quota term.
 """
 function net_linear_loss_quota(P, linear_mortality, fraction, quota)
     # sum over all plankton in `P`
-    return sum([linear_loss(P[name], linear_mortality[name])*quota[name] for name in names(P, 1)]) * fraction
+    return sum([linear_loss(P[name], linear_mortality[name])*quota[name] for name in names(P, 1)]) 
 end
 
 """
@@ -62,7 +62,7 @@ function net_quadratic_loss(P, quadratic_mortality, fraction)
         [
             quadratic_loss(P[name], quadratic_mortality[name]) for
             name in names(quadratic_mortality, 1)
-        ] * fraction,
+        ] 
     )
 end
 
@@ -78,9 +78,9 @@ function net_quadratic_loss_quota(P, quadratic_mortality, fraction, quota)
     # sum over plankton that have a `quadratic_mortality`
     return sum(
         [
-            quadratic_loss(P[name], quadratic_mortality[name])*quota[name] for
+            quadratic_loss(P[name], quadratic_mortality[name])*quota[name] for  
             name in names(quadratic_mortality, 1)
-        ] * fraction,
+        ] 
     )
 end
 
