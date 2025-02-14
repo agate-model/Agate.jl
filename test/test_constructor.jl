@@ -131,4 +131,31 @@ using Agate.Models.Tracers
         @test !iszero(model_geider(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
         @test !iszero(model_geider(Val(:Z2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
     end
+
+    @testset "Create objects inside for loop" begin
+        for i in 1:5
+            phyto_args = Agate.Constructors.NPZD_size_structured.DEFAULT_PHYTO_ARGS
+            phyto_args["allometry"]["maximum_growth_rate"]["a"] = i
+            model = Agate.Constructors.NPZD_size_structured.instantiate(
+                N2P2ZD_constructed; phyto_args=phyto_args
+            )
+            @test !iszero(model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+            @test !iszero(model(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        end
+    end
+
+    @testset "Create objects inside function" begin
+        function some_wrapper_function(max_growth_rate_a)
+            phyto_args = Agate.Constructors.NPZD_size_structured.DEFAULT_PHYTO_ARGS
+            phyto_args["allometry"]["maximum_growth_rate"]["a"] = max_growth_rate_a
+            model = Agate.Constructors.NPZD_size_structured.instantiate(
+                N2P2ZD_constructed; phyto_args=phyto_args
+            )
+            return model
+        end
+
+        model = some_wrapper_function(10)
+        @test !iszero(model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+    end
 end
