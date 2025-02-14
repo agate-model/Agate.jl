@@ -118,18 +118,18 @@ const year = years = 365day
 
         print("starting model time stepping")
 
-        for n in 1:10 #1000
+        for n in 1:1000
             time_step!(box_model, 1)
         end
 
-        # final_carbon_mass = estimate_carbon_mass(box_model)
-        # final_nitrogen_mass = estimate_nitrogen_mass(box_model)
-        # final_phosphorus_mass = estimate_phosphorus_mass(box_model)
+        final_carbon_mass = estimate_carbon_mass(box_model)
+        final_nitrogen_mass = estimate_nitrogen_mass(box_model)
+        final_phosphorus_mass = estimate_phosphorus_mass(box_model)
 
-        # rtol = 1e-6
+        rtol = 1e-6
 
-        # @test isapprox(initial_carbon_mass, final_carbon_mass, rtol=rtol)
-        # @test isapprox(initial_phosphorus_mass, final_phosphorus_mass, rtol=rtol)
-        # @test isapprox(initial_nitrogen_mass, final_nitrogen_mass, rtol=rtol)
+        @test isapprox(initial_carbon_mass, final_carbon_mass, rtol=rtol)
+        @test isapprox(initial_phosphorus_mass, final_phosphorus_mass, rtol=rtol)
+        @test isapprox(initial_nitrogen_mass, final_nitrogen_mass, rtol=rtol)
     end
 end
