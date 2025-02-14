@@ -22,7 +22,7 @@ Particularly useful issues for us are bug reports:
   - Provide an explicit code snippet --- not just a link --- that reproduces the bug in the latest tagged version of Agate. This is sometimes called the ["minimal working example"](https://en.wikipedia.org/wiki/Minimal_working_example). Reducing bug-producing code to a minimal example can dramatically decrease the time it takes to resolve an issue.
 
   - Paste the _entire_ error received when running the code snippet, even if it's unbelievably long.
-  - Use triple backticks (e.g., ````some_code; and_some_more_code;````) to enclose code snippets, and other [markdown formatting syntax](https://docs.github.com/en/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax) to make your issue easy and quick to read.
+  - Use triple backticks (e.g., ``some_code; and_some_more_code;``) to enclose code snippets, and other [markdown formatting syntax](https://docs.github.com/en/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax) to make your issue easy and quick to read.
   - Report the Agate version, Julia version, machine and any other possibly useful details of the computational environment in which the bug was created.
 
 Discussions are recommended for asking questions about (for example) the user interface, implementation details, science, and life in general.

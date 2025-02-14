@@ -96,24 +96,22 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
     `[:P1, :P2, :Z1, :Z2]`
 """
 function DIN_geider_light_fixed_ratios(plankton_array)
-    return :(
-        (
-            remineralization_idealized(DOC, DOC_remineralization) +
-            remineralization_idealized(POC, POC_remineralization) -
-            net_photosynthetic_growth_two_nutrients_geider_light_quota(
-                DIN,
-                PO4,
-                NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-                PAR,
-                maximum_growth_rate,
-                half_saturation_DIN,
-                half_saturation_PO4,
-                photosynthetic_slope,
-                chlorophyll_to_carbon_ratio,
-                nitrogen_to_carbon,
-            )
-        ) 
-    )
+    return :((
+        remineralization_idealized(DOC, DOC_remineralization) +
+        remineralization_idealized(POC, POC_remineralization) -
+        net_photosynthetic_growth_two_nutrients_geider_light_quota(
+            DIN,
+            PO4,
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            PAR,
+            maximum_growth_rate,
+            half_saturation_DIN,
+            half_saturation_PO4,
+            photosynthetic_slope,
+            chlorophyll_to_carbon_ratio,
+            nitrogen_to_carbon,
+        )
+    ))
 end
 
 """
@@ -129,24 +127,22 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
     `[:P1, :P2, :Z1, :Z2]`
 """
 function PO4_geider_light_fixed_ratios(plankton_array)
-    return :(
-        (
-            remineralization_idealized(DOC, DOC_remineralization) +
-            remineralization_idealized(POC, POC_remineralization) -
-            net_photosynthetic_growth_two_nutrients_geider_light_quota(
-                DIN,
-                PO4,
-                NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-                PAR,
-                maximum_growth_rate,
-                half_saturation_DIN,
-                half_saturation_PO4,
-                photosynthetic_slope,
-                chlorophyll_to_carbon_ratio,
-                phosphorus_to_carbon,
-            )
-        ) 
-    )
+    return :((
+        remineralization_idealized(DOC, DOC_remineralization) +
+        remineralization_idealized(POC, POC_remineralization) -
+        net_photosynthetic_growth_two_nutrients_geider_light_quota(
+            DIN,
+            PO4,
+            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            PAR,
+            maximum_growth_rate,
+            half_saturation_DIN,
+            half_saturation_PO4,
+            photosynthetic_slope,
+            chlorophyll_to_carbon_ratio,
+            phosphorus_to_carbon,
+        )
+    ))
 end
 
 """

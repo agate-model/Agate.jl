@@ -218,7 +218,6 @@ function net_photosynthetic_growth_two_nutrients_geider_light(
     ],)
 end
 
-
 """
 Net photosynthetic growth of all plankton assuming geider light limitation with two nutrients.
 
@@ -258,10 +257,9 @@ function net_photosynthetic_growth_two_nutrients_geider_light_quota(
             half_saturation_PO4[name],
             photosynthetic_slope[name],
             chlorophyll_to_carbon_ratio[name],
-        )*nutrient_to_carbon[name] for name in names(maximum_growth_rate, 1)
+        ) * nutrient_to_carbon[name] for name in names(maximum_growth_rate, 1)
     ],)
 end
-
 
 """
 Single nutrient geider photosynthetic growth.
