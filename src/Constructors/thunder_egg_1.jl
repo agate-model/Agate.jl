@@ -159,7 +159,7 @@ function construct_thunder_egg_1(;
     PON_dynamics=PON_typical,
     DON_dynamics=DON_typical,
     POP_dynamics=POP_typical,
-    DOP_dynamics=DOP_typical,    
+    DOP_dynamics=DOP_typical,
     phyto_dynamics=phytoplankton_growth_two_nutrients_geider_light,
     zoo_dynamics=zooplankton_growth_simplified,
     phyto_args=DEFAULT_PHYTO_ARGS,

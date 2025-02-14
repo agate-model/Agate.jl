@@ -1,6 +1,11 @@
 module Mortality
 
-export linear_loss, quadratic_loss, net_linear_loss, net_quadratic_loss, net_linear_loss_quota, net_quadratic_loss_quota
+export linear_loss,
+    quadratic_loss,
+    net_linear_loss,
+    net_quadratic_loss,
+    net_linear_loss_quota,
+    net_quadratic_loss_quota
 
 """
 Linear mortality rate.
@@ -34,7 +39,10 @@ Net loss of all plankton due to linear mortality.
 function net_linear_loss(P, linear_mortality, DOM_POM_fractionation)
     # sum over all plankton in `P`
     print(DOM_POM_fractionation)
-    return sum([linear_loss(P[name], linear_mortality[name])*DOM_POM_fractionation for name in names(linear_mortality, 1)])
+    return sum([
+        linear_loss(P[name], linear_mortality[name]) * DOM_POM_fractionation for
+        name in names(linear_mortality, 1)
+    ])
 end
 
 """
@@ -47,7 +55,10 @@ Net loss of all plankton due to linear mortality with a quota term.
 """
 function net_linear_loss_quota(P, linear_mortality, DOM_POM_fractionation, quota)
     # sum over all plankton in `P`
-    return sum([linear_loss(P[name], linear_mortality[name])*quota[name]*DOM_POM_fractionation for name in names(linear_mortality, 1)]) 
+    return sum([
+        linear_loss(P[name], linear_mortality[name]) * quota[name] * DOM_POM_fractionation
+        for name in names(linear_mortality, 1)
+    ])
 end
 
 """
@@ -59,12 +70,10 @@ Net loss of all plankton due to quadratic mortality.
 """
 function net_quadratic_loss(P, quadratic_mortality, DOM_POM_fractionation)
     # sum over plankton that have a `quadratic_mortality`
-    return sum(
-        [
-            quadratic_loss(P[name], quadratic_mortality[name]) * DOM_POM_fractionation for
-            name in names(quadratic_mortality, 1)
-        ] 
-    )
+    return sum([
+        quadratic_loss(P[name], quadratic_mortality[name]) * DOM_POM_fractionation for
+        name in names(quadratic_mortality, 1)
+    ])
 end
 
 """
@@ -77,12 +86,11 @@ Net loss of all plankton due to quadratic mortality with a quota term.
 """
 function net_quadratic_loss_quota(P, quadratic_mortality, DOM_POM_fractionation, quota)
     # sum over plankton that have a `quadratic_mortality`
-    return sum(
-        [
-            quadratic_loss(P[name], quadratic_mortality[name])*quota[name]*DOM_POM_fractionation for  
-            name in names(quadratic_mortality, 1)
-        ] 
-    )
+    return sum([
+        quadratic_loss(P[name], quadratic_mortality[name]) *
+        quota[name] *
+        DOM_POM_fractionation for name in names(quadratic_mortality, 1)
+    ])
 end
 
 end # module

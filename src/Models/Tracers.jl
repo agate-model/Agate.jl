@@ -13,7 +13,7 @@ export detritus_typical,
     PON_typical,
     DON_typical,
     POP_typical,
-    DOP_typical,   
+    DOP_typical,
     phytoplankton_growth_single_nutrient,
     phytoplankton_growth_single_nutrient_geider_light,
     phytoplankton_growth_two_nutrients_geider_light,
@@ -128,21 +128,23 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
     `[:P1, :P2, :Z1, :Z2]`
 """
 function PO4_geider_light_fixed_ratios(plankton_array)
-    return :((
-        remineralization_idealized(DOC, DOC_remineralization) +
-        remineralization_idealized(POC, POC_remineralization) -
-        net_photosynthetic_growth_two_nutrients_geider_light(
-            DIN,
-            PO4,
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            PAR,
-            maximum_growth_rate,
-            half_saturation_DIN,
-            half_saturation_PO4,
-            photosynthetic_slope,
-            chlorophyll_to_carbon_ratio,
-        ) 
-    )* phosphorus_to_carbon)
+    return :(
+        (
+            remineralization_idealized(DOC, DOC_remineralization) +
+            remineralization_idealized(POC, POC_remineralization) -
+            net_photosynthetic_growth_two_nutrients_geider_light(
+                DIN,
+                PO4,
+                NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+                PAR,
+                maximum_growth_rate,
+                half_saturation_DIN,
+                half_saturation_PO4,
+                photosynthetic_slope,
+                chlorophyll_to_carbon_ratio,
+            )
+        ) * phosphorus_to_carbon
+    )
 end
 
 """
@@ -284,7 +286,6 @@ function DON_typical(plankton_array)
         ) - remineralization_idealized(DON, DON_remineralization)
     )
 end
-
 
 """
     DOP = mortality_to_DOP + predation_loss_to_DOP - DOP_remineralization

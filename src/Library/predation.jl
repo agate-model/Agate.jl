@@ -307,7 +307,6 @@ function summed_predation_assimilation_loss_preferential_quota(
     return assimilation_loss
 end
 
-
 """
 Net predator assimilation loss of all plankton.
 
