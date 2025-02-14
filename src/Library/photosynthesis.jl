@@ -14,7 +14,9 @@ export γˡⁱᵍʰᵗ,
     photosynthetic_growth_two_nutrients_geider_light,
     net_photosynthetic_growth_single_nutrient,
     net_photosynthetic_growth_single_nutrient_geider_light,
-    net_photosynthetic_growth_two_nutrients_geider_light
+    net_photosynthetic_growth_two_nutrients_geider_light,
+    net_photosynthetic_growth_two_nutrients_geider_light_quota
+
 """
     γˡⁱᵍʰᵗ = (1 - ℯ^(kˢᵃᵗ*I)) * ℯ^kⁱⁿʰ * nˡⁱᵍʰᵗ
 
@@ -215,6 +217,51 @@ function net_photosynthetic_growth_two_nutrients_geider_light(
         ) for name in names(maximum_growth_rate, 1)
     ],)
 end
+
+
+"""
+Net photosynthetic growth of all plankton assuming geider light limitation with two nutrients.
+
+# Arguments
+- `DIN`: dissolved inorganic nitrogen concentration
+- `PO4`: phosphate concentration
+- `P`: phytoplankton concentration
+- `PAR`: photosynthetic active radiation
+- `maximum_growth_rate`: maximum growth rate before nutrient limitation (Pᶜₘₐₓ)
+- `half_saturation_DIN`: nitrogen half saturation
+- `half_saturation_PO4`: phosphate half saturation
+- `photosynthetic_slope`: initial photosynthetic slope (αᶜʰˡ)
+- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon (θᶜ)
+"""
+function net_photosynthetic_growth_two_nutrients_geider_light_quota(
+    DIN,
+    PO4,
+    P,
+    PAR,
+    maximum_growth_rate,
+    half_saturation_DIN,
+    half_saturation_PO4,
+    photosynthetic_slope,
+    chlorophyll_to_carbon_ratio,
+    nutrient_to_carbon,
+)
+    return sum([
+        # sum over plankton that have a `maximum_growth_rate` (these will also have
+        # `nutrient_half_saturation` and `alpha` values)
+        photosynthetic_growth_two_nutrients_geider_light(
+            DIN,
+            PO4,
+            P[name],
+            PAR,
+            maximum_growth_rate[name],
+            half_saturation_DIN[name],
+            half_saturation_PO4[name],
+            photosynthetic_slope[name],
+            chlorophyll_to_carbon_ratio[name],
+        )*nutrient_to_carbon[name] for name in names(maximum_growth_rate, 1)
+    ],)
+end
+
 
 """
 Single nutrient geider photosynthetic growth.
