@@ -38,7 +38,6 @@ Net loss of all plankton due to linear mortality.
 """
 function net_linear_loss(P, linear_mortality, DOM_POM_fractionation)
     # sum over all plankton in `P`
-    print(DOM_POM_fractionation)
     return sum([
         linear_loss(P[name], linear_mortality[name]) * DOM_POM_fractionation for
         name in names(linear_mortality, 1)

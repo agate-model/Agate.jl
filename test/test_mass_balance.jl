@@ -21,12 +21,6 @@ const year = years = 365day
         set!(box_model; N=7, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, D=0.0)
 
         function estimate_mass(box_model)
-            @info "N data: ", box_model.fields.N.data
-            @info "P1 data: ", box_model.fields.P1.data
-            @info "P2 data: ", box_model.fields.P2.data
-            @info "Z1 data: ", box_model.fields.Z1.data
-            @info "Z2 data: ", box_model.fields.Z2.data
-            @info "D data: ", box_model.fields.D.data
             return box_model.fields.N.data[1, 1, 1] +
                    box_model.fields.P1.data[1, 1, 1] +
                    box_model.fields.P2.data[1, 1, 1] +
@@ -55,13 +49,6 @@ const year = years = 365day
         set!(box_model; DIN=7, PO4=3, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, DOC=0, POC=0.0, DON=0, PON=0.0, DOP=0, POP=0.0)
 
         function estimate_carbon_mass(box_model)
-            @info "DIC data: ", box_model.fields.DIC.data
-            @info "P1 data: ", box_model.fields.P1.data
-            @info "P2 data: ", box_model.fields.P2.data
-            @info "Z1 data: ", box_model.fields.Z1.data
-            @info "Z2 data: ", box_model.fields.Z2.data
-            @info "POC data: ", box_model.fields.POC.data
-            @info "DOC data: ", box_model.fields.DOC.data
             return box_model.fields.DIC.data[1, 1, 1] +
                    box_model.fields.P1.data[1, 1, 1] +
                    box_model.fields.P2.data[1, 1, 1] +
@@ -72,30 +59,16 @@ const year = years = 365day
         end
 
         function estimate_nitrogen_mass(box_model)
-            @info "DIN data: ", box_model.fields.DIN.data
-            @info "P1 data: ", box_model.fields.P1.data
-            @info "P2 data: ", box_model.fields.P2.data
-            @info "Z1 data: ", box_model.fields.Z1.data
-            @info "Z2 data: ", box_model.fields.Z2.data
-            @info "PON data: ", box_model.fields.POC.data
-            @info "DON data: ", box_model.fields.DOC.data
             return box_model.fields.DIN.data[1, 1, 1] +
                    box_model.fields.P1.data[1, 1, 1] * model().nitrogen_to_carbon["P1"] +
-                   box_model.fields.P2.data[1, 1, 1] * model().nitrogen_to_carbon["P2"] +
-                   box_model.fields.Z1.data[1, 1, 1] * model().nitrogen_to_carbon["P1"] +  #this is really weird!
-                   box_model.fields.Z2.data[1, 1, 1] * model().nitrogen_to_carbon["P2"] +
+                   box_model.fields.P2.data[1, 1, 1] * model().nitrogen_to_carbon["P1"] +
+                   box_model.fields.Z1.data[1, 1, 1] * model().nitrogen_to_carbon["P1"] +  
+                   box_model.fields.Z2.data[1, 1, 1] * model().nitrogen_to_carbon["P1"] +
                    box_model.fields.PON.data[1, 1, 1] +
                    box_model.fields.DON.data[1, 1, 1]
         end
 
         function estimate_phosphorus_mass(box_model)
-            @info "PO4 data: ", box_model.fields.PO4.data
-            @info "P1 data: ", box_model.fields.P1.data
-            @info "P2 data: ", box_model.fields.P2.data
-            @info "Z1 data: ", box_model.fields.Z1.data
-            @info "Z2 data: ", box_model.fields.Z2.data
-            @info "POP data: ", box_model.fields.POC.data
-            @info "DOP data: ", box_model.fields.DOC.data
             return box_model.fields.PO4.data[1, 1, 1] +
                    box_model.fields.P1.data[1, 1, 1] * model().phosphorus_to_carbon["P1"] +
                    box_model.fields.P2.data[1, 1, 1] * model().phosphorus_to_carbon["P1"] +
@@ -114,9 +87,6 @@ const year = years = 365day
         push!(carbon_mass_records, initial_carbon_mass)
         push!(nitrogen_mass_records, initial_nitrogen_mass)
         push!(phosphorus_mass_records, initial_phosphorus_mass)
-
-
-        print("starting model time stepping")
 
         for n in 1:1000
             time_step!(box_model, 1)
