@@ -8,6 +8,7 @@ include("test_parameters.jl")
 
 # library
 include("test_library_predation.jl")
+include("test_library_mortality.jl")
 
 # integration tests
 include("test_box_model.jl")
