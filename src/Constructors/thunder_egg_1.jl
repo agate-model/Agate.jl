@@ -64,35 +64,87 @@ DEFAULT_BGC_ARGS = Dict(
 )
 
 """
-Construct an instance of an size structured `thunder egg 1` model model.
+    construct(;
+        n_phyto=2,
+        n_zoo=2,
+        phyto_diameters=Dict(
+            "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+        ),
+        zoo_diameters=Dict(
+            "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+        ),
+        DIC_dynamics=DIC_geider_light,
+        PO4_dynamics=PO4_geider_light_fixed_ratios,
+        DIN_dynamics=DIN_geider_light_fixed_ratios,
+        POC_dynamics=POC_typical,
+        DOC_dynamics=DOC_typical,
+        PON_dynamics=PON_typical,
+        DON_dynamics=DON_typical,
+        POP_dynamics=POP_typical,
+        DOP_dynamics=DOP_typical,
+        phyto_dynamics=phytoplankton_growth_two_nutrients_geider_light,
+        zoo_dynamics=zooplankton_growth_simplified,
+        phyto_args=DEFAULT_PHYTO_ARGS,
+        zoo_args=DEFAULT_ZOO_ARGS,
+        interaction_args=DEFAULT_INTERACTION_ARGS,
+        bgc_args=DEFAULT_BGC_ARGS,
+        palatability_matrix=nothing,
+        assimilation_efficiency_matrix=nothing,
+        )
 
-    TRACERS:
-    ∂t c_j = DIC_uptake_j - mortality + predation_gain_j - predation_loss_j
-    ∂t DIC = DOC_remineralization + POC_remineralization- sum(DIC_uptake_j)
-    ∂t DIN = carbon_to_nitrogen * (DOC_remineralization + POC_remineralization - sum(DIC_uptake_j)) 
-    ∂t PO4 = carbon_to_phosphorus * (DOC_remineralization + POC_remineralization - sum(DIC_uptake_j)) 
-    ∂t DOC = mortality_to_DOC + predation_loss_to_DOC - DOC_remineralization
-    ∂t POC = mortality_to_POC + predation_loss_to_POC - POC_remineralization
-    ∂t DON = mortality_to_DON + predation_loss_to_DON - DON_remineralization
-    ∂t PON = mortality_to_PON + predation_loss_to_PON - PON_remineralization
-    ∂t DOP = mortality_to_DOP + predation_loss_to_DOP - DOP_remineralization
-    ∂t POP = mortality_to_POP + predation_loss_to_POP - POP_remineralization
+Construct an `Agate.jl-DARWIN` model object which is based on the `MITgcm-DARWIN` model.
+
+!!! info
+    
+    This model is in active development and has not been validated against `MITgcm-DARWIN`.
+
+!!! formulation
+
+    TRACERS:     
+
+    ∂t cⱼ = ``Uⱼ``DIC - ``Mⱼ`` + ``Gⱼ`` - ``gⱼ``
+
+    ∂t DIC = ∑(``Uⱼ`` DIC) + ``R``DOC + ``R``POC
+    
+    ∂t DIN = ∑(``Uⱼ``DIC * ``Qⱼ``N)  + ``R``DON + ``R``PON
+    
+    ∂t PO4 = ∑(``Uⱼ``DIC * ``Qⱼ``P)  + ``R``DOP + ``R``POP
+    
+    ∂t DOC = ∑(``Mⱼ``DOC) + ``g``DOC - ``R``DOC
+    
+    ∂t DON = ∑(``Mⱼ``DOC * ``Qⱼ``N) + ``g``DON - ``R``DON
+
+    ∂t DOP = ∑(``Mⱼ``DOC * ``Qⱼ``P) + ``g``DOP - ``R``DOP
+
+    ∂t POC = ∑(``Mⱼ``POC) + ``g``POC - ``R``POC
+    
+    ∂t PON = ∑(``Mⱼ``POC * ``Qⱼ``N) + ``g``PON - ``R``PON
+
+    ∂t POP = ∑(``Mⱼ``POC * ``Qⱼ``P) + ``g``POP - ``R``POP
 
     where:
-    - c_j = plankton carbon
-    - DIC = dissolved inorganic carbon
-    - DIN = dissolved inorganic nitrogen
-    - PO4 = phosphate
-    - DOC = dissolved organic carbon
-    - POC = particulate organic carbon
-    - DON = dissolved organic carbon
-    - PON = particulate organic carbon
-    - DOP = dissolved organic carbon
-    - POP = particulate organic carbon
+    - ``U`` = uptake
+    - ``R`` = remineralization
+    - ``M`` = mortality
+    - ``g, G`` = grazing losses and gains
+    - ``Q`` = plankton elemental ratios
 
     TRAITS:
-    - max_growth, half_saturation, max_predation = a*Volume^b
-    - palatability=prey_protection/(1+(predator_prey_ratio-predator_prey_optimum)^2)^predator_specificity
+
+    μmax, KN, gmax = a*Volume^b
+    
+    palat = η/(1+(``ratio``-``opt``)^2)^σ
+    
+    where:
+    - μmax = maximum photosynthetic growth
+    - KR = nutrient half saturation
+    - gmax = maximum predation rate
+    - palat = palatability
+    - ``ratio`` = predator to prey size ratio (diameter)
+    - ``opt`` = predator to prey size optimum (diameter)
+    - η = prey protection
+    - σ = predator specificity
+
 
 This constructor builds a size-structured plankton model with two plankton functional types:
 phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
