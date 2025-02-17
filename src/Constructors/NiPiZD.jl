@@ -115,8 +115,8 @@ The type specification includes a photosynthetic active radiation (PAR) auxiliar
 ```julia
 using Agate.Constructors: NiPiZD
 
-n2p2zd_type = NiPiZD.construct()
-n2p2zd_model_obj = n2p2zd_type()
+n2p2zd = NiPiZD.construct()
+n2p2zd_model_obj = n2p2zd()
 ```
 """
 function construct(;
@@ -174,17 +174,14 @@ function construct(;
 end
 
 """
-A function to instantiate a size structured NPZD model object from a type.
+A function to instantiate an object of `NiPiZD.construct()` model type.
 
-
-
-To instantiate a concrete model object of the same type but with different parameter values,
-use `Agate.Constructors.NiPiZD.instantiate()`
-
-
+The type specifies the number of phytoplankton and zooplankton in the model and includes
+default parameter values. The instantiate method can be used to override the default values
+of any of the model parameters or plankton diameters.
 
 # Arguments
-- `bgc_type`: Oceananigans.Biogeochemistry type returned by `construct_size_structured_NPZD`
+- `bgc_type`: subtype of Oceananigans.Biogeochemistry returned by `NiPiZD.construct()`
    with a specified number of phytoplankton and zooplankton
 - `phyto_diameters`: dictionary from which `phyto` diameters can be computed or a list of
     values to use (as many as the model expects)
@@ -215,11 +212,12 @@ use `Agate.Constructors.NiPiZD.instantiate()`
 ```julia
 using Agate.Constructors: NiPiZD
 
-n2p2zd_type = NiPiZD.construct()
+n2p2zd = NiPiZD.construct()
 
+# change some parameter values
 phyto_args = NiPiZD.DEFAULT_PHYTO_ARGS
 phyto_args["allometry"]["maximum_growth_rate"]["a"] = 2
-n2p2zd_model_obj = NiPiZD.instantiate(n2p2zd_type; phyto_args=phyto_args)
+n2p2zd_model_obj = NiPiZD.instantiate(n2p2zd; phyto_args=phyto_args)
 ```
 """
 function instantiate(
