@@ -15,8 +15,6 @@ using Oceananigans.Units
 using OceanBioME: setup_velocity_fields
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 
-export construct, instantiate
-
 DEFAULT_PHYTO_ARGS = Dict(
     "allometry" => Dict(
         "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
