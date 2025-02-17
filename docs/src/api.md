@@ -1,7 +1,7 @@
 ## Constructors
 
 ```@docs
-Agate.Constructors.construct_size_structured_NPZD
+Agate.Constructors.NiPiZD.construct
 ```
 
 ## Low level API
