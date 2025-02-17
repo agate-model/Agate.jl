@@ -5,7 +5,7 @@ using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans.Units
 using Plots
-using Agate.Constructors
+using Agate.Constructors: NiPiZD
 using Agate.Models.Tracers
 using Agate.Library.Photosynthesis
 
@@ -16,7 +16,7 @@ const year = years = 365day
 # ==================================================
 
 # Default photosynthesis model
-N2P2ZD_default_photosynthesis = construct_size_structured_NPZD()
+N2P2ZD_default_photosynthesis = NiPiZD.construct()
 bgc_model_default_photosynthesis = Biogeochemistry(
     N2P2ZD_default_photosynthesis();
     light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid()),
@@ -27,22 +27,13 @@ full_model_default_photosynthesis = BoxModel(;
 set!(full_model_default_photosynthesis; P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, N=7.0, D=1)
 
 # Geider photosynthesis model
-N2P2ZD_geider_photosynthesis = construct_size_structured_NPZD(;
-    phyto_args=Dict(
-        "allometry" => Dict(
-            "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
-            "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
-        ),
-        "linear_mortality" => 8e-7 / second,
-        "photosynthetic_slope" => 0.46e-5,
-        "chlorophyll_to_carbon_ratio" => 0.1,
-    ),
+N2P2ZD_geider = NiPiZD.construct(;
+    phyto_args=NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS,
     nutrient_dynamics=nutrients_geider_light,
     phyto_dynamics=phytoplankton_growth_single_nutrient_geider_light,
 )
 bgc_model_geider_photosynthesis = Biogeochemistry(
-    N2P2ZD_geider_photosynthesis();
-    light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid()),
+    N2P2ZD_geider(); light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
 )
 full_model_geider_photosynthesis = BoxModel(;
     biogeochemistry=bgc_model_geider_photosynthesis
