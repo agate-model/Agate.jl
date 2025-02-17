@@ -205,12 +205,12 @@ end
         bgc_args=DEFAULT_BGC_ARGS,
         palatability_matrix=nothing,
         assimilation_efficiency_matrix=nothing,
-    )
+    ) -> bgc_type
 
-A function to instantiate an object of `NiPiZD.construct()` model type.
+A function to instantiate an object of `bgc_type` returned by `NiPiZD.construct()`.
 
 The type specifies the number of phytoplankton and zooplankton in the model and includes
-default parameter values. The instantiate method can be used to override the default values
+default parameter values. The instantiate method is used to override the default values
 of any of the model parameters or plankton diameters.
 
 # Arguments
@@ -218,7 +218,7 @@ of any of the model parameters or plankton diameters.
    with a specified number of phytoplankton and zooplankton
 
 # Keywords
-   - `phyto_diameters`: dictionary from which `phyto` diameters can be computed or a list of
+- `phyto_diameters`: dictionary from which `phyto` diameters can be computed or a list of
     values to use (as many as the model expects)
 - `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
     values to use (as many as the model expects)
