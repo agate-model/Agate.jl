@@ -2,7 +2,7 @@
 Module to construct an instance of an size-structured NPZD model.
 """
 
-module NPZD_size_structured
+module NiPiZD
 
 using Agate.Models.Biogeochemistry
 using Agate.Models.Parameters
@@ -66,7 +66,7 @@ DEFAULT_BGC_ARGS = Dict(
 
 """
 Construct a size-structured NPZD model abstract type. This can be used to instantiate a
-concrete model object using `Agate.Constructors.NPZD_size_structured.instantiate()`
+concrete model object using `Agate.Constructors.NiPiZD.instantiate()`
 
 This constructor builds a size-structured plankton model with two plankton functional types:
 phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of

@@ -1,10 +1,10 @@
 using Agate
 using NamedArrays
 using Agate.Models.Tracers
-using Agate.Constructors: NPZD_size_structured
+using Agate.Constructors: NiPiZD
 
 @testset "Models.Constructor" begin
-    N2P2ZD_constructed = NPZD_size_structured.construct()
+    N2P2ZD_constructed = NiPiZD.construct()
 
     # declare constants reused in all tests
     P1 = 0.01
@@ -66,17 +66,17 @@ using Agate.Constructors: NPZD_size_structured
     @testset "User defined matrices" begin
         names = ["P", "Z"]
         wrong_size_matrix = NamedArray(zeros(Float64, 2, 2), (predator=names, prey=names))
-        @test_throws ArgumentError NPZD_size_structured.instantiate(
+        @test_throws ArgumentError NiPiZD.instantiate(
             N2P2ZD_constructed; palatability_matrix=wrong_size_matrix
         )
-        @test_throws ArgumentError NPZD_size_structured.instantiate(
+        @test_throws ArgumentError NiPiZD.instantiate(
             N2P2ZD_constructed; assimilation_efficiency_matrix=wrong_size_matrix
         )
 
         # doesn't throw error if dimensions are correct
         names = ["P1", "P2", "Z1", "Z2"]
         correct_size_matrix = NamedArray(zeros(Float64, 4, 4), (predator=names, prey=names))
-        new_model = NPZD_size_structured.instantiate(
+        new_model = NiPiZD.instantiate(
             N2P2ZD_constructed;
             palatability_matrix=correct_size_matrix,
             assimilation_efficiency_matrix=correct_size_matrix,
@@ -86,20 +86,20 @@ using Agate.Constructors: NPZD_size_structured
     @testset "Diameters passed as an array" begin
 
         # the default type defined at the top has 2 phyto so expect 2 diameters
-        @test_throws ArgumentError NPZD_size_structured.instantiate(
+        @test_throws ArgumentError NiPiZD.instantiate(
             N2P2ZD_constructed; phyto_diameters=[1]
         )
 
         # the default type defined at the top has 2 phyto so expect 2 diameters
-        @test_throws ArgumentError NPZD_size_structured.instantiate(
+        @test_throws ArgumentError NiPiZD.instantiate(
             N2P2ZD_constructed; phyto_diameters=[1, 2, 3]
         )
 
         # diameters can be passed as an array of values rather than a dictionary
         # this is useful in the case where we want 1 phytoplankton with a given diameter
         # it could also be used to fix the diameters of multiple phytoplankton in the model
-        NP2ZD = NPZD_size_structured.construct(; n_phyto=1)
-        model = NPZD_size_structured.instantiate(NP2ZD; phyto_diameters=[2])
+        NP2ZD = NiPiZD.construct(; n_phyto=1)
+        model = NiPiZD.instantiate(NP2ZD; phyto_diameters=[2])
 
         # this model only has 1 phyto, 2 zoo tracers (unlike other tests here)
         @test !iszero(model(Val(:N), 0, 0, 0, 0, P1, Z1, Z2, N, D, PAR))
@@ -112,14 +112,14 @@ using Agate.Constructors: NPZD_size_structured
     @testset "Alternative instantiation" begin
 
         # N2P2ZD model constructed with user-defined functions (geider growth)
-        N2P2ZD_geider = NPZD_size_structured.construct(;
-            phyto_args=NPZD_size_structured.DEFAULT_PHYTO_GEIDER_ARGS,
+        N2P2ZD_geider = NiPiZD.construct(;
+            phyto_args=NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS,
             nutrient_dynamics=nutrients_geider_light,
             phyto_dynamics=phytoplankton_growth_single_nutrient_geider_light,
         )
 
-        model_geider = NPZD_size_structured.instantiate(
-            N2P2ZD_geider; phyto_args=NPZD_size_structured.DEFAULT_PHYTO_GEIDER_ARGS
+        model_geider = NiPiZD.instantiate(
+            N2P2ZD_geider; phyto_args=NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS
         )
 
         @test !iszero(model_geider(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
@@ -134,9 +134,9 @@ using Agate.Constructors: NPZD_size_structured
         prev_p1 = 0
         prev_p2 = 0
         for i in 1:5
-            phyto_args = NPZD_size_structured.DEFAULT_PHYTO_ARGS
+            phyto_args = NiPiZD.DEFAULT_PHYTO_ARGS
             phyto_args["allometry"]["maximum_growth_rate"]["a"] = i
-            model = NPZD_size_structured.instantiate(
+            model = NiPiZD.instantiate(
                 N2P2ZD_constructed; phyto_args=phyto_args
             )
             p1 = model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR)
@@ -153,9 +153,9 @@ using Agate.Constructors: NPZD_size_structured
 
     @testset "Create objects inside function" begin
         function some_wrapper_function(max_growth_rate_a)
-            phyto_args = NPZD_size_structured.DEFAULT_PHYTO_ARGS
+            phyto_args = NiPiZD.DEFAULT_PHYTO_ARGS
             phyto_args["allometry"]["maximum_growth_rate"]["a"] = max_growth_rate_a
-            model = NPZD_size_structured.instantiate(
+            model = NiPiZD.instantiate(
                 N2P2ZD_constructed; phyto_args=phyto_args
             )
             return model
