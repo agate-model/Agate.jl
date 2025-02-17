@@ -161,12 +161,12 @@ using Agate.Constructors: NPZD_size_structured
             return model
         end
 
-        model = some_wrapper_function(10)
-        @test !iszero(model(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        model1 = some_wrapper_function(5)
+        model2 = some_wrapper_function(10)
+
+        @test model1(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR) !=
+            model2(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR)
+        @test model1(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR) !=
+            model2(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR)
     end
 end
