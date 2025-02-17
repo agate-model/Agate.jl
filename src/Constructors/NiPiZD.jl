@@ -65,6 +65,23 @@ DEFAULT_BGC_ARGS = Dict(
 )
 
 """
+    construct(;
+        n_phyto=2,
+        n_zoo=2,
+        phyto_diameters=Dict(
+            "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+        ),
+        zoo_diameters=Dict(
+            "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+        ),
+        phyto_args=DEFAULT_PHYTO_ARGS,
+        zoo_args=DEFAULT_ZOO_ARGS,
+        interaction_args=DEFAULT_INTERACTION_ARGS,
+        bgc_args=DEFAULT_BGC_ARGS,
+        palatability_matrix=nothing,
+        assimilation_efficiency_matrix=nothing,
+    ) -> DataType
+
 Construct a size-structured NPZD model abstract type.
 
 This constructor builds a size-structured plankton model with two plankton functional types:
@@ -84,7 +101,7 @@ need to be specified.
 
 The type specification includes a photosynthetic active radiation (PAR) auxiliary field.
 
-# Arguments
+# Keywords
 - `n_phyto`: number of phytoplankton in the model
 - `n_zoo`: number of zooplankton in the model
 - `phyto_diameters`: dictionary from which `phyto` diameters can be computed or a list of
@@ -174,6 +191,22 @@ function construct(;
 end
 
 """
+    instantiate(
+        bgc_type;
+        phyto_diameters=Dict(
+            "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+        ),
+        zoo_diameters=Dict(
+            "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+        ),
+        phyto_args=DEFAULT_PHYTO_ARGS,
+        zoo_args=DEFAULT_ZOO_ARGS,
+        interaction_args=DEFAULT_INTERACTION_ARGS,
+        bgc_args=DEFAULT_BGC_ARGS,
+        palatability_matrix=nothing,
+        assimilation_efficiency_matrix=nothing,
+    )
+
 A function to instantiate an object of `NiPiZD.construct()` model type.
 
 The type specifies the number of phytoplankton and zooplankton in the model and includes
@@ -183,7 +216,9 @@ of any of the model parameters or plankton diameters.
 # Arguments
 - `bgc_type`: subtype of Oceananigans.Biogeochemistry returned by `NiPiZD.construct()`
    with a specified number of phytoplankton and zooplankton
-- `phyto_diameters`: dictionary from which `phyto` diameters can be computed or a list of
+
+# Keywords
+   - `phyto_diameters`: dictionary from which `phyto` diameters can be computed or a list of
     values to use (as many as the model expects)
 - `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
     values to use (as many as the model expects)
