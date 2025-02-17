@@ -131,14 +131,23 @@ using Agate.Constructors: NPZD_size_structured
     end
 
     @testset "Create objects inside for loop" begin
+        prev_p1 = 0
+        prev_p2 = 0
         for i in 1:5
             phyto_args = NPZD_size_structured.DEFAULT_PHYTO_ARGS
             phyto_args["allometry"]["maximum_growth_rate"]["a"] = i
             model = NPZD_size_structured.instantiate(
                 N2P2ZD_constructed; phyto_args=phyto_args
             )
-            @test !iszero(model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-            @test !iszero(model(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+            p1 = model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR)
+            p2 = model(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR)
+            @test !iszero(p1)
+            @test !iszero(p2)
+            @test model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR) != prev_p1
+            @test model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR) != prev_p2
+            # check the values change as change parameter
+            prev_p1 = p1
+            prev_p2 = p2
         end
     end
 
@@ -153,7 +162,11 @@ using Agate.Constructors: NPZD_size_structured
         end
 
         model = some_wrapper_function(10)
+        @test !iszero(model(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
         @test !iszero(model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
         @test !iszero(model(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
     end
 end
