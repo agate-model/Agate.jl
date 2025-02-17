@@ -1,5 +1,5 @@
 """
-Module to construct an instance of an size-structured NPZD model.
+Module to construct an instance of a size-structured NPZD model.
 """
 
 module NiPiZD
@@ -65,8 +65,7 @@ DEFAULT_BGC_ARGS = Dict(
 )
 
 """
-Construct a size-structured NPZD model abstract type. This can be used to instantiate a
-concrete model object using `Agate.Constructors.NiPiZD.instantiate()`
+Construct a size-structured NPZD model abstract type.
 
 This constructor builds a size-structured plankton model with two plankton functional types:
 phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
@@ -74,10 +73,24 @@ size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor i
 idealized detritus (D) and nutrient (N) cycling by default, although more complex N and D
 cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics` arguments.
 
+During model construction, the size of each plankton determines photosynthetic growth rates,
+nutrient half saturation constants, predation rates, and predator-prey assimilation and
+palatability values. Alternatively, if manually defined predator-prey assimilation and
+palatability values are desired, these can be specified using the `palatability_matrix` and
+`assimilation_efficiency_matrix` arguments.
+
 Note that if non-default `*_dynamics` expressions are passed, the relevant `*_args` also
 need to be specified.
 
+The type specification includes a photosynthetic active radiation (PAR) auxiliary field.
+
 # Arguments
+- `n_phyto`: number of phytoplankton in the model
+- `n_zoo`: number of zooplankton in the model
+- `phyto_diameters`: dictionary from which `phyto` diameters can be computed or a list of
+    values to use (as many as the model expects)
+- `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
+    values to use (as many as the model expects)
 - `nutrient_dynamics`: expression describing how nutrients change over time, see
     `Agate.Models.Tracers`
 - `detritus_dynamics`: expression describing how detritus evolves over time, see
@@ -91,21 +104,30 @@ need to be specified.
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed, for default values see
     `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
-- `bgc_args`: Dictionary of constant parameters used in growth functions (i.e., not size
-    dependant plankton parameters as well as biogeochemistry parameters related to nutrient
-    and detritus, for default values see `Agate.Models.Constructors.DEFAULT_CONSTANT_ARGS`
+- `bgc_args`: Dictionary of biogeochemistry parameters related to nutrient and detritus, for
+    default values see `Agate.Models.Constructors.DEFAULT_BGC_ARGS`
+- `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
+    then `interaction_args` are not used to compute this
+- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
+    NamedArray, if provided then `interaction_args` are not used to compute this
 
 # Example
 ```julia
-using Agate
+using Agate.Constructors: NiPiZD
 
-npzd_type = construct_size_structured_NPZD()
-npzd_model_obj = npzd_type()
+n2p2zd_type = NiPiZD.construct()
+n2p2zd_model_obj = n2p2zd_type()
 ```
 """
 function construct(;
     n_phyto=2,
     n_zoo=2,
+    phyto_diameters=Dict(
+        "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+    ),
+    zoo_diameters=Dict(
+        "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+    ),
     nutrient_dynamics=nutrients_typical,
     detritus_dynamics=detritus_typical,
     phyto_dynamics=phytoplankton_growth_single_nutrient,
@@ -114,14 +136,20 @@ function construct(;
     zoo_args=DEFAULT_ZOO_ARGS,
     interaction_args=DEFAULT_INTERACTION_ARGS,
     bgc_args=DEFAULT_BGC_ARGS,
+    palatability_matrix=nothing,
+    assimilation_efficiency_matrix=nothing,
 )
     parameters = create_params_dict(;
         n_phyto=n_phyto,
         n_zoo=n_zoo,
+        phyto_diameters=phyto_diameters,
+        zoo_diameters=zoo_diameters,
         phyto_args=phyto_args,
         zoo_args=zoo_args,
         interaction_args=interaction_args,
         bgc_args=bgc_args,
+        palatability_matrix=palatability_matrix,
+        assimilation_efficiency_matrix=assimilation_efficiency_matrix,
     )
 
     # create tracer functions
@@ -146,13 +174,14 @@ function construct(;
 end
 
 """
-A function to instantiate a size structured NPZD model object.
+A function to instantiate a size structured NPZD model object from a type.
 
-During model construction, the size of each plankton determines photosynthetic growth rates,
-nutrient half saturation constants, predation rates, and predator-prey assimilation and
-palatability values. Alternatively, if manually defined predator-prey assimilation and
-palatability values are desired, these can be defined using the `palatability_matrix` and
-`assimilation_efficiency_matrix` arguments.
+
+
+To instantiate a concrete model object of the same type but with different parameter values,
+use `Agate.Constructors.NiPiZD.instantiate()`
+
+
 
 # Arguments
 - `bgc_type`: Oceananigans.Biogeochemistry type returned by `construct_size_structured_NPZD`
@@ -181,6 +210,17 @@ palatability values are desired, these can be defined using the `palatability_ma
     then `interaction_args` are not used to compute this
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
     NamedArray, if provided then `interaction_args` are not used to compute this
+
+# Example
+```julia
+using Agate.Constructors: NiPiZD
+
+n2p2zd_type = NiPiZD.construct()
+
+phyto_args = NiPiZD.DEFAULT_PHYTO_ARGS
+phyto_args["allometry"]["maximum_growth_rate"]["a"] = 2
+n2p2zd_model_obj = NiPiZD.instantiate(n2p2zd_type; phyto_args=phyto_args)
+```
 """
 function instantiate(
     bgc_type;
