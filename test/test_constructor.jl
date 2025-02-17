@@ -136,9 +136,7 @@ using Agate.Constructors: NiPiZD
         for i in 1:5
             phyto_args = NiPiZD.DEFAULT_PHYTO_ARGS
             phyto_args["allometry"]["maximum_growth_rate"]["a"] = i
-            model = NiPiZD.instantiate(
-                N2P2ZD_constructed; phyto_args=phyto_args
-            )
+            model = NiPiZD.instantiate(N2P2ZD_constructed; phyto_args=phyto_args)
             p1 = model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR)
             p2 = model(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR)
             @test !iszero(p1)
@@ -155,9 +153,7 @@ using Agate.Constructors: NiPiZD
         function some_wrapper_function(max_growth_rate_a)
             phyto_args = NiPiZD.DEFAULT_PHYTO_ARGS
             phyto_args["allometry"]["maximum_growth_rate"]["a"] = max_growth_rate_a
-            model = NiPiZD.instantiate(
-                N2P2ZD_constructed; phyto_args=phyto_args
-            )
+            model = NiPiZD.instantiate(N2P2ZD_constructed; phyto_args=phyto_args)
             return model
         end
 
