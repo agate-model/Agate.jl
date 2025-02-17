@@ -32,11 +32,8 @@ N2P2ZD_geider = NPZD_size_structured.construct(;
     nutrient_dynamics=nutrients_geider_light,
     phyto_dynamics=phytoplankton_growth_single_nutrient_geider_light,
 )
-N2P2ZD_geider_photosynthesis = NPZD_size_structured.instantiate(
-    N2P2ZD_geider; phyto_args=NPZD_size_structured.DEFAULT_PHYTO_GEIDER_ARGS
-)
 bgc_model_geider_photosynthesis = Biogeochemistry(
-    N2P2ZD_geider_photosynthesis; light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
+    N2P2ZD_geider(); light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
 )
 full_model_geider_photosynthesis = BoxModel(;
     biogeochemistry=bgc_model_geider_photosynthesis
