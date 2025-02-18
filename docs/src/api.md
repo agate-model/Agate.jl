@@ -10,6 +10,10 @@ Agate.Constructors.NiPiZD.construct
 Agate.Constructors.NiPiZD.instantiate
 ```
 
+```@docs
+Agate.Constructors.construct_thunder_egg_1
+```
+
 ## Low level API
 
 ```@docs
