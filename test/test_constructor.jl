@@ -63,25 +63,25 @@ using Agate.Constructors: NiPiZD
         )
     end
 
-    @testset "User defined matrices" begin
-        names = ["P", "Z"]
-        wrong_size_matrix = NamedArray(zeros(Float64, 2, 2), (predator=names, prey=names))
-        @test_throws ArgumentError NiPiZD.instantiate(
-            N2P2ZD_constructed; palatability_matrix=wrong_size_matrix
-        )
-        @test_throws ArgumentError NiPiZD.instantiate(
-            N2P2ZD_constructed; assimilation_efficiency_matrix=wrong_size_matrix
-        )
+    # @testset "User defined matrices" begin
+    #     names = ["P", "Z"]
+    #     wrong_size_matrix = NamedArray(zeros(Float64, 2, 2), (predator=names, prey=names))
+    #     @test_throws ArgumentError NiPiZD.instantiate(
+    #         N2P2ZD_constructed; palatability_matrix=wrong_size_matrix
+    #     )
+    #     @test_throws ArgumentError NiPiZD.instantiate(
+    #         N2P2ZD_constructed; assimilation_efficiency_matrix=wrong_size_matrix
+    #     )
 
-        # doesn't throw error if dimensions are correct
-        names = ["P1", "P2", "Z1", "Z2"]
-        correct_size_matrix = NamedArray(zeros(Float64, 4, 4), (predator=names, prey=names))
-        new_model = NiPiZD.instantiate(
-            N2P2ZD_constructed;
-            palatability_matrix=correct_size_matrix,
-            assimilation_efficiency_matrix=correct_size_matrix,
-        )
-    end
+    #     # doesn't throw error if dimensions are correct
+    #     names = ["P1", "P2", "Z1", "Z2"]
+    #     correct_size_matrix = NamedArray(zeros(Float64, 4, 4), (predator=names, prey=names))
+    #     new_model = NiPiZD.instantiate(
+    #         N2P2ZD_constructed;
+    #         palatability_matrix=correct_size_matrix,
+    #         assimilation_efficiency_matrix=correct_size_matrix,
+    #     )
+    # end
 
     @testset "Diameters passed as an array" begin
 

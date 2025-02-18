@@ -13,6 +13,7 @@ using Agate.Library.Remineralization
 
 using NamedArrays
 using UUIDs
+using Adapt
 
 using OceanBioME: setup_velocity_fields
 
@@ -93,6 +94,24 @@ function define_tracer_functions(
     return bgc_model
 end
 
+using Adapt
+using NamedArrays
+
+# Custom Adapt rule for NamedArrays
+Adapt.adapt_structure(to, x::NamedArray) = begin
+    # Adapt the underlying array
+    adapted_data = Adapt.adapt(to, Array(x))
+    
+    # Convert the names to use Any as the key type
+    names_converted = Tuple(
+        Dict{Any, Int}(k => v for (k, v) in names_dim)
+        for names_dim in names(x)
+    )
+    
+    # Create a new NamedArray with the adapted data and converted names
+    NamedArray(adapted_data, names_converted)
+end
+
 """
     create_bgc_struct(
         struct_name,
@@ -138,32 +157,32 @@ function create_bgc_struct(
                 DomainError(k, "field names in parameters can't be any of [:x, :y, :z, :t]")
             )
         end
-
-        # Convert NamedArrays.NamedVector to standard Vector
-        if typeof(v) <: NamedArrays.NamedVector
-            v = Vector(v)  # Convert to a standard Vector
-        end
-
-        exp = :($k::$(typeof(v)) = $v)  # Infer type dynamically
-        push!(fields, exp)
+        # Preserve NamedArrays.NamedVector instead of converting to Vector
+        push!(fields, :($k::$(typeof(v)) = $v))  # Infer type dynamically
     end
-
     if !isnothing(sinking_tracers)
         if isnothing(grid)
             throw(ArgumentError("grid must be defined to setup tracer sinking"))
         end
         # `setup_velocity_fields` multiplies tracer speeds by -1 when creating the fields
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
-        exp = :(sinking_velocities = $(sinking_velocities))
-        push!(fields, exp)
+        push!(fields, :(sinking_velocities = $(sinking_velocities)))
     end
-
-    exp = quote
+    # Define the struct within a quote block
+    struct_def = quote
         Base.@kwdef struct $struct_name <: AbstractContinuousFormBiogeochemistry
             $(fields...)
         end
     end
-    return eval(exp)
+    eval(struct_def)
+
+    # Apply Adapt.@adapt_structure to the generated struct
+    adapt_macro_call = quote
+        Adapt.@adapt_structure $struct_name
+    end
+    eval(adapt_macro_call)
+
+    return eval(struct_name)
 end
 
 """

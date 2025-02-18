@@ -1,10 +1,17 @@
-using Oceananigans, Printf
-using Oceananigans.Fields: FunctionField, ConstantField
-using Oceananigans.Units
 using Agate
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
+using Oceananigans
+using Oceananigans.Units
+using Plots
+using Agate.Constructors: NiPiZD
+using Agate.Models.Tracers
+using Agate.Library.Photosynthesis
+using Oceananigans, Printf
+using Oceananigans.Fields: FunctionField, ConstantField
+using Adapt
+
 
 const year = years = 365days
 nothing #hide
@@ -24,10 +31,23 @@ nothing #hide
 
 grid = RectilinearGrid(GPU(), size = (1, 1, 50), extent = (20meters, 20meters, 200meters))
 
-N2P2ZD = construct_size_structured_NPZD()
+using Adapt, NamedArrays, CUDA
+
+# Generate the biogeochemical model
+bgc_type = NiPiZD.construct()
+
+# Create an instance of the model
+bgc_instance = bgc_type()
+
+# Test GPU compatibility
+adapted_instance = Adapt.adapt(CuArray, bgc_instance)
+
+# Verify that NamedArray functionality is preserved
+println(adapted_instance.param2["A"])  # Should print the value associated with "A"
+
 
 biogeochemistry = Biogeochemistry(
-    N2P2ZD();
+    bgc_type();
     light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid()),
 )
 
