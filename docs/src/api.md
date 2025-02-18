@@ -1,7 +1,13 @@
 ## Constructors
 
+### Size-structured NPZD model
+
 ```@docs
-Agate.Constructors.construct_size_structured_NPZD
+Agate.Constructors.NiPiZD.construct
+```
+
+```@docs
+Agate.Constructors.NiPiZD.instantiate
 ```
 
 ```@docs
