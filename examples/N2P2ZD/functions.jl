@@ -17,7 +17,7 @@ function photosynthetic_growth(
 )
     return maximum_growth_rate *
            monod_limitation(N, nutrient_half_saturation) *
-           smith_light_limitation(PAR, alpha, maximum_growth_rate) *
+           light_limitation_smith(PAR, alpha, maximum_growth_rate) *
            P
 end
 # zooplankton growth

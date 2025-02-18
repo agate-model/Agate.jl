@@ -62,6 +62,8 @@ passed in the `helper_functions` file.
 
 # Example
 ```julia
+using Agate
+
 parameters = (α=2 / 3, β=4 / 3, δ=1, γ=1)
 tracers = Dict("R" => :(α * R - β * R * F), "F" => :(-γ * F + δ * R * F))
 LV = define_tracer_functions(parameters, tracers)
@@ -121,6 +123,8 @@ are reserved for coordinates.
 
 # Example
 ```julia
+using Agate.Models.Biogeochemistry: create_bgc_struct
+
 create_bgc_struct(:LV, (α=2/3, β=4/3,  δ=1, γ=1))
 ```
 """
@@ -144,7 +148,6 @@ function create_bgc_struct(
         push!(fields, exp)
     end
 
-    # additional parameters required if tracers sink
     if !isnothing(sinking_tracers)
         if isnothing(grid)
             throw(ArgumentError("grid must be defined to setup tracer sinking"))
@@ -200,6 +203,7 @@ expressions must use methods that are either defined within this module or passe
 # Example
 ```julia
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
+using using Agate.Models.Biogeochemistry: add_bgc_methods!
 
 struct LV <: AbstractContinuousFormBiogeochemistry
     α
@@ -297,6 +301,8 @@ Return all symbols (argument names and method names) called in expression.
 
 # Example
 ```julia
+using Agate.Models.Biogeochemistry: parse_expression
+
 parse_expression(:(α * x - β * x * y))
 ```
 """

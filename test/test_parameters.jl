@@ -83,15 +83,34 @@ using .Library.Predation
                 key in
                 ["assimilation_efficiency_matrix", "palatability_matrix", "diameters"]
             )
-                @test all(
-                    isapprox.(
-                        parameters[Symbol(key)],
-                        [emerge_params[p] for p in plankton_order],
-                        rtol=0.01,
-                    ),
-                ) || println(
-                    "Test failed for parameter: $(key). Expected: $(parameters[Symbol(key)]), Got: $([emerge_params[p] for p in plankton_order])",
-                )
+                if key in [
+                    "maximum_predation_rate",
+                    "maximum_growth_rate",
+                    "nutrient_half_saturation",
+                ]
+                    @test all(
+                        isapprox.(
+                            parameters[Symbol(key)],
+                            [emerge_params[p] for p in plankton_order],
+                            rtol=0.01,
+                        ),
+                    ) || println(
+                        "Test failed for parameter: $(key). Expected: $(parameters[Symbol(key)]), Got: $([emerge_params[p] for p in plankton_order])",
+                    )
+                else
+                    @test all(
+                        isapprox.(
+                            parameters[Symbol(key)],
+                            [
+                                emerge_params[replace(p, r"\d+" => "")] for
+                                p in plankton_order
+                            ],
+                            rtol=0.01,
+                        ),
+                    ) || println(
+                        "Test failed for parameter: $(key). Expected: $(parameters[Symbol(key)]), Got: $([emerge_params[p] for p in plankton_order])",
+                    )
+                end
                 # matrices of values -> compare row at a time
             elseif !(key == "diameters")
                 for (i, p) in enumerate(plankton_order)

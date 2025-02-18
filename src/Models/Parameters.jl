@@ -21,10 +21,11 @@ This function:
       splitting scale
     - optionally computes emergent parameters (allometric functions, assimilation matrix,
       palatability matrix) for each group-diameter combination
-    - reshapes any other group specific parameters (e.g., `linear_mortality`) to length `n`
+    - reshapes any other group specific parameters to a NamedArray (e.g., `linear_mortality`)
+
 All parameters are returned as:
-    `Dict(<parameter> => <NamedArray of `n` values>, ....)`
-using names generated in the first step.
+    `Dict(<parameter> => <NamedArray of values>, ....)`
+using either the group names (e.g., "P") or names generated in the first step (e.g., "P1").
 
 # Arguments
 - `plankton`: a Dictionary of plankton groups' specific parameters of the form:
@@ -145,7 +146,7 @@ function compute_allometric_parameters(plankton::Dict)
                 else
                     # NOTE: expect here that in all other cases `value` is a single number
                     results[param] = vcat(
-                        results[param], NamedArray(repeat([value], n), plankton_names)
+                        results[param], NamedArray([value], [plankton_name])
                     )
                 end
             end
