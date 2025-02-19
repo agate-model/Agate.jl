@@ -235,7 +235,6 @@ function construct(;
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 )
-
     parameters = create_params_dict(;
         n_phyto=n_phyto,
         n_zoo=n_zoo,

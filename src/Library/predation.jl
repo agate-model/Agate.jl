@@ -206,7 +206,7 @@ function summed_predation_gain_preferential(
     assimilation_efficiency,
     maximum_predation_rate,
     holling_half_saturation,
-    palatability
+    palatability,
 )
     # sum over all plankton in P (return 0 if not suitable prey for this predator)
     gain = sum(
@@ -217,7 +217,7 @@ function summed_predation_gain_preferential(
             maximum_predation_rate[predator_name],
             holling_half_saturation[replace(predator_name, r"\d+" => "")],
             palatability[predator_name, prey_name],
-        ) for prey_name in names(P, 1) 
+        ) for prey_name in names(P, 1)
     )
 
     return gain
@@ -381,7 +381,7 @@ function net_predation_assimilation_loss_preferential_fractionated(
     maximum_predation_rate,
     assimilation_efficiency,
     palatability,
-    DOM_POM_fractionation,    
+    DOM_POM_fractionation,
     plankton_type_prefix=["Z"],
 )
     # get predator names from `maximum_predation_rate` array (prey has none)
