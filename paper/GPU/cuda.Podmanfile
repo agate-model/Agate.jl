@@ -31,6 +31,7 @@ COPY src/ /opt/julia_env/src/
 RUN julia -e 'using Pkg; \
     Pkg.activate(ENV["JULIA_PROJECT"]); \
     Pkg.add("CUDA"); \
+    Pkg.add("Adapt"); \
     Pkg.Registry.add("General"); \
     Pkg.resolve(); \
     Pkg.instantiate(); \
