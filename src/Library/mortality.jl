@@ -55,7 +55,7 @@ function net_linear_loss_quota(P, linear_mortality, DOM_POM_fractionation, quota
     # sum over all plankton in `P`
     return sum([
         linear_loss(P[name], linear_mortality[replace(name, r"\d+" => "")]) * quota[name] * DOM_POM_fractionation
-        for name in names(linear_mortality, 1)
+        for name in names(P, 1)
     ])
 end
 
@@ -91,7 +91,7 @@ function net_quadratic_loss_quota(P, quadratic_mortality, DOM_POM_fractionation,
     return sum([
         quadratic_loss(P[name], quadratic_mortality[replace(name, r"\d+" => "")]) *
         quota[name] *
-        DOM_POM_fractionation for name in names(quadratic_mortality, 1) if
+        DOM_POM_fractionation for name in names(P, 1) if
             any(prefix -> occursin(prefix, name), plankton_type_prefix)
     ])
 end
