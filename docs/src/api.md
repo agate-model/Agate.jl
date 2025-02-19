@@ -10,8 +10,14 @@ Agate.Constructors.NiPiZD.construct
 Agate.Constructors.NiPiZD.instantiate
 ```
 
+### Agate.jl-DARWIN model
+
 ```@docs
-Agate.Constructors.construct_thunder_egg_1
+Agate.Constructors.DARWIN.construct
+```
+
+```@docs
+Agate.Constructors.DARWIN.instantiate
 ```
 
 ## Low level API
