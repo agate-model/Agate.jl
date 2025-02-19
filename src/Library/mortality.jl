@@ -42,7 +42,7 @@ function net_linear_loss(P, linear_mortality, fraction)
         linear_loss(P[name], linear_mortality[replace(name, r"\d+" => "")]) for
         name in names(P, 1)
     ]) * fraction
-
+end
 """
 Net loss of all plankton due to linear mortality with a quota term.
 
