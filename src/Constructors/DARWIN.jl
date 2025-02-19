@@ -1,16 +1,19 @@
 """
-Module to construct an instance of an Thunder Egg 1 model.
+Module to construct an instance of an Agate.jl-DARWIN model.
 """
 
-module thunder_egg_1
+module DARWIN
 
 using Agate.Models.Biogeochemistry
 using Agate.Models.Parameters
 using Agate.Models.Tracers
 
+using NamedArrays
+using UUIDs
 using Oceananigans.Units
 
-export construct_thunder_egg_1
+using OceanBioME: setup_velocity_fields
+using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 
 DEFAULT_PHYTO_ARGS = Dict(
     "allometry" => Dict(
@@ -92,7 +95,7 @@ DEFAULT_BGC_ARGS = Dict(
         assimilation_efficiency_matrix=nothing,
         )
 
-Construct an `Agate.jl-DARWIN` model object which is based on the `MITgcm-DARWIN` model.
+Construct a size-structured NPZD model abstract type.
 
 !!! info
     
@@ -146,7 +149,7 @@ Construct an `Agate.jl-DARWIN` model object which is based on the `MITgcm-DARWIN
     - σ = predator specificity
 
 
-This constructor builds a size-structured plankton model with two plankton functional types:
+This constructor builds an Agate.jl-DARWIN model with two plankton functional types:
 phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
 size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor implements
 idealized dissolved inorganic carbon (DIC), particulate organic matter (POC, POP, PON), dissolved organic 
@@ -161,6 +164,8 @@ palatability values are desired, these can be defined using the `palatability_ma
 
 Note that if non-default `*_dynamics` expressions are passed, the relevant `*_args` also
 need to be specified.
+
+The type specification includes a photosynthetic active radiation (PAR) auxiliary field.
 
 # Arguments
 - `n_phyto`: number of phytoplankton to include in the model
@@ -193,8 +198,17 @@ need to be specified.
    then `interaction_args` are not used to compute this
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
    NamedArray, if provided then `interaction_args` are not used to compute this
+
+
+# Example
+```julia
+using Agate.Constructors: DARWIN
+
+darwin_2p_2z = DARWIN.construct()
+darwin_2p_2z_model_obj = darwin_2p_2z()
+```
 """
-function construct_thunder_egg_1(;
+function construct(;
     n_phyto=2,
     n_zoo=2,
     phyto_diameters=Dict(
@@ -214,6 +228,193 @@ function construct_thunder_egg_1(;
     DOP_dynamics=DOP_typical,
     phyto_dynamics=phytoplankton_growth_two_nutrients_geider_light,
     zoo_dynamics=zooplankton_growth_simplified,
+    phyto_args=DEFAULT_PHYTO_ARGS,
+    zoo_args=DEFAULT_ZOO_ARGS,
+    interaction_args=DEFAULT_INTERACTION_ARGS,
+    bgc_args=DEFAULT_BGC_ARGS,
+    palatability_matrix=nothing,
+    assimilation_efficiency_matrix=nothing,
+)
+
+    parameters = create_params_dict(;
+        n_phyto=n_phyto,
+        n_zoo=n_zoo,
+        phyto_diameters=phyto_diameters,
+        zoo_diameters=zoo_diameters,
+        phyto_args=phyto_args,
+        zoo_args=zoo_args,
+        interaction_args=interaction_args,
+        bgc_args=bgc_args,
+        palatability_matrix=palatability_matrix,
+        assimilation_efficiency_matrix=assimilation_efficiency_matrix,
+    )
+
+    # create tracer functions
+    plankton_array = vcat(
+        [Symbol("P$i") for i in 1:n_phyto], [Symbol("Z$i") for i in 1:n_zoo]
+    )
+    tracers = Dict(
+        "DIC" => DIC_dynamics(plankton_array),
+        "DIN" => DIN_dynamics(plankton_array),
+        "PO4" => PO4_dynamics(plankton_array),
+        "POC" => POC_dynamics(plankton_array),
+        "DOC" => DOC_dynamics(plankton_array),
+        "PON" => PON_dynamics(plankton_array),
+        "DON" => DON_dynamics(plankton_array),
+        "POP" => POP_dynamics(plankton_array),
+        "DOP" => DOP_dynamics(plankton_array),
+    )
+    for i in 1:n_phyto
+        name = "P$i"
+        tracers[name] = phyto_dynamics(plankton_array, name)
+    end
+    for i in 1:n_zoo
+        name = "Z$i"
+        tracers[name] = zoo_dynamics(plankton_array, name)
+    end
+
+    # return Oceananigans.Biogeochemistry object
+    # note this adds "PAR" as an auxiliary field by default
+    return define_tracer_functions(parameters, tracers)
+end
+
+"""
+    instantiate(
+        bgc_type;
+        n_phyto=2,
+        n_zoo=2,
+        phyto_diameters=Dict(
+            "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+        ),
+        zoo_diameters=Dict(
+            "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+        ),
+        phyto_args=DEFAULT_PHYTO_ARGS,
+        zoo_args=DEFAULT_ZOO_ARGS,
+        interaction_args=DEFAULT_INTERACTION_ARGS,
+        bgc_args=DEFAULT_BGC_ARGS,
+        palatability_matrix=nothing,
+        assimilation_efficiency_matrix=nothing,
+    ) -> bgc_type
+
+A function to instantiate an object of `bgc_type` returned by `DARWIN.construct()`.
+
+The type specifies the number of phytoplankton and zooplankton in the model and includes
+default parameter values. The instantiate method is used to override the default values
+of any of the model parameters or plankton diameters.
+
+# Arguments
+- `bgc_type`: subtype of Oceananigans.Biogeochemistry returned by `DARWIN.construct()`
+   with a specified number of phytoplankton and zooplankton
+
+# Keywords
+- `phyto_diameters`: dictionary from which `phyto` diameters can be computed or a list of
+    values to use (as many as the model expects)
+- `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
+    values to use (as many as the model expects)
+- `nutrient_dynamics`: expression describing how nutrients change over time, see
+    `Agate.Models.Tracers`
+- `detritus_dynamics`: expression describing how detritus evolves over time, see
+    `Agate.Models.Tracers`
+- `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
+- `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
+- `phyto_args`: Dictionary of phytoplankton parameters, for default values see
+    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
+- `zoo_args`: Dictionary of zooplankton parameters, for default values see
+    `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
+- `interaction_args`: Dictionary of arguments from which a palatability and assimilation
+   efficiency matrix between all plankton can be computed, for default values see
+    `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
+- `bgc_args`: Dictionary of constant parameters used in growth functions (i.e., not size
+    dependant plankton parameters as well as biogeochemistry parameters related to nutrient
+    and detritus, for default values see `Agate.Models.Constructors.DEFAULT_CONSTANT_ARGS`
+- `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
+    then `interaction_args` are not used to compute this
+- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
+    NamedArray, if provided then `interaction_args` are not used to compute this
+
+# Example
+```julia
+using Agate.Constructors: DARWIN
+
+darwin_2p_2z = DARWIN.construct()
+
+# change some parameter values
+phyto_args = DARWIN.DEFAULT_PHYTO_ARGS
+phyto_args["allometry"]["maximum_growth_rate"]["a"] = 2
+darwin_2p_2z_model_obj = DARWIN.instantiate(darwin_2p_2z; phyto_args=phyto_args)
+```
+"""
+function instantiate(
+    bgc_type;
+    phyto_diameters=Dict(
+        "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+    ),
+    zoo_diameters=Dict(
+        "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+    ),
+    phyto_args=DEFAULT_PHYTO_ARGS,
+    zoo_args=DEFAULT_ZOO_ARGS,
+    interaction_args=DEFAULT_INTERACTION_ARGS,
+    bgc_args=DEFAULT_BGC_ARGS,
+    palatability_matrix=nothing,
+    assimilation_efficiency_matrix=nothing,
+)
+    defaults = bgc_type()
+    n_phyto = Int(defaults.n_phyto)
+    n_zoo = Int(defaults.n_zoo)
+
+    # returns NamedTuple -> have to convert to Dict
+    parameters = create_params_dict(;
+        n_phyto=n_phyto,
+        n_zoo=n_zoo,
+        phyto_diameters=phyto_diameters,
+        zoo_diameters=zoo_diameters,
+        phyto_args=phyto_args,
+        zoo_args=zoo_args,
+        interaction_args=interaction_args,
+        bgc_args=bgc_args,
+        palatability_matrix=palatability_matrix,
+        assimilation_efficiency_matrix=assimilation_efficiency_matrix,
+    )
+
+    return bgc_type(; Dict(pairs(parameters))...)
+end
+
+"""
+Create a dictionary of parameters to pass to `Agate.Models.Biogeochemistry.define_tracer_functions`.
+
+# Arguments
+- `n_phyto`: number of phytoplankton to include in the model
+- `n_zoo`: number of zooplankton to include in the model
+- `phyto_diameters`: dictionary from which `n_phyto` diameters can be computed or a list of
+    values to use
+- `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
+    values to use
+- `phyto_args`: Dictionary of phytoplankton parameters, for default values see
+    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
+- `zoo_args`: Dictionary of zooplankton parameters, for default values see
+    `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
+- `interaction_args`: Dictionary of arguments from which a palatability and assimilation
+   efficiency matrix between all plankton can be computed, for default values see
+    `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
+- `bgc_args`: Dictionary of constant parameters used in growth functions (i.e., not size
+    dependant plankton parameters as well as biogeochemistry parameters related to nutrient
+    and detritus, for default values see `Agate.Models.Constructors.DEFAULT_CONSTANT_ARGS`
+- `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
+    then `interaction_args` are not used to compute this
+- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
+    NamedArray, if provided then `interaction_args` are not used to compute this
+"""
+function create_params_dict(;
+    n_phyto=2,
+    n_zoo=2,
+    phyto_diameters=Dict(
+        "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+    ),
+    zoo_diameters=Dict(
+        "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+    ),
     phyto_args=DEFAULT_PHYTO_ARGS,
     zoo_args=DEFAULT_ZOO_ARGS,
     interaction_args=DEFAULT_INTERACTION_ARGS,
@@ -272,41 +473,21 @@ function construct_thunder_egg_1(;
                 ),
             )
         end
+
         emergent_parameters["assimilation_efficiency_matrix"] =
             assimilation_efficiency_matrix
     end
+
+    # append information that need access to at instantiation
+    bgc_args["n_phyto"] = n_phyto
+    bgc_args["n_zoo"] = n_zoo
 
     # combine emergent parameters with remaining user defined parameters
     parameters = NamedTuple(
         Symbol(k) => v for (k, v) in merge(bgc_args, emergent_parameters)
     )
 
-    # create tracer functions
-    plankton_array = vcat(
-        [Symbol("P$i") for i in 1:n_phyto], [Symbol("Z$i") for i in 1:n_zoo]
-    )
-    tracers = Dict(
-        "DIC" => DIC_dynamics(plankton_array),
-        "DIN" => DIN_dynamics(plankton_array),
-        "PO4" => PO4_dynamics(plankton_array),
-        "POC" => POC_dynamics(plankton_array),
-        "DOC" => DOC_dynamics(plankton_array),
-        "PON" => PON_dynamics(plankton_array),
-        "DON" => DON_dynamics(plankton_array),
-        "POP" => POP_dynamics(plankton_array),
-        "DOP" => DOP_dynamics(plankton_array),
-    )
-    for i in 1:n_phyto
-        name = "P$i"
-        tracers[name] = phyto_dynamics(plankton_array, name)
-    end
-    for i in 1:n_zoo
-        name = "Z$i"
-        tracers[name] = zoo_dynamics(plankton_array, name)
-    end
-
-    # return Oceananigans.Biogeochemistry object
-    return define_tracer_functions(parameters, tracers)
+    return parameters
 end
 
 end # module
