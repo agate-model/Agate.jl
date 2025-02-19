@@ -93,9 +93,9 @@ DEFAULT_BGC_ARGS = Dict(
         bgc_args=DEFAULT_BGC_ARGS,
         palatability_matrix=nothing,
         assimilation_efficiency_matrix=nothing,
-        )
+    ) -> DataType
 
-Construct a size-structured NPZD model abstract type.
+Construct an Agate.jl-DARWIN model abstract type.
 
 !!! info
     
@@ -134,7 +134,7 @@ Construct a size-structured NPZD model abstract type.
 
     TRAITS:
 
-    μmax, KN, gmax = a*Volume^b
+    μmax, KR, gmax = a*Volume^b
     
     palat = η/(1+(``ratio``-``opt``)^2)^σ
     
@@ -302,6 +302,11 @@ A function to instantiate an object of `bgc_type` returned by `DARWIN.construct(
 The type specifies the number of phytoplankton and zooplankton in the model and includes
 default parameter values. The instantiate method is used to override the default values
 of any of the model parameters or plankton diameters.
+
+!!! tip
+
+    Changing the parameter values of an existing DARWIN model type using `instantiate()` is useful in 
+    dynamic programming contexts such as `for` loops. 
 
 # Arguments
 - `bgc_type`: subtype of Oceananigans.Biogeochemistry returned by `DARWIN.construct()`
