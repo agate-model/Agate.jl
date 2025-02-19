@@ -268,7 +268,7 @@ function net_photosynthetic_growth_two_nutrients_geider_light_quota(
             half_saturation_PO4[name],
             photosynthetic_slope[replace(name, r"\d+" => "")],
             chlorophyll_to_carbon_ratio[replace(name, r"\d+" => "")],
-        ) * nutrient_to_carbon[name] for name in names(P, 1) if any(prefix -> occursin(prefix, name), plankton_type_prefix)
+        ) * nutrient_to_carbon[replace(name, r"\d+" => "")] for name in names(P, 1) if any(prefix -> occursin(prefix, name), plankton_type_prefix)
     ],)
 end
 

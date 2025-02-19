@@ -306,9 +306,9 @@ function summed_predation_assimilation_loss_preferential_quota(
             P[predator_name],
             assimilation_efficiency[predator_name, prey_name],
             maximum_predation_rate[predator_name],
-            holling_half_saturation[predator_name],
+            holling_half_saturation[replace(predator_name, r"\d+" => "")],
             palatability[predator_name, prey_name],
-        ) * quota[prey_name] for prey_name in names(P, 1)
+        ) * quota[replace(prey_name, r"\d+" => "")] for prey_name in names(P, 1)
     )
 
     return assimilation_loss
