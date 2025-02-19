@@ -209,6 +209,7 @@ function net_photosynthetic_growth_two_nutrients_geider_light(
     half_saturation_PO4,
     photosynthetic_slope,
     chlorophyll_to_carbon_ratio,
+    plankton_type_prefix=["P"],
 )
     return sum([
         # sum over plankton that have a `maximum_growth_rate` (these will also have
@@ -221,9 +222,9 @@ function net_photosynthetic_growth_two_nutrients_geider_light(
             maximum_growth_rate[name],
             half_saturation_DIN[name],
             half_saturation_PO4[name],
-            photosynthetic_slope[name],
-            chlorophyll_to_carbon_ratio[name],
-        ) for name in names(maximum_growth_rate, 1)
+            photosynthetic_slope[replace(name, r"\d+" => "")],
+            chlorophyll_to_carbon_ratio[replace(name, r"\d+" => "")],
+        ) for name in names(P, 1) if any(prefix -> occursin(prefix, name), plankton_type_prefix)
     ],)
 end
 
@@ -252,6 +253,7 @@ function net_photosynthetic_growth_two_nutrients_geider_light_quota(
     photosynthetic_slope,
     chlorophyll_to_carbon_ratio,
     nutrient_to_carbon,
+    plankton_type_prefix=["P"],
 )
     return sum([
         # sum over plankton that have a `maximum_growth_rate` (these will also have
@@ -264,9 +266,9 @@ function net_photosynthetic_growth_two_nutrients_geider_light_quota(
             maximum_growth_rate[name],
             half_saturation_DIN[name],
             half_saturation_PO4[name],
-            photosynthetic_slope[name],
-            chlorophyll_to_carbon_ratio[name],
-        ) * nutrient_to_carbon[name] for name in names(maximum_growth_rate, 1)
+            photosynthetic_slope[replace(name, r"\d+" => "")],
+            chlorophyll_to_carbon_ratio[replace(name, r"\d+" => "")],
+        ) * nutrient_to_carbon[name] for name in names(P, 1) if any(prefix -> occursin(prefix, name), plankton_type_prefix)
     ],)
 end
 
