@@ -44,7 +44,10 @@ function net_linear_loss(P, linear_mortality, fraction)
     ]) * fraction
 end
 """
-Net loss of all plankton due to linear mortality with a quota term.
+    net_linear_loss_quota(P, linear_mortality, DOM_POM_fractionation, quota)
+
+Net loss of all plankton due to linear mortality with a elemental quota term.
+The quota term is multiplied with estimated loss to convert from e.g. carbon to nitrogen.
 
 # Arguments
 - `P`: NamedArray which includes all plankton concentration values
@@ -80,7 +83,10 @@ function net_quadratic_loss(P, quadratic_mortality, fraction, plankton_type_pref
 end
 
 """
+    net_quadratic_loss_quota(P, quadratic_mortality, DOM_POM_fractionation, quota, plankton_type_prefix=["Z"])
+
 Net loss of all plankton due to quadratic mortality with a quota term.
+The quota term is multiplied with estimated loss to convert from e.g. carbon to nitrogen.
 
 # Arguments
 - `P`: NamedArray which includes all plankton concentration values

@@ -54,7 +54,7 @@ function nutrients_typical(plankton_array)
 end
 
 """
-    DIC = DOC_remineralization + POC_remineralization - sum(DIC_uptake_j)
+    DIC_geider_light(plankton_array)
 
 Build expression representing the evolution of DIC over time.
 
@@ -84,7 +84,7 @@ function DIC_geider_light(plankton_array)
 end
 
 """
-    DIN = nitrogen_to_carbon*(DOC_remineralization + POC_remineralization - sum(DIC_uptake_j))
+    DIN_geider_light_fixed_ratios(plankton_array)
 
 Build expression representing the evolution of DIN over time assuming fixed stoichiometry.
 
@@ -115,7 +115,7 @@ function DIN_geider_light_fixed_ratios(plankton_array)
 end
 
 """
-    PO4 = phosphorus_to_carbon*(DOC_remineralization + POC_remineralization - sum(DIC_uptake_j))
+    PO4_geider_light_fixed_ratios(plankton_array)
 
 Build expression representing the evolution of DIN over time assuming fixed stoichiometry.
 
@@ -213,7 +213,7 @@ function detritus_typical(plankton_array)
 end
 
 """
-    DOC = mortality_to_DOC + predation_loss_to_DOC - DOC_remineralization
+    DOC_typical(plankton_array)
 
 Build expression for a simplified DOC function of time.
 
@@ -248,7 +248,7 @@ function DOC_typical(plankton_array)
 end
 
 """
-    DON = mortality_to_DON + predation_loss_to_DON - DON_remineralization
+    DON_typical(plankton_array)
 
 Build expression for a simplified DON function of time.
 
@@ -286,7 +286,7 @@ function DON_typical(plankton_array)
 end
 
 """
-    DOP = mortality_to_DOP + predation_loss_to_DOP - DOP_remineralization
+    DOP_typical(plankton_array)
 
 Build expression for a simplified DOP function of time.
 
@@ -324,7 +324,7 @@ function DOP_typical(plankton_array)
 end
 
 """
-    POC = mortality_to_POC + predation_loss_to_POC - POC_remineralization
+    POC_typical(plankton_array)
 
 Build expression for a simplified POC function of time.
 
@@ -359,7 +359,7 @@ function POC_typical(plankton_array)
 end
 
 """
-    PON = mortality_to_PON + predation_loss_to_PON - PON_remineralization
+    PON_typical(plankton_array)
 
 Build expression for a simplified PON function of time.
 
@@ -397,7 +397,7 @@ function PON_typical(plankton_array)
 end
 
 """
-    POP = mortality_to_POP + predation_loss_to_POP - POP_remineralization
+    POP_typical(plankton_array)
 
 Build expression for a simplified POP function of time.
 
@@ -469,6 +469,8 @@ function phytoplankton_growth_single_nutrient(plankton_array, plankton_name)
 end
 
 """
+    phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankton_name)
+    
 Build expression for a simplified phytoplankton growth function.
 
 The functions used in the expression are all within the Agate.Library, see their docstring

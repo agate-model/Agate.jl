@@ -186,6 +186,19 @@ function net_photosynthetic_growth_single_nutrient(
 end
 
 """
+    net_photosynthetic_growth_two_nutrients_geider_light(
+        DIN,
+        PO4,
+        P,
+        PAR,
+        maximum_growth_rate,
+        half_saturation_DIN,
+        half_saturation_PO4,
+        photosynthetic_slope,
+        chlorophyll_to_carbon_ratio,
+        plankton_type_prefix=["P"],
+    )
+
 Net photosynthetic growth of all plankton assuming geider light limitation with two nutrients.
 
 # Arguments
@@ -230,6 +243,20 @@ function net_photosynthetic_growth_two_nutrients_geider_light(
 end
 
 """
+    net_photosynthetic_growth_two_nutrients_geider_light_quota(
+        DIN,
+        PO4,
+        P,
+        PAR,
+        maximum_growth_rate,
+        half_saturation_DIN,
+        half_saturation_PO4,
+        photosynthetic_slope,
+        chlorophyll_to_carbon_ratio,
+        nutrient_to_carbon,
+        plankton_type_prefix=["P"],
+    )
+
 Net photosynthetic growth of all plankton assuming geider light limitation with two nutrients.
 
 # Arguments
@@ -275,7 +302,19 @@ function net_photosynthetic_growth_two_nutrients_geider_light_quota(
 end
 
 """
-Single nutrient geider photosynthetic growth.
+    photosynthetic_growth_two_nutrients_geider_light(
+        DIN,
+        PO4,
+        P,
+        PAR,
+        maximum_growth_rate,
+        half_saturation_DIN,
+        half_saturation_PO4,
+        photosynthetic_slope,
+        chlorophyll_to_carbon_ratio,
+    )
+
+Two nutrient geider photosynthetic growth.
 
 # Arguments
 - `DIN`: dissolved inorganic nitrogen concentration

@@ -269,7 +269,18 @@ function summed_predation_assimilation_loss_preferential(
 end
 
 """
+    summed_predation_assimilation_loss_preferential_quota(
+        predator_name,
+        P,
+        assimilation_efficiency,
+        maximum_predation_rate,
+        holling_half_saturation,
+        palatability,
+        quota,
+    )
+
 Estimates the total assimilation loss of the predator (`P[predator_name]`) feeding on all plankton.
+The quota term is multiplied with estimated loss to convert from e.g. carbon to nitrogen.
 
 For plankton P`[predator_name]`, the function loops over each prey (`P[prey_name]`) to
 estimate the total assimilation loss during predation.
@@ -315,6 +326,15 @@ function summed_predation_assimilation_loss_preferential_quota(
 end
 
 """
+    net_predation_assimilation_loss_preferential(
+        P,
+        holling_half_saturation,
+        maximum_predation_rate,
+        assimilation_efficiency,
+        palatability,
+        plankton_type_prefix=["Z"],
+    )
+
 Net predator assimilation loss of all plankton.
 
 # Arguments
@@ -357,6 +377,16 @@ function net_predation_assimilation_loss_preferential(
 end
 
 """
+    net_predation_assimilation_loss_preferential_fractionated(
+        P,
+        holling_half_saturation,
+        maximum_predation_rate,
+        assimilation_efficiency,
+        palatability,
+        DOM_POM_fractionation,
+        plankton_type_prefix=["Z"],
+    )
+
 Net predator assimilation loss of all plankton which is fractionated between DOC and POC.
 
 # Arguments
@@ -399,8 +429,19 @@ function net_predation_assimilation_loss_preferential_fractionated(
 end
 
 """
+    net_predation_assimilation_loss_preferential_fractionated_quota(
+        P,
+        holling_half_saturation,
+        maximum_predation_rate,
+        assimilation_efficiency,
+        palatability,
+        DOM_POM_fractionation,
+        quota,
+        plankton_type_prefix=["Z"],
+    )
+
 Net predator assimilation loss of all plankton which is fractionated between DOC and POC.
-With a quota term.
+The quota term is multiplied with estimated loss to convert from e.g. carbon to nitrogen.
 
 # Arguments
 - `P`: NamedArray which includes all plankton concentration values
