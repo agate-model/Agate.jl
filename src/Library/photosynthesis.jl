@@ -206,11 +206,13 @@ Net photosynthetic growth of all plankton assuming geider light limitation with 
 - `PO4`: phosphate concentration
 - `P`: phytoplankton concentration
 - `PAR`: photosynthetic active radiation
-- `maximum_growth_rate`: maximum growth rate before nutrient limitation (Pᶜₘₐₓ)
+- `maximum_growth_rate`: maximum growth rate before nutrient limitation
 - `half_saturation_DIN`: nitrogen half saturation
 - `half_saturation_PO4`: phosphate half saturation
-- `photosynthetic_slope`: initial photosynthetic slope (αᶜʰˡ)
-- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon (θᶜ)
+- `photosynthetic_slope`: initial photosynthetic slope
+- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon
+- `plankton_type_prefix`: Array of prefixes used in plankton names to indicate their type,
+    use here to sum over only the relevant plankton (e.g., "P" for phytoplankton)
 """
 function net_photosynthetic_growth_two_nutrients_geider_light(
     DIN,
@@ -264,11 +266,13 @@ Net photosynthetic growth of all plankton assuming geider light limitation with 
 - `PO4`: phosphate concentration
 - `P`: phytoplankton concentration
 - `PAR`: photosynthetic active radiation
-- `maximum_growth_rate`: maximum growth rate before nutrient limitation (Pᶜₘₐₓ)
+- `maximum_growth_rate`: maximum growth rate before nutrient limitation
 - `half_saturation_DIN`: nitrogen half saturation
 - `half_saturation_PO4`: phosphate half saturation
-- `photosynthetic_slope`: initial photosynthetic slope (αᶜʰˡ)
-- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon (θᶜ)
+- `photosynthetic_slope`: initial photosynthetic slope
+- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon 
+- `plankton_type_prefix`: Array of prefixes used in plankton names to indicate their type,
+    use here to sum over only the relevant plankton (e.g., "P" for phytoplankton)
 """
 function net_photosynthetic_growth_two_nutrients_geider_light_quota(
     DIN,
@@ -321,11 +325,11 @@ Two nutrient geider photosynthetic growth.
 - `PO4`: phosphate concentration
 - `P`: phytoplankton concentration
 - `PAR`: photosynthetic active radiation
-- `maximum_growth_rate`: maximum growth rate before nutrient limitation (Pᶜₘₐₓ)
+- `maximum_growth_rate`: maximum growth rate before nutrient limitation 
 - `half_saturation_DIN`: nitrogen half saturation
 - `half_saturation_PO4`: phosphate half saturation
-- `photosynthetic_slope`: initial photosynthetic slope (αᶜʰˡ)
-- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon (θᶜ)
+- `photosynthetic_slope`: initial photosynthetic slope 
+- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon 
 """
 function photosynthetic_growth_two_nutrients_geider_light(
     DIN,

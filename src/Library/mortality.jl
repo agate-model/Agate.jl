@@ -52,6 +52,7 @@ The quota term is multiplied with estimated loss to convert from e.g. carbon to 
 # Arguments
 - `P`: NamedArray which includes all plankton concentration values
 - `linear_mortality`: NamedArray of all plankton linear mortality rates
+- `DOM_POM_fractionation`: Float which represents dissolved-to-particulate fractionation
 - `quota`: NamedArray which includes all plankton quota values
 """
 function net_linear_loss_quota(P, linear_mortality, DOM_POM_fractionation, quota)
@@ -91,7 +92,10 @@ The quota term is multiplied with estimated loss to convert from e.g. carbon to 
 # Arguments
 - `P`: NamedArray which includes all plankton concentration values
 - `quadratic_mortality`: NamedArray of all plankton quadratic mortality rates
+- `DOM_POM_fractionation`: Float which represents dissolved-to-particulate fractionation
 - `quota`: NamedArray which includes all plankton quota values
+- `plankton_type_prefix`: Array of prefixes used in plankton names to indicate their type,
+    use here to sum over only the relevant plankton (e.g., "Z" for zooplankton)
 """
 function net_quadratic_loss_quota(
     P, quadratic_mortality, DOM_POM_fractionation, quota, plankton_type_prefix=["Z"]

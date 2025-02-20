@@ -300,6 +300,8 @@ estimate the total assimilation loss during predation.
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
+- `quota`: NamedArray of all plankton predation elemental quotas
+
 """
 function summed_predation_assimilation_loss_preferential_quota(
     predator_name,
@@ -404,6 +406,8 @@ Net predator assimilation loss of all plankton which is fractionated between DOC
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
 - `DOM_POM_fractionation`: float representing the fraction of loss going to DOM and POM.
+- `plankton_type_prefix`: Array of prefixes used in plankton names to indicate their type,
+    use here to sum over only predator plankton (e.g., "Z" for zooplankton)
 """
 function net_predation_assimilation_loss_preferential_fractionated(
     P,
@@ -459,7 +463,8 @@ The quota term is multiplied with estimated loss to convert from e.g. carbon to 
     - for a non-predator [i,:]=0
 - `DOM_POM_fractionation`: float representing the fraction of loss going to DOM and POM.
 - `quota`: NamedArray of all plankton quotas
-
+- `plankton_type_prefix`: Array of prefixes used in plankton names to indicate their type,
+    use here to sum over only predator plankton (e.g., "Z" for zooplankton)
 
 """
 function net_predation_assimilation_loss_preferential_fractionated_quota(
