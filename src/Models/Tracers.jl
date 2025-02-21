@@ -103,15 +103,17 @@ function detritus_typical(phyto_array, zoo_array)
         (1 - mortality_export_fraction) +
         sum(linear_loss.([$(zoo_array...)], linear_mortality["Z"])) *
         (1 - mortality_export_fraction) +
-        sum(predation_assimilation_loss_preferential.(
-            # use array' to match row-wise
-            [$(plankton_array...)]',
-            [$(plankton_array...)],
-            assimilation_efficiency_matrix.array,
-            maximum_predation_rate.array,
-            holling_half_saturation["Z"],
-            palatability_matrix.array
-        )) +
+        sum(
+            predation_assimilation_loss_preferential.(
+                # use array' to turn it into a row vector
+                [$(plankton_array...)]',
+                [$(plankton_array...)],
+                assimilation_efficiency_matrix.array,
+                maximum_predation_rate.array,
+                holling_half_saturation["Z"],
+                palatability_matrix.array,
+            ),
+        ) +
         sum(
             quadratic_loss.([$(zoo_array...)], quadratic_mortality["Z"]) *
             (1 - mortality_export_fraction),
