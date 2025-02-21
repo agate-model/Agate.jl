@@ -97,19 +97,21 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
     `[:P1, :P2, :Z1, :Z2]`
 """
 function detritus_typical(phyto_array, zoo_array)
-    plankton_array = vcat(phyto_array, zoo_array)
+    plankton_array = vcat(zoo_array, phyto_array)
     return :(
         sum(linear_loss.([$(phyto_array...)], linear_mortality["P"])) *
         (1 - mortality_export_fraction) +
         sum(linear_loss.([$(zoo_array...)], linear_mortality["Z"])) *
         (1 - mortality_export_fraction) +
-        net_predation_assimilation_loss_preferential(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            holling_half_saturation,
-            maximum_predation_rate,
-            assimilation_efficiency_matrix,
-            palatability_matrix,
-        ) +
+        sum(predation_assimilation_loss_preferential.(
+            # use array' to match row-wise
+            [$(plankton_array...)]',
+            [$(plankton_array...)],
+            assimilation_efficiency_matrix.array,
+            maximum_predation_rate.array,
+            holling_half_saturation["Z"],
+            palatability_matrix.array
+        )) +
         sum(
             quadratic_loss.([$(zoo_array...)], quadratic_mortality["Z"]) *
             (1 - mortality_export_fraction),
