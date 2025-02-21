@@ -205,7 +205,8 @@ function zooplankton_growth_simplified(plankton_array, plankton_name)
     # remove any digits to get just the type identifier
     plankton_type = replace(plankton_name, r"\d+" => "")
     return :(
-        sum(predation_gain_preferential.(
+        sum(
+            predation_gain_preferential.(
                 # prey concetration array to broadcast over (all plankton here, allows for canibalism)
                 [$(plankton_array...)],
                 # predator value
@@ -218,7 +219,8 @@ function zooplankton_growth_simplified(plankton_array, plankton_name)
                 holling_half_saturation[$plankton_type],
                 # again, get the predator row
                 palatability_matrix[$plankton_name, :],
-        )) - linear_loss($(plankton_symbol), linear_mortality[$plankton_type]) -
+            ),
+        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_type]) -
         quadratic_loss($(plankton_symbol), quadratic_mortality[$plankton_type])
     )
 end
