@@ -8,7 +8,7 @@ using .Biogeochemistry
 using .Parameters
 using .Tracers
 
-export compute_allometric_parameters, create_params_dict
+export compute_allometric_parameters
 export define_tracer_functions
 
 end # module

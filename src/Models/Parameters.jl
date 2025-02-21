@@ -6,120 +6,10 @@ using NamedArrays
 using Agate.Library.Allometry
 using Agate.Library.Predation
 
-export compute_allometric_parameters, create_npzd_params_dict
+export compute_allometric_parameters
 
 emergent_palatability_f = allometric_palatability_unimodal_protection
 emergent_assimilation_efficiency_f = assimilation_efficiency_emergent_binary
-
-"""
-Create a dictionary of NPZD parameters to pass to `Agate.Models.Biogeochemistry.define_tracer_functions`.
-
-# Arguments
-- `n_phyto`: number of phytoplankton to include in the model
-- `n_zoo`: number of zooplankton to include in the model
-- `phyto_diameters`: dictionary from which `n_phyto` diameters can be computed or a list of
-    values to use
-- `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
-    values to use
-- `phyto_args`: Dictionary of phytoplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
-- `zoo_args`: Dictionary of zooplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
-- `interaction_args`: Dictionary of arguments from which a palatability and assimilation
-   efficiency matrix between all plankton can be computed, for default values see
-    `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
-- `bgc_args`: Dictionary of constant parameters used in growth functions (i.e., not size
-    dependant plankton parameters as well as biogeochemistry parameters related to nutrient
-    and detritus, for default values see `Agate.Models.Constructors.DEFAULT_CONSTANT_ARGS`
-- `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
-    then `interaction_args` are not used to compute this
-- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
-    NamedArray, if provided then `interaction_args` are not used to compute this
-"""
-function create_npzd_params_dict(;
-    n_phyto=2,
-    n_zoo=2,
-    phyto_diameters=Dict(
-        "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
-    ),
-    zoo_diameters=Dict(
-        "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
-    ),
-    phyto_args=DEFAULT_PHYTO_ARGS,
-    zoo_args=DEFAULT_ZOO_ARGS,
-    interaction_args=DEFAULT_INTERACTION_ARGS,
-    bgc_args=DEFAULT_BGC_ARGS,
-    palatability_matrix=nothing,
-    assimilation_efficiency_matrix=nothing,
-)
-    phyto_args["n"] = n_phyto
-    phyto_args["diameters"] = phyto_diameters
-    zoo_args["n"] = n_zoo
-    zoo_args["diameters"] = zoo_diameters
-
-    # compute emergent parameters
-    defined_parameters = Dict("P" => phyto_args, "Z" => zoo_args)
-
-    if isnothing(palatability_matrix)
-        defined_parameters["P"]["palatability"] = Dict(
-            k => interaction_args["P"][k] for
-            k in ["can_eat", "optimum_predator_prey_ratio", "protection", "specificity"]
-        )
-        defined_parameters["Z"]["palatability"] = Dict(
-            k => interaction_args["Z"][k] for
-            k in ["can_eat", "optimum_predator_prey_ratio", "protection", "specificity"]
-        )
-    end
-
-    if isnothing(assimilation_efficiency_matrix)
-        defined_parameters["P"]["assimilation_efficiency"] = Dict(
-            k => interaction_args["P"][k] for
-            k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
-        )
-        defined_parameters["Z"]["assimilation_efficiency"] = Dict(
-            k => interaction_args["Z"][k] for
-            k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
-        )
-    end
-
-    # also reshapes non-emergent plankton parameters
-    emergent_parameters = compute_allometric_parameters(defined_parameters)
-
-    if !isnothing(palatability_matrix)
-        if !(size(palatability_matrix) == (n_phyto + n_zoo, n_phyto + n_zoo))
-            throw(
-                ArgumentError(
-                    "palatability_matrix must have size $((n_phyto+n_zoo, n_phyto+n_zoo))"
-                ),
-            )
-        end
-        emergent_parameters["palatability_matrix"] = palatability_matrix
-    end
-
-    if !isnothing(assimilation_efficiency_matrix)
-        if !(size(assimilation_efficiency_matrix) == (n_phyto + n_zoo, n_phyto + n_zoo))
-            throw(
-                ArgumentError(
-                    "assimilation_efficiency_matrix must have size $((n_phyto+n_zoo, n_phyto+n_zoo))",
-                ),
-            )
-        end
-
-        emergent_parameters["assimilation_efficiency_matrix"] =
-            assimilation_efficiency_matrix
-    end
-
-    # append information that need access to at instantiation
-    bgc_args["n_phyto"] = n_phyto
-    bgc_args["n_zoo"] = n_zoo
-
-    # combine emergent parameters with remaining user defined parameters
-    parameters = NamedTuple(
-        Symbol(k) => v for (k, v) in merge(bgc_args, emergent_parameters)
-    )
-
-    return parameters
-end
 
 """
     compute_allometric_parameters(plankton::Dict) -> Dict
@@ -255,7 +145,6 @@ function compute_allometric_parameters(plankton::Dict)
                     end
                 else
                     # NOTE: expect here that in all other cases `value` is a single number
-                    # TODO: change to something like results[join([param, plankton_name], "_")] = value
                     results[param] = vcat(
                         results[param], NamedArray([value], [plankton_name])
                     )
