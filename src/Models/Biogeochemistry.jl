@@ -252,7 +252,7 @@ function add_bgc_methods!(
     for (tracer_name, tracer_expression) in pairs(tracers)
 
         # throws an exception if there are any issues with tracer_expression (see docstring)
-        # expression_check(vcat(all_state_vars, collect(params)), tracer_expression)
+        expression_check(vcat(all_state_vars, collect(params)), tracer_expression)
 
         tracer_method = quote
             function (bgc::$(bgc_type))(::Val{Symbol($tracer_name)}, $(all_state_vars...))
