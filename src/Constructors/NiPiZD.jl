@@ -172,7 +172,9 @@ function construct(;
     # create tracer functions
     phyto_array = [Symbol("P$i") for i in 1:n_phyto]
     zoo_array = [Symbol("Z$i") for i in 1:n_zoo]
-    plankton_array = vcat(phyto_array, zoo_array)
+
+    # NOTE: Zs precede Ps because this is order in assimilation/palatability matrices
+    plankton_array = vcat(zoo_array, phyto_array)
     tracers = Dict(
         "N" => nutrient_dynamics(phyto_array, zoo_array),
         "D" => detritus_dynamics(phyto_array, zoo_array),
