@@ -131,8 +131,6 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 """
 function phytoplankton_growth_single_nutrient(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
-    # remove any digits to get just the type identifier
-    plankton_type = replace(plankton_name, r"\d+" => "")
     return :(
         photosynthetic_growth_single_nutrient(
             N,
@@ -140,7 +138,7 @@ function phytoplankton_growth_single_nutrient(plankton_array, plankton_name)
             PAR,
             maximum_growth_rate[$plankton_name],
             nutrient_half_saturation[$plankton_name],
-            alpha[$plankton_type],
+            alpha["P"],
         ) - sum(
             predation_loss_preferential.(
                 # the prey
@@ -156,7 +154,7 @@ function phytoplankton_growth_single_nutrient(plankton_array, plankton_name)
                 # get the prey column -> sum over all predators
                 palatability_matrix[:, $plankton_name].array,
             ),
-        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_type])
+        ) - linear_loss($(plankton_symbol), linear_mortality["P"])
     )
 end
 
@@ -174,8 +172,6 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 """
 function phytoplankton_growth_single_nutrient_geider_light(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
-    # remove any digits to get just the type identifier
-    plankton_type = replace(plankton_name, r"\d+" => "")
     return :(
         photosynthetic_growth_single_nutrient_geider_light(
             N,
@@ -183,8 +179,8 @@ function phytoplankton_growth_single_nutrient_geider_light(plankton_array, plank
             PAR,
             maximum_growth_rate[$plankton_name],
             nutrient_half_saturation[$plankton_name],
-            photosynthetic_slope[$plankton_type],
-            chlorophyll_to_carbon_ratio[$plankton_type],
+            photosynthetic_slope["P"],
+            chlorophyll_to_carbon_ratio["P"],
         ) - sum(
             # exactly the same as in example above
             predation_loss_preferential.(
@@ -194,7 +190,7 @@ function phytoplankton_growth_single_nutrient_geider_light(plankton_array, plank
                 holling_half_saturation["Z"],
                 palatability_matrix[:, $plankton_name].array,
             ),
-        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_type])
+        ) - linear_loss($(plankton_symbol), linear_mortality["P"])
     )
 end
 
@@ -212,8 +208,6 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 """
 function zooplankton_growth_simplified(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
-    # remove any digits to get just the type identifier
-    plankton_type = replace(plankton_name, r"\d+" => "")
     return :(
         sum(
             predation_gain_preferential.(
@@ -226,12 +220,12 @@ function zooplankton_growth_simplified(plankton_array, plankton_name)
                 # predator specific value
                 maximum_predation_rate[$plankton_name],
                 # single val for all zooplankton
-                holling_half_saturation[$plankton_type],
+                holling_half_saturation["Z"],
                 # again, get the predator row
                 palatability_matrix[$plankton_name, :],
             ),
-        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_type]) -
-        quadratic_loss($(plankton_symbol), quadratic_mortality[$plankton_type])
+        ) - linear_loss($(plankton_symbol), linear_mortality["Z"]) -
+        quadratic_loss($(plankton_symbol), quadratic_mortality["Z"])
     )
 end
 
