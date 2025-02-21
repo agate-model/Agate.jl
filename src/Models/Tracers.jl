@@ -38,6 +38,7 @@ function nutrients_typical(phyto_array, zoo_array)
                 N,
                 [$(phyto_array...)],
                 PAR,
+                # extract array of values
                 maximum_growth_rate.array,
                 nutrient_half_saturation.array,
                 alpha["P"],
@@ -75,6 +76,7 @@ function nutrients_geider_light(phyto_array, zoo_array)
                 N,
                 [$(phyto_array...)],
                 PAR,
+                # extract array of values
                 maximum_growth_rate.array,
                 nutrient_half_saturation.array,
                 photosynthetic_slope["P"],
@@ -127,8 +129,7 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 - `plankton_name`: name of the phytoplankton for which we are returning the expression passed
     as a String (e.g., "P1").
 """
-function phytoplankton_growth_single_nutrient(phyto_array, zoo_array, plankton_name)
-    plankton_array = vcat(phyto_array, zoo_array)
+function phytoplankton_growth_single_nutrient(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
     # remove any digits to get just the type identifier
     plankton_type = replace(plankton_name, r"\d+" => "")
@@ -140,12 +141,21 @@ function phytoplankton_growth_single_nutrient(phyto_array, zoo_array, plankton_n
             maximum_growth_rate[$plankton_name],
             nutrient_half_saturation[$plankton_name],
             alpha[$plankton_type],
-        ) - summed_predation_loss_preferential(
-            $plankton_name,
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            maximum_predation_rate,
-            holling_half_saturation,
-            palatability_matrix,
+        ) - sum(
+            predation_loss_preferential.(
+                # the prey
+                $(plankton_symbol),
+                # sum over all potential predators
+                [$(plankton_array...)],
+                # access just the array of values
+                # this has to be the same length as other arrays
+                # in other words - need value per plankton
+                maximum_predation_rate.array,
+                # have a single value for the predator group
+                holling_half_saturation["Z"],
+                # get the prey column -> sum over all predators
+                palatability_matrix[:, $plankton_name].array,
+            ),
         ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_type])
     )
 end
@@ -162,10 +172,7 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 - `plankton_name`: name of the phytoplankton for which we are returning the expression passed
     as a String (e.g., "P1").
 """
-function phytoplankton_growth_single_nutrient_geider_light(
-    phyto_array, zoo_array, plankton_name
-)
-    plankton_array = vcat(phyto_array, zoo_array)
+function phytoplankton_growth_single_nutrient_geider_light(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
     # remove any digits to get just the type identifier
     plankton_type = replace(plankton_name, r"\d+" => "")
@@ -178,12 +185,15 @@ function phytoplankton_growth_single_nutrient_geider_light(
             nutrient_half_saturation[$plankton_name],
             photosynthetic_slope[$plankton_type],
             chlorophyll_to_carbon_ratio[$plankton_type],
-        ) - summed_predation_loss_preferential(
-            $plankton_name,
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            maximum_predation_rate,
-            holling_half_saturation,
-            palatability_matrix,
+        ) - sum(
+            # exactly the same as in example above
+            predation_loss_preferential.(
+                $(plankton_symbol),
+                [$(plankton_array...)],
+                maximum_predation_rate.array,
+                holling_half_saturation["Z"],
+                palatability_matrix[:, $plankton_name].array,
+            ),
         ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_type])
     )
 end

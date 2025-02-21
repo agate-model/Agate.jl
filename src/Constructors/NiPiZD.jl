@@ -19,6 +19,8 @@ DEFAULT_PHYTO_ARGS = Dict(
     "allometry" => Dict(
         "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
         "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
+        # need this to vectorize the tracer functions
+        "maximum_predation_rate" => Dict("a" => 0, "b" => 0),
     ),
     "linear_mortality" => 8e-7 / second,
     "alpha" => 0.1953 / day,
@@ -28,6 +30,8 @@ DEFAULT_PHYTO_GEIDER_ARGS = Dict(
     "allometry" => Dict(
         "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
         "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
+        # need this to vectorize the tracer functions
+        "maximum_predation_rate" => Dict("a" => 0, "b" => 0),
     ),
     "linear_mortality" => 8e-7 / second,
     "photosynthetic_slope" => 0.46e-5,
@@ -181,7 +185,7 @@ function construct(;
     )
     for i in 1:n_phyto
         name = "P$i"
-        tracers[name] = phyto_dynamics(phyto_array, zoo_array, name)
+        tracers[name] = phyto_dynamics(plankton_array, name)
     end
     for i in 1:n_zoo
         name = "Z$i"

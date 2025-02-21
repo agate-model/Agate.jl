@@ -155,25 +155,38 @@ estimate the total loss of plankton `prey_name` due to predation.
     use here to sum over only predator plankton (e.g., "Z" for zooplankton)
 """
 function summed_predation_loss_preferential(
-    prey_name,
+    prey,
     P,
     maximum_predation_rate,
     holling_half_saturation,
     palatability,
     plankton_type_prefix=["Z"],
 )
-    loss = sum(
-        predation_loss_preferential(
-            P[prey_name],
-            P[predator_name],
-            maximum_predation_rate[predator_name],
-            holling_half_saturation[replace(predator_name, r"\d+" => "")],
-            palatability[predator_name, prey_name],
-        ) for predator_name in names(P, 1) if
-        any(prefix -> occursin(prefix, predator_name), plankton_type_prefix)
-    )
+    # loss = sum(
+    #     predation_loss_preferential(
+    #         P[prey_name],
+    #         P[predator_name],
+    #         maximum_predation_rate[predator_name],
+    #         holling_half_saturation[replace(predator_name, r"\d+" => "")],
+    #         palatability[predator_name, prey_name],
+    #     ) for predator_name in names(P, 1) if
+    #     any(prefix -> occursin(prefix, predator_name), plankton_type_prefix)
+    # )
 
-    return loss
+    # return loss
+    println(prey)
+    println(P)
+    println(maximum_predation_rate)
+    println(palatability)
+    return sum(
+        predation_loss_preferential.(
+            prey,
+            P,
+            maximum_predation_rate.array,
+            holling_half_saturation,
+            palatability.array,
+        ),
+    )
 end
 
 """
@@ -199,25 +212,37 @@ estimate the total gain due to predation.
     - for a non-predator [i,:]=0
 """
 function summed_predation_gain_preferential(
-    predator_name,
     P,
+    predator,
     assimilation_efficiency,
     maximum_predation_rate,
     holling_half_saturation,
     palatability,
 )
     # sum over all plankton in P (return 0 if not suitable prey for this predator)
-    gain = sum(
-        predation_gain_preferential(
-            P[prey_name],
-            P[predator_name],
-            assimilation_efficiency[predator_name, prey_name],
-            maximum_predation_rate[predator_name],
-            holling_half_saturation[replace(predator_name, r"\d+" => "")],
-            palatability[predator_name, prey_name],
-        ) for prey_name in names(P, 1)
+    # gain = sum(
+    #     predation_gain_preferential(
+    #         P[prey_name],
+    #         P[predator_name],
+    #         assimilation_efficiency[predator_name, prey_name],
+    #         maximum_predation_rate[predator_name],
+    #         holling_half_saturation[replace(predator_name, r"\d+" => "")],
+    #         palatability[predator_name, prey_name],
+    #     ) for prey_name in names(P, 1)
+    # )
+    # return gain
+
+    å
+    return sum(
+        predation_gain_preferential.(
+            P,
+            predator,
+            assimilation_efficiency,
+            maximum_predation_rate,
+            holling_half_saturation,
+            palatability,
+        ),
     )
-    return gain
 end
 
 """
