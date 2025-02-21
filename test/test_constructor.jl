@@ -42,7 +42,7 @@ using Agate.Constructors: NiPiZD
             rtol=0.01,
         )
         @test isapprox(
-            model_constructed(Val(:D), 0, 0, 0, 0,:N, Z2, D, P1, P2, Z1, PAR),
+            model_constructed(Val(:D), 0, 0, 0, 0, :N, Z2, D, P1, P2, Z1, PAR),
             model(Val(:D), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR);
             rtol=0.01,
         )
