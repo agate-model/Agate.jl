@@ -21,44 +21,49 @@ using Agate.Constructors: NiPiZD
         include(joinpath("..", "examples", "N2P2ZD", "tracers.jl"))
         model = N2P2ZD()
 
+        # ================================================================================
+        # TRACER ORDER WHEN CALLING THIS MODEL
+        # println(required_biogeochemical_tracers(model)) returns (N, Z2, D, P1, P2, Z1)
+        # ================================================================================
+
         # N2P2ZD model constructed from emergent parameters - just using default vals here
         model_constructed = N2P2ZD_constructed()
 
-        @test !iszero(model_constructed(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model_constructed(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model_constructed(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model_constructed(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model_constructed(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model_constructed(Val(:Z2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model_constructed(Val(:N), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR))
+        @test !iszero(model_constructed(Val(:D), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR))
+        @test !iszero(model_constructed(Val(:P1), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR))
+        @test !iszero(model_constructed(Val(:P2), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR))
+        @test !iszero(model_constructed(Val(:Z1), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR))
+        @test !iszero(model_constructed(Val(:Z2), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR))
 
         @test isapprox(
-            model_constructed(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR),
-            model(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR);
+            model_constructed(Val(:N), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR),
+            model(Val(:N), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR);
             rtol=0.01,
         )
         @test isapprox(
-            model_constructed(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR),
-            model(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR);
+            model_constructed(Val(:D), 0, 0, 0, 0,:N, Z2, D, P1, P2, Z1, PAR),
+            model(Val(:D), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR);
             rtol=0.01,
         )
         @test isapprox(
-            model_constructed(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR),
-            model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR);
+            model_constructed(Val(:P1), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR),
+            model(Val(:P1), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR);
             rtol=0.01,
         )
         @test isapprox(
-            model_constructed(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR),
-            model(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR);
+            model_constructed(Val(:P2), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR),
+            model(Val(:P2), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR);
             rtol=0.01,
         )
         @test isapprox(
-            model_constructed(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR),
-            model(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR);
+            model_constructed(Val(:Z1), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR),
+            model(Val(:Z1), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR);
             rtol=0.01,
         )
         @test isapprox(
-            model_constructed(Val(:Z2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR),
-            model(Val(:Z2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR);
+            model_constructed(Val(:Z2), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR),
+            model(Val(:Z2), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR);
             rtol=0.01,
         )
     end
@@ -101,12 +106,17 @@ using Agate.Constructors: NiPiZD
         NP2ZD = NiPiZD.construct(; n_phyto=1)
         model = NiPiZD.instantiate(NP2ZD; phyto_diameters=[2])
 
+        # ================================================================================
+        # TRACER ORDER WHEN CALLING THIS MODEL
+        # println(required_biogeochemical_tracers(model)) returns (N, Z2, D, P1, Z1)
+        # ================================================================================
+
         # this model only has 1 phyto, 2 zoo tracers (unlike other tests here)
-        @test !iszero(model(Val(:N), 0, 0, 0, 0, P1, Z1, Z2, N, D, PAR))
-        @test !iszero(model(Val(:D), 0, 0, 0, 0, P1, Z1, Z2, N, D, PAR))
-        @test !iszero(model(Val(:P1), 0, 0, 0, 0, P1, Z1, Z2, N, D, PAR))
-        @test !iszero(model(Val(:Z1), 0, 0, 0, 0, P1, Z1, Z2, N, D, PAR))
-        @test !iszero(model(Val(:Z2), 0, 0, 0, 0, P1, Z1, Z2, N, D, PAR))
+        @test !iszero(model(Val(:N), 0, 0, 0, 0, N, Z2, D, P1, Z1, PAR))
+        @test !iszero(model(Val(:D), 0, 0, 0, 0, N, Z2, D, P1, Z1, PAR))
+        @test !iszero(model(Val(:P1), 0, 0, 0, 0, N, Z2, D, P1, Z1, PAR))
+        @test !iszero(model(Val(:Z1), 0, 0, 0, 0, N, Z2, D, P1, Z1, PAR))
+        @test !iszero(model(Val(:Z2), 0, 0, 0, 0, N, Z2, D, P1, Z1, PAR))
     end
 
     @testset "Alternative instantiation" begin
@@ -122,12 +132,12 @@ using Agate.Constructors: NiPiZD
             N2P2ZD_geider; phyto_args=NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS
         )
 
-        @test !iszero(model_geider(Val(:N), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model_geider(Val(:D), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model_geider(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model_geider(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model_geider(Val(:Z1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
-        @test !iszero(model_geider(Val(:Z2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR))
+        @test !iszero(model_geider(Val(:N), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR))
+        @test !iszero(model_geider(Val(:D), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR))
+        @test !iszero(model_geider(Val(:P1), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR))
+        @test !iszero(model_geider(Val(:P2), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR))
+        @test !iszero(model_geider(Val(:Z1), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR))
+        @test !iszero(model_geider(Val(:Z2), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR))
     end
 
     @testset "Create objects inside for loop" begin
@@ -137,12 +147,12 @@ using Agate.Constructors: NiPiZD
             phyto_args = NiPiZD.DEFAULT_PHYTO_ARGS
             phyto_args["allometry"]["maximum_growth_rate"]["a"] = i
             model = NiPiZD.instantiate(N2P2ZD_constructed; phyto_args=phyto_args)
-            p1 = model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR)
-            p2 = model(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR)
+            p1 = model(Val(:P1), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR)
+            p2 = model(Val(:P2), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR)
             @test !iszero(p1)
             @test !iszero(p2)
-            @test model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR) != prev_p1
-            @test model(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR) != prev_p2
+            @test model(Val(:P1), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR) != prev_p1
+            @test model(Val(:P1), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR) != prev_p2
             # check the values change as change parameter
             prev_p1 = p1
             prev_p2 = p2
@@ -160,9 +170,9 @@ using Agate.Constructors: NiPiZD
         model1 = some_wrapper_function(5)
         model2 = some_wrapper_function(10)
 
-        @test model1(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR) !=
-            model2(Val(:P1), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR)
-        @test model1(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR) !=
-            model2(Val(:P2), 0, 0, 0, 0, P1, P2, Z1, Z2, N, D, PAR)
+        @test model1(Val(:P1), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR) !=
+            model2(Val(:P1), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR)
+        @test model1(Val(:P2), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR) !=
+            model2(Val(:P2), 0, 0, 0, 0, N, Z2, D, P1, P2, Z1, PAR)
     end
 end
