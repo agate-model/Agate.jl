@@ -46,27 +46,20 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
     `[:P1, :P2, :Z1, :Z2]`
 """
-function nutrients_geider_light(plankton_array)
+function nutrients_geider_light(phyto_array, zoo_array)
     return :(
-        net_linear_loss(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            linear_mortality,
-            mortality_export_fraction,
-        ) +
-        net_quadratic_loss(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            quadratic_mortality,
-            mortality_export_fraction,
-        ) +
+        net_linear_loss([$(phyto_array...)], linear_mortality["P"], mortality_export_fraction) +
+        net_linear_loss([$(zoo_array...)], linear_mortality["Z"], mortality_export_fraction)  +
+        net_quadratic_loss([$(zoo_array...)], quadratic_mortality["Z"], mortality_export_fraction) +
         remineralization_idealized(D, detritus_remineralization) -
         net_photosynthetic_growth_single_nutrient_geider_light(
             N,
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            [$(phyto_array...)],
             PAR,
-            maximum_growth_rate,
-            nutrient_half_saturation,
-            photosynthetic_slope,
-            chlorophyll_to_carbon_ratio,
+            maximum_growth_rate.array,
+            nutrient_half_saturation.array,
+            photosynthetic_slope["P"],
+            chlorophyll_to_carbon_ratio["P"],
         )
     )
 end
