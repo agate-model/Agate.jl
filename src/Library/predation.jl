@@ -217,7 +217,6 @@ function summed_predation_gain_preferential(
             palatability[predator_name, prey_name],
         ) for prey_name in names(P, 1)
     )
-
     return gain
 end
 

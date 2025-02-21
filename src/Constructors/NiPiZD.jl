@@ -182,7 +182,7 @@ function construct(;
     end
     for i in 1:n_zoo
         name = "Z$i"
-        tracers[name] = zoo_dynamics(phyto_array, zoo_array, name)
+        tracers[name] = zoo_dynamics(plankton_array, name)
     end
 
     # return Oceananigans.Biogeochemistry object

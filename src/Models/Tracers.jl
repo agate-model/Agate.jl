@@ -21,18 +21,18 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 """
 function nutrients_typical(phyto_array, zoo_array)
     return :(
-        net_linear_loss([$(phyto_array...)], linear_mortality["P"], mortality_export_fraction) +
-        net_linear_loss([$(zoo_array...)], linear_mortality["Z"], mortality_export_fraction)  +
-        net_quadratic_loss([$(zoo_array...)], quadratic_mortality["Z"], mortality_export_fraction) +
+        sum(linear_loss.([$(phyto_array...)], linear_mortality["P"]) * mortality_export_fraction) +
+        sum(linear_loss.([$(zoo_array...)], linear_mortality["Z"]) * mortality_export_fraction)  +
+        sum(quadratic_loss.([$(zoo_array...)], quadratic_mortality["Z"]) * mortality_export_fraction) +
         remineralization_idealized(D, detritus_remineralization) -
-        net_photosynthetic_growth_single_nutrient(
+        sum(photosynthetic_growth_single_nutrient.(
             N,
             [$(phyto_array...)],
             PAR,
             maximum_growth_rate.array,
             nutrient_half_saturation.array,
             alpha["P"],
-        )
+        ))
     )
 end
 
@@ -48,11 +48,11 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 """
 function nutrients_geider_light(phyto_array, zoo_array)
     return :(
-        net_linear_loss([$(phyto_array...)], linear_mortality["P"], mortality_export_fraction) +
-        net_linear_loss([$(zoo_array...)], linear_mortality["Z"], mortality_export_fraction)  +
-        net_quadratic_loss([$(zoo_array...)], quadratic_mortality["Z"], mortality_export_fraction) +
+        sum(linear_loss.([$(phyto_array...)], linear_mortality["P"]) * mortality_export_fraction) +
+        sum(linear_loss.([$(zoo_array...)], linear_mortality["Z"]) * mortality_export_fraction)  +
+        sum(quadratic_loss.([$(zoo_array...)], quadratic_mortality["Z"]) * mortality_export_fraction) +
         remineralization_idealized(D, detritus_remineralization) -
-        net_photosynthetic_growth_single_nutrient_geider_light(
+        sum(photosynthetic_growth_single_nutrient_geider_light.(
             N,
             [$(phyto_array...)],
             PAR,
@@ -60,7 +60,7 @@ function nutrients_geider_light(phyto_array, zoo_array)
             nutrient_half_saturation.array,
             photosynthetic_slope["P"],
             chlorophyll_to_carbon_ratio["P"],
-        )
+        ))
     )
 end
 
@@ -77,11 +77,8 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 function detritus_typical(phyto_array, zoo_array)
     plankton_array = vcat(phyto_array, zoo_array)
     return :(
-        net_linear_loss(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            linear_mortality["P"],
-            1 - mortality_export_fraction,
-        ) +
+        sum(linear_loss.([$(phyto_array...)], linear_mortality["P"])) * (1 - mortality_export_fraction) +
+        sum(linear_loss.([$(zoo_array...)], linear_mortality["Z"])) * (1 - mortality_export_fraction) +
         net_predation_assimilation_loss_preferential(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             holling_half_saturation,
@@ -180,11 +177,11 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 - `plankton_name`: name of the zooplankton for which we are returning the expression passed
     as a String (e.g., "Z1").
 """
-function zooplankton_growth_simplified(phyto_array, zoo_array, plankton_name)
-    plankton_array = vcat(phyto_array, zoo_array)
+function zooplankton_growth_simplified(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
     # remove any digits to get just the type identifier
     plankton_type = replace(plankton_name, r"\d+" => "")
+
     return :(
         summed_predation_gain_preferential(
             $plankton_name,
