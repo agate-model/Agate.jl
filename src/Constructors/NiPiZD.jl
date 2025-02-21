@@ -68,7 +68,6 @@ DEFAULT_BGC_ARGS = Dict(
     "detritus_remineralization" => 0.1213 / day, "mortality_export_fraction" => 0.5
 )
 
-
 """
     construct(;
         n_phyto=2,
