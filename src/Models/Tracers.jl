@@ -38,7 +38,8 @@ function nutrients_typical(phyto_array, zoo_array)
                 N,
                 [$(phyto_array...)],
                 PAR,
-                # extract array of values
+                # extract an array of values from the NamedArray
+                # otherwise get an error when trying to broadcast
                 maximum_growth_rate.array,
                 nutrient_half_saturation.array,
                 alpha["P"],
@@ -108,6 +109,7 @@ function detritus_typical(phyto_array, zoo_array)
                 # use array' to turn it into a row vector
                 [$(plankton_array...)]',
                 [$(plankton_array...)],
+                # extract array of values
                 assimilation_efficiency_matrix.array,
                 maximum_predation_rate.array,
                 holling_half_saturation["Z"],
@@ -149,13 +151,12 @@ function phytoplankton_growth_single_nutrient(plankton_array, plankton_name)
                 $(plankton_symbol),
                 # sum over all potential predators
                 [$(plankton_array...)],
-                # access just the array of values
-                # this has to be the same length as other arrays
-                # in other words - need value per plankton
+                # extract array of values
                 maximum_predation_rate.array,
                 # have a single value for the predator group
                 holling_half_saturation["Z"],
                 # get the prey column -> sum over all predators
+                # extract array of values
                 palatability_matrix[:, $plankton_name].array,
             ),
         ) - linear_loss($(plankton_symbol), linear_mortality["P"])
@@ -215,11 +216,11 @@ function zooplankton_growth_simplified(plankton_array, plankton_name)
     return :(
         sum(
             predation_gain_preferential.(
-                # prey concetration array to broadcast over (all plankton here, allows for canibalism)
+                # prey concetration array to broadcast over (all plankton)
                 [$(plankton_array...)],
                 # predator value
                 $(plankton_symbol),
-                # get the plankton_name predator row - all prey values
+                # get the predator row - sum over all prey values
                 assimilation_efficiency_matrix[$plankton_name, :],
                 # predator specific value
                 maximum_predation_rate[$plankton_name],
