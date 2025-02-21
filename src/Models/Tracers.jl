@@ -19,26 +19,19 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
     `[:P1, :P2, :Z1, :Z2]`
 """
-function nutrients_typical(plankton_array)
+function nutrients_typical(phyto_array, zoo_array)
     return :(
-        net_linear_loss(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            linear_mortality,
-            mortality_export_fraction,
-        ) +
-        net_quadratic_loss(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            quadratic_mortality,
-            mortality_export_fraction,
-        ) +
+        net_linear_loss([$(phyto_array...)], linear_mortality["P"], mortality_export_fraction) +
+        net_linear_loss([$(zoo_array...)], linear_mortality["Z"], mortality_export_fraction)  +
+        net_quadratic_loss([$(zoo_array...)], quadratic_mortality["Z"], mortality_export_fraction) +
         remineralization_idealized(D, detritus_remineralization) -
         net_photosynthetic_growth_single_nutrient(
             N,
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
+            [$(phyto_array...)],
             PAR,
-            maximum_growth_rate,
-            nutrient_half_saturation,
-            alpha,
+            maximum_growth_rate.array,
+            nutrient_half_saturation.array,
+            alpha["P"],
         )
     )
 end
@@ -88,11 +81,12 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
     `[:P1, :P2, :Z1, :Z2]`
 """
-function detritus_typical(plankton_array)
+function detritus_typical(phyto_array, zoo_array)
+    plankton_array = vcat(phyto_array, zoo_array)
     return :(
         net_linear_loss(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            linear_mortality,
+            linear_mortality["P"],
             1 - mortality_export_fraction,
         ) +
         net_predation_assimilation_loss_preferential(
@@ -103,8 +97,8 @@ function detritus_typical(plankton_array)
             palatability_matrix,
         ) +
         net_quadratic_loss(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            quadratic_mortality,
+            NamedArray([$(zoo_array...)], $(String.(zoo_array))),
+            quadratic_mortality["Z"],
             1 - mortality_export_fraction,
         ) - remineralization_idealized(D, detritus_remineralization)
     )
@@ -122,7 +116,8 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 - `plankton_name`: name of the phytoplankton for which we are returning the expression passed
     as a String (e.g., "P1").
 """
-function phytoplankton_growth_single_nutrient(plankton_array, plankton_name)
+function phytoplankton_growth_single_nutrient(phyto_array, zoo_array, plankton_name)
+    plankton_array = vcat(phyto_array, zoo_array)
     plankton_symbol = Symbol(plankton_name)
     # remove any digits to get just the type identifier
     plankton_type = replace(plankton_name, r"\d+" => "")
@@ -156,7 +151,8 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 - `plankton_name`: name of the phytoplankton for which we are returning the expression passed
     as a String (e.g., "P1").
 """
-function phytoplankton_growth_single_nutrient_geider_light(plankton_array, plankton_name)
+function phytoplankton_growth_single_nutrient_geider_light(phyto_array, zoo_array, plankton_name)
+    plankton_array = vcat(phyto_array, zoo_array)
     plankton_symbol = Symbol(plankton_name)
     # remove any digits to get just the type identifier
     plankton_type = replace(plankton_name, r"\d+" => "")
@@ -191,7 +187,8 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 - `plankton_name`: name of the zooplankton for which we are returning the expression passed
     as a String (e.g., "Z1").
 """
-function zooplankton_growth_simplified(plankton_array, plankton_name)
+function zooplankton_growth_simplified(phyto_array, zoo_array, plankton_name)
+    plankton_array = vcat(phyto_array, zoo_array)
     plankton_symbol = Symbol(plankton_name)
     # remove any digits to get just the type identifier
     plankton_type = replace(plankton_name, r"\d+" => "")

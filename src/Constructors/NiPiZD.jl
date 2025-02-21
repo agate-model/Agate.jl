@@ -156,7 +156,7 @@ function construct(;
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 )
-    parameters = create_params_dict(;
+    parameters = create_npzd_params_dict(;
         n_phyto=n_phyto,
         n_zoo=n_zoo,
         phyto_diameters=phyto_diameters,
@@ -174,15 +174,15 @@ function construct(;
     zoo_array = [Symbol("Z$i") for i in 1:n_zoo]
     plankton_array = vcat(phyto_array, zoo_array)
     tracers = Dict(
-        "N" => nutrient_dynamics(plankton_array), "D" => detritus_dynamics(plankton_array)
+        "N" => nutrient_dynamics(phyto_array, zoo_array), "D" => detritus_dynamics(phyto_array, zoo_array)
     )
     for i in 1:n_phyto
         name = "P$i"
-        tracers[name] = phyto_dynamics(plankton_array, name)
+        tracers[name] = phyto_dynamics(phyto_array, zoo_array, name)
     end
     for i in 1:n_zoo
         name = "Z$i"
-        tracers[name] = zoo_dynamics(plankton_array, name)
+        tracers[name] = zoo_dynamics(phyto_array, zoo_array, name)
     end
 
     # return Oceananigans.Biogeochemistry object
@@ -275,7 +275,7 @@ function instantiate(
     n_zoo = Int(defaults.n_zoo)
 
     # returns NamedTuple -> have to convert to Dict
-    parameters = create_params_dict(;
+    parameters = create_npzd_params_dict(;
         n_phyto=n_phyto,
         n_zoo=n_zoo,
         phyto_diameters=phyto_diameters,

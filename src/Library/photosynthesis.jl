@@ -119,8 +119,6 @@ Net photosynthetic growth of all plankton.
 - `nutrient_half_saturation`: NamedArray of all plankton nutrient half saturation constants
 - `photosynthetic_slope`: initial photosynthetic slope (αᶜʰˡ)
 - `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon (θᶜ)
-- `plankton_type_prefix`: Array of prefixes used in plankton names to indicate their type,
-    use here to sum over only the relevant plankton (e.g., "P" for phytoplankton)
 """
 function net_photosynthetic_growth_single_nutrient_geider_light(
     N,
@@ -130,20 +128,20 @@ function net_photosynthetic_growth_single_nutrient_geider_light(
     nutrient_half_saturation,
     photosynthetic_slope,
     chlorophyll_to_carbon_ratio,
-    plankton_type_prefix=["P"],
 )
-    return sum([
-        photosynthetic_growth_single_nutrient_geider_light(
-            N,
-            P[name],
-            PAR,
-            maximum_growth_rate[name],
-            nutrient_half_saturation[name],
-            photosynthetic_slope[replace(name, r"\d+" => "")],
-            chlorophyll_to_carbon_ratio[replace(name, r"\d+" => "")],
-        ) for
-        name in names(P, 1) if any(prefix -> occursin(prefix, name), plankton_type_prefix)
-    ],)
+    # return sum([
+    #     photosynthetic_growth_single_nutrient_geider_light.(
+    #         N,
+    #         P[name],
+    #         PAR,
+    #         maximum_growth_rate[name],
+    #         nutrient_half_saturation[name],
+    #         photosynthetic_slope[replace(name, r"\d+" => "")],
+    #         chlorophyll_to_carbon_ratio[replace(name, r"\d+" => "")],
+    #     ) for
+    #     name in names(P, 1) if any(prefix -> occursin(prefix, name), plankton_type_prefix)
+    # ],)
+    sum(photosynthetic_growth_single_nutrient_geider_light.(N, P, PAR, maximum_growth_rate, nutrient_half_saturation, photosynthetic_slope, chlorophyll_to_carbon_ratio))
 end
 
 """
@@ -156,8 +154,6 @@ Net photosynthetic growth of all plankton assuming geider light limitation.
 - `maximum_growth_rate`: NamedArray of all plankton maximum growth rates
 - `nutrient_half_saturation`: NamedArray of all plankton nutrient half saturation constants
 - `alpha`: initial photosynthetic slope
-- `plankton_type_prefix`: Array of prefixes used in plankton names to indicate their type,
-    use here to sum over only the relevant plankton (e.g., "P" for phytoplankton)
 """
 function net_photosynthetic_growth_single_nutrient(
     N,
@@ -166,19 +162,19 @@ function net_photosynthetic_growth_single_nutrient(
     maximum_growth_rate,
     nutrient_half_saturation,
     alpha,
-    plankton_type_prefix=["P"],
 )
-    return sum([
-        photosynthetic_growth_single_nutrient(
-            N,
-            P[name],
-            PAR,
-            maximum_growth_rate[name],
-            nutrient_half_saturation[name],
-            alpha[replace(name, r"\d+" => "")],
-        ) for
-        name in names(P, 1) if any(prefix -> occursin(prefix, name), plankton_type_prefix)
-    ],)
+    # return sum([
+    #     photosynthetic_growth_single_nutrient(
+    #         N,
+    #         P[name],
+    #         PAR,
+    #         maximum_growth_rate[name],
+    #         nutrient_half_saturation[name],
+    #         alpha[replace(name, r"\d+" => "")],
+    #     ) for
+    #     name in names(P, 1) if any(prefix -> occursin(prefix, name), plankton_type_prefix)
+    # ],)
+    sum(photosynthetic_growth_single_nutrient.(N, P, PAR, maximum_growth_rate, nutrient_half_saturation, alpha))
 end
 
 end # module

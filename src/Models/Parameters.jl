@@ -6,13 +6,13 @@ using NamedArrays
 using Agate.Library.Allometry
 using Agate.Library.Predation
 
-export compute_allometric_parameters, create_params_dict
+export compute_allometric_parameters, create_npzd_params_dict
 
 emergent_palatability_f = allometric_palatability_unimodal_protection
 emergent_assimilation_efficiency_f = assimilation_efficiency_emergent_binary
 
 """
-Create a dictionary of parameters to pass to `Agate.Models.Biogeochemistry.define_tracer_functions`.
+Create a dictionary of NPZD parameters to pass to `Agate.Models.Biogeochemistry.define_tracer_functions`.
 
 # Arguments
 - `n_phyto`: number of phytoplankton to include in the model
@@ -36,7 +36,7 @@ Create a dictionary of parameters to pass to `Agate.Models.Biogeochemistry.defin
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
     NamedArray, if provided then `interaction_args` are not used to compute this
 """
-function create_params_dict(;
+function create_npzd_params_dict(;
     n_phyto=2,
     n_zoo=2,
     phyto_diameters=Dict(
@@ -82,6 +82,7 @@ function create_params_dict(;
         )
     end
 
+    # also reshapes non-emergent plankton parameters
     emergent_parameters = compute_allometric_parameters(defined_parameters)
 
     if !isnothing(palatability_matrix)
@@ -254,6 +255,7 @@ function compute_allometric_parameters(plankton::Dict)
                     end
                 else
                     # NOTE: expect here that in all other cases `value` is a single number
+                    # TODO: change to something like results[join([param, plankton_name], "_")] = value
                     results[param] = vcat(
                         results[param], NamedArray([value], [plankton_name])
                     )
