@@ -10,9 +10,7 @@ export γˡⁱᵍʰᵗ,
     light_limitation_smith,
     light_limitation_geider,
     photosynthetic_growth_single_nutrient,
-    photosynthetic_growth_single_nutrient_geider_light,
-    net_photosynthetic_growth_single_nutrient,
-    net_photosynthetic_growth_single_nutrient_geider_light
+    photosynthetic_growth_single_nutrient_geider_light
 """
     γˡⁱᵍʰᵗ = (1 - ℯ^(kˢᵃᵗ*I)) * ℯ^kⁱⁿʰ * nˡⁱᵍʰᵗ
 

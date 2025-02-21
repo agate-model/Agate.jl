@@ -86,11 +86,8 @@ function detritus_typical(phyto_array, zoo_array)
             assimilation_efficiency_matrix,
             palatability_matrix,
         ) +
-        net_quadratic_loss(
-            NamedArray([$(zoo_array...)], $(String.(zoo_array))),
-            quadratic_mortality["Z"],
-            1 - mortality_export_fraction,
-        ) - remineralization_idealized(D, detritus_remineralization)
+        sum(quadratic_loss.([$(zoo_array...)], quadratic_mortality["Z"]) * (1 - mortality_export_fraction)) -
+        remineralization_idealized(D, detritus_remineralization)
     )
 end
 
