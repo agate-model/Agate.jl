@@ -13,11 +13,13 @@ export detritus_typical,
 Build expression for a single nutrient function of time.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either a NamedArray or a Float.
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2]`
+- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
+    `[:Z1, :Z2]`
 """
 function nutrients_typical(phyto_array, zoo_array)
     return :(
@@ -52,11 +54,13 @@ end
 Build expression for a single nutrient function of time where photosynthetic growth is limited based on the Geider formulation.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either a NamedArray or a Float.
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2]`
+- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
+    `[:Z1, :Z2]`
 """
 function nutrients_geider_light(phyto_array, zoo_array)
     return :(
@@ -77,7 +81,7 @@ function nutrients_geider_light(phyto_array, zoo_array)
                 N,
                 [$(phyto_array...)],
                 PAR,
-                # extract array of values
+                # size dependant values
                 maximum_growth_rate.array,
                 nutrient_half_saturation.array,
                 photosynthetic_slope["P"],
@@ -91,11 +95,13 @@ end
 Build expression for a simplified detritus function of time.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either a NamedArray or a Float.
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2]`
+- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
+    `[:Z1, :Z2]`
 """
 function detritus_typical(phyto_array, zoo_array)
     plankton_array = vcat(zoo_array, phyto_array)
@@ -105,14 +111,19 @@ function detritus_typical(phyto_array, zoo_array)
         sum(linear_loss.([$(zoo_array...)], linear_mortality["Z"])) *
         (1 - mortality_export_fraction) +
         sum(
+            # the function includes predator x prey matrix inputs so have to make sure that
+            # arrays are broadcast row/column wise as appropriate
             predation_assimilation_loss_preferential.(
-                # use array' to turn it into a row vector
+                # prey is row-wise -> use array' to declare a row vector
                 [$(plankton_array...)]',
+                # predators are column-wise
                 [$(plankton_array...)],
-                # extract array of values
+                # predator x prey matrix
                 assimilation_efficiency_matrix.array,
+                # predator size dependant parameters
                 maximum_predation_rate.array,
                 holling_half_saturation["Z"],
+                # predator x prey matrix
                 palatability_matrix.array,
             ),
         ) +
@@ -127,7 +138,7 @@ end
 Build expression for a simplified phytoplankton growth function.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either a NamedArray or a Float.
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
@@ -149,14 +160,12 @@ function phytoplankton_growth_single_nutrient(plankton_array, plankton_name)
             predation_loss_preferential.(
                 # the prey
                 $(plankton_symbol),
-                # sum over all potential predators
+                # all potential predators
                 [$(plankton_array...)],
-                # extract array of values
+                # predator size dependant parameters
                 maximum_predation_rate.array,
-                # have a single value for the predator group
                 holling_half_saturation["Z"],
                 # get the prey column -> sum over all predators
-                # extract array of values
                 palatability_matrix[:, $plankton_name].array,
             ),
         ) - linear_loss($(plankton_symbol), linear_mortality["P"])
@@ -167,7 +176,7 @@ end
 Build expression for a simplified phytoplankton growth function which adds geider light limitation.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either a NamedArray or a Float.
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
@@ -203,7 +212,7 @@ end
 Build expression for simplified zooplankton growth function.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either a NamedArray or a Float.
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
@@ -216,17 +225,16 @@ function zooplankton_growth_simplified(plankton_array, plankton_name)
     return :(
         sum(
             predation_gain_preferential.(
-                # prey concetration array to broadcast over (all plankton)
+                # all prey concetrations
                 [$(plankton_array...)],
-                # predator value
+                # predator
                 $(plankton_symbol),
-                # get the predator row - sum over all prey values
+                # get the predator row -> sum over all prey
                 assimilation_efficiency_matrix[$plankton_name, :],
-                # predator specific value
+                # predator size dependant parameter
                 maximum_predation_rate[$plankton_name],
-                # single val for all zooplankton
                 holling_half_saturation["Z"],
-                # again, get the predator row
+                # get the predator row -> sum over all prey
                 palatability_matrix[$plankton_name, :],
             ),
         ) - linear_loss($(plankton_symbol), linear_mortality["Z"]) -
