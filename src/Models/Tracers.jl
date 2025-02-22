@@ -116,11 +116,11 @@ function detritus_typical(phyto_array, zoo_array)
             predation_assimilation_loss_preferential.(
                 # prey is row-wise -> use array' to declare a row vector
                 [$(plankton_array...)]',
-                # predators are column-wise
+                # predators are column-wise so leave as is
                 [$(plankton_array...)],
                 # predator x prey matrix
                 assimilation_efficiency_matrix.array,
-                # predator size dependant parameters
+                # predator size dependant parameters -> apply column-wise
                 maximum_predation_rate.array,
                 holling_half_saturation["Z"],
                 # predator x prey matrix
@@ -165,7 +165,7 @@ function phytoplankton_growth_single_nutrient(plankton_array, plankton_name)
                 # predator size dependant parameters
                 maximum_predation_rate.array,
                 holling_half_saturation["Z"],
-                # get the prey column -> sum over all predators
+                # get the prey column -> sum over all predator rows
                 palatability_matrix[:, $plankton_name].array,
             ),
         ) - linear_loss($(plankton_symbol), linear_mortality["P"])
@@ -196,7 +196,7 @@ function phytoplankton_growth_single_nutrient_geider_light(plankton_array, plank
             photosynthetic_slope["P"],
             chlorophyll_to_carbon_ratio["P"],
         ) - sum(
-            # exactly the same as in example above
+            # exactly the same as in phytoplankton_growth_single_nutrient
             predation_loss_preferential.(
                 $(plankton_symbol),
                 [$(plankton_array...)],
@@ -225,16 +225,16 @@ function zooplankton_growth_simplified(plankton_array, plankton_name)
     return :(
         sum(
             predation_gain_preferential.(
-                # all prey concetrations
+                # all potential prey
                 [$(plankton_array...)],
-                # predator
+                # the predator
                 $(plankton_symbol),
-                # get the predator row -> sum over all prey
+                # get the predator row -> sum over all prey columns
                 assimilation_efficiency_matrix[$plankton_name, :],
                 # predator size dependant parameter
                 maximum_predation_rate[$plankton_name],
                 holling_half_saturation["Z"],
-                # get the predator row -> sum over all prey
+                # get the predator row -> sum over all prey columns
                 palatability_matrix[$plankton_name, :],
             ),
         ) - linear_loss($(plankton_symbol), linear_mortality["Z"]) -
