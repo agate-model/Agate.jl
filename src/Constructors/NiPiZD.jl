@@ -22,7 +22,7 @@ DEFAULT_PHYTO_ARGS = Dict(
         # need this to vectorize the tracer functions
         "maximum_predation_rate" => Dict("a" => 0, "b" => 0),
     ),
-    "linear_mortality" => 8e-7 / second,
+    "linear_mortality_p" => 8e-7 / second,
     "alpha" => 0.1953 / day,
 )
 
@@ -33,14 +33,14 @@ DEFAULT_PHYTO_GEIDER_ARGS = Dict(
         # need this to vectorize the tracer functions
         "maximum_predation_rate" => Dict("a" => 0, "b" => 0),
     ),
-    "linear_mortality" => 8e-7 / second,
+    "linear_mortality_p" => 8e-7 / second,
     "photosynthetic_slope" => 0.46e-5,
     "chlorophyll_to_carbon_ratio" => 0.1,
 )
 
 DEFAULT_ZOO_ARGS = Dict(
     "allometry" => Dict("maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16)),
-    "linear_mortality" => 8e-7 / second,
+    "linear_mortality_z" => 8e-7 / second,
     "holling_half_saturation" => 5.0,
     "quadratic_mortality" => 1e-6 / second,
 )
@@ -173,27 +173,30 @@ function construct(;
         assimilation_efficiency_matrix=assimilation_efficiency_matrix,
     )
 
-    # create tracer functions
-    phyto_array = [Symbol("P$i") for i in 1:n_phyto]
+    # NOTE: Zs precede Ps because this is the order in all arrays/matrices
     zoo_array = [Symbol("Z$i") for i in 1:n_zoo]
-
-    # NOTE: Zs precede Ps because this is order in assimilation/palatability matrices
+    phyto_array = [Symbol("P$i") for i in 1:n_phyto]
     plankton_array = vcat(zoo_array, phyto_array)
+
+    # create tracer functions
     tracers = Dict(
         "N" => nutrient_dynamics(phyto_array, zoo_array),
         "D" => detritus_dynamics(phyto_array, zoo_array),
     )
-    for i in 1:n_phyto
-        name = "P$i"
-        tracers[name] = phyto_dynamics(plankton_array, name)
-    end
+    # start with zoos --> the index here is the position in all
+    # zoo arrays as well as in the full plankton arrays
     for i in 1:n_zoo
         name = "Z$i"
         tracers[name] = zoo_dynamics(plankton_array, name)
     end
+    # !! the index here is the position in phyto arrays only !!
+    for i in 1:n_phyto
+        name = "P$i"
+        tracers[name] = phyto_dynamics(plankton_array, name)
+    end
 
     # return Oceananigans.Biogeochemistry object
-    # note this adds "PAR" as an auxiliary field by default
+    # NOTE: this adds "PAR" as an auxiliary field by default
     return define_tracer_functions(parameters, tracers)
 end
 
@@ -339,13 +342,19 @@ function create_params_dict(;
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 )
-    phyto_args["n"] = n_phyto
-    phyto_args["diameters"] = phyto_diameters
-    zoo_args["n"] = n_zoo
-    zoo_args["diameters"] = zoo_diameters
-
     # compute emergent parameters
-    defined_parameters = Dict("P" => phyto_args, "Z" => zoo_args)
+    defined_parameters = Dict(
+        "P" => Dict{String,Any}(
+            "allometry" => phyto_args["allometry"],
+            "n" => n_phyto,
+            "diameters" => phyto_diameters,
+        ),
+        "Z" => Dict{String,Any}(
+            "allometry" => zoo_args["allometry"],
+            "n" => n_zoo,
+            "diameters" => zoo_diameters,
+        ),
+    )
 
     if isnothing(palatability_matrix)
         defined_parameters["P"]["palatability"] = Dict(
@@ -400,9 +409,13 @@ function create_params_dict(;
     bgc_args["n_phyto"] = n_phyto
     bgc_args["n_zoo"] = n_zoo
 
-    # combine emergent parameters with remaining user defined parameters
+    phyto_args = Dict(k => v for (k, v) in phyto_args if k != "allometry")
+    zoo_args = Dict(k => v for (k, v) in zoo_args if k != "allometry")
+
+    # combine emergent parameters with remaining bgc, phyto and zoo defined parameters
     parameters = NamedTuple(
-        Symbol(k) => v for (k, v) in merge(bgc_args, emergent_parameters)
+        Symbol(k) => v for
+        (k, v) in merge(bgc_args, emergent_parameters, phyto_args, zoo_args)
     )
 
     return parameters

@@ -145,8 +145,9 @@ function compute_allometric_parameters(plankton::Dict)
                     end
                 else
                     # NOTE: expect here that in all other cases `value` is a single number
+                    # println(value, " ", value * ones(n), " ", plankton_names)
                     results[param] = vcat(
-                        results[param], NamedArray([value], [plankton_name])
+                        results[param], NamedArray(value * ones(n), plankton_names)
                     )
                 end
             end
