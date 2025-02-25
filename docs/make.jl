@@ -1,9 +1,6 @@
 push!(LOAD_PATH, "../src/")
 using Documenter, Agate
-model_pages=[
-    "NiPiZD" => "nipizd.md",
-    "DARWIN" => "darwin.md"
-]
+model_pages = ["NiPiZD" => "nipizd.md", "DARWIN" => "darwin.md"]
 
 makedocs(;
     sitename="Agate.jl",
