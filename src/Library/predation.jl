@@ -293,7 +293,7 @@ estimate the total assimilation loss during predation.
 - `palatability`: NamedArray of all plankton palatabilities where:
     - each row is a predator
     - each column is a prey
-    - values are accessed as `palat[predator, prey]`
+    - values are accessed as `palatability[predator, prey]`
     - for a non-predator [i,:]=0
 - `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
     - each row is a predator
