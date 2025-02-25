@@ -298,7 +298,7 @@ estimate the total assimilation loss during predation.
 - `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
     - each row is a predator
     - each column is a prey
-    - values are accessed as `palat[predator, prey]`
+    - values are accessed as `assimilation_efficiency[predator, prey]`
     - for a non-predator [i,:]=0
 - `quota`: NamedArray of all plankton predation elemental quotas
 
