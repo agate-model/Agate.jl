@@ -35,6 +35,7 @@ Net loss of all plankton due to linear mortality.
 # Arguments
 - `P`: NamedArray which includes all plankton concentration values
 - `linear_mortality`: NamedArray of plankton linear mortality rates
+- `fraction`: Float which represents the fractionation lost to detritus
 """
 function net_linear_loss(P, linear_mortality, fraction)
     # sum over all plankton in `P` - strip digits from plankton name to get its type (e.g., "Z")
@@ -70,6 +71,7 @@ Net loss of all plankton due to quadratic mortality.
 # Arguments
 - `P`: NamedArray which includes all plankton concentration values
 - `quadratic_mortality`: plankton quadratic mortality rate
+- `fraction`: Float which represents the fractionation lost to detritus
 - `plankton_type_prefix`: Array of prefixes used in plankton names to indicate their type,
     use here to sum over only the relevant plankton (e.g., "Z" for zooplankton)
 """

@@ -187,14 +187,14 @@ estimate the total gain due to predation.
 # Arguments
 - `predator_name`: name of the predator, e.g. `P[predator_name]`
 - `P`: NamedArray which includes all plankton concentration values
-- `maximum_predation_rate`: NamedArray of all plankton predation rates
-- `holling_half_saturation`: predation half saturation constant
-- `palatability`: NamedArray of all plankton palatabilities where:
+- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
     - each row is a predator
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
-- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
+- `maximum_predation_rate`: NamedArray of all plankton predation rates
+- `holling_half_saturation`: predation half saturation constant
+- `palatability`: NamedArray of all plankton palatabilities where:
     - each row is a predator
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
@@ -232,14 +232,14 @@ estimate the total assimilation loss during predation.
 # Arguments
 - `predator_name`: name of the predator, e.g. `P[predator_name]`
 - `P`: NamedArray which includes all plankton concentration values
-- `maximum_predation_rate`: NamedArray of all plankton predation rates
-- `holling_half_saturation`: plankton predation half saturation constant
-- `palatability`: NamedArray of all plankton palatabilities where:
+- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
     - each row is a predator
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
-- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
+- `maximum_predation_rate`: NamedArray of all plankton predation rates
+- `holling_half_saturation`: plankton predation half saturation constant
+- `palatability`: NamedArray of all plankton palatabilities where:
     - each row is a predator
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
@@ -288,17 +288,17 @@ estimate the total assimilation loss during predation.
 # Arguments
 - `predator_name`: name of the predator, e.g. `P[predator_name]`
 - `P`: NamedArray which includes all plankton concentration values
-- `maximum_predation_rate`: NamedArray of all plankton predation rates
-- `holling_half_saturation`: NamedArray of all plankton predation half saturation constants
-- `palatability`: NamedArray of all plankton palatabilities where:
-    - each row is a predator
-    - each column is a prey
-    - values are accessed as `palatability[predator, prey]`
-    - for a non-predator [i,:]=0
 - `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
     - each row is a predator
     - each column is a prey
     - values are accessed as `assimilation_efficiency[predator, prey]`
+    - for a non-predator [i,:]=0
+- `maximum_predation_rate`: NamedArray of all plankton predation rates
+    - `holling_half_saturation`: NamedArray of all plankton predation half saturation constants
+- `palatability`: NamedArray of all plankton palatabilities where:
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palatability[predator, prey]`
     - for a non-predator [i,:]=0
 - `quota`: NamedArray of all plankton predation elemental quotas
 
@@ -343,12 +343,12 @@ Net predator assimilation loss of all plankton.
 - `P`: NamedArray which includes all plankton concentration values
 - `holling_half_saturation`: NamedArray of all plankton predation half saturation constants
 - `maximum_predation_rate`: NamedArray of all plankton maximum predation rates
-- `palatability`: NamedArray of all plankton palatabilities where:
+- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
     - each row is a predator
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
-- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
+- `palatability`: NamedArray of all plankton palatabilities where:
     - each row is a predator
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
@@ -395,12 +395,12 @@ Net predator assimilation loss of all plankton which is fractionated between DOC
 - `P`: NamedArray which includes all plankton concentration values
 - `holling_half_saturation`: NamedArray of all plankton predation half saturation constants
 - `maximum_predation_rate`: NamedArray of all plankton maximum predation rates
-- `palatability`: NamedArray of all plankton palatabilities where:
+- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
     - each row is a predator
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
-- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
+- `palatability`: NamedArray of all plankton palatabilities where:
     - each row is a predator
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
@@ -451,12 +451,12 @@ The quota term is multiplied with estimated loss to convert from e.g. carbon to 
 - `P`: NamedArray which includes all plankton concentration values
 - `holling_half_saturation`: NamedArray of all plankton predation half saturation constants
 - `maximum_predation_rate`: NamedArray of all plankton maximum predation rates
-- `palatability`: NamedArray of all plankton palatabilities where:
+- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
     - each row is a predator
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
     - for a non-predator [i,:]=0
-- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
+- `palatability`: NamedArray of all plankton palatabilities where:
     - each row is a predator
     - each column is a prey
     - values are accessed as `palat[predator, prey]`
