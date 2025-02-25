@@ -271,6 +271,7 @@ Net photosynthetic growth of all plankton assuming geider light limitation with 
 - `half_saturation_PO4`: phosphate half saturation
 - `photosynthetic_slope`: initial photosynthetic slope
 - `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon 
+- `nutrient_to_carbon`: Float which represents plankton nutrient to carbon ratio
 - `plankton_type_prefix`: Array of prefixes used in plankton names to indicate their type,
     use here to sum over only the relevant plankton (e.g., "P" for phytoplankton)
 """
@@ -300,7 +301,7 @@ function net_photosynthetic_growth_two_nutrients_geider_light_quota(
             half_saturation_PO4[name],
             photosynthetic_slope[replace(name, r"\d+" => "")],
             chlorophyll_to_carbon_ratio[replace(name, r"\d+" => "")],
-        ) * nutrient_to_carbon[replace(name, r"\d+" => "")] for
+        ) * nutrient_to_carbon for
         name in names(P, 1) if any(prefix -> occursin(prefix, name), plankton_type_prefix)
     ],)
 end

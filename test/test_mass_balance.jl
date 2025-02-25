@@ -75,20 +75,20 @@ const year = years = 365day
 
         function estimate_nitrogen_mass(box_model)
             return box_model.fields.DIN.data[1, 1, 1] +
-                   box_model.fields.P1.data[1, 1, 1] * model().nitrogen_to_carbon["P"] +
-                   box_model.fields.P2.data[1, 1, 1] * model().nitrogen_to_carbon["P"] +
-                   box_model.fields.Z1.data[1, 1, 1] * model().nitrogen_to_carbon["Z"] +
-                   box_model.fields.Z2.data[1, 1, 1] * model().nitrogen_to_carbon["Z"] +
+                   box_model.fields.P1.data[1, 1, 1] * model().nitrogen_to_carbon +
+                   box_model.fields.P2.data[1, 1, 1] * model().nitrogen_to_carbon +
+                   box_model.fields.Z1.data[1, 1, 1] * model().nitrogen_to_carbon +
+                   box_model.fields.Z2.data[1, 1, 1] * model().nitrogen_to_carbon +
                    box_model.fields.PON.data[1, 1, 1] +
                    box_model.fields.DON.data[1, 1, 1]
         end
 
         function estimate_phosphorus_mass(box_model)
             return box_model.fields.PO4.data[1, 1, 1] +
-                   box_model.fields.P1.data[1, 1, 1] * model().phosphorus_to_carbon["P"] +
-                   box_model.fields.P2.data[1, 1, 1] * model().phosphorus_to_carbon["P"] +
-                   box_model.fields.Z1.data[1, 1, 1] * model().phosphorus_to_carbon["Z"] +
-                   box_model.fields.Z2.data[1, 1, 1] * model().phosphorus_to_carbon["Z"] +
+                   box_model.fields.P1.data[1, 1, 1] * model().phosphorus_to_carbon +
+                   box_model.fields.P2.data[1, 1, 1] * model().phosphorus_to_carbon +
+                   box_model.fields.Z1.data[1, 1, 1] * model().phosphorus_to_carbon +
+                   box_model.fields.Z2.data[1, 1, 1] * model().phosphorus_to_carbon +
                    box_model.fields.POP.data[1, 1, 1] +
                    box_model.fields.DOP.data[1, 1, 1]
         end

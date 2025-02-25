@@ -24,8 +24,6 @@ DEFAULT_PHYTO_ARGS = Dict(
     "linear_mortality" => 8e-7 / second,
     "photosynthetic_slope" => 0.46e-5,
     "chlorophyll_to_carbon_ratio" => 0.1,
-    "nitrogen_to_carbon" => 0.15,
-    "phosphorus_to_carbon" => 0.009,
 )
 
 DEFAULT_ZOO_ARGS = Dict(
@@ -33,8 +31,6 @@ DEFAULT_ZOO_ARGS = Dict(
     "linear_mortality" => 8e-7 / second,
     "holling_half_saturation" => 5.0,
     "quadratic_mortality" => 1e-6 / second,
-    "nitrogen_to_carbon" => 0.15,
-    "phosphorus_to_carbon" => 0.009,
 )
 
 DEFAULT_INTERACTION_ARGS = Dict(
@@ -64,6 +60,8 @@ DEFAULT_BGC_ARGS = Dict(
     "POP_remineralization" => 0.1213 / day,
     "DOP_remineralization" => 0.1213 / day,
     "DOM_POM_fractionation" => 0.45,
+    "nitrogen_to_carbon" => 0.15,
+    "phosphorus_to_carbon" => 0.009,
 )
 
 """
