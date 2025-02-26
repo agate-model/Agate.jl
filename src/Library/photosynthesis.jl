@@ -10,6 +10,7 @@ export γˡⁱᵍʰᵗ,
     light_limitation_smith,
     light_limitation_geider,
     photosynthetic_growth_single_nutrient,
+    photosynthetic_growth_single_nutrient_geider_light,
     photosynthetic_growth_two_nutrients_geider_light,
     net_photosynthetic_growth_two_nutrients_geider_light,
     net_photosynthetic_growth_two_nutrients_geider_light_quota
@@ -193,7 +194,7 @@ Net photosynthetic growth of all plankton assuming geider light limitation with 
 - `half_saturation_DIN`: nitrogen half saturation
 - `half_saturation_PO4`: phosphate half saturation
 - `photosynthetic_slope`: initial photosynthetic slope
-- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon 
+- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon
 - `nutrient_to_carbon`: Float which represents plankton nutrient to carbon ratio
 - `plankton_type_prefix`: Array of prefixes used in plankton names to indicate their type,
     use here to sum over only the relevant plankton (e.g., "P" for phytoplankton)
@@ -249,11 +250,11 @@ Two nutrient geider photosynthetic growth.
 - `PO4`: phosphate concentration
 - `P`: phytoplankton concentration
 - `PAR`: photosynthetic active radiation
-- `maximum_growth_rate`: maximum growth rate before nutrient limitation 
+- `maximum_growth_rate`: maximum growth rate before nutrient limitation
 - `half_saturation_DIN`: nitrogen half saturation
 - `half_saturation_PO4`: phosphate half saturation
-- `photosynthetic_slope`: initial photosynthetic slope 
-- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon 
+- `photosynthetic_slope`: initial photosynthetic slope
+- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon
 """
 function photosynthetic_growth_two_nutrients_geider_light(
     DIN,
