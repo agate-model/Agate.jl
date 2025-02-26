@@ -11,9 +11,8 @@ export γˡⁱᵍʰᵗ,
     light_limitation_geider,
     photosynthetic_growth_single_nutrient,
     photosynthetic_growth_single_nutrient_geider_light,
-    photosynthetic_growth_two_nutrients_geider_light,
-    net_photosynthetic_growth_two_nutrients_geider_light,
-    net_photosynthetic_growth_two_nutrients_geider_light_quota
+    photosynthetic_growth_two_nutrients_geider_light
+
 """
     γˡⁱᵍʰᵗ = (1 - ℯ^(kˢᵃᵗ*I)) * ℯ^kⁱⁿʰ * nˡⁱᵍʰᵗ
 
@@ -107,127 +106,6 @@ function photosynthetic_growth_single_nutrient_geider_light(
                PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio
            ) *
            P
-end
-
-"""
-    net_photosynthetic_growth_two_nutrients_geider_light(
-        DIN,
-        PO4,
-        P,
-        PAR,
-        maximum_growth_rate,
-        half_saturation_DIN,
-        half_saturation_PO4,
-        photosynthetic_slope,
-        chlorophyll_to_carbon_ratio,
-        plankton_type_prefix=["P"],
-    )
-
-Net photosynthetic growth of all plankton assuming geider light limitation with two nutrients.
-
-# Arguments
-- `DIN`: dissolved inorganic nitrogen concentration
-- `PO4`: phosphate concentration
-- `P`: phytoplankton concentration
-- `PAR`: photosynthetic active radiation
-- `maximum_growth_rate`: maximum growth rate before nutrient limitation
-- `half_saturation_DIN`: nitrogen half saturation
-- `half_saturation_PO4`: phosphate half saturation
-- `photosynthetic_slope`: initial photosynthetic slope
-- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon
-- `plankton_type_prefix`: Array of prefixes used in plankton names to indicate their type,
-    use here to sum over only the relevant plankton (e.g., "P" for phytoplankton)
-"""
-function net_photosynthetic_growth_two_nutrients_geider_light(
-    DIN,
-    PO4,
-    P,
-    PAR,
-    maximum_growth_rate,
-    half_saturation_DIN,
-    half_saturation_PO4,
-    photosynthetic_slope,
-    chlorophyll_to_carbon_ratio,
-    plankton_type_prefix=["P"],
-)
-    return sum([
-        # sum over plankton that have a `maximum_growth_rate` (these will also have
-        # `nutrient_half_saturation` and `alpha` values)
-        photosynthetic_growth_two_nutrients_geider_light(
-            DIN,
-            PO4,
-            P[name],
-            PAR,
-            maximum_growth_rate[name],
-            half_saturation_DIN[name],
-            half_saturation_PO4[name],
-            photosynthetic_slope,
-            chlorophyll_to_carbon_ratio,
-        ) for
-        name in names(P, 1) if any(prefix -> occursin(prefix, name), plankton_type_prefix)
-    ],)
-end
-
-"""
-    net_photosynthetic_growth_two_nutrients_geider_light_quota(
-        DIN,
-        PO4,
-        P,
-        PAR,
-        maximum_growth_rate,
-        half_saturation_DIN,
-        half_saturation_PO4,
-        photosynthetic_slope,
-        chlorophyll_to_carbon_ratio,
-        nutrient_to_carbon,
-        plankton_type_prefix=["P"],
-    )
-
-Net photosynthetic growth of all plankton assuming geider light limitation with two nutrients.
-
-# Arguments
-- `DIN`: dissolved inorganic nitrogen concentration
-- `PO4`: phosphate concentration
-- `P`: phytoplankton concentration
-- `PAR`: photosynthetic active radiation
-- `maximum_growth_rate`: maximum growth rate before nutrient limitation
-- `half_saturation_DIN`: nitrogen half saturation
-- `half_saturation_PO4`: phosphate half saturation
-- `photosynthetic_slope`: initial photosynthetic slope
-- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon
-- `nutrient_to_carbon`: Float which represents plankton nutrient to carbon ratio
-- `plankton_type_prefix`: Array of prefixes used in plankton names to indicate their type,
-    use here to sum over only the relevant plankton (e.g., "P" for phytoplankton)
-"""
-function net_photosynthetic_growth_two_nutrients_geider_light_quota(
-    DIN,
-    PO4,
-    P,
-    PAR,
-    maximum_growth_rate,
-    half_saturation_DIN,
-    half_saturation_PO4,
-    photosynthetic_slope,
-    chlorophyll_to_carbon_ratio,
-    nutrient_to_carbon,
-    plankton_type_prefix=["P"],
-)
-    return sum([
-        # sum over plankton that have a `maximum_growth_rate` (these will also have
-        # `nutrient_half_saturation` and `alpha` values)
-        photosynthetic_growth_two_nutrients_geider_light(
-            DIN,
-            PO4,
-            P[name],
-            PAR,
-            maximum_growth_rate[name],
-            half_saturation_DIN[name],
-            half_saturation_PO4[name],
-            photosynthetic_slope,
-            chlorophyll_to_carbon_ratio,
-        ) * nutrient_to_carbon for
-        name in names(P, 1) if any(prefix -> occursin(prefix, name), plankton_type_prefix)
-    ],)
 end
 
 """
