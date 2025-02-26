@@ -256,7 +256,7 @@ function construct(;
     tracers = Dict(
         "DIC" => DIC_dynamics(phyto_array),
         "DIN" => DIN_dynamics(phyto_array),
-        "PO4" => PO4_dynamics(plankton_array),
+        "PO4" => PO4_dynamics(phyto_array),
         "POC" => POC_dynamics(plankton_array),
         "DOC" => DOC_dynamics(plankton_array),
         "PON" => PON_dynamics(plankton_array),
