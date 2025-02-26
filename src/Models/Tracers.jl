@@ -422,7 +422,7 @@ function POC_typical(phyto_array, zoo_array)
 end
 
 """
-    PON_typical(plankton_array)
+    PON_typical(phyto_array, zoo_array)
 
 Build expression for a simplified PON function of time.
 
@@ -433,35 +433,45 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
     `[:P1, :P2, :Z1, :Z2]`
 """
-function PON_typical(plankton_array)
+function PON_typical(phyto_array, zoo_array)
+    plankton_array = vcat(zoo_array, phyto_array)
     return :(
-        net_linear_loss_quota(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            # TODO: handle P and Z separately when code is vectorized
-            linear_mortality_p,
-            DOM_POM_fractionation,
-            nitrogen_to_carbon,
-        ) +
-        net_predation_assimilation_loss_preferential_fractionated_quota(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            holling_half_saturation,
-            maximum_predation_rate,
-            assimilation_efficiency_matrix,
-            palatability_matrix,
-            DOM_POM_fractionation,
-            nitrogen_to_carbon,
-        ) +
-        net_quadratic_loss_quota(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            quadratic_mortality,
-            DOM_POM_fractionation,
+        sum(linear_loss.([$(phyto_array...)], linear_mortality_p)) *
+        DOM_POM_fractionation *
+        nitrogen_to_carbon +
+        sum(linear_loss.([$(zoo_array...)], linear_mortality_z)) *
+        DOM_POM_fractionation *
+        nitrogen_to_carbon +
+        sum(
+            # essentially same as the detritus_typical function
+            # the function includes predator x prey matrix inputs so have to make sure that
+            # arrays are broadcast row/column wise as appropriate
+            predation_assimilation_loss_preferential.(
+                # prey is row-wise -> use array' to declare a row vector
+                [$(plankton_array...)]',
+                # predators are column-wise so leave as is
+                [$(plankton_array...)],
+                # predator x prey matrix
+                assimilation_efficiency_matrix.array,
+                # predator size dependant parameters -> apply column-wise
+                maximum_predation_rate.array,
+                holling_half_saturation,
+                # predator x prey matrix
+                palatability_matrix.array,
+            ),
+        ) *
+        DOM_POM_fractionation *
+        nitrogen_to_carbon +
+        sum(
+            quadratic_loss.([$(zoo_array...)], quadratic_mortality) *
+            DOM_POM_fractionation *
             nitrogen_to_carbon,
         ) - remineralization_idealized(PON, PON_remineralization)
     )
 end
 
 """
-    POP_typical(plankton_array)
+    POP_typical(phyto_array, zoo_array)
 
 Build expression for a simplified POP function of time.
 
@@ -469,31 +479,43 @@ The functions used in the expression are all within the Agate.Library, see their
 for overview. All arguments in the functions are either a NamedArray or a Float.
 
 # Arguments
-- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2]`
+- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
+    `[:Z1, :Z2]`
 """
-function POP_typical(plankton_array)
+function POP_typical(phyto_array, zoo_array)
+    plankton_array = vcat(zoo_array, phyto_array)
     return :(
-        net_linear_loss_quota(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            # TODO: handle P and Z separately when code is vectorized
-            linear_mortality_p,
-            DOM_POM_fractionation,
-            phosphorus_to_carbon,
-        ) +
-        net_predation_assimilation_loss_preferential_fractionated_quota(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            holling_half_saturation,
-            maximum_predation_rate,
-            assimilation_efficiency_matrix,
-            palatability_matrix,
-            DOM_POM_fractionation,
-            phosphorus_to_carbon,
-        ) +
-        net_quadratic_loss_quota(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            quadratic_mortality,
-            DOM_POM_fractionation,
+        sum(linear_loss.([$(phyto_array...)], linear_mortality_p)) *
+        DOM_POM_fractionation *
+        phosphorus_to_carbon +
+        sum(linear_loss.([$(zoo_array...)], linear_mortality_z)) *
+        DOM_POM_fractionation *
+        phosphorus_to_carbon +
+        sum(
+            # essentially same as the detritus_typical function
+            # the function includes predator x prey matrix inputs so have to make sure that
+            # arrays are broadcast row/column wise as appropriate
+            predation_assimilation_loss_preferential.(
+                # prey is row-wise -> use array' to declare a row vector
+                [$(plankton_array...)]',
+                # predators are column-wise so leave as is
+                [$(plankton_array...)],
+                # predator x prey matrix
+                assimilation_efficiency_matrix.array,
+                # predator size dependant parameters -> apply column-wise
+                maximum_predation_rate.array,
+                holling_half_saturation,
+                # predator x prey matrix
+                palatability_matrix.array,
+            ),
+        ) *
+        DOM_POM_fractionation *
+        phosphorus_to_carbon +
+        sum(
+            quadratic_loss.([$(zoo_array...)], quadratic_mortality) *
+            DOM_POM_fractionation *
             phosphorus_to_carbon,
         ) - remineralization_idealized(POP, POP_remineralization)
     )
