@@ -11,6 +11,9 @@ export holling_type_2,
     predation_loss_preferential,
     predation_gain_preferential,
     predation_assimilation_loss_preferential,
+    summed_predation_gain_preferential,
+    summed_predation_loss_preferential,
+    summed_predation_assimilation_loss_preferential,
     net_predation_assimilation_loss_preferential_fractionated,
     net_predation_assimilation_loss_preferential_fractionated_quota,
     assimilation_efficiency_emergent_binary
@@ -131,6 +134,137 @@ rather than the transfer of biomass from the prey to the predator.
 """
 function predation_assimilation_loss_preferential(P, Z, β, gₘₐₓ, kₚ, palatability)
     return (1 - β) * predation_loss_preferential(P, Z, gₘₐₓ, kₚ, palatability)
+end
+
+"""
+Estimates the total loss rate of the prey `P[prey_name]` to predation.
+
+For plankton `P[prey_name]`, the function loops over each predator to
+estimate the total loss of plankton `prey_name` due to predation.
+
+# Arguments
+- `prey_name`: name of the prey plankton to access value as `P[prey_name]`
+- `P`: NamedArray which includes all plankton
+- `maximum_predation_rate`: NamedArray of all plankton predation rates
+- `holling_half_saturation`: predation half saturation constant
+- `palatability`: NamedArray of all plankton palatabilities where:
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
+- `plankton_type_prefix`: Array of prefixes used in plankton names to indicate their type,
+    use here to sum over only predator plankton (e.g., "Z" for zooplankton)
+"""
+function summed_predation_loss_preferential(
+    prey_name,
+    P,
+    maximum_predation_rate,
+    holling_half_saturation,
+    palatability,
+    plankton_type_prefix=["Z"],
+)
+    loss = sum(
+        predation_loss_preferential(
+            P[prey_name],
+            P[predator_name],
+            maximum_predation_rate[predator_name],
+            holling_half_saturation[replace(predator_name, r"\d+" => "")],
+            palatability[predator_name, prey_name],
+        ) for predator_name in names(P, 1) if
+        any(prefix -> occursin(prefix, predator_name), plankton_type_prefix)
+    )
+
+    return loss
+end
+
+"""
+Estimates the total predation gain of the predator (`P[predator_name]`) feeding on all plankton.
+
+For plankton `P[predator_name]`, the function loops over each prey (`P[prey_name]`) to
+estimate the total gain due to predation.
+
+# Arguments
+- `predator_name`: name of the predator, e.g. `P[predator_name]`
+- `P`: NamedArray which includes all plankton concentration values
+- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
+- `maximum_predation_rate`: NamedArray of all plankton predation rates
+- `holling_half_saturation`: predation half saturation constant
+- `palatability`: NamedArray of all plankton palatabilities where:
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
+"""
+function summed_predation_gain_preferential(
+    predator_name,
+    P,
+    assimilation_efficiency,
+    maximum_predation_rate,
+    holling_half_saturation,
+    palatability,
+)
+    # sum over all plankton in P (return 0 if not suitable prey for this predator)
+    gain = sum(
+        predation_gain_preferential(
+            P[prey_name],
+            P[predator_name],
+            assimilation_efficiency[predator_name, prey_name],
+            maximum_predation_rate[predator_name],
+            holling_half_saturation[replace(predator_name, r"\d+" => "")],
+            palatability[predator_name, prey_name],
+        ) for prey_name in names(P, 1)
+    )
+
+    return gain
+end
+
+"""
+Estimates the total assimilation loss of the predator (`P[predator_name]`) feeding on all plankton.
+
+For plankton P`[predator_name]`, the function loops over each prey (`P[prey_name]`) to
+estimate the total assimilation loss during predation.
+
+# Arguments
+- `predator_name`: name of the predator, e.g. `P[predator_name]`
+- `P`: NamedArray which includes all plankton concentration values
+- `assimilation_efficiency`: NamedArray of all plankton assimilation efficiencies where:
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
+- `maximum_predation_rate`: NamedArray of all plankton predation rates
+- `holling_half_saturation`: plankton predation half saturation constant
+- `palatability`: NamedArray of all plankton palatabilities where:
+    - each row is a predator
+    - each column is a prey
+    - values are accessed as `palat[predator, prey]`
+    - for a non-predator [i,:]=0
+"""
+function summed_predation_assimilation_loss_preferential(
+    predator_name,
+    P,
+    assimilation_efficiency,
+    maximum_predation_rate,
+    holling_half_saturation,
+    palatability,
+)
+    # sum over all plankton in P (return 0 if not suitable prey for this predator)
+    assimilation_loss = sum(
+        predation_assimilation_loss_preferential(
+            P[prey_name],
+            P[predator_name],
+            assimilation_efficiency[predator_name, prey_name],
+            maximum_predation_rate[predator_name],
+            holling_half_saturation[replace(predator_name, r"\d+" => "")],
+            palatability[predator_name, prey_name],
+        ) for prey_name in names(P, 1)
+    )
+
+    return assimilation_loss
 end
 
 """

@@ -96,29 +96,29 @@ DEFAULT_BGC_ARGS = Dict(
 Construct an Agate.jl-DARWIN model abstract type.
 
 !!! info
-    
+
     This model is in active development and has not been validated against `MITgcm-DARWIN`.
 
 !!! formulation
 
-    TRACERS:     
+    TRACERS:
 
     ∂t cⱼ = ``Uⱼ``DIC - ``Mⱼ`` + ``Gⱼ`` - ``gⱼ``
 
     ∂t DIC = ∑(``Uⱼ`` DIC) + ``R``DOC + ``R``POC
-    
+
     ∂t DIN = ∑(``Uⱼ``DIC * ``Qⱼ``N)  + ``R``DON + ``R``PON
-    
+
     ∂t PO4 = ∑(``Uⱼ``DIC * ``Qⱼ``P)  + ``R``DOP + ``R``POP
-    
+
     ∂t DOC = ∑(``Mⱼ``DOC) + ``g``DOC - ``R``DOC
-    
+
     ∂t DON = ∑(``Mⱼ``DOC * ``Qⱼ``N) + ``g``DON - ``R``DON
 
     ∂t DOP = ∑(``Mⱼ``DOC * ``Qⱼ``P) + ``g``DOP - ``R``DOP
 
     ∂t POC = ∑(``Mⱼ``POC) + ``g``POC - ``R``POC
-    
+
     ∂t PON = ∑(``Mⱼ``POC * ``Qⱼ``N) + ``g``PON - ``R``PON
 
     ∂t POP = ∑(``Mⱼ``POC * ``Qⱼ``P) + ``g``POP - ``R``POP
@@ -133,9 +133,9 @@ Construct an Agate.jl-DARWIN model abstract type.
     TRAITS:
 
     μmax, KR, gmax = a*Volume^b
-    
+
     palat = η/(1+(``ratio``-``opt``)^2)^σ
-    
+
     where:
     - μmax = maximum photosynthetic growth
     - KR = nutrient half saturation
@@ -150,9 +150,9 @@ Construct an Agate.jl-DARWIN model abstract type.
 This constructor builds an Agate.jl-DARWIN model with two plankton functional types:
 phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
 size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor implements
-idealized dissolved inorganic carbon (DIC), particulate organic matter (POC, POP, PON), dissolved organic 
-matter (DOC, DOP, DON) and two nutrients (DIN and PO4) cycling by default, although more complex elemental cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics` 
-arguments. 
+idealized dissolved inorganic carbon (DIC), particulate organic matter (POC, POP, PON), dissolved organic
+matter (DOC, DOP, DON) and two nutrients (DIN and PO4) cycling by default, although more complex elemental cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics`
+arguments.
 
 During model construction, the size of each plankton determines photosynthetic growth rates,
 nutrient half saturation constants, predation rates, and optionally predator-prey assimilation
@@ -302,8 +302,8 @@ of any of the model parameters or plankton diameters.
 
 !!! tip
 
-    Changing the parameter values of an existing DARWIN model type using `instantiate()` is useful in 
-    dynamic programming contexts such as `for` loops. 
+    Changing the parameter values of an existing DARWIN model type using `instantiate()` is useful in
+    dynamic programming contexts such as `for` loops.
 
 # Arguments
 - `bgc_type`: subtype of Oceananigans.Biogeochemistry returned by `DARWIN.construct()`
