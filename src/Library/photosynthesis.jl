@@ -161,8 +161,8 @@ function net_photosynthetic_growth_two_nutrients_geider_light(
             maximum_growth_rate[name],
             half_saturation_DIN[name],
             half_saturation_PO4[name],
-            photosynthetic_slope[replace(name, r"\d+" => "")],
-            chlorophyll_to_carbon_ratio[replace(name, r"\d+" => "")],
+            photosynthetic_slope,
+            chlorophyll_to_carbon_ratio,
         ) for
         name in names(P, 1) if any(prefix -> occursin(prefix, name), plankton_type_prefix)
     ],)
@@ -223,8 +223,8 @@ function net_photosynthetic_growth_two_nutrients_geider_light_quota(
             maximum_growth_rate[name],
             half_saturation_DIN[name],
             half_saturation_PO4[name],
-            photosynthetic_slope[replace(name, r"\d+" => "")],
-            chlorophyll_to_carbon_ratio[replace(name, r"\d+" => "")],
+            photosynthetic_slope,
+            chlorophyll_to_carbon_ratio,
         ) * nutrient_to_carbon for
         name in names(P, 1) if any(prefix -> occursin(prefix, name), plankton_type_prefix)
     ],)
