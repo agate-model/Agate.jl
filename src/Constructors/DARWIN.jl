@@ -262,7 +262,7 @@ function construct(;
         "PON" => PON_dynamics(plankton_array),
         "DON" => DON_dynamics(phyto_array, zoo_array),
         "POP" => POP_dynamics(plankton_array),
-        "DOP" => DOP_dynamics(plankton_array),
+        "DOP" => DOP_dynamics(phyto_array, zoo_array),
     )
     for i in 1:n_phyto
         name = "P$i"
