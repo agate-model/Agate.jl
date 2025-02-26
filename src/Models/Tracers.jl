@@ -244,29 +244,39 @@ The functions used in the expression are all within the Agate.Library, see their
 for overview. All arguments in the functions are either a NamedArray or a Float.
 
 # Arguments
-- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2]`
+- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
+    `[:Z1, :Z2]`
 """
-function DOC_typical(plankton_array)
+function DOC_typical(phyto_array, zoo_array)
+    plankton_array = vcat(zoo_array, phyto_array)
     return :(
-        net_linear_loss(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            # TODO: handle P and Z separately when code is vectorized
-            linear_mortality_p,
-            1 - DOM_POM_fractionation,
-        ) +
-        net_predation_assimilation_loss_preferential_fractionated(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            holling_half_saturation,
-            maximum_predation_rate,
-            assimilation_efficiency_matrix,
-            palatability_matrix,
-            1 - DOM_POM_fractionation,
-        ) +
-        net_quadratic_loss(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            quadratic_mortality,
-            1 - DOM_POM_fractionation,
+        sum(linear_loss.([$(phyto_array...)], linear_mortality_p)) *
+        (1 - DOM_POM_fractionation) +
+        sum(linear_loss.([$(zoo_array...)], linear_mortality_z)) *
+        (1 - DOM_POM_fractionation) +
+        sum(
+            # essentially same as the detritus_typical function
+            # the function includes predator x prey matrix inputs so have to make sure that
+            # arrays are broadcast row/column wise as appropriate
+            predation_assimilation_loss_preferential.(
+                # prey is row-wise -> use array' to declare a row vector
+                [$(plankton_array...)]',
+                # predators are column-wise so leave as is
+                [$(plankton_array...)],
+                # predator x prey matrix
+                assimilation_efficiency_matrix.array,
+                # predator size dependant parameters -> apply column-wise
+                maximum_predation_rate.array,
+                holling_half_saturation,
+                # predator x prey matrix
+                palatability_matrix.array,
+            ),
+        ) * (1 - DOM_POM_fractionation) +
+        sum(
+            quadratic_loss.([$(zoo_array...)], quadratic_mortality) *
+            (1 -  DOM_POM_fractionation),
         ) - remineralization_idealized(DOC, DOC_remineralization)
     )
 end
