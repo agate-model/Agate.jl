@@ -101,10 +101,7 @@ using .Library.Predation
                     @test all(
                         isapprox.(
                             parameters[Symbol(key)],
-                            [
-                                emerge_params[replace(p, r"\d+" => "")] for
-                                p in plankton_order
-                            ],
+                            [emerge_params[p] for p in plankton_order],
                             rtol=0.01,
                         ),
                     ) || println(
