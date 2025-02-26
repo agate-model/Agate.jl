@@ -60,7 +60,7 @@ function nutrients_typical(phyto_array, zoo_array)
 end
 
 """
-    DIC_geider_light(plankton_array)
+    DIC_geider_light(phyto_array)
 
 Build expression representing the evolution of DIC over time.
 
@@ -91,7 +91,7 @@ function DIC_geider_light(phyto_array)
 end
 
 """
-    DIN_geider_light_fixed_ratios(plankton_array)
+    DIN_geider_light_fixed_ratios(phyto_array)
 
 Build expression representing the evolution of DIN over time assuming fixed stoichiometry.
 
@@ -122,7 +122,7 @@ function DIN_geider_light_fixed_ratios(phyto_array)
 end
 
 """
-    PO4_geider_light_fixed_ratios(plankton_array)
+    PO4_geider_light_fixed_ratios(phyto_array)
 
 Build expression representing the evolution of DIN over time assuming fixed stoichiometry.
 
@@ -236,7 +236,7 @@ function detritus_typical(phyto_array, zoo_array)
 end
 
 """
-    DOC_typical(plankton_array)
+    DOC_typical(phyto_array, zoo_array)
 
 Build expression for a simplified DOC function of time.
 
@@ -282,7 +282,7 @@ function DOC_typical(phyto_array, zoo_array)
 end
 
 """
-    DON_typical(plankton_array)
+    DON_typical(phyto_array, zoo_array)
 
 Build expression for a simplified DON function of time.
 
@@ -331,7 +331,7 @@ function DON_typical(phyto_array, zoo_array)
 end
 
 """
-    DOP_typical(plankton_array)
+    DOP_typical(phyto_array, zoo_array)
 
 Build expression for a simplified DOP function of time.
 
@@ -380,7 +380,7 @@ function DOP_typical(phyto_array, zoo_array)
 end
 
 """
-    POC_typical(plankton_array)
+    POC_typical(phyto_array, zoo_array)
 
 Build expression for a simplified POC function of time.
 
@@ -388,30 +388,36 @@ The functions used in the expression are all within the Agate.Library, see their
 for overview. All arguments in the functions are either a NamedArray or a Float.
 
 # Arguments
-- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2]`
+- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
+    `[:Z1, :Z2]`
 """
-function POC_typical(plankton_array)
+function POC_typical(phyto_array, zoo_array)
+    plankton_array = vcat(zoo_array, phyto_array)
     return :(
-        net_linear_loss(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            # TODO: handle P and Z separately when code is vectorized
-            linear_mortality_p,
-            DOM_POM_fractionation,
-        ) +
-        net_predation_assimilation_loss_preferential_fractionated(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            holling_half_saturation,
-            maximum_predation_rate,
-            assimilation_efficiency_matrix,
-            palatability_matrix,
-            DOM_POM_fractionation,
-        ) +
-        net_quadratic_loss(
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            quadratic_mortality,
-            DOM_POM_fractionation,
-        ) - remineralization_idealized(POC, POC_remineralization)
+        sum(linear_loss.([$(phyto_array...)], linear_mortality_p)) * DOM_POM_fractionation +
+        sum(linear_loss.([$(zoo_array...)], linear_mortality_z)) * DOM_POM_fractionation +
+        sum(
+            # essentially same as the detritus_typical function
+            # the function includes predator x prey matrix inputs so have to make sure that
+            # arrays are broadcast row/column wise as appropriate
+            predation_assimilation_loss_preferential.(
+                # prey is row-wise -> use array' to declare a row vector
+                [$(plankton_array...)]',
+                # predators are column-wise so leave as is
+                [$(plankton_array...)],
+                # predator x prey matrix
+                assimilation_efficiency_matrix.array,
+                # predator size dependant parameters -> apply column-wise
+                maximum_predation_rate.array,
+                holling_half_saturation,
+                # predator x prey matrix
+                palatability_matrix.array,
+            ),
+        ) * DOM_POM_fractionation +
+        sum(quadratic_loss.([$(zoo_array...)], quadratic_mortality) * DOM_POM_fractionation) -
+        remineralization_idealized(POC, POC_remineralization)
     )
 end
 

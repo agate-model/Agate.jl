@@ -257,7 +257,7 @@ function construct(;
         "DIC" => DIC_dynamics(phyto_array),
         "DIN" => DIN_dynamics(phyto_array),
         "PO4" => PO4_dynamics(phyto_array),
-        "POC" => POC_dynamics(plankton_array),
+        "POC" => POC_dynamics(phyto_array, zoo_array),
         "DOC" => DOC_dynamics(phyto_array, zoo_array),
         "PON" => PON_dynamics(plankton_array),
         "DON" => DON_dynamics(phyto_array, zoo_array),
