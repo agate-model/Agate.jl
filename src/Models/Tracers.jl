@@ -516,7 +516,6 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 """
 function phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankton_name)
     plankton_symbol = Symbol(plankton_name)
-    plankton_type = replace(plankton_name, r"\d+" => "")
 
     return :(
         photosynthetic_growth_two_nutrients_geider_light(
@@ -529,12 +528,18 @@ function phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankto
             half_saturation_PO4[$plankton_name],
             photosynthetic_slope,
             chlorophyll_to_carbon_ratio,
-        ) - summed_predation_loss_preferential(
-            $plankton_name,
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            maximum_predation_rate,
-            holling_half_saturation,
-            palatability_matrix,
+        ) - sum(
+            predation_loss_preferential.(
+                # the prey
+                $(plankton_symbol),
+                # all potential predators
+                [$(plankton_array...)],
+                # predator size dependant parameters
+                maximum_predation_rate.array,
+                holling_half_saturation,
+                # get the prey column -> sum over all predator rows
+                palatability_matrix[:, $plankton_name].array,
+            ),
         ) - linear_loss($(plankton_symbol), linear_mortality_p)
     )
 end
