@@ -23,7 +23,8 @@ export detritus_typical,
 Build expression for a single nutrient function of time.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have to be of same length for vectorization to work (and arranged in the same plankton order).
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have
+to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
@@ -65,7 +66,8 @@ end
 Build expression representing the evolution of DIC over time.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either a NamedArray or a Float.
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have
+to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `phyto_array`: names of all the phytoplankton in the ecosystem expressed as Symbols, e.g.:
@@ -96,7 +98,8 @@ end
 Build expression representing the evolution of DIN over time assuming fixed stoichiometry.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either a NamedArray or a Float.
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have
+to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `phyto_array`: names of all the phytoplankton in the ecosystem expressed as Symbols, e.g.:
@@ -127,7 +130,8 @@ end
 Build expression representing the evolution of DIN over time assuming fixed stoichiometry.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either a NamedArray or a Float.
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have
+to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `phyto_array`: names of all the phytoplankton in the ecosystem expressed as Symbols, e.g.:
@@ -156,7 +160,8 @@ end
 Build expression for a single nutrient function of time where photosynthetic growth is limited based on the Geider formulation.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have to be of same length for vectorization to work (and arranged in the same plankton order).
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have
+to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
@@ -196,7 +201,8 @@ end
 Build expression for a simplified detritus function of time.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have to be of same length for vectorization to work (and arranged in the same plankton order).
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have
+to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
@@ -241,7 +247,8 @@ end
 Build expression for a simplified DOC function of time.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either a NamedArray or a Float.
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have
+to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
@@ -287,7 +294,8 @@ end
 Build expression for a simplified DON function of time.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either a NamedArray or a Float.
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have
+to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
@@ -336,7 +344,8 @@ end
 Build expression for a simplified DOP function of time.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either a NamedArray or a Float.
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have
+to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
@@ -385,7 +394,8 @@ end
 Build expression for a simplified POC function of time.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either a NamedArray or a Float.
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have
+to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
@@ -427,7 +437,8 @@ end
 Build expression for a simplified PON function of time.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either a NamedArray or a Float.
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have
+to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
@@ -476,7 +487,8 @@ end
 Build expression for a simplified POP function of time.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either a NamedArray or a Float.
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have
+to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
@@ -525,7 +537,8 @@ end
 Build expression for a simplified phytoplankton growth function.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have to be of same length for vectorization to work (and arranged in the same plankton order).
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have
+to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
@@ -565,7 +578,8 @@ end
 Build expression for a simplified phytoplankton growth function.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either a NamedArray or a Float.
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have
+to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
@@ -607,7 +621,8 @@ end
 Build expression for a simplified phytoplankton growth function which adds geider light limitation.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have to be of same length for vectorization to work (and arranged in the same plankton order).
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have
+to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
@@ -643,7 +658,8 @@ end
 Build expression for simplified zooplankton growth function.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have to be of same length for vectorization to work (and arranged in the same plankton order).
+for overview. All arguments in the functions are either an Array or a Float. The Arrays have
+to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
