@@ -68,24 +68,27 @@ The functions used in the expression are all within the Agate.Library, see their
 for overview. All arguments in the functions are either a NamedArray or a Float.
 
 # Arguments
-- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+- `phyto_array`: names of all the phytoplankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2]`
 """
-function DIC_geider_light(plankton_array)
+function DIC_geider_light(phyto_array)
     return :(
         remineralization_idealized(DOC, DOC_remineralization) +
         remineralization_idealized(POC, POC_remineralization) -
-        net_photosynthetic_growth_two_nutrients_geider_light(
-            DIN,
-            PO4,
-            NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            PAR,
-            maximum_growth_rate,
-            half_saturation_DIN,
-            half_saturation_PO4,
-            photosynthetic_slope,
-            chlorophyll_to_carbon_ratio,
+        sum(
+            photosynthetic_growth_two_nutrients_geider_light.(
+                DIN,
+                PO4,
+                [$(phyto_array...)],
+                PAR,
+                maximum_growth_rate.array,
+                half_saturation_DIN.array,
+                half_saturation_PO4.array,
+                photosynthetic_slope,
+                chlorophyll_to_carbon_ratio,
+            )
         )
+
     )
 end
 

@@ -247,13 +247,14 @@ function construct(;
         palatability_matrix=palatability_matrix,
         assimilation_efficiency_matrix=assimilation_efficiency_matrix,
     )
+    # NOTE: Zs precede Ps because this is the order in all arrays/matrices
+    zoo_array = [Symbol("Z$i") for i in 1:n_zoo]
+    phyto_array = [Symbol("P$i") for i in 1:n_phyto]
+    plankton_array = vcat(zoo_array, phyto_array)
 
     # create tracer functions
-    plankton_array = vcat(
-        [Symbol("Z$i") for i in 1:n_zoo], [Symbol("P$i") for i in 1:n_phyto]
-    )
     tracers = Dict(
-        "DIC" => DIC_dynamics(plankton_array),
+        "DIC" => DIC_dynamics(phyto_array),
         "DIN" => DIN_dynamics(plankton_array),
         "PO4" => PO4_dynamics(plankton_array),
         "POC" => POC_dynamics(plankton_array),
