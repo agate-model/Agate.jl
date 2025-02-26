@@ -39,10 +39,7 @@ Net loss of all plankton due to linear mortality.
 """
 function net_linear_loss(P, linear_mortality, fraction)
     # sum over all plankton in `P` - strip digits from plankton name to get its type (e.g., "Z")
-    return sum([
-        linear_loss(P[name], linear_mortality) for
-        name in names(P, 1)
-    ]) * fraction
+    return sum([linear_loss(P[name], linear_mortality) for name in names(P, 1)]) * fraction
 end
 
 """
@@ -60,9 +57,8 @@ The quota term is multiplied with estimated loss to convert from e.g. carbon to 
 function net_linear_loss_quota(P, linear_mortality, DOM_POM_fractionation, quota)
     # sum over all plankton in `P`
     return sum([
-        linear_loss(P[name], linear_mortality) *
-        quota *
-        DOM_POM_fractionation for name in names(P, 1)
+        linear_loss(P[name], linear_mortality) * quota * DOM_POM_fractionation for
+        name in names(P, 1)
     ])
 end
 
@@ -79,8 +75,7 @@ Net loss of all plankton due to quadratic mortality.
 function net_quadratic_loss(P, quadratic_mortality, fraction, plankton_type_prefix=["Z"])
     return sum(
         [
-            quadratic_loss(P[name], quadratic_mortality) for
-            name in names(P, 1) if
+            quadratic_loss(P[name], quadratic_mortality) for name in names(P, 1) if
             any(prefix -> occursin(prefix, name), plankton_type_prefix)
         ] * fraction,
     )
@@ -105,9 +100,7 @@ function net_quadratic_loss_quota(
 )
     # sum over plankton that have a `quadratic_mortality`
     return sum([
-        quadratic_loss(P[name], quadratic_mortality) *
-        quota *
-        DOM_POM_fractionation for
+        quadratic_loss(P[name], quadratic_mortality) * quota * DOM_POM_fractionation for
         name in names(P, 1) if any(prefix -> occursin(prefix, name), plankton_type_prefix)
     ])
 end

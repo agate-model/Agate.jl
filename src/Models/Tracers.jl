@@ -74,8 +74,7 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 function DIC_geider_light(phyto_array)
     return :(
         remineralization_idealized(DOC, DOC_remineralization) +
-        remineralization_idealized(POC, POC_remineralization) -
-        sum(
+        remineralization_idealized(POC, POC_remineralization) - sum(
             photosynthetic_growth_two_nutrients_geider_light.(
                 DIN,
                 PO4,
@@ -86,7 +85,7 @@ function DIC_geider_light(phyto_array)
                 half_saturation_PO4.array,
                 photosynthetic_slope,
                 chlorophyll_to_carbon_ratio,
-            )
+            ),
         )
     )
 end
@@ -106,8 +105,7 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 function DIN_geider_light_fixed_ratios(phyto_array)
     return :(
         remineralization_idealized(DOC, DOC_remineralization) +
-        remineralization_idealized(POC, POC_remineralization) -
-        sum(
+        remineralization_idealized(POC, POC_remineralization) - sum(
             photosynthetic_growth_two_nutrients_geider_light.(
                 DIN,
                 PO4,
@@ -118,7 +116,7 @@ function DIN_geider_light_fixed_ratios(phyto_array)
                 half_saturation_PO4.array,
                 photosynthetic_slope,
                 chlorophyll_to_carbon_ratio,
-            ) * nitrogen_to_carbon
+            ) * nitrogen_to_carbon,
         )
     )
 end
@@ -138,8 +136,7 @@ for overview. All arguments in the functions are either a NamedArray or a Float.
 function PO4_geider_light_fixed_ratios(phyto_array)
     return :(
         remineralization_idealized(DOC, DOC_remineralization) +
-        remineralization_idealized(POC, POC_remineralization) -
-        sum(
+        remineralization_idealized(POC, POC_remineralization) - sum(
             photosynthetic_growth_two_nutrients_geider_light.(
                 DIN,
                 PO4,
@@ -150,7 +147,7 @@ function PO4_geider_light_fixed_ratios(phyto_array)
                 half_saturation_PO4.array,
                 photosynthetic_slope,
                 chlorophyll_to_carbon_ratio,
-            ) * nitrogen_to_carbon
+            ) * nitrogen_to_carbon,
         )
     )
 end
