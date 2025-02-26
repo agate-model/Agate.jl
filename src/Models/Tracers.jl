@@ -250,7 +250,8 @@ function DOC_typical(plankton_array)
     return :(
         net_linear_loss(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            linear_mortality,
+            # TODO: handle P and Z separately when code is vectorized
+            linear_mortality_p,
             1 - DOM_POM_fractionation,
         ) +
         net_predation_assimilation_loss_preferential_fractionated(
@@ -285,7 +286,8 @@ function DON_typical(plankton_array)
     return :(
         net_linear_loss_quota(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            linear_mortality,
+            # TODO: handle P and Z separately when code is vectorized
+            linear_mortality_p,
             1 - DOM_POM_fractionation,
             nitrogen_to_carbon,
         ) +
@@ -323,7 +325,8 @@ function DOP_typical(plankton_array)
     return :(
         net_linear_loss_quota(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            linear_mortality,
+            # TODO: handle P and Z separately when code is vectorized
+            linear_mortality_p,
             1 - DOM_POM_fractionation,
             phosphorus_to_carbon,
         ) +
@@ -361,7 +364,8 @@ function POC_typical(plankton_array)
     return :(
         net_linear_loss(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            linear_mortality,
+            # TODO: handle P and Z separately when code is vectorized
+            linear_mortality_p,
             DOM_POM_fractionation,
         ) +
         net_predation_assimilation_loss_preferential_fractionated(
@@ -396,7 +400,8 @@ function PON_typical(plankton_array)
     return :(
         net_linear_loss_quota(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            linear_mortality,
+            # TODO: handle P and Z separately when code is vectorized
+            linear_mortality_p,
             DOM_POM_fractionation,
             nitrogen_to_carbon,
         ) +
@@ -434,7 +439,8 @@ function POP_typical(plankton_array)
     return :(
         net_linear_loss_quota(
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
-            linear_mortality,
+            # TODO: handle P and Z separately when code is vectorized
+            linear_mortality_p,
             DOM_POM_fractionation,
             phosphorus_to_carbon,
         ) +
@@ -496,7 +502,7 @@ end
 
 """
     phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankton_name)
-    
+
 Build expression for a simplified phytoplankton growth function.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
@@ -521,15 +527,15 @@ function phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankto
             maximum_growth_rate[$plankton_name],
             half_saturation_DIN[$plankton_name],
             half_saturation_PO4[$plankton_name],
-            photosynthetic_slope[$plankton_type],
-            chlorophyll_to_carbon_ratio[$plankton_type],
+            photosynthetic_slope,
+            chlorophyll_to_carbon_ratio,
         ) - summed_predation_loss_preferential(
             $plankton_name,
             NamedArray([$(plankton_array...)], $(String.(plankton_array))),
             maximum_predation_rate,
             holling_half_saturation,
             palatability_matrix,
-        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_type])
+        ) - linear_loss($(plankton_symbol), linear_mortality_p)
     )
 end
 
