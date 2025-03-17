@@ -1,5 +1,5 @@
 using Agate
-using Agate.Models.Biogeochemistry: expression_check, create_bgc_struct, add_bgc_methods!
+using Agate.Utils: expression_check, create_bgc_struct, add_bgc_methods!
 
 using OceanBioME
 using Oceananigans.Units
@@ -11,7 +11,7 @@ using Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields,
     biogeochemical_drift_velocity
 
-@testset "Models.Biogeochemistry" begin
+@testset "Utils" begin
     @testset "expression_check" begin
 
         # missing args

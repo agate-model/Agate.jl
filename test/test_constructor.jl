@@ -1,7 +1,7 @@
 using Agate
 using NamedArrays
-using Agate.Models.Tracers
-using Agate.Constructors: NiPiZD
+using Agate.Models.NiPiZD.Tracers
+using Agate.Models: NiPiZD
 
 @testset "Models.Constructor" begin
     N2P2ZD_constructed = NiPiZD.construct()

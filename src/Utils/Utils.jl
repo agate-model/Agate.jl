@@ -2,7 +2,7 @@
 Module to dynamically create Oceananigans.Biogeochemistry types.
 """
 
-module Biogeochemistry
+module Utils
 
 using Agate.Library.Growth
 using Agate.Library.Mortality
@@ -25,7 +25,7 @@ import Oceananigans.Biogeochemistry:
     biogeochemical_drift_velocity
 import OceanBioME.Models.Sediments: sinking_tracers
 
-export define_tracer_functions
+export define_tracer_functions, expression_check, create_bgc_struct, add_bgc_methods!
 
 """
     define_tracer_functions(
@@ -326,7 +326,7 @@ Check that all methods and arguments are defined. Specifically:
     - all methods called in `f_expr` are defined in module (e.g., Base, Main, Agate)
 If not, throws an UnderVarError.
 """
-function expression_check(args, f_expr; module_name=Biogeochemistry)
+function expression_check(args, f_expr; module_name=Utils)
     symbols = parse_expression(f_expr)
     for s in symbols
         if s ∉ args && !isdefined(module_name, s)
