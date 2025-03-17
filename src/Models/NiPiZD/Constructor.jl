@@ -81,6 +81,10 @@ DEFAULT_BGC_ARGS = Dict(
         zoo_diameters=Dict(
             "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
         ),
+        nutrient_dynamics=nutrients_default,
+        detritus_dynamics=detritus_default,
+        phyto_dynamics=phytoplankton_default,
+        zoo_dynamics=zooplankton_default,
         phyto_args=DEFAULT_PHYTO_ARGS,
         zoo_args=DEFAULT_ZOO_ARGS,
         interaction_args=DEFAULT_INTERACTION_ARGS,
@@ -152,10 +156,10 @@ function construct(;
     zoo_diameters=Dict(
         "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
     ),
-    nutrient_dynamics=nutrients_typical,
-    detritus_dynamics=detritus_typical,
-    phyto_dynamics=phytoplankton_growth_single_nutrient,
-    zoo_dynamics=zooplankton_growth_simplified,
+    nutrient_dynamics=nutrients_default,
+    detritus_dynamics=detritus_default,
+    phyto_dynamics=phytoplankton_default,
+    zoo_dynamics=zooplankton_default,
     phyto_args=DEFAULT_PHYTO_ARGS,
     zoo_args=DEFAULT_ZOO_ARGS,
     interaction_args=DEFAULT_INTERACTION_ARGS,

@@ -141,7 +141,7 @@ using Agate.Models: NiPiZD
         N2P2ZD_geider = NiPiZD.construct(;
             phyto_args=NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS,
             nutrient_dynamics=nutrients_geider_light,
-            phyto_dynamics=phytoplankton_growth_single_nutrient_geider_light,
+            phyto_dynamics=phytoplankton_geider_light,
         )
 
         model_geider = NiPiZD.instantiate(
