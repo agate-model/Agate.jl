@@ -1,9 +1,9 @@
 ### Agate.jl-DARWIN model
 
 ```@docs
-Agate.Constructors.DARWIN.construct
+Agate.Models.DARWIN.construct
 ```
 
 ```@docs
-Agate.Constructors.DARWIN.instantiate
+Agate.Models.DARWIN.instantiate
 ```
