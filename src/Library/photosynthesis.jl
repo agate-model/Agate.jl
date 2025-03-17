@@ -11,8 +11,8 @@ export γˡⁱᵍʰᵗ,
     light_limitation_geider,
     photosynthetic_growth_single_nutrient,
     photosynthetic_growth_single_nutrient_geider_light,
-    net_photosynthetic_growth_single_nutrient,
-    net_photosynthetic_growth_single_nutrient_geider_light
+    photosynthetic_growth_two_nutrients_geider_light
+
 """
     γˡⁱᵍʰᵗ = (1 - ℯ^(kˢᵃᵗ*I)) * ℯ^kⁱⁿʰ * nˡⁱᵍʰᵗ
 
@@ -109,76 +109,50 @@ function photosynthetic_growth_single_nutrient_geider_light(
 end
 
 """
-Net photosynthetic growth of all plankton.
+    photosynthetic_growth_two_nutrients_geider_light(
+        DIN,
+        PO4,
+        P,
+        PAR,
+        maximum_growth_rate,
+        half_saturation_DIN,
+        half_saturation_PO4,
+        photosynthetic_slope,
+        chlorophyll_to_carbon_ratio,
+    )
+
+Two nutrient geider photosynthetic growth.
 
 # Arguments
-- `N`: Nutrient
-- `P`: NamedArray which includes all plankton concentration values
-- `PAR`: PAR
-- `maximum_growth_rate`: NamedArray of all plankton maximum growth rates
-- `nutrient_half_saturation`: NamedArray of all plankton nutrient half saturation constants
-- `photosynthetic_slope`: initial photosynthetic slope (αᶜʰˡ)
-- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon (θᶜ)
-- `plankton_type_prefix`: Array of prefixes used in plankton names to indicate their type,
-    use here to sum over only the relevant plankton (e.g., "P" for phytoplankton)
+- `DIN`: dissolved inorganic nitrogen concentration
+- `PO4`: phosphate concentration
+- `P`: phytoplankton concentration
+- `PAR`: photosynthetic active radiation
+- `maximum_growth_rate`: maximum growth rate before nutrient limitation
+- `half_saturation_DIN`: nitrogen half saturation
+- `half_saturation_PO4`: phosphate half saturation
+- `photosynthetic_slope`: initial photosynthetic slope
+- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon
 """
-function net_photosynthetic_growth_single_nutrient_geider_light(
-    N,
+function photosynthetic_growth_two_nutrients_geider_light(
+    DIN,
+    PO4,
     P,
     PAR,
     maximum_growth_rate,
-    nutrient_half_saturation,
+    half_saturation_DIN,
+    half_saturation_PO4,
     photosynthetic_slope,
     chlorophyll_to_carbon_ratio,
-    plankton_type_prefix=["P"],
 )
-    return sum([
-        photosynthetic_growth_single_nutrient_geider_light(
-            N,
-            P[name],
-            PAR,
-            maximum_growth_rate[name],
-            nutrient_half_saturation[name],
-            photosynthetic_slope[replace(name, r"\d+" => "")],
-            chlorophyll_to_carbon_ratio[replace(name, r"\d+" => "")],
-        ) for
-        name in names(P, 1) if any(prefix -> occursin(prefix, name), plankton_type_prefix)
-    ],)
-end
-
-"""
-Net photosynthetic growth of all plankton assuming geider light limitation.
-
-# Arguments
-- `N`: Nutrient
-- `P`: NamedArray which includes all plankton concentration values
-- `PAR`: PAR
-- `maximum_growth_rate`: NamedArray of all plankton maximum growth rates
-- `nutrient_half_saturation`: NamedArray of all plankton nutrient half saturation constants
-- `alpha`: initial photosynthetic slope
-- `plankton_type_prefix`: Array of prefixes used in plankton names to indicate their type,
-    use here to sum over only the relevant plankton (e.g., "P" for phytoplankton)
-"""
-function net_photosynthetic_growth_single_nutrient(
-    N,
-    P,
-    PAR,
-    maximum_growth_rate,
-    nutrient_half_saturation,
-    alpha,
-    plankton_type_prefix=["P"],
-)
-    return sum([
-        photosynthetic_growth_single_nutrient(
-            N,
-            P[name],
-            PAR,
-            maximum_growth_rate[name],
-            nutrient_half_saturation[name],
-            alpha[replace(name, r"\d+" => "")],
-        ) for
-        name in names(P, 1) if any(prefix -> occursin(prefix, name), plankton_type_prefix)
-    ],)
+    nutrient_limited_growth =
+        liebig_minimum([
+            monod_limitation(DIN, half_saturation_DIN),
+            monod_limitation(PO4, half_saturation_PO4),
+        ]) * maximum_growth_rate
+    return light_limitation_geider(
+        PAR, photosynthetic_slope, nutrient_limited_growth, chlorophyll_to_carbon_ratio
+    ) * P
 end
 
 end # module
