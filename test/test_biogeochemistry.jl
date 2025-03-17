@@ -91,7 +91,7 @@ using Oceananigans.Biogeochemistry:
         @testset "use helper functions" begin
 
             # NPZD model
-            include(joinpath("..", "examples", "NPZD", "tracers.jl"))
+            include(joinpath("NPZD", "tracers.jl"))
             model = NPZD()
 
             Z = 0.05
@@ -115,12 +115,12 @@ using Oceananigans.Biogeochemistry:
         end
 
         @testset "tracer sinking" begin
-            include(joinpath("..", "examples", "NPZD", "tracers.jl"))
+            include(joinpath("NPZD", "tracers.jl"))
 
             NPZD_sink = define_tracer_functions(
                 parameters,
                 tracers;
-                helper_functions=joinpath("..", "examples", "NPZD", "functions.jl"),
+                helper_functions=joinpath("NPZD", "functions.jl"),
                 sinking_tracers=(P=0.2551 / day, D=2.7489 / day),
                 grid=BoxModelGrid(),
             )

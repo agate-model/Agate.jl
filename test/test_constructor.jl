@@ -29,7 +29,7 @@ using Agate.Constructors: NiPiZD
     @testset "N2P2ZD model" begin
 
         # N2P2ZD model defined using low level syntax
-        include(joinpath("..", "examples", "N2P2ZD", "tracers.jl"))
+        include(joinpath("N2P2ZD", "tracers.jl"))
         model = N2P2ZD()
         model_var_order = get_var_order(model)
 
