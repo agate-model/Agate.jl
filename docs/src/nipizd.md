@@ -1,4 +1,4 @@
-### Size-structured NPZD model
+### [Agate.jl-NiPiZD model](@id NiPiZD)
 
 ```@docs
 Agate.Constructors.NiPiZD.construct

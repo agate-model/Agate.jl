@@ -1,4 +1,4 @@
-### Agate.jl-DARWIN model
+### [Agate.jl-DARWIN model](@id DARWIN)
 
 ```@docs
 Agate.Constructors.DARWIN.construct
