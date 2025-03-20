@@ -1,7 +1,7 @@
 using Agate
 using NamedArrays
-using Agate.Models.Tracers
-using Agate.Constructors: NiPiZD
+using Agate.Models.NiPiZD.Tracers
+using Agate.Models: NiPiZD
 
 @testset "Models.Constructor" begin
     N2P2ZD_constructed = NiPiZD.construct()
@@ -29,7 +29,7 @@ using Agate.Constructors: NiPiZD
     @testset "N2P2ZD model" begin
 
         # N2P2ZD model defined using low level syntax
-        include(joinpath("..", "examples", "N2P2ZD", "tracers.jl"))
+        include(joinpath("N2P2ZD", "tracers.jl"))
         model = N2P2ZD()
         model_var_order = get_var_order(model)
 
@@ -141,7 +141,7 @@ using Agate.Constructors: NiPiZD
         N2P2ZD_geider = NiPiZD.construct(;
             phyto_args=NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS,
             nutrient_dynamics=nutrients_geider_light,
-            phyto_dynamics=phytoplankton_growth_single_nutrient_geider_light,
+            phyto_dynamics=phytoplankton_geider_light,
         )
 
         model_geider = NiPiZD.instantiate(

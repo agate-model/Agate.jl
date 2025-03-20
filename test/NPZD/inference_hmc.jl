@@ -24,7 +24,7 @@ const year = years = 365day
 Δt = dt = 7days
 stop_time = 1year
 
-include(joinpath("NPZD", "tracers.jl"))
+include("tracers.jl")
 
 # ==================================================
 # Set up DifferentialEquations

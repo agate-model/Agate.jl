@@ -73,7 +73,7 @@ using .Library.Predation
         emergent_parameters = compute_allometric_parameters(defined_parameters)
 
         # compare against hand computed `parameters` in examples
-        include(joinpath("..", "examples", "N2P2ZD", "tracers.jl"))
+        include(joinpath("N2P2ZD", "tracers.jl"))
 
         plankton_order = ["P1", "P2", "Z1", "Z2"]
 

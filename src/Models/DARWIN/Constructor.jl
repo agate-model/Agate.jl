@@ -1,12 +1,12 @@
 """
-Module to construct an instance of a size-structured NPZD model.
+Module to construct an instance of an Agate.jl-DARWIN model.
 """
 
-module NiPiZD
+module Constructor
 
-using Agate.Models.Biogeochemistry
+using Agate.Utils
 using Agate.Models.Parameters
-using Agate.Models.Tracers
+using Agate.Models.DARWIN.Tracers
 
 using NamedArrays
 using UUIDs
@@ -15,21 +15,13 @@ using Oceananigans.Units
 using OceanBioME: setup_velocity_fields
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 
+export construct, instantiate
+
 DEFAULT_PHYTO_ARGS = Dict(
     "allometry" => Dict(
         "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
-        "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
-        # need this to vectorize the tracer functions
-        "maximum_predation_rate" => Dict("a" => 0, "b" => 0),
-    ),
-    "linear_mortality_p" => 8e-7 / second,
-    "alpha" => 0.1953 / day,
-)
-
-DEFAULT_PHYTO_GEIDER_ARGS = Dict(
-    "allometry" => Dict(
-        "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
-        "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
+        "half_saturation_DIN" => Dict("a" => 0.17, "b" => 0.27),
+        "half_saturation_PO4" => Dict("a" => 0.17, "b" => 0.27),
         # need this to vectorize the tracer functions
         "maximum_predation_rate" => Dict("a" => 0, "b" => 0),
     ),
@@ -65,7 +57,15 @@ DEFAULT_INTERACTION_ARGS = Dict(
 )
 
 DEFAULT_BGC_ARGS = Dict(
-    "detritus_remineralization" => 0.1213 / day, "mortality_export_fraction" => 0.5
+    "POC_remineralization" => 0.1213 / day,
+    "DOC_remineralization" => 0.1213 / day,
+    "PON_remineralization" => 0.1213 / day,
+    "DON_remineralization" => 0.1213 / day,
+    "POP_remineralization" => 0.1213 / day,
+    "DOP_remineralization" => 0.1213 / day,
+    "DOM_POM_fractionation" => 0.45,
+    "nitrogen_to_carbon" => 0.15,
+    "phosphorus_to_carbon" => 0.009,
 )
 
 """
@@ -78,6 +78,17 @@ DEFAULT_BGC_ARGS = Dict(
         zoo_diameters=Dict(
             "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
         ),
+        DIC_dynamics=DIC_geider_light,
+        PO4_dynamics=PO4_geider_light,
+        DIN_dynamics=DIN_geider_light,
+        POC_dynamics=POC_default,
+        DOC_dynamics=DOC_default,
+        PON_dynamics=PON_default,
+        DON_dynamics=DON_default,
+        POP_dynamics=POP_default,
+        DOP_dynamics=DOP_default,
+        phyto_dynamics=phytoplankton_growth_two_nutrients_geider_light,
+        zoo_dynamics=zooplankton_default,
         phyto_args=DEFAULT_PHYTO_ARGS,
         zoo_args=DEFAULT_ZOO_ARGS,
         interaction_args=DEFAULT_INTERACTION_ARGS,
@@ -86,18 +97,71 @@ DEFAULT_BGC_ARGS = Dict(
         assimilation_efficiency_matrix=nothing,
     ) -> DataType
 
-Construct a size-structured NPZD model abstract type.
+Construct an Agate.jl-DARWIN model abstract type.
 
-This constructor builds a size-structured plankton model with two plankton functional types:
+!!! info
+
+    This model is in active development and has not been validated against `MITgcm-DARWIN`.
+
+!!! formulation
+
+    TRACERS:
+
+    ∂t cⱼ = ``Uⱼ``DIC - ``Mⱼ`` + ``Gⱼ`` - ``gⱼ``
+
+    ∂t DIC = ∑(``Uⱼ`` DIC) + ``R``DOC + ``R``POC
+
+    ∂t DIN = ∑(``Uⱼ``DIC * ``Qⱼ``N)  + ``R``DON + ``R``PON
+
+    ∂t PO4 = ∑(``Uⱼ``DIC * ``Qⱼ``P)  + ``R``DOP + ``R``POP
+
+    ∂t DOC = ∑(``Mⱼ``DOC) + ``g``DOC - ``R``DOC
+
+    ∂t DON = ∑(``Mⱼ``DOC * ``Qⱼ``N) + ``g``DON - ``R``DON
+
+    ∂t DOP = ∑(``Mⱼ``DOC * ``Qⱼ``P) + ``g``DOP - ``R``DOP
+
+    ∂t POC = ∑(``Mⱼ``POC) + ``g``POC - ``R``POC
+
+    ∂t PON = ∑(``Mⱼ``POC * ``Qⱼ``N) + ``g``PON - ``R``PON
+
+    ∂t POP = ∑(``Mⱼ``POC * ``Qⱼ``P) + ``g``POP - ``R``POP
+
+    where:
+    - ``U`` = uptake
+    - ``R`` = remineralization
+    - ``M`` = mortality
+    - ``g, G`` = grazing losses and gains
+    - ``Q`` = plankton elemental ratios
+
+    TRAITS:
+
+    μmax, KR, gmax = a*Volume^b
+
+    palat = η/(1+(``ratio``-``opt``)^2)^σ
+
+    where:
+    - μmax = maximum photosynthetic growth
+    - KR = nutrient half saturation
+    - gmax = maximum predation rate
+    - palat = palatability
+    - ``ratio`` = predator to prey size ratio (diameter)
+    - ``opt`` = predator to prey size optimum (diameter)
+    - η = prey protection
+    - σ = predator specificity
+
+
+This constructor builds an Agate.jl-DARWIN model with two plankton functional types:
 phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
 size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor implements
-idealized detritus (D) and nutrient (N) cycling by default, although more complex N and D
-cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics` arguments.
+idealized dissolved inorganic carbon (DIC), particulate organic matter (POC, POP, PON), dissolved organic
+matter (DOC, DOP, DON) and two nutrients (DIN and PO4) cycling by default, although more complex elemental cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics`
+arguments.
 
 During model construction, the size of each plankton determines photosynthetic growth rates,
-nutrient half saturation constants, predation rates, and predator-prey assimilation and
-palatability values. Alternatively, if manually defined predator-prey assimilation and
-palatability values are desired, these can be specified using the `palatability_matrix` and
+nutrient half saturation constants, predation rates, and optionally predator-prey assimilation
+and palatability values. Alternatively, if manually defined predator-prey assimilation and
+palatability values are desired, these can be defined using the `palatability_matrix` and
 `assimilation_efficiency_matrix` arguments.
 
 Note that if non-default `*_dynamics` expressions are passed, the relevant `*_args` also
@@ -105,17 +169,22 @@ need to be specified.
 
 The type specification includes a photosynthetic active radiation (PAR) auxiliary field.
 
-# Keywords
-- `n_phyto`: number of phytoplankton in the model
-- `n_zoo`: number of zooplankton in the model
-- `phyto_diameters`: dictionary from which `phyto` diameters can be computed or a list of
-    values to use (as many as the model expects)
+# Arguments
+- `n_phyto`: number of phytoplankton to include in the model
+- `n_zoo`: number of zooplankton to include in the model
+- `phyto_diameters`: dictionary from which `n_phyto` diameters can be computed or a list of
+    values to use
 - `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
-    values to use (as many as the model expects)
-- `nutrient_dynamics`: expression describing how nutrients change over time, see
-    `Agate.Models.Tracers`
-- `detritus_dynamics`: expression describing how detritus evolves over time, see
-    `Agate.Models.Tracers`
+    values to use
+- `DIC_dynamics`: expression describing how DIC changes over time, see `Agate.Models.Tracers`
+- `PO4_dynamics`: expression describing how PO4 changes over time, see `Agate.Models.Tracers`
+- `DIN_dynamics`: expression describing how DIN changes over time, see `Agate.Models.Tracers`
+- `POC_dynamics`: expression describing how POC changes over time, see `Agate.Models.Tracers`
+- `DOC_dynamics`: expression describing how DOC changes over time, see `Agate.Models.Tracers`
+- `PON_dynamics`: expression describing how PON changes over time, see `Agate.Models.Tracers`
+- `DON_dynamics`: expression describing how DON changes over time, see `Agate.Models.Tracers`
+- `POP_dynamics`: expression describing how POP changes over time, see `Agate.Models.Tracers`
+- `DOP_dynamics`: expression describing how DOP changes over time, see `Agate.Models.Tracers`
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
 - `phyto_args`: Dictionary of phytoplankton parameters, for default values see
@@ -125,19 +194,20 @@ The type specification includes a photosynthetic active radiation (PAR) auxiliar
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed, for default values see
     `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
-- `bgc_args`: Dictionary of biogeochemistry parameters related to nutrient and detritus, for
-    default values see `Agate.Models.Constructors.DEFAULT_BGC_ARGS`
+- `bgc_args`: biogeochemistry parameters related to nutrient and detritus, for default
+    values see `Agate.Models.Constructors.DEFAULT_BGC_ARGS`
 - `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
-    then `interaction_args` are not used to compute this
+   then `interaction_args` are not used to compute this
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
-    NamedArray, if provided then `interaction_args` are not used to compute this
+   NamedArray, if provided then `interaction_args` are not used to compute this
+
 
 # Example
 ```julia
-using Agate.Constructors: NiPiZD
+using Agate.Constructors: DARWIN
 
-n2p2zd = NiPiZD.construct()
-n2p2zd_model_obj = n2p2zd()
+darwin_2p_2z = DARWIN.construct()
+darwin_2p_2z_model_obj = darwin_2p_2z()
 ```
 """
 function construct(;
@@ -149,10 +219,17 @@ function construct(;
     zoo_diameters=Dict(
         "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
     ),
-    nutrient_dynamics=nutrients_typical,
-    detritus_dynamics=detritus_typical,
-    phyto_dynamics=phytoplankton_growth_single_nutrient,
-    zoo_dynamics=zooplankton_growth_simplified,
+    DIC_dynamics=DIC_geider_light,
+    PO4_dynamics=PO4_geider_light,
+    DIN_dynamics=DIN_geider_light,
+    POC_dynamics=POC_default,
+    DOC_dynamics=DOC_default,
+    PON_dynamics=PON_default,
+    DON_dynamics=DON_default,
+    POP_dynamics=POP_default,
+    DOP_dynamics=DOP_default,
+    phyto_dynamics=phytoplankton_growth_two_nutrients_geider_light,
+    zoo_dynamics=zooplankton_default,
     phyto_args=DEFAULT_PHYTO_ARGS,
     zoo_args=DEFAULT_ZOO_ARGS,
     interaction_args=DEFAULT_INTERACTION_ARGS,
@@ -172,7 +249,6 @@ function construct(;
         palatability_matrix=palatability_matrix,
         assimilation_efficiency_matrix=assimilation_efficiency_matrix,
     )
-
     # NOTE: Zs precede Ps because this is the order in all arrays/matrices
     zoo_array = [Symbol("Z$i") for i in 1:n_zoo]
     phyto_array = [Symbol("P$i") for i in 1:n_phyto]
@@ -180,29 +256,35 @@ function construct(;
 
     # create tracer functions
     tracers = Dict(
-        "N" => nutrient_dynamics(phyto_array, zoo_array),
-        "D" => detritus_dynamics(phyto_array, zoo_array),
+        "DIC" => DIC_dynamics(phyto_array),
+        "DIN" => DIN_dynamics(phyto_array),
+        "PO4" => PO4_dynamics(phyto_array),
+        "POC" => POC_dynamics(phyto_array, zoo_array),
+        "DOC" => DOC_dynamics(phyto_array, zoo_array),
+        "PON" => PON_dynamics(phyto_array, zoo_array),
+        "DON" => DON_dynamics(phyto_array, zoo_array),
+        "POP" => POP_dynamics(phyto_array, zoo_array),
+        "DOP" => DOP_dynamics(phyto_array, zoo_array),
     )
-    # start with zoos --> the index here is the position in all
-    # zoo arrays as well as in the full plankton arrays
-    for i in 1:n_zoo
-        name = "Z$i"
-        tracers[name] = zoo_dynamics(plankton_array, name)
-    end
-    # !! the index here is the position in phyto arrays only !!
     for i in 1:n_phyto
         name = "P$i"
         tracers[name] = phyto_dynamics(plankton_array, name)
     end
+    for i in 1:n_zoo
+        name = "Z$i"
+        tracers[name] = zoo_dynamics(plankton_array, name)
+    end
 
     # return Oceananigans.Biogeochemistry object
-    # NOTE: this adds "PAR" as an auxiliary field by default
+    # note this adds "PAR" as an auxiliary field by default
     return define_tracer_functions(parameters, tracers)
 end
 
 """
     instantiate(
         bgc_type;
+        n_phyto=2,
+        n_zoo=2,
         phyto_diameters=Dict(
             "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
         ),
@@ -217,14 +299,19 @@ end
         assimilation_efficiency_matrix=nothing,
     ) -> bgc_type
 
-A function to instantiate an object of `bgc_type` returned by `NiPiZD.construct()`.
+A function to instantiate an object of `bgc_type` returned by `DARWIN.construct()`.
 
 The type specifies the number of phytoplankton and zooplankton in the model and includes
 default parameter values. The instantiate method is used to override the default values
 of any of the model parameters or plankton diameters.
 
+!!! tip
+
+    Changing the parameter values of an existing DARWIN model type using `instantiate()` is useful in
+    dynamic programming contexts such as `for` loops.
+
 # Arguments
-- `bgc_type`: subtype of Oceananigans.Biogeochemistry returned by `NiPiZD.construct()`
+- `bgc_type`: subtype of Oceananigans.Biogeochemistry returned by `DARWIN.construct()`
    with a specified number of phytoplankton and zooplankton
 
 # Keywords
@@ -255,14 +342,14 @@ of any of the model parameters or plankton diameters.
 
 # Example
 ```julia
-using Agate.Constructors: NiPiZD
+using Agate.Constructors: DARWIN
 
-n2p2zd = NiPiZD.construct()
+darwin_2p_2z = DARWIN.construct()
 
 # change some parameter values
-phyto_args = NiPiZD.DEFAULT_PHYTO_ARGS
+phyto_args = DARWIN.DEFAULT_PHYTO_ARGS
 phyto_args["allometry"]["maximum_growth_rate"]["a"] = 2
-n2p2zd_model_obj = NiPiZD.instantiate(n2p2zd; phyto_args=phyto_args)
+darwin_2p_2z_model_obj = DARWIN.instantiate(darwin_2p_2z; phyto_args=phyto_args)
 ```
 """
 function instantiate(
