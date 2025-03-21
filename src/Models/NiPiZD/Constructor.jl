@@ -24,7 +24,7 @@ DEFAULT_PHYTO_ARGS = Dict(
         "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
         "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
     ),
-    "linear_mortality_p" => 8e-7 / second,
+    "linear_mortality" => 8e-7 / second,
     "alpha" => 0.1953 / day,
 )
 
