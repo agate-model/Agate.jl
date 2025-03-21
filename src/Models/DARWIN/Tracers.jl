@@ -430,8 +430,8 @@ function phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankto
             maximum_growth_rate[$plankton_name],
             half_saturation_DIN[$plankton_name],
             half_saturation_PO4[$plankton_name],
-            photosynthetic_slope,
-            chlorophyll_to_carbon_ratio,
+            photosynthetic_slope[$plankton_name],
+            chlorophyll_to_carbon_ratio[$plankton_name],
         ) - sum(
             predation_loss_preferential.(
                 # the prey
@@ -440,11 +440,11 @@ function phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankto
                 [$(plankton_array...)],
                 # predator size dependant parameters
                 maximum_predation_rate.array,
-                holling_half_saturation,
+                holling_half_saturation.array,
                 # get the prey column -> sum over all predator rows
                 palatability_matrix[:, $plankton_name].array,
             ),
-        ) - linear_loss($(plankton_symbol), linear_mortality_p)
+        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_name])
     )
 end
 
@@ -474,12 +474,12 @@ function zooplankton_default(plankton_array, plankton_name)
                 assimilation_efficiency_matrix[$plankton_name, :],
                 # predator size dependant parameter
                 maximum_predation_rate[$plankton_name],
-                holling_half_saturation,
+                holling_half_saturation[$plankton_name],
                 # get the predator row -> sum over all prey columns
                 palatability_matrix[$plankton_name, :],
             ),
-        ) - linear_loss($(plankton_symbol), linear_mortality_z) -
-        quadratic_loss($(plankton_symbol), quadratic_mortality)
+        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_name]) -
+        quadratic_loss($(plankton_symbol), quadratic_mortality[$plankton_name])
     )
 end
 
