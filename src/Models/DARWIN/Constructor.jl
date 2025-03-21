@@ -264,14 +264,17 @@ function construct(;
         "POP" => POP_dynamics(plankton_array),
         "DOP" => DOP_dynamics(plankton_array),
     )
-    for i in 1:n_phyto
-        name = "P$i"
-        tracers[name] = phyto_dynamics(plankton_array, name)
-    end
+    # all arrays start with zoo
     for i in 1:n_zoo
         name = "Z$i"
-        tracers[name] = zoo_dynamics(plankton_array, name)
+        tracers[name] = zoo_dynamics(plankton_array, name, i)
     end
+    # phyto follow zoo so need to add n_zoo to indexing
+    for i in 1:n_phyto
+        name = "P$i"
+        tracers[name] = phyto_dynamics(plankton_array, name, i+n_zoo)
+    end
+
 
     # return Oceananigans.Biogeochemistry object
     # note this adds "PAR" as an auxiliary field by default
