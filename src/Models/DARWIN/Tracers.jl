@@ -256,7 +256,8 @@ to be of same length for vectorization to work (and arranged in the same plankto
 """
 function POC_default(plankton_array)
     return :(
-        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) * DOM_POM_fractionation +
+        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
+        DOM_POM_fractionation +
         sum(
             # essentially same as the detritus_typical function
             # the function includes predator x prey matrix inputs so have to make sure that
@@ -275,8 +276,10 @@ function POC_default(plankton_array)
                 palatability_matrix.array,
             ),
         ) * DOM_POM_fractionation +
-        sum(quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) * DOM_POM_fractionation) -
-        remineralization_idealized(POC, POC_remineralization)
+        sum(
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
+            DOM_POM_fractionation,
+        ) - remineralization_idealized(POC, POC_remineralization)
     )
 end
 

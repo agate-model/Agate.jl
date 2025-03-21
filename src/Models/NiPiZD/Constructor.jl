@@ -184,8 +184,7 @@ function construct(;
 
     # create tracer functions
     tracers = Dict(
-        "N" => nutrient_dynamics(plankton_array),
-        "D" => detritus_dynamics(plankton_array),
+        "N" => nutrient_dynamics(plankton_array), "D" => detritus_dynamics(plankton_array)
     )
     # start with zoos --> the index here is the position in all
     # zoo arrays as well as in the full plankton arrays
