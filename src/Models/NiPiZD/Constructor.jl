@@ -186,16 +186,15 @@ function construct(;
     tracers = Dict(
         "N" => nutrient_dynamics(plankton_array), "D" => detritus_dynamics(plankton_array)
     )
-    # start with zoos --> the index here is the position in all
-    # zoo arrays as well as in the full plankton arrays
+    # all arrays start with zoo
     for i in 1:n_zoo
         name = "Z$i"
-        tracers[name] = zoo_dynamics(plankton_array, name)
+        tracers[name] = zoo_dynamics(plankton_array, name, i)
     end
-    # !! the index here is the position in phyto arrays only !!
+    # phyto follow zoo so need to add n_zoo to indexing
     for i in 1:n_phyto
         name = "P$i"
-        tracers[name] = phyto_dynamics(plankton_array, name)
+        tracers[name] = phyto_dynamics(plankton_array, name, i+n_zoo)
     end
 
     # return Oceananigans.Biogeochemistry object
