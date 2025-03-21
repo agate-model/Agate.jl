@@ -23,14 +23,14 @@ DEFAULT_PHYTO_ARGS = Dict(
         "half_saturation_DIN" => Dict("a" => 0.17, "b" => 0.27),
         "half_saturation_PO4" => Dict("a" => 0.17, "b" => 0.27),
     ),
-    "linear_mortality_p" => 8e-7 / second,
+    "linear_mortality" => 8e-7 / second,
     "photosynthetic_slope" => 0.46e-5,
     "chlorophyll_to_carbon_ratio" => 0.1,
 )
 
 DEFAULT_ZOO_ARGS = Dict(
     "allometry" => Dict("maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16)),
-    "linear_mortality_z" => 8e-7 / second,
+    "linear_mortality" => 8e-7 / second,
     "holling_half_saturation" => 5.0,
     "quadratic_mortality" => 1e-6 / second,
 )

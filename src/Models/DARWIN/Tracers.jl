@@ -124,9 +124,9 @@ to be of same length for vectorization to work (and arranged in the same plankto
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
     `[:P1, :P2, :Z1, :Z2]`
 """
-function DOC_default(plankton)
+function DOC_default(plankton_array)
     return :(
-        sum(linear_loss.([$(plankton_array...)], linear_mortality)) *
+        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
         (1 - DOM_POM_fractionation) +
         sum(
             # essentially same as the detritus_typical function
