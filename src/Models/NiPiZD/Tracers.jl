@@ -89,17 +89,12 @@ for overview. All arguments in the functions are either an Array or a Float. The
 to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2]`
-- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2]`
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
 """
-function detritus_default(phyto_array, zoo_array)
-    plankton_array = vcat(zoo_array, phyto_array)
+function detritus_default(plankton_array)
     return :(
-        sum(linear_loss.([$(phyto_array...)], linear_mortality["P1"])) *
-        (1 - mortality_export_fraction) +
-        sum(linear_loss.([$(zoo_array...)], linear_mortality["Z1"])) *
+        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
         (1 - mortality_export_fraction) +
         sum(
             # the function includes predator x prey matrix inputs so have to make sure that
@@ -113,13 +108,13 @@ function detritus_default(phyto_array, zoo_array)
                 assimilation_efficiency_matrix.array,
                 # predator size dependant parameters -> apply column-wise
                 maximum_predation_rate.array,
-                holling_half_saturation["Z1"],
+                holling_half_saturation.array,
                 # predator x prey matrix
                 palatability_matrix.array,
             ),
         ) +
         sum(
-            quadratic_loss.([$(zoo_array...)], quadratic_mortality["Z1"]) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
             (1 - mortality_export_fraction),
         ) - remineralization_idealized(D, detritus_remineralization)
     )
