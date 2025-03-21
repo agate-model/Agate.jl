@@ -3,6 +3,8 @@ using NamedArrays
 using Agate.Models.NiPiZD.Tracers
 using Agate.Models: NiPiZD
 
+using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
+
 @testset "Models.Constructor" begin
     N2P2ZD_constructed = NiPiZD.construct()
 
