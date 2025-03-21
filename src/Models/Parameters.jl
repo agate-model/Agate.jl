@@ -25,7 +25,7 @@ This function:
 
 All parameters are returned as:
     `Dict(<parameter> => <NamedArray of values>, ....)`
-using either the group names (e.g., "P") or names generated in the first step (e.g., "P1").
+using the names generated in the first step (e.g., "P1").
 
 # Arguments
 - `plankton`: a Dictionary of plankton groups' specific parameters of the form:
@@ -128,6 +128,7 @@ function compute_allometric_parameters(plankton::Dict)
         # 3. reshape remaining parameters
         for (param, value) in params
             if !(param ∈ ["n", "diameters", "allometry"])
+
                 # NOTE: for palatability and assimilation_efficiency, `value` is a Dictionary
                 # store the values in intermediate form to use later when creating matrices
                 if param ∈ ["palatability", "assimilation_efficiency"]
@@ -145,9 +146,8 @@ function compute_allometric_parameters(plankton::Dict)
                     end
                 else
                     # NOTE: expect here that in all other cases `value` is a single number
-                    # println(value, " ", value * ones(n), " ", plankton_names)
                     results[param] = vcat(
-                        results[param], NamedArray(value * ones(n), plankton_names)
+                        results[param], NamedArray(repeat([value], n), plankton_names)
                     )
                 end
             end
@@ -232,7 +232,12 @@ function emergent_2D_array(plankton, func)
 end
 
 """
-Create a dictionary of NPZD parameters to pass to `Agate.Models.Biogeochemistry.define_tracer_functions`.
+Create a dictionary of parameters to pass to `Agate.Models.Biogeochemistry.define_tracer_functions`.
+
+Used for models with phytoplankton and zooplankton (NiPiZD, DARWIN).
+
+Wherever a parameter is defined for only one plankton group, its value is set to 0 for the
+other group. This way all the returned parameter Arrays are of same length (n_phyto + n_zoo).
 
 # Arguments
 - `n_phyto`: number of phytoplankton to include in the model
@@ -272,19 +277,42 @@ function create_params_dict(;
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 )
-    # compute emergent parameters
-    defined_parameters = Dict(
-        "P" => Dict{String,Any}(
-            "allometry" => phyto_args["allometry"],
-            "n" => n_phyto,
-            "diameters" => phyto_diameters,
-        ),
-        "Z" => Dict{String,Any}(
-            "allometry" => zoo_args["allometry"],
-            "n" => n_zoo,
-            "diameters" => zoo_diameters,
-        ),
+
+    # make sure that phyto_args and zoo_args have all the same parameters to ensure the
+    # output parameter vectors all have the same size (n_phyto + n_zoo)
+    # set value of parameter to 0 in those cases
+
+    # first handle allometry
+    all_allometric_params = union(
+        keys(phyto_args["allometry"]), keys(zoo_args["allometry"])
     )
+    for param in all_allometric_params
+        if !(param ∈ keys(phyto_args["allometry"]))
+            phyto_args["allometry"][param] = Dict("a" => 0, "b" => 0)
+        end
+        if !(param ∈ keys(zoo_args["allometry"]))
+            zoo_args["allometry"][param] = Dict("a" => 0, "b" => 0)
+        end
+    end
+
+    # then handle non allometric params
+    all_other_params = setdiff(union(keys(phyto_args), keys(zoo_args)), ["allometry"])
+    for param in all_other_params
+        if !(param ∈ keys(phyto_args))
+            phyto_args[param] = 0
+        end
+        if !(param ∈ keys(zoo_args))
+            zoo_args[param] = 0
+        end
+    end
+
+    phyto_args["n"] = n_phyto
+    phyto_args["diameters"] = phyto_diameters
+    zoo_args["n"] = n_zoo
+    zoo_args["diameters"] = zoo_diameters
+
+    # compute emergent parameters
+    defined_parameters = Dict("P" => phyto_args, "Z" => zoo_args)
 
     if isnothing(palatability_matrix)
         defined_parameters["P"]["palatability"] = Dict(
@@ -339,13 +367,9 @@ function create_params_dict(;
     bgc_args["n_phyto"] = n_phyto
     bgc_args["n_zoo"] = n_zoo
 
-    phyto_args = Dict(k => v for (k, v) in phyto_args if k != "allometry")
-    zoo_args = Dict(k => v for (k, v) in zoo_args if k != "allometry")
-
     # combine emergent parameters with remaining bgc, phyto and zoo defined parameters
     parameters = NamedTuple(
-        Symbol(k) => v for
-        (k, v) in merge(bgc_args, emergent_parameters, phyto_args, zoo_args)
+        Symbol(k) => v for (k, v) in merge(bgc_args, emergent_parameters)
     )
 
     return parameters

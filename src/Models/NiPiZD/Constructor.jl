@@ -23,10 +23,8 @@ DEFAULT_PHYTO_ARGS = Dict(
     "allometry" => Dict(
         "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
         "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
-        # need this to vectorize the tracer functions
-        "maximum_predation_rate" => Dict("a" => 0, "b" => 0),
     ),
-    "linear_mortality_p" => 8e-7 / second,
+    "linear_mortality" => 8e-7 / second,
     "alpha" => 0.1953 / day,
 )
 
@@ -34,17 +32,15 @@ DEFAULT_PHYTO_GEIDER_ARGS = Dict(
     "allometry" => Dict(
         "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
         "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
-        # need this to vectorize the tracer functions
-        "maximum_predation_rate" => Dict("a" => 0, "b" => 0),
     ),
-    "linear_mortality_p" => 8e-7 / second,
+    "linear_mortality" => 8e-7 / second,
     "photosynthetic_slope" => 0.46e-5,
     "chlorophyll_to_carbon_ratio" => 0.1,
 )
 
 DEFAULT_ZOO_ARGS = Dict(
     "allometry" => Dict("maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16)),
-    "linear_mortality_z" => 8e-7 / second,
+    "linear_mortality" => 8e-7 / second,
     "holling_half_saturation" => 5.0,
     "quadratic_mortality" => 1e-6 / second,
 )
@@ -188,19 +184,17 @@ function construct(;
 
     # create tracer functions
     tracers = Dict(
-        "N" => nutrient_dynamics(phyto_array, zoo_array),
-        "D" => detritus_dynamics(phyto_array, zoo_array),
+        "N" => nutrient_dynamics(plankton_array), "D" => detritus_dynamics(plankton_array)
     )
-    # start with zoos --> the index here is the position in all
-    # zoo arrays as well as in the full plankton arrays
+    # all arrays start with zoo
     for i in 1:n_zoo
         name = "Z$i"
-        tracers[name] = zoo_dynamics(plankton_array, name)
+        tracers[name] = zoo_dynamics(plankton_array, name, i)
     end
-    # !! the index here is the position in phyto arrays only !!
+    # phyto follow zoo so need to add n_zoo to indexing
     for i in 1:n_phyto
         name = "P$i"
-        tracers[name] = phyto_dynamics(plankton_array, name)
+        tracers[name] = phyto_dynamics(plankton_array, name, i+n_zoo)
     end
 
     # return Oceananigans.Biogeochemistry object

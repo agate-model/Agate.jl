@@ -17,34 +17,29 @@ for overview. All arguments in the functions are either an Array or a Float. The
 to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2]`
-- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2]`
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
 """
-function nutrients_default(phyto_array, zoo_array)
+function nutrients_default(plankton_array)
     return :(
         sum(
-            linear_loss.([$(phyto_array...)], linear_mortality_p) *
+            linear_loss.([$(plankton_array...)], linear_mortality.array) *
             mortality_export_fraction,
         ) +
         sum(
-            linear_loss.([$(zoo_array...)], linear_mortality_z) * mortality_export_fraction
-        ) +
-        sum(
-            quadratic_loss.([$(zoo_array...)], quadratic_mortality) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
             mortality_export_fraction,
         ) +
         remineralization_idealized(D, detritus_remineralization) - sum(
             photosynthetic_growth_single_nutrient.(
                 N,
-                [$(phyto_array...)],
+                [$(plankton_array...)],
                 PAR,
                 # extract an array of values from the NamedArray
                 # otherwise get an error when trying to broadcast
                 maximum_growth_rate.array,
                 nutrient_half_saturation.array,
-                alpha,
+                alpha.array,
             ),
         )
     )
@@ -58,34 +53,29 @@ for overview. All arguments in the functions are either an Array or a Float. The
 to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2]`
-- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2]`
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
 """
-function nutrients_geider_light(phyto_array, zoo_array)
+function nutrients_geider_light(plankton_array)
     return :(
         sum(
-            linear_loss.([$(phyto_array...)], linear_mortality_p) *
+            linear_loss.([$(plankton_array...)], linear_mortality.array) *
             mortality_export_fraction,
         ) +
         sum(
-            linear_loss.([$(zoo_array...)], linear_mortality_z) * mortality_export_fraction
-        ) +
-        sum(
-            quadratic_loss.([$(zoo_array...)], quadratic_mortality) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
             mortality_export_fraction,
         ) +
         remineralization_idealized(D, detritus_remineralization) - sum(
             photosynthetic_growth_single_nutrient_geider_light.(
                 N,
-                [$(phyto_array...)],
+                [$(plankton_array...)],
                 PAR,
                 # size dependant values
                 maximum_growth_rate.array,
                 nutrient_half_saturation.array,
-                photosynthetic_slope,
-                chlorophyll_to_carbon_ratio,
+                photosynthetic_slope.array,
+                chlorophyll_to_carbon_ratio.array,
             ),
         )
     )
@@ -99,17 +89,12 @@ for overview. All arguments in the functions are either an Array or a Float. The
 to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2]`
-- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2]`
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
 """
-function detritus_default(phyto_array, zoo_array)
-    plankton_array = vcat(zoo_array, phyto_array)
+function detritus_default(plankton_array)
     return :(
-        sum(linear_loss.([$(phyto_array...)], linear_mortality_p)) *
-        (1 - mortality_export_fraction) +
-        sum(linear_loss.([$(zoo_array...)], linear_mortality_z)) *
+        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
         (1 - mortality_export_fraction) +
         sum(
             # the function includes predator x prey matrix inputs so have to make sure that
@@ -123,13 +108,13 @@ function detritus_default(phyto_array, zoo_array)
                 assimilation_efficiency_matrix.array,
                 # predator size dependant parameters -> apply column-wise
                 maximum_predation_rate.array,
-                holling_half_saturation,
+                holling_half_saturation.array,
                 # predator x prey matrix
                 palatability_matrix.array,
             ),
         ) +
         sum(
-            quadratic_loss.([$(zoo_array...)], quadratic_mortality) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
             (1 - mortality_export_fraction),
         ) - remineralization_idealized(D, detritus_remineralization)
     )
@@ -147,17 +132,18 @@ to be of same length for vectorization to work (and arranged in the same plankto
     `[:P1, :P2, :Z1, :Z2]`
 - `plankton_name`: name of the phytoplankton for which we are returning the expression passed
     as a String (e.g., "P1").
+- `plankton_idx`: the index at which the plankton values are stored in all parameter Arrays
 """
-function phytoplankton_default(plankton_array, plankton_name)
+function phytoplankton_default(plankton_array, plankton_name, plankton_idx)
     plankton_symbol = Symbol(plankton_name)
     return :(
         photosynthetic_growth_single_nutrient(
             N,
             $(plankton_symbol),
             PAR,
-            maximum_growth_rate[$plankton_name],
-            nutrient_half_saturation[$plankton_name],
-            alpha,
+            maximum_growth_rate[$plankton_idx],
+            nutrient_half_saturation[$plankton_idx],
+            alpha[$plankton_idx],
         ) - sum(
             predation_loss_preferential.(
                 # the prey
@@ -166,11 +152,11 @@ function phytoplankton_default(plankton_array, plankton_name)
                 [$(plankton_array...)],
                 # predator size dependant parameters
                 maximum_predation_rate.array,
-                holling_half_saturation,
+                holling_half_saturation.array,
                 # get the prey column -> sum over all predator rows
-                palatability_matrix[:, $plankton_name].array,
+                palatability_matrix[:, $plankton_idx].array,
             ),
-        ) - linear_loss($(plankton_symbol), linear_mortality_p)
+        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_idx])
     )
 end
 
@@ -186,28 +172,29 @@ to be of same length for vectorization to work (and arranged in the same plankto
     `[:P1, :P2, :Z1, :Z2]`
 - `plankton_name`: name of the phytoplankton for which we are returning the expression passed
     as a String (e.g., "P1").
+- `plankton_idx`: the index at which the plankton values are stored in all parameter Arrays
 """
-function phytoplankton_geider_light(plankton_array, plankton_name)
+function phytoplankton_geider_light(plankton_array, plankton_name, plankton_idx)
     plankton_symbol = Symbol(plankton_name)
     return :(
         photosynthetic_growth_single_nutrient_geider_light(
             N,
             $(plankton_symbol),
             PAR,
-            maximum_growth_rate[$plankton_name],
-            nutrient_half_saturation[$plankton_name],
-            photosynthetic_slope,
-            chlorophyll_to_carbon_ratio,
+            maximum_growth_rate[$plankton_idx],
+            nutrient_half_saturation[$plankton_idx],
+            photosynthetic_slope[$plankton_idx],
+            chlorophyll_to_carbon_ratio[$plankton_idx],
         ) - sum(
             # exactly the same as in phytoplankton_growth_single_nutrient
             predation_loss_preferential.(
                 $(plankton_symbol),
                 [$(plankton_array...)],
                 maximum_predation_rate.array,
-                holling_half_saturation,
-                palatability_matrix[:, $plankton_name].array,
+                holling_half_saturation.array,
+                palatability_matrix[:, $plankton_idx].array,
             ),
-        ) - linear_loss($(plankton_symbol), linear_mortality_p)
+        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_idx])
     )
 end
 
@@ -224,7 +211,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 - `plankton_name`: name of the zooplankton for which we are returning the expression passed
     as a String (e.g., "Z1").
 """
-function zooplankton_default(plankton_array, plankton_name)
+function zooplankton_default(plankton_array, plankton_name, plankton_idx)
     plankton_symbol = Symbol(plankton_name)
     return :(
         sum(
@@ -234,15 +221,15 @@ function zooplankton_default(plankton_array, plankton_name)
                 # the predator
                 $(plankton_symbol),
                 # get the predator row -> sum over all prey columns
-                assimilation_efficiency_matrix[$plankton_name, :],
+                assimilation_efficiency_matrix[$plankton_idx, :],
                 # predator size dependant parameter
-                maximum_predation_rate[$plankton_name],
-                holling_half_saturation,
+                maximum_predation_rate[$plankton_idx],
+                holling_half_saturation[$plankton_idx],
                 # get the predator row -> sum over all prey columns
-                palatability_matrix[$plankton_name, :],
+                palatability_matrix[$plankton_idx, :],
             ),
-        ) - linear_loss($(plankton_symbol), linear_mortality_z) -
-        quadratic_loss($(plankton_symbol), quadratic_mortality)
+        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_idx]) -
+        quadratic_loss($(plankton_symbol), quadratic_mortality[$plankton_idx])
     )
 end
 

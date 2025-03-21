@@ -25,23 +25,23 @@ for overview. All arguments in the functions are either an Array or a Float. The
 to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `phyto_array`: names of all the phytoplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2]`
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
 """
-function DIC_geider_light(phyto_array)
+function DIC_geider_light(plankton_array)
     return :(
         remineralization_idealized(DOC, DOC_remineralization) +
         remineralization_idealized(POC, POC_remineralization) - sum(
             photosynthetic_growth_two_nutrients_geider_light.(
                 DIN,
                 PO4,
-                [$(phyto_array...)],
+                [$(plankton_array...)],
                 PAR,
                 maximum_growth_rate.array,
                 half_saturation_DIN.array,
                 half_saturation_PO4.array,
-                photosynthetic_slope,
-                chlorophyll_to_carbon_ratio,
+                photosynthetic_slope.array,
+                chlorophyll_to_carbon_ratio.array,
             ),
         )
     )
@@ -57,23 +57,23 @@ for overview. All arguments in the functions are either an Array or a Float. The
 to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `phyto_array`: names of all the phytoplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2]`
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
 """
-function DIN_geider_light(phyto_array)
+function DIN_geider_light(plankton_array)
     return :(
         remineralization_idealized(DOC, DOC_remineralization) +
         remineralization_idealized(POC, POC_remineralization) - sum(
             photosynthetic_growth_two_nutrients_geider_light.(
                 DIN,
                 PO4,
-                [$(phyto_array...)],
+                [$(plankton_array...)],
                 PAR,
                 maximum_growth_rate.array,
                 half_saturation_DIN.array,
                 half_saturation_PO4.array,
-                photosynthetic_slope,
-                chlorophyll_to_carbon_ratio,
+                photosynthetic_slope.array,
+                chlorophyll_to_carbon_ratio.array,
             ) * nitrogen_to_carbon,
         )
     )
@@ -92,27 +92,27 @@ to be of same length for vectorization to work (and arranged in the same plankto
 - `phyto_array`: names of all the phytoplankton in the ecosystem expressed as Symbols, e.g.:
     `[:P1, :P2]`
 """
-function PO4_geider_light(phyto_array)
+function PO4_geider_light(plankton_array)
     return :(
         remineralization_idealized(DOC, DOC_remineralization) +
         remineralization_idealized(POC, POC_remineralization) - sum(
             photosynthetic_growth_two_nutrients_geider_light.(
                 DIN,
                 PO4,
-                [$(phyto_array...)],
+                [$(plankton_array...)],
                 PAR,
                 maximum_growth_rate.array,
                 half_saturation_DIN.array,
                 half_saturation_PO4.array,
-                photosynthetic_slope,
-                chlorophyll_to_carbon_ratio,
+                photosynthetic_slope.array,
+                chlorophyll_to_carbon_ratio.array,
             ) * nitrogen_to_carbon,
         )
     )
 end
 
 """
-    DOC_default(phyto_array, zoo_array)
+    DOC_default(plankton_array)
 
 Build expression for a simplified DOC function of time.
 
@@ -121,17 +121,12 @@ for overview. All arguments in the functions are either an Array or a Float. The
 to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2]`
-- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2]`
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
 """
-function DOC_default(phyto_array, zoo_array)
-    plankton_array = vcat(zoo_array, phyto_array)
+function DOC_default(plankton_array)
     return :(
-        sum(linear_loss.([$(phyto_array...)], linear_mortality_p)) *
-        (1 - DOM_POM_fractionation) +
-        sum(linear_loss.([$(zoo_array...)], linear_mortality_z)) *
+        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
         (1 - DOM_POM_fractionation) +
         sum(
             # essentially same as the detritus_typical function
@@ -146,20 +141,20 @@ function DOC_default(phyto_array, zoo_array)
                 assimilation_efficiency_matrix.array,
                 # predator size dependant parameters -> apply column-wise
                 maximum_predation_rate.array,
-                holling_half_saturation,
+                holling_half_saturation.array,
                 # predator x prey matrix
                 palatability_matrix.array,
             ),
         ) * (1 - DOM_POM_fractionation) +
         sum(
-            quadratic_loss.([$(zoo_array...)], quadratic_mortality) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
             (1 - DOM_POM_fractionation),
         ) - remineralization_idealized(DOC, DOC_remineralization)
     )
 end
 
 """
-    DON_default(phyto_array, zoo_array)
+    DON_default(plankton_array)
 
 Build expression for a simplified DON function of time.
 
@@ -168,18 +163,12 @@ for overview. All arguments in the functions are either an Array or a Float. The
 to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2]`
-- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2]`
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
 """
-function DON_default(phyto_array, zoo_array)
-    plankton_array = vcat(zoo_array, phyto_array)
+function DON_default(plankton_array)
     return :(
-        sum(linear_loss.([$(phyto_array...)], linear_mortality_p)) *
-        (1 - DOM_POM_fractionation) *
-        nitrogen_to_carbon +
-        sum(linear_loss.([$(zoo_array...)], linear_mortality_z)) *
+        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
         (1 - DOM_POM_fractionation) *
         nitrogen_to_carbon +
         sum(
@@ -195,13 +184,13 @@ function DON_default(phyto_array, zoo_array)
                 assimilation_efficiency_matrix.array,
                 # predator size dependant parameters -> apply column-wise
                 maximum_predation_rate.array,
-                holling_half_saturation,
+                holling_half_saturation.array,
                 # predator x prey matrix
                 palatability_matrix.array,
             ) * nitrogen_to_carbon,
         ) * (1 - DOM_POM_fractionation) +
         sum(
-            quadratic_loss.([$(zoo_array...)], quadratic_mortality) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
             (1 - DOM_POM_fractionation) *
             nitrogen_to_carbon,
         ) - remineralization_idealized(DON, DON_remineralization)
@@ -209,7 +198,7 @@ function DON_default(phyto_array, zoo_array)
 end
 
 """
-    DOP_default(phyto_array, zoo_array)
+    DOP_default(plankton_array)
 
 Build expression for a simplified DOP function of time.
 
@@ -218,18 +207,12 @@ for overview. All arguments in the functions are either an Array or a Float. The
 to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2]`
-- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2]`
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
 """
-function DOP_default(phyto_array, zoo_array)
-    plankton_array = vcat(zoo_array, phyto_array)
+function DOP_default(plankton_array)
     return :(
-        sum(linear_loss.([$(phyto_array...)], linear_mortality_p)) *
-        (1 - DOM_POM_fractionation) *
-        phosphorus_to_carbon +
-        sum(linear_loss.([$(zoo_array...)], linear_mortality_z)) *
+        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
         (1 - DOM_POM_fractionation) *
         phosphorus_to_carbon +
         sum(
@@ -245,13 +228,13 @@ function DOP_default(phyto_array, zoo_array)
                 assimilation_efficiency_matrix.array,
                 # predator size dependant parameters -> apply column-wise
                 maximum_predation_rate.array,
-                holling_half_saturation,
+                holling_half_saturation.array,
                 # predator x prey matrix
                 palatability_matrix.array,
             ) * phosphorus_to_carbon,
         ) * (1 - DOM_POM_fractionation) +
         sum(
-            quadratic_loss.([$(zoo_array...)], quadratic_mortality) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
             (1 - DOM_POM_fractionation) *
             phosphorus_to_carbon,
         ) - remineralization_idealized(DOP, DOP_remineralization)
@@ -259,7 +242,7 @@ function DOP_default(phyto_array, zoo_array)
 end
 
 """
-    POC_default(phyto_array, zoo_array)
+    POC_default(plankton_array)
 
 Build expression for a simplified POC function of time.
 
@@ -268,16 +251,13 @@ for overview. All arguments in the functions are either an Array or a Float. The
 to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2]`
-- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2]`
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
 """
-function POC_default(phyto_array, zoo_array)
-    plankton_array = vcat(zoo_array, phyto_array)
+function POC_default(plankton_array)
     return :(
-        sum(linear_loss.([$(phyto_array...)], linear_mortality_p)) * DOM_POM_fractionation +
-        sum(linear_loss.([$(zoo_array...)], linear_mortality_z)) * DOM_POM_fractionation +
+        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
+        DOM_POM_fractionation +
         sum(
             # essentially same as the detritus_typical function
             # the function includes predator x prey matrix inputs so have to make sure that
@@ -291,18 +271,20 @@ function POC_default(phyto_array, zoo_array)
                 assimilation_efficiency_matrix.array,
                 # predator size dependant parameters -> apply column-wise
                 maximum_predation_rate.array,
-                holling_half_saturation,
+                holling_half_saturation.array,
                 # predator x prey matrix
                 palatability_matrix.array,
             ),
         ) * DOM_POM_fractionation +
-        sum(quadratic_loss.([$(zoo_array...)], quadratic_mortality) * DOM_POM_fractionation) -
-        remineralization_idealized(POC, POC_remineralization)
+        sum(
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
+            DOM_POM_fractionation,
+        ) - remineralization_idealized(POC, POC_remineralization)
     )
 end
 
 """
-    PON_default(phyto_array, zoo_array)
+    PON_default(plankton_array)
 
 Build expression for a simplified PON function of time.
 
@@ -314,13 +296,9 @@ to be of same length for vectorization to work (and arranged in the same plankto
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
     `[:P1, :P2, :Z1, :Z2]`
 """
-function PON_default(phyto_array, zoo_array)
-    plankton_array = vcat(zoo_array, phyto_array)
+function PON_default(plankton_array)
     return :(
-        sum(linear_loss.([$(phyto_array...)], linear_mortality_p)) *
-        DOM_POM_fractionation *
-        nitrogen_to_carbon +
-        sum(linear_loss.([$(zoo_array...)], linear_mortality_z)) *
+        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
         DOM_POM_fractionation *
         nitrogen_to_carbon +
         sum(
@@ -336,7 +314,7 @@ function PON_default(phyto_array, zoo_array)
                 assimilation_efficiency_matrix.array,
                 # predator size dependant parameters -> apply column-wise
                 maximum_predation_rate.array,
-                holling_half_saturation,
+                holling_half_saturation.array,
                 # predator x prey matrix
                 palatability_matrix.array,
             ),
@@ -344,7 +322,7 @@ function PON_default(phyto_array, zoo_array)
         DOM_POM_fractionation *
         nitrogen_to_carbon +
         sum(
-            quadratic_loss.([$(zoo_array...)], quadratic_mortality) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
             DOM_POM_fractionation *
             nitrogen_to_carbon,
         ) - remineralization_idealized(PON, PON_remineralization)
@@ -352,7 +330,7 @@ function PON_default(phyto_array, zoo_array)
 end
 
 """
-    POP_default(phyto_array, zoo_array)
+    POP_default(plankton_array)
 
 Build expression for a simplified POP function of time.
 
@@ -361,18 +339,12 @@ for overview. All arguments in the functions are either an Array or a Float. The
 to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2]`
-- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2]`
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
 """
-function POP_default(phyto_array, zoo_array)
-    plankton_array = vcat(zoo_array, phyto_array)
+function POP_default(plankton_array)
     return :(
-        sum(linear_loss.([$(phyto_array...)], linear_mortality_p)) *
-        DOM_POM_fractionation *
-        phosphorus_to_carbon +
-        sum(linear_loss.([$(zoo_array...)], linear_mortality_z)) *
+        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
         DOM_POM_fractionation *
         phosphorus_to_carbon +
         sum(
@@ -388,7 +360,7 @@ function POP_default(phyto_array, zoo_array)
                 assimilation_efficiency_matrix.array,
                 # predator size dependant parameters -> apply column-wise
                 maximum_predation_rate.array,
-                holling_half_saturation,
+                holling_half_saturation.array,
                 # predator x prey matrix
                 palatability_matrix.array,
             ),
@@ -396,7 +368,7 @@ function POP_default(phyto_array, zoo_array)
         DOM_POM_fractionation *
         phosphorus_to_carbon +
         sum(
-            quadratic_loss.([$(zoo_array...)], quadratic_mortality) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
             DOM_POM_fractionation *
             phosphorus_to_carbon,
         ) - remineralization_idealized(POP, POP_remineralization)
@@ -404,7 +376,7 @@ function POP_default(phyto_array, zoo_array)
 end
 
 """
-    phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankton_name)
+    phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankton_name, plankton_idx)
 
 Build expression for a simplified phytoplankton growth function.
 
@@ -417,8 +389,9 @@ to be of same length for vectorization to work (and arranged in the same plankto
     `[:P1, :P2, :Z1, :Z2]`
 - `plankton_name`: name of the phytoplankton for which we are returning the expression passed
     as a String (e.g., "P1").
+- `plankton_idx`: the index at which the plankton values are stored in all parameter Arrays
 """
-function phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankton_name)
+function phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankton_name, plankton_idx)
     plankton_symbol = Symbol(plankton_name)
 
     return :(
@@ -427,11 +400,11 @@ function phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankto
             PO4,
             $(plankton_symbol),
             PAR,
-            maximum_growth_rate[$plankton_name],
-            half_saturation_DIN[$plankton_name],
-            half_saturation_PO4[$plankton_name],
-            photosynthetic_slope,
-            chlorophyll_to_carbon_ratio,
+            maximum_growth_rate[$plankton_idx],
+            half_saturation_DIN[$plankton_idx],
+            half_saturation_PO4[$plankton_idx],
+            photosynthetic_slope[$plankton_idx],
+            chlorophyll_to_carbon_ratio[$plankton_idx],
         ) - sum(
             predation_loss_preferential.(
                 # the prey
@@ -440,15 +413,17 @@ function phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankto
                 [$(plankton_array...)],
                 # predator size dependant parameters
                 maximum_predation_rate.array,
-                holling_half_saturation,
+                holling_half_saturation.array,
                 # get the prey column -> sum over all predator rows
-                palatability_matrix[:, $plankton_name].array,
+                palatability_matrix[:, $plankton_idx].array,
             ),
-        ) - linear_loss($(plankton_symbol), linear_mortality_p)
+        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_idx])
     )
 end
 
 """
+    zooplankton_default(plankton_array, plankton_name, plankton_idx)
+
 Build expression for simplified zooplankton growth function.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
@@ -460,8 +435,9 @@ to be of same length for vectorization to work (and arranged in the same plankto
     `[:P1, :P2, :Z1, :Z2]`
 - `plankton_name`: name of the zooplankton for which we are returning the expression passed
     as a String (e.g., "Z1").
+- `plankton_idx`: the index at which the plankton values are stored in all parameter Arrays
 """
-function zooplankton_default(plankton_array, plankton_name)
+function zooplankton_default(plankton_array, plankton_name, plankton_idx)
     plankton_symbol = Symbol(plankton_name)
     return :(
         sum(
@@ -471,15 +447,15 @@ function zooplankton_default(plankton_array, plankton_name)
                 # the predator
                 $(plankton_symbol),
                 # get the predator row -> sum over all prey columns
-                assimilation_efficiency_matrix[$plankton_name, :],
+                assimilation_efficiency_matrix[$plankton_idx, :],
                 # predator size dependant parameter
-                maximum_predation_rate[$plankton_name],
-                holling_half_saturation,
+                maximum_predation_rate[$plankton_idx],
+                holling_half_saturation[$plankton_idx],
                 # get the predator row -> sum over all prey columns
-                palatability_matrix[$plankton_name, :],
+                palatability_matrix[$plankton_idx, :],
             ),
-        ) - linear_loss($(plankton_symbol), linear_mortality_z) -
-        quadratic_loss($(plankton_symbol), quadratic_mortality)
+        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_idx]) -
+        quadratic_loss($(plankton_symbol), quadratic_mortality[$plankton_idx])
     )
 end
 
