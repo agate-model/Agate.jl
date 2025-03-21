@@ -17,24 +17,17 @@ for overview. All arguments in the functions are either an Array or a Float. The
 to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2]`
-- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2]`
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
 """
-function nutrients_default(phyto_array, zoo_array)
-    plankton_array = vcat(zoo_array, phyto_array)
+function nutrients_default(plankton_array)
     return :(
         sum(
-            linear_loss.([$(phyto_array...)], linear_mortality["P1"]) *
+            linear_loss.([$(plankton_array...)], linear_mortality.array) *
             mortality_export_fraction,
         ) +
         sum(
-            linear_loss.([$(zoo_array...)], linear_mortality["Z1"]) *
-            mortality_export_fraction,
-        ) +
-        sum(
-            quadratic_loss.([$(zoo_array...)], quadratic_mortality["Z1"]) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
             mortality_export_fraction,
         ) +
         remineralization_idealized(D, detritus_remineralization) - sum(
@@ -46,7 +39,7 @@ function nutrients_default(phyto_array, zoo_array)
                 # otherwise get an error when trying to broadcast
                 maximum_growth_rate.array,
                 nutrient_half_saturation.array,
-                alpha["P1"],
+                alpha.array,
             ),
         )
     )
@@ -60,24 +53,17 @@ for overview. All arguments in the functions are either an Array or a Float. The
 to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `phyto_array`: names of all phytoplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2]`
-- `zoo_array`: names of all zooplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2]`
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:P1, :P2, :Z1, :Z2]`
 """
-function nutrients_geider_light(phyto_array, zoo_array)
-    plankton_array = vcat(zoo_array, phyto_array)
+function nutrients_geider_light(plankton_array)
     return :(
         sum(
-            linear_loss.([$(phyto_array...)], linear_mortality["P1"]) *
+            linear_loss.([$(plankton_array...)], linear_mortality.array) *
             mortality_export_fraction,
         ) +
         sum(
-            linear_loss.([$(zoo_array...)], linear_mortality["Z1"]) *
-            mortality_export_fraction,
-        ) +
-        sum(
-            quadratic_loss.([$(zoo_array...)], quadratic_mortality["Z1"]) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
             mortality_export_fraction,
         ) +
         remineralization_idealized(D, detritus_remineralization) - sum(
@@ -88,8 +74,8 @@ function nutrients_geider_light(phyto_array, zoo_array)
                 # size dependant values
                 maximum_growth_rate.array,
                 nutrient_half_saturation.array,
-                photosynthetic_slope["P1"],
-                chlorophyll_to_carbon_ratio["P1"],
+                photosynthetic_slope.array,
+                chlorophyll_to_carbon_ratio.array,
             ),
         )
     )
