@@ -25,7 +25,7 @@ This function:
 
 All parameters are returned as:
     `Dict(<parameter> => <NamedArray of values>, ....)`
-using either the group names (e.g., "P") or names generated in the first step (e.g., "P1").
+using the names generated in the first step (e.g., "P1").
 
 # Arguments
 - `plankton`: a Dictionary of plankton groups' specific parameters of the form:
@@ -235,6 +235,9 @@ end
 Create a dictionary of parameters to pass to `Agate.Models.Biogeochemistry.define_tracer_functions`.
 
 Used for models with phytoplankton and zooplankton (NiPiZD, DARWIN).
+
+Wherever a parameter is defined for only one plankton group, its value is set to 0 for the
+other group. This way all the returned parameter Arrays are of same length (n_phyto + n_zoo).
 
 # Arguments
 - `n_phyto`: number of phytoplankton to include in the model
