@@ -254,15 +254,15 @@ function construct(;
 
     # create tracer functions
     tracers = Dict(
-        "DIC" => DIC_dynamics(phyto_array),
-        "DIN" => DIN_dynamics(phyto_array),
-        "PO4" => PO4_dynamics(phyto_array),
-        "POC" => POC_dynamics(phyto_array, zoo_array),
-        "DOC" => DOC_dynamics(phyto_array, zoo_array),
-        "PON" => PON_dynamics(phyto_array, zoo_array),
-        "DON" => DON_dynamics(phyto_array, zoo_array),
-        "POP" => POP_dynamics(phyto_array, zoo_array),
-        "DOP" => DOP_dynamics(phyto_array, zoo_array),
+        "DIC" => DIC_dynamics(plankton_array),
+        "DIN" => DIN_dynamics(plankton_array),
+        "PO4" => PO4_dynamics(plankton_array),
+        "POC" => POC_dynamics(plankton_array),
+        "DOC" => DOC_dynamics(plankton_array),
+        "PON" => PON_dynamics(plankton_array),
+        "DON" => DON_dynamics(plankton_array),
+        "POP" => POP_dynamics(plankton_array),
+        "DOP" => DOP_dynamics(plankton_array),
     )
     for i in 1:n_phyto
         name = "P$i"
