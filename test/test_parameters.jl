@@ -70,12 +70,15 @@ using .Library.Predation
             ),
         )
 
+        # returned in Z1, Z2, P1, P2 order
         emergent_parameters = compute_allometric_parameters(defined_parameters)
 
         # compare against hand computed `parameters` in examples
+        # returned in P1, P2, Z1, Z2 order
         include(joinpath("N2P2ZD", "tracers.jl"))
 
-        plankton_order = ["P1", "P2", "Z1", "Z2"]
+        # swap order so that the two arrays match
+        plankton_order = [3, 4, 1, 2]
 
         for (key, emerge_params) in emergent_parameters
             # start with arrays of values
