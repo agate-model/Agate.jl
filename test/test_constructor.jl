@@ -1,5 +1,4 @@
 using Agate
-using NamedArrays
 using Agate.Models.NiPiZD.Tracers
 using Agate.Models: NiPiZD
 
@@ -92,7 +91,7 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 
     @testset "User defined matrices" begin
         names = ["P", "Z"]
-        wrong_size_matrix = NamedArray(zeros(Float64, 2, 2), (predator=names, prey=names))
+        wrong_size_matrix = zeros(Float64, 2, 2)
         @test_throws ArgumentError NiPiZD.instantiate(
             N2P2ZD_constructed; palatability_matrix=wrong_size_matrix
         )
@@ -102,7 +101,7 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 
         # doesn't throw error if dimensions are correct
         names = ["P1", "P2", "Z1", "Z2"]
-        correct_size_matrix = NamedArray(zeros(Float64, 4, 4), (predator=names, prey=names))
+        correct_size_matrix = zeros(Float64, 4, 4)
         new_model = NiPiZD.instantiate(
             N2P2ZD_constructed;
             palatability_matrix=correct_size_matrix,
@@ -159,7 +158,7 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
         @test !iszero(model_geider(Val(:Z2), 0, 0, 0, 0, geider_var_order..., PAR))
     end
 
-     # TODO: figure out what is happening with the phyto_args dictionary here and the next test
+    # TODO: figure out what is happening with the phyto_args dictionary here and the next test
     # it seems to be getting "photosynthetic_slope", "chlorophyll_to_carbon_ratio" added
     # but it still also contains "alpha"...
 
