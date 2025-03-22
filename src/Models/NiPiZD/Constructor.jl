@@ -8,7 +8,6 @@ using Agate.Utils
 using Agate.Models.Parameters
 using Agate.Models.NiPiZD.Tracers
 
-using NamedArrays
 using UUIDs
 using Oceananigans.Units
 
@@ -194,7 +193,7 @@ function construct(;
     # phyto follow zoo so need to add n_zoo to indexing
     for i in 1:n_phyto
         name = "P$i"
-        tracers[name] = phyto_dynamics(plankton_array, name, i+n_zoo)
+        tracers[name] = phyto_dynamics(plankton_array, name, i + n_zoo)
     end
 
     # return Oceananigans.Biogeochemistry object

@@ -1,7 +1,5 @@
 module Tracers
 
-using NamedArrays
-
 export detritus_default,
     nutrients_default,
     nutrients_geider_light,
@@ -23,11 +21,11 @@ to be of same length for vectorization to work (and arranged in the same plankto
 function nutrients_default(plankton_array)
     return :(
         sum(
-            linear_loss.([$(plankton_array...)], linear_mortality.array) *
+            linear_loss.([$(plankton_array...)], linear_mortality) *
             mortality_export_fraction,
         ) +
         sum(
-            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality) *
             mortality_export_fraction,
         ) +
         remineralization_idealized(D, detritus_remineralization) - sum(
@@ -35,11 +33,9 @@ function nutrients_default(plankton_array)
                 N,
                 [$(plankton_array...)],
                 PAR,
-                # extract an array of values from the NamedArray
-                # otherwise get an error when trying to broadcast
-                maximum_growth_rate.array,
-                nutrient_half_saturation.array,
-                alpha.array,
+                maximum_growth_rate,
+                nutrient_half_saturation,
+                alpha,
             ),
         )
     )
@@ -59,11 +55,11 @@ to be of same length for vectorization to work (and arranged in the same plankto
 function nutrients_geider_light(plankton_array)
     return :(
         sum(
-            linear_loss.([$(plankton_array...)], linear_mortality.array) *
+            linear_loss.([$(plankton_array...)], linear_mortality) *
             mortality_export_fraction,
         ) +
         sum(
-            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality) *
             mortality_export_fraction,
         ) +
         remineralization_idealized(D, detritus_remineralization) - sum(
@@ -72,10 +68,10 @@ function nutrients_geider_light(plankton_array)
                 [$(plankton_array...)],
                 PAR,
                 # size dependant values
-                maximum_growth_rate.array,
-                nutrient_half_saturation.array,
-                photosynthetic_slope.array,
-                chlorophyll_to_carbon_ratio.array,
+                maximum_growth_rate,
+                nutrient_half_saturation,
+                photosynthetic_slope,
+                chlorophyll_to_carbon_ratio,
             ),
         )
     )
@@ -94,7 +90,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 """
 function detritus_default(plankton_array)
     return :(
-        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
+        sum(linear_loss.([$(plankton_array...)], linear_mortality)) *
         (1 - mortality_export_fraction) +
         sum(
             # the function includes predator x prey matrix inputs so have to make sure that
@@ -105,16 +101,16 @@ function detritus_default(plankton_array)
                 # predators are column-wise so leave as is
                 [$(plankton_array...)],
                 # predator x prey matrix
-                assimilation_efficiency_matrix.array,
+                assimilation_efficiency_matrix,
                 # predator size dependant parameters -> apply column-wise
-                maximum_predation_rate.array,
-                holling_half_saturation.array,
+                maximum_predation_rate,
+                holling_half_saturation,
                 # predator x prey matrix
-                palatability_matrix.array,
+                palatability_matrix,
             ),
         ) +
         sum(
-            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality) *
             (1 - mortality_export_fraction),
         ) - remineralization_idealized(D, detritus_remineralization)
     )
@@ -151,10 +147,10 @@ function phytoplankton_default(plankton_array, plankton_name, plankton_idx)
                 # all potential predators
                 [$(plankton_array...)],
                 # predator size dependant parameters
-                maximum_predation_rate.array,
-                holling_half_saturation.array,
+                maximum_predation_rate,
+                holling_half_saturation,
                 # get the prey column -> sum over all predator rows
-                palatability_matrix[:, $plankton_idx].array,
+                palatability_matrix[:, $plankton_idx],
             ),
         ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_idx])
     )
@@ -190,9 +186,9 @@ function phytoplankton_geider_light(plankton_array, plankton_name, plankton_idx)
             predation_loss_preferential.(
                 $(plankton_symbol),
                 [$(plankton_array...)],
-                maximum_predation_rate.array,
-                holling_half_saturation.array,
-                palatability_matrix[:, $plankton_idx].array,
+                maximum_predation_rate,
+                holling_half_saturation,
+                palatability_matrix[:, $plankton_idx],
             ),
         ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_idx])
     )

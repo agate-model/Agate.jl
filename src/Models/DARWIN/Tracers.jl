@@ -1,7 +1,5 @@
 module Tracers
 
-using NamedArrays
-
 export detritus_typical,
     DIC_geider_light,
     DIN_geider_light,
@@ -37,11 +35,11 @@ function DIC_geider_light(plankton_array)
                 PO4,
                 [$(plankton_array...)],
                 PAR,
-                maximum_growth_rate.array,
-                half_saturation_DIN.array,
-                half_saturation_PO4.array,
-                photosynthetic_slope.array,
-                chlorophyll_to_carbon_ratio.array,
+                maximum_growth_rate,
+                half_saturation_DIN,
+                half_saturation_PO4,
+                photosynthetic_slope,
+                chlorophyll_to_carbon_ratio,
             ),
         )
     )
@@ -69,11 +67,11 @@ function DIN_geider_light(plankton_array)
                 PO4,
                 [$(plankton_array...)],
                 PAR,
-                maximum_growth_rate.array,
-                half_saturation_DIN.array,
-                half_saturation_PO4.array,
-                photosynthetic_slope.array,
-                chlorophyll_to_carbon_ratio.array,
+                maximum_growth_rate,
+                half_saturation_DIN,
+                half_saturation_PO4,
+                photosynthetic_slope,
+                chlorophyll_to_carbon_ratio,
             ) * nitrogen_to_carbon,
         )
     )
@@ -101,11 +99,11 @@ function PO4_geider_light(plankton_array)
                 PO4,
                 [$(plankton_array...)],
                 PAR,
-                maximum_growth_rate.array,
-                half_saturation_DIN.array,
-                half_saturation_PO4.array,
-                photosynthetic_slope.array,
-                chlorophyll_to_carbon_ratio.array,
+                maximum_growth_rate,
+                half_saturation_DIN,
+                half_saturation_PO4,
+                photosynthetic_slope,
+                chlorophyll_to_carbon_ratio,
             ) * nitrogen_to_carbon,
         )
     )
@@ -126,7 +124,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 """
 function DOC_default(plankton_array)
     return :(
-        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
+        sum(linear_loss.([$(plankton_array...)], linear_mortality)) *
         (1 - DOM_POM_fractionation) +
         sum(
             # essentially same as the detritus_typical function
@@ -138,16 +136,16 @@ function DOC_default(plankton_array)
                 # predators are column-wise so leave as is
                 [$(plankton_array...)],
                 # predator x prey matrix
-                assimilation_efficiency_matrix.array,
+                assimilation_efficiency_matrix,
                 # predator size dependant parameters -> apply column-wise
-                maximum_predation_rate.array,
-                holling_half_saturation.array,
+                maximum_predation_rate,
+                holling_half_saturation,
                 # predator x prey matrix
-                palatability_matrix.array,
+                palatability_matrix,
             ),
         ) * (1 - DOM_POM_fractionation) +
         sum(
-            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality) *
             (1 - DOM_POM_fractionation),
         ) - remineralization_idealized(DOC, DOC_remineralization)
     )
@@ -168,7 +166,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 """
 function DON_default(plankton_array)
     return :(
-        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
+        sum(linear_loss.([$(plankton_array...)], linear_mortality)) *
         (1 - DOM_POM_fractionation) *
         nitrogen_to_carbon +
         sum(
@@ -181,16 +179,16 @@ function DON_default(plankton_array)
                 # predators are column-wise so leave as is
                 [$(plankton_array...)],
                 # predator x prey matrix
-                assimilation_efficiency_matrix.array,
+                assimilation_efficiency_matrix,
                 # predator size dependant parameters -> apply column-wise
-                maximum_predation_rate.array,
-                holling_half_saturation.array,
+                maximum_predation_rate,
+                holling_half_saturation,
                 # predator x prey matrix
-                palatability_matrix.array,
+                palatability_matrix,
             ) * nitrogen_to_carbon,
         ) * (1 - DOM_POM_fractionation) +
         sum(
-            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality) *
             (1 - DOM_POM_fractionation) *
             nitrogen_to_carbon,
         ) - remineralization_idealized(DON, DON_remineralization)
@@ -212,7 +210,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 """
 function DOP_default(plankton_array)
     return :(
-        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
+        sum(linear_loss.([$(plankton_array...)], linear_mortality)) *
         (1 - DOM_POM_fractionation) *
         phosphorus_to_carbon +
         sum(
@@ -225,16 +223,16 @@ function DOP_default(plankton_array)
                 # predators are column-wise so leave as is
                 [$(plankton_array...)],
                 # predator x prey matrix
-                assimilation_efficiency_matrix.array,
+                assimilation_efficiency_matrix,
                 # predator size dependant parameters -> apply column-wise
-                maximum_predation_rate.array,
-                holling_half_saturation.array,
+                maximum_predation_rate,
+                holling_half_saturation,
                 # predator x prey matrix
-                palatability_matrix.array,
+                palatability_matrix,
             ) * phosphorus_to_carbon,
         ) * (1 - DOM_POM_fractionation) +
         sum(
-            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality) *
             (1 - DOM_POM_fractionation) *
             phosphorus_to_carbon,
         ) - remineralization_idealized(DOP, DOP_remineralization)
@@ -256,7 +254,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 """
 function POC_default(plankton_array)
     return :(
-        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
+        sum(linear_loss.([$(plankton_array...)], linear_mortality)) *
         DOM_POM_fractionation +
         sum(
             # essentially same as the detritus_typical function
@@ -268,16 +266,16 @@ function POC_default(plankton_array)
                 # predators are column-wise so leave as is
                 [$(plankton_array...)],
                 # predator x prey matrix
-                assimilation_efficiency_matrix.array,
+                assimilation_efficiency_matrix,
                 # predator size dependant parameters -> apply column-wise
-                maximum_predation_rate.array,
-                holling_half_saturation.array,
+                maximum_predation_rate,
+                holling_half_saturation,
                 # predator x prey matrix
-                palatability_matrix.array,
+                palatability_matrix,
             ),
         ) * DOM_POM_fractionation +
         sum(
-            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality) *
             DOM_POM_fractionation,
         ) - remineralization_idealized(POC, POC_remineralization)
     )
@@ -298,7 +296,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 """
 function PON_default(plankton_array)
     return :(
-        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
+        sum(linear_loss.([$(plankton_array...)], linear_mortality)) *
         DOM_POM_fractionation *
         nitrogen_to_carbon +
         sum(
@@ -311,18 +309,18 @@ function PON_default(plankton_array)
                 # predators are column-wise so leave as is
                 [$(plankton_array...)],
                 # predator x prey matrix
-                assimilation_efficiency_matrix.array,
+                assimilation_efficiency_matrix,
                 # predator size dependant parameters -> apply column-wise
-                maximum_predation_rate.array,
-                holling_half_saturation.array,
+                maximum_predation_rate,
+                holling_half_saturation,
                 # predator x prey matrix
-                palatability_matrix.array,
+                palatability_matrix,
             ),
         ) *
         DOM_POM_fractionation *
         nitrogen_to_carbon +
         sum(
-            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality) *
             DOM_POM_fractionation *
             nitrogen_to_carbon,
         ) - remineralization_idealized(PON, PON_remineralization)
@@ -344,7 +342,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 """
 function POP_default(plankton_array)
     return :(
-        sum(linear_loss.([$(plankton_array...)], linear_mortality.array)) *
+        sum(linear_loss.([$(plankton_array...)], linear_mortality)) *
         DOM_POM_fractionation *
         phosphorus_to_carbon +
         sum(
@@ -357,18 +355,18 @@ function POP_default(plankton_array)
                 # predators are column-wise so leave as is
                 [$(plankton_array...)],
                 # predator x prey matrix
-                assimilation_efficiency_matrix.array,
+                assimilation_efficiency_matrix,
                 # predator size dependant parameters -> apply column-wise
-                maximum_predation_rate.array,
-                holling_half_saturation.array,
+                maximum_predation_rate,
+                holling_half_saturation,
                 # predator x prey matrix
-                palatability_matrix.array,
+                palatability_matrix,
             ),
         ) *
         DOM_POM_fractionation *
         phosphorus_to_carbon +
         sum(
-            quadratic_loss.([$(plankton_array...)], quadratic_mortality.array) *
+            quadratic_loss.([$(plankton_array...)], quadratic_mortality) *
             DOM_POM_fractionation *
             phosphorus_to_carbon,
         ) - remineralization_idealized(POP, POP_remineralization)
@@ -391,7 +389,9 @@ to be of same length for vectorization to work (and arranged in the same plankto
     as a String (e.g., "P1").
 - `plankton_idx`: the index at which the plankton values are stored in all parameter Arrays
 """
-function phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankton_name, plankton_idx)
+function phytoplankton_growth_two_nutrients_geider_light(
+    plankton_array, plankton_name, plankton_idx
+)
     plankton_symbol = Symbol(plankton_name)
 
     return :(
@@ -412,10 +412,10 @@ function phytoplankton_growth_two_nutrients_geider_light(plankton_array, plankto
                 # all potential predators
                 [$(plankton_array...)],
                 # predator size dependant parameters
-                maximum_predation_rate.array,
-                holling_half_saturation.array,
+                maximum_predation_rate,
+                holling_half_saturation,
                 # get the prey column -> sum over all predator rows
-                palatability_matrix[:, $plankton_idx].array,
+                palatability_matrix[:, $plankton_idx],
             ),
         ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_idx])
     )
