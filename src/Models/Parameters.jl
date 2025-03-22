@@ -270,16 +270,21 @@ function create_params_dict(;
     # output parameter vectors all have the same size (n_phyto + n_zoo)
     # set value of parameter to 0 in those cases
 
+    # NOTE: Julia passes dictionaries by reference not value
+    # use deepcopy here to avoid mutating the passed dictionaries outside this fucntion
+    phyto_args_copy = deepcopy(phyto_args)
+    zoo_args_copy = deepcopy(zoo_args)
+
     # first handle allometry
     all_allometric_params = union(
         keys(phyto_args["allometry"]), keys(zoo_args["allometry"])
     )
     for param in all_allometric_params
         if !(param ∈ keys(phyto_args["allometry"]))
-            phyto_args["allometry"][param] = Dict("a" => 0, "b" => 0)
+            phyto_args_copy["allometry"][param] = Dict("a" => 0, "b" => 0)
         end
         if !(param ∈ keys(zoo_args["allometry"]))
-            zoo_args["allometry"][param] = Dict("a" => 0, "b" => 0)
+            zoo_args_copy["allometry"][param] = Dict("a" => 0, "b" => 0)
         end
     end
 
@@ -287,20 +292,21 @@ function create_params_dict(;
     all_other_params = setdiff(union(keys(phyto_args), keys(zoo_args)), ["allometry"])
     for param in all_other_params
         if !(param ∈ keys(phyto_args))
-            phyto_args[param] = 0
+            phyto_args_copy[param] = 0
         end
         if !(param ∈ keys(zoo_args))
-            zoo_args[param] = 0
+            zoo_args_copy[param] = 0
         end
     end
 
-    phyto_args["n"] = n_phyto
-    phyto_args["diameters"] = phyto_diameters
-    zoo_args["n"] = n_zoo
-    zoo_args["diameters"] = zoo_diameters
+    # add remaining paramaters that need to compute allometric values
+    phyto_args_copy["n"] = n_phyto
+    phyto_args_copy["diameters"] = phyto_diameters
+    zoo_args_copy["n"] = n_zoo
+    zoo_args_copy["diameters"] = zoo_diameters
 
     # compute emergent parameters
-    defined_parameters = Dict("P" => phyto_args, "Z" => zoo_args)
+    defined_parameters = Dict("P" => phyto_args_copy, "Z" => zoo_args_copy)
 
     if isnothing(palatability_matrix)
         defined_parameters["P"]["palatability"] = Dict(

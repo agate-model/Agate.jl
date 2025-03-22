@@ -162,57 +162,41 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
     # it seems to be getting "photosynthetic_slope", "chlorophyll_to_carbon_ratio" added
     # but it still also contains "alpha"...
 
-    # @testset "Create objects inside for loop" begin
-    #     prev_p1 = 0
-    #     prev_p2 = 0
-    #     for i in 1:5
-    #         phyto_args = Dict(
-    #             "allometry" => Dict(
-    #                 "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
-    #                 "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
-    #             ),
-    #             "linear_mortality" => 8e-7 / second,
-    #             "alpha" => 0.1953 / day,
-    #         )
+    @testset "Create objects inside for loop" begin
+        prev_p1 = 0
+        prev_p2 = 0
+        for i in 1:5
+            phyto_args = NiPiZD.DEFAULT_PHYTO_ARGS
+            phyto_args["allometry"]["maximum_growth_rate"]["a"] = i
+            model = NiPiZD.instantiate(N2P2ZD_constructed; phyto_args=phyto_args)
+            model_var_order = get_var_order(model)
+            p1 = model(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR)
+            p2 = model(Val(:P2), 0, 0, 0, 0, model_var_order..., PAR)
+            @test !iszero(p1)
+            @test !iszero(p2)
+            @test model(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR) != prev_p1
+            @test model(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR) != prev_p2
+            # check the values change as change parameter
+            prev_p1 = p1
+            prev_p2 = p2
+        end
+    end
 
-    #         phyto_args["allometry"]["maximum_growth_rate"]["a"] = i
-    #         model = NiPiZD.instantiate(N2P2ZD_constructed; phyto_args=phyto_args)
-    #         model_var_order = get_var_order(model)
-    #         p1 = model(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR)
-    #         p2 = model(Val(:P2), 0, 0, 0, 0, model_var_order..., PAR)
-    #         @test !iszero(p1)
-    #         @test !iszero(p2)
-    #         @test model(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR) != prev_p1
-    #         @test model(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR) != prev_p2
-    #         # check the values change as change parameter
-    #         prev_p1 = p1
-    #         prev_p2 = p2
-    #     end
-    # end
+    @testset "Create objects inside function" begin
+        function some_wrapper_function(max_growth_rate_a)
+            phyto_args = NiPiZD.DEFAULT_PHYTO_ARGS
+            phyto_args["allometry"]["maximum_growth_rate"]["a"] = max_growth_rate_a
+            model = NiPiZD.instantiate(N2P2ZD_constructed; phyto_args=phyto_args)
+            return model
+        end
 
-    # @testset "Create objects inside function" begin
-    #     function some_wrapper_function(max_growth_rate_a)
-    #         phyto_args = Dict(
-    #             "allometry" => Dict(
-    #                 "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
-    #                 "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
-    #             ),
-    #             "linear_mortality" => 8e-7 / second,
-    #             "alpha" => 0.1953 / day,
-    #         )
+        model1 = some_wrapper_function(5)
+        model2 = some_wrapper_function(10)
+        model_var_order = get_var_order(model1)
 
-    #         phyto_args["allometry"]["maximum_growth_rate"]["a"] = max_growth_rate_a
-    #         model = NiPiZD.instantiate(N2P2ZD_constructed; phyto_args=phyto_args)
-    #         return model
-    #     end
-
-    #     model1 = some_wrapper_function(5)
-    #     model2 = some_wrapper_function(10)
-    #     model_var_order = get_var_order(model1)
-
-    #     @test model1(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR) !=
-    #         model2(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR)
-    #     @test model1(Val(:P2), 0, 0, 0, 0, model_var_order..., PAR) !=
-    #         model2(Val(:P2), 0, 0, 0, 0, model_var_order..., PAR)
-    # end
+        @test model1(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR) !=
+            model2(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR)
+        @test model1(Val(:P2), 0, 0, 0, 0, model_var_order..., PAR) !=
+            model2(Val(:P2), 0, 0, 0, 0, model_var_order..., PAR)
+    end
 end
