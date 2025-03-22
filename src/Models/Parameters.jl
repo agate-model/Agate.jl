@@ -1,7 +1,6 @@
 module Parameters
 
 using DataStructures: DefaultDict
-using NamedArrays
 
 using Agate.Library.Allometry
 using Agate.Library.Predation
@@ -15,17 +14,13 @@ emergent_assimilation_efficiency_f = assimilation_efficiency_emergent_binary
     compute_allometric_parameters(plankton::Dict) -> Dict
 
 This function:
-    - generates `n` names for each `plankton` group (e.g., "P", "Z" or "cocco") of the form:
-      `["P1", ..., "P<n>", "Z1", ...., "Z<n>", ...]`
     - generates `n` diameters for each `plankton` group using either a linear or a log
       splitting scale
     - optionally computes emergent parameters (allometric functions, assimilation matrix,
       palatability matrix) for each group-diameter combination
-    - reshapes any other group specific parameters to a NamedArray (e.g., `linear_mortality`)
+    - reshapes any other group specific parameters to a Array (e.g., `linear_mortality`)
 
-All parameters are returned as:
-    `Dict(<parameter> => <NamedArray of values>, ....)`
-using the names generated in the first step (e.g., "P1").
+All parameters are returned as: `Dict(<parameter> => <Array of values>, ....)`
 
 # Arguments
 - `plankton`: a Dictionary of plankton groups' specific parameters of the form:
@@ -87,14 +82,13 @@ using the names generated in the first step (e.g., "P1").
 function compute_allometric_parameters(plankton::Dict)
 
     # intermediate representations for parameters that are output as matrices
-    intermediate_palatability = DefaultDict{AbstractString,NamedArray}(NamedArray([], []))
-    intermediate_assimilation = DefaultDict{AbstractString,NamedArray}(NamedArray([], []))
+    intermediate_palatability = DefaultDict{AbstractString,Array}([])
+    intermediate_assimilation = DefaultDict{AbstractString,Array}([])
     # final outputs here
-    results = DefaultDict{AbstractString,NamedArray}(NamedArray([], []))
+    results = DefaultDict{AbstractString,Array}([])
 
-    for (plankton_name, params) in plankton
+    for (_, params) in plankton
         n = params["n"]
-        plankton_names = ["$plankton_name$i" for i in 1:n]
 
         # 1. compute diameters (unless already specified)
         if isa(params["diameters"], Dict)
@@ -111,9 +105,7 @@ function compute_allometric_parameters(plankton::Dict)
             end
             diameters = params["diameters"]
         end
-        results["diameters"] = vcat(
-            results["diameters"], NamedArray(diameters, plankton_names)
-        )
+        results["diameters"] = vcat(results["diameters"], diameters)
 
         # 2. compute allometric functions (if any specified by user)
         if "allometry" ∈ keys(params)
@@ -121,7 +113,7 @@ function compute_allometric_parameters(plankton::Dict)
                 values = [
                     allometric_scaling_power(args["a"], args["b"], d) for d in diameters
                 ]
-                results[param] = vcat(results[param], NamedArray(values, plankton_names))
+                results[param] = vcat(results[param], values)
             end
         end
 
@@ -133,7 +125,7 @@ function compute_allometric_parameters(plankton::Dict)
                 # store the values in intermediate form to use later when creating matrices
                 if param ∈ ["palatability", "assimilation_efficiency"]
                     for (arg, val) in value
-                        values = NamedArray(repeat([val], n), plankton_names)
+                        values = repeat([val], n)
                         if param == "palatability"
                             intermediate_palatability[arg] = vcat(
                                 intermediate_palatability[arg], values
@@ -146,9 +138,7 @@ function compute_allometric_parameters(plankton::Dict)
                     end
                 else
                     # NOTE: expect here that in all other cases `value` is a single number
-                    results[param] = vcat(
-                        results[param], NamedArray(repeat([value], n), plankton_names)
-                    )
+                    results[param] = vcat(results[param], repeat([value], n))
                 end
             end
         end
@@ -191,7 +181,7 @@ function linear_splitting(min_diameter::Real, max_diameter::Real, n::Int)
 end
 
 """
-Apply function `func` to every every pair of `plankton` groups, returning a 2D NamedArray.
+Apply function `func` to every every pair of `plankton` groups, returning a 2D Array.
 
 The `plankton` Dictionary keys have to contain argument names of the function to calculate
 and be of the form `Dict(<function arg name> => NamedArray(<values>, <names>), ...)`
@@ -211,23 +201,21 @@ values_matrix = emergent_2D_array(plankton, add_ab)
 ```
 """
 function emergent_2D_array(plankton, func)
-    plankton_names = names(plankton["diameters"], 1)
-    arg_names = keys(plankton)
-    values = zeros(Float64, length(plankton_names), length(plankton_names))
-    plankton_matrix = NamedArray(values, (predator=plankton_names, prey=plankton_names))
+    # n is the number of plankton in the system - populate nxn matrix
+    n = length(plankton["diameters"])
+    plankton_matrix = zeros(Float64, n, n)
 
-    # Q: is there a better way to populate this ?!
-    # Populate the NamedArray with calculated values
-    for pred_name in plankton_names
+    # each plankton can be a predator or prey, retrieve their respective args
+    arg_names = keys(plankton)
+    for pred_name in 1:n
         predator_data = Dict(arg => plankton[arg][pred_name] for arg in arg_names)
-        for prey_name in plankton_names
+        for prey_name in 1:n
             prey_data = Dict(arg => plankton[arg][prey_name] for arg in arg_names)
             # Pass prey and predator data dictionaries to the function
             plankton_matrix[pred_name, prey_name] = func(prey_data, predator_data)
         end
     end
 
-    # Create and return a NamedArray with the values and names
     return plankton_matrix
 end
 
