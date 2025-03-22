@@ -130,10 +130,10 @@ The type specification includes a photosynthetic active radiation (PAR) auxiliar
     `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
 - `bgc_args`: Dictionary of biogeochemistry parameters related to nutrient and detritus, for
     default values see `Agate.Models.Constructors.DEFAULT_BGC_ARGS`
-- `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
+- `palatability_matrix`: optional palatability matrix passed as an Array, if provided
     then `interaction_args` are not used to compute this
-- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
-    NamedArray, if provided then `interaction_args` are not used to compute this
+- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
+    Array, if provided then `interaction_args` are not used to compute this
 
 # Example
 ```julia
@@ -249,10 +249,10 @@ of any of the model parameters or plankton diameters.
 - `bgc_args`: Dictionary of constant parameters used in growth functions (i.e., not size
     dependant plankton parameters as well as biogeochemistry parameters related to nutrient
     and detritus, for default values see `Agate.Models.Constructors.DEFAULT_CONSTANT_ARGS`
-- `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
+- `palatability_matrix`: optional palatability matrix passed as an Array, if provided
     then `interaction_args` are not used to compute this
-- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
-    NamedArray, if provided then `interaction_args` are not used to compute this
+- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
+    Array, if provided then `interaction_args` are not used to compute this
 
 # Example
 ```julia

@@ -184,7 +184,7 @@ end
 Apply function `func` to every every pair of `plankton` groups, returning a 2D Array.
 
 The `plankton` Dictionary keys have to contain argument names of the function to calculate
-and be of the form `Dict(<function arg name> => NamedArray(<values>, <names>), ...)`
+and be of the form `Dict(<function arg name> => <Array of values>, ...)`
 
 # Example
 ```julia
@@ -193,8 +193,8 @@ function add_ab(prey, pred)
 end
 
 plankton = Dict(
-    "a" => NamedArray([1, 2, 3], ["A1", "B2", "C3"]),
-    "b" => NamedArray([9, 8, 7], ["A1", "B2", "C3"]),
+    "a" => [1, 2, 3],
+    "b" => [9, 8, 7],
 )
 
 values_matrix = emergent_2D_array(plankton, add_ab)
@@ -244,10 +244,10 @@ other group. This way all the returned parameter Arrays are of same length (n_ph
 - `bgc_args`: Dictionary of constant parameters used in growth functions (i.e., not size
     dependant plankton parameters as well as biogeochemistry parameters related to nutrient
     and detritus, for default values see `Agate.Models.Constructors.DEFAULT_CONSTANT_ARGS`
-- `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
+- `palatability_matrix`: optional palatability matrix passed as an Array, if provided
     then `interaction_args` are not used to compute this
-- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
-    NamedArray, if provided then `interaction_args` are not used to compute this
+- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
+    Array, if provided then `interaction_args` are not used to compute this
 """
 function create_params_dict(;
     n_phyto=2,
