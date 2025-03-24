@@ -1,3 +1,7 @@
+"""
+Module to compute size-dependent plankton parameters.
+"""
+
 module Parameters
 
 using DataStructures: DefaultDict

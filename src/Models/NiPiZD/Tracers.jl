@@ -217,7 +217,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
     `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-- `plankton_name`: name of the zooplankton for which we are returning the expression passed
+- `plankton_name`: name of the zooplankton for which we are returning the expression, passed
     as a String (e.g., "Z1").
 - `plankton_idx`: the index at which this plankton's values are stored in all parameter Arrays
 """
