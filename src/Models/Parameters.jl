@@ -269,10 +269,11 @@ function create_params_dict(;
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 )
-
-    # make sure that phyto_args and zoo_args have all the same parameters to ensure the
-    # output parameter vectors all have the same size (n_phyto + n_zoo)
-    # set value of parameter to 0 in those cases
+    # ====================================================================================
+    # 1. Make sure that phyto_args and zoo_args have all the same parameters to ensure the
+    #    output parameter vectors all have the same size (n_phyto + n_zoo)
+    #    - set value of parameter to 0 in those cases
+    # ====================================================================================
 
     # NOTE: Julia passes dictionaries by reference not value
     # use deepcopy here to avoid mutating the passed dictionaries outside this fucntion
@@ -303,14 +304,21 @@ function create_params_dict(;
         end
     end
 
+    # ====================================================================================
+    # 2. Create dictionary that matches `compute_allometric_parameters` expected input
+    # ====================================================================================
+
     # add remaining paramaters that need to compute allometric values
     phyto_args_copy["n"] = n_phyto
     phyto_args_copy["diameters"] = phyto_diameters
     zoo_args_copy["n"] = n_zoo
     zoo_args_copy["diameters"] = zoo_diameters
 
-    # compute emergent parameters
     defined_parameters = Dict("P" => phyto_args_copy, "Z" => zoo_args_copy)
+
+    # ====================================================================================
+    # 3. Handle matrix inputs (these are either provided by the user or will be computed)
+    # ====================================================================================
 
     if isnothing(palatability_matrix)
         defined_parameters["P"]["palatability"] = Dict(
@@ -334,7 +342,12 @@ function create_params_dict(;
         )
     end
 
-    # also reshapes non-emergent plankton parameters
+    # ====================================================================================
+    # 4. Compute allometric parameters
+    #   - if user provided matrix inputs, add them here (check if correct size)
+    # ====================================================================================
+
+    # NOTE: function also reshapes non-emergent plankton parameters
     emergent_parameters, plankton_names = compute_allometric_parameters(defined_parameters)
 
     if !isnothing(palatability_matrix)
@@ -361,11 +374,15 @@ function create_params_dict(;
             assimilation_efficiency_matrix
     end
 
+    # ====================================================================================
+    # 5. Clean up
+    # ====================================================================================
+
     # append information that need access to at instantiation
     bgc_args["n_phyto"] = n_phyto
     bgc_args["n_zoo"] = n_zoo
 
-    # combine emergent parameters with remaining bgc, phyto and zoo defined parameters
+    # combine emergent parameters with remaining bgc parameters
     parameters = NamedTuple(
         Symbol(k) => v for (k, v) in merge(bgc_args, emergent_parameters)
     )
