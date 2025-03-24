@@ -5,7 +5,7 @@ Module to construct an instance of an Agate.jl-DARWIN model.
 module Constructor
 
 using Agate.Utils
-using Agate.Models.Parameters
+using Agate.Models.Utils: create_params_dict
 using Agate.Models.DARWIN.Tracers
 
 using UUIDs
