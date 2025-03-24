@@ -14,7 +14,7 @@ export detritus_typical,
     zooplankton_default
 
 """
-    DIC_geider_light(phyto_array)
+    DIC_geider_light(plankton_array)
 
 Build expression representing the evolution of DIC over time.
 
@@ -24,7 +24,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
 """
 function DIC_geider_light(plankton_array)
     return :(
@@ -46,7 +46,7 @@ function DIC_geider_light(plankton_array)
 end
 
 """
-    DIN_geider_light(phyto_array)
+    DIN_geider_light(plankton_array)
 
 Build expression representing the evolution of DIN over time assuming fixed stoichiometry.
 
@@ -56,7 +56,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
 """
 function DIN_geider_light(plankton_array)
     return :(
@@ -78,7 +78,7 @@ function DIN_geider_light(plankton_array)
 end
 
 """
-    PO4_geider_light(phyto_array)
+    PO4_geider_light(plankton_array)
 
 Build expression representing the evolution of DIN over time assuming fixed stoichiometry.
 
@@ -87,8 +87,8 @@ for overview. All arguments in the functions are either an Array or a Float. The
 to be of same length for vectorization to work (and arranged in the same plankton order).
 
 # Arguments
-- `phyto_array`: names of all the phytoplankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2]`
+- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
 """
 function PO4_geider_light(plankton_array)
     return :(
@@ -120,7 +120,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
 """
 function DOC_default(plankton_array)
     return :(
@@ -162,7 +162,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
 """
 function DON_default(plankton_array)
     return :(
@@ -206,7 +206,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
 """
 function DOP_default(plankton_array)
     return :(
@@ -250,7 +250,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
 """
 function POC_default(plankton_array)
     return :(
@@ -292,7 +292,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
 """
 function PON_default(plankton_array)
     return :(
@@ -338,7 +338,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
 """
 function POP_default(plankton_array)
     return :(
@@ -384,10 +384,10 @@ to be of same length for vectorization to work (and arranged in the same plankto
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
-- `plankton_name`: name of the phytoplankton for which we are returning the expression passed
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
+- `plankton_name`: name of the phytoplankton for which we are returning the expression, passed
     as a String (e.g., "P1").
-- `plankton_idx`: the index at which the plankton values are stored in all parameter Arrays
+- `plankton_idx`: the index at which this plankton's values are stored in all parameter Arrays
 """
 function phytoplankton_growth_two_nutrients_geider_light(
     plankton_array, plankton_name, plankton_idx
@@ -432,10 +432,10 @@ to be of same length for vectorization to work (and arranged in the same plankto
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
-- `plankton_name`: name of the zooplankton for which we are returning the expression passed
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
+- `plankton_name`: name of the zooplankton for which we are returning the expression, passed
     as a String (e.g., "Z1").
-- `plankton_idx`: the index at which the plankton values are stored in all parameter Arrays
+- `plankton_idx`: the index at which this plankton's values are stored in all parameter Arrays
 """
 function zooplankton_default(plankton_array, plankton_name, plankton_idx)
     plankton_symbol = Symbol(plankton_name)
@@ -448,7 +448,7 @@ function zooplankton_default(plankton_array, plankton_name, plankton_idx)
                 $(plankton_symbol),
                 # get the predator row -> sum over all prey columns
                 assimilation_efficiency_matrix[$plankton_idx, :],
-                # predator size dependant parameter
+                # predator size dependant parameters
                 maximum_predation_rate[$plankton_idx],
                 holling_half_saturation[$plankton_idx],
                 # get the predator row -> sum over all prey columns

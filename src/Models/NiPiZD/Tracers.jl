@@ -8,6 +8,8 @@ export detritus_default,
     zooplankton_default
 
 """
+    nutrients_default(plankton_array)
+
 Build expression for a single nutrient function of time.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
@@ -16,7 +18,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
 """
 function nutrients_default(plankton_array)
     return :(
@@ -42,7 +44,10 @@ function nutrients_default(plankton_array)
 end
 
 """
-Build expression for a single nutrient function of time where photosynthetic growth is limited based on the Geider formulation.
+    nutrients_geider_light(plankton_array)
+
+Build expression for a single nutrient function of time where photosynthetic growth is limited
+based on the Geider formulation.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
 for overview. All arguments in the functions are either an Array or a Float. The Arrays have
@@ -50,7 +55,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
 """
 function nutrients_geider_light(plankton_array)
     return :(
@@ -78,6 +83,8 @@ function nutrients_geider_light(plankton_array)
 end
 
 """
+    detritus_default(plankton_array)
+
 Build expression for a simplified detritus function of time.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
@@ -86,7 +93,7 @@ to be of same length for vectorization to work (and arranged in the same plankto
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
 """
 function detritus_default(plankton_array)
     return :(
@@ -117,6 +124,8 @@ function detritus_default(plankton_array)
 end
 
 """
+    phytoplankton_default(plankton_array, plankton_name, plankton_idx)
+
 Build expression for a simplified phytoplankton growth function.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
@@ -125,10 +134,10 @@ to be of same length for vectorization to work (and arranged in the same plankto
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
-- `plankton_name`: name of the phytoplankton for which we are returning the expression passed
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
+- `plankton_name`: name of the phytoplankton for which we are returning the expression, passed
     as a String (e.g., "P1").
-- `plankton_idx`: the index at which the plankton values are stored in all parameter Arrays
+- `plankton_idx`: the index at which this plankton's values are stored in all parameter Arrays
 """
 function phytoplankton_default(plankton_array, plankton_name, plankton_idx)
     plankton_symbol = Symbol(plankton_name)
@@ -157,6 +166,8 @@ function phytoplankton_default(plankton_array, plankton_name, plankton_idx)
 end
 
 """
+    phytoplankton_geider_light(plankton_array, plankton_name, plankton_idx)
+
 Build expression for a simplified phytoplankton growth function which adds geider light limitation.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
@@ -165,10 +176,10 @@ to be of same length for vectorization to work (and arranged in the same plankto
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
-- `plankton_name`: name of the phytoplankton for which we are returning the expression passed
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
+- `plankton_name`: name of the phytoplankton for which we are returning the expression, passed
     as a String (e.g., "P1").
-- `plankton_idx`: the index at which the plankton values are stored in all parameter Arrays
+- `plankton_idx`: the index at which this plankton's values are stored in all parameter Arrays
 """
 function phytoplankton_geider_light(plankton_array, plankton_name, plankton_idx)
     plankton_symbol = Symbol(plankton_name)
@@ -195,6 +206,8 @@ function phytoplankton_geider_light(plankton_array, plankton_name, plankton_idx)
 end
 
 """
+    zooplankton_default(plankton_array, plankton_name, plankton_idx)
+
 Build expression for simplified zooplankton growth function.
 
 The functions used in the expression are all within the Agate.Library, see their docstring
@@ -203,9 +216,10 @@ to be of same length for vectorization to work (and arranged in the same plankto
 
 # Arguments
 - `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:P1, :P2, :Z1, :Z2]`
+    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
 - `plankton_name`: name of the zooplankton for which we are returning the expression passed
     as a String (e.g., "Z1").
+- `plankton_idx`: the index at which this plankton's values are stored in all parameter Arrays
 """
 function zooplankton_default(plankton_array, plankton_name, plankton_idx)
     plankton_symbol = Symbol(plankton_name)
