@@ -1,9 +1,9 @@
 ### [Agate.jl-NiPiZD model](@id NiPiZD)
 
 ```@docs
-Agate.Constructors.NiPiZD.construct
+Agate.Models.NiPiZD.construct
 ```
 
 ```@docs
-Agate.Constructors.NiPiZD.instantiate
+Agate.Models.NiPiZD.instantiate
 ```

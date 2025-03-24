@@ -6,14 +6,14 @@ using Oceananigans
 using Oceananigans: Clock
 using Oceananigans.Units
 using Oceananigans.Fields: FunctionField
-using Agate.Constructors
+using Agate.Models
 
 const year = years = 365day
 
 @testset "mass_balance" begin
     @testset "size_structured_NPZD box model" begin
-        N2P2ZD_constructed = Agate.Constructors.NiPiZD.construct()
-        model = Agate.Constructors.NiPiZD.instantiate(N2P2ZD_constructed)
+        N2P2ZD_constructed = Agate.Models.NiPiZD.construct()
+        model = Agate.Models.NiPiZD.instantiate(N2P2ZD_constructed)
 
         bgc_model = Biogeochemistry(
             model; light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
@@ -41,7 +41,7 @@ const year = years = 365day
     end
 
     @testset "Agate.jl-DARWIN model" begin
-        model = Agate.Constructors.DARWIN.construct()
+        model = Agate.Models.DARWIN.construct()
 
         bgc_model = Biogeochemistry(
             model(); light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())

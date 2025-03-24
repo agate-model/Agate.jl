@@ -15,7 +15,7 @@ const year = years = 365day
 # Define BGC model (NPZD with cyclical PAR)
 # ==================================================
 
-include(joinpath("NPZD", "tracers.jl"))
+include("tracers.jl")
 bgc_model = Biogeochemistry(
     NPZD(); light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
 )

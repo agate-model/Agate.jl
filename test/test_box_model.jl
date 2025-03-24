@@ -10,7 +10,7 @@ using Oceananigans.Fields: FunctionField
 const year = years = 365day
 
 @testset "box_model" begin
-    include(joinpath("..", "examples", "NPZD", "tracers.jl"))
+    include(joinpath("NPZD", "tracers.jl"))
 
     @testset "NPZD box model" begin
 

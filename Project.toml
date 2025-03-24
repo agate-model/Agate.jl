@@ -1,6 +1,6 @@
 name = "Agate"
 uuid = "41889b7c-c35c-4f16-abd7-94b299d9fd29"
-version = "0.0.1"
+version = "0.1.1"
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
@@ -20,6 +20,9 @@ Oceananigans = "0.93.3"
 StatsPlots = "0.15.7"
 Turing = "0.35.3"
 julia = "1.9"
+Plots = "1.40.10"
+NamedArrays = "0.10.3"
+DataStructures = "0.18.20"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

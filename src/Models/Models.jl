@@ -1,14 +1,14 @@
 module Models
 
-include("Biogeochemistry.jl")
 include("Parameters.jl")
-include("Tracers.jl")
+include("DARWIN/DARWIN.jl")
+include("NiPiZD/NiPiZD.jl")
 
-using .Biogeochemistry
 using .Parameters
-using .Tracers
+using .DARWIN
+using .NiPiZD
 
-export compute_allometric_parameters
+export compute_allometric_parameters, create_params_dict
 export define_tracer_functions
 
 end # module
