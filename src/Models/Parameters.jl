@@ -22,7 +22,8 @@ This function:
       splitting scale
     - optionally computes emergent parameters (allometric functions, assimilation matrix,
       palatability matrix) for each group-diameter combination
-    - reshapes any other group specific parameters to Array (e.g., `linear_mortality`)
+    - reshapes any other group specific parameters to Array of length `n` (repeating the
+      parameter value n times to match it in length to the emergent parameters)
 
 All parameters are returned as: `Dict(<parameter> => <Array of values>, ....)` along with
 an Array of the plankton order in which the parameter values were created and processed
@@ -189,7 +190,9 @@ function linear_splitting(min_diameter::Real, max_diameter::Real, n::Int)
 end
 
 """
-Apply function `func` to every every pair of `plankton` groups, returning a 2D Array.
+Apply function `func` to every every pair of `plankton` groups, returning a 2D Array. The
+expected use is for calculating predator-prey dynamics (palatability and assimilation
+efficiency matrices).
 
 The `plankton` Dictionary keys have to contain argument names of the function to calculate
 and be of the form `Dict(<function arg name> => <Array of values>, ...)`
@@ -209,7 +212,7 @@ values_matrix = emergent_2D_array(plankton, add_ab)
 ```
 """
 function emergent_2D_array(plankton, func)
-    # n is the number of plankton in the system - populate nxn matrix
+    # n is the number of plankton in the system - populate NxN matrix
     n = length(plankton["diameters"])
     plankton_matrix = zeros(Float64, n, n)
 
@@ -219,7 +222,7 @@ function emergent_2D_array(plankton, func)
         predator_data = Dict(arg => plankton[arg][pred_name] for arg in arg_names)
         for prey_name in 1:n
             prey_data = Dict(arg => plankton[arg][prey_name] for arg in arg_names)
-            # Pass prey and predator data dictionaries to the function
+            # pass prey and predator data dictionaries to the function
             plankton_matrix[pred_name, prey_name] = func(prey_data, predator_data)
         end
     end

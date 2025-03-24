@@ -12,7 +12,7 @@ export create_params_dict
 """
 Create a dictionary of parameters to pass to `Agate.Models.Utils.define_tracer_functions`.
 
-Used for models with phytoplankton and zooplankton (NiPiZD, DARWIN).
+Used for models with phytoplankton and zooplankton groups (NiPiZD, DARWIN).
 
 Wherever a parameter is defined for only one plankton group, its value is set to 0 for the
 other group. This way all the returned parameter Arrays are of same length (n_phyto + n_zoo).
