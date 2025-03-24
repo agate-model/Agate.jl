@@ -1,17 +1,12 @@
 push!(LOAD_PATH, "../src/")
 using Documenter, Agate
-
 using Literate
-
 using OceanBioME
-
 using Oceananigans.Grids: RectilinearGrid
-
 using CairoMakie
 CairoMakie.activate!(; type="svg")
 
 # Examples
-
 const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
