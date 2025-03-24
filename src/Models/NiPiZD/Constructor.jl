@@ -1,5 +1,5 @@
 """
-Module to construct an instance of a size-structured NPZD model.
+Module to construct an instance of a size-structured NiPiZD model.
 """
 
 module Constructor
@@ -89,7 +89,7 @@ DEFAULT_BGC_ARGS = Dict(
         assimilation_efficiency_matrix=nothing,
     ) -> DataType
 
-Construct a size-structured NPZD model abstract type.
+Construct a size-structured NiPiZD model abstract type.
 
 This constructor builds a size-structured plankton model with two plankton functional types:
 phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
