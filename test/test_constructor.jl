@@ -158,10 +158,6 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
         @test !iszero(model_geider(Val(:Z2), 0, 0, 0, 0, geider_var_order..., PAR))
     end
 
-    # TODO: figure out what is happening with the phyto_args dictionary here and the next test
-    # it seems to be getting "photosynthetic_slope", "chlorophyll_to_carbon_ratio" added
-    # but it still also contains "alpha"...
-
     @testset "Create objects inside for loop" begin
         prev_p1 = 0
         prev_p2 = 0
