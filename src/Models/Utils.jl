@@ -1,3 +1,8 @@
+"""
+Module to reshape user defined parameters to make them suitable for passing to low-level
+model constuctors such as `Agate.Models.Utils.define_tracer_functions`.
+"""
+
 module Utils
 
 using Agate.Models.Parameters
@@ -5,7 +10,7 @@ using Agate.Models.Parameters
 export create_params_dict
 
 """
-Create a dictionary of parameters to pass to `Agate.Models.Biogeochemistry.define_tracer_functions`.
+Create a dictionary of parameters to pass to `Agate.Models.Utils.define_tracer_functions`.
 
 Used for models with phytoplankton and zooplankton (NiPiZD, DARWIN).
 
