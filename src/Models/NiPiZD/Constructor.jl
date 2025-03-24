@@ -163,7 +163,7 @@ function construct(;
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 )
-    parameters = create_params_dict(;
+    parameters, plankton_names = create_params_dict(;
         n_phyto=n_phyto,
         n_zoo=n_zoo,
         phyto_diameters=phyto_diameters,
@@ -176,24 +176,24 @@ function construct(;
         assimilation_efficiency_matrix=assimilation_efficiency_matrix,
     )
 
-    # NOTE: Zs precede Ps because this is the order in all arrays/matrices
-    zoo_array = [Symbol("Z$i") for i in 1:n_zoo]
-    phyto_array = [Symbol("P$i") for i in 1:n_phyto]
-    plankton_array = vcat(zoo_array, phyto_array)
+    # NOTE: Zs precede Ps
+    plankton_array = [Symbol(name) for name in plankton_names]
 
     # create tracer functions
     tracers = Dict(
         "N" => nutrient_dynamics(plankton_array), "D" => detritus_dynamics(plankton_array)
     )
-    # all arrays start with zoo
+
     for i in 1:n_zoo
         name = "Z$i"
-        tracers[name] = zoo_dynamics(plankton_array, name, i)
+        index = findfirst(x -> x == name, plankton_names)
+        tracers[name] = zoo_dynamics(plankton_array, name, index)
     end
-    # phyto follow zoo so need to add n_zoo to indexing
+
     for i in 1:n_phyto
         name = "P$i"
-        tracers[name] = phyto_dynamics(plankton_array, name, i + n_zoo)
+        index = findfirst(x -> x == name, plankton_names)
+        tracers[name] = phyto_dynamics(plankton_array, name, index)
     end
 
     # return Oceananigans.Biogeochemistry object
@@ -286,7 +286,7 @@ function instantiate(
     n_zoo = Int(defaults.n_zoo)
 
     # returns NamedTuple -> have to convert to Dict
-    parameters = create_params_dict(;
+    parameters, _ = create_params_dict(;
         n_phyto=n_phyto,
         n_zoo=n_zoo,
         phyto_diameters=phyto_diameters,

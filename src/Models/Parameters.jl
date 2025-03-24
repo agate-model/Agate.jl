@@ -11,16 +11,18 @@ emergent_palatability_f = allometric_palatability_unimodal_protection
 emergent_assimilation_efficiency_f = assimilation_efficiency_emergent_binary
 
 """
-    compute_allometric_parameters(plankton::Dict) -> Dict
+    compute_allometric_parameters(plankton::Dict) -> Tuple(Dict, Array)
 
 This function:
     - generates `n` diameters for each `plankton` group using either a linear or a log
       splitting scale
     - optionally computes emergent parameters (allometric functions, assimilation matrix,
       palatability matrix) for each group-diameter combination
-    - reshapes any other group specific parameters to a Array (e.g., `linear_mortality`)
+    - reshapes any other group specific parameters to Array (e.g., `linear_mortality`)
 
-All parameters are returned as: `Dict(<parameter> => <Array of values>, ....)`
+All parameters are returned as: `Dict(<parameter> => <Array of values>, ....)` along with
+an Array of the plankton order in which the parameter values were created and processed
+(e.g., `["Z1", ...., "Z<n>", "P1", ..., "P<n>"]`).
 
 # Arguments
 - `plankton`: a Dictionary of plankton groups' specific parameters of the form:
@@ -87,8 +89,10 @@ function compute_allometric_parameters(plankton::Dict)
     # final outputs here
     results = DefaultDict{AbstractString,Array}([])
 
-    for (_, params) in plankton
+    plankton_names = []
+    for (plankton_name, params) in plankton
         n = params["n"]
+        plankton_names = vcat(plankton_names, ["$plankton_name$i" for i in 1:n])
 
         # 1. compute diameters (unless already specified)
         if isa(params["diameters"], Dict)
@@ -159,7 +163,7 @@ function compute_allometric_parameters(plankton::Dict)
         )
     end
 
-    return results
+    return results, plankton_names
 end
 
 """
@@ -331,7 +335,7 @@ function create_params_dict(;
     end
 
     # also reshapes non-emergent plankton parameters
-    emergent_parameters = compute_allometric_parameters(defined_parameters)
+    emergent_parameters, plankton_names = compute_allometric_parameters(defined_parameters)
 
     if !isnothing(palatability_matrix)
         if !(size(palatability_matrix) == (n_phyto + n_zoo, n_phyto + n_zoo))
@@ -366,7 +370,7 @@ function create_params_dict(;
         Symbol(k) => v for (k, v) in merge(bgc_args, emergent_parameters)
     )
 
-    return parameters
+    return parameters, plankton_names
 end
 
 end #module

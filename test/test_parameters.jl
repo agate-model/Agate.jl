@@ -71,7 +71,7 @@ using .Library.Predation
         )
 
         # returned in Z1, Z2, P1, P2 order
-        emergent_parameters = compute_allometric_parameters(defined_parameters)
+        emergent_parameters, _ = compute_allometric_parameters(defined_parameters)
 
         # compare against hand computed `parameters` in examples
         # returned in P1, P2, Z1, Z2 order
