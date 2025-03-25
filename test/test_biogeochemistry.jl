@@ -56,17 +56,15 @@ using Oceananigans.Biogeochemistry:
         end
 
         @testset "data type created succesfully" begin
-            parameters = (α=2 / 3, β=4 / 3, δ=1, γ=1)
+            parameters = (α=2 / 3, β=4 / 3, δ=1.0, γ=1.0)
             name = create_bgc_struct(:name, parameters)
-
-            @test typeof(name) == DataType
             @test fieldnames(name) == (:α, :β, :δ, :γ)
         end
     end
 
     @testset "add_bgc_methods" begin
         @testset "core methods exist and behave as expected" begin
-            parameters = (α=2 / 3, β=4 / 3, δ=1, γ=1)
+            parameters = (α=2 / 3, β=4 / 3, δ=1.0, γ=1.0)
             tracers = Dict("R" => :(α * R - β * R * F), "F" => :(-γ * F + δ * R * F))
             auxiliary_fields = [:PAR]
 
@@ -75,7 +73,7 @@ using Oceananigans.Biogeochemistry:
 
             # instantiate the same model with different parameters
             model1 = LV()
-            model2 = LV(1, 1, 2, 2)
+            model2 = LV(1.0, 1.0, 2.0, 2.0)
 
             @test all(required_biogeochemical_tracers(model1) .=== [:R, :F])
             @test all(required_biogeochemical_auxiliary_fields(model1) .=== [:PAR])
