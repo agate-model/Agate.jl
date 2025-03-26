@@ -1,31 +1,33 @@
+"""
+Module to compute size-dependent plankton parameters.
+"""
+
 module Parameters
 
 using DataStructures: DefaultDict
-using NamedArrays
 
 using Agate.Library.Allometry
 using Agate.Library.Predation
 
-export compute_allometric_parameters, create_params_dict
+export compute_allometric_parameters
 
 emergent_palatability_f = allometric_palatability_unimodal_protection
 emergent_assimilation_efficiency_f = assimilation_efficiency_emergent_binary
 
 """
-    compute_allometric_parameters(plankton::Dict) -> Dict
+    compute_allometric_parameters(plankton::Dict) -> Tuple(Dict, Array)
 
 This function:
-    - generates `n` names for each `plankton` group (e.g., "P", "Z" or "cocco") of the form:
-      `["P1", ..., "P<n>", "Z1", ...., "Z<n>", ...]`
     - generates `n` diameters for each `plankton` group using either a linear or a log
       splitting scale
     - optionally computes emergent parameters (allometric functions, assimilation matrix,
       palatability matrix) for each group-diameter combination
-    - reshapes any other group specific parameters to a NamedArray (e.g., `linear_mortality`)
+    - reshapes any other group specific parameters to Array of length `n` (repeating the
+      parameter value n times to match it in length to the emergent parameters)
 
-All parameters are returned as:
-    `Dict(<parameter> => <NamedArray of values>, ....)`
-using either the group names (e.g., "P") or names generated in the first step (e.g., "P1").
+All parameters are returned as: `Dict(<parameter> => <Array of values>, ....)` along with
+an Array of the plankton order in which the parameter values were created and processed
+(e.g., `["Z1", ...., "Z<n>", "P1", ..., "P<n>"]`).
 
 # Arguments
 - `plankton`: a Dictionary of plankton groups' specific parameters of the form:
@@ -87,14 +89,15 @@ using either the group names (e.g., "P") or names generated in the first step (e
 function compute_allometric_parameters(plankton::Dict)
 
     # intermediate representations for parameters that are output as matrices
-    intermediate_palatability = DefaultDict{AbstractString,NamedArray}(NamedArray([], []))
-    intermediate_assimilation = DefaultDict{AbstractString,NamedArray}(NamedArray([], []))
+    intermediate_palatability = DefaultDict{AbstractString,Array}([])
+    intermediate_assimilation = DefaultDict{AbstractString,Array}([])
     # final outputs here
-    results = DefaultDict{AbstractString,NamedArray}(NamedArray([], []))
+    results = DefaultDict{AbstractString,Array}([])
 
+    plankton_names = []
     for (plankton_name, params) in plankton
         n = params["n"]
-        plankton_names = ["$plankton_name$i" for i in 1:n]
+        plankton_names = vcat(plankton_names, ["$plankton_name$i" for i in 1:n])
 
         # 1. compute diameters (unless already specified)
         if isa(params["diameters"], Dict)
@@ -111,9 +114,7 @@ function compute_allometric_parameters(plankton::Dict)
             end
             diameters = params["diameters"]
         end
-        results["diameters"] = vcat(
-            results["diameters"], NamedArray(diameters, plankton_names)
-        )
+        results["diameters"] = vcat(results["diameters"], diameters)
 
         # 2. compute allometric functions (if any specified by user)
         if "allometry" ∈ keys(params)
@@ -121,18 +122,19 @@ function compute_allometric_parameters(plankton::Dict)
                 values = [
                     allometric_scaling_power(args["a"], args["b"], d) for d in diameters
                 ]
-                results[param] = vcat(results[param], NamedArray(values, plankton_names))
+                results[param] = vcat(results[param], values)
             end
         end
 
         # 3. reshape remaining parameters
         for (param, value) in params
             if !(param ∈ ["n", "diameters", "allometry"])
+
                 # NOTE: for palatability and assimilation_efficiency, `value` is a Dictionary
                 # store the values in intermediate form to use later when creating matrices
                 if param ∈ ["palatability", "assimilation_efficiency"]
                     for (arg, val) in value
-                        values = NamedArray(repeat([val], n), plankton_names)
+                        values = repeat([val], n)
                         if param == "palatability"
                             intermediate_palatability[arg] = vcat(
                                 intermediate_palatability[arg], values
@@ -145,10 +147,7 @@ function compute_allometric_parameters(plankton::Dict)
                     end
                 else
                     # NOTE: expect here that in all other cases `value` is a single number
-                    # println(value, " ", value * ones(n), " ", plankton_names)
-                    results[param] = vcat(
-                        results[param], NamedArray(value * ones(n), plankton_names)
-                    )
+                    results[param] = vcat(results[param], repeat([value], n))
                 end
             end
         end
@@ -169,7 +168,7 @@ function compute_allometric_parameters(plankton::Dict)
         )
     end
 
-    return results
+    return results, plankton_names
 end
 
 """
@@ -191,10 +190,12 @@ function linear_splitting(min_diameter::Real, max_diameter::Real, n::Int)
 end
 
 """
-Apply function `func` to every every pair of `plankton` groups, returning a 2D NamedArray.
+Apply function `func` to every every pair of `plankton` groups, returning a 2D Array. The
+expected use is for calculating predator-prey dynamics (palatability and assimilation
+efficiency matrices).
 
 The `plankton` Dictionary keys have to contain argument names of the function to calculate
-and be of the form `Dict(<function arg name> => NamedArray(<values>, <names>), ...)`
+and be of the form `Dict(<function arg name> => <Array of values>, ...)`
 
 # Example
 ```julia
@@ -203,152 +204,30 @@ function add_ab(prey, pred)
 end
 
 plankton = Dict(
-    "a" => NamedArray([1, 2, 3], ["A1", "B2", "C3"]),
-    "b" => NamedArray([9, 8, 7], ["A1", "B2", "C3"]),
+    "a" => [1, 2, 3],
+    "b" => [9, 8, 7],
 )
 
 values_matrix = emergent_2D_array(plankton, add_ab)
 ```
 """
 function emergent_2D_array(plankton, func)
-    plankton_names = names(plankton["diameters"], 1)
-    arg_names = keys(plankton)
-    values = zeros(Float64, length(plankton_names), length(plankton_names))
-    plankton_matrix = NamedArray(values, (predator=plankton_names, prey=plankton_names))
+    # n is the number of plankton in the system - populate NxN matrix
+    n = length(plankton["diameters"])
+    plankton_matrix = zeros(Float64, n, n)
 
-    # Q: is there a better way to populate this ?!
-    # Populate the NamedArray with calculated values
-    for pred_name in plankton_names
+    # each plankton can be a predator or prey, retrieve their respective args
+    arg_names = keys(plankton)
+    for pred_name in 1:n
         predator_data = Dict(arg => plankton[arg][pred_name] for arg in arg_names)
-        for prey_name in plankton_names
+        for prey_name in 1:n
             prey_data = Dict(arg => plankton[arg][prey_name] for arg in arg_names)
-            # Pass prey and predator data dictionaries to the function
+            # pass prey and predator data dictionaries to the function
             plankton_matrix[pred_name, prey_name] = func(prey_data, predator_data)
         end
     end
 
-    # Create and return a NamedArray with the values and names
     return plankton_matrix
-end
-
-"""
-Create a dictionary of NPZD parameters to pass to `Agate.Models.Biogeochemistry.define_tracer_functions`.
-
-# Arguments
-- `n_phyto`: number of phytoplankton to include in the model
-- `n_zoo`: number of zooplankton to include in the model
-- `phyto_diameters`: dictionary from which `n_phyto` diameters can be computed or a list of
-    values to use
-- `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
-    values to use
-- `phyto_args`: Dictionary of phytoplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
-- `zoo_args`: Dictionary of zooplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
-- `interaction_args`: Dictionary of arguments from which a palatability and assimilation
-   efficiency matrix between all plankton can be computed, for default values see
-    `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
-- `bgc_args`: Dictionary of constant parameters used in growth functions (i.e., not size
-    dependant plankton parameters as well as biogeochemistry parameters related to nutrient
-    and detritus, for default values see `Agate.Models.Constructors.DEFAULT_CONSTANT_ARGS`
-- `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
-    then `interaction_args` are not used to compute this
-- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
-    NamedArray, if provided then `interaction_args` are not used to compute this
-"""
-function create_params_dict(;
-    n_phyto=2,
-    n_zoo=2,
-    phyto_diameters=Dict(
-        "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
-    ),
-    zoo_diameters=Dict(
-        "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
-    ),
-    phyto_args=nothing,
-    zoo_args=nothing,
-    interaction_args=nothing,
-    bgc_args=nothing,
-    palatability_matrix=nothing,
-    assimilation_efficiency_matrix=nothing,
-)
-    # compute emergent parameters
-    defined_parameters = Dict(
-        "P" => Dict{String,Any}(
-            "allometry" => phyto_args["allometry"],
-            "n" => n_phyto,
-            "diameters" => phyto_diameters,
-        ),
-        "Z" => Dict{String,Any}(
-            "allometry" => zoo_args["allometry"],
-            "n" => n_zoo,
-            "diameters" => zoo_diameters,
-        ),
-    )
-
-    if isnothing(palatability_matrix)
-        defined_parameters["P"]["palatability"] = Dict(
-            k => interaction_args["P"][k] for
-            k in ["can_eat", "optimum_predator_prey_ratio", "protection", "specificity"]
-        )
-        defined_parameters["Z"]["palatability"] = Dict(
-            k => interaction_args["Z"][k] for
-            k in ["can_eat", "optimum_predator_prey_ratio", "protection", "specificity"]
-        )
-    end
-
-    if isnothing(assimilation_efficiency_matrix)
-        defined_parameters["P"]["assimilation_efficiency"] = Dict(
-            k => interaction_args["P"][k] for
-            k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
-        )
-        defined_parameters["Z"]["assimilation_efficiency"] = Dict(
-            k => interaction_args["Z"][k] for
-            k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
-        )
-    end
-
-    # also reshapes non-emergent plankton parameters
-    emergent_parameters = compute_allometric_parameters(defined_parameters)
-
-    if !isnothing(palatability_matrix)
-        if !(size(palatability_matrix) == (n_phyto + n_zoo, n_phyto + n_zoo))
-            throw(
-                ArgumentError(
-                    "palatability_matrix must have size $((n_phyto+n_zoo, n_phyto+n_zoo))"
-                ),
-            )
-        end
-        emergent_parameters["palatability_matrix"] = palatability_matrix
-    end
-
-    if !isnothing(assimilation_efficiency_matrix)
-        if !(size(assimilation_efficiency_matrix) == (n_phyto + n_zoo, n_phyto + n_zoo))
-            throw(
-                ArgumentError(
-                    "assimilation_efficiency_matrix must have size $((n_phyto+n_zoo, n_phyto+n_zoo))",
-                ),
-            )
-        end
-
-        emergent_parameters["assimilation_efficiency_matrix"] =
-            assimilation_efficiency_matrix
-    end
-
-    # append information that need access to at instantiation
-    bgc_args["n_phyto"] = n_phyto
-    bgc_args["n_zoo"] = n_zoo
-
-    phyto_args = Dict(k => v for (k, v) in phyto_args if k != "allometry")
-    zoo_args = Dict(k => v for (k, v) in zoo_args if k != "allometry")
-
-    # combine emergent parameters with remaining bgc, phyto and zoo defined parameters
-    parameters = NamedTuple(
-        Symbol(k) => v for
-        (k, v) in merge(bgc_args, emergent_parameters, phyto_args, zoo_args)
-    )
-
-    return parameters
 end
 
 end #module

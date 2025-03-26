@@ -1,7 +1,8 @@
 using Agate
-using NamedArrays
-using Agate.Models.Tracers
-using Agate.Constructors: NiPiZD
+using Agate.Models.NiPiZD.Tracers
+using Agate.Models: NiPiZD
+
+using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 
 @testset "Models.Constructor" begin
     N2P2ZD_constructed = NiPiZD.construct()
@@ -29,7 +30,7 @@ using Agate.Constructors: NiPiZD
     @testset "N2P2ZD model" begin
 
         # N2P2ZD model defined using low level syntax
-        include(joinpath("..", "examples", "N2P2ZD", "tracers.jl"))
+        include(joinpath("N2P2ZD", "tracers.jl"))
         model = N2P2ZD()
         model_var_order = get_var_order(model)
 
@@ -88,25 +89,25 @@ using Agate.Constructors: NiPiZD
         )
     end
 
-    # @testset "User defined matrices" begin
-    #     names = ["P", "Z"]
-    #     wrong_size_matrix = NamedArray(zeros(Float64, 2, 2), (predator=names, prey=names))
-    #     @test_throws ArgumentError NiPiZD.instantiate(
-    #         N2P2ZD_constructed; palatability_matrix=wrong_size_matrix
-    #     )
-    #     @test_throws ArgumentError NiPiZD.instantiate(
-    #         N2P2ZD_constructed; assimilation_efficiency_matrix=wrong_size_matrix
-    #     )
+    @testset "User defined matrices" begin
+        names = ["P", "Z"]
+        wrong_size_matrix = zeros(Float64, 2, 2)
+        @test_throws ArgumentError NiPiZD.instantiate(
+            N2P2ZD_constructed; palatability_matrix=wrong_size_matrix
+        )
+        @test_throws ArgumentError NiPiZD.instantiate(
+            N2P2ZD_constructed; assimilation_efficiency_matrix=wrong_size_matrix
+        )
 
-    #     # doesn't throw error if dimensions are correct
-    #     names = ["P1", "P2", "Z1", "Z2"]
-    #     correct_size_matrix = NamedArray(zeros(Float64, 4, 4), (predator=names, prey=names))
-    #     new_model = NiPiZD.instantiate(
-    #         N2P2ZD_constructed;
-    #         palatability_matrix=correct_size_matrix,
-    #         assimilation_efficiency_matrix=correct_size_matrix,
-    #     )
-    # end
+        # doesn't throw error if dimensions are correct
+        names = ["P1", "P2", "Z1", "Z2"]
+        correct_size_matrix = zeros(Float64, 4, 4)
+        new_model = NiPiZD.instantiate(
+            N2P2ZD_constructed;
+            palatability_matrix=correct_size_matrix,
+            assimilation_efficiency_matrix=correct_size_matrix,
+        )
+    end
 
     @testset "Diameters passed as an array" begin
 
@@ -141,7 +142,7 @@ using Agate.Constructors: NiPiZD
         N2P2ZD_geider = NiPiZD.construct(;
             phyto_args=NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS,
             nutrient_dynamics=nutrients_geider_light,
-            phyto_dynamics=phytoplankton_growth_single_nutrient_geider_light,
+            phyto_dynamics=phytoplankton_geider_light,
         )
 
         model_geider = NiPiZD.instantiate(
