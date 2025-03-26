@@ -35,7 +35,7 @@ export define_tracer_functions, expression_check, create_bgc_struct, add_bgc_met
         sinking_tracers=nothing,
         grid=nothing,
         open_bottom=false,
-    ) -> DataType
+    )
 
 Create an Oceananigans.Biogeochemistry model type.
 
@@ -99,7 +99,7 @@ end
         sinking_tracers=nothing,
         grid=nothing,
         open_bottom=false,
-    ) -> DataType
+    )
 
 Create a subtype of Oceananigans.Biogeochemistry with field names defined in `parameters`.
 
@@ -174,7 +174,7 @@ function create_bgc_struct(
                            AbstractContinuousFormBiogeochemistry
             $(fields...)
         end
-        $struct_name # Return the type
+        $struct_name # return the type
     end
     return eval(exp)
 end
@@ -186,7 +186,7 @@ end
         auxiliary_fields=[:PAR],
         helper_functions=nothing,
         sinking_tracers=nothing,
-    ) -> DataType
+    )
 
 Add methods to `bgc_type` required of Oceananigans.Biogeochemistry:
     - `required_biogeochemical_tracers`
