@@ -12,7 +12,6 @@ using Agate.Library.Predation
 using Agate.Library.Remineralization
 
 using UUIDs
-using Adapt
 
 using OceanBioME: setup_velocity_fields
 
@@ -36,7 +35,7 @@ export define_tracer_functions, expression_check, create_bgc_struct, add_bgc_met
         sinking_tracers=nothing,
         grid=nothing,
         open_bottom=false,
-    ) -> DataType
+    )
 
 Create an Oceananigans.Biogeochemistry model type.
 
@@ -93,24 +92,6 @@ function define_tracer_functions(
     return bgc_model
 end
 
-using Adapt
-using NamedArrays
-
-# Custom Adapt rule for NamedArrays
-Adapt.adapt_structure(to, x::NamedArray) = begin
-    # Adapt the underlying array
-    adapted_data = Adapt.adapt(to, Array(x))
-    
-    # Convert the names to use Any as the key type
-    names_converted = Tuple(
-        Dict{Any, Int}(k => v for (k, v) in names_dim)
-        for names_dim in names(x)
-    )
-    
-    # Create a new NamedArray with the adapted data and converted names
-    NamedArray(adapted_data, names_converted)
-end
-
 """
     create_bgc_struct(
         struct_name,
@@ -118,7 +99,7 @@ end
         sinking_tracers=nothing,
         grid=nothing,
         open_bottom=false,
-    ) -> DataType
+    )
 
 Create a subtype of Oceananigans.Biogeochemistry with field names defined in `parameters`.
 
@@ -150,38 +131,52 @@ function create_bgc_struct(
     struct_name, parameters, sinking_tracers=nothing, grid=nothing, open_bottom=nothing
 )
     fields = []
+    # need to also keep track of parameter types to return a parametric struct
+    type_names = Set()
     for (k, v) in pairs(parameters)
         if k in [:x, :y, :z, :t]
             throw(
                 DomainError(k, "field names in parameters can't be any of [:x, :y, :z, :t]")
             )
         end
-        # Preserve NamedArrays.NamedVector instead of converting to Vector
-        push!(fields, :($k::$(typeof(v)) = $v))  # Infer type dynamically
+
+        type = typeof(v)
+        # should we handle ints/floats separately?
+        if type <: Real
+            type_symbol = :FT
+        elseif type <: AbstractVector
+            type_symbol = :VT
+        elseif type <: AbstractMatrix
+            type_symbol = :MT
+        else
+            error("Unsupported type for field $k")
+        end
+        push!(type_names, type_symbol)
+
+        exp = Expr(:(=), Expr(:(::), k, type_symbol), v)
+        push!(fields, exp)
     end
+
     if !isnothing(sinking_tracers)
         if isnothing(grid)
             throw(ArgumentError("grid must be defined to setup tracer sinking"))
         end
         # `setup_velocity_fields` multiplies tracer speeds by -1 when creating the fields
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
-        push!(fields, :(sinking_velocities = $(sinking_velocities)))
+        type_symbol = :SV
+        push!(type_names, type_symbol)
+        exp = Expr(:(=), Expr(:(::), :sinking_velocities, type_symbol), sinking_velocities)
+        push!(fields, exp)
     end
-    # Define the struct within a quote block
-    struct_def = quote
-        Base.@kwdef struct $struct_name <: AbstractContinuousFormBiogeochemistry
+
+    exp = quote
+        Base.@kwdef struct $struct_name{$(type_names...)} <:
+                           AbstractContinuousFormBiogeochemistry
             $(fields...)
         end
+        $struct_name # return the type
     end
-    eval(struct_def)
-
-    # Apply Adapt.@adapt_structure to the generated struct
-    adapt_macro_call = quote
-        Adapt.@adapt_structure $struct_name
-    end
-    eval(adapt_macro_call)
-
-    return eval(struct_name)
+    return eval(exp)
 end
 
 """
@@ -191,7 +186,7 @@ end
         auxiliary_fields=[:PAR],
         helper_functions=nothing,
         sinking_tracers=nothing,
-    ) -> DataType
+    )
 
 Add methods to `bgc_type` required of Oceananigans.Biogeochemistry:
     - `required_biogeochemical_tracers`
@@ -289,7 +284,6 @@ function add_bgc_methods!(
 
     # set up tracer sinking
     if !isnothing(sinking_tracers)
-
         # `biogeochemical_drift_velocity` is an optional Oceananigans.Biogeochemistry method
         # that returns a NamedTuple of velocity fields for a tracer with keys `u`, `v`, `w`
         sink_velocity_method = quote
