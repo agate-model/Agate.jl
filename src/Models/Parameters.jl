@@ -92,7 +92,7 @@ function compute_allometric_parameters(plankton::Dict)
     intermediate_palatability = DefaultDict{AbstractString,Array}([])
     intermediate_assimilation = DefaultDict{AbstractString,Array}([])
     # final outputs here
-    results = DefaultDict{AbstractString,Array}([])
+    results = DefaultDict{AbstractString,Array{Real}}([])
 
     plankton_names = []
     for (plankton_name, params) in plankton
@@ -291,10 +291,10 @@ function create_params_dict(;
     )
     for param in all_allometric_params
         if !(param ∈ keys(phyto_args["allometry"]))
-            phyto_args_copy["allometry"][param] = Dict("a" => 0, "b" => 0)
+            phyto_args_copy["allometry"][param] = Dict("a" => 0.0, "b" => 0.0)
         end
         if !(param ∈ keys(zoo_args["allometry"]))
-            zoo_args_copy["allometry"][param] = Dict("a" => 0, "b" => 0)
+            zoo_args_copy["allometry"][param] = Dict("a" => 0.0, "b" => 0.0)
         end
     end
 
@@ -302,10 +302,10 @@ function create_params_dict(;
     all_other_params = setdiff(union(keys(phyto_args), keys(zoo_args)), ["allometry"])
     for param in all_other_params
         if !(param ∈ keys(phyto_args))
-            phyto_args_copy[param] = 0
+            phyto_args_copy[param] = 0.0
         end
         if !(param ∈ keys(zoo_args))
-            zoo_args_copy[param] = 0
+            zoo_args_copy[param] = 0.0
         end
     end
 
