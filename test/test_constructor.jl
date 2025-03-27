@@ -1,7 +1,8 @@
 using Agate
-using NamedArrays
 using Agate.Models.NiPiZD.Tracers
 using Agate.Models: NiPiZD
+
+using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 
 @testset "Models.Constructor" begin
     N2P2ZD_constructed = NiPiZD.construct()
@@ -90,7 +91,7 @@ using Agate.Models: NiPiZD
 
     @testset "User defined matrices" begin
         names = ["P", "Z"]
-        wrong_size_matrix = NamedArray(zeros(Float64, 2, 2), (predator=names, prey=names))
+        wrong_size_matrix = zeros(Float64, 2, 2)
         @test_throws ArgumentError NiPiZD.instantiate(
             N2P2ZD_constructed; palatability_matrix=wrong_size_matrix
         )
@@ -100,7 +101,7 @@ using Agate.Models: NiPiZD
 
         # doesn't throw error if dimensions are correct
         names = ["P1", "P2", "Z1", "Z2"]
-        correct_size_matrix = NamedArray(zeros(Float64, 4, 4), (predator=names, prey=names))
+        correct_size_matrix = zeros(Float64, 4, 4)
         new_model = NiPiZD.instantiate(
             N2P2ZD_constructed;
             palatability_matrix=correct_size_matrix,

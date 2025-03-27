@@ -5,7 +5,6 @@ version = "0.1.1"
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
-NamedArrays = "86f7a689-2022-50b4-a561-43c23ac3c673"
 OceanBioME = "a49af516-9db8-4be4-be45-1dad61c5a376"
 Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
@@ -14,15 +13,14 @@ Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]
+DataStructures = "0.18.20"
 DifferentialEquations = "7.15.0"
 OceanBioME = "0.13.2"
 Oceananigans = "0.93.3"
+Plots = "1.40.10"
 StatsPlots = "0.15.7"
 Turing = "0.35.3"
 julia = "1.9"
-Plots = "1.40.10"
-NamedArrays = "0.10.3"
-DataStructures = "0.18.20"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

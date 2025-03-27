@@ -5,10 +5,9 @@ Module to construct an instance of an Agate.jl-DARWIN model.
 module Constructor
 
 using Agate.Utils
-using Agate.Models.Parameters
+using Agate.Models.Utils: create_params_dict
 using Agate.Models.DARWIN.Tracers
 
-using NamedArrays
 using UUIDs
 using Oceananigans.Units
 
@@ -22,17 +21,15 @@ DEFAULT_PHYTO_ARGS = Dict(
         "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
         "half_saturation_DIN" => Dict("a" => 0.17, "b" => 0.27),
         "half_saturation_PO4" => Dict("a" => 0.17, "b" => 0.27),
-        # need this to vectorize the tracer functions
-        "maximum_predation_rate" => Dict("a" => 0, "b" => 0),
     ),
-    "linear_mortality_p" => 8e-7 / second,
+    "linear_mortality" => 8e-7 / second,
     "photosynthetic_slope" => 0.46e-5,
     "chlorophyll_to_carbon_ratio" => 0.1,
 )
 
 DEFAULT_ZOO_ARGS = Dict(
     "allometry" => Dict("maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16)),
-    "linear_mortality_z" => 8e-7 / second,
+    "linear_mortality" => 8e-7 / second,
     "holling_half_saturation" => 5.0,
     "quadratic_mortality" => 1e-6 / second,
 )
@@ -196,10 +193,10 @@ The type specification includes a photosynthetic active radiation (PAR) auxiliar
     `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
 - `bgc_args`: biogeochemistry parameters related to nutrient and detritus, for default
     values see `Agate.Models.Constructors.DEFAULT_BGC_ARGS`
-- `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
+- `palatability_matrix`: optional palatability matrix passed as an Array, if provided
    then `interaction_args` are not used to compute this
-- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
-   NamedArray, if provided then `interaction_args` are not used to compute this
+- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
+   Array, if provided then `interaction_args` are not used to compute this
 
 
 # Example
@@ -237,7 +234,7 @@ function construct(;
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 )
-    parameters = create_params_dict(;
+    parameters, plankton_names = create_params_dict(;
         n_phyto=n_phyto,
         n_zoo=n_zoo,
         phyto_diameters=phyto_diameters,
@@ -249,30 +246,32 @@ function construct(;
         palatability_matrix=palatability_matrix,
         assimilation_efficiency_matrix=assimilation_efficiency_matrix,
     )
-    # NOTE: Zs precede Ps because this is the order in all arrays/matrices
-    zoo_array = [Symbol("Z$i") for i in 1:n_zoo]
-    phyto_array = [Symbol("P$i") for i in 1:n_phyto]
-    plankton_array = vcat(zoo_array, phyto_array)
+    # NOTE: Zs precede Ps
+    plankton_array = [Symbol(name) for name in plankton_names]
 
     # create tracer functions
     tracers = Dict(
-        "DIC" => DIC_dynamics(phyto_array),
-        "DIN" => DIN_dynamics(phyto_array),
-        "PO4" => PO4_dynamics(phyto_array),
-        "POC" => POC_dynamics(phyto_array, zoo_array),
-        "DOC" => DOC_dynamics(phyto_array, zoo_array),
-        "PON" => PON_dynamics(phyto_array, zoo_array),
-        "DON" => DON_dynamics(phyto_array, zoo_array),
-        "POP" => POP_dynamics(phyto_array, zoo_array),
-        "DOP" => DOP_dynamics(phyto_array, zoo_array),
+        "DIC" => DIC_dynamics(plankton_array),
+        "DIN" => DIN_dynamics(plankton_array),
+        "PO4" => PO4_dynamics(plankton_array),
+        "POC" => POC_dynamics(plankton_array),
+        "DOC" => DOC_dynamics(plankton_array),
+        "PON" => PON_dynamics(plankton_array),
+        "DON" => DON_dynamics(plankton_array),
+        "POP" => POP_dynamics(plankton_array),
+        "DOP" => DOP_dynamics(plankton_array),
     )
-    for i in 1:n_phyto
-        name = "P$i"
-        tracers[name] = phyto_dynamics(plankton_array, name)
-    end
+
     for i in 1:n_zoo
         name = "Z$i"
-        tracers[name] = zoo_dynamics(plankton_array, name)
+        index = findfirst(x -> x == name, plankton_names)
+        tracers[name] = zoo_dynamics(plankton_array, name, index)
+    end
+
+    for i in 1:n_phyto
+        name = "P$i"
+        index = findfirst(x -> x == name, plankton_names)
+        tracers[name] = phyto_dynamics(plankton_array, name, index)
     end
 
     # return Oceananigans.Biogeochemistry object
@@ -335,10 +334,10 @@ of any of the model parameters or plankton diameters.
 - `bgc_args`: Dictionary of constant parameters used in growth functions (i.e., not size
     dependant plankton parameters as well as biogeochemistry parameters related to nutrient
     and detritus, for default values see `Agate.Models.Constructors.DEFAULT_CONSTANT_ARGS`
-- `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
+- `palatability_matrix`: optional palatability matrix passed as an Array, if provided
     then `interaction_args` are not used to compute this
-- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
-    NamedArray, if provided then `interaction_args` are not used to compute this
+- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
+    Array, if provided then `interaction_args` are not used to compute this
 
 # Example
 ```julia
@@ -372,7 +371,7 @@ function instantiate(
     n_zoo = Int(defaults.n_zoo)
 
     # returns NamedTuple -> have to convert to Dict
-    parameters = create_params_dict(;
+    parameters, _ = create_params_dict(;
         n_phyto=n_phyto,
         n_zoo=n_zoo,
         phyto_diameters=phyto_diameters,
