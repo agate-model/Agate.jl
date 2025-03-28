@@ -8,9 +8,10 @@ makedocs(;
     # modules=[Agate],
     pages=[
         "About" => "index.md",
+        "Quick start" => "quick_start.md",
+        "Examples" => "examples.md",
         "Models" => model_pages,
         "Library" => "library.md",
-        "Examples" => "examples.md",
         "API" => "api.md",
     ],
 )
