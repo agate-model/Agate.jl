@@ -15,19 +15,27 @@ using Agate.Library.Photosynthesis
 const year = years = 365day
 nothing #hide
 
-"""
-In this example, we look at how to increase the number of phytoplankton and zooplankton size groups based on the allometric relationships defined in the construct_size_structured_NPZD constructor. 
-Allometric relationships describe how biological rates (e.g., growth, grazing, and mortality) scale with organism size. These relationships serve as fundamental principles in trait-based ecosystem modeling, where individual traits like size influence ecosystem-scale dynamics, allowing models to capture the diversity and functionality of plankton communities. 
-Size is a particularly critical trait, as it strongly influences individual physiology, ecological interactions, and environmental adaptations. Smaller phytoplankton, for example, have a higher surface-area-to-volume ratio, which enhances their nutrient uptake efficiency. This makes them well-suited for survival in nutrient-poor environments, where resource acquisition is a key limiting factor. 
+# In this example, we look at how to increase the number of phytoplankton and zooplankton size groups based on the allometric relationships defined in the construct_size_structured_NPZD constructor. 
+# Allometric relationships describe how biological rates (e.g., growth, grazing, and mortality) scale with organism size. These relationships serve as fundamental principles in trait-based ecosystem modeling, where individual traits like size influence ecosystem-scale dynamics, allowing models to capture the diversity and functionality of plankton communities. 
+# Size is a particularly critical trait, as it strongly influences individual physiology, ecological interactions, and environmental adaptations. Smaller phytoplankton, for example, have a higher surface-area-to-volume ratio, which enhances their nutrient uptake efficiency. This makes them well-suited for survival in nutrient-poor environments, where resource acquisition is a key limiting factor. 
 
-Here, we give the example of modelling an ecosystem with 4 phytoplankton and 4 zooplankton size classes.
+# Here, we give the example of modelling an ecosystem with 4 phytoplankton and 4 zooplankton size classes.
 
-Allometric relationships usually scale as a power law: $M = aV^b$ 
-"""
+# Allometric relationships usually scale as a power law: M = aV^b 
 
-# ## Model with 4 phytoplankton and 4 zooplankton
-# Define the model to have 4 phytoplankton and 4 zooplankton
-phyto_4_zoo_4 = construct_size_structured_NPZD(; n_phyto=4, n_zoo=4)
+
+# ## Contruct the model
+# Define the model to have 4 phytoplankton and 4 zooplankton size classes with a range of 6-150 \mum and 60-1500 \mum, respectively, distributed equally on a log scare.
+phyto_4_zoo_4 = construct_size_structured_NPZD(; 
+n_phyto=4, 
+n_zoo=4,
+phyto_diameters=Dict(
+"min_diameter" => 6, "max_diameter" => 150, "splitting" => "log_splitting"
+),
+zoo_diameters=Dict(
+    "min_diameter" => 60, "max_diameter" => 1500, "splitting" => "log_splitting"
+))
+nothing #hide
 
 # Print emergent parameter values
 model = phyto_4_zoo_4()  # Store the model to avoid multiple function calls
@@ -41,9 +49,11 @@ bgc_model_phyto_4_zoo_4 = Biogeochemistry(
     phyto_4_zoo_4();
     light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid()), # more intutive if removed (use default) (?)
 )
+nothing #hide
 
 # Wrap model to OceanBioME Boxmodel() physical model:
 full_model = BoxModel(; biogeochemistry=bgc_model_phyto_4_zoo_4)
+nothing #hide
 
 # Define initial tracer concentrations
 # Set Initial Conditions for N and D
@@ -67,6 +77,7 @@ simulation.output_writers[:fields] = JLD2OutputWriter(
     overwrite_existing=true,
 )
 run!(simulation)
+nothing #hide
 
 # ## Plot model outputs
 
@@ -74,6 +85,7 @@ run!(simulation)
 timeseries = NamedTuple{keys(full_model.fields)}(
     FieldTimeSeries(filename, "$field")[1, 1, 1, :] for field in keys(full_model.fields)
 )
+nothing #hide
 
 # Plot phytoplankton
 fields = vcat([Symbol("P$i") for i in 1:4])
@@ -87,8 +99,8 @@ plots = [
 for (i, field) in enumerate(fields)
     plot!(plots[i], timeseries[field]; color=:blue)
 end
-p = plot(plots...; layout=(2, 2), size=(900, 600))
-p
+p1 = plot(plots...; layout=(2, 2), size=(800, 600))
+p1
 
 # Plot zooplankton
 fields = vcat([Symbol("Z$i") for i in 1:4])
@@ -102,8 +114,8 @@ plots = [
 for (i, field) in enumerate(fields)
     plot!(plots[i], timeseries[field]; color=:blue)
 end
-p = plot(plots...; layout=(2, 2), size=(900, 600))
-p
+p2 = plot(plots...; layout=(2, 2), size=(800, 600))
+p2
 
 # Plot others
 fields = [:D, :N]
@@ -118,38 +130,5 @@ plots = [
 for (i, field) in enumerate(fields)
     plot!(plots[i], timeseries[field]; color=:blue)
 end
-p = plot(plots...; layout=(1, 2), size=(900, 600))
-p
-
-
-
-# # Total plankton plots  ## TO FIX, not sure how to add fields together
-# # Adding Total Phytoplankton and Total Zooplankton to the timeseries
-# timeseries[:TotalP] = timeseries[:P1] .+ timeseries[:P2]  
-# timeseries[:TotalZ] = timeseries[:Z1] .+ timeseries[:Z2] 
-
-# # Fields to plot
-# fields = [:TotalP, :TotalZ, :D, :N]
-# titles = [
-#     "Total Phytoplankton"
-#     "Total Zooplankton"
-#     "Detritus",
-#     "Nutrient",
-# ]
-# nothing #hide
-
-# # Next plot it:
-# plots = [
-#     plot(; title=titles[i], xlabel="Time (days)", ylabel=string(fields[i])) for
-#     i in 1:length(fields)
-# ]
-
-# for (i, field) in enumerate(fields)
-#     plot!(plots[i], timeseries[field]; color=:blue)
-# end
-
-# # Combine
-# p = plot(plots...; layout=(2, 2), size=(900, 600))
-
-# savefig(p, "total_phyto_4_zoo_4.png")
-# p
+p3 = plot(plots...; layout=(1, 2), size=(900, 600))
+p3
