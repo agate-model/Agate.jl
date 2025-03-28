@@ -5,7 +5,7 @@ Module to construct an instance of a size-structured NiPiZD model.
 module Constructor
 
 using Agate.Utils
-using Agate.Models.Utils: create_params_dict
+using Agate.Models.Parameters
 using Agate.Models.NiPiZD.Tracers
 
 using UUIDs
