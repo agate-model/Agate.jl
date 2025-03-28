@@ -10,6 +10,7 @@ using Agate.Library.Nutrients
 using Agate.Library.Photosynthesis
 using Agate.Library.Predation
 using Agate.Library.Remineralization
+using Adapt
 
 using UUIDs
 
@@ -131,52 +132,81 @@ function create_bgc_struct(
     struct_name, parameters, sinking_tracers=nothing, grid=nothing, open_bottom=nothing
 )
     fields = []
-    # need to also keep track of parameter types to return a parametric struct
-    type_names = Set()
+    type_params = Set()
+    default_values = []
+    
+    # Process parameters
     for (k, v) in pairs(parameters)
-        if k in [:x, :y, :z, :t]
-            throw(
-                DomainError(k, "field names in parameters can't be any of [:x, :y, :z, :t]")
-            )
+        if k in (:x, :y, :z, :t)
+            throw(DomainError(k, "field names can't be any of [:x, :y, :z, :t]"))
         end
 
-        type = typeof(v)
-        # should we handle ints/floats separately?
-        if type <: Real
+        T = eltype(v)  # Use `eltype` for arrays instead of `typeof`
+
+        # Assign type parameter symbols
+        if T <: AbstractFloat
             type_symbol = :FT
-        elseif type <: AbstractVector
-            type_symbol = :VT
-        elseif type <: AbstractMatrix
-            type_symbol = :MT
+        elseif T <: Integer
+            type_symbol = :IT
+        elseif T <: AbstractVector
+            if eltype(v) <: AbstractFloat
+                type_symbol = :FVT  # Floating-point vector
+            elseif eltype(v) <: Integer
+                type_symbol = :IVT  # Integer vector
+            else
+                error("Unsupported vector element type for field $k: $(eltype(v))")
+            end
+        elseif T <: AbstractMatrix
+            if eltype(v) <: AbstractFloat
+                type_symbol = :FMT  # Floating-point matrix
+            elseif eltype(v) <: Integer
+                type_symbol = :IMT  # Integer matrix
+            else
+                error("Unsupported matrix element type for field $k: $(eltype(v))")
+            end
+        
         else
-            error("Unsupported type for field $k")
+            error("Unsupported type for field $k: $T")
         end
-        push!(type_names, type_symbol)
-
-        exp = Expr(:(=), Expr(:(::), k, type_symbol), v)
-        push!(fields, exp)
+        
+        
+        push!(type_params, type_symbol)
+        
+        # Create typed field with default value in one expression
+        push!(fields, Expr(:(=), Expr(:(::), k, type_symbol), v))
     end
 
+    # Process sinking velocities if provided
     if !isnothing(sinking_tracers)
         if isnothing(grid)
-            throw(ArgumentError("grid must be defined to setup tracer sinking"))
+            throw(ArgumentError("grid must be defined for tracer sinking"))
         end
-        # `setup_velocity_fields` multiplies tracer speeds by -1 when creating the fields
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
         type_symbol = :SV
-        push!(type_names, type_symbol)
-        exp = Expr(:(=), Expr(:(::), :sinking_velocities, type_symbol), sinking_velocities)
-        push!(fields, exp)
+        push!(type_params, type_symbol)
+        push!(fields, Expr(:(=), Expr(:(::), :sinking_velocities, type_symbol), sinking_velocities))
     end
 
-    exp = quote
-        Base.@kwdef struct $struct_name{$(type_names...)} <:
-                           AbstractContinuousFormBiogeochemistry
+    # Construct the struct definition
+    type_param_list = collect(type_params)
+    struct_def = quote
+        Base.@kwdef struct $struct_name{$(type_param_list...)} <:
+                       AbstractContinuousFormBiogeochemistry
             $(fields...)
         end
-        $struct_name # return the type
+        
+        # Add automatic adaptation support
+        function Adapt.adapt_structure(to, bgc::$struct_name{$(type_param_list...)}) where {$(type_param_list...)}
+            return $struct_name{$(type_param_list...)}(
+                $([:(adapt(to, bgc.$k)) for k in keys(parameters)]...),
+                $(isnothing(sinking_tracers) ? nothing : :(adapt(to, bgc.sinking_velocities)))
+            )
+        end
+        
+        $struct_name
     end
-    return eval(exp)
+
+    return eval(struct_def)
 end
 
 """
