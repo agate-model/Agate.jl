@@ -141,34 +141,17 @@ function create_bgc_struct(
             throw(DomainError(k, "field names can't be any of [:x, :y, :z, :t]"))
         end
 
-        T = eltype(v)  # Use `eltype` for arrays instead of `typeof`
-
+        T = typeof(v)
         # Assign type parameter symbols
-        if T <: AbstractFloat
+        if T <: Real
             type_symbol = :FT
-        elseif T <: Integer
-            type_symbol = :IT
         elseif T <: AbstractVector
-            if eltype(v) <: AbstractFloat
-                type_symbol = :FVT  # Floating-point vector
-            elseif eltype(v) <: Integer
-                type_symbol = :IVT  # Integer vector
-            else
-                error("Unsupported vector element type for field $k: $(eltype(v))")
-            end
+            type_symbol = :VT
         elseif T <: AbstractMatrix
-            if eltype(v) <: AbstractFloat
-                type_symbol = :FMT  # Floating-point matrix
-            elseif eltype(v) <: Integer
-                type_symbol = :IMT  # Integer matrix
-            else
-                error("Unsupported matrix element type for field $k: $(eltype(v))")
-            end
-        
+            type_symbol = :MT
         else
             error("Unsupported type for field $k: $T")
         end
-        
         
         push!(type_params, type_symbol)
         
