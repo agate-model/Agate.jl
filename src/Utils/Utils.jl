@@ -132,8 +132,7 @@ function create_bgc_struct(
     struct_name, parameters, sinking_tracers=nothing, grid=nothing, open_bottom=nothing
 )
     fields = []
-    type_params = Set()
-    default_values = []
+    type_params = Set{Symbol}()
     
     # Process parameters
     for (k, v) in pairs(parameters)
@@ -141,21 +140,18 @@ function create_bgc_struct(
             throw(DomainError(k, "field names can't be any of [:x, :y, :z, :t]"))
         end
 
-        T = typeof(v)
-        # Assign type parameter symbols
-        if T <: Real
+        # Assign type parameters
+        if v isa AbstractFloat
             type_symbol = :FT
-        elseif T <: AbstractVector
+        elseif v isa AbstractVector
             type_symbol = :VT
-        elseif T <: AbstractMatrix
+        elseif v isa AbstractMatrix
             type_symbol = :MT
         else
-            error("Unsupported type for field $k: $T")
+            error("Unsupported type for field $k")
         end
         
         push!(type_params, type_symbol)
-        
-        # Create typed field with default value in one expression
         push!(fields, Expr(:(=), Expr(:(::), k, type_symbol), v))
     end
 
@@ -165,31 +161,30 @@ function create_bgc_struct(
             throw(ArgumentError("grid must be defined for tracer sinking"))
         end
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
-        type_symbol = :SV
+        type_symbol = :VT  # Assuming velocities are vectors
         push!(type_params, type_symbol)
         push!(fields, Expr(:(=), Expr(:(::), :sinking_velocities, type_symbol), sinking_velocities))
     end
 
-    # Construct the struct definition
-    type_param_list = collect(type_params)
+    # Convert to sorted tuple for consistent ordering
+    type_params = sort(collect(type_params), by=string)
+
+    # First evaluate the struct definition
     struct_def = quote
-        Base.@kwdef struct $struct_name{$(type_param_list...)} <:
+        Base.@kwdef struct $struct_name{$(type_params...)} <:
                        AbstractContinuousFormBiogeochemistry
             $(fields...)
         end
-        
-        # Add automatic adaptation support
-        function Adapt.adapt_structure(to, bgc::$struct_name{$(type_param_list...)}) where {$(type_param_list...)}
-            return $struct_name{$(type_param_list...)}(
-                $([:(adapt(to, bgc.$k)) for k in keys(parameters)]...),
-                $(isnothing(sinking_tracers) ? nothing : :(adapt(to, bgc.sinking_velocities)))
-            )
-        end
-        
-        $struct_name
     end
+    eval(struct_def)
 
-    return eval(struct_def)
+    # Then apply @adapt_structure to the now-existing type
+    adapt_def = quote
+        Adapt.@adapt_structure $struct_name
+    end
+    eval(adapt_def)
+
+    return eval(struct_name)
 end
 
 """
