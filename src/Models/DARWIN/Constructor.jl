@@ -208,13 +208,15 @@ darwin_2p_2z_model_obj = darwin_2p_2z()
 ```
 """
 function construct(;
-    n_phyto=2,
-    n_zoo=2,
-    phyto_diameters=Dict(
-        "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
-    ),
-    zoo_diameters=Dict(
-        "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+    n_plankton=Dict("P" => 2, "Z" => 2),
+    diameters=Dict(
+        "P" =>
+            Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
+        "Z" => Dict(
+            "min_diameter" => 20,
+            "max_diameter" => 100,
+            "splitting" => "linear_splitting",
+        ),
     ),
     DIC_dynamics=DIC_geider_light,
     PO4_dynamics=PO4_geider_light,
@@ -227,20 +229,16 @@ function construct(;
     DOP_dynamics=DOP_default,
     phyto_dynamics=phytoplankton_growth_two_nutrients_geider_light,
     zoo_dynamics=zooplankton_default,
-    phyto_args=DEFAULT_PHYTO_ARGS,
-    zoo_args=DEFAULT_ZOO_ARGS,
+    plankton_args=Dict("P" => DEFAULT_PHYTO_ARGS, "Z" => DEFAULT_ZOO_ARGS),
     interaction_args=DEFAULT_INTERACTION_ARGS,
     bgc_args=DEFAULT_BGC_ARGS,
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 )
     parameters, plankton_names = create_params_dict(;
-        n_phyto=n_phyto,
-        n_zoo=n_zoo,
-        phyto_diameters=phyto_diameters,
-        zoo_diameters=zoo_diameters,
-        phyto_args=phyto_args,
-        zoo_args=zoo_args,
+        n_plankton=n_plankton,
+        diameters=diameters,
+        plankton_args=plankton_args,
         interaction_args=interaction_args,
         bgc_args=bgc_args,
         palatability_matrix=palatability_matrix,
@@ -262,13 +260,13 @@ function construct(;
         "DOP" => DOP_dynamics(plankton_array),
     )
 
-    for i in 1:n_zoo
+    for i in 1:n_plankton["Z"]
         name = "Z$i"
         index = findfirst(x -> x == name, plankton_names)
         tracers[name] = zoo_dynamics(plankton_array, name, index)
     end
 
-    for i in 1:n_phyto
+    for i in 1:n_plankton["P"]
         name = "P$i"
         index = findfirst(x -> x == name, plankton_names)
         tracers[name] = phyto_dynamics(plankton_array, name, index)
@@ -353,31 +351,30 @@ darwin_2p_2z_model_obj = DARWIN.instantiate(darwin_2p_2z; phyto_args=phyto_args)
 """
 function instantiate(
     bgc_type;
-    phyto_diameters=Dict(
-        "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+    diameters=Dict(
+        "P" =>
+            Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
+        "Z" => Dict(
+            "min_diameter" => 20,
+            "max_diameter" => 100,
+            "splitting" => "linear_splitting",
+        ),
     ),
-    zoo_diameters=Dict(
-        "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
-    ),
-    phyto_args=DEFAULT_PHYTO_ARGS,
-    zoo_args=DEFAULT_ZOO_ARGS,
+    plankton_args=Dict("P" => DEFAULT_PHYTO_ARGS, "Z" => DEFAULT_ZOO_ARGS),
     interaction_args=DEFAULT_INTERACTION_ARGS,
     bgc_args=DEFAULT_BGC_ARGS,
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 )
     defaults = bgc_type()
-    n_phyto = Int(defaults.n_phyto)
-    n_zoo = Int(defaults.n_zoo)
+    n_phyto = Int(defaults.n_P)
+    n_zoo = Int(defaults.n_Z)
 
     # returns NamedTuple -> have to convert to Dict
     parameters, _ = create_params_dict(;
-        n_phyto=n_phyto,
-        n_zoo=n_zoo,
-        phyto_diameters=phyto_diameters,
-        zoo_diameters=zoo_diameters,
-        phyto_args=phyto_args,
-        zoo_args=zoo_args,
+        n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
+        diameters=diameters,
+        plankton_args=plankton_args,
         interaction_args=interaction_args,
         bgc_args=bgc_args,
         palatability_matrix=palatability_matrix,
