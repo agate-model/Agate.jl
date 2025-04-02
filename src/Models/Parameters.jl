@@ -231,10 +231,8 @@ function emergent_2D_array(plankton, func)
 end
 
 """
-Compute size-dependant plankton parameters and format as a Dictionary from which a
-Oceananigans.Biogeochemistry model can be defined `Dict(<param name> => <Array of values>, ...)`
-to c
-Used with high level constructors (NiPiZD, DARWIN).
+Compute and format size-dependant plankton parameters which provide a specification for a
+Oceananigans.Biogeochemistry model, return as `Dict(<param name> => <Array of values>, ...)`.
 
 Wherever a parameter is defined for only one plankton group, its value is set to 0 for the
 other group. This way all the returned parameter Arrays are of same length (n_plankton).
