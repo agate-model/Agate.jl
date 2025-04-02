@@ -231,10 +231,13 @@ function emergent_2D_array(plankton, func)
 end
 
 """
-Create a dictionary of phytoplankton and zooplankton parameters to use with NiPiZD and DARWIN.
+Compute size-dependant plankton parameters and format as a Dictionary from which a
+Oceananigans.Biogeochemistry model can be defined `Dict(<param name> => <Array of values>, ...)`
+to c
+Used with high level constructors (NiPiZD, DARWIN).
 
 Wherever a parameter is defined for only one plankton group, its value is set to 0 for the
-other group. This way all the returned parameter Arrays are of same length (n_phyto + n_zoo).
+other group. This way all the returned parameter Arrays are of same length (n_plankton).
 
 # Arguments
 - `n_phyto`: number of phytoplankton to include in the model
@@ -259,16 +262,14 @@ other group. This way all the returned parameter Arrays are of same length (n_ph
     Array, if provided then `interaction_args` are not used to compute this
 """
 function create_params_dict(;
-    n_phyto=2,
-    n_zoo=2,
-    phyto_diameters=Dict(
-        "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+    n_plankton=Dict("P" => 2, "Z" => 2),
+    diameters=Dict(
+        "P"=>Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
+        "Z"=>Dict(
+            "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+        ),
     ),
-    zoo_diameters=Dict(
-        "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
-    ),
-    phyto_args=nothing,
-    zoo_args=nothing,
+    plankton_args=nothing,
     interaction_args=nothing,
     bgc_args=nothing,
     palatability_matrix=nothing,
@@ -282,30 +283,32 @@ function create_params_dict(;
 
     # NOTE: Julia passes dictionaries by reference not value
     # use deepcopy here to avoid mutating the passed dictionaries outside this fucntion
-    phyto_args_copy = deepcopy(phyto_args)
-    zoo_args_copy = deepcopy(zoo_args)
+    plankton_args_copy = deepcopy(plankton_args)
 
     # first handle allometry
     all_allometric_params = union(
-        keys(phyto_args["allometry"]), keys(zoo_args["allometry"])
+        vcat([collect(keys(args["allometry"])) for args in values(plankton_args_copy)]...)
     )
-    for param in all_allometric_params
-        if !(param ∈ keys(phyto_args["allometry"]))
-            phyto_args_copy["allometry"][param] = Dict("a" => 0.0, "b" => 0.0)
-        end
-        if !(param ∈ keys(zoo_args["allometry"]))
-            zoo_args_copy["allometry"][param] = Dict("a" => 0.0, "b" => 0.0)
+    println(all_allometric_params)
+    for name in keys(plankton_args_copy)
+        println(name)
+        for param in all_allometric_params
+            println(param)
+            if !(param ∈ keys(plankton_args_copy[name]["allometry"]))
+                plankton_args_copy[name]["allometry"][param] = Dict("a" => 0.0, "b" => 0.0)
+            end
         end
     end
 
     # then handle non allometric params
-    all_other_params = setdiff(union(keys(phyto_args), keys(zoo_args)), ["allometry"])
-    for param in all_other_params
-        if !(param ∈ keys(phyto_args))
-            phyto_args_copy[param] = 0.0
-        end
-        if !(param ∈ keys(zoo_args))
-            zoo_args_copy[param] = 0.0
+    all_other_params = setdiff(
+        union(vcat([collect(keys(args)) for args in values(plankton_args_copy)]...)), ["allometry"]
+    )
+    for name in keys(plankton_args_copy)
+        for param in all_other_params
+            if !(param ∈ keys(plankton_args_copy[name]))
+                plankton_args_copy[name][param] = 0.0
+            end
         end
     end
 
@@ -314,37 +317,33 @@ function create_params_dict(;
     # ====================================================================================
 
     # add remaining paramaters that need to compute allometric values
-    phyto_args_copy["n"] = n_phyto
-    phyto_args_copy["diameters"] = phyto_diameters
-    zoo_args_copy["n"] = n_zoo
-    zoo_args_copy["diameters"] = zoo_diameters
+    for name in keys(plankton_args_copy)
+        plankton_args_copy[name]["n"] = n_plankton[name]
+        plankton_args_copy[name]["diameters"] = diameters[name]
+    end
 
-    defined_parameters = Dict("P" => phyto_args_copy, "Z" => zoo_args_copy)
+    defined_parameters = plankton_args_copy
 
     # ====================================================================================
     # 3. Handle matrix inputs (these are either provided by the user or will be computed)
     # ====================================================================================
 
     if isnothing(palatability_matrix)
-        defined_parameters["P"]["palatability"] = Dict(
-            k => interaction_args["P"][k] for
-            k in ["can_eat", "optimum_predator_prey_ratio", "protection", "specificity"]
-        )
-        defined_parameters["Z"]["palatability"] = Dict(
-            k => interaction_args["Z"][k] for
-            k in ["can_eat", "optimum_predator_prey_ratio", "protection", "specificity"]
-        )
+        for name in keys(plankton_args_copy)
+            defined_parameters[name]["palatability"] = Dict(
+                k => interaction_args[name][k] for
+                k in ["can_eat", "optimum_predator_prey_ratio", "protection", "specificity"]
+            )
+        end
     end
 
     if isnothing(assimilation_efficiency_matrix)
-        defined_parameters["P"]["assimilation_efficiency"] = Dict(
-            k => interaction_args["P"][k] for
-            k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
-        )
-        defined_parameters["Z"]["assimilation_efficiency"] = Dict(
-            k => interaction_args["Z"][k] for
-            k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
-        )
+        for name in keys(plankton_args_copy)
+            defined_parameters[name]["assimilation_efficiency"] = Dict(
+                k => interaction_args[name][k] for
+                k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
+            )
+        end
     end
 
     # ====================================================================================
@@ -355,11 +354,12 @@ function create_params_dict(;
     # NOTE: function also reshapes non-emergent plankton parameters
     emergent_parameters, plankton_names = compute_allometric_parameters(defined_parameters)
 
+    n = sum(values(n_plankton))
     if !isnothing(palatability_matrix)
-        if !(size(palatability_matrix) == (n_phyto + n_zoo, n_phyto + n_zoo))
+        if !(size(palatability_matrix) == (n, n))
             throw(
                 ArgumentError(
-                    "palatability_matrix must have size $((n_phyto+n_zoo, n_phyto+n_zoo))"
+                    "palatability_matrix must have size $((n, n))"
                 ),
             )
         end
@@ -367,10 +367,10 @@ function create_params_dict(;
     end
 
     if !isnothing(assimilation_efficiency_matrix)
-        if !(size(assimilation_efficiency_matrix) == (n_phyto + n_zoo, n_phyto + n_zoo))
+        if !(size(assimilation_efficiency_matrix) == (n, n))
             throw(
                 ArgumentError(
-                    "assimilation_efficiency_matrix must have size $((n_phyto+n_zoo, n_phyto+n_zoo))",
+                    "assimilation_efficiency_matrix must have size $((n, n))",
                 ),
             )
         end
@@ -384,8 +384,9 @@ function create_params_dict(;
     # ====================================================================================
 
     # append information that need access to at instantiation
-    bgc_args["n_phyto"] = n_phyto
-    bgc_args["n_zoo"] = n_zoo
+    for (name, n) in n_plankton
+        bgc_args["n_$name"] = n
+    end
 
     # combine emergent parameters with remaining bgc parameters
     parameters = NamedTuple(
