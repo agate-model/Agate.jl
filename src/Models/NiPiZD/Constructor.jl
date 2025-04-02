@@ -109,22 +109,17 @@ need to be specified.
 The type specification includes a photosynthetic active radiation (PAR) auxiliary field.
 
 # Keywords
-- `n_phyto`: number of phytoplankton in the model
-- `n_zoo`: number of zooplankton in the model
-- `phyto_diameters`: dictionary from which `phyto` diameters can be computed or a list of
-    values to use (as many as the model expects)
-- `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
-    values to use (as many as the model expects)
+- `n_plankton`: Dict of the number of plankton to include in the model by group
+- `diameters`: Dictionary which specifies for each plankton group how to compute diameters
+   or gives a list of values to use
 - `nutrient_dynamics`: expression describing how nutrients change over time, see
     `Agate.Models.Tracers`
 - `detritus_dynamics`: expression describing how detritus evolves over time, see
     `Agate.Models.Tracers`
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
-- `phyto_args`: Dictionary of phytoplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
-- `zoo_args`: Dictionary of zooplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
+- `plankton_args`: Dictionary of plankton parameters for each group, for default values see
+    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`, `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed, for default values see
     `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
@@ -227,20 +222,16 @@ of any of the model parameters or plankton diameters.
    with a specified number of phytoplankton and zooplankton
 
 # Keywords
-- `phyto_diameters`: dictionary from which `phyto` diameters can be computed or a list of
-    values to use (as many as the model expects)
-- `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
-    values to use (as many as the model expects)
+- `diameters`: Dictionary which specifies for each plankton group how to compute diameters
+   or gives a list of values to use
 - `nutrient_dynamics`: expression describing how nutrients change over time, see
     `Agate.Models.Tracers`
 - `detritus_dynamics`: expression describing how detritus evolves over time, see
     `Agate.Models.Tracers`
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
-- `phyto_args`: Dictionary of phytoplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
-- `zoo_args`: Dictionary of zooplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
+- `plankton_args`: Dictionary of plankton parameters for each group, for default values see
+    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`, `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed, for default values see
     `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`

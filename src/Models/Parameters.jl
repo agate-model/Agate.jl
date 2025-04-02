@@ -240,16 +240,11 @@ Wherever a parameter is defined for only one plankton group, its value is set to
 other group. This way all the returned parameter Arrays are of same length (n_plankton).
 
 # Arguments
-- `n_phyto`: number of phytoplankton to include in the model
-- `n_zoo`: number of zooplankton to include in the model
-- `phyto_diameters`: dictionary from which `n_phyto` diameters can be computed or a list of
-    values to use
-- `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
-    values to use
-- `phyto_args`: Dictionary of phytoplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
-- `zoo_args`: Dictionary of zooplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
+- `n_plankton`: Dict of the number of plankton to include in the model by group
+- `diameters`: Dictionary which specifies for each plankton group how to compute diameters
+   or gives a list of values to use
+- `plankton_args`: Dictionary of plankton parameters for each group, for default values see
+    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`, `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed, for default values see
     `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
@@ -264,9 +259,12 @@ other group. This way all the returned parameter Arrays are of same length (n_pl
 function create_params_dict(;
     n_plankton=Dict("P" => 2, "Z" => 2),
     diameters=Dict(
-        "P"=>Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
-        "Z"=>Dict(
-            "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+        "P" =>
+            Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
+        "Z" => Dict(
+            "min_diameter" => 20,
+            "max_diameter" => 100,
+            "splitting" => "linear_splitting",
         ),
     ),
     plankton_args=nothing,
@@ -302,7 +300,8 @@ function create_params_dict(;
 
     # then handle non allometric params
     all_other_params = setdiff(
-        union(vcat([collect(keys(args)) for args in values(plankton_args_copy)]...)), ["allometry"]
+        union(vcat([collect(keys(args)) for args in values(plankton_args_copy)]...)),
+        ["allometry"],
     )
     for name in keys(plankton_args_copy)
         for param in all_other_params
@@ -357,22 +356,14 @@ function create_params_dict(;
     n = sum(values(n_plankton))
     if !isnothing(palatability_matrix)
         if !(size(palatability_matrix) == (n, n))
-            throw(
-                ArgumentError(
-                    "palatability_matrix must have size $((n, n))"
-                ),
-            )
+            throw(ArgumentError("palatability_matrix must have size $((n, n))"))
         end
         emergent_parameters["palatability_matrix"] = palatability_matrix
     end
 
     if !isnothing(assimilation_efficiency_matrix)
         if !(size(assimilation_efficiency_matrix) == (n, n))
-            throw(
-                ArgumentError(
-                    "assimilation_efficiency_matrix must have size $((n, n))",
-                ),
-            )
+            throw(ArgumentError("assimilation_efficiency_matrix must have size $((n, n))"))
         end
 
         emergent_parameters["assimilation_efficiency_matrix"] =
