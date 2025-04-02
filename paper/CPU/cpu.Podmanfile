@@ -1,0 +1,41 @@
+FROM debian:bullseye-slim 
+
+# Set environment variables
+ENV JULIA_VERSION=1.11.3
+ENV JULIA_PROJECT=/opt/julia_env
+ENV PATH="/opt/julia/bin:$PATH"
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    curl \
+    ca-certificates \
+    git \
+    build-essential \
+    libgmp-dev \
+    libmpfr-dev \
+    libopenblas-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download and install Julia
+RUN wget https://julialang-s3.julialang.org/bin/linux/x64/1.11/julia-${JULIA_VERSION}-linux-x86_64.tar.gz \
+    && tar -xzf julia-${JULIA_VERSION}-linux-x86_64.tar.gz -C /opt \
+    && mv /opt/julia-${JULIA_VERSION} /opt/julia \
+    && rm julia-${JULIA_VERSION}-linux-x86_64.tar.gz
+    
+# Copy Project.toml
+COPY Project.toml /opt/julia_env/
+
+# Install Julia dependencies
+RUN julia -e 'using Pkg; Pkg.activate(ENV["JULIA_PROJECT"]); Pkg.Registry.add("General"); Pkg.resolve(); Pkg.instantiate(); Pkg.precompile()'
+
+# Set the default working directory
+WORKDIR /opt/julia_env
+
+# Set the default command to start Julia
+CMD ["julia"]
+
+COPY setup_physics.jl /opt/julia_env/
+
+RUN julia setup_physics.jl
+
