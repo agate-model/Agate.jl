@@ -231,11 +231,14 @@ function emergent_2D_array(plankton, func)
 end
 
 """
-Compute size-dependent plankton parameters which provide a specification for a
-Oceananigans.Biogeochemistry model, return as `Dict(<param name> => <Array of values>, ...)`.
+Create a parameter specification from which an Oceananigans.Biogeochemistry model can be
+instantiated in the format `NamedTuple(<parameter name> = <Array of values>, ...))`
 
-Wherever a parameter is defined for only one plankton group, its value is set to 0 for the
-other group. This way all the returned parameter Arrays are of same length (n_plankton).
+Specifically, this functions:
+- computes size-dependent plankton parameters
+- formats all plankton parameters to be Arrays of same length (`n` plankton in the model),
+  which means that wherever a parameter is defined for only some plankton groups, its value
+  is set to 0 for the other groups
 
 # Arguments
 - `n_plankton`: Dict of the number of plankton to include in the model by group

@@ -365,7 +365,6 @@ function instantiate(
     n_phyto = Int(defaults.n_P)
     n_zoo = Int(defaults.n_Z)
 
-    # returns NamedTuple -> have to convert to Dict
     parameters, _ = create_size_structued_params(;
         n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
         diameters=diameters,
@@ -376,6 +375,7 @@ function instantiate(
         assimilation_efficiency_matrix=assimilation_efficiency_matrix,
     )
 
+    # params are a NamedTuple -> have to convert to Dict
     return bgc_type(; Dict(pairs(parameters))...)
 end
 
