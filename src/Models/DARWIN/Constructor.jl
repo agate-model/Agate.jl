@@ -231,7 +231,7 @@ function construct(;
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 )
-    parameters, plankton_names = create_params_dict(;
+    parameters, plankton_names = create_size_structued_params(;
         n_plankton=n_plankton,
         diameters=diameters,
         plankton_args=plankton_args,
@@ -366,7 +366,7 @@ function instantiate(
     n_zoo = Int(defaults.n_Z)
 
     # returns NamedTuple -> have to convert to Dict
-    parameters, _ = create_params_dict(;
+    parameters, _ = create_size_structued_params(;
         n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
         diameters=diameters,
         plankton_args=plankton_args,

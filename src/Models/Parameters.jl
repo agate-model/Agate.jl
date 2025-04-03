@@ -9,7 +9,7 @@ using DataStructures: DefaultDict
 using Agate.Library.Allometry
 using Agate.Library.Predation
 
-export compute_allometric_parameters, create_params_dict
+export compute_allometric_parameters, create_size_structued_params
 
 emergent_palatability_f = allometric_palatability_unimodal_protection
 emergent_assimilation_efficiency_f = assimilation_efficiency_emergent_binary
@@ -231,7 +231,7 @@ function emergent_2D_array(plankton, func)
 end
 
 """
-Compute and format size-dependant plankton parameters which provide a specification for a
+Compute plankton parameters which provide a specification for a
 Oceananigans.Biogeochemistry model, return as `Dict(<param name> => <Array of values>, ...)`.
 
 Wherever a parameter is defined for only one plankton group, its value is set to 0 for the
@@ -254,7 +254,7 @@ other group. This way all the returned parameter Arrays are of same length (n_pl
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
     Array, if provided then `interaction_args` are not used to compute this
 """
-function create_params_dict(;
+function create_size_structued_params(;
     n_plankton=Dict("P" => 2, "Z" => 2),
     diameters=Dict(
         "P" =>
