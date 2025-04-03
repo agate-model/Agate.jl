@@ -109,32 +109,32 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
         )
     end
 
-    # @testset "Diameters passed as an array" begin
+    @testset "Diameters passed as an array" begin
 
-    #     # the default type defined at the top has 2 phyto so expect 2 diameters
-    #     @test_throws ArgumentError NiPiZD.instantiate(
-    #         N2P2ZD_constructed; phyto_diameters=Dict("P" => [1], "Z" => [1, 2])
-    #     )
+        # the default type defined at the top has 2 phyto so expect 2 diameters
+        @test_throws ArgumentError NiPiZD.instantiate(
+            N2P2ZD_constructed; diameters=Dict("P" => [1], "Z" => [1, 2])
+        )
 
-    #     # the default type defined at the top has 2 phyto so expect 2 diameters
-    #     @test_throws ArgumentError NiPiZD.instantiate(
-    #         N2P2ZD_constructed; diameters=Dict("P" => [1, 2, 3], "Z" => [1, 2])
-    #     )
+        # the default type defined at the top has 2 phyto so expect 2 diameters
+        @test_throws ArgumentError NiPiZD.instantiate(
+            N2P2ZD_constructed; diameters=Dict("P" => [1, 2, 3], "Z" => [1, 2])
+        )
 
-    #     # diameters can be passed as an array of values rather than a dictionary
-    #     # this is useful in the case where we want 1 phytoplankton with a given diameter
-    #     # it could also be used to fix the diameters of multiple phytoplankton in the model
-    #     NP2ZD = NiPiZD.construct(; n_plankton=Dict("P" => 1, "Z" => 2))
-    #     model = NiPiZD.instantiate(NP2ZD; diameters=Dict("P" => [2], "Z" => [1, 3]))
-    #     model_1p_var_order = get_var_order(model)
+        # diameters can be passed as an array of values rather than a dictionary
+        # this is useful in the case where we want 1 phytoplankton with a given diameter
+        # it could also be used to fix the diameters of multiple phytoplankton in the model
+        NP2ZD = NiPiZD.construct(; n_plankton=Dict("P" => 1, "Z" => 2))
+        model = NiPiZD.instantiate(NP2ZD; diameters=Dict("P" => [2], "Z" => [1, 3]))
+        model_1p_var_order = get_var_order(model)
 
-    #     # this model only has 1 phyto, 2 zoo tracers (unlike other tests here)
-    #     @test !iszero(model(Val(:N), 0, 0, 0, 0, model_1p_var_order..., PAR))
-    #     @test !iszero(model(Val(:D), 0, 0, 0, 0, model_1p_var_order..., PAR))
-    #     @test !iszero(model(Val(:P1), 0, 0, 0, 0, model_1p_var_order..., PAR))
-    #     @test !iszero(model(Val(:Z1), 0, 0, 0, 0, model_1p_var_order..., PAR))
-    #     @test !iszero(model(Val(:Z2), 0, 0, 0, 0, model_1p_var_order..., PAR))
-    # end
+        # this model only has 1 phyto, 2 zoo tracers (unlike other tests here)
+        @test !iszero(model(Val(:N), 0, 0, 0, 0, model_1p_var_order..., PAR))
+        @test !iszero(model(Val(:D), 0, 0, 0, 0, model_1p_var_order..., PAR))
+        @test !iszero(model(Val(:P1), 0, 0, 0, 0, model_1p_var_order..., PAR))
+        @test !iszero(model(Val(:Z1), 0, 0, 0, 0, model_1p_var_order..., PAR))
+        @test !iszero(model(Val(:Z2), 0, 0, 0, 0, model_1p_var_order..., PAR))
+    end
 
     # @testset "Alternative instantiation" begin
 
