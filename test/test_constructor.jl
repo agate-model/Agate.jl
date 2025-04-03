@@ -136,27 +136,32 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
         @test !iszero(model(Val(:Z2), 0, 0, 0, 0, model_1p_var_order..., PAR))
     end
 
-    # @testset "Alternative instantiation" begin
+    @testset "Alternative instantiation" begin
 
-    #     # N2P2ZD model constructed with user-defined functions (geider growth)
-    #     N2P2ZD_geider = NiPiZD.construct(;
-    #         phyto_args=NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS,
-    #         nutrient_dynamics=nutrients_geider_light,
-    #         phyto_dynamics=phytoplankton_geider_light,
-    #     )
+        # N2P2ZD model constructed with user-defined functions (geider growth)
+        N2P2ZD_geider = NiPiZD.construct(;
+            plankton_args=Dict(
+                "P" => NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS, "Z" => NiPiZD.DEFAULT_ZOO_ARGS
+            ),
+            nutrient_dynamics=nutrients_geider_light,
+            phyto_dynamics=phytoplankton_geider_light,
+        )
 
-    #     model_geider = NiPiZD.instantiate(
-    #         N2P2ZD_geider; phyto_args=NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS
-    #     )
-    #     geider_var_order = get_var_order(model_geider)
+        model_geider = NiPiZD.instantiate(
+            N2P2ZD_geider;
+            plankton_args=Dict(
+                "P" => NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS, "Z" => NiPiZD.DEFAULT_ZOO_ARGS
+            ),
+        )
+        geider_var_order = get_var_order(model_geider)
 
-    #     @test !iszero(model_geider(Val(:N), 0, 0, 0, 0, geider_var_order..., PAR))
-    #     @test !iszero(model_geider(Val(:D), 0, 0, 0, 0, geider_var_order..., PAR))
-    #     @test !iszero(model_geider(Val(:P1), 0, 0, 0, 0, geider_var_order..., PAR))
-    #     @test !iszero(model_geider(Val(:P2), 0, 0, 0, 0, geider_var_order..., PAR))
-    #     @test !iszero(model_geider(Val(:Z1), 0, 0, 0, 0, geider_var_order..., PAR))
-    #     @test !iszero(model_geider(Val(:Z2), 0, 0, 0, 0, geider_var_order..., PAR))
-    # end
+        @test !iszero(model_geider(Val(:N), 0, 0, 0, 0, geider_var_order..., PAR))
+        @test !iszero(model_geider(Val(:D), 0, 0, 0, 0, geider_var_order..., PAR))
+        @test !iszero(model_geider(Val(:P1), 0, 0, 0, 0, geider_var_order..., PAR))
+        @test !iszero(model_geider(Val(:P2), 0, 0, 0, 0, geider_var_order..., PAR))
+        @test !iszero(model_geider(Val(:Z1), 0, 0, 0, 0, geider_var_order..., PAR))
+        @test !iszero(model_geider(Val(:Z2), 0, 0, 0, 0, geider_var_order..., PAR))
+    end
 
     # @testset "Create objects inside for loop" begin
     #     prev_p1 = 0
