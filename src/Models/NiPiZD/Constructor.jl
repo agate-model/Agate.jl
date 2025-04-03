@@ -69,20 +69,21 @@ DEFAULT_BGC_ARGS = Dict(
 
 """
     construct(;
-        n_phyto=2,
-        n_zoo=2,
-        phyto_diameters=Dict(
-            "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
-        ),
-        zoo_diameters=Dict(
-            "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+        n_plankton=Dict("P" => 2, "Z" => 2),
+        diameters=Dict(
+            "P" =>
+                Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
+            "Z" => Dict(
+                "min_diameter" => 20,
+                "max_diameter" => 100,
+                "splitting" => "linear_splitting",
+            ),
         ),
         nutrient_dynamics=nutrients_default,
         detritus_dynamics=detritus_default,
         phyto_dynamics=phytoplankton_default,
         zoo_dynamics=zooplankton_default,
-        phyto_args=DEFAULT_PHYTO_ARGS,
-        zoo_args=DEFAULT_ZOO_ARGS,
+        plankton_args=Dict("P" => DEFAULT_PHYTO_ARGS, "Z" => DEFAULT_ZOO_ARGS),
         interaction_args=DEFAULT_INTERACTION_ARGS,
         bgc_args=DEFAULT_BGC_ARGS,
         palatability_matrix=nothing,
@@ -119,12 +120,12 @@ The type specification includes a photosynthetic active radiation (PAR) auxiliar
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
 - `plankton_args`: Dictionary of plankton parameters for each group, for default values see
-    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`, `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
+    `NiPiZD.DEFAULT_PHYTO_ARGS` and `NiPiZD.DEFAULT_ZOO_ARGS`
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed, for default values see
-    `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
+    `NiPiZD.DEFAULT_INTERACTION_ARGS`
 - `bgc_args`: Dictionary of biogeochemistry parameters related to nutrient and detritus, for
-    default values see `Agate.Models.Constructors.DEFAULT_BGC_ARGS`
+    default values see `NiPiZD.DEFAULT_BGC_ARGS`
 - `palatability_matrix`: optional palatability matrix passed as an Array, if provided
     then `interaction_args` are not used to compute this
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
@@ -197,14 +198,16 @@ end
 """
     instantiate(
         bgc_type;
-        phyto_diameters=Dict(
-            "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+        diameters=Dict(
+            "P" =>
+                Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
+            "Z" => Dict(
+                "min_diameter" => 20,
+                "max_diameter" => 100,
+                "splitting" => "linear_splitting",
+            ),
         ),
-        zoo_diameters=Dict(
-            "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
-        ),
-        phyto_args=DEFAULT_PHYTO_ARGS,
-        zoo_args=DEFAULT_ZOO_ARGS,
+        plankton_args=Dict("P" => DEFAULT_PHYTO_ARGS, "Z" => DEFAULT_ZOO_ARGS),
         interaction_args=DEFAULT_INTERACTION_ARGS,
         bgc_args=DEFAULT_BGC_ARGS,
         palatability_matrix=nothing,
@@ -231,13 +234,13 @@ of any of the model parameters or plankton diameters.
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
 - `plankton_args`: Dictionary of plankton parameters for each group, for default values see
-    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`, `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
+    `NiPiZD.DEFAULT_PHYTO_ARGS` and `NiPiZD.DEFAULT_ZOO_ARGS`
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed, for default values see
-    `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
+    `NiPiZD.DEFAULT_INTERACTION_ARGS`
 - `bgc_args`: Dictionary of constant parameters used in growth functions (i.e., not size
     dependant plankton parameters as well as biogeochemistry parameters related to nutrient
-    and detritus, for default values see `Agate.Models.Constructors.DEFAULT_CONSTANT_ARGS`
+    and detritus, for default values see `NiPiZD.DEFAULT_CONSTANT_ARGS`
 - `palatability_matrix`: optional palatability matrix passed as an Array, if provided
     then `interaction_args` are not used to compute this
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
@@ -250,9 +253,12 @@ using Agate.Constructors: NiPiZD
 n2p2zd = NiPiZD.construct()
 
 # change some parameter values
-phyto_args = NiPiZD.DEFAULT_PHYTO_ARGS
+phyto_args = deepcopy(NiPiZD.DEFAULT_PHYTO_ARGS)
 phyto_args["allometry"]["maximum_growth_rate"]["a"] = 2
-n2p2zd_model_obj = NiPiZD.instantiate(n2p2zd; phyto_args=phyto_args)
+n2p2zd_model_obj = NiPiZD.instantiate(
+    n2p2zd;
+    plankton_args=Dict("P" => phyto_args, "Z" => NiPiZD.DEFAULT_ZOO_ARGS)
+)
 ```
 """
 function instantiate(
