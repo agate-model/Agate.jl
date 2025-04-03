@@ -231,7 +231,7 @@ function emergent_2D_array(plankton, func)
 end
 
 """
-Compute plankton parameters which provide a specification for a
+Compute size-dependent plankton parameters which provide a specification for a
 Oceananigans.Biogeochemistry model, return as `Dict(<param name> => <Array of values>, ...)`.
 
 Wherever a parameter is defined for only one plankton group, its value is set to 0 for the
@@ -285,11 +285,8 @@ function create_size_structued_params(;
     all_allometric_params = union(
         vcat([collect(keys(args["allometry"])) for args in values(plankton_args_copy)]...)
     )
-    println(all_allometric_params)
     for name in keys(plankton_args_copy)
-        println(name)
         for param in all_allometric_params
-            println(param)
             if !(param ∈ keys(plankton_args_copy[name]["allometry"]))
                 plankton_args_copy[name]["allometry"][param] = Dict("a" => 0.0, "b" => 0.0)
             end
