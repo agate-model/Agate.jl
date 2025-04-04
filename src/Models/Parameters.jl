@@ -257,7 +257,7 @@ Specifically, this functions:
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
     Array, if provided then `interaction_args` are not used to compute this
 """
-function create_size_structued_params(;
+function create_size_structured_params(;
     n_plankton=Dict("P" => 2, "Z" => 2),
     diameters=Dict(
         "P" =>
