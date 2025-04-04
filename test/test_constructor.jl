@@ -113,19 +113,19 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 
         # the default type defined at the top has 2 phyto so expect 2 diameters
         @test_throws ArgumentError NiPiZD.instantiate(
-            N2P2ZD_constructed; diameters=Dict("P" => [1], "Z" => [1, 2])
+            N2P2ZD_constructed; phyto_diameters=[1]
         )
 
         # the default type defined at the top has 2 phyto so expect 2 diameters
         @test_throws ArgumentError NiPiZD.instantiate(
-            N2P2ZD_constructed; diameters=Dict("P" => [1, 2, 3], "Z" => [1, 2])
+            N2P2ZD_constructed; phyto_diameters=[1, 2, 3]
         )
 
         # diameters can be passed as an array of values rather than a dictionary
         # this is useful in the case where we want 1 phytoplankton with a given diameter
         # it could also be used to fix the diameters of multiple phytoplankton in the model
-        NP2ZD = NiPiZD.construct(; n_plankton=Dict("P" => 1, "Z" => 2))
-        model = NiPiZD.instantiate(NP2ZD; diameters=Dict("P" => [2], "Z" => [1, 3]))
+        NP2ZD = NiPiZD.construct(; n_phyto=1)
+        model = NiPiZD.instantiate(NP2ZD; phyto_diameters=[2])
         model_1p_var_order = get_var_order(model)
 
         # this model only has 1 phyto, 2 zoo tracers (unlike other tests here)
@@ -140,18 +140,13 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 
         # N2P2ZD model constructed with user-defined functions (geider growth)
         N2P2ZD_geider = NiPiZD.construct(;
-            plankton_args=Dict(
-                "P" => NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS, "Z" => NiPiZD.DEFAULT_ZOO_ARGS
-            ),
+            phyto_args=NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS,
             nutrient_dynamics=nutrients_geider_light,
             phyto_dynamics=phytoplankton_geider_light,
         )
 
         model_geider = NiPiZD.instantiate(
-            N2P2ZD_geider;
-            plankton_args=Dict(
-                "P" => NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS, "Z" => NiPiZD.DEFAULT_ZOO_ARGS
-            ),
+            N2P2ZD_geider; phyto_args=NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS
         )
         geider_var_order = get_var_order(model_geider)
 
@@ -169,10 +164,7 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
         for i in 1:5
             phyto_args = NiPiZD.DEFAULT_PHYTO_ARGS
             phyto_args["allometry"]["maximum_growth_rate"]["a"] = i
-            model = NiPiZD.instantiate(
-                N2P2ZD_constructed;
-                plankton_args=Dict("P" => phyto_args, "Z" => NiPiZD.DEFAULT_ZOO_ARGS),
-            )
+            model = NiPiZD.instantiate(N2P2ZD_constructed; phyto_args=phyto_args)
             model_var_order = get_var_order(model)
             p1 = model(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR)
             p2 = model(Val(:P2), 0, 0, 0, 0, model_var_order..., PAR)
@@ -190,10 +182,7 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
         function some_wrapper_function(max_growth_rate_a)
             phyto_args = NiPiZD.DEFAULT_PHYTO_ARGS
             phyto_args["allometry"]["maximum_growth_rate"]["a"] = max_growth_rate_a
-            model = NiPiZD.instantiate(
-                N2P2ZD_constructed;
-                plankton_args=Dict("P" => phyto_args, "Z" => NiPiZD.DEFAULT_ZOO_ARGS),
-            )
+            model = NiPiZD.instantiate(N2P2ZD_constructed; phyto_args=phyto_args)
             return model
         end
 
