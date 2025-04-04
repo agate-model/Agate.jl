@@ -67,15 +67,13 @@ DEFAULT_BGC_ARGS = Dict(
 
 """
     construct(;
-        n_plankton=Dict("P" => 2, "Z" => 2),
-        diameters=Dict(
-            "P" =>
-                Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
-            "Z" => Dict(
-                "min_diameter" => 20,
-                "max_diameter" => 100,
-                "splitting" => "linear_splitting",
-            ),
+        n_phyto=2,
+        n_zoo=2,
+        phyto_diameters=Dict(
+            "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+        ),
+        zoo_diameters=Dict(
+            "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
         ),
         DIC_dynamics=DIC_geider_light,
         PO4_dynamics=PO4_geider_light,
@@ -88,12 +86,13 @@ DEFAULT_BGC_ARGS = Dict(
         DOP_dynamics=DOP_default,
         phyto_dynamics=phytoplankton_growth_two_nutrients_geider_light,
         zoo_dynamics=zooplankton_default,
-        plankton_args=Dict("P" => DEFAULT_PHYTO_ARGS, "Z" => DEFAULT_ZOO_ARGS),
+        phyto_args=DEFAULT_PHYTO_ARGS,
+        zoo_args=DEFAULT_ZOO_ARGS,
         interaction_args=DEFAULT_INTERACTION_ARGS,
         bgc_args=DEFAULT_BGC_ARGS,
         palatability_matrix=nothing,
         assimilation_efficiency_matrix=nothing,
-    ) -> DataType
+    )
 
 Construct an Agate.jl-DARWIN model abstract type.
 
@@ -168,9 +167,12 @@ need to be specified.
 The type specification includes a photosynthetic active radiation (PAR) auxiliary field.
 
 # Arguments
-- `n_plankton`: Dict of the number of plankton to include in the model by group
-- `diameters`: Dictionary which specifies for each plankton group how to compute diameters
-   or gives a list of values to use
+- `n_phyto`: number of phytoplankton to include in the model
+- `n_zoo`: number of zooplankton to include in the model
+- `phyto_diameters`: dictionary from which `n_phyto` diameters can be computed or a list of
+    values to use
+- `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
+    values to use
 - `DIC_dynamics`: expression describing how DIC changes over time, see `Agate.Models.Tracers`
 - `PO4_dynamics`: expression describing how PO4 changes over time, see `Agate.Models.Tracers`
 - `DIN_dynamics`: expression describing how DIN changes over time, see `Agate.Models.Tracers`
@@ -182,8 +184,10 @@ The type specification includes a photosynthetic active radiation (PAR) auxiliar
 - `DOP_dynamics`: expression describing how DOP changes over time, see `Agate.Models.Tracers`
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
-- `plankton_args`: Dictionary of plankton parameters for each group, for default values see
-    `DARWIN.DEFAULT_PHYTO_ARGS` and `DARWIN.DEFAULT_ZOO_ARGS`
+- `phyto_args`: Dictionary of phytoplankton parameters, for default values see
+    `DARWIN.DEFAULT_PHYTO_ARGS`
+- `zoo_args`: Dictionary of zooplankton parameters, for default values see
+    `DARWIN.DEFAULT_ZOO_ARGS`
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed, for default values see
     `DARWIN.DEFAULT_INTERACTION_ARGS`
@@ -204,15 +208,13 @@ darwin_2p_2z_model_obj = darwin_2p_2z()
 ```
 """
 function construct(;
-    n_plankton=Dict("P" => 2, "Z" => 2),
-    diameters=Dict(
-        "P" =>
-            Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
-        "Z" => Dict(
-            "min_diameter" => 20,
-            "max_diameter" => 100,
-            "splitting" => "linear_splitting",
-        ),
+    n_phyto=2,
+    n_zoo=2,
+    phyto_diameters=Dict(
+        "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
+    ),
+    zoo_diameters=Dict(
+        "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
     ),
     DIC_dynamics=DIC_geider_light,
     PO4_dynamics=PO4_geider_light,
@@ -225,16 +227,17 @@ function construct(;
     DOP_dynamics=DOP_default,
     phyto_dynamics=phytoplankton_growth_two_nutrients_geider_light,
     zoo_dynamics=zooplankton_default,
-    plankton_args=Dict("P" => DEFAULT_PHYTO_ARGS, "Z" => DEFAULT_ZOO_ARGS),
+    phyto_args=DEFAULT_PHYTO_ARGS,
+    zoo_args=DEFAULT_ZOO_ARGS,
     interaction_args=DEFAULT_INTERACTION_ARGS,
     bgc_args=DEFAULT_BGC_ARGS,
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 )
     parameters, plankton_names = create_size_structued_params(;
-        n_plankton=n_plankton,
-        diameters=diameters,
-        plankton_args=plankton_args,
+        n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
+        diameters=Dict("P" => phyto_diameters, "Z"=> zoo_diameteres),
+        plankton_args=Dict("P"=>phyto_args, "Z"=> zoo_args),
         interaction_args=interaction_args,
         bgc_args=bgc_args,
         palatability_matrix=palatability_matrix,
@@ -276,21 +279,21 @@ end
 """
     instantiate(
         bgc_type;
-        diameters=Dict(
-            "P" =>
-                Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
-            "Z" => Dict(
-                "min_diameter" => 20,
-                "max_diameter" => 100,
-                "splitting" => "linear_splitting",
-            ),
+        n_phyto=2,
+        n_zoo=2,
+        phyto_diameters=Dict(
+            "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
         ),
-        plankton_args=Dict("P" => DEFAULT_PHYTO_ARGS, "Z" => DEFAULT_ZOO_ARGS),
+        zoo_diameters=Dict(
+            "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+        ),
+        phyto_args=DEFAULT_PHYTO_ARGS,
+        zoo_args=DEFAULT_ZOO_ARGS,
         interaction_args=DEFAULT_INTERACTION_ARGS,
         bgc_args=DEFAULT_BGC_ARGS,
         palatability_matrix=nothing,
         assimilation_efficiency_matrix=nothing,
-    ) -> bgc_type
+    )
 
 A function to instantiate an object of `bgc_type` returned by `DARWIN.construct()`.
 
@@ -308,16 +311,20 @@ of any of the model parameters or plankton diameters.
    with a specified number of phytoplankton and zooplankton
 
 # Keywords
-- `diameters`: Dictionary which specifies for each plankton group how to compute diameters
-   or gives a list of values to use
+- `phyto_diameters`: dictionary from which `phyto` diameters can be computed or a list of
+    values to use (as many as the model expects)
+- `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
+    values to use (as many as the model expects)
 - `nutrient_dynamics`: expression describing how nutrients change over time, see
     `Agate.Models.Tracers`
 - `detritus_dynamics`: expression describing how detritus evolves over time, see
     `Agate.Models.Tracers`
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
-- `plankton_args`: Dictionary of plankton parameters for each group, for default values see
-    `DARWIN.DEFAULT_PHYTO_ARGS` and `DARWIN.DEFAULT_ZOO_ARGS`
+- `phyto_args`: Dictionary of phytoplankton parameters, for default values see
+    `DARWIN.DEFAULT_PHYTO_ARGS`
+- `zoo_args`: Dictionary of zooplankton parameters, for default values see
+    `DARWIN.DEFAULT_ZOO_ARGS`
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed, for default values see
     `DARWIN.DEFAULT_INTERACTION_ARGS`
@@ -338,24 +345,19 @@ darwin_2p_2z = DARWIN.construct()
 # change some parameter values
 phyto_args = deepcopy(DARWIN.DEFAULT_PHYTO_ARGS)
 phyto_args["allometry"]["maximum_growth_rate"]["a"] = 2
-darwin_2p_2z_model_obj = DARWIN.instantiate(
-    darwin_2p_2z;
-    plankton_args=Dict("P" => phyto_args, "Z" => DARWIN.DEFAULT_ZOO_ARGS)
-)
+darwin_2p_2z_model_obj = DARWIN.instantiate(darwin_2p_2z; phyto_args=phyto_args)
 ```
 """
 function instantiate(
     bgc_type;
-    diameters=Dict(
-        "P" =>
-            Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
-        "Z" => Dict(
-            "min_diameter" => 20,
-            "max_diameter" => 100,
-            "splitting" => "linear_splitting",
-        ),
+    phyto_diameters=Dict(
+        "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
     ),
-    plankton_args=Dict("P" => DEFAULT_PHYTO_ARGS, "Z" => DEFAULT_ZOO_ARGS),
+    zoo_diameters=Dict(
+        "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+    ),
+    phyto_args=DEFAULT_PHYTO_ARGS,
+    zoo_args=DEFAULT_ZOO_ARGS,
     interaction_args=DEFAULT_INTERACTION_ARGS,
     bgc_args=DEFAULT_BGC_ARGS,
     palatability_matrix=nothing,
@@ -367,8 +369,8 @@ function instantiate(
 
     parameters, _ = create_size_structued_params(;
         n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
-        diameters=diameters,
-        plankton_args=plankton_args,
+        diameters=Dict("P" => phyto_diameters, "Z"=> zoo_diameteres),
+        plankton_args=Dict("P"=>phyto_args, "Z"=> zoo_args),
         interaction_args=interaction_args,
         bgc_args=bgc_args,
         palatability_matrix=palatability_matrix,
