@@ -367,7 +367,7 @@ function instantiate(
     n_phyto = Int(defaults.n_P)
     n_zoo = Int(defaults.n_Z)
 
-    parameters, _ = create_size_structued_params(;
+    parameters, _ = create_size_structured_params(;
         n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
         diameters=Dict("P" => phyto_diameters, "Z" => zoo_diameters),
         plankton_args=Dict("P" => phyto_args, "Z" => zoo_args),
