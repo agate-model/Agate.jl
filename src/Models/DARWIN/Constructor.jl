@@ -236,7 +236,7 @@ function construct(;
 )
     parameters, plankton_names = create_size_structued_params(;
         n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
-        diameters=Dict("P" => phyto_diameters, "Z"=> zoo_diameteres),
+        diameters=Dict("P" => phyto_diameters, "Z"=> zoo_diameters),
         plankton_args=Dict("P"=>phyto_args, "Z"=> zoo_args),
         interaction_args=interaction_args,
         bgc_args=bgc_args,
@@ -259,13 +259,13 @@ function construct(;
         "DOP" => DOP_dynamics(plankton_array),
     )
 
-    for i in 1:n_plankton["Z"]
+    for i in 1:n_zoo
         name = "Z$i"
         index = findfirst(x -> x == name, plankton_names)
         tracers[name] = zoo_dynamics(plankton_array, name, index)
     end
 
-    for i in 1:n_plankton["P"]
+    for i in 1:n_phyto
         name = "P$i"
         index = findfirst(x -> x == name, plankton_names)
         tracers[name] = phyto_dynamics(plankton_array, name, index)
@@ -369,7 +369,7 @@ function instantiate(
 
     parameters, _ = create_size_structued_params(;
         n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
-        diameters=Dict("P" => phyto_diameters, "Z"=> zoo_diameteres),
+        diameters=Dict("P" => phyto_diameters, "Z"=> zoo_diameters),
         plankton_args=Dict("P"=>phyto_args, "Z"=> zoo_args),
         interaction_args=interaction_args,
         bgc_args=bgc_args,
