@@ -8,7 +8,7 @@ using .Parameters
 using .DARWIN
 using .NiPiZD
 
-export compute_allometric_parameters, create_params_dict
+export compute_allometric_parameters, create_size_structured_params
 export define_tracer_functions
 
 end # module

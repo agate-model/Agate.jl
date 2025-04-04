@@ -92,7 +92,7 @@ DEFAULT_BGC_ARGS = Dict(
         bgc_args=DEFAULT_BGC_ARGS,
         palatability_matrix=nothing,
         assimilation_efficiency_matrix=nothing,
-    ) -> DataType
+    )
 
 Construct an Agate.jl-DARWIN model abstract type.
 
@@ -185,14 +185,14 @@ The type specification includes a photosynthetic active radiation (PAR) auxiliar
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
 - `phyto_args`: Dictionary of phytoplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
+    `DARWIN.DEFAULT_PHYTO_ARGS`
 - `zoo_args`: Dictionary of zooplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
+    `DARWIN.DEFAULT_ZOO_ARGS`
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed, for default values see
-    `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
+    `DARWIN.DEFAULT_INTERACTION_ARGS`
 - `bgc_args`: biogeochemistry parameters related to nutrient and detritus, for default
-    values see `Agate.Models.Constructors.DEFAULT_BGC_ARGS`
+    values see `DARWIN.DEFAULT_BGC_ARGS`
 - `palatability_matrix`: optional palatability matrix passed as an Array, if provided
    then `interaction_args` are not used to compute this
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
@@ -234,13 +234,10 @@ function construct(;
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 )
-    parameters, plankton_names = create_params_dict(;
-        n_phyto=n_phyto,
-        n_zoo=n_zoo,
-        phyto_diameters=phyto_diameters,
-        zoo_diameters=zoo_diameters,
-        phyto_args=phyto_args,
-        zoo_args=zoo_args,
+    parameters, plankton_names = create_size_structured_params(;
+        n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
+        diameters=Dict("P" => phyto_diameters, "Z" => zoo_diameters),
+        plankton_args=Dict("P" => phyto_args, "Z" => zoo_args),
         interaction_args=interaction_args,
         bgc_args=bgc_args,
         palatability_matrix=palatability_matrix,
@@ -296,7 +293,7 @@ end
         bgc_args=DEFAULT_BGC_ARGS,
         palatability_matrix=nothing,
         assimilation_efficiency_matrix=nothing,
-    ) -> bgc_type
+    )
 
 A function to instantiate an object of `bgc_type` returned by `DARWIN.construct()`.
 
@@ -325,15 +322,15 @@ of any of the model parameters or plankton diameters.
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
 - `phyto_args`: Dictionary of phytoplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
+    `DARWIN.DEFAULT_PHYTO_ARGS`
 - `zoo_args`: Dictionary of zooplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
+    `DARWIN.DEFAULT_ZOO_ARGS`
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed, for default values see
-    `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
+    `DARWIN.DEFAULT_INTERACTION_ARGS`
 - `bgc_args`: Dictionary of constant parameters used in growth functions (i.e., not size
     dependant plankton parameters as well as biogeochemistry parameters related to nutrient
-    and detritus, for default values see `Agate.Models.Constructors.DEFAULT_CONSTANT_ARGS`
+    and detritus, for default values see `DARWIN.DEFAULT_CONSTANT_ARGS`
 - `palatability_matrix`: optional palatability matrix passed as an Array, if provided
     then `interaction_args` are not used to compute this
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
@@ -346,7 +343,7 @@ using Agate.Constructors: DARWIN
 darwin_2p_2z = DARWIN.construct()
 
 # change some parameter values
-phyto_args = DARWIN.DEFAULT_PHYTO_ARGS
+phyto_args = deepcopy(DARWIN.DEFAULT_PHYTO_ARGS)
 phyto_args["allometry"]["maximum_growth_rate"]["a"] = 2
 darwin_2p_2z_model_obj = DARWIN.instantiate(darwin_2p_2z; phyto_args=phyto_args)
 ```
@@ -367,23 +364,20 @@ function instantiate(
     assimilation_efficiency_matrix=nothing,
 )
     defaults = bgc_type()
-    n_phyto = Int(defaults.n_phyto)
-    n_zoo = Int(defaults.n_zoo)
+    n_phyto = Int(defaults.n_P)
+    n_zoo = Int(defaults.n_Z)
 
-    # returns NamedTuple -> have to convert to Dict
-    parameters, _ = create_params_dict(;
-        n_phyto=n_phyto,
-        n_zoo=n_zoo,
-        phyto_diameters=phyto_diameters,
-        zoo_diameters=zoo_diameters,
-        phyto_args=phyto_args,
-        zoo_args=zoo_args,
+    parameters, _ = create_size_structured_params(;
+        n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
+        diameters=Dict("P" => phyto_diameters, "Z" => zoo_diameters),
+        plankton_args=Dict("P" => phyto_args, "Z" => zoo_args),
         interaction_args=interaction_args,
         bgc_args=bgc_args,
         palatability_matrix=palatability_matrix,
         assimilation_efficiency_matrix=assimilation_efficiency_matrix,
     )
 
+    # params are a NamedTuple -> have to convert to Dict
     return bgc_type(; Dict(pairs(parameters))...)
 end
 
