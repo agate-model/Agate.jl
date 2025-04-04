@@ -165,8 +165,8 @@ function construct(;
 )
     parameters, plankton_names = create_size_structued_params(;
         n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
-        diameters=Dict("P" => phyto_diameters, "Z"=> zoo_diameters),
-        plankton_args=Dict("P"=>phyto_args, "Z"=> zoo_args),
+        diameters=Dict("P" => phyto_diameters, "Z" => zoo_diameters),
+        plankton_args=Dict("P" => phyto_args, "Z" => zoo_args),
         interaction_args=interaction_args,
         bgc_args=bgc_args,
         palatability_matrix=palatability_matrix,
@@ -284,8 +284,8 @@ function instantiate(
 
     parameters, _ = create_size_structued_params(;
         n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
-        diameters=Dict("P" => phyto_diameters, "Z"=> zoo_diameters),
-        plankton_args=Dict("P"=>phyto_args, "Z"=> zoo_args),
+        diameters=Dict("P" => phyto_diameters, "Z" => zoo_diameters),
+        plankton_args=Dict("P" => phyto_args, "Z" => zoo_args),
         interaction_args=interaction_args,
         bgc_args=bgc_args,
         palatability_matrix=palatability_matrix,
