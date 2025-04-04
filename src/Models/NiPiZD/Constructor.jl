@@ -260,7 +260,7 @@ n2p2zd = NiPiZD.construct()
 # change some parameter values
 phyto_args = deepcopy(NiPiZD.DEFAULT_PHYTO_ARGS)
 phyto_args["allometry"]["maximum_growth_rate"]["a"] = 2
-n2p2zd_model_obj = NiPiZD.instantiate(n2p2zd; phyto_args=phyto_args))
+n2p2zd_model_obj = NiPiZD.instantiate(n2p2zd; phyto_args=phyto_args)
 ```
 """
 function instantiate(
