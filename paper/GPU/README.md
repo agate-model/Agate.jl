@@ -19,6 +19,10 @@ To delete old containers:
 
 `podman container prune`
 
+Force remove everything:
+
+`podman system prune -a -f --volumes`
+
 
 To delete `tmp` cache:
 
