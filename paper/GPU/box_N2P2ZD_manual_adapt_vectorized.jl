@@ -11,7 +11,7 @@ const year = years = 365day
 include(joinpath("N2P2ZD", "tracers_vectorized.jl"))
 
 using Adapt, CUDA
-CUDA.allowscalar(true)
+CUDA.allowscalar(false)
 
 Adapt.@adapt_structure N2P2ZD
 
