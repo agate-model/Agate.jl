@@ -140,7 +140,6 @@ function custom_net_linear_loss(
     return sum(linear_loss.(P, linear_mortality)) * fraction
 end
 
-
 """
 Net loss of all plankton due to quadratic mortality.
 """
@@ -178,57 +177,15 @@ function net_predation_assimilation_loss(
     assimilation_efficiency::AbstractMatrix{Float64},
     palatability::AbstractMatrix{Float64},
 )
-    total = zero(eltype(P))
-    for predator_index in eachindex(P)
-        total += summed_predation_assimilation_loss(
-            predator_index,
-            P,
-            assimilation_efficiency,
-            maximum_predation_rate,
-            holling_half_saturation,
-            palatability,
-        )
-    end
-    return total
-end
-
-"""
-Wrapper function to estimate the rate at which plankton biomass changes over time.
-"""
-function plankton_dt(
-    plankton_index::Int,
-    N::Float64,
-    P::AbstractVector{Float64},
-    PAR::Float64,
-    linear_mortality::AbstractVector{Float64},
-    quadratic_mortality::AbstractVector{Float64},
-    maximum_growth_rate::AbstractVector{Float64},
-    holling_half_saturation::AbstractVector{Float64},
-    nutrient_half_saturation::AbstractVector{Float64},
-    alpha::AbstractVector,
-    maximum_predation_rate::AbstractVector{Float64},
-    assimilation_efficiency::AbstractMatrix{Float64},
-    palatability::AbstractMatrix{Float64},
-)
-    growth =
-        photosynthetic_growth(
-            N,
-            P[plankton_index],
-            PAR,
-            maximum_growth_rate[plankton_index],
-            nutrient_half_saturation[plankton_index],
-            alpha[plankton_index],
-        ) - linear_loss(P[plankton_index], linear_mortality[plankton_index]) -
-        quadratic_loss(P[plankton_index], quadratic_mortality[plankton_index]) -
-        summed_predation_loss(
-            plankton_index, P, maximum_predation_rate, holling_half_saturation, palatability
-        ) + summed_predation_gain(
-            plankton_index,
-            P,
-            assimilation_efficiency,
-            maximum_predation_rate,
-            holling_half_saturation,
-            palatability,
-        )
-    return growth
+    # Calculate the denominator for Holling type II functional response
+    denominator = holling_half_saturation .+ sum(palatability .* P', dims=2)
+    
+    # Calculate the predation rates for all predator-prey pairs
+    predation_rates = maximum_predation_rate .* P .* (palatability .* P') ./ denominator
+    
+    # Calculate assimilation losses
+    assimilation_losses = assimilation_efficiency .* predation_rates
+    
+    # Sum all the losses
+    return sum(assimilation_losses)
 end
