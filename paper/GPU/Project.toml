@@ -8,6 +8,7 @@ OrthogonalSphericalShellGrids = "c2be9673-fb75-4747-82dc-aa2bb9f4aed0"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [compat]
 julia = "1.11"
