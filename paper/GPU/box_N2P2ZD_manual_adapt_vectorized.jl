@@ -13,8 +13,6 @@ include(joinpath("N2P2ZD", "tracers_vectorized.jl"))
 using Adapt, CUDA
 CUDA.allowscalar(false)
 
-Adapt.@adapt_structure N2P2ZD
-
 
 adapted_instance = Adapt.adapt(CuArray, N2P2ZD())
 
