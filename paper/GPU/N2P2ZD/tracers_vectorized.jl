@@ -25,17 +25,18 @@ parameters = (
         0.32 0.32 0 0
     ],
 )
+
 tracers = Dict(
     "N" => :(
         custom_net_linear_loss(
-            [P1, P2, Z1, Z2], linear_mortality, mortality_export_fraction
+            PlanktonBiomass(P1, P2, Z1, Z2), linear_mortality, mortality_export_fraction
         ) +
         custom_net_quadratic_loss(
-            [P1, P2, Z1, Z2], quadratic_mortality, mortality_export_fraction
+            PlanktonBiomass(P1, P2, Z1, Z2), quadratic_mortality, mortality_export_fraction
         ) +
         remineralization(D, detritus_remineralization) - net_photosynthetic_growth(
             N,
-            [P1, P2, Z1, Z2],
+            PlanktonBiomass(P1, P2, Z1, Z2),
             PAR,
             maximum_growth_rate,
             nutrient_half_saturation,
@@ -44,80 +45,53 @@ tracers = Dict(
     ),
     "D" => :(
         custom_net_linear_loss(
-            [P1, P2, Z1, Z2], linear_mortality, 1 - mortality_export_fraction
+            PlanktonBiomass(P1, P2, Z1, Z2), linear_mortality, 1 - mortality_export_fraction
         ) +
         net_predation_assimilation_loss(
-            [P1, P2, Z1, Z2],
+            PlanktonBiomass(P1, P2, Z1, Z2),
             holling_half_saturation,
             maximum_predation_rate,
             assimilation_efficiency,
             palatability,
         ) +
         custom_net_quadratic_loss(
-            [P1, P2, Z1, Z2], quadratic_mortality, 1 - mortality_export_fraction
+            PlanktonBiomass(P1, P2, Z1, Z2), quadratic_mortality, 1 - mortality_export_fraction
         ) - remineralization(D, detritus_remineralization)
     ),
-    "P1" => :(plankton_dt(
-        1,
-        N,
-        [P1, P2, Z1, Z2],
-        PAR,
-        linear_mortality,
-        quadratic_mortality,
-        maximum_growth_rate,
-        holling_half_saturation,
-        nutrient_half_saturation,
-        alpha,
-        maximum_predation_rate,
-        assimilation_efficiency,
-        palatability,
-    )),
-    "P2" => :(plankton_dt(
-        2,
-        N,
-        [P1, P2, Z1, Z2],
-        PAR,
-        linear_mortality,
-        quadratic_mortality,
-        maximum_growth_rate,
-        holling_half_saturation,
-        nutrient_half_saturation,
-        alpha,
-        maximum_predation_rate,
-        assimilation_efficiency,
-        palatability,
-    )),
-    "Z1" => :(plankton_dt(
-        3,
-        N,
-        [P1, P2, Z1, Z2],
-        PAR,
-        linear_mortality,
-        quadratic_mortality,
-        maximum_growth_rate,
-        holling_half_saturation,
-        nutrient_half_saturation,
-        alpha,
-        maximum_predation_rate,
-        assimilation_efficiency,
-        palatability,
-    )),
-    "Z2" => :(plankton_dt(
-        4,
-        N,
-        [P1, P2, Z1, Z2],
-        PAR,
-        linear_mortality,
-        quadratic_mortality,
-        maximum_growth_rate,
-        holling_half_saturation,
-        nutrient_half_saturation,
-        alpha,
-        maximum_predation_rate,
-        assimilation_efficiency,
-        palatability,
-    )),
 )
+function generate_plankton_entries!(tracers::Dict, params)
+    # Extract and pre-compute all parameters
+    lm = params.linear_mortality
+    qm = params.quadratic_mortality
+    mgr = params.maximum_growth_rate
+    hhs = params.holling_half_saturation
+    nhs = params.nutrient_half_saturation
+    alpha = params.alpha
+    mpr = params.maximum_predation_rate
+    ae = params.assimilation_efficiency
+    pal = params.palatability
+
+    # Generate specialized expressions for each plankton type
+    for (i, name) in enumerate(["P1", "P2", "Z1", "Z2"])
+        # Convert name string to symbol for variable reference
+        var_sym = Symbol(name)
+        
+        tracers[name] = quote
+            # Photosynthetic growth with pre-computed parameters
+            photosynthetic_growth(N, $var_sym, PAR, $(mgr[i]), $(nhs[i]), $(alpha[i])) -
+            # Loss terms with pre-computed parameters
+            linear_loss($var_sym, $(lm[i])) -
+            quadratic_loss($var_sym, $(qm[i])) -
+            # Predation terms (uses whole arrays but no scalar indexing)
+            summed_predation_loss($i, PlanktonBiomass(P1, P2, Z1, Z2), $mpr, $hhs, $pal) +
+            summed_predation_gain($i, PlanktonBiomass(P1, P2, Z1, Z2), $ae, $mpr, $hhs, $pal)
+        end
+    end
+    return tracers
+end
+
+# Generate the complete tracer dictionary
+generate_plankton_entries!(tracers, parameters)
 
 # `linear_loss`, `quadratic_loss` etc are functions defined in Agate.Library
 # import remaining "custom" functions from file
