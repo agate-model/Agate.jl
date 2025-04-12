@@ -12,6 +12,8 @@ using Agate.Library.Predation
 using Agate.Library.Remineralization
 using Adapt
 
+using LinearAlgebra #Adjoint
+
 using UUIDs
 
 using OceanBioME: setup_velocity_fields
@@ -186,6 +188,29 @@ function create_bgc_struct(
 
     return eval(struct_name)
 end
+
+struct PlanktonBiomass{FT <: Float64} <: AbstractVector{FT}
+    P1::FT
+    P2::FT
+    Z1::FT
+    Z2::FT
+end
+
+# Array interface
+Base.size(::PlanktonBiomass) = (4,)
+Base.getindex(b::PlanktonBiomass, i::Int) = getfield(b, i)
+Base.setindex!(b::PlanktonBiomass, v, i::Int) = setfield!(b, i, v)
+
+# Broadcasting
+Base.BroadcastStyle(::Type{<:PlanktonBiomass}) = Broadcast.DefaultArrayStyle{1}()
+Base.similar(b::PlanktonBiomass{FT}) where {FT} = PlanktonBiomass(zero(FT), zero(FT), zero(FT), zero(FT))
+
+# Adjoint for linear algebra
+using LinearAlgebra
+Base.adjoint(pb::PlanktonBiomass) = Adjoint(pb) 
+
+# GPU compatibility
+Adapt.@adapt_structure PlanktonBiomass
 
 """
     add_bgc_methods!(
