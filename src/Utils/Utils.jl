@@ -13,8 +13,6 @@ using Agate.Library.Remineralization
 
 using UUIDs
 
-using OceanBioME: setup_velocity_fields
-
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 using Oceananigans.Fields: ZeroField
 
@@ -144,7 +142,8 @@ function create_bgc_struct(
     end
 
     if !isnothing(sinking_velocities)
-        type_symbol = :SV
+        # using W here for consistency with OceanBioME
+        type_symbol = :W
         push!(type_names, type_symbol)
         exp = Expr(:(=), Expr(:(::), :sinking_velocities, type_symbol), sinking_velocities)
         push!(fields, exp)
