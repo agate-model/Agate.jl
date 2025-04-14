@@ -10,6 +10,9 @@ using Agate.Library.Nutrients
 using Agate.Library.Photosynthesis
 using Agate.Library.Predation
 using Agate.Library.Remineralization
+using Adapt
+
+using LinearAlgebra #Adjoint
 
 using UUIDs
 
@@ -25,6 +28,8 @@ import Oceananigans.Biogeochemistry:
 import OceanBioME.Models.Sediments: sinking_tracers
 
 export define_tracer_functions, expression_check, create_bgc_struct, add_bgc_methods!
+
+include("PlanktonBiomass.jl")
 
 """
     define_tracer_functions(
@@ -131,52 +136,59 @@ function create_bgc_struct(
     struct_name, parameters, sinking_tracers=nothing, grid=nothing, open_bottom=nothing
 )
     fields = []
-    # need to also keep track of parameter types to return a parametric struct
-    type_names = Set()
+    type_params = Set{Symbol}()
+    
+    # Process parameters
     for (k, v) in pairs(parameters)
-        if k in [:x, :y, :z, :t]
-            throw(
-                DomainError(k, "field names in parameters can't be any of [:x, :y, :z, :t]")
-            )
+        if k in (:x, :y, :z, :t)
+            throw(DomainError(k, "field names can't be any of [:x, :y, :z, :t]"))
         end
 
-        type = typeof(v)
-        # should we handle ints/floats separately?
-        if type <: Real
+        # Assign type parameters
+        if v isa AbstractFloat
             type_symbol = :FT
-        elseif type <: AbstractVector
+        elseif v isa AbstractVector
             type_symbol = :VT
-        elseif type <: AbstractMatrix
+        elseif v isa AbstractMatrix
             type_symbol = :MT
         else
             error("Unsupported type for field $k")
         end
-        push!(type_names, type_symbol)
-
-        exp = Expr(:(=), Expr(:(::), k, type_symbol), v)
-        push!(fields, exp)
+        
+        push!(type_params, type_symbol)
+        push!(fields, Expr(:(=), Expr(:(::), k, type_symbol), v))
     end
 
+    # Process sinking velocities if provided
     if !isnothing(sinking_tracers)
         if isnothing(grid)
-            throw(ArgumentError("grid must be defined to setup tracer sinking"))
+            throw(ArgumentError("grid must be defined for tracer sinking"))
         end
-        # `setup_velocity_fields` multiplies tracer speeds by -1 when creating the fields
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
-        type_symbol = :SV
-        push!(type_names, type_symbol)
-        exp = Expr(:(=), Expr(:(::), :sinking_velocities, type_symbol), sinking_velocities)
-        push!(fields, exp)
+        type_symbol = :VT  # Assuming velocities are vectors
+        push!(type_params, type_symbol)
+        push!(fields, Expr(:(=), Expr(:(::), :sinking_velocities, type_symbol), sinking_velocities))
     end
 
-    exp = quote
-        Base.@kwdef struct $struct_name{$(type_names...)} <:
-                           AbstractContinuousFormBiogeochemistry
+    # Convert to sorted tuple for consistent ordering
+    type_params = sort(collect(type_params), by=string)
+
+    # First evaluate the struct definition
+    struct_def = quote
+        Base.@kwdef struct $struct_name{$(type_params...)} <:
+                       AbstractContinuousFormBiogeochemistry
             $(fields...)
         end
-        $struct_name # return the type
     end
-    return eval(exp)
+    eval(struct_def)
+
+    # Then apply @adapt_structure to the now-existing type
+    adapt_def = quote
+        Adapt.@adapt_structure $struct_name
+    end
+    eval(adapt_def)
+
+    return eval(struct_name)
 end
 
 """

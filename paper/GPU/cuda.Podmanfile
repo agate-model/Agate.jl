@@ -1,0 +1,51 @@
+# Base image with CUDA support
+FROM docker.io/nvidia/cuda:12.2.2-runtime-ubuntu22.04
+
+# Set environment variables
+ENV JULIA_VERSION=1.11.3
+ENV PATH="/opt/julia/bin:$PATH"
+ENV JULIA_PROJECT=/opt/julia_env
+ENV CUDA_VERSION=12.2  
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    wget \
+    curl \
+    ca-certificates \
+    git \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download and install Julia
+RUN wget https://julialang-s3.julialang.org/bin/linux/x64/1.11/julia-${JULIA_VERSION}-linux-x86_64.tar.gz \
+    && tar -xzf julia-${JULIA_VERSION}-linux-x86_64.tar.gz -C /opt \
+    && mv /opt/julia-${JULIA_VERSION} /opt/julia \
+    && rm julia-${JULIA_VERSION}-linux-x86_64.tar.gz
+
+# Copy Project.toml (and Manifest.toml if needed)
+COPY Project.toml /opt/julia_env/
+
+COPY src/ /opt/julia_env/src/
+
+# Install Julia dependencies
+RUN julia -e 'using Pkg; \
+    Pkg.activate(ENV["JULIA_PROJECT"]); \
+    Pkg.add("CUDA"); \
+    Pkg.add("Adapt"); \
+    Pkg.Registry.add("General"); \
+    Pkg.resolve(); \
+    Pkg.instantiate(); \
+    Pkg.precompile()'
+
+# Set the default working directory
+WORKDIR /opt/julia_env
+
+RUN julia -e 'using CUDA; CUDA.set_runtime_version!(v"12.2")'
+
+RUN julia -e 'using Pkg; \ 
+    Pkg.resolve(); \
+    Pkg.instantiate(); \
+    Pkg.precompile()'
+
+# Set permissions (if needed)
+RUN chmod 777 /opt/julia_env

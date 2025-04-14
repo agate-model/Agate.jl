@@ -92,7 +92,7 @@ function compute_allometric_parameters(plankton::Dict)
     intermediate_palatability = DefaultDict{AbstractString,Array}([])
     intermediate_assimilation = DefaultDict{AbstractString,Array}([])
     # final outputs here
-    results = DefaultDict{AbstractString,Array{Real}}([])
+    results = DefaultDict{AbstractString,Array{Float64}}([])
 
     plankton_names = []
     for (plankton_name, params) in plankton
