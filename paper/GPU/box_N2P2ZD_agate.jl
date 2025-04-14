@@ -4,17 +4,17 @@ using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans.Units
+using Agate.Models: NiPiZD
 
 const year = years = 365day
 
-include(joinpath("N2P2ZD", "tracers_vectorized.jl"))
+# Generate the biogeochemical model
+N2P2ZD = NiPiZD.construct()
 
 using Adapt, CUDA
 CUDA.allowscalar(false)
 
-
 adapted_instance = Adapt.adapt(CuArray, N2P2ZD())
-
 
 bgc_model = Biogeochemistry(
     adapted_instance; light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid(arch=GPU()))

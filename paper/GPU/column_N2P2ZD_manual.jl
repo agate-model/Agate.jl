@@ -6,9 +6,6 @@ using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Fields: FunctionField, ConstantField
 
-using Plots
-using StaticArrays
-
 const year = years = 365day
 
 include(joinpath("N2P2ZD", "tracers_vectorized.jl"))

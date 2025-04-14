@@ -5,19 +5,15 @@ version = "0.1.1"
 [deps]
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
 OceanBioME = "a49af516-9db8-4be4-be45-1dad61c5a376"
 Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
-Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [compat]
 DataStructures = "0.18.20"
-DifferentialEquations = "7.15.0"
 OceanBioME = "0.13.2"
 Oceananigans = "0.93.3"
-Plots = "1.40.10"
 julia = "1.9"
 
 [extras]
