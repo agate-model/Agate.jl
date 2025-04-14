@@ -116,13 +116,15 @@ using Oceananigans.Biogeochemistry:
         @testset "tracer sinking" begin
             include(joinpath("NPZD", "tracers.jl"))
 
-            sinking_velocities = setup_velocity_fields((P=0.2551 / day, D=2.7489 / day), BoxModelGrid(), false)
+            sinking_velocities = setup_velocity_fields(
+                (P=0.2551 / day, D=2.7489 / day), BoxModelGrid(), false
+            )
 
             NPZD_sink = define_tracer_functions(
                 parameters,
                 tracers;
                 helper_functions=joinpath("NPZD", "functions.jl"),
-                sinking_velocities=sinking_velocities
+                sinking_velocities=sinking_velocities,
             )
 
             model = NPZD_sink()

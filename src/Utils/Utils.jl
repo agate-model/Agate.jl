@@ -69,15 +69,13 @@ function define_tracer_functions(
 )
     # create a universaly unique identifier (UUID) for the model struct
     model_name = Symbol(uuid1())
-    bgc_model = create_bgc_struct(
-        model_name, parameters, sinking_velocities
-    )
+    bgc_model = create_bgc_struct(model_name, parameters, sinking_velocities)
     add_bgc_methods!(
         bgc_model,
         tracers;
         auxiliary_fields=auxiliary_fields,
         helper_functions=helper_functions,
-        sinking_velocities= sinking_velocities !== nothing,
+        sinking_velocities=sinking_velocities !== nothing,
     )
     return bgc_model
 end
@@ -111,9 +109,7 @@ using Agate.Models.Biogeochemistry: create_bgc_struct
 create_bgc_struct(:LV, (α=2/3, β=4/3,  δ=1, γ=1))
 ```
 """
-function create_bgc_struct(
-    struct_name, parameters, sinking_velocities=nothing
-)
+function create_bgc_struct(struct_name, parameters, sinking_velocities=nothing)
     fields = []
     # need to also keep track of parameter types to return a parametric struct
     type_names = Set()
