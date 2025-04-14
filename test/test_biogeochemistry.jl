@@ -116,6 +116,9 @@ using Oceananigans.Biogeochemistry:
         @testset "tracer sinking" begin
             include(joinpath("NPZD", "tracers.jl"))
 
+            # if one uses BoxModelGrid and sets open_bottom to false then all velocities are
+            # set to 0 (because the function smooths them to get to 0 when they reach the
+            # bottom and in a BoxModel the tracers already are at "the bottom")
             sinking_velocities = setup_velocity_fields(
                 (P=0.2551 / day, D=2.7489 / day), BoxModelGrid(), true
             )
