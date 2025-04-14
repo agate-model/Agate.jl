@@ -9,6 +9,7 @@ using Agate.Models.Parameters
 using Agate.Models.DARWIN.Tracers
 
 using UUIDs
+using OceanBioME
 using Oceananigans.Units
 
 using OceanBioME: setup_velocity_fields
@@ -92,6 +93,9 @@ DEFAULT_BGC_ARGS = Dict(
         bgc_args=DEFAULT_BGC_ARGS,
         palatability_matrix=nothing,
         assimilation_efficiency_matrix=nothing,
+        sinking_tracers=nothing,
+        grid=BoxModelGrid(),
+        open_bottom=true,
     )
 
 Construct an Agate.jl-DARWIN model abstract type.
@@ -147,7 +151,6 @@ Construct an Agate.jl-DARWIN model abstract type.
     - η = prey protection
     - σ = predator specificity
 
-
 This constructor builds an Agate.jl-DARWIN model with two plankton functional types:
 phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
 size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor implements
@@ -197,7 +200,13 @@ The type specification includes a photosynthetic active radiation (PAR) auxiliar
    then `interaction_args` are not used to compute this
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
    Array, if provided then `interaction_args` are not used to compute this
-
+- `sinking_tracers`: optional NamedTuple of sinking speeds (passed as positive values) of
+   the form (<tracer name> = <speed>, ...)
+- `grid`: optional Oceananigans grid object defining the geometry to build the model on, must
+   be passed if `sinking_tracers` is defined
+- `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
+   at the bottom to prevent the tracers leaving the domain, defaults to `true`, which means
+   the bottom is open and the tracers leave (i.e., no slowing of velocity to 0 is applied)
 
 # Example
 ```julia
@@ -233,6 +242,9 @@ function construct(;
     bgc_args=DEFAULT_BGC_ARGS,
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
+    sinking_tracers=nothing,
+    grid=BoxModelGrid(),
+    open_bottom=true,
 )
     parameters, plankton_names = create_size_structured_params(;
         n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
@@ -271,9 +283,17 @@ function construct(;
         tracers[name] = phyto_dynamics(plankton_array, name, index)
     end
 
+    if !isnothing(sinking_tracers)
+        sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
+    else
+        sinking_velocities = nothing
+    end
+
     # return Oceananigans.Biogeochemistry object
     # note this adds "PAR" as an auxiliary field by default
-    return define_tracer_functions(parameters, tracers)
+    return define_tracer_functions(
+        parameters, tracers; sinking_velocities=sinking_velocities
+    )
 end
 
 """
@@ -293,6 +313,9 @@ end
         bgc_args=DEFAULT_BGC_ARGS,
         palatability_matrix=nothing,
         assimilation_efficiency_matrix=nothing,
+        sinking_tracers=nothing,
+        grid=BoxModelGrid(),
+        open_bottom=true,
     )
 
 A function to instantiate an object of `bgc_type` returned by `DARWIN.construct()`.
@@ -335,6 +358,13 @@ of any of the model parameters or plankton diameters.
     then `interaction_args` are not used to compute this
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
     Array, if provided then `interaction_args` are not used to compute this
+- `sinking_tracers`: optional NamedTuple of sinking speeds (passed as positive values) of
+   the form (<tracer name> = <speed>, ...)
+- `grid`: optional Oceananigans grid object defining the geometry to build the model on, must
+   be passed if `sinking_tracers` is defined
+- `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
+   at the bottom to prevent the tracers leaving the domain, defaults to `true`, which means
+   the bottom is open and the tracers leave (i.e., no slowing of velocity to 0 is applied)
 
 # Example
 ```julia
@@ -362,6 +392,9 @@ function instantiate(
     bgc_args=DEFAULT_BGC_ARGS,
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
+    sinking_tracers=nothing,
+    grid=BoxModelGrid(),
+    open_bottom=true,
 )
     defaults = bgc_type()
     n_phyto = Int(defaults.n_P)
@@ -378,7 +411,21 @@ function instantiate(
     )
 
     # params are a NamedTuple -> have to convert to Dict
-    return bgc_type(; Dict(pairs(parameters))...)
+    parameters_dict = Dict(pairs(parameters))
+
+    if !isnothing(sinking_tracers)
+        if !(:sinking_velocities in fieldnames(bgc_type))
+            throw(ArgumentError("BGC object does not have sinking_velocities"))
+        end
+        if isnothing(grid)
+            throw(ArgumentError("grid must be defined to setup tracer sinking"))
+        end
+        parameters_dict["sinking_velocities"] = setup_velocity_fields(
+            sinking_tracers, grid, open_bottom
+        )
+    end
+
+    return bgc_type(; parameters_dict...)
 end
 
 end # module
