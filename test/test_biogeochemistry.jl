@@ -123,10 +123,6 @@ using Oceananigans.Biogeochemistry:
                 (P=0.2551 / day, D=2.7489 / day), BoxModelGrid(), true
             )
 
-            @show keys(sinking_velocities)
-            @show sinking_velocities[:P]
-            @show sinking_velocities[:P].data[1, 1, 1]
-
             NPZD_sink = define_tracer_functions(
                 parameters,
                 tracers;
