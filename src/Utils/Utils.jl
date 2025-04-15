@@ -166,7 +166,7 @@ Add methods to `bgc_type` required of Oceananigans.Biogeochemistry:
     - `required_biogeochemical_tracers`
     - `required_biogeochemical_auxiliary_fields`
     - a method per tracer specifying how it evolves in time
-    - optionally adds `biogeochemical_drift_velocity` (if `sinking_velocities` is true)
+    - optionally adds `biogeochemical_drift_velocity` (if `include_sinking` is true)
 
 WARNING: `biogeochenical_auxiliary_fields` method must also be defined to make use of the
 `auxiliary_fields`. This method is added when `OceanBioME.Biogeochemistry(bgc_type())` is
