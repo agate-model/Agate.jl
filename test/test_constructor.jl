@@ -2,6 +2,7 @@ using Agate
 using Agate.Models.NiPiZD.Tracers
 using Agate.Models: NiPiZD
 
+using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers, biogeochemical_drift_velocity
@@ -199,6 +200,12 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "Tracer sinking" begin
+        # get error if instantiate model that was not constructed for sinking
+        @test_throws ArgumentError NiPiZD.instantiate(
+            N2P2ZD_constructed; sinking_tracers=(P1=0.2551 / day, P2=0.2551 / day, D=2.7489 / day)
+        )
+
+        # construct model with tracer sinking and instantiate on default grid (BoxModel)
         N2P2ZD_sink = NiPiZD.construct(;
             sinking_tracers=(P1=0.2551 / day, P2=0.2551 / day, D=2.7489 / day)
         )
@@ -212,5 +219,11 @@ using Oceananigans.Biogeochemistry:
             -0.2551 / day
         @test biogeochemical_drift_velocity(model, Val(:D)).w.data[1, 1, 1] == -2.7489 / day
         @test biogeochemical_drift_velocity(model, Val(:Z)).w == ZeroField()
+
+        # instantiate same model but on a column grid
+        column_grid = RectilinearGrid(; size=(1, 1, 40), extent=(20meters, 20meters, 200meters))
+        col_model = NiPiZD.instantiate(N2P2ZD_sink; sinking_tracers=(P1=0.2551 / day, P2=0.2551 / day, D=2.7489 / day), grid=column_grid)
+        @test OceanBioME.Models.Sediments.sinking_tracers(col_model) == (:P1, :P2, :D)
+
     end
 end
