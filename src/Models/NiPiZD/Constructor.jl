@@ -139,9 +139,9 @@ The type specification includes a photosynthetic active radiation (PAR) auxiliar
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
     Array, if provided then `interaction_args` are not used to compute this
 - `sinking_tracers`: optional NamedTuple of sinking speeds (passed as positive values) of
-   the form (<tracer name> = <speed>, ...)
+   the form (<tracer name expressed as symbol> = <speed>, ...)
 - `grid`: optional Oceananigans grid object defining the geometry to build the model on, must
-   be passed if `sinking_tracers` is defined
+   be passed if `sinking_tracers` is defined, defaults to BoxModelGrid
 - `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
    at the bottom to prevent the tracers leaving the domain, defaults to `true`, which means
    the bottom is open and the tracers leave (i.e., no slowing of velocity to 0 is applied)
@@ -276,9 +276,9 @@ of any of the model parameters or plankton diameters.
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
     Array, if provided then `interaction_args` are not used to compute this
 - `sinking_tracers`: optional NamedTuple of sinking speeds (passed as positive values) of
-   the form (<tracer name> = <speed>, ...)
+   the form (<tracer name expressed as symbol> = <speed>, ...)
 - `grid`: optional Oceananigans grid object defining the geometry to build the model on, must
-   be passed if `sinking_tracers` is defined
+   be passed if `sinking_tracers` is defined, defaults to BoxModelGrid
 - `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
    at the bottom to prevent the tracers leaving the domain, defaults to `true`, which means
    the bottom is open and the tracers leave (i.e., no slowing of velocity to 0 is applied)
