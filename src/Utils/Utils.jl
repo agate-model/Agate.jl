@@ -208,11 +208,7 @@ add_bgc_methods!(LV, tracers)
 ```
 """
 function add_bgc_methods!(
-    bgc_type,
-    tracers;
-    auxiliary_fields=[],
-    helper_functions=nothing,
-    include_sinking=false,
+    bgc_type, tracers; auxiliary_fields=[], helper_functions=nothing, include_sinking=false
 )
     if !isnothing(helper_functions)
         include(helper_functions)
