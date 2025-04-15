@@ -2,7 +2,10 @@ using Agate
 using Agate.Models.NiPiZD.Tracers
 using Agate.Models: NiPiZD
 
-using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
+using Oceananigans
+using Oceananigans.Units
+using Oceananigans.Biogeochemistry:
+    required_biogeochemical_tracers, biogeochemical_drift_velocity
 
 @testset "Models.Constructor" begin
     N2P2ZD_constructed = NiPiZD.construct()
@@ -194,5 +197,39 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
             model2(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR)
         @test model1(Val(:P2), 0, 0, 0, 0, model_var_order..., PAR) !=
             model2(Val(:P2), 0, 0, 0, 0, model_var_order..., PAR)
+    end
+
+    @testset "Tracer sinking" begin
+        # get error if instantiate model that was not constructed for sinking
+        @test_throws ArgumentError NiPiZD.instantiate(
+            N2P2ZD_constructed;
+            sinking_tracers=(P1=0.2551 / day, P2=0.2551 / day, D=2.7489 / day),
+        )
+
+        # construct model with tracer sinking and instantiate on default grid (BoxModel)
+        N2P2ZD_sink = NiPiZD.construct(;
+            sinking_tracers=(P1=0.2551 / day, P2=0.2551 / day, D=2.7489 / day)
+        )
+        model = N2P2ZD_sink()
+
+        @test OceanBioME.Models.Sediments.sinking_tracers(model) == (:P1, :P2, :D)
+
+        @test biogeochemical_drift_velocity(model, Val(:P1)).w.data[1, 1, 1] ==
+            -0.2551 / day
+        @test biogeochemical_drift_velocity(model, Val(:P2)).w.data[1, 1, 1] ==
+            -0.2551 / day
+        @test biogeochemical_drift_velocity(model, Val(:D)).w.data[1, 1, 1] == -2.7489 / day
+        @test biogeochemical_drift_velocity(model, Val(:Z)).w == ZeroField()
+
+        # instantiate same model but on a column grid
+        column_grid = RectilinearGrid(;
+            size=(1, 1, 40), extent=(20meters, 20meters, 200meters)
+        )
+        col_model = NiPiZD.instantiate(
+            N2P2ZD_sink;
+            sinking_tracers=(P1=0.2551 / day, P2=0.2551 / day, D=2.7489 / day),
+            grid=column_grid,
+        )
+        @test OceanBioME.Models.Sediments.sinking_tracers(col_model) == (:P1, :P2, :D)
     end
 end

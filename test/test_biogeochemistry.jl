@@ -5,6 +5,7 @@ using OceanBioME
 using Oceananigans.Units
 using Oceananigans.Fields: ZeroField
 
+using OceanBioME: setup_velocity_fields
 using Oceananigans.Biogeochemistry:
     AbstractContinuousFormBiogeochemistry,
     required_biogeochemical_tracers,
@@ -115,12 +116,18 @@ using Oceananigans.Biogeochemistry:
         @testset "tracer sinking" begin
             include(joinpath("NPZD", "tracers.jl"))
 
+            # if one uses BoxModelGrid and sets open_bottom to false then all velocities are
+            # set to 0 (because the function smooths them to get to 0 when they reach the
+            # bottom and in a BoxModel the tracers already are at "the bottom")
+            sinking_velocities = setup_velocity_fields(
+                (P=0.2551 / day, D=2.7489 / day), BoxModelGrid(), true
+            )
+
             NPZD_sink = define_tracer_functions(
                 parameters,
                 tracers;
                 helper_functions=joinpath("NPZD", "functions.jl"),
-                sinking_tracers=(P=0.2551 / day, D=2.7489 / day),
-                grid=BoxModelGrid(),
+                sinking_velocities=sinking_velocities,
             )
 
             model = NPZD_sink()
