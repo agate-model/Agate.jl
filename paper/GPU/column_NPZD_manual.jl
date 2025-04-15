@@ -4,15 +4,24 @@ using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans.Units
-using Plots
-using Agate.Constructors: NiPiZD
-using Agate.Models.Tracers
-using Agate.Library.Photosynthesis
-using Oceananigans, Printf
 using Oceananigans.Fields: FunctionField, ConstantField
-using Adapt
-using Adapt, NamedArrays, CUDA
 
+const year = years = 365day
+
+include(joinpath("NPZD", "tracers.jl"))
+
+using Adapt, CUDA
+CUDA.allowscalar(false)
+
+
+adapted_instance = Adapt.adapt(CuArray, NPZD())
+
+biogeochemistry = Biogeochemistry(
+    adapted_instance;
+    light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid(arch=GPU())),
+)
+
+#biogeochemistry = Adapt.adapt(CuArray, biogeochemistry)
 
 const year = years = 365days
 nothing #hide
@@ -33,14 +42,6 @@ nothing #hide
 grid = RectilinearGrid(GPU(), size = (1, 1, 50), extent = (20meters, 20meters, 200meters))
 
 
-include(joinpath("..", "..", "examples", "NPZD", "tracers.jl"))
-Adapt.@adapt_structure NPZD
-
-biogeochemistry = Biogeochemistry(
-    NPZD();
-    light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid()),
-)
-
 clock = Clock(; time = 0.0)
 T = FunctionField{Center, Center, Center}(temp, grid; clock)
 S = ConstantField(35)
@@ -53,7 +54,7 @@ model = NonhydrostaticModel(; grid,
 
 set!(model, P=0.01, Z=0.05, N=7.0, D=1)
 
-simulation = Simulation(model, Δt = 20minutes, stop_time = 100days)
+simulation = Simulation(model, Δt = 3minutes, stop_time = 100days)
 
 filename = "column"
 simulation.output_writers[:profiles] = JLD2OutputWriter(model, model.tracers,
