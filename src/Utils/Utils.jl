@@ -75,7 +75,7 @@ function define_tracer_functions(
         tracers;
         auxiliary_fields=auxiliary_fields,
         helper_functions=helper_functions,
-        sinking_velocities=sinking_velocities !== nothing,
+        include_sinking=sinking_velocities !== nothing,
     )
     return bgc_model
 end
@@ -161,7 +161,7 @@ end
         tracers;
         auxiliary_fields=[:PAR],
         helper_functions=nothing,
-        sinking_velocities=nothing,
+        include_sinking=false,
     )
 
 Add methods to `bgc_type` required of Oceananigans.Biogeochemistry:
@@ -181,7 +181,7 @@ instantiated alongside an `update_biogeochemical_state!` method.
 # Keywords
 - `auxiliary_fields`: an optional iterable of auxiliary field variables
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
-- `sinking_velocities`: boolean indicating whether the model includes sinking tracers, defaults
+- `include_sinking`: boolean indicating whether the model includes sinking tracers, defaults
    to false
 
 Note that the field names of `bgc_type` can't be any of [:x, :y, :z, :t] (as these are reserved
@@ -214,7 +214,7 @@ function add_bgc_methods!(
     tracers;
     auxiliary_fields=[],
     helper_functions=nothing,
-    sinking_velocities=false,
+    include_sinking=false,
 )
     if !isnothing(helper_functions)
         include(helper_functions)
@@ -259,7 +259,7 @@ function add_bgc_methods!(
     end
 
     # set up tracer sinking methods
-    if sinking_velocities
+    if include_sinking
         # `biogeochemical_drift_velocity` is an optional Oceananigans.Biogeochemistry method
         # that returns a NamedTuple of velocity fields for a tracer with keys `u`, `v`, `w`
         sink_velocity_method = quote
