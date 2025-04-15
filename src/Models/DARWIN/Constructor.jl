@@ -420,7 +420,7 @@ function instantiate(
         if isnothing(grid)
             throw(ArgumentError("grid must be defined to setup tracer sinking"))
         end
-        parameters_dict["sinking_velocities"] = setup_velocity_fields(
+        parameters_dict[:sinking_velocities] = setup_velocity_fields(
             sinking_tracers, grid, open_bottom
         )
     end
