@@ -24,6 +24,7 @@ biogeochemistry = Biogeochemistry(
     light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid(arch=GPU())),
 )
 
+#biogeochemistry = Adapt.adapt(CuArray, biogeochemistry)
 
 const year = years = 365days
 nothing #hide
