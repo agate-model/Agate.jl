@@ -43,8 +43,7 @@ Create an Oceananigans.Biogeochemistry model type.
 - `auxiliary_fields`: an iterable of auxiliary field variables, defaults to `[:PAR,]`
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
 - `sinking_velocities`: optional NamedTuple of constant sinking, of fields (i.e. `ZFaceField(...)`)
-   for any tracers which sink (convention is that a sinking speed is positive, but a field
-   will need to follow the usual down being negative).
+   for any tracers which sink returned by OceanBioME.Models.Sediments: sinking_tracers.
 
 Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t], as these
 are reserved for coordinates, and they must include all parameters used in the `tracers`
@@ -96,8 +95,7 @@ Create a subtype of Oceananigans.Biogeochemistry with field names defined in `pa
 
 # Keywords
 - `sinking_velocities`: optional NamedTuple of constant sinking, of fields (i.e. `ZFaceField(...)`)
-   for any tracers which sink (convention is that a sinking speed is positive, but a field
-   will need to follow the usual down being negative).
+   for any tracers which sink returned by OceanBioME.Models.Sediments: sinking_tracers.
 
 Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] as these
 are reserved for coordinates.
