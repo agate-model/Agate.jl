@@ -4,6 +4,7 @@ using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans.Units
+using JLD2 
 
 const year = years = 365day
 
@@ -29,13 +30,13 @@ set!(full_model; N=7.0, P1=0.01, Z1=0.05, P2=0.01, Z2=0.05, D=0.0)
 filename = "box.jld2"
 
 simulation = Simulation(full_model; Δt=5minutes, stop_time=3years)
-simulation.output_writers[:fields] = JLD2OutputWriter(
-    full_model,
-    full_model.fields;
-    filename=filename,
-    schedule=TimeInterval(1day),
-    overwrite_existing=true,
-)
+# simulation.output_writers[:fields] = JLD2OutputWriter(
+#     full_model,
+#     full_model.fields;
+#     filename=filename,
+#     schedule=TimeInterval(1day),
+#     overwrite_existing=true,
+# )
 
 run!(simulation)
 
