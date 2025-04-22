@@ -97,8 +97,10 @@ Create a subtype of Oceananigans.Biogeochemistry with field names defined in `pa
 - `sinking_velocities`: optional NamedTuple of constant sinking, of fields (i.e. `ZFaceField(...)`)
    for any tracers which sink returned by OceanBioME.Models.Sediments: sinking_tracers.
 
-Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] as these
-are reserved for coordinates.
+!!! warning
+
+    Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] as these
+    are reserved for coordinates.
 
 # Example
 ```julia
@@ -173,10 +175,12 @@ Add methods to `bgc_type` required of Oceananigans.Biogeochemistry:
     - a method per tracer specifying how it evolves in time
     - optionally adds `biogeochemical_drift_velocity` (if `include_sinking` is true)
 
-WARNING: before passing the `bgc_type` to Oceananigans, it needs to be wrapped in an
-`OceanBioME.Biogeochemistry()` object, which adds additional methods not defined here:
-- `biogeochenical_auxiliary_fields`
-- `update_biogeochemical_state!`
+!!! info
+
+    before passing the `bgc_type` to Oceananigans, it needs to be wrapped in an
+    `OceanBioME.Biogeochemistry()` object, which adds additional methods not defined here:
+    - `biogeochemical_auxiliary_fields`
+    - `update_biogeochemical_state!`
 
 # Arguments
 - `bgc_type`: subtype of Oceananigans.Biogeochemistry (returned by `create_bgc_struct`)
@@ -186,12 +190,15 @@ WARNING: before passing the `bgc_type` to Oceananigans, it needs to be wrapped i
 - `auxiliary_fields`: an optional iterable of auxiliary field variables
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
 - `include_sinking`: boolean indicating whether the model includes sinking tracers, if true
-   adds corresponding methods (e.g., `biogeochemical_drift_velocity()`), defaults to false
+   adds corresponding OceanBioME methods (e.g., `biogeochemical_drift_velocity()`), defaults
+   to false
 
-Note that the field names of `bgc_type` can't be any of [:x, :y, :z, :t] (as these are reserved
-for coordinates) and they must include all parameters used in the `tracers` expressions. The
-expressions must use methods that are either defined within this module or passed in the
-`helper_functions` file.
+!!! warning
+
+    Note that the field names of `bgc_type` can't be any of [:x, :y, :z, :t] (as these are reserved
+    for coordinates) and they must include all parameters used in the `tracers` expressions. The
+    expressions must use methods that are either defined within this module or passed in the
+    `helper_functions` file.
 
 # Example
 ```julia
