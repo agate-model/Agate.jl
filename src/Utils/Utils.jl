@@ -36,19 +36,25 @@ export define_tracer_functions, expression_check, create_bgc_struct, add_bgc_met
 Create an Oceananigans.Biogeochemistry model type.
 
 # Arguments
-- `parameters`: named sequence of values of the form ((<field name> = <default value>, ...)
-- `tracers`: dictionary of the form (<name> => <expression>, ...)
+- `parameters`: NamedTuple of values of the form ((<field name> = <default value>, ...)
+- `tracers`: Dictionary of the form (<tracer name> => <tracer method expression>, ...)
 
 # Keywords
-- `auxiliary_fields`: an iterable of auxiliary field variables, defaults to `[:PAR,]`
+- `auxiliary_fields`: an iterable of auxiliary field variables, defaults to `[:PAR]`
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
 - `sinking_velocities`: optional NamedTuple of constant sinking, of fields (i.e. `ZFaceField(...)`)
    for any tracers which sink returned by OceanBioME.Models.Sediments: sinking_tracers.
 
-Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t], as these
-are reserved for coordinates, and they must include all parameters used in the `tracers`
-expressions. The expressions must use methods that are either defined within this module or
-passed in the `helper_functions` file.
+!!! warning
+
+    Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t], as these
+    are reserved for coordinates, and they must include all parameters used in the `tracers`
+    expressions.
+
+!!! warning
+
+    The tracer expressions must use methods that are either defined within this module or
+    passed in the `helper_functions` file.
 
 # Example
 ```julia
@@ -184,7 +190,7 @@ Add methods to `bgc_type` required of Oceananigans.Biogeochemistry:
 
 # Arguments
 - `bgc_type`: subtype of Oceananigans.Biogeochemistry (returned by `create_bgc_struct`)
-- `tracers`: dictionary of the form (<name> => <expression>, ...)
+- `tracers`: Dictionary of the form (<tracer name> => <tracer method expression>, ...)
 
 # Keywords
 - `auxiliary_fields`: an optional iterable of auxiliary field variables, defaults to `[]`
@@ -200,8 +206,8 @@ Add methods to `bgc_type` required of Oceananigans.Biogeochemistry:
 
 !!! warning
 
-    The tracer expressions must use methods that are either defined within this module or passed in the
-    `helper_functions` file.
+    The tracer expressions must use methods that are either defined within this module or
+    passed in the `helper_functions` file.
 
 # Example
 ```julia
