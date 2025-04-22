@@ -300,11 +300,16 @@ end
 """
     parse_expression(f_expr) -> Vector
 
-Return all symbols (argument names and method names) called in expression.
+Return all symbols (function names and argument names) called in expression.
+
+!!! info
+
+    The input here is expected to be a tracer method defined inside a quote (see example).
+    This allows us to check whether all functions and variables in the tracer method are defined.
 
 # Example
 ```julia
-using Agate.Models.Biogeochemistry: parse_expression
+using Agate.Utils: parse_expression
 
 parse_expression(:(α * x - β * x * y))
 ```
