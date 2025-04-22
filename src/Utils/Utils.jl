@@ -108,6 +108,9 @@ create_bgc_struct(:LV, (α=2/3, β=4/3,  δ=1, γ=1))
 ```
 """
 function create_bgc_struct(struct_name, parameters, sinking_velocities=nothing)
+    # have to create an expression for each struct field
+    # this is of the form `<field name>:: <field type> = <field value>`
+    # create and store expressions in an array before struct contsruction
     fields = []
     # need to also keep track of parameter types to return a parametric struct
     type_names = Set()
@@ -135,6 +138,7 @@ function create_bgc_struct(struct_name, parameters, sinking_velocities=nothing)
         push!(fields, exp)
     end
 
+    # optionally add a field of sinking velocities
     if !isnothing(sinking_velocities)
         # using W here for consistency with OceanBioME
         type_symbol = :W
@@ -143,6 +147,7 @@ function create_bgc_struct(struct_name, parameters, sinking_velocities=nothing)
         push!(fields, exp)
     end
 
+    # construct struct (include default parameter values so have to use kwdef)
     exp = quote
         Base.@kwdef struct $struct_name{$(type_names...)} <:
                            AbstractContinuousFormBiogeochemistry
