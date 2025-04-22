@@ -196,8 +196,11 @@ Add methods to `bgc_type` required of Oceananigans.Biogeochemistry:
 !!! warning
 
     Note that the field names of `bgc_type` can't be any of [:x, :y, :z, :t] (as these are reserved
-    for coordinates) and they must include all parameters used in the `tracers` expressions. The
-    expressions must use methods that are either defined within this module or passed in the
+    for coordinates) and they must include all parameters used in the `tracers` expressions.
+
+!!! warning
+
+    The tracer expressions must use methods that are either defined within this module or passed in the
     `helper_functions` file.
 
 # Example
@@ -236,7 +239,10 @@ function add_bgc_methods!(
     eval(:(required_biogeochemical_tracers(::$(bgc_type)) = $(tracer_vars...,)))
     eval(:(required_biogeochemical_auxiliary_fields(::$(bgc_type)) = $(aux_field_vars...,)))
 
+    # the BGC struct holds all the user defined parameters in its fields
     params = fieldnames(bgc_type)
+    # the tracer methods rely on model parameters to be declared as variables in the method
+    # scope, here we create expressions that define these local variables
     method_vars = []
     for param in params
         if param in [:x, :y, :z, :t]
@@ -269,6 +275,8 @@ function add_bgc_methods!(
     if include_sinking
         # `biogeochemical_drift_velocity` is an optional Oceananigans.Biogeochemistry method
         # that returns a NamedTuple of velocity fields for a tracer with keys `u`, `v`, `w`
+        # implementation here based on:
+        # https://github.com/OceanBioME/OceanBioME.jl/blob/a84ab98465b220e805232c46015759a6d5280536/src/Models/AdvectedPopulations/NPZD.jl#L286
         sink_velocity_method = quote
             function biogeochemical_drift_velocity(
                 bgc::$(bgc_type), ::Val{tracer_name}
