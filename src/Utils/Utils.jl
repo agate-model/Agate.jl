@@ -91,7 +91,7 @@ Create a subtype of Oceananigans.Biogeochemistry with field names defined in `pa
 # Arguments
 - `struct_name`: name for the struct to create passed as a Symbol (the new struct will be
    accessible as `Agate.Models.Biogeochemistry.<struct_name>`)
-- `parameters`: named sequence of values of the form (<field name> = <default value>, ...)
+- `parameters`: NamedTuple of values of the form (<field name> = <default value>, ...)
 
 # Keywords
 - `sinking_velocities`: optional NamedTuple of constant sinking, of fields (i.e. `ZFaceField(...)`)
