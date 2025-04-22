@@ -17,25 +17,14 @@ emergent_assimilation_efficiency_f = assimilation_efficiency_emergent_binary
 """
     compute_allometric_parameters(plankton::Dict) -> Tuple(Dict, Array)
 
-This function:
-    - generates `n` diameters for each `plankton` group using either a linear or a log
-      splitting scale
-    - optionally computes emergent parameters (allometric functions, assimilation matrix,
-      palatability matrix) for each group-diameter combination
-    - reshapes any other group specific parameters to Array of length `n` (repeating the
-      parameter value n times to match it in length to the emergent parameters)
-
-All parameters are returned as: `Dict(<parameter> => <Array of values>, ....)` along with
-an Array of the plankton order in which the parameter values were created and processed
-(e.g., `["Z1", ...., "Z<n>", "P1", ..., "P<n>"]`).
+Compute allometric (diameter-dependant) plankton parameters.
 
 # Arguments
 - `plankton`: a Dictionary of plankton groups' specific parameters of the form:
        `Dict(<group name> => Dict(<parameter> => <value>, ....), ...)`
-
     The Dictionary for each group (e.g., "P", "Z" or "cocco") has to contain at least the
-    keys "n" and "diameters", which are either an array of values or a dictionary of the
-    following form:
+    keys "n" and "diameters", specifying number of plankton diameters to generate and how
+    (using either linear or log splitting), e.g.:
         ```
         Dict(
             "P" => Dict(
@@ -48,7 +37,9 @@ an Array of the plankton order in which the parameter values were created and pr
         )
         ```
 
-    The Dictionary for each group can optionally include the following keys and values:
+!!! info
+
+    The Dictionary for each plankton group can also include the following keys and values:
         - key: "allometry" (compute diameter dependent parameters)
             - value: Dictionary of the form
                 `Dict(<param name> => Dict("a" => <value>, "b" => <value>), ...)`
@@ -57,34 +48,23 @@ an Array of the plankton order in which the parameter values were created and pr
               "specificity" keys
         - key: "assimilation_efficiency" (generate assimilation efficiency matrix)
             - value: Dictionary with "can_eat", "can_be_eaten", "assimilation_efficiency" keys
-    For example:
-        ```
-        Dict(
-            "P" => Dict(
-                ...,
-                "allometry" => Dict(
-                    "maximum_growth_rate" => Dict("a" => 2.3148e-5, "b" => -0.15),
-                    "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
-                ),
-                ...
-            ),
-            "Z" => Dict(
-                ...,
-                "palatability" => Dict(
-                    "can_eat" => 1,
-                    "optimum_predator_prey_ratio" => 10,
-                    "protection" => 1,
-                    "specificity" => 0.3,
-                ),
-                "assimilation_efficiency" => Dict(
-                    "can_be_eaten" => 0,
-                    "can_eat" => 1,
-                    "assimilation_efficiency" => 0.32
-                ),
-                ...
-            )
-        )
-        ```
+
+!!! info
+
+    This function:
+    - generates `n` diameters for each `plankton` group
+    - computes emergent parameters (allometric functions, assimilation matrix,
+      palatability matrix) for each group-diameter combination, if these are specified
+    - reshapes any other group specific parameters to Array of length `n` (repeating the
+      parameter value n times to match it in length to the emergent parameters)
+
+    All parameters are returned as: `Dict(<parameter> => <Array of values>, ....)` along with
+    an Array of the plankton order in which the parameter values were created and processed
+    (e.g., `["Z1", ...., "Z<n>", "P1", ..., "P<n>"]`).
+
+!!! tip
+
+    See test.test_parameters `create_allometric_parameters` testset for example input.
 """
 function compute_allometric_parameters(plankton::Dict)
 
