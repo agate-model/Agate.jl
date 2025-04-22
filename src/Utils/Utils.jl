@@ -164,7 +164,7 @@ end
     add_bgc_methods!(
         bgc_type,
         tracers;
-        auxiliary_fields=[:PAR],
+        auxiliary_fields=[],
         helper_functions=nothing,
         include_sinking=false,
     )
@@ -187,7 +187,7 @@ Add methods to `bgc_type` required of Oceananigans.Biogeochemistry:
 - `tracers`: dictionary of the form (<name> => <expression>, ...)
 
 # Keywords
-- `auxiliary_fields`: an optional iterable of auxiliary field variables
+- `auxiliary_fields`: an optional iterable of auxiliary field variables, defaults to `[]`
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
 - `include_sinking`: boolean indicating whether the model includes sinking tracers, if true
    adds corresponding OceanBioME methods (e.g., `biogeochemical_drift_velocity()`), defaults
