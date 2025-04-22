@@ -17,25 +17,14 @@ emergent_assimilation_efficiency_f = assimilation_efficiency_emergent_binary
 """
     compute_allometric_parameters(plankton::Dict) -> Tuple(Dict, Array)
 
-This function:
-    - generates `n` diameters for each `plankton` group using either a linear or a log
-      splitting scale
-    - optionally computes emergent parameters (allometric functions, assimilation matrix,
-      palatability matrix) for each group-diameter combination
-    - reshapes any other group specific parameters to Array of length `n` (repeating the
-      parameter value n times to match it in length to the emergent parameters)
-
-All parameters are returned as: `Dict(<parameter> => <Array of values>, ....)` along with
-an Array of the plankton order in which the parameter values were created and processed
-(e.g., `["Z1", ...., "Z<n>", "P1", ..., "P<n>"]`).
+Compute allometric (diameter-dependant) plankton parameters.
 
 # Arguments
 - `plankton`: a Dictionary of plankton groups' specific parameters of the form:
        `Dict(<group name> => Dict(<parameter> => <value>, ....), ...)`
-
     The Dictionary for each group (e.g., "P", "Z" or "cocco") has to contain at least the
-    keys "n" and "diameters", which are either an array of values or a dictionary of the
-    following form:
+    keys "n" and "diameters", specifying number of plankton diameters to generate and how
+    (min/max values and whether to use linear or log splitting), e.g.:
         ```
         Dict(
             "P" => Dict(
@@ -48,7 +37,9 @@ an Array of the plankton order in which the parameter values were created and pr
         )
         ```
 
-    The Dictionary for each group can optionally include the following keys and values:
+!!! info
+
+    The Dictionary for each plankton group can also include the following keys and values:
         - key: "allometry" (compute diameter dependent parameters)
             - value: Dictionary of the form
                 `Dict(<param name> => Dict("a" => <value>, "b" => <value>), ...)`
@@ -57,34 +48,26 @@ an Array of the plankton order in which the parameter values were created and pr
               "specificity" keys
         - key: "assimilation_efficiency" (generate assimilation efficiency matrix)
             - value: Dictionary with "can_eat", "can_be_eaten", "assimilation_efficiency" keys
-    For example:
-        ```
-        Dict(
-            "P" => Dict(
-                ...,
-                "allometry" => Dict(
-                    "maximum_growth_rate" => Dict("a" => 2.3148e-5, "b" => -0.15),
-                    "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
-                ),
-                ...
-            ),
-            "Z" => Dict(
-                ...,
-                "palatability" => Dict(
-                    "can_eat" => 1,
-                    "optimum_predator_prey_ratio" => 10,
-                    "protection" => 1,
-                    "specificity" => 0.3,
-                ),
-                "assimilation_efficiency" => Dict(
-                    "can_be_eaten" => 0,
-                    "can_eat" => 1,
-                    "assimilation_efficiency" => 0.32
-                ),
-                ...
-            )
-        )
-        ```
+        - key: "*" (any other Strings)
+             - value: Float specifying group level parameters (e.g., mortality rates)
+
+!!! info
+
+    This function:
+    - generates `n` diameters for each `plankton` group
+    - computes emergent parameters (allometric functions, assimilation matrix,
+      palatability matrix) for each group-diameter combination, if these are specified as keys
+      in the input Dictionary
+    - reshapes any other group specific parameters to Array of length `n` (repeating the
+      parameter value n times to match it in length to the emergent parameters)
+
+    All parameters are returned as: `Dict(<parameter> => <Array of values>, ....)` along with
+    an Array of the plankton order in which the parameter values were created and processed
+    (e.g., `["Z1", ...., "Z<n>", "P1", ..., "P<n>"]`).
+
+!!! tip
+
+    See test.test_parameters `create_allometric_parameters` testset for example input.
 """
 function compute_allometric_parameters(plankton::Dict)
 
@@ -116,7 +99,7 @@ function compute_allometric_parameters(plankton::Dict)
         end
         results["diameters"] = vcat(results["diameters"], diameters)
 
-        # 2. compute allometric functions (if any specified by user)
+        # 2. compute allometric functions (if "allometry" specified by user in params)
         if "allometry" ∈ keys(params)
             for (param, args) in params["allometry"]
                 values = [
@@ -146,7 +129,8 @@ function compute_allometric_parameters(plankton::Dict)
                         end
                     end
                 else
-                    # NOTE: expect here that in all other cases `value` is a single number
+                    # NOTE: expect here that in all other cases `value` is a Float specifying
+                    # group level parameters
                     results[param] = vcat(results[param], repeat([value], n))
                 end
             end
@@ -190,12 +174,16 @@ function linear_splitting(min_diameter::Real, max_diameter::Real, n::Int)
 end
 
 """
+    emergent_2D_array(plankton, func)
+
 Apply function `func` to every every pair of `plankton` groups, returning a 2D Array. The
 expected use is for calculating predator-prey dynamics (palatability and assimilation
 efficiency matrices).
 
-The `plankton` Dictionary keys have to contain argument names of the function to calculate
-and be of the form `Dict(<function arg name> => <Array of values>, ...)`
+# Arguments
+- `plankton`: Dictionary of values to apply `func` to, of the form
+   `Dict(<function arg name> => <Array of values>, ...)`
+- `func`: Function
 
 # Example
 ```julia
@@ -203,12 +191,12 @@ function add_ab(prey, pred)
     return prey["a"] + pred["b]
 end
 
-plankton = Dict(
+plankton_vals = Dict(
     "a" => [1, 2, 3],
     "b" => [9, 8, 7],
 )
 
-values_matrix = emergent_2D_array(plankton, add_ab)
+values_matrix = emergent_2D_array(plankton_vals, add_ab)
 ```
 """
 function emergent_2D_array(plankton, func)
@@ -231,31 +219,50 @@ function emergent_2D_array(plankton, func)
 end
 
 """
-Create a parameter specification from which an Oceananigans.Biogeochemistry model can be
-instantiated in the format `NamedTuple(<parameter name> = <Array of values>, ...))`
+    create_size_structured_params(;
+        n_plankton=Dict("P" => 2, "Z" => 2),
+        diameters=Dict(
+            "P" =>
+                Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
+            "Z" => Dict(
+                "min_diameter" => 20,
+                "max_diameter" => 100,
+                "splitting" => "linear_splitting",
+            ),
+        ),
+        plankton_args=nothing,
+        interaction_args=nothing,
+        bgc_args=nothing,
+        palatability_matrix=nothing,
+        assimilation_efficiency_matrix=nothing,
+    )
 
-Specifically, this functions:
-- computes size-dependent plankton parameters
-- formats all plankton parameters to be Arrays of same length (`n` plankton in the model),
-  which means that wherever a parameter is defined for only some plankton groups, its value
-  is set to 0 for the other groups
+Create a NamedTuple of parameters from which an Oceananigans.Biogeochemistry model can be instantiated.
 
 # Arguments
-- `n_plankton`: Dict of the number of plankton to include in the model by group
+- `n_plankton`: Dictionary of the number of plankton to include in the model by group
 - `diameters`: Dictionary which specifies for each plankton group how to compute diameters
    or gives a list of values to use
-- `plankton_args`: Dictionary of plankton parameters for each group, for default values see
-    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`, `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
+- `plankton_args`: Dictionary of plankton parameters for each group
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
-   efficiency matrix between all plankton can be computed, for default values see
-    `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
+   efficiency matrix between all plankton can be computed
 - `bgc_args`: Dictionary of constant parameters used in growth functions (i.e., not size
     dependant plankton parameters as well as biogeochemistry parameters related to nutrient
-    and detritus, for default values see `Agate.Models.Constructors.DEFAULT_CONSTANT_ARGS`
+    and detritus
 - `palatability_matrix`: optional palatability matrix passed as an Array, if provided
     then `interaction_args` are not used to compute this
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
     Array, if provided then `interaction_args` are not used to compute this
+
+!!! warning
+
+    Wherever a parameter is defined for only some plankton groups, its value is set to 0 for
+    the other plankton groups.
+
+!!! tip
+
+    See Agate.Models.NiPiZD.Constructor for example plankton_args, interaction_args and bgc_args.
+
 """
 function create_size_structured_params(;
     n_plankton=Dict("P" => 2, "Z" => 2),
@@ -275,9 +282,9 @@ function create_size_structured_params(;
     assimilation_efficiency_matrix=nothing,
 )
     # ====================================================================================
-    # 1. Make sure that phyto_args and zoo_args have all the same parameters to ensure the
-    #    output parameter vectors all have the same size (n_phyto + n_zoo)
-    #    - set value of parameter to 0 in those cases
+    # 1. Ensure that all plankton groups have the same parameters
+    #   - gather all parameters across groups
+    #   - when param not specified for a group, add it and set value to 0
     # ====================================================================================
 
     # NOTE: Julia passes dictionaries by reference not value
@@ -285,9 +292,11 @@ function create_size_structured_params(;
     plankton_args_copy = deepcopy(plankton_args)
 
     # first handle allometry
+    # - get all allometric parameters across groups (e.g., Ps and Zs)
     all_allometric_params = union(
         vcat([collect(keys(args["allometry"])) for args in values(plankton_args_copy)]...)
     )
+    # - loop across groups, if allometric param not defined, set it to 0
     for name in keys(plankton_args_copy)
         for param in all_allometric_params
             if !(param ∈ keys(plankton_args_copy[name]["allometry"]))
@@ -296,7 +305,7 @@ function create_size_structured_params(;
         end
     end
 
-    # then handle non allometric params
+    # second, handle non allometric params (same as above, exclude allometry)
     all_other_params = setdiff(
         union(vcat([collect(keys(args)) for args in values(plankton_args_copy)]...)),
         ["allometry"],
@@ -345,12 +354,16 @@ function create_size_structured_params(;
 
     # ====================================================================================
     # 4. Compute allometric parameters
-    #   - if user provided matrix inputs, add them here (check if correct size)
     # ====================================================================================
 
     # NOTE: function also reshapes non-emergent plankton parameters
     emergent_parameters, plankton_names = compute_allometric_parameters(defined_parameters)
 
+    # ====================================================================================
+    # 5. Clean up
+    # ====================================================================================
+
+    # if user provided matrix inputs, add them here (check if correct size)
     n = sum(values(n_plankton))
     if !isnothing(palatability_matrix)
         if !(size(palatability_matrix) == (n, n))
@@ -368,11 +381,7 @@ function create_size_structured_params(;
             assimilation_efficiency_matrix
     end
 
-    # ====================================================================================
-    # 5. Clean up
-    # ====================================================================================
-
-    # append information that need access to at instantiation
+    # append information that need access to at model object instantiation
     for (name, n) in n_plankton
         bgc_args["n_$name"] = n
     end

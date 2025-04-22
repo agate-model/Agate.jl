@@ -36,19 +36,25 @@ export define_tracer_functions, expression_check, create_bgc_struct, add_bgc_met
 Create an Oceananigans.Biogeochemistry model type.
 
 # Arguments
-- `parameters`: named sequence of values of the form ((<field name> = <default value>, ...)
-- `tracers`: dictionary of the form (<name> => <expression>, ...)
+- `parameters`: NamedTuple of values of the form ((<field name> = <default value>, ...)
+- `tracers`: Dictionary of the form (<tracer name> => <tracer method expression>, ...)
 
 # Keywords
-- `auxiliary_fields`: an iterable of auxiliary field variables, defaults to `[:PAR,]`
+- `auxiliary_fields`: an iterable of auxiliary field variables, defaults to `[:PAR]`
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
 - `sinking_velocities`: optional NamedTuple of constant sinking, of fields (i.e. `ZFaceField(...)`)
    for any tracers which sink returned by OceanBioME.Models.Sediments: sinking_tracers.
 
-Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t], as these
-are reserved for coordinates, and they must include all parameters used in the `tracers`
-expressions. The expressions must use methods that are either defined within this module or
-passed in the `helper_functions` file.
+!!! warning
+
+    Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t], as these
+    are reserved for coordinates, and they must include all parameters used in the `tracers`
+    expressions.
+
+!!! warning
+
+    The tracer expressions must use methods that are either defined within this module or
+    passed in the `helper_functions` file.
 
 # Example
 ```julia
@@ -91,14 +97,16 @@ Create a subtype of Oceananigans.Biogeochemistry with field names defined in `pa
 # Arguments
 - `struct_name`: name for the struct to create passed as a Symbol (the new struct will be
    accessible as `Agate.Models.Biogeochemistry.<struct_name>`)
-- `parameters`: named sequence of values of the form (<field name> = <default value>, ...)
+- `parameters`: NamedTuple of values of the form (<field name> = <default value>, ...)
 
 # Keywords
 - `sinking_velocities`: optional NamedTuple of constant sinking, of fields (i.e. `ZFaceField(...)`)
    for any tracers which sink returned by OceanBioME.Models.Sediments: sinking_tracers.
 
-Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] as these
-are reserved for coordinates.
+!!! warning
+
+    Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] as these
+    are reserved for coordinates.
 
 # Example
 ```julia
@@ -108,8 +116,11 @@ create_bgc_struct(:LV, (α=2/3, β=4/3,  δ=1, γ=1))
 ```
 """
 function create_bgc_struct(struct_name, parameters, sinking_velocities=nothing)
+    # have to create an expression for each struct field
+    # this is of the form `<field name>:: <field type> = <field value>`
+    # create and store expressions in an array before struct contsruction
     fields = []
-    # need to also keep track of parameter types to return a parametric struct
+    # need to also keep track of all parameter types to return a parametric struct
     type_names = Set()
     for (k, v) in pairs(parameters)
         if k in [:x, :y, :z, :t]
@@ -135,6 +146,7 @@ function create_bgc_struct(struct_name, parameters, sinking_velocities=nothing)
         push!(fields, exp)
     end
 
+    # optionally add a field for sinking velocities
     if !isnothing(sinking_velocities)
         # using W here for consistency with OceanBioME
         type_symbol = :W
@@ -143,6 +155,7 @@ function create_bgc_struct(struct_name, parameters, sinking_velocities=nothing)
         push!(fields, exp)
     end
 
+    # construct struct (include default parameter values so have to use kwdef)
     exp = quote
         Base.@kwdef struct $struct_name{$(type_names...)} <:
                            AbstractContinuousFormBiogeochemistry
@@ -157,7 +170,7 @@ end
     add_bgc_methods!(
         bgc_type,
         tracers;
-        auxiliary_fields=[:PAR],
+        auxiliary_fields=[],
         helper_functions=nothing,
         include_sinking=false,
     )
@@ -168,24 +181,33 @@ Add methods to `bgc_type` required of Oceananigans.Biogeochemistry:
     - a method per tracer specifying how it evolves in time
     - optionally adds `biogeochemical_drift_velocity` (if `include_sinking` is true)
 
-WARNING: `biogeochenical_auxiliary_fields` method must also be defined to make use of the
-`auxiliary_fields`. This method is added when `OceanBioME.Biogeochemistry(bgc_type())` is
-instantiated alongside an `update_biogeochemical_state!` method.
+!!! info
+
+    before passing the `bgc_type` to Oceananigans, it needs to be wrapped in an
+    `OceanBioME.Biogeochemistry()` object, which adds additional methods not defined here:
+    - `biogeochemical_auxiliary_fields`
+    - `update_biogeochemical_state!`
 
 # Arguments
 - `bgc_type`: subtype of Oceananigans.Biogeochemistry (returned by `create_bgc_struct`)
-- `tracers`: dictionary of the form (<name> => <expression>, ...)
+- `tracers`: Dictionary of the form (<tracer name> => <tracer method expression>, ...)
 
 # Keywords
-- `auxiliary_fields`: an optional iterable of auxiliary field variables
+- `auxiliary_fields`: an optional iterable of auxiliary field variables, defaults to `[]`
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
 - `include_sinking`: boolean indicating whether the model includes sinking tracers, if true
-   adds corresponding methods (e.g., `biogeochemical_drift_velocity()`), defaults to false
+   adds corresponding OceanBioME methods (e.g., `biogeochemical_drift_velocity()`), defaults
+   to false
 
-Note that the field names of `bgc_type` can't be any of [:x, :y, :z, :t] (as these are reserved
-for coordinates) and they must include all parameters used in the `tracers` expressions. The
-expressions must use methods that are either defined within this module or passed in the
-`helper_functions` file.
+!!! warning
+
+    Note that the field names of `bgc_type` can't be any of [:x, :y, :z, :t] (as these are reserved
+    for coordinates) and they must include all parameters used in the `tracers` expressions.
+
+!!! warning
+
+    The tracer expressions must use methods that are either defined within this module or
+    passed in the `helper_functions` file.
 
 # Example
 ```julia
@@ -223,7 +245,10 @@ function add_bgc_methods!(
     eval(:(required_biogeochemical_tracers(::$(bgc_type)) = $(tracer_vars...,)))
     eval(:(required_biogeochemical_auxiliary_fields(::$(bgc_type)) = $(aux_field_vars...,)))
 
+    # the BGC struct holds all the user defined parameters in its fields
     params = fieldnames(bgc_type)
+    # the tracer methods rely on model parameters to be declared as variables in the method
+    # scope, here we create expressions that define these local variables
     method_vars = []
     for param in params
         if param in [:x, :y, :z, :t]
@@ -256,6 +281,8 @@ function add_bgc_methods!(
     if include_sinking
         # `biogeochemical_drift_velocity` is an optional Oceananigans.Biogeochemistry method
         # that returns a NamedTuple of velocity fields for a tracer with keys `u`, `v`, `w`
+        # implementation here based on:
+        # https://github.com/OceanBioME/OceanBioME.jl/blob/a84ab98465b220e805232c46015759a6d5280536/src/Models/AdvectedPopulations/NPZD.jl#L286
         sink_velocity_method = quote
             function biogeochemical_drift_velocity(
                 bgc::$(bgc_type), ::Val{tracer_name}
@@ -279,11 +306,16 @@ end
 """
     parse_expression(f_expr) -> Vector
 
-Return all symbols (argument names and method names) called in expression.
+Return all symbols (function names and argument names) called in expression.
+
+!!! info
+
+    The input here is expected to be a tracer method defined inside a quote (see example).
+    This allows us to check whether all functions and variables in the tracer method are defined.
 
 # Example
 ```julia
-using Agate.Models.Biogeochemistry: parse_expression
+using Agate.Utils: parse_expression
 
 parse_expression(:(α * x - β * x * y))
 ```
