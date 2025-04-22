@@ -112,7 +112,7 @@ function create_bgc_struct(struct_name, parameters, sinking_velocities=nothing)
     # this is of the form `<field name>:: <field type> = <field value>`
     # create and store expressions in an array before struct contsruction
     fields = []
-    # need to also keep track of parameter types to return a parametric struct
+    # need to also keep track of all parameter types to return a parametric struct
     type_names = Set()
     for (k, v) in pairs(parameters)
         if k in [:x, :y, :z, :t]
@@ -138,7 +138,7 @@ function create_bgc_struct(struct_name, parameters, sinking_velocities=nothing)
         push!(fields, exp)
     end
 
-    # optionally add a field of sinking velocities
+    # optionally add a field for sinking velocities
     if !isnothing(sinking_velocities)
         # using W here for consistency with OceanBioME
         type_symbol = :W
@@ -173,9 +173,10 @@ Add methods to `bgc_type` required of Oceananigans.Biogeochemistry:
     - a method per tracer specifying how it evolves in time
     - optionally adds `biogeochemical_drift_velocity` (if `include_sinking` is true)
 
-WARNING: `biogeochenical_auxiliary_fields` method must also be defined to make use of the
-`auxiliary_fields`. This method is added when `OceanBioME.Biogeochemistry(bgc_type())` is
-instantiated alongside an `update_biogeochemical_state!` method.
+WARNING: before passing the `bgc_type` to Oceananigans, it needs to be wrapped in an
+`OceanBioME.Biogeochemistry()` object, which adds additional methods not defined here:
+- `biogeochenical_auxiliary_fields`
+- `update_biogeochemical_state!`
 
 # Arguments
 - `bgc_type`: subtype of Oceananigans.Biogeochemistry (returned by `create_bgc_struct`)
