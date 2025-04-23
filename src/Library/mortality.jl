@@ -14,7 +14,7 @@ Linear mortality rate.
     - ``P`` = plankton concentration
     - ``l`` = mortality rate
 
-In this formulation mortality is constant, and can be interpreted as
+In this formulation mortality is linear, and can be interpreted as
 a "closure term" for low density predation and and other death terms.
 
 # Arguments
