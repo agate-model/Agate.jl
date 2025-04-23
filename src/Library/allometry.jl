@@ -4,7 +4,7 @@ export allometric_scaling_power,
     allometric_palatability_unimodal, allometric_palatability_unimodal_protection
 
 """
-    allometric_scaling_power(a, b, d::Number)
+    allometric_scaling_power(a::Number, b::Number, d::Number)
 
 Allometric scaling function using the power law for cell volume.
 
@@ -19,7 +19,7 @@ function allometric_scaling_power(a::Number, b::Number, d::Number)
 end
 
 """
-    allometric_palatability_unimodal(prey_data, predator_data)
+    allometric_palatability_unimodal(prey_data::Dict, predator_data::Dict)
 
 Calculates the unimodal allometric palatability of prey based on predator-prey diameters.
 
@@ -58,7 +58,7 @@ function allometric_palatability_unimodal(prey_data::Dict, predator_data::Dict)
 end
 
 """
-    allometric_palatability_unimodal_protection(prey_data, predator_data)
+    allometric_palatability_unimodal_protection(prey_data::Dict, predator_data::Dict)
 
 Calculates the unimodal allometric palatability of prey, accounting for additional prey protection mechanisms.
 
