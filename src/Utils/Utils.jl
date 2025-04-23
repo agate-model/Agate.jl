@@ -13,6 +13,7 @@ using Agate.Library.Remineralization
 
 using UUIDs
 
+using OceanBioME
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 using Oceananigans.Fields: ZeroField
 
@@ -20,7 +21,6 @@ import Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers,
     required_biogeochemical_auxiliary_fields,
     biogeochemical_drift_velocity
-import OceanBioME.Models.Sediments: sinking_tracers
 
 export define_tracer_functions, expression_check, create_bgc_struct, add_bgc_methods!
 
@@ -43,7 +43,7 @@ Create an Oceananigans.Biogeochemistry model type.
 - `auxiliary_fields`: an iterable of auxiliary field variables, defaults to `[:PAR]`
 - `helper_functions`: optional path to a file of helper functions used in tracer expressions
 - `sinking_velocities`: optional NamedTuple of constant sinking, of fields (i.e. `ZFaceField(...)`)
-   for any tracers which sink returned by OceanBioME.Models.Sediments: sinking_tracers.
+   for any tracers which sink returned by OceanBioME.Sediments: sinking_tracers.
 
 !!! warning
 
@@ -101,7 +101,7 @@ Create a subtype of Oceananigans.Biogeochemistry with field names defined in `pa
 
 # Keywords
 - `sinking_velocities`: optional NamedTuple of constant sinking, of fields (i.e. `ZFaceField(...)`)
-   for any tracers which sink returned by OceanBioME.Models.Sediments: sinking_tracers.
+   for any tracers which sink returned by OceanBioME.Sediments: sinking_tracers.
 
 !!! warning
 
@@ -295,9 +295,6 @@ function add_bgc_methods!(
             end
         end
         eval(sink_velocity_method)
-
-        # this function is used in the OceanBioME sediment models
-        eval(:(sinking_tracers(bgc::$(bgc_type)) = keys(bgc.sinking_velocities)))
     end
 
     return bgc_type

@@ -132,8 +132,6 @@ using Oceananigans.Biogeochemistry:
 
             model = NPZD_sink()
 
-            @test OceanBioME.Models.Sediments.sinking_tracers(model) == (:P, :D)
-
             @test biogeochemical_drift_velocity(model, Val(:P)).w.data[1, 1, 1] ==
                 -0.2551 / day
             @test biogeochemical_drift_velocity(model, Val(:D)).w.data[1, 1, 1] ==
