@@ -44,7 +44,7 @@ Calculates the unimodal allometric palatability of prey based on predator-prey d
     - σ = how sharply the palatability decreases away from the optimal ratio.
 
 !!! info   
-    This formulation differs from the currently operational MITgcm-DARWIN model as it uses diameter instead of volumes and is structurally different. 
+    This formulation differs from the operational MITgcm-DARWIN model as it is is structurally different and diameters are used instead of volumes.
     However, both formulations result in a unimodal response where the width and optima are modulated by the optimum-predator-prey ratio and the specificity.
 
 # Arguments
