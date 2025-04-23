@@ -4,26 +4,26 @@ export allometric_scaling_power,
     allometric_palatability_unimodal, allometric_palatability_unimodal_protection
 
 """
-    allometric_scaling_power(a::Number, b::Number, d::Number)
+    allometric_scaling_power(a::Number, b::Number, diameter::Number)
 
 Allometric scaling function using the power law for cell volume.
 
 !!! formulation
-    a * V^b
+    ``a`` * ``V``^``b``
 
     where:
-    - V = (4 / 3) * π * (d / 2)^3
-    - a = scale
-    - b = exponent
-    - d = cell equivalent spherical diameter (ESD)
+    - ``V`` = (4 / 3) * π * (``d`` / 2)^3
+    - ``a`` = scale
+    - ``b`` = exponent
+    - ``d`` = cell equivalent spherical diameter (ESD)
 
 # Arguments
 - `a`: scale
 - `b`: exponent
-- `d`: cell equivalent spherical diameter (ESD)
+- `diameter`: cell equivalent spherical diameter (ESD)
 """
-function allometric_scaling_power(a::Number, b::Number, d::Number)
-    V = (4 / 3) * π * (d / 2)^3
+function allometric_scaling_power(a::Number, b::Number, diameter::Number)
+    V = (4 / 3) * π * (diameter / 2)^3
     return a * V^b
 end
 
@@ -33,16 +33,15 @@ end
 Calculates the unimodal allometric palatability of prey based on predator-prey diameters.
 
 !!! formulation
-    0       if can-eat == 0
+    0 if ``f`` = 0
 
-    ``p``   otherwise
+    1 / (1 + (``d_{ratio}``- ``d_{opt}``)^2)^σ   otherwise
     
     where:
-    - ``p`` = 1 / (1 + (predator-prey-ratio - predator-prey-optimum)^2)^predator-specificity
-    - can-eat = binary ability of predator to eat prey
-    - predator-prey-ratio = ratio between predator and prey diameters
-    - predator-prey-optimum = optimum ratio between predator and prey diameter
-    - specificity = a parameter controlling how sharply the palatability decreases away from the optimal ratio.
+    - ``f`` = binary ability of predator to eat prey
+    - ``d_{ratio}`` = ratio between predator and prey diameters
+    - ``d_{opt}`` = optimum ratio between predator and prey diameter
+    - σ = how sharply the palatability decreases away from the optimal ratio.
 
 !!! info   
     This formulation differs from the currently operational MITgcm-DARWIN model as it uses diameter instead of volumes and is structurally different. 
@@ -82,19 +81,19 @@ end
 
 Calculates the unimodal allometric palatability of prey, accounting for additional prey protection mechanisms.
 
-!!! formulation
-    0       if can-eat == 0
 
-    ``p``   otherwise
+!!! formulation
+    0 if ``f`` = 0
+
+    (1 - η) / (1 + (``d_{ratio}``- ``d_{opt}``)^2)^σ   otherwise
     
     where:
-    - ``p`` = (1 - prey-protection) /
-        (1 + (predator-prey-ratio - predator-prey-optimum)^2)^predator-specificity
-    - can-eat = binary ability of predator to eat prey
-    - protection = scaling factor between 0 and 1 representing protection mechanisms of the prey.
-    - predator-prey-ratio = ratio between predator and prey diameters
-    - predator-prey-optimum = optimum ratio between predator and prey diameter
-    - specificity = a parameter controlling how sharply the palatability decreases away from the optimal ratio.
+    - ``f`` = binary ability of predator to eat prey
+    - η = prey-protection
+    - ``d_{ratio}`` = ratio between predator and prey diameters
+    - ``d_{opt}`` = optimum ratio between predator and prey diameter
+    - σ = how sharply the palatability decreases away from the optimal ratio.
+
 
 # Arguments
 - `prey_data`: A dictionary containing prey-specific data:
