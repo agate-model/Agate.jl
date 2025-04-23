@@ -45,7 +45,7 @@ Calculates the unimodal allometric palatability of prey based on predator-prey d
 
 !!! info   
     This formulation differs from the currently operational MITgcm-DARWIN model as it uses diameter instead of volumes and is structurally different. 
-    However, both formulations result in a unimodal response the width and optima are modulated by the optimum-predator-prey ratio and the specificity.
+    However, both formulations result in a unimodal response where the width and optima are modulated by the optimum-predator-prey ratio and the specificity.
 
 # Arguments
 - `prey_data`: A dictionary containing prey-specific data:
