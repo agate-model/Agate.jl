@@ -6,27 +6,12 @@ module Photosynthesis
 
 using Agate.Library.Nutrients
 
-export γˡⁱᵍʰᵗ,
+export 
     light_limitation_smith,
     light_limitation_geider,
     photosynthetic_growth_single_nutrient,
     photosynthetic_growth_single_nutrient_geider_light,
     photosynthetic_growth_two_nutrients_geider_light
-
-"""
-    γˡⁱᵍʰᵗ = (1 - ℯ^(kˢᵃᵗ*I)) * ℯ^kⁱⁿʰ * nˡⁱᵍʰᵗ
-
-Light limitation for plankton (Default MITgcm-DARWIN formulation).
-
-# Arguments
-- `I`: irradiance
-- `kˢᵃᵗ`:  half saturation constant of light saturation
-- `kⁱⁿʰ`: half saturation constant of light inhibition
-- `nˡⁱᵍʰᵗ`: light penalty term
-"""
-function γˡⁱᵍʰᵗ(I, kˢᵃᵗ, kⁱⁿʰ, nˡⁱᵍʰᵗ)
-    return (1 - ℯ^(kˢᵃᵗ * I)) * ℯ^kⁱⁿʰ * nˡⁱᵍʰᵗ
-end
 
 "
     α * PAR / sqrt(μ₀ ^ 2 + α ^ 2 * PAR ^ 2)

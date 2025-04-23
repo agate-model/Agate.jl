@@ -5,8 +5,6 @@ A library of modules to create marine biogeochemical models
 module Library
 
 include("allometry.jl")
-include("chlorophyll.jl")
-include("growth.jl")
 include("light.jl")
 include("mortality.jl")
 include("nutrients.jl")
@@ -16,8 +14,6 @@ include("remineralization.jl")
 include("temperature.jl")
 
 using .Allometry
-using .Chlorophyll
-using .Growth
 using .Light
 using .Mortality
 using .Nutrients
