@@ -8,6 +8,15 @@ export allometric_scaling_power,
 
 Allometric scaling function using the power law for cell volume.
 
+!!! formulation
+    a * V^b
+
+    where:
+    - V = (4 / 3) * π * (d / 2)^3
+    - a = scale
+    - b = exponent
+    - d = cell equivalent spherical diameter (ESD)
+
 # Arguments
 - `a`: scale
 - `b`: exponent
@@ -23,10 +32,21 @@ end
 
 Calculates the unimodal allometric palatability of prey based on predator-prey diameters.
 
-This function extracts `prey_diameter`, `predator_diameter`, `optimum_predator_prey_ratio`, 
-and `specificity` from the provided dictionaries and calculates the palatability using the diameter-based formula.
+!!! formulation
+    0       if can-eat == 0
 
-Note that this formulation differs from the currently operational MITgcm-DARWIN model as it uses diameter instead of volumes and is structurally different. However, both formulations result in a unimodal response the width and optima are modulated by the optimum_predator_prey ratio and the specificity.
+    ``p``   otherwise
+    
+    where:
+    - ``p`` = 1 / (1 + (predator-prey-ratio - predator-prey-optimum)^2)^predator-specificity
+    - can-eat = binary ability of predator to eat prey
+    - predator-prey-ratio = ratio between predator and prey diameters
+    - predator-prey-optimum = optimum ratio between predator and prey diameter
+    - specificity = a parameter controlling how sharply the palatability decreases away from the optimal ratio.
+
+!!! info   
+    This formulation differs from the currently operational MITgcm-DARWIN model as it uses diameter instead of volumes and is structurally different. 
+    However, both formulations result in a unimodal response the width and optima are modulated by the optimum-predator-prey ratio and the specificity.
 
 # Arguments
 - `prey_data`: A dictionary containing prey-specific data:
@@ -62,8 +82,19 @@ end
 
 Calculates the unimodal allometric palatability of prey, accounting for additional prey protection mechanisms.
 
-The function uses a modified unimodal relationship defined by:
-`palatability = prey_protection / (1 + (predator_prey_ratio - predator_prey_optimum)^2)^predator_specificity`
+!!! formulation
+    0       if can-eat == 0
+
+    ``p``   otherwise
+    
+    where:
+    - ``p`` = (1 - prey-protection) /
+        (1 + (predator-prey-ratio - predator-prey-optimum)^2)^predator-specificity
+    - can-eat = binary ability of predator to eat prey
+    - protection = scaling factor between 0 and 1 representing protection mechanisms of the prey.
+    - predator-prey-ratio = ratio between predator and prey diameters
+    - predator-prey-optimum = optimum ratio between predator and prey diameter
+    - specificity = a parameter controlling how sharply the palatability decreases away from the optimal ratio.
 
 # Arguments
 - `prey_data`: A dictionary containing prey-specific data:
