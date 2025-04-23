@@ -4,12 +4,6 @@
 Modules=[Agate.Library.Allometry]
 ```
 
-## Growth
-
-```@autodocs
-Modules=[Agate.Library.Growth]
-```
-
 ## Mortality
 
 ```@autodocs
