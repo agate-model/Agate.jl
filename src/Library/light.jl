@@ -20,6 +20,12 @@ export cyclical_PAR, FunctionFieldPAR
     cyclical_PAR(t, z) -> Float
 
 Time-dependent cyclical PAR at depth `z` (suitable for use with box models).
+
+!!! formulation
+    60 *
+    (1 - cos((t + 15days) * 2π / year)) *
+    (1 / (1 + 0.2 * exp(-((mod(t, year) - 200days) / 50days)^2))) + 2
+
 """
 function cyclical_PAR(z, t)
     PAR⁰ =
@@ -32,6 +38,8 @@ end
 cyclical_PAR(; z) = t -> cyclical_PAR(z, t)
 
 """
+    cyclical_PAR(z, t)
+
 Time and depth dependent cyclical PAR (suitable for use with column models).
 """
 function cyclical_PAR(x, y, z, t)
@@ -39,6 +47,8 @@ function cyclical_PAR(x, y, z, t)
 end
 
 """
+    FunctionFieldPAR(field)
+
 Light module for PAR defined by simple functions (can be used with box or column models).
 
 # Fields
@@ -49,7 +59,7 @@ struct FunctionFieldPAR
 end
 
 """
-    FunctionFieldPAR() -> DataType
+    FunctionFieldPAR(; grid, PAR_f=cyclical_PAR(; z=-10)) -> DataType
 
 # Keywords
 - `grid`: the geometry to build the model on defined as an Oceananigans grid object
@@ -61,12 +71,28 @@ function FunctionFieldPAR(; grid, PAR_f=cyclical_PAR(; z=-10))
     return FunctionFieldPAR(PAR_field)
 end
 
+"""
+    update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
+
+Function which computes and updates the irradiance field in-place.
+
+"""
 function update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
     PAR.field.clock.time = model.clock.time
     compute!(PAR.field)
     return nothing
 end
 
+"""
+    biogeochemical_auxiliary_fields(par::FunctionFieldPAR)
+
+Return a named tuple containing the Photosynthetically Active Radiation (PAR) field
+from a `FunctionFieldPAR` struct.
+
+# Arguments
+- `par::FunctionFieldPAR`: A struct containing a PAR field.
+
+"""
 function biogeochemical_auxiliary_fields(par::FunctionFieldPAR)
     return (PAR=par.field,)
 end
