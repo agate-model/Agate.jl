@@ -9,10 +9,10 @@ export allometric_scaling_power,
 Allometric scaling function using the power law for cell volume.
 
 !!! formulation
-    ``a`` * ``V``^``b``
+    ``a````V````ᵇ``
 
     where:
-    - ``V`` = (4 / 3) * π * (``d`` / 2)^3
+    - ``V`` = (4 / 3) * π * (``d`` / 2)³
     - ``a`` = scale
     - ``b`` = exponent
     - ``d`` = cell equivalent spherical diameter (ESD)
@@ -35,7 +35,7 @@ Calculates the unimodal allometric palatability of prey based on predator-prey d
 !!! formulation
     0 if ``f`` = 0
 
-    1 / (1 + (``d_{ratio}``- ``d_{opt}``)^2)^σ   otherwise
+    1 / (1 + (``d_{ratio}``- ``d_{opt}``)²)^σ   otherwise
     
     where:
     - ``f`` = binary ability of predator to eat prey
