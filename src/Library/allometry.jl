@@ -35,7 +35,7 @@ Calculates the unimodal allometric palatability of prey based on predator-prey d
 !!! formulation
     0 if ``f`` = 0
 
-    1 / (1 + (``d_{ratio}``- ``d_{opt}``)²)^σ   otherwise
+    1 / (1 + (``d_{ratio}``- ``d_{opt}``)²)``^σ``  otherwise
     
     where:
     - ``f`` = binary ability of predator to eat prey
@@ -85,7 +85,7 @@ Calculates the unimodal allometric palatability of prey, accounting for addition
 !!! formulation
     0 if ``f`` = 0
 
-    (1 - η) / (1 + (``d_{ratio}``- ``d_{opt}``)^2)^σ   otherwise
+    (1 - η) / (1 + (``d_{ratio}``- ``d_{opt}``)^2)``^σ``   otherwise
     
     where:
     - ``f`` = binary ability of predator to eat prey
