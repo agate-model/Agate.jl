@@ -22,7 +22,8 @@ Monod formulation of nutrient limitation, which is based on Michaelis-Menten enz
 - `nutrient_concentration`: nutrient (e.g. N, P, Si)
 - `nutrient_half_saturation`: nutrient half saturation constant
 
-Note that sometimes this formulation is also used for Predation ('Holling type 2').
+!!! tip
+    Sometimes this formulation is also used for predation (≈'Holling type 2').
 "
 function monod_limitation(nutrient_concentration, nutrient_half_saturation)
     return nutrient_concentration / (nutrient_half_saturation + nutrient_concentration)
