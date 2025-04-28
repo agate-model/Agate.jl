@@ -139,7 +139,13 @@ Single nutrient geider photosynthetic growth.
 - `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon
 """
 function photosynthetic_growth_single_nutrient_geider_light(
-    N, P, PAR, maximum_growth_rate, nutrient_half_saturation, photosynthetic_slope, chlorophyll_to_carbon_ratio
+    N,
+    P,
+    PAR,
+    maximum_growth_rate,
+    nutrient_half_saturation,
+    photosynthetic_slope,
+    chlorophyll_to_carbon_ratio,
 )
     return monod_limitation(N, nutrient_half_saturation) *
            light_limitation_geider(

@@ -91,7 +91,8 @@ represents 'sloppy feeding'.
 - `prey_half_saturation`: prey half saturation
 """
 function predation_gain_idealized(P, Z, assimilation_efficiency, maximum_grazing_rate, kₚ)
-    return assimilation_efficiency * predation_loss_idealized(P, Z, maximum_grazing_rate, kₚ)
+    return assimilation_efficiency *
+           predation_loss_idealized(P, Z, maximum_grazing_rate, kₚ)
 end
 
 """
@@ -124,8 +125,11 @@ Estimates the rate at which plankton predation gain is lost to the environment d
 - `maximum_grazing_rate`: maximum grazing rate of the predator
 - `prey_half_saturation`: prey half saturation
 """
-function predation_assimilation_loss_idealized(P, Z, assimilation_efficiency, maximum_grazing_rate, prey_half_saturation)
-    return (1 - assimilation_efficiency) * predation_loss_idealized(P, Z, maximum_grazing_rate, prey_half_saturation)
+function predation_assimilation_loss_idealized(
+    P, Z, assimilation_efficiency, maximum_grazing_rate, prey_half_saturation
+)
+    return (1 - assimilation_efficiency) *
+           predation_loss_idealized(P, Z, maximum_grazing_rate, prey_half_saturation)
 end
 
 """
@@ -154,7 +158,9 @@ and the prey-predator palatability.
 - `prey_half_saturation`: prey density at which predation is half it's maximum rate
 - `palatability`: the likelihood at which the predator feeds on the prey
 """
-function predation_loss_preferential(P, Z, maximum_grazing_rate, prey_half_saturation, palatability)
+function predation_loss_preferential(
+    P, Z, maximum_grazing_rate, prey_half_saturation, palatability
+)
     return maximum_grazing_rate * palatability * holling_type_2(P, prey_half_saturation) * Z
 end
 
@@ -187,8 +193,12 @@ represents 'sloppy feeding'.
 - `prey_half_saturation`: prey density at which predation is half it's maximum rate
 - `palatability`: the likelihood at which the predator feeds on the prey
 """
-function predation_gain_preferential(P, Z, assimilation_efficiency, maximum_grazing_rate, prey_half_saturation, palatability)
-    return assimilation_efficiency * predation_loss_preferential(P, Z, maximum_grazing_rate, prey_half_saturation, palatability)
+function predation_gain_preferential(
+    P, Z, assimilation_efficiency, maximum_grazing_rate, prey_half_saturation, palatability
+)
+    return assimilation_efficiency * predation_loss_preferential(
+        P, Z, maximum_grazing_rate, prey_half_saturation, palatability
+    )
 end
 
 """
@@ -223,8 +233,12 @@ Estimates the rate at which plankton predation gain is lost to the environment d
 - `palatability`: the likelihood at which the predator feeds on the prey
 
 """
-function predation_assimilation_loss_preferential(P, Z, assimilation_efficiency, maximum_grazing_rate, prey_half_saturation, palatability)
-    return (1 - assimilation_efficiency) * predation_loss_preferential(P, Z, maximum_grazing_rate, prey_half_saturation, palatability)
+function predation_assimilation_loss_preferential(
+    P, Z, assimilation_efficiency, maximum_grazing_rate, prey_half_saturation, palatability
+)
+    return (1 - assimilation_efficiency) * predation_loss_preferential(
+        P, Z, maximum_grazing_rate, prey_half_saturation, palatability
+    )
 end
 
 """
