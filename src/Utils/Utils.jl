@@ -4,7 +4,6 @@ Module to dynamically create Oceananigans.Biogeochemistry types.
 
 module Utils
 
-using Agate.Library.Growth
 using Agate.Library.Mortality
 using Agate.Library.Nutrients
 using Agate.Library.Photosynthesis

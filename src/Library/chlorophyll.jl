@@ -1,3 +1,0 @@
-module Chlorophyll
-
-end # module

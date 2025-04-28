@@ -3,25 +3,46 @@ module Mortality
 export linear_loss, quadratic_loss
 
 """
+    linear_loss(P, mortality)
+
 Linear mortality rate.
-In this formulation mortality is constant, and can be interpreted as
+
+!!! formulation
+    ``l`` * ``P``
+
+    where:
+    - ``P`` = plankton concentration
+    - ``l`` = mortality rate
+
+In this formulation mortality is linear, and can be interpreted as
 a "closure term" for low density predation and and other death terms.
 
 # Arguments
 - `P`: plankton concentration
-- `l`: mortality rate
+- `mortality`: mortality rate
 """
-linear_loss(P, l) = l * P
+linear_loss(P, mortality) = mortality * P
 
 """
-Quadratic mortality coefficient.
+    quadratic_loss(P, mortality)
+
+Quadratic mortality rate.
+
+!!! formulation
+
+    ``l`` * ``P``²
+
+    where:
+    - ``P`` = plankton concentration
+    - ``l`` = mortality rate
+
 In this formulation mortality increases exponentially with plankton biomass
 and is often interpreted to represent viral processes and non-represented density-dependent predation effects.
 
 # Arguments
 - `P`: plankton concentration
-- `l`: mortality rate
+- `mortality`: mortality rate
 """
-quadratic_loss(P, l) = l * P^2
+quadratic_loss(P, mortality) = mortality * P^2
 
 end # module
