@@ -33,12 +33,12 @@ end
 Calculates the unimodal allometric palatability of prey based on predator-prey diameters.
 
 !!! formulation
-    0 if ``f`` = 0
+    0 if ``e_{pred}`` = 0
 
     1 / (1 + (``d_{ratio}``- ``d_{opt}``)²)``^σ``  otherwise
     
     where:
-    - ``f`` = binary ability of predator to eat prey
+    - ``e_{pred}`` = binary ability of predator to eat prey
     - ``d_{ratio}`` = ratio between predator and prey diameters
     - ``d_{opt}`` = optimum ratio between predator and prey diameter
     - σ = how sharply the palatability decreases away from the optimal ratio.
