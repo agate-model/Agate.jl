@@ -74,7 +74,7 @@ end
 """
     update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
 
-Function which computes and updates the irradiance field in-place.
+`Oceananigans.Biogechemistry` function which computes and updates the irradiance field in-place.
 
 """
 function update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
@@ -86,7 +86,7 @@ end
 """
     biogeochemical_auxiliary_fields(par::FunctionFieldPAR)
 
-Return a named tuple containing the Photosynthetically Active Radiation (PAR) field
+`Oceananigans.Biogechemistry` function which returns a named tuple containing the Photosynthetically Active Radiation (PAR) field
 from a `FunctionFieldPAR` struct.
 
 # Arguments
