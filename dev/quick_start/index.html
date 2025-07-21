@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Quick start · Agate.jl</title><meta name="title" content="Quick start · Agate.jl"/><meta property="og:title" content="Quick start · Agate.jl"/><meta property="twitter:title" content="Quick start · Agate.jl"/><meta name="description" content="Documentation for Agate.jl."/><meta property="og:description" content="Documentation for Agate.jl."/><meta property="twitter:description" content="Documentation for Agate.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Agate.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Agate.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">About</a></li><li class="is-active"><a class="tocitem" href>Quick start</a></li><li><span class="tocitem">Models</span><ul><li><a class="tocitem" href="../nipizd/">NiPiZD</a></li><li><a class="tocitem" href="../darwin/">DARWIN</a></li></ul></li><li><a class="tocitem" href="../library/">Library</a></li><li><a class="tocitem" href="../examples/">Examples</a></li><li><a class="tocitem" href="../api/">API</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Quick start</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Quick start</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/agate-model/Agate.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/agate-model/Agate.jl/blob/main/docs/src/quick_start.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Quick-start"><a class="docs-heading-anchor" href="#Quick-start">Quick start</a><a id="Quick-start-1"></a><a class="docs-heading-anchor-permalink" href="#Quick-start" title="Permalink"></a></h1><div class="admonition is-info" id="Info-153b30f537553cf6"><header class="admonition-header">Info<a class="admonition-anchor" href="#Info-153b30f537553cf6" title="Permalink"></a></header><div class="admonition-body"><p>Agate.jl is designed to interface with <a href="https://clima.github.io/OceananigansDocumentation/stable/">Oceananigans.jl</a> and <a href="https://oceanbiome.github.io/OceanBioME.jl/stable/">OceanBioME.jl</a>. We thus recommend familiarizing yourself with their user interface.</p></div></div><h3 id="Loading-dependencies"><a class="docs-heading-anchor" href="#Loading-dependencies">Loading dependencies</a><a id="Loading-dependencies-1"></a><a class="docs-heading-anchor-permalink" href="#Loading-dependencies" title="Permalink"></a></h3><pre><code class="language-julia hljs">using Agate
+using Agate.Models: NiPiZD
+using Agate.Library.Light
+using OceanBioME
+using OceanBioME: Biogeochemistry
+using Oceananigans
+using Oceananigans.Units
+using CairoMakie</code></pre><h3 id="Model-setup"><a class="docs-heading-anchor" href="#Model-setup">Model setup</a><a id="Model-setup-1"></a><a class="docs-heading-anchor-permalink" href="#Model-setup" title="Permalink"></a></h3><p>First, we construct our ecosystem model. Here, we use a default 2 phytoplankton, 2 zooplankton <code>Agate.jl-NiPiZD</code> ecosystem model.</p><pre><code class="language-julia hljs">N2P2ZD = NiPiZD.construct()</code></pre><p>Next, we define a light function, here we use a default seasonal PAR curve:</p><pre><code class="language-julia hljs">light_attenuation = FunctionFieldPAR(; grid=BoxModelGrid())</code></pre><p>These two models are then combined using OceanBioME.jl</p><pre><code class="language-julia hljs">bgc_model = Biogeochemistry(
+    N2P2ZD(), light_attenuation=light_attenuation
+)
+
+full_model = BoxModel(; biogeochemistry=bgc_model)</code></pre><p>And finally simulated using Oceananigans.jl</p><pre><code class="language-julia hljs">set!(full_model; N=7.0, P1=0.01, Z1=0.01, P2=0.1, Z2=0.01, D=0.01)
+
+simulation = Simulation(full_model; Δt=240minutes, stop_time=1095days)
+
+filename = &quot;quick_start.jld2&quot;
+
+simulation.output_writers[:fields] = JLD2OutputWriter(
+    full_model,
+    full_model.fields;
+    filename=filename,
+    schedule=TimeInterval(1day),
+    overwrite_existing=true,
+)
+
+run!(simulation)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Initializing simulation...
+[ Info:     ... simulation initialization complete (2.678 seconds)
+[ Info: Executing initial time step...
+[ Info:     ... initial time step complete (552.235 ms).
+[ Info: Simulation is stopping after running for 0 seconds.
+[ Info: Simulation time 1095 days equals or exceeds stop time 1095 days.</code></pre><h3 id="Plotting"><a class="docs-heading-anchor" href="#Plotting">Plotting</a><a id="Plotting-1"></a><a class="docs-heading-anchor-permalink" href="#Plotting" title="Permalink"></a></h3><pre><code class="language-julia hljs">tracers = [&quot;P1&quot;, &quot;P2&quot;, &quot;Z1&quot;, &quot;Z2&quot;, &quot;D&quot;, &quot;N&quot;]
+
+# Extract data for plotting
+timeseries = NamedTuple{(:P1, :P2, :Z1, :Z2, :D, :N)}(
+    FieldTimeSeries(filename, field)[1, 1, 1, :] for field in tracers
+)
+
+# Create a figure
+times = FieldTimeSeries(filename, &quot;P1&quot;).times
+
+fig = Figure(size = (1200, 800), fontsize = 24)
+
+axs = []
+for (idx, name) in enumerate(tracers)
+    ax = Axis(fig[floor(Int, (idx-1)/2), Int((idx-1)%2)], ylabel = name, xlabel = &quot;Days&quot;,
+        title = &quot;$name concentration (mmol N / m³)&quot;)
+    push!(axs, ax)
+    lines!(ax, times / day, getproperty(timeseries, Symbol(name)), linewidth = 3)
+end
+
+fig</code></pre><img src="2347eba5.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« About</a><a class="docs-footer-nextpage" href="../nipizd/">NiPiZD »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Monday 21 July 2025 19:34">Monday 21 July 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
