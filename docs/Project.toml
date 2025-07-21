@@ -9,5 +9,5 @@ Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
 
 [compat]
 OceanBioME = "0.14.0"
-Oceananigans = "^0.95.20, 0.96"
+Oceananigans = "^0.95"
 julia = "1.10"
