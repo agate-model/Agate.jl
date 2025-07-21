@@ -1,5 +1,14 @@
 push!(LOAD_PATH, "../src/")
-using Documenter, Agate
+using Documenter
+using Agate
+using Agate.Models: NiPiZD
+using Agate.Library.Light
+using OceanBioME
+using OceanBioME: Biogeochemistry
+using Oceananigans
+using Oceananigans.Units
+using CairoMakie
+
 model_pages = ["NiPiZD" => "nipizd.md", "DARWIN" => "darwin.md"]
 
 makedocs(;
@@ -8,6 +17,7 @@ makedocs(;
     # modules=[Agate],
     pages=[
         "About" => "index.md",
+        "Quick start" => "quick_start.md",
         "Models" => model_pages,
         "Library" => "library.md",
         "Examples" => "examples.md",
