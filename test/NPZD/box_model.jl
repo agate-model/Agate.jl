@@ -29,7 +29,7 @@ set!(full_model; N=7.0, P=0.01, Z=0.05, D=0.0)
 filename = "box.jld2"
 
 simulation = Simulation(full_model; Δt=5minutes, stop_time=3years)
-simulation.output_writers[:fields] = JLD2OutputWriter(
+simulation.output_writers[:fields] = JLD2Writer(
     full_model,
     full_model.fields;
     filename=filename,

@@ -106,7 +106,7 @@ set!(full_model_geider_photosynthesis; P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, N=7.0
 
 function run_simulation!(model, filename)
     simulation = Simulation(model; Δt=10minutes, stop_time=3years)
-    simulation.output_writers[:fields] = JLD2OutputWriter(
+    simulation.output_writers[:fields] = JLD2Writer(
         model,
         model.fields;
         filename=filename,
