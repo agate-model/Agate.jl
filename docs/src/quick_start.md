@@ -58,7 +58,7 @@ nothing #hide
 
 filename = "quick_start.jld2"
 
-simulation.output_writers[:fields] = JLD2OutputWriter(
+simulation.output_writers[:fields] = JLD2Writer(
     full_model,
     full_model.fields;
     filename=filename,
