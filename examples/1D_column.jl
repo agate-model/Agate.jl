@@ -13,14 +13,11 @@
 
 using Agate
 using Agate.Models: NiPiZD
-using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans.Units
 using CairoMakie
-
-import Agate.Library.Light: cyclical_PAR
 
 const year = years = 365day
 nothing #hide
@@ -57,7 +54,7 @@ nothing #hide
 end
 
 #irradiance
-@inline function cyclical_PAR(x, y, z, t)
+@inline function seasonal_PAR(x, y, z, t)
     PAR⁰ =
         60 *
         (1 - cos((t + 15days) * 2π / year)) *
@@ -70,7 +67,7 @@ t_range = 0.0:days:(365.0 * days)  # Time range from 0 to 365 days
 z_range = -200.0:10.0:0.0  # Depth range from -200m to 0m 
 x, y, z = 0.0, 0.0, 0.0
 κₜ_values = [diffusivity(x, y, z, t) for t in t_range, z in z_range]
-PAR_values = [cyclical_PAR(x, y, z, t) for t in t_range, z in z_range]
+PAR_values = [seasonal_PAR(x, y, z, t) for t in t_range, z in z_range]
 
 fig_forcing = Figure(; resolution=(1000, 800))
 ax1 = Axis(fig_forcing[1, 1]; xlabel="Time (days)", ylabel="Depth (m)", title="irradiance")
@@ -87,7 +84,7 @@ grid = RectilinearGrid(; size=(1, 1, 25), extent=(20meters, 20meters, 200meters)
 nothing #hide
 
 bgc_model = Biogeochemistry(
-    N2P2ZD(); light_attenuation=FunctionFieldPAR(; grid, PAR_f=cyclical_PAR)
+    N2P2ZD(); light_attenuation=FunctionFieldPAR(; grid, PAR_f=seasonal_PAR)
 )
 nothing #hide
 
