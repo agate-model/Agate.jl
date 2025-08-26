@@ -146,15 +146,13 @@ axis_kwargs = (xlabel="Time (days)", ylabel="z (m)", limits=((0, nothing), (-200
 
 #Plot all fields
 for (i, key) in enumerate(all_keys)
-    x, y, z = nodes(timeseries[key])
-    z = collect(z)  # Ensure z is a vector
-    times = collect(timeseries[key].times / days)  # Convert times to a vector
+    x_nodes, y_nodes, z_nodes = nodes(timeseries[key])
+    z_vals = collect(z_nodes)
+    times = collect(timeseries[key].times / days)
 
-    #Create axis and heatmap
     ax = Axis(fig[i, 1]; title="$(key) concentration (mmol N / m³)", axis_kwargs...)
-    hm = heatmap!(
-        ax, times, z, Float32.(interior(timeseries[key], 1, 1, :, :)'); colormap=:viridis
-    )
+    hm = heatmap!(ax, times, z_vals,
+                  Float32.(interior(timeseries[key], 1, 1, :, :)'); colormap=:viridis)
     Colorbar(fig[i, 2], hm)
 end
 
