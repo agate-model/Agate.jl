@@ -13,6 +13,7 @@
 
 using Agate
 using Agate.Models: NiPiZD
+using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
