@@ -1,6 +1,6 @@
 name = "Agate"
 uuid = "41889b7c-c35c-4f16-abd7-94b299d9fd29"
-version = "0.1.1"
+version = "0.1.2"
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
