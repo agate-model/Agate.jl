@@ -106,7 +106,7 @@ filename = "N2P2ZD_column.jld2"
 
 simulation = Simulation(full_model; Δt=20minutes, stop_time=1year)
 
-simulation.output_writers[:profiles] = JLD2OutputWriter(
+simulation.output_writers[:profiles] = JLD2Writer(
     full_model,
     full_model.tracers;
     filename=filename,
