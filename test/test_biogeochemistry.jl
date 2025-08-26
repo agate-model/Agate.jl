@@ -5,6 +5,7 @@ using OceanBioME
 using Oceananigans.Units
 using Oceananigans.Fields: ZeroField
 
+using OceanBioME: setup_velocity_fields
 using Oceananigans.Biogeochemistry:
     AbstractContinuousFormBiogeochemistry,
     required_biogeochemical_tracers,
@@ -56,17 +57,15 @@ using Oceananigans.Biogeochemistry:
         end
 
         @testset "data type created succesfully" begin
-            parameters = (α=2 / 3, β=4 / 3, δ=1, γ=1)
+            parameters = (α=2 / 3, β=4 / 3, δ=1.0, γ=1.0)
             name = create_bgc_struct(:name, parameters)
-
-            @test typeof(name) == DataType
             @test fieldnames(name) == (:α, :β, :δ, :γ)
         end
     end
 
     @testset "add_bgc_methods" begin
         @testset "core methods exist and behave as expected" begin
-            parameters = (α=2 / 3, β=4 / 3, δ=1, γ=1)
+            parameters = (α=2 / 3, β=4 / 3, δ=1.0, γ=1.0)
             tracers = Dict("R" => :(α * R - β * R * F), "F" => :(-γ * F + δ * R * F))
             auxiliary_fields = [:PAR]
 
@@ -75,7 +74,7 @@ using Oceananigans.Biogeochemistry:
 
             # instantiate the same model with different parameters
             model1 = LV()
-            model2 = LV(1, 1, 2, 2)
+            model2 = LV(1.0, 1.0, 2.0, 2.0)
 
             @test all(required_biogeochemical_tracers(model1) .=== [:R, :F])
             @test all(required_biogeochemical_auxiliary_fields(model1) .=== [:PAR])
@@ -117,17 +116,21 @@ using Oceananigans.Biogeochemistry:
         @testset "tracer sinking" begin
             include(joinpath("NPZD", "tracers.jl"))
 
+            # if one uses BoxModelGrid and sets open_bottom to false then all velocities are
+            # set to 0 (because the function smooths them to get to 0 when they reach the
+            # bottom and in a BoxModel the tracers already are at "the bottom")
+            sinking_velocities = setup_velocity_fields(
+                (P=0.2551 / day, D=2.7489 / day), BoxModelGrid(), true
+            )
+
             NPZD_sink = define_tracer_functions(
                 parameters,
                 tracers;
                 helper_functions=joinpath("NPZD", "functions.jl"),
-                sinking_tracers=(P=0.2551 / day, D=2.7489 / day),
-                grid=BoxModelGrid(),
+                sinking_velocities=sinking_velocities,
             )
 
             model = NPZD_sink()
-
-            @test OceanBioME.Models.Sediments.sinking_tracers(model) == (:P, :D)
 
             @test biogeochemical_drift_velocity(model, Val(:P)).w.data[1, 1, 1] ==
                 -0.2551 / day

@@ -1,7 +1,11 @@
 using Agate
-using NamedArrays
 using Agate.Models.NiPiZD.Tracers
 using Agate.Models: NiPiZD
+
+using Oceananigans
+using Oceananigans.Units
+using Oceananigans.Biogeochemistry:
+    required_biogeochemical_tracers, biogeochemical_drift_velocity
 
 @testset "Models.Constructor" begin
     N2P2ZD_constructed = NiPiZD.construct()
@@ -90,7 +94,7 @@ using Agate.Models: NiPiZD
 
     @testset "User defined matrices" begin
         names = ["P", "Z"]
-        wrong_size_matrix = NamedArray(zeros(Float64, 2, 2), (predator=names, prey=names))
+        wrong_size_matrix = zeros(Float64, 2, 2)
         @test_throws ArgumentError NiPiZD.instantiate(
             N2P2ZD_constructed; palatability_matrix=wrong_size_matrix
         )
@@ -100,7 +104,7 @@ using Agate.Models: NiPiZD
 
         # doesn't throw error if dimensions are correct
         names = ["P1", "P2", "Z1", "Z2"]
-        correct_size_matrix = NamedArray(zeros(Float64, 4, 4), (predator=names, prey=names))
+        correct_size_matrix = zeros(Float64, 4, 4)
         new_model = NiPiZD.instantiate(
             N2P2ZD_constructed;
             palatability_matrix=correct_size_matrix,
@@ -193,5 +197,36 @@ using Agate.Models: NiPiZD
             model2(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR)
         @test model1(Val(:P2), 0, 0, 0, 0, model_var_order..., PAR) !=
             model2(Val(:P2), 0, 0, 0, 0, model_var_order..., PAR)
+    end
+
+    @testset "Tracer sinking" begin
+        # get error if instantiate model that was not constructed for sinking
+        @test_throws ArgumentError NiPiZD.instantiate(
+            N2P2ZD_constructed;
+            sinking_tracers=(P1=0.2551 / day, P2=0.2551 / day, D=2.7489 / day),
+        )
+
+        # construct model with tracer sinking and instantiate on default grid (BoxModel)
+        N2P2ZD_sink = NiPiZD.construct(;
+            sinking_tracers=(P1=0.2551 / day, P2=0.2551 / day, D=2.7489 / day)
+        )
+        model = N2P2ZD_sink()
+
+        @test biogeochemical_drift_velocity(model, Val(:P1)).w.data[1, 1, 1] ==
+            -0.2551 / day
+        @test biogeochemical_drift_velocity(model, Val(:P2)).w.data[1, 1, 1] ==
+            -0.2551 / day
+        @test biogeochemical_drift_velocity(model, Val(:D)).w.data[1, 1, 1] == -2.7489 / day
+        @test biogeochemical_drift_velocity(model, Val(:Z)).w == ZeroField()
+
+        # instantiate same model but on a column grid
+        column_grid = RectilinearGrid(;
+            size=(1, 1, 40), extent=(20meters, 20meters, 200meters)
+        )
+        col_model = NiPiZD.instantiate(
+            N2P2ZD_sink;
+            sinking_tracers=(P1=0.2551 / day, P2=0.2551 / day, D=2.7489 / day),
+            grid=column_grid,
+        )
     end
 end

@@ -8,8 +8,8 @@ using Agate.Utils
 using Agate.Models.Parameters
 using Agate.Models.DARWIN.Tracers
 
-using NamedArrays
 using UUIDs
+using OceanBioME
 using Oceananigans.Units
 
 using OceanBioME: setup_velocity_fields
@@ -22,17 +22,15 @@ DEFAULT_PHYTO_ARGS = Dict(
         "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
         "half_saturation_DIN" => Dict("a" => 0.17, "b" => 0.27),
         "half_saturation_PO4" => Dict("a" => 0.17, "b" => 0.27),
-        # need this to vectorize the tracer functions
-        "maximum_predation_rate" => Dict("a" => 0, "b" => 0),
     ),
-    "linear_mortality_p" => 8e-7 / second,
+    "linear_mortality" => 8e-7 / second,
     "photosynthetic_slope" => 0.46e-5,
     "chlorophyll_to_carbon_ratio" => 0.1,
 )
 
 DEFAULT_ZOO_ARGS = Dict(
     "allometry" => Dict("maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16)),
-    "linear_mortality_z" => 8e-7 / second,
+    "linear_mortality" => 8e-7 / second,
     "holling_half_saturation" => 5.0,
     "quadratic_mortality" => 1e-6 / second,
 )
@@ -95,7 +93,10 @@ DEFAULT_BGC_ARGS = Dict(
         bgc_args=DEFAULT_BGC_ARGS,
         palatability_matrix=nothing,
         assimilation_efficiency_matrix=nothing,
-    ) -> DataType
+        sinking_tracers=nothing,
+        grid=BoxModelGrid(),
+        open_bottom=true,
+    )
 
 Construct an Agate.jl-DARWIN model abstract type.
 
@@ -150,7 +151,6 @@ Construct an Agate.jl-DARWIN model abstract type.
     - η = prey protection
     - σ = predator specificity
 
-
 This constructor builds an Agate.jl-DARWIN model with two plankton functional types:
 phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
 size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor implements
@@ -188,19 +188,25 @@ The type specification includes a photosynthetic active radiation (PAR) auxiliar
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
 - `phyto_args`: Dictionary of phytoplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
+    `DARWIN.DEFAULT_PHYTO_ARGS`
 - `zoo_args`: Dictionary of zooplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
+    `DARWIN.DEFAULT_ZOO_ARGS`
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed, for default values see
-    `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
+    `DARWIN.DEFAULT_INTERACTION_ARGS`
 - `bgc_args`: biogeochemistry parameters related to nutrient and detritus, for default
-    values see `Agate.Models.Constructors.DEFAULT_BGC_ARGS`
-- `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
+    values see `DARWIN.DEFAULT_BGC_ARGS`
+- `palatability_matrix`: optional palatability matrix passed as an Array, if provided
    then `interaction_args` are not used to compute this
-- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
-   NamedArray, if provided then `interaction_args` are not used to compute this
-
+- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
+   Array, if provided then `interaction_args` are not used to compute this
+- `sinking_tracers`: optional NamedTuple of sinking speeds (passed as positive values) of
+   the form (<tracer name expressed as symbol> = <speed>, ...)
+- `grid`: optional Oceananigans grid object defining the geometry to build the model on, must
+   be passed if `sinking_tracers` is defined, defaults to BoxModelGrid
+- `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
+   at the bottom to prevent the tracers leaving the domain, defaults to `true`, which means
+   the bottom is open and the tracers leave (i.e., no slowing of velocity to 0 is applied)
 
 # Example
 ```julia
@@ -236,48 +242,58 @@ function construct(;
     bgc_args=DEFAULT_BGC_ARGS,
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
+    sinking_tracers=nothing,
+    grid=BoxModelGrid(),
+    open_bottom=true,
 )
-    parameters = create_params_dict(;
-        n_phyto=n_phyto,
-        n_zoo=n_zoo,
-        phyto_diameters=phyto_diameters,
-        zoo_diameters=zoo_diameters,
-        phyto_args=phyto_args,
-        zoo_args=zoo_args,
+    parameters, plankton_names = create_size_structured_params(;
+        n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
+        diameters=Dict("P" => phyto_diameters, "Z" => zoo_diameters),
+        plankton_args=Dict("P" => phyto_args, "Z" => zoo_args),
         interaction_args=interaction_args,
         bgc_args=bgc_args,
         palatability_matrix=palatability_matrix,
         assimilation_efficiency_matrix=assimilation_efficiency_matrix,
     )
-    # NOTE: Zs precede Ps because this is the order in all arrays/matrices
-    zoo_array = [Symbol("Z$i") for i in 1:n_zoo]
-    phyto_array = [Symbol("P$i") for i in 1:n_phyto]
-    plankton_array = vcat(zoo_array, phyto_array)
+    # NOTE: Zs precede Ps
+    plankton_array = [Symbol(name) for name in plankton_names]
 
     # create tracer functions
     tracers = Dict(
-        "DIC" => DIC_dynamics(phyto_array),
-        "DIN" => DIN_dynamics(phyto_array),
-        "PO4" => PO4_dynamics(phyto_array),
-        "POC" => POC_dynamics(phyto_array, zoo_array),
-        "DOC" => DOC_dynamics(phyto_array, zoo_array),
-        "PON" => PON_dynamics(phyto_array, zoo_array),
-        "DON" => DON_dynamics(phyto_array, zoo_array),
-        "POP" => POP_dynamics(phyto_array, zoo_array),
-        "DOP" => DOP_dynamics(phyto_array, zoo_array),
+        "DIC" => DIC_dynamics(plankton_array),
+        "DIN" => DIN_dynamics(plankton_array),
+        "PO4" => PO4_dynamics(plankton_array),
+        "POC" => POC_dynamics(plankton_array),
+        "DOC" => DOC_dynamics(plankton_array),
+        "PON" => PON_dynamics(plankton_array),
+        "DON" => DON_dynamics(plankton_array),
+        "POP" => POP_dynamics(plankton_array),
+        "DOP" => DOP_dynamics(plankton_array),
     )
-    for i in 1:n_phyto
-        name = "P$i"
-        tracers[name] = phyto_dynamics(plankton_array, name)
-    end
+
     for i in 1:n_zoo
         name = "Z$i"
-        tracers[name] = zoo_dynamics(plankton_array, name)
+        index = findfirst(x -> x == name, plankton_names)
+        tracers[name] = zoo_dynamics(plankton_array, name, index)
+    end
+
+    for i in 1:n_phyto
+        name = "P$i"
+        index = findfirst(x -> x == name, plankton_names)
+        tracers[name] = phyto_dynamics(plankton_array, name, index)
+    end
+
+    if !isnothing(sinking_tracers)
+        sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
+    else
+        sinking_velocities = nothing
     end
 
     # return Oceananigans.Biogeochemistry object
     # note this adds "PAR" as an auxiliary field by default
-    return define_tracer_functions(parameters, tracers)
+    return define_tracer_functions(
+        parameters, tracers; sinking_velocities=sinking_velocities
+    )
 end
 
 """
@@ -297,7 +313,10 @@ end
         bgc_args=DEFAULT_BGC_ARGS,
         palatability_matrix=nothing,
         assimilation_efficiency_matrix=nothing,
-    ) -> bgc_type
+        sinking_tracers=nothing,
+        grid=BoxModelGrid(),
+        open_bottom=true,
+    )
 
 A function to instantiate an object of `bgc_type` returned by `DARWIN.construct()`.
 
@@ -326,19 +345,26 @@ of any of the model parameters or plankton diameters.
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
 - `phyto_args`: Dictionary of phytoplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_PHYTO_ARGS`
+    `DARWIN.DEFAULT_PHYTO_ARGS`
 - `zoo_args`: Dictionary of zooplankton parameters, for default values see
-    `Agate.Models.Constructors.DEFAULT_ZOO_ARGS`
+    `DARWIN.DEFAULT_ZOO_ARGS`
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed, for default values see
-    `Agate.Models.Constructors.DEFAULT_INTERACTION_ARGS`
+    `DARWIN.DEFAULT_INTERACTION_ARGS`
 - `bgc_args`: Dictionary of constant parameters used in growth functions (i.e., not size
     dependant plankton parameters as well as biogeochemistry parameters related to nutrient
-    and detritus, for default values see `Agate.Models.Constructors.DEFAULT_CONSTANT_ARGS`
-- `palatability_matrix`: optional palatability matrix passed as a NamedArray, if provided
+    and detritus, for default values see `DARWIN.DEFAULT_CONSTANT_ARGS`
+- `palatability_matrix`: optional palatability matrix passed as an Array, if provided
     then `interaction_args` are not used to compute this
-- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as a
-    NamedArray, if provided then `interaction_args` are not used to compute this
+- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
+    Array, if provided then `interaction_args` are not used to compute this
+- `sinking_tracers`: optional NamedTuple of sinking speeds (passed as positive values) of
+   the form (<tracer name expressed as symbol> = <speed>, ...)
+- `grid`: optional Oceananigans grid object defining the geometry to build the model on, must
+   be passed if `sinking_tracers` is defined, defaults to BoxModelGrid
+- `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
+   at the bottom to prevent the tracers leaving the domain, defaults to `true`, which means
+   the bottom is open and the tracers leave (i.e., no slowing of velocity to 0 is applied)
 
 # Example
 ```julia
@@ -347,7 +373,7 @@ using Agate.Constructors: DARWIN
 darwin_2p_2z = DARWIN.construct()
 
 # change some parameter values
-phyto_args = DARWIN.DEFAULT_PHYTO_ARGS
+phyto_args = deepcopy(DARWIN.DEFAULT_PHYTO_ARGS)
 phyto_args["allometry"]["maximum_growth_rate"]["a"] = 2
 darwin_2p_2z_model_obj = DARWIN.instantiate(darwin_2p_2z; phyto_args=phyto_args)
 ```
@@ -366,26 +392,40 @@ function instantiate(
     bgc_args=DEFAULT_BGC_ARGS,
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
+    sinking_tracers=nothing,
+    grid=BoxModelGrid(),
+    open_bottom=true,
 )
     defaults = bgc_type()
-    n_phyto = Int(defaults.n_phyto)
-    n_zoo = Int(defaults.n_zoo)
+    n_phyto = Int(defaults.n_P)
+    n_zoo = Int(defaults.n_Z)
 
-    # returns NamedTuple -> have to convert to Dict
-    parameters = create_params_dict(;
-        n_phyto=n_phyto,
-        n_zoo=n_zoo,
-        phyto_diameters=phyto_diameters,
-        zoo_diameters=zoo_diameters,
-        phyto_args=phyto_args,
-        zoo_args=zoo_args,
+    parameters, _ = create_size_structured_params(;
+        n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
+        diameters=Dict("P" => phyto_diameters, "Z" => zoo_diameters),
+        plankton_args=Dict("P" => phyto_args, "Z" => zoo_args),
         interaction_args=interaction_args,
         bgc_args=bgc_args,
         palatability_matrix=palatability_matrix,
         assimilation_efficiency_matrix=assimilation_efficiency_matrix,
     )
 
-    return bgc_type(; Dict(pairs(parameters))...)
+    # params are a NamedTuple -> have to convert to Dict
+    parameters_dict = Dict(pairs(parameters))
+
+    if !isnothing(sinking_tracers)
+        if !(:sinking_velocities in fieldnames(bgc_type))
+            throw(ArgumentError("BGC object does not have sinking_velocities"))
+        end
+        if isnothing(grid)
+            throw(ArgumentError("grid must be defined to setup tracer sinking"))
+        end
+        parameters_dict[:sinking_velocities] = setup_velocity_fields(
+            sinking_tracers, grid, open_bottom
+        )
+    end
+
+    return bgc_type(; parameters_dict...)
 end
 
 end # module

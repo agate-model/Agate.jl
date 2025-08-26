@@ -1,7 +1,13 @@
 [deps]
 Agate = "41889b7c-c35c-4f16-abd7-94b299d9fd29"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
+OceanBioME = "a49af516-9db8-4be4-be45-1dad61c5a376"
+Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
 
 [compat]
-Documenter = "1.1"
+OceanBioME = "0.14.0"
+Oceananigans = "^0.95"
+julia = "1.10"

@@ -6,57 +6,59 @@ module Photosynthesis
 
 using Agate.Library.Nutrients
 
-export γˡⁱᵍʰᵗ,
-    light_limitation_smith,
+export light_limitation_smith,
     light_limitation_geider,
     photosynthetic_growth_single_nutrient,
     photosynthetic_growth_single_nutrient_geider_light,
     photosynthetic_growth_two_nutrients_geider_light
 
-"""
-    γˡⁱᵍʰᵗ = (1 - ℯ^(kˢᵃᵗ*I)) * ℯ^kⁱⁿʰ * nˡⁱᵍʰᵗ
-
-Light limitation for plankton (Default MITgcm-DARWIN formulation).
-
-# Arguments
-- `I`: irradiance
-- `kˢᵃᵗ`:  half saturation constant of light saturation
-- `kⁱⁿʰ`: half saturation constant of light inhibition
-- `nˡⁱᵍʰᵗ`: light penalty term
-"""
-function γˡⁱᵍʰᵗ(I, kˢᵃᵗ, kⁱⁿʰ, nˡⁱᵍʰᵗ)
-    return (1 - ℯ^(kˢᵃᵗ * I)) * ℯ^kⁱⁿʰ * nˡⁱᵍʰᵗ
-end
-
 "
-    α * PAR / sqrt(μ₀ ^ 2 + α ^ 2 * PAR ^ 2)
+    light_limitation_smith(PAR, initial_slope, maximum_growth_0C)
 
 Smith 1936 formulation of light limitation (also see Evans and Parslow, 1985).
 
+!!! formulation
+    α * PAR / √(μ₀² + α² * PAR²)
+
+    where:
+    - PAR = photosynthetic active radiation
+    - α = initial photosynthetic slope
+    - μ₀ = maximum growth rate at 0 °C
+
 # Arguments
 - `PAR`: photosynthetic active radiation
-- `α`: initial photosynthetic slope
-- `μ₀`: maximum growth rate at T = 0 °C (this seems weird?, from Kuhn 2015)
+- `initial_slope`: initial photosynthetic slope
+- `maximum_growth_0C`: maximum growth rate at T = 0 °C
 "
-function light_limitation_smith(PAR, α, μ₀)
+function light_limitation_smith(PAR, initial_slope, maximum_growth_0C)
     # here to avoid division by 0 when α and μ₀ are both 0
-    if α == 0
+    if initial_slope == 0
         return 0.0
     end
-    return α * PAR / sqrt(μ₀^2 + α^2 * PAR^2)
+    return initial_slope * PAR / sqrt(maximum_growth_0C^2 + initial_slope^2 * PAR^2)
 end
 
 """
-    Pᶜₘₐₓ[1-exp((-αᶜʰˡθᶜE₀)/Pᶜₘₐₓ)]
+    light_limitation_geider(PAR, photosynthetic_slope, maximum_growth_rate, 
+        chlorophyll_to_carbon_ratio)
 
 A light limitation function which depends on the cellular ratio of chlorophyll to carbon.
 This formulation is based on equation (4) from Geider et al., 1998.
 
+!!! formulation
+    Pᶜₘₐₓ[1-exp((-αᶜʰˡθᶜPAR)/Pᶜₘₐₓ)]
+    
+    where:
+    - Pᶜₘₐₓ = maximum_growth rate
+    - αᶜʰˡ = photosynthetic slope
+    - PAR = photosynthetic active radiation
+    - θᶜ = chlorophyll to carbon ratio
+
 # Arguments
-- `PAR`: photosynthetic active radiation (E₀)
-- `maximum_growth_rate`: maximum growth rate before nutrient limitation (Pᶜₘₐₓ)
-- `photosynthetic_slope`: initial photosynthetic slope (αᶜʰˡ)
-- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon (θᶜ)
+- `PAR`: photosynthetic active radiation
+- `maximum_growth_rate`: maximum growth rate before nutrient limitation
+- `photosynthetic_slope`: initial photosynthetic slope
+- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon
 """
 function light_limitation_geider(
     PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio
@@ -72,36 +74,80 @@ function light_limitation_geider(
     )
 end
 """
+    photosynthetic_growth_single_nutrient(N, P, PAR, maximum_growth_0C, 
+        nutrient_half_saturation, initial_slope)
+
 Single nutrient monod smith photosynthetic growth (used, for example, in Kuhn 2015).
 
+!!! formulation
+    μ₀ * γᴿ * γᴾᴬᴿ * ``P``
+    
+    where:
+    - μ₀ = maximum growth rate at 0 °C
+    - γᴿ = `monod_limitation(R, kᵣ)`
+    - R = nutrient concentration
+    - kᵣ = nutrient half saturation
+    - γᴾᴬᴿ = `light_limitation_smith(PAR, α, μ₀)`
+    - PAR = photosynthetic active radiation
+    - α = initial photosynthetic slope
+    - P = plankton concentration
+
 # Arguments
-- `N`: nutrient concentration
-- `P`: phytoplankton concentration
+- `R`: nutrient concentration
+- `P`: plankton concentration
 - `PAR`: photosynthetic active radiation
-- `μ₀`: maximum growth rate at T = 0 °C
-- `kₙ`: nutrient half saturation
-- `α`: initial photosynthetic slope
+- `maximum_growth_0C`: maximum growth rate at T = 0 °C
+- `nutrient_half_saturation`: nutrient half saturation
+- `initial_slope`: initial photosynthetic slope
 """
-function photosynthetic_growth_single_nutrient(N, P, PAR, μ₀, kₙ, α)
-    return μ₀ * monod_limitation(N, kₙ) * light_limitation_smith(PAR, α, μ₀) * P
+function photosynthetic_growth_single_nutrient(
+    R, P, PAR, maximum_growth_0C, nutrient_half_saturation, initial_slope
+)
+    return maximum_growth_0C *
+           monod_limitation(R, nutrient_half_saturation) *
+           light_limitation_smith(PAR, initial_slope, maximum_growth_0C) *
+           P
 end
 
 """
+    photosynthetic_growth_single_nutrient_geider_light(N, P, PAR, maximum_growth_rate, 
+        nutrient_half_saturation, photosynthetic_slope, chlorophyll_to_carbon_ratio)
+
 Single nutrient geider photosynthetic growth.
+
+!!! formulation
+    γᴿ * γᴾᴬᴿ * P
+
+    where:
+    - γᴿ = `monod_limitation(R, kᵣ)`
+    - R = nutrient concentration
+    - kᵣ = nutrient half saturation
+    - γᴾᴬᴿ = `light_limitation_geider(PAR, α, Pᶜₘₐₓ, θᶜ)`
+    - PAR = photosynthetic active radiation
+    - Pᶜₘₐₓ = maximum growth rate
+    - θᶜ = chlorophyll to carbon ratio
+    - α = initial photosynthetic slope
+    - P = plankton concentration
 
 # Arguments
 - `N`: nutrient concentration
 - `P`: phytoplankton concentration
 - `PAR`: photosynthetic active radiation
-- `maximum_growth_rate`: maximum growth rate before nutrient limitation (Pᶜₘₐₓ)
-- `kₙ`: nutrient half saturation
-- `photosynthetic_slope`: initial photosynthetic slope (αᶜʰˡ)
-- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon (θᶜ)
+- `maximum_growth_rate`: maximum growth rate before nutrient limitation
+- `nutrient_half_saturation`: nutrient half saturation
+- `photosynthetic_slope`: initial photosynthetic slope
+- `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon
 """
 function photosynthetic_growth_single_nutrient_geider_light(
-    N, P, PAR, maximum_growth_rate, kₙ, photosynthetic_slope, chlorophyll_to_carbon_ratio
+    N,
+    P,
+    PAR,
+    maximum_growth_rate,
+    nutrient_half_saturation,
+    photosynthetic_slope,
+    chlorophyll_to_carbon_ratio,
 )
-    return monod_limitation(N, kₙ) *
+    return monod_limitation(N, nutrient_half_saturation) *
            light_limitation_geider(
                PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio
            ) *
@@ -122,6 +168,27 @@ end
     )
 
 Two nutrient geider photosynthetic growth.
+
+
+!!! formulation
+    Pᶜₘ *  γᴾᴬᴿ * P
+
+    where:
+    - Pᶜₘ = `liebig_minimum([γᴺ, γᴾ])` * Pᶜₘₐₓ
+    - γᴾᴬᴿ = `light_limitation_geider(PAR, α, Pᶜₘ, θᶜ)`
+    - γᴺ = `monod_limitation(DIN, Kₙ)`
+    - γᴾ = `monod_limitation(PO₄, Kₚ)`
+    - DIN = dissolved inorganic nitrogen concentration
+    - PO₄ = phosphate concentration
+    - Kₙ = nitrogen half saturation constant
+    - Kₚ = phosphate half saturation constant
+    - Pᶜₘₐₓ = maximum growth rate
+    - θᶜ = chlorophyll to carbon ratio
+    - α = initial photosynthetic slope
+    - P = plankton concentration
+
+!!! info
+    Unlike the MITgcm-DARWIN formulation this function does not include light inhibition
 
 # Arguments
 - `DIN`: dissolved inorganic nitrogen concentration
