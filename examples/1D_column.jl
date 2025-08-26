@@ -20,6 +20,8 @@ using Oceananigans
 using Oceananigans.Units
 using CairoMakie
 
+import Agate.Library.Light: cyclical_PAR
+
 const year = years = 365day
 nothing #hide
 
