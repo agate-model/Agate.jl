@@ -13,7 +13,7 @@ UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 [compat]
 DataStructures = "0.18.20"
 OceanBioME = "0.14.0"
-Oceananigans = "^0.95.20, 0.96"
+Oceananigans = "0.96"
 Plots = "1.40.10"
 StatsPlots = "0.15.7"
 julia = "1.10"
