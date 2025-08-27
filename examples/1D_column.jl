@@ -70,7 +70,7 @@ x, y, z = 0.0, 0.0, 0.0
 κₜ_values = [diffusivity(x, y, z, t) for t in t_range, z in z_range]
 PAR_values = [seasonal_PAR(x, y, z, t) for t in t_range, z in z_range]
 
-fig_forcing = Figure(; resolution=(1000, 800))
+fig_forcing = Figure(; resolution=(800, 600), fontsize=14)  
 ax1 = Axis(fig_forcing[1, 1]; xlabel="Time (days)", ylabel="Depth (m)", title="irradiance")
 CairoMakie.heatmap!(ax1, t_range ./ days, z_range, PAR_values; colormap=:viridis)
 
@@ -137,10 +137,7 @@ D_key = :D
 all_keys = [P_keys..., Z_keys..., N_key, D_key]
 
 #Create figure with appropriate size
-fig = Figure(; size=(250 * length(all_keys), 400 * length(all_keys)), fontsize=20)
-
-#Axis configuration
-axis_kwargs = (xlabel="Time (days)", ylabel="z (m)", limits=((0, nothing), (-200, 0)))
+fig = Figure(; size=(800, 1200), fontsize=16) 
 
 #Plot all fields
 for (i, key) in enumerate(all_keys)
@@ -148,9 +145,11 @@ for (i, key) in enumerate(all_keys)
     z_vals = collect(z_nodes)
     times = collect(timeseries[key].times / days)
 
-    ax = Axis(fig[i, 1]; title="$(key) concentration (mmol N / m³)", axis_kwargs...)
+    ax = Axis(fig[i, 1]; title="$(key) concentration (mmol N / m³)", 
+              xlabel="Time (days)", ylabel="z (m)", limits=((0, 365), (-200, 0)))
     hm = heatmap!(ax, times, z_vals,
-                  Float32.(interior(timeseries[key], 1, 1, :, :)'); colormap=:viridis)
+                  Float32.(interior(timeseries[key], 1, 1, :, :)'); 
+                  colormap=:viridis, rasterize=true)  # Rasterize for smaller output
     Colorbar(fig[i, 2], hm)
 end
 
