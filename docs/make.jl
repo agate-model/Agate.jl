@@ -41,7 +41,9 @@ model_pages = ["NiPiZD" => "nipizd.md", "DARWIN" => "darwin.md"]
 
 makedocs(;
     sitename="Agate.jl",
-    format=Documenter.HTML(; prettyurls=get(ENV, "CI", nothing) == "true"),
+    format=Documenter.HTML(; prettyurls=get(ENV, "CI", nothing) == "true",
+        size_threshold = 500000,  # 500KB threshold
+        size_threshold_warn = 200000 ), # 200KB warning
     # modules=[Agate],
     pages=[
         "About" => "index.md",
