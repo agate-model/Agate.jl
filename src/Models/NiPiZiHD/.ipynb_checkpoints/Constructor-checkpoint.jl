@@ -373,10 +373,11 @@ function construct(;
     zoo_diameters=[ESD["Z1"], ESD["Z2"]],
 	het_diameters=[ESD["H1"], ESD["H2"]],
 		
-    nutrient_dynamics=nutrients_default,
-    detritus_dynamics=detritus_default,
-    phyto_dynamics=phytoplankton_default,
-    zoo_dynamics=zooplankton_default,
+    nutrient_dynamics=nutrients,
+    detritus_dynamics=detritus,
+    phyto_dynamics=phytoplankton,
+    zoo_dynamics=zooplankton,
+	het_dynamics=heterotrophs,
 		
     phyto_args=DEFAULT_PHYTO_ARGS,
     zoo_args=DEFAULT_ZOO_ARGS,
@@ -394,13 +395,17 @@ function construct(;
     open_bottom=true,
 )
     parameters, plankton_names = create_size_structured_params(;
-        n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
-        diameters=Dict("P" => phyto_diameters, "Z" => zoo_diameters),
-        plankton_args=Dict("P" => phyto_args, "Z" => zoo_args),
+		
+#         TODO  n_plankton=Dict("P" => n_phyto, "Z" => n_zoo),
+		
+        diameters=Dict("P" => phyto_diameters, "Z" => zoo_diameters, "H" => het_diameters),
+        plankton_args=Dict("P" => phyto_args, "Z" => zoo_args, "H" => het_args),
+		
         interaction_args=interaction_args,
         bgc_args=bgc_args,
         palatability_matrix=palatability_matrix,
         assimilation_efficiency_matrix=assimilation_efficiency_matrix,
+		
     )
 
     # NOTE: Zs precede Ps
