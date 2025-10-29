@@ -1,4 +1,4 @@
-module NiPiZD
+module NiPiZiHD
 
 include("Tracers.jl")
 include("Constructor.jl")
