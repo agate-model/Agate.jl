@@ -1,5 +1,5 @@
 """
-Module to construct an instance of a size-structured NiPiZD model.
+Module to construct an instance of a size-structured NiPiZiHD model.
 """
 
 module Constructor
@@ -72,18 +72,24 @@ DEFAULT_BGC_ARGS = Dict(
     construct(;
         n_phyto=2,
         n_zoo=2,
+        n_hetero=2,
         phyto_diameters=Dict(
             "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
         ),
         zoo_diameters=Dict(
             "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
         ),
+        hetero_diameters=Dict(
+            "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
+        ),        
         nutrient_dynamics=nutrients_default,
         detritus_dynamics=detritus_default,
         phyto_dynamics=phytoplankton_default,
         zoo_dynamics=zooplankton_default,
+        hetero_dynamics=heterotroph_default,
         phyto_args=DEFAULT_PHYTO_ARGS,
         zoo_args=DEFAULT_ZOO_ARGS,
+        hetero_args=DEFAULT_HETERO_ARGS,
         interaction_args=DEFAULT_INTERACTION_ARGS,
         bgc_args=DEFAULT_BGC_ARGS,
         palatability_matrix=nothing,
@@ -93,11 +99,11 @@ DEFAULT_BGC_ARGS = Dict(
         open_bottom=true,
     )
 
-Construct a size-structured NiPiZD model abstract type.
+Construct a size-structured NiPiZiHD model abstract type.
 
-This constructor builds a size-structured plankton model with two plankton functional types:
-phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
-size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor implements
+This constructor builds a size-structured plankton model with three plankton functional types:
+phytoplankton (P), zooplankton (Z) and heterotrophs (H), each of which can be specified to have any number of
+size classes (`n_phyto`, `n_zoo` and `n_hetero`). In addition to plankton, the constructor implements
 idealized detritus (D) and nutrient (N) cycling by default, although more complex N and D
 cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics` arguments.
 
@@ -115,20 +121,26 @@ The type specification includes a photosynthetic active radiation (PAR) auxiliar
 # Keywords
 - `n_phyto`: number of phytoplankton in the model
 - `n_zoo`: number of zooplankton in the model
+- `n_hetero`: number of zooplankton in the model
 - `phyto_diameters`: dictionary from which `phyto` diameters can be computed or a list of
     values to use (as many as the model expects)
 - `zoo_diameters`: dictionary from which `zoo` diameters can be computed or a list of
     values to use (as many as the model expects)
+- `hetero_diameters`: dictionary from which `hetero` diameters can be computed or a list of
+    values to use (as many as the model expects)    
 - `nutrient_dynamics`: expression describing how nutrients change over time, see
     `Agate.Models.Tracers`
 - `detritus_dynamics`: expression describing how detritus evolves over time, see
     `Agate.Models.Tracers`
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
+- `hetero_dynamics`: expression describing how heterotrophs grow, see `Agate.Models.Tracers`
 - `phyto_args`: Dictionary of phytoplankton parameters, for default values see
     `NiPiZD.DEFAULT_PHYTO_ARGS`
 - `zoo_args`: Dictionary of zooplankton parameters, for default values see
     `NiPiZD.DEFAULT_ZOO_ARGS`
+- `hetero_args`: Dictionary of heterotroph parameters, for default values see
+    `NiPiZD.DEFAULT_HETERO_ARGS`
 - `interaction_args`: Dictionary of arguments from which a palatability and assimilation
    efficiency matrix between all plankton can be computed, for default values see
     `NiPiZD.DEFAULT_INTERACTION_ARGS`
@@ -148,10 +160,10 @@ The type specification includes a photosynthetic active radiation (PAR) auxiliar
 
 # Example
 ```julia
-using Agate.Constructors: NiPiZD
+using Agate.Constructors: NiPiZiHD
 
-n2p2zd = NiPiZD.construct()
-n2p2zd_model_obj = n2p2zd()
+n2p2z2hd = NiPiZiHD.construct()
+n2p2z2hd_model_obj = n2p2z2hd()
 ```
 """
 function construct(;
