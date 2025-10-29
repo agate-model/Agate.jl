@@ -50,13 +50,23 @@ function heterotrophic_remin(
     return to_Rp * heterotrophic_growth(Rh, H, maximum_growth_rate, detritus_half_saturation, 0.)
 end 
 
-function grazing(
+function grazing_loss(
+    P::Real,
+    Z::Real,
+    maximum_grazing_rate::Real,
+    holling_half_saturation::Real
+)    
+    return Z * maximum_grazing_rate * holling_type_2(P, holling_half_saturation)
+end
+
+function grazing_gain(
     P::Real,
     Z::Real,
     maximum_grazing_rate::Real,
     holling_half_saturation::Real,
+	assimilation_efficiency::Real,
 )    
-    return Z * maximum_grazing_rate * holling_type_2(P, holling_half_saturation)
+    return Z * maximum_grazing_rate * holling_type_2(P, holling_half_saturation) * assimilation_efficiency
 end
 
 function linear_loss(x, rate)
@@ -121,7 +131,7 @@ function phytoplankton(plankton_array, plankton_name, plankton_idx)
 			alpha[$plankton_idx]
 		) - sum(
 			
-			grazing.(
+			grazing_loss.(
 				$(plankton_symbol),
 				[$(plankton_array...)],
 				maximum_grazing_rate[$plankton_idx],
@@ -145,6 +155,25 @@ function zooplankton(plankton_array, plankton_name, plankton_idx)
 	plankton_symbol = Symbol(plankton_name)
 	
 	return :(
+		sum(
+			
+			grazing_gain.(
+				[$(plankton_array...)]$(plankton_symbol),
+				$(plankton_symbol),
+				maximum_grazing_rate[$plankton_idx],
+				holling_half_saturation,
+				assimilation_efficiency
+			)
+			
+		) - sum(
+				linear_loss.(
+					$(plankton_symbol), linear_mortality[$plankton_idx]
+			)
+		) - sum(
+			quadratic_loss.(
+				$(plankton_symbol), quadratic_mortality[$plankton_idx]
+			)
+		)
 	)
 end
 
@@ -154,7 +183,28 @@ function heterotrophs(plankton_array, plankton_name, plankton_idx)
 	
 	plankton_symbol = Symbol(plankton_name)
 	
-	return :()
+	return :(
+		heterotrophic_growth.(
+			D,
+			$(plankton_symbol),
+			maximum_growth_rate[$plankton_idx],
+			detritus_half_saturation,
+			to_Rp	
+		) - sum(
+			
+			grazing_loss.(
+				$(plankton_symbol),
+				[$(plankton_array...)],
+				maximum_grazing_rate[$plankton_idx],
+				holling_half_saturation,
+			)
+			
+		) - sum(
+			
+			linear_loss.([$(plankton_array...)], linear_mortality)
+			
+		)
+	)
 end
 
 """
@@ -163,7 +213,16 @@ function detritus(plankton_array, plankton_name, plankton_idx)
 	
 	plankton_symbol = Symbol(plankton_name)
 	
-	return :()
+	return :(
+		sum(
+			linear_loss.([$(plankton_array...)], linear_mortality)
+		) + 
+		sum(
+			quadratic_loss.([$(plankton_array...)], quadratic_mortality)
+		) +
+		sum(
+		)
+	)
 end
 
 
