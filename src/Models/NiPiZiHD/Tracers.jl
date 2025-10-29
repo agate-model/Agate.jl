@@ -1,11 +1,19 @@
 module Tracers
 
-export detritus_default,
-    nutrients_default,
-    nutrients_geider_light,
-    phytoplankton_default,
-    phytoplankton_geider_light,
-    zooplankton_default
+export nutrients,
+	phytoplankton,
+	zooplankton,
+	heterotrophs,
+	detritus
+
+# export detritus_default,
+# 	nutrients_default,
+# 	nutrients_geider_light,
+#     phytoplankton_default,
+#     phytoplankton_geider_light,
+#     zooplankton_default
+
+
 
 """
     nutrients_default(plankton_array)

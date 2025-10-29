@@ -380,10 +380,13 @@ function construct(;
     detritus_dynamics=detritus_default,
     phyto_dynamics=phytoplankton_default,
     zoo_dynamics=zooplankton_default,
+		
     phyto_args=DEFAULT_PHYTO_ARGS,
     zoo_args=DEFAULT_ZOO_ARGS,
+		
     interaction_args=DEFAULT_INTERACTION_ARGS,
     bgc_args=DEFAULT_BGC_ARGS,
+		
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
     sinking_tracers=nothing,
