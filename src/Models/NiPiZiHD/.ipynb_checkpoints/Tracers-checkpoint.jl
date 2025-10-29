@@ -1,6 +1,10 @@
 module Tracers
 
-export #...
+export nutrients,
+	phytoplankton,
+	zooplankton,
+	heterotrophs,
+	detritus
 
 # export detritus_default,
 # 	nutrients_default,
@@ -8,6 +12,138 @@ export #...
 #     phytoplankton_default,
 #     phytoplankton_geider_light,
 #     zooplankton_default
+
+# -------------------------------------------------------- #
+#                     Base functions
+# -------------------------------------------------------- #
+
+function photosynthetic_growth(
+    Rp::Real,
+    P::Real,
+    PAR::Real,
+    maximum_growth_rate::Real,  
+    nutrient_half_saturation::Real,
+    alpha::Real,
+)
+    
+    return P * maximum_growth_rate * monod_limitation(Rp, nutrient_half_saturation) * light_limitation_smith(PAR, alpha, maximum_growth_rate)
+         
+end
+
+function heterotrophic_growth(
+    Rh::Real,
+    H::Real,
+    maximum_growth_rate::Real,
+    detritus_half_saturation::Real,
+    to_Rp::Real
+)    
+    return (1 - to_Rp) * H * maximum_growth_rate * monod_limitation(Rh, detritus_half_saturation)
+end
+
+function heterotrophic_remin(
+    Rh::Real,
+    H::Real,
+    maximum_growth_rate::Real,
+    detritus_half_saturation::Real,
+    to_Rp::Real,
+)
+    return to_Rp * heterotrophic_growth(Rh, H, maximum_growth_rate, detritus_half_saturation, 0.)
+end 
+
+function grazing(
+    P::Real,
+    Z::Real,
+    maximum_grazing_rate::Real,
+    holling_half_saturation::Real,
+)    
+    return Z * maximum_grazing_rate * holling_type_2(P, holling_half_saturation)
+end
+
+function linear_loss(x, rate)
+    return x * rate
+end
+
+function quadratic_loss(x, rate)
+    return x^2 * rate
+end
+
+
+# -------------------------------------------------------- #
+#                     Dynamics
+# -------------------------------------------------------- #
+
+"""
+"""
+function nutrients(plankton_array, plankton_name, plankton_idx)
+	
+	plankton_symbol = Symbol(plankton_name)
+	
+	return :(
+		sum(
+			heterotrophic_remin.(
+				D,
+				$(plankton_symbol),
+				maximum_growth_rate[$plankton_idx],
+				detritus_half_saturation[$plankton_idx],
+				to_Rp
+			)
+		) - 
+		sum(
+			photosynthetic_growth.(
+				N,
+				$(plankton_symbol),
+				PAR,
+				maximum_growth_rate[$plankton_idx],
+				nutrient_half_saturation[$plankton_idx],
+				alpha[$plankton_idx]
+			)
+		)
+	)
+end
+
+"""
+"""
+function phytoplankton(plankton_array, plankton_name, plankton_idx)
+	
+	plankton_symbol = Symbol(plankton_name)
+		
+	return :(
+		photosynthetic_growth.() - grazing.() - linear_loss.()
+	)
+end
+
+"""
+"""
+function zooplankton(plankton_array, plankton_name, plankton_idx)
+	
+	plankton_symbol = Symbol(plankton_name)
+	
+	return :(
+	)
+end
+
+"""
+"""
+function heterotrophs(plankton_array, plankton_name, plankton_idx)
+	
+	plankton_symbol = Symbol(plankton_name)
+	
+	return :()
+end
+
+"""
+"""
+function detritus(plankton_array, plankton_name, plankton_idx)
+	
+	plankton_symbol = Symbol(plankton_name)
+	
+	return :()
+end
+
+
+# -------------------------------------------------------- #
+# -------------------------------------------------------- #
+
 
 """
     nutrients_default(plankton_array)

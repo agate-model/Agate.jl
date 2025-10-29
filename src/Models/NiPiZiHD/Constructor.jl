@@ -369,9 +369,6 @@ n2p2zd_model_obj = n2p2zd()
 """
 function construct(;
 		
-#     n_phyto=2,
-#     n_zoo=2,
-		
     phyto_diameters=[ESD["P1"], ESD["P2"]],
     zoo_diameters=[ESD["Z1"], ESD["Z2"]],
 	het_diameters=[ESD["H1"], ESD["H2"]],
@@ -386,6 +383,9 @@ function construct(;
 		
     interaction_args=DEFAULT_INTERACTION_ARGS,
     bgc_args=DEFAULT_BGC_ARGS,
+		
+	# TODO...
+	# to_Rp = 0.5,  # fraction remineralised
 		
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
