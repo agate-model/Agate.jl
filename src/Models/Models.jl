@@ -3,7 +3,7 @@ module Models
 include("Parameters.jl")
 include("DARWIN/DARWIN.jl")
 include("NiPiZD/NiPiZD.jl")
-include("NiPiZD/NiPiZiHD.jl")
+include("NiPiZiHD/NiPiZiHD.jl")
 
 using .Parameters
 using .DARWIN
