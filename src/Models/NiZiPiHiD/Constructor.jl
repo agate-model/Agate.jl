@@ -118,7 +118,7 @@ ESD = Dict(
     
     "P1" => 0.6,
     
-    "Z2" => 12., #15, 11
+    "Z2" => 12., 
     
     "Z1" => 6.,
     
@@ -368,14 +368,14 @@ n2p2zd_model_obj = n2p2zd()
 ```
 """
 function construct(;
-    n_phyto=2,
-    n_zoo=2,
-    phyto_diameters=Dict(
-        "min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"
-    ),
-    zoo_diameters=Dict(
-        "min_diameter" => 20, "max_diameter" => 100, "splitting" => "linear_splitting"
-    ),
+		
+#     n_phyto=2,
+#     n_zoo=2,
+		
+    phyto_diameters=[ESD["P1"], ESD["P2"]],
+    zoo_diameters=[ESD["Z1"], ESD["Z2"]],
+	het_diameters=[ESD["H1"], ESD["H2"]],
+		
     nutrient_dynamics=nutrients_default,
     detritus_dynamics=detritus_default,
     phyto_dynamics=phytoplankton_default,
