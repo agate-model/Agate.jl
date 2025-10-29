@@ -37,7 +37,7 @@ end
 example_pages = [ title => "generated/$(filename).md" for (title, filename) in examples ]
 
 
-model_pages = ["NiPiZD" => "nipizd.md", "DARWIN" => "darwin.md"]
+model_pages = ["NiPiZD" => "nipizd.md", "NiPiZiHD" => "nipizihd.md", "DARWIN" => "darwin.md"]
 
 makedocs(;
     sitename="Agate.jl",
