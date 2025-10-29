@@ -80,6 +80,7 @@ function nutrients(plankton_array, plankton_name, plankton_idx)
 	
 	return :(
 		sum(
+			
 			heterotrophic_remin.(
 				D,
 				$(plankton_symbol),
@@ -87,8 +88,10 @@ function nutrients(plankton_array, plankton_name, plankton_idx)
 				detritus_half_saturation[$plankton_idx],
 				to_Rp
 			)
+			
 		) - 
 		sum(
+			
 			photosynthetic_growth.(
 				N,
 				$(plankton_symbol),
@@ -97,6 +100,7 @@ function nutrients(plankton_array, plankton_name, plankton_idx)
 				nutrient_half_saturation[$plankton_idx],
 				alpha[$plankton_idx]
 			)
+			
 		)
 	)
 end
@@ -108,7 +112,29 @@ function phytoplankton(plankton_array, plankton_name, plankton_idx)
 	plankton_symbol = Symbol(plankton_name)
 		
 	return :(
-		photosynthetic_growth.() - grazing.() - linear_loss.()
+		photosynthetic_growth.(
+			N,
+			$(plankton_symbol),
+			PAR,
+			maximum_growth_rate[$plankton_idx],
+			nutrient_half_saturation[$plankton_idx],
+			alpha[$plankton_idx]
+		) - sum(
+			
+			grazing.(
+				$(plankton_symbol),
+				[$(plankton_array...)],
+				maximum_grazing_rate[$plankton_idx],
+				holling_half_saturation,
+				
+			)
+		) - sum(
+			
+			linear_loss.(
+				$(plankton_symbol), linear_mortality[$plankton_idx]
+			)
+			
+		)
 	)
 end
 
