@@ -16,57 +16,270 @@ using OceanBioME: setup_velocity_fields
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 
 export construct, instantiate
-export DEFAULT_PHYTO_ARGS,
-    DEFAULT_PHYTO_GEIDER_ARGS, DEFAULT_ZOO_ARGS, DEFAULT_INTERACTION_ARGS, DEFAULT_BGC_ARGS
+export DEFAULT_PHYTO_ARGS, DEFAULT_PHYTO_GEIDER_ARGS, DEFAULT_ZOO_ARGS, DEFAULT_INTERACTION_ARGS, DEFAULT_BGC_ARGS
 
-DEFAULT_PHYTO_ARGS = Dict(
-    "allometry" => Dict(
-        "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
-        "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
+# DEFAULT_PHYTO_ARGS = Dict(
+#     "allometry" => Dict(
+#         "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
+#         "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
+#     ),
+#     "linear_mortality" => 8e-7 / second,
+#     "alpha" => 0.1953 / day,
+# )
+
+# DEFAULT_PHYTO_GEIDER_ARGS = Dict(
+#     "allometry" => Dict(
+#         "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
+#         "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
+#     ),
+#     "linear_mortality" => 8e-7 / second,
+#     "photosynthetic_slope" => 0.46e-5,
+#     "chlorophyll_to_carbon_ratio" => 0.1,
+# )
+
+# DEFAULT_ZOO_ARGS = Dict(
+#     "allometry" => Dict("maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16)),
+#     "linear_mortality" => 8e-7 / second,
+#     "holling_half_saturation" => 5.0,
+#     "quadratic_mortality" => 1e-6 / second,
+# )
+
+# DEFAULT_INTERACTION_ARGS = Dict(
+#     "P" => Dict(
+#         "can_eat" => 0, # bool
+#         "can_be_eaten" => 1, # bool
+#         "optimum_predator_prey_ratio" => 0,
+#         "protection" => 0,
+#         "specificity" => 0,
+#         "assimilation_efficiency" => 0,
+#     ),
+#     "Z" => Dict(
+#         "can_eat" => 1, # bool
+#         "can_be_eaten" => 0, # bool
+#         "optimum_predator_prey_ratio" => 10,
+#         "protection" => 1,
+#         "specificity" => 0.3,
+#         "assimilation_efficiency" => 0.32,
+#     ),
+# )
+
+# DEFAULT_BGC_ARGS = Dict(
+#     "detritus_remineralization" => 0.1213 / day, "mortality_export_fraction" => 0.5
+# )
+
+
+# ----------------------------------------------- #
+# Adjustment functions for the 0D Dutkiewicz model
+# ----------------------------------------------- #
+
+function vol(diameter)
+    return (4 / 3) * π * (diameter / 2)^3
+end
+
+function scaling(
+    params::Dict,
+    var,
+)
+    """
+    """
+    # HACK for switching params - oD model resets based on
+    # a size threshold
+    if var == "mu_p_max" 
+        
+        if params["d"] < 3
+            a = params["mu_p_max"]["<3"]["a"]
+            b = params["mu_p_max"]["<3"]["b"]
+        
+        elseif params["d"] > 3
+            a = params["mu_p_max"][">3"]["a"]
+            b = params["mu_p_max"][">3"]["b"]
+      
+        end
+    end
+    if var != "mu_p_max" 
+        a = params[var]["a"]
+        b = params[var]["b"]
+    end
+
+    return a * vol(params["d"])^b
+    end;
+
+function halfsat_form(k, mu_max, Q_min, V_max)
+    return k * mu_max * Q_min / V_max
+    end;
+
+# ------------------------------------------------ #
+# Two step parameter definition
+# ------------------------------------------------ #
+
+ESD = Dict(
+        
+    "P2" => 1.2,
+    
+    "P1" => 0.6,
+    
+    "Z2" => 12., #15, 11
+    
+    "Z1" => 6.,
+    
+    "H2" => 0.6,
+    
+    "H1" => 0.15, 
+
+)
+
+# Coefficients from Follett et al (2022)
+coeffs = Dict(
+    
+    "P1" => Dict(
+        
+        "d" => ESD["P1"],
+        
+        "mu_p_max" => Dict(
+            
+            "<3" => Dict(
+                "a" => 1.1063,
+                "b" => 0.28,
+            ),
+            ">3" => Dict(                
+                "a" => 2.5383,
+                "b" => -0.1
+            )
+        ),
+        
+        "k" => Dict(            
+            "a" => 0.17,
+            "b"=> 0.27
+        ),
+        
+        "Q_min" => Dict(
+            "a" => 0.07,
+            "b"=> -0.17
+        ),
+        
+        "V_max" => Dict(           
+            "a" => 0.51,
+            "b" => -0.27
+        ),
+        
+        "alpha" => 0.1953 / day
+      
+      ),      
+    
+    "P2" => Dict(
+        
+        "d" => ESD["P2"],
+        
+        "mu_p_max" => Dict(
+                        
+            "<3" => Dict(
+                "a" => 1.1063,
+                "b" => 0.28
+            ),
+            ">3" => Dict(                
+                "a" => 2.5383,
+                "b" => -0.1
+            )
+        ),
+      
+        "k" => Dict(            
+            "a" => 0.17,
+            "b"=> 0.27
+         ),
+        
+        "Q_min" => Dict(
+            "a" => 0.07,
+            "b"=> -0.17
+         ),
+        
+        "V_max" => Dict(           
+            "a" => 0.51,
+            "b" => -0.27
+        ),
+        
+        "alpha" => 0.1953 / day
+        
+      ),
+    
+    "Z1" => Dict(
+        
+        "d" => ESD["Z1"], 
+        
+        "g_max" => Dict(
+            "a" => 3.63,
+            "b" => -0.16
+        )
+        
+     ),
+    
+    "Z2" => Dict(
+        
+        "d" => ESD["Z2"], 
+        
+        "g_max" => Dict(
+            "a" => 3.63,
+            "b" => -0.16
+        )
+        
     ),
-    "linear_mortality" => 8e-7 / second,
-    "alpha" => 0.1953 / day,
-)
-
-DEFAULT_PHYTO_GEIDER_ARGS = Dict(
-    "allometry" => Dict(
-        "maximum_growth_rate" => Dict("a" => 2 / day, "b" => -0.15),
-        "nutrient_half_saturation" => Dict("a" => 0.17, "b" => 0.27),
+    
+    "H1" => Dict(
+            
+        "d" => ESD["H1"],
+        
+        "mu_h_max" => Dict(
+            "a" => 1.836,
+            "b" => 0.28
+        ),
+         
+        "k" => Dict(            
+            "a" => 0.17,
+            "b" => 0.27
+        ),
+        
+        "Q_min" => Dict(
+            "a" => 0.07,
+            "b"=> -0.17
+        ),
+            
+        "V_max" => Dict(           
+            "a" => 0.51,
+            "b" => -0.27
+        ),
+     
     ),
-    "linear_mortality" => 8e-7 / second,
-    "photosynthetic_slope" => 0.46e-5,
-    "chlorophyll_to_carbon_ratio" => 0.1,
-)
-
-DEFAULT_ZOO_ARGS = Dict(
-    "allometry" => Dict("maximum_predation_rate" => Dict("a" => 30.84 / day, "b" => -0.16)),
-    "linear_mortality" => 8e-7 / second,
-    "holling_half_saturation" => 5.0,
-    "quadratic_mortality" => 1e-6 / second,
-)
-
-DEFAULT_INTERACTION_ARGS = Dict(
-    "P" => Dict(
-        "can_eat" => 0, # bool
-        "can_be_eaten" => 1, # bool
-        "optimum_predator_prey_ratio" => 0,
-        "protection" => 0,
-        "specificity" => 0,
-        "assimilation_efficiency" => 0,
+    
+    "H2" => Dict(
+            
+        "d" => ESD["H2"],
+        
+        "mu_h_max" => Dict(
+            "a" => 1.836,
+            "b" => 0.28 
+        ),
+         
+        "k" => Dict(            
+            "a" => 0.17,
+            "b" => 0.27
+        ),
+        
+        "Q_min" => Dict(
+            "a" => 0.07,
+            "b"=> -0.17
+        ),
+            
+        "V_max" => Dict(           
+            "a" => 0.51,
+            "b" => -0.27
+        ),
+     
     ),
-    "Z" => Dict(
-        "can_eat" => 1, # bool
-        "can_be_eaten" => 0, # bool
-        "optimum_predator_prey_ratio" => 10,
-        "protection" => 1,
-        "specificity" => 0.3,
-        "assimilation_efficiency" => 0.32,
-    ),
+    
 )
 
-DEFAULT_BGC_ARGS = Dict(
-    "detritus_remineralization" => 0.1213 / day, "mortality_export_fraction" => 0.5
-)
+# ------------------------------------------------ #
+# 
+# ------------------------------------------------ #
 
 """
     construct(;
