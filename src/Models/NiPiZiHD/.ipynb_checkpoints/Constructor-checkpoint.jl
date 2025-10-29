@@ -320,7 +320,7 @@ function construct(;
         tracers[name] = phyto_dynamics(plankton_array, name, index)
     end
 	
-	for i in 1:n_zoo
+	for i in 1:n_het
         name = "H$i"
         index = findfirst(x -> x == name, plankton_names)
         tracers[name] = het_dynamics(plankton_array, name, index)
