@@ -69,6 +69,17 @@ function grazing_gain(
     return Z * maximum_grazing_rate * holling_type_2(P, holling_half_saturation) * assimilation_efficiency
 end
 
+function messy_grazing(
+	P::Real,
+    Z::Real,
+    maximum_grazing_rate::Real,
+    holling_half_saturation::Real,
+	assimilation_efficiency::Real
+)
+	
+	return (1 - assimilation_efficiency) * grazing_loss(P, Z, maximum_grazing_rate, holling_half_saturation)
+end
+
 function linear_loss(x, rate)
     return x * rate
 end
@@ -123,12 +134,14 @@ function phytoplankton(plankton_array, plankton_name, plankton_idx)
 		
 	return :(
 		photosynthetic_growth.(
+			
 			N,
 			$(plankton_symbol),
 			PAR,
 			maximum_growth_rate[$plankton_idx],
 			nutrient_half_saturation[$plankton_idx],
 			alpha[$plankton_idx]
+			
 		) - sum(
 			
 			grazing_loss.(
@@ -215,12 +228,36 @@ function detritus(plankton_array, plankton_name, plankton_idx)
 	
 	return :(
 		sum(
+			
 			linear_loss.([$(plankton_array...)], linear_mortality)
+			
 		) + 
 		sum(
+			
 			quadratic_loss.([$(plankton_array...)], quadratic_mortality)
+			
 		) +
 		sum(
+			
+			messy_grazing.(
+				[$(plankton_array...)]$(plankton_symbol),
+				$(plankton_symbol),
+				maximum_grazing_rate[$plankton_idx],
+				holling_half_saturation,
+				assimilation_efficiency
+			)
+			
+		) -
+		sum(
+			
+			heterotrophic_growth.(
+				D,
+				$(plankton_symbol),
+				maximum_growth_rate[$plankton_idx],
+				detritus_half_saturation,
+				0.
+			)
+			
 		)
 	)
 end
