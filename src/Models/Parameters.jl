@@ -1,397 +1,404 @@
-"""
-Module to compute and format size-dependent plankton parameters.
+"""Construction specifications and runtime parameter containers.
+
+Agate separates data containers into:
+
+- *Specifications* (construction-only, may contain CPU-only metadata)
+- *Parameters* (runtime, kernel-safe, Adapt-compatible)
+
+For NiPiZD, user-facing flexibility is represented with `*Specification` types and
+expanded into a single `NiPiZDParameters` runtime container.
 """
 
 module Parameters
 
-using DataStructures: DefaultDict
+using Adapt
 
-using Agate.Library.Allometry
-using Agate.Library.Predation
+using Agate.Library.Allometry:
+    PalatabilityPreyParameters,
+    PalatabilityPredatorParameters,
+    allometric_scaling_power,
+    allometric_palatability_unimodal_protection
 
-export compute_allometric_parameters, create_size_structured_params
+using Agate.Library.Predation:
+    AssimilationPreyParameters,
+    AssimilationPredatorParameters,
+    assimilation_efficiency_emergent_binary
 
-emergent_palatability_f = allometric_palatability_unimodal_protection
-emergent_assimilation_efficiency_f = assimilation_efficiency_emergent_binary
+export AbstractDiameterSpecification,
+    DiameterListSpecification,
+    DiameterRangeSpecification,
+    NiPiZDBiogeochemistrySpecification,
+    PhytoPFTParameters,
+    PhytoSpecification,
+    ZooPFTParameters,
+    ZooSpecification,
+    NiPiZDParameters,
+    create_nipizd_parameters,
+    compute_nipizd_parameters
 
-"""
-    compute_allometric_parameters(plankton::Dict) -> Tuple(Dict, Array)
+"""Abstract supertype for diameter specifications."""
+abstract type AbstractDiameterSpecification end
 
-Compute allometric (diameter-dependant) plankton parameters.
+"""A diameter specification defined by an explicit list of diameters."""
+struct DiameterListSpecification{T, VT<:AbstractVector{T}} <: AbstractDiameterSpecification
+    diameters::VT
+end
 
-# Arguments
-- `plankton`: a Dictionary of plankton groups' specific parameters of the form:
-       `Dict(<group name> => Dict(<parameter> => <value>, ....), ...)`
-    The Dictionary for each group (e.g., "P", "Z" or "cocco") has to contain at least the
-    keys "n" and "diameters", specifying number of plankton diameters to generate and how
-    (min/max values and whether to use linear or log splitting), e.g.:
-        ```
-        Dict(
-            "P" => Dict(
-                "n" => 2,
-                "diameters" =>
-                    Dict("min_diameter" => 1, "max_diameter" => 10, "splitting" => "log_splitting"),
-                ...
-                ),
-            "Z" => ...
-        )
-        ```
+"""A diameter specification defined by a range and a splitting method."""
+struct DiameterRangeSpecification{T} <: AbstractDiameterSpecification
+    min_diameter::T
+    max_diameter::T
+    splitting::Symbol
+end
 
-!!! info
+"""PFT-level constants for phytoplankton."""
+struct PhytoPFTParameters{FT<:AbstractFloat}
+    maximum_growth_rate_a::FT
+    maximum_growth_rate_b::FT
+    nutrient_half_saturation_a::FT
+    nutrient_half_saturation_b::FT
+    linear_mortality::FT
+    alpha::FT
+    photosynthetic_slope::FT
+    chlorophyll_to_carbon_ratio::FT
+    can_eat::Bool
+    can_be_eaten::Bool
+    optimum_predator_prey_ratio::FT
+    protection::FT
+    specificity::FT
+    assimilation_efficiency::FT
+end
 
-    The Dictionary for each plankton group can also include the following keys and values:
-        - key: "allometry" (compute diameter dependent parameters)
-            - value: Dictionary of the form
-                `Dict(<param name> => Dict("a" => <value>, "b" => <value>), ...)`
-        - key: "palatability" (generate a palatability matrix)
-            - value: Dictionary with "can_eat", "optimum_predator_prey_ratio", "protection",
-              "specificity" keys
-        - key: "assimilation_efficiency" (generate assimilation efficiency matrix)
-            - value: Dictionary with "can_eat", "can_be_eaten", "assimilation_efficiency" keys
-        - key: "*" (any other Strings)
-             - value: Float specifying group level parameters (e.g., mortality rates)
+"""PFT-level constants for zooplankton."""
+struct ZooPFTParameters{FT<:AbstractFloat}
+    maximum_predation_rate_a::FT
+    maximum_predation_rate_b::FT
+    linear_mortality::FT
+    holling_half_saturation::FT
+    quadratic_mortality::FT
+    can_eat::Bool
+    can_be_eaten::Bool
+    optimum_predator_prey_ratio::FT
+    protection::FT
+    specificity::FT
+    assimilation_efficiency::FT
+end
 
-!!! info
+"""Construction-time specification of phytoplankton size classes."""
+struct PhytoSpecification{FT<:AbstractFloat, DS<:AbstractDiameterSpecification}
+    n::Int
+    diameters::DS
+    pft::PhytoPFTParameters{FT}
+end
 
-    This function:
-    - generates `n` diameters for each `plankton` group
-    - computes emergent parameters (allometric functions, assimilation matrix,
-      palatability matrix) for each group-diameter combination, if these are specified as keys
-      in the input Dictionary
-    - reshapes any other group specific parameters to Array of length `n` (repeating the
-      parameter value n times to match it in length to the emergent parameters)
+"""Construction-time specification of zooplankton size classes."""
+struct ZooSpecification{FT<:AbstractFloat, DS<:AbstractDiameterSpecification}
+    n::Int
+    diameters::DS
+    pft::ZooPFTParameters{FT}
+end
 
-    All parameters are returned as: `Dict(<parameter> => <Array of values>, ....)` along with
-    an Array of the plankton order in which the parameter values were created and processed
-    (e.g., `["Z1", ...., "Z<n>", "P1", ..., "P<n>"]`).
+"""Construction-time constants for nutrient and detritus cycling."""
+struct NiPiZDBiogeochemistrySpecification{FT<:AbstractFloat}
+    detritus_remineralization::FT
+    mortality_export_fraction::FT
+end
 
-!!! tip
+"""Runtime NiPiZD parameters stored in the biogeochemistry object."""
+struct NiPiZDParameters{FT<:AbstractFloat, VT<:AbstractVector{FT}, MT<:AbstractMatrix{FT}}
+    n_P::Int
+    n_Z::Int
 
-    See test.test_parameters `create_allometric_parameters` testset for example input.
-"""
-function compute_allometric_parameters(plankton::Dict)
+    diameters::VT
 
-    # intermediate representations for parameters that are output as matrices
-    intermediate_palatability = DefaultDict{AbstractString,Array}([])
-    intermediate_assimilation = DefaultDict{AbstractString,Array}([])
-    # final outputs here
-    results = DefaultDict{AbstractString,Array{Real}}([])
+    maximum_growth_rate::VT
+    nutrient_half_saturation::VT
+    maximum_predation_rate::VT
 
-    plankton_names = []
-    for (plankton_name, params) in plankton
-        n = params["n"]
-        plankton_names = vcat(plankton_names, ["$plankton_name$i" for i in 1:n])
+    linear_mortality::VT
+    holling_half_saturation::VT
+    quadratic_mortality::VT
 
-        # 1. compute diameters (unless already specified)
-        if isa(params["diameters"], Dict)
-            # get the appropriate splitting function from the Parameters module
-            splitting_function = getfield(
-                Parameters, Symbol(params["diameters"]["splitting"])
-            )
-            diameters = splitting_function(
-                params["diameters"]["min_diameter"], params["diameters"]["max_diameter"], n
-            )
-        else
-            if length(params["diameters"]) != n
-                throw(ArgumentError("diameters array must have length $(n)"))
-            end
-            diameters = params["diameters"]
-        end
-        results["diameters"] = vcat(results["diameters"], diameters)
+    alpha::VT
+    photosynthetic_slope::VT
+    chlorophyll_to_carbon_ratio::VT
 
-        # 2. compute allometric functions (if "allometry" specified by user in params)
-        if "allometry" ∈ keys(params)
-            for (param, args) in params["allometry"]
-                values = [
-                    allometric_scaling_power(args["a"], args["b"], d) for d in diameters
-                ]
-                results[param] = vcat(results[param], values)
-            end
-        end
+    palatability_matrix::MT
+    assimilation_efficiency_matrix::MT
 
-        # 3. reshape remaining parameters
-        for (param, value) in params
-            if !(param ∈ ["n", "diameters", "allometry"])
+    detritus_remineralization::FT
+    mortality_export_fraction::FT
+end
 
-                # NOTE: for palatability and assimilation_efficiency, `value` is a Dictionary
-                # store the values in intermediate form to use later when creating matrices
-                if param ∈ ["palatability", "assimilation_efficiency"]
-                    for (arg, val) in value
-                        values = repeat([val], n)
-                        if param == "palatability"
-                            intermediate_palatability[arg] = vcat(
-                                intermediate_palatability[arg], values
-                            )
-                        elseif param == "assimilation_efficiency"
-                            intermediate_assimilation[arg] = vcat(
-                                intermediate_assimilation[arg], values
-                            )
-                        end
-                    end
-                else
-                    # NOTE: expect here that in all other cases `value` is a Float specifying
-                    # group level parameters
-                    results[param] = vcat(results[param], repeat([value], n))
-                end
-            end
-        end
+Adapt.@adapt_structure NiPiZDParameters
+
+@inline function _check_length(name::Symbol, expected::Int, got::Int)
+    if expected != got
+        throw(ArgumentError("$(name) must have length $(expected) but has length $(got)"))
+    end
+    return nothing
+end
+
+function _compute_diameters(::Type{FT}, n::Int, spec::DiameterRangeSpecification) where {FT<:AbstractFloat}
+    min_d = FT(spec.min_diameter)
+    max_d = FT(spec.max_diameter)
+
+    if n == 1
+        return FT[min_d]
     end
 
-    # 4. palatability & assimilation efficiency matrices (if specified by user)
-    if !(isempty(intermediate_palatability))
-        intermediate_palatability["diameters"] = results["diameters"]
-        results["palatability_matrix"] = emergent_2D_array(
-            intermediate_palatability, emergent_palatability_f
-        )
-    end
+    diameters = Vector{FT}(undef, n)
 
-    if !(isempty(intermediate_assimilation))
-        intermediate_assimilation["diameters"] = results["diameters"]
-        results["assimilation_efficiency_matrix"] = emergent_2D_array(
-            intermediate_assimilation, emergent_assimilation_efficiency_f
-        )
-    end
-
-    return results, plankton_names
-end
-
-"""
-Log splitting function to generate a set of diameters.
-"""
-function log_splitting(min_diameter::Real, max_diameter::Real, n::Int)
-    log_min = log10(min_diameter)
-    log_max = log10(max_diameter)
-    log_step = (log_max - log_min) / (n - 1)
-    return [10^(log_min + i * log_step) for i in 0:(n - 1)]
-end
-
-"""
-Linear splitting function to generate a set of diameters.
-"""
-function linear_splitting(min_diameter::Real, max_diameter::Real, n::Int)
-    linear_step = (max_diameter - min_diameter) / (n - 1)
-    return [min_diameter + i * linear_step for i in 0:(n - 1)]
-end
-
-"""
-    emergent_2D_array(plankton, func)
-
-Apply function `func` to every every pair of `plankton` groups, returning a 2D Array. The
-expected use is for calculating predator-prey dynamics (palatability and assimilation
-efficiency matrices).
-
-# Arguments
-- `plankton`: Dictionary of values to apply `func` to, of the form
-   `Dict(<function arg name> => <Array of values>, ...)`
-- `func`: Function
-
-# Example
-```julia
-function add_ab(prey, pred)
-    return prey["a"] + pred["b]
-end
-
-plankton_vals = Dict(
-    "a" => [1, 2, 3],
-    "b" => [9, 8, 7],
-)
-
-values_matrix = emergent_2D_array(plankton_vals, add_ab)
-```
-"""
-function emergent_2D_array(plankton, func)
-    # n is the number of plankton in the system - populate NxN matrix
-    n = length(plankton["diameters"])
-    plankton_matrix = zeros(Float64, n, n)
-
-    # each plankton can be a predator or prey, retrieve their respective args
-    arg_names = keys(plankton)
-    for pred_name in 1:n
-        predator_data = Dict(arg => plankton[arg][pred_name] for arg in arg_names)
-        for prey_name in 1:n
-            prey_data = Dict(arg => plankton[arg][prey_name] for arg in arg_names)
-            # pass prey and predator data dictionaries to the function
-            plankton_matrix[pred_name, prey_name] = func(prey_data, predator_data)
+    if spec.splitting === :log_splitting
+        log_min = log(min_d)
+        log_max = log(max_d)
+        step = (log_max - log_min) / FT(n - 1)
+        @inbounds for i in 1:n
+            diameters[i] = exp(log_min + FT(i - 1) * step)
         end
+    elseif spec.splitting === :linear_splitting
+        step = (max_d - min_d) / FT(n - 1)
+        @inbounds for i in 1:n
+            diameters[i] = min_d + FT(i - 1) * step
+        end
+    else
+        throw(ArgumentError("Unsupported splitting method: $(spec.splitting)"))
     end
 
-    return plankton_matrix
+    return diameters
 end
 
-"""
-    create_size_structured_params(;
-        n_plankton=Dict("P" => 2, "Z" => 2),
-        diameters=Dict(
-            "P" =>
-                Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
-            "Z" => Dict(
-                "min_diameter" => 20,
-                "max_diameter" => 100,
-                "splitting" => "linear_splitting",
-            ),
-        ),
-        plankton_args=nothing,
-        interaction_args=nothing,
-        bgc_args=nothing,
-        palatability_matrix=nothing,
-        assimilation_efficiency_matrix=nothing,
-    )
+function _compute_diameters(::Type{FT}, n::Int, spec::DiameterListSpecification) where {FT<:AbstractFloat}
+    _check_length(:diameters, n, length(spec.diameters))
+    diameters = Vector{FT}(undef, n)
+    @inbounds for i in 1:n
+        diameters[i] = FT(spec.diameters[i])
+    end
+    return diameters
+end
 
-Create a NamedTuple of parameters from which an Oceananigans.Biogeochemistry model can be instantiated.
+@inline function _zoo_pft(zoo::ZooSpecification)
+    return zoo.pft
+end
 
-# Arguments
-- `n_plankton`: Dictionary of the number of plankton to include in the model by group
-- `diameters`: Dictionary which specifies for each plankton group how to compute diameters
-   or gives a list of values to use
-- `plankton_args`: Dictionary of plankton parameters for each group
-- `interaction_args`: Dictionary of arguments from which a palatability and assimilation
-   efficiency matrix between all plankton can be computed
-- `bgc_args`: Dictionary of constant parameters used in growth functions (i.e., not size
-    dependant plankton parameters as well as biogeochemistry parameters related to nutrient
-    and detritus
-- `palatability_matrix`: optional palatability matrix passed as an Array, if provided
-    then `interaction_args` are not used to compute this
-- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
-    Array, if provided then `interaction_args` are not used to compute this
+@inline function _phyto_pft(phyto::PhytoSpecification)
+    return phyto.pft
+end
 
-!!! warning
-
-    Wherever a parameter is defined for only some plankton groups, its value is set to 0 for
-    the other plankton groups.
-
-!!! tip
-
-    See Agate.Models.NiPiZD.Constructor for example plankton_args, interaction_args and bgc_args.
-
-"""
-function create_size_structured_params(;
-    n_plankton=Dict("P" => 2, "Z" => 2),
-    diameters=Dict(
-        "P" =>
-            Dict("min_diameter" => 2, "max_diameter" => 10, "splitting" => "log_splitting"),
-        "Z" => Dict(
-            "min_diameter" => 20,
-            "max_diameter" => 100,
-            "splitting" => "linear_splitting",
-        ),
-    ),
-    plankton_args=nothing,
-    interaction_args=nothing,
-    bgc_args=nothing,
+function compute_nipizd_parameters(
+    ::Type{FT},
+    phyto::PhytoSpecification{FT},
+    zoo::ZooSpecification{FT},
+    bgc::NiPiZDBiogeochemistrySpecification{FT};
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
-)
-    # ====================================================================================
-    # 1. Ensure that all plankton groups have the same parameters
-    #   - gather all parameters across groups
-    #   - when param not specified for a group, add it and set value to 0
-    # ====================================================================================
+) where {FT<:AbstractFloat}
+    n_P = phyto.n
+    n_Z = zoo.n
+    n_plankton = n_Z + n_P
 
-    # NOTE: Julia passes dictionaries by reference not value
-    # use deepcopy here to avoid mutating the passed dictionaries outside this fucntion
-    plankton_args_copy = deepcopy(plankton_args)
+    zoo_diameters = _compute_diameters(FT, n_Z, zoo.diameters)
+    phyto_diameters = _compute_diameters(FT, n_P, phyto.diameters)
 
-    # first handle allometry
-    # - get all allometric parameters across groups (e.g., Ps and Zs)
-    all_allometric_params = union(
-        vcat([collect(keys(args["allometry"])) for args in values(plankton_args_copy)]...)
-    )
-    # - loop across groups, if allometric param not defined, set it to 0
-    for name in keys(plankton_args_copy)
-        for param in all_allometric_params
-            if !(param ∈ keys(plankton_args_copy[name]["allometry"]))
-                plankton_args_copy[name]["allometry"][param] = Dict("a" => 0.0, "b" => 0.0)
+    diameters = Vector{FT}(undef, n_plankton)
+    @inbounds begin
+        for i in 1:n_Z
+            diameters[i] = zoo_diameters[i]
+        end
+        for i in 1:n_P
+            diameters[n_Z + i] = phyto_diameters[i]
+        end
+    end
+
+    maximum_growth_rate = zeros(FT, n_plankton)
+    nutrient_half_saturation = zeros(FT, n_plankton)
+    maximum_predation_rate = zeros(FT, n_plankton)
+
+    linear_mortality = zeros(FT, n_plankton)
+    holling_half_saturation = zeros(FT, n_plankton)
+    quadratic_mortality = zeros(FT, n_plankton)
+
+    alpha = zeros(FT, n_plankton)
+    photosynthetic_slope = zeros(FT, n_plankton)
+    chlorophyll_to_carbon_ratio = zeros(FT, n_plankton)
+
+    @inbounds for i in 1:n_Z
+        zpft = zoo.pft
+        linear_mortality[i] = zpft.linear_mortality
+        holling_half_saturation[i] = zpft.holling_half_saturation
+        quadratic_mortality[i] = zpft.quadratic_mortality
+
+        maximum_predation_rate[i] = allometric_scaling_power(
+            zpft.maximum_predation_rate_a,
+            zpft.maximum_predation_rate_b,
+            diameters[i],
+        )
+    end
+
+    @inbounds for i in 1:n_P
+        idx = n_Z + i
+        ppft = phyto.pft
+
+        linear_mortality[idx] = ppft.linear_mortality
+        alpha[idx] = ppft.alpha
+        photosynthetic_slope[idx] = ppft.photosynthetic_slope
+        chlorophyll_to_carbon_ratio[idx] = ppft.chlorophyll_to_carbon_ratio
+
+        maximum_growth_rate[idx] = allometric_scaling_power(
+            ppft.maximum_growth_rate_a,
+            ppft.maximum_growth_rate_b,
+            diameters[idx],
+        )
+
+        nutrient_half_saturation[idx] = allometric_scaling_power(
+            ppft.nutrient_half_saturation_a,
+            ppft.nutrient_half_saturation_b,
+            diameters[idx],
+        )
+    end
+
+    palatability = if isnothing(palatability_matrix)
+        M = zeros(FT, n_plankton, n_plankton)
+        @inbounds for pred in 1:n_plankton
+            pred_is_zoo = pred <= n_Z
+            pred_pft = pred_is_zoo ? zoo.pft : phyto.pft
+
+            predator = PalatabilityPredatorParameters{FT}(
+                pred_pft.can_eat,
+                diameters[pred],
+                pred_pft.optimum_predator_prey_ratio,
+                pred_pft.specificity,
+            )
+
+            for prey in 1:n_plankton
+                prey_is_zoo = prey <= n_Z
+                prey_pft = prey_is_zoo ? zoo.pft : phyto.pft
+
+                prey_params = PalatabilityPreyParameters{FT}(diameters[prey], prey_pft.protection)
+                M[pred, prey] = allometric_palatability_unimodal_protection(prey_params, predator)
             end
         end
+        M
+    else
+        Array{FT}(palatability_matrix)
     end
 
-    # second, handle non allometric params (same as above, exclude allometry)
-    all_other_params = setdiff(
-        union(vcat([collect(keys(args)) for args in values(plankton_args_copy)]...)),
-        ["allometry"],
-    )
-    for name in keys(plankton_args_copy)
-        for param in all_other_params
-            if !(param ∈ keys(plankton_args_copy[name]))
-                plankton_args_copy[name][param] = 0.0
+    assimilation = if isnothing(assimilation_efficiency_matrix)
+        M = zeros(FT, n_plankton, n_plankton)
+        @inbounds for pred in 1:n_plankton
+            pred_is_zoo = pred <= n_Z
+            pred_pft = pred_is_zoo ? zoo.pft : phyto.pft
+
+            predator = AssimilationPredatorParameters{FT}(pred_pft.can_eat, pred_pft.assimilation_efficiency)
+
+            for prey in 1:n_plankton
+                prey_is_zoo = prey <= n_Z
+                prey_pft = prey_is_zoo ? zoo.pft : phyto.pft
+
+                prey_params = AssimilationPreyParameters(prey_pft.can_be_eaten)
+                M[pred, prey] = assimilation_efficiency_emergent_binary(prey_params, predator)
             end
         end
+        M
+    else
+        Array{FT}(assimilation_efficiency_matrix)
     end
 
-    # ====================================================================================
-    # 2. Create dictionary that matches `compute_allometric_parameters` expected input
-    # ====================================================================================
-
-    # add remaining paramaters that need to compute allometric values
-    for name in keys(plankton_args_copy)
-        plankton_args_copy[name]["n"] = n_plankton[name]
-        plankton_args_copy[name]["diameters"] = diameters[name]
-    end
-
-    defined_parameters = plankton_args_copy
-
-    # ====================================================================================
-    # 3. Handle matrix inputs (these are either provided by the user or will be computed)
-    # ====================================================================================
-
-    if isnothing(palatability_matrix)
-        for name in keys(plankton_args_copy)
-            defined_parameters[name]["palatability"] = Dict(
-                k => interaction_args[name][k] for
-                k in ["can_eat", "optimum_predator_prey_ratio", "protection", "specificity"]
-            )
-        end
-    end
-
-    if isnothing(assimilation_efficiency_matrix)
-        for name in keys(plankton_args_copy)
-            defined_parameters[name]["assimilation_efficiency"] = Dict(
-                k => interaction_args[name][k] for
-                k in ["can_eat", "can_be_eaten", "assimilation_efficiency"]
-            )
-        end
-    end
-
-    # ====================================================================================
-    # 4. Compute allometric parameters
-    # ====================================================================================
-
-    # NOTE: function also reshapes non-emergent plankton parameters
-    emergent_parameters, plankton_names = compute_allometric_parameters(defined_parameters)
-
-    # ====================================================================================
-    # 5. Clean up
-    # ====================================================================================
-
-    # if user provided matrix inputs, add them here (check if correct size)
-    n = sum(values(n_plankton))
-    if !isnothing(palatability_matrix)
-        if !(size(palatability_matrix) == (n, n))
-            throw(ArgumentError("palatability_matrix must have size $((n, n))"))
-        end
-        emergent_parameters["palatability_matrix"] = palatability_matrix
-    end
-
-    if !isnothing(assimilation_efficiency_matrix)
-        if !(size(assimilation_efficiency_matrix) == (n, n))
-            throw(ArgumentError("assimilation_efficiency_matrix must have size $((n, n))"))
-        end
-
-        emergent_parameters["assimilation_efficiency_matrix"] =
-            assimilation_efficiency_matrix
-    end
-
-    # append information that need access to at model object instantiation
-    for (name, n) in n_plankton
-        bgc_args["n_$name"] = n
-    end
-
-    # combine emergent parameters with remaining bgc parameters
-    parameters = NamedTuple(
-        Symbol(k) => v for (k, v) in merge(bgc_args, emergent_parameters)
+    return NiPiZDParameters{FT, typeof(diameters), typeof(palatability)}(
+        n_P,
+        n_Z,
+        diameters,
+        maximum_growth_rate,
+        nutrient_half_saturation,
+        maximum_predation_rate,
+        linear_mortality,
+        holling_half_saturation,
+        quadratic_mortality,
+        alpha,
+        photosynthetic_slope,
+        chlorophyll_to_carbon_ratio,
+        palatability,
+        assimilation,
+        bgc.detritus_remineralization,
+        bgc.mortality_export_fraction,
     )
-
-    return parameters, plankton_names
 end
 
-end #module
+
+@inline function _cast_phyto_pft(::Type{FT}, p::PhytoPFTParameters) where {FT<:AbstractFloat}
+    return PhytoPFTParameters{FT}(
+        FT(p.maximum_growth_rate_a),
+        FT(p.maximum_growth_rate_b),
+        FT(p.nutrient_half_saturation_a),
+        FT(p.nutrient_half_saturation_b),
+        FT(p.linear_mortality),
+        FT(p.alpha),
+        FT(p.photosynthetic_slope),
+        FT(p.chlorophyll_to_carbon_ratio),
+        Bool(p.can_eat),
+        Bool(p.can_be_eaten),
+        FT(p.optimum_predator_prey_ratio),
+        FT(p.protection),
+        FT(p.specificity),
+        FT(p.assimilation_efficiency),
+    )
+end
+
+@inline function _cast_zoo_pft(::Type{FT}, p::ZooPFTParameters) where {FT<:AbstractFloat}
+    return ZooPFTParameters{FT}(
+        FT(p.maximum_predation_rate_a),
+        FT(p.maximum_predation_rate_b),
+        FT(p.linear_mortality),
+        FT(p.holling_half_saturation),
+        FT(p.quadratic_mortality),
+        Bool(p.can_eat),
+        Bool(p.can_be_eaten),
+        FT(p.optimum_predator_prey_ratio),
+        FT(p.protection),
+        FT(p.specificity),
+        FT(p.assimilation_efficiency),
+    )
+end
+
+@inline function _cast_bgc_spec(::Type{FT}, s::NiPiZDBiogeochemistrySpecification) where {FT<:AbstractFloat}
+    return NiPiZDBiogeochemistrySpecification{FT}(
+        FT(s.detritus_remineralization),
+        FT(s.mortality_export_fraction),
+    )
+end
+
+"""
+    create_nipizd_parameters(::Type{FT}; kwargs...) -> NiPiZDParameters
+
+Convenience constructor that builds specifications and expands them to runtime parameters.
+"""
+function create_nipizd_parameters(
+    ::Type{FT};
+    n_phyto::Int,
+    n_zoo::Int,
+    phyto_diameters::AbstractDiameterSpecification,
+    zoo_diameters::AbstractDiameterSpecification,
+    phyto_pft_parameters::PhytoPFTParameters,
+    zoo_pft_parameters::ZooPFTParameters,
+    bgc_specification::NiPiZDBiogeochemistrySpecification;
+    palatability_matrix=nothing,
+    assimilation_efficiency_matrix=nothing,
+) where {FT<:AbstractFloat}
+    phyto_pft = _cast_phyto_pft(FT, phyto_pft_parameters)
+    zoo_pft = _cast_zoo_pft(FT, zoo_pft_parameters)
+    bgc_spec = _cast_bgc_spec(FT, bgc_specification)
+
+    phyto = PhytoSpecification{FT, typeof(phyto_diameters)}(n_phyto, phyto_diameters, phyto_pft)
+    zoo = ZooSpecification{FT, typeof(zoo_diameters)}(n_zoo, zoo_diameters, zoo_pft)
+
+    return compute_nipizd_parameters(
+        FT,
+        phyto,
+        zoo,
+        bgc_spec;
+        palatability_matrix=palatability_matrix,
+        assimilation_efficiency_matrix=assimilation_efficiency_matrix,
+    )
+end
+
+end # module

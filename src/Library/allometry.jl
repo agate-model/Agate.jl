@@ -1,132 +1,76 @@
+"""Allometric relationships and predator-prey palatability.
+
+This module provides allocation-free scalar functions that are safe to call from GPU
+kernels.
+
+Agate uses micro-parameter structs for predator-prey interaction inputs to ensure
+interaction functions are type-stable and do not depend on dynamic containers.
+"""
+
 module Allometry
 
-export allometric_scaling_power,
-    allometric_palatability_unimodal, allometric_palatability_unimodal_protection
+export PalatabilityPreyParameters
+export PalatabilityPredatorParameters
+export allometric_scaling_power
+export allometric_palatability_unimodal
+export allometric_palatability_unimodal_protection
 
-"""
-    allometric_scaling_power(a::Number, b::Number, diameter::Number)
+struct PalatabilityPreyParameters{FT<:AbstractFloat}
+    diameter::FT
+    protection::FT
+end
 
-Allometric scaling function using the power law for cell volume.
-
-!!! formulation
-    ``a````V````ᵇ``
-
-    where:
-    - ``V`` = (4 / 3) * π * (``d`` / 2)³
-    - ``a`` = scale
-    - ``b`` = exponent
-    - ``d`` = cell equivalent spherical diameter (ESD)
-
-# Arguments
-- `a`: scale
-- `b`: exponent
-- `diameter`: cell equivalent spherical diameter (ESD)
-"""
-function allometric_scaling_power(a::Number, b::Number, diameter::Number)
-    V = (4 / 3) * π * (diameter / 2)^3
-    return a * V^b
+struct PalatabilityPredatorParameters{FT<:AbstractFloat}
+    can_eat::Bool
+    diameter::FT
+    optimum_predator_prey_ratio::FT
+    specificity::FT
 end
 
 """
-    allometric_palatability_unimodal(prey_data::Dict, predator_data::Dict)
+    allometric_scaling_power(a, b, diameter)
 
-Calculates the unimodal allometric palatability of prey based on predator-prey diameters.
+Compute an allometrically scaled rate using a power law in cell volume.
 
-!!! formulation
-    0 if ``e_{pred}`` = 0
-
-    1 / (1 + (``d_{ratio}``- ``d_{opt}``)²)``^σ``  otherwise
-    
-    where:
-    - ``e_{pred}`` = binary ability of predator to eat prey
-    - ``d_{ratio}`` = ratio between predator and prey diameters
-    - ``d_{opt}`` = optimum ratio between predator and prey diameter
-    - σ = how sharply the palatability decreases away from the optimal ratio.
-
-!!! info   
-    This formulation differs from the operational MITgcm-DARWIN model as it is is structurally different and diameters are used instead of volumes.
-    However, both formulations result in a unimodal response where the width and optima are modulated by the optimum-predator-prey ratio and the specificity.
-
-# Arguments
-- `prey_data`: A dictionary containing prey-specific data:
-  - `diameters`: Diameter of the prey.
-- `predator_data`: A dictionary containing predator-specific data:
-  - `can_eat`: A binary value (1 or 0) indicating if the predator can consume prey. If this is set to 0, palatability is set to 0.
-  - `diameters`: Diameter of the predator.
-  - `optimum_predator_prey_ratio`: The optimal predator-prey diameter ratio for the predator.
-  - `specificity`: A parameter controlling how sharply the palatability decreases away from the optimal ratio.
-
-# Returns
-- `palatability`: A number between 0 and 1 representing the palatability.
+The volume is computed assuming an equivalent spherical diameter. The returned value is
+``a * V^b``, where ``V = (4/3)π(d/2)^3``.
 """
-function allometric_palatability_unimodal(prey_data::Dict, predator_data::Dict)
-    can_eat = predator_data["can_eat"]
-
-    if can_eat == 0
-        palatability = 0
-    elseif can_eat == 1
-        prey_diameter = prey_data["diameters"]
-        predator_diameter = predator_data["diameters"]
-        predator_prey_optimum = predator_data["optimum_predator_prey_ratio"]
-        predator_specificity = predator_data["specificity"]
-        predator_prey_ratio = prey_diameter / predator_diameter
-        palatability =
-            1 / (1 + (predator_prey_ratio - predator_prey_optimum)^2)^predator_specificity
-    end
-    return palatability
+@inline function allometric_scaling_power(a::FT, b::FT, diameter::FT) where {FT<:AbstractFloat}
+    r = diameter / FT(2)
+    volume = (FT(4) / FT(3)) * FT(π) * r^FT(3)
+    return a * volume^b
 end
 
 """
-    allometric_palatability_unimodal_protection(prey_data::Dict, predator_data::Dict)
+    allometric_palatability_unimodal(prey, predator)
 
-Calculates the unimodal allometric palatability of prey, accounting for additional prey protection mechanisms.
+Unimodal palatability as a function of predator-to-prey diameter ratio.
 
-
-!!! formulation
-    0 if ``e_{pred}`` = 0
-
-    (1 - η) / (1 + (``d_{ratio}``- ``d_{opt}``)^2)``^σ``   otherwise
-    
-    where:
-    - ``e_{pred}`` = binary ability of predator to eat prey
-    - η = prey-protection
-    - ``d_{ratio}`` = ratio between predator and prey diameters
-    - ``d_{opt}`` = optimum ratio between predator and prey diameter
-    - σ = how sharply the palatability decreases away from the optimal ratio.
-
-
-# Arguments
-- `prey_data`: A dictionary containing prey-specific data:
-  - `diameters`: Diameter of the prey.
-  - `protection`: A scaling factor between 0 and 1 representing additional protection mechanisms of the prey.
-- `predator_data`: A dictionary containing predator-specific data:
-  - `can_eat`: A binary value (1 or 0) indicating if the predator can consume prey. If this is set to 0, palatability is set to 0.
-  - `diameters`: Diameter of the predator.
-  - `optimum_predator_prey_ratio`: The optimal predator-prey diameter ratio for the predator.
-  - `specificity`: A parameter controlling how sharply the palatability decreases away from the optimal ratio.
-
-# Returns
-- `palatability`: A number between 0 and `prey_protection` representing the palatability.
+Returns zero when `predator.can_eat` is false.
 """
-function allometric_palatability_unimodal_protection(prey_data::Dict, predator_data::Dict)
-    can_eat = predator_data["can_eat"]
-
-    if can_eat == 0
-        palatability = 0
-    elseif can_eat == 1
-        prey_diameter = prey_data["diameters"]
-        predator_diameter = predator_data["diameters"]
-        predator_prey_optimum = predator_data["optimum_predator_prey_ratio"]
-        predator_specificity = predator_data["specificity"]
-        prey_protection = prey_data["protection"]
-
-        predator_prey_ratio = predator_diameter / prey_diameter
-        palatability =
-            (1 - prey_protection) /
-            (1 + (predator_prey_ratio - predator_prey_optimum)^2)^predator_specificity
-    end
-
-    return palatability
+@inline function allometric_palatability_unimodal(
+    prey::PalatabilityPreyParameters{FT},
+    predator::PalatabilityPredatorParameters{FT},
+) where {FT<:AbstractFloat}
+    predator.can_eat || return zero(FT)
+    ratio = predator.diameter / prey.diameter
+    width = one(FT) + (ratio - predator.optimum_predator_prey_ratio)^FT(2)
+    return one(FT) / width^predator.specificity
 end
 
+"""
+    allometric_palatability_unimodal_protection(prey, predator)
+
+Unimodal palatability with additional prey protection.
+"""
+@inline function allometric_palatability_unimodal_protection(
+    prey::PalatabilityPreyParameters{FT},
+    predator::PalatabilityPredatorParameters{FT},
+) where {FT<:AbstractFloat}
+    predator.can_eat || return zero(FT)
+    ratio = predator.diameter / prey.diameter
+    width = one(FT) + (ratio - predator.optimum_predator_prey_ratio)^FT(2)
+    return (one(FT) - prey.protection) / width^predator.specificity
 end
+
+end # module
