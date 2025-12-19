@@ -19,25 +19,25 @@ using Agate.Library.Photosynthesis
 using Agate.Library.Predation
 using Agate.Library.Remineralization
 
-using UUIDs
-
 using OceanBioME
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 using Oceananigans.Fields: ZeroField
 
 import Oceananigans.Biogeochemistry:
-    required_biogeochemical_tracers,
+    biogeochemical_drift_velocity,
     required_biogeochemical_auxiliary_fields,
-    biogeochemical_drift_velocity
+    required_biogeochemical_tracers
 
-export define_tracer_functions
-export expression_check
-export create_bgc_struct
-export add_bgc_methods!
+export add_bgc_methods!, create_bgc_struct, define_tracer_functions, expression_check
 
 """
-    define_tracer_functions(parameters, tracers; auxiliary_fields=(:PAR,), helper_functions=nothing,
-                            sinking_velocities=nothing)
+    define_tracer_functions(
+        parameters,
+        tracers;
+        auxiliary_fields=(:PAR,),
+        helper_functions=nothing,
+        sinking_velocities=nothing,
+    )
 
 Create an Oceananigans biogeochemistry model type.
 
@@ -57,7 +57,7 @@ function define_tracer_functions(
     helper_functions=nothing,
     sinking_velocities=nothing,
 )
-    model_name = gensym(:AgateBGC)  
+    model_name = gensym(:AgateBGC)
     bgc_type = create_bgc_struct(model_name, parameters; sinking_velocities=sinking_velocities)
 
     add_bgc_methods!(
@@ -80,37 +80,56 @@ parameter struct (and optional sinking velocities).
 The generated type is `Adapt.jl`-compatible.
 """
 function create_bgc_struct(struct_name::Symbol, parameters; sinking_velocities=nothing)
-
     if isnothing(sinking_velocities)
-        struct_def = quote
+        type_expr = quote
             Base.@kwdef struct $struct_name{PT} <: AbstractContinuousFormBiogeochemistry
                 parameters::PT = $parameters
             end
+            $struct_name
         end
 
-        eval(struct_def)
+        T = eval(type_expr)
         eval(:(Adapt.@adapt_structure $struct_name))
 
-        return getfield(@__MODULE__, struct_name)
+        # --- FIX: return a concrete instantiated type, not the UnionAll. ---
+        return T{typeof(parameters)}
     end
 
-    struct_def = quote
+    type_expr = quote
         Base.@kwdef struct $struct_name{PT, W} <: AbstractContinuousFormBiogeochemistry
             parameters::PT = $parameters
             sinking_velocities::W = $sinking_velocities
         end
+        $struct_name
     end
 
-    eval(struct_def)
+    T = eval(type_expr)
     eval(:(Adapt.@adapt_structure $struct_name))
 
-    return getfield(@__MODULE__, struct_name)
+    # --- FIX: return a concrete instantiated type, not the UnionAll. ---
+    return T{typeof(parameters), typeof(sinking_velocities)}
 end
 
+# Compute the index of a field by name without relying on `Base.fieldindex` being in scope.
+# This is CPU-side construction logic (not kernel-reachable).
+@inline function _field_index(T::Type, name::Symbol)
+    names = fieldnames(T)
+    @inbounds for i in 1:length(names)
+        if names[i] === name
+            return i
+        end
+    end
+    throw(ArgumentError("Type $(T) has no field named $(name)."))
+end
 
 """
-    add_bgc_methods!(bgc_type, tracers; auxiliary_fields=(), helper_functions=nothing,
-                     include_sinking=false)
+    add_bgc_methods!(
+        bgc_type,
+        tracers;
+        auxiliary_fields=(),
+        helper_functions=nothing,
+        include_sinking=false,
+    )
 
 Attach Oceananigans-required methods to `bgc_type`.
 
@@ -137,22 +156,22 @@ function add_bgc_methods!(
     coordinates = (:x, :y, :z, :t)
     tracer_vars = keys(tracers)
     aux_field_vars = auxiliary_fields
-
     all_state_vars = (coordinates..., tracer_vars..., aux_field_vars...)
 
     eval(:(required_biogeochemical_tracers(::$(bgc_type)) = $(tracer_vars)))
     eval(:(required_biogeochemical_auxiliary_fields(::$(bgc_type)) = $(aux_field_vars)))
 
-    defaults = bgc_type()
-    parameter_type = typeof(defaults.parameters)
+    # World-age safe and now concrete: bgc_type has a concrete parameters field type.
+    parameters_index = _field_index(bgc_type, :parameters)
+    parameter_type = fieldtype(bgc_type, parameters_index)
     parameter_fields = fieldnames(parameter_type)
 
-    method_vars = Expr[]
-    for field in parameter_fields
+    method_vars = Vector{Expr}(undef, length(parameter_fields))
+    @inbounds for (i, field) in enumerate(parameter_fields)
         if field in coordinates
             throw(ArgumentError("Parameter field name $(field) is reserved for coordinates."))
         end
-        push!(method_vars, :($field = bgc.parameters.$field))
+        method_vars[i] = :($field = bgc.parameters.$field)
     end
 
     allowed_symbols = (all_state_vars..., parameter_fields...)
@@ -171,30 +190,30 @@ function add_bgc_methods!(
     end
 
     if include_sinking
-        sinking_keys = keys(defaults.sinking_velocities)
+        fallback_method = quote
+            function biogeochemical_drift_velocity(
+                ::$(bgc_type),
+                ::Val{tracer_name},
+            ) where {tracer_name}
+                return (u=ZeroField(), v=ZeroField(), w=ZeroField())
+            end
+        end
+        eval(fallback_method)
 
-        for tracer in tracer_vars
-            sink_velocity_method = if tracer in sinking_keys
-                quote
-                    function biogeochemical_drift_velocity(
-                        bgc::$(bgc_type),
-                        ::Val{$(QuoteNode(tracer))},
-                    )
-                        return (u=ZeroField(), v=ZeroField(), w=bgc.sinking_velocities.$tracer)
-                    end
-                end
-            else
-                quote
-                    function biogeochemical_drift_velocity(
-                        bgc::$(bgc_type),
-                        ::Val{$(QuoteNode(tracer))},
-                    )
-                        return (u=ZeroField(), v=ZeroField(), w=ZeroField())
-                    end
+        sinking_index = _field_index(bgc_type, :sinking_velocities)
+        sinking_type = fieldtype(bgc_type, sinking_index)
+        sinking_fields = fieldnames(sinking_type)
+
+        for tracer_name in sinking_fields
+            sinking_method = quote
+                function biogeochemical_drift_velocity(
+                    bgc::$(bgc_type),
+                    ::Val{$(QuoteNode(tracer_name))},
+                )
+                    return (u=ZeroField(), v=ZeroField(), w=bgc.sinking_velocities.$tracer_name)
                 end
             end
-
-            eval(sink_velocity_method)
+            eval(sinking_method)
         end
     end
 
