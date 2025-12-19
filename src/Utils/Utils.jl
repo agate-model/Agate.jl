@@ -57,7 +57,7 @@ function define_tracer_functions(
     helper_functions=nothing,
     sinking_velocities=nothing,
 )
-    model_name = Symbol(uuid1())
+    model_name = gensym(:AgateBGC)  
     bgc_type = create_bgc_struct(model_name, parameters; sinking_velocities=sinking_velocities)
 
     add_bgc_methods!(
@@ -80,28 +80,33 @@ parameter struct (and optional sinking velocities).
 The generated type is `Adapt.jl`-compatible.
 """
 function create_bgc_struct(struct_name::Symbol, parameters; sinking_velocities=nothing)
+
     if isnothing(sinking_velocities)
-        exp = quote
+        struct_def = quote
             Base.@kwdef struct $struct_name{PT} <: AbstractContinuousFormBiogeochemistry
                 parameters::PT = $parameters
             end
-            Adapt.@adapt_structure $struct_name
-            $struct_name
         end
-        return eval(exp)
+
+        eval(struct_def)
+        eval(:(Adapt.@adapt_structure $struct_name))
+
+        return getfield(@__MODULE__, struct_name)
     end
 
-    exp = quote
+    struct_def = quote
         Base.@kwdef struct $struct_name{PT, W} <: AbstractContinuousFormBiogeochemistry
             parameters::PT = $parameters
             sinking_velocities::W = $sinking_velocities
         end
-        Adapt.@adapt_structure $struct_name
-        $struct_name
     end
 
-    return eval(exp)
+    eval(struct_def)
+    eval(:(Adapt.@adapt_structure $struct_name))
+
+    return getfield(@__MODULE__, struct_name)
 end
+
 
 """
     add_bgc_methods!(bgc_type, tracers; auxiliary_fields=(), helper_functions=nothing,
