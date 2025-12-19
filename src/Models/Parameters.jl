@@ -12,6 +12,7 @@ expanded into a single `NiPiZDParameters` runtime container.
 module Parameters
 
 using Adapt
+using Oceananigans.Units
 
 using Agate.Library.Allometry:
     PalatabilityPreyParameters,
@@ -34,7 +35,11 @@ export AbstractDiameterSpecification,
     ZooSpecification,
     NiPiZDParameters,
     create_nipizd_parameters,
-    compute_nipizd_parameters
+    compute_nipizd_parameters,
+    default_phyto_pft_parameters,
+    default_phyto_geider_pft_parameters,
+    default_zoo_pft_parameters,
+    default_bgc_specification
 
 """Abstract supertype for diameter specifications."""
 abstract type AbstractDiameterSpecification end
@@ -103,6 +108,71 @@ struct NiPiZDBiogeochemistrySpecification{FT<:AbstractFloat}
     detritus_remineralization::FT
     mortality_export_fraction::FT
 end
+
+# Convenience default parameter sets (used by tests and constructors)
+
+"""Default phytoplankton PFT parameter set (values chosen to match the original Agate baseline)."""
+function default_phyto_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
+    return PhytoPFTParameters{FT}(
+        FT(2 / day),
+        FT(-0.15),
+        FT(0.17),
+        FT(0.27),
+        FT(8e-7 / second),
+        zero(FT),
+        FT(0.46e-5),
+        zero(FT),
+        true,
+        true,
+        zero(FT),
+        zero(FT),
+        zero(FT),
+        zero(FT)
+    )
+end
+
+"""Default phytoplankton PFT parameter set for Geider-style growth (values chosen to match the original Agate baseline)."""
+function default_phyto_geider_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
+    return PhytoPFTParameters{FT}(
+        FT(2 / day),
+        FT(-0.15),
+        FT(0.17),
+        FT(0.27),
+        FT(8e-7 / second),
+        FT(3 / day),
+        FT(30),
+        FT(0.04),
+        false,
+        true,
+        zero(FT),
+        zero(FT),
+        zero(FT),
+        zero(FT)
+    )
+end
+
+"""Default zooplankton PFT parameter set (values chosen to match the original Agate baseline)."""
+function default_zoo_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
+    return ZooPFTParameters{FT}(
+        FT(0.35 / day),
+        FT(0.0),
+        FT(0.05 / day),
+        FT(0.5),
+        FT(0.1 / day),
+        true,
+        false,
+        FT(10),
+        one(FT),
+        FT(0.3),
+        FT(0.32)
+    )
+end
+
+"""Default biogeochemistry specification (values chosen to match the original Agate baseline)."""
+function default_bgc_specification(::Type{FT}) where {FT<:AbstractFloat}
+    return NiPiZDBiogeochemistrySpecification{FT}(FT(0.1213 / day), FT(0.5))
+end
+
 
 """Runtime NiPiZD parameters stored in the biogeochemistry object."""
 struct NiPiZDParameters{FT<:AbstractFloat, VT<:AbstractVector{FT}, MT<:AbstractMatrix{FT}}
