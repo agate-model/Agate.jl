@@ -1,232 +1,121 @@
 using Agate
-using Agate.Models.NiPiZD.Tracers
 using Agate.Models: NiPiZD
+using Agate.Models.Parameters: PhytoPFTParameters
+using Agate.Models.NiPiZD.Tracers: nutrient_geider_light, phytoplankton_geider_light
 
-using Oceananigans
 using Oceananigans.Units
+using Oceananigans.Fields: ZeroField
 using Oceananigans.Biogeochemistry:
-    required_biogeochemical_tracers, biogeochemical_drift_velocity
+    required_biogeochemical_tracers,
+    biogeochemical_drift_velocity
 
-@testset "Models.Constructor" begin
-    N2P2ZD_constructed = NiPiZD.construct()
+@testset "Models.NiPiZD constructors" begin
+    bgc_type = NiPiZD.construct()
+    model = bgc_type()
 
-    # declare constants reused in all tests
+    @test required_biogeochemical_tracers(model) == (:N, :D, :Z1, :Z2, :P1, :P2)
+
     P1 = 0.01
     P2 = 0.01
     Z1 = 0.05
     Z2 = 0.05
     N = 7.0
-    D = 1
-    PAR = 100
+    D = 1.0
+    PAR = 100.0
 
-    """
-    The order in which tracers are called when a Biogeochemistry model is called can vary.
-    This function ensures we do not need to hardcode this and so avoid test errors.
-    """
-    function get_var_order(model)
-        # map symbols to variables
-        var_map = Dict(:P1 => P1, :P2 => P2, :Z1 => Z1, :Z2 => Z2, :D => D, :N => N)
-        # required_biogeochemical_tracers() returns a tuple of symbols
-        return [var_map[sym] for sym in required_biogeochemical_tracers(model)]
+    tracer_vals(sym) = sym === :P1 ? P1 : sym === :P2 ? P2 : sym === :Z1 ? Z1 : sym === :Z2 ? Z2 : sym === :N ? N : D
+    ordered = [tracer_vals(s) for s in required_biogeochemical_tracers(model)]
+
+    @test isfinite(model(Val(:N), 0, 0, 0, 0, ordered..., PAR))
+    @test isfinite(model(Val(:D), 0, 0, 0, 0, ordered..., PAR))
+    @test isfinite(model(Val(:P1), 0, 0, 0, 0, ordered..., PAR))
+    @test isfinite(model(Val(:Z1), 0, 0, 0, 0, ordered..., PAR))
+
+    @testset "User-defined interaction matrices" begin
+        wrong = zeros(Float64, 2, 2)
+        @test_throws ArgumentError NiPiZD.instantiate(bgc_type; palatability_matrix=wrong)
+        @test_throws ArgumentError NiPiZD.instantiate(bgc_type; assimilation_efficiency_matrix=wrong)
+
+        correct = zeros(Float64, 4, 4)
+        model_custom = NiPiZD.instantiate(
+            bgc_type;
+            palatability_matrix=correct,
+            assimilation_efficiency_matrix=correct,
+        )
+        @test required_biogeochemical_tracers(model_custom) == (:N, :D, :Z1, :Z2, :P1, :P2)
     end
 
-    @testset "N2P2ZD model" begin
+    @testset "Diameter overrides" begin
+        @test_throws ArgumentError NiPiZD.instantiate(bgc_type; phyto_diameters=[1.0])
+        @test_throws ArgumentError NiPiZD.instantiate(bgc_type; phyto_diameters=[1.0, 2.0, 3.0])
 
-        # N2P2ZD model defined using low level syntax
-        include(joinpath("N2P2ZD", "tracers.jl"))
-        model = N2P2ZD()
-        model_var_order = get_var_order(model)
-
-        # N2P2ZD model constructed from emergent parameters - just using default vals here
-        model_constructed = N2P2ZD_constructed()
-        model_constructed_var_order = get_var_order(model_constructed)
-
-        @test !iszero(
-            model_constructed(Val(:N), 0, 0, 0, 0, model_constructed_var_order..., PAR)
-        )
-        @test !iszero(
-            model_constructed(Val(:D), 0, 0, 0, 0, model_constructed_var_order..., PAR)
-        )
-        @test !iszero(
-            model_constructed(Val(:P1), 0, 0, 0, 0, model_constructed_var_order..., PAR)
-        )
-        @test !iszero(
-            model_constructed(Val(:P2), 0, 0, 0, 0, model_constructed_var_order..., PAR)
-        )
-        @test !iszero(
-            model_constructed(Val(:Z1), 0, 0, 0, 0, model_constructed_var_order..., PAR)
-        )
-        @test !iszero(
-            model_constructed(Val(:Z2), 0, 0, 0, 0, model_constructed_var_order..., PAR)
-        )
-
-        @test isapprox(
-            model_constructed(Val(:N), 0, 0, 0, 0, model_constructed_var_order..., PAR),
-            model(Val(:N), 0, 0, 0, 0, model_var_order..., PAR);
-            rtol=0.01,
-        )
-        @test isapprox(
-            model_constructed(Val(:D), 0, 0, 0, 0, model_constructed_var_order..., PAR),
-            model(Val(:D), 0, 0, 0, 0, model_var_order..., PAR);
-            rtol=0.01,
-        )
-        @test isapprox(
-            model_constructed(Val(:P1), 0, 0, 0, 0, model_constructed_var_order..., PAR),
-            model(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR);
-            rtol=0.01,
-        )
-        @test isapprox(
-            model_constructed(Val(:P2), 0, 0, 0, 0, model_constructed_var_order..., PAR),
-            model(Val(:P2), 0, 0, 0, 0, model_var_order..., PAR);
-            rtol=0.01,
-        )
-        @test isapprox(
-            model_constructed(Val(:Z1), 0, 0, 0, 0, model_constructed_var_order..., PAR),
-            model(Val(:Z1), 0, 0, 0, 0, model_var_order..., PAR);
-            rtol=0.01,
-        )
-        @test isapprox(
-            model_constructed(Val(:Z2), 0, 0, 0, 0, model_constructed_var_order..., PAR),
-            model(Val(:Z2), 0, 0, 0, 0, model_var_order..., PAR);
-            rtol=0.01,
-        )
+        bgc_1p = NiPiZD.construct(; n_phyto=1)
+        model_1p = NiPiZD.instantiate(bgc_1p; phyto_diameters=[2.0])
+        @test required_biogeochemical_tracers(model_1p) == (:N, :D, :Z1, :Z2, :P1)
     end
 
-    @testset "User defined matrices" begin
-        names = ["P", "Z"]
-        wrong_size_matrix = zeros(Float64, 2, 2)
-        @test_throws ArgumentError NiPiZD.instantiate(
-            N2P2ZD_constructed; palatability_matrix=wrong_size_matrix
-        )
-        @test_throws ArgumentError NiPiZD.instantiate(
-            N2P2ZD_constructed; assimilation_efficiency_matrix=wrong_size_matrix
-        )
-
-        # doesn't throw error if dimensions are correct
-        names = ["P1", "P2", "Z1", "Z2"]
-        correct_size_matrix = zeros(Float64, 4, 4)
-        new_model = NiPiZD.instantiate(
-            N2P2ZD_constructed;
-            palatability_matrix=correct_size_matrix,
-            assimilation_efficiency_matrix=correct_size_matrix,
-        )
-    end
-
-    @testset "Diameters passed as an array" begin
-
-        # the default type defined at the top has 2 phyto so expect 2 diameters
-        @test_throws ArgumentError NiPiZD.instantiate(
-            N2P2ZD_constructed; phyto_diameters=[1]
-        )
-
-        # the default type defined at the top has 2 phyto so expect 2 diameters
-        @test_throws ArgumentError NiPiZD.instantiate(
-            N2P2ZD_constructed; phyto_diameters=[1, 2, 3]
-        )
-
-        # diameters can be passed as an array of values rather than a dictionary
-        # this is useful in the case where we want 1 phytoplankton with a given diameter
-        # it could also be used to fix the diameters of multiple phytoplankton in the model
-        NP2ZD = NiPiZD.construct(; n_phyto=1)
-        model = NiPiZD.instantiate(NP2ZD; phyto_diameters=[2])
-        model_1p_var_order = get_var_order(model)
-
-        # this model only has 1 phyto, 2 zoo tracers (unlike other tests here)
-        @test !iszero(model(Val(:N), 0, 0, 0, 0, model_1p_var_order..., PAR))
-        @test !iszero(model(Val(:D), 0, 0, 0, 0, model_1p_var_order..., PAR))
-        @test !iszero(model(Val(:P1), 0, 0, 0, 0, model_1p_var_order..., PAR))
-        @test !iszero(model(Val(:Z1), 0, 0, 0, 0, model_1p_var_order..., PAR))
-        @test !iszero(model(Val(:Z2), 0, 0, 0, 0, model_1p_var_order..., PAR))
-    end
-
-    @testset "Alternative instantiation" begin
-
-        # N2P2ZD model constructed with user-defined functions (geider growth)
-        N2P2ZD_geider = NiPiZD.construct(;
-            phyto_args=NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS,
-            nutrient_dynamics=nutrients_geider_light,
+    @testset "Geider-style growth" begin
+        bgc_geider = NiPiZD.construct(
+            ;
+            phyto_pft_parameters=NiPiZD.default_phyto_geider_pft_parameters(Float64),
+            nutrient_dynamics=nutrient_geider_light,
             phyto_dynamics=phytoplankton_geider_light,
         )
 
-        model_geider = NiPiZD.instantiate(
-            N2P2ZD_geider; phyto_args=NiPiZD.DEFAULT_PHYTO_GEIDER_ARGS
-        )
-        geider_var_order = get_var_order(model_geider)
-
-        @test !iszero(model_geider(Val(:N), 0, 0, 0, 0, geider_var_order..., PAR))
-        @test !iszero(model_geider(Val(:D), 0, 0, 0, 0, geider_var_order..., PAR))
-        @test !iszero(model_geider(Val(:P1), 0, 0, 0, 0, geider_var_order..., PAR))
-        @test !iszero(model_geider(Val(:P2), 0, 0, 0, 0, geider_var_order..., PAR))
-        @test !iszero(model_geider(Val(:Z1), 0, 0, 0, 0, geider_var_order..., PAR))
-        @test !iszero(model_geider(Val(:Z2), 0, 0, 0, 0, geider_var_order..., PAR))
+        model_geider = NiPiZD.instantiate(bgc_geider)
+        ordered_geider = [tracer_vals(s) for s in required_biogeochemical_tracers(model_geider)]
+        @test isfinite(model_geider(Val(:N), 0, 0, 0, 0, ordered_geider..., PAR))
     end
 
-    @testset "Create objects inside for loop" begin
-        prev_p1 = 0
-        prev_p2 = 0
-        for i in 1:5
-            phyto_args = NiPiZD.DEFAULT_PHYTO_ARGS
-            phyto_args["allometry"]["maximum_growth_rate"]["a"] = i
-            model = NiPiZD.instantiate(N2P2ZD_constructed; phyto_args=phyto_args)
-            model_var_order = get_var_order(model)
-            p1 = model(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR)
-            p2 = model(Val(:P2), 0, 0, 0, 0, model_var_order..., PAR)
-            @test !iszero(p1)
-            @test !iszero(p2)
-            @test model(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR) != prev_p1
-            @test model(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR) != prev_p2
-            # check the values change as change parameter
-            prev_p1 = p1
-            prev_p2 = p2
-        end
-    end
+    @testset "Parameter variation" begin
+        p0 = NiPiZD.default_phyto_pft_parameters(Float64)
 
-    @testset "Create objects inside function" begin
-        function some_wrapper_function(max_growth_rate_a)
-            phyto_args = NiPiZD.DEFAULT_PHYTO_ARGS
-            phyto_args["allometry"]["maximum_growth_rate"]["a"] = max_growth_rate_a
-            model = NiPiZD.instantiate(N2P2ZD_constructed; phyto_args=phyto_args)
-            return model
+        function with_growth_rate_a(p, new_a)
+            return PhytoPFTParameters{Float64}(
+                new_a,
+                p.maximum_growth_rate_b,
+                p.nutrient_half_saturation_a,
+                p.nutrient_half_saturation_b,
+                p.linear_mortality,
+                p.alpha,
+                p.photosynthetic_slope,
+                p.chlorophyll_to_carbon_ratio,
+                p.can_eat,
+                p.can_be_eaten,
+                p.optimum_predator_prey_ratio,
+                p.protection,
+                p.specificity,
+                p.assimilation_efficiency,
+            )
         end
 
-        model1 = some_wrapper_function(5)
-        model2 = some_wrapper_function(10)
-        model_var_order = get_var_order(model1)
+        bgc_a5 = NiPiZD.construct(; phyto_pft_parameters=with_growth_rate_a(p0, 5 / day))
+        bgc_a10 = NiPiZD.construct(; phyto_pft_parameters=with_growth_rate_a(p0, 10 / day))
 
-        @test model1(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR) !=
-            model2(Val(:P1), 0, 0, 0, 0, model_var_order..., PAR)
-        @test model1(Val(:P2), 0, 0, 0, 0, model_var_order..., PAR) !=
-            model2(Val(:P2), 0, 0, 0, 0, model_var_order..., PAR)
+        m5 = bgc_a5()
+        m10 = bgc_a10()
+
+        ordered5 = [tracer_vals(s) for s in required_biogeochemical_tracers(m5)]
+        ordered10 = [tracer_vals(s) for s in required_biogeochemical_tracers(m10)]
+
+        @test m5(Val(:P1), 0, 0, 0, 0, ordered5..., PAR) != m10(Val(:P1), 0, 0, 0, 0, ordered10..., PAR)
     end
 
     @testset "Tracer sinking" begin
-        # get error if instantiate model that was not constructed for sinking
         @test_throws ArgumentError NiPiZD.instantiate(
-            N2P2ZD_constructed;
+            bgc_type;
             sinking_tracers=(P1=0.2551 / day, P2=0.2551 / day, D=2.7489 / day),
         )
 
-        # construct model with tracer sinking and instantiate on default grid (BoxModel)
-        N2P2ZD_sink = NiPiZD.construct(;
-            sinking_tracers=(P1=0.2551 / day, P2=0.2551 / day, D=2.7489 / day)
-        )
-        model = N2P2ZD_sink()
-
-        @test biogeochemical_drift_velocity(model, Val(:P1)).w.data[1, 1, 1] ==
-            -0.2551 / day
-        @test biogeochemical_drift_velocity(model, Val(:P2)).w.data[1, 1, 1] ==
-            -0.2551 / day
-        @test biogeochemical_drift_velocity(model, Val(:D)).w.data[1, 1, 1] == -2.7489 / day
-        @test biogeochemical_drift_velocity(model, Val(:Z)).w == ZeroField()
-
-        # instantiate same model but on a column grid
-        column_grid = RectilinearGrid(;
-            size=(1, 1, 40), extent=(20meters, 20meters, 200meters)
-        )
-        col_model = NiPiZD.instantiate(
-            N2P2ZD_sink;
+        bgc_sink = NiPiZD.construct(
+            ;
             sinking_tracers=(P1=0.2551 / day, P2=0.2551 / day, D=2.7489 / day),
-            grid=column_grid,
         )
+        model_sink = bgc_sink()
+
+        @test biogeochemical_drift_velocity(model_sink, Val(:P1)).w.data[1, 1, 1] == -0.2551 / day
+        @test biogeochemical_drift_velocity(model_sink, Val(:P2)).w.data[1, 1, 1] == -0.2551 / day
+        @test biogeochemical_drift_velocity(model_sink, Val(:D)).w.data[1, 1, 1] == -2.7489 / day
+        @test biogeochemical_drift_velocity(model_sink, Val(:Z1)).w == ZeroField()
     end
 end

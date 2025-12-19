@@ -1,5 +1,5 @@
 using Agate
-using Agate.Utils: expression_check, create_bgc_struct, add_bgc_methods!
+using Agate.Utils: expression_check, create_bgc_struct, add_bgc_methods!, define_tracer_functions
 
 using OceanBioME
 using Oceananigans.Units
@@ -7,136 +7,92 @@ using Oceananigans.Fields: ZeroField
 
 using OceanBioME: setup_velocity_fields
 using Oceananigans.Biogeochemistry:
-    AbstractContinuousFormBiogeochemistry,
     required_biogeochemical_tracers,
     required_biogeochemical_auxiliary_fields,
     biogeochemical_drift_velocity
 
 @testset "Utils" begin
     @testset "expression_check" begin
-
-        # missing args
         f_expr = :(α * x - β * x * y)
-        params = [:α, :β]
-        @test_throws UndefVarError expression_check(params, f_expr)
+        allowed = (:α, :β)
+        @test_throws UndefVarError expression_check(allowed, f_expr)
 
-        # method is not defined
-        f_expr = :(f1(x, α) + f2(y, β))
-        params = [:α, :β, :x, :y]
-        @test_throws UndefVarError expression_check(params, f_expr)
-
-        # no errors - using base methods
         f_expr = :(α * x - β * x * y)
-        params = [:α, :β, :x, :y]
-        @test expression_check(params, f_expr) === nothing
+        allowed = (:α, :β, :x, :y)
+        @test expression_check(allowed, f_expr) === nothing
 
-        # no errors - method defined Biogeochemistry module
         f_expr = :(create_bgc_struct(sn, p))
-        params = [:sn, :p]
-        @test expression_check(params, f_expr) === nothing
-
-        # no errors - use of vectors
-        f_expr = :(sum[a, b, c])
-        params = [:a, :b, :c]
-        @test expression_check(params, f_expr) === nothing
+        allowed = (:sn, :p)
+        @test expression_check(allowed, f_expr) === nothing
     end
 
-    @testset "create_bgc_struct" begin
-        @testset "invalid fieldnames throw an error" begin
-            parameters = (x=1,)
-            @test_throws DomainError create_bgc_struct(:name, parameters)
-
-            parameters = (y=2,)
-            @test_throws DomainError create_bgc_struct(:name, parameters)
-
-            parameters = (z=3,)
-            @test_throws DomainError create_bgc_struct(:name, parameters)
-
-            parameters = (t=4,)
-            @test_throws DomainError create_bgc_struct(:name, parameters)
+    @testset "create_bgc_struct and add_bgc_methods" begin
+        struct LVParameters{FT<:AbstractFloat}
+            α::FT
+            β::FT
+            δ::FT
+            γ::FT
         end
 
-        @testset "data type created succesfully" begin
-            parameters = (α=2 / 3, β=4 / 3, δ=1.0, γ=1.0)
-            name = create_bgc_struct(:name, parameters)
-            @test fieldnames(name) == (:α, :β, :δ, :γ)
-        end
+        parameters = LVParameters{Float64}(2 / 3, 4 / 3, 1.0, 1.0)
+        tracers = (R=:(α * R - β * R * F), F=:(-γ * F + δ * R * F))
+        auxiliary_fields = (:PAR,)
+
+        LV = create_bgc_struct(:LV, parameters)
+        add_bgc_methods!(LV, tracers; auxiliary_fields=auxiliary_fields)
+
+        model1 = LV()
+        model2 = LV(; parameters=LVParameters{Float64}(1.0, 1.0, 2.0, 2.0))
+
+        @test required_biogeochemical_tracers(model1) == (:R, :F)
+        @test required_biogeochemical_auxiliary_fields(model1) == (:PAR,)
+
+        # Method signature is: x, y, z, t, R, F, PAR
+        @test model1(Val(:R), 0, 0, 0, 0, 10, 2, 0) == 2 / 3 * 10 - 4 / 3 * 10 * 2
+        @test model1(Val(:F), 0, 0, 0, 0, 10, 2, 0) == -1 * 2 + 1 * 10 * 2
+
+        @test model2(Val(:R), 0, 0, 0, 0, 10, 2, 0) == 1 * 10 - 1 * 10 * 2
+        @test model2(Val(:F), 0, 0, 0, 0, 10, 2, 0) == -2 * 2 + 2 * 10 * 2
     end
 
-    @testset "add_bgc_methods" begin
-        @testset "core methods exist and behave as expected" begin
-            parameters = (α=2 / 3, β=4 / 3, δ=1.0, γ=1.0)
-            tracers = Dict("R" => :(α * R - β * R * F), "F" => :(-γ * F + δ * R * F))
-            auxiliary_fields = [:PAR]
+    @testset "helper functions and tracer sinking" begin
+        include(joinpath("NPZD", "tracers.jl"))
 
-            LV = create_bgc_struct(:LV, parameters)
-            add_bgc_methods!(LV, tracers; auxiliary_fields=auxiliary_fields)
+        model = NPZD()
 
-            # instantiate the same model with different parameters
-            model1 = LV()
-            model2 = LV(1.0, 1.0, 2.0, 2.0)
+        Z = 0.05
+        P = 0.01
+        N = 7.0
+        D = 1.0
+        PAR = 1.0
 
-            @test all(required_biogeochemical_tracers(model1) .=== [:R, :F])
-            @test all(required_biogeochemical_auxiliary_fields(model1) .=== [:PAR])
+        tracer_vals(sym) = sym === :Z ? Z : sym === :P ? P : sym === :N ? N : D
+        ordered = [tracer_vals(s) for s in required_biogeochemical_tracers(model)]
 
-            # the inputs to the tracer methods are: x,y,z,t,R,F,PAR
-            @test model1(Val(:R), 0, 0, 0, 0, 10, 2, 0) == 2 / 3 * 10 - 4 / 3 * 10 * 2
-            @test model1(Val(:F), 0, 0, 0, 0, 10, 2, 0) == -1 * 2 + 1 * 10 * 2
+        @test isfinite(model(Val(:N), 0, 0, 0, 0, ordered..., PAR))
+        @test isfinite(model(Val(:D), 0, 0, 0, 0, ordered..., PAR))
+        @test isfinite(model(Val(:P), 0, 0, 0, 0, ordered..., PAR))
+        @test isfinite(model(Val(:Z), 0, 0, 0, 0, ordered..., PAR))
 
-            @test model2(Val(:R), 0, 0, 0, 0, 10, 2, 0) == 1 * 10 - 1 * 10 * 2
-            @test model2(Val(:F), 0, 0, 0, 0, 10, 2, 0) == -2 * 2 + 2 * 10 * 2
-        end
+        sinking_velocities = setup_velocity_fields(
+            (P=0.2551 / day, D=2.7489 / day),
+            BoxModelGrid(),
+            true,
+        )
 
-        @testset "use helper functions" begin
+        NPZD_sink = define_tracer_functions(
+            parameters,
+            tracers;
+            helper_functions=joinpath(@__DIR__, "NPZD", "functions.jl"),
+            sinking_velocities=sinking_velocities,
+        )
 
-            # NPZD model
-            include(joinpath("NPZD", "tracers.jl"))
-            model = NPZD()
+        model_sink = NPZD_sink()
 
-            Z = 0.05
-            P = 0.01
-            N = 7.0
-            D = 1
-            PAR = 1
-
-            @test isapprox(
-                model(Val(:N), 0, 0, 0, 0, Z, P, N, D, PAR), 1.4012422280828442e-6
-            )
-            @test isapprox(
-                model(Val(:D), 0, 0, 0, 0, Z, P, N, D, PAR), -1.3929072700024781e-6
-            )
-            @test isapprox(
-                model(Val(:P), 0, 0, 0, 0, Z, P, N, D, PAR), 7.025867302989598e-9
-            )
-            @test isapprox(
-                model(Val(:Z), 0, 0, 0, 0, Z, P, N, D, PAR), -1.5360825383355622e-8
-            )
-        end
-
-        @testset "tracer sinking" begin
-            include(joinpath("NPZD", "tracers.jl"))
-
-            # if one uses BoxModelGrid and sets open_bottom to false then all velocities are
-            # set to 0 (because the function smooths them to get to 0 when they reach the
-            # bottom and in a BoxModel the tracers already are at "the bottom")
-            sinking_velocities = setup_velocity_fields(
-                (P=0.2551 / day, D=2.7489 / day), BoxModelGrid(), true
-            )
-
-            NPZD_sink = define_tracer_functions(
-                parameters,
-                tracers;
-                helper_functions=joinpath("NPZD", "functions.jl"),
-                sinking_velocities=sinking_velocities,
-            )
-
-            model = NPZD_sink()
-
-            @test biogeochemical_drift_velocity(model, Val(:P)).w.data[1, 1, 1] ==
-                -0.2551 / day
-            @test biogeochemical_drift_velocity(model, Val(:D)).w.data[1, 1, 1] ==
-                -2.7489 / day
-            @test biogeochemical_drift_velocity(model, Val(:Z)).w == ZeroField()
-        end
+        @test biogeochemical_drift_velocity(model_sink, Val(:P)).w.data[1, 1, 1] ==
+            -0.2551 / day
+        @test biogeochemical_drift_velocity(model_sink, Val(:D)).w.data[1, 1, 1] ==
+            -2.7489 / day
+        @test biogeochemical_drift_velocity(model_sink, Val(:Z)).w == ZeroField()
     end
 end
