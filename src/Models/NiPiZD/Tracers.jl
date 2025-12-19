@@ -12,6 +12,7 @@ export phytoplankton_default,
     phytoplankton_geider_light,
     zooplankton_default,
     nutrient_default,
+    nutrient_geider_light,
     detritus_default
 
 """Return a sum expression for a collection of terms."""

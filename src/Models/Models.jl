@@ -1,14 +1,24 @@
 module Models
 
 include("Parameters.jl")
-#include("DARWIN/DARWIN.jl")
 include("NiPiZD/NiPiZD.jl")
 
 using .Parameters
-#using .DARWIN
 using .NiPiZD
 
-export compute_allometric_parameters, create_size_structured_params
-export define_tracer_functions
+export Parameters
+export NiPiZD
+
+export AbstractDiameterSpecification
+export DiameterListSpecification
+export DiameterRangeSpecification
+export NiPiZDBiogeochemistrySpecification
+export PhytoPFTParameters
+export ZooPFTParameters
+export PhytoSpecification
+export ZooSpecification
+export NiPiZDParameters
+export create_nipizd_parameters
+export compute_nipizd_parameters
 
 end # module

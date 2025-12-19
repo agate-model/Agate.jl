@@ -8,7 +8,10 @@ using .Library
 using .Utils
 using .Models
 
-export compute_allometric_parameters
+export Library
+export Models
+export Utils
+
 export define_tracer_functions
 
 end # module

@@ -139,6 +139,17 @@ Adapt.@adapt_structure NiPiZDParameters
     return nothing
 end
 
+@inline function _check_square_matrix(name::Symbol, n::Int, M::AbstractMatrix)
+    if size(M, 1) != n || size(M, 2) != n
+        throw(ArgumentError("$(name) must have size ($(n), $(n))"))
+    end
+    return nothing
+end
+
+@inline function _cast_matrix(::Type{FT}, M::AbstractMatrix) where {FT<:AbstractFloat}
+    return eltype(M) === FT ? M : FT.(M)
+end
+
 function _compute_diameters(::Type{FT}, n::Int, spec::DiameterRangeSpecification) where {FT<:AbstractFloat}
     min_d = FT(spec.min_diameter)
     max_d = FT(spec.max_diameter)
@@ -280,7 +291,8 @@ function compute_nipizd_parameters(
         end
         M
     else
-        Array{FT}(palatability_matrix)
+        _check_square_matrix(:palatability_matrix, n_plankton, palatability_matrix)
+        _cast_matrix(FT, palatability_matrix)
     end
 
     assimilation = if isnothing(assimilation_efficiency_matrix)
@@ -301,7 +313,8 @@ function compute_nipizd_parameters(
         end
         M
     else
-        Array{FT}(assimilation_efficiency_matrix)
+        _check_square_matrix(:assimilation_efficiency_matrix, n_plankton, assimilation_efficiency_matrix)
+        _cast_matrix(FT, assimilation_efficiency_matrix)
     end
 
     return NiPiZDParameters{FT, typeof(diameters), typeof(palatability)}(
@@ -374,13 +387,13 @@ Convenience constructor that builds specifications and expands them to runtime p
 """
 function create_nipizd_parameters(
     ::Type{FT};
-    n_phyto::Int,
-    n_zoo::Int,
-    phyto_diameters::AbstractDiameterSpecification,
-    zoo_diameters::AbstractDiameterSpecification,
-    phyto_pft_parameters::PhytoPFTParameters,
-    zoo_pft_parameters::ZooPFTParameters,
-    bgc_specification::NiPiZDBiogeochemistrySpecification;
+    n_phyto::Int=2,
+    n_zoo::Int=2,
+    phyto_diameters::AbstractDiameterSpecification=DiameterRangeSpecification(2, 10, :log_splitting),
+    zoo_diameters::AbstractDiameterSpecification=DiameterRangeSpecification(20, 100, :linear_splitting),
+    phyto_pft_parameters::PhytoPFTParameters=default_phyto_pft_parameters(FT),
+    zoo_pft_parameters::ZooPFTParameters=default_zoo_pft_parameters(FT),
+    bgc_specification::NiPiZDBiogeochemistrySpecification=default_bgc_specification(FT),
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 ) where {FT<:AbstractFloat}

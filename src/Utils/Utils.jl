@@ -1,14 +1,17 @@
 """Utilities to construct Oceananigans biogeochemistry types.
 
-Agate builds `AbstractContinuousFormBiogeochemistry` subtypes from:
+Agate constructs `AbstractContinuousFormBiogeochemistry` subtypes from:
 
-- a runtime `parameters` struct (stored as a single field), and
-- tracer tendency expressions (construction-time `Expr` values).
+- a runtime parameter struct stored as a single field (`bgc.parameters`), and
+- construction-time tracer tendency expressions (`Expr`) keyed by tracer name.
 
-The generated biogeochemistry types are compatible with Oceananigans and OceanBioME.
+The generated types are compatible with Oceananigans and OceanBioME. Runtime parameter
+structs can be adapted between CPU and GPU with `Adapt.jl`.
 """
 
 module Utils
+
+using Adapt
 
 using Agate.Library.Mortality
 using Agate.Library.Nutrients
@@ -22,26 +25,24 @@ using OceanBioME
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 using Oceananigans.Fields: ZeroField
 
-import Oceananigans.Biogeochemistry: 
+import Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers,
     required_biogeochemical_auxiliary_fields,
     biogeochemical_drift_velocity
 
-export define_tracer_functions, expression_check, create_bgc_struct, add_bgc_methods!
+export define_tracer_functions
+export expression_check
+export create_bgc_struct
+export add_bgc_methods!
 
 """
-    define_tracer_functions(
-        parameters,
-        tracers;
-        auxiliary_fields=(:PAR,),
-        helper_functions=nothing,
-        sinking_velocities=nothing,
-    )
+    define_tracer_functions(parameters, tracers; auxiliary_fields=(:PAR,), helper_functions=nothing,
+                            sinking_velocities=nothing)
 
 Create an Oceananigans biogeochemistry model type.
 
 # Arguments
-- `parameters`: a runtime parameter struct (stored as a single field of the generated type)
+- `parameters`: a runtime parameter struct (stored as `bgc.parameters`)
 - `tracers`: a `NamedTuple` mapping tracer names (Symbols) to tracer tendency expressions (`Expr`)
 
 # Keywords
@@ -57,17 +58,17 @@ function define_tracer_functions(
     sinking_velocities=nothing,
 )
     model_name = Symbol(uuid1())
-    bgc_model = create_bgc_struct(model_name, parameters; sinking_velocities=sinking_velocities)
+    bgc_type = create_bgc_struct(model_name, parameters; sinking_velocities=sinking_velocities)
 
     add_bgc_methods!(
-        bgc_model,
+        bgc_type,
         tracers;
         auxiliary_fields=auxiliary_fields,
         helper_functions=helper_functions,
         include_sinking=sinking_velocities !== nothing,
     )
 
-    return bgc_model
+    return bgc_type
 end
 
 """
@@ -76,7 +77,7 @@ end
 Create a subtype of `AbstractContinuousFormBiogeochemistry` that stores a runtime
 parameter struct (and optional sinking velocities).
 
-The generated type is returned.
+The generated type is `Adapt.jl`-compatible.
 """
 function create_bgc_struct(struct_name::Symbol, parameters; sinking_velocities=nothing)
     if isnothing(sinking_velocities)
@@ -84,29 +85,27 @@ function create_bgc_struct(struct_name::Symbol, parameters; sinking_velocities=n
             Base.@kwdef struct $struct_name{PT} <: AbstractContinuousFormBiogeochemistry
                 parameters::PT = $parameters
             end
-            $struct_name
-        end
-        return eval(exp)
-    else
-        exp = quote
-            Base.@kwdef struct $struct_name{PT, W} <: AbstractContinuousFormBiogeochemistry
-                parameters::PT = $parameters
-                sinking_velocities::W = $sinking_velocities
-            end
+            Adapt.@adapt_structure $struct_name
             $struct_name
         end
         return eval(exp)
     end
+
+    exp = quote
+        Base.@kwdef struct $struct_name{PT, W} <: AbstractContinuousFormBiogeochemistry
+            parameters::PT = $parameters
+            sinking_velocities::W = $sinking_velocities
+        end
+        Adapt.@adapt_structure $struct_name
+        $struct_name
+    end
+
+    return eval(exp)
 end
 
 """
-    add_bgc_methods!(
-        bgc_type,
-        tracers;
-        auxiliary_fields=(),
-        helper_functions=nothing,
-        include_sinking=false,
-    )
+    add_bgc_methods!(bgc_type, tracers; auxiliary_fields=(), helper_functions=nothing,
+                     include_sinking=false)
 
 Attach Oceananigans-required methods to `bgc_type`.
 
@@ -116,8 +115,8 @@ This function defines:
 - one callable method per tracer tendency
 - optionally, `biogeochemical_drift_velocity` for sinking tracers
 
-The generated tracer methods bind each field of `bgc.parameters` to a local variable
-before evaluating the provided tracer expression.
+Each tracer tendency method binds fields of `bgc.parameters` to local variables before
+evaluating the provided tracer expression.
 """
 function add_bgc_methods!(
     bgc_type,
@@ -131,13 +130,13 @@ function add_bgc_methods!(
     end
 
     coordinates = (:x, :y, :z, :t)
-    tracer_vars = Tuple(Symbol.(keys(tracers)))
-    aux_field_vars = Tuple(Symbol.(auxiliary_fields))
+    tracer_vars = keys(tracers)
+    aux_field_vars = auxiliary_fields
 
     all_state_vars = (coordinates..., tracer_vars..., aux_field_vars...)
 
-    eval(:(required_biogeochemical_tracers(::$(bgc_type)) = $(tracer_vars,)))
-    eval(:(required_biogeochemical_auxiliary_fields(::$(bgc_type)) = $(aux_field_vars,)))
+    eval(:(required_biogeochemical_tracers(::$(bgc_type)) = $(tracer_vars)))
+    eval(:(required_biogeochemical_auxiliary_fields(::$(bgc_type)) = $(aux_field_vars)))
 
     defaults = bgc_type()
     parameter_type = typeof(defaults.parameters)
@@ -167,11 +166,11 @@ function add_bgc_methods!(
     end
 
     if include_sinking
-        sinking_keys = Tuple(keys(defaults.sinking_velocities))
+        sinking_keys = keys(defaults.sinking_velocities)
 
         for tracer in tracer_vars
-            if tracer in sinking_keys
-                sink_velocity_method = quote
+            sink_velocity_method = if tracer in sinking_keys
+                quote
                     function biogeochemical_drift_velocity(
                         bgc::$(bgc_type),
                         ::Val{$(QuoteNode(tracer))},
@@ -180,7 +179,7 @@ function add_bgc_methods!(
                     end
                 end
             else
-                sink_velocity_method = quote
+                quote
                     function biogeochemical_drift_velocity(
                         bgc::$(bgc_type),
                         ::Val{$(QuoteNode(tracer))},
