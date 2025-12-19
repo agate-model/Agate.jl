@@ -155,14 +155,30 @@ end
 Nutrient tendency for a single dissolved inorganic nutrient `N`.
 """
 function nutrient_default(plankton_syms::AbstractVector{Symbol})
+    linear_sum = _linear_loss_sum(plankton_syms)
+    quadratic_sum = _quadratic_loss_sum(plankton_syms)
     growth_sum = _photosynthetic_growth_sum(plankton_syms)
-    return :(-($growth_sum) + detritus_remineralization * D)
+
+    return :(
+        mortality_export_fraction * ($linear_sum) +
+        mortality_export_fraction * ($quadratic_sum) +
+        remineralization_idealized(D, detritus_remineralization) -
+        ($growth_sum)
+    )
 end
 
 """Nutrient tendency using Geider-style light limitation."""
 function nutrient_geider_light(plankton_syms::AbstractVector{Symbol})
+    linear_sum = _linear_loss_sum(plankton_syms)
+    quadratic_sum = _quadratic_loss_sum(plankton_syms)
     growth_sum = _photosynthetic_growth_geider_sum(plankton_syms)
-    return :(-($growth_sum) + detritus_remineralization * D)
+
+    return :(
+        mortality_export_fraction * ($linear_sum) +
+        mortality_export_fraction * ($quadratic_sum) +
+        remineralization_idealized(D, detritus_remineralization) -
+        ($growth_sum)
+    )
 end
 
 """
@@ -176,8 +192,10 @@ function detritus_default(plankton_syms::AbstractVector{Symbol})
     assimilation_loss_sum = _predation_assimilation_loss_sum(plankton_syms)
 
     return :(
-        (1 - mortality_export_fraction) * ($linear_sum + $quadratic_sum + $assimilation_loss_sum) -
-        detritus_remineralization * D
+        (1 - mortality_export_fraction) * ($linear_sum) +
+        ($assimilation_loss_sum) +
+        (1 - mortality_export_fraction) * ($quadratic_sum) -
+        remineralization_idealized(D, detritus_remineralization)
     )
 end
 
