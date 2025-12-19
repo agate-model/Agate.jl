@@ -14,7 +14,7 @@ Tracer tendency containers are supplied as `NamedTuple`s at the Oceananigans bou
 module Constructor
 
 using OceanBioME
-using OceanBioME: setup_velocity_fields
+using OceanBioME: BoxModelGrid, setup_velocity_fields
 using Oceananigans.Units
 
 using Agate.Utils: define_tracer_functions
@@ -166,13 +166,15 @@ end
               phyto_pft_parameters=..., zoo_pft_parameters=..., bgc_specification=...,
               nutrient_dynamics=..., detritus_dynamics=..., phyto_dynamics=..., zoo_dynamics=...,
               palatability_matrix=nothing, assimilation_efficiency_matrix=nothing,
-              sinking_tracers=nothing, grid=nothing, open_bottom=true)
+              sinking_tracers=nothing, grid=BoxModelGrid(), open_bottom=true)
 
 Construct a NiPiZD biogeochemistry model type.
 
 `FT` sets the floating point type stored in runtime parameter containers. All float
-parameters are cast exactly once during construction. If `sinking_tracers` is provided,
-`grid` must also be provided so sinking velocity fields can be constructed.
+parameters are cast exactly once during construction.
+
+If `sinking_tracers` is provided and `grid` is not provided, the default `BoxModelGrid()`
+is used (matching the original Agate behavior).
 """
 function construct(
     ;
@@ -199,7 +201,7 @@ function construct(
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
     sinking_tracers=nothing,
-    grid=nothing,
+    grid=BoxModelGrid(),
     open_bottom::Bool=true,
 )
     phyto_spec = diameter_specification(phyto_diameters)
@@ -231,10 +233,6 @@ function construct(
         return define_tracer_functions(parameters, tracers)
     end
 
-    if isnothing(grid)
-        throw(ArgumentError("grid must be provided when sinking_tracers is specified"))
-    end
-
     sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
     return define_tracer_functions(parameters, tracers; sinking_velocities=sinking_velocities)
 end
@@ -245,8 +243,11 @@ end
 Instantiate an existing NiPiZD biogeochemistry type.
 
 This method re-expands runtime parameters, enabling overrides of diameter
-specifications, PFT parameters, and interaction matrices. If `bgc_type` defines sinking
-velocities, `sinking_tracers` can be used to override them.
+specifications, PFT parameters, and interaction matrices.
+
+If `bgc_type` defines sinking velocities and `sinking_tracers` is provided, sinking
+velocity fields are rebuilt using `grid` (defaulting to `BoxModelGrid()`), matching the
+original Agate behavior.
 """
 function instantiate(
     bgc_type;
@@ -259,7 +260,7 @@ function instantiate(
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
     sinking_tracers=nothing,
-    grid=nothing,
+    grid=BoxModelGrid(),
     open_bottom::Bool=true,
 )
     defaults = bgc_type()
@@ -309,9 +310,6 @@ function instantiate(
         sinking_velocities = if isnothing(sinking_tracers)
             defaults.sinking_velocities
         else
-            if isnothing(grid)
-                throw(ArgumentError("grid must be provided when sinking_tracers is specified"))
-            end
             setup_velocity_fields(sinking_tracers, grid, open_bottom)
         end
         return bgc_type(; parameters=parameters, sinking_velocities=sinking_velocities)
