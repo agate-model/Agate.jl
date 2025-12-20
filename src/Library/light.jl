@@ -54,12 +54,12 @@ Light module for PAR defined by simple functions (can be used with box or column
 # Fields
 - `field`: Oceananigans.FunctionField
 """
-struct FunctionFieldPAR
-    field
+struct FunctionFieldPAR{F}
+    field::F
 end
 
 """
-    FunctionFieldPAR(; grid, PAR_f=cyclical_PAR(; z=-10)) -> DataType
+    FunctionFieldPAR(; grid, PAR_f=cyclical_PAR(; z=-10)) -> FunctionFieldPAR
 
 # Keywords
 - `grid`: the geometry to build the model on defined as an Oceananigans grid object
@@ -67,7 +67,7 @@ end
 """
 function FunctionFieldPAR(; grid, PAR_f=cyclical_PAR(; z=-10))
     clock = Clock(; time=zero(grid))
-    PAR_field = FunctionField{Center,Center,Center}(PAR_f, grid; clock)
+    PAR_field = FunctionField{Center, Center, Center}(PAR_f, grid; clock)
     return FunctionFieldPAR(PAR_field)
 end
 
@@ -75,7 +75,6 @@ end
     update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
 
 `Oceananigans.Biogechemistry` function which computes and updates the irradiance field in-place.
-
 """
 function update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
     PAR.field.clock.time = model.clock.time
@@ -88,10 +87,6 @@ end
 
 `Oceananigans.Biogechemistry` function which returns a named tuple containing the Photosynthetically Active Radiation (PAR) field
 from a `FunctionFieldPAR` struct.
-
-# Arguments
-- `par::FunctionFieldPAR`: A struct containing a PAR field.
-
 """
 function biogeochemical_auxiliary_fields(par::FunctionFieldPAR)
     return (PAR=par.field,)
