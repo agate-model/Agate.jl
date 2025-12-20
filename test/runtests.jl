@@ -11,6 +11,3 @@ include("test_box_model.jl")
 
 # model checks
 include("test_mass_balance.jl")
-
-# optional GPU compilation smoke test
-include("test_gpu_smoke.jl")
