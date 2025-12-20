@@ -4,6 +4,7 @@ Functions related to photosynthetically available radiation (PAR).
 
 module Light
 
+using Adapt
 using Oceananigans
 using Oceananigans: Clock
 using Oceananigans.Units
@@ -25,7 +26,6 @@ Time-dependent cyclical PAR at depth `z` (suitable for use with box models).
     60 *
     (1 - cos((t + 15days) * 2π / year)) *
     (1 / (1 + 0.2 * exp(-((mod(t, year) - 200days) / 50days)^2))) + 2
-
 """
 function cyclical_PAR(z, t)
     PAR⁰ =
@@ -38,11 +38,11 @@ end
 cyclical_PAR(; z) = t -> cyclical_PAR(z, t)
 
 """
-    cyclical_PAR(z, t)
+    cyclical_PAR(x, y, z, t)
 
 Time and depth dependent cyclical PAR (suitable for use with column models).
 """
-function cyclical_PAR(x, y, z, t)
+@inline function cyclical_PAR(x, y, z, t)
     return cyclical_PAR(z, t)
 end
 
@@ -58,15 +58,18 @@ struct FunctionFieldPAR{F}
     field::F
 end
 
+# Critical for GPU: allow CUDA.cudaconvert / Adapt to recurse into `field`
+Adapt.@adapt_structure FunctionFieldPAR
+
 """
-    FunctionFieldPAR(; grid, PAR_f=cyclical_PAR(; z=-10)) -> FunctionFieldPAR
+    FunctionFieldPAR(; grid, PAR_f=cyclical_PAR(; z=-10))
 
 # Keywords
 - `grid`: the geometry to build the model on defined as an Oceananigans grid object
 - `PAR_f`: a PAR function of time (and depth), defaults to `cyclical_PAR`
 """
 function FunctionFieldPAR(; grid, PAR_f=cyclical_PAR(; z=-10))
-    clock = Clock(; time=zero(grid))
+    clock = Clock(; time=0.0)
     PAR_field = FunctionField{Center, Center, Center}(PAR_f, grid; clock)
     return FunctionFieldPAR(PAR_field)
 end
@@ -74,7 +77,7 @@ end
 """
     update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
 
-`Oceananigans.Biogechemistry` function which computes and updates the irradiance field in-place.
+Compute and update the irradiance field in-place.
 """
 function update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
     PAR.field.clock.time = model.clock.time
@@ -85,8 +88,7 @@ end
 """
     biogeochemical_auxiliary_fields(par::FunctionFieldPAR)
 
-`Oceananigans.Biogechemistry` function which returns a named tuple containing the Photosynthetically Active Radiation (PAR) field
-from a `FunctionFieldPAR` struct.
+Return a named tuple containing the Photosynthetically Active Radiation (PAR) field.
 """
 function biogeochemical_auxiliary_fields(par::FunctionFieldPAR)
     return (PAR=par.field,)
