@@ -4,7 +4,6 @@ using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans.Units
-using Plots
 using Agate.Models: NiPiZD
 using Agate.Library.Photosynthesis
 using Oceananigans, Printf
@@ -12,6 +11,7 @@ using Oceananigans.Fields: FunctionField, ConstantField
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 using Adapt
 using CUDA
+using CairoMakie
 
 # Generate the biogeochemical model
 bgc_type = NiPiZD.construct()
@@ -70,7 +70,7 @@ model = NonhydrostaticModel(;
 
 set!(model, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, N=7.0, D=1)
 
-simulation = Simulation(model, Δt=3minutes, stop_time=100days)
+simulation = Simulation(model, Δt=3minutes, stop_time=365days)
 
 filename = "column"
 simulation.output_writers[:profiles] = JLD2Writer(
@@ -82,3 +82,43 @@ simulation.output_writers[:profiles] = JLD2Writer(
 )
 
 run!(simulation)
+
+
+#Load time series data
+timeseries = NamedTuple{keys(model.tracers)}(
+    FieldTimeSeries(filename, "$field") for field in keys(model.tracers)
+)
+
+timeseries_keys = keys(timeseries)
+nothing #hide
+
+#Filter keys for P, Z, N, and D fields
+P_keys = filter(k -> startswith(string(k), "P"), timeseries_keys)
+Z_keys = filter(k -> startswith(string(k), "Z"), timeseries_keys)
+N_key = :N
+D_key = :D
+
+#Combine all keys into a single list for iteration
+all_keys = [P_keys..., Z_keys..., N_key, D_key]
+
+#Create figure with appropriate size
+fig = Figure(; size=(800, 1200), fontsize=16) 
+
+#Plot all fields
+for (i, key) in enumerate(all_keys)
+    x_nodes, y_nodes, z_nodes = nodes(timeseries[key])
+    z_vals = collect(z_nodes)
+    times = collect(timeseries[key].times / days)
+
+    ax = Axis(fig[i, 1]; title="$(key) concentration (mmol N / m³)", 
+              xlabel="Time (days)", ylabel="z (m)", limits=((0, 365), (-200, 0)))
+    hm = heatmap!(ax, times, z_vals,
+                  Float32.(interior(timeseries[key], 1, 1, :, :)'); 
+                  colormap=:viridis, rasterize=true)  # Rasterize for smaller output
+    Colorbar(fig[i, 2], hm)
+end
+
+#Save figure
+save("N2P2ZD_column_GPU.png", fig)
+
+fig  # Display the figure
