@@ -63,24 +63,22 @@ function _photosynthetic_growth_sum(plankton_syms::AbstractVector{Symbol})
     return _sum_expr(terms)
 end
 
-"""Build a sum of Geider-style photosynthetic growth over all plankton."""
+"""Build a sum of Geider-style photosynthetic growth over all plankton.
+
+!!! tip
+    Nutrients and nutrient half-saturation vectors are passed as single-element tuples e.g. (N,).
+""" 
 function _photosynthetic_growth_geider_sum(plankton_syms::AbstractVector{Symbol})
-    terms = Expr[]
-    for (i, sym) in enumerate(plankton_syms)
-        push!(
-            terms,
-            :(photosynthetic_growth_single_nutrient_geider_light(
-                N,
-                $sym,
-                PAR,
-                maximum_growth_rate[$i],
-                nutrient_half_saturation[$i],
-                photosynthetic_slope[$i],
-                chlorophyll_to_carbon_ratio[$i],
-            )),
-        )
-    end
-    return _sum_expr(terms)
+    plankton_tuple = Expr(:tuple, plankton_syms...)  # (Z1, Z2, ..., P1, P2, ...)
+    return :(photosynthetic_growth_geider_light(
+        (N,),                          # nutrients
+        (nutrient_half_saturation,),   # per-plankton half-sat vector(s)
+        $plankton_tuple,               # per-plankton concentrations
+        PAR,
+        maximum_growth_rate,
+        photosynthetic_slope,
+        chlorophyll_to_carbon_ratio,
+    ))
 end
 
 """Build the preferential predation loss of a prey size class to all predators."""

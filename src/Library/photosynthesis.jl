@@ -8,7 +8,8 @@ export light_limitation_smith,
     light_limitation_geider,
     photosynthetic_growth_single_nutrient,
     photosynthetic_growth_single_nutrient_geider_light,
-    photosynthetic_growth_two_nutrients_geider_light
+    photosynthetic_growth_two_nutrients_geider_light,
+    photosynthetic_growth_geider_light
 
 """
     light_limitation_smith(PAR, initial_slope, maximum_growth_0C)
@@ -223,5 +224,32 @@ Two nutrient geider photosynthetic growth.
            ) *
            P
 end
+
+@inline function photosynthetic_growth_geider_light(
+    nutrients::NTuple{NN,T},
+    half_sats::NTuple{NN,<:AbstractVector{T}},
+    plankton::NTuple{NP,T},
+    PAR::T,
+    μmax::AbstractVector{T},
+    α::AbstractVector{T},
+    θc::AbstractVector{T},
+) where {NN,NP,T}
+    acc = zero(T)
+
+    @inbounds for i in 1:NP
+        nutrient_factor = one(T)
+        for j in 1:NN
+            lj = monod_limitation(nutrients[j], half_sats[j][i])
+            nutrient_factor = min(nutrient_factor, lj)  # Liebig minimum
+        end
+
+        acc += nutrient_factor *
+               light_limitation_geider(PAR, α[i], μmax[i], θc[i]) *
+               plankton[i]
+    end
+
+    return acc
+end
+
 
 end # module
