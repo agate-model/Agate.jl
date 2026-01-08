@@ -13,8 +13,7 @@ const year = years = 365day
         model = Agate.Models.NiPiZD.instantiate(bgc_type)
 
         bgc_model = Biogeochemistry(
-            model;
-            light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid()),
+            model; light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
         )
         box_model = BoxModel(; biogeochemistry=bgc_model)
         set!(box_model; N=7, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, D=0.0)
@@ -43,8 +42,7 @@ const year = years = 365day
             model = Agate.Models.DARWIN.construct()
 
             bgc_model = Biogeochemistry(
-                model();
-                light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid()),
+                model(); light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
             )
             box_model = BoxModel(; biogeochemistry=bgc_model)
             set!(

@@ -70,7 +70,7 @@ Adapt.@adapt_structure FunctionFieldPAR
 """
 function FunctionFieldPAR(; grid, PAR_f=cyclical_PAR(; z=-10))
     clock = Clock(; time=0.0)
-    PAR_field = FunctionField{Center, Center, Center}(PAR_f, grid; clock)
+    PAR_field = FunctionField{Center,Center,Center}(PAR_f, grid; clock)
     return FunctionFieldPAR(PAR_field)
 end
 

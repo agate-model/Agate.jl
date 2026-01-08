@@ -1,5 +1,6 @@
 using Agate
-using Agate.Utils: expression_check, create_bgc_struct, add_bgc_methods!, define_tracer_functions
+using Agate.Utils:
+    expression_check, create_bgc_struct, add_bgc_methods!, define_tracer_functions
 
 using OceanBioME
 using Oceananigans.Units
@@ -66,7 +67,15 @@ using Oceananigans.Biogeochemistry:
         D = 1.0
         PAR = 1.0
 
-        tracer_vals(sym) = sym === :Z ? Z : sym === :P ? P : sym === :N ? N : D
+        tracer_vals(sym) = if sym === :Z
+            Z
+        elseif sym === :P
+            P
+        elseif sym === :N
+            N
+        else
+            D
+        end
         ordered = [tracer_vals(s) for s in required_biogeochemical_tracers(model)]
 
         @test isfinite(model(Val(:N), 0, 0, 0, 0, ordered..., PAR))
@@ -75,9 +84,7 @@ using Oceananigans.Biogeochemistry:
         @test isfinite(model(Val(:Z), 0, 0, 0, 0, ordered..., PAR))
 
         sinking_velocities = setup_velocity_fields(
-            (P=0.2551 / day, D=2.7489 / day),
-            BoxModelGrid(),
-            true,
+            (P=0.2551 / day, D=2.7489 / day), BoxModelGrid(), true
         )
 
         NPZD_sink = define_tracer_functions(

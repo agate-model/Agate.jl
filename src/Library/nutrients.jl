@@ -51,7 +51,7 @@ Returns the minimum value among the given nutrient limitations.
     return liebig_minimum(liebig_minimum(a, b), c, rest...)
 end
 
-@inline function liebig_minimum(values::NTuple{N, T}) where {N, T}
+@inline function liebig_minimum(values::NTuple{N,T}) where {N,T}
     m = values[1]
     @inbounds for i in 2:N
         m = liebig_minimum(m, values[i])

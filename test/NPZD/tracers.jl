@@ -42,7 +42,8 @@ tracers = (
     ),
     P=:(
         photosynthetic_growth_idealized(N, P, PAR, μ₀, kₙ, α) -
-        predation_loss_idealized(P, Z, gₘₐₓ, kₚ) - linear_loss(P, lᵖⁿ) - linear_loss(P, lᵖᵈ)
+        predation_loss_idealized(P, Z, gₘₐₓ, kₚ) - linear_loss(P, lᵖⁿ) -
+        linear_loss(P, lᵖᵈ)
     ),
     Z=:(
         predation_gain_idealized(P, Z, β, gₘₐₓ, kₚ) - linear_loss(Z, lᶻⁿ) -
@@ -51,7 +52,5 @@ tracers = (
 )
 
 NPZD = define_tracer_functions(
-    parameters,
-    tracers;
-    helper_functions=joinpath(@__DIR__, "functions.jl"),
+    parameters, tracers; helper_functions=joinpath(@__DIR__, "functions.jl")
 )

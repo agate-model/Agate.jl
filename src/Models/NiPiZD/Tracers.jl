@@ -85,9 +85,7 @@ end
 
 """Build the preferential predation loss of a prey size class to all predators."""
 function _predation_loss_sum(
-    prey_sym::Symbol,
-    prey_idx::Int,
-    plankton_syms::AbstractVector{Symbol},
+    prey_sym::Symbol, prey_idx::Int, plankton_syms::AbstractVector{Symbol}
 )
     terms = Expr[]
     for (pred_idx, pred_sym) in enumerate(plankton_syms)
@@ -107,9 +105,7 @@ end
 
 """Build the preferential predation gain of a predator size class from all prey."""
 function _predation_gain_sum(
-    predator_sym::Symbol,
-    predator_idx::Int,
-    plankton_syms::AbstractVector{Symbol},
+    predator_sym::Symbol, predator_idx::Int, plankton_syms::AbstractVector{Symbol}
 )
     terms = Expr[]
     for (prey_idx, prey_sym) in enumerate(plankton_syms)
@@ -162,8 +158,7 @@ function nutrient_default(plankton_syms::AbstractVector{Symbol})
     return :(
         mortality_export_fraction * ($linear_sum) +
         mortality_export_fraction * ($quadratic_sum) +
-        remineralization_idealized(D, detritus_remineralization) -
-        ($growth_sum)
+        remineralization_idealized(D, detritus_remineralization) - ($growth_sum)
     )
 end
 
@@ -176,8 +171,7 @@ function nutrient_geider_light(plankton_syms::AbstractVector{Symbol})
     return :(
         mortality_export_fraction * ($linear_sum) +
         mortality_export_fraction * ($quadratic_sum) +
-        remineralization_idealized(D, detritus_remineralization) -
-        ($growth_sum)
+        remineralization_idealized(D, detritus_remineralization) - ($growth_sum)
     )
 end
 
@@ -205,9 +199,7 @@ end
 Phytoplankton tendency with single-nutrient Smith-style light limitation.
 """
 function phytoplankton_default(
-    plankton_syms::AbstractVector{Symbol},
-    plankton_sym::Symbol,
-    plankton_idx::Int,
+    plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int
 )
     growth = :(photosynthetic_growth_single_nutrient(
         N,
@@ -227,9 +219,7 @@ end
 
 """Phytoplankton tendency using Geider-style light limitation."""
 function phytoplankton_geider_light(
-    plankton_syms::AbstractVector{Symbol},
-    plankton_sym::Symbol,
-    plankton_idx::Int,
+    plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int
 )
     growth = :(photosynthetic_growth_single_nutrient_geider_light(
         N,
@@ -253,9 +243,7 @@ end
 Zooplankton tendency with preferential feeding.
 """
 function zooplankton_default(
-    plankton_syms::AbstractVector{Symbol},
-    plankton_sym::Symbol,
-    plankton_idx::Int,
+    plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int
 )
     gain_sum = _predation_gain_sum(plankton_sym, plankton_idx, plankton_syms)
 

@@ -102,10 +102,7 @@ end
 
 """Return default nutrient and detritus cycling constants for NiPiZD."""
 function default_bgc_specification(::Type{FT}) where {FT<:AbstractFloat}
-    return NiPiZDBiogeochemistrySpecification{FT}(
-        FT(0.1213 / day),
-        FT(0.5),
-    )
+    return NiPiZDBiogeochemistrySpecification{FT}(FT(0.1213 / day), FT(0.5))
 end
 
 """Return a diameter specification for an explicit diameter list."""
@@ -127,7 +124,6 @@ function plankton_symbols(n_P::Int, n_Z::Int)
 
     return names
 end
-
 
 function build_tracer_expressions(
     n_P::Int,
@@ -176,20 +172,15 @@ parameters are cast exactly once during construction.
 If `sinking_tracers` is provided and `grid` is not provided, the default `BoxModelGrid()`
 is used (matching the original Agate behavior).
 """
-function construct(
-    ;
+function construct(;
     FT::Type{<:AbstractFloat}=Float64,
     n_phyto::Int=2,
     n_zoo::Int=2,
-    phyto_diameters::Union{AbstractDiameterSpecification, AbstractVector}=DiameterRangeSpecification(
-        2,
-        10,
-        :log_splitting,
+    phyto_diameters::Union{AbstractDiameterSpecification,AbstractVector}=DiameterRangeSpecification(
+        2, 10, :log_splitting
     ),
-    zoo_diameters::Union{AbstractDiameterSpecification, AbstractVector}=DiameterRangeSpecification(
-        20,
-        100,
-        :linear_splitting,
+    zoo_diameters::Union{AbstractDiameterSpecification,AbstractVector}=DiameterRangeSpecification(
+        20, 100, :linear_splitting
     ),
     phyto_pft_parameters=default_phyto_pft_parameters(FT),
     zoo_pft_parameters=default_zoo_pft_parameters(FT),
@@ -234,7 +225,9 @@ function construct(
     end
 
     sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
-    return define_tracer_functions(parameters, tracers; sinking_velocities=sinking_velocities)
+    return define_tracer_functions(
+        parameters, tracers; sinking_velocities=sinking_velocities
+    )
 end
 
 """
@@ -281,13 +274,17 @@ function instantiate(
         diameter_specification(zoo_diameters)
     end
 
-    phyto_pft = isnothing(phyto_pft_parameters) ? default_phyto_pft_parameters(FT) : phyto_pft_parameters
-    zoo_pft = isnothing(zoo_pft_parameters) ? default_zoo_pft_parameters(FT) : zoo_pft_parameters
+    phyto_pft = if isnothing(phyto_pft_parameters)
+        default_phyto_pft_parameters(FT)
+    else
+        phyto_pft_parameters
+    end
+    zoo_pft =
+        isnothing(zoo_pft_parameters) ? default_zoo_pft_parameters(FT) : zoo_pft_parameters
 
     bgc_spec = if isnothing(bgc_specification)
         NiPiZDBiogeochemistrySpecification{FT}(
-            FT(p0.detritus_remineralization),
-            FT(p0.mortality_export_fraction),
+            FT(p0.detritus_remineralization), FT(p0.mortality_export_fraction)
         )
     else
         bgc_specification

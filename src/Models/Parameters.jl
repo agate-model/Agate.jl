@@ -45,7 +45,7 @@ export AbstractDiameterSpecification,
 abstract type AbstractDiameterSpecification end
 
 """A diameter specification defined by an explicit list of diameters."""
-struct DiameterListSpecification{T, VT<:AbstractVector{T}} <: AbstractDiameterSpecification
+struct DiameterListSpecification{T,VT<:AbstractVector{T}} <: AbstractDiameterSpecification
     diameters::VT
 end
 
@@ -90,14 +90,14 @@ struct ZooPFTParameters{FT<:AbstractFloat}
 end
 
 """Construction-time specification of phytoplankton size classes."""
-struct PhytoSpecification{FT<:AbstractFloat, DS<:AbstractDiameterSpecification}
+struct PhytoSpecification{FT<:AbstractFloat,DS<:AbstractDiameterSpecification}
     n::Int
     diameters::DS
     pft::PhytoPFTParameters{FT}
 end
 
 """Construction-time specification of zooplankton size classes."""
-struct ZooSpecification{FT<:AbstractFloat, DS<:AbstractDiameterSpecification}
+struct ZooSpecification{FT<:AbstractFloat,DS<:AbstractDiameterSpecification}
     n::Int
     diameters::DS
     pft::ZooPFTParameters{FT}
@@ -127,7 +127,7 @@ function default_phyto_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
         zero(FT),
         zero(FT),
         zero(FT),
-        zero(FT)
+        zero(FT),
     )
 end
 
@@ -147,7 +147,7 @@ function default_phyto_geider_pft_parameters(::Type{FT}) where {FT<:AbstractFloa
         zero(FT),
         zero(FT),
         zero(FT),
-        zero(FT)
+        zero(FT),
     )
 end
 
@@ -164,7 +164,7 @@ function default_zoo_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
         FT(10),
         one(FT),
         FT(0.3),
-        FT(0.32)
+        FT(0.32),
     )
 end
 
@@ -173,9 +173,8 @@ function default_bgc_specification(::Type{FT}) where {FT<:AbstractFloat}
     return NiPiZDBiogeochemistrySpecification{FT}(FT(0.1213 / day), FT(0.5))
 end
 
-
 """Runtime NiPiZD parameters stored in the biogeochemistry object."""
-struct NiPiZDParameters{FT<:AbstractFloat, VT<:AbstractVector{FT}, MT<:AbstractMatrix{FT}}
+struct NiPiZDParameters{FT<:AbstractFloat,VT<:AbstractVector{FT},MT<:AbstractMatrix{FT}}
     n_P::Int
     n_Z::Int
 
@@ -220,7 +219,9 @@ end
     return eltype(M) === FT ? M : FT.(M)
 end
 
-function _compute_diameters(::Type{FT}, n::Int, spec::DiameterRangeSpecification) where {FT<:AbstractFloat}
+function _compute_diameters(
+    ::Type{FT}, n::Int, spec::DiameterRangeSpecification
+) where {FT<:AbstractFloat}
     min_d = FT(spec.min_diameter)
     max_d = FT(spec.max_diameter)
 
@@ -249,7 +250,9 @@ function _compute_diameters(::Type{FT}, n::Int, spec::DiameterRangeSpecification
     return diameters
 end
 
-function _compute_diameters(::Type{FT}, n::Int, spec::DiameterListSpecification) where {FT<:AbstractFloat}
+function _compute_diameters(
+    ::Type{FT}, n::Int, spec::DiameterListSpecification
+) where {FT<:AbstractFloat}
     _check_length(:diameters, n, length(spec.diameters))
     diameters = Vector{FT}(undef, n)
     @inbounds for i in 1:n
@@ -310,9 +313,7 @@ function compute_nipizd_parameters(
         quadratic_mortality[i] = zpft.quadratic_mortality
 
         maximum_predation_rate[i] = allometric_scaling_power(
-            zpft.maximum_predation_rate_a,
-            zpft.maximum_predation_rate_b,
-            diameters[i],
+            zpft.maximum_predation_rate_a, zpft.maximum_predation_rate_b, diameters[i]
         )
     end
 
@@ -326,15 +327,11 @@ function compute_nipizd_parameters(
         chlorophyll_to_carbon_ratio[idx] = ppft.chlorophyll_to_carbon_ratio
 
         maximum_growth_rate[idx] = allometric_scaling_power(
-            ppft.maximum_growth_rate_a,
-            ppft.maximum_growth_rate_b,
-            diameters[idx],
+            ppft.maximum_growth_rate_a, ppft.maximum_growth_rate_b, diameters[idx]
         )
 
         nutrient_half_saturation[idx] = allometric_scaling_power(
-            ppft.nutrient_half_saturation_a,
-            ppft.nutrient_half_saturation_b,
-            diameters[idx],
+            ppft.nutrient_half_saturation_a, ppft.nutrient_half_saturation_b, diameters[idx]
         )
     end
 
@@ -355,8 +352,12 @@ function compute_nipizd_parameters(
                 prey_is_zoo = prey <= n_Z
                 prey_pft = prey_is_zoo ? zoo.pft : phyto.pft
 
-                prey_params = PalatabilityPreyParameters{FT}(diameters[prey], prey_pft.protection)
-                M[pred, prey] = allometric_palatability_unimodal_protection(prey_params, predator)
+                prey_params = PalatabilityPreyParameters{FT}(
+                    diameters[prey], prey_pft.protection
+                )
+                M[pred, prey] = allometric_palatability_unimodal_protection(
+                    prey_params, predator
+                )
             end
         end
         M
@@ -371,23 +372,29 @@ function compute_nipizd_parameters(
             pred_is_zoo = pred <= n_Z
             pred_pft = pred_is_zoo ? zoo.pft : phyto.pft
 
-            predator = AssimilationPredatorParameters{FT}(pred_pft.can_eat, pred_pft.assimilation_efficiency)
+            predator = AssimilationPredatorParameters{FT}(
+                pred_pft.can_eat, pred_pft.assimilation_efficiency
+            )
 
             for prey in 1:n_plankton
                 prey_is_zoo = prey <= n_Z
                 prey_pft = prey_is_zoo ? zoo.pft : phyto.pft
 
                 prey_params = AssimilationPreyParameters(prey_pft.can_be_eaten)
-                M[pred, prey] = assimilation_efficiency_emergent_binary(prey_params, predator)
+                M[pred, prey] = assimilation_efficiency_emergent_binary(
+                    prey_params, predator
+                )
             end
         end
         M
     else
-        _check_square_matrix(:assimilation_efficiency_matrix, n_plankton, assimilation_efficiency_matrix)
+        _check_square_matrix(
+            :assimilation_efficiency_matrix, n_plankton, assimilation_efficiency_matrix
+        )
         _cast_matrix(FT, assimilation_efficiency_matrix)
     end
 
-    return NiPiZDParameters{FT, typeof(diameters), typeof(palatability)}(
+    return NiPiZDParameters{FT,typeof(diameters),typeof(palatability)}(
         n_P,
         n_Z,
         diameters,
@@ -407,8 +414,9 @@ function compute_nipizd_parameters(
     )
 end
 
-
-@inline function _cast_phyto_pft(::Type{FT}, p::PhytoPFTParameters) where {FT<:AbstractFloat}
+@inline function _cast_phyto_pft(
+    ::Type{FT}, p::PhytoPFTParameters
+) where {FT<:AbstractFloat}
     return PhytoPFTParameters{FT}(
         FT(p.maximum_growth_rate_a),
         FT(p.maximum_growth_rate_b),
@@ -443,10 +451,11 @@ end
     )
 end
 
-@inline function _cast_bgc_spec(::Type{FT}, s::NiPiZDBiogeochemistrySpecification) where {FT<:AbstractFloat}
+@inline function _cast_bgc_spec(
+    ::Type{FT}, s::NiPiZDBiogeochemistrySpecification
+) where {FT<:AbstractFloat}
     return NiPiZDBiogeochemistrySpecification{FT}(
-        FT(s.detritus_remineralization),
-        FT(s.mortality_export_fraction),
+        FT(s.detritus_remineralization), FT(s.mortality_export_fraction)
     )
 end
 
@@ -459,8 +468,12 @@ function create_nipizd_parameters(
     ::Type{FT};
     n_phyto::Int=2,
     n_zoo::Int=2,
-    phyto_diameters::AbstractDiameterSpecification=DiameterRangeSpecification(2, 10, :log_splitting),
-    zoo_diameters::AbstractDiameterSpecification=DiameterRangeSpecification(20, 100, :linear_splitting),
+    phyto_diameters::AbstractDiameterSpecification=DiameterRangeSpecification(
+        2, 10, :log_splitting
+    ),
+    zoo_diameters::AbstractDiameterSpecification=DiameterRangeSpecification(
+        20, 100, :linear_splitting
+    ),
     phyto_pft_parameters::PhytoPFTParameters=default_phyto_pft_parameters(FT),
     zoo_pft_parameters::ZooPFTParameters=default_zoo_pft_parameters(FT),
     bgc_specification::NiPiZDBiogeochemistrySpecification=default_bgc_specification(FT),
@@ -471,8 +484,10 @@ function create_nipizd_parameters(
     zoo_pft = _cast_zoo_pft(FT, zoo_pft_parameters)
     bgc_spec = _cast_bgc_spec(FT, bgc_specification)
 
-    phyto = PhytoSpecification{FT, typeof(phyto_diameters)}(n_phyto, phyto_diameters, phyto_pft)
-    zoo = ZooSpecification{FT, typeof(zoo_diameters)}(n_zoo, zoo_diameters, zoo_pft)
+    phyto = PhytoSpecification{FT,typeof(phyto_diameters)}(
+        n_phyto, phyto_diameters, phyto_pft
+    )
+    zoo = ZooSpecification{FT,typeof(zoo_diameters)}(n_zoo, zoo_diameters, zoo_pft)
 
     return compute_nipizd_parameters(
         FT,

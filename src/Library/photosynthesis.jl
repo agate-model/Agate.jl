@@ -59,18 +59,17 @@ This formulation is based on equation (4) from Geider et al., 1998.
 - `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon
 """
 @inline function light_limitation_geider(
-    PAR,
-    photosynthetic_slope,
-    maximum_growth_rate,
-    chlorophyll_to_carbon_ratio,
+    PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio
 )
     if maximum_growth_rate == zero(maximum_growth_rate)
         return zero(maximum_growth_rate)
     end
 
     return maximum_growth_rate * (
-        one(maximum_growth_rate) -
-        exp((-photosynthetic_slope * chlorophyll_to_carbon_ratio * PAR) / maximum_growth_rate)
+        one(maximum_growth_rate) - exp(
+            (-photosynthetic_slope * chlorophyll_to_carbon_ratio * PAR) /
+            maximum_growth_rate,
+        )
     )
 end
 
@@ -102,12 +101,7 @@ Single nutrient monod smith photosynthetic growth (used, for example, in Kuhn 20
 - `initial_slope`: initial photosynthetic slope
 """
 @inline function photosynthetic_growth_single_nutrient(
-    R,
-    P,
-    PAR,
-    maximum_growth_0C,
-    nutrient_half_saturation,
-    initial_slope,
+    R, P, PAR, maximum_growth_0C, nutrient_half_saturation, initial_slope
 )
     return maximum_growth_0C *
            monod_limitation(R, nutrient_half_saturation) *
@@ -154,7 +148,9 @@ Single nutrient geider photosynthetic growth.
     chlorophyll_to_carbon_ratio,
 )
     return monod_limitation(R, nutrient_half_saturation) *
-           light_limitation_geider(PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio) *
+           light_limitation_geider(
+               PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio
+           ) *
            P
 end
 
@@ -222,7 +218,9 @@ Two nutrient geider photosynthetic growth.
     )
 
     return nutrient_factor *
-           light_limitation_geider(PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio) *
+           light_limitation_geider(
+               PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio
+           ) *
            P
 end
 

@@ -40,7 +40,9 @@ Allometric scaling function using the power law for cell volume.
 # Returns
 - Scaled value `a * V^b` as `FT`, where `V` is the spherical volume computed from `diameter`.
 """
-@inline function allometric_scaling_power(a::FT, b::FT, diameter::FT) where {FT<:AbstractFloat}
+@inline function allometric_scaling_power(
+    a::FT, b::FT, diameter::FT
+) where {FT<:AbstractFloat}
     r = diameter / FT(2)
     volume = (FT(4) / FT(3)) * FT(π) * r^FT(3)
     return a * volume^b
@@ -80,8 +82,7 @@ Calculates the unimodal allometric palatability of prey based on predator-prey d
 - `FT`: palatability in `[0, 1]` (returns `0` when `predator.can_eat` is `false`).
 """
 @inline function allometric_palatability_unimodal(
-    prey::PalatabilityPreyParameters{FT},
-    predator::PalatabilityPredatorParameters{FT},
+    prey::PalatabilityPreyParameters{FT}, predator::PalatabilityPredatorParameters{FT}
 ) where {FT<:AbstractFloat}
     predator.can_eat || return zero(FT)
     ratio = predator.diameter / prey.diameter
@@ -120,8 +121,7 @@ Calculates the unimodal allometric palatability of prey, accounting for addition
 - `FT`: palatability in `[0, 1]` (returns `0` when `predator.can_eat` is `false`).
 """
 @inline function allometric_palatability_unimodal_protection(
-    prey::PalatabilityPreyParameters{FT},
-    predator::PalatabilityPredatorParameters{FT},
+    prey::PalatabilityPreyParameters{FT}, predator::PalatabilityPredatorParameters{FT}
 ) where {FT<:AbstractFloat}
     predator.can_eat || return zero(FT)
     ratio = predator.diameter / prey.diameter

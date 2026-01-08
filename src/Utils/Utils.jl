@@ -105,7 +105,9 @@ function define_tracer_functions(
 )
     model_name = gensym(:AgateBGC)
 
-    bgc_type = create_bgc_struct(model_name, parameters; sinking_velocities=sinking_velocities)
+    bgc_type = create_bgc_struct(
+        model_name, parameters; sinking_velocities=sinking_velocities
+    )
 
     add_bgc_methods!(
         bgc_type,
@@ -145,7 +147,7 @@ function create_bgc_struct(struct_name::Symbol, parameters; sinking_velocities=n
     end
 
     type_expr = quote
-        Base.@kwdef struct $struct_name{PT, W} <: AbstractContinuousFormBiogeochemistry
+        Base.@kwdef struct $struct_name{PT,W} <: AbstractContinuousFormBiogeochemistry
             parameters::PT = $parameters
             sinking_velocities::W = $sinking_velocities
         end
@@ -198,7 +200,11 @@ function add_bgc_methods!(
             if hasproperty(defaults, :sinking_velocities)
                 sinking_velocities = getproperty(defaults, :sinking_velocities)
             else
-                throw(ArgumentError("include_sinking=true but biogeochemistry type has no `sinking_velocities` field."))
+                throw(
+                    ArgumentError(
+                        "include_sinking=true but biogeochemistry type has no `sinking_velocities` field.",
+                    ),
+                )
             end
         end
     end
@@ -261,7 +267,9 @@ function add_bgc_methods!(
     method_vars = Vector{Expr}(undef, length(parameter_fields))
     @inbounds for (i, field) in enumerate(parameter_fields)
         if field in coordinates
-            throw(ArgumentError("Parameter field name $(field) is reserved for coordinates."))
+            throw(
+                ArgumentError("Parameter field name $(field) is reserved for coordinates.")
+            )
         end
         method_vars[i] = :($field = bgc.parameters.$field)
     end
@@ -287,15 +295,21 @@ function add_bgc_methods!(
         sinking_fields = fieldnames(typeof(sinking_velocities))
 
         # Fallback: no drift unless explicitly provided.
-        eval(quote
-            function biogeochemical_drift_velocity(::$(wrapper), ::Val{tracer_name}) where {tracer_name}
-                return (u=ZeroField(), v=ZeroField(), w=ZeroField())
-            end
-        end)
+        eval(
+            quote
+                function biogeochemical_drift_velocity(
+                    ::$(wrapper), ::Val{tracer_name}
+                ) where {tracer_name}
+                    return (u=ZeroField(), v=ZeroField(), w=ZeroField())
+                end
+            end,
+        )
 
         for tracer_name in sinking_fields
             sinking_method = quote
-                function biogeochemical_drift_velocity(bgc::$(wrapper), ::Val{$(QuoteNode(tracer_name))})
+                function biogeochemical_drift_velocity(
+                    bgc::$(wrapper), ::Val{$(QuoteNode(tracer_name))}
+                )
                     return (u=ZeroField(), v=ZeroField(), w=bgc.sinking_velocities.$tracer_name)
                 end
             end

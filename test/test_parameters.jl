@@ -3,9 +3,7 @@ using Agate
 using Oceananigans.Units
 
 using Agate.Models.Parameters:
-    DiameterListSpecification,
-    DiameterRangeSpecification,
-    create_nipizd_parameters
+    DiameterListSpecification, DiameterRangeSpecification, create_nipizd_parameters
 
 @testset "Models.Parameters" begin
     @testset "FT enforcement and shapes" begin
@@ -35,11 +33,7 @@ using Agate.Models.Parameters:
         zoo = DiameterListSpecification([20.0, 100.0])
 
         p = create_nipizd_parameters(
-            Float32;
-            n_phyto=2,
-            n_zoo=2,
-            phyto_diameters=phyto,
-            zoo_diameters=zoo,
+            Float32; n_phyto=2, n_zoo=2, phyto_diameters=phyto, zoo_diameters=zoo
         )
 
         @test p.diameters == Float32[20.0, 100.0, 2.0, 5.0]

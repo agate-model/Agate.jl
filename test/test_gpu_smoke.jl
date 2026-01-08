@@ -13,7 +13,7 @@ using Test
 
     if !cuda_ok
         @test true
-        return
+        return nothing
     end
 
     bgc_type = Agate.Models.NiPiZD.construct(; FT=Float32)
@@ -35,9 +35,9 @@ using Test
 
             out[1] = bgc(Val(:N), 0.0f0, 0.0f0, 0.0f0, 0.0f0, N, D, Z1, Z2, P1, P2, PAR)
         end
-        return
+        return nothing
     end
 
-    CUDA.@cuda threads=1 kernel!(out, bgc_gpu)
+    CUDA.@cuda threads = 1 kernel!(out, bgc_gpu)
     @test isfinite(Array(out)[1])
 end
