@@ -1,12 +1,3 @@
-"""Allometric relationships and predator-prey palatability.
-
-This module provides allocation-free scalar functions that are safe to call from GPU
-kernels.
-
-Agate uses micro-parameter structs for predator-prey interaction inputs to ensure
-interaction functions are type-stable and do not depend on dynamic containers.
-"""
-
 module Allometry
 
 export PalatabilityPreyParameters
@@ -28,12 +19,23 @@ struct PalatabilityPredatorParameters{FT<:AbstractFloat}
 end
 
 """
-    allometric_scaling_power(a, b, diameter)
+    allometric_scaling_power(a::Number, b::Number, diameter::Number)
 
-Compute an allometrically scaled rate using a power law in cell volume.
+Allometric scaling function using the power law for cell volume.
 
-The volume is computed assuming an equivalent spherical diameter. The returned value is
-``a * V^b``, where ``V = (4/3)π(d/2)^3``.
+!!! formulation
+    ``a````V````ᵇ``
+
+    where:
+    - ``V`` = (4 / 3) * π * (``d`` / 2)³
+    - ``a`` = scale
+    - ``b`` = exponent
+    - ``d`` = cell equivalent spherical diameter (ESD)
+
+# Arguments
+- `a`: scale
+- `b`: exponent
+- `diameter`: cell equivalent spherical diameter (ESD)
 """
 @inline function allometric_scaling_power(a::FT, b::FT, diameter::FT) where {FT<:AbstractFloat}
     r = diameter / FT(2)
@@ -42,9 +44,24 @@ The volume is computed assuming an equivalent spherical diameter. The returned v
 end
 
 """
-    allometric_palatability_unimodal(prey, predator)
+    allometric_palatability_unimodal(prey_data::Dict, predator_data::Dict)
 
-Unimodal palatability as a function of predator-to-prey diameter ratio.
+Calculates the unimodal allometric palatability of prey based on predator-prey diameters.
+
+!!! formulation
+    0 if ``e_{pred}`` = 0
+
+    1 / (1 + (``d_{ratio}``- ``d_{opt}``)²)``^σ``  otherwise
+    
+    where:
+    - ``e_{pred}`` = binary ability of predator to eat prey
+    - ``d_{ratio}`` = ratio between predator and prey diameters
+    - ``d_{opt}`` = optimum ratio between predator and prey diameter
+    - σ = how sharply the palatability decreases away from the optimal ratio.
+
+!!! info   
+    This formulation differs from the operational MITgcm-DARWIN model as it is is structurally different and diameters are used instead of volumes.
+    However, both formulations result in a unimodal response where the width and optima are modulated by the optimum-predator-prey ratio and the specificity.
 
 Returns zero when `predator.can_eat` is false.
 """
@@ -59,10 +76,26 @@ Returns zero when `predator.can_eat` is false.
 end
 
 """
-    allometric_palatability_unimodal_protection(prey, predator)
+    allometric_palatability_unimodal_protection(prey_data::Dict, predator_data::Dict)
 
-Unimodal palatability with additional prey protection.
+Calculates the unimodal allometric palatability of prey, accounting for additional prey protection mechanisms.
+
+
+!!! formulation
+    0 if ``e_{pred}`` = 0
+
+    (1 - η) / (1 + (``d_{ratio}``- ``d_{opt}``)^2)``^σ``   otherwise
+    
+    where:
+    - ``e_{pred}`` = binary ability of predator to eat prey
+    - η = prey-protection
+    - ``d_{ratio}`` = ratio between predator and prey diameters
+    - ``d_{opt}`` = optimum ratio between predator and prey diameter
+    - σ = how sharply the palatability decreases away from the optimal ratio.
+
+Returns zero when `predator.can_eat` is false.
 """
+
 @inline function allometric_palatability_unimodal_protection(
     prey::PalatabilityPreyParameters{FT},
     predator::PalatabilityPredatorParameters{FT},
