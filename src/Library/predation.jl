@@ -1,12 +1,3 @@
-"""Functions related to predator-prey interactions.
-
-This module provides scalar formulations for grazing losses and gains. Functions are
-allocation-free and safe to call from GPU kernels.
-
-Agate uses micro-parameter structs for interaction inputs that are passed into
-allocation-free scalar functions.
-"""
-
 module Predation
 
 export AssimilationPreyParameters
