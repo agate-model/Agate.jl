@@ -77,7 +77,7 @@ end
 """
     update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
 
-Compute and update the irradiance field in-place.
+`Oceananigans.Biogechemistry` function which computes and updates the irradiance field in-place.
 """
 function update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
     PAR.field.clock.time = model.clock.time
