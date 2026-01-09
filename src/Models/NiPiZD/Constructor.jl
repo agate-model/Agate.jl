@@ -101,7 +101,6 @@ function default_zoo_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
     )
 end
 
-
 """Return a diameter specification for an explicit diameter list."""
 diameter_specification(diameters::AbstractVector) = DiameterListSpecification(diameters)
 

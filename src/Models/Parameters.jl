@@ -577,7 +577,9 @@ function create_nipizd_parameters(
     ),
     phyto_pft_parameters::PhytoPFTParameters=default_phyto_pft_parameters(FT),
     zoo_pft_parameters::ZooPFTParameters=default_zoo_pft_parameters(FT),
-    bgc_specification::NiPiZDBiogeochemistrySpecification=default_nipizd_bgc_specification(FT),
+    bgc_specification::NiPiZDBiogeochemistrySpecification=default_nipizd_bgc_specification(
+        FT
+    ),
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 ) where {FT<:AbstractFloat}
