@@ -19,15 +19,20 @@ using Oceananigans.Units
 
 using Agate.Utils: define_tracer_functions
 
-using Agate.Models.Parameters:
+using Agate.Utils:
     AbstractDiameterSpecification,
     DiameterListSpecification,
-    DiameterRangeSpecification,
+    DiameterRangeSpecification
+
+using Agate.Models.Parameters:
     NiPiZDBiogeochemistrySpecification,
     PhytoPFTParameters,
     ZooPFTParameters,
     create_nipizd_parameters,
-    default_nipizd_bgc_specification
+    default_phyto_pft_parameters,
+    default_zoo_pft_parameters,
+    default_nipizd_bgc_specification,
+    default_phyto_geider_pft_parameters
 
 using Agate.Models.NiPiZD.Tracers:
     detritus_default,
@@ -40,66 +45,9 @@ using Agate.Models.NiPiZD.Tracers:
 export construct
 export instantiate
 export default_phyto_pft_parameters
-export default_phyto_geider_pft_parameters
 export default_zoo_pft_parameters
 export default_nipizd_bgc_specification
-
-"""Return default phytoplankton PFT parameters for Smith-style light limitation."""
-function default_phyto_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
-    return PhytoPFTParameters{FT}(
-        FT(2 / day),
-        FT(-0.15),
-        FT(0.17),
-        FT(0.27),
-        FT(8e-7 / second),
-        FT(0.1953 / day),
-        zero(FT),
-        zero(FT),
-        false,
-        true,
-        zero(FT),
-        zero(FT),
-        zero(FT),
-        zero(FT),
-    )
-end
-
-"""Return default phytoplankton PFT parameters for Geider-style light limitation."""
-function default_phyto_geider_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
-    return PhytoPFTParameters{FT}(
-        FT(2 / day),
-        FT(-0.15),
-        FT(0.17),
-        FT(0.27),
-        FT(8e-7 / second),
-        zero(FT),
-        FT(0.46e-5),
-        FT(0.1),
-        false,
-        true,
-        zero(FT),
-        zero(FT),
-        zero(FT),
-        zero(FT),
-    )
-end
-
-"""Return default zooplankton PFT parameters for preferential feeding."""
-function default_zoo_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
-    return ZooPFTParameters{FT}(
-        FT(30.84 / day),
-        FT(-0.16),
-        FT(8e-7 / second),
-        FT(5.0),
-        FT(1e-6 / second),
-        true,
-        false,
-        FT(10),
-        one(FT),
-        FT(0.3),
-        FT(0.32),
-    )
-end
+export default_phyto_geider_pft_parameters
 
 """Return a diameter specification for an explicit diameter list."""
 diameter_specification(diameters::AbstractVector) = DiameterListSpecification(diameters)

@@ -13,11 +13,16 @@ using Agate.Utils: define_tracer_functions
 using Agate.Models.Parameters:
     AbstractDiameterSpecification,
     DiameterListSpecification,
-    DiameterRangeSpecification,
+    DiameterRangeSpecification
+
+using Agate.Models.DARWIN.DarwinParameters:
     DarwinBiogeochemistrySpecification,
-    PhytoPFTParameters,
-    ZooPFTParameters,
+    DarwinParameterValues,
+    DarwinPhytoPFTParameters,
+    DarwinZooPFTParameters,
     create_darwin_parameters,
+    default_darwin_phyto_parameters,
+    default_darwin_zoo_parameters,
     default_darwin_bgc_specification
 
 using Agate.Models.DARWIN.Tracers:
@@ -33,53 +38,13 @@ using Agate.Models.DARWIN.Tracers:
     phytoplankton_growth_two_nutrients_geider_light,
     zooplankton_default
 
+
 export construct
 export instantiate
 export default_phyto_pft_parameters
-export default_phyto_geider_pft_parameters
-export default_zoo_pft_parameters
+#export default_darwin_phyto_parameters
+export default_darwin_zoo_parameters
 export default_darwin_bgc_specification
-
-"""Return default phytoplankton PFT parameters for the simplified DARWIN configuration."""
-function default_phyto_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
-    return PhytoPFTParameters{FT}(
-        FT(2 / day),
-        FT(-0.15),
-        FT(0.17),
-        FT(0.27),
-        FT(8e-7 / second),
-        zero(FT),
-        FT(0.46e-5),
-        FT(0.1),
-        false,
-        true,
-        zero(FT),
-        zero(FT),
-        zero(FT),
-        zero(FT),
-    )
-end
-
-"""Return default phytoplankton PFT parameters for Geider-style light limitation."""
-default_phyto_geider_pft_parameters(::Type{FT}) where {FT<:AbstractFloat} =
-    default_phyto_pft_parameters(FT)
-
-"""Return default zooplankton PFT parameters for preferential feeding."""
-function default_zoo_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
-    return ZooPFTParameters{FT}(
-        FT(30.84 / day),
-        FT(-0.16),
-        FT(8e-7 / second),
-        FT(5.0),
-        FT(1e-6 / second),
-        true,
-        false,
-        FT(10),
-        one(FT),
-        FT(0.3),
-        FT(0.32),
-    )
-end
 
 """Return a diameter specification for an explicit diameter list."""
 diameter_specification(diameters::AbstractVector) = DiameterListSpecification(diameters)
@@ -165,8 +130,8 @@ end
         DOP_dynamics=DOP_default,
         phyto_dynamics=phytoplankton_growth_two_nutrients_geider_light,
         zoo_dynamics=zooplankton_default,
-        phyto_pft_parameters=default_phyto_geider_pft_parameters(FT),
-        zoo_pft_parameters=default_zoo_pft_parameters(FT),
+        phyto_pft_parameters=default_darwin_phyto_parameters(FT),
+        zoo_pft_parameters=default_darwin_zoo_parameters(FT),
         bgc_specification=default_darwin_bgc_specification(FT),
         palatability_matrix=nothing,
         assimilation_efficiency_matrix=nothing,
@@ -265,10 +230,10 @@ The type specification includes a photosynthetic active radiation (PAR) auxiliar
 - `DOP_dynamics`: expression describing how DOP changes over time, see `Agate.Models.DARWIN.Tracers`
 - `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.DARWIN.Tracers`
 - `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.DARWIN.Tracers`
-- `phyto_pft_parameters`: phytoplankton PFT parameters (`PhytoPFTParameters`), for default values see
-    `DARWIN.default_phyto_geider_pft_parameters(FT)`
-- `zoo_pft_parameters`: zooplankton PFT parameters (`ZooPFTParameters`), for default values see
-    `DARWIN.default_zoo_pft_parameters(FT)`
+- `phyto_pft_parameters`: phytoplankton PFT parameters (`DarwinPhytoPFTParameters`), for default values see
+    `DARWIN.default_darwin_phyto_parameters(FT)`
+- `zoo_pft_parameters`: zooplankton PFT parameters (`DarwinZooPFTParameters`), for default values see
+    `DARWIN.default_darwin_zoo_parameters(FT)`
 - `bgc_specification`: elemental cycling specification (`DarwinBiogeochemistrySpecification`), for default values see
     `DARWIN.default_darwin_bgc_specification(FT)`
 - `palatability_matrix`: optional palatability matrix passed as an Array; if not provided this is computed from
@@ -301,8 +266,8 @@ function construct(;
     zoo_diameters::Union{AbstractDiameterSpecification,AbstractVector}=DiameterRangeSpecification(
         20, 100, :linear_splitting
     ),
-    phyto_pft_parameters=default_phyto_geider_pft_parameters(FT),
-    zoo_pft_parameters=default_zoo_pft_parameters(FT),
+    phyto_pft_parameters=default_darwin_phyto_parameters(FT),
+    zoo_pft_parameters=default_darwin_zoo_parameters(FT),
     bgc_specification=default_darwin_bgc_specification(FT),
     DIC_dynamics=DIC_geider_light,
     DIN_dynamics=DIN_geider_light,
@@ -401,10 +366,10 @@ of any of the model parameters or plankton diameters.
     computed or a list of values to use (as many as the model expects)
 - `zoo_diameters`: diameter specification (e.g., `DiameterRangeSpecification`) from which zooplankton diameters can be
     computed or a list of values to use (as many as the model expects)
-- `phyto_pft_parameters`: phytoplankton PFT parameters (`PhytoPFTParameters`), for default values see
-    `DARWIN.default_phyto_geider_pft_parameters(FT)`
-- `zoo_pft_parameters`: zooplankton PFT parameters (`ZooPFTParameters`), for default values see
-    `DARWIN.default_zoo_pft_parameters(FT)`
+- `phyto_pft_parameters`: phytoplankton PFT parameters (`DarwinPhytoPFTParameters`), for default values see
+    `DARWIN.default_darwin_phyto_parameters(FT)`
+- `zoo_pft_parameters`: zooplankton PFT parameters (`DarwinZooPFTParameters`), for default values see
+    `DARWIN.default_darwin_zoo_parameters(FT)`
 - `bgc_specification`: elemental cycling specification (`DarwinBiogeochemistrySpecification`), for default values see
     `DARWIN.default_darwin_bgc_specification(FT)`
 - `palatability_matrix`: optional palatability matrix passed as an Array
@@ -419,13 +384,13 @@ of any of the model parameters or plankton diameters.
 
 # Example
 ```julia
-using Agate.Models: DARWIN, PhytoPFTParameters
+using Agate.Models: DARWIN, DarwinPhytoPFTParameters
 using Oceananigans.Units: day
 
 darwin_2p_2z = DARWIN.construct()
 
 # change one parameter value without touching the rest
-phyto_pft = DARWIN.default_phyto_geider_pft_parameters(Float64)
+phyto_pft = DARWIN.default_darwin_phyto_parameters(Float64)
 phyto_pft = with(phyto_pft; maximum_growth_rate_a = 2/day)
 
 darwin_2p_2z_model_obj = DARWIN.instantiate(darwin_2p_2z; phyto_pft_parameters = phyto_pft)
@@ -465,13 +430,13 @@ function instantiate(
     end
 
     phyto_pft = if isnothing(phyto_pft_parameters)
-        default_phyto_geider_pft_parameters(FT)
+        default_darwin_phyto_parameters(FT)
     else
         phyto_pft_parameters
     end
 
     zoo_pft = if isnothing(zoo_pft_parameters)
-        default_zoo_pft_parameters(FT)
+        default_darwin_zoo_parameters(FT)
     else
         zoo_pft_parameters
     end

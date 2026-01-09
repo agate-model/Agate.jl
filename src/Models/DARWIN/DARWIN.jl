@@ -1,8 +1,10 @@
 module DARWIN
 
 include("Tracers.jl")
+include("DarwinParameters.jl")
 include("Constructor.jl")
 
+using .DarwinParameters
 using .Tracers
 using .Constructor
 
