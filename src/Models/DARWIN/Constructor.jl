@@ -8,16 +8,14 @@ using OceanBioME
 using OceanBioME: BoxModelGrid, setup_velocity_fields
 using Oceananigans.Units
 
-using Agate.Utils: define_tracer_functions
+using Agate.Utils: 
+    define_tracer_functions, 
+    AbstractDiameterSpecification, 
+    DiameterListSpecification, 
+    DiameterRangeSpecification
 
-using Agate.Models.Parameters:
-    AbstractDiameterSpecification, DiameterListSpecification, DiameterRangeSpecification
-
-using Agate.Models.DARWIN.DarwinParameters:
+using Agate.Models.DARWIN.Parameters:
     DarwinBiogeochemistrySpecification,
-    DarwinParameterValues,
-    DarwinPhytoPFTParameters,
-    DarwinZooPFTParameters,
     create_darwin_parameters,
     default_darwin_phyto_parameters,
     default_darwin_zoo_parameters,
@@ -38,10 +36,6 @@ using Agate.Models.DARWIN.Tracers:
 
 export construct
 export instantiate
-export default_phyto_pft_parameters
-#export default_darwin_phyto_parameters
-export default_darwin_zoo_parameters
-export default_darwin_bgc_specification
 
 """Return a diameter specification for an explicit diameter list."""
 diameter_specification(diameters::AbstractVector) = DiameterListSpecification(diameters)
@@ -381,7 +375,7 @@ of any of the model parameters or plankton diameters.
 
 # Example
 ```julia
-using Agate.Models: DARWIN, DarwinPhytoPFTParameters
+using Agate.Models: DARWIN
 using Oceananigans.Units: day
 
 darwin_2p_2z = DARWIN.construct()

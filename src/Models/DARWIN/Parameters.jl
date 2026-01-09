@@ -1,4 +1,4 @@
-module DarwinParameters
+module Parameters
 
 using Adapt
 using Oceananigans.Units
@@ -96,8 +96,7 @@ end
 
 Keyword constructor for `DarwinBiogeochemistrySpecification{FT}`.
 
-This constructor is intended to make specification creation self-documenting and less error-prone
-than positional construction, while still returning a concrete, GPU-safe struct.
+This constructor allows users to pass keyword arguments when generating DarwinBiogeochemistrySpecification.
 
 # Keywords
 - `POC_remineralization`: Remineralization rate for particulate organic carbon (POC).
@@ -255,41 +254,6 @@ end
         FT(p.protection),
         FT(p.specificity),
         FT(p.assimilation_efficiency),
-    )
-end
-
-@inline function _default_darwin_phyto_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
-    return DarwinPhytoPFTParameters{FT}(
-        FT(2 / day),
-        FT(-0.15),
-        FT(0.17),
-        FT(0.27),
-        FT(8e-7 / second),
-        zero(FT),
-        FT(0.46e-5),
-        FT(0.1),
-        false,
-        true,
-        zero(FT),
-        zero(FT),
-        zero(FT),
-        zero(FT),
-    )
-end
-
-@inline function _default_darwin_zoo_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
-    return DarwinZooPFTParameters{FT}(
-        FT(30.84 / day),
-        FT(-0.16),
-        FT(8e-7 / second),
-        FT(5.0),
-        FT(1e-6 / second),
-        true,
-        false,
-        FT(10),
-        one(FT),
-        FT(0.3),
-        FT(0.32),
     )
 end
 
