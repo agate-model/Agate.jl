@@ -11,9 +11,7 @@ using Oceananigans.Units
 using Agate.Utils: define_tracer_functions
 
 using Agate.Models.Parameters:
-    AbstractDiameterSpecification,
-    DiameterListSpecification,
-    DiameterRangeSpecification
+    AbstractDiameterSpecification, DiameterListSpecification, DiameterRangeSpecification
 
 using Agate.Models.DARWIN.DarwinParameters:
     DarwinBiogeochemistrySpecification,
@@ -37,7 +35,6 @@ using Agate.Models.DARWIN.Tracers:
     POP_default,
     phytoplankton_growth_two_nutrients_geider_light,
     zooplankton_default
-
 
 export construct
 export instantiate

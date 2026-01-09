@@ -20,9 +20,7 @@ using Oceananigans.Units
 using Agate.Utils: define_tracer_functions
 
 using Agate.Utils:
-    AbstractDiameterSpecification,
-    DiameterListSpecification,
-    DiameterRangeSpecification
+    AbstractDiameterSpecification, DiameterListSpecification, DiameterRangeSpecification
 
 using Agate.Models.Parameters:
     NiPiZDBiogeochemistrySpecification,

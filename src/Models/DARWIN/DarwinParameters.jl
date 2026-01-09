@@ -14,10 +14,7 @@ using Agate.Library.Predation:
     AssimilationPredatorParameters,
     assimilation_efficiency_emergent_binary
 
-using Agate.Utils:
-    param_check_square_matrix,
-    param_cast_matrix,
-    param_compute_diameters
+using Agate.Utils: param_check_square_matrix, param_cast_matrix, param_compute_diameters
 
 export DarwinBiogeochemistrySpecification,
     DarwinPhytoPFTParameters,
@@ -32,10 +29,7 @@ export DarwinBiogeochemistrySpecification,
     default_darwin_zoo_parameters
 
 using Agate.Utils:
-    AbstractDiameterSpecification,
-    DiameterListSpecification,
-    DiameterRangeSpecification
-    
+    AbstractDiameterSpecification, DiameterListSpecification, DiameterRangeSpecification
 
 """PFT-level constants for phytoplankton."""
 struct DarwinPhytoPFTParameters{FT<:AbstractFloat}
@@ -70,7 +64,6 @@ struct DarwinZooPFTParameters{FT<:AbstractFloat}
     assimilation_efficiency::FT
 end
 
-
 """Construction-time specification of phytoplankton size classes."""
 struct DarwinPhytoSpecification{FT<:AbstractFloat,DS<:AbstractDiameterSpecification}
     n::Int
@@ -85,7 +78,6 @@ struct DarwinZooSpecification{FT<:AbstractFloat,DS<:AbstractDiameterSpecificatio
     pft::DarwinZooPFTParameters{FT}
 end
 
-
 """Construction-time constants for the simplified DARWIN elemental cycling."""
 struct DarwinBiogeochemistrySpecification{FT<:AbstractFloat}
     POC_remineralization::FT
@@ -98,8 +90,6 @@ struct DarwinBiogeochemistrySpecification{FT<:AbstractFloat}
     nitrogen_to_carbon::FT
     phosphorus_to_carbon::FT
 end
-
-
 
 """
     DarwinBiogeochemistrySpecification{FT}(; kwargs...) where {FT<:AbstractFloat}
@@ -146,7 +136,6 @@ function DarwinBiogeochemistrySpecification{FT}(;
     )
 end
 
-
 """Default phytoplankton PFT parameter set for Geider-style growth (values chosen to match the original Agate baseline)."""
 function default_darwin_phyto_parameters(::Type{FT}) where {FT<:AbstractFloat}
     return DarwinPhytoPFTParameters{FT}(
@@ -184,9 +173,10 @@ function default_darwin_zoo_parameters(::Type{FT}) where {FT<:AbstractFloat}
     )
 end
 
-
 """Runtime parameters for the simplified DARWIN model."""
-struct DarwinParameterValues{FT<:AbstractFloat,VT<:AbstractVector{FT},MT<:AbstractMatrix{FT}}
+struct DarwinParameterValues{
+    FT<:AbstractFloat,VT<:AbstractVector{FT},MT<:AbstractMatrix{FT}
+}
     n_P::Int
     n_Z::Int
 
@@ -221,7 +211,6 @@ end
 
 Adapt.@adapt_structure DarwinParameterValues
 
-
 @inline function _darwin_zoo_pft(zoo::DarwinZooSpecification)
     return zoo.pft
 end
@@ -229,8 +218,6 @@ end
 @inline function _darwin_phyto_pft(phyto::DarwinPhytoSpecification)
     return phyto.pft
 end
-
-
 
 @inline function _cast_darwin_phyto_pft(
     ::Type{FT}, p::DarwinPhytoPFTParameters
@@ -253,7 +240,9 @@ end
     )
 end
 
-@inline function _cast_darwin_zoo_pft(::Type{FT}, p::DarwinZooPFTParameters) where {FT<:AbstractFloat}
+@inline function _cast_darwin_zoo_pft(
+    ::Type{FT}, p::DarwinZooPFTParameters
+) where {FT<:AbstractFloat}
     return DarwinZooPFTParameters{FT}(
         FT(p.maximum_predation_rate_a),
         FT(p.maximum_predation_rate_b),
@@ -268,7 +257,6 @@ end
         FT(p.assimilation_efficiency),
     )
 end
-
 
 @inline function _default_darwin_phyto_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
     return DarwinPhytoPFTParameters{FT}(
@@ -530,6 +518,5 @@ function create_darwin_parameters(
         assimilation_efficiency_matrix=assimilation_efficiency_matrix,
     )
 end
-
 
 end # module

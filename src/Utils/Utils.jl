@@ -27,10 +27,9 @@ import Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields,
     required_biogeochemical_tracers
 
-
-export  AbstractDiameterSpecification
-export  DiameterListSpecification
-export  DiameterRangeSpecification
+export AbstractDiameterSpecification
+export DiameterListSpecification
+export DiameterRangeSpecification
 
 export add_bgc_methods!, create_bgc_struct, define_tracer_functions, expression_check
 
@@ -54,8 +53,6 @@ struct DiameterRangeSpecification{T} <: AbstractDiameterSpecification
     max_diameter::T
     splitting::Symbol
 end
-
-
 
 # -----------------------------------------------------------------------------
 # Expression validation
@@ -348,7 +345,6 @@ function add_bgc_methods!(
     return bgc_type
 end
 
-
 ##############################################################################
 # Parameter Utils
 ###############################################################################
@@ -412,6 +408,5 @@ function param_compute_diameters(
     end
     return diameters
 end
-
 
 end # module

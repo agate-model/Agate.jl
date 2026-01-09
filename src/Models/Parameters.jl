@@ -26,12 +26,9 @@ using Agate.Library.Predation:
     assimilation_efficiency_emergent_binary
 
 using Agate.Utils:
-    AbstractDiameterSpecification,
-    DiameterListSpecification,
-    DiameterRangeSpecification
-    
-export 
-    NiPiZDBiogeochemistrySpecification,
+    AbstractDiameterSpecification, DiameterListSpecification, DiameterRangeSpecification
+
+export NiPiZDBiogeochemistrySpecification,
     DarwinBiogeochemistrySpecification,
     PhytoPFTParameters,
     PhytoSpecification,
@@ -48,7 +45,6 @@ export
     default_zoo_pft_parameters,
     default_nipizd_bgc_specification,
     default_darwin_bgc_specification
-
 
 """PFT-level constants for phytoplankton."""
 struct PhytoPFTParameters{FT<:AbstractFloat}
