@@ -27,7 +27,35 @@ import Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields,
     required_biogeochemical_tracers
 
+
+export  AbstractDiameterSpecification
+export  DiameterListSpecification
+export  DiameterRangeSpecification
+
 export add_bgc_methods!, create_bgc_struct, define_tracer_functions, expression_check
+
+export param_check_length
+export param_check_square_matrix
+export param_cast_matrix
+export param_compute_diameters
+
+#temp define here:
+"""Abstract supertype for diameter specifications."""
+abstract type AbstractDiameterSpecification end
+
+"""A diameter specification defined by an explicit list of diameters."""
+struct DiameterListSpecification{T,VT<:AbstractVector{T}} <: AbstractDiameterSpecification
+    diameters::VT
+end
+
+"""A diameter specification defined by a range and a splitting method."""
+struct DiameterRangeSpecification{T} <: AbstractDiameterSpecification
+    min_diameter::T
+    max_diameter::T
+    splitting::Symbol
+end
+
+
 
 # -----------------------------------------------------------------------------
 # Expression validation
@@ -319,5 +347,71 @@ function add_bgc_methods!(
 
     return bgc_type
 end
+
+
+##############################################################################
+# Parameter Utils
+###############################################################################
+
+@inline function param_check_length(name::Symbol, expected::Int, got::Int)
+    if expected != got
+        throw(ArgumentError("$(name) must have length $(expected) but has length $(got)"))
+    end
+    return nothing
+end
+
+@inline function param_check_square_matrix(name::Symbol, n::Int, M::AbstractMatrix)
+    if size(M, 1) != n || size(M, 2) != n
+        throw(ArgumentError("$(name) must have size ($(n), $(n))"))
+    end
+    return nothing
+end
+
+@inline function param_cast_matrix(::Type{FT}, M::AbstractMatrix) where {FT<:AbstractFloat}
+    return eltype(M) === FT ? M : FT.(M)
+end
+
+function param_compute_diameters(
+    ::Type{FT}, n::Int, spec::DiameterRangeSpecification
+) where {FT<:AbstractFloat}
+    min_d = FT(spec.min_diameter)
+    max_d = FT(spec.max_diameter)
+
+    if n == 1
+        return FT[min_d]
+    end
+
+    diameters = Vector{FT}(undef, n)
+
+    if spec.splitting === :log_splitting
+        log_min = log(min_d)
+        log_max = log(max_d)
+        step = (log_max - log_min) / FT(n - 1)
+        @inbounds for i in 1:n
+            diameters[i] = exp(log_min + FT(i - 1) * step)
+        end
+    elseif spec.splitting === :linear_splitting
+        step = (max_d - min_d) / FT(n - 1)
+        @inbounds for i in 1:n
+            diameters[i] = min_d + FT(i - 1) * step
+        end
+    else
+        throw(ArgumentError("Unsupported splitting method: $(spec.splitting)"))
+    end
+
+    return diameters
+end
+
+function param_compute_diameters(
+    ::Type{FT}, n::Int, spec::DiameterListSpecification
+) where {FT<:AbstractFloat}
+    _check_length(:diameters, n, length(spec.diameters))
+    diameters = Vector{FT}(undef, n)
+    @inbounds for i in 1:n
+        diameters[i] = FT(spec.diameters[i])
+    end
+    return diameters
+end
+
 
 end # module

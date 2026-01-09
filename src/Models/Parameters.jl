@@ -25,9 +25,12 @@ using Agate.Library.Predation:
     AssimilationPredatorParameters,
     assimilation_efficiency_emergent_binary
 
-export AbstractDiameterSpecification,
+using Agate.Utils:
+    AbstractDiameterSpecification,
     DiameterListSpecification,
-    DiameterRangeSpecification,
+    DiameterRangeSpecification
+    
+export 
     NiPiZDBiogeochemistrySpecification,
     DarwinBiogeochemistrySpecification,
     PhytoPFTParameters,
@@ -46,20 +49,6 @@ export AbstractDiameterSpecification,
     default_nipizd_bgc_specification,
     default_darwin_bgc_specification
 
-"""Abstract supertype for diameter specifications."""
-abstract type AbstractDiameterSpecification end
-
-"""A diameter specification defined by an explicit list of diameters."""
-struct DiameterListSpecification{T,VT<:AbstractVector{T}} <: AbstractDiameterSpecification
-    diameters::VT
-end
-
-"""A diameter specification defined by a range and a splitting method."""
-struct DiameterRangeSpecification{T} <: AbstractDiameterSpecification
-    min_diameter::T
-    max_diameter::T
-    splitting::Symbol
-end
 
 """PFT-level constants for phytoplankton."""
 struct PhytoPFTParameters{FT<:AbstractFloat}
@@ -149,7 +138,6 @@ than positional construction, while still returning a concrete, GPU-safe struct.
 
 All keyword values are converted to `FT` internally via `FT(x)`.
 """
-
 function DarwinBiogeochemistrySpecification{FT}(;
     POC_remineralization,
     DOC_remineralization,
@@ -184,29 +172,29 @@ function default_phyto_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
         FT(0.17),
         FT(0.27),
         FT(8e-7 / second),
-        zero(FT),
-        FT(0.46e-5),
-        zero(FT),
-        true,
-        true,
-        zero(FT),
-        zero(FT),
-        zero(FT),
-        zero(FT),
+        FT(0.1953 / day),  #alpha
+        zero(FT),   # photosynthetic_slope
+        zero(FT), #chlorophyll_to_carbon_ratio
+        false, #can_eat
+        true, #can_be_eaten
+        zero(FT), #optimum_predator_prey_ratio
+        zero(FT), #protection
+        zero(FT), #specificity
+        zero(FT), #assimilation_efficiency
     )
 end
 
 """Default phytoplankton PFT parameter set for Geider-style growth (values chosen to match the original Agate baseline)."""
 function default_phyto_geider_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
     return PhytoPFTParameters{FT}(
-        FT(2 / day),
-        FT(-0.15),
-        FT(0.17),
-        FT(0.27),
-        FT(8e-7 / second),
-        FT(3 / day),
-        FT(30),
-        FT(0.04),
+        FT(2 / day), #maximum_growth_rate_a
+        FT(-0.15), #maximum_growth_rate_n
+        FT(0.17), #nutrient_half_saturation_a
+        FT(0.27), #nutrient_half_saturation_b
+        FT(8e-7 / second), #linear_mortality
+        zero(FT), #alpha
+        FT(0.46e-5),  #photosynthetic_slope
+        FT(0.1), #chlorophyll_to_carbon_ratio
         false,
         true,
         zero(FT),
@@ -265,42 +253,6 @@ struct NiPiZDParameters{FT<:AbstractFloat,VT<:AbstractVector{FT},MT<:AbstractMat
 end
 
 Adapt.@adapt_structure NiPiZDParameters
-
-"""Runtime parameters for the simplified DARWIN model."""
-struct DarwinParameters{FT<:AbstractFloat,VT<:AbstractVector{FT},MT<:AbstractMatrix{FT}}
-    n_P::Int
-    n_Z::Int
-
-    diameters::VT
-
-    maximum_growth_rate::VT
-    half_saturation_DIN::VT
-    half_saturation_PO4::VT
-    maximum_predation_rate::VT
-
-    linear_mortality::VT
-    holling_half_saturation::VT
-    quadratic_mortality::VT
-
-    photosynthetic_slope::VT
-    chlorophyll_to_carbon_ratio::VT
-
-    palatability_matrix::MT
-    assimilation_efficiency_matrix::MT
-
-    POC_remineralization::FT
-    DOC_remineralization::FT
-    PON_remineralization::FT
-    DON_remineralization::FT
-    POP_remineralization::FT
-    DOP_remineralization::FT
-
-    DOM_POM_fractionation::FT
-    nitrogen_to_carbon::FT
-    phosphorus_to_carbon::FT
-end
-
-Adapt.@adapt_structure DarwinParameters
 
 @inline function _check_length(name::Symbol, expected::Int, got::Int)
     if expected != got
@@ -684,8 +636,8 @@ function compute_darwin_parameters(
     n_Z = zoo.n
     n_plankton = n_Z + n_P
 
-    zoo_diameters = _compute_diameters(FT, n_Z, zoo.diameters)
-    phyto_diameters = _compute_diameters(FT, n_P, phyto.diameters)
+    zoo_diameters = param_compute_diameters(FT, n_Z, zoo.diameters)
+    phyto_diameters = param_compute_diameters(FT, n_P, phyto.diameters)
 
     diameters = Vector{FT}(undef, n_plankton)
     @inbounds begin
