@@ -1,6 +1,6 @@
 using Agate
 using Agate.Models: NiPiZD
-using Agate.Models.Parameters: PhytoPFTParameters
+using Agate.Models.NiPiZD.Parameters: PhytoPFTParameters
 using Agate.Models.NiPiZD.Tracers: nutrient_geider_light, phytoplankton_geider_light
 
 using Oceananigans.Units

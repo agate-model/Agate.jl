@@ -2,8 +2,12 @@ using Agate
 
 using Oceananigans.Units
 
-using Agate.Models.Parameters:
-    DiameterListSpecification, DiameterRangeSpecification, create_nipizd_parameters
+using Agate.Models.NiPiZD.Parameters:
+    create_nipizd_parameters
+
+using Agate.Utils:
+    DiameterListSpecification, DiameterRangeSpecification
+
 
 @testset "Models.Parameters" begin
     @testset "FT enforcement and shapes" begin

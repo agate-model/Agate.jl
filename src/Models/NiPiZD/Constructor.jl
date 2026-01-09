@@ -22,7 +22,7 @@ using Agate.Utils: define_tracer_functions
 using Agate.Utils:
     AbstractDiameterSpecification, DiameterListSpecification, DiameterRangeSpecification
 
-using Agate.Models.Parameters:
+using Agate.Models.NiPiZD.Parameters:
     NiPiZDBiogeochemistrySpecification,
     PhytoPFTParameters,
     ZooPFTParameters,
