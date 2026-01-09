@@ -17,7 +17,8 @@ using Agate.Models.Parameters:
     DarwinBiogeochemistrySpecification,
     PhytoPFTParameters,
     ZooPFTParameters,
-    create_darwin_parameters
+    create_darwin_parameters,
+    default_darwin_bgc_specification
 
 using Agate.Models.DARWIN.Tracers:
     DIC_geider_light,
@@ -37,7 +38,7 @@ export instantiate
 export default_phyto_pft_parameters
 export default_phyto_geider_pft_parameters
 export default_zoo_pft_parameters
-export default_bgc_specification
+export default_darwin_bgc_specification
 
 """Return default phytoplankton PFT parameters for the simplified DARWIN configuration."""
 function default_phyto_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
@@ -80,31 +81,6 @@ function default_zoo_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
     )
 end
 
-"""
-    default_bgc_specification(::Type{FT}) where {FT<:AbstractFloat}
-
-Default biogeochemistry specification for the simplified DARWIN elemental cycling model
-(values chosen to match the original Agate baseline).
-
-Returns a `DarwinBiogeochemistrySpecification{FT}` using the keyword constructor for clarity.
-
-# Returns
-- `DarwinBiogeochemistrySpecification{FT}`: Construction-time constants for nutrient and detritus cycling.
-
-"""
-function default_bgc_specification(::Type{FT}) where {FT<:AbstractFloat}
-    return DarwinBiogeochemistrySpecification{FT}(;
-        POC_remineralization=FT(0.1213 / day),
-        DOC_remineralization=FT(0.1213 / day),
-        PON_remineralization=FT(0.1213 / day),
-        DON_remineralization=FT(0.1213 / day),
-        POP_remineralization=FT(0.1213 / day),
-        DOP_remineralization=FT(0.1213 / day),
-        DOM_POM_fractionation=FT(0.45),
-        nitrogen_to_carbon=FT(0.15),
-        phosphorus_to_carbon=FT(0.009),
-    )
-end
 
 """Return a diameter specification for an explicit diameter list."""
 diameter_specification(diameters::AbstractVector) = DiameterListSpecification(diameters)
@@ -192,7 +168,7 @@ end
         zoo_dynamics=zooplankton_default,
         phyto_pft_parameters=default_phyto_geider_pft_parameters(FT),
         zoo_pft_parameters=default_zoo_pft_parameters(FT),
-        bgc_specification=default_bgc_specification(FT),
+        bgc_specification=default_darwin_bgc_specification(FT),
         palatability_matrix=nothing,
         assimilation_efficiency_matrix=nothing,
         sinking_tracers=nothing,
@@ -295,7 +271,7 @@ The type specification includes a photosynthetic active radiation (PAR) auxiliar
 - `zoo_pft_parameters`: zooplankton PFT parameters (`ZooPFTParameters`), for default values see
     `DARWIN.default_zoo_pft_parameters(FT)`
 - `bgc_specification`: elemental cycling specification (`DarwinBiogeochemistrySpecification`), for default values see
-    `DARWIN.default_bgc_specification(FT)`
+    `DARWIN.default_darwin_bgc_specification(FT)`
 - `palatability_matrix`: optional palatability matrix passed as an Array; if not provided this is computed from
    PFT trait parameters during construction
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an Array; if not provided this
@@ -328,7 +304,7 @@ function construct(;
     ),
     phyto_pft_parameters=default_phyto_geider_pft_parameters(FT),
     zoo_pft_parameters=default_zoo_pft_parameters(FT),
-    bgc_specification=default_bgc_specification(FT),
+    bgc_specification=default_darwin_bgc_specification(FT),
     DIC_dynamics=DIC_geider_light,
     DIN_dynamics=DIN_geider_light,
     PO4_dynamics=PO4_geider_light,
@@ -431,7 +407,7 @@ of any of the model parameters or plankton diameters.
 - `zoo_pft_parameters`: zooplankton PFT parameters (`ZooPFTParameters`), for default values see
     `DARWIN.default_zoo_pft_parameters(FT)`
 - `bgc_specification`: elemental cycling specification (`DarwinBiogeochemistrySpecification`), for default values see
-    `DARWIN.default_bgc_specification(FT)`
+    `DARWIN.default_darwin_bgc_specification(FT)`
 - `palatability_matrix`: optional palatability matrix passed as an Array
 - `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an Array
 - `sinking_tracers`: optional NamedTuple of sinking speeds (passed as positive values) of

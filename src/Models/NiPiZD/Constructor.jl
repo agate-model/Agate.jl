@@ -26,7 +26,8 @@ using Agate.Models.Parameters:
     NiPiZDBiogeochemistrySpecification,
     PhytoPFTParameters,
     ZooPFTParameters,
-    create_nipizd_parameters
+    create_nipizd_parameters,
+    default_nipizd_bgc_specification
 
 using Agate.Models.NiPiZD.Tracers:
     detritus_default,
@@ -41,7 +42,7 @@ export instantiate
 export default_phyto_pft_parameters
 export default_phyto_geider_pft_parameters
 export default_zoo_pft_parameters
-export default_bgc_specification
+export default_nipizd_bgc_specification
 
 """Return default phytoplankton PFT parameters for Smith-style light limitation."""
 function default_phyto_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
@@ -100,10 +101,6 @@ function default_zoo_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
     )
 end
 
-"""Return default nutrient and detritus cycling constants for NiPiZD."""
-function default_bgc_specification(::Type{FT}) where {FT<:AbstractFloat}
-    return NiPiZDBiogeochemistrySpecification{FT}(FT(0.1213 / day), FT(0.5))
-end
 
 """Return a diameter specification for an explicit diameter list."""
 diameter_specification(diameters::AbstractVector) = DiameterListSpecification(diameters)
@@ -184,7 +181,7 @@ function construct(;
     ),
     phyto_pft_parameters=default_phyto_pft_parameters(FT),
     zoo_pft_parameters=default_zoo_pft_parameters(FT),
-    bgc_specification=default_bgc_specification(FT),
+    bgc_specification=default_nipizd_bgc_specification(FT),
     nutrient_dynamics=nutrient_default,
     detritus_dynamics=detritus_default,
     phyto_dynamics=phytoplankton_default,

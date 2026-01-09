@@ -12,6 +12,6 @@ export instantiate
 export default_phyto_pft_parameters
 export default_phyto_geider_pft_parameters
 export default_zoo_pft_parameters
-export default_bgc_specification
+export default_nipizd_bgc_specification
 
 end # module

@@ -43,7 +43,8 @@ export AbstractDiameterSpecification,
     default_phyto_pft_parameters,
     default_phyto_geider_pft_parameters,
     default_zoo_pft_parameters,
-    default_bgc_specification
+    default_nipizd_bgc_specification,
+    default_darwin_bgc_specification
 
 """Abstract supertype for diameter specifications."""
 abstract type AbstractDiameterSpecification end
@@ -233,7 +234,7 @@ function default_zoo_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
 end
 
 """Default biogeochemistry specification (values chosen to match the original Agate baseline)."""
-function default_bgc_specification(::Type{FT}) where {FT<:AbstractFloat}
+function default_nipizd_bgc_specification(::Type{FT}) where {FT<:AbstractFloat}
     return NiPiZDBiogeochemistrySpecification{FT}(FT(0.1213 / day), FT(0.5))
 end
 
@@ -576,7 +577,7 @@ function create_nipizd_parameters(
     ),
     phyto_pft_parameters::PhytoPFTParameters=default_phyto_pft_parameters(FT),
     zoo_pft_parameters::ZooPFTParameters=default_zoo_pft_parameters(FT),
-    bgc_specification::NiPiZDBiogeochemistrySpecification=default_bgc_specification(FT),
+    bgc_specification::NiPiZDBiogeochemistrySpecification=default_nipizd_bgc_specification(FT),
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 ) where {FT<:AbstractFloat}
@@ -638,10 +639,17 @@ end
     )
 end
 
-@inline function _default_darwin_bgc_specification(::Type{FT}) where {FT<:AbstractFloat}
-    r = FT(0.1213 / day)
-    return DarwinBiogeochemistrySpecification{FT}(
-        r, r, r, r, r, r, FT(0.45), FT(0.15), FT(0.009)
+function default_darwin_bgc_specification(::Type{FT}) where {FT<:AbstractFloat}
+    return DarwinBiogeochemistrySpecification{FT}(;
+        POC_remineralization=FT(0.1213 / day),
+        DOC_remineralization=FT(0.1213 / day),
+        PON_remineralization=FT(0.1213 / day),
+        DON_remineralization=FT(0.1213 / day),
+        POP_remineralization=FT(0.1213 / day),
+        DOP_remineralization=FT(0.1213 / day),
+        DOM_POM_fractionation=FT(0.45),
+        nitrogen_to_carbon=FT(0.15),
+        phosphorus_to_carbon=FT(0.009),
     )
 end
 
@@ -832,7 +840,7 @@ function create_darwin_parameters(
     ),
     phyto_pft_parameters::PhytoPFTParameters=_default_darwin_phyto_pft_parameters(FT),
     zoo_pft_parameters::ZooPFTParameters=_default_darwin_zoo_pft_parameters(FT),
-    bgc_specification::DarwinBiogeochemistrySpecification=_default_darwin_bgc_specification(
+    bgc_specification::DarwinBiogeochemistrySpecification=default_darwin_bgc_specification(
         FT
     ),
     palatability_matrix=nothing,
