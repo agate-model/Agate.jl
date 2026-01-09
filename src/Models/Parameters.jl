@@ -127,6 +127,54 @@ struct DarwinBiogeochemistrySpecification{FT<:AbstractFloat}
     phosphorus_to_carbon::FT
 end
 
+"""
+    DarwinBiogeochemistrySpecification{FT}(; kwargs...) where {FT<:AbstractFloat}
+
+Keyword constructor for `DarwinBiogeochemistrySpecification{FT}`.
+
+This constructor is intended to make specification creation self-documenting and less error-prone
+than positional construction, while still returning a concrete, GPU-safe struct.
+
+# Keywords
+- `POC_remineralization`: Remineralization rate for particulate organic carbon (POC).
+- `DOC_remineralization`: Remineralization rate for dissolved organic carbon (DOC).
+- `PON_remineralization`: Remineralization rate for particulate organic nitrogen (PON).
+- `DON_remineralization`: Remineralization rate for dissolved organic nitrogen (DON).
+- `POP_remineralization`: Remineralization rate for particulate organic phosphorus (POP).
+- `DOP_remineralization`: Remineralization rate for dissolved organic phosphorus (DOP).
+- `DOM_POM_fractionation=0.45`: Fractionation parameter controlling DOM/POM partitioning.
+- `nitrogen_to_carbon=0.15`: N:C stoichiometric ratio.
+- `phosphorus_to_carbon=0.009`: P:C stoichiometric ratio.
+
+All keyword values are converted to `FT` internally via `FT(x)`.
+"""
+
+function DarwinBiogeochemistrySpecification{FT}(;
+    POC_remineralization,
+    DOC_remineralization,
+    PON_remineralization,
+    DON_remineralization,
+    POP_remineralization,
+    DOP_remineralization,
+    DOM_POM_fractionation = 0.45,
+    nitrogen_to_carbon     = 0.15,
+    phosphorus_to_carbon   = 0.009,
+) where {FT<:AbstractFloat}
+    return DarwinBiogeochemistrySpecification{FT}(
+        FT(POC_remineralization),
+        FT(DOC_remineralization),
+        FT(PON_remineralization),
+        FT(DON_remineralization),
+        FT(POP_remineralization),
+        FT(DOP_remineralization),
+        FT(DOM_POM_fractionation),
+        FT(nitrogen_to_carbon),
+        FT(phosphorus_to_carbon),
+    )
+end
+
+
+
 # Convenience default parameter sets (used by tests and constructors)
 
 """Default phytoplankton PFT parameter set (values chosen to match the original Agate baseline)."""

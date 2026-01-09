@@ -80,21 +80,33 @@ function default_zoo_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
     )
 end
 
-"""Return default elemental cycling constants for the simplified DARWIN configuration."""
+"""
+    default_bgc_specification(::Type{FT}) where {FT<:AbstractFloat}
+
+Default biogeochemistry specification for the simplified DARWIN elemental cycling model
+(values chosen to match the original Agate baseline).
+
+Returns a `DarwinBiogeochemistrySpecification{FT}` using the keyword constructor for clarity.
+
+# Returns
+- `DarwinBiogeochemistrySpecification{FT}`: Construction-time constants for nutrient and detritus cycling.
+
+"""
 function default_bgc_specification(::Type{FT}) where {FT<:AbstractFloat}
-    r = FT(0.1213 / day)
-    return DarwinBiogeochemistrySpecification{FT}(
-        r,
-        r,
-        r,
-        r,
-        r,
-        r,
-        FT(0.45),
-        FT(0.15),
-        FT(0.009),
+    
+    return DarwinBiogeochemistrySpecification{FT}(;
+        POC_remineralization = FT(0.1213 / day),
+        DOC_remineralization = FT(0.1213 / day),
+        PON_remineralization = FT(0.1213 / day),
+        DON_remineralization = FT(0.1213 / day),
+        POP_remineralization = FT(0.1213 / day),
+        DOP_remineralization = FT(0.1213 / day),
+        DOM_POM_fractionation = FT(0.45),
+        nitrogen_to_carbon     = FT(0.15),
+        phosphorus_to_carbon   = FT(0.009),
     )
 end
+
 
 """Return a diameter specification for an explicit diameter list."""
 diameter_specification(diameters::AbstractVector) = DiameterListSpecification(diameters)
