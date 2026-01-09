@@ -29,13 +29,17 @@ export AbstractDiameterSpecification,
     DiameterListSpecification,
     DiameterRangeSpecification,
     NiPiZDBiogeochemistrySpecification,
+    DarwinBiogeochemistrySpecification,
     PhytoPFTParameters,
     PhytoSpecification,
     ZooPFTParameters,
     ZooSpecification,
     NiPiZDParameters,
+    DarwinParameters,
     create_nipizd_parameters,
     compute_nipizd_parameters,
+    create_darwin_parameters,
+    compute_darwin_parameters,
     default_phyto_pft_parameters,
     default_phyto_geider_pft_parameters,
     default_zoo_pft_parameters,
@@ -107,6 +111,20 @@ end
 struct NiPiZDBiogeochemistrySpecification{FT<:AbstractFloat}
     detritus_remineralization::FT
     mortality_export_fraction::FT
+end
+
+"""Construction-time constants for the simplified DARWIN elemental cycling."""
+struct DarwinBiogeochemistrySpecification{FT<:AbstractFloat}
+    POC_remineralization::FT
+    DOC_remineralization::FT
+    PON_remineralization::FT
+    DON_remineralization::FT
+    POP_remineralization::FT
+    DOP_remineralization::FT
+
+    DOM_POM_fractionation::FT
+    nitrogen_to_carbon::FT
+    phosphorus_to_carbon::FT
 end
 
 # Convenience default parameter sets (used by tests and constructors)
@@ -200,6 +218,42 @@ struct NiPiZDParameters{FT<:AbstractFloat,VT<:AbstractVector{FT},MT<:AbstractMat
 end
 
 Adapt.@adapt_structure NiPiZDParameters
+
+"""Runtime parameters for the simplified DARWIN model."""
+struct DarwinParameters{FT<:AbstractFloat,VT<:AbstractVector{FT},MT<:AbstractMatrix{FT}}
+    n_P::Int
+    n_Z::Int
+
+    diameters::VT
+
+    maximum_growth_rate::VT
+    half_saturation_DIN::VT
+    half_saturation_PO4::VT
+    maximum_predation_rate::VT
+
+    linear_mortality::VT
+    holling_half_saturation::VT
+    quadratic_mortality::VT
+
+    photosynthetic_slope::VT
+    chlorophyll_to_carbon_ratio::VT
+
+    palatability_matrix::MT
+    assimilation_efficiency_matrix::MT
+
+    POC_remineralization::FT
+    DOC_remineralization::FT
+    PON_remineralization::FT
+    DON_remineralization::FT
+    POP_remineralization::FT
+    DOP_remineralization::FT
+
+    DOM_POM_fractionation::FT
+    nitrogen_to_carbon::FT
+    phosphorus_to_carbon::FT
+end
+
+Adapt.@adapt_structure DarwinParameters
 
 @inline function _check_length(name::Symbol, expected::Int, got::Int)
     if expected != got
@@ -490,6 +544,270 @@ function create_nipizd_parameters(
     zoo = ZooSpecification{FT,typeof(zoo_diameters)}(n_zoo, zoo_diameters, zoo_pft)
 
     return compute_nipizd_parameters(
+        FT,
+        phyto,
+        zoo,
+        bgc_spec;
+        palatability_matrix=palatability_matrix,
+        assimilation_efficiency_matrix=assimilation_efficiency_matrix,
+    )
+end
+
+# -----------------------------------------------------------------------------
+# DARWIN parameter containers
+# -----------------------------------------------------------------------------
+
+@inline function _default_darwin_phyto_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
+    return PhytoPFTParameters{FT}(
+        FT(2 / day),
+        FT(-0.15),
+        FT(0.17),
+        FT(0.27),
+        FT(8e-7 / second),
+        zero(FT),
+        FT(0.46e-5),
+        FT(0.1),
+        false,
+        true,
+        zero(FT),
+        zero(FT),
+        zero(FT),
+        zero(FT),
+    )
+end
+
+@inline function _default_darwin_zoo_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
+    return ZooPFTParameters{FT}(
+        FT(30.84 / day),
+        FT(-0.16),
+        FT(8e-7 / second),
+        FT(5.0),
+        FT(1e-6 / second),
+        true,
+        false,
+        FT(10),
+        one(FT),
+        FT(0.3),
+        FT(0.32),
+    )
+end
+
+@inline function _default_darwin_bgc_specification(::Type{FT}) where {FT<:AbstractFloat}
+    r = FT(0.1213 / day)
+    return DarwinBiogeochemistrySpecification{FT}(
+        r,
+        r,
+        r,
+        r,
+        r,
+        r,
+        FT(0.45),
+        FT(0.15),
+        FT(0.009),
+    )
+end
+
+@inline function _cast_darwin_bgc_spec(
+    ::Type{FT}, s::DarwinBiogeochemistrySpecification
+) where {FT<:AbstractFloat}
+    return DarwinBiogeochemistrySpecification{FT}(
+        FT(s.POC_remineralization),
+        FT(s.DOC_remineralization),
+        FT(s.PON_remineralization),
+        FT(s.DON_remineralization),
+        FT(s.POP_remineralization),
+        FT(s.DOP_remineralization),
+        FT(s.DOM_POM_fractionation),
+        FT(s.nitrogen_to_carbon),
+        FT(s.phosphorus_to_carbon),
+    )
+end
+
+"""Expand DARWIN specifications into a runtime `DarwinParameters` container."""
+function compute_darwin_parameters(
+    ::Type{FT},
+    phyto::PhytoSpecification{FT},
+    zoo::ZooSpecification{FT},
+    bgc::DarwinBiogeochemistrySpecification{FT};
+    palatability_matrix=nothing,
+    assimilation_efficiency_matrix=nothing,
+) where {FT<:AbstractFloat}
+    n_P = phyto.n
+    n_Z = zoo.n
+    n_plankton = n_Z + n_P
+
+    zoo_diameters = _compute_diameters(FT, n_Z, zoo.diameters)
+    phyto_diameters = _compute_diameters(FT, n_P, phyto.diameters)
+
+    diameters = Vector{FT}(undef, n_plankton)
+    @inbounds begin
+        for i in 1:n_Z
+            diameters[i] = zoo_diameters[i]
+        end
+        for i in 1:n_P
+            diameters[n_Z + i] = phyto_diameters[i]
+        end
+    end
+
+    maximum_growth_rate = zeros(FT, n_plankton)
+    half_saturation_DIN = zeros(FT, n_plankton)
+    half_saturation_PO4 = zeros(FT, n_plankton)
+    maximum_predation_rate = zeros(FT, n_plankton)
+
+    linear_mortality = zeros(FT, n_plankton)
+    holling_half_saturation = zeros(FT, n_plankton)
+    quadratic_mortality = zeros(FT, n_plankton)
+
+    photosynthetic_slope = zeros(FT, n_plankton)
+    chlorophyll_to_carbon_ratio = zeros(FT, n_plankton)
+
+    @inbounds for i in 1:n_Z
+        zpft = zoo.pft
+        linear_mortality[i] = zpft.linear_mortality
+        holling_half_saturation[i] = zpft.holling_half_saturation
+        quadratic_mortality[i] = zpft.quadratic_mortality
+
+        maximum_predation_rate[i] = allometric_scaling_power(
+            zpft.maximum_predation_rate_a, zpft.maximum_predation_rate_b, diameters[i]
+        )
+    end
+
+    @inbounds for i in 1:n_P
+        idx = n_Z + i
+        ppft = phyto.pft
+
+        linear_mortality[idx] = ppft.linear_mortality
+        photosynthetic_slope[idx] = ppft.photosynthetic_slope
+        chlorophyll_to_carbon_ratio[idx] = ppft.chlorophyll_to_carbon_ratio
+
+        maximum_growth_rate[idx] = allometric_scaling_power(
+            ppft.maximum_growth_rate_a, ppft.maximum_growth_rate_b, diameters[idx]
+        )
+
+        hs = allometric_scaling_power(
+            ppft.nutrient_half_saturation_a, ppft.nutrient_half_saturation_b, diameters[idx]
+        )
+        half_saturation_DIN[idx] = hs
+        half_saturation_PO4[idx] = hs
+    end
+
+    palatability = if isnothing(palatability_matrix)
+        M = zeros(FT, n_plankton, n_plankton)
+        @inbounds for pred in 1:n_plankton
+            pred_is_zoo = pred <= n_Z
+            pred_pft = pred_is_zoo ? zoo.pft : phyto.pft
+
+            predator = PalatabilityPredatorParameters{FT}(
+                pred_pft.can_eat,
+                diameters[pred],
+                pred_pft.optimum_predator_prey_ratio,
+                pred_pft.specificity,
+            )
+
+            for prey in 1:n_plankton
+                prey_is_zoo = prey <= n_Z
+                prey_pft = prey_is_zoo ? zoo.pft : phyto.pft
+
+                prey_params = PalatabilityPreyParameters{FT}(
+                    diameters[prey], prey_pft.protection
+                )
+                M[pred, prey] = allometric_palatability_unimodal_protection(
+                    prey_params, predator
+                )
+            end
+        end
+        M
+    else
+        _check_square_matrix(:palatability_matrix, n_plankton, palatability_matrix)
+        _cast_matrix(FT, palatability_matrix)
+    end
+
+    assimilation = if isnothing(assimilation_efficiency_matrix)
+        M = zeros(FT, n_plankton, n_plankton)
+        @inbounds for pred in 1:n_plankton
+            pred_is_zoo = pred <= n_Z
+            pred_pft = pred_is_zoo ? zoo.pft : phyto.pft
+
+            predator = AssimilationPredatorParameters{FT}(
+                pred_pft.can_eat, pred_pft.assimilation_efficiency
+            )
+
+            for prey in 1:n_plankton
+                prey_is_zoo = prey <= n_Z
+                prey_pft = prey_is_zoo ? zoo.pft : phyto.pft
+
+                prey_params = AssimilationPreyParameters(prey_pft.can_be_eaten)
+                M[pred, prey] = assimilation_efficiency_emergent_binary(
+                    prey_params, predator
+                )
+            end
+        end
+        M
+    else
+        _check_square_matrix(
+            :assimilation_efficiency_matrix, n_plankton, assimilation_efficiency_matrix
+        )
+        _cast_matrix(FT, assimilation_efficiency_matrix)
+    end
+
+    return DarwinParameters{FT,typeof(diameters),typeof(palatability)}(
+        n_P,
+        n_Z,
+        diameters,
+        maximum_growth_rate,
+        half_saturation_DIN,
+        half_saturation_PO4,
+        maximum_predation_rate,
+        linear_mortality,
+        holling_half_saturation,
+        quadratic_mortality,
+        photosynthetic_slope,
+        chlorophyll_to_carbon_ratio,
+        palatability,
+        assimilation,
+        bgc.POC_remineralization,
+        bgc.DOC_remineralization,
+        bgc.PON_remineralization,
+        bgc.DON_remineralization,
+        bgc.POP_remineralization,
+        bgc.DOP_remineralization,
+        bgc.DOM_POM_fractionation,
+        bgc.nitrogen_to_carbon,
+        bgc.phosphorus_to_carbon,
+    )
+end
+
+"""
+    create_darwin_parameters(::Type{FT}; kwargs...) -> DarwinParameters
+
+Convenience constructor that builds specifications and expands them to runtime parameters.
+"""
+function create_darwin_parameters(
+    ::Type{FT};
+    n_phyto::Int=2,
+    n_zoo::Int=2,
+    phyto_diameters::AbstractDiameterSpecification=DiameterRangeSpecification(
+        2, 10, :log_splitting
+    ),
+    zoo_diameters::AbstractDiameterSpecification=DiameterRangeSpecification(
+        20, 100, :linear_splitting
+    ),
+    phyto_pft_parameters::PhytoPFTParameters=_default_darwin_phyto_pft_parameters(FT),
+    zoo_pft_parameters::ZooPFTParameters=_default_darwin_zoo_pft_parameters(FT),
+    bgc_specification::DarwinBiogeochemistrySpecification=_default_darwin_bgc_specification(FT),
+    palatability_matrix=nothing,
+    assimilation_efficiency_matrix=nothing,
+) where {FT<:AbstractFloat}
+    phyto_pft = _cast_phyto_pft(FT, phyto_pft_parameters)
+    zoo_pft = _cast_zoo_pft(FT, zoo_pft_parameters)
+    bgc_spec = _cast_darwin_bgc_spec(FT, bgc_specification)
+
+    phyto = PhytoSpecification{FT,typeof(phyto_diameters)}(
+        n_phyto, phyto_diameters, phyto_pft
+    )
+    zoo = ZooSpecification{FT,typeof(zoo_diameters)}(n_zoo, zoo_diameters, zoo_pft)
+
+    return compute_darwin_parameters(
         FT,
         phyto,
         zoo,
