@@ -67,15 +67,16 @@ using Oceananigans.Biogeochemistry:
         D = 1.0
         PAR = 1.0
 
-        tracer_vals(sym) = if sym === :Z
-            Z
-        elseif sym === :P
-            P
-        elseif sym === :N
-            N
-        else
-            D
-        end
+        tracer_vals(sym) =
+            if sym === :Z
+                Z
+            elseif sym === :P
+                P
+            elseif sym === :N
+                N
+            else
+                D
+            end
         ordered = [tracer_vals(s) for s in required_biogeochemical_tracers(model)]
 
         @test isfinite(model(Val(:N), 0, 0, 0, 0, ordered..., PAR))

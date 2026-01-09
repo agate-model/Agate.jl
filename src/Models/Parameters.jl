@@ -156,9 +156,9 @@ function DarwinBiogeochemistrySpecification{FT}(;
     DON_remineralization,
     POP_remineralization,
     DOP_remineralization,
-    DOM_POM_fractionation = 0.45,
-    nitrogen_to_carbon     = 0.15,
-    phosphorus_to_carbon   = 0.009,
+    DOM_POM_fractionation=0.45,
+    nitrogen_to_carbon=0.15,
+    phosphorus_to_carbon=0.009,
 ) where {FT<:AbstractFloat}
     return DarwinBiogeochemistrySpecification{FT}(
         FT(POC_remineralization),
@@ -172,8 +172,6 @@ function DarwinBiogeochemistrySpecification{FT}(;
         FT(phosphorus_to_carbon),
     )
 end
-
-
 
 # Convenience default parameter sets (used by tests and constructors)
 
@@ -643,15 +641,7 @@ end
 @inline function _default_darwin_bgc_specification(::Type{FT}) where {FT<:AbstractFloat}
     r = FT(0.1213 / day)
     return DarwinBiogeochemistrySpecification{FT}(
-        r,
-        r,
-        r,
-        r,
-        r,
-        r,
-        FT(0.45),
-        FT(0.15),
-        FT(0.009),
+        r, r, r, r, r, r, FT(0.45), FT(0.15), FT(0.009)
     )
 end
 
@@ -842,7 +832,9 @@ function create_darwin_parameters(
     ),
     phyto_pft_parameters::PhytoPFTParameters=_default_darwin_phyto_pft_parameters(FT),
     zoo_pft_parameters::ZooPFTParameters=_default_darwin_zoo_pft_parameters(FT),
-    bgc_specification::DarwinBiogeochemistrySpecification=_default_darwin_bgc_specification(FT),
+    bgc_specification::DarwinBiogeochemistrySpecification=_default_darwin_bgc_specification(
+        FT
+    ),
     palatability_matrix=nothing,
     assimilation_efficiency_matrix=nothing,
 ) where {FT<:AbstractFloat}

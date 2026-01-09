@@ -48,19 +48,17 @@ end
     for (i, sym) in enumerate(plankton_syms)
         push!(
             terms,
-            :(
-                photosynthetic_growth_two_nutrients_geider_light(
-                    DIN,
-                    PO4,
-                    $sym,
-                    PAR,
-                    maximum_growth_rate[$i],
-                    half_saturation_DIN[$i],
-                    half_saturation_PO4[$i],
-                    photosynthetic_slope[$i],
-                    chlorophyll_to_carbon_ratio[$i],
-                )
-            ),
+            :(photosynthetic_growth_two_nutrients_geider_light(
+                DIN,
+                PO4,
+                $sym,
+                PAR,
+                maximum_growth_rate[$i],
+                half_saturation_DIN[$i],
+                half_saturation_PO4[$i],
+                photosynthetic_slope[$i],
+                chlorophyll_to_carbon_ratio[$i],
+            )),
         )
     end
     return _sum_expr(terms)
@@ -71,15 +69,13 @@ end
     for (pred_idx, pred_sym) in enumerate(plankton_syms)
         push!(
             terms,
-            :(
-                predation_loss_preferential(
-                    $prey_sym,
-                    $pred_sym,
-                    maximum_predation_rate[$pred_idx],
-                    holling_half_saturation[$pred_idx],
-                    palatability_matrix[$pred_idx, $prey_idx],
-                )
-            ),
+            :(predation_loss_preferential(
+                $prey_sym,
+                $pred_sym,
+                maximum_predation_rate[$pred_idx],
+                holling_half_saturation[$pred_idx],
+                palatability_matrix[$pred_idx, $prey_idx],
+            )),
         )
     end
     return _sum_expr(terms)
@@ -90,16 +86,14 @@ end
     for (prey_idx, prey_sym) in enumerate(plankton_syms)
         push!(
             terms,
-            :(
-                predation_gain_preferential(
-                    $prey_sym,
-                    $predator_sym,
-                    assimilation_efficiency_matrix[$predator_idx, $prey_idx],
-                    maximum_predation_rate[$predator_idx],
-                    holling_half_saturation[$predator_idx],
-                    palatability_matrix[$predator_idx, $prey_idx],
-                )
-            ),
+            :(predation_gain_preferential(
+                $prey_sym,
+                $predator_sym,
+                assimilation_efficiency_matrix[$predator_idx, $prey_idx],
+                maximum_predation_rate[$predator_idx],
+                holling_half_saturation[$predator_idx],
+                palatability_matrix[$predator_idx, $prey_idx],
+            )),
         )
     end
     return _sum_expr(terms)
@@ -111,16 +105,14 @@ end
         for (prey_idx, prey_sym) in enumerate(plankton_syms)
             push!(
                 terms,
-                :(
-                    predation_assimilation_loss_preferential(
-                        $prey_sym,
-                        $pred_sym,
-                        assimilation_efficiency_matrix[$pred_idx, $prey_idx],
-                        maximum_predation_rate[$pred_idx],
-                        holling_half_saturation[$pred_idx],
-                        palatability_matrix[$pred_idx, $prey_idx],
-                    )
-                ),
+                :(predation_assimilation_loss_preferential(
+                    $prey_sym,
+                    $pred_sym,
+                    assimilation_efficiency_matrix[$pred_idx, $prey_idx],
+                    maximum_predation_rate[$pred_idx],
+                    holling_half_saturation[$pred_idx],
+                    palatability_matrix[$pred_idx, $prey_idx],
+                )),
             )
         end
     end
@@ -148,8 +140,7 @@ function DIC_geider_light(plankton_syms)
     growth = _photosynthetic_growth_sum(plankton_syms)
     return :(
         remineralization_idealized(DOC, DOC_remineralization) +
-        remineralization_idealized(POC, POC_remineralization) -
-        ($growth)
+        remineralization_idealized(POC, POC_remineralization) - ($growth)
     )
 end
 
@@ -371,20 +362,20 @@ to be of same length for correct indexing to work (and arranged in the same plan
     as a Symbol (e.g., :P1).
 - `plankton_idx`: the index at which this plankton's values are stored in all parameter Arrays
 """
-function phytoplankton_growth_two_nutrients_geider_light(plankton_syms, plankton_sym, plankton_idx)
-    growth = :(
-        photosynthetic_growth_two_nutrients_geider_light(
-            DIN,
-            PO4,
-            $plankton_sym,
-            PAR,
-            maximum_growth_rate[$plankton_idx],
-            half_saturation_DIN[$plankton_idx],
-            half_saturation_PO4[$plankton_idx],
-            photosynthetic_slope[$plankton_idx],
-            chlorophyll_to_carbon_ratio[$plankton_idx],
-        )
-    )
+function phytoplankton_growth_two_nutrients_geider_light(
+    plankton_syms, plankton_sym, plankton_idx
+)
+    growth = :(photosynthetic_growth_two_nutrients_geider_light(
+        DIN,
+        PO4,
+        $plankton_sym,
+        PAR,
+        maximum_growth_rate[$plankton_idx],
+        half_saturation_DIN[$plankton_idx],
+        half_saturation_PO4[$plankton_idx],
+        photosynthetic_slope[$plankton_idx],
+        chlorophyll_to_carbon_ratio[$plankton_idx],
+    ))
 
     grazing_loss = _predation_loss_sum(plankton_syms, plankton_sym, plankton_idx)
     lin = :(linear_loss($plankton_sym, linear_mortality[$plankton_idx]))

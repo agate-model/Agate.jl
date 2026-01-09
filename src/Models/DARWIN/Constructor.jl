@@ -93,20 +93,18 @@ Returns a `DarwinBiogeochemistrySpecification{FT}` using the keyword constructor
 
 """
 function default_bgc_specification(::Type{FT}) where {FT<:AbstractFloat}
-    
     return DarwinBiogeochemistrySpecification{FT}(;
-        POC_remineralization = FT(0.1213 / day),
-        DOC_remineralization = FT(0.1213 / day),
-        PON_remineralization = FT(0.1213 / day),
-        DON_remineralization = FT(0.1213 / day),
-        POP_remineralization = FT(0.1213 / day),
-        DOP_remineralization = FT(0.1213 / day),
-        DOM_POM_fractionation = FT(0.45),
-        nitrogen_to_carbon     = FT(0.15),
-        phosphorus_to_carbon   = FT(0.009),
+        POC_remineralization=FT(0.1213 / day),
+        DOC_remineralization=FT(0.1213 / day),
+        PON_remineralization=FT(0.1213 / day),
+        DON_remineralization=FT(0.1213 / day),
+        POP_remineralization=FT(0.1213 / day),
+        DOP_remineralization=FT(0.1213 / day),
+        DOM_POM_fractionation=FT(0.45),
+        nitrogen_to_carbon=FT(0.15),
+        phosphorus_to_carbon=FT(0.009),
     )
 end
-
 
 """Return a diameter specification for an explicit diameter list."""
 diameter_specification(diameters::AbstractVector) = DiameterListSpecification(diameters)
