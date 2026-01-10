@@ -137,42 +137,42 @@ function DarwinBiogeochemistrySpecification{FT}(;
     )
 end
 
-"""Default phytoplankton PFT parameter set for Geider-style growth (values chosen to match the original Agate baseline)."""
+"""Default phytoplankton PFT parameter set for Geider-style growth"""
 function default_darwin_phyto_parameters(::Type{FT}) where {FT<:AbstractFloat}
     return DarwinPhytoPFTParameters{FT}(
-        FT(2 / day),
-        FT(-0.15),
-        FT(0.17),
-        FT(0.27),
-        FT(0.17),
-        FT(0.27),        
-        FT(8e-7 / second),
-        FT(3 / day),
-        FT(30),
-        FT(0.04),
-        false,
-        true,
-        zero(FT),
-        zero(FT),
-        zero(FT),
-        zero(FT),
+        FT(2 / day), # maximum_growth_rate_a
+        FT(-0.15), # maximum_growth_rate_b
+        FT(0.17), # half_saturation_DIN_a
+        FT(0.27), # half_saturation_DIN_b
+        FT(0.17), # half_saturation_PO4_a
+        FT(0.27), # half_saturation_PO4_b       
+        FT(8e-7 / second), # linear_mortality
+        zero(FT), # alpha
+        FT(0.46e-5), # photosynthetic_slope
+        FT(0.1), # chlorophyll_to_carbon_ratio
+        false, # can_eat
+        true, # can_be_eaten
+        zero(FT), # optimum_predator_prey_ratio
+        zero(FT), # protection
+        zero(FT), # specificity
+        zero(FT), # assimilation_efficiency
     )
 end
 
-"""Default zooplankton PFT parameter set (values chosen to match the original Agate baseline)."""
+"""Default zooplankton PFT parameter set"""
 function default_darwin_zoo_parameters(::Type{FT}) where {FT<:AbstractFloat}
     return DarwinZooPFTParameters{FT}(
-        FT(0.35 / day),
-        FT(0.0),
-        FT(0.05 / day),
-        FT(0.5),
-        FT(0.1 / day),
-        true,
-        false,
-        FT(10),
-        one(FT),
-        FT(0.3),
-        FT(0.32),
+        FT(30.84 / day), # maximum_predation_rate_a
+        FT(-0.16), # maximum_predation_rate_b
+        FT(8e-7 / second), # linear_mortality
+        FT(5.0), # holling_half_saturation
+        FT(1e-6 / second), # quadratic_mortality
+        true, # can_eat
+        false, # can_be_eaten
+        FT(10), # optimum_predator_prey_ratio
+        one(FT), # protection
+        FT(0.3), # specificity
+        FT(0.32), # assimilation_efficiency
     )
 end
 
