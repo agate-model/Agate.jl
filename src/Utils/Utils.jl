@@ -185,7 +185,7 @@ function create_bgc_struct(struct_name::Symbol, parameters; sinking_velocities=n
 end
 
 # -----------------------------------------------------------------------------
-# Method attachment (public legacy overload + internal implementation)
+# Method attachment 
 # -----------------------------------------------------------------------------
 
 @inline function _bgc_wrapper(bgc_type)
