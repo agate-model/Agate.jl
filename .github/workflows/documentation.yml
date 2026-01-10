@@ -3,11 +3,11 @@ name: Documentation
 on:
   push:
     branches:
-      - main # update to match your development branch (master, main, dev, trunk, ...)
+      - main
     tags: '*'
-  pull_request:   
+  pull_request:
     types:
-      - closed # Trigger only when a pull request is closed
+      - closed
 
 jobs:
   build:
@@ -15,15 +15,24 @@ jobs:
       contents: write
       statuses: write
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: julia-actions/setup-julia@v1
         with:
           version: '1.10'
-      - name: Install dependencies
-        run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.resolve()'
+
+      - name: Install docs dependencies
+        run: |
+          julia --project=docs -e '
+            using Pkg
+            Pkg.instantiate()
+            Pkg.precompile()
+          '
+
       - name: Build and deploy
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # If authenticating with GitHub Actions token
-          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }} # If authenticating with SSH deploy key
-        run: julia --project=docs/ docs/make.jl
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # GitHub Actions token auth
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }} # SSH deploy key auth (optional)
+        run: julia --project=docs docs/make.jl
