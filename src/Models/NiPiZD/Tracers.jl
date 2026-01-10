@@ -1,246 +1,256 @@
+"""Tracer tendency expressions for the NiPiZD biogeochemical model.
+
+This module constructs `Expr` objects that define tracer tendencies for Oceananigans
+continuous-form biogeochemistry models.
+
+All generated expressions are allocation-free and suitable for GPU compilation.
+"""
+
 module Tracers
 
-export detritus_default,
-    nutrients_default,
-    nutrients_geider_light,
-    phytoplankton_default,
+export phytoplankton_default,
     phytoplankton_geider_light,
-    zooplankton_default
+    zooplankton_default,
+    nutrient_default,
+    nutrient_geider_light,
+    detritus_default
 
-"""
-    nutrients_default(plankton_array)
+"""Return a sum expression for a collection of terms."""
+function _sum_expr(terms)
+    isempty(terms) && return :(zero(t))
 
-Build expression for a single nutrient function of time.
+    s = terms[1]
+    for i in 2:length(terms)
+        s = :($s + $(terms[i]))
+    end
+    return s
+end
 
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for vectorization to work (and arranged in the same plankton order).
+"""Build a sum of linear losses over all plankton."""
+function _linear_loss_sum(plankton_syms::AbstractVector{Symbol})
+    terms = Expr[]
+    for (i, sym) in enumerate(plankton_syms)
+        push!(terms, :(linear_loss($sym, linear_mortality[$i])))
+    end
+    return _sum_expr(terms)
+end
 
-# Arguments
-- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-"""
-function nutrients_default(plankton_array)
-    return :(
-        sum(
-            linear_loss.([$(plankton_array...)], linear_mortality) *
-            mortality_export_fraction,
-        ) +
-        sum(
-            quadratic_loss.([$(plankton_array...)], quadratic_mortality) *
-            mortality_export_fraction,
-        ) +
-        remineralization_idealized(D, detritus_remineralization) - sum(
-            photosynthetic_growth_single_nutrient.(
+"""Build a sum of quadratic losses over all plankton."""
+function _quadratic_loss_sum(plankton_syms::AbstractVector{Symbol})
+    terms = Expr[]
+    for (i, sym) in enumerate(plankton_syms)
+        push!(terms, :(quadratic_loss($sym, quadratic_mortality[$i])))
+    end
+    return _sum_expr(terms)
+end
+
+"""Build a sum of photosynthetic growth over all plankton."""
+function _photosynthetic_growth_sum(plankton_syms::AbstractVector{Symbol})
+    terms = Expr[]
+    for (i, sym) in enumerate(plankton_syms)
+        push!(
+            terms,
+            :(photosynthetic_growth_single_nutrient(
                 N,
-                [$(plankton_array...)],
+                $sym,
                 PAR,
-                maximum_growth_rate,
-                nutrient_half_saturation,
-                alpha,
-            ),
+                maximum_growth_rate[$i],
+                nutrient_half_saturation[$i],
+                alpha[$i],
+            )),
         )
-    )
+    end
+    return _sum_expr(terms)
 end
 
-"""
-    nutrients_geider_light(plankton_array)
-
-Build expression for a single nutrient function of time where photosynthetic growth is limited
-based on the Geider formulation.
-
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for vectorization to work (and arranged in the same plankton order).
-
-# Arguments
-- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-"""
-function nutrients_geider_light(plankton_array)
-    return :(
-        sum(
-            linear_loss.([$(plankton_array...)], linear_mortality) *
-            mortality_export_fraction,
-        ) +
-        sum(
-            quadratic_loss.([$(plankton_array...)], quadratic_mortality) *
-            mortality_export_fraction,
-        ) +
-        remineralization_idealized(D, detritus_remineralization) - sum(
-            photosynthetic_growth_single_nutrient_geider_light.(
+"""Build a sum of Geider-style photosynthetic growth over all plankton."""
+function _photosynthetic_growth_geider_sum(plankton_syms::AbstractVector{Symbol})
+    terms = Expr[]
+    for (i, sym) in enumerate(plankton_syms)
+        push!(
+            terms,
+            :(photosynthetic_growth_single_nutrient_geider_light(
                 N,
-                [$(plankton_array...)],
+                $sym,
                 PAR,
-                # size dependant values
-                maximum_growth_rate,
-                nutrient_half_saturation,
-                photosynthetic_slope,
-                chlorophyll_to_carbon_ratio,
-            ),
+                maximum_growth_rate[$i],
+                nutrient_half_saturation[$i],
+                photosynthetic_slope[$i],
+                chlorophyll_to_carbon_ratio[$i],
+            )),
         )
+    end
+    return _sum_expr(terms)
+end
+
+"""Build the preferential predation loss of a prey size class to all predators."""
+function _predation_loss_sum(
+    prey_sym::Symbol, prey_idx::Int, plankton_syms::AbstractVector{Symbol}
+)
+    terms = Expr[]
+    for (pred_idx, pred_sym) in enumerate(plankton_syms)
+        push!(
+            terms,
+            :(predation_loss_preferential(
+                $prey_sym,
+                $pred_sym,
+                maximum_predation_rate[$pred_idx],
+                holling_half_saturation[$pred_idx],
+                palatability_matrix[$pred_idx, $prey_idx],
+            )),
+        )
+    end
+    return _sum_expr(terms)
+end
+
+"""Build the preferential predation gain of a predator size class from all prey."""
+function _predation_gain_sum(
+    predator_sym::Symbol, predator_idx::Int, plankton_syms::AbstractVector{Symbol}
+)
+    terms = Expr[]
+    for (prey_idx, prey_sym) in enumerate(plankton_syms)
+        push!(
+            terms,
+            :(predation_gain_preferential(
+                $prey_sym,
+                $predator_sym,
+                assimilation_efficiency_matrix[$predator_idx, $prey_idx],
+                maximum_predation_rate[$predator_idx],
+                holling_half_saturation[$predator_idx],
+                palatability_matrix[$predator_idx, $prey_idx],
+            )),
+        )
+    end
+    return _sum_expr(terms)
+end
+
+"""Build the total assimilation loss from all predator-prey pairs."""
+function _predation_assimilation_loss_sum(plankton_syms::AbstractVector{Symbol})
+    terms = Expr[]
+    for (pred_idx, pred_sym) in enumerate(plankton_syms)
+        for (prey_idx, prey_sym) in enumerate(plankton_syms)
+            push!(
+                terms,
+                :(predation_assimilation_loss_preferential(
+                    $prey_sym,
+                    $pred_sym,
+                    assimilation_efficiency_matrix[$pred_idx, $prey_idx],
+                    maximum_predation_rate[$pred_idx],
+                    holling_half_saturation[$pred_idx],
+                    palatability_matrix[$pred_idx, $prey_idx],
+                )),
+            )
+        end
+    end
+    return _sum_expr(terms)
+end
+
+"""
+    nutrient_default(plankton_syms)
+
+Nutrient tendency for a single dissolved inorganic nutrient `N`.
+"""
+function nutrient_default(plankton_syms::AbstractVector{Symbol})
+    linear_sum = _linear_loss_sum(plankton_syms)
+    quadratic_sum = _quadratic_loss_sum(plankton_syms)
+    growth_sum = _photosynthetic_growth_sum(plankton_syms)
+
+    return :(
+        mortality_export_fraction * ($linear_sum) +
+        mortality_export_fraction * ($quadratic_sum) +
+        remineralization_idealized(D, detritus_remineralization) - ($growth_sum)
+    )
+end
+
+"""Nutrient tendency using Geider-style light limitation."""
+function nutrient_geider_light(plankton_syms::AbstractVector{Symbol})
+    linear_sum = _linear_loss_sum(plankton_syms)
+    quadratic_sum = _quadratic_loss_sum(plankton_syms)
+    growth_sum = _photosynthetic_growth_geider_sum(plankton_syms)
+
+    return :(
+        mortality_export_fraction * ($linear_sum) +
+        mortality_export_fraction * ($quadratic_sum) +
+        remineralization_idealized(D, detritus_remineralization) - ($growth_sum)
     )
 end
 
 """
-    detritus_default(plankton_array)
+    detritus_default(plankton_syms)
 
-Build expression for a simplified detritus function of time.
-
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for vectorization to work (and arranged in the same plankton order).
-
-# Arguments
-- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
+Detritus tendency for a single detrital pool `D`.
 """
-function detritus_default(plankton_array)
+function detritus_default(plankton_syms::AbstractVector{Symbol})
+    linear_sum = _linear_loss_sum(plankton_syms)
+    quadratic_sum = _quadratic_loss_sum(plankton_syms)
+    assimilation_loss_sum = _predation_assimilation_loss_sum(plankton_syms)
+
     return :(
-        sum(linear_loss.([$(plankton_array...)], linear_mortality)) *
-        (1 - mortality_export_fraction) +
-        sum(
-            # the function includes predator x prey matrix inputs so have to make sure that
-            # arrays are broadcast row/column wise as appropriate
-            predation_assimilation_loss_preferential.(
-                # prey is row-wise -> use array' to declare a row vector
-                [$(plankton_array...)]',
-                # predators are column-wise so leave as is
-                [$(plankton_array...)],
-                # predator x prey matrix
-                assimilation_efficiency_matrix,
-                # predator size dependant parameters -> apply column-wise
-                maximum_predation_rate,
-                holling_half_saturation,
-                # predator x prey matrix
-                palatability_matrix,
-            ),
-        ) +
-        sum(
-            quadratic_loss.([$(plankton_array...)], quadratic_mortality) *
-            (1 - mortality_export_fraction),
-        ) - remineralization_idealized(D, detritus_remineralization)
+        (1 - mortality_export_fraction) * ($linear_sum) +
+        ($assimilation_loss_sum) +
+        (1 - mortality_export_fraction) * ($quadratic_sum) -
+        remineralization_idealized(D, detritus_remineralization)
     )
 end
 
 """
-    phytoplankton_default(plankton_array, plankton_name, plankton_idx)
+    phytoplankton_default(plankton_syms, plankton_sym, plankton_idx)
 
-Build expression for a simplified phytoplankton growth function.
-
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for vectorization to work (and arranged in the same plankton order).
-
-# Arguments
-- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-- `plankton_name`: name of the phytoplankton for which we are returning the expression, passed
-    as a String (e.g., "P1").
-- `plankton_idx`: the index at which this plankton's values are stored in all parameter Arrays
+Phytoplankton tendency with single-nutrient Smith-style light limitation.
 """
-function phytoplankton_default(plankton_array, plankton_name, plankton_idx)
-    plankton_symbol = Symbol(plankton_name)
-    return :(
-        photosynthetic_growth_single_nutrient(
-            N,
-            $(plankton_symbol),
-            PAR,
-            maximum_growth_rate[$plankton_idx],
-            nutrient_half_saturation[$plankton_idx],
-            alpha[$plankton_idx],
-        ) - sum(
-            predation_loss_preferential.(
-                # the prey
-                $(plankton_symbol),
-                # all potential predators
-                [$(plankton_array...)],
-                # predator size dependant parameters
-                maximum_predation_rate,
-                holling_half_saturation,
-                # get the prey column -> sum over all predator rows
-                palatability_matrix[:, $plankton_idx],
-            ),
-        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_idx])
-    )
+function phytoplankton_default(
+    plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int
+)
+    growth = :(photosynthetic_growth_single_nutrient(
+        N,
+        $plankton_sym,
+        PAR,
+        maximum_growth_rate[$plankton_idx],
+        nutrient_half_saturation[$plankton_idx],
+        alpha[$plankton_idx],
+    ))
+
+    grazing_loss = _predation_loss_sum(plankton_sym, plankton_idx, plankton_syms)
+
+    mortality_loss = :(linear_loss($plankton_sym, linear_mortality[$plankton_idx]))
+
+    return :($growth - ($grazing_loss) - $mortality_loss)
+end
+
+"""Phytoplankton tendency using Geider-style light limitation."""
+function phytoplankton_geider_light(
+    plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int
+)
+    growth = :(photosynthetic_growth_single_nutrient_geider_light(
+        N,
+        $plankton_sym,
+        PAR,
+        maximum_growth_rate[$plankton_idx],
+        nutrient_half_saturation[$plankton_idx],
+        photosynthetic_slope[$plankton_idx],
+        chlorophyll_to_carbon_ratio[$plankton_idx],
+    ))
+
+    grazing_loss = _predation_loss_sum(plankton_sym, plankton_idx, plankton_syms)
+    mortality_loss = :(linear_loss($plankton_sym, linear_mortality[$plankton_idx]))
+
+    return :($growth - ($grazing_loss) - $mortality_loss)
 end
 
 """
-    phytoplankton_geider_light(plankton_array, plankton_name, plankton_idx)
+    zooplankton_default(plankton_syms, plankton_sym, plankton_idx)
 
-Build expression for a simplified phytoplankton growth function which adds geider light limitation.
-
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for vectorization to work (and arranged in the same plankton order).
-
-# Arguments
-- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-- `plankton_name`: name of the phytoplankton for which we are returning the expression, passed
-    as a String (e.g., "P1").
-- `plankton_idx`: the index at which this plankton's values are stored in all parameter Arrays
+Zooplankton tendency with preferential feeding.
 """
-function phytoplankton_geider_light(plankton_array, plankton_name, plankton_idx)
-    plankton_symbol = Symbol(plankton_name)
-    return :(
-        photosynthetic_growth_single_nutrient_geider_light(
-            N,
-            $(plankton_symbol),
-            PAR,
-            maximum_growth_rate[$plankton_idx],
-            nutrient_half_saturation[$plankton_idx],
-            photosynthetic_slope[$plankton_idx],
-            chlorophyll_to_carbon_ratio[$plankton_idx],
-        ) - sum(
-            # exactly the same as in phytoplankton_growth_single_nutrient
-            predation_loss_preferential.(
-                $(plankton_symbol),
-                [$(plankton_array...)],
-                maximum_predation_rate,
-                holling_half_saturation,
-                palatability_matrix[:, $plankton_idx],
-            ),
-        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_idx])
-    )
-end
+function zooplankton_default(
+    plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int
+)
+    gain_sum = _predation_gain_sum(plankton_sym, plankton_idx, plankton_syms)
 
-"""
-    zooplankton_default(plankton_array, plankton_name, plankton_idx)
+    linear = :(linear_loss($plankton_sym, linear_mortality[$plankton_idx]))
+    quadratic = :(quadratic_loss($plankton_sym, quadratic_mortality[$plankton_idx]))
 
-Build expression for simplified zooplankton growth function.
-
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for vectorization to work (and arranged in the same plankton order).
-
-# Arguments
-- `plankton_array`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-- `plankton_name`: name of the zooplankton for which we are returning the expression, passed
-    as a String (e.g., "Z1").
-- `plankton_idx`: the index at which this plankton's values are stored in all parameter Arrays
-"""
-function zooplankton_default(plankton_array, plankton_name, plankton_idx)
-    plankton_symbol = Symbol(plankton_name)
-    return :(
-        sum(
-            predation_gain_preferential.(
-                # all potential prey
-                [$(plankton_array...)],
-                # the predator
-                $(plankton_symbol),
-                # get the predator row -> sum over all prey columns
-                assimilation_efficiency_matrix[$plankton_idx, :],
-                # predator size dependant parameter
-                maximum_predation_rate[$plankton_idx],
-                holling_half_saturation[$plankton_idx],
-                # get the predator row -> sum over all prey columns
-                palatability_matrix[$plankton_idx, :],
-            ),
-        ) - linear_loss($(plankton_symbol), linear_mortality[$plankton_idx]) -
-        quadratic_loss($(plankton_symbol), quadratic_mortality[$plankton_idx])
-    )
+    return :(($gain_sum) - $linear - $quadratic)
 end
 
 end # module

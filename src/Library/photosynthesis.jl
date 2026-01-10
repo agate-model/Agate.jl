@@ -1,10 +1,8 @@
-"""
-Functions related to phytoplankton light uptake.
-"""
+"""Functions related to phytoplankton light uptake."""
 
 module Photosynthesis
 
-using Agate.Library.Nutrients
+using Agate.Library.Nutrients: monod_limitation, liebig_minimum
 
 export light_limitation_smith,
     light_limitation_geider,
@@ -12,9 +10,9 @@ export light_limitation_smith,
     photosynthetic_growth_single_nutrient_geider_light,
     photosynthetic_growth_two_nutrients_geider_light
 
-"
+"""
     light_limitation_smith(PAR, initial_slope, maximum_growth_0C)
-
+    
 Smith 1936 formulation of light limitation (also see Evans and Parslow, 1985).
 
 !!! formulation
@@ -23,18 +21,18 @@ Smith 1936 formulation of light limitation (also see Evans and Parslow, 1985).
     where:
     - PAR = photosynthetic active radiation
     - α = initial photosynthetic slope
-    - μ₀ = maximum growth rate at 0 °C
+    - μ₀ = maximum growth rate at 0 °C    
 
 # Arguments
 - `PAR`: photosynthetic active radiation
 - `initial_slope`: initial photosynthetic slope
 - `maximum_growth_0C`: maximum growth rate at T = 0 °C
-"
-function light_limitation_smith(PAR, initial_slope, maximum_growth_0C)
-    # here to avoid division by 0 when α and μ₀ are both 0
-    if initial_slope == 0
-        return 0.0
+"""
+@inline function light_limitation_smith(PAR, initial_slope, maximum_growth_0C)
+    if initial_slope == zero(initial_slope)
+        return zero(initial_slope)
     end
+
     return initial_slope * PAR / sqrt(maximum_growth_0C^2 + initial_slope^2 * PAR^2)
 end
 
@@ -60,19 +58,21 @@ This formulation is based on equation (4) from Geider et al., 1998.
 - `photosynthetic_slope`: initial photosynthetic slope
 - `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon
 """
-function light_limitation_geider(
+@inline function light_limitation_geider(
     PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio
 )
-    if maximum_growth_rate == 0
-        return 0.0
+    if maximum_growth_rate == zero(maximum_growth_rate)
+        return zero(maximum_growth_rate)
     end
+
     return maximum_growth_rate * (
-        1 - exp(
+        one(maximum_growth_rate) - exp(
             (-photosynthetic_slope * chlorophyll_to_carbon_ratio * PAR) /
             maximum_growth_rate,
         )
     )
 end
+
 """
     photosynthetic_growth_single_nutrient(N, P, PAR, maximum_growth_0C, 
         nutrient_half_saturation, initial_slope)
@@ -100,7 +100,7 @@ Single nutrient monod smith photosynthetic growth (used, for example, in Kuhn 20
 - `nutrient_half_saturation`: nutrient half saturation
 - `initial_slope`: initial photosynthetic slope
 """
-function photosynthetic_growth_single_nutrient(
+@inline function photosynthetic_growth_single_nutrient(
     R, P, PAR, maximum_growth_0C, nutrient_half_saturation, initial_slope
 )
     return maximum_growth_0C *
@@ -110,7 +110,7 @@ function photosynthetic_growth_single_nutrient(
 end
 
 """
-    photosynthetic_growth_single_nutrient_geider_light(N, P, PAR, maximum_growth_rate, 
+    photosynthetic_growth_single_nutrient_geider_light(R, P, PAR, maximum_growth_rate, 
         nutrient_half_saturation, photosynthetic_slope, chlorophyll_to_carbon_ratio)
 
 Single nutrient geider photosynthetic growth.
@@ -138,8 +138,8 @@ Single nutrient geider photosynthetic growth.
 - `photosynthetic_slope`: initial photosynthetic slope
 - `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon
 """
-function photosynthetic_growth_single_nutrient_geider_light(
-    N,
+@inline function photosynthetic_growth_single_nutrient_geider_light(
+    R,
     P,
     PAR,
     maximum_growth_rate,
@@ -147,7 +147,7 @@ function photosynthetic_growth_single_nutrient_geider_light(
     photosynthetic_slope,
     chlorophyll_to_carbon_ratio,
 )
-    return monod_limitation(N, nutrient_half_saturation) *
+    return monod_limitation(R, nutrient_half_saturation) *
            light_limitation_geider(
                PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio
            ) *
@@ -201,25 +201,27 @@ Two nutrient geider photosynthetic growth.
 - `photosynthetic_slope`: initial photosynthetic slope
 - `chlorophyll_to_carbon_ratio`: ratio between cellular chlorophyll and carbon
 """
-function photosynthetic_growth_two_nutrients_geider_light(
-    DIN,
-    PO4,
+@inline function photosynthetic_growth_two_nutrients_geider_light(
+    R1,
+    R2,
     P,
     PAR,
     maximum_growth_rate,
-    half_saturation_DIN,
-    half_saturation_PO4,
+    nutrient_half_saturation_1,
+    nutrient_half_saturation_2,
     photosynthetic_slope,
     chlorophyll_to_carbon_ratio,
 )
-    nutrient_limited_growth =
-        liebig_minimum([
-            monod_limitation(DIN, half_saturation_DIN),
-            monod_limitation(PO4, half_saturation_PO4),
-        ]) * maximum_growth_rate
-    return light_limitation_geider(
-        PAR, photosynthetic_slope, nutrient_limited_growth, chlorophyll_to_carbon_ratio
-    ) * P
+    nutrient_factor = liebig_minimum(
+        monod_limitation(R1, nutrient_half_saturation_1),
+        monod_limitation(R2, nutrient_half_saturation_2),
+    )
+
+    return nutrient_factor *
+           light_limitation_geider(
+               PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio
+           ) *
+           P
 end
 
 end # module

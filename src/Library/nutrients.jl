@@ -1,13 +1,12 @@
-"""
-Functions related to plankton nutrient uptake.
-"""
+"""Functions related to plankton nutrient uptake."""
 
 module Nutrients
 
 export monod_limitation, liebig_minimum
 
-"
+"""
     monod_limitation(nutrient_concentration, nutrient_half_saturation)
+
 
 Monod formulation of nutrient limitation, which is based on Michaelis-Menten enzyme kinetics.
 
@@ -24,13 +23,13 @@ Monod formulation of nutrient limitation, which is based on Michaelis-Menten enz
 
 !!! tip
     Sometimes this formulation is also used for predation (≈'Holling type 2').
-"
-function monod_limitation(nutrient_concentration, nutrient_half_saturation)
+"""
+@inline function monod_limitation(nutrient_concentration, nutrient_half_saturation)
     return nutrient_concentration / (nutrient_half_saturation + nutrient_concentration)
 end
 
 """
-    liebig_minimum(nutrient_limitations)
+    liebig_minimum(a, b, rest...)
 
 Liebig's law of the minimum, which states that growth is limited by the scarcest (most limiting) resource.
 
@@ -46,8 +45,18 @@ Liebig's law of the minimum, which states that growth is limited by the scarcest
 
 Returns the minimum value among the given nutrient limitations.
 """
-function liebig_minimum(nutrient_limitations)
-    return minimum(nutrient_limitations)
+@inline liebig_minimum(a, b) = ifelse(a < b, a, b)
+
+@inline function liebig_minimum(a, b, c, rest...)
+    return liebig_minimum(liebig_minimum(a, b), c, rest...)
+end
+
+@inline function liebig_minimum(values::NTuple{N,T}) where {N,T}
+    m = values[1]
+    @inbounds for i in 2:N
+        m = liebig_minimum(m, values[i])
+    end
+    return m
 end
 
 end # module

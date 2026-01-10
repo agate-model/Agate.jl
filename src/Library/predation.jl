@@ -1,20 +1,18 @@
-"""
-Functions related to zooplankton predation.
-"""
-
 module Predation
 
-export holling_type_2,
-    predation_loss_idealized,
-    predation_gain_idealized,
-    predation_assimilation_loss_idealized,
-    predation_loss_preferential,
-    predation_gain_preferential,
-    predation_assimilation_loss_preferential,
-    assimilation_efficiency_emergent_binary
+export AssimilationPreyParameters
+export AssimilationPredatorParameters
+export holling_type_2
+export predation_loss_idealized
+export predation_gain_idealized
+export predation_assimilation_loss_idealized
+export predation_loss_preferential
+export predation_gain_preferential
+export predation_assimilation_loss_preferential
+export assimilation_efficiency_emergent_binary
 
 """
-    holling_type_2(prey_concentration::Real, prey_half_saturation::Real)
+    holling_type_2(prey_concentration, prey_half_saturation)
 
 Holling's "type II" functional response as describe in Holling 1959.
 
@@ -32,7 +30,7 @@ The formulation is characterized by decelerating predation as prey concentration
 - `prey_concentration`: prey density
 - `prey_half_saturation`: prey density at which predation is half it's maximum rate
 """
-function holling_type_2(prey_concentration::Real, prey_half_saturation::Real)
+@inline function holling_type_2(prey_concentration, prey_half_saturation)
     return prey_concentration / (prey_half_saturation + prey_concentration)
 end
 
@@ -60,7 +58,7 @@ and the prey-predator palatability.
 - `maximum_grazing_rate`: maximum grazing rate of the predator
 - `prey_half_saturation`: prey density at which predation is half it's maximum rate
 """
-function predation_loss_idealized(P, Z, maximum_grazing_rate, prey_half_saturation)
+@inline function predation_loss_idealized(P, Z, maximum_grazing_rate, prey_half_saturation)
     return maximum_grazing_rate * holling_type_2(P^2, prey_half_saturation^2) * Z
 end
 
@@ -90,9 +88,11 @@ represents 'sloppy feeding'.
 - `maximum_grazing_rate`: maximum grazing rate of the predator
 - `prey_half_saturation`: prey half saturation
 """
-function predation_gain_idealized(P, Z, assimilation_efficiency, maximum_grazing_rate, kₚ)
+@inline function predation_gain_idealized(
+    P, Z, assimilation_efficiency, maximum_grazing_rate, k_p
+)
     return assimilation_efficiency *
-           predation_loss_idealized(P, Z, maximum_grazing_rate, kₚ)
+           predation_loss_idealized(P, Z, maximum_grazing_rate, k_p)
 end
 
 """
@@ -115,7 +115,7 @@ Estimates the rate at which plankton predation gain is lost to the environment d
     - kₚ = prey half saturation
 
 !!! note
-    This functino differs from `predation_gain_idealized` as it represents the transfer 
+    This function differs from `predation_gain_idealized` as it represents the transfer 
     of biomass from the prey to the environment rather than the transfer of biomass from the prey to the predator.
 
 # Arguments
@@ -125,7 +125,7 @@ Estimates the rate at which plankton predation gain is lost to the environment d
 - `maximum_grazing_rate`: maximum grazing rate of the predator
 - `prey_half_saturation`: prey half saturation
 """
-function predation_assimilation_loss_idealized(
+@inline function predation_assimilation_loss_idealized(
     P, Z, assimilation_efficiency, maximum_grazing_rate, prey_half_saturation
 )
     return (1 - assimilation_efficiency) *
@@ -158,7 +158,7 @@ and the prey-predator palatability.
 - `prey_half_saturation`: prey density at which predation is half it's maximum rate
 - `palatability`: the likelihood at which the predator feeds on the prey
 """
-function predation_loss_preferential(
+@inline function predation_loss_preferential(
     P, Z, maximum_grazing_rate, prey_half_saturation, palatability
 )
     return maximum_grazing_rate * palatability * holling_type_2(P, prey_half_saturation) * Z
@@ -193,7 +193,7 @@ represents 'sloppy feeding'.
 - `prey_half_saturation`: prey density at which predation is half it's maximum rate
 - `palatability`: the likelihood at which the predator feeds on the prey
 """
-function predation_gain_preferential(
+@inline function predation_gain_preferential(
     P, Z, assimilation_efficiency, maximum_grazing_rate, prey_half_saturation, palatability
 )
     return assimilation_efficiency * predation_loss_preferential(
@@ -233,12 +233,23 @@ Estimates the rate at which plankton predation gain is lost to the environment d
 - `palatability`: the likelihood at which the predator feeds on the prey
 
 """
-function predation_assimilation_loss_preferential(
+@inline function predation_assimilation_loss_preferential(
     P, Z, assimilation_efficiency, maximum_grazing_rate, prey_half_saturation, palatability
 )
     return (1 - assimilation_efficiency) * predation_loss_preferential(
         P, Z, maximum_grazing_rate, prey_half_saturation, palatability
     )
+end
+
+"""Binary prey data for emergent assimilation efficiency."""
+struct AssimilationPreyParameters
+    can_be_eaten::Bool
+end
+
+"""Predator data for emergent assimilation efficiency."""
+struct AssimilationPredatorParameters{FT<:AbstractFloat}
+    can_eat::Bool
+    assimilation_efficiency::FT
 end
 
 """
@@ -269,15 +280,13 @@ The function evaluates whether the predator can eat the prey and whether the pre
   - If `can_eat` is 1 and `can_be_eaten` is 1, returns the predator's `assimilation_efficiency`.
   - Otherwise, returns 0.
 """
-function assimilation_efficiency_emergent_binary(prey_data, predator_data)
-    if predator_data["can_eat"] == 1 && prey_data["can_be_eaten"] == 1
-        assimilation_efficiency = predator_data["assimilation_efficiency"]
-    elseif predator_data["can_eat"] == 1 && prey_data["can_be_eaten"] == 0
-        assimilation_efficiency = 0
-    elseif predator_data["can_eat"] == 0
-        assimilation_efficiency = 0
+@inline function assimilation_efficiency_emergent_binary(
+    prey::AssimilationPreyParameters, predator::AssimilationPredatorParameters{FT}
+) where {FT<:AbstractFloat}
+    if predator.can_eat && prey.can_be_eaten
+        return predator.assimilation_efficiency
     end
-    return assimilation_efficiency
+    return zero(FT)
 end
 
 end # module

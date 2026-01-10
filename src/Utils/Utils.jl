@@ -1,8 +1,16 @@
 """
-Module to dynamically create Oceananigans.Biogeochemistry types.
-"""
+Utilities to construct Oceananigans biogeochemistry types.
 
+Agate constructs `AbstractContinuousFormBiogeochemistry` subtypes from:
+- a runtime parameter struct stored as `bgc.parameters`, and
+- tracer tendency expressions (`Expr`) keyed by tracer name.
+
+The generated types are compatible with Oceananigans and OceanBioME.
+Runtime parameter structs can be adapted between CPU and GPU with `Adapt.jl`.
+"""
 module Utils
+
+using Adapt
 
 using Agate.Library.Mortality
 using Agate.Library.Nutrients
@@ -10,322 +18,56 @@ using Agate.Library.Photosynthesis
 using Agate.Library.Predation
 using Agate.Library.Remineralization
 
-using UUIDs
-
 using OceanBioME
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 using Oceananigans.Fields: ZeroField
 
 import Oceananigans.Biogeochemistry:
-    required_biogeochemical_tracers,
+    biogeochemical_drift_velocity,
     required_biogeochemical_auxiliary_fields,
-    biogeochemical_drift_velocity
+    required_biogeochemical_tracers
 
-export define_tracer_functions, expression_check, create_bgc_struct, add_bgc_methods!
+export AbstractDiameterSpecification
+export DiameterListSpecification
+export DiameterRangeSpecification
 
-"""
-    define_tracer_functions(
-        parameters,
-        tracers;
-        auxiliary_fields=[:PAR],
-        helper_functions=nothing,
-        sinking_velocities=nothing,
-    )
+export add_bgc_methods!, create_bgc_struct, define_tracer_functions, expression_check
 
-Create an Oceananigans.Biogeochemistry model type.
+export param_check_length
+export param_check_square_matrix
+export param_cast_matrix
+export param_compute_diameters
 
-# Arguments
-- `parameters`: NamedTuple of values of the form ((<field name> = <default value>, ...)
-- `tracers`: Dictionary of the form (<tracer name> => <tracer method expression>, ...)
+#temp define here:
+"""Abstract supertype for diameter specifications."""
+abstract type AbstractDiameterSpecification end
 
-# Keywords
-- `auxiliary_fields`: an iterable of auxiliary field variables, defaults to `[:PAR]`
-- `helper_functions`: optional path to a file of helper functions used in tracer expressions
-- `sinking_velocities`: optional NamedTuple of constant sinking, of fields (i.e. `ZFaceField(...)`)
-   for any tracers which sink returned by OceanBioME.Sediments: sinking_tracers.
-
-!!! warning
-
-    Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t], as these
-    are reserved for coordinates, and they must include all parameters used in the `tracers`
-    expressions.
-
-!!! warning
-
-    The tracer expressions must use methods that are either defined within this module or
-    passed in the `helper_functions` file.
-
-# Example
-```julia
-using Agate
-
-parameters = (α=2 / 3, β=4 / 3, δ=1, γ=1)
-tracers = Dict("R" => :(α * R - β * R * F), "F" => :(-γ * F + δ * R * F))
-LV = define_tracer_functions(parameters, tracers)
-```
-"""
-function define_tracer_functions(
-    parameters,
-    tracers;
-    auxiliary_fields=[:PAR],
-    helper_functions=nothing,
-    sinking_velocities=nothing,
-)
-    # create a universaly unique identifier (UUID) for the model struct
-    model_name = Symbol(uuid1())
-    bgc_model = create_bgc_struct(model_name, parameters, sinking_velocities)
-    add_bgc_methods!(
-        bgc_model,
-        tracers;
-        auxiliary_fields=auxiliary_fields,
-        helper_functions=helper_functions,
-        include_sinking=sinking_velocities !== nothing,
-    )
-    return bgc_model
+"""A diameter specification defined by an explicit list of diameters."""
+struct DiameterListSpecification{T,VT<:AbstractVector{T}} <: AbstractDiameterSpecification
+    diameters::VT
 end
 
-"""
-    create_bgc_struct(
-        struct_name,
-        parameters;
-        sinking_velocities=nothing,
-    )
-
-Create a subtype of Oceananigans.Biogeochemistry with field names defined in `parameters`.
-
-# Arguments
-- `struct_name`: name for the struct to create passed as a Symbol (the new struct will be
-   accessible as `Agate.Models.Biogeochemistry.<struct_name>`)
-- `parameters`: NamedTuple of values of the form (<field name> = <default value>, ...)
-
-# Keywords
-- `sinking_velocities`: optional NamedTuple of constant sinking, of fields (i.e. `ZFaceField(...)`)
-   for any tracers which sink returned by OceanBioME.Sediments: sinking_tracers.
-
-!!! warning
-
-    Note that the field names defined in `parameters` can't be any of [:x, :y, :z, :t] as these
-    are reserved for coordinates.
-
-# Example
-```julia
-using Agate.Models.Biogeochemistry: create_bgc_struct
-
-create_bgc_struct(:LV, (α=2/3, β=4/3,  δ=1, γ=1))
-```
-"""
-function create_bgc_struct(struct_name, parameters, sinking_velocities=nothing)
-    # have to create an expression for each struct field
-    # this is of the form `<field name>:: <field type> = <field value>`
-    # create and store expressions in an array before struct contsruction
-    fields = []
-    # need to also keep track of all parameter types to return a parametric struct
-    type_names = Set()
-    for (k, v) in pairs(parameters)
-        if k in [:x, :y, :z, :t]
-            throw(
-                DomainError(k, "field names in parameters can't be any of [:x, :y, :z, :t]")
-            )
-        end
-
-        type = typeof(v)
-        # should we handle ints/floats separately?
-        if type <: Real
-            type_symbol = :FT
-        elseif type <: AbstractVector
-            type_symbol = :VT
-        elseif type <: AbstractMatrix
-            type_symbol = :MT
-        else
-            error("Unsupported type for field $k")
-        end
-        push!(type_names, type_symbol)
-
-        exp = Expr(:(=), Expr(:(::), k, type_symbol), v)
-        push!(fields, exp)
-    end
-
-    # optionally add a field for sinking velocities
-    if !isnothing(sinking_velocities)
-        # using W here for consistency with OceanBioME
-        type_symbol = :W
-        push!(type_names, type_symbol)
-        exp = Expr(:(=), Expr(:(::), :sinking_velocities, type_symbol), sinking_velocities)
-        push!(fields, exp)
-    end
-
-    # construct struct (include default parameter values so have to use kwdef)
-    exp = quote
-        Base.@kwdef struct $struct_name{$(type_names...)} <:
-                           AbstractContinuousFormBiogeochemistry
-            $(fields...)
-        end
-        $struct_name # return the type
-    end
-    return eval(exp)
+"""A diameter specification defined by a range and a splitting method."""
+struct DiameterRangeSpecification{T} <: AbstractDiameterSpecification
+    min_diameter::T
+    max_diameter::T
+    splitting::Symbol
 end
 
-"""
-    add_bgc_methods!(
-        bgc_type,
-        tracers;
-        auxiliary_fields=[],
-        helper_functions=nothing,
-        include_sinking=false,
-    )
+# -----------------------------------------------------------------------------
+# Expression validation
+# -----------------------------------------------------------------------------
 
-Add methods to `bgc_type` required of Oceananigans.Biogeochemistry:
-    - `required_biogeochemical_tracers`
-    - `required_biogeochemical_auxiliary_fields`
-    - a method per tracer specifying how it evolves in time
-    - optionally adds `biogeochemical_drift_velocity` (if `include_sinking` is true)
-
-!!! info
-
-    before passing the `bgc_type` to Oceananigans, it needs to be wrapped in an
-    `OceanBioME.Biogeochemistry()` object, which adds additional methods not defined here:
-    - `biogeochemical_auxiliary_fields`
-    - `update_biogeochemical_state!`
-
-# Arguments
-- `bgc_type`: subtype of Oceananigans.Biogeochemistry (returned by `create_bgc_struct`)
-- `tracers`: Dictionary of the form (<tracer name> => <tracer method expression>, ...)
-
-# Keywords
-- `auxiliary_fields`: an optional iterable of auxiliary field variables, defaults to `[]`
-- `helper_functions`: optional path to a file of helper functions used in tracer expressions
-- `include_sinking`: boolean indicating whether the model includes sinking tracers, if true
-   adds corresponding OceanBioME methods (e.g., `biogeochemical_drift_velocity()`), defaults
-   to false
-
-!!! warning
-
-    Note that the field names of `bgc_type` can't be any of [:x, :y, :z, :t] (as these are reserved
-    for coordinates) and they must include all parameters used in the `tracers` expressions.
-
-!!! warning
-
-    The tracer expressions must use methods that are either defined within this module or
-    passed in the `helper_functions` file.
-
-# Example
-```julia
-using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
-using using Agate.Models.Biogeochemistry: add_bgc_methods!
-
-struct LV <: AbstractContinuousFormBiogeochemistry
-    α
-    β
-    δ
-    γ
-end
-
-tracers = Dict(
-    "R" => :(α*R - β*R*F),
-    "F" => :(-γ*F + δ*R*F)
-)
-
-add_bgc_methods!(LV, tracers)
-```
-"""
-function add_bgc_methods!(
-    bgc_type, tracers; auxiliary_fields=[], helper_functions=nothing, include_sinking=false
-)
-    if !isnothing(helper_functions)
-        include(helper_functions)
-    end
-
-    coordinates = [:x, :y, :z, :t]
-    # use collect here in case tracers are NamedTuple rather than Dict
-    tracer_vars = Symbol.(collect(keys(tracers)))
-    aux_field_vars = Symbol.(auxiliary_fields)
-    all_state_vars = vcat(coordinates, tracer_vars, aux_field_vars)
-
-    eval(:(required_biogeochemical_tracers(::$(bgc_type)) = $(tracer_vars...,)))
-    eval(:(required_biogeochemical_auxiliary_fields(::$(bgc_type)) = $(aux_field_vars...,)))
-
-    # the BGC struct holds all the user defined parameters in its fields
-    params = fieldnames(bgc_type)
-    # the tracer methods rely on model parameters to be declared as variables in the method
-    # scope, here we create expressions that define these local variables
-    method_vars = []
-    for param in params
-        if param in [:x, :y, :z, :t]
-            throw(
-                DomainError(field, "$bgc_type field names can't be any of [:x, :y, :z, :t]")
-            )
-        end
-        # the expressions are evaluated inside the tracer methods below, which take in a
-        # `bgc` object (of bgc_type)
-        exp = :($param = bgc.$param)
-        push!(method_vars, exp)
-    end
-
-    # create core tracer methods
-    for (tracer_name, tracer_expression) in pairs(tracers)
-
-        # throws an exception if there are any issues with tracer_expression (see docstring)
-        expression_check(vcat(all_state_vars, collect(params)), tracer_expression)
-
-        tracer_method = quote
-            function (bgc::$(bgc_type))(::Val{Symbol($tracer_name)}, $(all_state_vars...))
-                $(method_vars...)
-                return $(tracer_expression)
-            end
-        end
-        eval(tracer_method)
-    end
-
-    # set up tracer sinking methods
-    if include_sinking
-        # `biogeochemical_drift_velocity` is an optional Oceananigans.Biogeochemistry method
-        # that returns a NamedTuple of velocity fields for a tracer with keys `u`, `v`, `w`
-        # implementation here based on:
-        # https://github.com/OceanBioME/OceanBioME.jl/blob/a84ab98465b220e805232c46015759a6d5280536/src/Models/AdvectedPopulations/NPZD.jl#L286
-        sink_velocity_method = quote
-            function biogeochemical_drift_velocity(
-                bgc::$(bgc_type), ::Val{tracer_name}
-            ) where {tracer_name}
-                if tracer_name in keys(bgc.sinking_velocities)
-                    return (u=ZeroField(), v=ZeroField(), w=bgc.sinking_velocities[tracer_name])
-                else
-                    return (u=ZeroField(), v=ZeroField(), w=ZeroField())
-                end
-            end
-        end
-        eval(sink_velocity_method)
-    end
-
-    return bgc_type
-end
-
-"""
-    parse_expression(f_expr) -> Vector
-
-Return all symbols (function names and argument names) called in expression.
-
-!!! info
-
-    The input here is expected to be a tracer method defined inside a quote (see example).
-    This allows us to check whether all functions and variables in the tracer method are defined.
-
-# Example
-```julia
-using Agate.Utils: parse_expression
-
-parse_expression(:(α * x - β * x * y))
-```
-"""
+"""Return all Symbols referenced by an expression tree."""
 function parse_expression(f_expr)
-    symbols = []
+    symbols = Symbol[]
+    expressions = Expr[f_expr]
 
-    expressions = [f_expr]
     for exp in expressions
-        # if the arg isn't a symbol or another expression, it's a value --> ignore
         for arg in exp.args
-            if isa(arg, Expr)
+            if arg isa Expr
                 push!(expressions, arg)
-            elseif isa(arg, Symbol)
+            elseif arg isa Symbol
                 push!(symbols, arg)
             end
         end
@@ -335,20 +77,284 @@ function parse_expression(f_expr)
 end
 
 """
-    expression_check(args, f_expr) -> nothing
+    expression_check(allowed_symbols, f_expr; module_name=Utils)
 
-Check that all methods and arguments are defined. Specifically:
-    - vector `args` contains all arguments of expression `f_expr`
-    - all methods called in `f_expr` are defined in module (e.g., Base, Main, Agate)
-If not, throws an UnderVarError.
+Validate that all Symbols referenced in `f_expr` are either:
+- present in `allowed_symbols`, or
+- defined in `module_name`.
+
+Throws `UndefVarError` when an undefined Symbol is found.
 """
-function expression_check(args, f_expr; module_name=Utils)
+function expression_check(allowed_symbols, f_expr; module_name=Utils)
     symbols = parse_expression(f_expr)
+
     for s in symbols
-        if s ∉ args && !isdefined(module_name, s)
+        if s ∉ allowed_symbols && !isdefined(module_name, s)
             throw(UndefVarError(s))
         end
     end
+
+    return nothing
 end
 
-end #module
+# -----------------------------------------------------------------------------
+# Biogeochemistry type construction
+# -----------------------------------------------------------------------------
+
+"""
+    define_tracer_functions(
+        parameters,
+        tracers;
+        auxiliary_fields=(:PAR,),
+        helper_functions=nothing,
+        sinking_velocities=nothing,
+    )
+
+Create an Oceananigans biogeochemistry model type.
+
+# Arguments
+- `parameters`: runtime parameter struct stored as `bgc.parameters`
+- `tracers`: `NamedTuple` mapping tracer names (Symbols) to tracer tendency expressions (`Expr`)
+
+# Keywords
+- `auxiliary_fields`: tuple of auxiliary field names (Symbols)
+- `helper_functions`: optional file path containing helper functions referenced by `tracers`
+- `sinking_velocities`: optional `NamedTuple` mapping sinking tracer names to vertical velocity fields
+"""
+function define_tracer_functions(
+    parameters,
+    tracers::NamedTuple;
+    auxiliary_fields::Tuple=(:PAR,),
+    helper_functions=nothing,
+    sinking_velocities=nothing,
+)
+    model_name = gensym(:AgateBGC)
+
+    bgc_type = create_bgc_struct(
+        model_name, parameters; sinking_velocities=sinking_velocities
+    )
+
+    add_bgc_methods!(
+        bgc_type,
+        tracers,
+        parameters;
+        auxiliary_fields=auxiliary_fields,
+        helper_functions=helper_functions,
+        sinking_velocities=sinking_velocities,
+    )
+
+    return bgc_type
+end
+
+"""
+    create_bgc_struct(struct_name, parameters; sinking_velocities=nothing)
+
+Create a subtype of `AbstractContinuousFormBiogeochemistry` that stores a runtime
+parameter struct (and optional sinking velocities).
+
+The generated type is `Adapt.jl`-compatible.
+
+Returns the wrapper type (a `UnionAll`) so it remains valid after `Adapt.adapt`
+changes the concrete type parameters.
+"""
+function create_bgc_struct(struct_name::Symbol, parameters; sinking_velocities=nothing)
+    if isnothing(sinking_velocities)
+        type_expr = quote
+            Base.@kwdef struct $struct_name{PT} <: AbstractContinuousFormBiogeochemistry
+                parameters::PT = $parameters
+            end
+            $struct_name
+        end
+
+        T = eval(type_expr)
+        eval(:(Adapt.@adapt_structure $struct_name))
+        return T
+    end
+
+    type_expr = quote
+        Base.@kwdef struct $struct_name{PT,W} <: AbstractContinuousFormBiogeochemistry
+            parameters::PT = $parameters
+            sinking_velocities::W = $sinking_velocities
+        end
+        $struct_name
+    end
+
+    T = eval(type_expr)
+    eval(:(Adapt.@adapt_structure $struct_name))
+    return T
+end
+
+# -----------------------------------------------------------------------------
+# Method attachment 
+# -----------------------------------------------------------------------------
+
+@inline function _bgc_wrapper(bgc_type)
+    return bgc_type isa UnionAll ? bgc_type : bgc_type.name.wrapper
+end
+
+"""
+    add_bgc_methods!(
+        bgc_type,
+        tracers,
+        parameters;
+        auxiliary_fields=(),
+        helper_functions=nothing,
+        sinking_velocities=nothing,
+    )
+
+Internal implementation: attaches Oceananigans-required methods.
+
+Important:
+- Methods are attached to the *wrapper* type so they remain valid after `Adapt.adapt`
+  changes type parameters (CPU -> GPU).
+- We DO NOT define/override any `OceanBioME.ContinuousBiogeochemistry` trait methods here.
+  OceanBioME already provides those; overriding them is version-fragile (e.g., `.model` field
+  does not exist in OceanBioME 0.14.0).
+"""
+function add_bgc_methods!(
+    bgc_type,
+    tracers::NamedTuple,
+    parameters;
+    auxiliary_fields::Tuple=(),
+    helper_functions=nothing,
+    sinking_velocities=nothing,
+)
+    if !isnothing(helper_functions)
+        include(helper_functions)
+    end
+
+    coordinates = (:x, :y, :z, :t)
+    tracer_vars = keys(tracers)
+    aux_field_vars = auxiliary_fields
+    all_state_vars = (coordinates..., tracer_vars..., aux_field_vars...)
+
+    wrapper = _bgc_wrapper(bgc_type)
+
+    # Traits on the inner model type (wrapper dispatch survives Adapt.adapt).
+    eval(:(required_biogeochemical_tracers(::$(wrapper)) = $(tracer_vars)))
+    eval(:(required_biogeochemical_auxiliary_fields(::$(wrapper)) = $(aux_field_vars)))
+
+    # Bind parameter fields into local variables to match tracer expression expectations.
+    parameter_fields = fieldnames(typeof(parameters))
+
+    method_vars = Vector{Expr}(undef, length(parameter_fields))
+    @inbounds for (i, field) in enumerate(parameter_fields)
+        if field in coordinates
+            throw(
+                ArgumentError("Parameter field name $(field) is reserved for coordinates.")
+            )
+        end
+        method_vars[i] = :($field = bgc.parameters.$field)
+    end
+
+    allowed_symbols = (all_state_vars..., parameter_fields...)
+
+    # Define callable tracer tendency methods.
+    for (tracer_name, tracer_expression) in pairs(tracers)
+        expression_check(allowed_symbols, tracer_expression)
+
+        tracer_method = quote
+            function (bgc::$(wrapper))(::Val{$(QuoteNode(tracer_name))}, $(all_state_vars...))
+                $(method_vars...)
+                return $(tracer_expression)
+            end
+        end
+
+        eval(tracer_method)
+    end
+
+    # Optional sinking velocities.
+    if sinking_velocities !== nothing
+        sinking_fields = fieldnames(typeof(sinking_velocities))
+
+        # Fallback: no drift unless explicitly provided.
+        eval(
+            quote
+                function biogeochemical_drift_velocity(
+                    ::$(wrapper), ::Val{tracer_name}
+                ) where {tracer_name}
+                    return (u=ZeroField(), v=ZeroField(), w=ZeroField())
+                end
+            end,
+        )
+
+        for tracer_name in sinking_fields
+            sinking_method = quote
+                function biogeochemical_drift_velocity(
+                    bgc::$(wrapper), ::Val{$(QuoteNode(tracer_name))}
+                )
+                    return (u=ZeroField(), v=ZeroField(), w=bgc.sinking_velocities.$tracer_name)
+                end
+            end
+            eval(sinking_method)
+        end
+    end
+
+    return bgc_type
+end
+
+##############################################################################
+# Parameter Utils
+###############################################################################
+
+@inline function param_check_length(name::Symbol, expected::Int, got::Int)
+    if expected != got
+        throw(ArgumentError("$(name) must have length $(expected) but has length $(got)"))
+    end
+    return nothing
+end
+
+@inline function param_check_square_matrix(name::Symbol, n::Int, M::AbstractMatrix)
+    if size(M, 1) != n || size(M, 2) != n
+        throw(ArgumentError("$(name) must have size ($(n), $(n))"))
+    end
+    return nothing
+end
+
+@inline function param_cast_matrix(::Type{FT}, M::AbstractMatrix) where {FT<:AbstractFloat}
+    return eltype(M) === FT ? M : FT.(M)
+end
+
+function param_compute_diameters(
+    ::Type{FT}, n::Int, spec::DiameterRangeSpecification
+) where {FT<:AbstractFloat}
+    min_d = FT(spec.min_diameter)
+    max_d = FT(spec.max_diameter)
+
+    if n == 1
+        return FT[min_d]
+    end
+
+    diameters = Vector{FT}(undef, n)
+
+    if spec.splitting === :log_splitting
+        log_min = log(min_d)
+        log_max = log(max_d)
+        step = (log_max - log_min) / FT(n - 1)
+        @inbounds for i in 1:n
+            diameters[i] = exp(log_min + FT(i - 1) * step)
+        end
+    elseif spec.splitting === :linear_splitting
+        step = (max_d - min_d) / FT(n - 1)
+        @inbounds for i in 1:n
+            diameters[i] = min_d + FT(i - 1) * step
+        end
+    else
+        throw(ArgumentError("Unsupported splitting method: $(spec.splitting)"))
+    end
+
+    return diameters
+end
+
+function param_compute_diameters(
+    ::Type{FT}, n::Int, spec::DiameterListSpecification
+) where {FT<:AbstractFloat}
+    _check_length(:diameters, n, length(spec.diameters))
+    diameters = Vector{FT}(undef, n)
+    @inbounds for i in 1:n
+        diameters[i] = FT(spec.diameters[i])
+    end
+    return diameters
+end
+
+end # module

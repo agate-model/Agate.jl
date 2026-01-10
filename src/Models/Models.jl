@@ -1,14 +1,12 @@
 module Models
 
-include("Parameters.jl")
-include("DARWIN/DARWIN.jl")
 include("NiPiZD/NiPiZD.jl")
+include("DARWIN/DARWIN.jl")
 
-using .Parameters
-using .DARWIN
 using .NiPiZD
+using .DARWIN
 
-export compute_allometric_parameters, create_size_structured_params
-export define_tracer_functions
+export NiPiZD
+export DARWIN
 
 end # module

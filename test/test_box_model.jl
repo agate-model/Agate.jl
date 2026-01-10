@@ -32,7 +32,7 @@ const year = years = 365day
 
         biogeochemistry = NutrientPhytoplanktonZooplanktonDetritus(;
             grid,
-            light_attenuation_model=PrescribedPhotosyntheticallyActiveRadiation(PAR),
+            light_attenuation=PrescribedPhotosyntheticallyActiveRadiation(PAR),
             # this is probably not necessary but ensuring consistency here
             sinking_speeds=NamedTuple(),
         )

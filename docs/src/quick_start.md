@@ -1,6 +1,7 @@
-# Quick start 
+# Quick start
 
 !!! info
+    
     Agate.jl is designed to interface with [Oceananigans.jl](https://clima.github.io/OceananigansDocumentation/stable/) and [OceanBioME.jl](https://oceanbiome.github.io/OceanBioME.jl/stable/). We thus recommend familiarizing yourself with their user interface.
 
 ### Loading dependencies
@@ -27,6 +28,7 @@ Here, we use a default 2 phytoplankton, 2 zooplankton `Agate.jl-NiPiZD` ecosyste
 N2P2ZD = NiPiZD.construct()
 nothing #hide
 ```
+
 Next, we define a light function, here we use a default seasonal PAR curve:
 
 ```@example quickstart
@@ -38,9 +40,7 @@ These two models are then combined using OceanBioME.jl
 
 ```@example quickstart
 
-bgc_model = Biogeochemistry(
-    N2P2ZD(), light_attenuation=light_attenuation
-)
+bgc_model = Biogeochemistry(N2P2ZD(); light_attenuation=light_attenuation)
 nothing #hide
 
 full_model = BoxModel(; biogeochemistry=bgc_model)
@@ -85,14 +85,18 @@ nothing #hide
 # Create a figure
 times = FieldTimeSeries(filename, "P1").times
 
-fig = Figure(size = (1200, 800), fontsize = 24)
+fig = Figure(; size=(1200, 800), fontsize=24)
 
 axs = []
 for (idx, name) in enumerate(tracers)
-    ax = Axis(fig[floor(Int, (idx-1)/2), Int((idx-1)%2)], ylabel = name, xlabel = "Days", 
-        title = "$name concentration (mmol N / m³)")
+    ax = Axis(
+        fig[floor(Int, (idx - 1) / 2), Int((idx - 1) % 2)];
+        ylabel=name,
+        xlabel="Days",
+        title="$name concentration (mmol N / m³)",
+    )
     push!(axs, ax)
-    lines!(ax, times / day, getproperty(timeseries, Symbol(name)), linewidth = 3)
+    lines!(ax, times / day, getproperty(timeseries, Symbol(name)); linewidth=3)
 end
 
 fig
