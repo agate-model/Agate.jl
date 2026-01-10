@@ -193,58 +193,6 @@ end
 end
 
 """
-    add_bgc_methods!(bgc_type, tracers; auxiliary_fields=(), helper_functions=nothing,
-                     sinking_velocities=nothing, include_sinking=false)
-
-Legacy/public API retained for tests and external callers.
-
-This overload uses `Base.invokelatest` to instantiate the wrapper type in a world-age-safe
-way (construction-time only) so we can infer `parameters` (and optional `sinking_velocities`)
-without requiring the caller to pass them.
-"""
-function add_bgc_methods!(
-    bgc_type,
-    tracers::NamedTuple;
-    auxiliary_fields::Tuple=(),
-    helper_functions=nothing,
-    sinking_velocities=nothing,
-    include_sinking::Bool=false,
-)
-    if !isnothing(helper_functions)
-        include(helper_functions)
-    end
-
-    wrapper = _bgc_wrapper(bgc_type)
-
-    # World-age safe instantiation (tests often create the type via eval immediately before this call).
-    defaults = Base.invokelatest(wrapper)
-    parameters = defaults.parameters
-
-    if sinking_velocities === nothing
-        if include_sinking
-            if hasproperty(defaults, :sinking_velocities)
-                sinking_velocities = getproperty(defaults, :sinking_velocities)
-            else
-                throw(
-                    ArgumentError(
-                        "include_sinking=true but biogeochemistry type has no `sinking_velocities` field.",
-                    ),
-                )
-            end
-        end
-    end
-
-    return add_bgc_methods!(
-        bgc_type,
-        tracers,
-        parameters;
-        auxiliary_fields=auxiliary_fields,
-        helper_functions=nothing, # already included above
-        sinking_velocities=sinking_velocities,
-    )
-end
-
-"""
     add_bgc_methods!(
         bgc_type,
         tracers,
