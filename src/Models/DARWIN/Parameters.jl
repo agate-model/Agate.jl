@@ -35,8 +35,10 @@ using Agate.Utils:
 struct DarwinPhytoPFTParameters{FT<:AbstractFloat}
     maximum_growth_rate_a::FT
     maximum_growth_rate_b::FT
-    nutrient_half_saturation_a::FT
-    nutrient_half_saturation_b::FT
+    half_saturation_DIN_a::FT
+    half_saturation_DIN_b::FT
+    half_saturation_PO4_a::FT
+    half_saturation_PO4_b::FT
     linear_mortality::FT
     alpha::FT
     photosynthetic_slope::FT
@@ -142,6 +144,8 @@ function default_darwin_phyto_parameters(::Type{FT}) where {FT<:AbstractFloat}
         FT(-0.15),
         FT(0.17),
         FT(0.27),
+        FT(0.17),
+        FT(0.27),        
         FT(8e-7 / second),
         FT(3 / day),
         FT(30),
@@ -224,8 +228,10 @@ end
     return DarwinPhytoPFTParameters{FT}(
         FT(p.maximum_growth_rate_a),
         FT(p.maximum_growth_rate_b),
-        FT(p.nutrient_half_saturation_a),
-        FT(p.nutrient_half_saturation_b),
+        FT(p.half_saturation_DIN_a),
+        FT(p.half_saturation_DIN_b),
+        FT(p.half_saturation_PO4_a),
+        FT(p.half_saturation_PO4_a),        
         FT(p.linear_mortality),
         FT(p.alpha),
         FT(p.photosynthetic_slope),
@@ -348,11 +354,16 @@ function compute_darwin_parameters(
             ppft.maximum_growth_rate_a, ppft.maximum_growth_rate_b, diameters[idx]
         )
 
-        hs = allometric_scaling_power(
-            ppft.nutrient_half_saturation_a, ppft.nutrient_half_saturation_b, diameters[idx]
+        hs_DIN = allometric_scaling_power(
+            ppft.half_saturation_DIN_a, ppft.half_saturation_DIN_b, diameters[idx]
         )
-        half_saturation_DIN[idx] = hs
-        half_saturation_PO4[idx] = hs
+
+        hs_PO4 = allometric_scaling_power(
+            ppft.half_saturation_PO4_a, ppft.half_saturation_PO4_b, diameters[idx]
+        )
+
+        half_saturation_DIN[idx] = hs_DIN
+        half_saturation_PO4[idx] = hs_PO4
     end
 
     palatability = if isnothing(palatability_matrix)
