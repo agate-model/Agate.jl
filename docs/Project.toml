@@ -8,6 +8,6 @@ OceanBioME = "a49af516-9db8-4be4-be45-1dad61c5a376"
 Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
 
 [compat]
-OceanBioME = "0.14.0"
-Oceananigans = "0.96"
+OceanBioME = "0.16"
+Oceananigans = "0.101.1, 0.102"
 julia = "1.10"
