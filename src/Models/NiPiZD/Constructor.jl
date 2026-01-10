@@ -106,13 +106,71 @@ end
               palatability_matrix=nothing, assimilation_efficiency_matrix=nothing,
               sinking_tracers=nothing, grid=BoxModelGrid(), open_bottom=true)
 
-Construct a NiPiZD biogeochemistry model type.
+Construct a size-structured NiPiZD model abstract type.
+
+This constructor builds a size-structured plankton model with two plankton functional types:
+phytoplankton (P) and zooplankton (Z), each of which can be specified to have any number of
+size classes (`n_phyto` and `n_zoo`). In addition to plankton, the constructor implements
+idealized detritus (D) and nutrient (N) cycling by default, although more complex N and D
+cycling can also be defined using the `nutrient_dynamics` and `detritus_dynamics` arguments.
+
+During model construction, the size of each plankton determines photosynthetic growth rates,
+nutrient half saturation constants, predation rates, and predator-prey assimilation and
+palatability values. Alternatively, if manually defined predator-prey assimilation and
+palatability values are desired, these can be specified using the `palatability_matrix` and
+`assimilation_efficiency_matrix` arguments.
+
+Note that if non-default `*_dynamics` expressions are passed, the relevant parameter
+containers (`phyto_pft_parameters`, `zoo_pft_parameters`, and/or `bgc_specification`) also
+need to be specified consistently.
+
+The type specification includes a photosynthetic active radiation (PAR) auxiliary field.
 
 `FT` sets the floating point type stored in runtime parameter containers. All float
 parameters are cast exactly once during construction.
 
 If `sinking_tracers` is provided and `grid` is not provided, the default `BoxModelGrid()`
 is used (matching the original Agate behavior).
+
+# Keywords
+- `FT`: floating point type used for runtime parameters (e.g. `Float32`, `Float64`)
+- `n_phyto`: number of phytoplankton in the model
+- `n_zoo`: number of zooplankton in the model
+- `phyto_diameters`: diameter specification (e.g. `AbstractDiameterSpecification`) or a
+    list of values to use (as many as the model expects)
+- `zoo_diameters`: diameter specification (e.g. `AbstractDiameterSpecification`) or a list
+    of values to use (as many as the model expects)
+- `nutrient_dynamics`: expression describing how nutrients change over time, see
+    `Agate.Models.Tracers`
+- `detritus_dynamics`: expression describing how detritus evolves over time, see
+    `Agate.Models.Tracers`
+- `phyto_dynamics`: expression describing how phytoplankton grow, see `Agate.Models.Tracers`
+- `zoo_dynamics`: expression describing how zooplankton grow, see `Agate.Models.Tracers`
+- `phyto_pft_parameters`: phytoplankton PFT parameter container; for default values see
+    `default_phyto_pft_parameters(FT)`
+- `zoo_pft_parameters`: zooplankton PFT parameter container; for default values see
+    `default_zoo_pft_parameters(FT)`
+- `bgc_specification`: biogeochemistry specification (nutrient/detritus coupling etc.); for
+    default values see `default_nipizd_bgc_specification(FT)`
+- `palatability_matrix`: optional palatability matrix passed as an Array; if provided,
+    then any internally computed palatability values are overridden
+- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
+    Array; if provided, then any internally computed assimilation efficiency values are overridden
+- `sinking_tracers`: optional NamedTuple of sinking speeds (passed as positive values) of
+   the form (<tracer name expressed as symbol> = <speed>, ...)
+- `grid`: optional Oceananigans grid object defining the geometry to build the model on, must
+   be passed if `sinking_tracers` is defined, defaults to `BoxModelGrid`
+- `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
+   at the bottom to prevent the tracers leaving the domain, defaults to `true`, which means
+   the bottom is open and the tracers leave (i.e., no slowing of velocity to 0 is applied)
+
+# Example
+```julia
+using Agate.Constructors: NiPiZD
+
+n2p2zd = NiPiZD.construct()
+n2p2zd_model_obj = n2p2zd()
+```
 """
 function construct(;
     FT::Type{<:AbstractFloat}=Float64,
@@ -175,7 +233,11 @@ end
 """
     instantiate(bgc_type; kwargs...)
 
-Instantiate an existing NiPiZD biogeochemistry type.
+A function to instantiate an object of `bgc_type` returned by `NiPiZD.construct()`.
+
+The type specifies the number of phytoplankton and zooplankton in the model and includes
+default parameter values. The instantiate method is used to override the default values
+of any of the model parameters or plankton diameters.
 
 This method re-expands runtime parameters, enabling overrides of diameter
 specifications, PFT parameters, and interaction matrices.
@@ -183,6 +245,54 @@ specifications, PFT parameters, and interaction matrices.
 If `bgc_type` defines sinking velocities and `sinking_tracers` is provided, sinking
 velocity fields are rebuilt using `grid` (defaulting to `BoxModelGrid()`), matching the
 original Agate behavior.
+
+!!! tip
+
+    Changing the parameter values of an existing NiPiZD model type using `instantiate()` is useful in
+    dynamic programming contexts such as `for` loops.
+
+
+# Arguments
+- `bgc_type`: subtype of Oceananigans.Biogeochemistry returned by `NiPiZD.construct()`
+   with a specified number of phytoplankton and zooplankton
+
+# Keywords
+- `FT`: floating point type used for rebuilt runtime parameters (e.g. `Float32`, `Float64`)
+- `phyto_diameters`: diameter specification (e.g. `AbstractDiameterSpecification`) or a list of
+    values to use (as many as the model expects). If `nothing`, uses the phytoplankton
+    diameters encoded in `bgc_type`.
+- `zoo_diameters`: diameter specification (e.g. `AbstractDiameterSpecification`) or a list of
+    values to use (as many as the model expects). If `nothing`, uses the zooplankton
+    diameters encoded in `bgc_type`.
+- `phyto_pft_parameters`: phytoplankton PFT parameter container; if `nothing`, defaults to
+    `default_phyto_pft_parameters(FT)`
+- `zoo_pft_parameters`: zooplankton PFT parameter container; if `nothing`, defaults to
+    `default_zoo_pft_parameters(FT)`
+- `bgc_specification`: biogeochemistry specification; if `nothing`, a specification is
+    reconstructed from the defaults in `bgc_type()`
+- `palatability_matrix`: optional palatability matrix passed as an Array; if provided,
+    overrides any internally computed palatability values
+- `assimilation_efficiency_matrix`: optional assimilation efficiency matrix passed as an
+    Array; if provided, overrides any internally computed assimilation efficiency values
+- `sinking_tracers`: optional NamedTuple of sinking speeds (passed as positive values) of
+   the form (<tracer name expressed as symbol> = <speed>, ...)
+- `grid`: optional Oceananigans grid object defining the geometry to build sinking velocity
+   fields on (used when `sinking_tracers` is provided), defaults to `BoxModelGrid`
+- `open_bottom`: indicates whether the sinking velocity should be smoothly brought to zero
+   at the bottom to prevent the tracers leaving the domain, defaults to `true`, which means
+   the bottom is open and the tracers leave (i.e., no slowing of velocity to 0 is applied)
+
+# Example
+```julia
+using Agate.Constructors: NiPiZD
+
+n2p2zd = NiPiZD.construct()
+
+# change some parameter values
+phyto_args = deepcopy(NiPiZD.DEFAULT_PHYTO_ARGS)
+phyto_args["allometry"]["maximum_growth_rate"]["a"] = 2
+n2p2zd_model_obj = NiPiZD.instantiate(n2p2zd; phyto_args=phyto_args)
+```
 """
 function instantiate(
     bgc_type;
