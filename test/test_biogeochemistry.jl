@@ -40,7 +40,7 @@ using Oceananigans.Biogeochemistry:
         auxiliary_fields = (:PAR,)
 
         LV = create_bgc_struct(:LV, parameters)
-        add_bgc_methods!(LV, tracers; auxiliary_fields=auxiliary_fields)
+        add_bgc_methods!(LV, tracers, parameters; auxiliary_fields=auxiliary_fields)
 
         model1 = LV()
         model2 = LV(; parameters=LVParameters{Float64}(1.0, 1.0, 2.0, 2.0))
