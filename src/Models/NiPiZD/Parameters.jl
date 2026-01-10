@@ -160,13 +160,13 @@ end
 
 # Convenience default parameter sets (used by tests and constructors)
 
-"""Default phytoplankton PFT parameter set (values chosen to match the original Agate baseline)."""
+"""Default phytoplankton PFT parameter set"""
 function default_phyto_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
     return PhytoPFTParameters{FT}(
-        FT(2 / day),
-        FT(-0.15),
-        FT(0.17),
-        FT(0.27),
+        FT(2 / day),  #maximum_growth_rate_a
+        FT(-0.15), #maximum_growth_rate_n
+        FT(0.17), #nutrient_half_saturation_a
+        FT(0.27), #nutrient_half_saturation_b
         FT(8e-7 / second),
         FT(0.1953 / day),  #alpha
         zero(FT),   # photosynthetic_slope
@@ -180,7 +180,7 @@ function default_phyto_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
     )
 end
 
-"""Default phytoplankton PFT parameter set for Geider-style growth (values chosen to match the original Agate baseline)."""
+"""Default phytoplankton PFT parameter set for Geider-style growth"""
 function default_phyto_geider_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
     return PhytoPFTParameters{FT}(
         FT(2 / day), #maximum_growth_rate_a
@@ -191,29 +191,29 @@ function default_phyto_geider_pft_parameters(::Type{FT}) where {FT<:AbstractFloa
         zero(FT), #alpha
         FT(0.46e-5),  #photosynthetic_slope
         FT(0.1), #chlorophyll_to_carbon_ratio
-        false,
-        true,
-        zero(FT),
-        zero(FT),
-        zero(FT),
-        zero(FT),
+        false,  #can_eat
+        true, #can_be_eaten
+        zero(FT), #optimum_predator_prey_ratio
+        zero(FT), #protection
+        zero(FT), #specificity
+        zero(FT), #assimilation_efficiency
     )
 end
 
-"""Default zooplankton PFT parameter set (values chosen to match the original Agate baseline)."""
+"""Default zooplankton PFT parameter set"""
 function default_zoo_pft_parameters(::Type{FT}) where {FT<:AbstractFloat}
     return ZooPFTParameters{FT}(
-        FT(0.35 / day),
-        FT(0.0),
-        FT(0.05 / day),
-        FT(0.5),
-        FT(0.1 / day),
-        true,
-        false,
-        FT(10),
-        one(FT),
-        FT(0.3),
-        FT(0.32),
+        FT(30.84 / day), #maximum_predation_rate_a
+        FT(-0.16), #maximum_predation_rate_b
+        FT(8e-7 / second), #linear_mortality
+        FT(5.0), #holling_half_saturation
+        FT(1e-6 / second), #quadratic_mortality
+        true, #can_eat
+        false, #can_be_eaten
+        FT(10), #optimum_predator_prey_ratio
+        one(FT), #protection
+        FT(0.3), #specificity
+        FT(0.32), #assimilation_efficiency
     )
 end
 
