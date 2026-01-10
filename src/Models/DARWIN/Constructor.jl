@@ -8,10 +8,10 @@ using OceanBioME
 using OceanBioME: BoxModelGrid, setup_velocity_fields
 using Oceananigans.Units
 
-using Agate.Utils: 
-    define_tracer_functions, 
-    AbstractDiameterSpecification, 
-    DiameterListSpecification, 
+using Agate.Utils:
+    define_tracer_functions,
+    AbstractDiameterSpecification,
+    DiameterListSpecification,
     DiameterRangeSpecification
 
 using Agate.Models.DARWIN.Parameters:

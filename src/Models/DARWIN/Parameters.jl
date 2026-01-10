@@ -231,7 +231,7 @@ end
         FT(p.half_saturation_DIN_a),
         FT(p.half_saturation_DIN_b),
         FT(p.half_saturation_PO4_a),
-        FT(p.half_saturation_PO4_a),        
+        FT(p.half_saturation_PO4_a),
         FT(p.linear_mortality),
         FT(p.alpha),
         FT(p.photosynthetic_slope),
