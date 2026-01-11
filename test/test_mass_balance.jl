@@ -9,11 +9,10 @@ const year = years = 365day
 
 @testset "mass_balance" begin
     @testset "NiPiZD box model" begin
-        bgc_type = Agate.Models.NiPiZD.construct()
-        model = Agate.Models.NiPiZD.instantiate(bgc_type)
+        bgc_instance = Agate.Models.construct(Agate.Models.NiPiZDFactory(); FT=Float64)()
 
         bgc_model = Biogeochemistry(
-            model; light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
+            bgc_instance; light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
         )
         box_model = BoxModel(; biogeochemistry=bgc_model)
         set!(box_model; N=7, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, D=0.0)
@@ -38,9 +37,7 @@ const year = years = 365day
     end
 
     @testset "DARWIN model" begin
-        if isdefined(Agate.Models, :DARWIN)
-            model = Agate.Models.DARWIN.construct()
-            bgc_instance = model()
+                    bgc_instance = Agate.Models.construct(Agate.Models.DarwinFactory(); FT=Float64)()
 
             bgc_model = Biogeochemistry(
                 bgc_instance; light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
@@ -75,13 +72,13 @@ const year = years = 365day
             function estimate_nitrogen_mass(box_model)
                 return box_model.fields.DIN.data[1, 1, 1] +
                        box_model.fields.P1.data[1, 1, 1] *
-                       bgc_instance.parameters.nitrogen_to_carbon +
+                       bgc_instance.parameters.data.nitrogen_to_carbon +
                        box_model.fields.P2.data[1, 1, 1] *
-                       bgc_instance.parameters.nitrogen_to_carbon +
+                       bgc_instance.parameters.data.nitrogen_to_carbon +
                        box_model.fields.Z1.data[1, 1, 1] *
-                       bgc_instance.parameters.nitrogen_to_carbon +
+                       bgc_instance.parameters.data.nitrogen_to_carbon +
                        box_model.fields.Z2.data[1, 1, 1] *
-                       bgc_instance.parameters.nitrogen_to_carbon +
+                       bgc_instance.parameters.data.nitrogen_to_carbon +
                        box_model.fields.PON.data[1, 1, 1] +
                        box_model.fields.DON.data[1, 1, 1]
             end
@@ -89,13 +86,13 @@ const year = years = 365day
             function estimate_phosphorus_mass(box_model)
                 return box_model.fields.PO4.data[1, 1, 1] +
                        box_model.fields.P1.data[1, 1, 1] *
-                       bgc_instance.parameters.phosphorus_to_carbon +
+                       bgc_instance.parameters.data.phosphorus_to_carbon +
                        box_model.fields.P2.data[1, 1, 1] *
-                       bgc_instance.parameters.phosphorus_to_carbon +
+                       bgc_instance.parameters.data.phosphorus_to_carbon +
                        box_model.fields.Z1.data[1, 1, 1] *
-                       bgc_instance.parameters.phosphorus_to_carbon +
+                       bgc_instance.parameters.data.phosphorus_to_carbon +
                        box_model.fields.Z2.data[1, 1, 1] *
-                       bgc_instance.parameters.phosphorus_to_carbon +
+                       bgc_instance.parameters.data.phosphorus_to_carbon +
                        box_model.fields.POP.data[1, 1, 1] +
                        box_model.fields.DOP.data[1, 1, 1]
             end
@@ -116,8 +113,5 @@ const year = years = 365day
             @test isapprox(initial_carbon, final_carbon, rtol=rtol)
             @test isapprox(initial_nitrogen, final_nitrogen, rtol=rtol)
             @test isapprox(initial_phosphorus, final_phosphorus, rtol=rtol)
-        else
-            @test true
-        end
     end
 end

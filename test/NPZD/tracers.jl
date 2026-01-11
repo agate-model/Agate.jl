@@ -1,34 +1,23 @@
 using Agate
+using Agate.Utils: ModelParameters
 using Oceananigans.Units
 
-"""Runtime parameters for the test NPZD model."""
-struct NPZDParameters{FT<:AbstractFloat}
-    μ₀::FT
-    kₙ::FT
-    lᵖⁿ::FT
-    lᶻⁿ::FT
-    lᵖᵈ::FT
-    gₘₐₓ::FT
-    kₚ::FT
-    β::FT
-    lᶻᵈ::FT
-    rᵈⁿ::FT
-    α::FT
-end
+# Test NPZD model used to validate that Agate-generated tracer functions integrate
+# consistently with OceanBioME's BoxModel infrastructure.
 
-parameters = NPZDParameters{Float64}(
-    0.6989 / day,
-    2.3868,
-    0.066 / day,
-    0.0102 / day,
-    0.0101 / day,
-    2.1522 / day,
-    0.5573,
-    0.9116,
-    0.3395 / day,
-    0.1213 / day,
-    0.1953 / day,
-)
+parameters = ModelParameters((;
+    μ₀ = 0.6989 / day,
+    kₙ = 2.3868,
+    lᵖⁿ = 0.066 / day,
+    lᶻⁿ = 0.0102 / day,
+    lᵖᵈ = 0.0101 / day,
+    gₘₐₓ = 2.1522 / day,
+    kₚ = 0.5573,
+    β  = 0.9116,
+    lᶻᵈ = 0.3395 / day,
+    rᵈⁿ = 0.1213 / day,
+    α  = 0.1953 / day,
+))
 
 tracers = (
     N=:(
@@ -51,6 +40,6 @@ tracers = (
     ),
 )
 
-NPZD = define_tracer_functions(
+AgateNPZD = define_tracer_functions(
     parameters, tracers; helper_functions=joinpath(@__DIR__, "functions.jl")
 )

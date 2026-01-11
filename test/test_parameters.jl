@@ -1,55 +1,53 @@
 using Agate
+using Test
 
-using Oceananigans.Units
+using Agate.Models: construct, NiPiZDFactory, DarwinFactory
+using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 
-using Agate.Models.NiPiZD.Parameters: create_nipizd_parameters
+@testset "Parameters and casting" begin
+    @testset "NiPiZD parameter shapes and eltypes" begin
+        bgc = construct(NiPiZDFactory(); FT=Float32)()
+        p = bgc.parameters.data
 
-using Agate.Utils: DiameterListSpecification, DiameterRangeSpecification
+        # Community is 2 zoo + 2 phyto by default.
+        @test length(p.diameters) == 4
 
-@testset "Models.Parameters" begin
-    @testset "FT enforcement and shapes" begin
-        p = create_nipizd_parameters(
-            Float32;
-            n_phyto=2,
-            n_zoo=2,
-            phyto_diameters=DiameterRangeSpecification(2, 10, :log_splitting),
-            zoo_diameters=DiameterRangeSpecification(20, 100, :linear_splitting),
-        )
-
-        @test p.n_P == 2
-        @test p.n_Z == 2
+        # Registry-driven allocation must include the canonical rate parameters.
+        @test hasproperty(p, :maximum_growth_rate)
+        @test hasproperty(p, :nutrient_half_saturation)
+        @test hasproperty(p, :maximum_predation_rate)
 
         @test eltype(p.diameters) == Float32
         @test eltype(p.maximum_growth_rate) == Float32
-        @test eltype(p.palatability_matrix) == Float32
+        @test eltype(p.maximum_predation_rate) == Float32
 
-        @test length(p.diameters) == 4
-        @test length(p.maximum_growth_rate) == 4
+        # Interaction matrices must exist for default predation dynamics.
+        @test hasproperty(p, :palatability_matrix)
+        @test hasproperty(p, :assimilation_efficiency_matrix)
+        @test eltype(p.palatability_matrix) == Float32
         @test size(p.palatability_matrix) == (4, 4)
         @test size(p.assimilation_efficiency_matrix) == (4, 4)
+
+        # Tracer ordering deterministic.
+        @test required_biogeochemical_tracers(bgc) == (:N, :D, :Z1, :Z2, :P1, :P2)
     end
 
-    @testset "Explicit diameter lists" begin
-        phyto = DiameterListSpecification([2.0, 5.0])
-        zoo = DiameterListSpecification([20.0, 100.0])
+    @testset "DARWIN parameter shapes and eltypes" begin
+        bgc = construct(DarwinFactory(); FT=Float32)()
+        p = bgc.parameters.data
 
-        p = create_nipizd_parameters(
-            Float32; n_phyto=2, n_zoo=2, phyto_diameters=phyto, zoo_diameters=zoo
-        )
+        # Default community is 2 zoo + 2 phyto.
+        @test length(p.diameters) == 4
+        @test eltype(p.diameters) == Float32
 
-        @test p.diameters == Float32[20.0, 100.0, 2.0, 5.0]
-    end
+        # Stoichiometry scalars come from BiogeochemistrySpecification.
+        @test hasproperty(p, :nitrogen_to_carbon)
+        @test hasproperty(p, :phosphorus_to_carbon)
+        @test p.nitrogen_to_carbon isa Float32
+        @test p.phosphorus_to_carbon isa Float32
 
-    @testset "Units propagate through construction" begin
-        p = create_nipizd_parameters(
-            Float64;
-            n_phyto=1,
-            n_zoo=1,
-            phyto_diameters=DiameterListSpecification([2.0]),
-            zoo_diameters=DiameterListSpecification([50.0]),
-        )
-
-        @test isfinite(p.maximum_growth_rate[2])
-        @test p.maximum_growth_rate[2] > 0
+        # Interaction matrices exist for predation terms.
+        @test hasproperty(p, :palatability_matrix)
+        @test size(p.palatability_matrix) == (4, 4)
     end
 end

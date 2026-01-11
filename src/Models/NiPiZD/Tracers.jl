@@ -8,6 +8,8 @@ All generated expressions are allocation-free and suitable for GPU compilation.
 
 module Tracers
 
+using Agate.Utils: @register_dynamics
+
 export phytoplankton_default,
     phytoplankton_geider_light,
     zooplankton_default,
@@ -252,5 +254,71 @@ function zooplankton_default(
 
     return :(($gain_sum) - $linear - $quadratic)
 end
+
+# -----------------------------------------------------------------------------
+# Dynamics parameter registry
+# -----------------------------------------------------------------------------
+
+@register_dynamics nutrient_default (
+    :linear_mortality,
+    :quadratic_mortality,
+    :maximum_growth_rate,
+    :nutrient_half_saturation,
+    :alpha,
+    :detritus_remineralization,
+    :mortality_export_fraction,
+)
+
+@register_dynamics nutrient_geider_light (
+    :linear_mortality,
+    :quadratic_mortality,
+    :maximum_growth_rate,
+    :nutrient_half_saturation,
+    :photosynthetic_slope,
+    :chlorophyll_to_carbon_ratio,
+    :detritus_remineralization,
+    :mortality_export_fraction,
+)
+
+@register_dynamics detritus_default (
+    :linear_mortality,
+    :quadratic_mortality,
+    :maximum_predation_rate,
+    :holling_half_saturation,
+    :palatability_matrix,
+    :assimilation_efficiency_matrix,
+    :detritus_remineralization,
+    :mortality_export_fraction,
+)
+
+@register_dynamics phytoplankton_default (
+    :maximum_growth_rate,
+    :nutrient_half_saturation,
+    :alpha,
+    :maximum_predation_rate,
+    :holling_half_saturation,
+    :palatability_matrix,
+    :linear_mortality,
+)
+
+@register_dynamics phytoplankton_geider_light (
+    :maximum_growth_rate,
+    :nutrient_half_saturation,
+    :photosynthetic_slope,
+    :chlorophyll_to_carbon_ratio,
+    :maximum_predation_rate,
+    :holling_half_saturation,
+    :palatability_matrix,
+    :linear_mortality,
+)
+
+@register_dynamics zooplankton_default (
+    :assimilation_efficiency_matrix,
+    :maximum_predation_rate,
+    :holling_half_saturation,
+    :palatability_matrix,
+    :linear_mortality,
+    :quadratic_mortality,
+)
 
 end # module

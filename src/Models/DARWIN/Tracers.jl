@@ -1,5 +1,7 @@
 module Tracers
 
+using Agate.Utils: @register_dynamics
+
 export DIC_geider_light,
     DIN_geider_light,
     PO4_geider_light,
@@ -405,5 +407,132 @@ function zooplankton_default(plankton_syms, plankton_sym, plankton_idx)
     quad = :(quadratic_loss($plankton_sym, quadratic_mortality[$plankton_idx]))
     return :(($gain) - $lin - $quad)
 end
+
+# -----------------------------------------------------------------------------
+# Parameter registry
+# -----------------------------------------------------------------------------
+
+@register_dynamics DIC_geider_light (
+    :DOC_remineralization,
+    :POC_remineralization,
+    :maximum_growth_rate,
+    :half_saturation_DIN,
+    :half_saturation_PO4,
+    :photosynthetic_slope,
+    :chlorophyll_to_carbon_ratio,
+)
+
+@register_dynamics DIN_geider_light (
+    :DON_remineralization,
+    :PON_remineralization,
+    :nitrogen_to_carbon,
+    :maximum_growth_rate,
+    :half_saturation_DIN,
+    :half_saturation_PO4,
+    :photosynthetic_slope,
+    :chlorophyll_to_carbon_ratio,
+)
+
+@register_dynamics PO4_geider_light (
+    :DOP_remineralization,
+    :POP_remineralization,
+    :phosphorus_to_carbon,
+    :maximum_growth_rate,
+    :half_saturation_DIN,
+    :half_saturation_PO4,
+    :photosynthetic_slope,
+    :chlorophyll_to_carbon_ratio,
+)
+
+@register_dynamics DOC_default (
+    :DOM_POM_fractionation,
+    :DOC_remineralization,
+    :linear_mortality,
+    :quadratic_mortality,
+    :maximum_predation_rate,
+    :holling_half_saturation,
+    :palatability_matrix,
+    :assimilation_efficiency_matrix,
+)
+
+@register_dynamics POC_default (
+    :DOM_POM_fractionation,
+    :POC_remineralization,
+    :linear_mortality,
+    :quadratic_mortality,
+    :maximum_predation_rate,
+    :holling_half_saturation,
+    :palatability_matrix,
+    :assimilation_efficiency_matrix,
+)
+
+@register_dynamics DON_default (
+    :DOM_POM_fractionation,
+    :DON_remineralization,
+    :nitrogen_to_carbon,
+    :linear_mortality,
+    :quadratic_mortality,
+    :maximum_predation_rate,
+    :holling_half_saturation,
+    :palatability_matrix,
+    :assimilation_efficiency_matrix,
+)
+
+@register_dynamics PON_default (
+    :DOM_POM_fractionation,
+    :PON_remineralization,
+    :nitrogen_to_carbon,
+    :linear_mortality,
+    :quadratic_mortality,
+    :maximum_predation_rate,
+    :holling_half_saturation,
+    :palatability_matrix,
+    :assimilation_efficiency_matrix,
+)
+
+@register_dynamics DOP_default (
+    :DOM_POM_fractionation,
+    :DOP_remineralization,
+    :phosphorus_to_carbon,
+    :linear_mortality,
+    :quadratic_mortality,
+    :maximum_predation_rate,
+    :holling_half_saturation,
+    :palatability_matrix,
+    :assimilation_efficiency_matrix,
+)
+
+@register_dynamics POP_default (
+    :DOM_POM_fractionation,
+    :POP_remineralization,
+    :phosphorus_to_carbon,
+    :linear_mortality,
+    :quadratic_mortality,
+    :maximum_predation_rate,
+    :holling_half_saturation,
+    :palatability_matrix,
+    :assimilation_efficiency_matrix,
+)
+
+@register_dynamics phytoplankton_growth_two_nutrients_geider_light (
+    :maximum_growth_rate,
+    :half_saturation_DIN,
+    :half_saturation_PO4,
+    :photosynthetic_slope,
+    :chlorophyll_to_carbon_ratio,
+    :maximum_predation_rate,
+    :holling_half_saturation,
+    :palatability_matrix,
+    :linear_mortality,
+)
+
+@register_dynamics zooplankton_default (
+    :assimilation_efficiency_matrix,
+    :maximum_predation_rate,
+    :holling_half_saturation,
+    :palatability_matrix,
+    :linear_mortality,
+    :quadratic_mortality,
+)
 
 end # module
