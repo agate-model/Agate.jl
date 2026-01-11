@@ -1,7 +1,8 @@
 push!(LOAD_PATH, "../src/")
 using Documenter, Literate
 using Agate
-using Agate.Models: construct, NiPiZDFactory, DarwinFactory
+using Agate.Constructor: construct
+using Agate.Models: NiPiZDFactory, DarwinFactory
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -61,7 +62,7 @@ makedocs(;
         "Models" => model_pages,
         "Library" => "library.md",
         "Examples" => example_pages,
-        "API" => "api.md",
+        "API" => ["Constructor API" => "api_constructor.md", "Reference" => "api.md"],
     ],
 )
 

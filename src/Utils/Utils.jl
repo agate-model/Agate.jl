@@ -12,6 +12,11 @@ module Utils
 
 using Adapt
 
+include("Specifications.jl")
+
+using .Specifications: PFTSpecification, pft_get, pft_has, cast_pft,
+    BiogeochemistrySpecification, cast_spec, ModelSpecification
+
 using Agate.Library.Allometry: allometric_scaling_power
 
 using Agate.Library.Mortality
@@ -37,9 +42,6 @@ export DiameterRangeSpecification
 
 # Model-agnostic construction/runtime containers
 export AbstractBGCFactory
-export PFTParameters, pft_get, pft_has, cast_pft
-export BiogeochemistrySpecification, cast_spec
-export ModelParameters
 
 # Option 1 interactions API
 export AbstractInteractions
@@ -96,70 +98,6 @@ struct DiameterRangeSpecification{T} <: AbstractDiameterSpecification
 end
 
 # -----------------------------------------------------------------------------
-# Flexible parameter containers
-# -----------------------------------------------------------------------------
-
-"""Flexible PFT parameter container.
-
-Stores arbitrary fields in a `NamedTuple`.
-"""
-struct PFTParameters
-    data::Any
-end
-
-# Keyword constructor (does not overwrite the default positional constructor)
-PFTParameters(; kwargs...) = PFTParameters((; kwargs...))
-@inline pft_has(pft::PFTParameters, key::Symbol) = hasproperty(pft.data, key)
-
-@inline function pft_get(pft::PFTParameters, key::Symbol, default=nothing)
-    return pft_has(pft, key) ? getproperty(pft.data, key) : default
-end
-
-"""Cast numeric entries in `pft` to `FT` (recursively for arrays and NamedTuples)."""
-function cast_pft(::Type{FT}, pft::PFTParameters) where {FT<:AbstractFloat}
-    return PFTParameters(_cast_container(FT, pft.data))
-end
-
-"""Flexible biogeochemistry specification container."""
-struct BiogeochemistrySpecification
-    data::Any
-end
-
-# Keyword constructor (does not overwrite the default positional constructor)
-BiogeochemistrySpecification(; kwargs...) = BiogeochemistrySpecification((; kwargs...))
-"""Cast numeric entries in `spec` to `FT` (recursively for arrays and NamedTuples)."""
-function cast_spec(::Type{FT}, spec::BiogeochemistrySpecification) where {FT<:AbstractFloat}
-    return BiogeochemistrySpecification(_cast_container(FT, spec.data))
-end
-
-"""Runtime parameter container used by all models.
-
-Stores all parameters in `data::NamedTuple` and is `Adapt`-compatible.
-"""
-struct ModelParameters{NT<:NamedTuple}
-    data::NT
-end
-
-Adapt.@adapt_structure ModelParameters
-
-# Internal: cast helpers
-@inline _cast_number(::Type{FT}, x) where {FT<:AbstractFloat} = FT(x)
-
-function _cast_container(::Type{FT}, x) where {FT<:AbstractFloat}
-    if x isa Bool
-        return x
-    elseif x isa Number
-        return _cast_number(FT, x)
-    elseif x isa AbstractArray
-        return x isa AbstractArray{Bool} ? x : FT.(x)
-    elseif x isa NamedTuple
-        return map(v -> _cast_container(FT, v), x)
-    else
-        return x
-    end
-end
-
-# -----------------------------------------------------------------------------
 # Dynamics parameter registry
 # -----------------------------------------------------------------------------
 
@@ -209,7 +147,7 @@ struct InteractionContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
     FT::Type{FT}
     n_total::Int
     diameters::VT
-    pfts::Vector{PFTParameters}
+    pfts::Vector{PFTSpecification}
     plankton_symbols::Vector{Symbol}
     group_symbols::Vector{Symbol}
     group_local_index::Vector{Int}
@@ -323,8 +261,8 @@ function validate_plankton_inputs(plankton_dynamics, plankton_args)
             push!(issues, "group $(k): must provide `args` or `pft`")
         else
             pft = hasproperty(spec, :pft) ? getproperty(spec, :pft) : getproperty(spec, :args)
-            ok = pft isa PFTParameters || pft isa NamedTuple
-            ok || push!(issues, "group $(k): `args`/`pft` must be PFTParameters or NamedTuple")
+            ok = pft isa PFTSpecification || pft isa NamedTuple
+            ok || push!(issues, "group $(k): `args`/`pft` must be PFTSpecification or NamedTuple")
         end
     end
 
@@ -346,7 +284,7 @@ function parse_community(
     plankton_symbols = Symbol[]
     group_of = Symbol[]
     local_idx = Int[]
-    pfts = PFTParameters[]
+    pfts = PFTSpecification[]
     diameters = FT[]
 
     for g in group_symbols
@@ -355,7 +293,7 @@ function parse_community(
         n = dspec isa DiameterListSpecification ? length(dspec.diameters) : getproperty(spec, :n)
         ds = param_compute_diameters(FT, n, dspec)
         pft_raw = hasproperty(spec, :pft) ? getproperty(spec, :pft) : getproperty(spec, :args)
-        pft = pft_raw isa PFTParameters ? pft_raw : PFTParameters(pft_raw)
+        pft = pft_raw isa PFTSpecification ? pft_raw : PFTSpecification(pft_raw)
         pft = cast_pft(FT, pft)
 
         for i in 1:n
@@ -422,14 +360,14 @@ const _SAFE_PFT_DEFAULTS = Set([
     :half_saturation_PO4,
 ])
 
-@inline function _pft_can_supply(pft::PFTParameters, key::Symbol)
+@inline function _pft_can_supply(pft::PFTSpecification, key::Symbol)
     pft_has(pft, key) && return true
     a = Symbol(string(key), "_a")
     b = Symbol(string(key), "_b")
     return pft_has(pft, a) && pft_has(pft, b)
 end
 
-@inline function _pft_value(::Type{FT}, pft::PFTParameters, diameter, key::Symbol) where {FT<:AbstractFloat}
+@inline function _pft_value(::Type{FT}, pft::PFTSpecification, diameter, key::Symbol) where {FT<:AbstractFloat}
     if pft_has(pft, key)
         v = pft_get(pft, key)
         return v isa Bool ? v : FT(v)
@@ -522,7 +460,7 @@ function create_parameters(
         push!(data_pairs, k => M)
     end
 
-    return ModelParameters((; data_pairs...))
+    return ModelSpecification((; data_pairs...))
 end
 
 # -----------------------------------------------------------------------------
@@ -923,6 +861,61 @@ function box_model_mass_balance(
     relative_drift = map((a, b) -> a == 0 ? (b - a) : (b - a) / a, initial, final)
 
     return (; initial, final, drift, relative_drift)
+end
+
+
+# -----------------------------------------------------------------------------
+# Namespaces / submodules
+# -----------------------------------------------------------------------------
+
+"""Namespace for community parsing and interaction-matrix utilities."""
+module EcosystemInteractions
+    import ..Utils:
+        # diameter specifications / community layout
+        AbstractDiameterSpecification,
+        DiameterListSpecification,
+        DiameterRangeSpecification,
+        diameter_specification,
+        param_compute_diameters,
+        validate_plankton_inputs,
+        parse_community,
+        # interactions
+        AbstractInteractions,
+        InteractionMatrices,
+        InteractionDynamics,
+        InteractionContext,
+        normalize_interactions
+
+    export AbstractDiameterSpecification, DiameterListSpecification, DiameterRangeSpecification
+    export diameter_specification, param_compute_diameters
+    export validate_plankton_inputs, parse_community
+
+    export AbstractInteractions, InteractionMatrices, InteractionDynamics, InteractionContext
+    export normalize_interactions
+end
+
+"""Namespace for runtime generation of tracer expressions and BGC types."""
+module Generator
+    import ..Utils:
+        @register_dynamics,
+        required_parameters,
+        build_tracer_expressions,
+        create_parameters,
+        expression_check,
+        create_bgc_struct,
+        add_bgc_methods!,
+        define_tracer_functions
+
+    export @register_dynamics, required_parameters
+    export build_tracer_expressions, create_parameters
+    export expression_check
+    export create_bgc_struct, add_bgc_methods!, define_tracer_functions
+end
+
+"""Namespace for model diagnostics (e.g. box-model mass balance checks)."""
+module Diagnostics
+    import ..Utils: box_model_budget, box_model_mass_balance
+    export box_model_budget, box_model_mass_balance
 end
 
 

@@ -1,7 +1,7 @@
 ### [Agate.jl NiPiZD model](@id NiPiZD)
 
 Agate's NiPiZD model is configured through a **factory** (`NiPiZDFactory`) and constructed via
-`Agate.Models.construct`.
+`Agate.Constructor.construct`.
 
 At a high level:
 
@@ -16,5 +16,5 @@ component swapping and parameter overrides.
 
 ```@docs
 Agate.Models.NiPiZDFactory
-Agate.Models.construct
+Agate.Constructor.construct
 ```

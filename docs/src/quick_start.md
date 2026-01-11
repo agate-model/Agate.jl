@@ -9,7 +9,8 @@
 ```@example quickstart
 
 using Agate
-using Agate.Models: construct, NiPiZDFactory
+using Agate.Constructor: construct
+using Agate.Models: NiPiZDFactory
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry

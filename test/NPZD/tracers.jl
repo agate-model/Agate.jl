@@ -1,11 +1,11 @@
 using Agate
-using Agate.Utils: ModelParameters
+using Agate.Constructor: ModelSpecification
 using Oceananigans.Units
 
 # Test NPZD model used to validate that Agate-generated tracer functions integrate
 # consistently with OceanBioME's BoxModel infrastructure.
 
-parameters = ModelParameters((;
+parameters = ModelSpecification((;
     μ₀ = 0.6989 / day,
     kₙ = 2.3868,
     lᵖⁿ = 0.066 / day,

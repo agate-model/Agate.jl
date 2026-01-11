@@ -44,12 +44,10 @@ end
 include("NiPiZD/NiPiZD.jl")
 include("DARWIN/DARWIN.jl")
 
-include("construct.jl")
 
 using .NiPiZD: NiPiZDFactory
 using .DARWIN: DarwinFactory
 
-export construct
 export NiPiZDFactory
 export DarwinFactory
 

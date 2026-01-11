@@ -1,7 +1,7 @@
 ### [Agate.jl DARWIN model](@id DARWIN)
 
 Agate's DARWIN-like model is configured through a **factory** (`DarwinFactory`) and constructed via
-`Agate.Models.construct`.
+`Agate.Constructor.construct`.
 
 The factory-based API is consistent across models:
 
@@ -15,5 +15,5 @@ The **paper/GPU** scripts show an end-to-end example of running a DARWIN configu
 
 ```@docs
 Agate.Models.DarwinFactory
-Agate.Models.construct
+Agate.Constructor.construct
 ```

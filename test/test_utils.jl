@@ -1,7 +1,8 @@
 using Agate
 using Test
 
-using Agate.Utils: ModelParameters, define_tracer_functions, expression_check
+using Agate.Constructor: ModelSpecification
+using Agate.Utils: define_tracer_functions, expression_check
 
 using OceanBioME: BoxModelGrid, setup_velocity_fields
 using Oceananigans.Units
@@ -21,8 +22,8 @@ using Oceananigans.Biogeochemistry:
         @test expression_check(allowed, f_expr) === nothing
     end
 
-    @testset "define_tracer_functions with ModelParameters" begin
-        parameters = ModelParameters((α = 2 / 3, β = 4 / 3, δ = 1.0, γ = 1.0))
+    @testset "define_tracer_functions with ModelSpecification" begin
+        parameters = ModelSpecification((α = 2 / 3, β = 4 / 3, δ = 1.0, γ = 1.0))
         tracers = (R = :(α * R - β * R * F), F = :(-γ * F + δ * R * F))
 
         bgc_type = define_tracer_functions(parameters, tracers; auxiliary_fields=())
@@ -39,7 +40,7 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "Optional sinking velocities" begin
-        parameters = ModelParameters((k = 1.0,))
+        parameters = ModelSpecification((k = 1.0,))
         tracers = (C = :(-k * C),)
 
         grid = BoxModelGrid()

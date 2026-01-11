@@ -13,8 +13,10 @@
 # The same pattern applies to all factories (e.g., [`DarwinFactory`](@ref)).
 
 using Agate
-using Agate.Models: construct, NiPiZDFactory
-using Agate.Utils: PFTParameters, BiogeochemistrySpecification, parse_community
+using Agate.Constructor: construct
+using Agate.Models: NiPiZDFactory
+using Agate.Constructor: PFTSpecification, BiogeochemistrySpecification, patch, update_group
+using Agate.Utils: parse_community
 using Agate.Library.Light
 
 using OceanBioME
@@ -22,7 +24,6 @@ using OceanBioME: Biogeochemistry
 
 using Oceananigans
 using Oceananigans.Units
-using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 
 using CairoMakie
 
@@ -39,7 +40,6 @@ factory = NiPiZDFactory()
 bgc_type_default = construct(factory; FT=Float64)
 bgc_default = bgc_type_default()
 
-tracers_default = required_biogeochemical_tracers(bgc_default)
 
 # ## 2. Pull defaults and override community structure
 
@@ -63,28 +63,21 @@ biogeochem_args = Agate.Models.default_biogeochem_args(factory, Float64)
 # - reduce zooplankton to 1 size class at a fixed diameter
 # - increase phytoplankton to 3 size classes with log-spaced diameters
 
-plankton_args_custom = merge(
-    plankton_args,
-    (
-        Z=(; plankton_args.Z..., n=1, diameters=[60.0]),
-        P=(; plankton_args.P..., n=3, diameters=(1.5, 20.0, :log_splitting)),
-    ),
-)
+plankton_args_custom = update_group(plankton_args, :Z; n=1, diameters=[60.0])
+plankton_args_custom = update_group(plankton_args_custom, :P; n=3, diameters=(1.5, 20.0, :log_splitting))
 
 # ## 3. Override parameter values
 
-# PFT parameters are held in `PFTParameters`, which stores a `NamedTuple` internally.
+# PFT parameters are held in `PFTSpecification`, which stores a `NamedTuple` internally.
 # You can create an overridden copy using keyword splatting.
 
 phyto_pft = plankton_args_custom.P.pft
-phyto_pft_fast = PFTParameters(; phyto_pft.data..., maximum_growth_rate_a=3.0 / day)
+phyto_pft_fast = patch(phyto_pft; maximum_growth_rate_a=3.0 / day)
 
-plankton_args_custom = merge(plankton_args_custom, (P=(; plankton_args_custom.P..., pft=phyto_pft_fast),))
+plankton_args_custom = update_group(plankton_args_custom, :P; pft=phyto_pft_fast)
 
 # The non-plankton specification is similarly stored in `BiogeochemistrySpecification`.
-biogeochem_args_fast = BiogeochemistrySpecification(
-    ; biogeochem_args.data..., detritus_remineralization=0.18 / day
-)
+biogeochem_args_fast = patch(biogeochem_args; detritus_remineralization=0.18 / day)
 
 # ## 4. Swap components (dynamics)
 
@@ -145,7 +138,6 @@ bgc_type_custom = construct(
 )
 
 bgc_custom = bgc_type_custom()
-tracers_custom = required_biogeochemical_tracers(bgc_custom)
 
 # ## 7. Run a short box model simulation
 

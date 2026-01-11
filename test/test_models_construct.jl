@@ -1,8 +1,9 @@
 using Agate
 using Test
 
-using Agate.Models: construct, NiPiZDFactory, DarwinFactory
-using Agate.Utils: pft_get
+using Agate.Constructor: construct
+using Agate.Models: NiPiZDFactory, DarwinFactory
+using Agate.Constructor: pft_get
 
 using Oceananigans.Units
 using Oceananigans.Fields: ZeroField
@@ -12,7 +13,7 @@ using Oceananigans.Biogeochemistry:
 
 using Adapt
 
-@testset "Agate.Models.construct" begin
+@testset "Agate.Constructor.construct" begin
     @testset "NiPiZD defaults" begin
         bgc_type = construct(NiPiZDFactory(); FT=Float32)
         bgc = bgc_type()

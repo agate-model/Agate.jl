@@ -1,7 +1,8 @@
 using Agate
 using Test
 
-using Agate.Models: construct, NiPiZDFactory, DarwinFactory
+using Agate.Constructor: construct
+using Agate.Models: NiPiZDFactory, DarwinFactory
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 
 @testset "Parameters and casting" begin

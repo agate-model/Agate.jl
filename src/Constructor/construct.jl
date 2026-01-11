@@ -1,18 +1,8 @@
-"""Model-agnostic biogeochemistry constructor.
-
-The public entry point is:
-
-    Agate.Models.construct(factory::AbstractBGCFactory; kwargs...) -> bgc_type
-
-`bgc_type()` instantiates the biogeochemistry object with the constructed defaults.
-"""
 
 using OceanBioME: BoxModelGrid, setup_velocity_fields
 
 using Agate.Utils:
     AbstractBGCFactory,
-    BiogeochemistrySpecification,
-    InteractionContext,
     build_tracer_expressions,
     create_parameters,
     define_tracer_functions,
@@ -20,6 +10,12 @@ using Agate.Utils:
     parse_community,
     required_parameters,
     validate_plankton_inputs
+
+using Agate.Models:
+    default_plankton_dynamics,
+    default_plankton_args,
+    default_biogeochem_dynamics,
+    default_biogeochem_args
 
 """Gather required parameter symbols from registered dynamics."""
 function _required_from_dynamics(plankton_dynamics::NamedTuple, biogeochem_dynamics::NamedTuple)
@@ -57,7 +53,14 @@ function _validate_interaction_matrices(mats::NamedTuple, required_mats::Vector{
     return nothing
 end
 
-"""Construct a biogeochemistry model type from a factory and (optional) overrides."""
+"""
+    construct(factory::AbstractBGCFactory; kwargs...) -> Type
+
+Compile a concrete biogeochemistry type from a factory and optional overrides.
+
+The return value is a *type*; instantiate with `bgc = bgc_type()`.
+"""
+
 function construct(
     factory::AbstractBGCFactory;
     FT::Type{<:AbstractFloat}=Float64,
@@ -70,7 +73,8 @@ function construct(
     grid=BoxModelGrid(),
     open_bottom::Bool=true,
 )
-    return _construct_impl(factory, FT, plankton_dynamics, plankton_args, biogeochem_dynamics, biogeochem_args, interactions, sinking_tracers, grid, open_bottom)
+    return _construct_impl(factory, FT, plankton_dynamics, plankton_args, biogeochem_dynamics, biogeochem_args,
+                           interactions, sinking_tracers, grid, open_bottom)
 end
 
 function _construct_impl(
@@ -86,12 +90,11 @@ function _construct_impl(
     open_bottom::Bool,
 )
     Base.@nospecialize factory plankton_dynamics plankton_args biogeochem_dynamics biogeochem_args interactions sinking_tracers grid
+
     # 1) Fill defaults and validate input shapes.
     validate_plankton_inputs(plankton_dynamics, plankton_args)
 
-    if !(biogeochem_dynamics isa NamedTuple)
-        throw(ArgumentError("biogeochem_dynamics must be a NamedTuple"))
-    end
+    biogeochem_dynamics isa NamedTuple || throw(ArgumentError("biogeochem_dynamics must be a NamedTuple"))
 
     # 2) Parse community and normalize interactions.
     ctx = parse_community(
