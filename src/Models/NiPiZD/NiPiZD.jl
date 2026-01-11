@@ -1,7 +1,7 @@
 module NiPiZD
 
 include("Tracers.jl")
-include("Constructor.jl")
+include("Factory.jl")
 
 using .Tracers
 

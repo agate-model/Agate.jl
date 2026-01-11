@@ -1,22 +1,29 @@
-"""NiPiZD defaults expressed as a model-agnostic factory.
+"""DARWIN defaults expressed as a model-agnostic factory.
 
-This file defines `NiPiZDFactory` and the default inputs used by
-`Agate.Models.construct(factory; ...)`.
+This file defines `DarwinFactory` and the default inputs used by
+`Agate.Constructor.construct(factory; ...)`.
 """
 
 using Oceananigans.Units
 
-using Agate.Utils: AbstractBGCFactory, PFTParameters, BiogeochemistrySpecification
+using Agate.Utils: AbstractBGCFactory
+using Agate.Utils.Specifications: PFTSpecification, BiogeochemistrySpecification, pft_get
 using Agate.Utils: DiameterRangeSpecification
-using Agate.Utils: InteractionDynamics
-using Agate.Utils: pft_get
+using Agate.Utils: InteractionDynamics, pft_get
 import Agate.Utils: default_interactions
 
 import Agate.Models: default_plankton_dynamics, default_plankton_args, default_biogeochem_dynamics, default_biogeochem_args
 using .Tracers:
-    nutrient_default,
-    detritus_default,
-    phytoplankton_default,
+    DIC_geider_light,
+    DIN_geider_light,
+    PO4_geider_light,
+    DOC_default,
+    POC_default,
+    DON_default,
+    PON_default,
+    DOP_default,
+    POP_default,
+    phytoplankton_growth_two_nutrients_geider_light,
     zooplankton_default
 
 using Agate.Library.Allometry:
@@ -29,43 +36,40 @@ using Agate.Library.Predation:
     AssimilationPredatorParameters,
     assimilation_efficiency_emergent_binary
 
-"""Factory for the size-structured NiPiZD model."""
-struct NiPiZDFactory <: AbstractBGCFactory end
+"""Factory for the simplified DARWIN-like elemental cycling model."""
+struct DarwinFactory <: AbstractBGCFactory end
 
-"""Default plankton dynamics for NiPiZD.
-
-Returns a `NamedTuple` mapping group prefix => tracer dynamics builder.
-"""
-default_plankton_dynamics(::NiPiZDFactory) = (
+"""Default plankton dynamics for DARWIN."""
+default_plankton_dynamics(::DarwinFactory) = (
     Z = zooplankton_default,
-    P = phytoplankton_default,
+    P = phytoplankton_growth_two_nutrients_geider_light,
 )
 
-"""Default plankton arguments for NiPiZD.
-
-Returns a `NamedTuple` mapping group prefix => group specification.
+"""Default plankton arguments for DARWIN.
 
 Ordering is significant; the default keeps the historical `Z`-then-`P` ordering.
 """
-function default_plankton_args(::NiPiZDFactory, ::Type{FT}) where {FT<:AbstractFloat}
-    phyto_pft = PFTParameters(
+function default_plankton_args(::DarwinFactory, ::Type{FT}) where {FT<:AbstractFloat}
+    phyto_pft = PFTSpecification(
         maximum_growth_rate_a = FT(2 / day),
         maximum_growth_rate_b = FT(-0.15),
-        nutrient_half_saturation_a = FT(0.17),
-        nutrient_half_saturation_b = FT(0.27),
+        half_saturation_DIN_a = FT(0.17),
+        half_saturation_DIN_b = FT(0.27),
+        half_saturation_PO4_a = FT(0.17),
+        half_saturation_PO4_b = FT(0.27),
         linear_mortality = FT(8e-7 / second),
-        alpha = FT(0.1953 / day),
-        photosynthetic_slope = zero(FT),
-        chlorophyll_to_carbon_ratio = zero(FT),
+        photosynthetic_slope = FT(0.46e-5),
+        chlorophyll_to_carbon_ratio = FT(0.1),
         can_eat = false,
         can_be_eaten = true,
         optimum_predator_prey_ratio = zero(FT),
         protection = zero(FT),
         specificity = zero(FT),
         assimilation_efficiency = zero(FT),
+        alpha = zero(FT),
     )
 
-    zoo_pft = PFTParameters(
+    zoo_pft = PFTSpecification(
         maximum_predation_rate_a = FT(30.84 / day),
         maximum_predation_rate_b = FT(-0.16),
         linear_mortality = FT(8e-7 / second),
@@ -85,29 +89,40 @@ function default_plankton_args(::NiPiZDFactory, ::Type{FT}) where {FT<:AbstractF
     )
 end
 
-"""Default non-plankton tracer dynamics for NiPiZD."""
-default_biogeochem_dynamics(::NiPiZDFactory) = (
-    N = nutrient_default,
-    D = detritus_default,
+"""Default non-plankton tracer dynamics for DARWIN."""
+default_biogeochem_dynamics(::DarwinFactory) = (
+    DIC = DIC_geider_light,
+    DIN = DIN_geider_light,
+    PO4 = PO4_geider_light,
+    DOC = DOC_default,
+    POC = POC_default,
+    DON = DON_default,
+    PON = PON_default,
+    DOP = DOP_default,
+    POP = POP_default,
 )
 
-"""Default biogeochemical specification for NiPiZD."""
-function default_biogeochem_args(::NiPiZDFactory, ::Type{FT}) where {FT<:AbstractFloat}
+"""Default biogeochemical specification for DARWIN."""
+function default_biogeochem_args(::DarwinFactory, ::Type{FT}) where {FT<:AbstractFloat}
     return BiogeochemistrySpecification(
-        detritus_remineralization = FT(0.1213 / day),
-        mortality_export_fraction = FT(0.2),
+        POC_remineralization = FT(0.1213 / day),
+        DOC_remineralization = FT(0.1213 / day),
+        PON_remineralization = FT(0.1213 / day),
+        DON_remineralization = FT(0.1213 / day),
+        POP_remineralization = FT(0.1213 / day),
+        DOP_remineralization = FT(0.1213 / day),
+        DOM_POM_fractionation = FT(0.45),
+        nitrogen_to_carbon = FT(0.15),
+        phosphorus_to_carbon = FT(0.009),
     )
 end
 
-"""Default interaction builder for NiPiZD.
-
-Computes palatability and assimilation-efficiency matrices using allometry.
-"""
-function default_interactions(::NiPiZDFactory)
-    return InteractionDynamics(_nipizd_default_interactions)
+"""Default interaction builder for DARWIN."""
+function default_interactions(::DarwinFactory)
+    return InteractionDynamics(_darwin_default_interactions)
 end
 
-function _nipizd_default_interactions(ctx, args=NamedTuple())
+function _darwin_default_interactions(ctx, args=NamedTuple())
     FT = ctx.FT
     n = ctx.n_total
     diameters = ctx.diameters
