@@ -664,6 +664,13 @@ end
     return bgc_type isa UnionAll ? bgc_type : bgc_type.name.wrapper
 end
 
+@inline function _parameter_view(parameters)
+    # `Agate.Models.create_parameters` returns a wrapper with a `.data` payload.
+    # But several tests (and potential user code) pass a plain struct without
+    # a `.data` field (e.g. `LVParameters`).
+    return Base.hasproperty(parameters, :data) ? getproperty(parameters, :data) : parameters
+end
+
 """
     add_bgc_methods!(
         bgc_type,
@@ -711,7 +718,11 @@ function add_bgc_methods!(
     #
     # To reduce compilation pressure (especially for large models like DARWIN), we only
     # materialize *parameters actually referenced* by each tracer expression.
-    parameter_keys = collect(keys(parameters.data))
+    #
+    # Parameters may be either:
+    #   - an Agate wrapper with `.data` payload (from `create_parameters`), or
+    #   - a plain struct (used in utility tests and potentially user code).
+    parameter_keys = collect(propertynames(_parameter_view(parameters)))
 
 
     # Define callable tracer tendency methods.
@@ -732,7 +743,12 @@ function add_bgc_methods!(
 
         method_vars = Vector{Expr}(undef, length(used_params))
         @inbounds for (i, key) in enumerate(used_params)
-            method_vars[i] = :($key = bgc.parameters.data.$key)
+            # NOTE: keep the reference unqualified. This method body is `eval`'d
+            # into the `Agate.Utils` module, and the parent module name `Agate`
+            # is not guaranteed to be bound in that module. Qualifying with
+            # `Agate.Utils` can therefore trigger `UndefVarError: Agate not defined`
+            # when the generated tracer method is executed.
+            method_vars[i] = :($key = _parameter_view(bgc.parameters).$key)
         end
 
         allowed_symbols = (all_state_vars..., used_params...)
