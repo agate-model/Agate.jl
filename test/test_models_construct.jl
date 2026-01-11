@@ -66,7 +66,7 @@ using Adapt
 
     @testset "NiPiZD plankton_args override" begin
         factory = NiPiZDFactory()
-        base = Agate.Models.default_plankton_args(factory, Float64)
+        base = Agate.Models.default_plankton_args(factory)
         # Override phytoplankton to a single explicit diameter.
         P = (; base.P..., diameters=[3.0], n=1)
         plankton_args = (Z = base.Z, P = P)
@@ -121,7 +121,7 @@ using Adapt
         factory = NiPiZDFactory()
 
         # Missing group in plankton_args should produce a single ArgumentError.
-        base_args = Agate.Models.default_plankton_args(factory, Float64)
+        base_args = Agate.Models.default_plankton_args(factory)
         base_dyn  = Agate.Models.default_plankton_dynamics(factory)
         bad_args = (P = base_args.P,)  # missing Z
         @test_throws ArgumentError construct(factory; FT=Float64, plankton_dynamics=base_dyn, plankton_args=bad_args)

@@ -15,7 +15,7 @@
 using Agate
 using Agate.Constructor: construct
 using Agate.Models: NiPiZDFactory
-using Agate.Constructor: PFTSpecification, BiogeochemistrySpecification, patch, update_group
+using Agate.Constructor: PFTSpecification, BiogeochemistrySpecification, update_plankton_args, update_biogeochem_args, update_dynamics
 using Agate.Utils: parse_community
 using Agate.Library.Light
 
@@ -37,7 +37,7 @@ factory = NiPiZDFactory()
 # `construct` returns a **concrete** biogeochemistry type (a subtype of
 # `AbstractContinuousFormBiogeochemistry`). You then instantiate it as usual.
 
-bgc_type_default = construct(factory; FT=Float64)
+bgc_type_default = construct(factory)
 bgc_default = bgc_type_default()
 
 
@@ -51,9 +51,9 @@ bgc_default = bgc_type_default()
 # - `biogeochem_args`: non-plankton model parameters (specification)
 
 plankton_dynamics = Agate.Models.default_plankton_dynamics(factory)
-plankton_args = Agate.Models.default_plankton_args(factory, Float64)
+plankton_args = Agate.Models.default_plankton_args(factory)
 biogeochem_dynamics = Agate.Models.default_biogeochem_dynamics(factory)
-biogeochem_args = Agate.Models.default_biogeochem_args(factory, Float64)
+biogeochem_args = Agate.Models.default_biogeochem_args(factory)
 
 # `plankton_args` is a `NamedTuple` keyed by group prefix (e.g., `:Z`, `:P`).
 # Each group specification must include a diameter specification (`diameters`) and, for
@@ -63,21 +63,19 @@ biogeochem_args = Agate.Models.default_biogeochem_args(factory, Float64)
 # - reduce zooplankton to 1 size class at a fixed diameter
 # - increase phytoplankton to 3 size classes with log-spaced diameters
 
-plankton_args_custom = update_group(plankton_args, :Z; n=1, diameters=[60.0])
-plankton_args_custom = update_group(plankton_args_custom, :P; n=3, diameters=(1.5, 20.0, :log_splitting))
+plankton_args_custom = update_plankton_args(plankton_args, :Z; n=1, diameters=[60.0])
+plankton_args_custom = update_plankton_args(plankton_args_custom, :P; n=3, diameters=(1.5, 20.0, :log_splitting))
 
 # ## 3. Override parameter values
 
 # PFT parameters are held in `PFTSpecification`, which stores a `NamedTuple` internally.
 # You can create an overridden copy using keyword splatting.
 
-phyto_pft = plankton_args_custom.P.pft
-phyto_pft_fast = patch(phyto_pft; maximum_growth_rate_a=3.0 / day)
-
-plankton_args_custom = update_group(plankton_args_custom, :P; pft=phyto_pft_fast)
+# Apply a one-step PFT override via update_plankton_args
+plankton_args_custom = update_plankton_args(plankton_args_custom, :P; maximum_growth_rate_a=3.0 / day)
 
 # The non-plankton specification is similarly stored in `BiogeochemistrySpecification`.
-biogeochem_args_fast = patch(biogeochem_args; detritus_remineralization=0.18 / day)
+biogeochem_args_fast = update_biogeochem_args(biogeochem_args; detritus_remineralization=0.18 / day)
 
 # ## 4. Swap components (dynamics)
 
@@ -86,8 +84,8 @@ biogeochem_args_fast = patch(biogeochem_args; detritus_remineralization=0.18 / d
 
 using Agate.Models.NiPiZD.Tracers: nutrient_geider_light, phytoplankton_geider_light
 
-plankton_dynamics_geider = merge(plankton_dynamics, (P=phytoplankton_geider_light,))
-biogeochem_dynamics_geider = merge(biogeochem_dynamics, (N=nutrient_geider_light,))
+plankton_dynamics_geider = update_dynamics(plankton_dynamics; P=phytoplankton_geider_light)
+biogeochem_dynamics_geider = update_dynamics(biogeochem_dynamics; N=nutrient_geider_light)
 
 # ## 5. Provide explicit interaction matrices
 
@@ -99,20 +97,20 @@ biogeochem_dynamics_geider = merge(biogeochem_dynamics, (N=nutrient_geider_light
 # The matrices must be `n_total × n_total`, where `n_total` is the total number of plankton tracers
 # (all groups concatenated in the order of `plankton_args`).
 
-ctx = parse_community(
+community = parse_community(
     Float64,
     plankton_args_custom;
     plankton_dynamics=plankton_dynamics_geider,
     biogeochem_dynamics=biogeochem_dynamics_geider,
 )
 
-n = ctx.n_total
+n = community.n_total
 pal = zeros(Float64, n, n)
 assim = zeros(Float64, n, n)
 
 # For illustration, make the single zooplankton class graze all phytoplankton equally.
-z_idx = findall(==(Symbol("Z")), ctx.group_symbols)
-p_idx = findall(==(Symbol("P")), ctx.group_symbols)
+z_idx = findall(==(:Z), community.group_symbols)
+p_idx = findall(==(:P), community.group_symbols)
 
 for i in z_idx, j in p_idx
     pal[i, j] = 1.0
@@ -128,7 +126,6 @@ interactions_custom = (
 
 bgc_type_custom = construct(
     factory;
-    FT=Float64,
     plankton_dynamics=plankton_dynamics_geider,
     plankton_args=plankton_args_custom,
     biogeochem_dynamics=biogeochem_dynamics_geider,

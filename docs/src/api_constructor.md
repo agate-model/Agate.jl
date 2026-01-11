@@ -30,37 +30,35 @@ Factories expose defaults for plankton community structure, dynamics, and non-pl
 `Agate.Models.default_*` functions. You can pull those defaults, then override them and pass the
 modified objects back into `construct`.
 
-Agate provides two small helpers for ergonomic, non-mutating overrides:
+Agate provides a few small helpers for ergonomic, non-mutating overrides:
 
-- `patch`: override fields on immutable configuration objects (`NamedTuple`s and parameter containers).
-- `update_group`: convenience helper for overriding a single plankton group entry inside `plankton_args`.
+- `update_plankton_args`: update a single plankton group entry inside `plankton_args` (and optionally patch its `pft`).
+- `update_biogeochem_args`: update biogeochemistry specification values.
+- `update_dynamics`: update a dynamics `NamedTuple` with key validation.
 
 Example:
 
 ```julia
 using Agate
 using Agate.Models: NiPiZDFactory
-using Agate.Constructor: construct, patch, update_group
+using Agate.Constructor: construct, update_plankton_args, update_biogeochem_args
 
 using Oceananigans.Units: day
 
 factory = NiPiZDFactory()
 
-plankton_args = Agate.Models.default_plankton_args(factory, Float64)
-biogeochem_args = Agate.Models.default_biogeochem_args(factory, Float64)
-
-#show defaults _args
+plankton_args  = Agate.Models.default_plankton_args(factory)
+biogeochem_args = Agate.Models.default_biogeochem_args(factory)
 
 # 1) Override community structure.
-plankton_args = update_group(plankton_args, :Z; n=1, diameters=[60.0])
-plankton_args = update_group(plankton_args, :P; n=3, diameters=(1.5, 20.0, :log_splitting))
+plankton_args = update_plankton_args(plankton_args, :Z; n=1, diameters=[60.0])
+plankton_args = update_plankton_args(plankton_args, :P; n=3, diameters=(1.5, 20.0, :log_splitting))
 
-# 2) Override a PFT parameter (creates a new PFTSpecification).
-phyto_pft_fast = patch(plankton_args.P.pft; maximum_growth_rate_a=3.0/day)
-plankton_args = update_group(plankton_args, :P; pft=phyto_pft_fast)
+# 2) Override a PFT parameter (one step).
+plankton_args = update_plankton_args(plankton_args, :P; maximum_growth_rate_a=3.0/day)
 
 # 3) Override a biogeochemistry specification value.
-biogeochem_args = patch(biogeochem_args; detritus_remineralization=0.18/day)
+biogeochem_args = update_biogeochem_args(biogeochem_args; detritus_remineralization=0.18/day)
 
 # 4) Construct a concrete biogeochemistry type.
 bgc_type = construct(factory; plankton_args=plankton_args, biogeochem_args=biogeochem_args)
@@ -71,6 +69,9 @@ bgc = bgc_type()
 
 ```@docs
 Agate.Constructor.construct
+Agate.Constructor.update_plankton_args
+Agate.Constructor.update_biogeochem_args
+Agate.Constructor.update_dynamics
 Agate.Constructor.patch
 Agate.Constructor.update_group
 Agate.Utils.Specifications.PFTSpecification

@@ -23,6 +23,11 @@ function default_plankton_args(::AbstractBGCFactory, ::Type{FT}) where {FT<:Abst
     throw(ArgumentError("No method `default_plankton_args(factory, FT)` is defined for this factory."))
 end
 
+"""Convenience overload: defaults to `Float64`."""
+default_plankton_args(factory::AbstractBGCFactory) = default_plankton_args(factory, Float64)
+
+
+
 """Default non-plankton tracer dynamics for a factory.
 
 Returns a `NamedTuple` mapping tracer symbols (e.g., `:N`, `:DIC`) to tracer
@@ -36,6 +41,10 @@ end
 function default_biogeochem_args(::AbstractBGCFactory, ::Type{FT}) where {FT<:AbstractFloat}
     throw(ArgumentError("No method `default_biogeochem_args(factory, FT)` is defined for this factory."))
 end
+
+"""Convenience overload: defaults to `Float64`."""
+default_biogeochem_args(factory::AbstractBGCFactory) = default_biogeochem_args(factory, Float64)
+
 
 # -----------------------------------------------------------------------------
 # Submodules and public constructor
