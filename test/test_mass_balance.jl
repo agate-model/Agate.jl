@@ -1,117 +1,81 @@
 using Agate
 using Agate.Library.Light
+using Agate.Utils: box_model_mass_balance
+
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
-using Oceananigans.Units
-
-const year = years = 365day
 
 @testset "mass_balance" begin
-    @testset "NiPiZD box model" begin
-        bgc_instance = Agate.Models.construct(Agate.Models.NiPiZDFactory(); FT=Float64)()
 
+    function build_box_model(bgc_instance)
         bgc_model = Biogeochemistry(
             bgc_instance; light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
         )
-        box_model = BoxModel(; biogeochemistry=bgc_model)
+        return BoxModel(; biogeochemistry=bgc_model)
+    end
+
+    @testset "NiPiZD box model" begin
+        bgc_instance = Agate.Models.construct(Agate.Models.NiPiZDFactory(); FT=Float64)()
+        box_model = build_box_model(bgc_instance)
         set!(box_model; N=7, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, D=0.0)
 
-        function estimate_mass(box_model)
-            return box_model.fields.N.data[1, 1, 1] +
-                   box_model.fields.P1.data[1, 1, 1] +
-                   box_model.fields.P2.data[1, 1, 1] +
-                   box_model.fields.Z1.data[1, 1, 1] +
-                   box_model.fields.Z2.data[1, 1, 1] +
-                   box_model.fields.D.data[1, 1, 1]
-        end
+        budgets = (
+            total = [:N => 1, :P1 => 1, :P2 => 1, :Z1 => 1, :Z2 => 1, :D => 1],
+        )
 
-        initial_mass = estimate_mass(box_model)
-
-        for _ in 1:1000
-            time_step!(box_model, 0.1)
-        end
-
-        final_mass = estimate_mass(box_model)
-        @test isapprox(initial_mass, final_mass)
+        result = box_model_mass_balance(box_model, budgets; dt=0.1, nsteps=1000)
+        @test isapprox(result.initial.total, result.final.total; rtol=1e-12, atol=0.0)
     end
 
     @testset "DARWIN model" begin
-                    bgc_instance = Agate.Models.construct(Agate.Models.DarwinFactory(); FT=Float64)()
+        bgc_instance = Agate.Models.construct(Agate.Models.DarwinFactory(); FT=Float64)()
+        box_model = build_box_model(bgc_instance)
+        set!(
+            box_model;
+            DIN=7,
+            PO4=3,
+            P1=0.01,
+            P2=0.01,
+            Z1=0.05,
+            Z2=0.05,
+            DOC=0.0,
+            POC=0.0,
+            DON=0.0,
+            PON=0.0,
+            DOP=0.0,
+            POP=0.0,
+        )
 
-            bgc_model = Biogeochemistry(
-                bgc_instance; light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
-            )
-            box_model = BoxModel(; biogeochemistry=bgc_model)
-            set!(
-                box_model;
-                DIN=7,
-                PO4=3,
-                P1=0.01,
-                P2=0.01,
-                Z1=0.05,
-                Z2=0.05,
-                DOC=0,
-                POC=0.0,
-                DON=0,
-                PON=0.0,
-                DOP=0,
-                POP=0.0,
-            )
+        n2c = bgc_instance.parameters.data.nitrogen_to_carbon
+        p2c = bgc_instance.parameters.data.phosphorus_to_carbon
 
-            function estimate_carbon_mass(box_model)
-                return box_model.fields.DIC.data[1, 1, 1] +
-                       box_model.fields.P1.data[1, 1, 1] +
-                       box_model.fields.P2.data[1, 1, 1] +
-                       box_model.fields.Z1.data[1, 1, 1] +
-                       box_model.fields.Z2.data[1, 1, 1] +
-                       box_model.fields.POC.data[1, 1, 1] +
-                       box_model.fields.DOC.data[1, 1, 1]
-            end
+        budgets = (
+            carbon = [:DIC => 1, :P1 => 1, :P2 => 1, :Z1 => 1, :Z2 => 1, :POC => 1, :DOC => 1],
+            nitrogen = [
+                :DIN => 1,
+                :P1 => n2c,
+                :P2 => n2c,
+                :Z1 => n2c,
+                :Z2 => n2c,
+                :PON => 1,
+                :DON => 1,
+            ],
+            phosphorus = [
+                :PO4 => 1,
+                :P1 => p2c,
+                :P2 => p2c,
+                :Z1 => p2c,
+                :Z2 => p2c,
+                :POP => 1,
+                :DOP => 1,
+            ],
+        )
 
-            function estimate_nitrogen_mass(box_model)
-                return box_model.fields.DIN.data[1, 1, 1] +
-                       box_model.fields.P1.data[1, 1, 1] *
-                       bgc_instance.parameters.data.nitrogen_to_carbon +
-                       box_model.fields.P2.data[1, 1, 1] *
-                       bgc_instance.parameters.data.nitrogen_to_carbon +
-                       box_model.fields.Z1.data[1, 1, 1] *
-                       bgc_instance.parameters.data.nitrogen_to_carbon +
-                       box_model.fields.Z2.data[1, 1, 1] *
-                       bgc_instance.parameters.data.nitrogen_to_carbon +
-                       box_model.fields.PON.data[1, 1, 1] +
-                       box_model.fields.DON.data[1, 1, 1]
-            end
-
-            function estimate_phosphorus_mass(box_model)
-                return box_model.fields.PO4.data[1, 1, 1] +
-                       box_model.fields.P1.data[1, 1, 1] *
-                       bgc_instance.parameters.data.phosphorus_to_carbon +
-                       box_model.fields.P2.data[1, 1, 1] *
-                       bgc_instance.parameters.data.phosphorus_to_carbon +
-                       box_model.fields.Z1.data[1, 1, 1] *
-                       bgc_instance.parameters.data.phosphorus_to_carbon +
-                       box_model.fields.Z2.data[1, 1, 1] *
-                       bgc_instance.parameters.data.phosphorus_to_carbon +
-                       box_model.fields.POP.data[1, 1, 1] +
-                       box_model.fields.DOP.data[1, 1, 1]
-            end
-
-            initial_carbon = estimate_carbon_mass(box_model)
-            initial_nitrogen = estimate_nitrogen_mass(box_model)
-            initial_phosphorus = estimate_phosphorus_mass(box_model)
-
-            for _ in 1:1000
-                time_step!(box_model, 1)
-            end
-
-            final_carbon = estimate_carbon_mass(box_model)
-            final_nitrogen = estimate_nitrogen_mass(box_model)
-            final_phosphorus = estimate_phosphorus_mass(box_model)
-
-            rtol = 1e-6
-            @test isapprox(initial_carbon, final_carbon, rtol=rtol)
-            @test isapprox(initial_nitrogen, final_nitrogen, rtol=rtol)
-            @test isapprox(initial_phosphorus, final_phosphorus, rtol=rtol)
+        result = box_model_mass_balance(box_model, budgets; dt=1.0, nsteps=1000)
+        rtol = 1e-6
+        @test isapprox(result.initial.carbon, result.final.carbon; rtol=rtol)
+        @test isapprox(result.initial.nitrogen, result.final.nitrogen; rtol=rtol)
+        @test isapprox(result.initial.phosphorus, result.final.phosphorus; rtol=rtol)
     end
 end
