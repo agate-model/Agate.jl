@@ -1,7 +1,7 @@
 push!(LOAD_PATH, "../src/")
 using Documenter, Literate
 using Agate
-using Agate.Models: NiPiZD
+using Agate.Models: construct, NiPiZDFactory, DarwinFactory
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -14,7 +14,10 @@ using CairoMakie
 const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
-examples = ["Column model" => "1D_column"]
+examples = [
+    "Box model factories" => "box_model_factories",
+    "Column model" => "1D_column",
+]
 
 example_scripts = [filename * ".jl" for (title, filename) in examples]
 

@@ -12,7 +12,7 @@
 # CairoMakie is used for plotting.
 
 using Agate
-using Agate.Models: NiPiZD
+using Agate.Models: construct, NiPiZDFactory
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -28,7 +28,7 @@ nothing #hide
 # First, we construct our ecosystem model.
 # Here, we use a default 2 phytoplankton, 2 zooplankton `Agate.jl-NiPiZD` ecosystem model.
 
-N2P2ZD = NiPiZD.construct()
+N2P2ZD = construct(NiPiZDFactory(); FT=Float64)
 nothing #hide
 
 # ## Forcings

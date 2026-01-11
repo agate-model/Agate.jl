@@ -4,7 +4,7 @@ using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans.Units
-using Agate.Models: DARWIN
+using Agate.Models: construct, DarwinFactory
 using Agate.Library.Photosynthesis
 using Oceananigans, Printf
 using Oceananigans.Fields: FunctionField, ConstantField
@@ -14,7 +14,7 @@ using CUDA
 using CairoMakie
 
 # Generate the biogeochemical model
-bgc_type = DARWIN.construct()
+bgc_type = construct(DarwinFactory(); FT=Float64)
 
 # Create an instance of the model (CPU)
 bgc_instance = bgc_type()

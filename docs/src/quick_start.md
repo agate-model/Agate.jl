@@ -9,7 +9,7 @@
 ```@example quickstart
 
 using Agate
-using Agate.Models: NiPiZD
+using Agate.Models: construct, NiPiZDFactory
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -25,7 +25,7 @@ Here, we use a default 2 phytoplankton, 2 zooplankton `Agate.jl-NiPiZD` ecosyste
 
 ```@example quickstart
 
-N2P2ZD = NiPiZD.construct()
+N2P2ZD = construct(NiPiZDFactory(); FT=Float64)
 nothing #hide
 ```
 
