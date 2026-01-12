@@ -8,7 +8,9 @@ All generated expressions are allocation-free and suitable for GPU compilation.
 
 module Tracers
 
-using Agate.Utils: @register_dynamics
+using Agate.Utils: @register_dynamics, sum_expr
+using Agate.Library.Mortality: linear_loss_sum, quadratic_loss_sum
+using Agate.Library.Predation: predation_loss_sum, predation_gain_sum, predation_assimilation_loss_sum
 
 export phytoplankton_default,
     phytoplankton_geider_light,
@@ -16,35 +18,6 @@ export phytoplankton_default,
     nutrient_default,
     nutrient_geider_light,
     detritus_default
-
-"""Return a sum expression for a collection of terms."""
-function _sum_expr(terms)
-    isempty(terms) && return :(zero(t))
-
-    s = terms[1]
-    for i in 2:length(terms)
-        s = :($s + $(terms[i]))
-    end
-    return s
-end
-
-"""Build a sum of linear losses over all plankton."""
-function _linear_loss_sum(plankton_syms::AbstractVector{Symbol})
-    terms = Expr[]
-    for (i, sym) in enumerate(plankton_syms)
-        push!(terms, :(linear_loss($sym, linear_mortality[$i])))
-    end
-    return _sum_expr(terms)
-end
-
-"""Build a sum of quadratic losses over all plankton."""
-function _quadratic_loss_sum(plankton_syms::AbstractVector{Symbol})
-    terms = Expr[]
-    for (i, sym) in enumerate(plankton_syms)
-        push!(terms, :(quadratic_loss($sym, quadratic_mortality[$i])))
-    end
-    return _sum_expr(terms)
-end
 
 """Build a sum of photosynthetic growth over all plankton."""
 function _photosynthetic_growth_sum(plankton_syms::AbstractVector{Symbol})
@@ -62,7 +35,7 @@ function _photosynthetic_growth_sum(plankton_syms::AbstractVector{Symbol})
             )),
         )
     end
-    return _sum_expr(terms)
+    return sum_expr(terms)
 end
 
 """Build a sum of Geider-style photosynthetic growth over all plankton."""
@@ -82,69 +55,7 @@ function _photosynthetic_growth_geider_sum(plankton_syms::AbstractVector{Symbol}
             )),
         )
     end
-    return _sum_expr(terms)
-end
-
-"""Build the preferential predation loss of a prey size class to all predators."""
-function _predation_loss_sum(
-    prey_sym::Symbol, prey_idx::Int, plankton_syms::AbstractVector{Symbol}
-)
-    terms = Expr[]
-    for (pred_idx, pred_sym) in enumerate(plankton_syms)
-        push!(
-            terms,
-            :(predation_loss_preferential(
-                $prey_sym,
-                $pred_sym,
-                maximum_predation_rate[$pred_idx],
-                holling_half_saturation[$pred_idx],
-                palatability_matrix[$pred_idx, $prey_idx],
-            )),
-        )
-    end
-    return _sum_expr(terms)
-end
-
-"""Build the preferential predation gain of a predator size class from all prey."""
-function _predation_gain_sum(
-    predator_sym::Symbol, predator_idx::Int, plankton_syms::AbstractVector{Symbol}
-)
-    terms = Expr[]
-    for (prey_idx, prey_sym) in enumerate(plankton_syms)
-        push!(
-            terms,
-            :(predation_gain_preferential(
-                $prey_sym,
-                $predator_sym,
-                assimilation_efficiency_matrix[$predator_idx, $prey_idx],
-                maximum_predation_rate[$predator_idx],
-                holling_half_saturation[$predator_idx],
-                palatability_matrix[$predator_idx, $prey_idx],
-            )),
-        )
-    end
-    return _sum_expr(terms)
-end
-
-"""Build the total assimilation loss from all predator-prey pairs."""
-function _predation_assimilation_loss_sum(plankton_syms::AbstractVector{Symbol})
-    terms = Expr[]
-    for (pred_idx, pred_sym) in enumerate(plankton_syms)
-        for (prey_idx, prey_sym) in enumerate(plankton_syms)
-            push!(
-                terms,
-                :(predation_assimilation_loss_preferential(
-                    $prey_sym,
-                    $pred_sym,
-                    assimilation_efficiency_matrix[$pred_idx, $prey_idx],
-                    maximum_predation_rate[$pred_idx],
-                    holling_half_saturation[$pred_idx],
-                    palatability_matrix[$pred_idx, $prey_idx],
-                )),
-            )
-        end
-    end
-    return _sum_expr(terms)
+    return sum_expr(terms)
 end
 
 """
@@ -153,8 +64,8 @@ end
 Nutrient tendency for a single dissolved inorganic nutrient `N`.
 """
 function nutrient_default(plankton_syms::AbstractVector{Symbol})
-    linear_sum = _linear_loss_sum(plankton_syms)
-    quadratic_sum = _quadratic_loss_sum(plankton_syms)
+    linear_sum = linear_loss_sum(plankton_syms)
+    quadratic_sum = quadratic_loss_sum(plankton_syms)
     growth_sum = _photosynthetic_growth_sum(plankton_syms)
 
     return :(
@@ -166,8 +77,8 @@ end
 
 """Nutrient tendency using Geider-style light limitation."""
 function nutrient_geider_light(plankton_syms::AbstractVector{Symbol})
-    linear_sum = _linear_loss_sum(plankton_syms)
-    quadratic_sum = _quadratic_loss_sum(plankton_syms)
+    linear_sum = linear_loss_sum(plankton_syms)
+    quadratic_sum = quadratic_loss_sum(plankton_syms)
     growth_sum = _photosynthetic_growth_geider_sum(plankton_syms)
 
     return :(
@@ -183,9 +94,9 @@ end
 Detritus tendency for a single detrital pool `D`.
 """
 function detritus_default(plankton_syms::AbstractVector{Symbol})
-    linear_sum = _linear_loss_sum(plankton_syms)
-    quadratic_sum = _quadratic_loss_sum(plankton_syms)
-    assimilation_loss_sum = _predation_assimilation_loss_sum(plankton_syms)
+    linear_sum = linear_loss_sum(plankton_syms)
+    quadratic_sum = quadratic_loss_sum(plankton_syms)
+    assimilation_loss_sum = predation_assimilation_loss_sum(plankton_syms)
 
     return :(
         (1 - mortality_export_fraction) * ($linear_sum) +
@@ -212,7 +123,7 @@ function phytoplankton_default(
         alpha[$plankton_idx],
     ))
 
-    grazing_loss = _predation_loss_sum(plankton_sym, plankton_idx, plankton_syms)
+    grazing_loss = predation_loss_sum(plankton_syms, plankton_sym, plankton_idx)
 
     mortality_loss = :(linear_loss($plankton_sym, linear_mortality[$plankton_idx]))
 
@@ -233,7 +144,7 @@ function phytoplankton_geider_light(
         chlorophyll_to_carbon_ratio[$plankton_idx],
     ))
 
-    grazing_loss = _predation_loss_sum(plankton_sym, plankton_idx, plankton_syms)
+    grazing_loss = predation_loss_sum(plankton_syms, plankton_sym, plankton_idx)
     mortality_loss = :(linear_loss($plankton_sym, linear_mortality[$plankton_idx]))
 
     return :($growth - ($grazing_loss) - $mortality_loss)
@@ -247,7 +158,7 @@ Zooplankton tendency with preferential feeding.
 function zooplankton_default(
     plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int
 )
-    gain_sum = _predation_gain_sum(plankton_sym, plankton_idx, plankton_syms)
+    gain_sum = predation_gain_sum(plankton_syms, plankton_sym, plankton_idx)
 
     linear = :(linear_loss($plankton_sym, linear_mortality[$plankton_idx]))
     quadratic = :(quadratic_loss($plankton_sym, quadratic_mortality[$plankton_idx]))

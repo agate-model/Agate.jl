@@ -19,6 +19,8 @@ using .Specifications: PFTSpecification, pft_get, pft_has, cast_pft,
 
 using Agate.Library.Allometry: allometric_scaling_power
 
+using ..Library.ExprUtils: sum_expr
+
 using Agate.Library.Mortality
 using Agate.Library.Nutrients
 using Agate.Library.Photosynthesis
@@ -69,6 +71,7 @@ export param_check_square_matrix
 export param_cast_matrix
 export box_model_mass_balance
 export box_model_budget
+export sum_expr
 export param_compute_diameters
 
 # -----------------------------------------------------------------------------

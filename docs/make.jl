@@ -17,6 +17,7 @@ const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
 examples = [
     "Box model factories" => "box_model_factories",
+    "Box model: add heterotroph (H)" => "box_model_add_heterotroph",
     "Column model" => "1D_column",
 ]
 

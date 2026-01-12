@@ -1,5 +1,7 @@
 module Predation
 
+using ..ExprUtils: sum_expr
+
 export AssimilationPreyParameters
 export AssimilationPredatorParameters
 export holling_type_2
@@ -10,6 +12,9 @@ export predation_loss_preferential
 export predation_gain_preferential
 export predation_assimilation_loss_preferential
 export assimilation_efficiency_emergent_binary
+export predation_loss_sum
+export predation_gain_sum
+export predation_assimilation_loss_sum
 
 """
     holling_type_2(prey_concentration, prey_half_saturation)
@@ -287,6 +292,90 @@ The function evaluates whether the predator can eat the prey and whether the pre
         return predator.assimilation_efficiency
     end
     return zero(FT)
+end
+
+
+
+"""
+    predation_loss_sum(plankton_syms, prey_sym, prey_idx)
+
+Build an allocation-free `Expr` that sums preferential predation loss of `prey_sym` (at index `prey_idx`)
+to *all* predator plankton in `plankton_syms`.
+
+The generated expression expects these runtime containers to be in scope:
+- `maximum_predation_rate`
+- `holling_half_saturation`
+- `palatability_matrix`
+
+This is the expression-level counterpart of `predation_loss_preferential`.
+"""
+function predation_loss_sum(plankton_syms::AbstractVector{Symbol}, prey_sym::Symbol, prey_idx::Int)
+    terms = Expr[]
+    for (pred_idx, pred_sym) in enumerate(plankton_syms)
+        push!(terms, :(predation_loss_preferential(
+            $prey_sym,
+            $pred_sym,
+            maximum_predation_rate[$pred_idx],
+            holling_half_saturation[$pred_idx],
+            palatability_matrix[$pred_idx, $prey_idx],
+        )))
+    end
+    return sum_expr(terms)
+end
+
+"""
+    predation_gain_sum(plankton_syms, predator_sym, predator_idx)
+
+Build an allocation-free `Expr` that sums preferential predation gain of `predator_sym` (at index `predator_idx`)
+from all prey plankton in `plankton_syms`.
+
+The generated expression expects:
+- `assimilation_efficiency_matrix`
+- `maximum_predation_rate`
+- `holling_half_saturation`
+- `palatability_matrix`
+"""
+function predation_gain_sum(plankton_syms::AbstractVector{Symbol}, predator_sym::Symbol, predator_idx::Int)
+    terms = Expr[]
+    for (prey_idx, prey_sym) in enumerate(plankton_syms)
+        push!(terms, :(predation_gain_preferential(
+            $prey_sym,
+            $predator_sym,
+            assimilation_efficiency_matrix[$predator_idx, $prey_idx],
+            maximum_predation_rate[$predator_idx],
+            holling_half_saturation[$predator_idx],
+            palatability_matrix[$predator_idx, $prey_idx],
+        )))
+    end
+    return sum_expr(terms)
+end
+
+"""
+    predation_assimilation_loss_sum(plankton_syms)
+
+Build an allocation-free `Expr` that sums assimilation losses from all predator–prey pairs.
+
+The generated expression expects:
+- `assimilation_efficiency_matrix`
+- `maximum_predation_rate`
+- `holling_half_saturation`
+- `palatability_matrix`
+"""
+function predation_assimilation_loss_sum(plankton_syms::AbstractVector{Symbol})
+    terms = Expr[]
+    for (pred_idx, pred_sym) in enumerate(plankton_syms)
+        for (prey_idx, prey_sym) in enumerate(plankton_syms)
+            push!(terms, :(predation_assimilation_loss_preferential(
+                $prey_sym,
+                $pred_sym,
+                assimilation_efficiency_matrix[$pred_idx, $prey_idx],
+                maximum_predation_rate[$pred_idx],
+                holling_half_saturation[$pred_idx],
+                palatability_matrix[$pred_idx, $prey_idx],
+            )))
+        end
+    end
+    return sum_expr(terms)
 end
 
 end # module

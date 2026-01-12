@@ -1,6 +1,8 @@
 module Tracers
 
-using Agate.Utils: @register_dynamics
+using Agate.Utils: @register_dynamics, sum_expr
+using Agate.Library.Mortality: linear_loss_sum, quadratic_loss_sum
+using Agate.Library.Predation: predation_loss_sum, predation_gain_sum, predation_assimilation_loss_sum
 
 export DIC_geider_light,
     DIN_geider_light,
@@ -18,32 +20,8 @@ export DIC_geider_light,
 # Internal helpers to build allocation-free expressions
 # -----------------------------------------------------------------------------
 
-@inline function _sum_expr(terms::Vector{Expr})
-    if isempty(terms)
-        return :(0)
-    end
-    out = terms[1]
-    @inbounds for i in 2:length(terms)
-        out = :($out + $(terms[i]))
-    end
-    return out
-end
 
-@inline function _linear_loss_sum(plankton_syms)
-    terms = Expr[]
-    for (i, sym) in enumerate(plankton_syms)
-        push!(terms, :(linear_loss($sym, linear_mortality[$i])))
-    end
-    return _sum_expr(terms)
-end
 
-@inline function _quadratic_loss_sum(plankton_syms)
-    terms = Expr[]
-    for (i, sym) in enumerate(plankton_syms)
-        push!(terms, :(quadratic_loss($sym, quadratic_mortality[$i])))
-    end
-    return _sum_expr(terms)
-end
 
 @inline function _photosynthetic_growth_sum(plankton_syms)
     terms = Expr[]
@@ -63,63 +41,11 @@ end
             )),
         )
     end
-    return _sum_expr(terms)
+    return sum_expr(terms)
 end
 
-@inline function _predation_loss_sum(plankton_syms, prey_sym, prey_idx)
-    terms = Expr[]
-    for (pred_idx, pred_sym) in enumerate(plankton_syms)
-        push!(
-            terms,
-            :(predation_loss_preferential(
-                $prey_sym,
-                $pred_sym,
-                maximum_predation_rate[$pred_idx],
-                holling_half_saturation[$pred_idx],
-                palatability_matrix[$pred_idx, $prey_idx],
-            )),
-        )
-    end
-    return _sum_expr(terms)
-end
 
-@inline function _predation_gain_sum(plankton_syms, predator_sym, predator_idx)
-    terms = Expr[]
-    for (prey_idx, prey_sym) in enumerate(plankton_syms)
-        push!(
-            terms,
-            :(predation_gain_preferential(
-                $prey_sym,
-                $predator_sym,
-                assimilation_efficiency_matrix[$predator_idx, $prey_idx],
-                maximum_predation_rate[$predator_idx],
-                holling_half_saturation[$predator_idx],
-                palatability_matrix[$predator_idx, $prey_idx],
-            )),
-        )
-    end
-    return _sum_expr(terms)
-end
 
-@inline function _predation_assimilation_loss_sum(plankton_syms)
-    terms = Expr[]
-    for (pred_idx, pred_sym) in enumerate(plankton_syms)
-        for (prey_idx, prey_sym) in enumerate(plankton_syms)
-            push!(
-                terms,
-                :(predation_assimilation_loss_preferential(
-                    $prey_sym,
-                    $pred_sym,
-                    assimilation_efficiency_matrix[$pred_idx, $prey_idx],
-                    maximum_predation_rate[$pred_idx],
-                    holling_half_saturation[$pred_idx],
-                    palatability_matrix[$pred_idx, $prey_idx],
-                )),
-            )
-        end
-    end
-    return _sum_expr(terms)
-end
 
 # -----------------------------------------------------------------------------
 # Inorganic tracers
@@ -209,9 +135,9 @@ to be of same length for correct indexing to work (and arranged in the same plan
 """
 function DOC_default(plankton_syms)
     base = :(
-        $(_linear_loss_sum(plankton_syms)) +
-        $(_predation_assimilation_loss_sum(plankton_syms)) +
-        $(_quadratic_loss_sum(plankton_syms))
+        $(linear_loss_sum(plankton_syms)) +
+        $(predation_assimilation_loss_sum(plankton_syms)) +
+        $(quadratic_loss_sum(plankton_syms))
     )
     return :(
         (1 - DOM_POM_fractionation) * ($base) -
@@ -234,9 +160,9 @@ to be of same length for correct indexing to work (and arranged in the same plan
 """
 function POC_default(plankton_syms)
     base = :(
-        $(_linear_loss_sum(plankton_syms)) +
-        $(_predation_assimilation_loss_sum(plankton_syms)) +
-        $(_quadratic_loss_sum(plankton_syms))
+        $(linear_loss_sum(plankton_syms)) +
+        $(predation_assimilation_loss_sum(plankton_syms)) +
+        $(quadratic_loss_sum(plankton_syms))
     )
     return :(
         DOM_POM_fractionation * ($base) -
@@ -259,9 +185,9 @@ to be of same length for correct indexing to work (and arranged in the same plan
 """
 function DON_default(plankton_syms)
     base = :(
-        $(_linear_loss_sum(plankton_syms)) +
-        $(_predation_assimilation_loss_sum(plankton_syms)) +
-        $(_quadratic_loss_sum(plankton_syms))
+        $(linear_loss_sum(plankton_syms)) +
+        $(predation_assimilation_loss_sum(plankton_syms)) +
+        $(quadratic_loss_sum(plankton_syms))
     )
     return :(
         (1 - DOM_POM_fractionation) * nitrogen_to_carbon * ($base) -
@@ -284,9 +210,9 @@ to be of same length for correct indexing to work (and arranged in the same plan
 """
 function PON_default(plankton_syms)
     base = :(
-        $(_linear_loss_sum(plankton_syms)) +
-        $(_predation_assimilation_loss_sum(plankton_syms)) +
-        $(_quadratic_loss_sum(plankton_syms))
+        $(linear_loss_sum(plankton_syms)) +
+        $(predation_assimilation_loss_sum(plankton_syms)) +
+        $(quadratic_loss_sum(plankton_syms))
     )
     return :(
         DOM_POM_fractionation * nitrogen_to_carbon * ($base) -
@@ -309,9 +235,9 @@ to be of same length for correct indexing to work (and arranged in the same plan
 """
 function DOP_default(plankton_syms)
     base = :(
-        $(_linear_loss_sum(plankton_syms)) +
-        $(_predation_assimilation_loss_sum(plankton_syms)) +
-        $(_quadratic_loss_sum(plankton_syms))
+        $(linear_loss_sum(plankton_syms)) +
+        $(predation_assimilation_loss_sum(plankton_syms)) +
+        $(quadratic_loss_sum(plankton_syms))
     )
     return :(
         (1 - DOM_POM_fractionation) * phosphorus_to_carbon * ($base) -
@@ -334,9 +260,9 @@ to be of same length for correct indexing to work (and arranged in the same plan
 """
 function POP_default(plankton_syms)
     base = :(
-        $(_linear_loss_sum(plankton_syms)) +
-        $(_predation_assimilation_loss_sum(plankton_syms)) +
-        $(_quadratic_loss_sum(plankton_syms))
+        $(linear_loss_sum(plankton_syms)) +
+        $(predation_assimilation_loss_sum(plankton_syms)) +
+        $(quadratic_loss_sum(plankton_syms))
     )
     return :(
         DOM_POM_fractionation * phosphorus_to_carbon * ($base) -
@@ -379,7 +305,7 @@ function phytoplankton_growth_two_nutrients_geider_light(
         chlorophyll_to_carbon_ratio[$plankton_idx],
     ))
 
-    grazing_loss = _predation_loss_sum(plankton_syms, plankton_sym, plankton_idx)
+    grazing_loss = predation_loss_sum(plankton_syms, plankton_sym, plankton_idx)
     lin = :(linear_loss($plankton_sym, linear_mortality[$plankton_idx]))
 
     return :($growth - ($grazing_loss) - $lin)
@@ -402,7 +328,7 @@ to be of same length for correct indexing to work (and arranged in the same plan
 - `plankton_idx`: the index at which this plankton's values are stored in all parameter Arrays
 """
 function zooplankton_default(plankton_syms, plankton_sym, plankton_idx)
-    gain = _predation_gain_sum(plankton_syms, plankton_sym, plankton_idx)
+    gain = predation_gain_sum(plankton_syms, plankton_sym, plankton_idx)
     lin = :(linear_loss($plankton_sym, linear_mortality[$plankton_idx]))
     quad = :(quadratic_loss($plankton_sym, quadratic_mortality[$plankton_idx]))
     return :(($gain) - $lin - $quad)
