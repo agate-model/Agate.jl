@@ -17,8 +17,6 @@ include("Specifications.jl")
 using .Specifications: PFTSpecification, pft_get, pft_has, cast_pft,
     BiogeochemistrySpecification, cast_spec, ModelSpecification
 
-using Agate.Library.Allometry: allometric_scaling_power
-
 using ..Library.ExprUtils: sum_expr
 
 using Agate.Library.Mortality
@@ -26,6 +24,7 @@ using Agate.Library.Nutrients
 using Agate.Library.Photosynthesis
 using Agate.Library.Predation
 using Agate.Library.Remineralization
+using Agate.Library.Equations: Equation, expr
 
 using OceanBioME
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
@@ -52,17 +51,10 @@ export InteractionDynamics
 export InteractionContext
 export normalize_interactions
 
-# Dynamics parameter registry
-export @register_dynamics
-export required_parameters
-
 # Community parsing
 export validate_plankton_inputs
 export parse_community
 export build_tracer_expressions
-
-# Model construction helpers
-export create_parameters
 
 export add_bgc_methods!, create_bgc_struct, define_tracer_functions, expression_check
 
@@ -99,30 +91,6 @@ struct DiameterRangeSpecification{T} <: AbstractDiameterSpecification
     max_diameter::T
     splitting::Symbol
 end
-
-# -----------------------------------------------------------------------------
-# Dynamics parameter registry
-# -----------------------------------------------------------------------------
-
-const _DYNAMICS_REQUIRED = IdDict{Any, Vector{Symbol}}()
-const _UTILS_MODULE = @__MODULE__
-
-function _register_dynamics!(f, symbols)
-    req = Symbol[]
-    for s in symbols
-        push!(req, s)
-    end
-    _DYNAMICS_REQUIRED[f] = req
-    return nothing
-end
-
-"""Register required parameter symbols for a dynamics function."""
-macro register_dynamics(f, syms)
-    return :($(QuoteNode(_UTILS_MODULE))._register_dynamics!($(esc(f)), $(esc(syms))))
-end
-
-"""Return required parameter symbols for `f` (empty if not registered)."""
-required_parameters(f) = get(_DYNAMICS_REQUIRED, f, Symbol[])
 
 # -----------------------------------------------------------------------------
 # Option 1 interactions API
@@ -323,7 +291,11 @@ function parse_community(
     return ctx
 end
 
-"""Build tracer tendency expressions with deterministic tracer ordering."""
+"""Build tracer tendency expressions with deterministic tracer ordering.
+
+This is a small convenience helper used by the constructor and tests. All
+provided dynamics builders must return `Agate.Library.Equations.Equation`.
+"""
 function build_tracer_expressions(plankton_dynamics::NamedTuple, biogeochem_dynamics::NamedTuple, ctx)
     plankton_syms = ctx.plankton_symbols
 
@@ -332,7 +304,9 @@ function build_tracer_expressions(plankton_dynamics::NamedTuple, biogeochem_dyna
 
     tracer_exprs = Expr[]
     for (tr, f) in pairs(biogeochem_dynamics)
-        push!(tracer_exprs, f(plankton_syms))
+        eq = f(plankton_syms)
+        eq isa Equation || throw(ArgumentError("biogeochem dynamics $(nameof(f)) must return Equation"))
+        push!(tracer_exprs, expr(eq))
     end
 
     # Preserve the ordering of `plankton_args` via `ctx`.
@@ -340,148 +314,34 @@ function build_tracer_expressions(plankton_dynamics::NamedTuple, biogeochem_dyna
         g = ctx.group_symbols[idx]
         f = getfield(plankton_dynamics, g)
         tracer_sym = plankton_syms[idx]
-        push!(tracer_exprs, f(plankton_syms, tracer_sym, idx))
+        eq = f(plankton_syms, tracer_sym, idx)
+        eq isa Equation || throw(ArgumentError("plankton dynamics $(nameof(f)) must return Equation"))
+        push!(tracer_exprs, expr(eq))
     end
 
     return NamedTuple{Tuple(tracer_names)}(Tuple(tracer_exprs))
 end
 
 # -----------------------------------------------------------------------------
-# Parameter construction
-# -----------------------------------------------------------------------------
-
-const _SAFE_PFT_DEFAULTS = Set([
-    :maximum_growth_rate,
-    :nutrient_half_saturation,
-    :alpha,
-    :photosynthetic_slope,
-    :chlorophyll_to_carbon_ratio,
-    :maximum_predation_rate,
-    :holling_half_saturation,
-    :quadratic_mortality,
-    :half_saturation_DIN,
-    :half_saturation_PO4,
-])
-
-@inline function _pft_can_supply(pft::PFTSpecification, key::Symbol)
-    pft_has(pft, key) && return true
-    a = Symbol(string(key), "_a")
-    b = Symbol(string(key), "_b")
-    return pft_has(pft, a) && pft_has(pft, b)
-end
-
-@inline function _pft_value(::Type{FT}, pft::PFTSpecification, diameter, key::Symbol) where {FT<:AbstractFloat}
-    if pft_has(pft, key)
-        v = pft_get(pft, key)
-        return v isa Bool ? v : FT(v)
-    end
-    a = Symbol(string(key), "_a")
-    b = Symbol(string(key), "_b")
-    if pft_has(pft, a) && pft_has(pft, b)
-        return allometric_scaling_power(FT(pft_get(pft, a)), FT(pft_get(pft, b)), FT(diameter))
-    end
-    return nothing
-end
-
-"""Create model-agnostic runtime parameters from dynamics requirements, interactions, and specs."""
-function create_parameters(
-    factory::AbstractBGCFactory,
-    ::Type{FT},
-    ctx::InteractionContext,
-    biogeochem_args;
-    interactions_matrices::NamedTuple=NamedTuple(),
-) where {FT<:AbstractFloat}
-    plankton_dynamics = ctx.plankton_dynamics
-    biogeochem_dynamics = ctx.biogeochem_dynamics
-    spec = biogeochem_args isa BiogeochemistrySpecification ? cast_spec(FT, biogeochem_args) : cast_spec(FT, BiogeochemistrySpecification(biogeochem_args))
-    spec_keys = collect(keys(spec.data))
-
-    required = Symbol[]
-    for f in values(plankton_dynamics)
-        append!(required, required_parameters(f))
-    end
-    for f in values(biogeochem_dynamics)
-        append!(required, required_parameters(f))
-    end
-    required = unique(required)
-
-    # Split requirements
-    matrix_keys = Symbol[s for s in required if endswith(String(s), "_matrix")]
-    scalar_keys = Symbol[s for s in required if s in spec_keys]
-    vector_keys = Symbol[s for s in required if !(s in matrix_keys) && !(s in scalar_keys)]
-
-    # Always include diameters
-    :diameters in vector_keys || push!(vector_keys, :diameters)
-
-    # Validate required pft-provided parameters for plankton dynamics
-    issues = String[]
-    for (g, f) in pairs(plankton_dynamics)
-        req = required_parameters(f)
-        for key in req
-            if key in scalar_keys || key in matrix_keys || key == :diameters
-                continue
-            end
-            # This group can default some parameters safely.
-            g_pft = ctx.pfts[findfirst(==(g), ctx.group_symbols)]
-            if !_pft_can_supply(g_pft, key) && !(key in _SAFE_PFT_DEFAULTS)
-                push!(issues, "group $(g) dynamics $(nameof(f)) is missing parameter $(key)")
-            end
-        end
-    end
-    if !isempty(issues)
-        throw(ArgumentError(join(unique(issues), "\n")))
-    end
-
-    n = ctx.n_total
-    data_pairs = Pair{Symbol,Any}[]
-
-    # Vector parameters
-    for key in vector_keys
-        if key == :diameters
-            push!(data_pairs, :diameters => ctx.diameters)
-            continue
-        end
-        v = zeros(FT, n)
-        @inbounds for i in 1:n
-            val = _pft_value(FT, ctx.pfts[i], ctx.diameters[i], key)
-            if val === nothing
-                v[i] = zero(FT)
-            else
-                v[i] = FT(val)
-            end
-        end
-        push!(data_pairs, key => v)
-    end
-
-    # Scalar parameters (include all spec keys, not just required)
-    for (k, v) in pairs(spec.data)
-        push!(data_pairs, k => v)
-    end
-
-    # Interaction matrices
-    for (k, M) in pairs(interactions_matrices)
-        push!(data_pairs, k => M)
-    end
-
-    return ModelSpecification((; data_pairs...))
-end
-
-# -----------------------------------------------------------------------------
 # Expression validation
 # -----------------------------------------------------------------------------
 
-"""Return all Symbols referenced by an expression tree."""
+"""Return all `Symbol`s referenced by an expression tree.
+
+Supports `Expr`, `Symbol`, and literal roots (numbers). This is used at
+construction time to determine which runtime parameters need to be bound into
+generated tracer methods.
+"""
 function parse_expression(f_expr)
     symbols = Symbol[]
-    expressions = Expr[f_expr]
+    stack = Any[f_expr]
 
-    for exp in expressions
-        for arg in exp.args
-            if arg isa Expr
-                push!(expressions, arg)
-            elseif arg isa Symbol
-                push!(symbols, arg)
-            end
+    while !isempty(stack)
+        x = pop!(stack)
+        if x isa Expr
+            append!(stack, x.args)
+        elseif x isa Symbol
+            push!(symbols, x)
         end
     end
 
@@ -606,7 +466,7 @@ end
 end
 
 @inline function _parameter_view(parameters)
-    # `Agate.Models.create_parameters` returns a wrapper with a `.data` payload.
+    # `Agate.Models.compute_model_parameters` returns a wrapper with a `.data` payload.
     # But several tests (and potential user code) pass a plain struct without
     # a `.data` field (e.g. `LVParameters`).
     return Base.hasproperty(parameters, :data) ? getproperty(parameters, :data) : parameters
@@ -661,7 +521,7 @@ function add_bgc_methods!(
     # materialize *parameters actually referenced* by each tracer expression.
     #
     # Parameters may be either:
-    #   - an Agate wrapper with `.data` payload (from `create_parameters`), or
+    #   - an Agate wrapper with `.data` payload (from `compute_model_parameters`), or
     #   - a plain struct (used in utility tests and potentially user code).
     parameter_keys = collect(propertynames(_parameter_view(parameters)))
 
@@ -900,17 +760,13 @@ end
 """Namespace for runtime generation of tracer expressions and BGC types."""
 module Generator
     import ..Utils:
-        @register_dynamics,
-        required_parameters,
         build_tracer_expressions,
-        create_parameters,
         expression_check,
         create_bgc_struct,
         add_bgc_methods!,
         define_tracer_functions
 
-    export @register_dynamics, required_parameters
-    export build_tracer_expressions, create_parameters
+    export build_tracer_expressions
     export expression_check
     export create_bgc_struct, add_bgc_methods!, define_tracer_functions
 end

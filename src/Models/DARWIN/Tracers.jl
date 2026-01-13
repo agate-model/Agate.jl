@@ -1,8 +1,18 @@
+"""Tracer tendency equations for the simplified DARWIN-like elemental cycling model.
+
+All builders in this module return `Agate.Library.Equations.Equation`.
+The symbolic API is used only at construction time; kernels remain plain `Expr`
+operating on numeric arrays and scalars.
+"""
+
 module Tracers
 
-using Agate.Utils: @register_dynamics, sum_expr
-using Agate.Library.Mortality: linear_loss_sum, quadratic_loss_sum
-using Agate.Library.Predation: predation_loss_sum, predation_gain_sum, predation_assimilation_loss_sum
+using Agate.Library.Equations: Equation, Σ, bgc_param
+
+using Agate.Library.Mortality: linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
+using Agate.Library.Predation: grazing_loss, grazing_gain, grazing_assimilation_loss
+using Agate.Library.Photosynthesis: growth_two_nutrients_geider, growth_two_nutrients_geider_comm
+using Agate.Library.Remineralization: remineralization_flux
 
 export DIC_geider_light,
     DIN_geider_light,
@@ -16,449 +26,146 @@ export DIC_geider_light,
     phytoplankton_growth_two_nutrients_geider_light,
     zooplankton_default
 
-# -----------------------------------------------------------------------------
-# Internal helpers to build allocation-free expressions
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# Internal helpers
+# ----------------------------------------------------------------------------
 
-
-
-
-@inline function _photosynthetic_growth_sum(plankton_syms)
-    terms = Expr[]
-    for (i, sym) in enumerate(plankton_syms)
-        push!(
-            terms,
-            :(photosynthetic_growth_two_nutrients_geider_light(
-                DIN,
-                PO4,
-                $sym,
-                PAR,
-                maximum_growth_rate[$i],
-                half_saturation_DIN[$i],
-                half_saturation_PO4[$i],
-                photosynthetic_slope[$i],
-                chlorophyll_to_carbon_ratio[$i],
-            )),
-        )
-    end
-    return sum_expr(terms)
+"""Sum photosynthetic growth across all plankton (community-optional params)."""
+_growth_sum(plankton_syms) = Σ(plankton_syms) do sym, i
+    growth_two_nutrients_geider_comm(:DIN, :PO4, sym, :PAR, i)
 end
 
+"""Base loss term contributing to organic matter: linear + quadratic + sloppy-feeding losses."""
+_base_loss(plankton_syms) = linear_loss_sum(plankton_syms) +
+                            grazing_assimilation_loss(plankton_syms) +
+                            quadratic_loss_sum(plankton_syms)
 
-
-
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 # Inorganic tracers
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
-"""
-    DIC_geider_light(plankton_syms)
-
-Build expression representing the evolution of DIC over time.
-
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for correct indexing to work (and arranged in the same plankton order).
-
-# Arguments
-- `plankton_syms`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-"""
+"""DIC tendency with Geider-style growth (carbon units)."""
 function DIC_geider_light(plankton_syms)
-    growth = _photosynthetic_growth_sum(plankton_syms)
-    return :(
-        remineralization_idealized(DOC, DOC_remineralization) +
-        remineralization_idealized(POC, POC_remineralization) - ($growth)
+    growth = _growth_sum(plankton_syms)
+    return Equation(
+        remineralization_flux(:DOC, :DOC_remineralization) +
+        remineralization_flux(:POC, :POC_remineralization) -
+        growth,
     )
 end
 
-"""
-    DIN_geider_light(plankton_syms)
-
-Build expression representing the evolution of DIN over time assuming fixed stoichiometry.
-
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for correct indexing to work (and arranged in the same plankton order).
-
-# Arguments
-- `plankton_syms`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-"""
+"""DIN tendency assuming fixed stoichiometry (N:C)."""
 function DIN_geider_light(plankton_syms)
-    growth = _photosynthetic_growth_sum(plankton_syms)
-    return :(
-        remineralization_idealized(DON, DON_remineralization) +
-        remineralization_idealized(PON, PON_remineralization) -
-        nitrogen_to_carbon * ($growth)
+    growth = _growth_sum(plankton_syms)
+    n2c = bgc_param(:nitrogen_to_carbon)
+    return Equation(
+        remineralization_flux(:DON, :DON_remineralization) +
+        remineralization_flux(:PON, :PON_remineralization) -
+        n2c * growth,
     )
 end
 
-"""
-    PO4_geider_light(plankton_syms)
-
-Build expression representing the evolution of PO4 over time assuming fixed stoichiometry.
-
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for correct indexing to work (and arranged in the same plankton order).
-
-# Arguments
-- `plankton_syms`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-"""
+"""PO4 tendency assuming fixed stoichiometry (P:C)."""
 function PO4_geider_light(plankton_syms)
-    growth = _photosynthetic_growth_sum(plankton_syms)
-    return :(
-        remineralization_idealized(DOP, DOP_remineralization) +
-        remineralization_idealized(POP, POP_remineralization) -
-        phosphorus_to_carbon * ($growth)
+    growth = _growth_sum(plankton_syms)
+    p2c = bgc_param(:phosphorus_to_carbon)
+    return Equation(
+        remineralization_flux(:DOP, :DOP_remineralization) +
+        remineralization_flux(:POP, :POP_remineralization) -
+        p2c * growth,
     )
 end
 
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 # Organic matter tracers
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
-"""
-    DOC_default(plankton_syms)
-
-Build expression for a simplified DOC function of time.
-
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for correct indexing to work (and arranged in the same plankton order).
-
-# Arguments
-- `plankton_syms`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-"""
+"""DOC tendency from plankton losses and remineralization."""
 function DOC_default(plankton_syms)
-    base = :(
-        $(linear_loss_sum(plankton_syms)) +
-        $(predation_assimilation_loss_sum(plankton_syms)) +
-        $(quadratic_loss_sum(plankton_syms))
-    )
-    return :(
-        (1 - DOM_POM_fractionation) * ($base) -
-        remineralization_idealized(DOC, DOC_remineralization)
+    base = _base_loss(plankton_syms)
+    frac = bgc_param(:DOM_POM_fractionation)
+    return Equation(
+        (1 - frac) * base -
+        remineralization_flux(:DOC, :DOC_remineralization),
     )
 end
 
-"""
-    POC_default(plankton_syms)
-
-Build expression for a simplified POC function of time.
-
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for correct indexing to work (and arranged in the same plankton order).
-
-# Arguments
-- `plankton_syms`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-"""
+"""POC tendency from plankton losses and remineralization."""
 function POC_default(plankton_syms)
-    base = :(
-        $(linear_loss_sum(plankton_syms)) +
-        $(predation_assimilation_loss_sum(plankton_syms)) +
-        $(quadratic_loss_sum(plankton_syms))
-    )
-    return :(
-        DOM_POM_fractionation * ($base) -
-        remineralization_idealized(POC, POC_remineralization)
+    base = _base_loss(plankton_syms)
+    frac = bgc_param(:DOM_POM_fractionation)
+    return Equation(
+        frac * base -
+        remineralization_flux(:POC, :POC_remineralization),
     )
 end
 
-"""
-    DON_default(plankton_syms)
-
-Build expression for a simplified DON function of time.
-
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for correct indexing to work (and arranged in the same plankton order).
-
-# Arguments
-- `plankton_syms`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-"""
+"""DON tendency assuming fixed stoichiometry (N:C)."""
 function DON_default(plankton_syms)
-    base = :(
-        $(linear_loss_sum(plankton_syms)) +
-        $(predation_assimilation_loss_sum(plankton_syms)) +
-        $(quadratic_loss_sum(plankton_syms))
-    )
-    return :(
-        (1 - DOM_POM_fractionation) * nitrogen_to_carbon * ($base) -
-        remineralization_idealized(DON, DON_remineralization)
+    base = _base_loss(plankton_syms)
+    frac = bgc_param(:DOM_POM_fractionation)
+    n2c = bgc_param(:nitrogen_to_carbon)
+    return Equation(
+        (1 - frac) * n2c * base -
+        remineralization_flux(:DON, :DON_remineralization),
     )
 end
 
-"""
-    PON_default(plankton_syms)
-
-Build expression for a simplified PON function of time.
-
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for correct indexing to work (and arranged in the same plankton order).
-
-# Arguments
-- `plankton_syms`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-"""
+"""PON tendency assuming fixed stoichiometry (N:C)."""
 function PON_default(plankton_syms)
-    base = :(
-        $(linear_loss_sum(plankton_syms)) +
-        $(predation_assimilation_loss_sum(plankton_syms)) +
-        $(quadratic_loss_sum(plankton_syms))
-    )
-    return :(
-        DOM_POM_fractionation * nitrogen_to_carbon * ($base) -
-        remineralization_idealized(PON, PON_remineralization)
+    base = _base_loss(plankton_syms)
+    frac = bgc_param(:DOM_POM_fractionation)
+    n2c = bgc_param(:nitrogen_to_carbon)
+    return Equation(
+        frac * n2c * base -
+        remineralization_flux(:PON, :PON_remineralization),
     )
 end
 
-"""
-    DOP_default(plankton_syms)
-
-Build expression for a simplified DOP function of time.
-
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for correct indexing to work (and arranged in the same plankton order).
-
-# Arguments
-- `plankton_syms`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-"""
+"""DOP tendency assuming fixed stoichiometry (P:C)."""
 function DOP_default(plankton_syms)
-    base = :(
-        $(linear_loss_sum(plankton_syms)) +
-        $(predation_assimilation_loss_sum(plankton_syms)) +
-        $(quadratic_loss_sum(plankton_syms))
-    )
-    return :(
-        (1 - DOM_POM_fractionation) * phosphorus_to_carbon * ($base) -
-        remineralization_idealized(DOP, DOP_remineralization)
+    base = _base_loss(plankton_syms)
+    frac = bgc_param(:DOM_POM_fractionation)
+    p2c = bgc_param(:phosphorus_to_carbon)
+    return Equation(
+        (1 - frac) * p2c * base -
+        remineralization_flux(:DOP, :DOP_remineralization),
     )
 end
 
-"""
-    POP_default(plankton_syms)
-
-Build expression for a simplified POP function of time.
-
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for correct indexing to work (and arranged in the same plankton order).
-
-# Arguments
-- `plankton_syms`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-"""
+"""POP tendency assuming fixed stoichiometry (P:C)."""
 function POP_default(plankton_syms)
-    base = :(
-        $(linear_loss_sum(plankton_syms)) +
-        $(predation_assimilation_loss_sum(plankton_syms)) +
-        $(quadratic_loss_sum(plankton_syms))
-    )
-    return :(
-        DOM_POM_fractionation * phosphorus_to_carbon * ($base) -
-        remineralization_idealized(POP, POP_remineralization)
+    base = _base_loss(plankton_syms)
+    frac = bgc_param(:DOM_POM_fractionation)
+    p2c = bgc_param(:phosphorus_to_carbon)
+    return Equation(
+        frac * p2c * base -
+        remineralization_flux(:POP, :POP_remineralization),
     )
 end
 
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 # Plankton tracers
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
-"""
-    phytoplankton_growth_two_nutrients_geider_light(plankton_syms, plankton_sym, plankton_idx)
-
-Build expression for a simplified phytoplankton growth function.
-
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for correct indexing to work (and arranged in the same plankton order).
-
-# Arguments
-- `plankton_syms`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-- `plankton_sym`: name of the phytoplankton for which we are returning the expression, passed
-    as a Symbol (e.g., :P1).
-- `plankton_idx`: the index at which this plankton's values are stored in all parameter Arrays
-"""
+"""Phytoplankton tendency with Geider-style, two-nutrient growth."""
 function phytoplankton_growth_two_nutrients_geider_light(
-    plankton_syms, plankton_sym, plankton_idx
+    plankton_syms,
+    plankton_sym::Symbol,
+    plankton_idx::Int,
 )
-    growth = :(photosynthetic_growth_two_nutrients_geider_light(
-        DIN,
-        PO4,
-        $plankton_sym,
-        PAR,
-        maximum_growth_rate[$plankton_idx],
-        half_saturation_DIN[$plankton_idx],
-        half_saturation_PO4[$plankton_idx],
-        photosynthetic_slope[$plankton_idx],
-        chlorophyll_to_carbon_ratio[$plankton_idx],
-    ))
-
-    grazing_loss = predation_loss_sum(plankton_syms, plankton_sym, plankton_idx)
-    lin = :(linear_loss($plankton_sym, linear_mortality[$plankton_idx]))
-
-    return :($growth - ($grazing_loss) - $lin)
+    growth = growth_two_nutrients_geider(:DIN, :PO4, plankton_sym, :PAR, plankton_idx)
+    grazing = grazing_loss(plankton_sym, plankton_idx, plankton_syms)
+    mort = linear_loss(plankton_sym, plankton_idx)
+    return Equation(growth - grazing - mort)
 end
 
-"""
-    zooplankton_default(plankton_syms, plankton_sym, plankton_idx)
-
-Build expression for simplified zooplankton growth function.
-
-The functions used in the expression are all within the Agate.Library, see their docstring
-for overview. All arguments in the functions are either an Array or a Float. The Arrays have
-to be of same length for correct indexing to work (and arranged in the same plankton order).
-
-# Arguments
-- `plankton_syms`: names of all the plankton in the ecosystem expressed as Symbols, e.g.:
-    `[:Z1, :Z2, :P1, :P2]`, arranged in the same order as all the parameter Arrays
-- `plankton_sym`: name of the zooplankton for which we are returning the expression, passed
-    as a Symbol (e.g., :Z1).
-- `plankton_idx`: the index at which this plankton's values are stored in all parameter Arrays
-"""
-function zooplankton_default(plankton_syms, plankton_sym, plankton_idx)
-    gain = predation_gain_sum(plankton_syms, plankton_sym, plankton_idx)
-    lin = :(linear_loss($plankton_sym, linear_mortality[$plankton_idx]))
-    quad = :(quadratic_loss($plankton_sym, quadratic_mortality[$plankton_idx]))
-    return :(($gain) - $lin - $quad)
+"""Zooplankton tendency with preferential feeding."""
+function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
+    gain = grazing_gain(plankton_sym, plankton_idx, plankton_syms)
+    lin = linear_loss(plankton_sym, plankton_idx)
+    quad = quadratic_loss(plankton_sym, plankton_idx)
+    return Equation(gain - lin - quad)
 end
-
-# -----------------------------------------------------------------------------
-# Parameter registry
-# -----------------------------------------------------------------------------
-
-@register_dynamics DIC_geider_light (
-    :DOC_remineralization,
-    :POC_remineralization,
-    :maximum_growth_rate,
-    :half_saturation_DIN,
-    :half_saturation_PO4,
-    :photosynthetic_slope,
-    :chlorophyll_to_carbon_ratio,
-)
-
-@register_dynamics DIN_geider_light (
-    :DON_remineralization,
-    :PON_remineralization,
-    :nitrogen_to_carbon,
-    :maximum_growth_rate,
-    :half_saturation_DIN,
-    :half_saturation_PO4,
-    :photosynthetic_slope,
-    :chlorophyll_to_carbon_ratio,
-)
-
-@register_dynamics PO4_geider_light (
-    :DOP_remineralization,
-    :POP_remineralization,
-    :phosphorus_to_carbon,
-    :maximum_growth_rate,
-    :half_saturation_DIN,
-    :half_saturation_PO4,
-    :photosynthetic_slope,
-    :chlorophyll_to_carbon_ratio,
-)
-
-@register_dynamics DOC_default (
-    :DOM_POM_fractionation,
-    :DOC_remineralization,
-    :linear_mortality,
-    :quadratic_mortality,
-    :maximum_predation_rate,
-    :holling_half_saturation,
-    :palatability_matrix,
-    :assimilation_efficiency_matrix,
-)
-
-@register_dynamics POC_default (
-    :DOM_POM_fractionation,
-    :POC_remineralization,
-    :linear_mortality,
-    :quadratic_mortality,
-    :maximum_predation_rate,
-    :holling_half_saturation,
-    :palatability_matrix,
-    :assimilation_efficiency_matrix,
-)
-
-@register_dynamics DON_default (
-    :DOM_POM_fractionation,
-    :DON_remineralization,
-    :nitrogen_to_carbon,
-    :linear_mortality,
-    :quadratic_mortality,
-    :maximum_predation_rate,
-    :holling_half_saturation,
-    :palatability_matrix,
-    :assimilation_efficiency_matrix,
-)
-
-@register_dynamics PON_default (
-    :DOM_POM_fractionation,
-    :PON_remineralization,
-    :nitrogen_to_carbon,
-    :linear_mortality,
-    :quadratic_mortality,
-    :maximum_predation_rate,
-    :holling_half_saturation,
-    :palatability_matrix,
-    :assimilation_efficiency_matrix,
-)
-
-@register_dynamics DOP_default (
-    :DOM_POM_fractionation,
-    :DOP_remineralization,
-    :phosphorus_to_carbon,
-    :linear_mortality,
-    :quadratic_mortality,
-    :maximum_predation_rate,
-    :holling_half_saturation,
-    :palatability_matrix,
-    :assimilation_efficiency_matrix,
-)
-
-@register_dynamics POP_default (
-    :DOM_POM_fractionation,
-    :POP_remineralization,
-    :phosphorus_to_carbon,
-    :linear_mortality,
-    :quadratic_mortality,
-    :maximum_predation_rate,
-    :holling_half_saturation,
-    :palatability_matrix,
-    :assimilation_efficiency_matrix,
-)
-
-@register_dynamics phytoplankton_growth_two_nutrients_geider_light (
-    :maximum_growth_rate,
-    :half_saturation_DIN,
-    :half_saturation_PO4,
-    :photosynthetic_slope,
-    :chlorophyll_to_carbon_ratio,
-    :maximum_predation_rate,
-    :holling_half_saturation,
-    :palatability_matrix,
-    :linear_mortality,
-)
-
-@register_dynamics zooplankton_default (
-    :assimilation_efficiency_matrix,
-    :maximum_predation_rate,
-    :holling_half_saturation,
-    :palatability_matrix,
-    :linear_mortality,
-    :quadratic_mortality,
-)
 
 end # module

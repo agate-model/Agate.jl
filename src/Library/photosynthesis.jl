@@ -3,12 +3,35 @@
 module Photosynthesis
 
 using Agate.Library.Nutrients: monod_limitation, liebig_minimum
+using ..Equations: AExpr, req, merge_requirements, group_param, community_param
 
 export light_limitation_smith,
     light_limitation_geider,
     photosynthetic_growth_single_nutrient,
     photosynthetic_growth_single_nutrient_geider_light,
     photosynthetic_growth_two_nutrients_geider_light
+
+# Symbolic (construction-time) equation blocks
+export growth_single_nutrient
+export growth_single_nutrient_comm
+export growth_single_nutrient_geider
+export growth_single_nutrient_geider_comm
+export growth_two_nutrients_geider
+export growth_two_nutrients_geider_comm
+
+@inline _to_aexpr_local(x) = x isa AExpr ? x : AExpr(x, req())
+
+"""Build an `AExpr` for a runtime function call, merging argument requirements."""
+function _call(fsym::Symbol, args...)
+    merged = req()
+    nodes = Any[]
+    for a in args
+        ae = _to_aexpr_local(a)
+        merged = merge_requirements(merged, ae.req)
+        push!(nodes, ae.node)
+    end
+    return AExpr(Expr(:call, fsym, nodes...), merged)
+end
 
 """
     light_limitation_smith(PAR, initial_slope, maximum_growth_0C)
@@ -222,6 +245,162 @@ Two nutrient geider photosynthetic growth.
                PAR, photosynthetic_slope, maximum_growth_rate, chlorophyll_to_carbon_ratio
            ) *
            P
+end
+
+# -----------------------------------------------------------------------------
+# Symbolic (construction-time) equation blocks
+# -----------------------------------------------------------------------------
+
+"""\
+    growth_single_nutrient(nutrient_sym, plankton_sym, light_sym, idx; ...) -> AExpr
+
+Symbolic single-nutrient photosynthetic growth for a *group's own* dynamics.
+Uses group-owned parameters (missing in that group => error; explicit `nothing` => 0).
+"""
+function growth_single_nutrient(
+    nutrient_sym::Symbol,
+    plankton_sym::Symbol,
+    light_sym::Symbol,
+    idx::Int;
+    maximum_growth_rate::Symbol=:maximum_growth_rate,
+    nutrient_half_saturation::Symbol=:nutrient_half_saturation,
+    alpha::Symbol=:alpha,
+)
+    return _call(
+        :photosynthetic_growth_single_nutrient,
+        nutrient_sym,
+        plankton_sym,
+        light_sym,
+        group_param(maximum_growth_rate)[idx],
+        group_param(nutrient_half_saturation)[idx],
+        group_param(alpha)[idx],
+    )
+end
+
+"""\
+    growth_single_nutrient_comm(nutrient_sym, plankton_sym, light_sym, idx; ...) -> AExpr
+
+Community-optional variant used inside community sums.
+Missing or `nothing` parameters are treated as inactive (filled with 0).
+"""
+function growth_single_nutrient_comm(
+    nutrient_sym::Symbol,
+    plankton_sym::Symbol,
+    light_sym::Symbol,
+    idx::Int;
+    maximum_growth_rate::Symbol=:maximum_growth_rate,
+    nutrient_half_saturation::Symbol=:nutrient_half_saturation,
+    alpha::Symbol=:alpha,
+)
+    return _call(
+        :photosynthetic_growth_single_nutrient,
+        nutrient_sym,
+        plankton_sym,
+        light_sym,
+        community_param(maximum_growth_rate)[idx],
+        community_param(nutrient_half_saturation)[idx],
+        community_param(alpha)[idx],
+    )
+end
+
+"""Symbolic Geider-style single-nutrient growth for group-owned dynamics."""
+function growth_single_nutrient_geider(
+    nutrient_sym::Symbol,
+    plankton_sym::Symbol,
+    light_sym::Symbol,
+    idx::Int;
+    maximum_growth_rate::Symbol=:maximum_growth_rate,
+    nutrient_half_saturation::Symbol=:nutrient_half_saturation,
+    photosynthetic_slope::Symbol=:photosynthetic_slope,
+    chlorophyll_to_carbon_ratio::Symbol=:chlorophyll_to_carbon_ratio,
+)
+    return _call(
+        :photosynthetic_growth_single_nutrient_geider_light,
+        nutrient_sym,
+        plankton_sym,
+        light_sym,
+        group_param(maximum_growth_rate)[idx],
+        group_param(nutrient_half_saturation)[idx],
+        group_param(photosynthetic_slope)[idx],
+        group_param(chlorophyll_to_carbon_ratio)[idx],
+    )
+end
+
+"""Community-optional Geider-style single-nutrient growth."""
+function growth_single_nutrient_geider_comm(
+    nutrient_sym::Symbol,
+    plankton_sym::Symbol,
+    light_sym::Symbol,
+    idx::Int;
+    maximum_growth_rate::Symbol=:maximum_growth_rate,
+    nutrient_half_saturation::Symbol=:nutrient_half_saturation,
+    photosynthetic_slope::Symbol=:photosynthetic_slope,
+    chlorophyll_to_carbon_ratio::Symbol=:chlorophyll_to_carbon_ratio,
+)
+    return _call(
+        :photosynthetic_growth_single_nutrient_geider_light,
+        nutrient_sym,
+        plankton_sym,
+        light_sym,
+        community_param(maximum_growth_rate)[idx],
+        community_param(nutrient_half_saturation)[idx],
+        community_param(photosynthetic_slope)[idx],
+        community_param(chlorophyll_to_carbon_ratio)[idx],
+    )
+end
+
+"""Symbolic Geider-style two-nutrient growth for group-owned dynamics."""
+function growth_two_nutrients_geider(
+    nutrient1_sym::Symbol,
+    nutrient2_sym::Symbol,
+    plankton_sym::Symbol,
+    light_sym::Symbol,
+    idx::Int;
+    maximum_growth_rate::Symbol=:maximum_growth_rate,
+    half_saturation_1::Symbol=:half_saturation_DIN,
+    half_saturation_2::Symbol=:half_saturation_PO4,
+    photosynthetic_slope::Symbol=:photosynthetic_slope,
+    chlorophyll_to_carbon_ratio::Symbol=:chlorophyll_to_carbon_ratio,
+)
+    return _call(
+        :photosynthetic_growth_two_nutrients_geider_light,
+        nutrient1_sym,
+        nutrient2_sym,
+        plankton_sym,
+        light_sym,
+        group_param(maximum_growth_rate)[idx],
+        group_param(half_saturation_1)[idx],
+        group_param(half_saturation_2)[idx],
+        group_param(photosynthetic_slope)[idx],
+        group_param(chlorophyll_to_carbon_ratio)[idx],
+    )
+end
+
+"""Community-optional Geider-style two-nutrient growth."""
+function growth_two_nutrients_geider_comm(
+    nutrient1_sym::Symbol,
+    nutrient2_sym::Symbol,
+    plankton_sym::Symbol,
+    light_sym::Symbol,
+    idx::Int;
+    maximum_growth_rate::Symbol=:maximum_growth_rate,
+    half_saturation_1::Symbol=:half_saturation_DIN,
+    half_saturation_2::Symbol=:half_saturation_PO4,
+    photosynthetic_slope::Symbol=:photosynthetic_slope,
+    chlorophyll_to_carbon_ratio::Symbol=:chlorophyll_to_carbon_ratio,
+)
+    return _call(
+        :photosynthetic_growth_two_nutrients_geider_light,
+        nutrient1_sym,
+        nutrient2_sym,
+        plankton_sym,
+        light_sym,
+        community_param(maximum_growth_rate)[idx],
+        community_param(half_saturation_1)[idx],
+        community_param(half_saturation_2)[idx],
+        community_param(photosynthetic_slope)[idx],
+        community_param(chlorophyll_to_carbon_ratio)[idx],
+    )
 end
 
 end # module

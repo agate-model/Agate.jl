@@ -42,6 +42,7 @@ Example:
 using Agate
 using Agate.Models: NiPiZDFactory
 using Agate.Constructor: construct, update_plankton_args, update_biogeochem_args
+using Agate.Library.Allometry: AllometricParam, PowerLaw
 
 using Oceananigans.Units: day
 
@@ -55,7 +56,9 @@ plankton_args = update_plankton_args(plankton_args, :Z; n=1, diameters=[60.0])
 plankton_args = update_plankton_args(plankton_args, :P; n=3, diameters=(1.5, 20.0, :log_splitting))
 
 # 2) Override a PFT parameter (one step).
-plankton_args = update_plankton_args(plankton_args, :P; maximum_growth_rate_a=3.0/day)
+plankton_args = update_plankton_args(plankton_args, :P;
+    maximum_growth_rate = AllometricParam(PowerLaw(); prefactor=3.0/day, exponent=-0.15),
+)
 
 # 3) Override a biogeochemistry specification value.
 biogeochem_args = update_biogeochem_args(biogeochem_args; detritus_remineralization=0.18/day)
@@ -73,7 +76,6 @@ Agate.Constructor.update_plankton_args
 Agate.Constructor.update_biogeochem_args
 Agate.Constructor.update_dynamics
 Agate.Constructor.patch
-Agate.Constructor.update_group
 Agate.Utils.Specifications.PFTSpecification
 Agate.Utils.Specifications.BiogeochemistrySpecification
 Agate.Utils.Specifications.ModelSpecification

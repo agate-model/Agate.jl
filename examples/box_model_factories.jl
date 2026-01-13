@@ -18,6 +18,7 @@ using Agate.Models: NiPiZDFactory
 using Agate.Constructor: PFTSpecification, BiogeochemistrySpecification, update_plankton_args, update_biogeochem_args, update_dynamics
 using Agate.Utils: parse_community
 using Agate.Library.Light
+using Agate.Library.Allometry: AllometricParam, PowerLaw
 
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -72,7 +73,7 @@ plankton_args_custom = update_plankton_args(plankton_args_custom, :P; n=3, diame
 # You can create an overridden copy using keyword splatting.
 
 # Apply a one-step PFT override via update_plankton_args
-plankton_args_custom = update_plankton_args(plankton_args_custom, :P; maximum_growth_rate_a=3.0 / day)
+plankton_args_custom = update_plankton_args(plankton_args_custom, :P; maximum_growth_rate=AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15))
 
 # The non-plankton specification is similarly stored in `BiogeochemistrySpecification`.
 biogeochem_args_fast = update_biogeochem_args(biogeochem_args; detritus_remineralization=0.18 / day)

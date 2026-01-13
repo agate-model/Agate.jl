@@ -1,16 +1,21 @@
-"""Tracer tendency expressions for the NiPiZD biogeochemical model.
+"""Tracer tendency equations for the NiPiZD biogeochemical model.
 
-This module constructs `Expr` objects that define tracer tendencies for Oceananigans
-continuous-form biogeochemistry models.
-
-All generated expressions are allocation-free and suitable for GPU compilation.
+All builders in this module return `Agate.Library.Equations.Equation`.
+The symbolic API is used only at construction time; kernels remain plain `Expr`
+operating on numeric arrays and scalars.
 """
 
 module Tracers
 
-using Agate.Utils: @register_dynamics, sum_expr
-using Agate.Library.Mortality: linear_loss_sum, quadratic_loss_sum
-using Agate.Library.Predation: predation_loss_sum, predation_gain_sum, predation_assimilation_loss_sum
+using Agate.Library.Equations: Equation, Σ, bgc_param
+
+using Agate.Library.Mortality: linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
+using Agate.Library.Predation: grazing_loss, grazing_gain, grazing_assimilation_loss
+using Agate.Library.Photosynthesis:
+    growth_single_nutrient,
+    growth_single_nutrient_comm,
+    growth_single_nutrient_geider,
+    growth_single_nutrient_geider_comm
 
 export phytoplankton_default,
     phytoplankton_geider_light,
@@ -19,217 +24,80 @@ export phytoplankton_default,
     nutrient_geider_light,
     detritus_default
 
-"""Build a sum of photosynthetic growth over all plankton."""
-function _photosynthetic_growth_sum(plankton_syms::AbstractVector{Symbol})
-    terms = Expr[]
-    for (i, sym) in enumerate(plankton_syms)
-        push!(
-            terms,
-            :(photosynthetic_growth_single_nutrient(
-                N,
-                $sym,
-                PAR,
-                maximum_growth_rate[$i],
-                nutrient_half_saturation[$i],
-                alpha[$i],
-            )),
-        )
-    end
-    return sum_expr(terms)
+# --- internal helpers ---------------------------------------------------------
+
+_growth_sum(plankton_syms) = Σ(plankton_syms) do sym, i
+    growth_single_nutrient_comm(:N, sym, :PAR, i)
 end
 
-"""Build a sum of Geider-style photosynthetic growth over all plankton."""
-function _photosynthetic_growth_geider_sum(plankton_syms::AbstractVector{Symbol})
-    terms = Expr[]
-    for (i, sym) in enumerate(plankton_syms)
-        push!(
-            terms,
-            :(photosynthetic_growth_single_nutrient_geider_light(
-                N,
-                $sym,
-                PAR,
-                maximum_growth_rate[$i],
-                nutrient_half_saturation[$i],
-                photosynthetic_slope[$i],
-                chlorophyll_to_carbon_ratio[$i],
-            )),
-        )
-    end
-    return sum_expr(terms)
+_growth_sum_geider(plankton_syms) = Σ(plankton_syms) do sym, i
+    growth_single_nutrient_geider_comm(:N, sym, :PAR, i)
 end
 
-"""
-    nutrient_default(plankton_syms)
+_remineralization_term() = bgc_param(:detritus_remineralization) * :D
 
-Nutrient tendency for a single dissolved inorganic nutrient `N`.
-"""
-function nutrient_default(plankton_syms::AbstractVector{Symbol})
+# --- biogeochemical tracers ---------------------------------------------------
+
+"""Nutrient tendency for a single dissolved inorganic nutrient `N`."""
+function nutrient_default(plankton_syms)
     linear_sum = linear_loss_sum(plankton_syms)
     quadratic_sum = quadratic_loss_sum(plankton_syms)
-    growth_sum = _photosynthetic_growth_sum(plankton_syms)
+    growth_sum = _growth_sum(plankton_syms)
 
-    return :(
-        mortality_export_fraction * ($linear_sum) +
-        mortality_export_fraction * ($quadratic_sum) +
-        remineralization_idealized(D, detritus_remineralization) - ($growth_sum)
-    )
+    export_frac = bgc_param(:mortality_export_fraction)
+    remin = _remineralization_term()
+
+    return Equation(export_frac * linear_sum + export_frac * quadratic_sum + remin - growth_sum)
 end
 
 """Nutrient tendency using Geider-style light limitation."""
-function nutrient_geider_light(plankton_syms::AbstractVector{Symbol})
+function nutrient_geider_light(plankton_syms)
     linear_sum = linear_loss_sum(plankton_syms)
     quadratic_sum = quadratic_loss_sum(plankton_syms)
-    growth_sum = _photosynthetic_growth_geider_sum(plankton_syms)
+    growth_sum = _growth_sum_geider(plankton_syms)
 
-    return :(
-        mortality_export_fraction * ($linear_sum) +
-        mortality_export_fraction * ($quadratic_sum) +
-        remineralization_idealized(D, detritus_remineralization) - ($growth_sum)
-    )
+    export_frac = bgc_param(:mortality_export_fraction)
+    remin = _remineralization_term()
+
+    return Equation(export_frac * linear_sum + export_frac * quadratic_sum + remin - growth_sum)
 end
 
-"""
-    detritus_default(plankton_syms)
-
-Detritus tendency for a single detrital pool `D`.
-"""
-function detritus_default(plankton_syms::AbstractVector{Symbol})
+"""Detritus tendency for a single detrital pool `D`."""
+function detritus_default(plankton_syms)
     linear_sum = linear_loss_sum(plankton_syms)
     quadratic_sum = quadratic_loss_sum(plankton_syms)
-    assimilation_loss_sum = predation_assimilation_loss_sum(plankton_syms)
+    assimilation_loss_sum = grazing_assimilation_loss(plankton_syms)
 
-    return :(
-        (1 - mortality_export_fraction) * ($linear_sum) +
-        ($assimilation_loss_sum) +
-        (1 - mortality_export_fraction) * ($quadratic_sum) -
-        remineralization_idealized(D, detritus_remineralization)
-    )
+    export_frac = bgc_param(:mortality_export_fraction)
+    remin = _remineralization_term()
+
+    return Equation((1 - export_frac) * linear_sum + assimilation_loss_sum + (1 - export_frac) * quadratic_sum - remin)
 end
 
-"""
-    phytoplankton_default(plankton_syms, plankton_sym, plankton_idx)
+# --- plankton tracers ---------------------------------------------------------
 
-Phytoplankton tendency with single-nutrient Smith-style light limitation.
-"""
-function phytoplankton_default(
-    plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int
-)
-    growth = :(photosynthetic_growth_single_nutrient(
-        N,
-        $plankton_sym,
-        PAR,
-        maximum_growth_rate[$plankton_idx],
-        nutrient_half_saturation[$plankton_idx],
-        alpha[$plankton_idx],
-    ))
-
-    grazing_loss = predation_loss_sum(plankton_syms, plankton_sym, plankton_idx)
-
-    mortality_loss = :(linear_loss($plankton_sym, linear_mortality[$plankton_idx]))
-
-    return :($growth - ($grazing_loss) - $mortality_loss)
+"""Phytoplankton tendency with single-nutrient Smith-style light limitation."""
+function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
+    growth = growth_single_nutrient(:N, plankton_sym, :PAR, plankton_idx)
+    grazing = grazing_loss(plankton_sym, plankton_idx, plankton_syms)
+    mort = linear_loss(plankton_sym, plankton_idx)
+    return Equation(growth - grazing - mort)
 end
 
 """Phytoplankton tendency using Geider-style light limitation."""
-function phytoplankton_geider_light(
-    plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int
-)
-    growth = :(photosynthetic_growth_single_nutrient_geider_light(
-        N,
-        $plankton_sym,
-        PAR,
-        maximum_growth_rate[$plankton_idx],
-        nutrient_half_saturation[$plankton_idx],
-        photosynthetic_slope[$plankton_idx],
-        chlorophyll_to_carbon_ratio[$plankton_idx],
-    ))
-
-    grazing_loss = predation_loss_sum(plankton_syms, plankton_sym, plankton_idx)
-    mortality_loss = :(linear_loss($plankton_sym, linear_mortality[$plankton_idx]))
-
-    return :($growth - ($grazing_loss) - $mortality_loss)
+function phytoplankton_geider_light(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
+    growth = growth_single_nutrient_geider(:N, plankton_sym, :PAR, plankton_idx)
+    grazing = grazing_loss(plankton_sym, plankton_idx, plankton_syms)
+    mort = linear_loss(plankton_sym, plankton_idx)
+    return Equation(growth - grazing - mort)
 end
 
-"""
-    zooplankton_default(plankton_syms, plankton_sym, plankton_idx)
-
-Zooplankton tendency with preferential feeding.
-"""
-function zooplankton_default(
-    plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int
-)
-    gain_sum = predation_gain_sum(plankton_syms, plankton_sym, plankton_idx)
-
-    linear = :(linear_loss($plankton_sym, linear_mortality[$plankton_idx]))
-    quadratic = :(quadratic_loss($plankton_sym, quadratic_mortality[$plankton_idx]))
-
-    return :(($gain_sum) - $linear - $quadratic)
+"""Zooplankton tendency with preferential feeding."""
+function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
+    gain = grazing_gain(plankton_sym, plankton_idx, plankton_syms)
+    lin = linear_loss(plankton_sym, plankton_idx)
+    quad = quadratic_loss(plankton_sym, plankton_idx)
+    return Equation(gain - lin - quad)
 end
-
-# -----------------------------------------------------------------------------
-# Dynamics parameter registry
-# -----------------------------------------------------------------------------
-
-@register_dynamics nutrient_default (
-    :linear_mortality,
-    :quadratic_mortality,
-    :maximum_growth_rate,
-    :nutrient_half_saturation,
-    :alpha,
-    :detritus_remineralization,
-    :mortality_export_fraction,
-)
-
-@register_dynamics nutrient_geider_light (
-    :linear_mortality,
-    :quadratic_mortality,
-    :maximum_growth_rate,
-    :nutrient_half_saturation,
-    :photosynthetic_slope,
-    :chlorophyll_to_carbon_ratio,
-    :detritus_remineralization,
-    :mortality_export_fraction,
-)
-
-@register_dynamics detritus_default (
-    :linear_mortality,
-    :quadratic_mortality,
-    :maximum_predation_rate,
-    :holling_half_saturation,
-    :palatability_matrix,
-    :assimilation_efficiency_matrix,
-    :detritus_remineralization,
-    :mortality_export_fraction,
-)
-
-@register_dynamics phytoplankton_default (
-    :maximum_growth_rate,
-    :nutrient_half_saturation,
-    :alpha,
-    :maximum_predation_rate,
-    :holling_half_saturation,
-    :palatability_matrix,
-    :linear_mortality,
-)
-
-@register_dynamics phytoplankton_geider_light (
-    :maximum_growth_rate,
-    :nutrient_half_saturation,
-    :photosynthetic_slope,
-    :chlorophyll_to_carbon_ratio,
-    :maximum_predation_rate,
-    :holling_half_saturation,
-    :palatability_matrix,
-    :linear_mortality,
-)
-
-@register_dynamics zooplankton_default (
-    :assimilation_efficiency_matrix,
-    :maximum_predation_rate,
-    :holling_half_saturation,
-    :palatability_matrix,
-    :linear_mortality,
-    :quadratic_mortality,
-)
 
 end # module

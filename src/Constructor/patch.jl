@@ -147,11 +147,3 @@ function update_dynamics(dynamics::NamedTuple; kwargs...)
     end
     return merge(dynamics, (; kwargs...))
 end
-
-# Backwards-compatibility: keep the old name but route to the new API.
-"""
-    update_group(plankton_args::NamedTuple, group::Symbol; kwargs...) -> NamedTuple
-
-Deprecated alias for `update_plankton_args`.
-"""
-update_group(plankton_args::NamedTuple, group::Symbol; kwargs...) = update_plankton_args(plankton_args, group; kwargs...)

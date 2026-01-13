@@ -17,11 +17,13 @@ export sum_expr
 """
     sum_expr(terms)
 
-Return an expression that sums a collection of `Expr` terms.
-If `terms` is empty, returns `:(zero(t))` (matching the tracer function signature).
+Return an expression that sums a collection of AST terms.
+
+Terms may be `Expr`, `Symbol`, or literal values (e.g. numbers).
+If `terms` is empty, returns `0`.
 """
-function sum_expr(terms::AbstractVector{Expr})
-    isempty(terms) && return :(zero(t))
+function sum_expr(terms::AbstractVector)
+    isempty(terms) && return 0
 
     s = terms[1]
     for i in 2:length(terms)

@@ -63,7 +63,7 @@ makedocs(;
         "Models" => model_pages,
         "Library" => "library.md",
         "Examples" => example_pages,
-        "API" => ["Constructor API" => "api_constructor.md", "Reference" => "api.md"],
+        "API" => ["Constructor API" => "api_constructor.md", "Equation-based dynamics" => "equations_api.md", "Reference" => "api.md"],
     ],
 )
 

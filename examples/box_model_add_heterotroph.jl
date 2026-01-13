@@ -3,10 +3,8 @@
 # This example demonstrates how to extend an existing factory model (NiPiZD) with:
 #
 # - a **new plankton group** (`H`),
-# - a **new plankton dynamics function** for that group,
-# - **registering** the new dynamics so the constructor can allocate required runtime parameter containers,
-# - adding **new PFT arguments** for the group,
-# - updating the **detritus (D) dynamics** to include the detritus consumption term from heterotroph growth,
+# - a **new plankton dynamics builder** for that group using the *equation-based* API,
+# - a local **detritus (D) dynamics builder** that includes detrital uptake by heterotrophs,
 # - and a simple **mass balance test**.
 #
 # Requirement: `H` should be eaten by `Z` but cannot eat.
@@ -14,10 +12,10 @@
 using Agate
 using Agate.Models: NiPiZDFactory
 using Agate.Constructor: construct, PFTSpecification, update_plankton_args
-using Agate.Utils: @register_dynamics, sum_expr
-using Agate.Library.Predation: predation_loss_sum, predation_assimilation_loss_sum
-using Agate.Library.Nutrients: monod_limitation
-using Agate.Library.Mortality: linear_loss_sum, quadratic_loss_sum
+using Agate.Library.Allometry: AllometricParam, PowerLaw
+using Agate.Library.Equations: Equation, Σ, group_param, community_param, bgc_param
+using Agate.Library.Mortality: linear_loss, linear_loss_sum, quadratic_loss_sum
+using Agate.Library.Predation: grazing_loss, grazing_assimilation_loss
 using Agate.Library.Light: FunctionFieldPAR
 
 using OceanBioME
@@ -32,100 +30,68 @@ nothing #hide
 
 # ## 1. Define a new plankton dynamics builder
 #
-# Dynamics builders return an `Expr` for the tracer tendency.
-# Here, `H` grows from detritus `D` with a Monod limitation, is grazed by predators
-# (primarily `Z`), and experiences linear mortality.
+# Dynamics builders return an `Equation`, assembled from symbolic building blocks.
+# Here, `H` grows from detritus `D` with a Monod-style limitation,
+# is grazed by predators (`Z`), and experiences linear mortality.
 #
 # We intentionally use a **new parameter container** (`maximum_detritus_uptake_rate`) rather than
-# reusing `maximum_growth_rate`, because NiPiZD’s default **nutrient** tendency subtracts the
-# photosynthetic growth summed over all plankton tracers.
+# reusing `maximum_growth_rate`, because NiPiZD’s default nutrient tendency subtracts only
+# photosynthetic growth.
+
+@inline monod(D, k) = D / (D + k)
 
 function heterotroph_growth(plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int)
-    growth = :(maximum_detritus_uptake_rate[$plankton_idx] *
-               monod_limitation(D, detritus_half_saturation[$plankton_idx]) *
-               $plankton_sym)
+    uptake = group_param(:maximum_detritus_uptake_rate)[plankton_idx] *
+             monod(:D, group_param(:detritus_half_saturation)[plankton_idx]) *
+             plankton_sym
 
-    grazing_loss = predation_loss_sum(plankton_syms, plankton_sym, plankton_idx)
-    linear_mortality = :(linear_loss($plankton_sym, linear_mortality[$plankton_idx]))
+    grazing = grazing_loss(plankton_sym, plankton_idx, plankton_syms)
+    mort = linear_loss(plankton_sym, plankton_idx)
 
-    return :($growth - ($grazing_loss) - $linear_mortality)
+    return Equation(uptake - grazing - mort)
 end
 
-# ## 2. Register the new dynamics (so the constructor can build parameter containers)
-#
-# Registering tells the constructor which runtime parameter containers must exist.
-# Any non-scalar, non-matrix symbol becomes a **vector container** of length `n_total` in `bgc.parameters`.
-
-@register_dynamics heterotroph_growth (
-    :maximum_detritus_uptake_rate,
-    :detritus_half_saturation,
-    :maximum_predation_rate,
-    :holling_half_saturation,
-    :palatability_matrix,
-    :linear_mortality,
-)
-
-
-# ## 3. Define a detritus dynamics that includes heterotroph detrital uptake
+# ## 2. Define a detritus dynamics that includes heterotroph detrital uptake
 #
 # NiPiZD’s default detritus tendency does not include detrital uptake.
-# Here we define a local `detritus_with_heterotrophs` tendency that adds a sink term
-# corresponding to the detritus-based growth of any detritivorous plankton (including `H`).
-#
-# The sink term is:
+# Here we define a local `detritus_with_heterotrophs` tendency that adds a sink term:
 #
 # ```
-# ∑ᵢ maximum_detritus_uptake_rate[i] * monod_limitation(D, detritus_half_saturation[i]) * plankton[i]
+# ∑ᵢ maximum_detritus_uptake_rate[i] * monod(D, detritus_half_saturation[i]) * plankton[i]
 # ```
 #
-# Groups that don’t consume detritus should set `maximum_detritus_uptake_rate = 0` (the defaults do this).
+# For groups that don’t consume detritus, these parameters may be missing or `nothing`.
+# The constructor fills community-optional parameters with `0`, making those terms inactive.
 
 function detritus_with_heterotrophs(plankton_syms::AbstractVector{Symbol})
     linear_sum = linear_loss_sum(plankton_syms)
     quadratic_sum = quadratic_loss_sum(plankton_syms)
-    assimilation_loss_sum = predation_assimilation_loss_sum(plankton_syms)
+    assimilation_loss_sum = grazing_assimilation_loss(plankton_syms)
 
-    # sum of heterotroph detrital uptake
-    uptake_terms = Expr[]
-    for (i, sym) in enumerate(plankton_syms)
-        push!(
-            uptake_terms,
-            :(maximum_detritus_uptake_rate[$i] *
-              monod_limitation(D, detritus_half_saturation[$i]) *
-              $sym),
-        )
+    export_frac = bgc_param(:mortality_export_fraction)
+    remin = bgc_param(:detritus_remineralization) * :D
+
+    uptake_sum = Σ(plankton_syms) do sym, i
+        community_param(:maximum_detritus_uptake_rate)[i] *
+        monod(:D, community_param(:detritus_half_saturation)[i]) *
+        sym
     end
-    heterotroph_uptake_sum = sum_expr(uptake_terms)
 
-    return :(
-        (1 - mortality_export_fraction) * ($linear_sum) +
-        ($assimilation_loss_sum) +
-        (1 - mortality_export_fraction) * ($quadratic_sum) -
-        remineralization_idealized(D, detritus_remineralization) -
-        ($heterotroph_uptake_sum)
+    return Equation(
+        (1 - export_frac) * linear_sum +
+        assimilation_loss_sum +
+        (1 - export_frac) * quadratic_sum -
+        remin -
+        uptake_sum,
     )
 end
 
-@register_dynamics detritus_with_heterotrophs (
-    :linear_mortality,
-    :quadratic_mortality,
-    :maximum_predation_rate,
-    :holling_half_saturation,
-    :palatability_matrix,
-    :assimilation_efficiency_matrix,
-    :detritus_remineralization,
-    :mortality_export_fraction,
-    :maximum_detritus_uptake_rate,
-    :detritus_half_saturation,
-)
-
-
-# ## 4\. Extend the NiPiZD factory configuration with a new group `H`
+# ## 3. Extend the NiPiZD factory configuration with a new group `H`
 
 factory = NiPiZDFactory()
 
-plankton_dynamics = Agate.Models.default_plankton_dynamics(factory)
-plankton_args     = Agate.Models.default_plankton_args(factory)
+plankton_dynamics   = Agate.Models.default_plankton_dynamics(factory)
+plankton_args       = Agate.Models.default_plankton_args(factory)
 biogeochem_dynamics = Agate.Models.default_biogeochem_dynamics(factory)
 biogeochem_args     = Agate.Models.default_biogeochem_args(factory)
 
@@ -135,38 +101,39 @@ biogeochem_dynamics_H = merge(biogeochem_dynamics, (; D = detritus_with_heterotr
 # Add a new group entry to `plankton_args`.
 #
 # Requirement: `H` **cannot eat** but **can be eaten**.
-# NiPiZD’s default interaction builder uses these flags when building palatability/assimilation matrices,
+# Agate builds default palatability/assimilation matrices from these traits,
 # so `Z` can graze `H` but `H` will not graze anything.
 
 heterotroph_pft = PFTSpecification(
     # New parameters used by `heterotroph_growth`.
-    maximum_detritus_uptake_rate_a = 1.5 / day,
-    maximum_detritus_uptake_rate_b = -0.15,
-    detritus_half_saturation = 0.04,
+    maximum_detritus_uptake_rate = AllometricParam(PowerLaw(); prefactor=1.5 / day, exponent=-0.15),
+    detritus_half_saturation     = 0.04,
 
     # Losses
     linear_mortality = 8e-7 / second,
 
-    # Interaction flags
-    can_eat = false,
-    can_be_eaten = true,
+    # Explicitly mark predator parameters as not applicable.
+    maximum_predation_rate  = nothing,
+    holling_half_saturation = nothing,
 
-    # Optional interaction knobs used by NiPiZD's default allometric interactions
+    # Interaction traits used by default allometric interactions.
+    can_eat         = false,
+    can_be_eaten    = true,
     optimum_predator_prey_ratio = 0.0,
-    protection = 0.0,
-    specificity = 0.0,
+    protection      = 0.0,
+    specificity     = 0.0,
     assimilation_efficiency = 0.0,
 )
 
 plankton_args_H = merge(plankton_args, (; H=(; n=1, diameters=[6.0], pft=heterotroph_pft)))
 
 # Add matching dynamics for the new group.
-plankton_dynamics_H = merge(plankton_dynamics, (; H=heterotroph_growth))
+plankton_dynamics_H = merge(plankton_dynamics, (; H = heterotroph_growth))
 
 # Optional ergonomic update (same API as other PFT keys):
 plankton_args_H = update_plankton_args(plankton_args_H, :H; detritus_half_saturation=0.05)
 
-# ## 5. Construct a new concrete NiPiZDH model type
+# ## 4. Construct a new concrete NiPiZDH model type
 
 bgc_type = construct(
     factory;
@@ -178,11 +145,13 @@ bgc_type = construct(
 
 bgc = bgc_type()
 
-# The new runtime parameter containers exist because we registered them.
-bgc.parameters.detritus_half_saturation
-bgc.parameters.maximum_detritus_uptake_rate
+# The new runtime parameter containers exist because they were required by the equations.
+(
+    H_maximum_detritus_uptake_rate = bgc.parameters.maximum_detritus_uptake_rate[end],
+    H_detritus_half_saturation     = bgc.parameters.detritus_half_saturation[end],
+)
 
-# ## 6. Run a short box model simulation
+# ## 5. Run a short box model simulation
 
 light = FunctionFieldPAR(; grid=BoxModelGrid())
 bgc_model = Biogeochemistry(bgc; light_attenuation=light)
@@ -194,7 +163,8 @@ box = BoxModel(; biogeochemistry=bgc_model)
 set!(box; N=7.0, D=0.05, Z1=0.02, Z2=0.02, P1=0.01, P2=0.01, H1=0.01)
 
 # ### Mass balance test
-# For this closed box, total mass `N + D + Σ(plankton)` should be conserved (up to time-integration error).
+# For this closed box, total mass `N + D + Σ(plankton)` should be conserved
+# (up to time-integration error).
 
 function total_mass(box)
     tracers = (:N, :D, :Z1, :Z2, :P1, :P2, :H1)

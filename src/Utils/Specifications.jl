@@ -15,6 +15,9 @@ module Specifications
 
 using Adapt
 
+# For casting explicit allometric parameter definitions stored in PFTs.
+using ...Library.Allometry: AbstractParamDef, cast_paramdef
+
 export PFTSpecification, pft_get, pft_has, cast_pft
 export BiogeochemistrySpecification, cast_spec
 export ModelSpecification
@@ -83,6 +86,8 @@ function _cast_container(::Type{FT}, x) where {FT<:AbstractFloat}
         return x isa AbstractArray{Bool} ? x : FT.(x)
     elseif x isa NamedTuple
         return map(v -> _cast_container(FT, v), x)
+    elseif x isa AbstractParamDef
+        return cast_paramdef(FT, x)
     else
         return x
     end

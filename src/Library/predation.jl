@@ -1,6 +1,6 @@
 module Predation
 
-using ..ExprUtils: sum_expr
+using ..Equations: AExpr, req, merge_requirements, group_param, community_param, interaction_matrix, Σ
 
 export AssimilationPreyParameters
 export AssimilationPredatorParameters
@@ -12,9 +12,10 @@ export predation_loss_preferential
 export predation_gain_preferential
 export predation_assimilation_loss_preferential
 export assimilation_efficiency_emergent_binary
-export predation_loss_sum
-export predation_gain_sum
-export predation_assimilation_loss_sum
+export grazing_loss
+export grazing_gain
+export grazing_assimilation_loss
+
 
 """
     holling_type_2(prey_concentration, prey_half_saturation)
@@ -295,87 +296,117 @@ The function evaluates whether the predator can eat the prey and whether the pre
 end
 
 
+# -----------------------------------------------------------------------------
+# Symbolic (construction-time) equation blocks
+# -----------------------------------------------------------------------------
 
-"""
-    predation_loss_sum(plankton_syms, prey_sym, prey_idx)
+@inline _to_aexpr_local(x) = x isa AExpr ? x : AExpr(x, req())
 
-Build an allocation-free `Expr` that sums preferential predation loss of `prey_sym` (at index `prey_idx`)
-to *all* predator plankton in `plankton_syms`.
-
-The generated expression expects these runtime containers to be in scope:
-- `maximum_predation_rate`
-- `holling_half_saturation`
-- `palatability_matrix`
-
-This is the expression-level counterpart of `predation_loss_preferential`.
-"""
-function predation_loss_sum(plankton_syms::AbstractVector{Symbol}, prey_sym::Symbol, prey_idx::Int)
-    terms = Expr[]
-    for (pred_idx, pred_sym) in enumerate(plankton_syms)
-        push!(terms, :(predation_loss_preferential(
-            $prey_sym,
-            $pred_sym,
-            maximum_predation_rate[$pred_idx],
-            holling_half_saturation[$pred_idx],
-            palatability_matrix[$pred_idx, $prey_idx],
-        )))
+"""Build an `AExpr` for a runtime function call, merging argument requirements."""
+function _call(fsym::Symbol, args...)
+    merged = req()
+    nodes = Any[]
+    for a in args
+        ae = _to_aexpr_local(a)
+        merged = merge_requirements(merged, ae.req)
+        push!(nodes, ae.node)
     end
-    return sum_expr(terms)
+    return AExpr(Expr(:call, fsym, nodes...), merged)
 end
 
-"""
-    predation_gain_sum(plankton_syms, predator_sym, predator_idx)
+"""\
+    grazing_loss(prey_sym, prey_idx, plankton_syms;
+                 rate=:maximum_predation_rate,
+                 half=:holling_half_saturation,
+                 palat=:palatability_matrix) -> AExpr
 
-Build an allocation-free `Expr` that sums preferential predation gain of `predator_sym` (at index `predator_idx`)
-from all prey plankton in `plankton_syms`.
+Preferential grazing loss of a prey size-class to all potential predators.
 
-The generated expression expects:
-- `assimilation_efficiency_matrix`
-- `maximum_predation_rate`
-- `holling_half_saturation`
-- `palatability_matrix`
+Predator parameters are treated as **community parameters** (allocated over all plankton).
+For plankton that don't define them (e.g. phytoplankton), the constructor fills zeros.
 """
-function predation_gain_sum(plankton_syms::AbstractVector{Symbol}, predator_sym::Symbol, predator_idx::Int)
-    terms = Expr[]
-    for (prey_idx, prey_sym) in enumerate(plankton_syms)
-        push!(terms, :(predation_gain_preferential(
-            $prey_sym,
-            $predator_sym,
-            assimilation_efficiency_matrix[$predator_idx, $prey_idx],
-            maximum_predation_rate[$predator_idx],
-            holling_half_saturation[$predator_idx],
-            palatability_matrix[$predator_idx, $prey_idx],
-        )))
+function grazing_loss(
+    prey_sym::Symbol,
+    prey_idx::Int,
+    plankton_syms::AbstractVector{Symbol};
+    rate::Symbol=:maximum_predation_rate,
+    half::Symbol=:holling_half_saturation,
+    palat::Symbol=:palatability_matrix,
+)
+    return Σ(plankton_syms) do predator_sym, predator_idx
+        _call(
+            :predation_loss_preferential,
+            prey_sym,
+            predator_sym,
+            community_param(rate)[predator_idx],
+            community_param(half)[predator_idx],
+            interaction_matrix(palat)[predator_idx, prey_idx],
+        )
     end
-    return sum_expr(terms)
 end
 
-"""
-    predation_assimilation_loss_sum(plankton_syms)
+"""\
+    grazing_gain(predator_sym, predator_idx, plankton_syms;
+                 assim=:assimilation_efficiency_matrix,
+                 rate=:maximum_predation_rate,
+                 half=:holling_half_saturation,
+                 palat=:palatability_matrix) -> AExpr
 
-Build an allocation-free `Expr` that sums assimilation losses from all predator–prey pairs.
-
-The generated expression expects:
-- `assimilation_efficiency_matrix`
-- `maximum_predation_rate`
-- `holling_half_saturation`
-- `palatability_matrix`
+Preferential grazing gain of a predator size-class from all potential prey.
 """
-function predation_assimilation_loss_sum(plankton_syms::AbstractVector{Symbol})
-    terms = Expr[]
-    for (pred_idx, pred_sym) in enumerate(plankton_syms)
-        for (prey_idx, prey_sym) in enumerate(plankton_syms)
-            push!(terms, :(predation_assimilation_loss_preferential(
-                $prey_sym,
-                $pred_sym,
-                assimilation_efficiency_matrix[$pred_idx, $prey_idx],
-                maximum_predation_rate[$pred_idx],
-                holling_half_saturation[$pred_idx],
-                palatability_matrix[$pred_idx, $prey_idx],
-            )))
+function grazing_gain(
+    predator_sym::Symbol,
+    predator_idx::Int,
+    plankton_syms::AbstractVector{Symbol};
+    assim::Symbol=:assimilation_efficiency_matrix,
+    rate::Symbol=:maximum_predation_rate,
+    half::Symbol=:holling_half_saturation,
+    palat::Symbol=:palatability_matrix,
+)
+    return Σ(plankton_syms) do prey_sym, prey_idx
+        _call(
+            :predation_gain_preferential,
+            prey_sym,
+            predator_sym,
+            interaction_matrix(assim)[predator_idx, prey_idx],
+            community_param(rate)[predator_idx],
+            community_param(half)[predator_idx],
+            interaction_matrix(palat)[predator_idx, prey_idx],
+        )
+    end
+end
+
+"""\
+    grazing_assimilation_loss(plankton_syms;
+                              assim=:assimilation_efficiency_matrix,
+                              rate=:maximum_predation_rate,
+                              half=:holling_half_saturation,
+                              palat=:palatability_matrix) -> AExpr
+
+Sum assimilation losses across all predator–prey pairs.
+"""
+function grazing_assimilation_loss(
+    plankton_syms::AbstractVector{Symbol};
+    assim::Symbol=:assimilation_efficiency_matrix,
+    rate::Symbol=:maximum_predation_rate,
+    half::Symbol=:holling_half_saturation,
+    palat::Symbol=:palatability_matrix,
+)
+    return Σ(plankton_syms) do predator_sym, predator_idx
+        Σ(plankton_syms) do prey_sym, prey_idx
+            _call(
+                :predation_assimilation_loss_preferential,
+                prey_sym,
+                predator_sym,
+                interaction_matrix(assim)[predator_idx, prey_idx],
+                community_param(rate)[predator_idx],
+                community_param(half)[predator_idx],
+                interaction_matrix(palat)[predator_idx, prey_idx],
+            )
         end
     end
-    return sum_expr(terms)
 end
+
+
 
 end # module

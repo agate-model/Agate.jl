@@ -19,7 +19,7 @@ using Agate.Utils.Specifications: PFTSpecification, BiogeochemistrySpecification
 export construct
 
 # Convenience update helpers
-export update_plankton_args, update_biogeochem_args, update_dynamics, update_group
+export update_plankton_args, update_biogeochem_args, update_dynamics
 
 # Low-level patching is still available for advanced use
 export patch

@@ -1,6 +1,6 @@
 module Mortality
 
-using ..ExprUtils: sum_expr
+using ..Equations: AExpr, group_param, community_param, Σ
 
 export linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
 
@@ -47,6 +47,34 @@ and is often interpreted to represent viral processes and non-represented densit
 """
 quadratic_loss(P, mortality) = mortality * P^2
 
+# -----------------------------------------------------------------------------
+# Symbolic (construction-time) equation blocks
+# -----------------------------------------------------------------------------
+
+"""\
+    linear_loss(plankton_sym::Symbol, idx::Int) -> AExpr
+
+Symbolic linear mortality loss term for a single plankton size-class.
+
+Uses group-owned parameter `:linear_mortality` (missing in that group's PFT is an error;
+explicit `nothing` is treated as inactive/zero).
+"""
+function linear_loss(plankton_sym::Symbol, idx::Int)
+    return group_param(:linear_mortality)[idx] * plankton_sym
+end
+
+"""\
+    quadratic_loss(plankton_sym::Symbol, idx::Int) -> AExpr
+
+Symbolic quadratic mortality loss term for a single plankton size-class.
+"""
+function quadratic_loss(plankton_sym::Symbol, idx::Int)
+    P = plankton_sym
+    # Avoid evaluating `P * P` at construction time (which would try to multiply Symbols).
+    # Left-associative `AExpr * Symbol * Symbol` builds a symbolic Expr safely.
+    return group_param(:quadratic_mortality)[idx] * P * P
+end
+
 
 """
     linear_loss_sum(plankton_syms)
@@ -56,11 +84,9 @@ Build an allocation-free `Expr` summing linear mortality over all plankton symbo
 The expression expects the runtime container `linear_mortality` to be in scope (a vector of length `n_total`).
 """
 function linear_loss_sum(plankton_syms::AbstractVector{Symbol})
-    terms = Expr[]
-    for (i, sym) in enumerate(plankton_syms)
-        push!(terms, :(linear_loss($sym, linear_mortality[$i])))
+    return Σ(plankton_syms) do sym, i
+        community_param(:linear_mortality)[i] * sym
     end
-    return sum_expr(terms)
 end
 
 """
@@ -71,11 +97,10 @@ Build an allocation-free `Expr` summing quadratic mortality over all plankton sy
 The expression expects the runtime container `quadratic_mortality` to be in scope (a vector of length `n_total`).
 """
 function quadratic_loss_sum(plankton_syms::AbstractVector{Symbol})
-    terms = Expr[]
-    for (i, sym) in enumerate(plankton_syms)
-        push!(terms, :(quadratic_loss($sym, quadratic_mortality[$i])))
+    return Σ(plankton_syms) do sym, i
+        # Avoid evaluating `sym * sym` at construction time; build it symbolically.
+        community_param(:quadratic_mortality)[i] * sym * sym
     end
-    return sum_expr(terms)
 end
 
 end # module

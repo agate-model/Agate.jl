@@ -1,10 +1,145 @@
 module Allometry
 
-export PalatabilityPreyParameters
-export PalatabilityPredatorParameters
+"""Utilities for size-dependent traits and interaction matrices."""
+
+export AbstractParamDef, ConstantParam, AllometricParam, TableParam
+export PowerLaw, resolve_param, cast_paramdef
+
+export PalatabilityPreyParameters, PalatabilityPredatorParameters
 export allometric_scaling_power
-export allometric_palatability_unimodal
-export allometric_palatability_unimodal_protection
+export allometric_palatability_unimodal, allometric_palatability_unimodal_protection
+export palatability_matrix_allometric, assimilation_efficiency_matrix_binary
+export build_palatability_matrix, build_assimilation_matrix
+
+# -----------------------------------------------------------------------------
+# Explicit parameter definitions
+# -----------------------------------------------------------------------------
+
+"""Abstract supertype for explicit parameter definitions stored in `PFTSpecification`."""
+abstract type AbstractParamDef end
+
+"""A parameter that is constant across sizes."""
+struct ConstantParam{T} <: AbstractParamDef
+    value::T
+end
+
+ConstantParam(x) = ConstantParam{typeof(x)}(x)
+
+"""A parameter that is computed from an explicit model/callable and coefficient bundle."""
+struct AllometricParam{F,C} <: AbstractParamDef
+    model::F
+    coeffs::C
+end
+
+"""Construct an `AllometricParam` from a model and keyword coefficients."""
+AllometricParam(model; kwargs...) = AllometricParam(model, (; kwargs...))
+
+"""A parameter defined by a tabulated trait curve (diameter -> value)."""
+struct TableParam{TX,TY} <: AbstractParamDef
+    x::TX
+    y::TY
+    interp::Symbol
+end
+
+TableParam(x, y; interp::Symbol=:linear) = TableParam(x, y, interp)
+
+"""Common allometry model: power-law scaling with spherical volume."""
+struct PowerLaw end
+
+"""Evaluate a `PowerLaw` model.
+
+Expected coefficient names:
+- `prefactor` and `exponent` (recommended), or
+- `scale` and `exponent` (alias), or
+- `a` and `b` (legacy).
+"""
+@inline function (m::PowerLaw)(coeffs::NamedTuple, diameter)
+    if hasproperty(coeffs, :prefactor)
+        a = getproperty(coeffs, :prefactor)
+    elseif hasproperty(coeffs, :scale)
+        a = getproperty(coeffs, :scale)
+    elseif hasproperty(coeffs, :a)
+        a = getproperty(coeffs, :a)
+    else
+        throw(ArgumentError("PowerLaw requires coefficient `prefactor` (or `scale`/`a`)"))
+    end
+
+    if hasproperty(coeffs, :exponent)
+        b = getproperty(coeffs, :exponent)
+    elseif hasproperty(coeffs, :b)
+        b = getproperty(coeffs, :b)
+    else
+        throw(ArgumentError("PowerLaw requires coefficient `exponent` (or `b`)"))
+    end
+
+    return allometric_scaling_power(a, b, diameter)
+end
+
+"""Resolve a parameter definition at a given diameter.
+
+This is the one function the constructor uses when building runtime parameter vectors.
+"""
+@inline resolve_param(::Type{FT}, x, diameter) where {FT<:AbstractFloat} = FT(x)
+
+@inline resolve_param(::Type{FT}, x::Bool, diameter) where {FT<:AbstractFloat} = x
+
+@inline resolve_param(::Type{FT}, p::ConstantParam, diameter) where {FT<:AbstractFloat} = FT(p.value)
+
+@inline function resolve_param(::Type{FT}, p::AllometricParam, diameter) where {FT<:AbstractFloat}
+    return FT(p.model(p.coeffs, FT(diameter)))
+end
+
+@inline function resolve_param(::Type{FT}, p::TableParam, diameter) where {FT<:AbstractFloat}
+    xs = p.x
+    ys = p.y
+    d = FT(diameter)
+
+    n = length(xs)
+    n == length(ys) || throw(ArgumentError("TableParam x and y must have same length"))
+
+    # clamp outside range
+    d <= FT(xs[1]) && return FT(ys[1])
+    d >= FT(xs[end]) && return FT(ys[end])
+
+    # linear interpolation
+    @inbounds for i in 1:(n-1)
+        x0 = FT(xs[i])
+        x1 = FT(xs[i+1])
+        if x0 <= d <= x1
+            y0 = FT(ys[i])
+            y1 = FT(ys[i+1])
+            t = (d - x0) / (x1 - x0)
+            return (1 - t) * y0 + t * y1
+        end
+    end
+
+    return FT(ys[end])
+end
+
+# Casting support (used by `cast_pft` so specs can be moved to GPU safely).
+@inline _cast_number(::Type{FT}, x) where {FT<:AbstractFloat} = FT(x)
+
+@inline function _cast_coeffs(::Type{FT}, nt::NamedTuple) where {FT<:AbstractFloat}
+    return map(v -> v isa Number ? _cast_number(FT, v) : v, nt)
+end
+
+"""Cast numeric entries inside a parameter definition to `FT`."""
+function cast_paramdef(::Type{FT}, p::ConstantParam) where {FT<:AbstractFloat}
+    return ConstantParam(_cast_number(FT, p.value))
+end
+
+function cast_paramdef(::Type{FT}, p::AllometricParam) where {FT<:AbstractFloat}
+    coeffs = p.coeffs isa NamedTuple ? _cast_coeffs(FT, p.coeffs) : p.coeffs
+    return AllometricParam(p.model, coeffs)
+end
+
+function cast_paramdef(::Type{FT}, p::TableParam) where {FT<:AbstractFloat}
+    return TableParam(FT.(p.x), FT.(p.y); interp=p.interp)
+end
+
+# -----------------------------------------------------------------------------
+# Palatability + assimilation matrix utilities
+# -----------------------------------------------------------------------------
 
 struct PalatabilityPreyParameters{FT<:AbstractFloat}
     diameter::FT
@@ -18,69 +153,14 @@ struct PalatabilityPredatorParameters{FT<:AbstractFloat}
     specificity::FT
 end
 
-"""
-    allometric_scaling_power(a::Number, b::Number, diameter::Number)
-
-Allometric scaling function using the power law for cell volume.
-
-!!! formulation
-    ``a````V````ᵇ``
-
-    where:
-    - ``V`` = (4 / 3) * π * (``d`` / 2)³
-    - ``a`` = scale
-    - ``b`` = exponent
-    - ``d`` = cell equivalent spherical diameter (ESD)
-
-# Arguments
-- `a::Number`: scale parameter.
-- `b::Number`: exponent parameter.
-- `diameter::Number`: cell equivalent spherical diameter (ESD), in the same length units used throughout the model.
-
-# Returns
-- Scaled value `a * V^b` as `FT`, where `V` is the spherical volume computed from `diameter`.
-"""
-@inline function allometric_scaling_power(
-    a::FT, b::FT, diameter::FT
-) where {FT<:AbstractFloat}
+"""Power-law scaling function using spherical volume."""
+@inline function allometric_scaling_power(a::FT, b::FT, diameter::FT) where {FT<:AbstractFloat}
     r = diameter / FT(2)
     volume = (FT(4) / FT(3)) * FT(π) * r^FT(3)
     return a * volume^b
 end
 
-"""
-    allometric_palatability_unimodal(prey::PalatabilityPreyParameters, predator::PalatabilityPredatorParameters)
-
-Calculates the unimodal allometric palatability of prey based on predator-prey diameters.
-
-!!! formulation
-    0 if ``e_{pred}`` = 0
-
-    1 / (1 + (``d_{ratio}``- ``d_{opt}``)²)``^σ``  otherwise
-
-    where:
-    - ``e_{pred}`` = binary ability of predator to eat prey
-    - ``d_{ratio}`` = ratio between predator and prey diameters
-    - ``d_{opt}`` = optimum ratio between predator and prey diameter
-    - σ = how sharply the palatability decreases away from the optimal ratio.
-
-!!! info
-    This formulation differs from the operational MITgcm-DARWIN model as it is is structurally different and diameters are used instead of volumes.
-    However, both formulations result in a unimodal response where the width and optima are modulated by the optimum-predator-prey ratio and the specificity.
-
-# Arguments
-- `prey::PalatabilityPreyParameters{FT}`: prey parameters.
-  - `prey.diameter::FT`: prey equivalent spherical diameter (ESD).
-  - `prey.protection::FT`: prey protection (unused in this function; see `allometric_palatability_unimodal_protection`).
-- `predator::PalatabilityPredatorParameters{FT}`: predator parameters.
-  - `predator.can_eat::Bool`: whether the predator can consume this prey type.
-  - `predator.diameter::FT`: predator equivalent spherical diameter (ESD).
-  - `predator.optimum_predator_prey_ratio::FT`: optimal predator:prey diameter ratio (`d_opt`).
-  - `predator.specificity::FT`: unimodal sharpness parameter (σ).
-
-# Returns
-- `FT`: palatability in `[0, 1]` (returns `0` when `predator.can_eat` is `false`).
-"""
+"""Unimodal palatability (no protection)."""
 @inline function allometric_palatability_unimodal(
     prey::PalatabilityPreyParameters{FT}, predator::PalatabilityPredatorParameters{FT}
 ) where {FT<:AbstractFloat}
@@ -90,43 +170,195 @@ Calculates the unimodal allometric palatability of prey based on predator-prey d
     return one(FT) / width^predator.specificity
 end
 
+"""Unimodal palatability with prey protection.
+
+Protection η reduces palatability as `(1 - η)` (so η=0 means no protection).
 """
-    allometric_palatability_unimodal_protection(prey::PalatabilityPreyParameters, predator::PalatabilityPredatorParameters)
-
-Calculates the unimodal allometric palatability of prey, accounting for additional prey protection mechanisms.
-
-!!! formulation
-    0 if ``e_{pred}`` = 0
-
-    (1 - η) / (1 + (``d_{ratio}``- ``d_{opt}``)^2)``^σ``   otherwise
-
-    where:
-    - ``e_{pred}`` = binary ability of predator to eat prey
-    - η = prey-protection
-    - ``d_{ratio}`` = ratio between predator and prey diameters
-    - ``d_{opt}`` = optimum ratio between predator and prey diameter
-    - σ = how sharply the palatability decreases away from the optimal ratio.
-
-# Arguments
-- `prey::PalatabilityPreyParameters{FT}`: prey parameters.
-  - `prey.diameter::FT`: prey equivalent spherical diameter (ESD).
-  - `prey.protection::FT`: prey protection factor η, typically in `[0, 1]`, reducing palatability as `(1 - η)`.
-- `predator::PalatabilityPredatorParameters{FT}`: predator parameters.
-  - `predator.can_eat::Bool`: whether the predator can consume this prey type.
-  - `predator.diameter::FT`: predator equivalent spherical diameter (ESD).
-  - `predator.optimum_predator_prey_ratio::FT`: optimal predator:prey diameter ratio (`d_opt`).
-  - `predator.specificity::FT`: unimodal sharpness parameter (σ).
-
-# Returns
-- `FT`: palatability in `[0, 1]` (returns `0` when `predator.can_eat` is `false`).
-"""
-@inline function allometric_palatability_unimodal_protection(
+ function allometric_palatability_unimodal_protection(
     prey::PalatabilityPreyParameters{FT}, predator::PalatabilityPredatorParameters{FT}
 ) where {FT<:AbstractFloat}
-    predator.can_eat || return zero(FT)
-    ratio = predator.diameter / prey.diameter
-    width = one(FT) + (ratio - predator.optimum_predator_prey_ratio)^FT(2)
-    return (one(FT) - prey.protection) / width^predator.specificity
+    base = allometric_palatability_unimodal(prey, predator)
+    return base * (one(FT) - prey.protection)
 end
 
-end # module
+"""Build an allometric palatability matrix `M[pred, prey]`."""
+function palatability_matrix_allometric(
+    ::Type{FT},
+    diameters::AbstractVector{FT};
+    can_eat::AbstractVector{Bool},
+    optimum_predator_prey_ratio::AbstractVector{FT},
+    specificity::AbstractVector{FT},
+    protection::AbstractVector{FT},
+    palatability_fn=allometric_palatability_unimodal_protection,
+) where {FT<:AbstractFloat}
+    n = length(diameters)
+    M = zeros(FT, n, n)
+
+    @inbounds for pred in 1:n
+        predator = PalatabilityPredatorParameters{FT}(
+            can_eat[pred],
+            diameters[pred],
+            optimum_predator_prey_ratio[pred],
+            specificity[pred],
+        )
+
+        for prey in 1:n
+            prey_params = PalatabilityPreyParameters{FT}(diameters[prey], protection[prey])
+            M[pred, prey] = palatability_fn(prey_params, predator)
+        end
+    end
+
+    return M
+end
+
+"""Build a binary assimilation-efficiency matrix `β[pred, prey]`."""
+function assimilation_efficiency_matrix_binary(
+    ::Type{FT};
+    can_eat::AbstractVector{Bool},
+    can_be_eaten::AbstractVector{Bool},
+    assimilation_efficiency::AbstractVector{FT},
+) where {FT<:AbstractFloat}
+    n = length(can_eat)
+    M = zeros(FT, n, n)
+    @inbounds for pred in 1:n
+        if !can_eat[pred]
+            continue
+        end
+        β = assimilation_efficiency[pred]
+        for prey in 1:n
+            M[pred, prey] = can_be_eaten[prey] ? β : zero(FT)
+        end
+    end
+    return M
+end
+
+# -----------------------------------------------------------------------------
+# High-level interaction matrix builders
+# -----------------------------------------------------------------------------
+
+@inline function _trait_has(pft_data, key::Symbol)
+    return hasproperty(pft_data, key) && (getproperty(pft_data, key) !== nothing)
+end
+
+@inline function _trait_get(pft_data, key::Symbol, default)
+    if !hasproperty(pft_data, key)
+        return default
+    end
+    v = getproperty(pft_data, key)
+    return v === nothing ? default : v
+end
+
+@inline function _resolve_trait(::Type{FT}, v, diameter::FT) where {FT<:AbstractFloat}
+    return resolve_param(FT, v, diameter)
+end
+
+@inline function _check_square_matrix(name::Symbol, n::Int, M)
+    (size(M, 1) == n && size(M, 2) == n) || throw(ArgumentError("$(name) must have size ($(n), $(n))"))
+    return nothing
+end
+
+@inline function _cast_matrix(::Type{FT}, M) where {FT<:AbstractFloat}
+    return eltype(M) === FT ? M : FT.(M)
+end
+
+"""\
+    build_palatability_matrix(FT, pft_data, diameters; overrides=nothing,
+                              palatability_fn=allometric_palatability_unimodal_protection)
+
+Build the default palatability matrix `M[pred, prey]` from PFT trait definitions.
+
+`pft_data` must be an indexable collection (length `n`) where each element supports
+`hasproperty`/`getproperty` for the trait keys used by the default rule:
+
+- `can_eat::Bool` (default `false`)
+- `optimum_predator_prey_ratio` (default `0`)
+- `specificity` (default `0`)
+- `protection` (default `0`)
+
+Traits may be numeric constants or `AbstractParamDef` instances.
+
+Missing traits default to inactive values; explicit `nothing` is treated the same
+as missing (inactive). This matches Agate's fixed missing/nothing semantics.
+"""
+function build_palatability_matrix(
+    ::Type{FT},
+    pft_data,
+    diameters::AbstractVector{FT};
+    overrides=nothing,
+    palatability_fn=allometric_palatability_unimodal_protection,
+) where {FT<:AbstractFloat}
+    n = length(diameters)
+
+    if overrides !== nothing
+        _check_square_matrix(:palatability_matrix, n, overrides)
+        return _cast_matrix(FT, overrides)
+    end
+
+    can_eat = Vector{Bool}(undef, n)
+    optimum = Vector{FT}(undef, n)
+    spec = Vector{FT}(undef, n)
+    prot = Vector{FT}(undef, n)
+
+    @inbounds for i in 1:n
+        pd = pft_data[i]
+        can_eat[i] = Bool(_trait_get(pd, :can_eat, false))
+        optimum[i] = _resolve_trait(FT, _trait_get(pd, :optimum_predator_prey_ratio, zero(FT)), diameters[i])
+        spec[i] = _resolve_trait(FT, _trait_get(pd, :specificity, zero(FT)), diameters[i])
+        prot[i] = _resolve_trait(FT, _trait_get(pd, :protection, zero(FT)), diameters[i])
+    end
+
+    return palatability_matrix_allometric(
+        FT,
+        diameters;
+        can_eat=can_eat,
+        optimum_predator_prey_ratio=optimum,
+        specificity=spec,
+        protection=prot,
+        palatability_fn=palatability_fn,
+    )
+end
+
+"""\
+    build_assimilation_matrix(FT, pft_data, diameters; overrides=nothing)
+
+Build the default assimilation-efficiency matrix `β[pred, prey]`.
+
+Traits used by the default rule:
+
+- `can_eat::Bool` (default `false`)
+- `can_be_eaten::Bool` (default `true`)
+- `assimilation_efficiency` (default `0`)
+"""
+function build_assimilation_matrix(
+    ::Type{FT},
+    pft_data,
+    diameters::AbstractVector{FT};
+    overrides=nothing,
+) where {FT<:AbstractFloat}
+    n = length(diameters)
+
+    if overrides !== nothing
+        _check_square_matrix(:assimilation_efficiency_matrix, n, overrides)
+        return _cast_matrix(FT, overrides)
+    end
+
+    can_eat = Vector{Bool}(undef, n)
+    can_be_eaten = Vector{Bool}(undef, n)
+    assim = Vector{FT}(undef, n)
+
+    @inbounds for i in 1:n
+        pd = pft_data[i]
+        can_eat[i] = Bool(_trait_get(pd, :can_eat, false))
+        can_be_eaten[i] = Bool(_trait_get(pd, :can_be_eaten, true))
+        assim[i] = _resolve_trait(FT, _trait_get(pd, :assimilation_efficiency, zero(FT)), diameters[i])
+    end
+
+    return assimilation_efficiency_matrix_binary(
+        FT;
+        can_eat=can_eat,
+        can_be_eaten=can_be_eaten,
+        assimilation_efficiency=assim,
+    )
+end
+
+end # module Allometry

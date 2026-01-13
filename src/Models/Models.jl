@@ -56,7 +56,6 @@ include("DARWIN/DARWIN.jl")
 
 using .NiPiZD: NiPiZDFactory
 using .DARWIN: DarwinFactory
-
 export NiPiZDFactory
 export DarwinFactory
 
