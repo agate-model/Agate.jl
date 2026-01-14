@@ -14,17 +14,17 @@ using Adapt
 
 include("Specifications.jl")
 
-using .Specifications: PFTSpecification, pft_get, pft_has, cast_pft,
-    BiogeochemistrySpecification, cast_spec, ModelSpecification
+using .Specifications: PFTSpecification, pft_get, pft_has,
+    BiogeochemistrySpecification, ModelSpecification
 
 using ..Library.ExprUtils: sum_expr
 
-using Agate.Library.Mortality
-using Agate.Library.Nutrients
-using Agate.Library.Photosynthesis
-using Agate.Library.Predation
-using Agate.Library.Remineralization
-using Agate.Library.Equations: Equation, expr
+using ..Library.Mortality
+using ..Library.Nutrients
+using ..Library.Photosynthesis
+using ..Library.Predation
+using ..Library.Remineralization
+using ..Library.Equations: Equation, expr
 
 using OceanBioME
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
@@ -265,7 +265,8 @@ function parse_community(
         ds = param_compute_diameters(FT, n, dspec)
         pft_raw = hasproperty(spec, :pft) ? getproperty(spec, :pft) : getproperty(spec, :args)
         pft = pft_raw isa PFTSpecification ? pft_raw : PFTSpecification(pft_raw)
-        pft = cast_pft(FT, pft)
+        # Keep specifications as-authored; numeric literals are converted to FT when resolved
+        # into runtime parameters.
 
         for i in 1:n
             push!(plankton_symbols, Symbol(string(g), i))

@@ -1,6 +1,6 @@
 module Models
 
-using Agate.Utils: AbstractBGCFactory
+using ..Utils: AbstractBGCFactory
 
 # -----------------------------------------------------------------------------
 # Factory default interface
@@ -9,42 +9,42 @@ using Agate.Utils: AbstractBGCFactory
 """Default plankton dynamics for a factory.
 
 Returns a `NamedTuple` mapping a group prefix (e.g., `:P`, `:Z`) to a tracer
-dynamics builder function.
+Dynamics builder function.
 """
 function default_plankton_dynamics(::AbstractBGCFactory)
     throw(ArgumentError("No method `default_plankton_dynamics(factory)` is defined for this factory."))
 end
 
-"""Default plankton arguments for a factory.
+"""Default *structural* parameter arguments for a factory.
 
 Returns a `NamedTuple` mapping group prefix symbols to group specifications.
+
+This is *structural* information only (group symbols, diameters, etc.).
+All *parameter defaults* live exclusively in the model's parameter registry.
 """
-function default_plankton_args(::AbstractBGCFactory, ::Type{FT}) where {FT<:AbstractFloat}
-    throw(ArgumentError("No method `default_plankton_args(factory, FT)` is defined for this factory."))
+function default_parameter_args(::AbstractBGCFactory, ::Type{FT}) where {FT<:AbstractFloat}
+    throw(ArgumentError("No method `default_parameter_args(factory, FT)` is defined for this factory."))
 end
 
-"""Convenience overload: defaults to `Float64`."""
-default_plankton_args(factory::AbstractBGCFactory) = default_plankton_args(factory, Float64)
+"""Keyword front-end for `default_parameter_args(factory, FT)`.
 
-
+The public constructors and tests pass the floating-point type as a keyword
+argument (`FT=Float32`, `FT=Float64`). Internally we keep the canonical API as
+`default_parameter_args(factory, ::Type{FT})` to preserve clean parametric
+dispatch.
+"""
+function default_parameter_args(factory::AbstractBGCFactory; FT::Type{T}=Float64) where {T<:AbstractFloat}
+    return default_parameter_args(factory, T)
+end
 
 """Default non-plankton tracer dynamics for a factory.
 
 Returns a `NamedTuple` mapping tracer symbols (e.g., `:N`, `:DIC`) to tracer
-dynamics builder functions.
+Dynamics builder functions.
 """
 function default_biogeochem_dynamics(::AbstractBGCFactory)
     throw(ArgumentError("No method `default_biogeochem_dynamics(factory)` is defined for this factory."))
 end
-
-"""Default biogeochemical specification for a factory."""
-function default_biogeochem_args(::AbstractBGCFactory, ::Type{FT}) where {FT<:AbstractFloat}
-    throw(ArgumentError("No method `default_biogeochem_args(factory, FT)` is defined for this factory."))
-end
-
-"""Convenience overload: defaults to `Float64`."""
-default_biogeochem_args(factory::AbstractBGCFactory) = default_biogeochem_args(factory, Float64)
-
 
 # -----------------------------------------------------------------------------
 # Submodules and public constructor
@@ -52,7 +52,6 @@ default_biogeochem_args(factory::AbstractBGCFactory) = default_biogeochem_args(f
 
 include("NiPiZD/NiPiZD.jl")
 include("DARWIN/DARWIN.jl")
-
 
 using .NiPiZD: NiPiZDFactory
 using .DARWIN: DarwinFactory

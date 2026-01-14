@@ -3,76 +3,37 @@
 Agate builds biogeochemical kernels from *equations*: construction-time symbolic objects that
 
 1. assemble a plain Julia `Expr` for each tracer tendency, and
-2. record which **parameters**, **interaction matrices**, and **biogeochemical scalars** are required.
+2. record which **parameters** and **interaction matrices** are required.
 
-At runtime (CPU or GPU), the model still executes a normal `Expr` containing only arithmetic on numeric arrays and scalars. The symbolic objects never enter the kernels.
+At runtime (CPU or GPU), the model executes a normal `Expr` containing only arithmetic on numeric arrays and scalars. The symbolic objects never enter kernels.
 
-## Public names (set C)
+## Parameter references: bare identifiers
 
-These names are the user-facing, construction-time API for dynamics authors:
+Dynamics authors write equations using *bare parameter identifiers*:
 
-- `Equation(...)` — wrapper returned by all dynamics builders.
-- `group_param(:key)[i]` — a parameter used by a group **in its own dynamics**.
-- `community_param(:key)[i]` — a parameter that may be inactive for some groups (missing or `nothing` is allowed).
-- `interaction_matrix(:key)[j, i]` — an interaction matrix entry.
-- `bgc_param(:key)` — a biogeochemical *scalar* coming from the `BiogeochemistrySpecification`.
-- `Σ(items) do sym, idx ... end` — construction-time symbolic sum builder (unrolled into an `Expr`).
+- Scalars: `detritus_remineralization`
+- Per-group vectors: `maximum_predation_rate[i]`
+- Interaction matrices: `palatability_matrix[j, i]`
 
-## Requirements and missing vs `nothing`
+These identifiers are small placeholders (`ParamVar`) that record requirements when indexed. Each model module automatically declares these placeholders from its parameter registry.
 
-Agate enforces a fixed missing/`nothing` policy during construction:
-
-- **Explicit `nothing`** means *inactive*: the constructor fills **zeros** for the affected indices.
-- **Missing key** (typo protection):
-  - if a key is required by a group’s own dynamics (referenced via `group_param`) and is missing from that group’s PFT spec → **error**.
-  - if a key is only referenced as a community-optional parameter (via `community_param`) → no error; the constructor fills **zeros**.
-
-This policy is not configurable.
-
-## What each reference means
-
-### `group_param(:key)`
-
-Use when the parameter must be defined (or explicitly set to `nothing`) for the group whose equation you are building.
-
-Example:
+If you are authoring dynamics outside a model module and you need **new** parameter names, you can declare placeholders locally:
 
 ```julia
-mort = linear_loss(P, i)  # internally uses group_param(:linear_mortality)[i]
+using Agate.Library.Equations: @paramvars
+@paramvars maximum_detritus_uptake_rate detritus_half_saturation
 ```
 
-### `community_param(:key)`
+## Missing / `nothing` policy
 
-Use when the parameter can be undefined/inactive for some groups, and missing should not be an error.
+Agate no longer encodes missing behaviour in the *equation syntax*.
+Instead, each `ParamSpec` in the parameter registry declares how missing values are handled during CPU resolution:
 
-Typical use: predator parameters referenced in prey loss sums.
+- `scope = :fail` — missing/`nothing` is an error
+- `scope = :zero_warn` — replace with `0`/`false` and warn
+- `scope = :zero_silent` — replace with `0`/`false` silently
 
-```julia
-loss = grazing_loss(prey, prey_i, plankton_syms)
-# internally uses community_param(:maximum_predation_rate)[pred_j], etc.
-```
-
-### `bgc_param(:key)`
-
-Use for scalar fields (not per-group vectors) supplied in `biogeochem_args::BiogeochemistrySpecification`.
-
-```julia
-export_frac = bgc_param(:mortality_export_fraction)
-remin       = bgc_param(:detritus_remineralization) * :D
-```
-
-`bgc_param` is distinct from `community_param` because it is a **scalar** (shared across the whole model),
-while `community_param` is a **vector parameter container** indexed by plankton size-class.
-
-### `interaction_matrix(:key)`
-
-Use for interaction matrices (e.g. palatability and assimilation efficiency).
-
-```julia
-p = interaction_matrix(:palatability_matrix)[pred_j, prey_i]
-```
-
-If a required matrix is not provided explicitly, Agate builds default matrices using library builders (based on PFT traits), with optional user overrides.
+This keeps the equation authoring surface clean and GPU-safe.
 
 ## `Σ`: symbolic sum builder
 
@@ -80,7 +41,7 @@ If a required matrix is not provided explicitly, Agate builds default matrices u
 
 ```julia
 loss_sum = Σ(plankton_syms) do sym, i
-    community_param(:linear_mortality)[i] * sym
+    linear_mortality[i] * sym
 end
 ```
 
@@ -91,21 +52,25 @@ This is a construction-time helper only: loops are unrolled into the final expre
 All plankton and biogeochemical dynamics builders must return an `Equation`.
 
 - `Equation` cannot be constructed from a raw `Expr`.
-- Use library building blocks (or `group_param` / `community_param` / `interaction_matrix` / `bgc_param` / `Σ`) to assemble expressions.
+- Use library building blocks (or parameter identifiers and `Σ`) to assemble expressions.
 
-Example: phytoplankton default
+Example: a detritivorous heterotroph growth tendency
 
 ```julia
 using Agate.Library.Equations: Equation
 using Agate.Library.Mortality: linear_loss
 using Agate.Library.Predation: grazing_loss
-using Agate.Library.Photosynthesis: growth_single_nutrient
 
-function phytoplankton_default(plankton_syms, P::Symbol, i::Int)
-    growth  = growth_single_nutrient(:N, P, :PAR, i)
-    grazing = grazing_loss(P, i, plankton_syms)
-    mort    = linear_loss(P, i)
-    return Equation(growth - grazing - mort)
+@inline monod(D, k) = D / (D + k)
+
+function heterotroph_growth(plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int)
+    uptake = maximum_detritus_uptake_rate[plankton_idx] *
+             monod(:D, detritus_half_saturation[plankton_idx]) *
+             plankton_sym
+
+    grazing = grazing_loss(plankton_sym, plankton_idx, plankton_syms)
+    mort = linear_loss(plankton_sym, plankton_idx)
+
+    return Equation(uptake - grazing - mort)
 end
 ```
-

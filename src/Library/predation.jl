@@ -1,6 +1,6 @@
 module Predation
 
-using ..Equations: AExpr, req, merge_requirements, group_param, community_param, interaction_matrix, Σ
+using ..Equations: AExpr, req, merge_requirements, Σ
 
 export AssimilationPreyParameters
 export AssimilationPredatorParameters
@@ -301,6 +301,10 @@ end
 # -----------------------------------------------------------------------------
 
 @inline _to_aexpr_local(x) = x isa AExpr ? x : AExpr(x, req())
+# Construction-time parameter references by name (avoid group/community distinctions).
+@inline _vec(key::Symbol, idx::Int) = AExpr(Expr(:ref, key, idx), req(vectors=(key,)))
+@inline _mat(key::Symbol, j::Int, i::Int) = AExpr(Expr(:ref, key, j, i), req(matrices=(key,)))
+
 
 """Build an `AExpr` for a runtime function call, merging argument requirements."""
 function _call(fsym::Symbol, args...)
@@ -338,9 +342,9 @@ function grazing_loss(
             :predation_loss_preferential,
             prey_sym,
             predator_sym,
-            community_param(rate)[predator_idx],
-            community_param(half)[predator_idx],
-            interaction_matrix(palat)[predator_idx, prey_idx],
+            _vec(rate, predator_idx),
+            _vec(half, predator_idx),
+            _mat(palat, predator_idx, prey_idx),
         )
     end
 end
@@ -368,10 +372,10 @@ function grazing_gain(
             :predation_gain_preferential,
             prey_sym,
             predator_sym,
-            interaction_matrix(assim)[predator_idx, prey_idx],
-            community_param(rate)[predator_idx],
-            community_param(half)[predator_idx],
-            interaction_matrix(palat)[predator_idx, prey_idx],
+            _mat(assim, predator_idx, prey_idx),
+            _vec(rate, predator_idx),
+            _vec(half, predator_idx),
+            _mat(palat, predator_idx, prey_idx),
         )
     end
 end
@@ -398,10 +402,10 @@ function grazing_assimilation_loss(
                 :predation_assimilation_loss_preferential,
                 prey_sym,
                 predator_sym,
-                interaction_matrix(assim)[predator_idx, prey_idx],
-                community_param(rate)[predator_idx],
-                community_param(half)[predator_idx],
-                interaction_matrix(palat)[predator_idx, prey_idx],
+                _mat(assim, predator_idx, prey_idx),
+                _vec(rate, predator_idx),
+                _vec(half, predator_idx),
+                _mat(palat, predator_idx, prey_idx),
             )
         end
     end

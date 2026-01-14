@@ -1,6 +1,6 @@
 module Remineralization
 
-using ..Equations: AExpr, bgc_param
+using ..Equations: AExpr, req
 
 export remineralization_idealized
 export remineralization_flux
@@ -36,7 +36,8 @@ Construction-time symbolic helper for `rate_key * pool_sym`.
 The scalar is recorded as an equation requirement and validated by the constructor.
 """
 function remineralization_flux(pool_sym::Symbol, rate_key::Symbol)
-    return bgc_param(rate_key) * pool_sym
+    rate = AExpr(rate_key, req(scalars=(rate_key,)))
+    return rate * pool_sym
 end
 
 end # module

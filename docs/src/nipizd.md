@@ -6,8 +6,8 @@ Agate's NiPiZD model is configured through a **factory** (`NiPiZDFactory`) and c
 At a high level:
 
 1. Choose a factory (here, `NiPiZDFactory()`).
-2. Optionally override components (dynamics functions), community structure (`plankton_args`),
-   or parameters (PFT and biogeochemistry specifications).
+2. Optionally override components (dynamics functions), community structure (sizes/diameters),
+   or parameter values (via `default_parameter_args(...; params=(...))`).
 3. Call `construct(factory; ...)` to obtain a concrete biogeochemistry type.
 4. Instantiate the type and pass it to Oceananigans/OceanBioME.
 

@@ -3,20 +3,22 @@
 # This example demonstrates how to extend an existing factory model (NiPiZD) with:
 #
 # - a **new plankton group** (`H`),
-# - a **new plankton dynamics builder** for that group using the *equation-based* API,
+# - a **new plankton dynamics builder** for that group using the equation-based API,
 # - a local **detritus (D) dynamics builder** that includes detrital uptake by heterotrophs,
-# - and a simple **mass balance test**.
+# - and a simple mass balance test.
 #
 # Requirement: `H` should be eaten by `Z` but cannot eat.
 
 using Agate
 using Agate.Models: NiPiZDFactory
-using Agate.Constructor: construct, PFTSpecification, update_plankton_args
+using Agate.Constructor: construct, default_parameter_args, update_plankton_args
+using Agate.Utils.Specifications: PFTSpecification
 using Agate.Library.Allometry: AllometricParam, PowerLaw
-using Agate.Library.Equations: Equation, Σ, group_param, community_param, bgc_param
+using Agate.Library.Equations: Equation, Σ, @paramvars
 using Agate.Library.Mortality: linear_loss, linear_loss_sum, quadratic_loss_sum
 using Agate.Library.Predation: grazing_loss, grazing_assimilation_loss
 using Agate.Library.Light: FunctionFieldPAR
+using Agate.Parameters: ParamSpec, ParamRegistry, parameter_registry
 
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -34,15 +36,17 @@ nothing #hide
 # Here, `H` grows from detritus `D` with a Monod-style limitation,
 # is grazed by predators (`Z`), and experiences linear mortality.
 #
-# We intentionally use a **new parameter container** (`maximum_detritus_uptake_rate`) rather than
-# reusing `maximum_growth_rate`, because NiPiZD’s default nutrient tendency subtracts only
-# photosynthetic growth.
+# The equation authoring surface uses **bare parameter identifiers**.
+# For new parameter names, declare placeholders locally.
+
+@paramvars maximum_detritus_uptake_rate detritus_half_saturation
+@paramvars mortality_export_fraction detritus_remineralization
 
 @inline monod(D, k) = D / (D + k)
 
 function heterotroph_growth(plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int)
-    uptake = group_param(:maximum_detritus_uptake_rate)[plankton_idx] *
-             monod(:D, group_param(:detritus_half_saturation)[plankton_idx]) *
+    uptake = maximum_detritus_uptake_rate[plankton_idx] *
+             monod(:D, detritus_half_saturation[plankton_idx]) *
              plankton_sym
 
     grazing = grazing_loss(plankton_sym, plankton_idx, plankton_syms)
@@ -54,26 +58,26 @@ end
 # ## 2. Define a detritus dynamics that includes heterotroph detrital uptake
 #
 # NiPiZD’s default detritus tendency does not include detrital uptake.
-# Here we define a local `detritus_with_heterotrophs` tendency that adds a sink term:
+# Here we define a local tendency that adds a sink term:
 #
 # ```
-# ∑ᵢ maximum_detritus_uptake_rate[i] * monod(D, detritus_half_saturation[i]) * plankton[i]
+# Σᵢ maximum_detritus_uptake_rate[i] * monod(D, detritus_half_saturation[i]) * plankton[i]
 # ```
 #
-# For groups that don’t consume detritus, these parameters may be missing or `nothing`.
-# The constructor fills community-optional parameters with `0`, making those terms inactive.
+# For groups that don’t consume detritus, these parameters are missing.
+# We will declare them in the parameter registry with `scope=:zero_silent` so missing entries become zeros.
 
 function detritus_with_heterotrophs(plankton_syms::AbstractVector{Symbol})
     linear_sum = linear_loss_sum(plankton_syms)
     quadratic_sum = quadratic_loss_sum(plankton_syms)
     assimilation_loss_sum = grazing_assimilation_loss(plankton_syms)
 
-    export_frac = bgc_param(:mortality_export_fraction)
-    remin = bgc_param(:detritus_remineralization) * :D
+    export_frac = mortality_export_fraction
+    remin = detritus_remineralization * :D
 
     uptake_sum = Σ(plankton_syms) do sym, i
-        community_param(:maximum_detritus_uptake_rate)[i] *
-        monod(:D, community_param(:detritus_half_saturation)[i]) *
+        maximum_detritus_uptake_rate[i] *
+        monod(:D, detritus_half_saturation[i]) *
         sym
     end
 
@@ -91,31 +95,18 @@ end
 factory = NiPiZDFactory()
 
 plankton_dynamics   = Agate.Models.default_plankton_dynamics(factory)
-plankton_args       = Agate.Models.default_plankton_args(factory)
+community           = Agate.Models.default_parameter_args(factory)
 biogeochem_dynamics = Agate.Models.default_biogeochem_dynamics(factory)
-biogeochem_args     = Agate.Models.default_biogeochem_args(factory)
 
 # Override detritus (`D`) dynamics to include heterotroph detrital uptake.
 biogeochem_dynamics_H = merge(biogeochem_dynamics, (; D = detritus_with_heterotrophs))
 
-# Add a new group entry to `plankton_args`.
+# Add a new group entry to the community.
 #
-# Requirement: `H` **cannot eat** but **can be eaten**.
-# Agate builds default palatability/assimilation matrices from these traits,
-# so `Z` can graze `H` but `H` will not graze anything.
+# Requirement: `H` cannot eat but can be eaten.
+# Agate builds default palatability/assimilation matrices from these traits.
 
 heterotroph_pft = PFTSpecification(
-    # New parameters used by `heterotroph_growth`.
-    maximum_detritus_uptake_rate = AllometricParam(PowerLaw(); prefactor=1.5 / day, exponent=-0.15),
-    detritus_half_saturation     = 0.04,
-
-    # Losses
-    linear_mortality = 8e-7 / second,
-
-    # Explicitly mark predator parameters as not applicable.
-    maximum_predation_rate  = nothing,
-    holling_half_saturation = nothing,
-
     # Interaction traits used by default allometric interactions.
     can_eat         = false,
     can_be_eaten    = true,
@@ -125,33 +116,62 @@ heterotroph_pft = PFTSpecification(
     assimilation_efficiency = 0.0,
 )
 
-plankton_args_H = merge(plankton_args, (; H=(; n=1, diameters=[6.0], pft=heterotroph_pft)))
+community_H = merge(community, (; H=(; n=1, diameters=[6.0], pft=heterotroph_pft)))
 
 # Add matching dynamics for the new group.
 plankton_dynamics_H = merge(plankton_dynamics, (; H = heterotroph_growth))
 
-# Optional ergonomic update (same API as other PFT keys):
-plankton_args_H = update_plankton_args(plankton_args_H, :H; detritus_half_saturation=0.05)
+# ## 4. Extend the parameter registry with the new parameters
+#
+# The resolver requires every parameter referenced in equations to have a `ParamSpec`.
+# Here we add two new vector parameters used by heterotroph detrital uptake.
 
-# ## 4. Construct a new concrete NiPiZDH model type
+extra_specs = [
+    ParamSpec(
+        :maximum_detritus_uptake_rate,
+        1 / day,
+        "Maximum detritus uptake rate for detritivorous heterotrophs.",
+        (H = AllometricParam(PowerLaw(); prefactor=1.5 / day, exponent=-0.15),);
+        scope=:zero_silent,
+    ),
+    ParamSpec(
+        :detritus_half_saturation,
+        1,
+        "Half-saturation constant for heterotroph detritus uptake.",
+        (H = 0.04,);
+        scope=:zero_silent,
+    ),
+]
+
+base_reg = parameter_registry(factory)
+extended_reg = ParamRegistry(vcat(base_reg.specs, extra_specs))
+
+# Optional ergonomic override: tweak detritus half-saturation for H via the community PFT.
+community_H = update_plankton_args(community_H, :H; detritus_half_saturation=0.05)
+
+parameter_args = default_parameter_args(factory;
+    community=community_H,
+    registry=extended_reg,
+)
+
+# ## 5. Construct a new concrete NiPiZDH model type
 
 bgc_type = construct(
     factory;
     plankton_dynamics=plankton_dynamics_H,
-    plankton_args=plankton_args_H,
     biogeochem_dynamics=biogeochem_dynamics_H,
-    biogeochem_args=biogeochem_args,
+    parameter_args=parameter_args,
 )
 
 bgc = bgc_type()
 
-# The new runtime parameter containers exist because they were required by the equations.
+# The new runtime parameter vectors exist because they were required by the equations.
 (
     H_maximum_detritus_uptake_rate = bgc.parameters.maximum_detritus_uptake_rate[end],
     H_detritus_half_saturation     = bgc.parameters.detritus_half_saturation[end],
 )
 
-# ## 5. Run a short box model simulation
+# ## 6. Run a short box model simulation
 
 light = FunctionFieldPAR(; grid=BoxModelGrid())
 bgc_model = Biogeochemistry(bgc; light_attenuation=light)

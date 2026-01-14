@@ -14,7 +14,7 @@ using Agate
 using Agate.Constructor: construct
 using Agate.Models: NiPiZDFactory
 
-bgc_type = construct(NiPiZDFactory()) # defaults to FT = Float64
+bgc_type = construct(NiPiZDFactory())
 bgc = bgc_type()
 ```
 
@@ -24,47 +24,53 @@ If you need a different float type (for example, GPU execution), specify `FT` ex
 bgc_type_f32 = construct(NiPiZDFactory(); FT=Float32)
 ```
 
-## Overriding configuration
+## Structural defaults vs parameter defaults
 
-Factories expose defaults for plankton community structure, dynamics, and non-plankton parameters via
-`Agate.Models.default_*` functions. You can pull those defaults, then override them and pass the
-modified objects back into `construct`.
+Factories provide *structural* defaults (community size structure) and default dynamics functions.
+All *parameter defaults* are sourced from the model's parameter registry (single source of truth).
 
-Agate provides a few small helpers for ergonomic, non-mutating overrides:
+- Structural defaults: `Agate.Models.default_parameter_args(factory)`
+- Dynamics defaults: `Agate.Models.default_plankton_dynamics(factory)`, `Agate.Models.default_biogeochem_dynamics(factory)`
+- Parameter defaults: `Agate.Parameters.parameter_registry(factory)`
 
-- `update_plankton_args`: update a single plankton group entry inside `plankton_args` (and optionally patch its `pft`).
-- `update_biogeochem_args`: update biogeochemistry specification values.
-- `update_dynamics`: update a dynamics `NamedTuple` with key validation.
+## Overriding community and parameters
 
-Example:
+Use `default_parameter_args` to apply readable keyword overrides.
 
 ```julia
 using Agate
+using Agate.Constructor: construct, default_parameter_args, update_plankton_args, update_dynamics
 using Agate.Models: NiPiZDFactory
-using Agate.Constructor: construct, update_plankton_args, update_biogeochem_args
 using Agate.Library.Allometry: AllometricParam, PowerLaw
-
 using Oceananigans.Units: day
 
 factory = NiPiZDFactory()
 
-plankton_args  = Agate.Models.default_plankton_args(factory)
-biogeochem_args = Agate.Models.default_biogeochem_args(factory)
+# 1) Customize community structure (sizes/diameters).
+community = Agate.Models.default_parameter_args(factory)
+community = update_plankton_args(community, :Z; n=1, diameters=[60.0])
+community = update_plankton_args(community, :P; n=3, diameters=(1.5, 20.0, :log_splitting))
 
-# 1) Override community structure.
-plankton_args = update_plankton_args(plankton_args, :Z; n=1, diameters=[60.0])
-plankton_args = update_plankton_args(plankton_args, :P; n=3, diameters=(1.5, 20.0, :log_splitting))
+# 2) Optionally swap in alternative dynamics builders.
+plankton_dynamics = Agate.Models.default_plankton_dynamics(factory)
+biogeochem_dynamics = Agate.Models.default_biogeochem_dynamics(factory)
 
-# 2) Override a PFT parameter (one step).
-plankton_args = update_plankton_args(plankton_args, :P;
-    maximum_growth_rate = AllometricParam(PowerLaw(); prefactor=3.0/day, exponent=-0.15),
+# 3) Parameter overrides (registry keys as keywords).
+parameter_args = default_parameter_args(factory;
+    community,
+    params=(
+        detritus_remineralization = 0.18 / day,
+        maximum_growth_rate = (P = AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15),),
+    ),
 )
 
-# 3) Override a biogeochemistry specification value.
-biogeochem_args = update_biogeochem_args(biogeochem_args; detritus_remineralization=0.18/day)
+bgc_type = construct(factory;
+    plankton_dynamics,
+    biogeochem_dynamics,
+    parameter_args=parameter_args,
+    sinking_tracers=(D = 2.0 / day,),
+)
 
-# 4) Construct a concrete biogeochemistry type.
-bgc_type = construct(factory; plankton_args=plankton_args, biogeochem_args=biogeochem_args)
 bgc = bgc_type()
 ```
 
@@ -72,11 +78,8 @@ bgc = bgc_type()
 
 ```@docs
 Agate.Constructor.construct
-Agate.Constructor.update_plankton_args
-Agate.Constructor.update_biogeochem_args
-Agate.Constructor.update_dynamics
+Agate.Constructor.default_parameter_args
 Agate.Constructor.patch
-Agate.Utils.Specifications.PFTSpecification
-Agate.Utils.Specifications.BiogeochemistrySpecification
-Agate.Utils.Specifications.ModelSpecification
+Agate.Constructor.update_plankton_args
+Agate.Constructor.update_dynamics
 ```

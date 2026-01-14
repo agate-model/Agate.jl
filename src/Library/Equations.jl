@@ -6,22 +6,35 @@ without hand-written `Expr` quoting and without any `@register_*` macros.
 This module is intentionally non-circular and does not depend on Models or
 Constructor. Objects defined here are used *only at construction time*.
 
-Set C public API (explicit; no aliases):
-- group_param(:key)
-- community_param(:key)
-- interaction_matrix(:key)
-- bgc_param(:key)
-- Σ(items) do sym, idx ... end
-- Equation(::AExpr)
+Design notes
+------------
+- Dynamics authors write equations using *bare parameter identifiers* like
+  `maximum_growth_rate[i]` or `detritus_remineralization`.
+- Those identifiers are bound (in model modules) to small `ParamVar` placeholders.
+- When a `ParamVar` is indexed, it produces an `AExpr` node and records a
+  requirement (scalar/vector/matrix) for the parameter key.
+- At runtime, parameters are plain numeric scalars and arrays; the symbolic
+  placeholders never enter kernels.
+
+Public API:
+- `@paramvars a b c` — define `const a = ParamVar{:a}()` placeholders in the
+  calling module.
+- `declare_parameter_vars!(mod, names; export_vars=true)` — programmatic variant.
+- `Σ(items) do sym, idx ... end` — construction-time symbolic sum builder.
+- `Equation(::AExpr)` — wrapper returned by dynamics builders.
+
+The old `group_param`/`community_param` distinction is intentionally removed;
+missing/`nothing` policy is specified in the parameter registry.
 """
 
 module Equations
 
 using ..ExprUtils: sum_expr
+using Logging
 
 export Requirements, req, merge_requirements
 export AExpr, Equation, expr, requirements
-export group_param, community_param, interaction_matrix, bgc_param
+export ParamVar, @paramvars, declare_parameter_vars!
 export Σ
 
 # -----------------------------------------------------------------------------
@@ -30,17 +43,15 @@ export Σ
 
 """Construction-time dependency set for a symbolic expression."""
 struct Requirements
-    group_params::Vector{Symbol}
-    community_params::Vector{Symbol}
+    vectors::Vector{Symbol}
     matrices::Vector{Symbol}
     scalars::Vector{Symbol}
 end
 
 """Create a `Requirements` object."""
-function req(; group=(), community=(), matrices=(), scalars=())
+function req(; vectors=(), matrices=(), scalars=())
     return Requirements(
-        Symbol[group...],
-        Symbol[community...],
+        Symbol[vectors...],
         Symbol[matrices...],
         Symbol[scalars...],
     )
@@ -56,8 +67,7 @@ end
 """Merge two `Requirements` with stable ordering (first-seen wins)."""
 function merge_requirements(r1::Requirements, r2::Requirements)
     return Requirements(
-        _append_unique!(copy(r1.group_params), r2.group_params),
-        _append_unique!(copy(r1.community_params), r2.community_params),
+        _append_unique!(copy(r1.vectors), r2.vectors),
         _append_unique!(copy(r1.matrices), r2.matrices),
         _append_unique!(copy(r1.scalars), r2.scalars),
     )
@@ -75,47 +85,73 @@ end
 
 @inline AExpr(node) = AExpr(node, req())
 
+# -----------------------------------------------------------------------------
+# Parameter placeholder
+# -----------------------------------------------------------------------------
+
+"""A construction-time placeholder for a parameter named `K`.
+
+A `ParamVar` behaves like a scalar/array reference during equation authoring:
+- using it as a scalar records `K` in `requirements(...).scalars`
+- indexing with one index records `K` in `requirements(...).vectors`
+- indexing with two indices records `K` in `requirements(...).matrices`
+
+At runtime, the generated tracer methods bind `K` to a numeric value/array.
+"""
+struct ParamVar{K} end
+
+"""Define `const` parameter placeholders in the calling module.
+
+Example:
+
+```julia
+@paramvars linear_mortality quadratic_mortality
+
+mort = linear_mortality[i] * P
+```
+"""
+macro paramvars(names...)
+    defs = Expr[]
+    for n in names
+        n isa Symbol || error("@paramvars expects bare identifiers")
+        push!(defs, :(const $(esc(n)) = ParamVar{$(QuoteNode(n))}()))
+    end
+    return Expr(:block, defs...)
+end
+
+"""Programmatically declare placeholders in `mod` for the given `names`.
+
+If `export_vars=true`, also exports each declared name from `mod`.
+"""
+function declare_parameter_vars!(mod::Module, names::AbstractVector{Symbol}; export_vars::Bool=true)
+    for name in names
+        # Skip if already defined to avoid clobbering user bindings.
+        if isdefined(mod, name)
+            @warn "Parameter var $(name) already defined in $(mod); skipping." maxlog=1
+            continue
+        end
+        Core.eval(mod, :(const $(name) = $(Equations).ParamVar{$(QuoteNode(name))}()))
+        if export_vars
+            Core.eval(mod, :(export $(name)))
+        end
+    end
+    return nothing
+end
+
 @inline function _to_aexpr(x)
     return x isa AExpr ? x : AExpr(x, req())
 end
 
-# -----------------------------------------------------------------------------
-# References: parameters, matrices, scalars
-# -----------------------------------------------------------------------------
-
-struct ParamRef
-    kind::Symbol   # :group or :community
-    key::Symbol
+@inline function _to_aexpr(::ParamVar{K}) where {K}
+    return AExpr(K, req(scalars=(K,)))
 end
 
-struct MatrixRef
-    key::Symbol
+function Base.getindex(::ParamVar{K}, i) where {K}
+    return AExpr(Expr(:ref, K, i), req(vectors=(K,)))
 end
 
-"""Group-owned parameter reference (missing in that group => error at construct time)."""
-@inline group_param(key::Symbol) = ParamRef(:group, key)
-
-"""Community-optional parameter reference (missing/nothing => 0 at construct time)."""
-@inline community_param(key::Symbol) = ParamRef(:community, key)
-
-"""Interaction matrix reference."""
-@inline interaction_matrix(key::Symbol) = MatrixRef(key)
-
-"""BGC scalar parameter reference (from `BiogeochemistrySpecification`)."""
-@inline function bgc_param(key::Symbol)
-    return AExpr(key, req(scalars=(key,)))
-end
-
-function Base.getindex(r::ParamRef, i)
-    if r.kind === :group
-        return AExpr(Expr(:ref, r.key, i), req(group=(r.key,)))
-    else
-        return AExpr(Expr(:ref, r.key, i), req(community=(r.key,)))
-    end
-end
-
-function Base.getindex(M::MatrixRef, j, i)
-    return AExpr(Expr(:ref, M.key, j, i), req(matrices=(M.key,)))
+function Base.getindex(::ParamVar{K}, j, i) where {K}
+    return AExpr(Expr(:ref, K, j, i), req(matrices=(K,)))
 end
 
 # -----------------------------------------------------------------------------
@@ -140,7 +176,65 @@ Base.:/(a::AExpr, b::AExpr) = _binop(:/, a, b)
 Base.:^(a::AExpr, b::AExpr) = _binop(:^, a, b)
 Base.:-(a::AExpr) = _unop(:-, a)
 
-# Mixed with literals / symbols
+# -----------------------------------------------------------------------------
+# ParamVar arithmetic
+#
+# ParamVar is used as a symbolic placeholder inside equation DSLs, e.g.
+#
+#     detritus_remineralization * :D
+#     1 - DOM_POM_fractionation
+#
+# The core expression builder operates on AExpr, but ParamVar is *not* a subtype
+# of AExpr. Define a small set of arithmetic overloads so ParamVar can appear on
+# either side of standard operators.
+
+const _EquationExprLike = Union{AExpr, ParamVar, Symbol, Number}
+
+Base.:-(a::ParamVar) = _unop(:-, a)
+
+Base.:+(a::ParamVar, b::_EquationExprLike) = _binop(:+, a, b)
+Base.:+(a::_EquationExprLike, b::ParamVar) = _binop(:+, a, b)
+
+# Disambiguate ParamVar ⨯ ParamVar (otherwise Julia sees two equally-specific methods).
+Base.:+(a::ParamVar, b::ParamVar) = _binop(:+, a, b)
+
+Base.:-(a::ParamVar, b::_EquationExprLike) = _binop(:-, a, b)
+Base.:-(a::_EquationExprLike, b::ParamVar) = _binop(:-, a, b)
+Base.:-(a::ParamVar, b::ParamVar) = _binop(:-, a, b)
+
+Base.:*(a::ParamVar, b::_EquationExprLike) = _binop(:*, a, b)
+Base.:*(a::_EquationExprLike, b::ParamVar) = _binop(:*, a, b)
+Base.:*(a::ParamVar, b::ParamVar) = _binop(:*, a, b)
+
+Base.:/(a::ParamVar, b::_EquationExprLike) = _binop(:/, a, b)
+Base.:/(a::_EquationExprLike, b::ParamVar) = _binop(:/, a, b)
+Base.:/(a::ParamVar, b::ParamVar) = _binop(:/, a, b)
+
+Base.:^(a::ParamVar, b::_EquationExprLike) = _binop(:^, a, b)
+Base.:^(a::_EquationExprLike, b::ParamVar) = _binop(:^, a, b)
+Base.:^(a::ParamVar, b::ParamVar) = _binop(:^, a, b)
+
+
+
+# Disambiguation for ParamVar <-> AExpr binary ops.
+# Without these, calls like *(ParamVar, AExpr) are ambiguous between the
+# ParamVar overloads above and the generic (a, b::AExpr) fallbacks below.
+Base.:+(a::ParamVar, b::AExpr) = _binop(:+, a, b)
+Base.:+(a::AExpr, b::ParamVar) = _binop(:+, a, b)
+
+Base.:-(a::ParamVar, b::AExpr) = _binop(:-, a, b)
+Base.:-(a::AExpr, b::ParamVar) = _binop(:-, a, b)
+
+Base.:*(a::ParamVar, b::AExpr) = _binop(:*, a, b)
+Base.:*(a::AExpr, b::ParamVar) = _binop(:*, a, b)
+
+Base.:/(a::ParamVar, b::AExpr) = _binop(:/, a, b)
+Base.:/(a::AExpr, b::ParamVar) = _binop(:/, a, b)
+
+Base.:^(a::ParamVar, b::AExpr) = _binop(:^, a, b)
+Base.:^(a::AExpr, b::ParamVar) = _binop(:^, a, b)
+
+# Mixed with literals / symbols / ParamVar
 Base.:+(a::AExpr, b) = _binop(:+, a, b)
 Base.:+(a, b::AExpr) = _binop(:+, a, b)
 Base.:-(a::AExpr, b) = _binop(:-, a, b)
@@ -177,8 +271,7 @@ function Σ(items, f::Function)
     return AExpr(sum_expr(nodes), merged)
 end
 
-# Some Julia parsing patterns can end up calling Σ(f, items) when a `do` block is
-# attached in unexpected ways. Accept the swapped argument order defensively.
+# Defensive swapped-argument-order method for do-block parsing oddities.
 @inline Σ(f::Function, items) = Σ(items, f)
 
 # -----------------------------------------------------------------------------

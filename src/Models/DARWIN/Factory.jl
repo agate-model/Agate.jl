@@ -2,17 +2,20 @@
 
 This file defines `DarwinFactory` and the default inputs used by
 `Agate.Constructor.construct(factory; ...)`.
+
+**Note:** All parameter defaults live exclusively in the DARWIN parameter
+registry (see `Models/DARWIN/Parameters.jl`). This factory provides only
+structural defaults (community sizes/diameters) and default dynamics functions.
 """
 
-using Oceananigans.Units
-
 using Agate.Utils: AbstractBGCFactory
-using Agate.Utils.Specifications: PFTSpecification, BiogeochemistrySpecification
+using Agate.Utils.Specifications: PFTSpecification
 using Agate.Utils: DiameterRangeSpecification
 
-using Agate.Library.Allometry: AllometricParam, PowerLaw
+# NOTE: Defaults are registry-owned (see `Models/DARWIN/Parameters.jl`).
 
-import Agate.Models: default_plankton_dynamics, default_plankton_args, default_biogeochem_dynamics, default_biogeochem_args
+import Agate.Models: default_plankton_dynamics, default_parameter_args, default_biogeochem_dynamics
+
 using .Tracers:
     DIC_geider_light,
     DIN_geider_light,
@@ -26,7 +29,6 @@ using .Tracers:
     phytoplankton_growth_two_nutrients_geider_light,
     zooplankton_default
 
-
 """Factory for the simplified DARWIN-like elemental cycling model."""
 struct DarwinFactory <: AbstractBGCFactory end
 
@@ -36,43 +38,18 @@ default_plankton_dynamics(::DarwinFactory) = (
     P = phytoplankton_growth_two_nutrients_geider_light,
 )
 
-"""Default plankton arguments for DARWIN.
+"""Default structural parameter arguments for DARWIN.
+
+Returns a `NamedTuple` mapping group prefix => group specification.
 
 Ordering is significant; the default keeps the historical `Z`-then-`P` ordering.
 """
-function default_plankton_args(::DarwinFactory, ::Type{FT}) where {FT<:AbstractFloat}
-    phyto_pft = PFTSpecification(
-        maximum_growth_rate = AllometricParam(PowerLaw(); prefactor=FT(2 / day), exponent=FT(-0.15)),
-        half_saturation_DIN = AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27)),
-        half_saturation_PO4 = AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27)),
-        linear_mortality = FT(8e-7 / second),
-        photosynthetic_slope = FT(0.46e-5),
-        chlorophyll_to_carbon_ratio = FT(0.1),
-        can_eat = false,
-        can_be_eaten = true,
-        optimum_predator_prey_ratio = zero(FT),
-        protection = zero(FT),
-        specificity = zero(FT),
-        assimilation_efficiency = zero(FT),
-        alpha = zero(FT),
-    )
-
-    zoo_pft = PFTSpecification(
-        maximum_predation_rate = AllometricParam(PowerLaw(); prefactor=FT(30.84 / day), exponent=FT(-0.16)),
-        linear_mortality = FT(8e-7 / second),
-        holling_half_saturation = FT(5.0),
-        quadratic_mortality = FT(1e-6 / second),
-        can_eat = true,
-        can_be_eaten = false,
-        optimum_predator_prey_ratio = FT(10),
-        protection = one(FT),
-        specificity = FT(0.3),
-        assimilation_efficiency = FT(0.32),
-    )
-
+function default_parameter_args(::DarwinFactory, ::Type{FT}) where {FT<:AbstractFloat}
+    # Structural defaults only (sizes/diameters). No parameter defaults.
+    empty_pft = PFTSpecification()
     return (
-        Z = (; n = 2, diameters = DiameterRangeSpecification(20, 100, :linear_splitting), pft = zoo_pft),
-        P = (; n = 2, diameters = DiameterRangeSpecification(2, 10, :log_splitting), pft = phyto_pft),
+        Z = (; n = 2, diameters = DiameterRangeSpecification(20, 100, :linear_splitting), pft = empty_pft),
+        P = (; n = 2, diameters = DiameterRangeSpecification(2, 10, :log_splitting), pft = empty_pft),
     )
 end
 
@@ -88,19 +65,3 @@ default_biogeochem_dynamics(::DarwinFactory) = (
     DOP = DOP_default,
     POP = POP_default,
 )
-
-"""Default biogeochemical specification for DARWIN."""
-function default_biogeochem_args(::DarwinFactory, ::Type{FT}) where {FT<:AbstractFloat}
-    return BiogeochemistrySpecification(
-        POC_remineralization = FT(0.1213 / day),
-        DOC_remineralization = FT(0.1213 / day),
-        PON_remineralization = FT(0.1213 / day),
-        DON_remineralization = FT(0.1213 / day),
-        POP_remineralization = FT(0.1213 / day),
-        DOP_remineralization = FT(0.1213 / day),
-        DOM_POM_fractionation = FT(0.45),
-        nitrogen_to_carbon = FT(0.15),
-        phosphorus_to_carbon = FT(0.009),
-    )
-end
-

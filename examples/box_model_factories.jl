@@ -6,16 +6,15 @@
 #
 # 1. Construct a default model from a factory.
 # 2. Change community structure (number of size classes, diameters).
-# 3. Override parameters (PFT and biogeochemical specification fields).
+# 3. Override parameters (registry keywords, including allometry).
 # 4. Swap components (dynamics functions).
 # 5. Provide explicit interaction matrices.
 #
 # The same pattern applies to all factories (e.g., [`DarwinFactory`](@ref)).
 
 using Agate
-using Agate.Constructor: construct
+using Agate.Constructor: construct, default_parameter_args, update_plankton_args, update_dynamics
 using Agate.Models: NiPiZDFactory
-using Agate.Constructor: PFTSpecification, BiogeochemistrySpecification, update_plankton_args, update_biogeochem_args, update_dynamics
 using Agate.Utils: parse_community
 using Agate.Library.Light
 using Agate.Library.Allometry: AllometricParam, PowerLaw
@@ -41,42 +40,38 @@ factory = NiPiZDFactory()
 bgc_type_default = construct(factory)
 bgc_default = bgc_type_default()
 
-
 # ## 2. Pull defaults and override community structure
 
 # Factories expose defaults for:
 #
 # - `plankton_dynamics`: how each plankton group is translated into tracer tendencies
-# - `plankton_args`: how many size classes, what diameters, and which PFT parameter sets
+# - `community`: how many size classes, what diameters, and optional per-PFT overrides
 # - `biogeochem_dynamics`: non-plankton tracer tendencies (e.g., nutrients and detritus)
-# - `biogeochem_args`: non-plankton model parameters (specification)
+#
+# Parameter defaults are **not** stored in these containers; they live in the model's
+# parameter registry (single source of truth).
 
 plankton_dynamics = Agate.Models.default_plankton_dynamics(factory)
-plankton_args = Agate.Models.default_plankton_args(factory)
+community = Agate.Models.default_parameter_args(factory)
 biogeochem_dynamics = Agate.Models.default_biogeochem_dynamics(factory)
-biogeochem_args = Agate.Models.default_biogeochem_args(factory)
 
-# `plankton_args` is a `NamedTuple` keyed by group prefix (e.g., `:Z`, `:P`).
-# Each group specification must include a diameter specification (`diameters`) and, for
-# non-explicit diameter specifications, a positive integer `n`.
-#
-# Here we:
-# - reduce zooplankton to 1 size class at a fixed diameter
-# - increase phytoplankton to 3 size classes with log-spaced diameters
+# Reduce zooplankton to 1 size class at a fixed diameter.
+# Increase phytoplankton to 3 size classes with log-spaced diameters.
 
-plankton_args_custom = update_plankton_args(plankton_args, :Z; n=1, diameters=[60.0])
-plankton_args_custom = update_plankton_args(plankton_args_custom, :P; n=3, diameters=(1.5, 20.0, :log_splitting))
+community_custom = update_plankton_args(community, :Z; n=1, diameters=[60.0])
+community_custom = update_plankton_args(community_custom, :P; n=3, diameters=(1.5, 20.0, :log_splitting))
 
-# ## 3. Override parameter values
+# ## 3. Override parameter values (registry keywords)
 
-# PFT parameters are held in `PFTSpecification`, which stores a `NamedTuple` internally.
-# You can create an overridden copy using keyword splatting.
+# Parameter overrides are supplied via `default_parameter_args(...; params=(...))`.
+# Vector parameters can be overridden with a per-group mapping (`(P=..., Z=...)`).
 
-# Apply a one-step PFT override via update_plankton_args
-plankton_args_custom = update_plankton_args(plankton_args_custom, :P; maximum_growth_rate=AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15))
+params_override = (
+    detritus_remineralization = 0.18 / day,
+    maximum_growth_rate = (P = AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15),),
+)
 
-# The non-plankton specification is similarly stored in `BiogeochemistrySpecification`.
-biogeochem_args_fast = update_biogeochem_args(biogeochem_args; detritus_remineralization=0.18 / day)
+parameter_args = default_parameter_args(factory; community=community_custom, params=params_override)
 
 # ## 4. Swap components (dynamics)
 
@@ -90,28 +85,20 @@ biogeochem_dynamics_geider = update_dynamics(biogeochem_dynamics; N=nutrient_gei
 
 # ## 5. Provide explicit interaction matrices
 
-# You can override interactions either by supplying:
-#
-# - a `NamedTuple` of matrices, or
-# - a callable that returns such a `NamedTuple`.
-#
-# The matrices must be `n_total × n_total`, where `n_total` is the total number of plankton tracers
-# (all groups concatenated in the order of `plankton_args`).
-
-community = parse_community(
+community_ctx = parse_community(
     Float64,
-    plankton_args_custom;
+    community_custom;
     plankton_dynamics=plankton_dynamics_geider,
     biogeochem_dynamics=biogeochem_dynamics_geider,
 )
 
-n = community.n_total
+n = community_ctx.n_total
 pal = zeros(Float64, n, n)
 assim = zeros(Float64, n, n)
 
 # For illustration, make the single zooplankton class graze all phytoplankton equally.
-z_idx = findall(==(:Z), community.group_symbols)
-p_idx = findall(==(:P), community.group_symbols)
+z_idx = findall(==(:Z), community_ctx.group_symbols)
+p_idx = findall(==(:P), community_ctx.group_symbols)
 
 for i in z_idx, j in p_idx
     pal[i, j] = 1.0
@@ -128,9 +115,8 @@ interactions_custom = (
 bgc_type_custom = construct(
     factory;
     plankton_dynamics=plankton_dynamics_geider,
-    plankton_args=plankton_args_custom,
     biogeochem_dynamics=biogeochem_dynamics_geider,
-    biogeochem_args=biogeochem_args_fast,
+    parameter_args=parameter_args,
     interactions=interactions_custom,
     sinking_tracers=(D=2.0 / day,),
 )
@@ -144,7 +130,7 @@ bgc_model = Biogeochemistry(bgc_custom; light_attenuation=light)
 
 box = BoxModel(; biogeochemistry=bgc_model)
 
-# With custom `plankton_args`, the tracer names (and count) can change. For this example we know
+# With custom `community`, the tracer names (and count) can change. For this example we know
 # the configuration is: `N`, `D`, `Z1`, `P1`, `P2`, `P3`.
 set!(box; N=7.0, D=0.05, Z1=0.02, P1=0.01, P2=0.01, P3=0.01)
 

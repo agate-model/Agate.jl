@@ -3,7 +3,7 @@
 module Photosynthesis
 
 using Agate.Library.Nutrients: monod_limitation, liebig_minimum
-using ..Equations: AExpr, req, merge_requirements, group_param, community_param
+using ..Equations: AExpr, req, merge_requirements
 
 export light_limitation_smith,
     light_limitation_geider,
@@ -20,6 +20,9 @@ export growth_two_nutrients_geider
 export growth_two_nutrients_geider_comm
 
 @inline _to_aexpr_local(x) = x isa AExpr ? x : AExpr(x, req())
+
+# Build a vector parameter reference by name (construction-time only).
+ _vec(key::Symbol, idx::Int) = AExpr(Expr(:ref, key, idx), req(vectors=(key,)))
 
 """Build an `AExpr` for a runtime function call, merging argument requirements."""
 function _call(fsym::Symbol, args...)
@@ -271,9 +274,9 @@ function growth_single_nutrient(
         nutrient_sym,
         plankton_sym,
         light_sym,
-        group_param(maximum_growth_rate)[idx],
-        group_param(nutrient_half_saturation)[idx],
-        group_param(alpha)[idx],
+        _vec(maximum_growth_rate, idx),
+        _vec(nutrient_half_saturation, idx),
+        _vec(alpha, idx),
     )
 end
 
@@ -297,9 +300,9 @@ function growth_single_nutrient_comm(
         nutrient_sym,
         plankton_sym,
         light_sym,
-        community_param(maximum_growth_rate)[idx],
-        community_param(nutrient_half_saturation)[idx],
-        community_param(alpha)[idx],
+        _vec(maximum_growth_rate, idx),
+        _vec(nutrient_half_saturation, idx),
+        _vec(alpha, idx),
     )
 end
 
@@ -319,10 +322,10 @@ function growth_single_nutrient_geider(
         nutrient_sym,
         plankton_sym,
         light_sym,
-        group_param(maximum_growth_rate)[idx],
-        group_param(nutrient_half_saturation)[idx],
-        group_param(photosynthetic_slope)[idx],
-        group_param(chlorophyll_to_carbon_ratio)[idx],
+        _vec(maximum_growth_rate, idx),
+        _vec(nutrient_half_saturation, idx),
+        _vec(photosynthetic_slope, idx),
+        _vec(chlorophyll_to_carbon_ratio, idx),
     )
 end
 
@@ -342,10 +345,10 @@ function growth_single_nutrient_geider_comm(
         nutrient_sym,
         plankton_sym,
         light_sym,
-        community_param(maximum_growth_rate)[idx],
-        community_param(nutrient_half_saturation)[idx],
-        community_param(photosynthetic_slope)[idx],
-        community_param(chlorophyll_to_carbon_ratio)[idx],
+        _vec(maximum_growth_rate, idx),
+        _vec(nutrient_half_saturation, idx),
+        _vec(photosynthetic_slope, idx),
+        _vec(chlorophyll_to_carbon_ratio, idx),
     )
 end
 
@@ -368,11 +371,11 @@ function growth_two_nutrients_geider(
         nutrient2_sym,
         plankton_sym,
         light_sym,
-        group_param(maximum_growth_rate)[idx],
-        group_param(half_saturation_1)[idx],
-        group_param(half_saturation_2)[idx],
-        group_param(photosynthetic_slope)[idx],
-        group_param(chlorophyll_to_carbon_ratio)[idx],
+        _vec(maximum_growth_rate, idx),
+        _vec(half_saturation_1, idx),
+        _vec(half_saturation_2, idx),
+        _vec(photosynthetic_slope, idx),
+        _vec(chlorophyll_to_carbon_ratio, idx),
     )
 end
 
@@ -395,11 +398,11 @@ function growth_two_nutrients_geider_comm(
         nutrient2_sym,
         plankton_sym,
         light_sym,
-        community_param(maximum_growth_rate)[idx],
-        community_param(half_saturation_1)[idx],
-        community_param(half_saturation_2)[idx],
-        community_param(photosynthetic_slope)[idx],
-        community_param(chlorophyll_to_carbon_ratio)[idx],
+        _vec(maximum_growth_rate, idx),
+        _vec(half_saturation_1, idx),
+        _vec(half_saturation_2, idx),
+        _vec(photosynthetic_slope, idx),
+        _vec(chlorophyll_to_carbon_ratio, idx),
     )
 end
 

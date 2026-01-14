@@ -72,6 +72,8 @@ Expected coefficient names:
         throw(ArgumentError("PowerLaw requires coefficient `exponent` (or `b`)"))
     end
 
+    # By construction we keep coefficients and diameter the same floating type (FT),
+    # so this call never mixes Float32/Float64 (important for GPU use).
     return allometric_scaling_power(a, b, diameter)
 end
 
@@ -86,7 +88,10 @@ This is the one function the constructor uses when building runtime parameter ve
 @inline resolve_param(::Type{FT}, p::ConstantParam, diameter) where {FT<:AbstractFloat} = FT(p.value)
 
 @inline function resolve_param(::Type{FT}, p::AllometricParam, diameter) where {FT<:AbstractFloat}
-    return FT(p.model(p.coeffs, FT(diameter)))
+    # Coefficients often come from literal numbers (Float64). Convert them to FT so we
+    # never mix Float32/Float64 in the underlying allometric calls.
+    coeffs = map(v -> v isa Number ? FT(v) : v, p.coeffs)
+    return FT(p.model(coeffs, FT(diameter)))
 end
 
 @inline function resolve_param(::Type{FT}, p::TableParam, diameter) where {FT<:AbstractFloat}
@@ -116,24 +121,20 @@ end
     return FT(ys[end])
 end
 
-# Casting support (used by `cast_pft` so specs can be moved to GPU safely).
-@inline _cast_number(::Type{FT}, x) where {FT<:AbstractFloat} = FT(x)
-
-@inline function _cast_coeffs(::Type{FT}, nt::NamedTuple) where {FT<:AbstractFloat}
-    return map(v -> v isa Number ? _cast_number(FT, v) : v, nt)
-end
-
 """Cast numeric entries inside a parameter definition to `FT`."""
-function cast_paramdef(::Type{FT}, p::ConstantParam) where {FT<:AbstractFloat}
-    return ConstantParam(_cast_number(FT, p.value))
+@inline function cast_paramdef(::Type{FT}, p::ConstantParam) where {FT<:AbstractFloat}
+    return ConstantParam(FT(p.value))
 end
 
-function cast_paramdef(::Type{FT}, p::AllometricParam) where {FT<:AbstractFloat}
-    coeffs = p.coeffs isa NamedTuple ? _cast_coeffs(FT, p.coeffs) : p.coeffs
+@inline function cast_paramdef(::Type{FT}, p::AllometricParam) where {FT<:AbstractFloat}
+    coeffs = p.coeffs
+    if coeffs isa NamedTuple
+        coeffs = map(v -> v isa Number ? FT(v) : v, coeffs)
+    end
     return AllometricParam(p.model, coeffs)
 end
 
-function cast_paramdef(::Type{FT}, p::TableParam) where {FT<:AbstractFloat}
+@inline function cast_paramdef(::Type{FT}, p::TableParam) where {FT<:AbstractFloat}
     return TableParam(FT.(p.x), FT.(p.y); interp=p.interp)
 end
 
@@ -230,6 +231,24 @@ function assimilation_efficiency_matrix_binary(
         end
     end
     return M
+end
+
+"""Convenience overload that infers `FT` from `assimilation_efficiency`.
+
+This avoids call sites needing to thread `FT` explicitly while still preserving
+GPU compatibility (no mixed float types).
+"""
+function assimilation_efficiency_matrix_binary(
+    can_eat::AbstractVector{Bool},
+    can_be_eaten::AbstractVector{Bool},
+    assimilation_efficiency::AbstractVector{FT},
+) where {FT<:AbstractFloat}
+    return assimilation_efficiency_matrix_binary(
+        FT;
+        can_eat=can_eat,
+        can_be_eaten=can_be_eaten,
+        assimilation_efficiency=assimilation_efficiency,
+    )
 end
 
 # -----------------------------------------------------------------------------

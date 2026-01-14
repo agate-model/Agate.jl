@@ -6,8 +6,8 @@ Agate's DARWIN-like model is configured through a **factory** (`DarwinFactory`) 
 The factory-based API is consistent across models:
 
 1. Choose a factory (here, `DarwinFactory()`).
-2. Optionally override community structure (`plankton_args`), tracer dynamics (`plankton_dynamics` and
-   `biogeochem_dynamics`), or parameters (`plankton_args` PFT parameters and `biogeochem_args`).
+2. Optionally override community structure (sizes/diameters), tracer dynamics (`plankton_dynamics` and
+   `biogeochem_dynamics`), or parameter values (via `default_parameter_args(...; params=(...))`).
 3. Call `construct(factory; ...)` to obtain a concrete biogeochemistry type.
 4. Instantiate the type and use it with Oceananigans/OceanBioME.
 

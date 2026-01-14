@@ -7,11 +7,11 @@ operating on numeric arrays and scalars.
 
 module Tracers
 
-using Agate.Library.Equations: Equation, Σ, bgc_param
+using Agate.Library.Equations: Equation, Σ
 
 using Agate.Library.Mortality: linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
 using Agate.Library.Predation: grazing_loss, grazing_gain, grazing_assimilation_loss
-using Agate.Library.Photosynthesis: growth_two_nutrients_geider, growth_two_nutrients_geider_comm
+using Agate.Library.Photosynthesis: growth_two_nutrients_geider
 using Agate.Library.Remineralization: remineralization_flux
 
 export DIC_geider_light,
@@ -30,9 +30,9 @@ export DIC_geider_light,
 # Internal helpers
 # ----------------------------------------------------------------------------
 
-"""Sum photosynthetic growth across all plankton (community-optional params)."""
+"""Sum photosynthetic growth across all plankton."""
 _growth_sum(plankton_syms) = Σ(plankton_syms) do sym, i
-    growth_two_nutrients_geider_comm(:DIN, :PO4, sym, :PAR, i)
+    growth_two_nutrients_geider(:DIN, :PO4, sym, :PAR, i)
 end
 
 """Base loss term contributing to organic matter: linear + quadratic + sloppy-feeding losses."""
@@ -57,22 +57,20 @@ end
 """DIN tendency assuming fixed stoichiometry (N:C)."""
 function DIN_geider_light(plankton_syms)
     growth = _growth_sum(plankton_syms)
-    n2c = bgc_param(:nitrogen_to_carbon)
     return Equation(
         remineralization_flux(:DON, :DON_remineralization) +
         remineralization_flux(:PON, :PON_remineralization) -
-        n2c * growth,
+        nitrogen_to_carbon * growth,
     )
 end
 
 """PO4 tendency assuming fixed stoichiometry (P:C)."""
 function PO4_geider_light(plankton_syms)
     growth = _growth_sum(plankton_syms)
-    p2c = bgc_param(:phosphorus_to_carbon)
     return Equation(
         remineralization_flux(:DOP, :DOP_remineralization) +
         remineralization_flux(:POP, :POP_remineralization) -
-        p2c * growth,
+        phosphorus_to_carbon * growth,
     )
 end
 
@@ -83,9 +81,8 @@ end
 """DOC tendency from plankton losses and remineralization."""
 function DOC_default(plankton_syms)
     base = _base_loss(plankton_syms)
-    frac = bgc_param(:DOM_POM_fractionation)
     return Equation(
-        (1 - frac) * base -
+        (1 - DOM_POM_fractionation) * base -
         remineralization_flux(:DOC, :DOC_remineralization),
     )
 end
@@ -93,9 +90,8 @@ end
 """POC tendency from plankton losses and remineralization."""
 function POC_default(plankton_syms)
     base = _base_loss(plankton_syms)
-    frac = bgc_param(:DOM_POM_fractionation)
     return Equation(
-        frac * base -
+        DOM_POM_fractionation * base -
         remineralization_flux(:POC, :POC_remineralization),
     )
 end
@@ -103,10 +99,8 @@ end
 """DON tendency assuming fixed stoichiometry (N:C)."""
 function DON_default(plankton_syms)
     base = _base_loss(plankton_syms)
-    frac = bgc_param(:DOM_POM_fractionation)
-    n2c = bgc_param(:nitrogen_to_carbon)
     return Equation(
-        (1 - frac) * n2c * base -
+        (1 - DOM_POM_fractionation) * nitrogen_to_carbon * base -
         remineralization_flux(:DON, :DON_remineralization),
     )
 end
@@ -114,10 +108,8 @@ end
 """PON tendency assuming fixed stoichiometry (N:C)."""
 function PON_default(plankton_syms)
     base = _base_loss(plankton_syms)
-    frac = bgc_param(:DOM_POM_fractionation)
-    n2c = bgc_param(:nitrogen_to_carbon)
     return Equation(
-        frac * n2c * base -
+        DOM_POM_fractionation * nitrogen_to_carbon * base -
         remineralization_flux(:PON, :PON_remineralization),
     )
 end
@@ -125,10 +117,8 @@ end
 """DOP tendency assuming fixed stoichiometry (P:C)."""
 function DOP_default(plankton_syms)
     base = _base_loss(plankton_syms)
-    frac = bgc_param(:DOM_POM_fractionation)
-    p2c = bgc_param(:phosphorus_to_carbon)
     return Equation(
-        (1 - frac) * p2c * base -
+        (1 - DOM_POM_fractionation) * phosphorus_to_carbon * base -
         remineralization_flux(:DOP, :DOP_remineralization),
     )
 end
@@ -136,10 +126,8 @@ end
 """POP tendency assuming fixed stoichiometry (P:C)."""
 function POP_default(plankton_syms)
     base = _base_loss(plankton_syms)
-    frac = bgc_param(:DOM_POM_fractionation)
-    p2c = bgc_param(:phosphorus_to_carbon)
     return Equation(
-        frac * p2c * base -
+        DOM_POM_fractionation * phosphorus_to_carbon * base -
         remineralization_flux(:POP, :POP_remineralization),
     )
 end

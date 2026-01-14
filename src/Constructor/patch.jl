@@ -59,15 +59,6 @@ Return a copy of `pft` with overridden fields.
 patch(pft::PFTSpecification; kwargs...) = PFTSpecification(; pft.data..., kwargs...)
 
 """
-    patch(spec::BiogeochemistrySpecification; kwargs...) -> BiogeochemistrySpecification
-
-Return a copy of `spec` with overridden fields.
-
-`BiogeochemistrySpecification` is intentionally flexible: new keys are allowed.
-"""
-patch(spec::BiogeochemistrySpecification; kwargs...) = BiogeochemistrySpecification(; spec.data..., kwargs...)
-
-"""
     patch(ms::ModelSpecification; kwargs...) -> ModelSpecification
 
 Return a copy of `ms` with overridden fields.
@@ -123,15 +114,6 @@ function update_plankton_args(plankton_args::NamedTuple, group::Symbol; kwargs..
 
     return merge(plankton_args, (; (group => patched_spec),))
 end
-
-"""
-    update_biogeochem_args(args::BiogeochemistrySpecification; kwargs...) -> BiogeochemistrySpecification
-
-Return a copy of `args` with overridden fields.
-
-This is a thin, intent-revealing wrapper around `patch(args; ...)`.
-"""
-update_biogeochem_args(args::BiogeochemistrySpecification; kwargs...) = patch(args; kwargs...)
 
 """
     update_dynamics(dynamics::NamedTuple; kwargs...) -> NamedTuple

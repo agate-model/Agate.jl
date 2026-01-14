@@ -7,15 +7,13 @@ operating on numeric arrays and scalars.
 
 module Tracers
 
-using Agate.Library.Equations: Equation, Σ, bgc_param
+using Agate.Library.Equations: Equation, Σ
 
 using Agate.Library.Mortality: linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
 using Agate.Library.Predation: grazing_loss, grazing_gain, grazing_assimilation_loss
 using Agate.Library.Photosynthesis:
     growth_single_nutrient,
-    growth_single_nutrient_comm,
-    growth_single_nutrient_geider,
-    growth_single_nutrient_geider_comm
+    growth_single_nutrient_geider
 
 export phytoplankton_default,
     phytoplankton_geider_light,
@@ -27,14 +25,14 @@ export phytoplankton_default,
 # --- internal helpers ---------------------------------------------------------
 
 _growth_sum(plankton_syms) = Σ(plankton_syms) do sym, i
-    growth_single_nutrient_comm(:N, sym, :PAR, i)
+    growth_single_nutrient(:N, sym, :PAR, i)
 end
 
 _growth_sum_geider(plankton_syms) = Σ(plankton_syms) do sym, i
-    growth_single_nutrient_geider_comm(:N, sym, :PAR, i)
+    growth_single_nutrient_geider(:N, sym, :PAR, i)
 end
 
-_remineralization_term() = bgc_param(:detritus_remineralization) * :D
+_remineralization_term() = detritus_remineralization * :D
 
 # --- biogeochemical tracers ---------------------------------------------------
 
@@ -44,7 +42,7 @@ function nutrient_default(plankton_syms)
     quadratic_sum = quadratic_loss_sum(plankton_syms)
     growth_sum = _growth_sum(plankton_syms)
 
-    export_frac = bgc_param(:mortality_export_fraction)
+    export_frac = mortality_export_fraction
     remin = _remineralization_term()
 
     return Equation(export_frac * linear_sum + export_frac * quadratic_sum + remin - growth_sum)
@@ -56,7 +54,7 @@ function nutrient_geider_light(plankton_syms)
     quadratic_sum = quadratic_loss_sum(plankton_syms)
     growth_sum = _growth_sum_geider(plankton_syms)
 
-    export_frac = bgc_param(:mortality_export_fraction)
+    export_frac = mortality_export_fraction
     remin = _remineralization_term()
 
     return Equation(export_frac * linear_sum + export_frac * quadratic_sum + remin - growth_sum)
@@ -68,7 +66,7 @@ function detritus_default(plankton_syms)
     quadratic_sum = quadratic_loss_sum(plankton_syms)
     assimilation_loss_sum = grazing_assimilation_loss(plankton_syms)
 
-    export_frac = bgc_param(:mortality_export_fraction)
+    export_frac = mortality_export_fraction
     remin = _remineralization_term()
 
     return Equation((1 - export_frac) * linear_sum + assimilation_loss_sum + (1 - export_frac) * quadratic_sum - remin)

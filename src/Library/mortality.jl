@@ -1,6 +1,9 @@
 module Mortality
 
-using ..Equations: AExpr, group_param, community_param, Σ
+using ..Equations: AExpr, Σ, @paramvars
+
+# Parameter placeholders used by the mortality building blocks.
+@paramvars linear_mortality quadratic_mortality
 
 export linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
 
@@ -56,23 +59,24 @@ quadratic_loss(P, mortality) = mortality * P^2
 
 Symbolic linear mortality loss term for a single plankton size-class.
 
-Uses group-owned parameter `:linear_mortality` (missing in that group's PFT is an error;
-explicit `nothing` is treated as inactive/zero).
+Missing/`nothing` behavior is controlled by the model's parameter registry.
 """
 function linear_loss(plankton_sym::Symbol, idx::Int)
-    return group_param(:linear_mortality)[idx] * plankton_sym
+    return linear_mortality[idx] * plankton_sym
 end
 
 """\
     quadratic_loss(plankton_sym::Symbol, idx::Int) -> AExpr
 
 Symbolic quadratic mortality loss term for a single plankton size-class.
+
+Missing/`nothing` behavior is controlled by the model's parameter registry.
 """
 function quadratic_loss(plankton_sym::Symbol, idx::Int)
     P = plankton_sym
     # Avoid evaluating `P * P` at construction time (which would try to multiply Symbols).
     # Left-associative `AExpr * Symbol * Symbol` builds a symbolic Expr safely.
-    return group_param(:quadratic_mortality)[idx] * P * P
+    return quadratic_mortality[idx] * P * P
 end
 
 
@@ -85,7 +89,7 @@ The expression expects the runtime container `linear_mortality` to be in scope (
 """
 function linear_loss_sum(plankton_syms::AbstractVector{Symbol})
     return Σ(plankton_syms) do sym, i
-        community_param(:linear_mortality)[i] * sym
+        linear_mortality[i] * sym
     end
 end
 
@@ -99,7 +103,7 @@ The expression expects the runtime container `quadratic_mortality` to be in scop
 function quadratic_loss_sum(plankton_syms::AbstractVector{Symbol})
     return Σ(plankton_syms) do sym, i
         # Avoid evaluating `sym * sym` at construction time; build it symbolically.
-        community_param(:quadratic_mortality)[i] * sym * sym
+        quadratic_mortality[i] * sym * sym
     end
 end
 

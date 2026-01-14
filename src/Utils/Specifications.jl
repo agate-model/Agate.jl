@@ -15,11 +15,8 @@ module Specifications
 
 using Adapt
 
-# For casting explicit allometric parameter definitions stored in PFTs.
-using ...Library.Allometry: AbstractParamDef, cast_paramdef
-
-export PFTSpecification, pft_get, pft_has, cast_pft
-export BiogeochemistrySpecification, cast_spec
+export PFTSpecification, pft_get, pft_has
+export BiogeochemistrySpecification
 export ModelSpecification
 
 # -----------------------------------------------------------------------------
@@ -70,37 +67,5 @@ struct ModelSpecification{NT<:NamedTuple}
 end
 
 Adapt.@adapt_structure ModelSpecification
-
-# -----------------------------------------------------------------------------
-# Casting utilities
-# -----------------------------------------------------------------------------
-
-@inline _cast_number(::Type{FT}, x) where {FT<:AbstractFloat} = FT(x)
-
-function _cast_container(::Type{FT}, x) where {FT<:AbstractFloat}
-    if x isa Bool
-        return x
-    elseif x isa Number
-        return _cast_number(FT, x)
-    elseif x isa AbstractArray
-        return x isa AbstractArray{Bool} ? x : FT.(x)
-    elseif x isa NamedTuple
-        return map(v -> _cast_container(FT, v), x)
-    elseif x isa AbstractParamDef
-        return cast_paramdef(FT, x)
-    else
-        return x
-    end
-end
-
-"""Cast numeric entries in `pft` to `FT` (recursively for arrays and NamedTuples)."""
-function cast_pft(::Type{FT}, pft::PFTSpecification) where {FT<:AbstractFloat}
-    return PFTSpecification(_cast_container(FT, pft.data))
-end
-
-"""Cast numeric entries in `spec` to `FT` (recursively for arrays and NamedTuples)."""
-function cast_spec(::Type{FT}, spec::BiogeochemistrySpecification) where {FT<:AbstractFloat}
-    return BiogeochemistrySpecification(_cast_container(FT, spec.data))
-end
 
 end # module Specifications

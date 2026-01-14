@@ -1,7 +1,7 @@
 using Agate
 using Test
 
-using Agate.Constructor: construct
+using Agate.Constructor: construct, default_parameter_args
 using Agate.Models: NiPiZDFactory, DarwinFactory
 using Agate.Constructor: pft_get
 
@@ -46,7 +46,7 @@ using Adapt
     @testset "NiPiZD interaction overrides" begin
         bgc_type = construct(NiPiZDFactory(); FT=Float32)
         bgc = bgc_type()
-        n = length(bgc.parameters.data.diameters)
+        n = size(bgc.parameters.data.palatability_matrix, 1)
 
         wrong = zeros(Float32, 2, 2)
         @test_throws ArgumentError construct(
@@ -66,12 +66,14 @@ using Adapt
 
     @testset "NiPiZD plankton_args override" begin
         factory = NiPiZDFactory()
-        base = Agate.Models.default_plankton_args(factory)
+        base = default_parameter_args(factory; FT=Float64).community
         # Override phytoplankton to a single explicit diameter.
         P = (; base.P..., diameters=[3.0], n=1)
         plankton_args = (Z = base.Z, P = P)
 
-        bgc_type = construct(factory; FT=Float64, plankton_args=plankton_args)
+        parameter_args = default_parameter_args(factory; FT=Float64, community=plankton_args)
+
+        bgc_type = construct(factory; FT=Float64, parameter_args=parameter_args)
         @test required_biogeochemical_tracers(bgc_type()) == (:N, :D, :Z1, :Z2, :P1)
     end
 
@@ -109,6 +111,8 @@ using Adapt
             if CUDA.functional()
                 adapted = Adapt.adapt(CUDA.CuArray, bgc)
                 @test required_biogeochemical_tracers(adapted) == required_biogeochemical_tracers(bgc)
+                @test adapted.parameters.data.palatability_matrix isa CUDA.CuArray
+                @test adapted.parameters.data.maximum_predation_rate isa CUDA.CuArray
             else
                 @test true
             end
@@ -121,22 +125,24 @@ using Adapt
         factory = NiPiZDFactory()
 
         # Missing group in plankton_args should produce a single ArgumentError.
-        base_args = Agate.Models.default_plankton_args(factory)
+        base_args = default_parameter_args(factory; FT=Float64).community
         base_dyn  = Agate.Models.default_plankton_dynamics(factory)
         bad_args = (P = base_args.P,)  # missing Z
-        @test_throws ArgumentError construct(factory; FT=Float64, plankton_dynamics=base_dyn, plankton_args=bad_args)
+        bad_pack = default_parameter_args(factory; FT=Float64, community=bad_args)
+        @test_throws ArgumentError construct(factory; FT=Float64, plankton_dynamics=base_dyn, parameter_args=bad_pack)
 
         # Diameter range without `n` should error.
         bad_P = (; base_args.P..., n=nothing)
         bad_args2 = (Z = base_args.Z, P = (; base_args.P..., diameters=(2.0, 10.0, :log_splitting)))
         # remove n from P spec entirely
         bad_args2 = (Z = base_args.Z, P = (; base_args.P..., diameters=(2.0, 10.0, :log_splitting), n=nothing))
-        @test_throws ArgumentError construct(factory; FT=Float64, plankton_args=bad_args2)
+        bad_pack2 = default_parameter_args(factory; FT=Float64, community=bad_args2)
+        @test_throws ArgumentError construct(factory; FT=Float64, parameter_args=bad_pack2)
 
         # Interaction matrix wrong size should error.
         bgc_type = construct(factory; FT=Float64)
         bgc = bgc_type()
-        n_total = length(bgc.parameters.data.diameters)
+        n_total = size(bgc.parameters.data.palatability_matrix, 1)
         wrong = zeros(Float64, n_total + 1, n_total + 1)
         interactions = (; palatability_matrix=wrong, assimilation_efficiency_matrix=wrong)
         @test_throws ArgumentError construct(factory; FT=Float64, interactions=interactions)
