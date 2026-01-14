@@ -2,7 +2,7 @@ using Agate
 using Test
 
 using Agate.Constructor: ModelSpecification
-using Agate.Utils: define_tracer_functions, expression_check
+using Agate.Constructor: define_tracer_functions, expression_check
 
 using OceanBioME: BoxModelGrid, setup_velocity_fields
 using Oceananigans.Units
@@ -27,7 +27,7 @@ using Oceananigans.Biogeochemistry:
         tracers = (R = :(α * R - β * R * F), F = :(-γ * F + δ * R * F))
 
         bgc_type = define_tracer_functions(parameters, tracers; auxiliary_fields=())
-        bgc = bgc_type()
+        bgc = bgc_type(parameters)
 
         @test required_biogeochemical_tracers(bgc) == (:R, :F)
         @test required_biogeochemical_auxiliary_fields(bgc) == ()
@@ -54,7 +54,7 @@ using Oceananigans.Biogeochemistry:
             sinking_velocities=sinking_velocities,
         )
 
-        bgc = bgc_type()
+        bgc = bgc_type(parameters, sinking_velocities)
         @test biogeochemical_drift_velocity(bgc, Val(:C)).w.data[1, 1, 1] == -1.0 / day
         @test biogeochemical_drift_velocity(bgc, Val(:missing_tracer)).w == ZeroField()
     end

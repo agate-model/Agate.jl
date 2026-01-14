@@ -1,5 +1,5 @@
 using Agate
-using Agate.Utils:
+using Agate.Constructor:
     expression_check, create_bgc_struct, add_bgc_methods!, define_tracer_functions
 
 using OceanBioME
@@ -42,8 +42,8 @@ using Oceananigans.Biogeochemistry:
         LV = create_bgc_struct(:LV, parameters)
         add_bgc_methods!(LV, tracers, parameters; auxiliary_fields=auxiliary_fields)
 
-        model1 = LV()
-        model2 = LV(; parameters=LVParameters{Float64}(1.0, 1.0, 2.0, 2.0))
+        model1 = LV(parameters)
+        model2 = LV(LVParameters{Float64}(1.0, 1.0, 2.0, 2.0))
 
         @test required_biogeochemical_tracers(model1) == (:R, :F)
         @test required_biogeochemical_auxiliary_fields(model1) == (:PAR,)
@@ -59,7 +59,7 @@ using Oceananigans.Biogeochemistry:
     @testset "helper functions and tracer sinking" begin
         include(joinpath("NPZD", "tracers.jl"))
 
-        model = AgateNPZD()
+        model = AgateNPZD(parameters)
 
         Z = 0.05
         P = 0.01
@@ -95,7 +95,7 @@ using Oceananigans.Biogeochemistry:
             sinking_velocities=sinking_velocities,
         )
 
-        model_sink = NPZD_sink()
+        model_sink = NPZD_sink(parameters, sinking_velocities)
 
         @test biogeochemical_drift_velocity(model_sink, Val(:P)).w.data[1, 1, 1] ==
             -0.2551 / day

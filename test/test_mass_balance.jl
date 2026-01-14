@@ -18,7 +18,7 @@ using Oceananigans
     end
 
     @testset "NiPiZD box model" begin
-        bgc_instance = construct(NiPiZDFactory(); FT=Float64)()
+        bgc_instance = construct(NiPiZDFactory())
         box_model = build_box_model(bgc_instance)
         set!(box_model; N=7, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, D=0.0)
 
@@ -31,7 +31,7 @@ using Oceananigans
     end
 
     @testset "DARWIN model" begin
-        bgc_instance = construct(DarwinFactory(); FT=Float64)()
+        bgc_instance = construct(DarwinFactory())
         box_model = build_box_model(bgc_instance)
         set!(
             box_model;
@@ -49,8 +49,8 @@ using Oceananigans
             POP=0.0,
         )
 
-        n2c = bgc_instance.parameters.data.nitrogen_to_carbon
-        p2c = bgc_instance.parameters.data.phosphorus_to_carbon
+        n2c = bgc_instance.parameters.nitrogen_to_carbon
+        p2c = bgc_instance.parameters.phosphorus_to_carbon
 
         budgets = (
             carbon = [:DIC => 1, :P1 => 1, :P2 => 1, :Z1 => 1, :Z2 => 1, :POC => 1, :DOC => 1],
