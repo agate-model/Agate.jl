@@ -14,11 +14,8 @@ using Adapt
 using CUDA
 using CairoMakie
 
-# Generate the biogeochemical model
-bgc_type = construct(NiPiZDFactory(); FT=Float64)
-
-# Create an instance of the model (CPU)
-bgc_instance = bgc_type()
+# Generate the biogeochemical model (CPU instance)
+bgc_instance = construct(NiPiZDFactory())
 
 # IMPORTANT: get tracer names from the CPU instance (Agate defines the method on this type)
 tracer_names = required_biogeochemical_tracers(bgc_instance)

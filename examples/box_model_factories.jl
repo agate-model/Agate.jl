@@ -13,11 +13,10 @@
 # The same pattern applies to all factories (e.g., [`DarwinFactory`](@ref)).
 
 using Agate
-using Agate.Constructor: construct, default_parameter_args, update_plankton_args, update_dynamics
-using Agate.Models: NiPiZDFactory
 using Agate.Utils: parse_community
 using Agate.Library.Light
 using Agate.Library.Allometry: AllometricParam, PowerLaw
+using Agate.Parameters: parameter_registry, update_registry
 
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -34,11 +33,9 @@ nothing #hide
 
 factory = NiPiZDFactory()
 
-# `construct` returns a **concrete** biogeochemistry type (a subtype of
-# `AbstractContinuousFormBiogeochemistry`). You then instantiate it as usual.
+# `construct` returns the biogeochemistry instance directly.
 
-bgc_type_default = construct(factory)
-bgc_default = bgc_type_default()
+bgc_default = construct(factory)
 
 # ## 2. Pull defaults and override community structure
 
@@ -52,26 +49,26 @@ bgc_default = bgc_type_default()
 # parameter registry (single source of truth).
 
 plankton_dynamics = Agate.Models.default_plankton_dynamics(factory)
-community = Agate.Models.default_parameter_args(factory)
+community = Agate.Models.default_community(factory)
 biogeochem_dynamics = Agate.Models.default_biogeochem_dynamics(factory)
 
 # Reduce zooplankton to 1 size class at a fixed diameter.
 # Increase phytoplankton to 3 size classes with log-spaced diameters.
 
-community_custom = update_plankton_args(community, :Z; n=1, diameters=[60.0])
-community_custom = update_plankton_args(community_custom, :P; n=3, diameters=(1.5, 20.0, :log_splitting))
+community_custom = update_community(community, :Z; n=1, diameters=[60.0])
+community_custom = update_community(community_custom, :P; n=3, diameters=(1.5, 20.0, :log_splitting))
 
 # ## 3. Override parameter values (registry keywords)
 
-# Parameter overrides are supplied via `default_parameter_args(...; params=(...))`.
+# Parameter overrides are applied by updating the parameter registry.
 # Vector parameters can be overridden with a per-group mapping (`(P=..., Z=...)`).
 
-params_override = (
+parameter_overrides = (
     detritus_remineralization = 0.18 / day,
     maximum_growth_rate = (P = AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15),),
 )
 
-parameter_args = default_parameter_args(factory; community=community_custom, params=params_override)
+registry_custom = update_registry(parameter_registry(factory); parameter_overrides...)
 
 # ## 4. Swap components (dynamics)
 
@@ -107,21 +104,20 @@ end
 
 interactions_custom = (
     palatability_matrix=pal,
-    assimilation_efficiency_matrix=assim,
+    assimilation_matrix=assim,
 )
 
-# ## 6. Construct the customised model type
+# ## 6. Construct the customised model
 
-bgc_type_custom = construct(
+bgc_custom = construct(
     factory;
     plankton_dynamics=plankton_dynamics_geider,
     biogeochem_dynamics=biogeochem_dynamics_geider,
-    parameter_args=parameter_args,
+    community=community_custom,
+    registry=registry_custom,
     interactions=interactions_custom,
     sinking_tracers=(D=2.0 / day,),
 )
-
-bgc_custom = bgc_type_custom()
 
 # ## 7. Run a short box model simulation
 

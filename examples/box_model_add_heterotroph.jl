@@ -10,15 +10,13 @@
 # Requirement: `H` should be eaten by `Z` but cannot eat.
 
 using Agate
-using Agate.Models: NiPiZDFactory
-using Agate.Constructor: construct, default_parameter_args, update_plankton_args
 using Agate.Utils.Specifications: PFTSpecification
 using Agate.Library.Allometry: AllometricParam, PowerLaw
-using Agate.Library.Equations: Equation, Σ, @paramvars
+using Agate.Library.Equations: Equation, Σ
 using Agate.Library.Mortality: linear_loss, linear_loss_sum, quadratic_loss_sum
 using Agate.Library.Predation: grazing_loss, grazing_assimilation_loss
 using Agate.Library.Light: FunctionFieldPAR
-using Agate.Parameters: ParamSpec, ParamRegistry, parameter_registry
+using Agate.Parameters: ParamSpec, parameter_registry, extend_registry
 
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -36,17 +34,18 @@ nothing #hide
 # Here, `H` grows from detritus `D` with a Monod-style limitation,
 # is grazed by predators (`Z`), and experiences linear mortality.
 #
-# The equation authoring surface uses **bare parameter identifiers**.
-# For new parameter names, declare placeholders locally.
+#+#+#+#+
+# Parameter placeholders live under the canonical namespace `Agate.ParamVars`.
+# When we extend the parameter registry below, `construct` will declare the
+# required placeholders in `Agate.ParamVars` automatically.
 
-@paramvars maximum_detritus_uptake_rate detritus_half_saturation
-@paramvars mortality_export_fraction detritus_remineralization
+const PV = Agate.ParamVars
 
 @inline monod(D, k) = D / (D + k)
 
 function heterotroph_growth(plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int)
-    uptake = maximum_detritus_uptake_rate[plankton_idx] *
-             monod(:D, detritus_half_saturation[plankton_idx]) *
+    uptake = PV.maximum_detritus_uptake_rate[plankton_idx] *
+             monod(:D, PV.detritus_half_saturation[plankton_idx]) *
              plankton_sym
 
     grazing = grazing_loss(plankton_sym, plankton_idx, plankton_syms)
@@ -72,12 +71,12 @@ function detritus_with_heterotrophs(plankton_syms::AbstractVector{Symbol})
     quadratic_sum = quadratic_loss_sum(plankton_syms)
     assimilation_loss_sum = grazing_assimilation_loss(plankton_syms)
 
-    export_frac = mortality_export_fraction
-    remin = detritus_remineralization * :D
+    export_frac = PV.mortality_export_fraction
+    remin = PV.detritus_remineralization * :D
 
     uptake_sum = Σ(plankton_syms) do sym, i
-        maximum_detritus_uptake_rate[i] *
-        monod(:D, detritus_half_saturation[i]) *
+        PV.maximum_detritus_uptake_rate[i] *
+        monod(:D, PV.detritus_half_saturation[i]) *
         sym
     end
 
@@ -95,11 +94,11 @@ end
 factory = NiPiZDFactory()
 
 plankton_dynamics   = Agate.Models.default_plankton_dynamics(factory)
-community           = Agate.Models.default_parameter_args(factory)
+community           = Agate.Models.default_community(factory)
 biogeochem_dynamics = Agate.Models.default_biogeochem_dynamics(factory)
 
 # Override detritus (`D`) dynamics to include heterotroph detrital uptake.
-biogeochem_dynamics_H = merge(biogeochem_dynamics, (; D = detritus_with_heterotrophs))
+biogeochem_dynamics_H = update_dynamics(biogeochem_dynamics; D=detritus_with_heterotrophs)
 
 # Add a new group entry to the community.
 #
@@ -116,10 +115,10 @@ heterotroph_pft = PFTSpecification(
     assimilation_efficiency = 0.0,
 )
 
-community_H = merge(community, (; H=(; n=1, diameters=[6.0], pft=heterotroph_pft)))
+community_H = extend_community(community; H=(; n=1, diameters=[6.0], pft=heterotroph_pft))
 
 # Add matching dynamics for the new group.
-plankton_dynamics_H = merge(plankton_dynamics, (; H = heterotroph_growth))
+plankton_dynamics_H = extend_dynamics(plankton_dynamics; H=heterotroph_growth)
 
 # ## 4. Extend the parameter registry with the new parameters
 #
@@ -144,26 +143,20 @@ extra_specs = [
 ]
 
 base_reg = parameter_registry(factory)
-extended_reg = ParamRegistry(vcat(base_reg.specs, extra_specs))
+extended_reg = extend_registry(base_reg, extra_specs...)
 
 # Optional ergonomic override: tweak detritus half-saturation for H via the community PFT.
-community_H = update_plankton_args(community_H, :H; detritus_half_saturation=0.05)
-
-parameter_args = default_parameter_args(factory;
-    community=community_H,
-    registry=extended_reg,
-)
+community_H = update_community(community_H, :H; detritus_half_saturation=0.05)
 
 # ## 5. Construct a new concrete NiPiZDH model type
 
-bgc_type = construct(
+bgc = construct(
     factory;
     plankton_dynamics=plankton_dynamics_H,
     biogeochem_dynamics=biogeochem_dynamics_H,
-    parameter_args=parameter_args,
+    community=community_H,
+    registry=extended_reg,
 )
-
-bgc = bgc_type()
 
 # The new runtime parameter vectors exist because they were required by the equations.
 (
