@@ -1,19 +1,23 @@
 ### [Agate.jl DARWIN model](@id DARWIN)
 
-Agate's DARWIN-like model is configured through a **factory** (`DarwinFactory`) and constructed via
-`Agate.Constructor.construct`.
+Agate's simplified DARWIN-like model is configured through a **factory** (`DarwinFactory`) and constructed via
+`construct`.
 
-The factory-based API is consistent across models:
+At a high level:
 
 1. Choose a factory (here, `DarwinFactory()`).
-2. Optionally override community structure (sizes/diameters), tracer dynamics (`plankton_dynamics` and
-   `biogeochem_dynamics`), or parameter values (via `default_parameter_args(...; params=(...))`).
-3. Call `construct(factory; ...)` to obtain a concrete biogeochemistry type.
-4. Instantiate the type and use it with Oceananigans/OceanBioME.
-
-The **paper/GPU** scripts show an end-to-end example of running a DARWIN configuration on the GPU.
+2. Optionally override:
+   - community structure via `default_community` + `update_community`
+   - parameter values via `parameter_registry` + `update_registry`
+   - dynamics builders via `plankton_dynamics` / `biogeochem_dynamics` keywords to `construct`
+3. Call `construct(factory; ...)` to obtain a concrete biogeochemistry **instance**.
+4. Pass the instance to Oceananigans/OceanBioME (and adapt to GPU if desired).
 
 ```@docs
-Agate.Models.DarwinFactory
-Agate.Constructor.construct
+Agate.DarwinFactory
+Agate.construct
+Agate.default_community
+Agate.parameter_registry
+Agate.update_community
+Agate.update_registry
 ```

@@ -1,8 +1,6 @@
 push!(LOAD_PATH, "../src/")
 using Documenter, Literate
 using Agate
-using Agate.Constructor: construct
-using Agate.Models: NiPiZDFactory, DarwinFactory
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry

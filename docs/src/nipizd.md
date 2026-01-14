@@ -1,20 +1,26 @@
 ### [Agate.jl NiPiZD model](@id NiPiZD)
 
 Agate's NiPiZD model is configured through a **factory** (`NiPiZDFactory`) and constructed via
-`Agate.Constructor.construct`.
+`construct`.
 
 At a high level:
 
 1. Choose a factory (here, `NiPiZDFactory()`).
-2. Optionally override components (dynamics functions), community structure (sizes/diameters),
-   or parameter values (via `default_parameter_args(...; params=(...))`).
-3. Call `construct(factory; ...)` to obtain a concrete biogeochemistry type.
-4. Instantiate the type and pass it to Oceananigans/OceanBioME.
+2. Optionally override:
+   - community structure (sizes/diameters) via `default_community` + `update_community`
+   - parameter values via `parameter_registry` + `update_registry`
+   - dynamics builders via `plankton_dynamics` / `biogeochem_dynamics` keywords to `construct`
+3. Call `construct(factory; ...)` to obtain a concrete biogeochemistry **instance**.
+4. Pass the instance to Oceananigans/OceanBioME (and adapt to GPU if desired).
 
-See **Examples → Box model factories** for a worked, end-to-end box model demonstration of
+See **Examples → Box model factories** for a worked end-to-end box model demonstration of
 component swapping and parameter overrides.
 
 ```@docs
-Agate.Models.NiPiZDFactory
-Agate.Constructor.construct
+Agate.NiPiZDFactory
+Agate.construct
+Agate.default_community
+Agate.parameter_registry
+Agate.update_community
+Agate.update_registry
 ```

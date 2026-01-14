@@ -1,5 +1,5 @@
 ## Low level API
 
 ```@docs
-Agate.Utils.define_tracer_functions
+Agate.Constructor.define_tracer_functions
 ```

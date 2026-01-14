@@ -7,22 +7,26 @@ Agate builds biogeochemical kernels from *equations*: construction-time symbolic
 
 At runtime (CPU or GPU), the model executes a normal `Expr` containing only arithmetic on numeric arrays and scalars. The symbolic objects never enter kernels.
 
-## Parameter references: bare identifiers
+## Parameter references: `PV.<name>`
 
-Dynamics authors write equations using *bare parameter identifiers*:
+Dynamics authors write equations using **parameter placeholders** from the canonical namespace `Agate.ParamVars`.
 
-- Scalars: `detritus_remineralization`
-- Per-group vectors: `maximum_predation_rate[i]`
-- Interaction matrices: `palatability_matrix[j, i]`
-
-These identifiers are small placeholders (`ParamVar`) that record requirements when indexed. Each model module automatically declares these placeholders from its parameter registry.
-
-If you are authoring dynamics outside a model module and you need **new** parameter names, you can declare placeholders locally:
+Create a short alias once:
 
 ```julia
-using Agate.Library.Equations: @paramvars
-@paramvars maximum_detritus_uptake_rate detritus_half_saturation
+const PV = Agate.ParamVars
 ```
+
+Then reference parameters explicitly through `PV`:
+
+- Scalars: `PV.detritus_remineralization`
+- Per-size-class vectors: `PV.maximum_predation_rate[i]`
+- Interaction matrices: `PV.palatability_matrix[j, i]`, `PV.assimilation_matrix[j, i]`
+
+These `PV.<name>` bindings are small placeholders (`ParamVar`) that record requirements when indexed.
+
+During `construct`, Agate declares all placeholders in `Agate.ParamVars` from the active parameter registry.
+So when you add new parameters, you typically **extend the registry** (with `ParamSpec`s) and keep writing equations using `PV.<name>` — no extra declaration step.
 
 ## Missing / `nothing` policy
 
@@ -41,7 +45,7 @@ This keeps the equation authoring surface clean and GPU-safe.
 
 ```julia
 loss_sum = Σ(plankton_syms) do sym, i
-    linear_mortality[i] * sym
+    PV.linear_mortality[i] * sym
 end
 ```
 
@@ -64,8 +68,8 @@ using Agate.Library.Predation: grazing_loss
 @inline monod(D, k) = D / (D + k)
 
 function heterotroph_growth(plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int)
-    uptake = maximum_detritus_uptake_rate[plankton_idx] *
-             monod(:D, detritus_half_saturation[plankton_idx]) *
+    uptake = PV.maximum_detritus_uptake_rate[plankton_idx] *
+             monod(:D, PV.detritus_half_saturation[plankton_idx]) *
              plankton_sym
 
     grazing = grazing_loss(plankton_sym, plankton_idx, plankton_syms)
