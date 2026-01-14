@@ -1,9 +1,10 @@
 module Mortality
 
-using ..Equations: AExpr, Σ, @paramvars
+using ..Equations: AExpr, Σ
+using ...ParamVars
 
-# Parameter placeholders used by the mortality building blocks.
-@paramvars linear_mortality quadratic_mortality
+# Canonical parameter placeholder namespace.
+const PV = ParamVars
 
 export linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
 
@@ -62,7 +63,7 @@ Symbolic linear mortality loss term for a single plankton size-class.
 Missing/`nothing` behavior is controlled by the model's parameter registry.
 """
 function linear_loss(plankton_sym::Symbol, idx::Int)
-    return linear_mortality[idx] * plankton_sym
+    return PV.linear_mortality[idx] * plankton_sym
 end
 
 """\
@@ -76,7 +77,7 @@ function quadratic_loss(plankton_sym::Symbol, idx::Int)
     P = plankton_sym
     # Avoid evaluating `P * P` at construction time (which would try to multiply Symbols).
     # Left-associative `AExpr * Symbol * Symbol` builds a symbolic Expr safely.
-    return quadratic_mortality[idx] * P * P
+    return PV.quadratic_mortality[idx] * P * P
 end
 
 
@@ -89,7 +90,7 @@ The expression expects the runtime container `linear_mortality` to be in scope (
 """
 function linear_loss_sum(plankton_syms::AbstractVector{Symbol})
     return Σ(plankton_syms) do sym, i
-        linear_mortality[i] * sym
+        PV.linear_mortality[i] * sym
     end
 end
 
@@ -103,7 +104,7 @@ The expression expects the runtime container `quadratic_mortality` to be in scop
 function quadratic_loss_sum(plankton_syms::AbstractVector{Symbol})
     return Σ(plankton_syms) do sym, i
         # Avoid evaluating `sym * sym` at construction time; build it symbolically.
-        quadratic_mortality[i] * sym * sym
+        PV.quadratic_mortality[i] * sym * sym
     end
 end
 

@@ -8,18 +8,22 @@ Constructor. Objects defined here are used *only at construction time*.
 
 Design notes
 ------------
-- Dynamics authors write equations using *bare parameter identifiers* like
-  `maximum_growth_rate[i]` or `detritus_remineralization`.
-- Those identifiers are bound (in model modules) to small `ParamVar` placeholders.
+- Dynamics authors write equations using explicit parameter placeholders from a
+  canonical namespace, typically:
+
+  `const PV = Agate.ParamVars`
+
+  and then `PV.maximum_growth_rate[i]` or `PV.detritus_remineralization`.
+
+- Those `PV.<name>` bindings are small `ParamVar` placeholders.
 - When a `ParamVar` is indexed, it produces an `AExpr` node and records a
   requirement (scalar/vector/matrix) for the parameter key.
 - At runtime, parameters are plain numeric scalars and arrays; the symbolic
   placeholders never enter kernels.
 
 Public API:
-- `@paramvars a b c` — define `const a = ParamVar{:a}()` placeholders in the
-  calling module.
-- `declare_parameter_vars!(mod, names; export_vars=true)` — programmatic variant.
+- `declare_parameter_vars!(mod, names; export_vars=true)` — programmatic placeholder
+  declaration (used by `construct` to declare `Agate.ParamVars`).
 - `Σ(items) do sym, idx ... end` — construction-time symbolic sum builder.
 - `Equation(::AExpr)` — wrapper returned by dynamics builders.
 
@@ -34,7 +38,7 @@ using Logging
 
 export Requirements, req, merge_requirements
 export AExpr, Equation, expr, requirements
-export ParamVar, @paramvars, declare_parameter_vars!
+export ParamVar, declare_parameter_vars!
 export Σ
 
 # -----------------------------------------------------------------------------
@@ -99,25 +103,6 @@ A `ParamVar` behaves like a scalar/array reference during equation authoring:
 At runtime, the generated tracer methods bind `K` to a numeric value/array.
 """
 struct ParamVar{K} end
-
-"""Define `const` parameter placeholders in the calling module.
-
-Example:
-
-```julia
-@paramvars linear_mortality quadratic_mortality
-
-mort = linear_mortality[i] * P
-```
-"""
-macro paramvars(names...)
-    defs = Expr[]
-    for n in names
-        n isa Symbol || error("@paramvars expects bare identifiers")
-        push!(defs, :(const $(esc(n)) = ParamVar{$(QuoteNode(n))}()))
-    end
-    return Expr(:block, defs...)
-end
 
 """Programmatically declare placeholders in `mod` for the given `names`.
 
@@ -213,8 +198,6 @@ Base.:/(a::ParamVar, b::ParamVar) = _binop(:/, a, b)
 Base.:^(a::ParamVar, b::_EquationExprLike) = _binop(:^, a, b)
 Base.:^(a::_EquationExprLike, b::ParamVar) = _binop(:^, a, b)
 Base.:^(a::ParamVar, b::ParamVar) = _binop(:^, a, b)
-
-
 
 # Disambiguation for ParamVar <-> AExpr binary ops.
 # Without these, calls like *(ParamVar, AExpr) are ambiguous between the

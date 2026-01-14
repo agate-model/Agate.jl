@@ -7,6 +7,9 @@ operating on numeric arrays and scalars.
 
 module Tracers
 
+
+using ....ParamVars
+const PV = ParamVars
 using Agate.Library.Equations: Equation, Σ
 
 using Agate.Library.Mortality: linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
@@ -60,7 +63,7 @@ function DIN_geider_light(plankton_syms)
     return Equation(
         remineralization_flux(:DON, :DON_remineralization) +
         remineralization_flux(:PON, :PON_remineralization) -
-        nitrogen_to_carbon * growth,
+        PV.nitrogen_to_carbon * growth,
     )
 end
 
@@ -70,7 +73,7 @@ function PO4_geider_light(plankton_syms)
     return Equation(
         remineralization_flux(:DOP, :DOP_remineralization) +
         remineralization_flux(:POP, :POP_remineralization) -
-        phosphorus_to_carbon * growth,
+        PV.phosphorus_to_carbon * growth,
     )
 end
 
@@ -82,7 +85,7 @@ end
 function DOC_default(plankton_syms)
     base = _base_loss(plankton_syms)
     return Equation(
-        (1 - DOM_POM_fractionation) * base -
+        (1 - PV.DOM_POM_fractionation) * base -
         remineralization_flux(:DOC, :DOC_remineralization),
     )
 end
@@ -91,7 +94,7 @@ end
 function POC_default(plankton_syms)
     base = _base_loss(plankton_syms)
     return Equation(
-        DOM_POM_fractionation * base -
+        PV.DOM_POM_fractionation * base -
         remineralization_flux(:POC, :POC_remineralization),
     )
 end
@@ -100,7 +103,7 @@ end
 function DON_default(plankton_syms)
     base = _base_loss(plankton_syms)
     return Equation(
-        (1 - DOM_POM_fractionation) * nitrogen_to_carbon * base -
+        (1 - PV.DOM_POM_fractionation) * PV.nitrogen_to_carbon * base -
         remineralization_flux(:DON, :DON_remineralization),
     )
 end
@@ -109,7 +112,7 @@ end
 function PON_default(plankton_syms)
     base = _base_loss(plankton_syms)
     return Equation(
-        DOM_POM_fractionation * nitrogen_to_carbon * base -
+        PV.DOM_POM_fractionation * PV.nitrogen_to_carbon * base -
         remineralization_flux(:PON, :PON_remineralization),
     )
 end
@@ -118,7 +121,7 @@ end
 function DOP_default(plankton_syms)
     base = _base_loss(plankton_syms)
     return Equation(
-        (1 - DOM_POM_fractionation) * phosphorus_to_carbon * base -
+        (1 - PV.DOM_POM_fractionation) * PV.phosphorus_to_carbon * base -
         remineralization_flux(:DOP, :DOP_remineralization),
     )
 end
@@ -127,7 +130,7 @@ end
 function POP_default(plankton_syms)
     base = _base_loss(plankton_syms)
     return Equation(
-        DOM_POM_fractionation * phosphorus_to_carbon * base -
+        PV.DOM_POM_fractionation * PV.phosphorus_to_carbon * base -
         remineralization_flux(:POP, :POP_remineralization),
     )
 end

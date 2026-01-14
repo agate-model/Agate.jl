@@ -16,7 +16,6 @@ module Specifications
 using Adapt
 
 export PFTSpecification, pft_get, pft_has
-export BiogeochemistrySpecification
 export ModelSpecification
 
 # -----------------------------------------------------------------------------
@@ -42,18 +41,6 @@ PFTSpecification(; kwargs...) = PFTSpecification((; kwargs...))
     return pft_has(pft, key) ? getproperty(pft.data, key) : default
 end
 
-"""
-    BiogeochemistrySpecification(; kwargs...)
-
-Container for non-plankton biogeochemical specification parameters.
-
-Stores arbitrary fields in `spec.data` (typically a `NamedTuple`).
-"""
-struct BiogeochemistrySpecification
-    data::Any
-end
-
-BiogeochemistrySpecification(; kwargs...) = BiogeochemistrySpecification((; kwargs...))
 
 """
     ModelSpecification(data::NamedTuple)
@@ -67,5 +54,26 @@ struct ModelSpecification{NT<:NamedTuple}
 end
 
 Adapt.@adapt_structure ModelSpecification
+
+# -----------------------------------------------------------------------------
+# Ergonomic access
+# -----------------------------------------------------------------------------
+
+"""Forward `getproperty` to the underlying `NamedTuple` payload.
+
+This allows end users to write `params.foo` instead of `params.data.foo` while
+still keeping `.data` available for introspection.
+"""
+@inline function Base.getproperty(ms::ModelSpecification, name::Symbol)
+    name === :data && return getfield(ms, :data)
+    return getproperty(getfield(ms, :data), name)
+end
+
+@inline Base.hasproperty(ms::ModelSpecification, name::Symbol) =
+    (name === :data) || hasproperty(getfield(ms, :data), name)
+
+@inline function Base.propertynames(ms::ModelSpecification, private::Bool=false)
+    return (:data, propertynames(getfield(ms, :data), private)...)
+end
 
 end # module Specifications

@@ -3,7 +3,10 @@
 module Photosynthesis
 
 using Agate.Library.Nutrients: monod_limitation, liebig_minimum
-using ..Equations: AExpr, req, merge_requirements
+using ..Equations: AExpr, req, merge_requirements, _to_aexpr
+using ...ParamVars
+
+const PV = ParamVars
 
 export light_limitation_smith,
     light_limitation_geider,
@@ -19,17 +22,14 @@ export growth_single_nutrient_geider_comm
 export growth_two_nutrients_geider
 export growth_two_nutrients_geider_comm
 
-@inline _to_aexpr_local(x) = x isa AExpr ? x : AExpr(x, req())
-
-# Build a vector parameter reference by name (construction-time only).
- _vec(key::Symbol, idx::Int) = AExpr(Expr(:ref, key, idx), req(vectors=(key,)))
+@inline _vec(key::Symbol, idx::Int) = getproperty(PV, key)[idx]
 
 """Build an `AExpr` for a runtime function call, merging argument requirements."""
 function _call(fsym::Symbol, args...)
     merged = req()
     nodes = Any[]
     for a in args
-        ae = _to_aexpr_local(a)
+        ae = _to_aexpr(a)
         merged = merge_requirements(merged, ae.req)
         push!(nodes, ae.node)
     end

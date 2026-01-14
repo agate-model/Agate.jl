@@ -1,6 +1,9 @@
 module Predation
 
-using ..Equations: AExpr, req, merge_requirements, Σ
+using ..Equations: AExpr, req, merge_requirements, Σ, _to_aexpr
+using ...ParamVars
+
+const PV = ParamVars
 
 export AssimilationPreyParameters
 export AssimilationPredatorParameters
@@ -300,10 +303,8 @@ end
 # Symbolic (construction-time) equation blocks
 # -----------------------------------------------------------------------------
 
-@inline _to_aexpr_local(x) = x isa AExpr ? x : AExpr(x, req())
-# Construction-time parameter references by name (avoid group/community distinctions).
-@inline _vec(key::Symbol, idx::Int) = AExpr(Expr(:ref, key, idx), req(vectors=(key,)))
-@inline _mat(key::Symbol, j::Int, i::Int) = AExpr(Expr(:ref, key, j, i), req(matrices=(key,)))
+@inline _vec(key::Symbol, idx::Int) = getproperty(PV, key)[idx]
+@inline _mat(key::Symbol, j::Int, i::Int) = getproperty(PV, key)[j, i]
 
 
 """Build an `AExpr` for a runtime function call, merging argument requirements."""
@@ -311,7 +312,7 @@ function _call(fsym::Symbol, args...)
     merged = req()
     nodes = Any[]
     for a in args
-        ae = _to_aexpr_local(a)
+        ae = _to_aexpr(a)
         merged = merge_requirements(merged, ae.req)
         push!(nodes, ae.node)
     end
@@ -351,7 +352,7 @@ end
 
 """\
     grazing_gain(predator_sym, predator_idx, plankton_syms;
-                 assim=:assimilation_efficiency_matrix,
+                 assim=:assimilation_matrix,
                  rate=:maximum_predation_rate,
                  half=:holling_half_saturation,
                  palat=:palatability_matrix) -> AExpr
@@ -362,7 +363,7 @@ function grazing_gain(
     predator_sym::Symbol,
     predator_idx::Int,
     plankton_syms::AbstractVector{Symbol};
-    assim::Symbol=:assimilation_efficiency_matrix,
+    assim::Symbol=:assimilation_matrix,
     rate::Symbol=:maximum_predation_rate,
     half::Symbol=:holling_half_saturation,
     palat::Symbol=:palatability_matrix,
@@ -382,7 +383,7 @@ end
 
 """\
     grazing_assimilation_loss(plankton_syms;
-                              assim=:assimilation_efficiency_matrix,
+                              assim=:assimilation_matrix,
                               rate=:maximum_predation_rate,
                               half=:holling_half_saturation,
                               palat=:palatability_matrix) -> AExpr
@@ -391,7 +392,7 @@ Sum assimilation losses across all predator–prey pairs.
 """
 function grazing_assimilation_loss(
     plankton_syms::AbstractVector{Symbol};
-    assim::Symbol=:assimilation_efficiency_matrix,
+    assim::Symbol=:assimilation_matrix,
     rate::Symbol=:maximum_predation_rate,
     half::Symbol=:holling_half_saturation,
     palat::Symbol=:palatability_matrix,

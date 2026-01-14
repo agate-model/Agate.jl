@@ -25,6 +25,7 @@ using ..Utils.Specifications: PFTSpecification, pft_has, pft_get, ModelSpecifica
 export ParamSpec, ParamRegistry
 export parameter_registry, parameter_directory
 export default_parameter_set, resolve_runtime_parameters
+export update_registry, extend_registry
 # -----------------------------------------------------------------------------
 # Registry types
 # -----------------------------------------------------------------------------
@@ -76,6 +77,53 @@ function lookup(reg::ParamRegistry, name::Symbol)
 end
 
 # -----------------------------------------------------------------------------
+# Convenience: non-mutating registry updates
+# -----------------------------------------------------------------------------
+
+"""    update_registry(registry::ParamRegistry; kwargs...) -> ParamRegistry
+
+Return a copy of `registry` with updated parameter defaults.
+
+This is intended as the primary user-facing mechanism for overriding parameter
+values while keeping a single source of truth (the registry).
+
+Keys are validated to exist in the registry to catch typos early.
+"""
+function update_registry(registry::ParamRegistry; kwargs...)
+    isempty(kwargs) && return registry
+
+    overrides = (; kwargs...)
+    for k in keys(overrides)
+        lookup(registry, k) === nothing && throw(ArgumentError("update_registry: parameter $(k) is not present in this registry"))
+    end
+
+    new_specs = Vector{ParamSpec}(undef, length(registry.specs))
+    for (i, s) in pairs(registry.specs)
+        if hasproperty(overrides, s.name)
+            new_default = getproperty(overrides, s.name)
+            new_specs[i] = ParamSpec(s.name, s.scope, s.kind, s.doc, new_default)
+        else
+            new_specs[i] = s
+        end
+    end
+
+    return ParamRegistry(new_specs)
+end
+
+"""    extend_registry(registry::ParamRegistry, specs::ParamSpec...) -> ParamRegistry
+
+Return a copy of `registry` with additional parameter specifications appended.
+
+This is a lightweight extension hook for model variants and experiments.
+"""
+function extend_registry(registry::ParamRegistry, specs::ParamSpec...)
+    isempty(specs) && return registry
+    new_specs = copy(registry.specs)
+    append!(new_specs, specs)
+    return ParamRegistry(new_specs)
+end
+
+# -----------------------------------------------------------------------------
 # Value helpers
 # -----------------------------------------------------------------------------
 
@@ -118,9 +166,6 @@ end
 # -----------------------------------------------------------------------------
 
 
-@inline _has_override(overrides::NamedTuple, key::Symbol) = hasproperty(overrides, key)
-@inline _get_override(overrides::NamedTuple, key::Symbol) = getproperty(overrides, key)
-
 @inline _is_bool(spec::ParamSpec) = spec.kind === :bool
 
 @inline _missing_value(::Type{FT}, is_bool::Bool) where {FT<:AbstractFloat} = is_bool ? false : zero(FT)
@@ -149,8 +194,8 @@ end
 end
 
 """Resolve a single scalar parameter (CPU)."""
-function _resolve_scalar(::Type{FT}, spec::ParamSpec, ctx, overrides::NamedTuple) where {FT<:AbstractFloat}
-    provider = _has_override(overrides, spec.name) ? _get_override(overrides, spec.name) : spec.default
+function _resolve_scalar(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFloat}
+    provider = spec.default
 
     if isnothing(provider)
         if spec.scope === :fail
@@ -190,45 +235,15 @@ end
 """Resolve a vector parameter over the full plankton community.
 
 Precedence:
-1. `overrides` keyword argument (global override)
-2. explicit per-PFT overrides stored in `ctx.pfts[i]`
-3. registry default (possibly per-group mapping)
-4. fallback: zero/false (for groups missing from a mapping)
+1. explicit per-PFT overrides stored in `ctx.pfts[i]`
+2. registry default (either a full vector or a per-group mapping)
+3. fallback: zero/false (for groups missing from a mapping)
 """
-function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx, overrides::NamedTuple) where {FT<:AbstractFloat}
+function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFloat}
     n = ctx.n_total
     is_bool = _is_bool(spec)
     missing = Symbol[]
 
-    # Global override wins for the whole vector.
-    if _has_override(overrides, spec.name)
-        provider = _get_override(overrides, spec.name)
-        provider = provider isa Function ? provider(ctx) : provider
-
-        if provider isa AbstractVector
-            length(provider) == n || throw(ArgumentError("Override for :$(spec.name) must have length $n."))
-            return is_bool ? Bool.(provider) : _to_FT.(Ref(FT), provider)
-        elseif provider isa AbstractMatrix
-            throw(ArgumentError("Override for :$(spec.name) must be scalar/vector/paramdef, not a matrix."))
-        end
-
-        # Scalar / paramdef / group mapping.
-        out = is_bool ? Vector{Bool}(undef, n) : Vector{FT}(undef, n)
-        @inbounds for i in 1:n
-            gsym = ctx.group_symbols[i]
-            p = _group_provider(provider, gsym)
-            if isnothing(p)
-                _handle_missing!(spec, missing, gsym)
-                out[i] = _missing_value(FT, is_bool)
-            else
-                out[i] = _resolve_vector_element(FT, p, ctx.diameters[i])
-            end
-        end
-        _emit_missing_warning(spec, missing)
-        return out
-    end
-
-    # Otherwise: per-PFT overrides then defaults.
     default_provider = spec.default
     if isnothing(default_provider)
         if spec.scope === :fail
@@ -237,6 +252,28 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx, overrides::NamedTuple
             @warn "Missing vector parameter :$(spec.name); replacing with 0/false." maxlog=1
         end
         return is_bool ? fill(false, n) : fill(zero(FT), n)
+    end
+
+    # Full-vector defaults are allowed in the registry (useful for explicit
+    # overrides via `update_registry`). Apply per-PFT overrides on top.
+    if default_provider isa AbstractVector
+        length(default_provider) == n || throw(ArgumentError("Default for :$(spec.name) must have length $n."))
+        out = is_bool ? Bool.(default_provider) : _to_FT.(Ref(FT), default_provider)
+        @inbounds for i in 1:n
+            pft = ctx.pfts[i]
+            if pft_has(pft, spec.name)
+                v = pft_get(pft, spec.name)
+                if isnothing(v)
+                    _handle_missing!(spec, missing, ctx.group_symbols[i])
+                    out[i] = _missing_value(FT, is_bool)
+                else
+                    v = v isa Function ? v(ctx) : v
+                    out[i] = _resolve_vector_element(FT, v, ctx.diameters[i])
+                end
+            end
+        end
+        _emit_missing_warning(spec, missing)
+        return out
     end
 
     out = is_bool ? Vector{Bool}(undef, n) : Vector{FT}(undef, n)
@@ -285,7 +322,7 @@ function default_palatability_matrix(ctx, vectors; palatability_fn=allometric_pa
 end
 
 """Default assimilation efficiency matrix provider (CPU)."""
-function default_assimilation_efficiency_matrix(ctx, vectors)
+function default_assimilation_matrix(ctx, vectors)
     FT = eltype(ctx.diameters)
     can_eat   = vectors[:can_eat]
     can_be    = vectors[:can_be_eaten]
@@ -293,10 +330,10 @@ function default_assimilation_efficiency_matrix(ctx, vectors)
     return assimilation_efficiency_matrix_binary(FT; can_eat, can_be_eaten=can_be, assimilation_efficiency=assim_eff)
 end
 
-function _resolve_matrix(::Type{FT}, spec::ParamSpec, ctx, overrides::NamedTuple, vectors;
+function _resolve_matrix(::Type{FT}, spec::ParamSpec, ctx, vectors;
                          palatability_fn=allometric_palatability_unimodal_protection) where {FT<:AbstractFloat}
     n = ctx.n_total
-    provider = _has_override(overrides, spec.name) ? _get_override(overrides, spec.name) : spec.default
+    provider = spec.default
     if isnothing(provider)
         if spec.scope === :fail
             throw(ArgumentError("Missing required matrix parameter :$(spec.name)."))
@@ -309,8 +346,8 @@ function _resolve_matrix(::Type{FT}, spec::ParamSpec, ctx, overrides::NamedTuple
     # Compute providers execute on CPU during resolution only.
     if provider === default_palatability_matrix
         val = default_palatability_matrix(ctx, vectors; palatability_fn)
-    elseif provider === default_assimilation_efficiency_matrix
-        val = default_assimilation_efficiency_matrix(ctx, vectors)
+    elseif provider === default_assimilation_matrix
+        val = default_assimilation_matrix(ctx, vectors)
     elseif provider isa Function
         val = provider(ctx)
     else
@@ -329,7 +366,6 @@ This is meant for printing/saving/diffing; it resolves *all* registry entries.
 """
 function default_parameter_set(factory, ctx;
     FT::Type{<:AbstractFloat},
-    overrides::NamedTuple=NamedTuple(),
     palatability_fn=allometric_palatability_unimodal_protection,
 )
     reg = parameter_registry(factory)
@@ -337,10 +373,10 @@ function default_parameter_set(factory, ctx;
     # Classify each spec for printing/saving by looking at its selected provider.
     # Runtime construction does *not* use this; it uses `requirements`.
     function infer_rank(spec::ParamSpec)
-        provider = _has_override(overrides, spec.name) ? _get_override(overrides, spec.name) : spec.default
-        if spec.name === :palatability_matrix || spec.name === :assimilation_efficiency_matrix
+        provider = spec.default
+        if spec.name === :palatability_matrix || spec.name === :assimilation_matrix
             return :matrix
-        elseif provider === default_palatability_matrix || provider === default_assimilation_efficiency_matrix
+        elseif provider === default_palatability_matrix || provider === default_assimilation_matrix
             return :matrix
         elseif provider isa AbstractMatrix
             return :matrix
@@ -362,15 +398,15 @@ function default_parameter_set(factory, ctx;
         r = infer_rank(spec)
         ranks[spec.name] = r
         if r === :scalar
-            scalars[spec.name] = _resolve_scalar(FT, spec, ctx, overrides)
+            scalars[spec.name] = _resolve_scalar(FT, spec, ctx)
         elseif r === :vector
-            vectors[spec.name] = _resolve_vector(FT, spec, ctx, overrides)
+            vectors[spec.name] = _resolve_vector(FT, spec, ctx)
         end
     end
 
     for spec in reg.specs
         if ranks[spec.name] === :matrix
-            matrices[spec.name] = _resolve_matrix(FT, spec, ctx, overrides, vectors; palatability_fn)
+            matrices[spec.name] = _resolve_matrix(FT, spec, ctx, vectors; palatability_fn)
         end
     end
 
@@ -401,7 +437,6 @@ function resolve_runtime_parameters(
     ctx,
     requirements;
     FT::Type{<:AbstractFloat},
-    overrides::NamedTuple=NamedTuple(),
     palatability_fn=allometric_palatability_unimodal_protection,
     registry=nothing,
 )
@@ -414,11 +449,17 @@ function resolve_runtime_parameters(
 
     # Resolve only vectors needed by equations + any dependencies for core defaults.
     dep_vecs = Symbol[]
-    if (:palatability_matrix in matrix_keys) && !_has_override(overrides, :palatability_matrix)
-        append!(dep_vecs, (:can_eat, :optimum_predator_prey_ratio, :specificity, :protection))
+    if (:palatability_matrix in matrix_keys)
+        spec = lookup(reg, :palatability_matrix)
+        if !isnothing(spec) && spec.default === default_palatability_matrix
+            append!(dep_vecs, (:can_eat, :optimum_predator_prey_ratio, :specificity, :protection))
+        end
     end
-    if (:assimilation_efficiency_matrix in matrix_keys) && !_has_override(overrides, :assimilation_efficiency_matrix)
-        append!(dep_vecs, (:can_eat, :can_be_eaten, :assimilation_efficiency))
+    if (:assimilation_matrix in matrix_keys)
+        spec = lookup(reg, :assimilation_matrix)
+        if !isnothing(spec) && spec.default === default_assimilation_matrix
+            append!(dep_vecs, (:can_eat, :can_be_eaten, :assimilation_efficiency))
+        end
     end
 
     needed_vectors = unique(vcat(vector_keys, dep_vecs))
@@ -428,7 +469,7 @@ function resolve_runtime_parameters(
     for k in scalar_keys
         spec = lookup(reg, k)
         isnothing(spec) && throw(ArgumentError("No ParamSpec found for scalar :$k."))
-        scalar_vals[k] = _resolve_scalar(FT, spec, ctx, overrides)
+        scalar_vals[k] = _resolve_scalar(FT, spec, ctx)
     end
 
     # Resolve vectors (including dependencies).
@@ -436,7 +477,7 @@ function resolve_runtime_parameters(
     for k in needed_vectors
         spec = lookup(reg, k)
         isnothing(spec) && throw(ArgumentError("No ParamSpec found for vector :$k."))
-        vector_vals[k] = _resolve_vector(FT, spec, ctx, overrides)
+        vector_vals[k] = _resolve_vector(FT, spec, ctx)
     end
 
     # Resolve matrices.
@@ -444,7 +485,7 @@ function resolve_runtime_parameters(
     for k in matrix_keys
         spec = lookup(reg, k)
         isnothing(spec) && throw(ArgumentError("No ParamSpec found for matrix :$k."))
-        matrix_vals[k] = _resolve_matrix(FT, spec, ctx, overrides, vector_vals; palatability_fn)
+        matrix_vals[k] = _resolve_matrix(FT, spec, ctx, vector_vals; palatability_fn)
     end
 
     # Build minimal runtime NamedTuple in stable order: vectors, matrices, scalars.

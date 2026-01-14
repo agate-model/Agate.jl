@@ -14,7 +14,7 @@ using Agate.Utils: DiameterRangeSpecification
 
 # NOTE: Defaults are registry-owned (see `Models/DARWIN/Parameters.jl`).
 
-import Agate.Models: default_plankton_dynamics, default_parameter_args, default_biogeochem_dynamics
+import Agate.Models: default_plankton_dynamics, default_community, default_biogeochem_dynamics
 
 using .Tracers:
     DIC_geider_light,
@@ -44,7 +44,7 @@ Returns a `NamedTuple` mapping group prefix => group specification.
 
 Ordering is significant; the default keeps the historical `Z`-then-`P` ordering.
 """
-function default_parameter_args(::DarwinFactory, ::Type{FT}) where {FT<:AbstractFloat}
+function default_community(::DarwinFactory, ::Type{FT}) where {FT<:AbstractFloat}
     # Structural defaults only (sizes/diameters). No parameter defaults.
     empty_pft = PFTSpecification()
     return (

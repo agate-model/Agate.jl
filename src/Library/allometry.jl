@@ -2,7 +2,7 @@ module Allometry
 
 """Utilities for size-dependent traits and interaction matrices."""
 
-export AbstractParamDef, ConstantParam, AllometricParam, TableParam
+export AbstractParamDef, ConstantParam, AllometricParam
 export PowerLaw, resolve_param, cast_paramdef
 
 export PalatabilityPreyParameters, PalatabilityPredatorParameters
@@ -33,15 +33,6 @@ end
 
 """Construct an `AllometricParam` from a model and keyword coefficients."""
 AllometricParam(model; kwargs...) = AllometricParam(model, (; kwargs...))
-
-"""A parameter defined by a tabulated trait curve (diameter -> value)."""
-struct TableParam{TX,TY} <: AbstractParamDef
-    x::TX
-    y::TY
-    interp::Symbol
-end
-
-TableParam(x, y; interp::Symbol=:linear) = TableParam(x, y, interp)
 
 """Common allometry model: power-law scaling with spherical volume."""
 struct PowerLaw end
@@ -94,33 +85,6 @@ This is the one function the constructor uses when building runtime parameter ve
     return FT(p.model(coeffs, FT(diameter)))
 end
 
-@inline function resolve_param(::Type{FT}, p::TableParam, diameter) where {FT<:AbstractFloat}
-    xs = p.x
-    ys = p.y
-    d = FT(diameter)
-
-    n = length(xs)
-    n == length(ys) || throw(ArgumentError("TableParam x and y must have same length"))
-
-    # clamp outside range
-    d <= FT(xs[1]) && return FT(ys[1])
-    d >= FT(xs[end]) && return FT(ys[end])
-
-    # linear interpolation
-    @inbounds for i in 1:(n-1)
-        x0 = FT(xs[i])
-        x1 = FT(xs[i+1])
-        if x0 <= d <= x1
-            y0 = FT(ys[i])
-            y1 = FT(ys[i+1])
-            t = (d - x0) / (x1 - x0)
-            return (1 - t) * y0 + t * y1
-        end
-    end
-
-    return FT(ys[end])
-end
-
 """Cast numeric entries inside a parameter definition to `FT`."""
 @inline function cast_paramdef(::Type{FT}, p::ConstantParam) where {FT<:AbstractFloat}
     return ConstantParam(FT(p.value))
@@ -132,10 +96,6 @@ end
         coeffs = map(v -> v isa Number ? FT(v) : v, coeffs)
     end
     return AllometricParam(p.model, coeffs)
-end
-
-@inline function cast_paramdef(::Type{FT}, p::TableParam) where {FT<:AbstractFloat}
-    return TableParam(FT.(p.x), FT.(p.y); interp=p.interp)
 end
 
 # -----------------------------------------------------------------------------
@@ -255,10 +215,6 @@ end
 # High-level interaction matrix builders
 # -----------------------------------------------------------------------------
 
-@inline function _trait_has(pft_data, key::Symbol)
-    return hasproperty(pft_data, key) && (getproperty(pft_data, key) !== nothing)
-end
-
 @inline function _trait_get(pft_data, key::Symbol, default)
     if !hasproperty(pft_data, key)
         return default
@@ -271,17 +227,8 @@ end
     return resolve_param(FT, v, diameter)
 end
 
-@inline function _check_square_matrix(name::Symbol, n::Int, M)
-    (size(M, 1) == n && size(M, 2) == n) || throw(ArgumentError("$(name) must have size ($(n), $(n))"))
-    return nothing
-end
-
-@inline function _cast_matrix(::Type{FT}, M) where {FT<:AbstractFloat}
-    return eltype(M) === FT ? M : FT.(M)
-end
-
 """\
-    build_palatability_matrix(FT, pft_data, diameters; overrides=nothing,
+    build_palatability_matrix(FT, pft_data, diameters;
                               palatability_fn=allometric_palatability_unimodal_protection)
 
 Build the default palatability matrix `M[pred, prey]` from PFT trait definitions.
@@ -303,15 +250,9 @@ function build_palatability_matrix(
     ::Type{FT},
     pft_data,
     diameters::AbstractVector{FT};
-    overrides=nothing,
     palatability_fn=allometric_palatability_unimodal_protection,
 ) where {FT<:AbstractFloat}
     n = length(diameters)
-
-    if overrides !== nothing
-        _check_square_matrix(:palatability_matrix, n, overrides)
-        return _cast_matrix(FT, overrides)
-    end
 
     can_eat = Vector{Bool}(undef, n)
     optimum = Vector{FT}(undef, n)
@@ -338,7 +279,7 @@ function build_palatability_matrix(
 end
 
 """\
-    build_assimilation_matrix(FT, pft_data, diameters; overrides=nothing)
+    build_assimilation_matrix(FT, pft_data, diameters)
 
 Build the default assimilation-efficiency matrix `β[pred, prey]`.
 
@@ -352,14 +293,8 @@ function build_assimilation_matrix(
     ::Type{FT},
     pft_data,
     diameters::AbstractVector{FT};
-    overrides=nothing,
 ) where {FT<:AbstractFloat}
     n = length(diameters)
-
-    if overrides !== nothing
-        _check_square_matrix(:assimilation_efficiency_matrix, n, overrides)
-        return _cast_matrix(FT, overrides)
-    end
 
     can_eat = Vector{Bool}(undef, n)
     can_be_eaten = Vector{Bool}(undef, n)

@@ -1,6 +1,7 @@
 module Remineralization
 
-using ..Equations: AExpr, req
+using ...ParamVars
+const PV = ParamVars
 
 export remineralization_idealized
 export remineralization_flux
@@ -11,7 +12,7 @@ export remineralization_flux
 Idealized remineralization of detritus into dissolved nutrients.
 
 !!! formulation
-    r * D
+    ``r * D``
 
     where:
     - D = detritus concentration
@@ -26,9 +27,9 @@ Idealized remineralization of detritus into dissolved nutrients.
 end
 
 """\
-    remineralization_flux(pool_sym::Symbol, rate_key::Symbol) -> AExpr
+    remineralization_flux(pool_sym::Symbol, rate_key::Symbol)
 
-Construction-time symbolic helper for `rate_key * pool_sym`.
+Construction-time symbolic helper for `PV.<rate_key> * pool_sym`.
 
 - `pool_sym` is a tracer symbol like `:DOC`.
 - `rate_key` is a biogeochemical scalar key like `:DOC_remineralization`.
@@ -36,7 +37,7 @@ Construction-time symbolic helper for `rate_key * pool_sym`.
 The scalar is recorded as an equation requirement and validated by the constructor.
 """
 function remineralization_flux(pool_sym::Symbol, rate_key::Symbol)
-    rate = AExpr(rate_key, req(scalars=(rate_key,)))
+    rate = getproperty(PV, rate_key)
     return rate * pool_sym
 end
 

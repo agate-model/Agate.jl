@@ -15,26 +15,26 @@ function default_plankton_dynamics(::AbstractBGCFactory)
     throw(ArgumentError("No method `default_plankton_dynamics(factory)` is defined for this factory."))
 end
 
-"""Default *structural* parameter arguments for a factory.
+"""Default plankton community structure for a factory.
 
 Returns a `NamedTuple` mapping group prefix symbols to group specifications.
 
 This is *structural* information only (group symbols, diameters, etc.).
 All *parameter defaults* live exclusively in the model's parameter registry.
 """
-function default_parameter_args(::AbstractBGCFactory, ::Type{FT}) where {FT<:AbstractFloat}
-    throw(ArgumentError("No method `default_parameter_args(factory, FT)` is defined for this factory."))
+function default_community(::AbstractBGCFactory, ::Type{FT}) where {FT<:AbstractFloat}
+    throw(ArgumentError("No method `default_community(factory, FT)` is defined for this factory."))
 end
 
-"""Keyword front-end for `default_parameter_args(factory, FT)`.
+"""Keyword front-end for `default_community(factory, FT)`.
 
 The public constructors and tests pass the floating-point type as a keyword
 argument (`FT=Float32`, `FT=Float64`). Internally we keep the canonical API as
-`default_parameter_args(factory, ::Type{FT})` to preserve clean parametric
+`default_community(factory, ::Type{FT})` to preserve clean parametric
 dispatch.
 """
-function default_parameter_args(factory::AbstractBGCFactory; FT::Type{T}=Float64) where {T<:AbstractFloat}
-    return default_parameter_args(factory, T)
+function default_community(factory::AbstractBGCFactory; FT::Type{T}=Float64) where {T<:AbstractFloat}
+    return default_community(factory, T)
 end
 
 """Default non-plankton tracer dynamics for a factory.

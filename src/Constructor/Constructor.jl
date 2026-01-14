@@ -4,10 +4,10 @@ Model-agnostic biogeochemistry constructor.
 The public entry point is:
 
 ```julia
-Agate.Constructor.construct(factory::AbstractBGCFactory; kwargs...) -> bgc_type
+Agate.Constructor.construct(factory::AbstractBGCFactory; kwargs...) -> bgc
 ```
 
-`bgc_type()` instantiates the biogeochemistry object with the constructed defaults.
+`construct` returns the biogeochemistry instance directly.
 
 This module also provides convenience helpers for updating the default argument
 containers returned by `Agate.Models.*` factories.
@@ -21,12 +21,9 @@ module Constructor
 using ..Utils.Specifications: PFTSpecification, ModelSpecification, pft_get, pft_has
 
 export construct
-# Construction-time parameter registry bundles
-export default_parameter_args, ParameterRegistryArgs
-
-
-# Convenience update helpers
-export update_plankton_args, update_dynamics
+## Convenience update helpers
+export update_community, extend_community
+export update_dynamics, extend_dynamics
 
 # Low-level patching is still available for advanced use
 export patch
@@ -35,6 +32,7 @@ export patch
 export PFTSpecification, ModelSpecification
 
 include("patch.jl")
+include("generator.jl")
 include("construct.jl")
 
 end # module
