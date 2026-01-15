@@ -239,14 +239,6 @@ function _resolve_scalar(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
     return coerce_value(FT, spec.value_kind, val)
 end
 
-"""Resolve a single element for a vector parameter."""
-@inline function _resolve_vector_element(::Type{FT}, value_kind::Symbol, provider, diameter) where {FT<:AbstractFloat}
-    if provider isa AbstractParamDef
-        return coerce_value(FT, value_kind, resolve_param(FT, provider, diameter))
-    else
-        return coerce_value(FT, value_kind, provider)
-    end
-end
 @inline function _group_provider(provider, gsym::Symbol)
     if provider isa NamedTuple
         return hasproperty(provider, gsym) ? getproperty(provider, gsym) : nothing
@@ -283,7 +275,7 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
     # overrides via `update_registry`). Apply per-PFT overrides on top.
     if default_provider isa AbstractVector
         length(default_provider) == n || throw(ArgumentError("Default for :$(spec.name) must have length $n."))
-        out = is_bool ? Bool.(default_provider) : _to_FT.(Ref(FT), default_provider)
+        out = [coerce_value(FT, spec.value_kind, x) for x in default_provider]
         @inbounds for i in 1:n
             pft = ctx.pfts[i]
             if pft_has(pft, spec.name)
@@ -293,7 +285,8 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
                     out[i] = _missing_value(FT, is_bool)
                 else
                     v = v isa Function ? v(ctx) : v
-                    out[i] = _resolve_vector_element(FT, v, ctx.diameters[i])
+                    val = v isa AbstractParamDef ? resolve_param(FT, v, ctx.diameters[i]) : v
+                    out[i] = coerce_value(FT, spec.value_kind, val)
                 end
             end
         end
@@ -311,7 +304,8 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
                 out[i] = _missing_value(FT, is_bool)
             else
                 v = v isa Function ? v(ctx) : v
-                out[i] = _resolve_vector_element(FT, v, ctx.diameters[i])
+                val = v isa AbstractParamDef ? resolve_param(FT, v, ctx.diameters[i]) : v
+                out[i] = coerce_value(FT, spec.value_kind, val)
             end
             continue
         end
@@ -323,7 +317,8 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
             out[i] = _missing_value(FT, is_bool)
         else
             p = p isa Function ? p(ctx) : p
-            out[i] = _resolve_vector_element(FT, p, ctx.diameters[i])
+            val = p isa AbstractParamDef ? resolve_param(FT, p, ctx.diameters[i]) : p
+            out[i] = coerce_value(FT, spec.value_kind, val)
         end
     end
 
