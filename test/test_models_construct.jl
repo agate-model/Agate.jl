@@ -10,7 +10,6 @@ using Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers,
     biogeochemical_drift_velocity
 
-using Adapt
 
 @testset "Agate.Constructor.construct" begin
     @testset "NiPiZD defaults" begin
@@ -91,20 +90,20 @@ using Adapt
               (:DIC, :DIN, :PO4, :DOC, :POC, :DON, :PON, :DOP, :POP)
     end
 
-    @testset "GPU adapt smoke test" begin
+    @testset "GPU smoke test" begin
         # NOTE: Loading CUDA can crash Julia in misconfigured environments (e.g. mixed system/toolkit libs).
         # To keep the default test suite robust, this test only runs when explicitly enabled.
         if lowercase(get(ENV, "AGATE_TEST_CUDA", "0")) in ("1", "true", "yes")
-            bgc = construct(NiPiZDFactory(); FT=Float32)
-
             @eval using CUDA
-            @eval using Adapt
+            @eval using Oceananigans.Architectures: GPU, array_type
 
             if CUDA.functional()
-                adapted = Adapt.adapt(CUDA.CuArray, bgc)
-                @test required_biogeochemical_tracers(adapted) == required_biogeochemical_tracers(bgc)
-                @test adapted.parameters.palatability_matrix isa CUDA.CuArray
-                @test adapted.parameters.maximum_predation_rate isa CUDA.CuArray
+                bgc_cpu = construct(NiPiZDFactory(); FT=Float32)
+                bgc_gpu = construct(NiPiZDFactory(); FT=Float32, arch=GPU())
+
+                @test required_biogeochemical_tracers(bgc_gpu) == required_biogeochemical_tracers(bgc_cpu)
+                @test bgc_gpu.parameters.palatability_matrix isa array_type(GPU())
+                @test bgc_gpu.parameters.maximum_predation_rate isa array_type(GPU())
             else
                 @test true
             end

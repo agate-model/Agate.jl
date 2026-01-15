@@ -7,21 +7,18 @@ using Oceananigans.Units
 using Agate.Constructor: construct
 using Agate.Models: NiPiZDFactory
 using Agate.Library.Photosynthesis
-using Oceananigans, Printf
 using Oceananigans.Fields: FunctionField, ConstantField
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
-using Adapt
-using CUDA
 using CairoMakie
 
-# Generate the biogeochemical model (CPU instance)
-bgc_instance = construct(NiPiZDFactory())
+# Generate a CPU instance (used here to query tracer names).
+bgc_cpu = construct(NiPiZDFactory())
 
 # IMPORTANT: get tracer names from the CPU instance (Agate defines the method on this type)
-tracer_names = required_biogeochemical_tracers(bgc_instance)
+tracer_names = required_biogeochemical_tracers(bgc_cpu)
 
-# Test GPU compatibility
-adapted_instance = Adapt.adapt(CuArray, bgc_instance)
+# Construct a GPU-ready instance for embedding in Oceananigans / OceanBioME models.
+bgc_instance = construct(NiPiZDFactory(); arch=GPU())
 
 const year = years = 365days
 nothing #hide
@@ -54,7 +51,7 @@ grid = RectilinearGrid(GPU(); size=(1, 1, 50), extent=(20meters, 20meters, 200me
 # Build light attenuation on the column grid
 light_attenuation = FunctionFieldPAR(; grid, PAR_f=PAR_f)
 
-biogeochemistry = Biogeochemistry(adapted_instance; light_attenuation)
+biogeochemistry = Biogeochemistry(bgc_instance; light_attenuation)
 
 clock = Clock(; time=0.0)
 T = FunctionField{Center,Center,Center}(temp, grid; clock)

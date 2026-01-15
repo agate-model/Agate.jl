@@ -1,6 +1,10 @@
 using OceanBioME: BoxModelGrid, setup_velocity_fields
 
-import Adapt
+using Adapt: adapt
+
+using Oceananigans.Architectures: architecture, device, CPU, GPU
+
+
 
 using ..Utils:
     AbstractBGCFactory,
@@ -101,7 +105,7 @@ Key keyword arguments
 - `registry`: parameter registry (defaults/specs), typically updated/extended by the user.
 - `interactions`: optional NamedTuple or function `(ctx)->NamedTuple` providing
   interaction-related parameter overrides (e.g. matrices). Unknown keys should error.
-- `backend`: optional Adapt backend (e.g. `CuArray`) to adapt the constructed instance.
+- `arch=CPU()`: `CPU()` or `GPU()` used to set architecture.
 """
 function construct(
     factory::AbstractBGCFactory;
@@ -113,7 +117,7 @@ function construct(
     community = Models.default_community(factory; FT=FT),
     registry = parameter_registry(factory),
 
-    backend=nothing,
+    arch = CPU(),
     interactions::Union{Nothing,NamedTuple,Function}=nothing,
 
     sinking_tracers=nothing,
@@ -175,7 +179,7 @@ function construct(
     tracers = NamedTuple{Tuple(tracer_names)}(Tuple(tracer_exprs))
 
     # ---------------------------------------------------------------------
-    # Parameter resolution (CPU) -> optional backend adaptation (CPU->GPU).
+    # Parameter resolution -> architecture adaptation (CPU/GPU).
     # ---------------------------------------------------------------------
 
     params = resolve_runtime_parameters(
@@ -199,10 +203,8 @@ function construct(
         bgc = Base.invokelatest(bgc_type, params, sinking_velocities)
     end
 
-    # Optional backend adaptation (CPU->GPU) as the final construction stage.
-    if backend != nothing
-        bgc = Adapt.adapt(backend, bgc)
-    end
+    # move any arrays inside `bgc` onto the requested architecture.
+    bgc = adapt(device(arch), bgc)
 
     return bgc
 end
