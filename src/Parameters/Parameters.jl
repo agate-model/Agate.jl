@@ -11,8 +11,6 @@ module Parameters
 
 using Adapt
 using Logging
-using Oceananigans
-
 using ..Library.Allometry:
     AbstractParamDef,
     resolve_param,
@@ -124,27 +122,6 @@ function extend_registry(registry::ParamRegistry, specs::ParamSpec...)
 end
 
 # -----------------------------------------------------------------------------
-# Value helpers
-# -----------------------------------------------------------------------------
-
-@inline function _maybe_ustrip(x)
-    # Oceananigans.Units sometimes provides `ustrip` (Unitful-like), but many unit
-    # conveniences are simple numeric scale factors (day, hour, second).
-    if isdefined(Oceananigans.Units, :ustrip)
-        try
-            return Oceananigans.Units.ustrip(x)
-        catch
-            return x
-        end
-    end
-    return x
-end
-
-@inline strip_units(x::Number) = _maybe_ustrip(x)
-@inline strip_units(x::AbstractArray) = strip_units.(x)
-@inline strip_units(x) = x
-
-# -----------------------------------------------------------------------------
 # Directory / introspection
 # -----------------------------------------------------------------------------
 
@@ -187,10 +164,9 @@ end
     return nothing
 end
 
-"""Coerce a scalar-like value to `FT` after unit stripping."""
+"""Coerce a scalar-like value to `FT`."""
 @inline function _to_FT(::Type{FT}, x) where {FT<:AbstractFloat}
-    y = strip_units(x)
-    return y isa Bool ? y : FT(y)
+    return x isa Bool ? x : FT(x)
 end
 
 """Resolve a single scalar parameter (CPU)."""
@@ -357,7 +333,7 @@ function _resolve_matrix(::Type{FT}, spec::ParamSpec, ctx, vectors;
     (val isa AbstractMatrix) || throw(ArgumentError("Matrix parameter :$(spec.name) must be a matrix."))
     size(val, 1) == n && size(val, 2) == n || throw(ArgumentError("Matrix :$(spec.name) must be size ($n,$n)."))
 
-    return FT.(strip_units.(val))
+    return FT.(val)
 end
 
 """Generate a complete resolved default set for `factory` (CPU arrays/scalars).
