@@ -16,7 +16,7 @@ using Agate.Library.Equations: Equation, sum_over
 using Agate.Library.Mortality: linear_loss, linear_loss_sum, quadratic_loss_sum
 using Agate.Library.Predation: grazing_loss, grazing_assimilation_loss
 using Agate.Library.Light: FunctionFieldPAR
-using Agate.Parameters: ParamSpec, parameter_registry, extend_registry
+using Agate.Parameters: ParamSpec, parameter_registry, extend_registry, update_registry
 
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -153,8 +153,8 @@ extended_reg = extend_registry(base_reg, extra_specs...)
 # Inspect the extended registry including the new heterotroph parameters.
 println(extended_reg)
 
-# Optional ergonomic override: tweak detritus half-saturation for H via the community PFT.
-community_H = update_community(community_H, :H; detritus_half_saturation=0.05)
+# Optional ergonomic override: tweak detritus half-saturation for H via the registry.
+extended_reg = update_registry(extended_reg; detritus_half_saturation=(H=0.05,))
 
 # ## 5. Construct a new concrete NiPiZDH model type
 
