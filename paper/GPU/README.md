@@ -1,23 +1,30 @@
-# Reproducing the plots
+# GPU reproduction (Podman)
 
-Note:
-Podman should be ran from `./Agate.jl` not `./Agate.jl/paper/GPU`
+This directory contains scripts intended to run on an NVIDIA GPU via CUDA.jl.
 
-To build the Podman container:
-`podman build -f paper/GPU/cuda.Podmanfile -t my-container .`
+## Build the container
 
-To run the column:
+Run these commands from the **repository root** (so the Podmanfile can copy the
+Agate project into the image):
 
-`podman run --rm --device=nvidia.com/gpu=all -v $(pwd):/scripts -w /scripts localhost/my-container julia paper/GPU/column_N2P2ZD_agate.jl`
+```bash
+podman build -f paper/GPU/cuda.Podmanfile -t agate-gpu .
+```
 
-To delete old containers:
+## Run a script
 
-`podman container prune`
+Mount the repository into the container so outputs are written to your working
+directory, but use the image's project environment:
 
-Force remove everything:
+```bash
+podman run --rm --device=nvidia.com/gpu=all \
+  -v "$(pwd)":/scripts -w /scripts \
+  agate-gpu julia --project=/opt/julia_env paper/GPU/column_N2P2ZD_agate.jl
+```
 
-`podman system prune -a -f --volumes`
+## Cleanup
 
-To delete `tmp` cache:
-
-`sudo rm -rf /tmp/*`
+```bash
+podman container prune
+podman system prune -a -f --volumes
+```
