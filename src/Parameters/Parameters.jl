@@ -221,7 +221,6 @@ end
     return nothing
 end
 
-"""Coerce a scalar-like value to `FT`."""
 """Resolve a single scalar parameter (CPU)."""
 function _resolve_scalar(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFloat}
     provider = spec.default
