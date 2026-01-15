@@ -1,7 +1,7 @@
 using Agate
 using Test
 
-using Agate.Library.Equations: ParamVar, sum_over
+using Agate.Equations: ParamVar, sum_over
 
 @testset "Equations: sum_over" begin
     # Basic symbolic sum of plain Symbols.

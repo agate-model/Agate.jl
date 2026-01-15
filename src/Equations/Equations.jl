@@ -1,4 +1,4 @@
-"""Agate.Library.Equations
+"""Agate.Equations
 
 Construction-time symbolic building blocks for authoring biogeochemical dynamics
 without hand-written `Expr` quoting and without any `@register_*` macros.

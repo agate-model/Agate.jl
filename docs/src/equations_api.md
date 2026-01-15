@@ -61,7 +61,7 @@ All plankton and biogeochemical dynamics builders must return an `Equation`.
 Example: a detritivorous heterotroph growth tendency
 
 ```julia
-using Agate.Library.Equations: Equation
+using Agate.Equations: Equation
 using Agate.Library.Mortality: linear_loss
 using Agate.Library.Predation: grazing_loss
 

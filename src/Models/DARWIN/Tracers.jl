@@ -1,6 +1,6 @@
 """Tracer tendency equations for the simplified DARWIN-like elemental cycling model.
 
-All builders in this module return `Agate.Library.Equations.Equation`.
+All builders in this module return `Agate.Equations.Equation`.
 The symbolic API is used only at construction time; kernels remain plain `Expr`
 operating on numeric arrays and scalars.
 """
@@ -10,7 +10,7 @@ module Tracers
 
 using ....ParamVars
 const PV = ParamVars
-using Agate.Library.Equations: Equation, sum_over
+using Agate.Equations: Equation, sum_over
 
 using Agate.Library.Mortality: linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
 using Agate.Library.Predation: grazing_loss, grazing_gain, grazing_assimilation_loss

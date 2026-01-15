@@ -3,7 +3,7 @@
 module Photosynthesis
 
 using Agate.Library.Nutrients: monod_limitation, liebig_minimum
-using ..Equations: AExpr, req, merge_requirements, _to_aexpr
+using ...Equations: AExpr, req, merge_requirements, _to_aexpr
 
 export light_limitation_smith,
     light_limitation_geider,

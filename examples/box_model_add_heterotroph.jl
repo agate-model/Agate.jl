@@ -12,7 +12,7 @@
 using Agate
 using Agate.Utils.Specifications: PFTSpecification
 using Agate.Library.Allometry: AllometricParam, PowerLaw
-using Agate.Library.Equations: Equation, sum_over
+using Agate.Equations: Equation, sum_over
 using Agate.Library.Mortality: linear_loss, linear_loss_sum, quadratic_loss_sum
 using Agate.Library.Predation: grazing_loss, grazing_assimilation_loss
 using Agate.Library.Light: FunctionFieldPAR

@@ -16,7 +16,7 @@ parameter registry during `construct`.
 Notes
 -----
 - This module is intentionally *empty* by default.
-- Placeholders are `ParamVar{:name}()` values from `Agate.Library.Equations`.
+- Placeholders are `ParamVar{:name}()` values from `Agate.Equations`.
 - The declaration step should happen once per construction run, based on the
   merged registry.
 """

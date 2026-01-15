@@ -1,6 +1,6 @@
 module Mortality
 
-using ..Equations: AExpr, sum_over
+using ...Equations: AExpr, sum_over
 export linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
 
 """

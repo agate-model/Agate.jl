@@ -9,7 +9,7 @@ using ..Library.Nutrients
 using ..Library.Photosynthesis
 using ..Library.Predation
 using ..Library.Remineralization
-using ..Library.Equations: Equation, expr
+using ..Equations: Equation, expr
 
 using OceanBioME
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
@@ -29,7 +29,7 @@ export add_bgc_methods!, create_bgc_struct, define_tracer_functions
 """Build tracer tendency expressions with deterministic tracer ordering.
 
 This is a small convenience helper used by the constructor and tests. All
-provided dynamics builders must return `Agate.Library.Equations.Equation`.
+provided dynamics builders must return `Agate.Equations.Equation`.
 """
 function build_tracer_expressions(plankton_dynamics::NamedTuple, biogeochem_dynamics::NamedTuple, ctx)
     plankton_syms = ctx.plankton_symbols

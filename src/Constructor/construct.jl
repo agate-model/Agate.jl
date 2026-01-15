@@ -23,8 +23,8 @@ import ..Models
 # For qualified calls inside registry update helpers.
 import ..Parameters
 
-using ..Library.Equations: Equation, expr, requirements, req, merge_requirements
-using ..Library.Equations: declare_parameter_vars!
+using ..Equations: Equation, expr, requirements, req, merge_requirements
+using ..Equations: declare_parameter_vars!
 using ..Library.Allometry: allometric_palatability_unimodal_protection
 
 import ..ParamVars
