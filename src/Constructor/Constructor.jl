@@ -18,8 +18,7 @@ module Constructor
 # Refer to sibling modules via relative paths (`..`) instead of the parent
 # module name (`Agate`) because the parent name is not guaranteed to be bound
 # inside submodules (especially for code that is `eval`'d into modules).
-using ..Utils.Specifications: PFTSpecification, ModelSpecification, pft_get, pft_has
-
+using Agate.Utils.Specifications: PFTSpecification, ModelSpecification, pft_get, pft_has
 export construct
 ## Convenience update helpers
 export update_community, extend_community

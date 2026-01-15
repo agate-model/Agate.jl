@@ -1,7 +1,6 @@
 module Models
 
-using ..Utils: AbstractBGCFactory
-
+using Agate.Utils: AbstractBGCFactory
 # -----------------------------------------------------------------------------
 # Factory default interface
 # -----------------------------------------------------------------------------

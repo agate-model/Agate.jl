@@ -4,13 +4,10 @@ Defaults in this file are the **single source of truth** for DARWIN parameters.
 Example/spec containers may provide structural information and user overrides only.
 """
 
-using ...Parameters: ParamSpec, ParamRegistry
-using ...Parameters: default_palatability_matrix, default_assimilation_matrix
-
-using ...Library.Allometry: AllometricParam, PowerLaw
-
-import ...Parameters: parameter_registry
-
+using Agate.Parameters: ParamSpec, ParamRegistry
+using Agate.Parameters: default_palatability_matrix, default_assimilation_matrix
+using Agate.Library.Allometry: AllometricParam, PowerLaw
+import Agate.Parameters: parameter_registry
 function parameter_registry(::DarwinFactory)
     return ParamRegistry([
         # --- Stoichiometry + partitioning scalars --------------------------

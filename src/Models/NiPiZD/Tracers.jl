@@ -8,7 +8,7 @@ operating on numeric arrays and scalars.
 module Tracers
 
 
-using ....ParamVars
+using Agate.ParamVars
 const PV = ParamVars
 using Agate.Equations: Equation, sum_over
 

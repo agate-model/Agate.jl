@@ -1,7 +1,6 @@
 module Predation
 
-using ...Equations: AExpr, req, merge_requirements, sum_over, _to_aexpr
-
+using Agate.Equations: AExpr, req, merge_requirements, sum_over, _to_aexpr
 export AssimilationPreyParameters
 export AssimilationPredatorParameters
 export holling_type_2

@@ -6,31 +6,24 @@ using Oceananigans.Architectures: architecture, device, CPU, GPU
 
 
 
-using ..Utils:
-    AbstractBGCFactory,
+using Agate.Utils:    AbstractBGCFactory,
     normalize_interactions,
     parse_community,
     validate_plankton_inputs
 
-using ..Models:
-    default_plankton_dynamics,
+using Agate.Models:    default_plankton_dynamics,
     default_biogeochem_dynamics
 
 # Bring the `Agate.Models` module into scope for qualified calls like
 # `Models.default_community` without relying on the parent module name.
-import ..Models
-
+import Agate.Models
 # For qualified calls inside registry update helpers.
-import ..Parameters
-
-using ..Equations: Equation, expr, requirements, req, merge_requirements
-using ..Equations: declare_parameter_vars!
-using ..Library.Allometry: allometric_palatability_unimodal_protection
-
-import ..ParamVars
-
-using ..Parameters:
-    resolve_runtime_parameters,
+import Agate.Parameters
+using Agate.Equations: Equation, expr, requirements, req, merge_requirements
+using Agate.Equations: declare_parameter_vars!
+using Agate.Library.Allometry: allometric_palatability_unimodal_protection
+import Agate.ParamVars
+using Agate.Parameters:    resolve_runtime_parameters,
     parameter_registry
 
 """Apply `interactions` overrides by updating/extending the parameter registry.

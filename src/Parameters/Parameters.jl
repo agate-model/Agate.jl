@@ -11,15 +11,13 @@ module Parameters
 
 using Adapt
 using Logging
-using ..Library.Allometry:
-    AbstractParamDef,
+using Agate.Library.Allometry:    AbstractParamDef,
     resolve_param,
     allometric_palatability_unimodal_protection,
     palatability_matrix_allometric,
     assimilation_efficiency_matrix_binary
 
-using ..Utils.Specifications: PFTSpecification, pft_has, pft_get, ModelSpecification
-
+using Agate.Utils.Specifications: PFTSpecification, pft_has, pft_get, ModelSpecification
 import Base: show
 
 
