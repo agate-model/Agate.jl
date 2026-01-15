@@ -12,8 +12,6 @@ include("Specifications.jl")
 
 using .Specifications: PFTSpecification, pft_get, pft_has, ModelSpecification
 
-using ..Library.ExprUtils: sum_expr
-
 import Oceananigans: time_step!
 
 export AbstractDiameterSpecification
@@ -34,7 +32,6 @@ export parse_community
 export param_check_length
 export box_model_mass_balance
 export box_model_budget
-export sum_expr
 export param_compute_diameters
 
 # -----------------------------------------------------------------------------

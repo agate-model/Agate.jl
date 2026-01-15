@@ -33,7 +33,6 @@ missing/`nothing` policy is specified in the parameter registry.
 
 module Equations
 
-using ..ExprUtils: sum_expr
 using Logging
 
 export Requirements, req, merge_requirements
@@ -88,6 +87,25 @@ struct AExpr
 end
 
 @inline AExpr(node) = AExpr(node, req())
+
+
+"""
+    sum_expr(terms)
+
+Return an expression that sums a collection of AST terms.
+
+Terms may be `Expr`, `Symbol`, or literal values (e.g. numbers).
+If `terms` is empty, returns `0`.
+"""
+function sum_expr(terms::AbstractVector)
+    isempty(terms) && return 0
+
+    s = terms[1]
+    for i in 2:length(terms)
+        s = :($s + $(terms[i]))
+    end
+    return s
+end
 
 # -----------------------------------------------------------------------------
 # Parameter placeholder
