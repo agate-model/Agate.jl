@@ -417,28 +417,12 @@ function resolve_runtime_parameters(
 
     needed_vectors = unique(vcat(vector_keys, dep_vecs))
 
-    # Resolve scalars.
-    scalar_vals = Dict{Symbol,Any}()
-    for k in scalar_keys
-        spec = lookup(reg, k)
-        isnothing(spec) && throw(ArgumentError("No ParamSpec found for scalar :$k."))
-        scalar_vals[k] = _resolve_scalar(FT, spec, ctx)
-    end
-
     # Resolve vectors (including dependencies).
     vector_vals = Dict{Symbol,Any}()
     for k in needed_vectors
         spec = lookup(reg, k)
         isnothing(spec) && throw(ArgumentError("No ParamSpec found for vector :$k."))
         vector_vals[k] = _resolve_vector(FT, spec, ctx)
-    end
-
-    # Resolve matrices.
-    matrix_vals = Dict{Symbol,Any}()
-    for k in matrix_keys
-        spec = lookup(reg, k)
-        isnothing(spec) && throw(ArgumentError("No ParamSpec found for matrix :$k."))
-        matrix_vals[k] = _resolve_matrix(FT, spec, ctx, vector_vals; palatability_fn)
     end
 
     # Build minimal runtime NamedTuple in stable order: vectors, matrices, scalars.
@@ -448,12 +432,18 @@ function resolve_runtime_parameters(
     for k in vector_keys
         push!(runtime_vals, vector_vals[k])
     end
+
     for k in matrix_keys
-        push!(runtime_vals, matrix_vals[k])
+        spec = lookup(reg, k)
+        isnothing(spec) && throw(ArgumentError("No ParamSpec found for matrix :$k."))
+        push!(runtime_vals, _resolve_matrix(FT, spec, ctx, vector_vals; palatability_fn))
     end
     for k in scalar_keys
-        push!(runtime_vals, scalar_vals[k])
+        spec = lookup(reg, k)
+        isnothing(spec) && throw(ArgumentError("No ParamSpec found for scalar :$k."))
+        push!(runtime_vals, _resolve_scalar(FT, spec, ctx))
     end
+
 
     nt = NamedTuple{Tuple(runtime_keys)}(Tuple(runtime_vals))
     params = ModelSpecification(nt)
