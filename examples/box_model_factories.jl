@@ -33,6 +33,10 @@ nothing #hide
 
 factory = NiPiZDFactory()
 
+# Inspect the factory's default parameter registry.
+reg = parameter_registry(factory)
+println(reg)
+
 # `construct` returns the biogeochemistry instance directly.
 
 bgc_default = construct(factory)
@@ -69,6 +73,9 @@ parameter_overrides = (
 )
 
 registry_custom = update_registry(parameter_registry(factory); parameter_overrides...)
+
+# Inspect the updated registry after applying overrides.
+println(registry_custom)
 
 # ## 4. Swap components (dynamics)
 

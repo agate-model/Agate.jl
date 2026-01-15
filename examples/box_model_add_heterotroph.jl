@@ -93,6 +93,9 @@ end
 
 factory = NiPiZDFactory()
 
+# Optional: inspect the base registry before extending.
+println(parameter_registry(factory))
+
 plankton_dynamics   = Agate.Models.default_plankton_dynamics(factory)
 community           = Agate.Models.default_community(factory)
 biogeochem_dynamics = Agate.Models.default_biogeochem_dynamics(factory)
@@ -144,6 +147,9 @@ extra_specs = [
 
 base_reg = parameter_registry(factory)
 extended_reg = extend_registry(base_reg, extra_specs...)
+
+# Inspect the extended registry including the new heterotroph parameters.
+println(extended_reg)
 
 # Optional ergonomic override: tweak detritus half-saturation for H via the community PFT.
 community_H = update_community(community_H, :H; detritus_half_saturation=0.05)

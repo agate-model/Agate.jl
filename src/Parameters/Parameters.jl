@@ -20,9 +20,12 @@ using ..Library.Allometry:
 
 using ..Utils.Specifications: PFTSpecification, pft_has, pft_get, ModelSpecification
 
+import Base: show
+
+
 export ParamSpec, ParamRegistry
 export parameter_registry, parameter_directory
-export default_parameter_set, resolve_runtime_parameters
+export resolve_runtime_parameters
 export update_registry, extend_registry
 # -----------------------------------------------------------------------------
 # Registry types
@@ -137,6 +140,48 @@ function parameter_directory(factory)
         (name=s.name, scope=s.scope, kind=s.kind, doc=s.doc, default=default_form)
     end
 end
+
+# -----------------------------------------------------------------------------
+# Pretty printing / introspection
+# -----------------------------------------------------------------------------
+
+"""Pretty-print a parameter registry.
+
+Printing a `ParamRegistry` shows each parameter name, a compact summary of its default
+provider (type or function name), and the parameter documentation string.
+
+This does **not** resolve providers into numeric values; it only reflects what is stored
+in the registry.
+"""
+function show(io::IO, ::MIME"text/plain", reg::ParamRegistry)
+    specs = reg.specs
+    isempty(specs) && return nothing
+
+    name_width = maximum(length(string(s.name)) for s in specs)
+    name_width = max(name_width, 16)
+
+    default_string(provider) = begin
+        if isnothing(provider)
+            "REQUIRED"
+        elseif provider isa Function
+            string(nameof(provider))
+        else
+            string(typeof(provider))
+        end
+    end
+
+    for s in specs
+        println(io, rpad(string(s.name), name_width + 2), default_string(s.default))
+        if !isempty(s.doc)
+            println(io, "  ", s.doc)
+        end
+    end
+
+    return nothing
+end
+
+# Ensure `println(reg)` uses the same representation as REPL display.
+show(io::IO, reg::ParamRegistry) = show(io, MIME"text/plain"(), reg)
 
 # -----------------------------------------------------------------------------
 # Resolution
@@ -334,74 +379,6 @@ function _resolve_matrix(::Type{FT}, spec::ParamSpec, ctx, vectors;
     size(val, 1) == n && size(val, 2) == n || throw(ArgumentError("Matrix :$(spec.name) must be size ($n,$n)."))
 
     return FT.(val)
-end
-
-"""Generate a complete resolved default set for `factory` (CPU arrays/scalars).
-
-This is meant for printing/saving/diffing; it resolves *all* registry entries.
-"""
-function default_parameter_set(factory, ctx;
-    FT::Type{<:AbstractFloat},
-    palatability_fn=allometric_palatability_unimodal_protection,
-)
-    reg = parameter_registry(factory)
-
-    # Classify each spec for printing/saving by looking at its selected provider.
-    # Runtime construction does *not* use this; it uses `requirements`.
-    function infer_rank(spec::ParamSpec)
-        provider = spec.default
-        if spec.name === :palatability_matrix || spec.name === :assimilation_matrix
-            return :matrix
-        elseif provider === default_palatability_matrix || provider === default_assimilation_matrix
-            return :matrix
-        elseif provider isa AbstractMatrix
-            return :matrix
-        elseif occursin("matrix", String(spec.name)) && provider isa Function
-            return :matrix
-        elseif provider isa AbstractVector || provider isa NamedTuple || provider isa Dict || provider isa AbstractParamDef
-            return :vector
-        else
-            return :scalar
-        end
-    end
-
-    scalars = Dict{Symbol,Any}()
-    vectors = Dict{Symbol,Any}()
-    matrices = Dict{Symbol,Any}()
-
-    ranks = Dict{Symbol,Symbol}()
-    for spec in reg.specs
-        r = infer_rank(spec)
-        ranks[spec.name] = r
-        if r === :scalar
-            scalars[spec.name] = _resolve_scalar(FT, spec, ctx)
-        elseif r === :vector
-            vectors[spec.name] = _resolve_vector(FT, spec, ctx)
-        end
-    end
-
-    for spec in reg.specs
-        if ranks[spec.name] === :matrix
-            matrices[spec.name] = _resolve_matrix(FT, spec, ctx, vectors; palatability_fn)
-        end
-    end
-
-    # Return a NamedTuple in registry order (stable for printing/saving/diffing).
-    out_keys = Symbol[]
-    out_vals = Any[]
-    for spec in reg.specs
-        r = ranks[spec.name]
-        push!(out_keys, spec.name)
-        if r === :scalar
-            push!(out_vals, scalars[spec.name])
-        elseif r === :vector
-            push!(out_vals, vectors[spec.name])
-        else
-            push!(out_vals, matrices[spec.name])
-        end
-    end
-
-    return NamedTuple{Tuple(out_keys)}(Tuple(out_vals))
 end
 
 """Resolve only parameters required by the constructed equations.

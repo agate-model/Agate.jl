@@ -82,4 +82,23 @@ using Oceananigans.Units
         @test p_over.maximum_predation_rate[3] == 0f0
         @test p_over.maximum_predation_rate[4] == 0f0
     end
+
+    
+@testset "ParamRegistry show" begin
+    factory = NiPiZDFactory()
+    reg = parameter_registry(factory)
+
+    out = sprint(show, MIME"text/plain"(), reg)
+    @test occursin("maximum_growth_rate", out)
+    @test occursin("detritus_remineralization", out)
+    # Docs should be included in the registry display.
+    @test occursin("Maximum phytoplankton growth rate", out) ||
+          occursin("Maximum grazing rate", out) ||
+          occursin("Detritus remineralization rate", out)
+
+    # Updated registries should also display cleanly.
+    reg2 = update_registry(reg; maximum_predation_rate=(Z=0.5 / day,))
+    out2 = sprint(show, MIME"text/plain"(), reg2)
+    @test occursin("maximum_predation_rate", out2)
+end
 end
