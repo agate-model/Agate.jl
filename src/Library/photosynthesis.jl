@@ -4,9 +4,6 @@ module Photosynthesis
 
 using Agate.Library.Nutrients: monod_limitation, liebig_minimum
 using ..Equations: AExpr, req, merge_requirements, _to_aexpr
-using ...ParamVars
-
-const PV = ParamVars
 
 export light_limitation_smith,
     light_limitation_geider,
@@ -22,7 +19,7 @@ export growth_single_nutrient_geider_comm
 export growth_two_nutrients_geider
 export growth_two_nutrients_geider_comm
 
-@inline _vec(key::Symbol, idx::Int) = getproperty(PV, key)[idx]
+@inline _vec(PV, key::Symbol, idx::Int) = getproperty(PV, key)[idx]
 
 """Build an `AExpr` for a runtime function call, merging argument requirements."""
 function _call(fsym::Symbol, args...)
@@ -255,12 +252,13 @@ end
 # -----------------------------------------------------------------------------
 
 """\
-    growth_single_nutrient(nutrient_sym, plankton_sym, light_sym, idx; ...) -> AExpr
+    growth_single_nutrient(PV, nutrient_sym, plankton_sym, light_sym, idx; ...) -> AExpr
 
 Symbolic single-nutrient photosynthetic growth for a *group's own* dynamics.
 Uses group-owned parameters (missing in that group => error; explicit `nothing` => 0).
 """
 function growth_single_nutrient(
+    PV,
     nutrient_sym::Symbol,
     plankton_sym::Symbol,
     light_sym::Symbol,
@@ -274,19 +272,20 @@ function growth_single_nutrient(
         nutrient_sym,
         plankton_sym,
         light_sym,
-        _vec(maximum_growth_rate, idx),
-        _vec(nutrient_half_saturation, idx),
-        _vec(alpha, idx),
+        _vec(PV, maximum_growth_rate, idx),
+        _vec(PV, nutrient_half_saturation, idx),
+        _vec(PV, alpha, idx),
     )
 end
 
 """\
-    growth_single_nutrient_comm(nutrient_sym, plankton_sym, light_sym, idx; ...) -> AExpr
+    growth_single_nutrient_comm(PV, nutrient_sym, plankton_sym, light_sym, idx; ...) -> AExpr
 
 Community-optional variant used inside community sums.
 Missing or `nothing` parameters are treated as inactive (filled with 0).
 """
 function growth_single_nutrient_comm(
+    PV,
     nutrient_sym::Symbol,
     plankton_sym::Symbol,
     light_sym::Symbol,
@@ -300,14 +299,15 @@ function growth_single_nutrient_comm(
         nutrient_sym,
         plankton_sym,
         light_sym,
-        _vec(maximum_growth_rate, idx),
-        _vec(nutrient_half_saturation, idx),
-        _vec(alpha, idx),
+        _vec(PV, maximum_growth_rate, idx),
+        _vec(PV, nutrient_half_saturation, idx),
+        _vec(PV, alpha, idx),
     )
 end
 
 """Symbolic Geider-style single-nutrient growth for group-owned dynamics."""
 function growth_single_nutrient_geider(
+    PV,
     nutrient_sym::Symbol,
     plankton_sym::Symbol,
     light_sym::Symbol,
@@ -322,15 +322,16 @@ function growth_single_nutrient_geider(
         nutrient_sym,
         plankton_sym,
         light_sym,
-        _vec(maximum_growth_rate, idx),
-        _vec(nutrient_half_saturation, idx),
-        _vec(photosynthetic_slope, idx),
-        _vec(chlorophyll_to_carbon_ratio, idx),
+        _vec(PV, maximum_growth_rate, idx),
+        _vec(PV, nutrient_half_saturation, idx),
+        _vec(PV, photosynthetic_slope, idx),
+        _vec(PV, chlorophyll_to_carbon_ratio, idx),
     )
 end
 
 """Community-optional Geider-style single-nutrient growth."""
 function growth_single_nutrient_geider_comm(
+    PV,
     nutrient_sym::Symbol,
     plankton_sym::Symbol,
     light_sym::Symbol,
@@ -345,15 +346,16 @@ function growth_single_nutrient_geider_comm(
         nutrient_sym,
         plankton_sym,
         light_sym,
-        _vec(maximum_growth_rate, idx),
-        _vec(nutrient_half_saturation, idx),
-        _vec(photosynthetic_slope, idx),
-        _vec(chlorophyll_to_carbon_ratio, idx),
+        _vec(PV, maximum_growth_rate, idx),
+        _vec(PV, nutrient_half_saturation, idx),
+        _vec(PV, photosynthetic_slope, idx),
+        _vec(PV, chlorophyll_to_carbon_ratio, idx),
     )
 end
 
 """Symbolic Geider-style two-nutrient growth for group-owned dynamics."""
 function growth_two_nutrients_geider(
+    PV,
     nutrient1_sym::Symbol,
     nutrient2_sym::Symbol,
     plankton_sym::Symbol,
@@ -371,16 +373,17 @@ function growth_two_nutrients_geider(
         nutrient2_sym,
         plankton_sym,
         light_sym,
-        _vec(maximum_growth_rate, idx),
-        _vec(half_saturation_1, idx),
-        _vec(half_saturation_2, idx),
-        _vec(photosynthetic_slope, idx),
-        _vec(chlorophyll_to_carbon_ratio, idx),
+        _vec(PV, maximum_growth_rate, idx),
+        _vec(PV, half_saturation_1, idx),
+        _vec(PV, half_saturation_2, idx),
+        _vec(PV, photosynthetic_slope, idx),
+        _vec(PV, chlorophyll_to_carbon_ratio, idx),
     )
 end
 
 """Community-optional Geider-style two-nutrient growth."""
 function growth_two_nutrients_geider_comm(
+    PV,
     nutrient1_sym::Symbol,
     nutrient2_sym::Symbol,
     plankton_sym::Symbol,
@@ -398,11 +401,11 @@ function growth_two_nutrients_geider_comm(
         nutrient2_sym,
         plankton_sym,
         light_sym,
-        _vec(maximum_growth_rate, idx),
-        _vec(half_saturation_1, idx),
-        _vec(half_saturation_2, idx),
-        _vec(photosynthetic_slope, idx),
-        _vec(chlorophyll_to_carbon_ratio, idx),
+        _vec(PV, maximum_growth_rate, idx),
+        _vec(PV, half_saturation_1, idx),
+        _vec(PV, half_saturation_2, idx),
+        _vec(PV, photosynthetic_slope, idx),
+        _vec(PV, chlorophyll_to_carbon_ratio, idx),
     )
 end
 

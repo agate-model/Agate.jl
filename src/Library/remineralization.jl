@@ -1,8 +1,5 @@
 module Remineralization
 
-using ...ParamVars
-const PV = ParamVars
-
 export remineralization_idealized
 export remineralization_flux
 
@@ -27,7 +24,7 @@ Idealized remineralization of detritus into dissolved nutrients.
 end
 
 """\
-    remineralization_flux(pool_sym::Symbol, rate_key::Symbol)
+    remineralization_flux(PV, pool_sym::Symbol, rate_key::Symbol)
 
 Construction-time symbolic helper for `PV.<rate_key> * pool_sym`.
 
@@ -36,7 +33,7 @@ Construction-time symbolic helper for `PV.<rate_key> * pool_sym`.
 
 The scalar is recorded as an equation requirement and validated by the constructor.
 """
-function remineralization_flux(pool_sym::Symbol, rate_key::Symbol)
+function remineralization_flux(PV, pool_sym::Symbol, rate_key::Symbol)
     rate = getproperty(PV, rate_key)
     return rate * pool_sym
 end

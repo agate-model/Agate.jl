@@ -72,8 +72,8 @@ function heterotroph_growth(plankton_syms::AbstractVector{Symbol}, plankton_sym:
              monod(:D, PV.detritus_half_saturation[plankton_idx]) *
              plankton_sym
 
-    grazing = grazing_loss(plankton_sym, plankton_idx, plankton_syms)
-    mort = linear_loss(plankton_sym, plankton_idx)
+    grazing = grazing_loss(PV, plankton_sym, plankton_idx, plankton_syms)
+    mort = linear_loss(PV, plankton_sym, plankton_idx)
 
     return Equation(uptake - grazing - mort)
 end

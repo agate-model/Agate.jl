@@ -28,11 +28,11 @@ export phytoplankton_default,
 # --- internal helpers ---------------------------------------------------------
 
 _growth_sum(plankton_syms) = sum_over(plankton_syms) do sym, i
-    growth_single_nutrient(:N, sym, :PAR, i)
+    growth_single_nutrient(PV, :N, sym, :PAR, i)
 end
 
 _growth_sum_geider(plankton_syms) = sum_over(plankton_syms) do sym, i
-    growth_single_nutrient_geider(:N, sym, :PAR, i)
+    growth_single_nutrient_geider(PV, :N, sym, :PAR, i)
 end
 
 _remineralization_term() = PV.detritus_remineralization * :D
@@ -41,8 +41,8 @@ _remineralization_term() = PV.detritus_remineralization * :D
 
 """Nutrient tendency for a single dissolved inorganic nutrient `N`."""
 function nutrient_default(plankton_syms)
-    linear_sum = linear_loss_sum(plankton_syms)
-    quadratic_sum = quadratic_loss_sum(plankton_syms)
+    linear_sum = linear_loss_sum(PV, plankton_syms)
+    quadratic_sum = quadratic_loss_sum(PV, plankton_syms)
     growth_sum = _growth_sum(plankton_syms)
 
     export_frac = PV.mortality_export_fraction
@@ -53,8 +53,8 @@ end
 
 """Nutrient tendency using Geider-style light limitation."""
 function nutrient_geider_light(plankton_syms)
-    linear_sum = linear_loss_sum(plankton_syms)
-    quadratic_sum = quadratic_loss_sum(plankton_syms)
+    linear_sum = linear_loss_sum(PV, plankton_syms)
+    quadratic_sum = quadratic_loss_sum(PV, plankton_syms)
     growth_sum = _growth_sum_geider(plankton_syms)
 
     export_frac = PV.mortality_export_fraction
@@ -65,9 +65,9 @@ end
 
 """Detritus tendency for a single detrital pool `D`."""
 function detritus_default(plankton_syms)
-    linear_sum = linear_loss_sum(plankton_syms)
-    quadratic_sum = quadratic_loss_sum(plankton_syms)
-    assimilation_loss_sum = grazing_assimilation_loss(plankton_syms)
+    linear_sum = linear_loss_sum(PV, plankton_syms)
+    quadratic_sum = quadratic_loss_sum(PV, plankton_syms)
+    assimilation_loss_sum = grazing_assimilation_loss(PV, plankton_syms)
 
     export_frac = PV.mortality_export_fraction
     remin = _remineralization_term()
@@ -79,25 +79,25 @@ end
 
 """Phytoplankton tendency with single-nutrient Smith-style light limitation."""
 function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
-    growth = growth_single_nutrient(:N, plankton_sym, :PAR, plankton_idx)
-    grazing = grazing_loss(plankton_sym, plankton_idx, plankton_syms)
-    mort = linear_loss(plankton_sym, plankton_idx)
+    growth = growth_single_nutrient(PV, :N, plankton_sym, :PAR, plankton_idx)
+    grazing = grazing_loss(PV, plankton_sym, plankton_idx, plankton_syms)
+    mort = linear_loss(PV, plankton_sym, plankton_idx)
     return Equation(growth - grazing - mort)
 end
 
 """Phytoplankton tendency using Geider-style light limitation."""
 function phytoplankton_geider_light(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
-    growth = growth_single_nutrient_geider(:N, plankton_sym, :PAR, plankton_idx)
-    grazing = grazing_loss(plankton_sym, plankton_idx, plankton_syms)
-    mort = linear_loss(plankton_sym, plankton_idx)
+    growth = growth_single_nutrient_geider(PV, :N, plankton_sym, :PAR, plankton_idx)
+    grazing = grazing_loss(PV, plankton_sym, plankton_idx, plankton_syms)
+    mort = linear_loss(PV, plankton_sym, plankton_idx)
     return Equation(growth - grazing - mort)
 end
 
 """Zooplankton tendency with preferential feeding."""
 function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
-    gain = grazing_gain(plankton_sym, plankton_idx, plankton_syms)
-    lin = linear_loss(plankton_sym, plankton_idx)
-    quad = quadratic_loss(plankton_sym, plankton_idx)
+    gain = grazing_gain(PV, plankton_sym, plankton_idx, plankton_syms)
+    lin = linear_loss(PV, plankton_sym, plankton_idx)
+    quad = quadratic_loss(PV, plankton_sym, plankton_idx)
     return Equation(gain - lin - quad)
 end
 

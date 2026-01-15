@@ -1,9 +1,6 @@
 module Predation
 
 using ..Equations: AExpr, req, merge_requirements, sum_over, _to_aexpr
-using ...ParamVars
-
-const PV = ParamVars
 
 export AssimilationPreyParameters
 export AssimilationPredatorParameters
@@ -303,8 +300,8 @@ end
 # Symbolic (construction-time) equation blocks
 # -----------------------------------------------------------------------------
 
-@inline _vec(key::Symbol, idx::Int) = getproperty(PV, key)[idx]
-@inline _mat(key::Symbol, j::Int, i::Int) = getproperty(PV, key)[j, i]
+@inline _vec(PV, key::Symbol, idx::Int) = getproperty(PV, key)[idx]
+@inline _mat(PV, key::Symbol, j::Int, i::Int) = getproperty(PV, key)[j, i]
 
 
 """Build an `AExpr` for a runtime function call, merging argument requirements."""
@@ -320,7 +317,7 @@ function _call(fsym::Symbol, args...)
 end
 
 """\
-    grazing_loss(prey_sym, prey_idx, plankton_syms;
+    grazing_loss(PV, prey_sym, prey_idx, plankton_syms;
                  rate=:maximum_predation_rate,
                  half=:holling_half_saturation,
                  palat=:palatability_matrix) -> AExpr
@@ -331,6 +328,7 @@ Predator parameters are treated as **community parameters** (allocated over all 
 For plankton that don't define them (e.g. phytoplankton), the constructor fills zeros.
 """
 function grazing_loss(
+    PV,
     prey_sym::Symbol,
     prey_idx::Int,
     plankton_syms::AbstractVector{Symbol};
@@ -343,15 +341,15 @@ function grazing_loss(
             :predation_loss_preferential,
             prey_sym,
             predator_sym,
-            _vec(rate, predator_idx),
-            _vec(half, predator_idx),
-            _mat(palat, predator_idx, prey_idx),
+            _vec(PV, rate, predator_idx),
+            _vec(PV, half, predator_idx),
+            _mat(PV, palat, predator_idx, prey_idx),
         )
     end
 end
 
 """\
-    grazing_gain(predator_sym, predator_idx, plankton_syms;
+    grazing_gain(PV, predator_sym, predator_idx, plankton_syms;
                  assim=:assimilation_matrix,
                  rate=:maximum_predation_rate,
                  half=:holling_half_saturation,
@@ -360,6 +358,7 @@ end
 Preferential grazing gain of a predator size-class from all potential prey.
 """
 function grazing_gain(
+    PV,
     predator_sym::Symbol,
     predator_idx::Int,
     plankton_syms::AbstractVector{Symbol};
@@ -373,16 +372,16 @@ function grazing_gain(
             :predation_gain_preferential,
             prey_sym,
             predator_sym,
-            _mat(assim, predator_idx, prey_idx),
-            _vec(rate, predator_idx),
-            _vec(half, predator_idx),
-            _mat(palat, predator_idx, prey_idx),
+            _mat(PV, assim, predator_idx, prey_idx),
+            _vec(PV, rate, predator_idx),
+            _vec(PV, half, predator_idx),
+            _mat(PV, palat, predator_idx, prey_idx),
         )
     end
 end
 
 """\
-    grazing_assimilation_loss(plankton_syms;
+    grazing_assimilation_loss(PV, plankton_syms;
                               assim=:assimilation_matrix,
                               rate=:maximum_predation_rate,
                               half=:holling_half_saturation,
@@ -391,6 +390,7 @@ end
 Sum assimilation losses across all predator–prey pairs.
 """
 function grazing_assimilation_loss(
+    PV,
     plankton_syms::AbstractVector{Symbol};
     assim::Symbol=:assimilation_matrix,
     rate::Symbol=:maximum_predation_rate,
@@ -403,10 +403,10 @@ function grazing_assimilation_loss(
                 :predation_assimilation_loss_preferential,
                 prey_sym,
                 predator_sym,
-                _mat(assim, predator_idx, prey_idx),
-                _vec(rate, predator_idx),
-                _vec(half, predator_idx),
-                _mat(palat, predator_idx, prey_idx),
+                _mat(PV, assim, predator_idx, prey_idx),
+                _vec(PV, rate, predator_idx),
+                _vec(PV, half, predator_idx),
+                _mat(PV, palat, predator_idx, prey_idx),
             )
         end
     end

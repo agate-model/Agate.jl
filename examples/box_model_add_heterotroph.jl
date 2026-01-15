@@ -48,8 +48,8 @@ function heterotroph_growth(plankton_syms::AbstractVector{Symbol}, plankton_sym:
              monod(:D, PV.detritus_half_saturation[plankton_idx]) *
              plankton_sym
 
-    grazing = grazing_loss(plankton_sym, plankton_idx, plankton_syms)
-    mort = linear_loss(plankton_sym, plankton_idx)
+    grazing = grazing_loss(PV, plankton_sym, plankton_idx, plankton_syms)
+    mort = linear_loss(PV, plankton_sym, plankton_idx)
 
     return Equation(uptake - grazing - mort)
 end
@@ -69,9 +69,9 @@ end
 # We will declare them in the parameter registry with `scope=:zero_silent` so missing entries become zeros.
 
 function detritus_with_heterotrophs(plankton_syms::AbstractVector{Symbol})
-    linear_sum = linear_loss_sum(plankton_syms)
-    quadratic_sum = quadratic_loss_sum(plankton_syms)
-    assimilation_loss_sum = grazing_assimilation_loss(plankton_syms)
+    linear_sum = linear_loss_sum(PV, plankton_syms)
+    quadratic_sum = quadratic_loss_sum(PV, plankton_syms)
+    assimilation_loss_sum = grazing_assimilation_loss(PV, plankton_syms)
 
     export_frac = PV.mortality_export_fraction
     remin = PV.detritus_remineralization * :D

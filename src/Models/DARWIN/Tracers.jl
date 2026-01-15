@@ -35,13 +35,13 @@ export DIC_geider_light,
 
 """Sum photosynthetic growth across all plankton."""
 _growth_sum(plankton_syms) = sum_over(plankton_syms) do sym, i
-    growth_two_nutrients_geider(:DIN, :PO4, sym, :PAR, i)
+    growth_two_nutrients_geider(PV, :DIN, :PO4, sym, :PAR, i)
 end
 
 """Base loss term contributing to organic matter: linear + quadratic + sloppy-feeding losses."""
-_base_loss(plankton_syms) = linear_loss_sum(plankton_syms) +
-                            grazing_assimilation_loss(plankton_syms) +
-                            quadratic_loss_sum(plankton_syms)
+_base_loss(plankton_syms) = linear_loss_sum(PV, plankton_syms) +
+                            grazing_assimilation_loss(PV, plankton_syms) +
+                            quadratic_loss_sum(PV, plankton_syms)
 
 # ----------------------------------------------------------------------------
 # Inorganic tracers
@@ -51,8 +51,8 @@ _base_loss(plankton_syms) = linear_loss_sum(plankton_syms) +
 function DIC_geider_light(plankton_syms)
     growth = _growth_sum(plankton_syms)
     return Equation(
-        remineralization_flux(:DOC, :DOC_remineralization) +
-        remineralization_flux(:POC, :POC_remineralization) -
+        remineralization_flux(PV, :DOC, :DOC_remineralization) +
+        remineralization_flux(PV, :POC, :POC_remineralization) -
         growth,
     )
 end
@@ -61,8 +61,8 @@ end
 function DIN_geider_light(plankton_syms)
     growth = _growth_sum(plankton_syms)
     return Equation(
-        remineralization_flux(:DON, :DON_remineralization) +
-        remineralization_flux(:PON, :PON_remineralization) -
+        remineralization_flux(PV, :DON, :DON_remineralization) +
+        remineralization_flux(PV, :PON, :PON_remineralization) -
         PV.nitrogen_to_carbon * growth,
     )
 end
@@ -71,8 +71,8 @@ end
 function PO4_geider_light(plankton_syms)
     growth = _growth_sum(plankton_syms)
     return Equation(
-        remineralization_flux(:DOP, :DOP_remineralization) +
-        remineralization_flux(:POP, :POP_remineralization) -
+        remineralization_flux(PV, :DOP, :DOP_remineralization) +
+        remineralization_flux(PV, :POP, :POP_remineralization) -
         PV.phosphorus_to_carbon * growth,
     )
 end
@@ -86,7 +86,7 @@ function DOC_default(plankton_syms)
     base = _base_loss(plankton_syms)
     return Equation(
         (1 - PV.DOM_POM_fractionation) * base -
-        remineralization_flux(:DOC, :DOC_remineralization),
+        remineralization_flux(PV, :DOC, :DOC_remineralization),
     )
 end
 
@@ -95,7 +95,7 @@ function POC_default(plankton_syms)
     base = _base_loss(plankton_syms)
     return Equation(
         PV.DOM_POM_fractionation * base -
-        remineralization_flux(:POC, :POC_remineralization),
+        remineralization_flux(PV, :POC, :POC_remineralization),
     )
 end
 
@@ -104,7 +104,7 @@ function DON_default(plankton_syms)
     base = _base_loss(plankton_syms)
     return Equation(
         (1 - PV.DOM_POM_fractionation) * PV.nitrogen_to_carbon * base -
-        remineralization_flux(:DON, :DON_remineralization),
+        remineralization_flux(PV, :DON, :DON_remineralization),
     )
 end
 
@@ -113,7 +113,7 @@ function PON_default(plankton_syms)
     base = _base_loss(plankton_syms)
     return Equation(
         PV.DOM_POM_fractionation * PV.nitrogen_to_carbon * base -
-        remineralization_flux(:PON, :PON_remineralization),
+        remineralization_flux(PV, :PON, :PON_remineralization),
     )
 end
 
@@ -122,7 +122,7 @@ function DOP_default(plankton_syms)
     base = _base_loss(plankton_syms)
     return Equation(
         (1 - PV.DOM_POM_fractionation) * PV.phosphorus_to_carbon * base -
-        remineralization_flux(:DOP, :DOP_remineralization),
+        remineralization_flux(PV, :DOP, :DOP_remineralization),
     )
 end
 
@@ -131,7 +131,7 @@ function POP_default(plankton_syms)
     base = _base_loss(plankton_syms)
     return Equation(
         PV.DOM_POM_fractionation * PV.phosphorus_to_carbon * base -
-        remineralization_flux(:POP, :POP_remineralization),
+        remineralization_flux(PV, :POP, :POP_remineralization),
     )
 end
 
@@ -145,17 +145,17 @@ function phytoplankton_growth_two_nutrients_geider_light(
     plankton_sym::Symbol,
     plankton_idx::Int,
 )
-    growth = growth_two_nutrients_geider(:DIN, :PO4, plankton_sym, :PAR, plankton_idx)
-    grazing = grazing_loss(plankton_sym, plankton_idx, plankton_syms)
-    mort = linear_loss(plankton_sym, plankton_idx)
+    growth = growth_two_nutrients_geider(PV, :DIN, :PO4, plankton_sym, :PAR, plankton_idx)
+    grazing = grazing_loss(PV, plankton_sym, plankton_idx, plankton_syms)
+    mort = linear_loss(PV, plankton_sym, plankton_idx)
     return Equation(growth - grazing - mort)
 end
 
 """Zooplankton tendency with preferential feeding."""
 function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
-    gain = grazing_gain(plankton_sym, plankton_idx, plankton_syms)
-    lin = linear_loss(plankton_sym, plankton_idx)
-    quad = quadratic_loss(plankton_sym, plankton_idx)
+    gain = grazing_gain(PV, plankton_sym, plankton_idx, plankton_syms)
+    lin = linear_loss(PV, plankton_sym, plankton_idx)
+    quad = quadratic_loss(PV, plankton_sym, plankton_idx)
     return Equation(gain - lin - quad)
 end
 
