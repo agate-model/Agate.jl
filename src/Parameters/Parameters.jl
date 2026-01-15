@@ -47,18 +47,18 @@ struct ParamSpec
     #   :fail        -> throw
     #   :zero_warn   -> replace with 0/false and emit a warning
     #   :zero_silent -> replace with 0/false silently
-    scope::Symbol
-    kind::Symbol
+    missing_policy::Symbol
+    value_kind::Symbol
     doc::String
     default::Any
 end
 
 """Convenience constructor.
 
-`scope` controls how `nothing` / missing values are handled during resolution.
+`missing_policy` controls how `nothing` / missing values are handled during resolution.
 """
-ParamSpec(name::Symbol, doc::AbstractString, default; scope::Symbol=:fail, kind::Symbol=:real) =
-    ParamSpec(name, scope, kind, String(doc), default)
+ParamSpec(name::Symbol, doc::AbstractString, default; missing_policy::Symbol=:fail, value_kind::Symbol=:real) =
+    ParamSpec(name, missing_policy, value_kind, String(doc), default)
 
 """Per-model registry (CPU-only)."""
 struct ParamRegistry
@@ -102,7 +102,7 @@ function update_registry(registry::ParamRegistry; kwargs...)
     for (i, s) in pairs(registry.specs)
         if hasproperty(overrides, s.name)
             new_default = getproperty(overrides, s.name)
-            new_specs[i] = ParamSpec(s.name, s.scope, s.kind, s.doc, new_default)
+            new_specs[i] = ParamSpec(s.name, s.missing_policy, s.value_kind, s.doc, new_default)
         else
             new_specs[i] = s
         end
@@ -137,7 +137,7 @@ function parameter_directory(factory)
     return map(reg.specs) do s
         provider = s.default
         default_form = isnothing(provider) ? :required : typeof(provider)
-        (name=s.name, scope=s.scope, kind=s.kind, doc=s.doc, default=default_form)
+        (name=s.name, missing_policy=s.missing_policy, value_kind=s.value_kind, doc=s.doc, default=default_form)
     end
 end
 
@@ -188,21 +188,33 @@ show(io::IO, reg::ParamRegistry) = show(io, MIME"text/plain"(), reg)
 # -----------------------------------------------------------------------------
 
 
-@inline _is_bool(spec::ParamSpec) = spec.kind === :bool
+@inline _is_bool(spec::ParamSpec) = spec.value_kind === :bool
 
 @inline _missing_value(::Type{FT}, is_bool::Bool) where {FT<:AbstractFloat} = is_bool ? false : zero(FT)
 
+@inline function coerce_value(::Type{FT}, value_kind::Symbol, x) where {FT<:AbstractFloat}
+    if value_kind === :bool
+        x isa Bool || throw(ArgumentError("Expected Bool for value_kind=:bool, got $(typeof(x))."))
+        return x
+    elseif value_kind === :real
+        return FT(x)
+    else
+        throw(ArgumentError("Unknown value_kind: $(value_kind)"))
+    end
+end
+
+
 @inline function _handle_missing!(spec::ParamSpec, missing::Vector{Symbol}, gsym::Symbol)
-    if spec.scope === :fail
+    if spec.missing_policy === :fail
         throw(ArgumentError("Missing value for parameter :$(spec.name) (group $(gsym))."))
-    elseif spec.scope === :zero_warn
+    elseif spec.missing_policy === :zero_warn
         push!(missing, gsym)
     end
     return nothing
 end
 
 @inline function _emit_missing_warning(spec::ParamSpec, missing::Vector{Symbol})
-    if spec.scope === :zero_warn && !isempty(missing)
+    if spec.missing_policy === :zero_warn && !isempty(missing)
         # Warn once per resolution call; include unique group symbols.
         @warn "Parameter :$(spec.name) missing for groups $(unique(missing)); replacing with 0/false." maxlog=1
     end
@@ -210,39 +222,31 @@ end
 end
 
 """Coerce a scalar-like value to `FT`."""
-@inline function _to_FT(::Type{FT}, x) where {FT<:AbstractFloat}
-    return x isa Bool ? x : FT(x)
-end
-
 """Resolve a single scalar parameter (CPU)."""
 function _resolve_scalar(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFloat}
     provider = spec.default
 
     if isnothing(provider)
-        if spec.scope === :fail
+        if spec.missing_policy === :fail
             throw(ArgumentError("Missing required scalar parameter :$(spec.name)."))
-        elseif spec.scope === :zero_warn
+        elseif spec.missing_policy === :zero_warn
             @warn "Missing scalar parameter :$(spec.name); replacing with 0." maxlog=1
         end
         return _missing_value(FT, _is_bool(spec))
     end
 
     val = provider isa Function ? provider(ctx) : provider
-    return _to_FT(FT, val)
+    return coerce_value(FT, spec.value_kind, val)
 end
 
 """Resolve a single element for a vector parameter."""
-@inline function _resolve_vector_element(::Type{FT}, provider, diameter) where {FT<:AbstractFloat}
+@inline function _resolve_vector_element(::Type{FT}, value_kind::Symbol, provider, diameter) where {FT<:AbstractFloat}
     if provider isa AbstractParamDef
-        # resolve_param already handles casting to FT for numeric outputs.
-        return _to_FT(FT, resolve_param(FT, provider, diameter))
-    elseif provider isa Bool
-        return provider
+        return coerce_value(FT, value_kind, resolve_param(FT, provider, diameter))
     else
-        return _to_FT(FT, provider)
+        return coerce_value(FT, value_kind, provider)
     end
 end
-
 @inline function _group_provider(provider, gsym::Symbol)
     if provider isa NamedTuple
         return hasproperty(provider, gsym) ? getproperty(provider, gsym) : nothing
@@ -267,9 +271,9 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
 
     default_provider = spec.default
     if isnothing(default_provider)
-        if spec.scope === :fail
+        if spec.missing_policy === :fail
             throw(ArgumentError("Missing required vector parameter :$(spec.name)."))
-        elseif spec.scope === :zero_warn
+        elseif spec.missing_policy === :zero_warn
             @warn "Missing vector parameter :$(spec.name); replacing with 0/false." maxlog=1
         end
         return is_bool ? fill(false, n) : fill(zero(FT), n)
@@ -356,9 +360,9 @@ function _resolve_matrix(::Type{FT}, spec::ParamSpec, ctx, vectors;
     n = ctx.n_total
     provider = spec.default
     if isnothing(provider)
-        if spec.scope === :fail
+        if spec.missing_policy === :fail
             throw(ArgumentError("Missing required matrix parameter :$(spec.name)."))
-        elseif spec.scope === :zero_warn
+        elseif spec.missing_policy === :zero_warn
             @warn "Missing matrix parameter :$(spec.name); replacing with zeros." maxlog=1
         end
         return zeros(FT, n, n)
@@ -378,7 +382,7 @@ function _resolve_matrix(::Type{FT}, spec::ParamSpec, ctx, vectors;
     (val isa AbstractMatrix) || throw(ArgumentError("Matrix parameter :$(spec.name) must be a matrix."))
     size(val, 1) == n && size(val, 2) == n || throw(ArgumentError("Matrix :$(spec.name) must be size ($n,$n)."))
 
-    return FT.(val)
+    return spec.value_kind === :bool ? Bool.(val) : FT.(val)
 end
 
 """Resolve only parameters required by the constructed equations.
@@ -394,6 +398,14 @@ function resolve_runtime_parameters(
     registry=nothing,
 )
     reg = (registry === nothing ? parameter_registry(factory) : registry)
+
+    # Guardrail: a parameter key must not be required in multiple shapes (scalar/vector/matrix).
+    all_keys = vcat(requirements.scalars, requirements.vectors, requirements.matrices)
+    if length(all_keys) != length(unique(all_keys))
+        dup = [k for k in unique(all_keys) if count(==(k), all_keys) > 1]
+        throw(ArgumentError("Parameter keys appear in multiple shapes (scalar/vector/matrix): $(dup)"))
+    end
+
 
     # What the equations actually need.
     vector_keys = unique(requirements.vectors)

@@ -33,9 +33,9 @@ So when you add new parameters, you typically **extend the registry** (with `Par
 Agate no longer encodes missing behaviour in the *equation syntax*.
 Instead, each `ParamSpec` in the parameter registry declares how missing values are handled during CPU resolution:
 
-- `scope = :fail` — missing/`nothing` is an error
-- `scope = :zero_warn` — replace with `0`/`false` and warn
-- `scope = :zero_silent` — replace with `0`/`false` silently
+- `missing_policy = :fail` — missing/`nothing` is an error
+- `missing_policy = :zero_warn` — replace with `0`/`false` and warn
+- `missing_policy = :zero_silent` — replace with `0`/`false` silently
 
 This keeps the equation authoring surface clean and GPU-safe.
 

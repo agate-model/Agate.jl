@@ -66,7 +66,7 @@ end
 # ```
 #
 # For groups that don’t consume detritus, these parameters are missing.
-# We will declare them in the parameter registry with `scope=:zero_silent` so missing entries become zeros.
+# We will declare them in the parameter registry with `missing_policy=:zero_silent` so missing entries become zeros.
 
 function detritus_with_heterotrophs(plankton_syms::AbstractVector{Symbol})
     linear_sum = linear_loss_sum(PV, plankton_syms)
@@ -136,14 +136,14 @@ extra_specs = [
         1 / day,
         "Maximum detritus uptake rate for detritivorous heterotrophs.",
         (H = AllometricParam(PowerLaw(); prefactor=1.5 / day, exponent=-0.15),);
-        scope=:zero_silent,
+        missing_policy=:zero_silent,
     ),
     ParamSpec(
         :detritus_half_saturation,
         1,
         "Half-saturation constant for heterotroph detritus uptake.",
         (H = 0.04,);
-        scope=:zero_silent,
+        missing_policy=:zero_silent,
     ),
 ]
 

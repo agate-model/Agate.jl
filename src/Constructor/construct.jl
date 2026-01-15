@@ -60,7 +60,7 @@ function _apply_interactions_to_registry(ctx, registry, overrides::NamedTuple)
         else
             # Allow extending the registry with new matrices via `interactions`.
             if endswith(k_str, "_matrix")
-                push!(new_specs, Parameters.ParamSpec(k, "Interaction matrix provided via `interactions`.", v; scope=:community, kind=:real))
+                push!(new_specs, Parameters.ParamSpec(k, "Interaction matrix provided via `interactions`.", v; missing_policy=:zero_silent, value_kind=:real))
                 push!(known, k)
             else
                 throw(ArgumentError("interactions: unknown parameter key :$k (not present in registry)."))
