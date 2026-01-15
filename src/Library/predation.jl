@@ -1,6 +1,6 @@
 module Predation
 
-using ..Equations: AExpr, req, merge_requirements, Σ, _to_aexpr
+using ..Equations: AExpr, req, merge_requirements, sum_over, _to_aexpr
 using ...ParamVars
 
 const PV = ParamVars
@@ -338,7 +338,7 @@ function grazing_loss(
     half::Symbol=:holling_half_saturation,
     palat::Symbol=:palatability_matrix,
 )
-    return Σ(plankton_syms) do predator_sym, predator_idx
+    return sum_over(plankton_syms) do predator_sym, predator_idx
         _call(
             :predation_loss_preferential,
             prey_sym,
@@ -368,7 +368,7 @@ function grazing_gain(
     half::Symbol=:holling_half_saturation,
     palat::Symbol=:palatability_matrix,
 )
-    return Σ(plankton_syms) do prey_sym, prey_idx
+    return sum_over(plankton_syms) do prey_sym, prey_idx
         _call(
             :predation_gain_preferential,
             prey_sym,
@@ -397,8 +397,8 @@ function grazing_assimilation_loss(
     half::Symbol=:holling_half_saturation,
     palat::Symbol=:palatability_matrix,
 )
-    return Σ(plankton_syms) do predator_sym, predator_idx
-        Σ(plankton_syms) do prey_sym, prey_idx
+    return sum_over(plankton_syms) do predator_sym, predator_idx
+        sum_over(plankton_syms) do prey_sym, prey_idx
             _call(
                 :predation_assimilation_loss_preferential,
                 prey_sym,

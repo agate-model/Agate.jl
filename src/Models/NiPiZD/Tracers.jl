@@ -10,7 +10,7 @@ module Tracers
 
 using ....ParamVars
 const PV = ParamVars
-using Agate.Library.Equations: Equation, Σ
+using Agate.Library.Equations: Equation, sum_over
 
 using Agate.Library.Mortality: linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
 using Agate.Library.Predation: grazing_loss, grazing_gain, grazing_assimilation_loss
@@ -27,11 +27,11 @@ export phytoplankton_default,
 
 # --- internal helpers ---------------------------------------------------------
 
-_growth_sum(plankton_syms) = Σ(plankton_syms) do sym, i
+_growth_sum(plankton_syms) = sum_over(plankton_syms) do sym, i
     growth_single_nutrient(:N, sym, :PAR, i)
 end
 
-_growth_sum_geider(plankton_syms) = Σ(plankton_syms) do sym, i
+_growth_sum_geider(plankton_syms) = sum_over(plankton_syms) do sym, i
     growth_single_nutrient_geider(:N, sym, :PAR, i)
 end
 

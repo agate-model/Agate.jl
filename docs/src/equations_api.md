@@ -39,12 +39,12 @@ Instead, each `ParamSpec` in the parameter registry declares how missing values 
 
 This keeps the equation authoring surface clean and GPU-safe.
 
-## `Σ`: symbolic sum builder
+## `sum_over`: symbolic sum builder
 
-`Σ` expands a list of terms into a plain `Expr` sum at construction time.
+`sum_over` expands a list of terms into a plain `Expr` sum at construction time.
 
 ```julia
-loss_sum = Σ(plankton_syms) do sym, i
+loss_sum = sum_over(plankton_syms) do sym, i
     PV.linear_mortality[i] * sym
 end
 ```
@@ -56,7 +56,7 @@ This is a construction-time helper only: loops are unrolled into the final expre
 All plankton and biogeochemical dynamics builders must return an `Equation`.
 
 - `Equation` cannot be constructed from a raw `Expr`.
-- Use library building blocks (or parameter identifiers and `Σ`) to assemble expressions.
+- Use library building blocks (or parameter identifiers and `sum_over`) to assemble expressions.
 
 Example: a detritivorous heterotroph growth tendency
 

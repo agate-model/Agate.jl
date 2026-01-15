@@ -1,6 +1,6 @@
 module Mortality
 
-using ..Equations: AExpr, Σ
+using ..Equations: AExpr, sum_over
 using ...ParamVars
 
 # Canonical parameter placeholder namespace.
@@ -89,7 +89,7 @@ Build an allocation-free `Expr` summing linear mortality over all plankton symbo
 The expression expects the runtime container `linear_mortality` to be in scope (a vector of length `n_total`).
 """
 function linear_loss_sum(plankton_syms::AbstractVector{Symbol})
-    return Σ(plankton_syms) do sym, i
+    return sum_over(plankton_syms) do sym, i
         PV.linear_mortality[i] * sym
     end
 end
@@ -102,7 +102,7 @@ Build an allocation-free `Expr` summing quadratic mortality over all plankton sy
 The expression expects the runtime container `quadratic_mortality` to be in scope (a vector of length `n_total`).
 """
 function quadratic_loss_sum(plankton_syms::AbstractVector{Symbol})
-    return Σ(plankton_syms) do sym, i
+    return sum_over(plankton_syms) do sym, i
         # Avoid evaluating `sym * sym` at construction time; build it symbolically.
         PV.quadratic_mortality[i] * sym * sym
     end

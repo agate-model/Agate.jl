@@ -24,7 +24,7 @@ Design notes
 Public API:
 - `declare_parameter_vars!(mod, names; export_vars=true)` — programmatic placeholder
   declaration (used by `construct` to declare `Agate.ParamVars`).
-- `Σ(items) do sym, idx ... end` — construction-time symbolic sum builder.
+- `sum_over(items) do sym, idx ... end` — construction-time symbolic sum builder.
 - `Equation(::AExpr)` — wrapper returned by dynamics builders.
 
 The old `group_param`/`community_param` distinction is intentionally removed;
@@ -39,7 +39,7 @@ using Logging
 export Requirements, req, merge_requirements
 export AExpr, Equation, expr, requirements
 export ParamVar, declare_parameter_vars!
-export Σ
+export sum_over
 
 # -----------------------------------------------------------------------------
 # Requirements
@@ -230,17 +230,17 @@ Base.:^(a::AExpr, b) = _binop(:^, a, b)
 Base.:^(a, b::AExpr) = _binop(:^, a, b)
 
 # -----------------------------------------------------------------------------
-# Σ sum builder (construction-time only)
+# sum_over sum builder (construction-time only)
 # -----------------------------------------------------------------------------
 
 """\
-    Σ(items) do sym, idx
+    sum_over(items) do sym, idx
         ... -> AExpr
     end
 
 Build a symbolic unrolled sum over `items` (construction-time only).
 """
-function Σ(items, f::Function)
+function sum_over(items, f::Function)
     nodes = Any[]
     merged = req()
 
@@ -255,7 +255,7 @@ function Σ(items, f::Function)
 end
 
 # Defensive swapped-argument-order method for do-block parsing oddities.
-@inline Σ(f::Function, items) = Σ(items, f)
+@inline sum_over(f::Function, items) = sum_over(items, f)
 
 # -----------------------------------------------------------------------------
 # Equation wrapper

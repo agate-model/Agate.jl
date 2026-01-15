@@ -12,7 +12,7 @@
 using Agate
 using Agate.Utils.Specifications: PFTSpecification
 using Agate.Library.Allometry: AllometricParam, PowerLaw
-using Agate.Library.Equations: Equation, Σ
+using Agate.Library.Equations: Equation, sum_over
 using Agate.Library.Mortality: linear_loss, linear_loss_sum, quadratic_loss_sum
 using Agate.Library.Predation: grazing_loss, grazing_assimilation_loss
 using Agate.Library.Light: FunctionFieldPAR
@@ -59,8 +59,10 @@ end
 # NiPiZD’s default detritus tendency does not include detrital uptake.
 # Here we define a local tendency that adds a sink term:
 #
-# ```
-# Σᵢ maximum_detritus_uptake_rate[i] * monod(D, detritus_half_saturation[i]) * plankton[i]
+# ```julia
+# sum_over(plankton_syms) do sym, i
+#     maximum_detritus_uptake_rate[i] * monod(D, detritus_half_saturation[i]) * sym
+# end
 # ```
 #
 # For groups that don’t consume detritus, these parameters are missing.
@@ -74,7 +76,7 @@ function detritus_with_heterotrophs(plankton_syms::AbstractVector{Symbol})
     export_frac = PV.mortality_export_fraction
     remin = PV.detritus_remineralization * :D
 
-    uptake_sum = Σ(plankton_syms) do sym, i
+    uptake_sum = sum_over(plankton_syms) do sym, i
         PV.maximum_detritus_uptake_rate[i] *
         monod(:D, PV.detritus_half_saturation[i]) *
         sym
@@ -182,7 +184,7 @@ box = BoxModel(; biogeochemistry=bgc_model)
 set!(box; N=7.0, D=0.05, Z1=0.02, Z2=0.02, P1=0.01, P2=0.01, H1=0.01)
 
 # ### Mass balance test
-# For this closed box, total mass `N + D + Σ(plankton)` should be conserved
+# For this closed box, total mass (N + D + total plankton) should be conserved
 # (up to time-integration error).
 
 function total_mass(box)

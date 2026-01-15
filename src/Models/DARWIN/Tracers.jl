@@ -10,7 +10,7 @@ module Tracers
 
 using ....ParamVars
 const PV = ParamVars
-using Agate.Library.Equations: Equation, Σ
+using Agate.Library.Equations: Equation, sum_over
 
 using Agate.Library.Mortality: linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
 using Agate.Library.Predation: grazing_loss, grazing_gain, grazing_assimilation_loss
@@ -34,7 +34,7 @@ export DIC_geider_light,
 # ----------------------------------------------------------------------------
 
 """Sum photosynthetic growth across all plankton."""
-_growth_sum(plankton_syms) = Σ(plankton_syms) do sym, i
+_growth_sum(plankton_syms) = sum_over(plankton_syms) do sym, i
     growth_two_nutrients_geider(:DIN, :PO4, sym, :PAR, i)
 end
 
