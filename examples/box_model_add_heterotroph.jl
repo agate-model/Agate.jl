@@ -34,16 +34,14 @@ nothing #hide
 # Here, `H` grows from detritus `D` with a Monod-style limitation,
 # is grazed by predators (`Z`), and experiences linear mortality.
 #
-#+#+#+#+
-# Parameter placeholders live under the canonical namespace `Agate.ParamVars`.
-# When we extend the parameter registry below, `construct` will declare the
-# required placeholders in `Agate.ParamVars` automatically.
+# Parameter placeholders are passed in as the first argument `PV`.
+# When we extend the parameter registry below, `construct` will build `PV`
+# with the required placeholders automatically.
 
-const PV = Agate.ParamVars
 
 @inline monod(D, k) = D / (D + k)
 
-function heterotroph_growth(plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int)
+function heterotroph_growth(PV, plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int)
     uptake = PV.maximum_detritus_uptake_rate[plankton_idx] *
              monod(:D, PV.detritus_half_saturation[plankton_idx]) *
              plankton_sym
@@ -68,7 +66,7 @@ end
 # For groups that don’t consume detritus, these parameters are missing.
 # We will declare them in the parameter registry with `missing_policy=:zero_silent` so missing entries become zeros.
 
-function detritus_with_heterotrophs(plankton_syms::AbstractVector{Symbol})
+function detritus_with_heterotrophs(PV, plankton_syms::AbstractVector{Symbol})
     linear_sum = linear_loss_sum(PV, plankton_syms)
     quadratic_sum = quadratic_loss_sum(PV, plankton_syms)
     assimilation_loss_sum = grazing_assimilation_loss(PV, plankton_syms)

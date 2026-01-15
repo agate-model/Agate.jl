@@ -9,15 +9,9 @@ At runtime (CPU or GPU), the model executes a normal `Expr` containing only arit
 
 ## Parameter references: `PV.<name>`
 
-Dynamics authors write equations using **parameter placeholders** from the canonical namespace `Agate.ParamVars`.
+Dynamics authors write equations using **parameter placeholders** passed in as the first argument `PV`.
 
-Create a short alias once:
-
-```julia
-const PV = Agate.ParamVars
-```
-
-Then reference parameters explicitly through `PV`:
+Dynamics builders accept a first argument `PV` (provided by `construct`). Reference parameters through `PV`:
 
 - Scalars: `PV.detritus_remineralization`
 - Per-size-class vectors: `PV.maximum_predation_rate[i]`
@@ -25,8 +19,7 @@ Then reference parameters explicitly through `PV`:
 
 These `PV.<name>` bindings are small placeholders (`ParamVar`) that record requirements when indexed.
 
-During `construct`, Agate declares all placeholders in `Agate.ParamVars` from the active parameter registry.
-So when you add new parameters, you typically **extend the registry** (with `ParamSpec`s) and keep writing equations using `PV.<name>` — no extra declaration step.
+During `construct`, Agate builds `PV` from the active parameter registry. So when you add new parameters, you typically **extend the registry** (with `ParamSpec`s) and keep writing equations using `PV.<name>` — no extra declaration step.
 
 ## Missing / `nothing` policy
 
@@ -44,8 +37,10 @@ This keeps the equation authoring surface clean and GPU-safe.
 `sum_over` expands a list of terms into a plain `Expr` sum at construction time.
 
 ```julia
-loss_sum = sum_over(plankton_syms) do sym, i
-    PV.linear_mortality[i] * sym
+function mortality_sum(PV, plankton_syms)
+    return sum_over(plankton_syms) do sym, i
+        PV.linear_mortality[i] * sym
+    end
 end
 ```
 
@@ -67,7 +62,7 @@ using Agate.Library.Predation: grazing_loss
 
 @inline monod(D, k) = D / (D + k)
 
-function heterotroph_growth(plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int)
+function heterotroph_growth(PV, plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int)
     uptake = PV.maximum_detritus_uptake_rate[plankton_idx] *
              monod(:D, PV.detritus_half_saturation[plankton_idx]) *
              plankton_sym

@@ -20,9 +20,22 @@ import Agate.Models
 # For qualified calls inside registry update helpers.
 import Agate.Parameters
 using Agate.Equations: Equation, expr, requirements, req, merge_requirements
-using Agate.Equations: declare_parameter_vars!
+using Agate.Equations: ParamVar
 using Agate.Library.Allometry: allometric_palatability_unimodal_protection
-import Agate.ParamVars
+
+# Local construction-time parameter placeholder namespace.
+#
+# Equation builders accept a first argument `PV` and reference placeholders as `PV.<name>`.
+# We construct `PV` as a `NamedTuple` of `ParamVar{:<name>}` values so equation authors can
+# keep the terse `PV.foo[i]` syntax without relying on a global module namespace.
+@inline function parameter_vars(names::AbstractVector{Symbol})
+    vals = map(names) do name
+        # Create ParamVar{name} at runtime.
+        Core.apply_type(ParamVar, name)()
+    end
+    NT = NamedTuple{Tuple(names)}
+    return NT(Tuple(vals))
+end
 using Agate.Parameters:    resolve_runtime_parameters,
     parameter_registry
 
@@ -133,10 +146,8 @@ function construct(
     overrides = normalize_interactions(factory, FT, ctx, interactions)
     final_registry = _apply_interactions_to_registry(ctx, registry, overrides)
 
-    # Ensure canonical parameter placeholders exist for the final registry.
-    # Equation authoring (Library + user extensions) should reference parameters as
-    # `PV.<name>` where `const PV = Agate.ParamVars`.
-    declare_parameter_vars!(ParamVars, map(s -> s.name, final_registry.specs); export_vars=false)
+    # Construction-time parameter placeholder namespace.
+    PV = parameter_vars(map(s -> s.name, final_registry.specs))
 
     # ---------------------------------------------------------------------
     # Build tracer expressions and collect parameter requirements.
@@ -151,7 +162,7 @@ function construct(
     merged = req()
 
     for (_, f) in pairs(biogeochem_dynamics)
-        eq = f(plankton_syms)
+        eq = f(PV, plankton_syms)
         eq isa Equation || throw(ArgumentError("biogeochem dynamics $(nameof(f)) must return Equation"))
         push!(tracer_exprs, expr(eq))
         merged = merge_requirements(merged, requirements(eq))
@@ -162,7 +173,7 @@ function construct(
         f = getfield(plankton_dynamics, g)
         tr = plankton_syms[idx]
 
-        eq = f(plankton_syms, tr, idx)
+        eq = f(PV, plankton_syms, tr, idx)
         eq isa Equation || throw(ArgumentError("plankton dynamics $(nameof(f)) must return Equation"))
         push!(tracer_exprs, expr(eq))
 

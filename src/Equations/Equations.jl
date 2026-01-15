@@ -8,12 +8,9 @@ Constructor. Objects defined here are used *only at construction time*.
 
 Design notes
 ------------
-- Dynamics authors write equations using explicit parameter placeholders from a
-  canonical namespace, typically:
-
-  `const PV = Agate.ParamVars`
-
-  and then `PV.maximum_growth_rate[i]` or `PV.detritus_remineralization`.
+- Dynamics authors write equations as functions that accept a `PV` placeholder
+  namespace (passed in by `construct`) and then use `PV.<name>` references like
+  `PV.maximum_growth_rate[i]` or `PV.detritus_remineralization`.
 
 - Those `PV.<name>` bindings are small `ParamVar` placeholders.
 - When a `ParamVar` is indexed, it produces an `AExpr` node and records a
@@ -22,8 +19,6 @@ Design notes
   placeholders never enter kernels.
 
 Public API:
-- `declare_parameter_vars!(mod, names; export_vars=true)` — programmatic placeholder
-  declaration (used by `construct` to declare `Agate.ParamVars`).
 - `sum_over(items) do sym, idx ... end` — construction-time symbolic sum builder.
 - `Equation(::AExpr)` — wrapper returned by dynamics builders.
 
@@ -37,7 +32,7 @@ using Logging
 
 export Requirements, req, merge_requirements
 export AExpr, Equation, expr, requirements
-export ParamVar, declare_parameter_vars!
+export ParamVar
 export sum_over
 
 # -----------------------------------------------------------------------------
@@ -121,25 +116,6 @@ A `ParamVar` behaves like a scalar/array reference during equation authoring:
 At runtime, the generated tracer methods bind `K` to a numeric value/array.
 """
 struct ParamVar{K} end
-
-"""Programmatically declare placeholders in `mod` for the given `names`.
-
-If `export_vars=true`, also exports each declared name from `mod`.
-"""
-function declare_parameter_vars!(mod::Module, names::AbstractVector{Symbol}; export_vars::Bool=true)
-    for name in names
-        # Skip if already defined to avoid clobbering user bindings.
-        if isdefined(mod, name)
-            @warn "Parameter var $(name) already defined in $(mod); skipping." maxlog=1
-            continue
-        end
-        Core.eval(mod, :(const $(name) = $(Equations).ParamVar{$(QuoteNode(name))}()))
-        if export_vars
-            Core.eval(mod, :(export $(name)))
-        end
-    end
-    return nothing
-end
 
 @inline function _to_aexpr(x)
     return x isa AExpr ? x : AExpr(x, req())

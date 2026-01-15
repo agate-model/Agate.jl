@@ -1,7 +1,6 @@
 module Agate
 
 include("Equations/Equations.jl")
-include("ParamVars/ParamVars.jl")
 include("Library/Library.jl")
 include("Utils/Utils.jl")
 include("Parameters/Parameters.jl")
@@ -11,7 +10,6 @@ include("Constructor/Constructor.jl")
 using .Library
 using .Utils
 using .Parameters
-using .ParamVars
 using .Equations
 using .Models
 using .Constructor
@@ -21,7 +19,6 @@ export Models
 export Utils
 export Constructor
 export Parameters
-export ParamVars
 export Equations
 
 # Re-export primary user-facing API
