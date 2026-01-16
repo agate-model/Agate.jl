@@ -24,17 +24,28 @@ bgc_f32 = construct(NiPiZDFactory(); FT=Float32)
 To adapt the constructed instance to a GPU backend, either:
 
 - adapt yourself (explicit and transparent), or
-- pass `backend` to `construct` (convenient for notebooks/examples).
+- construct directly on a GPU architecture via `arch=GPU()`.
 
 ```julia
 using Adapt
 using CUDA
+using Oceananigans.Architectures: GPU
 
 bgc = construct(NiPiZDFactory())
 bgc_gpu = Adapt.adapt(CuArray, bgc)
 
-# or
-bgc_gpu2 = construct(NiPiZDFactory(); backend=CuArray)
+# or (recommended when using Oceananigans/OceanBioME)
+bgc_gpu2 = construct(NiPiZDFactory(); FT=Float32, arch=GPU())
+```
+
+## Introspection helpers
+
+For interactive work (REPL/notebooks), Agate provides small helpers to discover
+the model surface:
+
+```julia
+names = tracer_names(bgc)                 # Vector{Symbol}
+pars  = parameter_names(bgc)              # Vector{Symbol}
 ```
 
 ## Structural defaults vs parameter defaults
@@ -92,10 +103,16 @@ Unknown keys should error (typo protection).
 ```@docs
 Agate.construct
 Agate.default_community
+Agate.tracer_names
+Agate.parameter_names
+Agate.required_parameters
 Agate.update_community
 Agate.extend_community
 Agate.parameter_registry
 Agate.update_registry
 Agate.extend_registry
+Agate.update_dynamics
+Agate.extend_dynamics
+Agate.define_tracer_functions
 Agate.Constructor.patch
 ```

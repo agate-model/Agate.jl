@@ -133,8 +133,9 @@ bgc_model = Biogeochemistry(bgc_custom; light_attenuation=light)
 
 box = BoxModel(; biogeochemistry=bgc_model)
 
-# With custom `community`, the tracer names (and count) can change. For this example we know
-# the configuration is: `N`, `D`, `Z1`, `P1`, `P2`, `P3`.
+# With custom `community`, the tracer names (and count) can change.
+println(tracer_names(bgc_custom))
+
 set!(box; N=7.0, D=0.05, Z1=0.02, P1=0.01, P2=0.01, P3=0.01)
 
 filename = "box_factories.jld2"

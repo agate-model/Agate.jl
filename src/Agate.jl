@@ -6,6 +6,7 @@ include("Utils/Utils.jl")
 include("Parameters/Parameters.jl")
 include("Models/Models.jl")
 include("Constructor/Constructor.jl")
+include("Introspection.jl")
 
 using .Library
 using .Utils
@@ -29,5 +30,10 @@ export update_community, extend_community, update_dynamics, extend_dynamics
 export NiPiZDFactory, DarwinFactory
 
 export define_tracer_functions
+
+# Newcomer UX helpers
+export tracer_names
+export parameter_names
+export required_parameters
 
 end # module

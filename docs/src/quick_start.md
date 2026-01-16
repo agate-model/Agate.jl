@@ -26,6 +26,10 @@ Here, we use a default 2 phytoplankton, 2 zooplankton `Agate.jl-NiPiZD` ecosyste
 
 bgc = construct(NiPiZDFactory())
 nothing #hide
+
+# Inspect the required tracer names.
+println(tracer_names(bgc))
+nothing #hide
 ```
 
 Next, we define a light function, here we use a default seasonal PAR curve:
@@ -73,29 +77,27 @@ nothing #hide
 
 ```@example quickstart
 
-tracers = ["P1", "P2", "Z1", "Z2", "D", "N"]
+tracer_syms = tracer_names(bgc)
 
 # Extract data for plotting
-timeseries = NamedTuple{(:P1, :P2, :Z1, :Z2, :D, :N)}(
-    FieldTimeSeries(filename, field)[1, 1, 1, :] for field in tracers
-)
+timeseries = (; (s => FieldTimeSeries(filename, string(s))[1, 1, 1, :] for s in tracer_syms)...)
 nothing #hide
 
 # Create a figure
-times = FieldTimeSeries(filename, "P1").times
+times = FieldTimeSeries(filename, string(first(tracer_syms))).times
 
 fig = Figure(; size=(1200, 800), fontsize=24)
 
 axs = []
-for (idx, name) in enumerate(tracers)
+for (idx, sym) in enumerate(tracer_syms)
     ax = Axis(
         fig[floor(Int, (idx - 1) / 2), Int((idx - 1) % 2)];
-        ylabel=name,
+        ylabel=string(sym),
         xlabel="Days",
-        title="$name concentration (mmol N / m³)",
+        title="$(sym) concentration (mmol N / m³)",
     )
     push!(axs, ax)
-    lines!(ax, times / day, getproperty(timeseries, Symbol(name)); linewidth=3)
+    lines!(ax, times / day, getproperty(timeseries, sym); linewidth=3)
 end
 
 fig

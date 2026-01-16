@@ -177,7 +177,8 @@ bgc_model = Biogeochemistry(bgc; light_attenuation=light)
 box = BoxModel(; biogeochemistry=bgc_model)
 
 # With the default NiPiZD community (`Z1`, `Z2`, `P1`, `P2`) plus our new group (`H1`),
-# the plankton tracers are: `Z1`, `Z2`, `P1`, `P2`, `H1`.
+# the tracer list includes `:H1`.
+println(tracer_names(bgc))
 
 set!(box; N=7.0, D=0.05, Z1=0.02, Z2=0.02, P1=0.01, P2=0.01, H1=0.01)
 
@@ -186,7 +187,7 @@ set!(box; N=7.0, D=0.05, Z1=0.02, Z2=0.02, P1=0.01, P2=0.01, H1=0.01)
 # (up to time-integration error).
 
 function total_mass(box)
-    tracers = (:N, :D, :Z1, :Z2, :P1, :P2, :H1)
+    tracers = tracer_names(bgc)
     s = 0.0
     for name in tracers
         s += getproperty(box.fields, name)[1, 1, 1]
