@@ -117,8 +117,12 @@ Provide them via the `interactions` keyword as either:
 For any **matrix-shaped parameter** in the active registry, the override value may be:
 
 - a concrete matrix (validated for size immediately),
-- a function `f(ctx, deps) -> AbstractMatrix` (shorthand for `MatrixFn(f; deps=[])`), or
+- a function `f(ctx, depvals) -> AbstractMatrix` (shorthand for `MatrixFn(f; deps=[])`), or
 - `MatrixFn(f; deps=[...])` to declare explicit parameter dependencies for derived matrices.
+
+For `MatrixFn`, dependency values are passed positionally as `depvals::Tuple` in the same order
+as `deps=...`. Matrix providers may only depend on scalar and vector parameters (matrix-to-matrix
+dependencies are rejected).
 
 ### Strictness
 

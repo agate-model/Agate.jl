@@ -58,21 +58,14 @@ end
 
 # ---- Scalar items -----------------------------------------------------------
 
-"""Scalar literal provider."""
-struct ScalarValue{T}
-    value::T
-end
+"""Union type for scalar items used inside vector-shaped parameters.
 
-"""Scalar item backed by an allometric definition.
-
-Allometric items are only meaningful inside vector-shaped parameters.
+Scalar items may be:
+- `Number` / `Bool` literals
+- `AbstractParamDef` allometric definitions
+- `nothing` (interpreted according to `missing_policy`)
 """
-struct ScalarAllometric{D<:AbstractParamDef}
-    def::D
-end
-
-"""Union type for scalar items used in vector fills and group maps."""
-const ScalarItem = Union{Nothing,ScalarValue,ScalarAllometric}
+const ScalarItem = Union{Nothing,Number,Bool,AbstractParamDef}
 
 # ---- Vector providers -------------------------------------------------------
 
@@ -97,31 +90,32 @@ end
 
 Derived matrix provider with explicit dependencies.
 
-`f` is called during parameter resolution as `f(ctx, deps)` where `deps` is a
-`NamedTuple` with fields listed in `deps=...`. Use `deps=[]` for no dependencies.
+`f` is called during parameter resolution as `f(ctx, depvals)` where `depvals` is an
+`NTuple` of dependency values in the same order as `deps=...`.
 
 Use `MatrixFn` to build interaction matrices from other resolved parameters without
 hardcoding special cases in the resolver.
 """
-struct MatrixFn{F,Deps}
+struct MatrixFn{F,N}
     f::F
+    deps::NTuple{N,Symbol}
 end
 
 """    MatrixFn(f; deps=Symbol[])
 
 Create a derived matrix provider with explicit dependencies.
 
-`deps` is converted to a tuple of `Symbol`s and stored in the provider type so dependency
-resolution does not allocate or rely on name-based special casing.
+`deps` is stored as an `NTuple{N,Symbol}`. Dependency values are passed positionally to
+`f(ctx, depvals)`.
 """
 function MatrixFn(f; deps=Symbol[])
     deps_tuple = Tuple(Symbol(d) for d in deps)
-    return MatrixFn{typeof(f), deps_tuple}(f)
+    return MatrixFn{typeof(f), length(deps_tuple)}(f, deps_tuple)
 end
 
 """Return declared dependencies for a provider."""
 deps(::Any) = ()
-deps(::MatrixFn{F,Deps}) where {F,Deps} = Deps
+deps(p::MatrixFn) = p.deps
 
 # ----------------------------------------------------------------------------
 # Provider normalization (strict-by-default)
@@ -130,15 +124,11 @@ deps(::MatrixFn{F,Deps}) where {F,Deps} = Deps
 @inline function _normalize_scalar_item(x)
     x === nothing && return nothing
 
-    if x isa ScalarValue || x isa ScalarAllometric
+    if x isa Number || x isa Bool || x isa AbstractParamDef
         return x
-    elseif x isa AbstractParamDef
-        return ScalarAllometric(x)
-    elseif x isa Number || x isa Bool
-        return ScalarValue(x)
-    else
-        throw(ArgumentError("Invalid scalar provider item $(typeof(x)). Expected a number/Bool or AbstractParamDef."))
     end
+
+    throw(ArgumentError("Invalid scalar provider item $(typeof(x)). Expected a number/Bool or AbstractParamDef."))
 end
 
 function _normalize_vector_provider(x)
@@ -177,10 +167,10 @@ function _normalize_matrix_provider(x)
         return x
     elseif x isa Function
         # Shorthand: treat a bare function as a derived provider with no declared deps.
-        # The callable must support the canonical signature `f(ctx, deps::NamedTuple)`.
+        # The callable must support the canonical signature `f(ctx, depvals::Tuple)`.
         return MatrixFn(x; deps=Symbol[])
     else
-        throw(ArgumentError("Invalid matrix provider $(typeof(x)). Expected AbstractMatrix, MatrixFn, or function f(ctx, deps)."))
+        throw(ArgumentError("Invalid matrix provider $(typeof(x)). Expected AbstractMatrix, MatrixFn, or function f(ctx, depvals)."))
     end
 end
 
@@ -190,17 +180,15 @@ function normalize_provider(shape::Symbol, x)
     if shape === :scalar
         x === nothing && return nothing
 
-        if x isa ScalarValue
-            return x
-        elseif x isa Function
-            throw(ArgumentError("Scalar parameters do not accept function providers. Provide a numeric literal."))
+        if x isa Function
+            throw(ArgumentError("Scalar parameters do not accept function providers. Provide a number/Bool."))
         elseif x isa Number || x isa Bool
-            return ScalarValue(x)
+            return x
         elseif x isa AbstractParamDef
             throw(ArgumentError("Allometric providers are not valid scalar defaults; use them inside vector-shaped parameters."))
-        else
-            throw(ArgumentError("Invalid scalar provider $(typeof(x)). Expected number/Bool."))
         end
+
+        throw(ArgumentError("Invalid scalar provider $(typeof(x)). Expected number/Bool."))
 
     elseif shape === :vector
         return _normalize_vector_provider(x)
@@ -287,7 +275,7 @@ vector_param(name::Symbol, doc::AbstractString, default; missing_policy::Symbol=
 
 Create a matrix parameter specification.
 
-`default` may be a concrete matrix, a `MatrixFn(f; deps=[...])`, or a function shorthand `f(ctx, deps)` (normalized to `MatrixFn(f; deps=[])`).
+`default` may be a concrete matrix, a `MatrixFn(f; deps=[...])`, or a function shorthand `f(ctx, depvals)` (normalized to `MatrixFn(f; deps=[])`).
 """
 matrix_param(name::Symbol, doc::AbstractString, default; missing_policy::Symbol=:fail, value_kind::Symbol=:real) =
     ParamSpec(name, :matrix, doc, default; missing_policy=missing_policy, value_kind=value_kind)
@@ -425,13 +413,6 @@ end
     return nothing
 end
 
-function _resolve_scalar_provider(::Type{FT}, spec::ParamSpec, ctx, p) where {FT<:AbstractFloat}
-    if p isa ScalarValue
-        return coerce_value(FT, spec.value_kind, p.value)    else
-        throw(ArgumentError("Internal error: unsupported scalar provider $(typeof(p)) for :$(spec.name)."))
-    end
-end
-
 function _resolve_scalar(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFloat}
     spec.shape === :scalar || throw(ArgumentError("Internal error: :$(spec.name) is not a scalar spec."))
 
@@ -445,20 +426,23 @@ function _resolve_scalar(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
         return _missing_value(FT, _is_bool(spec))
     end
 
-    return _resolve_scalar_provider(FT, spec, ctx, p)
+    if p isa Number || p isa Bool
+        return coerce_value(FT, spec.value_kind, p)
+    end
+    throw(ArgumentError("Internal error: unsupported scalar provider $(typeof(p)) for :$(spec.name)."))
 end
 
 @inline function _resolve_scalar_item(::Type{FT}, spec::ParamSpec, ctx, idx::Int, p) where {FT<:AbstractFloat}
     p === nothing && return _missing_value(FT, _is_bool(spec))
 
-    if p isa ScalarValue
-        return coerce_value(FT, spec.value_kind, p.value)
-    elseif p isa ScalarAllometric
-        val = resolve_param(FT, p.def, ctx.diameters[idx])
+    if p isa Number || p isa Bool
+        return coerce_value(FT, spec.value_kind, p)
+    elseif p isa AbstractParamDef
+        val = resolve_param(FT, p, ctx.diameters[idx])
         return coerce_value(FT, spec.value_kind, val)
-    else
-        throw(ArgumentError("Internal error: unsupported vector item provider $(typeof(p)) for :$(spec.name)."))
     end
+
+    throw(ArgumentError("Internal error: unsupported vector item provider $(typeof(p)) for :$(spec.name)."))
 end
 
 """Resolve a vector parameter over the full plankton community.
@@ -493,7 +477,7 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
             out[i] = coerce_value(FT, spec.value_kind, v[i])
         end
 
-    elseif p isa ScalarValue || p isa ScalarAllometric
+    elseif p isa Number || p isa Bool || p isa AbstractParamDef
         @inbounds for i in 1:n
             out[i] = _resolve_scalar_item(FT, spec, ctx, i, p)
         end
@@ -546,15 +530,6 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
     return out
 end
 
-@inline function _deps_namedtuple(::Val{Deps}, resolved::Dict{Symbol,Any}) where {Deps}
-    vals = ntuple(i -> begin
-        k = Deps[i]
-        haskey(resolved, k) || throw(ArgumentError("Matrix provider dependency :$k has not been resolved."))
-        resolved[k]
-    end, length(Deps))
-    return NamedTuple{Deps}(vals)
-end
-
 function _resolve_matrix(::Type{FT}, spec::ParamSpec, ctx, resolved::Dict{Symbol,Any}) where {FT<:AbstractFloat}
     spec.shape === :matrix || throw(ArgumentError("Internal error: :$(spec.name) is not a matrix spec."))
 
@@ -573,12 +548,17 @@ function _resolve_matrix(::Type{FT}, spec::ParamSpec, ctx, resolved::Dict{Symbol
     val = if p isa AbstractMatrix
         p
     elseif p isa MatrixFn
-        deps_nt = _deps_namedtuple(Val(deps(p)), resolved)
+        ds = deps(p)
+        depvals = ntuple(i -> begin
+            k = ds[i]
+            haskey(resolved, k) || throw(ArgumentError("Matrix provider dependency :$k has not been resolved."))
+            resolved[k]
+        end, length(ds))
         try
-            p.f(ctx, deps_nt)
+            p.f(ctx, depvals)
         catch e
             if e isa MethodError && e.f === p.f
-                throw(ArgumentError("MatrixFn for :$(spec.name) must support f(ctx, deps::NamedTuple)."))
+                throw(ArgumentError("MatrixFn for :$(spec.name) must support f(ctx, depvals::Tuple)."))
             end
             rethrow()
         end
@@ -596,22 +576,24 @@ end
 # Default derived interaction matrices
 # ----------------------------------------------------------------------------
 
-@inline function _default_palatability_matrix(ctx, deps)
+@inline function _default_palatability_matrix(ctx, depvals)
+    can_eat, optimum_predator_prey_ratio, specificity, protection = depvals
     return palatability_matrix_allometric(ctx.FT, ctx.diameters;
-        can_eat=deps.can_eat,
-        optimum_predator_prey_ratio=deps.optimum_predator_prey_ratio,
-        specificity=deps.specificity,
-        protection=deps.protection,
+        can_eat=can_eat,
+        optimum_predator_prey_ratio=optimum_predator_prey_ratio,
+        specificity=specificity,
+        protection=protection,
         palatability_fn=allometric_palatability_unimodal_protection,
     )
 end
 
-@inline function _default_assimilation_matrix(ctx, deps)
+@inline function _default_assimilation_matrix(ctx, depvals)
+    can_eat, can_be_eaten, assimilation_efficiency = depvals
     FT = eltype(ctx.diameters)
     return assimilation_efficiency_matrix_binary(FT;
-        can_eat=deps.can_eat,
-        can_be_eaten=deps.can_be_eaten,
-        assimilation_efficiency=deps.assimilation_efficiency,
+        can_eat=can_eat,
+        can_be_eaten=can_be_eaten,
+        assimilation_efficiency=assimilation_efficiency,
     )
 end
 
@@ -690,6 +672,13 @@ function resolve_runtime_parameters(
         spec = get(specs, k, nothing)
         isnothing(spec) && throw(ArgumentError("No ParamSpec found for :$k (required by provider dependencies)."))
         for d in deps(spec.provider)
+            dep_spec = get(specs, d, nothing)
+            isnothing(dep_spec) && throw(ArgumentError("No ParamSpec found for dependency :$d (required by :$k)."))
+            if spec.shape === :matrix && dep_spec.shape === :matrix
+                throw(ArgumentError(
+                    "Matrix parameter :$k declares matrix dependency :$d. MatrixFn providers may only depend on scalar/vector parameters.",
+                ))
+            end
             if !(d in needed)
                 push!(needed, d)
                 push!(queue, d)
@@ -710,29 +699,12 @@ function resolve_runtime_parameters(
         end
     end
 
-    # Resolve matrices in dependency order (supports matrix->matrix deps).
-    pending = Symbol[]
-    for k in needed
-        spec = get(specs, k, nothing)
-        spec !== nothing && spec.shape === :matrix && push!(pending, k)
-    end
-
-    while !isempty(pending)
-        progressed = false
-        new_pending = Symbol[]
-
-        for k in pending
-            spec = specs[k]
-            if all(haskey(resolved, d) for d in deps(spec.provider))
-                resolved[k] = _resolve_matrix(FT, spec, ctx, resolved)
-                progressed = true
-            else
-                push!(new_pending, k)
-            end
+    # Resolve matrices. Matrix providers are restricted to scalar/vector dependencies,
+    # so a single pass in registry order is sufficient.
+    for s in reg.specs
+        if s.shape === :matrix && (s.name in needed)
+            resolved[s.name] = _resolve_matrix(FT, s, ctx, resolved)
         end
-
-        progressed || throw(ArgumentError("Cyclic or unsatisfied matrix provider dependencies: $(new_pending)"))
-        pending = new_pending
     end
 
     # Build minimal runtime NamedTuple in stable order: vectors, matrices, scalars.
