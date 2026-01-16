@@ -15,11 +15,8 @@ using Agate
 bgc = construct(NiPiZDFactory())  # CPU instance by default
 ```
 
-If you need a different float type (for example, for GPU execution), specify `FT` explicitly:
-
-```julia
-bgc_f32 = construct(NiPiZDFactory(); FT=Float32)
-```
+Precision is determined by the **grid element type** when you pass `grid=...`.
+When no grid is provided, Agate constructs a `Float64` instance.
 
 To adapt the constructed instance to a GPU backend, either:
 
@@ -34,8 +31,24 @@ using Oceananigans.Architectures: GPU
 bgc = construct(NiPiZDFactory())
 bgc_gpu = Adapt.adapt(CuArray, bgc)
 
-# or (recommended when using Oceananigans/OceanBioME)
-bgc_gpu2 = construct(NiPiZDFactory(); FT=Float32, arch=GPU())
+# Or request a GPU instance directly.
+# (Precision remains `Float64` unless you pass a Float32 grid.)
+bgc_gpu2 = construct(NiPiZDFactory(); arch=GPU())
+```
+
+When interfacing with Oceananigans/OceanBioME, it is usually better to let the *host grid/model*
+choose precision and architecture. Pass the grid you will use; Agate infers precision from `eltype(grid)`
+and defaults `arch = architecture(grid)`.
+
+```julia
+using Oceananigans
+using Oceananigans.Architectures: GPU
+
+grid = RectilinearGrid(size=(16, 16, 16), extent=(1, 1, 1),
+                       topology=(Periodic, Periodic, Bounded),
+                       architecture=GPU(), float_type=Float32)
+
+bgc_gpu = construct(NiPiZDFactory(); grid)  # precision + architecture inferred from `grid`
 ```
 
 ## Introspection helpers

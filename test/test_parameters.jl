@@ -10,7 +10,7 @@ using Oceananigans.Units
 
 @testset "Parameters and casting" begin
     @testset "NiPiZD parameter shapes and types" begin
-        bgc = construct(NiPiZDFactory(); FT=Float32)
+        bgc = construct(NiPiZDFactory(); grid=dummy_grid(Float32))
         p = bgc.parameters
 
         # Runtime bundle should only include parameters actually referenced by equations.
@@ -38,7 +38,7 @@ using Oceananigans.Units
     end
 
     @testset "DARWIN parameter shapes and types" begin
-        bgc = construct(DarwinFactory(); FT=Float32)
+        bgc = construct(DarwinFactory(); grid=dummy_grid(Float32))
         p = bgc.parameters
 
         # Runtime bundle should not include structural community info.
@@ -75,7 +75,7 @@ using Oceananigans.Units
 
         # Override by updating the registry.
         registry = update_registry(parameter_registry(factory); maximum_predation_rate=(Z=0.5 / day,))
-        p_over = construct(factory; FT=Float32, community=base, registry=registry).parameters
+        p_over = construct(factory; grid=dummy_grid(Float32), community=base, registry=registry).parameters
 
         @test p_over.maximum_predation_rate[1] == Float32(0.5 / day)
         @test p_over.maximum_predation_rate[2] == Float32(0.5 / day)

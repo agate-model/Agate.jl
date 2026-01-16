@@ -1,6 +1,8 @@
 using Agate
 using Test
 
+include("test_helpers.jl")
+
 include("test_utils.jl")
 include("test_library.jl")
 include("test_equations.jl")

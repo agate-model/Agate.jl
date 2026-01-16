@@ -7,7 +7,7 @@ using Agate.Models: NiPiZDFactory
 
 @testset "Public introspection helpers" begin
     @testset "Factory-constructed model" begin
-        bgc = construct(NiPiZDFactory(); FT=Float32)
+        bgc = construct(NiPiZDFactory(); grid=dummy_grid(Float32))
 
         @test tracer_names(bgc) == [:N, :D, :Z1, :Z2, :P1, :P2]
 

@@ -2,6 +2,7 @@ using Agate
 using Test
 
 using Agate.Constructor: construct
+using OceanBioME: BoxModelGrid
 using Agate.Models: NiPiZDFactory, DarwinFactory
 
 using Oceananigans.Units
@@ -13,7 +14,7 @@ using Oceananigans.Biogeochemistry:
 
 @testset "Agate.Constructor.construct" begin
     @testset "NiPiZD defaults" begin
-        bgc = construct(NiPiZDFactory(); FT=Float32)
+        bgc = construct(NiPiZDFactory(); grid=dummy_grid(Float32))
 
         @test required_biogeochemical_tracers(bgc) == (:N, :D, :Z1, :Z2, :P1, :P2)
 
@@ -41,20 +42,20 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "NiPiZD interaction overrides" begin
-        bgc = construct(NiPiZDFactory(); FT=Float32)
+        bgc = construct(NiPiZDFactory(); grid=dummy_grid(Float32))
         n = size(bgc.parameters.palatability_matrix, 1)
 
         wrong = zeros(Float32, 2, 2)
         @test_throws ArgumentError construct(
             NiPiZDFactory();
-            FT=Float32,
+            grid=dummy_grid(Float32),
             interactions=(; palatability_matrix=wrong, assimilation_matrix=wrong),
         )
 
         correct = zeros(Float32, n, n)
         bgc2 = construct(
             NiPiZDFactory();
-            FT=Float32,
+            grid=dummy_grid(Float32),
             interactions=(; palatability_matrix=correct, assimilation_matrix=correct),
         )
         @test required_biogeochemical_tracers(bgc2) == (:N, :D, :Z1, :Z2, :P1, :P2)
@@ -84,7 +85,7 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "DARWIN defaults" begin
-        bgc = construct(DarwinFactory(); FT=Float32)
+        bgc = construct(DarwinFactory(); grid=dummy_grid(Float32))
 
         @test required_biogeochemical_tracers(bgc)[1:9] ==
               (:DIC, :DIN, :PO4, :DOC, :POC, :DON, :PON, :DOP, :POP)
@@ -98,8 +99,8 @@ using Oceananigans.Biogeochemistry:
             @eval using Oceananigans.Architectures: GPU, array_type
 
             if CUDA.functional()
-                bgc_cpu = construct(NiPiZDFactory(); FT=Float32)
-                bgc_gpu = construct(NiPiZDFactory(); FT=Float32, arch=GPU())
+                bgc_cpu = construct(NiPiZDFactory(); grid=dummy_grid(Float32))
+                bgc_gpu = construct(NiPiZDFactory(); grid=dummy_grid(Float32; arch=GPU()))
 
                 @test required_biogeochemical_tracers(bgc_gpu) == required_biogeochemical_tracers(bgc_cpu)
                 @test bgc_gpu.parameters.palatability_matrix isa array_type(GPU())
@@ -125,6 +126,10 @@ using Oceananigans.Biogeochemistry:
         # Diameter range without `n` should error.
         bad_args2 = (Z = base_args.Z, P = (; base_args.P..., diameters=(2.0, 10.0, :log_splitting), n=nothing))
         @test_throws ArgumentError construct(factory; community=bad_args2)
+
+        # Grid determines precision.
+        bgc_f32 = construct(factory; grid=dummy_grid(Float32))
+        @test bgc_f32.parameters.detritus_remineralization isa Float32
 
         # Interaction matrix wrong size should error.
         bgc = construct(factory)

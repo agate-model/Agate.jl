@@ -1,6 +1,7 @@
 module Models
 
 using Agate.Utils: AbstractBGCFactory
+
 # -----------------------------------------------------------------------------
 # Factory default interface
 # -----------------------------------------------------------------------------
@@ -18,22 +19,12 @@ end
 
 Returns a `NamedTuple` mapping group prefix symbols to group specifications.
 
-This is *structural* information only (group symbols, diameters, etc.).
-All *parameter defaults* live exclusively in the model's parameter registry.
+This is **structural** information only (group symbols, diameter specifications,
+PFT specifications, etc.). All numeric parameter defaults live exclusively in
+`Parameters.parameter_registry(factory)`.
 """
-function default_community(::AbstractBGCFactory, ::Type{FT}) where {FT<:AbstractFloat}
-    throw(ArgumentError("No method `default_community(factory, FT)` is defined for this factory."))
-end
-
-"""Keyword front-end for `default_community(factory, FT)`.
-
-The public constructors and tests pass the floating-point type as a keyword
-argument (`FT=Float32`, `FT=Float64`). Internally we keep the canonical API as
-`default_community(factory, ::Type{FT})` to preserve clean parametric
-dispatch.
-"""
-function default_community(factory::AbstractBGCFactory; FT::Type{T}=Float64) where {T<:AbstractFloat}
-    return default_community(factory, T)
+function default_community(::AbstractBGCFactory)
+    throw(ArgumentError("No method `default_community(factory)` is defined for this factory."))
 end
 
 """Default non-plankton tracer dynamics for a factory.

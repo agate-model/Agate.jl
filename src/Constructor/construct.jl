@@ -99,39 +99,68 @@ optional overrides.
 Design principles
 -----------------
 - Structural defaults (plankton community size structure) are provided by
-  `Models.default_community(factory; FT=...)`.
+  `Models.default_community(factory)`.
 - Parameter defaults are provided by `Parameters.parameter_registry(factory)`.
 - User overrides flow through the registry (no separate `params` keyword).
 - The returned instance is `Adapt.jl`-compatible (CPU <-> GPU).
 
 Key keyword arguments
 ---------------------
-- `FT::Type{<:AbstractFloat}=Float64`: floating point type for runtime values.
+- `grid=nothing`: optional grid used for sinking-velocity fields and for choosing
+  the floating point type when interfacing with Oceananigans / OceanBioME.
+  Precision is determined by `eltype(grid)`. When `grid` is not provided,
+  Agate constructs a `Float64` instance.
+- `arch=nothing`: `CPU()` or `GPU()`; when omitted and `grid` is provided, defaults
+  to `architecture(grid)`.
 - `community`: plankton community structure (size classes, diameters, PFT specs).
 - `registry`: parameter registry (defaults/specs), typically updated/extended by the user.
 - `interactions`: optional NamedTuple or function `(ctx)->NamedTuple` providing
   interaction-related parameter overrides (e.g. matrices). Unknown keys should error.
-- `arch=CPU()`: `CPU()` or `GPU()` used to set architecture.
 """
 function construct(
     factory::AbstractBGCFactory;
-    FT::Type{<:AbstractFloat}=Float64,
-
     plankton_dynamics=default_plankton_dynamics(factory),
     biogeochem_dynamics=default_biogeochem_dynamics(factory),
 
-    community = Models.default_community(factory; FT=FT),
+    community = Models.default_community(factory),
     registry = parameter_registry(factory),
 
-    arch = CPU(),
+    arch = nothing,
     interactions::Union{Nothing,NamedTuple,Function}=nothing,
 
     sinking_tracers=nothing,
-    grid=BoxModelGrid(),
+    grid = nothing,
     open_bottom::Bool=true,
 
     palatability_fn=allometric_palatability_unimodal_protection,
 )
+
+    # ---------------------------------------------------------------------
+    # Precision and architecture selection.
+    #
+    # When `grid` is provided, its element type is the source-of-truth for `FT`.
+    # This mirrors OceanBioME / Oceananigans, where model precision is determined
+    # by the grid / model configuration rather than an independent BGC keyword.
+    # ---------------------------------------------------------------------
+
+    # If sinking is requested and no grid was supplied, fall back to a BoxModelGrid.
+    if isnothing(grid) && !isnothing(sinking_tracers)
+        grid = BoxModelGrid()
+    end
+
+    if !isnothing(grid)
+        FT = eltype(grid)
+        arch_grid = architecture(grid)
+        if isnothing(arch)
+            arch = arch_grid
+        elseif typeof(arch) !== typeof(arch_grid)
+            throw(ArgumentError("arch=$arch does not match architecture(grid)=$arch_grid. Architecture is determined by the grid; either omit arch or construct a grid for $arch."))
+        end
+    else
+        FT = Float64
+        isnothing(arch) && (arch = CPU())
+    end
+
     validate_plankton_inputs(plankton_dynamics, community)
     biogeochem_dynamics isa NamedTuple || throw(ArgumentError("biogeochem_dynamics must be a NamedTuple"))
 

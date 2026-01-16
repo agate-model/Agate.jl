@@ -36,7 +36,7 @@ Returns a `NamedTuple` mapping group prefix => group specification.
 
 Ordering is significant; the default keeps the historical `Z`-then-`P` ordering.
 """
-function default_community(::NiPiZDFactory, ::Type{FT}) where {FT<:AbstractFloat}
+function default_community(::NiPiZDFactory)
     # Structural defaults only (sizes/diameters). No parameter defaults.
     empty_pft = PFTSpecification()
     return (
