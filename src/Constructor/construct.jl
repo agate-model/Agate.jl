@@ -4,14 +4,14 @@ using Adapt: adapt
 
 using Oceananigans.Architectures: architecture, device, CPU, GPU
 
-
-
-using Agate.Utils:    AbstractBGCFactory,
+using Agate.Utils:
+    AbstractBGCFactory,
     normalize_interactions,
     parse_community,
     validate_plankton_inputs
 
-using Agate.Models:    default_plankton_dynamics,
+using Agate.Models:
+    default_plankton_dynamics,
     default_biogeochem_dynamics
 
 # Bring the `Agate.Models` module into scope for qualified calls like
@@ -21,7 +21,6 @@ import Agate.Models
 import Agate.Parameters
 using Agate.Equations: Equation, expr, requirements, req, merge_requirements
 using Agate.Equations: ParamVar
-using Agate.Library.Allometry: allometric_palatability_unimodal_protection
 
 # Local construction-time parameter placeholder namespace.
 #
@@ -36,58 +35,47 @@ using Agate.Library.Allometry: allometric_palatability_unimodal_protection
     NT = NamedTuple{Tuple(names)}
     return NT(Tuple(vals))
 end
-using Agate.Parameters:    resolve_runtime_parameters,
-    parameter_registry
 
-"""Apply `interactions` overrides by updating/extending the parameter registry.
+using Agate.Parameters: resolve_runtime_parameters, parameter_registry
 
-`interactions` is intended for interaction matrices and related knobs. Any
-provided matrix key must end in `_matrix`. Unknown keys error unless they are
-new `_matrix` keys, in which case a matrix `ParamSpec` is appended.
+"""Apply `interactions` overrides by updating the parameter registry.
+
+`interactions` is intended primarily for interaction matrices and other parameter overrides.
+
+Strictness rules
+----------------
+- Keys must already exist in the registry. Unknown keys throw to catch typos early.
+- To add new parameters, extend the registry explicitly with `extend_registry(...)`.
+
+For any matrix-shaped parameter, concrete matrix values are validated to be size
+`(ctx.n_total, ctx.n_total)`.
 """
-function _apply_interactions_to_registry(ctx, registry, overrides::NamedTuple)
+function _apply_interactions_to_registry(
+    ctx,
+    registry,
+    overrides::NamedTuple,
+)
     isempty(overrides) && return registry
 
-    update_pairs = Pair{Symbol,Any}[]
-    new_specs = Parameters.ParamSpec[]
-    known = Set(spec.name for spec in registry.specs)
-
+    # Validate keys and eager matrix sizes (for concrete matrices).
+    n = ctx.n_total
     for (k, v) in pairs(overrides)
-        k_str = String(k)
-        is_matrix_val = v isa AbstractMatrix
-        if is_matrix_val && !endswith(k_str, "_matrix")
-            throw(ArgumentError("interactions: matrix key :$k must end with `_matrix`"))
-        end
+        spec = Parameters.lookup(registry, k)
+        spec === nothing && throw(ArgumentError(
+            "interactions: unknown parameter key :$k. Add it explicitly with extend_registry(...) or fix the typo.",
+        ))
 
-        # Basic shape validation for interaction matrices.
-        if is_matrix_val && endswith(k_str, "_matrix")
-            n = ctx.n_total
-            (size(v, 1) == n && size(v, 2) == n) || throw(ArgumentError("interactions: :$k must be size ($n,$n)"))
-        end
-
-        if k in known
-            push!(update_pairs, k => v)
-        else
-            # Allow extending the registry with new matrices via `interactions`.
-            if endswith(k_str, "_matrix")
-                push!(new_specs, Parameters.ParamSpec(k, "Interaction matrix provided via `interactions`.", v; missing_policy=:zero_silent, value_kind=:real))
-                push!(known, k)
-            else
-                throw(ArgumentError("interactions: unknown parameter key :$k (not present in registry)."))
-            end
+        if v isa AbstractMatrix
+            spec.shape === :matrix || throw(ArgumentError(
+                "interactions: :$k is a $(spec.shape) parameter, but a matrix value was provided.",
+            ))
+            (size(v, 1) == n && size(v, 2) == n) || throw(ArgumentError(
+                "interactions: :$k must be size ($n,$n).",
+            ))
         end
     end
 
-    reg = registry
-    if !isempty(new_specs)
-        reg = Parameters.extend_registry(reg, new_specs...)
-    end
-    if !isempty(update_pairs)
-        nt = (; update_pairs...)
-        reg = Parameters.update_registry(reg; nt...)
-    end
-
-    return reg
+    return Parameters.update_registry(registry; overrides...)
 end
 
 """
@@ -114,25 +102,23 @@ Key keyword arguments
   to `architecture(grid)`.
 - `community`: plankton community structure (size classes, diameters, PFT specs).
 - `registry`: parameter registry (defaults/specs), typically updated/extended by the user.
-- `interactions`: optional NamedTuple or function `(ctx)->NamedTuple` providing
-  interaction-related parameter overrides (e.g. matrices). Unknown keys should error.
+- `interactions`: optional `NamedTuple` or function `(ctx)->NamedTuple` providing
+  interaction-related parameter overrides (e.g. matrices).
 """
 function construct(
     factory::AbstractBGCFactory;
     plankton_dynamics=default_plankton_dynamics(factory),
     biogeochem_dynamics=default_biogeochem_dynamics(factory),
 
-    community = Models.default_community(factory),
-    registry = parameter_registry(factory),
+    community=Models.default_community(factory),
+    registry=parameter_registry(factory),
 
-    arch = nothing,
+    arch=nothing,
     interactions::Union{Nothing,NamedTuple,Function}=nothing,
 
     sinking_tracers=nothing,
-    grid = nothing,
+    grid=nothing,
     open_bottom::Bool=true,
-
-    palatability_fn=allometric_palatability_unimodal_protection,
 )
 
     # ---------------------------------------------------------------------
@@ -154,7 +140,9 @@ function construct(
         if isnothing(arch)
             arch = arch_grid
         elseif typeof(arch) !== typeof(arch_grid)
-            throw(ArgumentError("arch=$arch does not match architecture(grid)=$arch_grid. Architecture is determined by the grid; either omit arch or construct a grid for $arch."))
+            throw(ArgumentError(
+                "arch=$arch does not match architecture(grid)=$arch_grid. Architecture is determined by the grid; either omit arch or construct a grid for $arch.",
+            ))
         end
     else
         FT = Float64
@@ -220,7 +208,6 @@ function construct(
         ctx,
         merged;
         FT=FT,
-        palatability_fn=palatability_fn,
         registry=final_registry,
     )
 
@@ -236,7 +223,7 @@ function construct(
         bgc = Base.invokelatest(bgc_type, params, sinking_velocities)
     end
 
-    # move any arrays inside `bgc` onto the requested architecture.
+    # Move any arrays inside `bgc` onto the requested architecture.
     bgc = adapt(device(arch), bgc)
 
     return bgc

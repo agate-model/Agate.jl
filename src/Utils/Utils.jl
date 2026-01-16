@@ -105,11 +105,11 @@ function normalize_interactions(
         throw(ArgumentError("interactions must be a NamedTuple or a function `(ctx)->NamedTuple`, got $(typeof(interactions))"))
     end
 
-    overrides isa NamedTuple || throw(ArgumentError("interactions must return a NamedTuple, got $(typeof(overrides))"))
+    overrides isa NamedTuple ||
+        throw(ArgumentError("interactions must return a NamedTuple, got $(typeof(overrides))"))
 
     return overrides
 end
-
 """Fallback: no default interactions."""
 default_interactions(::AbstractBGCFactory) = nothing
 

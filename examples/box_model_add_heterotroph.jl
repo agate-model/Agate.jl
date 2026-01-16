@@ -16,7 +16,8 @@ using Agate.Equations: Equation, sum_over
 using Agate.Library.Mortality: linear_loss, linear_loss_sum, quadratic_loss_sum
 using Agate.Library.Predation: grazing_loss, grazing_assimilation_loss
 using Agate.Library.Light: FunctionFieldPAR
-using Agate.Parameters: ParamSpec, parameter_registry, extend_registry, update_registry
+using Agate.Parameters: parameter_registry, extend_registry, update_registry
+using Agate.Parameters: vector_param
 
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -125,26 +126,23 @@ plankton_dynamics_H = extend_dynamics(plankton_dynamics; H=heterotroph_growth)
 
 # ## 4. Extend the parameter registry with the new parameters
 #
-# The resolver requires every parameter referenced in equations to have a `ParamSpec`.
-# Here we add two new vector parameters used by heterotroph detrital uptake.
+# Every parameter referenced in equations must have a registry entry.
+# Here we add two new *vector* parameters used by heterotroph detrital uptake.
 
 extra_specs = [
-    ParamSpec(
+    vector_param(
         :maximum_detritus_uptake_rate,
-        1 / day,
         "Maximum detritus uptake rate for detritivorous heterotrophs.",
         (H = AllometricParam(PowerLaw(); prefactor=1.5 / day, exponent=-0.15),);
         missing_policy=:zero_silent,
     ),
-    ParamSpec(
+    vector_param(
         :detritus_half_saturation,
-        1,
         "Half-saturation constant for heterotroph detritus uptake.",
         (H = 0.04,);
         missing_policy=:zero_silent,
     ),
 ]
-
 base_reg = parameter_registry(factory)
 extended_reg = extend_registry(base_reg, extra_specs...)
 

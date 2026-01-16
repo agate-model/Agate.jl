@@ -148,80 +148,18 @@ end
     return AExpr(Expr(:call, op, aa.node), aa.req)
 end
 
-Base.:+(a::AExpr, b::AExpr) = _binop(:+, a, b)
-Base.:-(a::AExpr, b::AExpr) = _binop(:-, a, b)
-Base.:*(a::AExpr, b::AExpr) = _binop(:*, a, b)
-Base.:/(a::AExpr, b::AExpr) = _binop(:/, a, b)
-Base.:^(a::AExpr, b::AExpr) = _binop(:^, a, b)
-Base.:-(a::AExpr) = _unop(:-, a)
-
-# -----------------------------------------------------------------------------
-# ParamVar arithmetic
+# Minimal arithmetic surface: accept only expression-like inputs.
 #
-# ParamVar is used as a symbolic placeholder inside equation DSLs, e.g.
-#
-#     detritus_remineralization * :D
-#     1 - DOM_POM_fractionation
-#
-# The core expression builder operates on AExpr, but ParamVar is *not* a subtype
-# of AExpr. Define a small set of arithmetic overloads so ParamVar can appear on
-# either side of standard operators.
-
+# These methods are deliberately narrow so they do not interfere with ordinary
+# numeric arithmetic. When both operands are numbers, Julia dispatches to Base.
 const _EquationExprLike = Union{AExpr, ParamVar, Symbol, Number}
 
-Base.:-(a::ParamVar) = _unop(:-, a)
-
-Base.:+(a::ParamVar, b::_EquationExprLike) = _binop(:+, a, b)
-Base.:+(a::_EquationExprLike, b::ParamVar) = _binop(:+, a, b)
-
-# Disambiguate ParamVar ⨯ ParamVar (otherwise Julia sees two equally-specific methods).
-Base.:+(a::ParamVar, b::ParamVar) = _binop(:+, a, b)
-
-Base.:-(a::ParamVar, b::_EquationExprLike) = _binop(:-, a, b)
-Base.:-(a::_EquationExprLike, b::ParamVar) = _binop(:-, a, b)
-Base.:-(a::ParamVar, b::ParamVar) = _binop(:-, a, b)
-
-Base.:*(a::ParamVar, b::_EquationExprLike) = _binop(:*, a, b)
-Base.:*(a::_EquationExprLike, b::ParamVar) = _binop(:*, a, b)
-Base.:*(a::ParamVar, b::ParamVar) = _binop(:*, a, b)
-
-Base.:/(a::ParamVar, b::_EquationExprLike) = _binop(:/, a, b)
-Base.:/(a::_EquationExprLike, b::ParamVar) = _binop(:/, a, b)
-Base.:/(a::ParamVar, b::ParamVar) = _binop(:/, a, b)
-
-Base.:^(a::ParamVar, b::_EquationExprLike) = _binop(:^, a, b)
-Base.:^(a::_EquationExprLike, b::ParamVar) = _binop(:^, a, b)
-Base.:^(a::ParamVar, b::ParamVar) = _binop(:^, a, b)
-
-# Disambiguation for ParamVar <-> AExpr binary ops.
-# Without these, calls like *(ParamVar, AExpr) are ambiguous between the
-# ParamVar overloads above and the generic (a, b::AExpr) fallbacks below.
-Base.:+(a::ParamVar, b::AExpr) = _binop(:+, a, b)
-Base.:+(a::AExpr, b::ParamVar) = _binop(:+, a, b)
-
-Base.:-(a::ParamVar, b::AExpr) = _binop(:-, a, b)
-Base.:-(a::AExpr, b::ParamVar) = _binop(:-, a, b)
-
-Base.:*(a::ParamVar, b::AExpr) = _binop(:*, a, b)
-Base.:*(a::AExpr, b::ParamVar) = _binop(:*, a, b)
-
-Base.:/(a::ParamVar, b::AExpr) = _binop(:/, a, b)
-Base.:/(a::AExpr, b::ParamVar) = _binop(:/, a, b)
-
-Base.:^(a::ParamVar, b::AExpr) = _binop(:^, a, b)
-Base.:^(a::AExpr, b::ParamVar) = _binop(:^, a, b)
-
-# Mixed with literals / symbols / ParamVar
-Base.:+(a::AExpr, b) = _binop(:+, a, b)
-Base.:+(a, b::AExpr) = _binop(:+, a, b)
-Base.:-(a::AExpr, b) = _binop(:-, a, b)
-Base.:-(a, b::AExpr) = _binop(:-, a, b)
-Base.:*(a::AExpr, b) = _binop(:*, a, b)
-Base.:*(a, b::AExpr) = _binop(:*, a, b)
-Base.:/(a::AExpr, b) = _binop(:/, a, b)
-Base.:/(a, b::AExpr) = _binop(:/, a, b)
-Base.:^(a::AExpr, b) = _binop(:^, a, b)
-Base.:^(a, b::AExpr) = _binop(:^, a, b)
+Base.:+(a::_EquationExprLike, b::_EquationExprLike) = _binop(:+, a, b)
+Base.:-(a::_EquationExprLike, b::_EquationExprLike) = _binop(:-, a, b)
+Base.:*(a::_EquationExprLike, b::_EquationExprLike) = _binop(:*, a, b)
+Base.:/(a::_EquationExprLike, b::_EquationExprLike) = _binop(:/, a, b)
+Base.:^(a::_EquationExprLike, b::_EquationExprLike) = _binop(:^, a, b)
+Base.:-(a::_EquationExprLike) = _unop(:-, a)
 
 # -----------------------------------------------------------------------------
 # sum_over sum builder (construction-time only)

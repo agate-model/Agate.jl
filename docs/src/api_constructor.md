@@ -103,13 +103,25 @@ bgc = construct(factory;
 
 ## Interactions
 
+
 Interaction matrices (and other interaction-related overrides) flow through the same registry mechanism.
 Provide them via the `interactions` keyword as either:
 
 - a `NamedTuple` of overrides, or
 - a function `(ctx) -> NamedTuple` (useful when matrices depend on community structure).
 
-Unknown keys should error (typo protection).
+### Matrix providers
+
+For any **matrix-shaped parameter** in the active registry, the override value may be:
+
+- a concrete matrix (validated for size immediately),
+- a function `f(ctx, deps) -> AbstractMatrix` (shorthand for `MatrixFn(f; deps=[])`), or
+- `MatrixFn(f; deps=[...])` to declare explicit parameter dependencies for derived matrices.
+
+### Strictness
+
+Unknown keys error by default (typo protection). To add a new parameter key, extend the registry
+explicitly with `extend_registry(...)`.
 
 ## API reference
 

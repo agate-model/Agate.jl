@@ -19,12 +19,12 @@ Dynamics builders accept a first argument `PV` (provided by `construct`). Refere
 
 These `PV.<name>` bindings are small placeholders (`ParamVar`) that record requirements when indexed.
 
-During `construct`, Agate builds `PV` from the active parameter registry. So when you add new parameters, you typically **extend the registry** (with `ParamSpec`s) and keep writing equations using `PV.<name>` — no extra declaration step.
+During `construct`, Agate builds `PV` from the active parameter registry. So when you add new parameters, you typically **extend the registry** with new parameter specifications (via `scalar_param`, `vector_param`, or `matrix_param`) and keep writing equations using `PV.<name>` — no extra declaration step.
 
 ## Missing / `nothing` policy
 
 Agate no longer encodes missing behaviour in the *equation syntax*.
-Instead, each `ParamSpec` in the parameter registry declares how missing values are handled during CPU resolution:
+Instead, each parameter specification in the registry declares how missing values are handled during CPU resolution:
 
 - `missing_policy = :fail` — missing/`nothing` is an error
 - `missing_policy = :zero_warn` — replace with `0`/`false` and warn
