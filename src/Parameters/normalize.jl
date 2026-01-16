@@ -85,3 +85,49 @@ function normalize_provider(shape::Symbol, x)
         return _normalize_matrix_provider(x)
     end
 end
+
+# ----------------------------------------------------------------------------
+# Public constructors
+# ----------------------------------------------------------------------------
+
+"""\
+    ParamSpec(name, shape, doc, default; missing_policy=:fail, value_kind=:real)
+
+Create a `ParamSpec` and normalize `default` into a canonical provider value.
+"""
+function ParamSpec(
+    name::Symbol,
+    shape::Symbol,
+    doc::AbstractString,
+    default;
+    missing_policy::Symbol=:fail,
+    value_kind::Symbol=:real,
+)
+    _check_shape(shape)
+    prov = default === nothing ? nothing : normalize_provider(shape, default)
+    return ParamSpec(name, shape, missing_policy, value_kind, String(doc), prov)
+end
+
+"""\
+    scalar_param(name, doc, default; missing_policy=:fail, value_kind=:real) -> ParamSpec
+
+Create a scalar parameter specification.
+"""
+scalar_param(name::Symbol, doc::AbstractString, default; missing_policy::Symbol=:fail, value_kind::Symbol=:real) =
+    ParamSpec(name, :scalar, doc, default; missing_policy=missing_policy, value_kind=value_kind)
+
+"""\
+    vector_param(name, doc, default; missing_policy=:fail, value_kind=:real) -> ParamSpec
+
+Create a vector parameter specification.
+"""
+vector_param(name::Symbol, doc::AbstractString, default; missing_policy::Symbol=:fail, value_kind::Symbol=:real) =
+    ParamSpec(name, :vector, doc, default; missing_policy=missing_policy, value_kind=value_kind)
+
+"""\
+    matrix_param(name, doc, default; missing_policy=:fail, value_kind=:real) -> ParamSpec
+
+Create a matrix parameter specification.
+"""
+matrix_param(name::Symbol, doc::AbstractString, default; missing_policy::Symbol=:fail, value_kind::Symbol=:real) =
+    ParamSpec(name, :matrix, doc, default; missing_policy=missing_policy, value_kind=value_kind)

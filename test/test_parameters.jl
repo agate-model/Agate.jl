@@ -9,6 +9,30 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 using Oceananigans.Units
 
 @testset "Parameters and casting" begin
+    @testset "ParamSpec constructors" begin
+        using Agate.Parameters: scalar_param, vector_param, matrix_param
+
+        s = scalar_param(:foo, "doc", 1.0)
+        @test s.shape === :scalar
+        @test s.provider == 1.0
+
+        v = vector_param(:bar, "doc", 2.0)
+        @test v.shape === :vector
+        @test v.provider == 2.0
+
+        m = matrix_param(:baz, "doc", [1.0 0.0; 0.0 1.0])
+        @test m.shape === :matrix
+        @test m.provider isa AbstractMatrix
+
+        err = try
+            Agate.Parameters.ParamSpec(:x, :weird, "doc", 1.0)
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("Unknown parameter shape", sprint(showerror, err))
+    end
     @testset "NiPiZD parameter shapes and types" begin
         bgc = construct(NiPiZDFactory(); grid=dummy_grid(Float32))
         p = bgc.parameters

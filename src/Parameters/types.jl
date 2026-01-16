@@ -70,6 +70,21 @@ end
 deps(::Any) = ()
 deps(p::MatrixFn) = p.deps
 
+"""Allowed provider value types stored in a `ParamSpec`.
+
+Provider values are normalized at registry update/extension time.
+"""
+const ProviderValue = Union{
+    Nothing,
+    Number,
+    Bool,
+    AbstractVector,
+    AbstractMatrix,
+    AbstractParamDef,
+    VectorGroupMap,
+    MatrixFn,
+}
+
 # ----------------------------------------------------------------------------
 # Registry types
 # ----------------------------------------------------------------------------
@@ -94,58 +109,8 @@ struct ParamSpec
     missing_policy::Symbol
     value_kind::Symbol
     doc::String
-    provider::Any
+    provider::ProviderValue
 end
-
-"""\
-    ParamSpec(name, shape, doc, default; missing_policy=:fail, value_kind=:real)
-
-Create a `ParamSpec` and normalize `default` into a canonical provider value.
-"""
-function ParamSpec(
-    name::Symbol,
-    shape::Symbol,
-    doc::AbstractString,
-    default;
-    missing_policy::Symbol=:fail,
-    value_kind::Symbol=:real,
-)
-    _check_shape(shape)
-    prov = default === nothing ? nothing : normalize_provider(shape, default)
-    return ParamSpec(name, shape, missing_policy, value_kind, String(doc), prov)
-end
-
-"""\
-    scalar_param(name, doc, default; missing_policy=:fail, value_kind=:real) -> ParamSpec
-
-Create a scalar parameter specification.
-
-This is the preferred user-facing constructor for new scalar parameters. The internal
-registry stores an explicit shape, but callers should not need to pass `:scalar`.
-"""
-scalar_param(name::Symbol, doc::AbstractString, default; missing_policy::Symbol=:fail, value_kind::Symbol=:real) =
-    ParamSpec(name, :scalar, doc, default; missing_policy=missing_policy, value_kind=value_kind)
-
-"""\
-    vector_param(name, doc, default; missing_policy=:fail, value_kind=:real) -> ParamSpec
-
-Create a vector parameter specification.
-
-`default` may be a scalar/Bool/allometric definition (broadcast to all PFTs),
-a full-length vector, or a per-group `NamedTuple` map (e.g. `(Z=..., P=...)`).
-"""
-vector_param(name::Symbol, doc::AbstractString, default; missing_policy::Symbol=:fail, value_kind::Symbol=:real) =
-    ParamSpec(name, :vector, doc, default; missing_policy=missing_policy, value_kind=value_kind)
-
-"""\
-    matrix_param(name, doc, default; missing_policy=:fail, value_kind=:real) -> ParamSpec
-
-Create a matrix parameter specification.
-
-`default` may be a concrete matrix or a `MatrixFn(f; deps=[...])`.
-"""
-matrix_param(name::Symbol, doc::AbstractString, default; missing_policy::Symbol=:fail, value_kind::Symbol=:real) =
-    ParamSpec(name, :matrix, doc, default; missing_policy=missing_policy, value_kind=value_kind)
 
 """Per-model registry (CPU-only)."""
 struct ParamRegistry
