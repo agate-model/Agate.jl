@@ -119,6 +119,21 @@ using Oceananigans.Units
         @test p_over.maximum_predation_rate[2] == Float32(0.5 / day)
         @test p_over.maximum_predation_rate[3] == 0f0
         @test p_over.maximum_predation_rate[4] == 0f0
+
+        # Group-map overrides patch only the specified groups (no implicit fill).
+        reg_patch = update_registry(parameter_registry(factory); linear_mortality=(Z=1e-6,))
+        p_patch = construct(factory; grid=dummy_grid(Float32), community=base, registry=reg_patch).parameters
+        @test p_patch.linear_mortality[1] == Float32(1e-6)
+        @test p_patch.linear_mortality[2] == Float32(1e-6)
+        @test p_patch.linear_mortality[3] == Float32(8e-7)
+        @test p_patch.linear_mortality[4] == Float32(8e-7)
+
+        reg_patch2 = update_registry(reg_patch; linear_mortality=(P=2e-6,))
+        p_patch2 = construct(factory; grid=dummy_grid(Float32), community=base, registry=reg_patch2).parameters
+        @test p_patch2.linear_mortality[1] == Float32(1e-6)
+        @test p_patch2.linear_mortality[2] == Float32(1e-6)
+        @test p_patch2.linear_mortality[3] == Float32(2e-6)
+        @test p_patch2.linear_mortality[4] == Float32(2e-6)
     end
 
     

@@ -16,6 +16,22 @@ Use `extend_registry` to add new parameters explicitly.
 @inline _with_provider(s::ParamSpec, provider) =
     ParamSpec(s.name, s.shape, s.missing_policy, s.value_kind, s.doc, provider)
 
+@inline function _merge_groupmap(a::VectorGroupMap, b::VectorGroupMap)
+    # Merge two group maps, with `b` overriding entries in `a` for duplicate keys.
+    keys = copy(a.keys)
+    items = copy(a.items)
+    for (k, item) in zip(b.keys, b.items)
+        j = findfirst(==(k), keys)
+        if j === nothing
+            push!(keys, k)
+            push!(items, item)
+        else
+            items[j] = item
+        end
+    end
+    return VectorGroupMap(keys, items)
+end
+
 function update_registry(registry::ParamRegistry, overrides::NamedTuple)
     isempty(overrides) && return registry
 
@@ -24,7 +40,21 @@ function update_registry(registry::ParamRegistry, overrides::NamedTuple)
         i = _lookup_index(registry, k)
         i == 0 && throw(ArgumentError("update_registry: parameter :$k is not present in this registry"))
         s = new_specs[i]
-        new_provider = v === nothing ? nothing : normalize_provider(s.shape, v, s.value_kind)
+        new_provider = if v === nothing
+            nothing
+        elseif s.shape === :vector && v isa NamedTuple
+            patch = normalize_provider(:vector, v, s.value_kind)
+            patch isa VectorGroupMap || throw(ArgumentError("Internal error: vector group map normalization failed for :$k"))
+            base = s.provider
+            if base isa VectorGroupPatch
+                merged = _merge_groupmap(base.patch, patch)
+                VectorGroupPatch(base.base, merged)
+            else
+                VectorGroupPatch(base, patch)
+            end
+        else
+            normalize_provider(s.shape, v, s.value_kind)
+        end
         new_specs[i] = _with_provider(s, new_provider)
     end
 

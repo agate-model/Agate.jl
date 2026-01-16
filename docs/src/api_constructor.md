@@ -93,6 +93,8 @@ registry = update_registry(registry;
     maximum_growth_rate = (P = AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15),),
     # Vector parameters accept a per-group mapping (like `maximum_growth_rate` above), a full vector,
     # or a scalar/Bool/allometric definition (broadcast across all PFTs).
+    # When a per-group mapping is used in `update_registry`, only the provided groups are overridden;
+    # other groups retain their registry defaults.
 )
 
 # 3) Compile the model instance.

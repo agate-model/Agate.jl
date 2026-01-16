@@ -39,6 +39,19 @@ struct VectorGroupMap
     items::Vector{ScalarItem}
 end
 
+"""Vector provider patch that overrides a subset of groups on top of an existing provider.
+
+`VectorGroupPatch` is used when a user updates a vector parameter with a per-group `NamedTuple`
+via `update_registry`. Only the provided groups are overridden; other entries are resolved from
+`base` unchanged.
+"""
+const VectorProviderBase = Union{Nothing,Number,Bool,AbstractVector,AbstractParamDef,VectorGroupMap}
+
+struct VectorGroupPatch
+    base::VectorProviderBase
+    patch::VectorGroupMap
+end
+
 """    MatrixFn(f; deps=Symbol[])
 
 Derived matrix provider with explicit dependencies.
@@ -82,6 +95,7 @@ const ProviderValue = Union{
     AbstractMatrix,
     AbstractParamDef,
     VectorGroupMap,
+    VectorGroupPatch,
     MatrixFn,
 }
 

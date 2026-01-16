@@ -33,6 +33,20 @@ end
     return nothing
 end
 
+@inline function _validate_groupmap_keys(spec::ParamSpec, ctx, m::VectorGroupMap)
+    valid = Set(ctx.group_symbols)
+    bad = Symbol[]
+    for k in m.keys
+        (k in valid) || push!(bad, k)
+    end
+    if !isempty(bad)
+        throw(ArgumentError(
+            "Unknown group key(s) $(bad) in per-group provider for :$(spec.name). Valid groups: $(collect(valid)).",
+        ))
+    end
+    return nothing
+end
+
 function _resolve_scalar(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFloat}
     spec.shape === :scalar || throw(ArgumentError("Internal error: :$(spec.name) is not a scalar spec."))
 
@@ -67,7 +81,20 @@ end
 end
 
 @inline function _default_vector_item(spec::ParamSpec, provider, ctx, i::Int)
-    if provider isa AbstractVector
+    if provider === nothing
+        return false, nothing
+    elseif provider isa VectorGroupPatch
+        # Patch semantics: override only specified groups, otherwise defer to base.
+        gsym = ctx.group_symbols[i]
+        ks = provider.patch.keys
+        its = provider.patch.items
+        for j in eachindex(ks)
+            if ks[j] === gsym
+                return true, its[j]
+            end
+        end
+        return _default_vector_item(spec, provider.base, ctx, i)
+    elseif provider isa AbstractVector
         return true, provider[i]
     elseif provider isa Number || provider isa Bool || provider isa AbstractParamDef
         return true, provider
@@ -112,6 +139,15 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
 
     if p isa AbstractVector
         length(p) == n || throw(ArgumentError("Default for :$(spec.name) must have length $n."))
+    elseif p isa VectorGroupPatch && (p.base isa AbstractVector)
+        length(p.base) == n || throw(ArgumentError("Default for :$(spec.name) must have length $n."))
+    end
+
+    if p isa VectorGroupMap
+        _validate_groupmap_keys(spec, ctx, p)
+    elseif p isa VectorGroupPatch
+        _validate_groupmap_keys(spec, ctx, p.patch)
+        p.base isa VectorGroupMap && _validate_groupmap_keys(spec, ctx, p.base)
     end
 
     out = is_bool ? Vector{Bool}(undef, n) : Vector{FT}(undef, n)
@@ -135,7 +171,7 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
             _handle_missing!(spec, missing, ctx.group_symbols[i])
             out[i] = _missing_value(FT, is_bool)
         else
-            item2 = pft_has(pft, spec.name) ? _normalize_scalar_item(raw) : raw
+            item2 = pft_has(pft, spec.name) ? _normalize_scalar_item(raw, spec.value_kind) : raw
             out[i] = _resolve_scalar_item(FT, spec, ctx, i, item2)
         end
     end
