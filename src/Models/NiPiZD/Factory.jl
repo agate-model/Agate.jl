@@ -10,7 +10,7 @@ using Agate.Utils: DiameterRangeSpecification
 
 # NOTE: Defaults are registry-owned (see `Models/NiPiZD/Parameters.jl`).
 
-import Agate.Models: default_plankton_dynamics, default_community, default_biogeochem_dynamics
+import Agate.Models: default_plankton_dynamics, default_community, default_biogeochem_dynamics, factory_groups
 using .Tracers:
     nutrient_default,
     detritus_default,
@@ -20,6 +20,12 @@ using .Tracers:
 
 """Factory for the size-structured NiPiZD model."""
 struct NiPiZDFactory <: AbstractBGCFactory end
+
+"""Return the fixed group set for NiPiZD.
+
+The ordering matches `default_community` (`Z` then `P`).
+"""
+factory_groups(::NiPiZDFactory) = (:Z, :P)
 
 """Default plankton dynamics for NiPiZD.
 

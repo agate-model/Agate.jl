@@ -14,7 +14,7 @@ using Agate.Utils: DiameterRangeSpecification
 
 # NOTE: Defaults are registry-owned (see `Models/DARWIN/Parameters.jl`).
 
-import Agate.Models: default_plankton_dynamics, default_community, default_biogeochem_dynamics
+import Agate.Models: default_plankton_dynamics, default_community, default_biogeochem_dynamics, factory_groups
 
 using .Tracers:
     DIC_geider_light,
@@ -31,6 +31,12 @@ using .Tracers:
 
 """Factory for the simplified DARWIN-like elemental cycling model."""
 struct DarwinFactory <: AbstractBGCFactory end
+
+"""Return the fixed group set for DARWIN.
+
+The ordering matches `default_community` (`Z` then `P`).
+"""
+factory_groups(::DarwinFactory) = (:Z, :P)
 
 """Default plankton dynamics for DARWIN."""
 default_plankton_dynamics(::DarwinFactory) = (

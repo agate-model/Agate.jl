@@ -8,7 +8,11 @@
 
 """Convert a user value to the runtime storage type for a given `value_kind`."""
 @inline function coerce_value(::Type{FT}, value_kind::Symbol, x) where {FT<:AbstractFloat}
-    value_kind === :bool && return Bool(x)
+    if value_kind === :bool
+        x isa Bool || throw(ArgumentError("Expected Bool, got $(typeof(x))."))
+        return x
+    end
+    x isa Bool && throw(ArgumentError("Expected a number, got Bool."))
     return FT(x)
 end
 
@@ -29,20 +33,6 @@ end
     if spec.missing_policy === :zero_warn && !isempty(missing_groups)
         uniq = unique(missing_groups)
         @warn "Missing entries for vector :$(spec.name); replacing with 0/false for groups $(uniq)." maxlog=1
-    end
-    return nothing
-end
-
-@inline function _validate_groupmap_keys(spec::ParamSpec, ctx, m::VectorGroupMap)
-    valid = Set(ctx.group_symbols)
-    bad = Symbol[]
-    for k in m.keys
-        (k in valid) || push!(bad, k)
-    end
-    if !isempty(bad)
-        throw(ArgumentError(
-            "Unknown group key(s) $(bad) in per-group provider for :$(spec.name). Valid groups: $(collect(valid)).",
-        ))
     end
     return nothing
 end
@@ -81,18 +71,11 @@ end
 end
 
 @inline function _default_vector_item(spec::ParamSpec, provider, ctx, i::Int)
-    if provider === nothing
-        return false, nothing
-    elseif provider isa VectorGroupPatch
-        # Patch semantics: override only specified groups, otherwise defer to base.
-        gsym = ctx.group_symbols[i]
-        ks = provider.patch.keys
-        its = provider.patch.items
-        for j in eachindex(ks)
-            if ks[j] === gsym
-                return true, its[j]
-            end
-        end
+    provider === nothing && return false, nothing
+
+    if provider isa VectorGroupPatch
+        found, item = _default_vector_item(spec, provider.patch, ctx, i)
+        found && return true, item
         return _default_vector_item(spec, provider.base, ctx, i)
     elseif provider isa AbstractVector
         return true, provider[i]
@@ -128,6 +111,46 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
     missing = Symbol[]
 
     p = spec.provider
+
+    # Fast path: group-level providers expand to a dense per-PFT vector once at
+    # construction time.
+    if p isa GroupVec
+        groups = p.groups
+        # Precompute a group symbol -> group index map.
+        g_to_idx = Dict{Symbol,Int}()
+        for (i, g) in pairs(groups)
+            g_to_idx[g] = i
+        end
+
+        # Map each PFT index -> group index once, then expand.
+        group_index = Vector{Int}(undef, n)
+        @inbounds for i in 1:n
+            gsym = ctx.group_symbols[i]
+            gi = get(g_to_idx, gsym, 0)
+            gi == 0 && throw(ArgumentError(
+                "Vector :$(spec.name) is defined over groups=$(groups) but the community contains group :$(gsym).",
+            ))
+            group_index[i] = gi
+        end
+
+        out = is_bool ? Vector{Bool}(undef, n) : Vector{FT}(undef, n)
+        @inbounds for i in 1:n
+            gi = group_index[i]
+            out[i] = _resolve_scalar_item(FT, spec, ctx, i, p.items[gi])
+        end
+
+        # Optional per-PFT overrides (remain highest precedence).
+        @inbounds for i in 1:n
+            pft = ctx.pfts[i]
+            if pft_has(pft, spec.name)
+                raw = pft_get(pft, spec.name)
+                item = _normalize_scalar_item(raw, spec.value_kind)
+                out[i] = _resolve_scalar_item(FT, spec, ctx, i, item)
+            end
+        end
+
+        return out
+    end
     if isnothing(p)
         if spec.missing_policy === :fail
             throw(ArgumentError("Missing required vector parameter :$(spec.name)."))
@@ -139,15 +162,8 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
 
     if p isa AbstractVector
         length(p) == n || throw(ArgumentError("Default for :$(spec.name) must have length $n."))
-    elseif p isa VectorGroupPatch && (p.base isa AbstractVector)
+    elseif p isa VectorGroupPatch && p.base isa AbstractVector
         length(p.base) == n || throw(ArgumentError("Default for :$(spec.name) must have length $n."))
-    end
-
-    if p isa VectorGroupMap
-        _validate_groupmap_keys(spec, ctx, p)
-    elseif p isa VectorGroupPatch
-        _validate_groupmap_keys(spec, ctx, p.patch)
-        p.base isa VectorGroupMap && _validate_groupmap_keys(spec, ctx, p.base)
     end
 
     out = is_bool ? Vector{Bool}(undef, n) : Vector{FT}(undef, n)
@@ -219,7 +235,13 @@ function _resolve_matrix(::Type{FT}, spec::ParamSpec, ctx, resolved::Dict{Symbol
     (val isa AbstractMatrix) || throw(ArgumentError("Matrix parameter :$(spec.name) must be a matrix."))
     size(val, 1) == n && size(val, 2) == n || throw(ArgumentError("Matrix :$(spec.name) must be size ($n,$n)."))
 
-    return spec.value_kind === :bool ? Bool.(val) : FT.(val)
+    if spec.value_kind === :bool
+        eltype(val) <: Bool || throw(ArgumentError(
+            "Matrix :$(spec.name) is a Bool parameter; provider must return an AbstractMatrix{Bool}."
+        ))
+        return Bool.(val)
+    end
+    return FT.(val)
 end
 
 # ----------------------------------------------------------------------------

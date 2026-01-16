@@ -39,6 +39,23 @@ using Oceananigans.Biogeochemistry:
         @test isfinite(bgc(Val(:F), 0, 0, 0, 0, R, F))
     end
 
+    @testset "define_tracer_functions error context" begin
+        parameters = ModelSpecification((α = 2.0,))
+        tracers = (R = :(α * R + missing_param * R),)
+
+        err = try
+            define_tracer_functions(parameters, tracers; auxiliary_fields=())
+            nothing
+        catch e
+            e
+        end
+
+        @test err isa ArgumentError
+        msg = sprint(showerror, err)
+        @test occursin("Tracer :R", msg)
+        @test occursin("missing_param", msg)
+    end
+
     @testset "Optional sinking velocities" begin
         parameters = ModelSpecification((k = 1.0,))
         tracers = (C = :(-k * C),)

@@ -90,11 +90,10 @@ community = update_community(community, :P; n=3, diameters=(1.5, 20.0, :log_spli
 registry = parameter_registry(factory)
 registry = update_registry(registry;
     detritus_remineralization = 0.18 / day,
-    maximum_growth_rate = (P = AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15),),
-    # Vector parameters accept a per-group mapping (like `maximum_growth_rate` above), a full vector,
-    # or a scalar/Bool/allometric definition (broadcast across all PFTs).
-    # When a per-group mapping is used in `update_registry`, only the provided groups are overridden;
-    # other groups retain their registry defaults.
+    maximum_growth_rate = (P = AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15), Z = 0.0),
+    # Group-level vector parameters accept a complete group mapping (e.g. `Z=..., P=...`).
+    # Per-PFT vector parameters accept a full vector or a scalar/Bool/allometric definition
+    # (broadcast across all PFTs).
 )
 
 # 3) Compile the model instance.

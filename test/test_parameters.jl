@@ -103,6 +103,22 @@ using Oceananigans.Units
         p_fill = construct(factory; grid=dummy_grid(Float32), community=base, registry=reg_fill).parameters
         @test all(p_fill.linear_mortality .== Float32(1e-6))
 
+        # Group-level vectors are strict replacements: provide a complete group mapping.
+        reg_replace = update_registry(parameter_registry(factory); linear_mortality=(Z=1e-6, P=1e-6))
+        p_replace = construct(factory; grid=dummy_grid(Float32), community=base, registry=reg_replace).parameters
+        @test all(p_replace.linear_mortality .== Float32(1e-6))
+
+        # Partial group mappings are rejected (typo protection / no silent fill).
+        err_partial = try
+            update_registry(parameter_registry(factory); linear_mortality=(Z=1e-6,))
+            nothing
+        catch e
+            e
+        end
+        @test err_partial isa ArgumentError
+        @test occursin("complete", lowercase(sprint(showerror, err_partial))) ||
+              occursin("groups", lowercase(sprint(showerror, err_partial)))
+
         err2 = try
             update_registry(parameter_registry(factory); quadratic_mortality=Dict(:Z=>1e-6))
             nothing
@@ -112,28 +128,13 @@ using Oceananigans.Units
         @test err2 isa ArgumentError
         @test occursin("NamedTuple", sprint(showerror, err2))
 
-        registry = update_registry(parameter_registry(factory); maximum_predation_rate=(Z=0.5 / day,))
+        registry = update_registry(parameter_registry(factory); maximum_predation_rate=(Z=0.5 / day, P=0.0))
         p_over = construct(factory; grid=dummy_grid(Float32), community=base, registry=registry).parameters
 
         @test p_over.maximum_predation_rate[1] == Float32(0.5 / day)
         @test p_over.maximum_predation_rate[2] == Float32(0.5 / day)
         @test p_over.maximum_predation_rate[3] == 0f0
         @test p_over.maximum_predation_rate[4] == 0f0
-
-        # Group-map overrides patch only the specified groups (no implicit fill).
-        reg_patch = update_registry(parameter_registry(factory); linear_mortality=(Z=1e-6,))
-        p_patch = construct(factory; grid=dummy_grid(Float32), community=base, registry=reg_patch).parameters
-        @test p_patch.linear_mortality[1] == Float32(1e-6)
-        @test p_patch.linear_mortality[2] == Float32(1e-6)
-        @test p_patch.linear_mortality[3] == Float32(8e-7)
-        @test p_patch.linear_mortality[4] == Float32(8e-7)
-
-        reg_patch2 = update_registry(reg_patch; linear_mortality=(P=2e-6,))
-        p_patch2 = construct(factory; grid=dummy_grid(Float32), community=base, registry=reg_patch2).parameters
-        @test p_patch2.linear_mortality[1] == Float32(1e-6)
-        @test p_patch2.linear_mortality[2] == Float32(1e-6)
-        @test p_patch2.linear_mortality[3] == Float32(2e-6)
-        @test p_patch2.linear_mortality[4] == Float32(2e-6)
     end
 
     
@@ -150,7 +151,7 @@ using Oceananigans.Units
           occursin("Detritus remineralization rate", out)
 
     # Updated registries should also display cleanly.
-    reg2 = update_registry(reg; maximum_predation_rate=(Z=0.5 / day,))
+    reg2 = update_registry(reg; maximum_predation_rate=(Z=0.5 / day, P=0.0))
     out2 = sprint(show, MIME"text/plain"(), reg2)
     @test occursin("maximum_predation_rate", out2)
 end

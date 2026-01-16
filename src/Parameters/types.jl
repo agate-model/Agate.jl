@@ -39,18 +39,80 @@ struct VectorGroupMap
     items::Vector{ScalarItem}
 end
 
-"""Vector provider patch that overrides a subset of groups on top of an existing provider.
+"""Vector provider that patches selected group entries on top of a base provider.
 
-`VectorGroupPatch` is used when a user updates a vector parameter with a per-group `NamedTuple`
-via `update_registry`. Only the provided groups are overridden; other entries are resolved from
-`base` unchanged.
+This is used for user overrides like `update_registry(reg; mortality=(Z=...,))`.
+The override is interpreted as a *patch* (update only the specified groups) rather
+than a full replacement. Unspecified groups are delegated to `base`.
+
+`base` may be any vector provider accepted by `ParamSpec` (e.g. a scalar broadcast,
+full-length vector, or `VectorGroupMap`).
 """
-const VectorProviderBase = Union{Nothing,Number,Bool,AbstractVector,AbstractParamDef,VectorGroupMap}
-
 struct VectorGroupPatch
-    base::VectorProviderBase
+    base::Any
     patch::VectorGroupMap
 end
+
+"""Group-level vector provider with a fixed group set.
+
+`GroupVec` stores one scalar item per *group* (e.g. `:P`, `:Z`) in a canonical order.
+It is intended for parameters that are constant within each group, independent of
+size classes / PFT index.
+
+Guarantees
+----------
+- The group set is fixed by `groups`.
+- The provider is **complete**: every group in `groups` has an explicit value.
+- Group values are applied uniformly to all PFTs belonging to that group.
+
+Notes
+-----
+`GroupVec` is a CPU-side provider stored in the registry. During model construction,
+it is expanded to a dense per-PFT vector with minimal branching.
+"""
+struct GroupVec{N}
+    groups::NTuple{N,Symbol}
+    items::NTuple{N,ScalarItem}
+end
+
+"""\
+    GroupVec(groups::NTuple{N,Symbol}, values::NamedTuple) -> GroupVec{N}
+
+Create a `GroupVec` from a complete `NamedTuple` mapping group symbols to scalar items.
+
+The `NamedTuple` must contain **exactly** the keys in `groups` (order is irrelevant).
+"""
+function GroupVec(groups::NTuple{N,Symbol}, values::NamedTuple) where {N}
+    # Strict key validation (typo protection).
+    got = Tuple(keys(values))
+    missing = Symbol[]
+    extra = Symbol[]
+    for g in groups
+        (g in got) || push!(missing, g)
+    end
+    for k in got
+        (k in groups) || push!(extra, k)
+    end
+    if !isempty(missing) || !isempty(extra)
+        msg = "GroupVec keys must exactly match groups=$(groups)."
+        !isempty(missing) && (msg *= " Missing: $(missing).")
+        !isempty(extra) && (msg *= " Unknown: $(extra).")
+        throw(ArgumentError(msg))
+    end
+
+    items = ntuple(i -> begin
+        g = groups[i]
+        getproperty(values, g)
+    end, N)
+    return GroupVec{N}(groups, items)
+end
+
+"""\
+    GroupVec(groups::NTuple{N,Symbol}; kwargs...) -> GroupVec{N}
+
+Keyword form for constructing a complete `GroupVec`.
+"""
+GroupVec(groups::NTuple{N,Symbol}; kwargs...) where {N} = GroupVec(groups, (; kwargs...))
 
 """    MatrixFn(f; deps=Symbol[])
 
@@ -94,6 +156,7 @@ const ProviderValue = Union{
     AbstractVector,
     AbstractMatrix,
     AbstractParamDef,
+    GroupVec,
     VectorGroupMap,
     VectorGroupPatch,
     MatrixFn,

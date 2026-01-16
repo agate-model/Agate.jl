@@ -90,27 +90,19 @@ function detritus_with_heterotrophs(PV, plankton_syms::AbstractVector{Symbol})
     )
 end
 
-# ## 3. Extend the NiPiZD factory configuration with a new group `H`
+# ## 3. Define a new factory with a fixed group set `(:Z, :P, :H)`
 
-factory = NiPiZDFactory()
+# Agate assumes each factory has a fixed, known group set. To add a heterotroph
+# group, define a new factory type whose default inputs include `H`.
 
-# Optional: inspect the base registry before extending.
-println(parameter_registry(factory))
+using Agate.Utils: AbstractBGCFactory
+import Agate.Models: default_plankton_dynamics, default_community, default_biogeochem_dynamics, factory_groups
+import Agate.Parameters: parameter_registry
 
-plankton_dynamics   = Agate.Models.default_plankton_dynamics(factory)
-community           = Agate.Models.default_community(factory)
-biogeochem_dynamics = Agate.Models.default_biogeochem_dynamics(factory)
-
-# Override detritus (`D`) dynamics to include heterotroph detrital uptake.
-biogeochem_dynamics_H = update_dynamics(biogeochem_dynamics; D=detritus_with_heterotrophs)
-
-# Add a new group entry to the community.
-#
 # Requirement: `H` cannot eat but can be eaten.
 # Agate builds default palatability/assimilation matrices from these traits.
 
 heterotroph_pft = PFTSpecification(
-    # Interaction traits used by default allometric interactions.
     can_eat         = false,
     can_be_eaten    = true,
     optimum_predator_prey_ratio = 0.0,
@@ -119,10 +111,66 @@ heterotroph_pft = PFTSpecification(
     assimilation_efficiency = 0.0,
 )
 
-community_H = extend_community(community; H=(; n=1, diameters=[6.0], pft=heterotroph_pft))
+struct NiPiZDHFactory <: AbstractBGCFactory end
 
-# Add matching dynamics for the new group.
-plankton_dynamics_H = extend_dynamics(plankton_dynamics; H=heterotroph_growth)
+factory_groups(::NiPiZDHFactory) = (:Z, :P, :H)
+
+default_plankton_dynamics(::NiPiZDHFactory) = (
+    Agate.Models.default_plankton_dynamics(NiPiZDFactory())...,
+    H = heterotroph_growth,
+)
+
+default_biogeochem_dynamics(::NiPiZDHFactory) = update_dynamics(
+    Agate.Models.default_biogeochem_dynamics(NiPiZDFactory());
+    D = detritus_with_heterotrophs,
+)
+
+default_community(::NiPiZDHFactory) = (
+    Agate.Models.default_community(NiPiZDFactory())...,
+    H = (; n=1, diameters=[6.0], pft=heterotroph_pft),
+)
+
+function parameter_registry(::NiPiZDHFactory)
+    base = Agate.Parameters.parameter_registry(NiPiZDFactory())
+    groups = (:Z, :P, :H)
+
+    new_specs = map(base.specs) do s
+        if s.shape === :vector && s.provider isa Agate.Parameters.GroupVec
+            gv = s.provider
+            # Extend NiPiZD's (:Z, :P) group-level defaults with an explicit `H` entry.
+            h_item = if s.name === :linear_mortality
+                gv.items[1]
+            elseif s.name === :can_be_eaten
+                true
+            elseif s.name === :can_eat
+                false
+            elseif s.value_kind === :bool
+                false
+            else
+                0.0
+            end
+            provider = Agate.Parameters.GroupVec(groups; Z=gv.items[1], P=gv.items[2], H=h_item)
+            Agate.Parameters.ParamSpec(s.name, s.shape, s.missing_policy, s.value_kind, s.doc, provider)
+        else
+            s
+        end
+    end
+
+    return Agate.Parameters.ParamRegistry(collect(new_specs))
+end
+
+factory = NiPiZDHFactory()
+
+# Optional: inspect the base registry before extending.
+println(parameter_registry(factory))
+
+plankton_dynamics   = Agate.Models.default_plankton_dynamics(factory)
+community           = Agate.Models.default_community(factory)
+biogeochem_dynamics = Agate.Models.default_biogeochem_dynamics(factory)
+
+biogeochem_dynamics_H = biogeochem_dynamics
+community_H = community
+plankton_dynamics_H = plankton_dynamics
 
 # ## 4. Extend the parameter registry with the new parameters
 #

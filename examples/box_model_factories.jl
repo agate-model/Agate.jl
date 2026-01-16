@@ -69,7 +69,7 @@ community_custom = update_community(community_custom, :P; n=3, diameters=(1.5, 2
 
 parameter_overrides = (
     detritus_remineralization = 0.18 / day,
-    maximum_growth_rate = (P = AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15),),
+    maximum_growth_rate = (P = AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15), Z = 0.0),
 )
 
 registry_custom = update_registry(parameter_registry(factory); parameter_overrides...)

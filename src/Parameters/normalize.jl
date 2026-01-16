@@ -31,6 +31,11 @@ end
     return _bad_provider("Invalid scalar provider item $(typeof(x)). Expected a number or AbstractParamDef.")
 end
 
+@inline function _normalize_required_scalar_item(x, value_kind::Symbol)
+    x === nothing && return _bad_provider("GroupVec entries must be explicitly provided for all groups; `nothing` is not allowed.")
+    return _normalize_scalar_item(x, value_kind)
+end
+
 @inline function _check_container_kind(kind::Symbol, elty, shape::Symbol)
     # Keep checks strict but cheap and informative.
     if kind === :bool
@@ -60,6 +65,12 @@ function _normalize_vector_provider(x::NamedTuple, value_kind::Symbol)
         items[i] = _normalize_scalar_item(vs[i], value_kind)
     end
     return VectorGroupMap(ks, items)
+end
+
+function _normalize_vector_provider(x::GroupVec{N}, value_kind::Symbol) where {N}
+    _check_value_kind(value_kind)
+    items = ntuple(i -> _normalize_required_scalar_item(x.items[i], value_kind), N)
+    return GroupVec{N}(x.groups, items)
 end
 
 _normalize_vector_provider(::Dict, ::Symbol) = _bad_provider(

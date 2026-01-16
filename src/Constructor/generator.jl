@@ -275,7 +275,18 @@ function add_bgc_methods!(
         end
 
         allowed_symbols = (all_state_vars..., used_params...)
-        expression_check(allowed_symbols, tracer_expression)
+        try
+            expression_check(allowed_symbols, tracer_expression)
+        catch e
+            if e isa UndefVarError
+                sym = getfield(e, :var)
+                throw(ArgumentError(
+                    "Tracer :$(tracer_name) expression references undefined symbol :$(sym). " *
+                    "Provide it as a parameter, a state variable, or define it in the helper_functions module.",
+                ))
+            end
+            rethrow()
+        end
 
         tracer_method = quote
             function (bgc::$(wrapper))(::Val{$(QuoteNode(tracer_name))}, $(all_state_vars...))
@@ -284,7 +295,13 @@ function add_bgc_methods!(
             end
         end
 
-        eval(tracer_method)
+        try
+            eval(tracer_method)
+        catch e
+            throw(ArgumentError(
+                "Failed to define tracer :$(tracer_name) method. Underlying error: " * sprint(showerror, e),
+            ))
+        end
     end
 
     # Optional sinking velocities.

@@ -6,6 +6,17 @@ include("InteractionDefaults.jl")
 using .InteractionDefaults: default_palatability_provider, default_assimilation_provider
 export default_palatability_provider, default_assimilation_provider
 
+"""Return the fixed group set for a factory.
+
+The returned tuple defines the canonical group order for group-level parameters
+(`Agate.Parameters.GroupVec`).
+"""
+function factory_groups(::AbstractBGCFactory)
+    throw(ArgumentError("No method `factory_groups(factory)` is defined for this factory."))
+end
+
+export factory_groups
+
 # -----------------------------------------------------------------------------
 # Factory default interface
 # -----------------------------------------------------------------------------

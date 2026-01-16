@@ -29,6 +29,7 @@ import Base: show
 
 export ParamSpec, ParamRegistry
 export MatrixFn
+export GroupVec
 export scalar_param, vector_param, matrix_param
 export parameter_registry, parameter_directory
 export resolve_runtime_parameters

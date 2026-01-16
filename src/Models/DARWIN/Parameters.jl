@@ -6,12 +6,14 @@ Example/spec containers may provide structural information and user overrides on
 
 using Agate.Parameters: ParamRegistry
 using Agate.Parameters: scalar_param, vector_param, matrix_param
+using Agate.Parameters: GroupVec
 using Agate.Models: default_palatability_provider, default_assimilation_provider
 using Agate.Library.Allometry: AllometricParam, PowerLaw
 
 import Agate.Parameters: parameter_registry
 
 function parameter_registry(::DarwinFactory)
+    groups = (:Z, :P)
     return ParamRegistry([
         # --- Stoichiometry + partitioning scalars --------------------------
         scalar_param(:nitrogen_to_carbon, "Nitrogen:carbon ratio.", 0.15; missing_policy=:fail),
@@ -27,64 +29,104 @@ function parameter_registry(::DarwinFactory)
         scalar_param(:DOP_remineralization, "DOP remineralization rate.", 0.1213 / 86400; missing_policy=:fail),
 
         # --- Plankton vectors ----------------------------------------------
-        vector_param(:linear_mortality, "Linear mortality rate.", 8e-7; missing_policy=:fail),
-        vector_param(:quadratic_mortality, "Quadratic mortality rate (zoo only).", (Z=1e-6,); missing_policy=:zero_silent),
+        vector_param(
+            :linear_mortality,
+            "Linear mortality rate.",
+            GroupVec(groups; Z=8e-7, P=8e-7);
+            missing_policy=:fail,
+        ),
+        vector_param(
+            :quadratic_mortality,
+            "Quadratic mortality rate.",
+            GroupVec(groups; Z=1e-6, P=0.0);
+            missing_policy=:fail,
+        ),
 
         # Photosynthesis / nutrient limitation
         vector_param(
             :maximum_growth_rate,
-            "Maximum phytoplankton growth rate (allometric for phyto).",
-            (P=AllometricParam(PowerLaw(); prefactor=2 / 86400, exponent=-0.15),);
-            missing_policy=:zero_silent,
+            "Maximum phytoplankton growth rate.",
+            GroupVec(groups; P=AllometricParam(PowerLaw(); prefactor=2 / 86400, exponent=-0.15), Z=0.0);
+            missing_policy=:fail,
         ),
         vector_param(
             :half_saturation_DIN,
-            "DIN half-saturation (allometric for phyto).",
-            (P=AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27),);
-            missing_policy=:zero_silent,
+            "DIN half-saturation.",
+            GroupVec(groups; P=AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27), Z=0.0);
+            missing_policy=:fail,
         ),
         vector_param(
             :half_saturation_PO4,
-            "PO4 half-saturation (allometric for phyto).",
-            (P=AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27),);
-            missing_policy=:zero_silent,
+            "PO4 half-saturation.",
+            GroupVec(groups; P=AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27), Z=0.0);
+            missing_policy=:fail,
         ),
         vector_param(:alpha, "Smith-style light-limitation parameter.", 0.0 / 86400; missing_policy=:fail),
-        vector_param(:photosynthetic_slope, "Photosynthetic slope (phyto only).", (P=0.46e-5,); missing_policy=:zero_silent),
-        vector_param(:chlorophyll_to_carbon_ratio, "Chlorophyll:carbon ratio (phyto only).", (P=0.1,); missing_policy=:zero_silent),
+        vector_param(
+            :photosynthetic_slope,
+            "Photosynthetic slope.",
+            GroupVec(groups; P=0.46e-5, Z=0.0);
+            missing_policy=:fail,
+        ),
+        vector_param(
+            :chlorophyll_to_carbon_ratio,
+            "Chlorophyll:carbon ratio.",
+            GroupVec(groups; P=0.1, Z=0.0);
+            missing_policy=:fail,
+        ),
 
         # --- Grazing community vectors -------------------------------------
         vector_param(
             :maximum_predation_rate,
-            "Maximum grazing rate (allometric for zoo).",
-            (Z=AllometricParam(PowerLaw(); prefactor=30.84 / 86400, exponent=-0.16),);
-            missing_policy=:zero_silent,
+            "Maximum grazing rate.",
+            GroupVec(groups; Z=AllometricParam(PowerLaw(); prefactor=30.84 / 86400, exponent=-0.16), P=0.0);
+            missing_policy=:fail,
         ),
-        vector_param(:holling_half_saturation, "Holling half-saturation constant (zoo only).", (Z=5.0,); missing_policy=:zero_silent),
+        vector_param(
+            :holling_half_saturation,
+            "Holling half-saturation constant.",
+            GroupVec(groups; Z=5.0, P=0.0);
+            missing_policy=:fail,
+        ),
 
         # --- Traits for matrix defaults ------------------------------------
         vector_param(
             :can_eat,
             "Binary predator flag used to build default interaction matrices.",
-            (Z=true, P=false);
+            GroupVec(groups; Z=true, P=false);
             missing_policy=:fail,
             value_kind=:bool,
         ),
         vector_param(
             :can_be_eaten,
             "Binary prey flag used to build the default assimilation-efficiency matrix.",
-            (Z=false, P=true);
+            GroupVec(groups; Z=false, P=true);
             missing_policy=:fail,
             value_kind=:bool,
         ),
-        vector_param(:optimum_predator_prey_ratio, "Preferred predator:prey size ratio.", (Z=10.0,); missing_policy=:zero_silent),
-        vector_param(:specificity, "Palatability specificity.", (Z=0.3,); missing_policy=:zero_silent),
-        vector_param(:protection, "Prey protection factor.", (Z=1.0,); missing_policy=:zero_silent),
+        vector_param(
+            :optimum_predator_prey_ratio,
+            "Preferred predator:prey size ratio.",
+            GroupVec(groups; Z=10.0, P=0.0);
+            missing_policy=:fail,
+        ),
+        vector_param(
+            :specificity,
+            "Palatability specificity.",
+            GroupVec(groups; Z=0.3, P=0.0);
+            missing_policy=:fail,
+        ),
+        vector_param(
+            :protection,
+            "Prey protection factor.",
+            GroupVec(groups; Z=1.0, P=0.0);
+            missing_policy=:fail,
+        ),
         vector_param(
             :assimilation_efficiency,
             "Assimilation efficiency used to build the default assimilation-efficiency matrix.",
-            (Z=0.32,);
-            missing_policy=:zero_silent,
+            GroupVec(groups; Z=0.32, P=0.0);
+            missing_policy=:fail,
         ),
 
         # --- Interaction matrices ------------------------------------------
