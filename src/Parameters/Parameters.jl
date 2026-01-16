@@ -14,7 +14,7 @@ User inputs are normalized into canonical provider wrappers at **boundary time**
 (`ParamSpec`, `update_registry`, `extend_registry`, and interactions application).
 Runtime resolution never guesses a shape from the value type.
 
-Derived providers may declare dependencies via `deps(provider)::Vector{Symbol}` so the
+Derived providers may declare dependencies via `deps(provider)::Tuple{Vararg{Symbol}}` so the
 resolver can compute prerequisite parameters without hardcoded special cases.
 """
 module Parameters
@@ -53,69 +53,47 @@ end
 # Provider wrappers (CPU-only)
 # ----------------------------------------------------------------------------
 
-"""Abstract supertype for registry providers (CPU-only)."""
-abstract type AbstractProvider end
+# NOTE: Providers are only stored in the registry and evaluated during `construct`.
+# The runtime parameter bundle contains only numeric scalars and arrays.
 
-# ---- Scalar providers -------------------------------------------------------
+# ---- Scalar items -----------------------------------------------------------
 
 """Scalar literal provider."""
-struct ScalarValue{T} <: AbstractProvider
+struct ScalarValue{T}
     value::T
 end
 
-"""Scalar provider backed by an allometric definition.
+"""Scalar item backed by an allometric definition.
 
-This is only meaningful when used as a *per-PFT* item inside a vector provider.
+Allometric items are only meaningful inside vector-shaped parameters.
 """
-struct ScalarAllometric{D<:AbstractParamDef} <: AbstractProvider
+struct ScalarAllometric{D<:AbstractParamDef}
     def::D
 end
 
-"""Scalar provider computed from the construction context: `(ctx) -> value`."""
-struct ScalarFromCtx{F} <: AbstractProvider
-    f::F
-end
+"""Union type for scalar items used in vector fills and group maps."""
+const ScalarItem = Union{Nothing,ScalarValue,ScalarAllometric}
 
 # ---- Vector providers -------------------------------------------------------
 
-"""Vector provider storing an explicit full-length vector."""
-struct VectorValue{V<:AbstractVector} <: AbstractProvider
-    value::V
-end
+"""Vector provider defined by per-group scalar defaults.
 
-"""Vector provider computed from the construction context: `(ctx) -> vector`."""
-struct VectorFromCtx{F} <: AbstractProvider
-    f::F
-end
+The group map stores scalar items keyed by group symbol (e.g. `:Z`, `:P`).
+Per-PFT overrides stored in the community specification take precedence.
 
-"""Vector provider that fills all PFT entries with the same scalar item."""
-struct VectorFill <: AbstractProvider
-    item::Any
-end
-
-"""Vector provider defined by per-group defaults.
-
-The map values are *scalar* providers (applied to all PFTs within that group), and
-per-PFT overrides stored in the community specification take precedence.
-
-Accepted inputs for construction:
+Accepted construction inputs:
 - `NamedTuple`, e.g. `(Z=1.0, P=0.0)`
-- `Dict{Symbol,Any}`
+
+`Dict` inputs are intentionally unsupported to keep configuration strict and typo-resistant.
 """
-struct VectorGroupMap{M<:AbstractDict{Symbol,Any}} <: AbstractProvider
-    map::M
+struct VectorGroupMap
+    keys::Vector{Symbol}
+    items::Vector{ScalarItem}
 end
 
 # ---- Matrix providers -------------------------------------------------------
 
-"""Matrix provider storing an explicit matrix."""
-struct MatrixValue{M<:AbstractMatrix} <: AbstractProvider
-    value::M
-end
-
-
-"""\
-    MatrixFn(f; deps=Symbol[])
+"""    MatrixFn(f; deps=Symbol[])
 
 Derived matrix provider with explicit dependencies.
 
@@ -125,17 +103,25 @@ Derived matrix provider with explicit dependencies.
 Use `MatrixFn` to build interaction matrices from other resolved parameters without
 hardcoding special cases in the resolver.
 """
-struct MatrixFn{F} <: AbstractProvider
+struct MatrixFn{F,Deps}
     f::F
-    deps::Vector{Symbol}
 end
 
-MatrixFn(f; deps=Symbol[]) = MatrixFn{typeof(f)}(f, collect(Symbol, deps))
+"""    MatrixFn(f; deps=Symbol[])
+
+Create a derived matrix provider with explicit dependencies.
+
+`deps` is converted to a tuple of `Symbol`s and stored in the provider type so dependency
+resolution does not allocate or rely on name-based special casing.
+"""
+function MatrixFn(f; deps=Symbol[])
+    deps_tuple = Tuple(Symbol(d) for d in deps)
+    return MatrixFn{typeof(f), deps_tuple}(f)
+end
 
 """Return declared dependencies for a provider."""
-deps(::Nothing) = Symbol[]
-deps(::AbstractProvider) = Symbol[]
-deps(p::MatrixFn) = p.deps
+deps(::Any) = ()
+deps(::MatrixFn{F,Deps}) where {F,Deps} = Deps
 
 # ----------------------------------------------------------------------------
 # Provider normalization (strict-by-default)
@@ -158,42 +144,40 @@ end
 function _normalize_vector_provider(x)
     x === nothing && return nothing
 
-    if x isa VectorValue || x isa VectorFromCtx || x isa VectorFill || x isa VectorGroupMap
+    if x isa AbstractVector
         return x
-    elseif x isa Number || x isa Bool || x isa AbstractParamDef
-        return VectorFill(_normalize_scalar_item(x))
-    elseif x isa AbstractVector
-        return VectorValue(x)
-    elseif x isa Function
-        return VectorFromCtx(x)
     elseif x isa NamedTuple
-        d = Dict{Symbol,Any}()
-        for k in propertynames(x)
-            d[k] = _normalize_scalar_item(getproperty(x, k))
+        ks = collect(keys(x))
+        vs = values(x)
+        items = Vector{ScalarItem}(undef, length(ks))
+        for i in eachindex(ks)
+            items[i] = _normalize_scalar_item(vs[i])
         end
-        return VectorGroupMap(d)
+        return VectorGroupMap(ks, items)
     elseif x isa Dict
-        d = Dict{Symbol,Any}()
-        for (k, v) in pairs(x)
-            k isa Symbol || throw(ArgumentError("Vector group map keys must be Symbol, got $(typeof(k))."))
-            d[k] = _normalize_scalar_item(v)
-        end
-        return VectorGroupMap(d)
+        throw(ArgumentError(
+            "Vector group maps must be provided as a NamedTuple like (Z=..., P=...). Dict inputs are intentionally unsupported.",
+        ))
+    elseif x isa Function
+        throw(ArgumentError(
+            "Vector parameters do not accept function providers. Provide a full-length vector or a per-group NamedTuple like (Z=..., P=...).",
+        ))
     else
-        throw(ArgumentError("Invalid vector provider $(typeof(x)). Expected Number/Bool/AbstractParamDef, AbstractVector, NamedTuple/Dict group map, or function."))
+        # Shape-driven rule: scalar/Bool/allometric inputs for vector parameters broadcast across all PFTs.
+        return _normalize_scalar_item(x)
     end
 end
 
 function _normalize_matrix_provider(x)
     x === nothing && return nothing
 
-    if x isa MatrixValue || x isa MatrixFn
+    if x isa AbstractMatrix
         return x
-    elseif x isa AbstractMatrix
-        return MatrixValue(x)
+    elseif x isa MatrixFn
+        return x
     elseif x isa Function
         # Shorthand: treat a bare function as a derived provider with no declared deps.
-        # The callable must still support the canonical signature `f(ctx, deps::NamedTuple)`.
+        # The callable must support the canonical signature `f(ctx, deps::NamedTuple)`.
         return MatrixFn(x; deps=Symbol[])
     else
         throw(ArgumentError("Invalid matrix provider $(typeof(x)). Expected AbstractMatrix, MatrixFn, or function f(ctx, deps)."))
@@ -206,16 +190,16 @@ function normalize_provider(shape::Symbol, x)
     if shape === :scalar
         x === nothing && return nothing
 
-        if x isa ScalarValue || x isa ScalarFromCtx
+        if x isa ScalarValue
             return x
         elseif x isa Function
-            return ScalarFromCtx(x)
+            throw(ArgumentError("Scalar parameters do not accept function providers. Provide a numeric literal."))
         elseif x isa Number || x isa Bool
             return ScalarValue(x)
         elseif x isa AbstractParamDef
-            throw(ArgumentError("Allometric providers are not valid scalar defaults; use them inside a vector group map or as a vector fill provider."))
+            throw(ArgumentError("Allometric providers are not valid scalar defaults; use them inside vector-shaped parameters."))
         else
-            throw(ArgumentError("Invalid scalar provider $(typeof(x)). Expected number/Bool or function."))
+            throw(ArgumentError("Invalid scalar provider $(typeof(x)). Expected number/Bool."))
         end
 
     elseif shape === :vector
@@ -242,7 +226,7 @@ Fields
   - `:zero_silent` -> replace with 0/false silently
 - `value_kind`: `:real` or `:bool`.
 - `doc`: documentation string.
-- `provider`: normalized provider wrapper or `nothing` (meaning required).
+- `provider`: normalized provider value (or `nothing` meaning required).
 
 Notes
 -----
@@ -255,7 +239,7 @@ struct ParamSpec
     missing_policy::Symbol
     value_kind::Symbol
     doc::String
-    provider::Union{Nothing,AbstractProvider}
+    provider::Any
 end
 
 """\
@@ -292,8 +276,8 @@ scalar_param(name::Symbol, doc::AbstractString, default; missing_policy::Symbol=
 
 Create a vector parameter specification.
 
-`default` may be a scalar/Bool, a full-length vector, a per-group map (`NamedTuple` or
-`Dict{Symbol,Any}`), an allometric definition, or a function `(ctx)->vector`.
+`default` may be a scalar/Bool/allometric definition (broadcast to all PFTs),
+a full-length vector, or a per-group `NamedTuple` map (e.g. `(Z=..., P=...)`).
 """
 vector_param(name::Symbol, doc::AbstractString, default; missing_policy::Symbol=:fail, value_kind::Symbol=:real) =
     ParamSpec(name, :vector, doc, default; missing_policy=missing_policy, value_kind=value_kind)
@@ -500,36 +484,38 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
         end
         return is_bool ? fill(false, n) : fill(zero(FT), n)
     end
-
     out = is_bool ? Vector{Bool}(undef, n) : Vector{FT}(undef, n)
 
-    if p isa VectorValue
-        v = p.value
+    if p isa AbstractVector
+        v = p
         length(v) == n || throw(ArgumentError("Default for :$(spec.name) must have length $n."))
         @inbounds for i in 1:n
             out[i] = coerce_value(FT, spec.value_kind, v[i])
         end
 
-    elseif p isa VectorFromCtx
-        v = p.f(ctx)
-        v isa AbstractVector || throw(ArgumentError("Vector provider for :$(spec.name) must return a vector."))
-        length(v) == n || throw(ArgumentError("Vector provider for :$(spec.name) must return length $n."))
+    elseif p isa ScalarValue || p isa ScalarAllometric
         @inbounds for i in 1:n
-            out[i] = coerce_value(FT, spec.value_kind, v[i])
-        end
-
-    elseif p isa VectorFill
-        item = p.item
-        @inbounds for i in 1:n
-            out[i] = _resolve_scalar_item(FT, spec, ctx, i, item)
+            out[i] = _resolve_scalar_item(FT, spec, ctx, i, p)
         end
 
     elseif p isa VectorGroupMap
-        mp = p.map
+        ks = p.keys
+        its = p.items
         @inbounds for i in 1:n
             gsym = ctx.group_symbols[i]
-            item = get(mp, gsym, nothing)
-            if item === nothing
+            found = false
+            item = nothing
+            for j in eachindex(ks)
+                if ks[j] === gsym
+                    found = true
+                    item = its[j]
+                    break
+                end
+            end
+            if !found
+                _handle_missing!(spec, missing, gsym)
+                out[i] = _missing_value(FT, is_bool)
+            elseif item === nothing
                 _handle_missing!(spec, missing, gsym)
                 out[i] = _missing_value(FT, is_bool)
             else
@@ -560,13 +546,13 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
     return out
 end
 
-@inline function _deps_namedtuple(deps_syms::Vector{Symbol}, resolved::Dict{Symbol,Any})
-    vals = Any[]
-    for k in deps_syms
+@inline function _deps_namedtuple(::Val{Deps}, resolved::Dict{Symbol,Any}) where {Deps}
+    vals = ntuple(i -> begin
+        k = Deps[i]
         haskey(resolved, k) || throw(ArgumentError("Matrix provider dependency :$k has not been resolved."))
-        push!(vals, resolved[k])
-    end
-    return NamedTuple{Tuple(deps_syms)}(Tuple(vals))
+        resolved[k]
+    end, length(Deps))
+    return NamedTuple{Deps}(vals)
 end
 
 function _resolve_matrix(::Type{FT}, spec::ParamSpec, ctx, resolved::Dict{Symbol,Any}) where {FT<:AbstractFloat}
@@ -584,10 +570,10 @@ function _resolve_matrix(::Type{FT}, spec::ParamSpec, ctx, resolved::Dict{Symbol
         return zeros(FT, n, n)
     end
 
-    val = if p isa MatrixValue
-        p.value
+    val = if p isa AbstractMatrix
+        p
     elseif p isa MatrixFn
-        deps_nt = _deps_namedtuple(p.deps, resolved)
+        deps_nt = _deps_namedtuple(Val(deps(p)), resolved)
         try
             p.f(ctx, deps_nt)
         catch e

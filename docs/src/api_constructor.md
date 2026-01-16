@@ -91,6 +91,8 @@ registry = parameter_registry(factory)
 registry = update_registry(registry;
     detritus_remineralization = 0.18 / day,
     maximum_growth_rate = (P = AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15),),
+    # Vector parameters accept a per-group mapping (like `maximum_growth_rate` above), a full vector,
+    # or a scalar/Bool/allometric definition (broadcast across all PFTs).
 )
 
 # 3) Compile the model instance.

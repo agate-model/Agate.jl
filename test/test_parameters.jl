@@ -74,6 +74,20 @@ using Oceananigans.Units
         @test p_default.maximum_predation_rate[1] != p_default.maximum_predation_rate[2]
 
         # Override by updating the registry.
+        # Shape-driven rule: scalar inputs for vector parameters broadcast across all PFTs.
+        reg_fill = update_registry(parameter_registry(factory); linear_mortality=1e-6)
+        p_fill = construct(factory; grid=dummy_grid(Float32), community=base, registry=reg_fill).parameters
+        @test all(p_fill.linear_mortality .== Float32(1e-6))
+
+        err2 = try
+            update_registry(parameter_registry(factory); quadratic_mortality=Dict(:Z=>1e-6))
+            nothing
+        catch e
+            e
+        end
+        @test err2 isa ArgumentError
+        @test occursin("NamedTuple", sprint(showerror, err2))
+
         registry = update_registry(parameter_registry(factory); maximum_predation_rate=(Z=0.5 / day,))
         p_over = construct(factory; grid=dummy_grid(Float32), community=base, registry=registry).parameters
 
