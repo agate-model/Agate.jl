@@ -59,6 +59,21 @@ using Oceananigans.Biogeochemistry:
             interactions=(; palatability_matrix=correct, assimilation_matrix=correct),
         )
         @test required_biogeochemical_tracers(bgc2) == (:N, :D, :Z1, :Z2, :P1, :P2)
+
+        # Bare matrix functions are intentionally unsupported: wrap in MatrixFn(f; deps=...).
+        bare = (ctx, depvals) -> zeros(Float32, n, n)
+        err = try
+            construct(
+                NiPiZDFactory();
+                grid=dummy_grid(Float32),
+                interactions=(; palatability_matrix=bare, assimilation_matrix=correct),
+            )
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("MatrixFn", sprint(showerror, err))
     end
 
     @testset "NiPiZD community override" begin

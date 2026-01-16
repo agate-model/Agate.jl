@@ -166,11 +166,11 @@ function _normalize_matrix_provider(x)
     elseif x isa MatrixFn
         return x
     elseif x isa Function
-        # Shorthand: treat a bare function as a derived provider with no declared deps.
-        # The callable must support the canonical signature `f(ctx, depvals::Tuple)`.
-        return MatrixFn(x; deps=Symbol[])
+        throw(ArgumentError(
+            "Matrix parameters do not accept bare function providers. Wrap the function in MatrixFn(f; deps=(...)).",
+        ))
     else
-        throw(ArgumentError("Invalid matrix provider $(typeof(x)). Expected AbstractMatrix, MatrixFn, or function f(ctx, depvals)."))
+        throw(ArgumentError("Invalid matrix provider $(typeof(x)). Expected AbstractMatrix or MatrixFn."))
     end
 end
 
@@ -275,7 +275,7 @@ vector_param(name::Symbol, doc::AbstractString, default; missing_policy::Symbol=
 
 Create a matrix parameter specification.
 
-`default` may be a concrete matrix, a `MatrixFn(f; deps=[...])`, or a function shorthand `f(ctx, depvals)` (normalized to `MatrixFn(f; deps=[])`).
+`default` may be a concrete matrix or a `MatrixFn(f; deps=[...])`.
 """
 matrix_param(name::Symbol, doc::AbstractString, default; missing_policy::Symbol=:fail, value_kind::Symbol=:real) =
     ParamSpec(name, :matrix, doc, default; missing_policy=missing_policy, value_kind=value_kind)
