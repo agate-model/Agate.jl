@@ -2,6 +2,10 @@ module Models
 
 using Agate.Utils: AbstractBGCFactory
 
+include("InteractionDefaults.jl")
+using .InteractionDefaults: default_palatability_provider, default_assimilation_provider
+export default_palatability_provider, default_assimilation_provider
+
 # -----------------------------------------------------------------------------
 # Factory default interface
 # -----------------------------------------------------------------------------

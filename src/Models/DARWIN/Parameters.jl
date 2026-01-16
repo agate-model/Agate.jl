@@ -6,7 +6,7 @@ Example/spec containers may provide structural information and user overrides on
 
 using Agate.Parameters: ParamRegistry
 using Agate.Parameters: scalar_param, vector_param, matrix_param
-using Agate.Parameters: default_palatability_provider, default_assimilation_provider
+using Agate.Models: default_palatability_provider, default_assimilation_provider
 using Agate.Library.Allometry: AllometricParam, PowerLaw
 
 import Agate.Parameters: parameter_registry

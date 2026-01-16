@@ -22,10 +22,6 @@ module Parameters
 using Logging
 
 using Agate.Library.Allometry: AbstractParamDef, resolve_param
-using Agate.Library.Allometry:
-    allometric_palatability_unimodal_protection,
-    palatability_matrix_allometric,
-    assimilation_efficiency_matrix_binary
 
 using Agate.Utils.Specifications: PFTSpecification, pft_has, pft_get, ModelSpecification
 
@@ -42,7 +38,6 @@ include("types.jl")
 include("normalize.jl")
 include("registry_ops.jl")
 include("pretty.jl")
-include("defaults.jl")
 include("resolve.jl")
 
 end # module Parameters
