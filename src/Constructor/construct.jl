@@ -207,13 +207,13 @@ function construct(
     tracer_names = Symbol[collect(keys(biogeochem_dynamics))...]
     append!(tracer_names, plankton_syms)
 
-    tracer_exprs = Expr[]
+    tracer_eqs = Equation[]
     merged = req()
 
     for (_, f) in pairs(biogeochem_dynamics)
         eq = f(PV, plankton_syms)
         eq isa Equation || throw(ArgumentError("biogeochem dynamics $(nameof(f)) must return Equation"))
-        push!(tracer_exprs, expr(eq))
+        push!(tracer_eqs, eq)
         merged = merge_requirements(merged, requirements(eq))
     end
 
@@ -224,12 +224,12 @@ function construct(
 
         eq = f(PV, plankton_syms, tr, idx)
         eq isa Equation || throw(ArgumentError("plankton dynamics $(nameof(f)) must return Equation"))
-        push!(tracer_exprs, expr(eq))
+        push!(tracer_eqs, eq)
 
         merged = merge_requirements(merged, requirements(eq))
     end
 
-    tracers = NamedTuple{Tuple(tracer_names)}(Tuple(tracer_exprs))
+    tracers = NamedTuple{Tuple(tracer_names)}(Tuple(tracer_eqs))
 
     # ---------------------------------------------------------------------
     # Parameter resolution -> architecture adaptation (CPU/GPU).
@@ -244,14 +244,12 @@ function construct(
 
     # Optional sinking velocities.
     if isnothing(sinking_tracers)
-        bgc_type = define_tracer_functions(params, tracers)
-        # NOTE: bgc_type is created via eval in `define_tracer_functions`, which can
-        # trigger Julia's world-age restriction if we call it immediately.
-        bgc = Base.invokelatest(bgc_type, params)
+        bgc_factory = define_tracer_functions(params, tracers)
+        bgc = bgc_factory(params)
     else
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
-        bgc_type = define_tracer_functions(params, tracers; sinking_velocities=sinking_velocities)
-        bgc = Base.invokelatest(bgc_type, params, sinking_velocities)
+        bgc_factory = define_tracer_functions(params, tracers; sinking_velocities=sinking_velocities)
+        bgc = bgc_factory(params, sinking_velocities)
     end
 
     # Move any arrays inside `bgc` onto the requested architecture.

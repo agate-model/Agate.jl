@@ -9,7 +9,7 @@ using ..Library.Nutrients
 using ..Library.Photosynthesis
 using ..Library.Predation
 using ..Library.Remineralization
-using ..Equations: Equation, expr
+using ..Equations: Equation, expr, requirements
 using OceanBioME
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 using Oceananigans.Fields: ZeroField
@@ -30,7 +30,7 @@ export add_bgc_methods!, create_bgc_struct, define_tracer_functions
 This is a small convenience helper used by the constructor and tests. All
 provided dynamics builders must return `Agate.Equations.Equation`.
 """
-function build_tracer_expressions(plankton_dynamics::NamedTuple, biogeochem_dynamics::NamedTuple, ctx)
+function build_tracer_expressions(PV, plankton_dynamics::NamedTuple, biogeochem_dynamics::NamedTuple, ctx)
     plankton_syms = ctx.plankton_symbols
 
     tracer_names = Symbol[collect(keys(biogeochem_dynamics))...]
@@ -38,7 +38,7 @@ function build_tracer_expressions(plankton_dynamics::NamedTuple, biogeochem_dyna
 
     tracer_exprs = Expr[]
     for (tr, f) in pairs(biogeochem_dynamics)
-        eq = f(plankton_syms)
+        eq = f(PV, plankton_syms)
         eq isa Equation || throw(ArgumentError("biogeochem dynamics $(nameof(f)) must return Equation"))
         push!(tracer_exprs, expr(eq))
     end
@@ -48,7 +48,7 @@ function build_tracer_expressions(plankton_dynamics::NamedTuple, biogeochem_dyna
         g = ctx.group_symbols[idx]
         f = getfield(plankton_dynamics, g)
         tracer_sym = plankton_syms[idx]
-        eq = f(plankton_syms, tracer_sym, idx)
+        eq = f(PV, plankton_syms, tracer_sym, idx)
         eq isa Equation || throw(ArgumentError("plankton dynamics $(nameof(f)) must return Equation"))
         push!(tracer_exprs, expr(eq))
     end
@@ -62,9 +62,8 @@ end
 
 """Return all `Symbol`s referenced by an expression tree.
 
-Supports `Expr`, `Symbol`, and literal roots (numbers). This is used at
-construction time to determine which runtime parameters need to be bound into
-generated tracer methods.
+Supports `Expr`, `Symbol`, and literal roots (numbers). This is used by
+`expression_check` to validate expressions at construction time.
 """
 function parse_expression(f_expr)
     symbols = Symbol[]
@@ -103,6 +102,163 @@ function expression_check(allowed_symbols, f_expr; module_name=Constructor)
     return nothing
 end
 
+
+
+# -----------------------------------------------------------------------------
+# Functor-based biogeochemistry (3A-style driver)
+# -----------------------------------------------------------------------------
+
+"""A concrete Oceananigans biogeochemistry model.
+
+This model dispatches tracer tendencies through a stored `NamedTuple` of callables
+instead of defining per-tracer methods via runtime `eval`.
+
+This is the 3A-style approach: *store callables, not generated methods*.
+"""
+struct AgateBGC{PT,TF,AF,SV} <: AbstractContinuousFormBiogeochemistry
+    parameters::PT
+    tracer_functions::TF
+    auxiliary_fields::AF
+    sinking_velocities::SV
+end
+
+Adapt.@adapt_structure AgateBGC
+
+@inline required_biogeochemical_tracers(bgc::AgateBGC) = keys(bgc.tracer_functions)
+@inline required_biogeochemical_auxiliary_fields(bgc::AgateBGC) = bgc.auxiliary_fields
+
+@inline function (bgc::AgateBGC)(::Val{tracer}, args...) where {tracer}
+    f = getfield(bgc.tracer_functions, tracer)
+    return f(bgc, args...)
+end
+
+@inline function biogeochemical_drift_velocity(bgc::AgateBGC, ::Val{tracer}) where {tracer}
+    sv = bgc.sinking_velocities
+    if sv === nothing
+        return (u=ZeroField(), v=ZeroField(), w=ZeroField())
+    end
+
+    if hasproperty(sv, tracer)
+        return (u=ZeroField(), v=ZeroField(), w=getproperty(sv, tracer))
+    end
+
+    return (u=ZeroField(), v=ZeroField(), w=ZeroField())
+end
+
+"""A callable factory returned by `define_tracer_functions`.
+
+The factory validates parameters and produces `AgateBGC` instances.
+"""
+struct AgateBGCFactory{TF,AF,RP,SV}
+    tracer_functions::TF
+    auxiliary_fields::AF
+    required_params::RP
+    default_sinking_velocities::SV
+end
+
+@inline function _validate_parameters(parameters, required_params)
+    isempty(required_params) && return nothing
+    keys = propertynames(_parameter_view(parameters))
+    for k in required_params
+        if k ∉ keys
+            throw(ArgumentError(
+                "Provided parameters are missing required field :$(k). " *
+                "Resolve parameters using `resolve_runtime_parameters` (merged requirements), " *
+                "or include :$(k) in your custom parameter struct.",
+            ))
+        end
+    end
+    return nothing
+end
+
+function (f::AgateBGCFactory)(parameters)
+    _validate_parameters(parameters, f.required_params)
+    return AgateBGC(parameters, f.tracer_functions, f.auxiliary_fields, f.default_sinking_velocities)
+end
+
+function (f::AgateBGCFactory)(parameters, sinking_velocities)
+    _validate_parameters(parameters, f.required_params)
+    return AgateBGC(parameters, f.tracer_functions, f.auxiliary_fields, sinking_velocities)
+end
+
+@inline function _compile_tracer_function(tracer_expression, used_params::Vector{Symbol}, all_state_vars)
+    # Arguments: bgc, x, y, z, t, tracers..., aux...
+    arg_tuple = Expr(:tuple, :bgc, all_state_vars...)
+
+    assigns = Any[]
+    for k in used_params
+        push!(assigns, :($k = _parameter_view(bgc.parameters).$k))
+    end
+
+    body = Expr(:block, assigns..., Expr(:return, tracer_expression))
+    lam = Expr(:->, arg_tuple, body)
+    return eval(lam)
+end
+
+function _compile_tracer_functions(parameters, tracers::NamedTuple; auxiliary_fields::Tuple=())
+    coordinates = (:x, :y, :z, :t)
+    tracer_vars = keys(tracers)
+    aux_field_vars = auxiliary_fields
+    all_state_vars = (coordinates..., tracer_vars..., aux_field_vars...)
+
+    parameter_keys = collect(propertynames(_parameter_view(parameters)))
+
+    compiled = Any[]
+    required_params = Symbol[]
+
+    for (tracer_name, tracer_val) in pairs(tracers)
+        tracer_expression, tracer_req, has_req = _tracer_expr_and_req(tracer_val)
+
+        used_params = Symbol[]
+        if has_req
+            used_params = _unique_params_from_requirements(tracer_req)
+
+            # Fail fast if the caller provided an incompatible parameter bundle.
+            for k in used_params
+                if k ∉ parameter_keys
+                    throw(ArgumentError(
+                        "Tracer :$(tracer_name) requires parameter :$(k), but it is not present in the provided parameters. " *
+                        "Resolve parameters using `resolve_runtime_parameters` (merged requirements), or include :$(k) in your custom parameter struct.",
+                    ))
+                end
+            end
+        else
+            used_symbols = parse_expression(tracer_expression)
+            @inbounds for k in parameter_keys
+                (k in used_symbols) && push!(used_params, k)
+            end
+        end
+
+        # Guard against reserved coordinate names appearing as parameters.
+        for k in used_params
+            k in required_params || push!(required_params, k)
+            if k in coordinates
+                throw(ArgumentError("Parameter name $(k) is reserved for coordinates."))
+            end
+        end
+
+        allowed_symbols = (all_state_vars..., used_params...)
+        try
+            expression_check(allowed_symbols, tracer_expression)
+        catch e
+            if e isa UndefVarError
+                sym = getfield(e, :var)
+                throw(ArgumentError(
+                    "Tracer :$(tracer_name) expression references undefined symbol :$(sym). " *
+                    "Provide it as a parameter, a state variable, or define it in the helper_functions module.",
+                ))
+            end
+            rethrow()
+        end
+
+        f = _compile_tracer_function(tracer_expression, used_params, all_state_vars)
+        push!(compiled, f)
+    end
+
+    tracer_functions = NamedTuple{Tuple(tracer_vars)}(Tuple(compiled))
+    return tracer_functions, required_params
+end
+
 # -----------------------------------------------------------------------------
 # Biogeochemistry type construction
 # -----------------------------------------------------------------------------
@@ -116,11 +272,17 @@ end
         sinking_velocities=nothing,
     )
 
-Create an Oceananigans biogeochemistry model type.
+Create a callable Oceananigans biogeochemistry model factory.
+
+The returned object can be called like a type constructor:
+
+    bgc_factory = define_tracer_functions(parameters, tracers)
+    bgc = bgc_factory(parameters)
+
 
 # Arguments
 - `parameters`: runtime parameter struct stored as `bgc.parameters`
-- `tracers`: `NamedTuple` mapping tracer names (Symbols) to tracer tendency expressions (`Expr`)
+- `tracers`: `NamedTuple` mapping tracer names (Symbols) to tracer tendencies (either `Expr` or `Agate.Equations.Equation`)
 
 # Keywords
 - `auxiliary_fields`: tuple of auxiliary field names (Symbols)
@@ -135,20 +297,18 @@ function define_tracer_functions(
     sinking_velocities=nothing,
 )
     Base.@nospecialize parameters tracers auxiliary_fields helper_functions sinking_velocities
-    model_name = gensym(:AgateBGC)
 
-    bgc_type = create_bgc_struct(model_name, parameters; sinking_velocities=sinking_velocities)
+    if !isnothing(helper_functions)
+        include(helper_functions)
+    end
 
-    add_bgc_methods!(
-        bgc_type,
-        tracers,
-        parameters;
+    tracer_functions, required_params = _compile_tracer_functions(
+        parameters,
+        tracers;
         auxiliary_fields=auxiliary_fields,
-        helper_functions=helper_functions,
-        sinking_velocities=sinking_velocities,
     )
 
-    return bgc_type
+    return AgateBGCFactory(tracer_functions, auxiliary_fields, required_params, sinking_velocities)
 end
 
 """
@@ -204,6 +364,30 @@ end
     return Base.hasproperty(parameters, :data) ? getproperty(parameters, :data) : parameters
 end
 
+@inline function _unique_params_from_requirements(r)
+    out = Symbol[]
+    for k in r.vectors
+        k in out || push!(out, k)
+    end
+    for k in r.matrices
+        k in out || push!(out, k)
+    end
+    for k in r.scalars
+        k in out || push!(out, k)
+    end
+    return out
+end
+
+@inline function _tracer_expr_and_req(tr)
+    if tr isa Equation
+        return expr(tr), requirements(tr), true
+    elseif tr isa Expr
+        return tr, nothing, false
+    else
+        throw(ArgumentError("Tracer map must contain Expr or Agate.Equations.Equation, got $(typeof(tr))."))
+    end
+end
+
 """
     add_bgc_methods!(
         bgc_type,
@@ -248,15 +432,36 @@ function add_bgc_methods!(
 
     # Bind runtime parameters into local variables to match tracer expression expectations.
     #
-    # To reduce compilation pressure (especially for large models like DARWIN), we only
-    # materialize *parameters actually referenced* by each tracer expression.
+    # Preferred path: if tracer dynamics were authored via `Agate.Equations`, then parameter
+    # requirements are the source of truth and we do NOT re-parse the expression to infer
+    # parameter usage.
+    #
+    # Backwards-compatible path: if a tracer is provided as a plain `Expr`, we infer used
+    # parameters by scanning for parameter names.
     parameter_keys = collect(propertynames(_parameter_view(parameters)))
 
-    for (tracer_name, tracer_expression) in pairs(tracers)
-        used_symbols = parse_expression(tracer_expression)
+    for (tracer_name, tracer_val) in pairs(tracers)
+        tracer_expression, tracer_req, has_req = _tracer_expr_and_req(tracer_val)
+
+        # Determine which parameters to bind into the method body.
         used_params = Symbol[]
-        @inbounds for k in parameter_keys
-            (k in used_symbols) && push!(used_params, k)
+        if has_req
+            used_params = _unique_params_from_requirements(tracer_req)
+
+            # Fail fast if the caller provided an incompatible parameter bundle.
+            for k in used_params
+                if k ∉ parameter_keys
+                    throw(ArgumentError(
+                        "Tracer :$(tracer_name) requires parameter :$(k), but it is not present in the provided parameters. " *
+                        "Resolve parameters using `resolve_runtime_parameters` (merged requirements), or include :$(k) in your custom parameter struct.",
+                    ))
+                end
+            end
+        else
+            used_symbols = parse_expression(tracer_expression)
+            @inbounds for k in parameter_keys
+                (k in used_symbols) && push!(used_params, k)
+            end
         end
 
         # Guard against reserved coordinate names appearing as parameters.
