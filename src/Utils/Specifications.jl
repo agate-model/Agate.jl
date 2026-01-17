@@ -25,9 +25,14 @@ export ModelSpecification
 """
     PFTSpecification(; kwargs...)
 
-Container for plankton functional-type (PFT) specification parameters.
+Container for plankton functional-type (PFT) specifications.
 
-Stores arbitrary fields in `pft.data` (typically a `NamedTuple`).
+This is a lightweight wrapper around a `NamedTuple` used to attach per-PFT traits
+and metadata (e.g. feeding traits used to build default interaction matrices).
+
+The parameter registry system does **not** read `PFTSpecification` fields to override
+registry parameters. Group-level parameters are configured via `update_registry`
+(full replacement) and `patch_registry_groups` (explicit partial updates).
 """
 struct PFTSpecification
     data::Any

@@ -10,7 +10,7 @@ module Utils
 
 include("Specifications.jl")
 
-using .Specifications: PFTSpecification, pft_get, pft_has, ModelSpecification
+using .Specifications: PFTSpecification, ModelSpecification
 
 import Oceananigans: time_step!
 

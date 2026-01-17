@@ -23,7 +23,7 @@ using Logging
 
 using Agate.Library.Allometry: AbstractParamDef, resolve_param
 
-using Agate.Utils.Specifications: PFTSpecification, pft_has, pft_get, ModelSpecification
+using Agate.Utils.Specifications: ModelSpecification
 
 import Base: show
 

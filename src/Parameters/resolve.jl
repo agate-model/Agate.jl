@@ -59,7 +59,11 @@ Guarantees
 ----------
 - Vector parameters are strict-by-default: missing values are errors.
 - Group-level providers (`GroupVec`) are expanded once during construction.
-- Per-PFT overrides stored in the community specification remain highest precedence.
+
+Notes
+-----
+Per-PFT parameter overrides are intentionally unsupported. The only supported
+partial update mechanism is group-level patching via `patch_registry_groups`.
 """
 function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFloat}
     spec.shape === :vector || throw(ArgumentError("Internal error: :$(spec.name) is not a vector spec."))
@@ -98,16 +102,6 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
         # Scalar/Bool/allometric broadcasts.
         @inbounds for i in 1:n
             out[i] = _resolve_scalar_item(FT, spec, ctx, i, p)
-        end
-    end
-
-    # Per-PFT overrides (highest precedence).
-    @inbounds for i in 1:n
-        pft = ctx.pfts[i]
-        if pft_has(pft, spec.name)
-            raw = pft_get(pft, spec.name)
-            item = _normalize_required_scalar_item(raw, spec.value_kind)
-            out[i] = _resolve_scalar_item(FT, spec, ctx, i, item)
         end
     end
 
