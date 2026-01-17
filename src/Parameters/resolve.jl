@@ -20,23 +20,6 @@ end
     return is_bool ? false : zero(FT)
 end
 
-@inline function _handle_missing!(spec::ParamSpec, missing_groups::Vector{Symbol}, group::Symbol)
-    if spec.missing_policy === :fail
-        throw(ArgumentError("Missing :$(spec.name) for group :$(group). Provide an override or change missing_policy."))
-    elseif spec.missing_policy === :zero_warn
-        push!(missing_groups, group)
-    end
-    return nothing
-end
-
-@inline function _emit_missing_warning(spec::ParamSpec, missing_groups::Vector{Symbol})
-    if spec.missing_policy === :zero_warn && !isempty(missing_groups)
-        uniq = unique(missing_groups)
-        @warn "Missing entries for vector :$(spec.name); replacing with 0/false for groups $(uniq)." maxlog=1
-    end
-    return nothing
-end
-
 function _resolve_scalar(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFloat}
     spec.shape === :scalar || throw(ArgumentError("Internal error: :$(spec.name) is not a scalar spec."))
 
@@ -58,7 +41,7 @@ function _resolve_scalar(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
 end
 
 @inline function _resolve_scalar_item(::Type{FT}, spec::ParamSpec, ctx, idx::Int, p) where {FT<:AbstractFloat}
-    p === nothing && return _missing_value(FT, _is_bool(spec))
+    p === nothing && throw(ArgumentError("Internal error: unexpected `nothing` item for vector :$(spec.name)."))
 
     if p isa Number || p isa Bool
         return coerce_value(FT, spec.value_kind, p)
@@ -70,129 +53,64 @@ end
     throw(ArgumentError("Internal error: unsupported vector item provider $(typeof(p)) for :$(spec.name)."))
 end
 
-@inline function _default_vector_item(spec::ParamSpec, provider, ctx, i::Int)
-    provider === nothing && return false, nothing
-
-    if provider isa VectorGroupPatch
-        found, item = _default_vector_item(spec, provider.patch, ctx, i)
-        found && return true, item
-        return _default_vector_item(spec, provider.base, ctx, i)
-    elseif provider isa AbstractVector
-        return true, provider[i]
-    elseif provider isa Number || provider isa Bool || provider isa AbstractParamDef
-        return true, provider
-    elseif provider isa VectorGroupMap
-        gsym = ctx.group_symbols[i]
-        ks = provider.keys
-        its = provider.items
-        for j in eachindex(ks)
-            if ks[j] === gsym
-                return true, its[j]
-            end
-        end
-        return false, nothing
-    else
-        throw(ArgumentError("Internal error: unsupported vector provider $(typeof(provider)) for :$(spec.name)."))
-    end
-end
-
 """Resolve a vector parameter over the full plankton community.
 
-Precedence:
-1. explicit per-PFT overrides stored in `ctx.pfts[i]`
-2. registry default provider
-3. fallback: 0/false for missing groups (according to `missing_policy`)
+Guarantees
+----------
+- Vector parameters are strict-by-default: missing values are errors.
+- Group-level providers (`GroupVec`) are expanded once during construction.
+- Per-PFT overrides stored in the community specification remain highest precedence.
 """
 function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFloat}
     spec.shape === :vector || throw(ArgumentError("Internal error: :$(spec.name) is not a vector spec."))
 
     n = ctx.n_total
     is_bool = _is_bool(spec)
-    missing = Symbol[]
 
     p = spec.provider
-
-    # Fast path: group-level providers expand to a dense per-PFT vector once at
-    # construction time.
-    if p isa GroupVec
-        groups = p.groups
-        # Precompute a group symbol -> group index map.
-        g_to_idx = Dict{Symbol,Int}()
-        for (i, g) in pairs(groups)
-            g_to_idx[g] = i
-        end
-
-        # Map each PFT index -> group index once, then expand.
-        group_index = Vector{Int}(undef, n)
-        @inbounds for i in 1:n
-            gsym = ctx.group_symbols[i]
-            gi = get(g_to_idx, gsym, 0)
-            gi == 0 && throw(ArgumentError(
-                "Vector :$(spec.name) is defined over groups=$(groups) but the community contains group :$(gsym).",
-            ))
-            group_index[i] = gi
-        end
-
-        out = is_bool ? Vector{Bool}(undef, n) : Vector{FT}(undef, n)
-        @inbounds for i in 1:n
-            gi = group_index[i]
-            out[i] = _resolve_scalar_item(FT, spec, ctx, i, p.items[gi])
-        end
-
-        # Optional per-PFT overrides (remain highest precedence).
-        @inbounds for i in 1:n
-            pft = ctx.pfts[i]
-            if pft_has(pft, spec.name)
-                raw = pft_get(pft, spec.name)
-                item = _normalize_scalar_item(raw, spec.value_kind)
-                out[i] = _resolve_scalar_item(FT, spec, ctx, i, item)
-            end
-        end
-
-        return out
-    end
-    if isnothing(p)
-        if spec.missing_policy === :fail
-            throw(ArgumentError("Missing required vector parameter :$(spec.name)."))
-        elseif spec.missing_policy === :zero_warn
-            @warn "Missing vector parameter :$(spec.name); replacing with 0/false." maxlog=1
-        end
-        return is_bool ? fill(false, n) : fill(zero(FT), n)
-    end
-
-    if p isa AbstractVector
-        length(p) == n || throw(ArgumentError("Default for :$(spec.name) must have length $n."))
-    elseif p isa VectorGroupPatch && p.base isa AbstractVector
-        length(p.base) == n || throw(ArgumentError("Default for :$(spec.name) must have length $n."))
-    end
+    isnothing(p) && throw(ArgumentError("Missing required vector parameter :$(spec.name)."))
 
     out = is_bool ? Vector{Bool}(undef, n) : Vector{FT}(undef, n)
 
-    @inbounds for i in 1:n
-        pft = ctx.pfts[i]
-
-        raw = if pft_has(pft, spec.name)
-            pft_get(pft, spec.name)
-        else
-            found, item = _default_vector_item(spec, p, ctx, i)
-            if !found
-                _handle_missing!(spec, missing, ctx.group_symbols[i])
-                nothing
-            else
-                item
+    if p isa GroupVec
+        groups = p.groups
+        N = length(groups)
+        @inbounds for i in 1:n
+            gsym = ctx.group_symbols[i]
+            gi = 0
+            for j in 1:N
+                if groups[j] === gsym
+                    gi = j
+                    break
+                end
             end
+            gi == 0 && throw(ArgumentError(
+                "Vector :$(spec.name) is defined over groups=$(groups) but the community contains group :$(gsym).",
+            ))
+            out[i] = _resolve_scalar_item(FT, spec, ctx, i, p.items[gi])
         end
-
-        if isnothing(raw)
-            _handle_missing!(spec, missing, ctx.group_symbols[i])
-            out[i] = _missing_value(FT, is_bool)
-        else
-            item2 = pft_has(pft, spec.name) ? _normalize_scalar_item(raw, spec.value_kind) : raw
-            out[i] = _resolve_scalar_item(FT, spec, ctx, i, item2)
+    elseif p isa AbstractVector
+        length(p) == n || throw(ArgumentError("Default for :$(spec.name) must have length $n."))
+        @inbounds for i in 1:n
+            out[i] = _resolve_scalar_item(FT, spec, ctx, i, p[i])
+        end
+    else
+        # Scalar/Bool/allometric broadcasts.
+        @inbounds for i in 1:n
+            out[i] = _resolve_scalar_item(FT, spec, ctx, i, p)
         end
     end
 
-    _emit_missing_warning(spec, missing)
+    # Per-PFT overrides (highest precedence).
+    @inbounds for i in 1:n
+        pft = ctx.pfts[i]
+        if pft_has(pft, spec.name)
+            raw = pft_get(pft, spec.name)
+            item = _normalize_required_scalar_item(raw, spec.value_kind)
+            out[i] = _resolve_scalar_item(FT, spec, ctx, i, item)
+        end
+    end
+
     return out
 end
 

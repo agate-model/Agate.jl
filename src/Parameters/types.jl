@@ -20,38 +20,10 @@ end
 Scalar items may be:
 - `Number` / `Bool` literals
 - `AbstractParamDef` allometric definitions
-- `nothing` (interpreted according to `missing_policy`)
+
+`nothing` is intentionally unsupported for vector items (strict-by-default).
 """
-const ScalarItem = Union{Nothing,Number,Bool,AbstractParamDef}
-
-"""Vector provider defined by per-group scalar defaults.
-
-The group map stores scalar items keyed by group symbol (e.g. `:Z`, `:P`).
-Per-PFT overrides stored in the community specification take precedence.
-
-Accepted construction inputs:
-- `NamedTuple`, e.g. `(Z=1.0, P=0.0)`
-
-`Dict` inputs are intentionally unsupported to keep configuration strict and typo-resistant.
-"""
-struct VectorGroupMap
-    keys::Vector{Symbol}
-    items::Vector{ScalarItem}
-end
-
-"""Vector provider that patches selected group entries on top of a base provider.
-
-This is used for user overrides like `update_registry(reg; mortality=(Z=...,))`.
-The override is interpreted as a *patch* (update only the specified groups) rather
-than a full replacement. Unspecified groups are delegated to `base`.
-
-`base` may be any vector provider accepted by `ParamSpec` (e.g. a scalar broadcast,
-full-length vector, or `VectorGroupMap`).
-"""
-struct VectorGroupPatch
-    base::Any
-    patch::VectorGroupMap
-end
+const ScalarItem = Union{Number,Bool,AbstractParamDef}
 
 """Group-level vector provider with a fixed group set.
 
@@ -100,15 +72,23 @@ function GroupVec(groups::NTuple{N,Symbol}, values::NamedTuple) where {N}
         throw(ArgumentError(msg))
     end
 
-    items = ntuple(i -> begin
+    raw_items = ntuple(i -> begin
         g = groups[i]
         getproperty(values, g)
     end, N)
+
+    # Explicit `nothing` check for actionable errors.
+    for i in 1:N
+        raw_items[i] === nothing && throw(ArgumentError(
+            "GroupVec entries must be explicitly provided for all groups; got `nothing` for group :$(groups[i]).",
+        ))
+    end
+
+    items = ntuple(i -> (raw_items[i]::ScalarItem), N)
     return GroupVec{N}(groups, items)
 end
 
-"""\
-    GroupVec(groups::NTuple{N,Symbol}; kwargs...) -> GroupVec{N}
+"""    GroupVec(groups::NTuple{N,Symbol}; kwargs...) -> GroupVec{N}
 
 Keyword form for constructing a complete `GroupVec`.
 """
@@ -157,8 +137,6 @@ const ProviderValue = Union{
     AbstractMatrix,
     AbstractParamDef,
     GroupVec,
-    VectorGroupMap,
-    VectorGroupPatch,
     MatrixFn,
 }
 

@@ -16,34 +16,6 @@ Use `extend_registry` to add new parameters explicitly.
 @inline _with_provider(s::ParamSpec, provider) =
     ParamSpec(s.name, s.shape, s.missing_policy, s.value_kind, s.doc, provider)
 
-@inline function _merge_groupmap(a::VectorGroupMap, b::VectorGroupMap)
-    keys = copy(a.keys)
-    items = copy(a.items)
-    for j in eachindex(b.keys)
-        k = b.keys[j]
-        it = b.items[j]
-
-        idx = findfirst(==(k), keys)
-        if idx === nothing
-            push!(keys, k)
-            push!(items, it)
-        else
-            items[idx] = it
-        end
-    end
-    return VectorGroupMap(keys, items)
-end
-
-@inline function _patch_vector_provider(base, patch::VectorGroupMap)
-    if base isa VectorGroupPatch
-        # Compose patches: later updates override earlier ones for the same group.
-        merged = _merge_groupmap(base.patch, patch)
-        return VectorGroupPatch(base.base, merged)
-    else
-        return VectorGroupPatch(base, patch)
-    end
-end
-
 function update_registry(registry::ParamRegistry, overrides::NamedTuple)
     isempty(overrides) && return registry
 
@@ -69,7 +41,7 @@ function update_registry(registry::ParamRegistry, overrides::NamedTuple)
                 throw(ArgumentError(
                     "update_registry: :$k is a group-level vector parameter; provide a scalar broadcast or a complete group NamedTuple matching groups=$(base.groups). Dict inputs are intentionally unsupported.",
                 ))
-            elseif v isa AbstractVector || v isa VectorGroupMap || v isa VectorGroupPatch
+            elseif v isa AbstractVector
                 throw(ArgumentError(
                     "update_registry: :$k is a group-level vector parameter; provide a scalar broadcast or a complete group NamedTuple matching groups=$(base.groups).",
                 ))
@@ -86,12 +58,6 @@ function update_registry(registry::ParamRegistry, overrides::NamedTuple)
 
         elseif v === nothing
             nothing
-
-        elseif s.shape === :vector && (v isa NamedTuple || v isa VectorGroupMap)
-            # Legacy per-group overrides are patches: update only the provided groups,
-            # and delegate all other groups to the previous provider.
-            patch = v isa VectorGroupMap ? v : normalize_provider(:vector, v, s.value_kind)
-            _patch_vector_provider(s.provider, patch)
 
         else
             normalize_provider(s.shape, v, s.value_kind)

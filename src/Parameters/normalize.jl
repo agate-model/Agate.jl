@@ -32,7 +32,7 @@ end
 end
 
 @inline function _normalize_required_scalar_item(x, value_kind::Symbol)
-    x === nothing && return _bad_provider("GroupVec entries must be explicitly provided for all groups; `nothing` is not allowed.")
+    x === nothing && return _bad_provider("Vector entries must be explicitly provided; `nothing` is not allowed.")
     return _normalize_scalar_item(x, value_kind)
 end
 
@@ -54,17 +54,12 @@ function _normalize_vector_provider(x::AbstractVector, value_kind::Symbol)
     return x
 end
 
-function _normalize_vector_provider(x::NamedTuple, value_kind::Symbol)
-    _check_value_kind(value_kind)
-
-    ks_t = keys(x)
-    ks = collect(ks_t)
-    vs = values(x)
-    items = Vector{ScalarItem}(undef, length(ks))
-    for i in eachindex(ks)
-        items[i] = _normalize_scalar_item(vs[i], value_kind)
-    end
-    return VectorGroupMap(ks, items)
+function _normalize_vector_provider(x::NamedTuple, ::Symbol)
+    return _bad_provider(
+        "Vector parameters do not accept per-group NamedTuple maps. " *
+        "Use GroupVec(groups; ...) for group-level vectors, patch_registry_groups(...) for partial updates, " *
+        "or provide a full-length AbstractVector / scalar broadcast."
+    )
 end
 
 function _normalize_vector_provider(x::GroupVec{N}, value_kind::Symbol) where {N}
@@ -74,16 +69,17 @@ function _normalize_vector_provider(x::GroupVec{N}, value_kind::Symbol) where {N
 end
 
 _normalize_vector_provider(::Dict, ::Symbol) = _bad_provider(
-    "Vector group maps must be provided as a NamedTuple like (Z=..., P=...). Dict inputs are intentionally unsupported.",
+    "Vector overrides do not accept Dict inputs (typo-prone). " *
+    "Use GroupVec(groups; ...) for full replacement or patch_registry_groups(...) for partial updates."
 )
 
 _normalize_vector_provider(::Function, ::Symbol) = _bad_provider(
-    "Vector parameters do not accept function providers. Provide a full-length vector or a per-group NamedTuple like (Z=..., P=...).",
+    "Vector parameters do not accept function providers. Provide a scalar broadcast, full-length AbstractVector, or GroupVec(groups; ...)."
 )
 
 function _normalize_vector_provider(x, value_kind::Symbol)
     # Shape-driven rule: scalar/Bool/allometric inputs for vector parameters broadcast across all PFTs.
-    return _normalize_scalar_item(x, value_kind)
+    return _normalize_required_scalar_item(x, value_kind)
 end
 
 _normalize_matrix_provider(::Nothing, ::Symbol) = nothing
