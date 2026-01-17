@@ -199,8 +199,9 @@ using Oceananigans.Units
 
     if has_cuda
         # Architecture is determined by the grid. Use a GPU-typed dummy grid so construction
-        # exercises GPU allocation paths without relying on an explicit `arch=` kwarg.
-        bgc_gpu = construct(NiPiZDFactory(); grid=dummy_grid(Float32; arch=GPU()))
+        # exercises GPU allocation paths.
+        backend = CUDA.CUDAKernels.CUDABackend()
+        bgc_gpu = construct(NiPiZDFactory(); grid=dummy_grid(Float32; arch=GPU(backend)))
         @test bgc_gpu.parameters.maximum_growth_rate isa CUDA.CuArray
         # Round-trip back to CPU.
         bgc_cpu = Adapt.adapt(Array, bgc_gpu)
