@@ -116,8 +116,22 @@ using Oceananigans.Units
             e
         end
         @test err_partial isa ArgumentError
-        @test occursin("complete", lowercase(sprint(showerror, err_partial))) ||
-              occursin("groups", lowercase(sprint(showerror, err_partial)))
+        msg_partial = sprint(showerror, err_partial)
+        @test occursin(":linear_mortality", msg_partial)
+        @test occursin("groups=", msg_partial)
+        @test occursin("Missing", msg_partial) || occursin("missing", msg_partial)
+
+
+        err_extra = try
+            update_registry(parameter_registry(factory); linear_mortality=(Z=1e-6, P=1e-6, H=1e-6))
+            nothing
+        catch e
+            e
+        end
+        @test err_extra isa ArgumentError
+        msg_extra = lowercase(sprint(showerror, err_extra))
+        @test occursin("unknown", msg_extra)
+        @test occursin("group", msg_extra)
 
         err2 = try
             update_registry(parameter_registry(factory); quadratic_mortality=Dict(:Z=>1e-6))
@@ -165,6 +179,33 @@ using Oceananigans.Units
     end
 
     
+@testset "Adapt compatibility" begin
+    using Adapt
+    using Oceananigans.Architectures: GPU
+
+    bgc = construct(NiPiZDFactory(); grid=dummy_grid(Float32))
+    # Should be Adapt-compatible for CPU
+    @test Adapt.adapt(Array, bgc) isa typeof(bgc)
+    @test Adapt.adapt(Array, bgc.parameters) isa typeof(bgc.parameters)
+
+    # Optional CUDA smoke test, only if CUDA is available and functional.
+    has_cuda = false
+    try
+        @eval import CUDA
+        has_cuda = CUDA.functional()
+    catch
+        has_cuda = false
+    end
+
+    if has_cuda
+        bgc_gpu = construct(NiPiZDFactory(); grid=dummy_grid(Float32), arch=GPU())
+        @test bgc_gpu.parameters.maximum_growth_rate isa CUDA.CuArray
+        # Round-trip back to CPU.
+        bgc_cpu = Adapt.adapt(Array, bgc_gpu)
+        @test bgc_cpu.parameters.maximum_growth_rate isa Vector{Float32}
+    end
+end
+
 @testset "ParamRegistry show" begin
     factory = NiPiZDFactory()
     reg = parameter_registry(factory)
