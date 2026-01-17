@@ -16,16 +16,10 @@
     return FT(x)
 end
 
-@inline function _missing_value(::Type{FT}, is_bool::Bool) where {FT<:AbstractFloat}
-    return is_bool ? false : zero(FT)
-end
-
 function _resolve_scalar(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFloat}
     spec.shape === :scalar || throw(ArgumentError("Internal error: :$(spec.name) is not a scalar spec."))
     p = spec.provider
-    if isnothing(p)
-        throw(ArgumentError("Missing required scalar parameter :$(spec.name)."))
-    end
+    isnothing(p) && throw(ArgumentError("Missing required scalar parameter :$(spec.name)."))
 
     if p isa Number || p isa Bool
         return coerce_value(FT, spec.value_kind, p)
@@ -51,13 +45,12 @@ end
 
 Guarantees
 ----------
-- Vector parameters are strict-by-default: missing values are errors.
+- Vector parameters are strict-by-default: `nothing` is an error.
 - Group-level providers (`GroupVec`) are expanded once during construction.
 
 Notes
 -----
-Per-PFT parameter overrides are intentionally unsupported. The only supported
-partial update mechanism is group-level patching via `patch_registry_groups`.
+Per-PFT (index-level) parameter overrides are intentionally unsupported.
 """
 function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFloat}
     spec.shape === :vector || throw(ArgumentError("Internal error: :$(spec.name) is not a vector spec."))
@@ -87,21 +80,15 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
             ))
             out[i] = _resolve_scalar_item(FT, spec, ctx, i, p.items[gi])
         end
+
     elseif p isa AbstractVector
         length(p) == n || throw(ArgumentError("Default for :$(spec.name) must have length $n."))
         @inbounds for i in 1:n
             out[i] = _resolve_scalar_item(FT, spec, ctx, i, p[i])
         end
+
     else
         # Scalar/Bool/allometric broadcasts.
-        # NOTE: group-level vectors (provider is GroupVec) must not accept scalar broadcast.
-        if spec.provider isa GroupVec
-            throw(ArgumentError(
-                "Group-level vector parameter :$(spec.name) does not support scalar broadcast. " *
-                "Provide an explicit group mapping (e.g. (P=1e-6, Z=1e-6)) or GroupVec(groups; ...).",
-            ))
-        end
-
         @inbounds for i in 1:n
             out[i] = _resolve_scalar_item(FT, spec, ctx, i, p)
         end
@@ -110,121 +97,159 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
     return out
 end
 
+# ----------------------------------------------------------------------------
+# Built-in derived matrices
+# ----------------------------------------------------------------------------
+
+using ..Library.Allometry:
+    palatability_matrix_allometric,
+    allometric_palatability_unimodal_protection,
+    assimilation_efficiency_matrix_binary
+
+const _DERIVED_MATRIX_DEPS = Dict{Symbol,NTuple{4,Symbol}}(
+    :palatability_matrix => (:can_eat, :optimum_predator_prey_ratio, :specificity, :protection),
+)
+
+const _DERIVED_MATRIX_DEPS3 = Dict{Symbol,NTuple{3,Symbol}}(
+    :assimilation_matrix => (:can_eat, :can_be_eaten, :assimilation_efficiency),
+)
+
+@inline _is_derived_matrix(k::Symbol) = haskey(_DERIVED_MATRIX_DEPS, k) || haskey(_DERIVED_MATRIX_DEPS3, k)
+
+function _derive_matrix(::Type{FT}, name::Symbol, ctx, resolved::Dict{Symbol,Any}) where {FT<:AbstractFloat}
+    n = ctx.n_total
+
+    if name === :palatability_matrix
+        can_eat = resolved[:can_eat]
+        opr = resolved[:optimum_predator_prey_ratio]
+        spec = resolved[:specificity]
+        prot = resolved[:protection]
+
+        M = palatability_matrix_allometric(FT, ctx.diameters;
+            can_eat=can_eat,
+            optimum_predator_prey_ratio=opr,
+            specificity=spec,
+            protection=prot,
+            palatability_fn=allometric_palatability_unimodal_protection,
+        )
+        (size(M, 1) == n && size(M, 2) == n) || throw(ArgumentError(
+            "Derived :palatability_matrix must be size ($n,$n).",
+        ))
+        return M
+
+    elseif name === :assimilation_matrix
+        can_eat = resolved[:can_eat]
+        can_be_eaten = resolved[:can_be_eaten]
+        eff = resolved[:assimilation_efficiency]
+
+        M = assimilation_efficiency_matrix_binary(FT;
+            can_eat=can_eat,
+            can_be_eaten=can_be_eaten,
+            assimilation_efficiency=eff,
+        )
+        (size(M, 1) == n && size(M, 2) == n) || throw(ArgumentError(
+            "Derived :assimilation_matrix must be size ($n,$n).",
+        ))
+        return M
+    end
+
+    throw(ArgumentError("No derived matrix builder registered for :$name."))
+end
+
 function _resolve_matrix(::Type{FT}, spec::ParamSpec, ctx, resolved::Dict{Symbol,Any}) where {FT<:AbstractFloat}
     spec.shape === :matrix || throw(ArgumentError("Internal error: :$(spec.name) is not a matrix spec."))
 
     n = ctx.n_total
     p = spec.provider
-    if isnothing(p)
-        throw(ArgumentError("Missing required matrix parameter :$(spec.name)."))
-    end
 
-
-    val = if p isa AbstractMatrix
-        p
-    elseif p isa MatrixFn
-        ds = deps(p)
-        depvals = ntuple(i -> begin
-            k = ds[i]
-            haskey(resolved, k) || throw(ArgumentError("Matrix provider dependency :$k has not been resolved."))
-            resolved[k]
-        end, length(ds))
-        try
-            p.f(ctx, depvals)
-        catch e
-            if e isa MethodError && e.f === p.f
-                throw(ArgumentError("MatrixFn for :$(spec.name) must support f(ctx, depvals::Tuple)."))
-            end
-            rethrow()
-        end
-    else
-        throw(ArgumentError("Internal error: unsupported matrix provider $(typeof(p)) for :$(spec.name)."))
-    end
-
-    (val isa AbstractMatrix) || throw(ArgumentError("Matrix parameter :$(spec.name) must be a matrix."))
-    size(val, 1) == n && size(val, 2) == n || throw(ArgumentError("Matrix :$(spec.name) must be size ($n,$n)."))
-
-    if spec.value_kind === :bool
-        eltype(val) <: Bool || throw(ArgumentError(
-            "Matrix :$(spec.name) is a Bool parameter; provider must return an AbstractMatrix{Bool}."
+    if p isa AbstractMatrix
+        (size(p, 1) == n && size(p, 2) == n) || throw(ArgumentError(
+            "Matrix :$(spec.name) must be size ($n,$n), got $(size(p)).",
         ))
-        return Bool.(val)
+        # Coerce element type eagerly to keep runtime storage uniform.
+        return FT.(p)
     end
-    return FT.(val)
+
+    if p === nothing
+        _is_derived_matrix(spec.name) || throw(ArgumentError(
+            "Missing required matrix parameter :$(spec.name). Provide a concrete matrix value.",
+        ))
+        return _derive_matrix(FT, spec.name, ctx, resolved)
+    end
+
+    throw(ArgumentError("Internal error: unsupported matrix provider $(typeof(p)) for :$(spec.name)."))
 end
 
 # ----------------------------------------------------------------------------
-# Runtime resolution
+# Public API
 # ----------------------------------------------------------------------------
 
-"""Resolve only parameters required by the constructed equations.
+"""\
+    resolve_runtime_parameters(ctx, registry, requirements, ::Type{FT}) -> ModelSpecification
 
-Returns a `ModelSpecification` containing only:
-- vectors referenced by equations,
-- matrices referenced by equations,
-- scalars referenced by equations.
+Resolve a `ParamRegistry` to a minimal runtime parameter bundle for the active model.
 
-Additional parameters needed to build derived providers (via `deps(...)`) are resolved
-internally but are not included in the returned runtime bundle.
+- Only parameters required by the equations are stored.
+- Scalars and vectors are resolved first.
+- Matrix parameters are then resolved either from explicit providers or (for a small
+  built-in set) via derived defaults.
+
+The return value is a `ModelSpecification` wrapping a `NamedTuple` with keys ordered as:
+`(vectors..., matrices..., scalars...)`.
 """
 function resolve_runtime_parameters(
-    factory,
     ctx,
-    requirements;
-    FT::Type{<:AbstractFloat},
-    registry=nothing,
-)
-    reg = (registry === nothing ? parameter_registry(factory) : registry)
-
-    # Guardrail: a parameter key must not be required in multiple shapes.
-    all_keys = vcat(requirements.scalars, requirements.vectors, requirements.matrices)
-    if length(all_keys) != length(unique(all_keys))
-        dup = [k for k in unique(all_keys) if count(==(k), all_keys) > 1]
-        throw(ArgumentError("Parameter keys appear in multiple shapes (scalar/vector/matrix): $(dup)"))
-    end
-
+    reg::ParamRegistry,
+    requirements,
+    ::Type{FT},
+) where {FT<:AbstractFloat}
     vector_keys = unique(requirements.vectors)
     matrix_keys = unique(requirements.matrices)
     scalar_keys = unique(requirements.scalars)
 
-    # Validate declared shapes.
+    # Validate that required parameters exist and have the right declared shape.
     for k in vector_keys
         spec = _require_spec(reg, k)
-        spec.shape === :vector || throw(ArgumentError("Parameter :$k is required as a vector but registry declares shape $(spec.shape)."))
+        spec.shape === :vector || throw(ArgumentError(
+            "Parameter :$k is required as a vector but registry declares shape $(spec.shape).",
+        ))
     end
     for k in matrix_keys
         spec = _require_spec(reg, k)
-        spec.shape === :matrix || throw(ArgumentError("Parameter :$k is required as a matrix but registry declares shape $(spec.shape)."))
+        spec.shape === :matrix || throw(ArgumentError(
+            "Parameter :$k is required as a matrix but registry declares shape $(spec.shape).",
+        ))
     end
     for k in scalar_keys
         spec = _require_spec(reg, k)
-        spec.shape === :scalar || throw(ArgumentError("Parameter :$k is required as a scalar but registry declares shape $(spec.shape)."))
+        spec.shape === :scalar || throw(ArgumentError(
+            "Parameter :$k is required as a scalar but registry declares shape $(spec.shape).",
+        ))
     end
 
-    # Compute dependency closure (resolver-only; not part of runtime bundle).
-    needed = Set{Symbol}(vcat(vector_keys, matrix_keys, scalar_keys))
-    stack = collect(needed)
+    # Determine which scalar/vector keys are needed for resolution.
+    needed = Set{Symbol}(vcat(vector_keys, scalar_keys))
 
-    while !isempty(stack)
-        k = pop!(stack)
-        spec = _require_spec(reg, k)
-        for d in deps(spec.provider)
-            dep_spec = _require_spec(reg, d)
-            if spec.shape === :matrix && dep_spec.shape === :matrix
-                throw(ArgumentError(
-                    "Matrix parameter :$k declares matrix dependency :$d. MatrixFn providers may only depend on scalar/vector parameters.",
-                ))
-            end
-            if !(d in needed)
-                push!(needed, d)
-                push!(stack, d)
+    # If a required matrix has no explicit provider and is one of the built-in derived
+    # matrices, pull in its declared dependencies.
+    for mk in matrix_keys
+        spec = _require_spec(reg, mk)
+        if spec.provider === nothing
+            if haskey(_DERIVED_MATRIX_DEPS, mk)
+                for d in _DERIVED_MATRIX_DEPS[mk]
+                    push!(needed, d)
+                end
+            elseif haskey(_DERIVED_MATRIX_DEPS3, mk)
+                for d in _DERIVED_MATRIX_DEPS3[mk]
+                    push!(needed, d)
+                end
             end
         end
     end
 
     resolved = Dict{Symbol,Any}()
 
-    # Resolve all scalars and vectors needed (including dependencies) in registry order.
+    # Resolve all scalars and vectors in registry order.
     for s in reg.specs
         if s.name in needed
             if s.shape === :scalar
@@ -235,10 +260,10 @@ function resolve_runtime_parameters(
         end
     end
 
-    # Resolve matrices. Matrix providers are restricted to scalar/vector dependencies,
-    # so a single pass in registry order is sufficient.
+    # Resolve required matrices (registry order, for stable error messages).
+    required_matrices = Set{Symbol}(matrix_keys)
     for s in reg.specs
-        if s.shape === :matrix && (s.name in needed)
+        if s.shape === :matrix && (s.name in required_matrices)
             resolved[s.name] = _resolve_matrix(FT, s, ctx, resolved)
         end
     end

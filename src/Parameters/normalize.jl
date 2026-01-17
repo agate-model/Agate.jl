@@ -57,7 +57,7 @@ end
 function _normalize_vector_provider(x::NamedTuple, ::Symbol)
     return _bad_provider(
         "Vector parameters do not accept per-group NamedTuple maps. " *
-        "Use GroupVec(groups; ...) for group-level vectors, patch_registry_groups(...) for partial updates, " *
+        "Use GroupVec(groups; ...) for group-level vectors, " *
         "or provide a full-length AbstractVector / scalar broadcast."
     )
 end
@@ -70,7 +70,7 @@ end
 
 _normalize_vector_provider(::Dict, ::Symbol) = _bad_provider(
     "Vector overrides do not accept Dict inputs (typo-prone). " *
-    "Use GroupVec(groups; ...) for full replacement or patch_registry_groups(...) for partial updates."
+    "Use GroupVec(groups; ...) for full replacement."
 )
 
 _normalize_vector_provider(::Function, ::Symbol) = _bad_provider(
@@ -90,14 +90,12 @@ function _normalize_matrix_provider(x::AbstractMatrix, value_kind::Symbol)
     return x
 end
 
-_normalize_matrix_provider(x::MatrixFn, ::Symbol) = x
-
 _normalize_matrix_provider(::Function, ::Symbol) = _bad_provider(
-    "Matrix parameters do not accept bare function providers. Wrap the function in MatrixFn(f; deps=(...)).",
+    "Matrix parameters do not accept function providers. Provide an AbstractMatrix, or pass `nothing` to use model defaults.",
 )
 
 _normalize_matrix_provider(x, ::Symbol) =
-    _bad_provider("Invalid matrix provider $(typeof(x)). Expected AbstractMatrix or MatrixFn.")
+    _bad_provider("Invalid matrix provider $(typeof(x)). Expected AbstractMatrix or `nothing`.")
 
 @inline function _normalize_scalar_provider(x, value_kind::Symbol)
     x === nothing && return nothing

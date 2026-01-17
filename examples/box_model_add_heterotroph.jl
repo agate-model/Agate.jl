@@ -10,7 +10,7 @@
 # Requirement: `H` should be eaten by `Z` but cannot eat.
 
 using Agate
-using Agate.Constructor: construct, update_dynamics
+using Agate.Constructor: construct
 import Agate.Models.NiPiZD: NiPiZDFactory
 using Agate.Utils.Specifications: PFTSpecification
 using Agate.Library.Allometry: AllometricParam, PowerLaw
@@ -18,7 +18,7 @@ using Agate.Equations: Equation, sum_over
 using Agate.Library.Mortality: linear_loss, linear_loss_sum, quadratic_loss_sum
 using Agate.Library.Predation: grazing_loss, grazing_assimilation_loss
 using Agate.Library.Light: FunctionFieldPAR
-using Agate.Parameters: parameter_registry, extend_registry, patch_registry_groups
+using Agate.Parameters: parameter_registry, update_registry
 using Agate.Parameters: vector_param, GroupVec
 
 using OceanBioME
@@ -122,9 +122,9 @@ default_plankton_dynamics(::NiPiZDHFactory) = (
     H = heterotroph_growth,
 )
 
-default_biogeochem_dynamics(::NiPiZDHFactory) = update_dynamics(
-    Agate.FactoryInterface.default_biogeochem_dynamics(NiPiZDFactory());
-    D = detritus_with_heterotrophs,
+default_biogeochem_dynamics(::NiPiZDHFactory) = merge(
+    Agate.FactoryInterface.default_biogeochem_dynamics(NiPiZDFactory()),
+    (; D = detritus_with_heterotrophs),
 )
 
 default_community(::NiPiZDHFactory) = (
@@ -183,23 +183,29 @@ extra_specs = [
     vector_param(
         :maximum_detritus_uptake_rate,
         "Maximum detritus uptake rate for detritivorous heterotrophs.",
-        GroupVec((:Z, :P, :H); Z=0.0, P=0.0, H=AllometricParam(PowerLaw(); prefactor=1.5 / day, exponent=-0.15)); ,
+        GroupVec((:Z, :P, :H);
+            Z=0.0,
+            P=0.0,
+            H=AllometricParam(PowerLaw(); prefactor=1.5/day, exponent=-0.15),
+        ),
     ),
     vector_param(
         :detritus_half_saturation,
         "Half-saturation constant for heterotroph detritus uptake.",
-        GroupVec((:Z, :P, :H); Z=0.0, P=0.0, H=0.04); ,
+        GroupVec((:Z, :P, :H); Z=0.0, P=0.0, H=0.04),
     ),
 ]
+
 base_reg = parameter_registry(factory)
-extended_reg = extend_registry(base_reg, extra_specs...)
+extended_reg = Agate.Parameters.ParamRegistry(vcat(base_reg.specs, extra_specs))
 
 # Inspect the extended registry including the new heterotroph parameters.
 println(extended_reg)
 
-# Optional ergonomic override: tweak detritus half-saturation for H via the group patch API.
-extended_reg = patch_registry_groups(extended_reg, factory; detritus_half_saturation=(H=0.05,))
-
+# Override: group-level vectors are strict replacements, so provide a full mapping.
+extended_reg = update_registry(extended_reg;
+    detritus_half_saturation=(Z=0.0, P=0.0, H=0.05),
+)
 # ## 5. Construct a new concrete NiPiZDH model type
 
 bgc = construct(

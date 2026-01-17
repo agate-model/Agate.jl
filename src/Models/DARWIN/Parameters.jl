@@ -7,7 +7,6 @@ Example/spec containers may provide structural information and user overrides on
 using ...Parameters: ParamRegistry
 using ...Parameters: scalar_param, vector_param, matrix_param
 using ...Parameters: GroupVec
-using ..InteractionDefaults: default_palatability_provider, default_assimilation_provider
 using ...Library.Allometry: AllometricParam, PowerLaw
 
 import ...Parameters: parameter_registry
@@ -115,7 +114,7 @@ function parameter_registry(::DarwinFactory)
         ),
 
         # --- Interaction matrices ------------------------------------------
-        matrix_param(:palatability_matrix, "Predator-prey palatability matrix.", default_palatability_provider()),
-        matrix_param(:assimilation_matrix, "Predator-prey assimilation-efficiency matrix.", default_assimilation_provider()),
+        matrix_param(:palatability_matrix, "Predator-prey palatability matrix. If not provided, it is derived from trait parameters (can_eat, optimum_predator_prey_ratio, specificity, protection).", nothing),
+        matrix_param(:assimilation_matrix, "Predator-prey assimilation-efficiency matrix. If not provided, it is derived from trait parameters (can_eat, can_be_eaten, assimilation_efficiency).", nothing),
     ])
 end

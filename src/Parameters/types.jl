@@ -94,37 +94,6 @@ Keyword form for constructing a complete `GroupVec`.
 """
 GroupVec(groups::NTuple{N,Symbol}; kwargs...) where {N} = GroupVec(groups, (; kwargs...))
 
-"""    MatrixFn(f; deps=Symbol[])
-
-Derived matrix provider with explicit dependencies.
-
-`f` is called during parameter resolution as `f(ctx, depvals)` where `depvals` is an
-`NTuple` of dependency values in the same order as `deps=...`.
-
-`MatrixFn` providers are evaluated during `construct` and must return an `AbstractMatrix`
-of size `(n_total, n_total)`.
-"""
-struct MatrixFn{F,N}
-    f::F
-    deps::NTuple{N,Symbol}
-end
-
-"""    MatrixFn(f; deps=Symbol[])
-
-Create a derived matrix provider with explicit dependencies.
-
-Dependencies are stored as an `NTuple{N,Symbol}` and passed positionally to
-`f(ctx, depvals)`.
-"""
-function MatrixFn(f; deps=Symbol[])
-    deps_tuple = Tuple(Symbol(d) for d in deps)
-    return MatrixFn{typeof(f), length(deps_tuple)}(f, deps_tuple)
-end
-
-"""Return declared dependencies for a provider."""
-deps(::Any) = ()
-deps(p::MatrixFn) = p.deps
-
 """Allowed provider value types stored in a `ParamSpec`.
 
 Provider values are normalized at registry update/extension time.
@@ -137,7 +106,6 @@ const ProviderValue = Union{
     AbstractMatrix,
     AbstractParamDef,
     GroupVec,
-    MatrixFn,
 }
 
 # ----------------------------------------------------------------------------

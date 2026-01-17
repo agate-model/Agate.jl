@@ -6,11 +6,6 @@ using ..FactoryInterface:
     default_community,
     default_biogeochem_dynamics
 
-include("InteractionDefaults.jl")
-using .InteractionDefaults: default_palatability_provider, default_assimilation_provider
-export default_palatability_provider, default_assimilation_provider
-
-
 # -----------------------------------------------------------------------------
 # Model modules
 # -----------------------------------------------------------------------------

@@ -1,21 +1,25 @@
 """Agate.Parameters
 
-Parameter registries and resolution utilities.
+Parameter registries and runtime resolution.
 
-The parameter registry is **CPU-only metadata**. Parameter *resolution* happens during
-`construct` and produces a runtime parameter bundle containing only numeric scalars and
-arrays. The returned runtime bundle is `Adapt.jl`-compatible, so it can be adapted to GPU
-arrays by Oceananigans.
+The parameter registry (`ParamRegistry`) is **CPU-side metadata** that declares:
 
-Provider system
----------------
-Parameters are declared with an explicit `shape` (`:scalar`, `:vector`, or `:matrix`).
-User inputs are normalized into canonical provider values at **boundary time**
-(`ParamSpec`, `update_registry`, `extend_registry`, and interactions application).
-Runtime resolution never guesses a shape from the value type.
+- parameter names
+- shapes (`:scalar`, `:vector`, `:matrix`)
+- value kind (`:real` or `:bool`)
+- documentation strings
+- optional default providers
 
-Derived providers may declare dependencies via `deps(provider)::Tuple{Vararg{Symbol}}` so the
-resolver can compute prerequisite parameters without hardcoded special cases.
+Runtime resolution happens during `Agate.Constructor.construct` and produces a
+runtime parameter bundle containing only numeric scalars and dense arrays.
+The runtime bundle is `Adapt.jl`-compatible so Oceananigans can adapt it to GPU.
+
+Design notes
+------------
+- The registry is *explicit* and shape-driven: resolution never infers shapes from values.
+- Vector parameters are strict-by-default. Group-level vectors use `GroupVec`.
+- A small number of **built-in** derived matrices (currently palatability and assimilation)
+  are computed during resolution when not explicitly provided.
 """
 module Parameters
 
@@ -28,13 +32,11 @@ using ..Utils.Specifications: ModelSpecification
 import Base: show
 
 export ParamSpec, ParamRegistry
-export MatrixFn
 export GroupVec
 export scalar_param, vector_param, matrix_param
 export parameter_registry, parameter_directory
 export resolve_runtime_parameters
-export update_registry, extend_registry
-export patch_registry_groups
+export update_registry
 
 include("types.jl")
 include("normalize.jl")

@@ -78,7 +78,6 @@ end
 Strictness rules
 ----------------
 - Keys must already exist in the registry. Unknown keys throw to catch typos early.
-- To add new parameters, extend the registry explicitly with `extend_registry(...)`.
 
 For any matrix-shaped parameter, concrete matrix values are validated to be size
 `(ctx.n_total, ctx.n_total)`.
@@ -95,7 +94,7 @@ function _apply_interactions_to_registry(
     for (k, v) in pairs(overrides)
         spec = Parameters.lookup(registry, k)
         spec === nothing && throw(ArgumentError(
-            "interactions: unknown parameter key :$k. Add it explicitly with extend_registry(...) or fix the typo.",
+            "interactions: unknown parameter key :$k. Fix the typo or add the parameter to the model's parameter registry.",
         ))
 
         if v isa AbstractMatrix
@@ -236,13 +235,12 @@ function construct(
     # Parameter resolution -> architecture adaptation (CPU/GPU).
     # ---------------------------------------------------------------------
 
-    params = resolve_runtime_parameters(
-        factory,
-        ctx,
-        merged;
-        FT=FT,
-        registry=final_registry,
-    )
+    # Parameter resolution is independent of the concrete factory type.
+    # Everything needed to resolve scalars/vectors/matrices is encoded in:
+    #   - `ctx` (community + trait metadata)
+    #   - `final_registry` (declared parameter providers)
+    #   - `merged` (equation requirements)
+    params = resolve_runtime_parameters(ctx, final_registry, merged, FT)
 
     # Optional sinking velocities.
     if isnothing(sinking_tracers)

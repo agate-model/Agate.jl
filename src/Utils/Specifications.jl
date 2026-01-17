@@ -31,8 +31,7 @@ This is a lightweight wrapper around a `NamedTuple` used to attach per-PFT trait
 and metadata (e.g. feeding traits used to build default interaction matrices).
 
 The parameter registry system does **not** read `PFTSpecification` fields to override
-registry parameters. Group-level parameters are configured via `update_registry`
-(full replacement) and `patch_registry_groups` (explicit partial updates).
+registry parameters. Group-level parameters are configured via `update_registry` using a full group mapping (NamedTuple) or by constructing a new `GroupVec`.
 """
 struct PFTSpecification
     data::Any

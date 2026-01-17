@@ -1,7 +1,10 @@
 """
 Model-agnostic biogeochemistry constructor.
 
-The public entry point is:
+The public entry points are the **model constructors** exposed in `Agate.Models`
+(e.g. `Agate.Models.NiPiZD.NiPiZD(...)` and `Agate.Models.DARWIN.DARWIN(...)`).
+
+This module contains the model-agnostic implementation:
 
 ```julia
 Agate.Constructor.construct(factory::AbstractBGCFactory; kwargs...) -> bgc
@@ -9,8 +12,16 @@ Agate.Constructor.construct(factory::AbstractBGCFactory; kwargs...) -> bgc
 
 `construct` returns the biogeochemistry instance directly.
 
-This module also provides convenience helpers for updating the default argument
-containers returned by `Agate.Models.*` factories.
+Design goals
+------------
+- Maintainability over cleverness.
+- Explicit behavior (no hidden magic).
+- GPU compatibility via `Adapt.jl` + Oceananigans architectures.
+- Preserve composability with Oceananigans/OceanBioME conventions.
+
+Anything that *patches* or *extends* configuration containers is intentionally
+left to normal Julia mechanisms (`merge`, `NamedTuple` construction, etc.) to keep
+the public surface area small.
 """
 module Constructor
 
@@ -23,19 +34,13 @@ import Oceananigans
 # module name (`Agate`) because the parent name is not guaranteed to be bound
 # inside submodules (especially for code that is `eval`'d into modules).
 using ..Utils.Specifications: PFTSpecification, ModelSpecification
-export construct
-## Convenience update helpers
-export update_community, extend_community
-export update_dynamics, extend_dynamics
 
-# Low-level patching is still available for advanced use
-export patch
+export construct
 
 # Re-export key parameter containers as part of the constructor surface.
 export PFTSpecification, ModelSpecification
 
 include("model_spec.jl")
-include("patch.jl")
 include("generator.jl")
 include("construct.jl")
 

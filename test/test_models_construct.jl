@@ -60,7 +60,7 @@ using Oceananigans.Biogeochemistry:
         )
         @test required_biogeochemical_tracers(bgc2) == (:N, :D, :Z1, :Z2, :P1, :P2)
 
-        # Bare matrix functions are intentionally unsupported: wrap in MatrixFn(f; deps=...).
+        # Matrix parameters do not accept function providers.
         bare = (ctx, depvals) -> zeros(Float32, n, n)
         err = try
             NiPiZD.construct(
@@ -73,7 +73,7 @@ using Oceananigans.Biogeochemistry:
             e
         end
         @test err isa ArgumentError
-        @test occursin("MatrixFn", sprint(showerror, err))
+        @test occursin("function providers", sprint(showerror, err))
     end
 
     @testset "NiPiZD community structure overrides" begin
