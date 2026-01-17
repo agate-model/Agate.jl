@@ -33,7 +33,10 @@ export DARWIN
 
 # Newcomer UX helpers
 export tracer_names
+export auxiliary_field_names
 export parameter_names
 export required_parameters
+export model_summary
+export describe
 
 end # module

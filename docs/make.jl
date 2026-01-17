@@ -14,7 +14,7 @@ const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
 examples = [
-    "Box model factories" => "box_model_factories",
+    "Box model customisation" => "box_model_factories",
     "Box model: add heterotroph (H)" => "box_model_add_heterotroph",
     "Column model" => "1D_column",
 ]
@@ -36,7 +36,7 @@ for example in example_scripts
             example_filepath,
             OUTPUT_DIR;
             flavor=Literate.DocumenterFlavor(),
-            repo_root_url="https://oceanbiome.github.io/OceanBioME.jl",
+            repo_root_url="https://github.com/agate-model/Agate.jl",
             execute=true,
             postprocess=replace_silly_warning,
         )

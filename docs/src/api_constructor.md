@@ -71,7 +71,11 @@ the model surface:
 
 ```julia
 names = tracer_names(bgc)                 # Vector{Symbol}
+aux   = auxiliary_field_names(bgc)        # Vector{Symbol}
 pars  = parameter_names(bgc)              # Vector{Symbol}
+
+describe(bgc)                            # prints a short summary
+summary = model_summary(bgc)              # returns a NamedTuple
 ```
 
 ## API reference
@@ -80,6 +84,9 @@ pars  = parameter_names(bgc)              # Vector{Symbol}
 Agate.NiPiZD.construct
 Agate.DARWIN.construct
 Agate.tracer_names
+Agate.auxiliary_field_names
+Agate.model_summary
+Agate.describe
 Agate.parameter_names
 Agate.required_parameters
 ```
