@@ -12,10 +12,10 @@ module Tracers
 
 using ....Equations: Equation, sum_over
 
-using ....Library.Mortality: linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
-using ....Library.Predation: grazing_loss, grazing_gain, grazing_assimilation_loss
-using ....Library.Photosynthesis: growth_two_nutrients_geider
-using ....Library.Remineralization: remineralization_flux
+using ....Symbolic.Mortality: linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
+using ....Symbolic.Predation: grazing_loss, grazing_gain, grazing_assimilation_loss
+using ....Symbolic.Photosynthesis: growth_two_nutrients_geider
+using ....Symbolic.Remineralization: remineralization_flux
 
 export DIC_geider_light,
     DIN_geider_light,

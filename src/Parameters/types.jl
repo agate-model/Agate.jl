@@ -47,7 +47,7 @@ struct GroupVec{N}
     items::NTuple{N,ScalarItem}
 end
 
-"""\
+"""
     GroupVec(groups::NTuple{N,Symbol}, values::NamedTuple) -> GroupVec{N}
 
 Create a `GroupVec` from a complete `NamedTuple` mapping group symbols to scalar items.
@@ -88,7 +88,8 @@ function GroupVec(groups::NTuple{N,Symbol}, values::NamedTuple) where {N}
     return GroupVec{N}(groups, items)
 end
 
-"""    GroupVec(groups::NTuple{N,Symbol}; kwargs...) -> GroupVec{N}
+"""
+    GroupVec(groups::NTuple{N,Symbol}; kwargs...) -> GroupVec{N}
 
 Keyword form for constructing a complete `GroupVec`.
 """

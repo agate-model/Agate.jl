@@ -1,22 +1,20 @@
-"""
-Functions related to temperature controls on plankton and biogeochemistry.
-"""
+"""Temperature-response functors."""
 
 module Temperature
 
-export Q₁₀_temperature
+export Q10Temperature
 
-"
-    Q10 ^ (T / 10)
+"""
+    Q10Temperature(Q10)
 
-Q₁₀ formulation of temperature sensitivity.
+Temperature sensitivity factor `T ↦ Q10^(T/10)`.
 
-Where:
-Q10 = temperature coefficient (value is usually ~2 to 3)
-T = Temperature (in degree C or K)
-"
-function Q₁₀_temperature(Q₁₀, T)
-    return Q₁₀^(T / 10)
+`Q10` is the multiplicative rate increase for a 10° temperature rise.
+"""
+struct Q10Temperature{T}
+    Q10::T
 end
+
+@inline (q::Q10Temperature)(T) = q.Q10^(T / 10)
 
 end # module

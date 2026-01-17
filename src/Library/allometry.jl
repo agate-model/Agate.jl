@@ -227,7 +227,7 @@ end
     return resolve_param(FT, v, diameter)
 end
 
-"""\
+"""
     build_palatability_matrix(FT, pft_data, diameters;
                               palatability_fn=allometric_palatability_unimodal_protection)
 
@@ -278,7 +278,7 @@ function build_palatability_matrix(
     )
 end
 
-"""\
+"""
     build_assimilation_matrix(FT, pft_data, diameters)
 
 Build the default assimilation-efficiency matrix `β[pred, prey]`.

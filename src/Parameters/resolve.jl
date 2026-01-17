@@ -184,7 +184,7 @@ end
 # Public API
 # ----------------------------------------------------------------------------
 
-"""\
+"""
     resolve_runtime_parameters(ctx, registry, requirements, ::Type{FT}) -> ModelSpecification
 
 Resolve a `ParamRegistry` to a minimal runtime parameter bundle for the active model.

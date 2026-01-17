@@ -4,7 +4,7 @@
 # Registry updates
 # ----------------------------------------------------------------------------
 
-"""\
+"""
     update_registry(registry::ParamRegistry; kwargs...) -> ParamRegistry
     update_registry(registry::ParamRegistry, overrides::NamedTuple) -> ParamRegistry
 

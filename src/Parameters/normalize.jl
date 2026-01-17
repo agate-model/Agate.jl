@@ -144,7 +144,7 @@ end
 # Public constructors
 # ----------------------------------------------------------------------------
 
-"""\
+"""
     ParamSpec(name, shape, doc, default; value_kind=:real)
 
 Create a `ParamSpec` and normalize `default` into a canonical provider value.
@@ -162,7 +162,7 @@ function ParamSpec(
     return ParamSpec(name, shape, value_kind, String(doc), prov)
 end
 
-"""\
+"""
     scalar_param(name, doc, default; value_kind=:real) -> ParamSpec
 
 Create a scalar parameter specification.
@@ -170,7 +170,7 @@ Create a scalar parameter specification.
 scalar_param(name::Symbol, doc::AbstractString, default; value_kind::Symbol=:real) =
     ParamSpec(name, :scalar, doc, default; value_kind=value_kind)
 
-"""\
+"""
     vector_param(name, doc, default; value_kind=:real) -> ParamSpec
 
 Create a vector parameter specification.
@@ -178,7 +178,7 @@ Create a vector parameter specification.
 vector_param(name::Symbol, doc::AbstractString, default; value_kind::Symbol=:real) =
     ParamSpec(name, :vector, doc, default; value_kind=value_kind)
 
-"""\
+"""
     matrix_param(name, doc, default; value_kind=:real) -> ParamSpec
 
 Create a matrix parameter specification.

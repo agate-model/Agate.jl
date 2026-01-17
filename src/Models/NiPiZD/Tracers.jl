@@ -12,9 +12,9 @@ module Tracers
 
 using ....Equations: Equation, sum_over
 
-using ....Library.Mortality: linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
-using ....Library.Predation: grazing_loss, grazing_gain, grazing_assimilation_loss
-using ....Library.Photosynthesis:
+using ....Symbolic.Mortality: linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
+using ....Symbolic.Predation: grazing_loss, grazing_gain, grazing_assimilation_loss
+using ....Symbolic.Photosynthesis:
     growth_single_nutrient,
     growth_single_nutrient_geider
 

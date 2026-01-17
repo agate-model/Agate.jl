@@ -4,12 +4,8 @@
 
 using Adapt
 
-using ..Library.Mortality
-using ..Library.Nutrients
-using ..Library.Photosynthesis
-using ..Library.Predation
-using ..Library.Remineralization
 using ..Equations: Equation, expr, requirements
+using ..Functors: CompiledEquation
 using OceanBioME
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 using Oceananigans.Fields: ZeroField
@@ -94,7 +90,7 @@ function expression_check(allowed_symbols, f_expr; module_name=Constructor)
     symbols = parse_expression(f_expr)
 
     for s in symbols
-        if s ∉ allowed_symbols && !isdefined(module_name, s)
+        if s ∉ allowed_symbols && !isdefined(module_name, s) && !isdefined(Base, s) && !isdefined(Core, s)
             throw(UndefVarError(s))
         end
     end
@@ -207,7 +203,38 @@ function _compile_tracer_functions(parameters, tracers::NamedTuple; auxiliary_fi
     required_params = Symbol[]
 
     for (tracer_name, tracer_val) in pairs(tracers)
-        tracer_expression, tracer_req, has_req = _tracer_expr_and_req(tracer_val)
+        kind, payload, tracer_req, has_req = _tracer_payload(tracer_val)
+
+        # Fast path: store user-provided callables directly.
+        # Note: we must not store `CompiledEquation` wrappers because they carry
+        # heap-allocated `Requirements` metadata that is not GPU-friendly.
+        if kind === :callable
+            if has_req
+                used_params = _unique_params_from_requirements(tracer_req)
+                for k in used_params
+                    if k ∉ parameter_keys
+                        throw(ArgumentError(
+                            "Tracer :$(tracer_name) declares requirement :$(k), but it is not present in the provided parameters. " *
+                            "If this callable does not need parameters, wrap it with `CompiledEquation(f, req())`.",
+                        ))
+                    end
+                end
+
+                # Track requirements so `AgateBGCFactory` can validate user-supplied
+                # parameter bundles.
+                for k in used_params
+                    k in required_params || push!(required_params, k)
+                    if k in coordinates
+                        throw(ArgumentError("Parameter name $(k) is reserved for coordinates."))
+                    end
+                end
+            end
+
+            push!(compiled, payload)
+            continue
+        end
+
+        tracer_expression = payload
 
         used_params = Symbol[]
         if has_req
@@ -282,7 +309,15 @@ The returned object can be called like a type constructor:
 
 # Arguments
 - `parameters`: runtime parameter struct stored as `bgc.parameters`
-- `tracers`: `NamedTuple` mapping tracer names (Symbols) to tracer tendencies (either `Expr` or `Agate.Equations.Equation`)
+- `tracers`: `NamedTuple` mapping tracer names (Symbols) to tracer tendencies. Each value may be:
+  - `Expr` (legacy; parameters inferred by scanning symbols),
+  - `Agate.Equations.Equation` (preferred symbolic constructor API; explicit requirements),
+  - `Function` (already-compiled tracer function with full signature),
+  - `Agate.Functors.CompiledEquation` (a callable + explicit requirements; only the callable is stored at runtime).
+
+Callable tracer values must accept the same arguments as Oceananigans biogeochemistry kernels:
+
+    f(bgc, x, y, z, t, tracers..., auxiliary_fields...)
 
 # Keywords
 - `auxiliary_fields`: tuple of auxiliary field names (Symbols)
@@ -378,13 +413,19 @@ end
     return out
 end
 
-@inline function _tracer_expr_and_req(tr)
+@inline function _tracer_payload(tr)
     if tr isa Equation
-        return expr(tr), requirements(tr), true
+        return :expr, expr(tr), requirements(tr), true
     elseif tr isa Expr
-        return tr, nothing, false
+        return :expr, tr, nothing, false
+    elseif tr isa CompiledEquation
+        return :callable, tr.f, requirements(tr), true
+    elseif tr isa Function
+        return :callable, tr, nothing, false
     else
-        throw(ArgumentError("Tracer map must contain Expr or Agate.Equations.Equation, got $(typeof(tr))."))
+        throw(ArgumentError(
+            "Tracer map values must be Expr, Agate.Equations.Equation, Agate.Functors.CompiledEquation, or a Function; got $(typeof(tr)).",
+        ))
     end
 end
 
@@ -441,7 +482,14 @@ function add_bgc_methods!(
     parameter_keys = collect(propertynames(_parameter_view(parameters)))
 
     for (tracer_name, tracer_val) in pairs(tracers)
-        tracer_expression, tracer_req, has_req = _tracer_expr_and_req(tracer_val)
+        kind, tracer_expression, tracer_req, has_req = _tracer_payload(tracer_val)
+
+        if kind === :callable
+            throw(ArgumentError(
+                "add_bgc_methods! only supports Expr and Agate.Equations.Equation tracer values. " *
+                "For callable tracers, use define_tracer_functions (AgateBGCFactory) instead.",
+            ))
+        end
 
         # Determine which parameters to bind into the method body.
         used_params = Symbol[]

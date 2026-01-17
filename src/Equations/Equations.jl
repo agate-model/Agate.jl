@@ -165,7 +165,7 @@ Base.:-(a::_EquationExprLike) = _unop(:-, a)
 # sum_over sum builder (construction-time only)
 # -----------------------------------------------------------------------------
 
-"""\
+"""
     sum_over(items) do sym, idx
         ... -> AExpr
     end

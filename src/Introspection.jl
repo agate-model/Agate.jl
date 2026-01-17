@@ -24,7 +24,8 @@ end
     return head * ", ... (" * string(m) * ")"
 end
 
-"""    tracer_names(bgc) -> Vector{Symbol}
+"""
+    tracer_names(bgc) -> Vector{Symbol}
 
 Return the ordered tracer symbols required by `bgc`.
 
@@ -34,7 +35,8 @@ function tracer_names(bgc)::Vector{Symbol}
     return collect(required_biogeochemical_tracers(bgc))
 end
 
-"""    auxiliary_field_names(bgc) -> Vector{Symbol}
+"""
+    auxiliary_field_names(bgc) -> Vector{Symbol}
 
 Return the ordered auxiliary field symbols required by `bgc`.
 
@@ -45,7 +47,8 @@ function auxiliary_field_names(bgc)::Vector{Symbol}
     return collect(required_biogeochemical_auxiliary_fields(bgc))
 end
 
-"""    parameter_names(bgc) -> Vector{Symbol}
+"""
+    parameter_names(bgc) -> Vector{Symbol}
 
 Return the parameter keys available on `bgc.parameters`.
 
@@ -60,13 +63,15 @@ function parameter_names(bgc)::Vector{Symbol}
     return names
 end
 
-"""    required_parameters(bgc) -> Vector{Symbol}
+"""
+    required_parameters(bgc) -> Vector{Symbol}
 
 Alias for [`parameter_names`](@ref).
 """
 required_parameters(bgc)::Vector{Symbol} = parameter_names(bgc)
 
-"""    model_summary(bgc) -> NamedTuple
+"""
+    model_summary(bgc) -> NamedTuple
 
 Return a compact summary of a constructed biogeochemistry instance.
 
@@ -86,7 +91,8 @@ function model_summary(bgc)
     )
 end
 
-"""    describe([io], bgc; verbose=false)
+"""
+    describe([io], bgc; verbose=false)
 
 Print a human-readable summary of `bgc`.
 
