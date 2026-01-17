@@ -4,8 +4,8 @@ These providers are used as *defaults* for model parameter registries.
 """
 module InteractionDefaults
 
-using Agate.Parameters: MatrixFn
-using Agate.Library.Allometry:
+using ...Parameters: MatrixFn
+using ...Library.Allometry:
     allometric_palatability_unimodal_protection,
     palatability_matrix_allometric,
     assimilation_efficiency_matrix_binary
