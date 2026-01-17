@@ -109,6 +109,88 @@ function update_registry(registry::ParamRegistry; kwargs...)
 end
 
 """\
+    patch_registry_groups(registry::ParamRegistry, factory; kwargs...) -> ParamRegistry
+    patch_registry_groups(registry::ParamRegistry, factory, patches::NamedTuple) -> ParamRegistry
+
+Patch *group-level vector parameters* (stored as `GroupVec`) by updating only the
+specified groups.
+
+Each keyword in `kwargs...` must be the name of a **group-level vector** parameter in
+`registry`. The corresponding value must be a `NamedTuple` mapping one or more group
+symbols to scalar items (numbers, `Bool`, or `AbstractParamDef`).
+
+Guarantees
+----------
+- Only the specified groups are updated; all other groups keep their existing values.
+- Parameter names are validated strictly (typos throw).
+- Group keys are validated strictly against the parameter's declared group set.
+- `Dict` inputs are intentionally unsupported; use a `NamedTuple` like `(Z=...,)`.
+
+Notes
+-----
+This function operates only on CPU-side registry metadata. It does **not** construct
+any dense per-PFT vectors during patching.
+"""
+function patch_registry_groups(registry::ParamRegistry, factory, patches::NamedTuple)
+    isempty(patches) && return registry
+
+    new_specs = copy(registry.specs)
+    for (param, patch) in pairs(patches)
+        i = _lookup_index(registry, param)
+        i == 0 && throw(ArgumentError("patch_registry_groups: parameter :$param is not present in this registry"))
+        s = new_specs[i]
+
+        s.shape === :vector || throw(ArgumentError(
+            "patch_registry_groups: parameter :$param is not vector-shaped (shape=$(s.shape)). Only group-level vector parameters can be patched.",
+        ))
+        s.provider isa GroupVec || throw(ArgumentError(
+            "patch_registry_groups: parameter :$param is not a group-level vector (provider=$(typeof(s.provider))). Use update_registry for strict replacement.",
+        ))
+
+        base = s.provider
+
+        if patch isa AbstractDict
+            throw(ArgumentError(
+                "patch_registry_groups: group patches must be provided as a NamedTuple like (Z=...,). Dict inputs are intentionally unsupported.",
+            ))
+        end
+        patch isa NamedTuple || throw(ArgumentError(
+            "patch_registry_groups: patch for :$param must be a NamedTuple like (Z=...,). Got $(typeof(patch)).",
+        ))
+
+        # Validate patch keys (strict) and normalize values.
+        patch_keys = Tuple(keys(patch))
+        for g in patch_keys
+            (g in base.groups) || throw(ArgumentError(
+                "patch_registry_groups: unknown group :$g for parameter :$param. Expected a subset of groups=$(base.groups).",
+            ))
+        end
+
+        # Normalize only the provided patch items; keep base items for others.
+        N = length(base.groups)
+        new_items = ntuple(i -> begin
+            g = base.groups[i]
+            if hasproperty(patch, g)
+                _normalize_required_scalar_item(getproperty(patch, g), s.value_kind)
+            else
+                base.items[i]
+            end
+        end, N)
+
+        gv = GroupVec{N}(base.groups, new_items)
+        gv_norm = normalize_provider(:vector, gv, s.value_kind)
+        new_specs[i] = _with_provider(s, gv_norm)
+    end
+
+    return ParamRegistry(new_specs, copy(registry.index))
+end
+
+function patch_registry_groups(registry::ParamRegistry, factory; kwargs...)
+    isempty(kwargs) && return registry
+    return patch_registry_groups(registry, factory, (; kwargs...))
+end
+
+"""\
     extend_registry(registry::ParamRegistry, specs::ParamSpec...) -> ParamRegistry
 
 Return a copy of `registry` with additional parameter specifications appended.

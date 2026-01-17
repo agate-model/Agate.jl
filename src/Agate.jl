@@ -26,6 +26,7 @@ export Equations
 export construct
 export default_community
 export parameter_registry, parameter_directory, update_registry, extend_registry
+export patch_registry_groups
 export update_community, extend_community, update_dynamics, extend_dynamics
 export NiPiZDFactory, DarwinFactory
 

@@ -34,6 +34,7 @@ export scalar_param, vector_param, matrix_param
 export parameter_registry, parameter_directory
 export resolve_runtime_parameters
 export update_registry, extend_registry
+export patch_registry_groups
 
 include("types.jl")
 include("normalize.jl")

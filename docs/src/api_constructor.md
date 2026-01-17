@@ -96,6 +96,12 @@ registry = update_registry(registry;
     # (broadcast across all PFTs).
 )
 
+# Patch *only* selected groups on a group-level vector parameter.
+# This is explicit and never triggers silent fill.
+registry = patch_registry_groups(registry, factory;
+    quadratic_mortality = (P = 2e-6,),
+)
+
 # 3) Compile the model instance.
 bgc = construct(factory;
     community,

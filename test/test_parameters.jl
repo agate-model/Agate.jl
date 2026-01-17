@@ -2,7 +2,7 @@ using Agate
 using Test
 
 using Agate.Constructor: construct, update_community
-using Agate.Parameters: parameter_registry, update_registry
+using Agate.Parameters: parameter_registry, update_registry, patch_registry_groups
 using Agate.Utils.Specifications: pft_has
 using Agate.Models: NiPiZDFactory, DarwinFactory
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
@@ -127,6 +127,33 @@ using Oceananigans.Units
         end
         @test err2 isa ArgumentError
         @test occursin("NamedTuple", sprint(showerror, err2))
+
+        # Group-level patch API updates only specified groups without requiring a full replacement.
+        reg_patch = patch_registry_groups(parameter_registry(factory), factory; quadratic_mortality=(P=2e-6,))
+        p_patch = construct(factory; grid=dummy_grid(Float32), community=base, registry=reg_patch).parameters
+        @test p_patch.quadratic_mortality[1] == Float32(1e-6)
+        @test p_patch.quadratic_mortality[2] == Float32(1e-6)
+        @test p_patch.quadratic_mortality[3] == Float32(2e-6)
+        @test p_patch.quadratic_mortality[4] == Float32(2e-6)
+
+        err_unknown = try
+            patch_registry_groups(parameter_registry(factory), factory; quadratic_mortality=(H=1e-6,))
+            nothing
+        catch e
+            e
+        end
+        @test err_unknown isa ArgumentError
+        @test occursin("unknown group", lowercase(sprint(showerror, err_unknown)))
+        @test occursin("groups=", sprint(showerror, err_unknown))
+
+        err_dict_patch = try
+            patch_registry_groups(parameter_registry(factory), factory; quadratic_mortality=Dict(:Z=>1e-6))
+            nothing
+        catch e
+            e
+        end
+        @test err_dict_patch isa ArgumentError
+        @test occursin("NamedTuple", sprint(showerror, err_dict_patch))
 
         registry = update_registry(parameter_registry(factory); maximum_predation_rate=(Z=0.5 / day, P=0.0))
         p_over = construct(factory; grid=dummy_grid(Float32), community=base, registry=registry).parameters
