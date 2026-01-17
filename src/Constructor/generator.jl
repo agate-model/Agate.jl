@@ -110,33 +110,27 @@ function _compile_tracer_functions(parameters, tracers::NamedTuple)
     required_params = Symbol[]
 
     for (tracer_name, tracer_val) in pairs(tracers)
-        if tracer_val isa CompiledEquation
-            r = requirements(tracer_val)
-            used_params = _unique_params_from_requirements(r)
+        tracer_val isa CompiledEquation || throw(ArgumentError(
+            "Tracer map values must be Agate.Functors.CompiledEquation; got $(typeof(tracer_val)).",
+        ))
 
-            for k in used_params
-                if k in coordinates
-                    throw(ArgumentError("Tracer :$(tracer_name) declares reserved parameter name :$(k)."))
-                end
-                if k ∉ parameter_keys
-                    throw(ArgumentError(
-                        "Tracer :$(tracer_name) requires parameter :$(k), but it is not present in the provided parameters.",
-                    ))
-                end
-                (k in required_params) || push!(required_params, k)
+        r = requirements(tracer_val)
+        used_params = _unique_params_from_requirements(r)
+
+        for k in used_params
+            if k in coordinates
+                throw(ArgumentError("Tracer :$(tracer_name) declares reserved parameter name :$(k)."))
             end
-
-            # Store only the callable (GPU-friendly).
-            push!(compiled, tracer_val.f)
-
-        elseif tracer_val isa Function
-            push!(compiled, tracer_val)
-
-        else
-            throw(ArgumentError(
-                "Tracer map values must be Function or Agate.Functors.CompiledEquation; got $(typeof(tracer_val)).",
-            ))
+            if k ∉ parameter_keys
+                throw(ArgumentError(
+                    "Tracer :$(tracer_name) requires parameter :$(k), but it is not present in the provided parameters.",
+                ))
+            end
+            (k in required_params) || push!(required_params, k)
         end
+
+        # Store only the callable (GPU-friendly).
+        push!(compiled, tracer_val.f)
     end
 
     tracer_vars = keys(tracers)
@@ -148,10 +142,10 @@ end
 
 Create a callable Oceananigans biogeochemistry model factory.
 
-`tracers` is a `NamedTuple` mapping tracer names to tracer tendency callables.
-Each value is either:
-- a `Function`, or
-- a `CompiledEquation(f, requirements)`.
+`tracers` is a `NamedTuple` mapping tracer names to `CompiledEquation` values.
+
+Each compiled equation wraps a callable `f` plus a `Requirements` object describing which model
+parameters are accessed by the callable.
 
 Callable tracer values must accept the Oceananigans biogeochemistry kernel signature:
 
