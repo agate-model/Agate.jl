@@ -1,16 +1,18 @@
 module Agate
 
+include("Utils/Utils.jl")
 include("Equations/Equations.jl")
 include("Library/Library.jl")
-include("Utils/Utils.jl")
 include("Parameters/Parameters.jl")
-include("Models/Models.jl")
+include("FactoryInterface.jl")
 include("Constructor/Constructor.jl")
+include("Models/Models.jl")
 include("Introspection.jl")
 
 using .Library
 using .Utils
 using .Parameters
+using .FactoryInterface
 using .Equations
 using .Models
 using .Constructor
@@ -18,19 +20,16 @@ using .Constructor
 export Library
 export Models
 export Utils
-export Constructor
 export Parameters
 export Equations
+export FactoryInterface
 
-# Re-export primary user-facing API
-export construct
-export default_community
-export parameter_registry, parameter_directory, update_registry, extend_registry
-export patch_registry_groups
-export update_community, extend_community, update_dynamics, extend_dynamics
-export NiPiZDFactory, DarwinFactory
+# Public model modules.
+const NiPiZD = Models.NiPiZD
+const DARWIN = Models.DARWIN
 
-export define_tracer_functions
+export NiPiZD
+export DARWIN
 
 # Newcomer UX helpers
 export tracer_names

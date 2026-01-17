@@ -1,7 +1,5 @@
 using Agate
-using Agate.Constructor: construct
 using Agate.Library.Light
-using Agate.Models: NiPiZDFactory, DarwinFactory
 using Agate.Utils: box_model_mass_balance
 
 using OceanBioME
@@ -18,7 +16,7 @@ using Oceananigans
     end
 
     @testset "NiPiZD box model" begin
-        bgc_instance = construct(NiPiZDFactory())
+        bgc_instance = NiPiZD.construct()
         box_model = build_box_model(bgc_instance)
         set!(box_model; N=7, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, D=0.0)
 
@@ -31,7 +29,7 @@ using Oceananigans
     end
 
     @testset "DARWIN model" begin
-        bgc_instance = construct(DarwinFactory())
+        bgc_instance = DARWIN.construct()
         box_model = build_box_model(bgc_instance)
         set!(
             box_model;

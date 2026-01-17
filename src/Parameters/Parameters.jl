@@ -21,9 +21,9 @@ module Parameters
 
 using Logging
 
-using Agate.Library.Allometry: AbstractParamDef, resolve_param
+using ..Library.Allometry: AbstractParamDef, resolve_param
 
-using Agate.Utils.Specifications: ModelSpecification
+using ..Utils.Specifications: ModelSpecification
 
 import Base: show
 

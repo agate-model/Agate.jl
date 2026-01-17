@@ -10,6 +10,8 @@
 # Requirement: `H` should be eaten by `Z` but cannot eat.
 
 using Agate
+using Agate.Constructor: construct, update_dynamics
+import Agate.Models.NiPiZD: NiPiZDFactory
 using Agate.Utils.Specifications: PFTSpecification
 using Agate.Library.Allometry: AllometricParam, PowerLaw
 using Agate.Equations: Equation, sum_over
@@ -96,7 +98,7 @@ end
 # group, define a new factory type whose default inputs include `H`.
 
 using Agate.Utils: AbstractBGCFactory
-import Agate.Models: default_plankton_dynamics, default_community, default_biogeochem_dynamics, factory_groups
+import Agate.FactoryInterface: default_plankton_dynamics, default_community, default_biogeochem_dynamics, factory_groups
 import Agate.Parameters: parameter_registry
 
 # Requirement: `H` cannot eat but can be eaten.
@@ -116,17 +118,17 @@ struct NiPiZDHFactory <: AbstractBGCFactory end
 factory_groups(::NiPiZDHFactory) = (:Z, :P, :H)
 
 default_plankton_dynamics(::NiPiZDHFactory) = (
-    Agate.Models.default_plankton_dynamics(NiPiZDFactory())...,
+    Agate.FactoryInterface.default_plankton_dynamics(NiPiZDFactory())...,
     H = heterotroph_growth,
 )
 
 default_biogeochem_dynamics(::NiPiZDHFactory) = update_dynamics(
-    Agate.Models.default_biogeochem_dynamics(NiPiZDFactory());
+    Agate.FactoryInterface.default_biogeochem_dynamics(NiPiZDFactory());
     D = detritus_with_heterotrophs,
 )
 
 default_community(::NiPiZDHFactory) = (
-    Agate.Models.default_community(NiPiZDFactory())...,
+    Agate.FactoryInterface.default_community(NiPiZDFactory())...,
     H = (; n=1, diameters=[6.0], pft=heterotroph_pft),
 )
 
@@ -164,9 +166,9 @@ factory = NiPiZDHFactory()
 # Optional: inspect the base registry before extending.
 println(parameter_registry(factory))
 
-plankton_dynamics   = Agate.Models.default_plankton_dynamics(factory)
-community           = Agate.Models.default_community(factory)
-biogeochem_dynamics = Agate.Models.default_biogeochem_dynamics(factory)
+plankton_dynamics   = Agate.FactoryInterface.default_plankton_dynamics(factory)
+community           = Agate.FactoryInterface.default_community(factory)
+biogeochem_dynamics = Agate.FactoryInterface.default_biogeochem_dynamics(factory)
 
 biogeochem_dynamics_H = biogeochem_dynamics
 community_H = community

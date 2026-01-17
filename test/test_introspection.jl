@@ -1,13 +1,10 @@
 using Agate
 using Test
 
-using Agate.Constructor: construct
-using Agate.Models: NiPiZDFactory
-
 
 @testset "Public introspection helpers" begin
-    @testset "Factory-constructed model" begin
-        bgc = construct(NiPiZDFactory(); grid=dummy_grid(Float32))
+    @testset "Model-constructed instance" begin
+        bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
 
         @test tracer_names(bgc) == [:N, :D, :Z1, :Z2, :P1, :P2]
 

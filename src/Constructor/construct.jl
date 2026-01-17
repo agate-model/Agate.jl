@@ -9,23 +9,20 @@ import Oceananigans
 
 using Oceananigans.Architectures: architecture, CPU, GPU
 
-using Agate.Utils:
+using ..Utils:
     AbstractBGCFactory,
     normalize_interactions,
     parse_community,
     validate_plankton_inputs
 
-using Agate.Models:
+using ..FactoryInterface:
     default_plankton_dynamics,
-    default_biogeochem_dynamics
-
-# Bring the `Agate.Models` module into scope for qualified calls like
-# `Models.default_community` without relying on the parent module name.
-import Agate.Models
+    default_biogeochem_dynamics,
+    default_community
 # For qualified calls inside registry update helpers.
-import Agate.Parameters
-using Agate.Equations: Equation, expr, requirements, req, merge_requirements
-using Agate.Equations: ParamVar
+import ..Parameters
+using ..Equations: Equation, expr, requirements, req, merge_requirements
+using ..Equations: ParamVar
 
 # Local construction-time parameter placeholder namespace.
 #
@@ -41,7 +38,7 @@ using Agate.Equations: ParamVar
     return NT(Tuple(vals))
 end
 
-using Agate.Parameters: resolve_runtime_parameters, parameter_registry
+using ..Parameters: resolve_runtime_parameters, parameter_registry
 
 """Move `x` to the requested Oceananigans architecture.
 
@@ -123,7 +120,7 @@ optional overrides.
 Design principles
 -----------------
 - Structural defaults (plankton community size structure) are provided by
-  `Models.default_community(factory)`.
+  `default_community(factory)`.
 - Parameter defaults are provided by `Parameters.parameter_registry(factory)`.
 - User overrides flow through the registry (no separate `params` keyword).
 - The returned instance is `Adapt.jl`-compatible (CPU <-> GPU).
@@ -146,7 +143,7 @@ function construct(
     plankton_dynamics=default_plankton_dynamics(factory),
     biogeochem_dynamics=default_biogeochem_dynamics(factory),
 
-    community=Models.default_community(factory),
+    community=default_community(factory),
     registry=parameter_registry(factory),
 
     arch=nothing,

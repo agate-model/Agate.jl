@@ -8,13 +8,13 @@ registry (see `Models/DARWIN/Parameters.jl`). This factory provides only
 structural defaults (community sizes/diameters) and default dynamics functions.
 """
 
-using Agate.Utils: AbstractBGCFactory
-using Agate.Utils.Specifications: PFTSpecification
-using Agate.Utils: DiameterRangeSpecification
+using ...Utils: AbstractBGCFactory
+using ...Utils.Specifications: PFTSpecification
+using ...Utils: DiameterRangeSpecification
 
 # NOTE: Defaults are registry-owned (see `Models/DARWIN/Parameters.jl`).
 
-import Agate.Models: default_plankton_dynamics, default_community, default_biogeochem_dynamics, factory_groups
+import ...FactoryInterface: default_plankton_dynamics, default_community, default_biogeochem_dynamics, factory_groups
 
 using .Tracers:
     DIC_geider_light,

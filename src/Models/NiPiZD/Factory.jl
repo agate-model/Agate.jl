@@ -4,13 +4,13 @@ This file defines `NiPiZDFactory` and the default inputs used by
 `Agate.Constructor.construct(factory; ...)`.
 """
 
-using Agate.Utils: AbstractBGCFactory
-using Agate.Utils.Specifications: PFTSpecification
-using Agate.Utils: DiameterRangeSpecification
+using ...Utils: AbstractBGCFactory
+using ...Utils.Specifications: PFTSpecification
+using ...Utils: DiameterRangeSpecification
 
 # NOTE: Defaults are registry-owned (see `Models/NiPiZD/Parameters.jl`).
 
-import Agate.Models: default_plankton_dynamics, default_community, default_biogeochem_dynamics, factory_groups
+import ...FactoryInterface: default_plankton_dynamics, default_community, default_biogeochem_dynamics, factory_groups
 using .Tracers:
     nutrient_default,
     detritus_default,

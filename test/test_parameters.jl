@@ -34,7 +34,7 @@ using Oceananigans.Units
         @test occursin("Unknown parameter shape", sprint(showerror, err))
     end
     @testset "NiPiZD parameter shapes and types" begin
-        bgc = construct(NiPiZDFactory(); grid=dummy_grid(Float32))
+        bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
         p = bgc.parameters
 
         # Runtime bundle should only include parameters actually referenced by equations.
@@ -62,7 +62,7 @@ using Oceananigans.Units
     end
 
     @testset "DARWIN parameter shapes and types" begin
-        bgc = construct(DarwinFactory(); grid=dummy_grid(Float32))
+        bgc = DARWIN.construct(; grid=dummy_grid(Float32))
         p = bgc.parameters
 
         # Runtime bundle should not include structural community info.
@@ -81,7 +81,7 @@ using Oceananigans.Units
 
     @testset "Registry defaults + overrides" begin
         factory = NiPiZDFactory()
-        base = Agate.Models.default_community(factory)
+        base = Agate.FactoryInterface.default_community(factory)
 
         # Community inputs are structural only: PFTs should not store defaults.
         @test !pft_has(base.Z.pft, :maximum_predation_rate)
@@ -188,7 +188,7 @@ using Oceananigans.Units
     using Adapt
     using Oceananigans.Architectures: GPU
 
-    bgc = construct(NiPiZDFactory(); grid=dummy_grid(Float32))
+    bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
     # Should be Adapt-compatible for CPU
     @test Adapt.adapt(Array, bgc) isa typeof(bgc)
     @test Adapt.adapt(Array, bgc.parameters) isa typeof(bgc.parameters)
@@ -206,7 +206,7 @@ using Oceananigans.Units
         # Architecture is determined by the grid. Use a GPU-typed dummy grid so construction
         # exercises GPU allocation paths.
         backend = CUDA.CUDAKernels.CUDABackend()
-        bgc_gpu = construct(NiPiZDFactory(); grid=dummy_grid(Float32; arch=GPU(backend)))
+        bgc_gpu = NiPiZD.construct(; grid=dummy_grid(Float32; arch=GPU(backend)))
 
         expected_array_type = try
             Oceananigans.Architectures.array_type(GPU(backend))

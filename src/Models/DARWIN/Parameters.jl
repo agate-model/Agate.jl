@@ -4,13 +4,13 @@ Defaults in this file are the **single source of truth** for DARWIN parameters.
 Example/spec containers may provide structural information and user overrides only.
 """
 
-using Agate.Parameters: ParamRegistry
-using Agate.Parameters: scalar_param, vector_param, matrix_param
-using Agate.Parameters: GroupVec
-using Agate.Models: default_palatability_provider, default_assimilation_provider
-using Agate.Library.Allometry: AllometricParam, PowerLaw
+using ...Parameters: ParamRegistry
+using ...Parameters: scalar_param, vector_param, matrix_param
+using ...Parameters: GroupVec
+using ..InteractionDefaults: default_palatability_provider, default_assimilation_provider
+using ...Library.Allometry: AllometricParam, PowerLaw
 
-import Agate.Parameters: parameter_registry
+import ...Parameters: parameter_registry
 
 function parameter_registry(::DarwinFactory)
     groups = (:Z, :P)

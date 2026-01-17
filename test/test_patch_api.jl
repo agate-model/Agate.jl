@@ -6,8 +6,8 @@ using Agate.Constructor: update_community, extend_community, update_dynamics, ex
 
 @testset "Constructor patch helpers" begin
     factory = NiPiZDFactory()
-    community = Agate.Models.default_community(factory)
-    dynamics = Agate.Models.default_plankton_dynamics(factory)
+    community = Agate.FactoryInterface.default_community(factory)
+    dynamics = Agate.FactoryInterface.default_plankton_dynamics(factory)
 
     @testset "update_community (top-level)" begin
         @test_throws ArgumentError update_community(community; X=community.P)

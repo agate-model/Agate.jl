@@ -1,26 +1,16 @@
 ### [Agate.jl NiPiZD model](@id NiPiZD)
 
-Agate's NiPiZD model is configured through a **factory** (`NiPiZDFactory`) and constructed via
-`construct`.
+Agate's NiPiZD model is constructed via `NiPiZD.construct`.
 
-At a high level:
+The constructor is intentionally small and explicit:
 
-1. Choose a factory (here, `NiPiZDFactory()`).
-2. Optionally override:
-   - community structure (sizes/diameters) via `default_community` + `update_community`
-   - parameter values via `parameter_registry` + `update_registry`
-   - dynamics builders via `plankton_dynamics` / `biogeochem_dynamics` keywords to `construct`
-3. Call `construct(factory; ...)` to obtain a concrete biogeochemistry **instance**.
-4. Pass the instance to Oceananigans/OceanBioME (and adapt to GPU if desired).
+- **Community structure**: choose `n_phyto`, `n_zoo`, and diameter specifications
+- **Dynamics**: optionally swap any of the four default dynamics builders
+- **Parameters**: override named parameters via `parameters=(; ...)`
+- **Interactions**: optionally provide interaction matrices (or an advanced `interactions` callback)
 
-See **Examples → Box model factories** for a worked end-to-end box model demonstration of
-component swapping and parameter overrides.
+The returned value is an Oceananigans/OceanBioME-compatible biogeochemistry instance.
 
 ```@docs
-Agate.NiPiZDFactory
-Agate.construct
-Agate.default_community
-Agate.parameter_registry
-Agate.update_community
-Agate.update_registry
+Agate.NiPiZD.construct
 ```

@@ -10,12 +10,12 @@ parameter placeholders provided by `construct`.
 
 module Tracers
 
-using Agate.Equations: Equation, sum_over
+using ....Equations: Equation, sum_over
 
-using Agate.Library.Mortality: linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
-using Agate.Library.Predation: grazing_loss, grazing_gain, grazing_assimilation_loss
-using Agate.Library.Photosynthesis: growth_two_nutrients_geider
-using Agate.Library.Remineralization: remineralization_flux
+using ....Library.Mortality: linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
+using ....Library.Predation: grazing_loss, grazing_gain, grazing_assimilation_loss
+using ....Library.Photosynthesis: growth_two_nutrients_geider
+using ....Library.Remineralization: remineralization_flux
 
 export DIC_geider_light,
     DIN_geider_light,

@@ -5,13 +5,13 @@ Example/spec containers (e.g. `default_community`) should not duplicate defaults
 they may only provide structural information (sizes/diameters) and user overrides.
 """
 
-using Agate.Parameters: ParamRegistry
-using Agate.Parameters: scalar_param, vector_param, matrix_param
-using Agate.Parameters: GroupVec
-using Agate.Models: default_palatability_provider, default_assimilation_provider
-using Agate.Library.Allometry: AllometricParam, PowerLaw
+using ...Parameters: ParamRegistry
+using ...Parameters: scalar_param, vector_param, matrix_param
+using ...Parameters: GroupVec
+using ..InteractionDefaults: default_palatability_provider, default_assimilation_provider
+using ...Library.Allometry: AllometricParam, PowerLaw
 
-import Agate.Parameters: parameter_registry
+import ...Parameters: parameter_registry
 
 function parameter_registry(::NiPiZDFactory)
     groups = (:Z, :P)

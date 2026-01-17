@@ -1,66 +1,28 @@
 module Models
 
-using Agate.Utils: AbstractBGCFactory
+using ..FactoryInterface:
+    factory_groups,
+    default_plankton_dynamics,
+    default_community,
+    default_biogeochem_dynamics
 
 include("InteractionDefaults.jl")
 using .InteractionDefaults: default_palatability_provider, default_assimilation_provider
 export default_palatability_provider, default_assimilation_provider
 
-"""Return the fixed group set for a factory.
-
-The returned tuple defines the canonical group order for group-level parameters
-(`Agate.Parameters.GroupVec`).
-"""
-function factory_groups(::AbstractBGCFactory)
-    throw(ArgumentError("No method `factory_groups(factory)` is defined for this factory."))
-end
-
-export factory_groups
 
 # -----------------------------------------------------------------------------
-# Factory default interface
-# -----------------------------------------------------------------------------
-
-"""Default plankton dynamics for a factory.
-
-Returns a `NamedTuple` mapping a group prefix (e.g., `:P`, `:Z`) to a tracer
-Dynamics builder function.
-"""
-function default_plankton_dynamics(::AbstractBGCFactory)
-    throw(ArgumentError("No method `default_plankton_dynamics(factory)` is defined for this factory."))
-end
-
-"""Default plankton community structure for a factory.
-
-Returns a `NamedTuple` mapping group prefix symbols to group specifications.
-
-This is **structural** information only (group symbols, diameter specifications,
-PFT specifications, etc.). All numeric parameter defaults live exclusively in
-`Parameters.parameter_registry(factory)`.
-"""
-function default_community(::AbstractBGCFactory)
-    throw(ArgumentError("No method `default_community(factory)` is defined for this factory."))
-end
-
-"""Default non-plankton tracer dynamics for a factory.
-
-Returns a `NamedTuple` mapping tracer symbols (e.g., `:N`, `:DIC`) to tracer
-Dynamics builder functions.
-"""
-function default_biogeochem_dynamics(::AbstractBGCFactory)
-    throw(ArgumentError("No method `default_biogeochem_dynamics(factory)` is defined for this factory."))
-end
-
-# -----------------------------------------------------------------------------
-# Submodules and public constructor
+# Model modules
 # -----------------------------------------------------------------------------
 
 include("NiPiZD/NiPiZD.jl")
 include("DARWIN/DARWIN.jl")
 
+export NiPiZD, DARWIN
+
+# The factory types remain available for internal/advanced usage via fully-qualified
+# names (e.g. `Agate.Models.NiPiZD.NiPiZDFactory`).
 using .NiPiZD: NiPiZDFactory
 using .DARWIN: DarwinFactory
-export NiPiZDFactory
-export DarwinFactory
 
 end # module

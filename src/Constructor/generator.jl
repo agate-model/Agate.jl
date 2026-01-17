@@ -4,12 +4,12 @@
 
 using Adapt
 
-using Agate.Library.Mortality
-using Agate.Library.Nutrients
-using Agate.Library.Photosynthesis
-using Agate.Library.Predation
-using Agate.Library.Remineralization
-using Agate.Equations: Equation, expr
+using ..Library.Mortality
+using ..Library.Nutrients
+using ..Library.Photosynthesis
+using ..Library.Predation
+using ..Library.Remineralization
+using ..Equations: Equation, expr
 using OceanBioME
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 using Oceananigans.Fields: ZeroField
