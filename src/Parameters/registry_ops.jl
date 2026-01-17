@@ -62,15 +62,17 @@ function update_registry(registry::ParamRegistry, overrides::NamedTuple)
                 GroupVec(base.groups, v)
             elseif v isa AbstractDict
                 throw(ArgumentError(
-                    "update_registry: :$k is a group-level vector parameter; provide a scalar broadcast or a complete group NamedTuple matching groups=$(base.groups). Dict inputs are intentionally unsupported.",
+                    "update_registry: :$k is a group-level vector parameter; provide a complete group NamedTuple matching groups=$(base.groups) (e.g. (P=1e-6, Z=1e-6)), or a GroupVec. Dict inputs are intentionally unsupported.",
                 ))
             elseif v isa AbstractVector
                 throw(ArgumentError(
-                    "update_registry: :$k is a group-level vector parameter; provide a scalar broadcast or a complete group NamedTuple matching groups=$(base.groups).",
+                    "update_registry: :$k is a group-level vector parameter; provide a complete group NamedTuple matching groups=$(base.groups) (e.g. (P=1e-6, Z=1e-6)), or a GroupVec.",
                 ))
             else
-                # Scalar/Bool/allometric values broadcast across all groups.
-                GroupVec{length(base.groups)}(base.groups, ntuple(_ -> v, length(base.groups)))
+                throw(ArgumentError(
+                    "update_registry: :$k is a group-level vector parameter; scalar broadcast is not supported. " *
+                    "Provide a complete group NamedTuple matching groups=$(base.groups) (e.g. (P=1e-6, Z=1e-6)), or a GroupVec.",
+                ))
             end
 
             gv_norm = normalize_provider(:vector, gv, s.value_kind)

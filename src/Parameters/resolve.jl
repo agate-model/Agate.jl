@@ -94,6 +94,14 @@ function _resolve_vector(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFl
         end
     else
         # Scalar/Bool/allometric broadcasts.
+        # NOTE: group-level vectors (provider is GroupVec) must not accept scalar broadcast.
+        if spec.provider isa GroupVec
+            throw(ArgumentError(
+                "Group-level vector parameter :$(spec.name) does not support scalar broadcast. " *
+                "Provide an explicit group mapping (e.g. (P=1e-6, Z=1e-6)) or GroupVec(groups; ...).",
+            ))
+        end
+
         @inbounds for i in 1:n
             out[i] = _resolve_scalar_item(FT, spec, ctx, i, p)
         end

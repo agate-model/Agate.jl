@@ -98,10 +98,15 @@ using Oceananigans.Units
         @test p_default.maximum_predation_rate[1] != p_default.maximum_predation_rate[2]
 
         # Override by updating the registry.
-        # Shape-driven rule: scalar inputs for vector parameters broadcast across all PFTs.
-        reg_fill = update_registry(parameter_registry(factory); linear_mortality=1e-6)
-        p_fill = construct(factory; grid=dummy_grid(Float32), community=base, registry=reg_fill).parameters
-        @test all(p_fill.linear_mortality .== Float32(1e-6))
+        # Group-level vectors reject scalar broadcast: require explicit group mapping (or GroupVec).
+        err_scalar = try
+            update_registry(parameter_registry(factory); linear_mortality=1e-6)
+            nothing
+        catch e
+            e
+        end
+        @test err_scalar isa ArgumentError
+        @test occursin("scalar", lowercase(sprint(showerror, err_scalar)))
 
         # Group-level vectors are strict replacements: provide a complete group mapping.
         reg_replace = update_registry(parameter_registry(factory); linear_mortality=(Z=1e-6, P=1e-6))
