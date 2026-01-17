@@ -1,104 +1,193 @@
-"""Tracer tendency equations for the NiPiZD biogeochemical model.
-
-All builders in this module return `Agate.Equations.Equation`.
-The symbolic API is used only at construction time; kernels remain plain `Expr`
-operating on numeric arrays and scalars.
-
-All equation builders accept a first argument `PV`, a namespace of construction-time
-parameter placeholders provided by `construct`.
-"""
+"""Tracer tendency functors for the NiPiZD model."""
 
 module Tracers
 
-using ....Equations: Equation, sum_over
+using ....Equations: req
+using ....Functors: CompiledEquation
 
-using ....Symbolic.Mortality: linear_loss, quadratic_loss, linear_loss_sum, quadratic_loss_sum
-using ....Symbolic.Predation: grazing_loss, grazing_gain, grazing_assimilation_loss
-using ....Symbolic.Photosynthesis:
-    growth_single_nutrient,
-    growth_single_nutrient_geider
+using ....Library.Mortality: LinearLoss, QuadraticLoss
+using ....Library.Photosynthesis: SingleNutrientGrowthSmith
+using ....Library.Predation: PreferentialPredationLoss, PreferentialPredationGain, PreferentialPredationAssimilationLoss
+using ....Library.Remineralization: LinearRemineralization
 
-export phytoplankton_default,
-    phytoplankton_geider_light,
-    zooplankton_default,
-    nutrient_default,
-    nutrient_geider_light,
-    detritus_default
+export nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
 
-# --- internal helpers ---------------------------------------------------------
+@inline _pview(bgc) = hasproperty(bgc.parameters, :data) ? getproperty(bgc.parameters, :data) : bgc.parameters
 
-_growth_sum(PV, plankton_syms) = sum_over(plankton_syms) do sym, i
-    growth_single_nutrient(PV, :N, sym, :PAR, i)
-end
-
-_growth_sum_geider(PV, plankton_syms) = sum_over(plankton_syms) do sym, i
-    growth_single_nutrient_geider(PV, :N, sym, :PAR, i)
-end
-
-_remineralization_term(PV) = PV.detritus_remineralization * :D
-
-# --- biogeochemical tracers ---------------------------------------------------
-
-"""Nutrient tendency for a single dissolved inorganic nutrient `N`."""
+"""Nutrient tendency with Smith growth and mortality/remineralization."""
 function nutrient_default(PV, plankton_syms)
-    linear_sum = linear_loss_sum(PV, plankton_syms)
-    quadratic_sum = quadratic_loss_sum(PV, plankton_syms)
-    growth_sum = _growth_sum(PV, plankton_syms)
+    npl = length(plankton_syms)
 
-    export_frac = PV.mortality_export_fraction
-    remin = _remineralization_term(PV)
+    requirements = req(
+        scalars=(:detritus_remineralization, :mortality_export_fraction),
+        vectors=(:linear_mortality, :quadratic_mortality, :maximum_growth_rate, :nutrient_half_saturation, :alpha),
+    )
 
-    return Equation(export_frac * linear_sum + export_frac * quadratic_sum + remin - growth_sum)
+    f = function (bgc, x, y, z, t, args...)
+        p = _pview(bgc)
+
+        N = args[1]
+        D = args[2]
+        PAR = args[2 + npl + 1]
+
+        lin_sum = zero(N)
+        quad_sum = zero(N)
+        growth_sum = zero(N)
+
+        @inbounds for i in 1:npl
+            P = args[2 + i]
+            lin_sum += LinearLoss(p.linear_mortality[i])(P)
+            quad_sum += QuadraticLoss(p.quadratic_mortality[i])(P)
+            growth_sum += SingleNutrientGrowthSmith(
+                p.maximum_growth_rate[i],
+                p.nutrient_half_saturation[i],
+                p.alpha[i],
+            )(N, P, PAR)
+        end
+
+        export_frac = p.mortality_export_fraction
+        remin = LinearRemineralization(p.detritus_remineralization)(D)
+
+        return export_frac * (lin_sum + quad_sum) + remin - growth_sum
+    end
+
+    return CompiledEquation(f, requirements)
 end
 
-"""Nutrient tendency using Geider-style light limitation."""
-function nutrient_geider_light(PV, plankton_syms)
-    linear_sum = linear_loss_sum(PV, plankton_syms)
-    quadratic_sum = quadratic_loss_sum(PV, plankton_syms)
-    growth_sum = _growth_sum_geider(PV, plankton_syms)
-
-    export_frac = PV.mortality_export_fraction
-    remin = _remineralization_term(PV)
-
-    return Equation(export_frac * linear_sum + export_frac * quadratic_sum + remin - growth_sum)
-end
-
-"""Detritus tendency for a single detrital pool `D`."""
+"""Detritus tendency from mortality, sloppy feeding, and remineralization."""
 function detritus_default(PV, plankton_syms)
-    linear_sum = linear_loss_sum(PV, plankton_syms)
-    quadratic_sum = quadratic_loss_sum(PV, plankton_syms)
-    assimilation_loss_sum = grazing_assimilation_loss(PV, plankton_syms)
+    npl = length(plankton_syms)
 
-    export_frac = PV.mortality_export_fraction
-    remin = _remineralization_term(PV)
+    requirements = req(
+        scalars=(:detritus_remineralization, :mortality_export_fraction),
+        vectors=(
+            :linear_mortality,
+            :quadratic_mortality,
+            :maximum_predation_rate,
+            :holling_half_saturation,
+        ),
+        matrices=(:palatability_matrix, :assimilation_matrix),
+    )
 
-    return Equation((1 - export_frac) * linear_sum + assimilation_loss_sum + (1 - export_frac) * quadratic_sum - remin)
+    f = function (bgc, x, y, z, t, args...)
+        p = _pview(bgc)
+
+        D = args[2]
+
+        lin_sum = zero(D)
+        quad_sum = zero(D)
+
+        @inbounds for i in 1:npl
+            P = args[2 + i]
+            lin_sum += LinearLoss(p.linear_mortality[i])(P)
+            quad_sum += QuadraticLoss(p.quadratic_mortality[i])(P)
+        end
+
+        assim_loss = zero(D)
+        @inbounds for predator_idx in 1:npl
+            predator = args[2 + predator_idx]
+            gmax = p.maximum_predation_rate[predator_idx]
+            K = p.holling_half_saturation[predator_idx]
+            for prey_idx in 1:npl
+                prey = args[2 + prey_idx]
+                β = p.assimilation_matrix[predator_idx, prey_idx]
+                ϕ = p.palatability_matrix[predator_idx, prey_idx]
+                assim_loss += PreferentialPredationAssimilationLoss(β, gmax, K, ϕ)(prey, predator)
+            end
+        end
+
+        export_frac = p.mortality_export_fraction
+        remin = LinearRemineralization(p.detritus_remineralization)(D)
+
+        return (one(export_frac) - export_frac) * (lin_sum + quad_sum) + assim_loss - remin
+    end
+
+    return CompiledEquation(f, requirements)
 end
 
-# --- plankton tracers ---------------------------------------------------------
-
-"""Phytoplankton tendency with single-nutrient Smith-style light limitation."""
+"""Phytoplankton tendency with Smith growth, grazing loss, and linear mortality."""
 function phytoplankton_default(PV, plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
-    growth = growth_single_nutrient(PV, :N, plankton_sym, :PAR, plankton_idx)
-    grazing = grazing_loss(PV, plankton_sym, plankton_idx, plankton_syms)
-    mort = linear_loss(PV, plankton_sym, plankton_idx)
-    return Equation(growth - grazing - mort)
+    npl = length(plankton_syms)
+
+    requirements = req(
+        vectors=(
+            :maximum_growth_rate,
+            :nutrient_half_saturation,
+            :alpha,
+            :linear_mortality,
+            :maximum_predation_rate,
+            :holling_half_saturation,
+        ),
+        matrices=(:palatability_matrix,),
+    )
+
+    f = function (bgc, x, y, z, t, args...)
+        p = _pview(bgc)
+
+        N = args[1]
+        P = args[2 + plankton_idx]
+        PAR = args[2 + npl + 1]
+
+        growth = SingleNutrientGrowthSmith(
+            p.maximum_growth_rate[plankton_idx],
+            p.nutrient_half_saturation[plankton_idx],
+            p.alpha[plankton_idx],
+        )(N, P, PAR)
+
+        grazing = zero(P)
+        @inbounds for predator_idx in 1:npl
+            predator = args[2 + predator_idx]
+            gmax = p.maximum_predation_rate[predator_idx]
+            K = p.holling_half_saturation[predator_idx]
+            ϕ = p.palatability_matrix[predator_idx, plankton_idx]
+            grazing += PreferentialPredationLoss(gmax, K, ϕ)(P, predator)
+        end
+
+        mort = LinearLoss(p.linear_mortality[plankton_idx])(P)
+
+        return growth - grazing - mort
+    end
+
+    return CompiledEquation(f, requirements)
 end
 
-"""Phytoplankton tendency using Geider-style light limitation."""
-function phytoplankton_geider_light(PV, plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
-    growth = growth_single_nutrient_geider(PV, :N, plankton_sym, :PAR, plankton_idx)
-    grazing = grazing_loss(PV, plankton_sym, plankton_idx, plankton_syms)
-    mort = linear_loss(PV, plankton_sym, plankton_idx)
-    return Equation(growth - grazing - mort)
-end
-
-"""Zooplankton tendency with preferential feeding."""
+"""Zooplankton tendency with preferential grazing gain and mortality losses."""
 function zooplankton_default(PV, plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
-    gain = grazing_gain(PV, plankton_sym, plankton_idx, plankton_syms)
-    lin = linear_loss(PV, plankton_sym, plankton_idx)
-    quad = quadratic_loss(PV, plankton_sym, plankton_idx)
-    return Equation(gain - lin - quad)
+    npl = length(plankton_syms)
+
+    requirements = req(
+        vectors=(
+            :linear_mortality,
+            :quadratic_mortality,
+            :maximum_predation_rate,
+            :holling_half_saturation,
+        ),
+        matrices=(:palatability_matrix, :assimilation_matrix),
+    )
+
+    f = function (bgc, x, y, z, t, args...)
+        p = _pview(bgc)
+
+        Z = args[2 + plankton_idx]
+
+        gmax = p.maximum_predation_rate[plankton_idx]
+        K = p.holling_half_saturation[plankton_idx]
+
+        gain = zero(Z)
+        @inbounds for prey_idx in 1:npl
+            prey = args[2 + prey_idx]
+            β = p.assimilation_matrix[plankton_idx, prey_idx]
+            ϕ = p.palatability_matrix[plankton_idx, prey_idx]
+            gain += PreferentialPredationGain(β, gmax, K, ϕ)(prey, Z)
+        end
+
+        lin = LinearLoss(p.linear_mortality[plankton_idx])(Z)
+        quad = QuadraticLoss(p.quadratic_mortality[plankton_idx])(Z)
+
+        return gain - lin - quad
+    end
+
+    return CompiledEquation(f, requirements)
 end
 
 end # module

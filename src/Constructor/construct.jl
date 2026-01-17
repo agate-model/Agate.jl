@@ -23,6 +23,7 @@ using ..FactoryInterface:
 import ..Parameters
 using ..Equations: Equation, expr, requirements, req, merge_requirements
 using ..Equations: ParamVar
+using ..Functors: CompiledEquation
 
 # Local construction-time parameter placeholder namespace.
 #
@@ -207,29 +208,33 @@ function construct(
     tracer_names = Symbol[collect(keys(biogeochem_dynamics))...]
     append!(tracer_names, plankton_syms)
 
-    tracer_eqs = Equation[]
+    tracer_defs = Any[]
     merged = req()
 
     for (_, f) in pairs(biogeochem_dynamics)
-        eq = f(PV, plankton_syms)
-        eq isa Equation || throw(ArgumentError("biogeochem dynamics $(nameof(f)) must return Equation"))
-        push!(tracer_eqs, eq)
-        merged = merge_requirements(merged, requirements(eq))
+        tr = f(PV, plankton_syms)
+        (tr isa Equation || tr isa CompiledEquation) || throw(ArgumentError(
+            "biogeochem dynamics $(nameof(f)) must return Equation or CompiledEquation",
+        ))
+        push!(tracer_defs, tr)
+        merged = merge_requirements(merged, requirements(tr))
     end
 
     for idx in eachindex(plankton_syms)
         g = ctx.group_symbols[idx]
         f = getfield(plankton_dynamics, g)
-        tr = plankton_syms[idx]
+        trsym = plankton_syms[idx]
 
-        eq = f(PV, plankton_syms, tr, idx)
-        eq isa Equation || throw(ArgumentError("plankton dynamics $(nameof(f)) must return Equation"))
-        push!(tracer_eqs, eq)
+        tr = f(PV, plankton_syms, trsym, idx)
+        (tr isa Equation || tr isa CompiledEquation) || throw(ArgumentError(
+            "plankton dynamics $(nameof(f)) must return Equation or CompiledEquation",
+        ))
+        push!(tracer_defs, tr)
 
-        merged = merge_requirements(merged, requirements(eq))
+        merged = merge_requirements(merged, requirements(tr))
     end
 
-    tracers = NamedTuple{Tuple(tracer_names)}(Tuple(tracer_eqs))
+    tracers = NamedTuple{Tuple(tracer_names)}(Tuple(tracer_defs))
 
     # ---------------------------------------------------------------------
     # Parameter resolution -> architecture adaptation (CPU/GPU).
