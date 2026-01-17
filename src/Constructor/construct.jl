@@ -21,23 +21,7 @@ using ..FactoryInterface:
     default_community
 # For qualified calls inside registry update helpers.
 import ..Parameters
-using ..Equations: Equation, expr, requirements, req, merge_requirements
-using ..Equations: ParamVar
-using ..Functors: CompiledEquation
-
-# Local construction-time parameter placeholder namespace.
-#
-# Equation builders accept a first argument `PV` and reference placeholders as `PV.<name>`.
-# We construct `PV` as a `NamedTuple` of `ParamVar{:<name>}` values so equation authors can
-# keep the terse `PV.foo[i]` syntax without relying on a global module namespace.
-@inline function parameter_vars(names::AbstractVector{Symbol})
-    vals = map(names) do name
-        # Create ParamVar{name} at runtime.
-        Core.apply_type(ParamVar, name)()
-    end
-    NT = NamedTuple{Tuple(names)}
-    return NT(Tuple(vals))
-end
+using ..Functors: CompiledEquation, requirements, req, merge_requirements
 
 using ..Parameters: resolve_runtime_parameters, parameter_registry
 
@@ -196,9 +180,6 @@ function construct(
     overrides = normalize_interactions(factory, FT, ctx, interactions)
     final_registry = _apply_interactions_to_registry(ctx, registry, overrides)
 
-    # Construction-time parameter placeholder namespace.
-    PV = parameter_vars(map(s -> s.name, final_registry.specs))
-
     # ---------------------------------------------------------------------
     # Build tracer expressions and collect parameter requirements.
     # ---------------------------------------------------------------------
@@ -212,9 +193,9 @@ function construct(
     merged = req()
 
     for (_, f) in pairs(biogeochem_dynamics)
-        tr = f(PV, plankton_syms)
-        (tr isa Equation || tr isa CompiledEquation) || throw(ArgumentError(
-            "biogeochem dynamics $(nameof(f)) must return Equation or CompiledEquation",
+        tr = f(plankton_syms)
+        (tr isa CompiledEquation) || throw(ArgumentError(
+            "biogeochem dynamics $(nameof(f)) must return CompiledEquation",
         ))
         push!(tracer_defs, tr)
         merged = merge_requirements(merged, requirements(tr))
@@ -225,9 +206,9 @@ function construct(
         f = getfield(plankton_dynamics, g)
         trsym = plankton_syms[idx]
 
-        tr = f(PV, plankton_syms, trsym, idx)
-        (tr isa Equation || tr isa CompiledEquation) || throw(ArgumentError(
-            "plankton dynamics $(nameof(f)) must return Equation or CompiledEquation",
+        tr = f(plankton_syms, trsym, idx)
+        (tr isa CompiledEquation) || throw(ArgumentError(
+            "plankton dynamics $(nameof(f)) must return CompiledEquation",
         ))
         push!(tracer_defs, tr)
 

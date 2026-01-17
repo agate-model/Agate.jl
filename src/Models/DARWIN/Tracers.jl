@@ -2,8 +2,7 @@
 
 module Tracers
 
-using ....Equations: req
-using ....Functors: CompiledEquation
+using ....Functors: CompiledEquation, req
 
 using ....Library.Mortality: LinearLoss, QuadraticLoss
 using ....Library.Photosynthesis: TwoNutrientGrowthGeider
@@ -27,7 +26,7 @@ export DIC_geider_light,
 const _N_BIO_TRACERS = 9
 
 """DIC tendency with Geider-style growth (carbon units)."""
-function DIC_geider_light(PV, plankton_syms)
+function DIC_geider_light(plankton_syms)
     npl = length(plankton_syms)
 
     requirements = req(
@@ -72,7 +71,7 @@ function DIC_geider_light(PV, plankton_syms)
 end
 
 """DIN tendency assuming fixed stoichiometry (N:C)."""
-function DIN_geider_light(PV, plankton_syms)
+function DIN_geider_light(plankton_syms)
     npl = length(plankton_syms)
 
     requirements = req(
@@ -117,7 +116,7 @@ function DIN_geider_light(PV, plankton_syms)
 end
 
 """PO4 tendency assuming fixed stoichiometry (P:C)."""
-function PO4_geider_light(PV, plankton_syms)
+function PO4_geider_light(plankton_syms)
     npl = length(plankton_syms)
 
     requirements = req(
@@ -164,7 +163,7 @@ end
 # --- Organic matter ---------------------------------------------------------
 
 """DOC tendency from plankton losses and remineralization."""
-function DOC_default(PV, plankton_syms)
+function DOC_default(plankton_syms)
     npl = length(plankton_syms)
 
     requirements = req(
@@ -209,7 +208,7 @@ function DOC_default(PV, plankton_syms)
 end
 
 """POC tendency from plankton losses and remineralization."""
-function POC_default(PV, plankton_syms)
+function POC_default(plankton_syms)
     npl = length(plankton_syms)
 
     requirements = req(
@@ -254,7 +253,7 @@ function POC_default(PV, plankton_syms)
 end
 
 """DON tendency assuming fixed stoichiometry (N:C)."""
-function DON_default(PV, plankton_syms)
+function DON_default(plankton_syms)
     npl = length(plankton_syms)
 
     requirements = req(
@@ -300,7 +299,7 @@ function DON_default(PV, plankton_syms)
 end
 
 """PON tendency assuming fixed stoichiometry (N:C)."""
-function PON_default(PV, plankton_syms)
+function PON_default(plankton_syms)
     npl = length(plankton_syms)
 
     requirements = req(
@@ -345,7 +344,7 @@ function PON_default(PV, plankton_syms)
 end
 
 """DOP tendency assuming fixed stoichiometry (P:C)."""
-function DOP_default(PV, plankton_syms)
+function DOP_default(plankton_syms)
     npl = length(plankton_syms)
 
     requirements = req(
@@ -391,7 +390,7 @@ function DOP_default(PV, plankton_syms)
 end
 
 """POP tendency assuming fixed stoichiometry (P:C)."""
-function POP_default(PV, plankton_syms)
+function POP_default(plankton_syms)
     npl = length(plankton_syms)
 
     requirements = req(
@@ -438,7 +437,7 @@ end
 # --- Plankton ---------------------------------------------------------------
 
 """Phytoplankton tendency with Geider-style, two-nutrient growth."""
-function phytoplankton_growth_two_nutrients_geider_light(PV, plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
+function phytoplankton_growth_two_nutrients_geider_light(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
     npl = length(plankton_syms)
 
     requirements = req(
@@ -489,7 +488,7 @@ function phytoplankton_growth_two_nutrients_geider_light(PV, plankton_syms, plan
 end
 
 """Zooplankton tendency with preferential grazing gain."""
-function zooplankton_default(PV, plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
+function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
     npl = length(plankton_syms)
 
     requirements = req(

@@ -2,8 +2,7 @@
 
 module Tracers
 
-using ....Equations: req
-using ....Functors: CompiledEquation
+using ....Functors: CompiledEquation, req
 
 using ....Library.Mortality: LinearLoss, QuadraticLoss
 using ....Library.Photosynthesis: SingleNutrientGrowthSmith
@@ -15,7 +14,7 @@ export nutrient_default, detritus_default, phytoplankton_default, zooplankton_de
 @inline _pview(bgc) = hasproperty(bgc.parameters, :data) ? getproperty(bgc.parameters, :data) : bgc.parameters
 
 """Nutrient tendency with Smith growth and mortality/remineralization."""
-function nutrient_default(PV, plankton_syms)
+function nutrient_default(plankton_syms)
     npl = length(plankton_syms)
 
     requirements = req(
@@ -55,7 +54,7 @@ function nutrient_default(PV, plankton_syms)
 end
 
 """Detritus tendency from mortality, sloppy feeding, and remineralization."""
-function detritus_default(PV, plankton_syms)
+function detritus_default(plankton_syms)
     npl = length(plankton_syms)
 
     requirements = req(
@@ -106,7 +105,7 @@ function detritus_default(PV, plankton_syms)
 end
 
 """Phytoplankton tendency with Smith growth, grazing loss, and linear mortality."""
-function phytoplankton_default(PV, plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
+function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
     npl = length(plankton_syms)
 
     requirements = req(
@@ -152,7 +151,7 @@ function phytoplankton_default(PV, plankton_syms, plankton_sym::Symbol, plankton
 end
 
 """Zooplankton tendency with preferential grazing gain and mortality losses."""
-function zooplankton_default(PV, plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
+function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
     npl = length(plankton_syms)
 
     requirements = req(

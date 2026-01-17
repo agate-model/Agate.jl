@@ -1,8 +1,9 @@
 using Agate
 using Test
 
+using Agate.Functors: CompiledEquation, req
 using Agate.Constructor: ModelSpecification
-using Agate.Constructor: define_tracer_functions, expression_check
+using Agate.Constructor: define_tracer_functions
 
 using OceanBioME: BoxModelGrid, setup_velocity_fields
 using Oceananigans.Units
@@ -13,18 +14,25 @@ using Oceananigans.Biogeochemistry:
     biogeochemical_drift_velocity
 
 @testset "Utils" begin
-    @testset "expression_check" begin
-        f_expr = :(α * x - β * x * y)
-        allowed = (:α, :β)
-        @test_throws UndefVarError expression_check(allowed, f_expr)
-
-        allowed = (:α, :β, :x, :y)
-        @test expression_check(allowed, f_expr) === nothing
-    end
-
     @testset "define_tracer_functions with ModelSpecification" begin
         parameters = ModelSpecification((α = 2 / 3, β = 4 / 3, δ = 1.0, γ = 1.0))
-        tracers = (R = :(α * R - β * R * F), F = :(-γ * F + δ * R * F))
+
+        pview(bgc) = hasproperty(bgc.parameters, :data) ? bgc.parameters.data : bgc.parameters
+
+        fR = (bgc, x, y, z, t, R, F) -> begin
+            p = pview(bgc)
+            p.α * R - p.β * R * F
+        end
+
+        fF = (bgc, x, y, z, t, R, F) -> begin
+            p = pview(bgc)
+            -p.γ * F + p.δ * R * F
+        end
+
+        tracers = (
+            R = CompiledEquation(fR, req(scalars=(:α, :β))),
+            F = CompiledEquation(fF, req(scalars=(:γ, :δ))),
+        )
 
         bgc_type = define_tracer_functions(parameters, tracers; auxiliary_fields=())
         bgc = bgc_type(parameters)
@@ -41,7 +49,14 @@ using Oceananigans.Biogeochemistry:
 
     @testset "define_tracer_functions error context" begin
         parameters = ModelSpecification((α = 2.0,))
-        tracers = (R = :(α * R + missing_param * R),)
+
+        pview(bgc) = hasproperty(bgc.parameters, :data) ? bgc.parameters.data : bgc.parameters
+        fR = (bgc, x, y, z, t, R) -> begin
+            p = pview(bgc)
+            p.α * R
+        end
+
+        tracers = (R = CompiledEquation(fR, req(scalars=(:α, :missing_param))),)
 
         err = try
             define_tracer_functions(parameters, tracers; auxiliary_fields=())
@@ -58,7 +73,14 @@ using Oceananigans.Biogeochemistry:
 
     @testset "Optional sinking velocities" begin
         parameters = ModelSpecification((k = 1.0,))
-        tracers = (C = :(-k * C),)
+
+        pview(bgc) = hasproperty(bgc.parameters, :data) ? bgc.parameters.data : bgc.parameters
+        fC = (bgc, x, y, z, t, C) -> begin
+            p = pview(bgc)
+            -p.k * C
+        end
+
+        tracers = (C = CompiledEquation(fC, req(scalars=(:k,))),)
 
         grid = BoxModelGrid()
         sinking_tracers = (C = 1.0 / day,)

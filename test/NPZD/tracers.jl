@@ -1,6 +1,9 @@
 using Agate
-using Agate.Constructor: ModelSpecification
+using Agate.Functors: CompiledEquation, req
+using Agate.Constructor: ModelSpecification, define_tracer_functions
 using Oceananigans.Units
+
+include(joinpath(@__DIR__, "functions.jl"))
 
 # Test NPZD model used to validate that Agate-generated tracer functions integrate
 # consistently with OceanBioME's BoxModel infrastructure.
@@ -19,27 +22,41 @@ parameters = ModelSpecification((;
     α  = 0.1953 / day,
 ))
 
+pview(bgc) = hasproperty(bgc.parameters, :data) ? bgc.parameters.data : bgc.parameters
+
+fN = (bgc, x, y, z, t, N, D, P, Z, PAR) -> begin
+    p = pview(bgc)
+    linear_loss(P, p.lᵖⁿ) + linear_loss(Z, p.lᶻⁿ) + remineralization_idealized(D, p.rᵈⁿ) -
+    photosynthetic_growth_idealized(N, P, PAR, p.μ₀, p.kₙ, p.α)
+end
+
+fD = (bgc, x, y, z, t, N, D, P, Z, PAR) -> begin
+    p = pview(bgc)
+    linear_loss(P, p.lᵖᵈ) +
+    predation_assimilation_loss_idealized(P, Z, p.β, p.gₘₐₓ, p.kₚ) +
+    quadratic_loss(Z, p.lᶻᵈ) - remineralization_idealized(D, p.rᵈⁿ)
+end
+
+fP = (bgc, x, y, z, t, N, D, P, Z, PAR) -> begin
+    p = pview(bgc)
+    photosynthetic_growth_idealized(N, P, PAR, p.μ₀, p.kₙ, p.α) -
+    predation_loss_idealized(P, Z, p.gₘₐₓ, p.kₚ) - linear_loss(P, p.lᵖⁿ) -
+    linear_loss(P, p.lᵖᵈ)
+end
+
+fZ = (bgc, x, y, z, t, N, D, P, Z, PAR) -> begin
+    p = pview(bgc)
+    predation_gain_idealized(P, Z, p.β, p.gₘₐₓ, p.kₚ) - linear_loss(Z, p.lᶻⁿ) -
+    quadratic_loss(Z, p.lᶻᵈ)
+end
+
 tracers = (
-    N=:(
-        linear_loss(P, lᵖⁿ) + linear_loss(Z, lᶻⁿ) + remineralization_idealized(D, rᵈⁿ) -
-        photosynthetic_growth_idealized(N, P, PAR, μ₀, kₙ, α)
-    ),
-    D=:(
-        linear_loss(P, lᵖᵈ) +
-        predation_assimilation_loss_idealized(P, Z, β, gₘₐₓ, kₚ) +
-        quadratic_loss(Z, lᶻᵈ) - remineralization_idealized(D, rᵈⁿ)
-    ),
-    P=:(
-        photosynthetic_growth_idealized(N, P, PAR, μ₀, kₙ, α) -
-        predation_loss_idealized(P, Z, gₘₐₓ, kₚ) - linear_loss(P, lᵖⁿ) -
-        linear_loss(P, lᵖᵈ)
-    ),
-    Z=:(
-        predation_gain_idealized(P, Z, β, gₘₐₓ, kₚ) - linear_loss(Z, lᶻⁿ) -
-        quadratic_loss(Z, lᶻᵈ)
-    ),
+    N = CompiledEquation(fN, req(scalars=(:lᵖⁿ, :lᶻⁿ, :rᵈⁿ, :μ₀, :kₙ, :α))),
+    D = CompiledEquation(fD, req(scalars=(:lᵖᵈ, :β, :gₘₐₓ, :kₚ, :lᶻᵈ, :rᵈⁿ))),
+    P = CompiledEquation(fP, req(scalars=(:μ₀, :kₙ, :α, :gₘₐₓ, :kₚ, :lᵖⁿ, :lᵖᵈ))),
+    Z = CompiledEquation(fZ, req(scalars=(:β, :gₘₐₓ, :kₚ, :lᶻⁿ, :lᶻᵈ))),
 )
 
 AgateNPZD = define_tracer_functions(
-    parameters, tracers; helper_functions=joinpath(@__DIR__, "functions.jl")
+    parameters, tracers
 )
