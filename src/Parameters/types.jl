@@ -150,10 +150,6 @@ Fields
 ------
 - `name`: parameter key (Symbol).
 - `shape`: one of `:scalar`, `:vector`, `:matrix`.
-- `missing_policy`:
-  - `:fail`        -> throw on missing/`nothing`
-  - `:zero_warn`   -> replace with 0/false and warn (once per parameter)
-  - `:zero_silent` -> replace with 0/false silently
 - `value_kind`: `:real` or `:bool`.
 - `doc`: documentation string.
 - `provider`: normalized provider value (or `nothing` meaning required).
@@ -161,7 +157,6 @@ Fields
 struct ParamSpec
     name::Symbol
     shape::Symbol
-    missing_policy::Symbol
     value_kind::Symbol
     doc::String
     provider::ProviderValue

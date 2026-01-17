@@ -150,7 +150,7 @@ function parameter_registry(::NiPiZDHFactory)
                 0.0
             end
             provider = Agate.Parameters.GroupVec(groups; Z=gv.items[1], P=gv.items[2], H=h_item)
-            Agate.Parameters.ParamSpec(s.name, s.shape, s.missing_policy, s.value_kind, s.doc, provider)
+            Agate.Parameters.ParamSpec(s.name, s.shape, s.value_kind, s.doc, provider)
         else
             s
         end
@@ -181,14 +181,12 @@ extra_specs = [
     vector_param(
         :maximum_detritus_uptake_rate,
         "Maximum detritus uptake rate for detritivorous heterotrophs.",
-        GroupVec((:Z, :P, :H); Z=0.0, P=0.0, H=AllometricParam(PowerLaw(); prefactor=1.5 / day, exponent=-0.15));
-        missing_policy=:fail,
+        GroupVec((:Z, :P, :H); Z=0.0, P=0.0, H=AllometricParam(PowerLaw(); prefactor=1.5 / day, exponent=-0.15)); ,
     ),
     vector_param(
         :detritus_half_saturation,
         "Half-saturation constant for heterotroph detritus uptake.",
-        GroupVec((:Z, :P, :H); Z=0.0, P=0.0, H=0.04);
-        missing_policy=:fail,
+        GroupVec((:Z, :P, :H); Z=0.0, P=0.0, H=0.04); ,
     ),
 ]
 base_reg = parameter_registry(factory)

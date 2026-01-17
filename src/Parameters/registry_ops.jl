@@ -14,7 +14,7 @@ Keys are validated to exist in the registry (strict-by-default) to catch typos e
 Use `extend_registry` to add new parameters explicitly.
 """
 @inline _with_provider(s::ParamSpec, provider) =
-    ParamSpec(s.name, s.shape, s.missing_policy, s.value_kind, s.doc, provider)
+    ParamSpec(s.name, s.shape, s.value_kind, s.doc, provider)
 
 
 @inline function _validate_complete_group_mapping(op::AbstractString, param::Symbol, groups, nt::NamedTuple)

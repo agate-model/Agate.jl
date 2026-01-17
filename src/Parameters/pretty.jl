@@ -10,9 +10,7 @@ function parameter_directory(factory)
     return map(reg.specs) do s
         default_form = isnothing(s.provider) ? :required : typeof(s.provider)
         (name=s.name,
-         shape=s.shape,
-         missing_policy=s.missing_policy,
-         value_kind=s.value_kind,
+         shape=s.shape,         value_kind=s.value_kind,
          doc=s.doc,
          default=default_form)
     end
@@ -22,8 +20,7 @@ end
 
 function show(io::IO, ::MIME"text/plain", reg::ParamRegistry)
     println(io, "Agate.ParamRegistry with $(length(reg.specs)) parameters")
-    for s in reg.specs
-        println(io, "  * ", s.name, " (", s.shape, ", ", s.value_kind, ") [", s.missing_policy, "]")
+    for s in reg.specs        println(io, "  * ", s.name, " (", s.shape, ", ", s.value_kind, ")")
         println(io, "      default: ", _provider_string(s.provider))
         if !isempty(s.doc)
             for line in split(s.doc, '\n')

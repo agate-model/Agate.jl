@@ -26,9 +26,7 @@ During `construct`, Agate builds `PV` from the active parameter registry. So whe
 Agate no longer encodes missing behaviour in the *equation syntax*.
 Instead, each parameter specification in the registry declares how missing values are handled during CPU resolution:
 
-- `missing_policy = :fail` — missing/`nothing` is an error
-- `missing_policy = :zero_warn` — replace with `0`/`false` and warn
-- `missing_policy = :zero_silent` — replace with `0`/`false` silently
+- Missing/`nothing` values are an error at the boundary.
 
 This keeps the equation authoring surface clean and GPU-safe.
 

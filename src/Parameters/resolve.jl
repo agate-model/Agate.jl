@@ -22,15 +22,9 @@ end
 
 function _resolve_scalar(::Type{FT}, spec::ParamSpec, ctx) where {FT<:AbstractFloat}
     spec.shape === :scalar || throw(ArgumentError("Internal error: :$(spec.name) is not a scalar spec."))
-
     p = spec.provider
     if isnothing(p)
-        if spec.missing_policy === :fail
-            throw(ArgumentError("Missing required scalar parameter :$(spec.name)."))
-        elseif spec.missing_policy === :zero_warn
-            @warn "Missing scalar parameter :$(spec.name); replacing with 0/false." maxlog=1
-        end
-        return _missing_value(FT, _is_bool(spec))
+        throw(ArgumentError("Missing required scalar parameter :$(spec.name)."))
     end
 
     if p isa Number || p isa Bool
@@ -113,15 +107,10 @@ function _resolve_matrix(::Type{FT}, spec::ParamSpec, ctx, resolved::Dict{Symbol
 
     n = ctx.n_total
     p = spec.provider
-
     if isnothing(p)
-        if spec.missing_policy === :fail
-            throw(ArgumentError("Missing required matrix parameter :$(spec.name)."))
-        elseif spec.missing_policy === :zero_warn
-            @warn "Missing matrix parameter :$(spec.name); replacing with zeros." maxlog=1
-        end
-        return zeros(FT, n, n)
+        throw(ArgumentError("Missing required matrix parameter :$(spec.name)."))
     end
+
 
     val = if p isa AbstractMatrix
         p
