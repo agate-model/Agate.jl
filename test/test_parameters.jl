@@ -202,7 +202,14 @@ using Oceananigans.Units
         # exercises GPU allocation paths.
         backend = CUDA.CUDAKernels.CUDABackend()
         bgc_gpu = construct(NiPiZDFactory(); grid=dummy_grid(Float32; arch=GPU(backend)))
-        @test bgc_gpu.parameters.maximum_growth_rate isa CUDA.CuArray
+
+        expected_array_type = try
+            Oceananigans.Architectures.array_type(GPU(backend))
+        catch
+            CUDA.CuArray
+        end
+
+        @test bgc_gpu.parameters.maximum_growth_rate isa expected_array_type
         # Round-trip back to CPU.
         bgc_cpu = Adapt.adapt(Array, bgc_gpu)
         @test bgc_cpu.parameters.maximum_growth_rate isa Vector{Float32}

@@ -60,6 +60,19 @@ end
 
 Adapt.@adapt_structure ModelSpecification
 
+# Adapt support for `NamedTuple` payloads
+#
+# Many Agate runtime bundles store parameters in `NamedTuple`s for cheap field
+# access and compile-time key sets. We rely on `Adapt.jl` to move these payloads
+# to the architecture's preferred array type.
+#
+# `Adapt` does not always ship with a recursive rule for `NamedTuple` across all
+# versions, so we define it here to ensure that `adapt(CuArray, params)` converts
+# vectors/matrices inside the `NamedTuple`.
+@inline function Adapt.adapt_structure(to, nt::NamedTuple{names}) where {names}
+    return NamedTuple{names}(map(x -> Adapt.adapt(to, x), values(nt)))
+end
+
 # -----------------------------------------------------------------------------
 # Ergonomic access
 # -----------------------------------------------------------------------------

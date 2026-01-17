@@ -14,6 +14,10 @@ containers returned by `Agate.Models.*` factories.
 """
 module Constructor
 
+# Oceananigans is a core dependency for Agate's host/GPU architecture model.
+# Import it here so constructor code can reliably query `Oceananigans.Architectures`.
+import Oceananigans
+
 # NOTE: This submodule lives under `Agate` (i.e. `Agate.Constructor`).
 # Refer to sibling modules via relative paths (`..`) instead of the parent
 # module name (`Agate`) because the parent name is not guaranteed to be bound

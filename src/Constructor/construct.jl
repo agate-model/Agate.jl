@@ -2,7 +2,12 @@ using OceanBioME: BoxModelGrid, setup_velocity_fields
 
 using Adapt: adapt
 
-using Oceananigans.Architectures: architecture, device, CPU, GPU
+# We use Oceananigans' architecture abstraction (CPU/GPU + backend-specific array types).
+# Importing from a submodule does not bind the `Oceananigans` name, and we also
+# reference `Oceananigans.Architectures` directly below.
+import Oceananigans
+
+using Oceananigans.Architectures: architecture, CPU, GPU
 
 using Agate.Utils:
     AbstractBGCFactory,
@@ -37,6 +42,37 @@ using Agate.Equations: ParamVar
 end
 
 using Agate.Parameters: resolve_runtime_parameters, parameter_registry
+
+"""Move `x` to the requested Oceananigans architecture.
+
+This is a construction-time helper that uses `Oceananigans.Architectures.array_type(arch)`
+to pick a storage type (e.g. `Array` on CPU, `CUDA.CuArray` on CUDA GPU) and then
+`Adapt.adapt` to recursively move arrays inside `x`.
+"""
+function _on_architecture(arch, x)
+    arch === nothing && return x
+    arch isa CPU && return x
+
+    # We deliberately avoid `Oceananigans.Architectures.on_architecture` here.
+    # Oceananigans only defines `on_architecture` for its own types, and the
+    # generic fallback for unknown structs can be a no-op. Instead, we always
+    # Adapt directly to the architecture's preferred array storage type.
+    # IMPORTANT: `construct` generates the biogeochemistry type (and its
+    # `Adapt.@adapt_structure` methods) at runtime via `eval`. Without
+    # `invokelatest` here, Julia's world-age restriction can cause `Adapt.adapt`
+    # to miss those freshly-defined methods and silently behave like a no-op.
+    return Base.invokelatest(Adapt.adapt, _architecture_array_type(arch), x)
+end
+
+"""Return the preferred array storage type for `arch`.
+
+This delegates to Oceananigans' public `array_type(arch)` API.
+"""
+function _architecture_array_type(arch)
+    arch isa CPU && return Array
+    arch isa GPU && return Oceananigans.Architectures.array_type(arch)
+    return Array
+end
 
 """Apply `interactions` overrides by updating the parameter registry.
 
@@ -224,7 +260,7 @@ function construct(
     end
 
     # Move any arrays inside `bgc` onto the requested architecture.
-    bgc = adapt(device(arch), bgc)
+    bgc = _on_architecture(arch, bgc)
 
     return bgc
 end
