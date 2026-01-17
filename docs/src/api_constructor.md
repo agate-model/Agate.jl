@@ -147,6 +147,7 @@ Agate.update_community
 Agate.extend_community
 Agate.parameter_registry
 Agate.update_registry
+Agate.patch_registry_groups
 Agate.extend_registry
 Agate.update_dynamics
 Agate.extend_dynamics

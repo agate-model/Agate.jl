@@ -16,6 +16,27 @@ Use `extend_registry` to add new parameters explicitly.
 @inline _with_provider(s::ParamSpec, provider) =
     ParamSpec(s.name, s.shape, s.missing_policy, s.value_kind, s.doc, provider)
 
+
+@inline function _validate_complete_group_mapping(op::AbstractString, param::Symbol, groups, nt::NamedTuple)
+    got = Tuple(keys(nt))
+    missing = Symbol[]
+    extra = Symbol[]
+    for g in groups
+        (g in got) || push!(missing, g)
+    end
+    for k in got
+        (k in groups) || push!(extra, k)
+    end
+    if !isempty(missing) || !isempty(extra)
+        msg = "$(op): group-level vector :$(param) requires a complete group mapping for groups=$(groups)."
+        !isempty(missing) && (msg *= " Missing: $(missing).")
+        !isempty(extra) && (msg *= " Unknown: $(extra).")
+        msg *= " Provide a NamedTuple with exactly these keys."
+        throw(ArgumentError(msg))
+    end
+    return nothing
+end
+
 function update_registry(registry::ParamRegistry, overrides::NamedTuple)
     isempty(overrides) && return registry
 
@@ -35,7 +56,9 @@ function update_registry(registry::ParamRegistry, overrides::NamedTuple)
 
             gv = if v isa GroupVec
                 v
+            
             elseif v isa NamedTuple
+                _validate_complete_group_mapping("update_registry", k, base.groups, v)
                 GroupVec(base.groups, v)
             elseif v isa AbstractDict
                 throw(ArgumentError(
