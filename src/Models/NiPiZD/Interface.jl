@@ -39,17 +39,6 @@ import ...FactoryInterface
 
 export construct
 
-@inline function _call_matrix_provider(f::Function, ctx)
-    if Base.applicable(f, ctx)
-        return f(ctx)
-    elseif Base.applicable(f, ctx.diameters, ctx.group_symbols)
-        return f(ctx.diameters, ctx.group_symbols)
-    end
-
-    throw(ArgumentError(
-        "matrix provider must accept either (ctx) or (diameters, group_symbols); got $(typeof(f))",
-    ))
-end
 
 """
     construct(; kw...) -> bgc
@@ -110,34 +99,17 @@ function construct(;
 
     # Interaction overrides (optional).
     #
-    # If the user passes a function provider for either matrix, evaluate it once at
-    # construction time using the InteractionContext.
-    has_overrides = (palatability_matrix !== nothing) || (assimilation_matrix !== nothing)
-    uses_providers = (palatability_matrix isa Function) || (assimilation_matrix isa Function)
+    # We forward overrides through the model-agnostic constructor as a `NamedTuple`.
+    # If a value is a function, it will be evaluated once against the InteractionContext
+    # during construction.
+    pairs = Pair{Symbol, Any}[]
+    palatability_matrix !== nothing && push!(pairs, :palatability_matrix => palatability_matrix)
+    assimilation_matrix !== nothing && push!(pairs, :assimilation_matrix => assimilation_matrix)
 
-    interactions = if !has_overrides
-        nothing
-    elseif uses_providers
-        (ctx) -> begin
-            out = NamedTuple()
-            if palatability_matrix !== nothing
-                val = palatability_matrix isa Function ? _call_matrix_provider(palatability_matrix, ctx) : palatability_matrix
-                out = merge(out, (; palatability_matrix = val))
-            end
-            if assimilation_matrix !== nothing
-                val = assimilation_matrix isa Function ? _call_matrix_provider(assimilation_matrix, ctx) : assimilation_matrix
-                out = merge(out, (; assimilation_matrix = val))
-            end
-            out
-        end
-    else
-        out = NamedTuple()
-        palatability_matrix !== nothing && (out = merge(out, (; palatability_matrix = palatability_matrix)))
-        assimilation_matrix !== nothing && (out = merge(out, (; assimilation_matrix = assimilation_matrix)))
-        out
-    end
+    interactions = isempty(pairs) ? nothing : (; pairs...)
 
     return Constructor.construct(
+
         spec;
         plankton_dynamics = plankton_dynamics,
         biogeochem_dynamics = biogeochem_dynamics,

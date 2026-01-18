@@ -130,7 +130,7 @@ function construct(
     biogeochem_dynamics = default_biogeochem_dynamics(factory),
     community = default_community(factory),
     parameters::NamedTuple = (;),
-    interactions::Union{Nothing,NamedTuple,Function} = nothing,
+    interactions::Union{Nothing,NamedTuple} = nothing,
     arch = nothing,
     sinking_tracers = nothing,
     grid = nothing,

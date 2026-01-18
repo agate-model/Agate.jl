@@ -82,38 +82,54 @@ end
 `interactions` may be:
 
 - `nothing` (no overrides)
-- a `NamedTuple` of updates (typically matrices, but may include any parameter keys)
+- a `NamedTuple` of updates
+
+Within the `NamedTuple`, values may be concrete objects (e.g. matrices) *or*
+provider functions. Provider functions are evaluated against an `InteractionContext`
+and must be callable as either:
+
+- `f(ctx)`
+- `f(ctx.diameters, ctx.group_symbols)`
 
 Matrix shape validation is performed here; final key validation and parameter
 shape checks occur during model construction.
 """
-function normalize_interactions(ctx::InteractionContext, interactions)
-    interactions === nothing && return NamedTuple()
+function normalize_interactions(ctx::InteractionContext{FT}, interactions::Union{Nothing, NamedTuple}) where {FT}
+    interactions === nothing && return (;)
 
-    # Allow advanced interaction callbacks that compute overrides from the context.
-    # These are evaluated once during construction and must return a NamedTuple.
-    if interactions isa Function
-        return normalize_interactions(ctx, interactions(ctx))
-    end
-
-    interactions isa NamedTuple || throw(ArgumentError(
-        "interactions must be a NamedTuple or a function (ctx)->NamedTuple (got $(typeof(interactions)))",
-    ))
-
+    resolved = Pair{Symbol, Any}[]
     for (key, value) in pairs(interactions)
-        _validate_interaction_matrix_override(ctx, key, value)
+        resolved_value = value isa Function ? _call_interaction_provider(value, ctx, key) : value
+        _validate_interaction_override(ctx, key, resolved_value)
+        push!(resolved, key => resolved_value)
     end
 
-    return interactions
+    return (; resolved...)
 end
-function _validate_interaction_matrix_override(ctx::InteractionContext, key::Symbol, value)
-    if value isa Function
-        throw(ArgumentError("interaction override '$key' cannot be a function"))
+
+@inline function _call_interaction_provider(f::Function, ctx::InteractionContext, key::Symbol)
+    if applicable(f, ctx)
+        return f(ctx)
+    elseif applicable(f, ctx.diameters, ctx.group_symbols)
+        return f(ctx.diameters, ctx.group_symbols)
     end
 
-    if value isa AbstractMatrix
-        size(value) == (ctx.n_total, ctx.n_total) || throw(ArgumentError(
-            "interaction override '$key' must be a $(ctx.n_total)×$(ctx.n_total) matrix, got size $(size(value))",
+    throw(ArgumentError(
+        "interaction override '$key' provider must be callable as f(ctx) or f(diameters, group_symbols)",
+    ))
+end
+
+@inline function _validate_interaction_override(ctx::InteractionContext, key::Symbol, value)
+    # Convention: keys ending in `_matrix` are assumed to be interaction matrices
+    # over all plankton groups, and must be `n_total × n_total`.
+    if endswith(String(key), "_matrix")
+        value isa AbstractMatrix || throw(ArgumentError(
+            "interaction override '$key' must be a matrix; got $(typeof(value))",
+        ))
+
+        n_total = ctx.n_total
+        size(value) == (n_total, n_total) || throw(ArgumentError(
+            "interaction override '$key' must be a $(n_total)x$(n_total) matrix; got size $(size(value))",
         ))
     end
 

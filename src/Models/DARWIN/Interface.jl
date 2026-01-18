@@ -9,8 +9,7 @@ This constructor keeps the surface small:
 - dynamics: optionally swap plankton dynamics and (optionally) override selected
   biogeochemical tracer dynamics by key
 - parameters: override named parameters via `parameters=(; ...)`
-- interactions: optionally override interaction matrices or provide an advanced
-  `(ctx) -> NamedTuple` callback
+- interactions: optionally override interaction matrices
 """
 
 using OceanBioME: BoxModelGrid
@@ -24,21 +23,6 @@ import ...Constructor
 import ...FactoryInterface
 
 export construct
-
-# Same merge helper as NiPiZD, local to avoid cross-module coupling.
-function _merge_interactions(interactions, matrix_overrides::NamedTuple)
-    isempty(keys(matrix_overrides)) && return interactions
-
-    if interactions === nothing
-        return matrix_overrides
-    elseif interactions isa NamedTuple
-        return merge(interactions, matrix_overrides)
-    elseif interactions isa Function
-        return (ctx) -> merge(interactions(ctx), matrix_overrides)
-    else
-        throw(ArgumentError("interactions must be nothing, a NamedTuple, or a function (ctx)->NamedTuple"))
-    end
-end
 
 """
     construct(; kw...) -> bgc
@@ -54,7 +38,6 @@ Keywords
 - `biogeochem_dynamics=nothing`: optional `NamedTuple` overriding selected tracer dynamics keys
 - `parameters=(;)`: parameter overrides (validated against the DARWIN parameter set)
 - `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrices
-- `interactions=nothing`: optional advanced interaction overrides (NamedTuple)
 - `grid=BoxModelGrid()`: grid used for precision/architecture inference and sinking velocity fields
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
 - `sinking_tracers=nothing`: sinking speed overrides, e.g. `(POC = 10/day, ...)`
@@ -75,7 +58,6 @@ function construct(;
     parameters::NamedTuple = (;),
     palatability_matrix = nothing,
     assimilation_matrix = nothing,
-    interactions = nothing,
     grid = BoxModelGrid(),
     arch = nothing,
     sinking_tracers = nothing,
@@ -100,16 +82,16 @@ function construct(;
 
     default_bgc = FactoryInterface.default_biogeochem_dynamics(factory)
     merged_bgc = biogeochem_dynamics === nothing ? default_bgc : merge(default_bgc, biogeochem_dynamics)
+    # Interaction overrides (optional).
+    #
+    # We forward overrides through the model-agnostic constructor as a `NamedTuple`.
+    # If a value is a function, it will be evaluated once against the InteractionContext
+    # during construction.
+    pairs = Pair{Symbol, Any}[]
+    palatability_matrix !== nothing && push!(pairs, :palatability_matrix => palatability_matrix)
+    assimilation_matrix !== nothing && push!(pairs, :assimilation_matrix => assimilation_matrix)
 
-    matrix_overrides = NamedTuple()
-    if palatability_matrix !== nothing
-        matrix_overrides = merge(matrix_overrides, (; palatability_matrix = palatability_matrix))
-    end
-    if assimilation_matrix !== nothing
-        matrix_overrides = merge(matrix_overrides, (; assimilation_matrix = assimilation_matrix))
-    end
-
-    merged_interactions = _merge_interactions(interactions, matrix_overrides)
+    interactions = isempty(pairs) ? nothing : (; pairs...)
 
     return Constructor.construct(
         spec;
@@ -117,7 +99,7 @@ function construct(;
         biogeochem_dynamics = merged_bgc,
         community = community,
         parameters = parameters,
-        interactions = merged_interactions,
+        interactions = interactions,
         arch = arch,
         sinking_tracers = sinking_tracers,
         grid = grid,

@@ -36,7 +36,7 @@ Keywords
 - `biogeochem_dynamics`: `NamedTuple` mapping non-plankton tracer symbols to builder functions.
 - `community`: `NamedTuple` describing plankton size structure.
 - `parameters`: `NamedTuple` of parameter overrides.
-- `interactions`: optional interaction-related overrides (typically matrices).
+- `interactions`: optional interaction-related overrides (typically matrices). Values may be matrices or provider functions.
 
 All other keywords are forwarded to the model-agnostic constructor.
 """
@@ -46,7 +46,7 @@ function construct(
     biogeochem_dynamics = default_biogeochem_dynamics(spec.factory),
     community = default_community(spec.factory),
     parameters::NamedTuple = (;),
-    interactions::Union{Nothing,NamedTuple,Function} = nothing,
+    interactions::Union{Nothing,NamedTuple} = nothing,
     arch = nothing,
     sinking_tracers = nothing,
     grid = nothing,
