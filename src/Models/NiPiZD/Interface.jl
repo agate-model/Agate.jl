@@ -6,8 +6,23 @@ instance for a size-structured plankton model with:
 - two plankton groups: phytoplankton (`P`) and zooplankton (`Z`)
 - two non-plankton tracers: dissolved inorganic nutrient (`N`) and detritus (`D`)
 
-The constructor exposes a small set of keywords for community structure,
-dynamics, parameter overrides, and interaction-matrix overrides.
+The public interface keeps the surface small and explicit:
+
+- structure: choose `n_phyto`, `n_zoo`, and diameter specifications
+- dynamics: optionally swap any of the four dynamics builders
+- parameters: override named parameters via `parameters=(; ...)`
+- interactions: optionally override interaction matrices
+
+For ease of use, interaction overrides are exposed as two separate keywords:
+
+- `palatability_matrix`
+- `assimilation_matrix`
+
+Each may be either a concrete matrix, or a function that computes a matrix from
+the construction context:
+
+- `(ctx) -> matrix`
+- `(diameters, group_symbols) -> matrix`
 """
 
 using OceanBioME: BoxModelGrid
@@ -25,42 +40,15 @@ import ...FactoryInterface
 export construct
 
 @inline function _call_matrix_provider(f::Function, ctx)
-    try
-        return f(ctx.diameters, ctx.group_symbols)
-    catch err
-        err isa MethodError || rethrow()
+    if Base.applicable(f, ctx)
         return f(ctx)
-    end
-end
-
-@inline _materialize_matrix_override(x, ctx) = x isa Function ? _call_matrix_provider(x, ctx) : x
-
-function _nipizd_interactions(palatability_matrix, assimilation_matrix)
-    palatability_matrix === nothing && assimilation_matrix === nothing && return nothing
-
-    has_provider = (palatability_matrix isa Function) || (assimilation_matrix isa Function)
-
-    if has_provider
-        return function (ctx)
-            overrides = (;)
-
-            if palatability_matrix !== nothing
-                overrides = merge(overrides, (; palatability_matrix = _materialize_matrix_override(palatability_matrix, ctx)))
-            end
-
-            if assimilation_matrix !== nothing
-                overrides = merge(overrides, (; assimilation_matrix = _materialize_matrix_override(assimilation_matrix, ctx)))
-            end
-
-            return overrides
-        end
+    elseif Base.applicable(f, ctx.diameters, ctx.group_symbols)
+        return f(ctx.diameters, ctx.group_symbols)
     end
 
-    overrides = (;)
-    palatability_matrix !== nothing && (overrides = merge(overrides, (; palatability_matrix = palatability_matrix)))
-    assimilation_matrix !== nothing && (overrides = merge(overrides, (; assimilation_matrix = assimilation_matrix)))
-
-    return overrides
+    throw(ArgumentError(
+        "matrix provider must accept either (ctx) or (diameters, group_symbols); got $(typeof(f))",
+    ))
 end
 
 """
@@ -74,21 +62,12 @@ Keywords
 - `phyto_diameters=(2, 10, :log_splitting)`: diameter specification for phytoplankton
 - `zoo_diameters=(20, 100, :linear_splitting)`: diameter specification for zooplankton
 - `nutrient_dynamics`, `detritus_dynamics`, `phyto_dynamics`, `zoo_dynamics`: dynamics builders
-- `parameters=(;)`: parameter overrides
-- `palatability_matrix=nothing`: matrix (or provider) overriding `:palatability_matrix`
-- `assimilation_matrix=nothing`: matrix (or provider) overriding `:assimilation_matrix`
+- `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set)
+- `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrix overrides
 - `grid=BoxModelGrid()`: grid used for precision/architecture inference and sinking velocity fields
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
 - `sinking_tracers=nothing`: sinking speed overrides, e.g. `(D = 2/ day, P1 = 0.1/day, ...)`
 - `open_bottom=true`: whether sinking tracers leave the domain
-
-Matrix providers
-----------------
-If `palatability_matrix` or `assimilation_matrix` is a function, it is called during
-construction as either:
-
-- `f(diameters, group_symbols)`
-- `f(ctx)` (fallback for single-argument providers)
 
 Returns
 -------
@@ -129,7 +108,34 @@ function construct(;
     plankton_dynamics = (Z = zoo_dynamics, P = phyto_dynamics)
     biogeochem_dynamics = (N = nutrient_dynamics, D = detritus_dynamics)
 
-    interactions = _nipizd_interactions(palatability_matrix, assimilation_matrix)
+    # Interaction overrides (optional).
+    #
+    # If the user passes a function provider for either matrix, evaluate it once at
+    # construction time using the InteractionContext.
+    has_overrides = (palatability_matrix !== nothing) || (assimilation_matrix !== nothing)
+    uses_providers = (palatability_matrix isa Function) || (assimilation_matrix isa Function)
+
+    interactions = if !has_overrides
+        nothing
+    elseif uses_providers
+        (ctx) -> begin
+            out = NamedTuple()
+            if palatability_matrix !== nothing
+                val = palatability_matrix isa Function ? _call_matrix_provider(palatability_matrix, ctx) : palatability_matrix
+                out = merge(out, (; palatability_matrix = val))
+            end
+            if assimilation_matrix !== nothing
+                val = assimilation_matrix isa Function ? _call_matrix_provider(assimilation_matrix, ctx) : assimilation_matrix
+                out = merge(out, (; assimilation_matrix = val))
+            end
+            out
+        end
+    else
+        out = NamedTuple()
+        palatability_matrix !== nothing && (out = merge(out, (; palatability_matrix = palatability_matrix)))
+        assimilation_matrix !== nothing && (out = merge(out, (; assimilation_matrix = assimilation_matrix)))
+        out
+    end
 
     return Constructor.construct(
         spec;

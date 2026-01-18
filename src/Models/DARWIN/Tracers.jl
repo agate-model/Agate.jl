@@ -21,8 +21,28 @@ export DIC_geider_light,
     phytoplankton_growth_two_nutrients_geider_light,
     zooplankton_default
 
+@inline function _state(bgc, args)
+    K = keys(bgc.tracer_functions)
+    N = length(K)
+    vals = ntuple(i -> args[i], N)
+    return NamedTuple{K}(vals), N
+end
 
-const _N_BIO_TRACERS = 9
+@inline function _aux_value(bgc, args, nstate::Int, name::Symbol)
+    aux = bgc.auxiliary_fields
+    @inbounds for i in eachindex(aux)
+        if aux[i] === name
+            return args[nstate + i]
+        end
+    end
+    return nothing
+end
+
+@inline function _require_aux(bgc, args, nstate::Int, name::Symbol)
+    v = _aux_value(bgc, args, nstate, name)
+    v === nothing && throw(ArgumentError("missing required auxiliary field: $(name)"))
+    return v
+end
 
 """DIC tendency with Geider-style growth (carbon units)."""
 function DIC_geider_light(plankton_syms)
@@ -42,15 +62,16 @@ function DIC_geider_light(plankton_syms)
     f = function (bgc, x, y, z, t, args...)
         p = bgc.parameters
 
-        DIN = args[2]
-        PO4 = args[3]
-        DOC = args[4]
-        POC = args[5]
-        PAR = args[_N_BIO_TRACERS + npl + 1]
+        state, nstate = _state(bgc, args)
+        DIN = state.DIN
+        PO4 = state.PO4
+        DOC = state.DOC
+        POC = state.POC
+        PAR = _require_aux(bgc, args, nstate, :PAR)
 
         growth_sum = zero(DIN)
         @inbounds for i in 1:npl
-            P = args[_N_BIO_TRACERS + i]
+            P = getproperty(state, plankton_syms[i])
             growth_sum += TwoNutrientGrowthGeider(
                 p.maximum_growth_rate[i],
                 p.half_saturation_DIN[i],
@@ -87,15 +108,16 @@ function DIN_geider_light(plankton_syms)
     f = function (bgc, x, y, z, t, args...)
         p = bgc.parameters
 
-        DIN = args[2]
-        PO4 = args[3]
-        DON = args[6]
-        PON = args[7]
-        PAR = args[_N_BIO_TRACERS + npl + 1]
+        state, nstate = _state(bgc, args)
+        DIN = state.DIN
+        PO4 = state.PO4
+        DON = state.DON
+        PON = state.PON
+        PAR = _require_aux(bgc, args, nstate, :PAR)
 
         growth_sum = zero(DIN)
         @inbounds for i in 1:npl
-            P = args[_N_BIO_TRACERS + i]
+            P = getproperty(state, plankton_syms[i])
             growth_sum += TwoNutrientGrowthGeider(
                 p.maximum_growth_rate[i],
                 p.half_saturation_DIN[i],
@@ -132,15 +154,16 @@ function PO4_geider_light(plankton_syms)
     f = function (bgc, x, y, z, t, args...)
         p = bgc.parameters
 
-        DIN = args[2]
-        PO4 = args[3]
-        DOP = args[8]
-        POP = args[9]
-        PAR = args[_N_BIO_TRACERS + npl + 1]
+        state, nstate = _state(bgc, args)
+        DIN = state.DIN
+        PO4 = state.PO4
+        DOP = state.DOP
+        POP = state.POP
+        PAR = _require_aux(bgc, args, nstate, :PAR)
 
         growth_sum = zero(DIN)
         @inbounds for i in 1:npl
-            P = args[_N_BIO_TRACERS + i]
+            P = getproperty(state, plankton_syms[i])
             growth_sum += TwoNutrientGrowthGeider(
                 p.maximum_growth_rate[i],
                 p.half_saturation_DIN[i],
@@ -174,23 +197,24 @@ function DOC_default(plankton_syms)
     f = function (bgc, x, y, z, t, args...)
         p = bgc.parameters
 
-        DOC = args[4]
+        state, _ = _state(bgc, args)
+        DOC = state.DOC
 
         lin_sum = zero(DOC)
         quad_sum = zero(DOC)
         @inbounds for i in 1:npl
-            P = args[_N_BIO_TRACERS + i]
+            P = getproperty(state, plankton_syms[i])
             lin_sum += LinearLoss(p.linear_mortality[i])(P)
             quad_sum += QuadraticLoss(p.quadratic_mortality[i])(P)
         end
 
         assim_loss = zero(DOC)
         @inbounds for predator_idx in 1:npl
-            predator = args[_N_BIO_TRACERS + predator_idx]
+            predator = getproperty(state, plankton_syms[predator_idx])
             gmax = p.maximum_predation_rate[predator_idx]
             K = p.holling_half_saturation[predator_idx]
             for prey_idx in 1:npl
-                prey = args[_N_BIO_TRACERS + prey_idx]
+                prey = getproperty(state, plankton_syms[prey_idx])
                 β = p.assimilation_matrix[predator_idx, prey_idx]
                 ϕ = p.palatability_matrix[predator_idx, prey_idx]
                 assim_loss += PreferentialPredationAssimilationLoss(β, gmax, K, ϕ)(prey, predator)
@@ -219,23 +243,24 @@ function POC_default(plankton_syms)
     f = function (bgc, x, y, z, t, args...)
         p = bgc.parameters
 
-        POC = args[5]
+        state, _ = _state(bgc, args)
+        POC = state.POC
 
         lin_sum = zero(POC)
         quad_sum = zero(POC)
         @inbounds for i in 1:npl
-            P = args[_N_BIO_TRACERS + i]
+            P = getproperty(state, plankton_syms[i])
             lin_sum += LinearLoss(p.linear_mortality[i])(P)
             quad_sum += QuadraticLoss(p.quadratic_mortality[i])(P)
         end
 
         assim_loss = zero(POC)
         @inbounds for predator_idx in 1:npl
-            predator = args[_N_BIO_TRACERS + predator_idx]
+            predator = getproperty(state, plankton_syms[predator_idx])
             gmax = p.maximum_predation_rate[predator_idx]
             K = p.holling_half_saturation[predator_idx]
             for prey_idx in 1:npl
-                prey = args[_N_BIO_TRACERS + prey_idx]
+                prey = getproperty(state, plankton_syms[prey_idx])
                 β = p.assimilation_matrix[predator_idx, prey_idx]
                 ϕ = p.palatability_matrix[predator_idx, prey_idx]
                 assim_loss += PreferentialPredationAssimilationLoss(β, gmax, K, ϕ)(prey, predator)
@@ -264,23 +289,24 @@ function DON_default(plankton_syms)
     f = function (bgc, x, y, z, t, args...)
         p = bgc.parameters
 
-        DON = args[6]
+        state, _ = _state(bgc, args)
+        DON = state.DON
 
         lin_sum = zero(DON)
         quad_sum = zero(DON)
         @inbounds for i in 1:npl
-            P = args[_N_BIO_TRACERS + i]
+            P = getproperty(state, plankton_syms[i])
             lin_sum += LinearLoss(p.linear_mortality[i])(P)
             quad_sum += QuadraticLoss(p.quadratic_mortality[i])(P)
         end
 
         assim_loss = zero(DON)
         @inbounds for predator_idx in 1:npl
-            predator = args[_N_BIO_TRACERS + predator_idx]
+            predator = getproperty(state, plankton_syms[predator_idx])
             gmax = p.maximum_predation_rate[predator_idx]
             K = p.holling_half_saturation[predator_idx]
             for prey_idx in 1:npl
-                prey = args[_N_BIO_TRACERS + prey_idx]
+                prey = getproperty(state, plankton_syms[prey_idx])
                 β = p.assimilation_matrix[predator_idx, prey_idx]
                 ϕ = p.palatability_matrix[predator_idx, prey_idx]
                 assim_loss += PreferentialPredationAssimilationLoss(β, gmax, K, ϕ)(prey, predator)
@@ -310,23 +336,24 @@ function PON_default(plankton_syms)
     f = function (bgc, x, y, z, t, args...)
         p = bgc.parameters
 
-        PON = args[7]
+        state, _ = _state(bgc, args)
+        PON = state.PON
 
         lin_sum = zero(PON)
         quad_sum = zero(PON)
         @inbounds for i in 1:npl
-            P = args[_N_BIO_TRACERS + i]
+            P = getproperty(state, plankton_syms[i])
             lin_sum += LinearLoss(p.linear_mortality[i])(P)
             quad_sum += QuadraticLoss(p.quadratic_mortality[i])(P)
         end
 
         assim_loss = zero(PON)
         @inbounds for predator_idx in 1:npl
-            predator = args[_N_BIO_TRACERS + predator_idx]
+            predator = getproperty(state, plankton_syms[predator_idx])
             gmax = p.maximum_predation_rate[predator_idx]
             K = p.holling_half_saturation[predator_idx]
             for prey_idx in 1:npl
-                prey = args[_N_BIO_TRACERS + prey_idx]
+                prey = getproperty(state, plankton_syms[prey_idx])
                 β = p.assimilation_matrix[predator_idx, prey_idx]
                 ϕ = p.palatability_matrix[predator_idx, prey_idx]
                 assim_loss += PreferentialPredationAssimilationLoss(β, gmax, K, ϕ)(prey, predator)
@@ -355,23 +382,24 @@ function DOP_default(plankton_syms)
     f = function (bgc, x, y, z, t, args...)
         p = bgc.parameters
 
-        DOP = args[8]
+        state, _ = _state(bgc, args)
+        DOP = state.DOP
 
         lin_sum = zero(DOP)
         quad_sum = zero(DOP)
         @inbounds for i in 1:npl
-            P = args[_N_BIO_TRACERS + i]
+            P = getproperty(state, plankton_syms[i])
             lin_sum += LinearLoss(p.linear_mortality[i])(P)
             quad_sum += QuadraticLoss(p.quadratic_mortality[i])(P)
         end
 
         assim_loss = zero(DOP)
         @inbounds for predator_idx in 1:npl
-            predator = args[_N_BIO_TRACERS + predator_idx]
+            predator = getproperty(state, plankton_syms[predator_idx])
             gmax = p.maximum_predation_rate[predator_idx]
             K = p.holling_half_saturation[predator_idx]
             for prey_idx in 1:npl
-                prey = args[_N_BIO_TRACERS + prey_idx]
+                prey = getproperty(state, plankton_syms[prey_idx])
                 β = p.assimilation_matrix[predator_idx, prey_idx]
                 ϕ = p.palatability_matrix[predator_idx, prey_idx]
                 assim_loss += PreferentialPredationAssimilationLoss(β, gmax, K, ϕ)(prey, predator)
@@ -401,23 +429,24 @@ function POP_default(plankton_syms)
     f = function (bgc, x, y, z, t, args...)
         p = bgc.parameters
 
-        POP = args[9]
+        state, _ = _state(bgc, args)
+        POP = state.POP
 
         lin_sum = zero(POP)
         quad_sum = zero(POP)
         @inbounds for i in 1:npl
-            P = args[_N_BIO_TRACERS + i]
+            P = getproperty(state, plankton_syms[i])
             lin_sum += LinearLoss(p.linear_mortality[i])(P)
             quad_sum += QuadraticLoss(p.quadratic_mortality[i])(P)
         end
 
         assim_loss = zero(POP)
         @inbounds for predator_idx in 1:npl
-            predator = args[_N_BIO_TRACERS + predator_idx]
+            predator = getproperty(state, plankton_syms[predator_idx])
             gmax = p.maximum_predation_rate[predator_idx]
             K = p.holling_half_saturation[predator_idx]
             for prey_idx in 1:npl
-                prey = args[_N_BIO_TRACERS + prey_idx]
+                prey = getproperty(state, plankton_syms[prey_idx])
                 β = p.assimilation_matrix[predator_idx, prey_idx]
                 ϕ = p.palatability_matrix[predator_idx, prey_idx]
                 assim_loss += PreferentialPredationAssimilationLoss(β, gmax, K, ϕ)(prey, predator)
@@ -456,10 +485,11 @@ function phytoplankton_growth_two_nutrients_geider_light(plankton_syms, plankton
     f = function (bgc, x, y, z, t, args...)
         p = bgc.parameters
 
-        DIN = args[2]
-        PO4 = args[3]
-        P = args[_N_BIO_TRACERS + plankton_idx]
-        PAR = args[_N_BIO_TRACERS + npl + 1]
+        state, nstate = _state(bgc, args)
+        DIN = state.DIN
+        PO4 = state.PO4
+        P = getproperty(state, plankton_sym)
+        PAR = _require_aux(bgc, args, nstate, :PAR)
 
         growth = TwoNutrientGrowthGeider(
             p.maximum_growth_rate[plankton_idx],
@@ -471,7 +501,7 @@ function phytoplankton_growth_two_nutrients_geider_light(plankton_syms, plankton
 
         grazing = zero(P)
         @inbounds for predator_idx in 1:npl
-            predator = args[_N_BIO_TRACERS + predator_idx]
+            predator = getproperty(state, plankton_syms[predator_idx])
             gmax = p.maximum_predation_rate[predator_idx]
             K = p.holling_half_saturation[predator_idx]
             ϕ = p.palatability_matrix[predator_idx, plankton_idx]
@@ -498,14 +528,15 @@ function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::
     f = function (bgc, x, y, z, t, args...)
         p = bgc.parameters
 
-        Z = args[_N_BIO_TRACERS + plankton_idx]
+        state, _ = _state(bgc, args)
+        Z = getproperty(state, plankton_sym)
 
         gmax = p.maximum_predation_rate[plankton_idx]
         K = p.holling_half_saturation[plankton_idx]
 
         gain = zero(Z)
         @inbounds for prey_idx in 1:npl
-            prey = args[_N_BIO_TRACERS + prey_idx]
+            prey = getproperty(state, plankton_syms[prey_idx])
             β = p.assimilation_matrix[plankton_idx, prey_idx]
             ϕ = p.palatability_matrix[plankton_idx, prey_idx]
             gain += PreferentialPredationGain(β, gmax, K, ϕ)(prey, Z)

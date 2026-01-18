@@ -13,6 +13,7 @@
 # The same pattern applies to other Agate model modules (e.g. `DARWIN.construct`).
 
 using Agate
+using Agate.Utils: parse_community
 using Agate.Library.Light
 using Agate.Library.Allometry: AllometricParam, PowerLaw
 
@@ -50,37 +51,34 @@ parameter_overrides = (
 
 using Agate.Models.NiPiZD.Tracers: nutrient_geider_light, phytoplankton_geider_light
 
-# ## 5. Provide interaction matrices
+# ## 5. Provide explicit interaction matrices
 
-# Option A: pass *provider functions* that are called during construction as
-# `f(diameters, group_symbols)`.
+# We compute matrices in the *constructed community order*.
+# `parse_community` is a lightweight helper that matches the constructor's own parsing.
 
-function palatability_provider(diameters, group_symbols)
-    n = length(diameters)
-    pal = zeros(Float64, n, n)
+community_ctx = parse_community(
+    Float64,
+    (;
+        Z=(; n=n_zoo, diameters=zoo_diameters),
+        P=(; n=n_phyto, diameters=phyto_diameters),
+    );
+    plankton_dynamics=(Z=Agate.Models.NiPiZD.Tracers.zooplankton_default,
+                       P=phytoplankton_geider_light),
+    biogeochem_dynamics=(N=nutrient_geider_light,
+                         D=Agate.Models.NiPiZD.Tracers.detritus_default),
+)
 
-    z_idx = findall(==(:Z), group_symbols)
-    p_idx = findall(==(:P), group_symbols)
+n = community_ctx.n_total
+pal = zeros(Float64, n, n)
+assim = zeros(Float64, n, n)
 
-    for i in z_idx, j in p_idx
-        pal[i, j] = 1.0
-    end
+# For illustration, make the single zooplankton class graze all phytoplankton equally.
+z_idx = findall(==(:Z), community_ctx.group_symbols)
+p_idx = findall(==(:P), community_ctx.group_symbols)
 
-    return pal
-end
-
-function assimilation_provider(diameters, group_symbols)
-    n = length(diameters)
-    assim = zeros(Float64, n, n)
-
-    z_idx = findall(==(:Z), group_symbols)
-    p_idx = findall(==(:P), group_symbols)
-
-    for i in z_idx, j in p_idx
-        assim[i, j] = 0.3
-    end
-
-    return assim
+for i in z_idx, j in p_idx
+    pal[i, j] = 1.0
+    assim[i, j] = 0.3
 end
 
 # ## 6. Construct the customised model
@@ -94,8 +92,8 @@ bgc_custom = NiPiZD.construct(
     nutrient_dynamics=nutrient_geider_light,
     phyto_dynamics=phytoplankton_geider_light,
     parameters=parameter_overrides,
-    palatability_matrix=palatability_provider,
-    assimilation_matrix=assimilation_provider,
+    palatability_matrix=pal,
+    assimilation_matrix=assim,
     sinking_tracers=(D=2.0 / day,),
 )
 

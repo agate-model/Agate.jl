@@ -60,9 +60,8 @@ using Oceananigans.Biogeochemistry:
         )
         @test required_biogeochemical_tracers(bgc2) == (:N, :D, :Z1, :Z2, :P1, :P2)
 
-
-        # Providers can be passed as functions.
-        pal_provider(diameters, group_symbols) = zeros(Float32, length(diameters), length(diameters))
+        # Providers are allowed for the public keywords. They are evaluated once during construction.
+        pal_provider(ctx) = zeros(Float32, ctx.n_total, ctx.n_total)
         assim_provider(diameters, group_symbols) = zeros(Float32, length(diameters), length(diameters))
 
         bgc3 = NiPiZD.construct(
@@ -71,11 +70,8 @@ using Oceananigans.Biogeochemistry:
             palatability_matrix=pal_provider,
             assimilation_matrix=assim_provider,
         )
-        @test required_biogeochemical_tracers(bgc3) == (:N, :D, :Z1, :Z2, :P1, :P2)
-
-        bad_provider(diameters, group_symbols) = zeros(Float32, 2, 2)
-        @test_throws ArgumentError NiPiZD.construct(; grid=dummy_grid(Float32), palatability_matrix=bad_provider)
-
+        @test size(bgc3.parameters.palatability_matrix) == (n, n)
+        @test size(bgc3.parameters.assimilation_matrix) == (n, n)
     end
 
     @testset "NiPiZD community structure overrides" begin

@@ -82,39 +82,33 @@ end
 `interactions` may be:
 
 - `nothing` (no overrides)
-- a `NamedTuple` of overrides (typically matrices)
-- a function that accepts an [`InteractionContext`](@ref) and returns a `NamedTuple` of overrides
+- a `NamedTuple` of updates (typically matrices, but may include any parameter keys)
 
 Matrix shape validation is performed here; final key validation and parameter
 shape checks occur during model construction.
 """
 function normalize_interactions(ctx::InteractionContext, interactions)
-    interactions === nothing && return (;)
+    interactions === nothing && return NamedTuple()
 
-    overrides = if interactions isa Function
-        provided = interactions(ctx)
-        provided isa NamedTuple || throw(ArgumentError(
-            "interaction provider must return a NamedTuple (got $(typeof(provided)))",
-        ))
-        provided
-    elseif interactions isa NamedTuple
-        interactions
-    else
-        throw(ArgumentError(
-            "interactions must be a NamedTuple or a function that returns a NamedTuple (got $(typeof(interactions)))",
-        ))
+    # Allow advanced interaction callbacks that compute overrides from the context.
+    # These are evaluated once during construction and must return a NamedTuple.
+    if interactions isa Function
+        return normalize_interactions(ctx, interactions(ctx))
     end
 
-    for (key, value) in pairs(overrides)
+    interactions isa NamedTuple || throw(ArgumentError(
+        "interactions must be a NamedTuple or a function (ctx)->NamedTuple (got $(typeof(interactions)))",
+    ))
+
+    for (key, value) in pairs(interactions)
         _validate_interaction_matrix_override(ctx, key, value)
     end
 
-    return overrides
+    return interactions
 end
-
 function _validate_interaction_matrix_override(ctx::InteractionContext, key::Symbol, value)
     if value isa Function
-        throw(ArgumentError("interaction override '$key' must be a concrete value; functions are only supported as an `interactions` provider"))
+        throw(ArgumentError("interaction override '$key' cannot be a function"))
     end
 
     if value isa AbstractMatrix
