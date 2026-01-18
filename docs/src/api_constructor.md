@@ -64,6 +64,46 @@ using Oceananigans.Units: day
 bgc = NiPiZD.construct(; parameters=(detritus_remineralization = 0.18 / day,))
 ```
 
+## NiPiZD interaction overrides
+
+NiPiZD allows overriding the two interaction matrices directly.
+
+You can pass **concrete matrices**:
+
+```julia
+using Agate
+
+pal = [0.0 0.0 1.0 0.25;
+       0.0 0.0 0.10 1.0]        # n_zoo x n_phyto
+
+assim = fill(0.32, size(pal))
+
+bgc = NiPiZD.construct(; palatability_matrix=pal, assimilation_matrix=assim)
+```
+
+Or, for a beginner-friendly workflow, pass **provider functions** that take only
+diameters and group names (no `ctx ->` required). One ergonomic pattern is to
+capture `n_phyto`/`n_zoo` in a closure:
+
+```julia
+n_phyto = 4
+n_zoo = 2
+
+my_palatability = function (diameters, group_symbols)
+    pal = zeros(Float32, n_zoo, n_phyto)
+    # ... fill palatability here ...
+    return pal
+end
+
+my_assimilation = function (diameters, group_symbols)
+    return fill(0.32f0, n_zoo, n_phyto)
+end
+
+bgc = NiPiZD.construct(; n_phyto, n_zoo,
+                         palatability_matrix=my_palatability,
+                         assimilation_matrix=my_assimilation)
+```
+
 ## Introspection helpers
 
 For interactive work (REPL/notebooks), Agate provides small helpers to discover
