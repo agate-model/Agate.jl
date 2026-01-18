@@ -147,6 +147,7 @@ function palatability_matrix_allometric(
     ::Type{FT},
     diameters::AbstractVector{FT};
     can_eat::AbstractVector{Bool},
+    can_be_eaten::AbstractVector{Bool},
     optimum_predator_prey_ratio::AbstractVector{FT},
     specificity::AbstractVector{FT},
     protection::AbstractVector{FT},
@@ -156,14 +157,22 @@ function palatability_matrix_allometric(
     M = zeros(FT, n, n)
 
     @inbounds for pred in 1:n
+        if !can_eat[pred]
+            continue
+        end
+
         predator = PalatabilityPredatorParameters{FT}(
-            can_eat[pred],
+            true,
             diameters[pred],
             optimum_predator_prey_ratio[pred],
             specificity[pred],
         )
 
         for prey in 1:n
+            if !can_be_eaten[prey]
+                M[pred, prey] = zero(FT)
+                continue
+            end
             prey_params = PalatabilityPreyParameters{FT}(diameters[prey], protection[prey])
             M[pred, prey] = palatability_fn(prey_params, predator)
         end
@@ -237,6 +246,7 @@ Build the default palatability matrix `M[pred, prey]` from PFT trait definitions
 `hasproperty`/`getproperty` for the trait keys used by the default rule:
 
 - `can_eat::Bool` (default `false`)
+- `can_be_eaten::Bool` (default `true`)
 - `optimum_predator_prey_ratio` (default `0`)
 - `specificity` (default `0`)
 - `protection` (default `0`)
@@ -255,6 +265,7 @@ function build_palatability_matrix(
     n = length(diameters)
 
     can_eat = Vector{Bool}(undef, n)
+    can_be_eaten = Vector{Bool}(undef, n)
     optimum = Vector{FT}(undef, n)
     spec = Vector{FT}(undef, n)
     prot = Vector{FT}(undef, n)
@@ -262,6 +273,7 @@ function build_palatability_matrix(
     @inbounds for i in 1:n
         pd = pft_data[i]
         can_eat[i] = Bool(_trait_get(pd, :can_eat, false))
+        can_be_eaten[i] = Bool(_trait_get(pd, :can_be_eaten, true))
         optimum[i] = _resolve_trait(FT, _trait_get(pd, :optimum_predator_prey_ratio, zero(FT)), diameters[i])
         spec[i] = _resolve_trait(FT, _trait_get(pd, :specificity, zero(FT)), diameters[i])
         prot[i] = _resolve_trait(FT, _trait_get(pd, :protection, zero(FT)), diameters[i])
@@ -271,6 +283,7 @@ function build_palatability_matrix(
         FT,
         diameters;
         can_eat=can_eat,
+        can_be_eaten=can_be_eaten,
         optimum_predator_prey_ratio=optimum,
         specificity=spec,
         protection=prot,

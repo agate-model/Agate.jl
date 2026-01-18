@@ -125,6 +125,7 @@ function default_parameters(::DarwinFactory, ctx::InteractionContext, ::Type{FT}
         FT,
         ctx.diameters;
         can_eat=can_eat,
+        can_be_eaten=can_be_eaten,
         optimum_predator_prey_ratio=optimum_ratio,
         specificity=specificity,
         protection=protection,
