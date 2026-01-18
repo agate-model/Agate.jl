@@ -82,27 +82,39 @@ end
 `interactions` may be:
 
 - `nothing` (no overrides)
-- a `NamedTuple` of updates (typically matrices, but may include any parameter keys)
+- a `NamedTuple` of overrides (typically matrices)
+- a function that accepts an [`InteractionContext`](@ref) and returns a `NamedTuple` of overrides
 
 Matrix shape validation is performed here; final key validation and parameter
 shape checks occur during model construction.
 """
 function normalize_interactions(ctx::InteractionContext, interactions)
-    interactions === nothing && return NamedTuple()
+    interactions === nothing && return (;)
 
-    interactions isa NamedTuple || throw(ArgumentError(
-        "interactions must be a NamedTuple; function providers are not supported (got $(typeof(interactions)))",
-    ))
+    overrides = if interactions isa Function
+        provided = interactions(ctx)
+        provided isa NamedTuple || throw(ArgumentError(
+            "interaction provider must return a NamedTuple (got $(typeof(provided)))",
+        ))
+        provided
+    elseif interactions isa NamedTuple
+        interactions
+    else
+        throw(ArgumentError(
+            "interactions must be a NamedTuple or a function that returns a NamedTuple (got $(typeof(interactions)))",
+        ))
+    end
 
-    for (key, value) in pairs(interactions)
+    for (key, value) in pairs(overrides)
         _validate_interaction_matrix_override(ctx, key, value)
     end
 
-    return interactions
+    return overrides
 end
+
 function _validate_interaction_matrix_override(ctx::InteractionContext, key::Symbol, value)
     if value isa Function
-        throw(ArgumentError("interaction override '$key' must be a concrete value; function providers are not supported"))
+        throw(ArgumentError("interaction override '$key' must be a concrete value; functions are only supported as an `interactions` provider"))
     end
 
     if value isa AbstractMatrix

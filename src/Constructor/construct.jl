@@ -122,7 +122,7 @@ Key keyword arguments
   to `architecture(grid)`.
 - `community`: plankton community structure (size classes, diameters, PFT specs).
 - `parameters`: `NamedTuple` of fully-resolved parameter overrides.
-- `interactions`: optional `NamedTuple` of interaction-related overrides (typically matrices).
+- `interactions`: optional interaction overrides, either a `NamedTuple` (typically matrices) or a function returning a `NamedTuple` when called with an `InteractionContext`.
 """
 function construct(
     factory::AbstractBGCFactory;
@@ -130,7 +130,7 @@ function construct(
     biogeochem_dynamics = default_biogeochem_dynamics(factory),
     community = default_community(factory),
     parameters::NamedTuple = (;),
-    interactions::Union{Nothing,NamedTuple} = nothing,
+    interactions::Union{Nothing,NamedTuple,Function} = nothing,
     arch = nothing,
     sinking_tracers = nothing,
     grid = nothing,

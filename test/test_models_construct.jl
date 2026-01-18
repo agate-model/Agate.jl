@@ -60,20 +60,22 @@ using Oceananigans.Biogeochemistry:
         )
         @test required_biogeochemical_tracers(bgc2) == (:N, :D, :Z1, :Z2, :P1, :P2)
 
-        # Matrix parameters do not accept function providers.
-        bare = (ctx, depvals) -> zeros(Float32, n, n)
-        err = try
-            NiPiZD.construct(
-                ;
-                grid=dummy_grid(Float32),
-                interactions=(; palatability_matrix=bare, assimilation_matrix=correct),
-            )
-            nothing
-        catch e
-            e
-        end
-        @test err isa ArgumentError
-        @test occursin("cannot be a function", sprint(showerror, err))
+
+        # Providers can be passed as functions.
+        pal_provider(diameters, group_symbols) = zeros(Float32, length(diameters), length(diameters))
+        assim_provider(diameters, group_symbols) = zeros(Float32, length(diameters), length(diameters))
+
+        bgc3 = NiPiZD.construct(
+            ;
+            grid=dummy_grid(Float32),
+            palatability_matrix=pal_provider,
+            assimilation_matrix=assim_provider,
+        )
+        @test required_biogeochemical_tracers(bgc3) == (:N, :D, :Z1, :Z2, :P1, :P2)
+
+        bad_provider(diameters, group_symbols) = zeros(Float32, 2, 2)
+        @test_throws ArgumentError NiPiZD.construct(; grid=dummy_grid(Float32), palatability_matrix=bad_provider)
+
     end
 
     @testset "NiPiZD community structure overrides" begin
