@@ -44,6 +44,75 @@ end
     return v
 end
 
+"""Sum `f(i)` for `i in 1:n`, starting from `init`.
+
+Designed for use with Julia's `do`-block syntax.
+"""
+@inline function sum_over(f, n::Int, init)
+    acc = init
+    @inbounds for i in 1:n
+        acc += f(i)
+    end
+    return acc
+end
+
+@inline function _uptake_sum_geider(p, state, plankton_syms, npl::Int, DIN, PO4, PAR)
+    sum_over(npl, zero(DIN)) do i
+        P = getproperty(state, plankton_syms[i])
+        TwoNutrientGrowthGeider(
+            p.maximum_growth_rate[i],
+            p.half_saturation_DIN[i],
+            p.half_saturation_PO4[i],
+            p.photosynthetic_slope[i],
+            p.chlorophyll_to_carbon_ratio[i],
+        )(DIN, PO4, P, PAR)
+    end
+end
+
+@inline function _mortality_loss_sum(p, state, plankton_syms, npl::Int, init)
+    sum_over(npl, init) do i
+        P = getproperty(state, plankton_syms[i])
+        LinearLoss(p.linear_mortality[i])(P) + QuadraticLoss(p.quadratic_mortality[i])(P)
+    end
+end
+
+@inline function _grazing_assimilation_loss_sum(p, state, plankton_syms, npl::Int, init)
+    acc = init
+    @inbounds for predator_idx in 1:npl
+        predator = getproperty(state, plankton_syms[predator_idx])
+        gmax = p.maximum_predation_rate[predator_idx]
+        K = p.holling_half_saturation[predator_idx]
+        for prey_idx in 1:npl
+            prey = getproperty(state, plankton_syms[prey_idx])
+            beta = p.assimilation_matrix[predator_idx, prey_idx]
+            phi = p.palatability_matrix[predator_idx, prey_idx]
+            acc += PreferentialPredationAssimilationLoss(beta, gmax, K, phi)(prey, predator)
+        end
+    end
+    return acc
+end
+
+@inline function _grazing_loss_sum(p, state, plankton_syms, npl::Int, prey, prey_idx::Int, init)
+    sum_over(npl, init) do predator_idx
+        predator = getproperty(state, plankton_syms[predator_idx])
+        gmax = p.maximum_predation_rate[predator_idx]
+        K = p.holling_half_saturation[predator_idx]
+        phi = p.palatability_matrix[predator_idx, prey_idx]
+        PreferentialPredationLoss(gmax, K, phi)(prey, predator)
+    end
+end
+
+@inline function _grazing_gain_sum(p, state, plankton_syms, npl::Int, predator, predator_idx::Int, init)
+    gmax = p.maximum_predation_rate[predator_idx]
+    K = p.holling_half_saturation[predator_idx]
+    sum_over(npl, init) do prey_idx
+        prey = getproperty(state, plankton_syms[prey_idx])
+        beta = p.assimilation_matrix[predator_idx, prey_idx]
+        phi = p.palatability_matrix[predator_idx, prey_idx]
+        PreferentialPredationGain(beta, gmax, K, phi)(prey, predator)
+    end
+end
+
 """DIC tendency with Geider-style growth (carbon units)."""
 function DIC_geider_light(plankton_syms)
     npl = length(plankton_syms)
@@ -69,22 +138,12 @@ function DIC_geider_light(plankton_syms)
         POC = state.POC
         PAR = _require_aux(bgc, args, nstate, :PAR)
 
-        growth_sum = zero(DIN)
-        @inbounds for i in 1:npl
-            P = getproperty(state, plankton_syms[i])
-            growth_sum += TwoNutrientGrowthGeider(
-                p.maximum_growth_rate[i],
-                p.half_saturation_DIN[i],
-                p.half_saturation_PO4[i],
-                p.photosynthetic_slope[i],
-                p.chlorophyll_to_carbon_ratio[i],
-            )(DIN, PO4, P, PAR)
-        end
+        uptake = _uptake_sum_geider(p, state, plankton_syms, npl, DIN, PO4, PAR)
 
         dic_remin = LinearRemineralization(p.DOC_remineralization)(DOC) +
                     LinearRemineralization(p.POC_remineralization)(POC)
 
-        return dic_remin - growth_sum
+        return dic_remin - uptake
     end
 
     return CompiledEquation(f, requirements)
@@ -115,22 +174,12 @@ function DIN_geider_light(plankton_syms)
         PON = state.PON
         PAR = _require_aux(bgc, args, nstate, :PAR)
 
-        growth_sum = zero(DIN)
-        @inbounds for i in 1:npl
-            P = getproperty(state, plankton_syms[i])
-            growth_sum += TwoNutrientGrowthGeider(
-                p.maximum_growth_rate[i],
-                p.half_saturation_DIN[i],
-                p.half_saturation_PO4[i],
-                p.photosynthetic_slope[i],
-                p.chlorophyll_to_carbon_ratio[i],
-            )(DIN, PO4, P, PAR)
-        end
+        uptake = _uptake_sum_geider(p, state, plankton_syms, npl, DIN, PO4, PAR)
 
         din_remin = LinearRemineralization(p.DON_remineralization)(DON) +
                     LinearRemineralization(p.PON_remineralization)(PON)
 
-        return din_remin - p.nitrogen_to_carbon * growth_sum
+        return din_remin - p.nitrogen_to_carbon * uptake
     end
 
     return CompiledEquation(f, requirements)
@@ -161,22 +210,12 @@ function PO4_geider_light(plankton_syms)
         POP = state.POP
         PAR = _require_aux(bgc, args, nstate, :PAR)
 
-        growth_sum = zero(DIN)
-        @inbounds for i in 1:npl
-            P = getproperty(state, plankton_syms[i])
-            growth_sum += TwoNutrientGrowthGeider(
-                p.maximum_growth_rate[i],
-                p.half_saturation_DIN[i],
-                p.half_saturation_PO4[i],
-                p.photosynthetic_slope[i],
-                p.chlorophyll_to_carbon_ratio[i],
-            )(DIN, PO4, P, PAR)
-        end
+        uptake = _uptake_sum_geider(p, state, plankton_syms, npl, DIN, PO4, PAR)
 
         po4_remin = LinearRemineralization(p.DOP_remineralization)(DOP) +
                     LinearRemineralization(p.POP_remineralization)(POP)
 
-        return po4_remin - p.phosphorus_to_carbon * growth_sum
+        return po4_remin - p.phosphorus_to_carbon * uptake
     end
 
     return CompiledEquation(f, requirements)
@@ -200,31 +239,12 @@ function DOC_default(plankton_syms)
         state, _ = _state(bgc, args)
         DOC = state.DOC
 
-        lin_sum = zero(DOC)
-        quad_sum = zero(DOC)
-        @inbounds for i in 1:npl
-            P = getproperty(state, plankton_syms[i])
-            lin_sum += LinearLoss(p.linear_mortality[i])(P)
-            quad_sum += QuadraticLoss(p.quadratic_mortality[i])(P)
-        end
+        M = _mortality_loss_sum(p, state, plankton_syms, npl, zero(DOC))
+        g = _grazing_assimilation_loss_sum(p, state, plankton_syms, npl, zero(DOC))
+        R = LinearRemineralization(p.DOC_remineralization)(DOC)
 
-        assim_loss = zero(DOC)
-        @inbounds for predator_idx in 1:npl
-            predator = getproperty(state, plankton_syms[predator_idx])
-            gmax = p.maximum_predation_rate[predator_idx]
-            K = p.holling_half_saturation[predator_idx]
-            for prey_idx in 1:npl
-                prey = getproperty(state, plankton_syms[prey_idx])
-                β = p.assimilation_matrix[predator_idx, prey_idx]
-                ϕ = p.palatability_matrix[predator_idx, prey_idx]
-                assim_loss += PreferentialPredationAssimilationLoss(β, gmax, K, ϕ)(prey, predator)
-            end
-        end
-
-        base = lin_sum + quad_sum + assim_loss
-        remin = LinearRemineralization(p.DOC_remineralization)(DOC)
-
-        return (one(p.DOM_POM_fractionation) - p.DOM_POM_fractionation) * base - remin
+        frac = one(p.DOM_POM_fractionation) - p.DOM_POM_fractionation
+        return frac * (M + g) - R
     end
 
     return CompiledEquation(f, requirements)
@@ -246,31 +266,11 @@ function POC_default(plankton_syms)
         state, _ = _state(bgc, args)
         POC = state.POC
 
-        lin_sum = zero(POC)
-        quad_sum = zero(POC)
-        @inbounds for i in 1:npl
-            P = getproperty(state, plankton_syms[i])
-            lin_sum += LinearLoss(p.linear_mortality[i])(P)
-            quad_sum += QuadraticLoss(p.quadratic_mortality[i])(P)
-        end
+        M = _mortality_loss_sum(p, state, plankton_syms, npl, zero(POC))
+        g = _grazing_assimilation_loss_sum(p, state, plankton_syms, npl, zero(POC))
+        R = LinearRemineralization(p.POC_remineralization)(POC)
 
-        assim_loss = zero(POC)
-        @inbounds for predator_idx in 1:npl
-            predator = getproperty(state, plankton_syms[predator_idx])
-            gmax = p.maximum_predation_rate[predator_idx]
-            K = p.holling_half_saturation[predator_idx]
-            for prey_idx in 1:npl
-                prey = getproperty(state, plankton_syms[prey_idx])
-                β = p.assimilation_matrix[predator_idx, prey_idx]
-                ϕ = p.palatability_matrix[predator_idx, prey_idx]
-                assim_loss += PreferentialPredationAssimilationLoss(β, gmax, K, ϕ)(prey, predator)
-            end
-        end
-
-        base = lin_sum + quad_sum + assim_loss
-        remin = LinearRemineralization(p.POC_remineralization)(POC)
-
-        return p.DOM_POM_fractionation * base - remin
+        return p.DOM_POM_fractionation * (M + g) - R
     end
 
     return CompiledEquation(f, requirements)
@@ -292,32 +292,12 @@ function DON_default(plankton_syms)
         state, _ = _state(bgc, args)
         DON = state.DON
 
-        lin_sum = zero(DON)
-        quad_sum = zero(DON)
-        @inbounds for i in 1:npl
-            P = getproperty(state, plankton_syms[i])
-            lin_sum += LinearLoss(p.linear_mortality[i])(P)
-            quad_sum += QuadraticLoss(p.quadratic_mortality[i])(P)
-        end
-
-        assim_loss = zero(DON)
-        @inbounds for predator_idx in 1:npl
-            predator = getproperty(state, plankton_syms[predator_idx])
-            gmax = p.maximum_predation_rate[predator_idx]
-            K = p.holling_half_saturation[predator_idx]
-            for prey_idx in 1:npl
-                prey = getproperty(state, plankton_syms[prey_idx])
-                β = p.assimilation_matrix[predator_idx, prey_idx]
-                ϕ = p.palatability_matrix[predator_idx, prey_idx]
-                assim_loss += PreferentialPredationAssimilationLoss(β, gmax, K, ϕ)(prey, predator)
-            end
-        end
-
-        base = lin_sum + quad_sum + assim_loss
-        remin = LinearRemineralization(p.DON_remineralization)(DON)
+        M = _mortality_loss_sum(p, state, plankton_syms, npl, zero(DON))
+        g = _grazing_assimilation_loss_sum(p, state, plankton_syms, npl, zero(DON))
+        R = LinearRemineralization(p.DON_remineralization)(DON)
 
         frac = one(p.DOM_POM_fractionation) - p.DOM_POM_fractionation
-        return frac * p.nitrogen_to_carbon * base - remin
+        return frac * p.nitrogen_to_carbon * (M + g) - R
     end
 
     return CompiledEquation(f, requirements)
@@ -339,31 +319,11 @@ function PON_default(plankton_syms)
         state, _ = _state(bgc, args)
         PON = state.PON
 
-        lin_sum = zero(PON)
-        quad_sum = zero(PON)
-        @inbounds for i in 1:npl
-            P = getproperty(state, plankton_syms[i])
-            lin_sum += LinearLoss(p.linear_mortality[i])(P)
-            quad_sum += QuadraticLoss(p.quadratic_mortality[i])(P)
-        end
+        M = _mortality_loss_sum(p, state, plankton_syms, npl, zero(PON))
+        g = _grazing_assimilation_loss_sum(p, state, plankton_syms, npl, zero(PON))
+        R = LinearRemineralization(p.PON_remineralization)(PON)
 
-        assim_loss = zero(PON)
-        @inbounds for predator_idx in 1:npl
-            predator = getproperty(state, plankton_syms[predator_idx])
-            gmax = p.maximum_predation_rate[predator_idx]
-            K = p.holling_half_saturation[predator_idx]
-            for prey_idx in 1:npl
-                prey = getproperty(state, plankton_syms[prey_idx])
-                β = p.assimilation_matrix[predator_idx, prey_idx]
-                ϕ = p.palatability_matrix[predator_idx, prey_idx]
-                assim_loss += PreferentialPredationAssimilationLoss(β, gmax, K, ϕ)(prey, predator)
-            end
-        end
-
-        base = lin_sum + quad_sum + assim_loss
-        remin = LinearRemineralization(p.PON_remineralization)(PON)
-
-        return p.DOM_POM_fractionation * p.nitrogen_to_carbon * base - remin
+        return p.DOM_POM_fractionation * p.nitrogen_to_carbon * (M + g) - R
     end
 
     return CompiledEquation(f, requirements)
@@ -385,32 +345,12 @@ function DOP_default(plankton_syms)
         state, _ = _state(bgc, args)
         DOP = state.DOP
 
-        lin_sum = zero(DOP)
-        quad_sum = zero(DOP)
-        @inbounds for i in 1:npl
-            P = getproperty(state, plankton_syms[i])
-            lin_sum += LinearLoss(p.linear_mortality[i])(P)
-            quad_sum += QuadraticLoss(p.quadratic_mortality[i])(P)
-        end
-
-        assim_loss = zero(DOP)
-        @inbounds for predator_idx in 1:npl
-            predator = getproperty(state, plankton_syms[predator_idx])
-            gmax = p.maximum_predation_rate[predator_idx]
-            K = p.holling_half_saturation[predator_idx]
-            for prey_idx in 1:npl
-                prey = getproperty(state, plankton_syms[prey_idx])
-                β = p.assimilation_matrix[predator_idx, prey_idx]
-                ϕ = p.palatability_matrix[predator_idx, prey_idx]
-                assim_loss += PreferentialPredationAssimilationLoss(β, gmax, K, ϕ)(prey, predator)
-            end
-        end
-
-        base = lin_sum + quad_sum + assim_loss
-        remin = LinearRemineralization(p.DOP_remineralization)(DOP)
+        M = _mortality_loss_sum(p, state, plankton_syms, npl, zero(DOP))
+        g = _grazing_assimilation_loss_sum(p, state, plankton_syms, npl, zero(DOP))
+        R = LinearRemineralization(p.DOP_remineralization)(DOP)
 
         frac = one(p.DOM_POM_fractionation) - p.DOM_POM_fractionation
-        return frac * p.phosphorus_to_carbon * base - remin
+        return frac * p.phosphorus_to_carbon * (M + g) - R
     end
 
     return CompiledEquation(f, requirements)
@@ -432,31 +372,11 @@ function POP_default(plankton_syms)
         state, _ = _state(bgc, args)
         POP = state.POP
 
-        lin_sum = zero(POP)
-        quad_sum = zero(POP)
-        @inbounds for i in 1:npl
-            P = getproperty(state, plankton_syms[i])
-            lin_sum += LinearLoss(p.linear_mortality[i])(P)
-            quad_sum += QuadraticLoss(p.quadratic_mortality[i])(P)
-        end
+        M = _mortality_loss_sum(p, state, plankton_syms, npl, zero(POP))
+        g = _grazing_assimilation_loss_sum(p, state, plankton_syms, npl, zero(POP))
+        R = LinearRemineralization(p.POP_remineralization)(POP)
 
-        assim_loss = zero(POP)
-        @inbounds for predator_idx in 1:npl
-            predator = getproperty(state, plankton_syms[predator_idx])
-            gmax = p.maximum_predation_rate[predator_idx]
-            K = p.holling_half_saturation[predator_idx]
-            for prey_idx in 1:npl
-                prey = getproperty(state, plankton_syms[prey_idx])
-                β = p.assimilation_matrix[predator_idx, prey_idx]
-                ϕ = p.palatability_matrix[predator_idx, prey_idx]
-                assim_loss += PreferentialPredationAssimilationLoss(β, gmax, K, ϕ)(prey, predator)
-            end
-        end
-
-        base = lin_sum + quad_sum + assim_loss
-        remin = LinearRemineralization(p.POP_remineralization)(POP)
-
-        return p.DOM_POM_fractionation * p.phosphorus_to_carbon * base - remin
+        return p.DOM_POM_fractionation * p.phosphorus_to_carbon * (M + g) - R
     end
 
     return CompiledEquation(f, requirements)
@@ -499,14 +419,7 @@ function phytoplankton_growth_two_nutrients_geider_light(plankton_syms, plankton
             p.chlorophyll_to_carbon_ratio[plankton_idx],
         )(DIN, PO4, P, PAR)
 
-        grazing = zero(P)
-        @inbounds for predator_idx in 1:npl
-            predator = getproperty(state, plankton_syms[predator_idx])
-            gmax = p.maximum_predation_rate[predator_idx]
-            K = p.holling_half_saturation[predator_idx]
-            ϕ = p.palatability_matrix[predator_idx, plankton_idx]
-            grazing += PreferentialPredationLoss(gmax, K, ϕ)(P, predator)
-        end
+        grazing = _grazing_loss_sum(p, state, plankton_syms, npl, P, plankton_idx, zero(P))
 
         mort = LinearLoss(p.linear_mortality[plankton_idx])(P)
 
@@ -534,13 +447,7 @@ function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::
         gmax = p.maximum_predation_rate[plankton_idx]
         K = p.holling_half_saturation[plankton_idx]
 
-        gain = zero(Z)
-        @inbounds for prey_idx in 1:npl
-            prey = getproperty(state, plankton_syms[prey_idx])
-            β = p.assimilation_matrix[plankton_idx, prey_idx]
-            ϕ = p.palatability_matrix[plankton_idx, prey_idx]
-            gain += PreferentialPredationGain(β, gmax, K, ϕ)(prey, Z)
-        end
+        gain = _grazing_gain_sum(p, state, plankton_syms, npl, Z, plankton_idx, zero(Z))
 
         lin = LinearLoss(p.linear_mortality[plankton_idx])(Z)
         quad = QuadraticLoss(p.quadratic_mortality[plankton_idx])(Z)

@@ -34,6 +34,79 @@ end
     return v
 end
 
+"""Sum `f(i)` for `i in 1:n`, starting from `init`.
+
+Designed for use with Julia's `do`-block syntax, e.g.
+
+```julia
+sum_over(n, zero(T)) do i
+    ...
+end
+```
+"""
+@inline function sum_over(f, n::Int, init)
+    acc = init
+    @inbounds for i in 1:n
+        acc += f(i)
+    end
+    return acc
+end
+
+@inline function _mortality_loss_sum(p, state, plankton_syms, npl::Int, init)
+    sum_over(npl, init) do i
+        P = getproperty(state, plankton_syms[i])
+        LinearLoss(p.linear_mortality[i])(P) + QuadraticLoss(p.quadratic_mortality[i])(P)
+    end
+end
+
+@inline function _uptake_sum_smith(p, state, plankton_syms, npl::Int, N, PAR)
+    sum_over(npl, zero(N)) do i
+        P = getproperty(state, plankton_syms[i])
+        SingleNutrientGrowthSmith(
+            p.maximum_growth_rate[i],
+            p.nutrient_half_saturation[i],
+            p.alpha[i],
+        )(N, P, PAR)
+    end
+end
+
+@inline function _grazing_assimilation_loss_sum(p, state, plankton_syms, npl::Int, init)
+    acc = init
+    @inbounds for predator_idx in 1:npl
+        predator = getproperty(state, plankton_syms[predator_idx])
+        gmax = p.maximum_predation_rate[predator_idx]
+        K = p.holling_half_saturation[predator_idx]
+        for prey_idx in 1:npl
+            prey = getproperty(state, plankton_syms[prey_idx])
+            beta = p.assimilation_matrix[predator_idx, prey_idx]
+            phi = p.palatability_matrix[predator_idx, prey_idx]
+            acc += PreferentialPredationAssimilationLoss(beta, gmax, K, phi)(prey, predator)
+        end
+    end
+    return acc
+end
+
+@inline function _grazing_loss_sum(p, state, plankton_syms, npl::Int, prey, prey_idx::Int, init)
+    sum_over(npl, init) do predator_idx
+        predator = getproperty(state, plankton_syms[predator_idx])
+        gmax = p.maximum_predation_rate[predator_idx]
+        K = p.holling_half_saturation[predator_idx]
+        phi = p.palatability_matrix[predator_idx, prey_idx]
+        PreferentialPredationLoss(gmax, K, phi)(prey, predator)
+    end
+end
+
+@inline function _grazing_gain_sum(p, state, plankton_syms, npl::Int, predator, predator_idx::Int, init)
+    gmax = p.maximum_predation_rate[predator_idx]
+    K = p.holling_half_saturation[predator_idx]
+    sum_over(npl, init) do prey_idx
+        prey = getproperty(state, plankton_syms[prey_idx])
+        beta = p.assimilation_matrix[predator_idx, prey_idx]
+        phi = p.palatability_matrix[predator_idx, prey_idx]
+        PreferentialPredationGain(beta, gmax, K, phi)(prey, predator)
+    end
+end
+
 
 """Nutrient tendency with Smith growth and mortality/remineralization."""
 function nutrient_default(plankton_syms)
@@ -52,25 +125,22 @@ function nutrient_default(plankton_syms)
         D = state.D
         PAR = _require_aux(bgc, args, nstate, :PAR)
 
-        lin_sum = zero(N)
-        quad_sum = zero(N)
-        growth_sum = zero(N)
-
-        @inbounds for i in 1:npl
+        lin_sum = sum_over(npl, zero(N)) do i
             P = getproperty(state, plankton_syms[i])
-            lin_sum += LinearLoss(p.linear_mortality[i])(P)
-            quad_sum += QuadraticLoss(p.quadratic_mortality[i])(P)
-            growth_sum += SingleNutrientGrowthSmith(
-                p.maximum_growth_rate[i],
-                p.nutrient_half_saturation[i],
-                p.alpha[i],
-            )(N, P, PAR)
+            LinearLoss(p.linear_mortality[i])(P)
         end
+
+        quad_sum = sum_over(npl, zero(N)) do i
+            P = getproperty(state, plankton_syms[i])
+            QuadraticLoss(p.quadratic_mortality[i])(P)
+        end
+
+        uptake = _uptake_sum_smith(p, state, plankton_syms, npl, N, PAR)
 
         export_frac = p.mortality_export_fraction
         remin = LinearRemineralization(p.detritus_remineralization)(D)
 
-        return export_frac * (lin_sum + quad_sum) + remin - growth_sum
+        return export_frac * (lin_sum + quad_sum) + remin - uptake
     end
 
     return CompiledEquation(f, requirements)
@@ -97,27 +167,17 @@ function detritus_default(plankton_syms)
         state, _ = _state(bgc, args)
         D = state.D
 
-        lin_sum = zero(D)
-        quad_sum = zero(D)
-
-        @inbounds for i in 1:npl
+        lin_sum = sum_over(npl, zero(D)) do i
             P = getproperty(state, plankton_syms[i])
-            lin_sum += LinearLoss(p.linear_mortality[i])(P)
-            quad_sum += QuadraticLoss(p.quadratic_mortality[i])(P)
+            LinearLoss(p.linear_mortality[i])(P)
         end
 
-        assim_loss = zero(D)
-        @inbounds for predator_idx in 1:npl
-            predator = getproperty(state, plankton_syms[predator_idx])
-            gmax = p.maximum_predation_rate[predator_idx]
-            K = p.holling_half_saturation[predator_idx]
-            for prey_idx in 1:npl
-                prey = getproperty(state, plankton_syms[prey_idx])
-                β = p.assimilation_matrix[predator_idx, prey_idx]
-                ϕ = p.palatability_matrix[predator_idx, prey_idx]
-                assim_loss += PreferentialPredationAssimilationLoss(β, gmax, K, ϕ)(prey, predator)
-            end
+        quad_sum = sum_over(npl, zero(D)) do i
+            P = getproperty(state, plankton_syms[i])
+            QuadraticLoss(p.quadratic_mortality[i])(P)
         end
+
+        assim_loss = _grazing_assimilation_loss_sum(p, state, plankton_syms, npl, zero(D))
 
         export_frac = p.mortality_export_fraction
         remin = LinearRemineralization(p.detritus_remineralization)(D)
@@ -158,14 +218,7 @@ function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx
             p.alpha[plankton_idx],
         )(N, P, PAR)
 
-        grazing = zero(P)
-        @inbounds for predator_idx in 1:npl
-            predator = getproperty(state, plankton_syms[predator_idx])
-            gmax = p.maximum_predation_rate[predator_idx]
-            K = p.holling_half_saturation[predator_idx]
-            ϕ = p.palatability_matrix[predator_idx, plankton_idx]
-            grazing += PreferentialPredationLoss(gmax, K, ϕ)(P, predator)
-        end
+        grazing = _grazing_loss_sum(p, state, plankton_syms, npl, P, plankton_idx, zero(P))
 
         mort = LinearLoss(p.linear_mortality[plankton_idx])(P)
 
@@ -198,13 +251,7 @@ function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::
         gmax = p.maximum_predation_rate[plankton_idx]
         K = p.holling_half_saturation[plankton_idx]
 
-        gain = zero(Z)
-        @inbounds for prey_idx in 1:npl
-            prey = getproperty(state, plankton_syms[prey_idx])
-            β = p.assimilation_matrix[plankton_idx, prey_idx]
-            ϕ = p.palatability_matrix[plankton_idx, prey_idx]
-            gain += PreferentialPredationGain(β, gmax, K, ϕ)(prey, Z)
-        end
+        gain = _grazing_gain_sum(p, state, plankton_syms, npl, Z, plankton_idx, zero(Z))
 
         lin = LinearLoss(p.linear_mortality[plankton_idx])(Z)
         quad = QuadraticLoss(p.quadratic_mortality[plankton_idx])(Z)
