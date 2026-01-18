@@ -11,10 +11,6 @@ import Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields,
     required_biogeochemical_tracers
 
-@inline function _parameter_payload(params)
-    return Base.hasproperty(params, :data) ? getproperty(params, :data) : params
-end
-
 @inline function _preview_list(xs; n::Int=12)
     m = length(xs)
     if m <= n
@@ -57,10 +53,7 @@ this list is typically a *minimal* runtime set.
 """
 function parameter_names(bgc)::Vector{Symbol}
     params = getproperty(bgc, :parameters)
-    payload = _parameter_payload(params)
-    names = collect(propertynames(payload))
-    filter!(n -> n !== :data, names)
-    return names
+    return collect(propertynames(params))
 end
 
 """

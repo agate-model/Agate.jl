@@ -3,7 +3,6 @@ module Agate
 include("Utils/Utils.jl")
 include("Functors/Functors.jl")
 include("Library/Library.jl")
-include("Parameters/Parameters.jl")
 include("FactoryInterface.jl")
 include("Constructor/Constructor.jl")
 include("Models/Models.jl")
@@ -11,7 +10,6 @@ include("Introspection.jl")
 
 using .Library
 using .Utils
-using .Parameters
 using .FactoryInterface
 using .Functors
 using .Models
@@ -20,7 +18,6 @@ using .Constructor
 export Library
 export Models
 export Utils
-export Parameters
 export Functors
 export FactoryInterface
 

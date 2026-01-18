@@ -63,9 +63,7 @@ struct AgateBGCFactory{TF,AF,RP,SV}
     default_sinking_velocities::SV
 end
 
-@inline function _parameter_view(parameters)
-    return Base.hasproperty(parameters, :data) ? getproperty(parameters, :data) : parameters
-end
+@inline _parameter_view(parameters) = parameters
 
 @inline function _validate_parameters(parameters, required_params)
     isempty(required_params) && return nothing

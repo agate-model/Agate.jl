@@ -10,7 +10,7 @@ module Utils
 
 include("Specifications.jl")
 
-using .Specifications: PFTSpecification, ModelSpecification
+using .Specifications: PFTSpecification
 
 import Oceananigans: time_step!
 
@@ -77,41 +77,42 @@ struct InteractionContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
     biogeochem_dynamics::NamedTuple
 end
 
-"""Normalize `interactions` into a `NamedTuple` of registry updates.
+"""Normalize `interactions` into a `NamedTuple` of parameter overrides.
 
 `interactions` may be:
 
 - `nothing` (no overrides)
 - a `NamedTuple` of updates (typically matrices, but may include any parameter keys)
-- a function `(ctx) -> NamedTuple` producing updates from the parsed community context
 
-Shape/type validation is performed during parameter resolution based on the active
-parameter registry.
+Matrix shape validation is performed here; final key validation and parameter
+shape checks occur during model construction.
 """
-function normalize_interactions(
-    factory::AbstractBGCFactory,
-    ::Type{FT},
-    ctx,
-    interactions,
-) where {FT<:AbstractFloat}
-    interactions === nothing && (interactions = default_interactions(factory))
+function normalize_interactions(ctx::InteractionContext, interactions)
     interactions === nothing && return NamedTuple()
 
-    overrides = if interactions isa NamedTuple
-        interactions
-    elseif interactions isa Function
-        interactions(ctx)
-    else
-        throw(ArgumentError("interactions must be a NamedTuple or a function `(ctx)->NamedTuple`, got $(typeof(interactions))"))
+    interactions isa NamedTuple || throw(ArgumentError(
+        "interactions must be a NamedTuple; function providers are not supported (got $(typeof(interactions)))",
+    ))
+
+    for (key, value) in pairs(interactions)
+        _validate_interaction_matrix_override(ctx, key, value)
     end
 
-    overrides isa NamedTuple ||
-        throw(ArgumentError("interactions must return a NamedTuple, got $(typeof(overrides))"))
-
-    return overrides
+    return interactions
 end
-"""Fallback: no default interactions."""
-default_interactions(::AbstractBGCFactory) = nothing
+function _validate_interaction_matrix_override(ctx::InteractionContext, key::Symbol, value)
+    if value isa Function
+        throw(ArgumentError("interaction override '$key' must be a concrete value; function providers are not supported"))
+    end
+
+    if value isa AbstractMatrix
+        size(value) == (ctx.n_total, ctx.n_total) || throw(ArgumentError(
+            "interaction override '$key' must be a $(ctx.n_total)×$(ctx.n_total) matrix, got size $(size(value))",
+        ))
+    end
+
+    return nothing
+end
 
 # -----------------------------------------------------------------------------
 # Plankton community parsing

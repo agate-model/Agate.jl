@@ -19,80 +19,91 @@ using ..FactoryInterface:
     default_plankton_dynamics,
     default_biogeochem_dynamics,
     default_community
-# For qualified calls inside registry update helpers.
-import ..Parameters
+
 using ..Functors: CompiledEquation, requirements, req, merge_requirements
 
-using ..Parameters: resolve_runtime_parameters, parameter_registry
+"""Return factory-specific default runtime parameters.
 
-"""Move `x` to the requested Oceananigans architecture.
+Factories can extend this method to compute default parameters from the parsed
+community (`ctx`) and the target float type (`FT`).
 
-This is a construction-time helper that uses `Oceananigans.Architectures.array_type(arch)`
-to pick a storage type (e.g. `Array` on CPU, `CUDA.CuArray` on CUDA GPU) and then
-`Adapt.adapt` to recursively move arrays inside `x`.
+The returned `NamedTuple` is expected to contain *resolved* values (scalars,
+vectors, matrices), not higher-level providers.
 """
+default_parameters(::AbstractBGCFactory, ctx, ::Type{FT}) where {FT} = (;)
+
+"""Move `x` to the requested Oceananigans architecture."""
 function _on_architecture(arch, x)
     arch === nothing && return x
     arch isa CPU && return x
 
-    # We deliberately avoid `Oceananigans.Architectures.on_architecture` here.
-    # Oceananigans only defines `on_architecture` for its own types, and the
-    # generic fallback for unknown structs can be a no-op. Instead, we always
-    # Adapt directly to the architecture's preferred array storage type.
-    # IMPORTANT: `construct` generates the biogeochemistry type (and its
-    # `Adapt.@adapt_structure` methods) at runtime via `eval`. Without
-    # `invokelatest` here, Julia's world-age restriction can cause `Adapt.adapt`
-    # to miss those freshly-defined methods and silently behave like a no-op.
     return Base.invokelatest(Adapt.adapt, _architecture_array_type(arch), x)
 end
 
-"""Return the preferred array storage type for `arch`.
-
-This delegates to Oceananigans' public `array_type(arch)` API.
-"""
+"""Return the preferred array storage type for `arch`."""
 function _architecture_array_type(arch)
     arch isa CPU && return Array
     arch isa GPU && return Oceananigans.Architectures.array_type(arch)
     return Array
 end
 
-"""Apply `interactions` overrides by updating the parameter registry.
+@inline function _required_keys(r)
+    return (r.scalars..., r.vectors..., r.matrices...)
+end
 
-`interactions` is intended primarily for interaction matrices and other parameter overrides.
-
-Strictness rules
-----------------
-- Keys must already exist in the registry. Unknown keys throw to catch typos early.
-
-For any matrix-shaped parameter, concrete matrix values are validated to be size
-`(ctx.n_total, ctx.n_total)`.
-"""
-function _apply_interactions_to_registry(
-    ctx,
-    registry,
-    overrides::NamedTuple,
-)
-    isempty(overrides) && return registry
-
-    # Validate keys and eager matrix sizes (for concrete matrices).
+function _validate_parameter_shapes(ctx, params::NamedTuple, r)
     n = ctx.n_total
-    for (k, v) in pairs(overrides)
-        spec = Parameters.lookup(registry, k)
-        spec === nothing && throw(ArgumentError(
-            "interactions: unknown parameter key :$k. Fix the typo or add the parameter to the model's parameter registry.",
-        ))
 
-        if v isa AbstractMatrix
-            spec.shape === :matrix || throw(ArgumentError(
-                "interactions: :$k is a $(spec.shape) parameter, but a matrix value was provided.",
-            ))
-            (size(v, 1) == n && size(v, 2) == n) || throw(ArgumentError(
-                "interactions: :$k must be size ($n,$n).",
-            ))
-        end
+    for k in r.vectors
+        v = getproperty(params, k)
+        length(v) == n || throw(ArgumentError(
+            "parameter :$k must have length $n (got $(length(v))).",
+        ))
     end
 
-    return Parameters.update_registry(registry; overrides...)
+    for k in r.matrices
+        m = getproperty(params, k)
+        (size(m, 1) == n && size(m, 2) == n) || throw(ArgumentError(
+            "parameter :$k must have size ($n,$n) (got $(size(m))).",
+        ))
+    end
+
+    return nothing
+end
+
+function _validate_override_keys(where_, overrides::NamedTuple, required::Tuple)
+    isempty(overrides) && return nothing
+
+    required_set = Set(required)
+    for k in keys(overrides)
+        k in required_set || throw(ArgumentError(
+            "$(where_): unknown parameter key :$k. Only required parameters may be overridden.",
+        ))
+    end
+
+    return nothing
+end
+
+@inline _contains_missing(x) = x === missing
+
+function _contains_missing(x::NamedTuple)
+    for v in values(x)
+        _contains_missing(v) && return true
+    end
+    return false
+end
+
+function _contains_missing(x::AbstractArray)
+    return any(ismissing, x)
+end
+
+function _reject_missing_values(params::NamedTuple)
+    for (k, v) in pairs(params)
+        _contains_missing(v) && throw(ArgumentError(
+            "parameter :$k contains `missing`; all required parameters must be explicitly defined.",
+        ))
+    end
+    return nothing
 end
 
 """
@@ -100,14 +111,6 @@ end
 
 Construct and compile a concrete biogeochemistry *instance* from a factory and
 optional overrides.
-
-Design principles
------------------
-- Structural defaults (plankton community size structure) are provided by
-  `default_community(factory)`.
-- Parameter defaults are provided by `Parameters.parameter_registry(factory)`.
-- User overrides flow through the registry (no separate `params` keyword).
-- The returned instance is `Adapt.jl`-compatible (CPU <-> GPU).
 
 Key keyword arguments
 ---------------------
@@ -118,39 +121,28 @@ Key keyword arguments
 - `arch=nothing`: `CPU()` or `GPU()`; when omitted and `grid` is provided, defaults
   to `architecture(grid)`.
 - `community`: plankton community structure (size classes, diameters, PFT specs).
-- `registry`: parameter registry (defaults/specs), typically updated/extended by the user.
-- `interactions`: optional `NamedTuple` or function `(ctx)->NamedTuple` providing
-  interaction-related parameter overrides (e.g. matrices).
+- `parameters`: `NamedTuple` of fully-resolved parameter overrides.
+- `interactions`: optional `NamedTuple` of interaction-related overrides (typically matrices).
 """
 function construct(
     factory::AbstractBGCFactory;
-    plankton_dynamics=default_plankton_dynamics(factory),
-    biogeochem_dynamics=default_biogeochem_dynamics(factory),
-
-    community=default_community(factory),
-    registry=parameter_registry(factory),
-
-    arch=nothing,
-    interactions::Union{Nothing,NamedTuple,Function}=nothing,
-
-    sinking_tracers=nothing,
-    grid=nothing,
-    open_bottom::Bool=true,
+    plankton_dynamics = default_plankton_dynamics(factory),
+    biogeochem_dynamics = default_biogeochem_dynamics(factory),
+    community = default_community(factory),
+    parameters::NamedTuple = (;),
+    interactions::Union{Nothing,NamedTuple} = nothing,
+    arch = nothing,
+    sinking_tracers = nothing,
+    grid = nothing,
+    open_bottom::Bool = true,
 )
-
-    # ---------------------------------------------------------------------
-    # Precision and architecture selection.
-    #
-    # When `grid` is provided, its element type is the source-of-truth for `FT`.
-    # This mirrors OceanBioME / Oceananigans, where model precision is determined
-    # by the grid / model configuration rather than an independent BGC keyword.
-    # ---------------------------------------------------------------------
 
     # If sinking is requested and no grid was supplied, fall back to a BoxModelGrid.
     if isnothing(grid) && !isnothing(sinking_tracers)
         grid = BoxModelGrid()
     end
 
+    # Precision + architecture selection.
     if !isnothing(grid)
         FT = eltype(grid)
         arch_grid = architecture(grid)
@@ -169,16 +161,13 @@ function construct(
     validate_plankton_inputs(plankton_dynamics, community)
     biogeochem_dynamics isa NamedTuple || throw(ArgumentError("biogeochem_dynamics must be a NamedTuple"))
 
-    # Parse community and normalize interaction overrides.
+    # Parse community.
     ctx = parse_community(
         FT,
         community;
-        plankton_dynamics=plankton_dynamics,
-        biogeochem_dynamics=biogeochem_dynamics,
+        plankton_dynamics = plankton_dynamics,
+        biogeochem_dynamics = biogeochem_dynamics,
     )
-
-    overrides = normalize_interactions(factory, FT, ctx, interactions)
-    final_registry = _apply_interactions_to_registry(ctx, registry, overrides)
 
     # ---------------------------------------------------------------------
     # Build tracer expressions and collect parameter requirements.
@@ -218,24 +207,48 @@ function construct(
     tracers = NamedTuple{Tuple(tracer_names)}(Tuple(tracer_defs))
 
     # ---------------------------------------------------------------------
-    # Parameter resolution -> architecture adaptation (CPU/GPU).
+    # Parameters
     # ---------------------------------------------------------------------
 
-    # Parameter resolution is independent of the concrete factory type.
-    # Everything needed to resolve scalars/vectors/matrices is encoded in:
-    #   - `ctx` (community + trait metadata)
-    #   - `final_registry` (declared parameter providers)
-    #   - `merged` (equation requirements)
-    params = resolve_runtime_parameters(ctx, final_registry, merged, FT)
+    required = _required_keys(merged)
 
-    # Optional sinking velocities.
+    overrides = normalize_interactions(ctx, interactions)
+
+    _validate_override_keys("parameters", parameters, required)
+    _validate_override_keys("interactions", overrides, required)
+
+    defaults = default_parameters(factory, ctx, FT)
+
+    # Merge precedence: defaults < parameters < interactions
+    params_full = merge(defaults, parameters, overrides)
+
+    # Ensure the required keys are present.
+    missing = Symbol[]
+    for k in required
+        hasproperty(params_full, k) || push!(missing, k)
+    end
+    isempty(missing) || throw(ArgumentError(
+        "missing required parameters: $(join(string.(missing), ", "))",
+    ))
+
+    # Slice down to only the required keys for better type stability.
+    params_req = NamedTuple{required}(Tuple(getproperty(params_full, k) for k in required))
+
+    _reject_missing_values(params_req)
+
+    _validate_parameter_shapes(ctx, params_req, merged)
+
+    # ---------------------------------------------------------------------
+    # Compile + instantiate.
+    # ---------------------------------------------------------------------
+
     if isnothing(sinking_tracers)
-        bgc_factory = define_tracer_functions(params, tracers)
-        bgc = bgc_factory(params)
+        bgc_factory = define_tracer_functions(params_req, tracers)
+        bgc = bgc_factory(params_req)
     else
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
-        bgc_factory = define_tracer_functions(params, tracers; sinking_velocities=sinking_velocities)
-        bgc = bgc_factory(params, sinking_velocities)
+        bgc_factory = define_tracer_functions(params_req, tracers; sinking_velocities = sinking_velocities)
+        bgc = bgc_factory(params_req, sinking_velocities)
     end
 
     # Move any arrays inside `bgc` onto the requested architecture.

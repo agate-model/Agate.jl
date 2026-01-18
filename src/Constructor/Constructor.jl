@@ -33,12 +33,12 @@ import Oceananigans
 # Refer to sibling modules via relative paths (`..`) instead of the parent
 # module name (`Agate`) because the parent name is not guaranteed to be bound
 # inside submodules (especially for code that is `eval`'d into modules).
-using ..Utils.Specifications: PFTSpecification, ModelSpecification
+using ..Utils.Specifications: PFTSpecification
 
 export construct
 
 # Re-export key parameter containers as part of the constructor surface.
-export PFTSpecification, ModelSpecification
+export PFTSpecification
 
 include("model_spec.jl")
 include("generator.jl")

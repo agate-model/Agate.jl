@@ -16,7 +16,6 @@ module Specifications
 using Adapt
 
 export PFTSpecification, pft_get, pft_has
-export ModelSpecification
 
 # -----------------------------------------------------------------------------
 # Flexible specification containers
@@ -28,10 +27,7 @@ export ModelSpecification
 Container for plankton functional-type (PFT) specifications.
 
 This is a lightweight wrapper around a `NamedTuple` used to attach per-PFT traits
-and metadata (e.g. feeding traits used to build default interaction matrices).
-
-The parameter registry system does **not** read `PFTSpecification` fields to override
-registry parameters. Group-level parameters are configured via `update_registry` using a full group mapping (NamedTuple) or by constructing a new `GroupVec`.
+and metadata.
 """
 struct PFTSpecification
     data::Any
@@ -46,19 +42,6 @@ PFTSpecification(; kwargs...) = PFTSpecification((; kwargs...))
 end
 
 
-"""
-    ModelSpecification(data::NamedTuple)
-
-Runtime parameter/specification container used by the generated biogeochemistry types.
-
-This struct is `Adapt.jl`-compatible, so models can be adapted to GPU arrays.
-"""
-struct ModelSpecification{NT<:NamedTuple}
-    data::NT
-end
-
-Adapt.@adapt_structure ModelSpecification
-
 # Adapt support for `NamedTuple` payloads
 #
 # Many Agate runtime bundles store parameters in `NamedTuple`s for cheap field
@@ -70,27 +53,6 @@ Adapt.@adapt_structure ModelSpecification
 # vectors/matrices inside the `NamedTuple`.
 @inline function Adapt.adapt_structure(to, nt::NamedTuple{names}) where {names}
     return NamedTuple{names}(map(x -> Adapt.adapt(to, x), values(nt)))
-end
-
-# -----------------------------------------------------------------------------
-# Ergonomic access
-# -----------------------------------------------------------------------------
-
-"""Forward `getproperty` to the underlying `NamedTuple` payload.
-
-This allows end users to write `params.foo` instead of `params.data.foo` while
-still keeping `.data` available for introspection.
-"""
-@inline function Base.getproperty(ms::ModelSpecification, name::Symbol)
-    name === :data && return getfield(ms, :data)
-    return getproperty(getfield(ms, :data), name)
-end
-
-@inline Base.hasproperty(ms::ModelSpecification, name::Symbol) =
-    (name === :data) || hasproperty(getfield(ms, :data), name)
-
-@inline function Base.propertynames(ms::ModelSpecification, private::Bool=false)
-    return (:data, propertynames(getfield(ms, :data), private)...)
 end
 
 end # module Specifications

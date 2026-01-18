@@ -25,15 +25,13 @@ using Oceananigans.Biogeochemistry:
 
         parameters = LVParameters{Float64}(2 / 3, 4 / 3, 1.0, 1.0)
 
-        pview(bgc) = hasproperty(bgc.parameters, :data) ? bgc.parameters.data : bgc.parameters
-
         fR = (bgc, x, y, z, t, R, F, PAR) -> begin
-            p = pview(bgc)
+            p = bgc.parameters
             p.α * R - p.β * R * F
         end
 
         fF = (bgc, x, y, z, t, R, F, PAR) -> begin
-            p = pview(bgc)
+            p = bgc.parameters
             -p.γ * F + p.δ * R * F
         end
 

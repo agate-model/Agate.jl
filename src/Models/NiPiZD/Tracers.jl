@@ -11,7 +11,6 @@ using ....Library.Remineralization: LinearRemineralization
 
 export nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
 
-@inline _pview(bgc) = hasproperty(bgc.parameters, :data) ? getproperty(bgc.parameters, :data) : bgc.parameters
 
 """Nutrient tendency with Smith growth and mortality/remineralization."""
 function nutrient_default(plankton_syms)
@@ -23,7 +22,7 @@ function nutrient_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = _pview(bgc)
+        p = bgc.parameters
 
         N = args[1]
         D = args[2]
@@ -69,7 +68,7 @@ function detritus_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = _pview(bgc)
+        p = bgc.parameters
 
         D = args[2]
 
@@ -121,7 +120,7 @@ function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = _pview(bgc)
+        p = bgc.parameters
 
         N = args[1]
         P = args[2 + plankton_idx]
@@ -165,7 +164,7 @@ function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = _pview(bgc)
+        p = bgc.parameters
 
         Z = args[2 + plankton_idx]
 

@@ -54,7 +54,7 @@ Keywords
 - `biogeochem_dynamics=nothing`: optional `NamedTuple` overriding selected tracer dynamics keys
 - `parameters=(;)`: parameter overrides (validated against the DARWIN parameter set)
 - `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrices
-- `interactions=nothing`: optional advanced interaction overrides (NamedTuple or (ctx)->NamedTuple)
+- `interactions=nothing`: optional advanced interaction overrides (NamedTuple)
 - `grid=BoxModelGrid()`: grid used for precision/architecture inference and sinking velocity fields
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
 - `sinking_tracers=nothing`: sinking speed overrides, e.g. `(POC = 10/day, ...)`

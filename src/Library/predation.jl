@@ -22,7 +22,13 @@ struct HollingTypeII{T}
     K::T
 end
 
-@inline (h::HollingTypeII)(P) = P / (h.K + P)
+@inline function (h::HollingTypeII)(P)
+    K = h.K
+    if K == zero(K) && P == zero(P)
+        return zero(P)
+    end
+    return P / (K + P)
+end
 
 """
     IdealizedPredationLoss(maximum_grazing_rate, half_saturation)
@@ -38,6 +44,9 @@ end
     gmax = f.maximum_grazing_rate
     K = f.half_saturation
     P2 = P * P
+    if K == zero(K) && P2 == zero(P2)
+        return zero(P * Z)
+    end
     return gmax * (P2 / (K * K + P2)) * Z
 end
 

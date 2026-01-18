@@ -2,7 +2,6 @@ using Agate
 using Test
 
 using Agate.Functors: CompiledEquation, req
-using Agate.Constructor: ModelSpecification
 using Agate.Constructor: define_tracer_functions
 
 using OceanBioME: BoxModelGrid, setup_velocity_fields
@@ -14,18 +13,16 @@ using Oceananigans.Biogeochemistry:
     biogeochemical_drift_velocity
 
 @testset "Utils" begin
-    @testset "define_tracer_functions with ModelSpecification" begin
-        parameters = ModelSpecification((α = 2 / 3, β = 4 / 3, δ = 1.0, γ = 1.0))
-
-        pview(bgc) = hasproperty(bgc.parameters, :data) ? bgc.parameters.data : bgc.parameters
+    @testset "define_tracer_functions" begin
+        parameters = (α = 2 / 3, β = 4 / 3, δ = 1.0, γ = 1.0)
 
         fR = (bgc, x, y, z, t, R, F) -> begin
-            p = pview(bgc)
+            p = bgc.parameters
             p.α * R - p.β * R * F
         end
 
         fF = (bgc, x, y, z, t, R, F) -> begin
-            p = pview(bgc)
+            p = bgc.parameters
             -p.γ * F + p.δ * R * F
         end
 
@@ -48,11 +45,9 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "define_tracer_functions error context" begin
-        parameters = ModelSpecification((α = 2.0,))
-
-        pview(bgc) = hasproperty(bgc.parameters, :data) ? bgc.parameters.data : bgc.parameters
+        parameters = (α = 2.0,)
         fR = (bgc, x, y, z, t, R) -> begin
-            p = pview(bgc)
+            p = bgc.parameters
             p.α * R
         end
 
@@ -72,11 +67,9 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "Optional sinking velocities" begin
-        parameters = ModelSpecification((k = 1.0,))
-
-        pview(bgc) = hasproperty(bgc.parameters, :data) ? bgc.parameters.data : bgc.parameters
+        parameters = (k = 1.0,)
         fC = (bgc, x, y, z, t, C) -> begin
-            p = pview(bgc)
+            p = bgc.parameters
             -p.k * C
         end
 

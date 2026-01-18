@@ -21,7 +21,6 @@ export DIC_geider_light,
     phytoplankton_growth_two_nutrients_geider_light,
     zooplankton_default
 
-@inline _pview(bgc) = hasproperty(bgc.parameters, :data) ? getproperty(bgc.parameters, :data) : bgc.parameters
 
 const _N_BIO_TRACERS = 9
 
@@ -41,7 +40,7 @@ function DIC_geider_light(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = _pview(bgc)
+        p = bgc.parameters
 
         DIN = args[2]
         PO4 = args[3]
@@ -86,7 +85,7 @@ function DIN_geider_light(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = _pview(bgc)
+        p = bgc.parameters
 
         DIN = args[2]
         PO4 = args[3]
@@ -131,7 +130,7 @@ function PO4_geider_light(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = _pview(bgc)
+        p = bgc.parameters
 
         DIN = args[2]
         PO4 = args[3]
@@ -173,7 +172,7 @@ function DOC_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = _pview(bgc)
+        p = bgc.parameters
 
         DOC = args[4]
 
@@ -218,7 +217,7 @@ function POC_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = _pview(bgc)
+        p = bgc.parameters
 
         POC = args[5]
 
@@ -263,7 +262,7 @@ function DON_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = _pview(bgc)
+        p = bgc.parameters
 
         DON = args[6]
 
@@ -309,7 +308,7 @@ function PON_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = _pview(bgc)
+        p = bgc.parameters
 
         PON = args[7]
 
@@ -354,7 +353,7 @@ function DOP_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = _pview(bgc)
+        p = bgc.parameters
 
         DOP = args[8]
 
@@ -400,7 +399,7 @@ function POP_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = _pview(bgc)
+        p = bgc.parameters
 
         POP = args[9]
 
@@ -455,7 +454,7 @@ function phytoplankton_growth_two_nutrients_geider_light(plankton_syms, plankton
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = _pview(bgc)
+        p = bgc.parameters
 
         DIN = args[2]
         PO4 = args[3]
@@ -497,7 +496,7 @@ function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = _pview(bgc)
+        p = bgc.parameters
 
         Z = args[_N_BIO_TRACERS + plankton_idx]
 

@@ -8,7 +8,7 @@ using ...Utils: AbstractBGCFactory
 using ...Utils.Specifications: PFTSpecification
 using ...Utils: DiameterRangeSpecification
 
-# NOTE: Defaults are registry-owned (see `Models/NiPiZD/Parameters.jl`).
+# NOTE: Defaults are provided by `Constructor.default_parameters` (see `Models/NiPiZD/Parameters.jl`).
 
 import ...FactoryInterface: default_plankton_dynamics, default_community, default_biogeochem_dynamics, factory_groups
 using .Tracers:

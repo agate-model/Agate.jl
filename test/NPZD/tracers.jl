@@ -1,6 +1,6 @@
 using Agate
 using Agate.Functors: CompiledEquation, req
-using Agate.Constructor: ModelSpecification, define_tracer_functions
+using Agate.Constructor: define_tracer_functions
 using Oceananigans.Units
 
 include(joinpath(@__DIR__, "functions.jl"))
@@ -8,7 +8,7 @@ include(joinpath(@__DIR__, "functions.jl"))
 # Test NPZD model used to validate that Agate-generated tracer functions integrate
 # consistently with OceanBioME's BoxModel infrastructure.
 
-parameters = ModelSpecification((;
+parameters = (;
     μ₀ = 0.6989 / day,
     kₙ = 2.3868,
     lᵖⁿ = 0.066 / day,
@@ -20,32 +20,30 @@ parameters = ModelSpecification((;
     lᶻᵈ = 0.3395 / day,
     rᵈⁿ = 0.1213 / day,
     α  = 0.1953 / day,
-))
-
-pview(bgc) = hasproperty(bgc.parameters, :data) ? bgc.parameters.data : bgc.parameters
+)
 
 fN = (bgc, x, y, z, t, N, D, P, Z, PAR) -> begin
-    p = pview(bgc)
+    p = bgc.parameters
     linear_loss(P, p.lᵖⁿ) + linear_loss(Z, p.lᶻⁿ) + remineralization_idealized(D, p.rᵈⁿ) -
     photosynthetic_growth_idealized(N, P, PAR, p.μ₀, p.kₙ, p.α)
 end
 
 fD = (bgc, x, y, z, t, N, D, P, Z, PAR) -> begin
-    p = pview(bgc)
+    p = bgc.parameters
     linear_loss(P, p.lᵖᵈ) +
     predation_assimilation_loss_idealized(P, Z, p.β, p.gₘₐₓ, p.kₚ) +
     quadratic_loss(Z, p.lᶻᵈ) - remineralization_idealized(D, p.rᵈⁿ)
 end
 
 fP = (bgc, x, y, z, t, N, D, P, Z, PAR) -> begin
-    p = pview(bgc)
+    p = bgc.parameters
     photosynthetic_growth_idealized(N, P, PAR, p.μ₀, p.kₙ, p.α) -
     predation_loss_idealized(P, Z, p.gₘₐₓ, p.kₚ) - linear_loss(P, p.lᵖⁿ) -
     linear_loss(P, p.lᵖᵈ)
 end
 
 fZ = (bgc, x, y, z, t, N, D, P, Z, PAR) -> begin
-    p = pview(bgc)
+    p = bgc.parameters
     predation_gain_idealized(P, Z, p.β, p.gₘₐₓ, p.kₚ) - linear_loss(Z, p.lᶻⁿ) -
     quadratic_loss(Z, p.lᶻᵈ)
 end

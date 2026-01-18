@@ -15,7 +15,13 @@ struct MonodLimitation{T}
     K::T
 end
 
-@inline (m::MonodLimitation)(R) = R / (m.K + R)
+@inline function (m::MonodLimitation)(R)
+    K = m.K
+    if K == zero(K) && R == zero(R)
+        return zero(R)
+    end
+    return R / (K + R)
+end
 
 """
     LiebigMinimum()

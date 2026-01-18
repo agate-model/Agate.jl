@@ -73,7 +73,7 @@ using Oceananigans.Biogeochemistry:
             e
         end
         @test err isa ArgumentError
-        @test occursin("function providers", sprint(showerror, err))
+        @test occursin("cannot be a function", sprint(showerror, err))
     end
 
     @testset "NiPiZD community structure overrides" begin
