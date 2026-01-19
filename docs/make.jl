@@ -56,17 +56,22 @@ makedocs(;
     ), # 200KB warning
     # modules=[Agate],
     pages=[
-        "About" => "index.md",
-        "Quick start" => "quick_start.md",
-        "Models" => model_pages,
-        "Library" => "library.md",
-        "Examples" => example_pages,
-        "API" => [
+        "Home" => "index.md",
+        "Beginner guide" => [
+            "Start here" => "beginner.md",
+            "Quick start" => "quick_start.md",
+            "Using built-in models" => model_pages,
+            "Examples" => example_pages,
+        ],
+        "Developer guide" => [
+            "Start here" => "developer.md",
+            "Adding a model" => "adding_models.md",
             "Constructor API" => "api_constructor.md",
             "Parameters & interactions" => "equations_api.md",
             "Callable dynamics" => "functors_api.md",
-            "Reference" => "api.md",
+            "API reference" => "api.md",
         ],
+        "Library" => "library.md",
     ],
 )
 
