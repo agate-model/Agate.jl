@@ -25,6 +25,4 @@ addition, plotting examples use CairoMakie.
 
 - `box_model_factories.jl`: 0D box model walkthrough for factory construction
   and parameter overrides.
-- `box_model_add_heterotroph.jl`: demonstrates extending a factory model with a
-  new group and new equations.
 - `1D_column.jl`: 1D water-column example (Oceananigans + OceanBioME).
