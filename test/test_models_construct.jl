@@ -43,13 +43,27 @@ using Oceananigans.Biogeochemistry:
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
         n = size(bgc.parameters.palatability_matrix, 1)
 
-        wrong = zeros(Float32, 2, 2)
+        wrong = zeros(Float32, 3, 3)
         @test_throws ArgumentError NiPiZD.construct(
             ;
             grid=dummy_grid(Float32),
             palatability_matrix=wrong,
             assimilation_matrix=wrong,
         )
+
+        # Group-block matrices are expanded to full (n_total, n_total) matrices.
+        block = Float32[0 1; 2 3]
+        bgc_block = NiPiZD.construct(
+            ;
+            grid=dummy_grid(Float32),
+            palatability_matrix=block,
+            assimilation_matrix=block,
+        )
+        @test size(bgc_block.parameters.palatability_matrix) == (n, n)
+        @test bgc_block.parameters.palatability_matrix[1, 1] == 0f0
+        @test bgc_block.parameters.palatability_matrix[1, 3] == 1f0
+        @test bgc_block.parameters.palatability_matrix[3, 1] == 2f0
+        @test bgc_block.parameters.palatability_matrix[end, end] == 3f0
 
         correct = zeros(Float32, n, n)
         bgc2 = NiPiZD.construct(
@@ -62,7 +76,16 @@ using Oceananigans.Biogeochemistry:
 
         # Providers are allowed for the public keywords. They are evaluated once during construction.
         pal_provider(ctx) = zeros(Float32, ctx.n_total, ctx.n_total)
-        assim_provider(diameters, group_symbols) = zeros(Float32, length(diameters), length(diameters))
+        assim_provider(ctx) = zeros(Float32, ctx.n_total, ctx.n_total)
+
+        # Old-style providers are rejected.
+        old_style_provider(diameters, group_symbols) = zeros(Float32, length(diameters), length(diameters))
+        @test_throws ArgumentError NiPiZD.construct(
+            ;
+            grid=dummy_grid(Float32),
+            palatability_matrix=pal_provider,
+            assimilation_matrix=old_style_provider,
+        )
 
         bgc3 = NiPiZD.construct(
             ;

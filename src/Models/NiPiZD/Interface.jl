@@ -22,7 +22,10 @@ Each may be either a concrete matrix, or a function that computes a matrix from
 the construction context:
 
 - `(ctx) -> matrix`
-- `(diameters, group_symbols) -> matrix`
+
+Matrix overrides may be specified either as full `(n_total, n_total)` matrices or
+as group-block `(n_groups, n_groups)` matrices, which are expanded during
+construction.
 """
 
 using OceanBioME: BoxModelGrid

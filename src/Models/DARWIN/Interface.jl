@@ -37,7 +37,10 @@ Keywords
 - `phyto_dynamics`, `zoo_dynamics`: plankton dynamics builders
 - `biogeochem_dynamics=nothing`: optional `NamedTuple` overriding selected tracer dynamics keys
 - `parameters=(;)`: parameter overrides (validated against the DARWIN parameter set)
-- `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrices
+- `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrices. Each may be:
+  - a full `(n_total, n_total)` matrix
+  - a group-block `(n_groups, n_groups)` matrix (expanded during construction)
+  - a provider function `(ctx) -> matrix`
 - `grid=BoxModelGrid()`: grid used for precision/architecture inference and sinking velocity fields
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
 - `sinking_tracers=nothing`: sinking speed overrides, e.g. `(POC = 10/day, ...)`

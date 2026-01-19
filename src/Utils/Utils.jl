@@ -29,6 +29,7 @@ export parameter_spec
 # Interactions API
 export InteractionContext
 export normalize_interactions
+export expand_group_block_matrix
 
 # Community parsing
 export validate_plankton_inputs
@@ -93,13 +94,17 @@ end
 
 Within the `NamedTuple`, values may be concrete objects (e.g. matrices) *or*
 provider functions. Provider functions are evaluated against an `InteractionContext`
-and must be callable as either:
+and must be callable as:
 
 - `f(ctx)`
-- `f(ctx.diameters, ctx.group_symbols)`
 
-Shape validation is driven by `parameter_directory(factory)`. For parameters
-missing from the directory, a conservative fallback is used (`*_matrix` => matrix).
+For matrix parameters, users may pass either:
+
+- a full `(n_total, n_total)` matrix, or
+- a group-block `(n_groups, n_groups)` matrix which will be expanded to
+  `(n_total, n_total)` (see `expand_group_block_matrix`).
+
+Shape validation is driven by `parameter_directory(factory)`.
 Final key validation and full parameter shape checks occur during model
 construction.
 """
@@ -113,6 +118,7 @@ function normalize_interactions(
     resolved = Pair{Symbol, Any}[]
     for (key, value) in pairs(interactions)
         resolved_value = value isa Function ? _call_interaction_provider(value, ctx, key) : value
+        resolved_value = _maybe_expand_group_block_matrix(factory, ctx, key, resolved_value)
         _validate_interaction_override(factory, ctx, key, resolved_value)
         push!(resolved, key => resolved_value)
     end
@@ -123,44 +129,68 @@ end
 @inline function _call_interaction_provider(f::Function, ctx::InteractionContext, key::Symbol)
     if applicable(f, ctx)
         return f(ctx)
-    elseif applicable(f, ctx.diameters, ctx.group_symbols)
-        return f(ctx.diameters, ctx.group_symbols)
     end
 
     throw(ArgumentError(
-        "interaction override '$key' provider must be callable as f(ctx) or f(diameters, group_symbols)",
+        "interaction override '$key' provider must be callable as f(ctx)",
     ))
+end
+
+"""Expand a group-block matrix to a full `(n_total, n_total)` matrix.
+
+The group ordering is the order of first appearance in `ctx.group_symbols`.
+
+For a block matrix `B` sized `(n_groups, n_groups)`, the expanded matrix `M` is
+defined as:
+
+`M[predator, prey] = B[group(predator), group(prey)]`.
+"""
+function expand_group_block_matrix(ctx::InteractionContext, B::AbstractMatrix)
+    groups = unique(ctx.group_symbols)
+    ng = length(groups)
+    size(B) == (ng, ng) || throw(ArgumentError(
+        "Expected a $(ng)x$(ng) group-block matrix (got size $(size(B))).",
+    ))
+
+    group_to_index = Dict{Symbol,Int}(g => i for (i, g) in pairs(groups))
+    group_idx = map(g -> group_to_index[g], ctx.group_symbols)
+
+    return B[group_idx, group_idx]
+end
+
+@inline function _maybe_expand_group_block_matrix(
+    factory::AbstractBGCFactory,
+    ctx::InteractionContext,
+    key::Symbol,
+    value,
+)
+    spec = parameter_spec(factory, key)
+    spec === nothing && return value
+
+    if spec.shape === :matrix && value isa AbstractMatrix
+        n = ctx.n_total
+        if size(value) == (n, n)
+            return value
+        end
+
+        groups = unique(ctx.group_symbols)
+        ng = length(groups)
+        if size(value) == (ng, ng)
+            return expand_group_block_matrix(ctx, value)
+        end
+    end
+
+    return value
 end
 
 @inline function _validate_interaction_override(factory::AbstractBGCFactory, ctx::InteractionContext, key::Symbol, value)
     spec = parameter_spec(factory, key)
 
-    if spec !== nothing
-        if spec.shape === :matrix
-            value isa AbstractMatrix || throw(ArgumentError(
-                "interaction override '$key' must be a matrix; got $(typeof(value))",
-            ))
+    spec !== nothing || throw(ArgumentError(
+        "interaction override '$key' is missing a ParameterSpec in parameter_directory(::$(typeof(factory))).",
+    ))
 
-            n_total = ctx.n_total
-            size(value) == (n_total, n_total) || throw(ArgumentError(
-                "interaction override '$key' must be a $(n_total)x$(n_total) matrix; got size $(size(value))",
-            ))
-        elseif spec.shape === :vector
-            value isa AbstractVector || throw(ArgumentError(
-                "interaction override '$key' must be a vector; got $(typeof(value))",
-            ))
-
-            n_total = ctx.n_total
-            length(value) == n_total || throw(ArgumentError(
-                "interaction override '$key' must have length $n_total (got $(length(value)))",
-            ))
-        end
-
-        return nothing
-    end
-
-    # Fallback for factories missing metadata.
-    if endswith(String(key), "_matrix")
+    if spec.shape === :matrix
         value isa AbstractMatrix || throw(ArgumentError(
             "interaction override '$key' must be a matrix; got $(typeof(value))",
         ))
@@ -168,6 +198,15 @@ end
         n_total = ctx.n_total
         size(value) == (n_total, n_total) || throw(ArgumentError(
             "interaction override '$key' must be a $(n_total)x$(n_total) matrix; got size $(size(value))",
+        ))
+    elseif spec.shape === :vector
+        value isa AbstractVector || throw(ArgumentError(
+            "interaction override '$key' must be a vector; got $(typeof(value))",
+        ))
+
+        n_total = ctx.n_total
+        length(value) == n_total || throw(ArgumentError(
+            "interaction override '$key' must have length $n_total (got $(length(value)))",
         ))
     end
 
