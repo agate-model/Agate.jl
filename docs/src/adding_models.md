@@ -8,7 +8,7 @@ The intent is to keep the required surface area small and to make GPU support vi
 A new model typically needs:
 
 1. A model module under `src/Models/<ModelName>/`.
-2. A small public constructor `Agate.Models.<ModelName>.construct` that forwards to `Agate.Constructor.construct(factory; ...)`.
+2. A small public constructor `Agate.Models.<ModelName>.construct` that forwards to `Agate.Constructor.construct_factory(factory; ...)`.
 3. A `parameter_directory(factory)` describing required parameter names and shapes.
 4. `default_parameters(factory, ctx, FT)` that returns defaults using the community context.
 5. A set of compiled dynamics / tracers that consume the parameters and update tendencies.

@@ -1,7 +1,7 @@
 """DARWIN defaults expressed as a model-agnostic factory.
 
 This file defines `DarwinFactory` and the default inputs used by
-`Agate.Constructor.construct(factory; ...)`.
+`Agate.Constructor.construct_factory(factory; ...)`.
 
 **Note:** All parameter defaults live exclusively in the DARWIN default parameter
 generator (see `Models/DARWIN/Parameters.jl`). This factory provides only

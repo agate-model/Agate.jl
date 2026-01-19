@@ -7,10 +7,10 @@ The public entry points are the **model constructors** exposed in `Agate.Models`
 This module contains the model-agnostic implementation:
 
 ```julia
-Agate.Constructor.construct(factory::AbstractBGCFactory; kwargs...) -> bgc
+Agate.Constructor.construct_factory(factory::AbstractBGCFactory; kwargs...) -> bgc
 ```
 
-`construct` returns the biogeochemistry instance directly.
+`construct_factory` returns the biogeochemistry instance directly.
 
 Design goals
 ------------
@@ -35,7 +35,7 @@ import Oceananigans
 # inside submodules (especially for code that is `eval`'d into modules).
 using ..Utils.Specifications: PFTSpecification
 
-export construct
+export construct_factory
 
 # Re-export key parameter containers as part of the constructor surface.
 export PFTSpecification

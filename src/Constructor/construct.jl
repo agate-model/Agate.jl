@@ -149,7 +149,7 @@ function _reject_missing_values(params::NamedTuple)
 end
 
 """
-    construct(factory::AbstractBGCFactory; kw...) -> bgc
+    construct_factory(factory::AbstractBGCFactory; kw...) -> bgc
 
 Construct and compile a concrete biogeochemistry *instance* from a factory and
 optional overrides.
@@ -168,7 +168,7 @@ Key keyword arguments
   Values may be concrete objects or provider functions callable as `f(ctx)`.
   For matrix parameters, overrides may be full `(n_total, n_total)` matrices. A group-block `(n_groups, n_groups)` matrix may be supplied and expanded during construction; when the parameter declares role-aware axes, wrap the block matrix as `GroupBlockMatrix(B)` to avoid ambiguity. When axes are declared, rectangular consumer-by-prey matrices sized to those axes (for example `(n_consumer, n_prey)`) are also accepted, as are axis-local group-block matrices.
 """
-function construct(
+function construct_factory(
     factory::AbstractBGCFactory;
     plankton_dynamics = default_plankton_dynamics(factory),
     biogeochem_dynamics = default_biogeochem_dynamics(factory),

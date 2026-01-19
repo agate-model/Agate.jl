@@ -9,7 +9,6 @@ instance for a size-structured plankton model with:
 The public interface keeps the surface small and explicit:
 
 - structure: choose `n_phyto`, `n_zoo`, and diameter specifications
-- dynamics: optionally swap any of the four dynamics builders
 - parameters: override named parameters via `parameters=(; ...)`
 - interactions: optionally override interaction matrices
 
@@ -25,7 +24,8 @@ the construction context:
 
 Matrix overrides may be specified as full `(n_total, n_total)` matrices, or (because
 these matrices are role-aware) as rectangular `(n_consumer, n_prey)` matrices.
-Rectangular matrices are embedded into the full square storage with zeros elsewhere.
+Internally interactions are stored in rectangular form and exposed through a square
+view for convenience; entries outside the consumer-by-prey block behave as zeros.
 
 To pass a group-block matrix over *all* groups, wrap it as `GroupBlockMatrix(B)` to
 force group-block expansion during construction.
@@ -57,7 +57,6 @@ Keywords
 - `n_phyto=2`, `n_zoo=2`: number of phytoplankton and zooplankton size classes
 - `phyto_diameters=(2, 10, :log_splitting)`: diameter specification for phytoplankton
 - `zoo_diameters=(20, 100, :linear_splitting)`: diameter specification for zooplankton
-- `nutrient_dynamics`, `detritus_dynamics`, `phyto_dynamics`, `zoo_dynamics`: dynamics builders
 - `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set)
 - `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrix overrides
 - `grid=BoxModelGrid()`: grid used for precision/architecture inference and sinking velocity fields
@@ -74,10 +73,6 @@ function construct(;
     n_zoo::Int = 2,
     phyto_diameters = (2, 10, :log_splitting),
     zoo_diameters = (20, 100, :linear_splitting),
-    nutrient_dynamics = nutrient_default,
-    detritus_dynamics = detritus_default,
-    phyto_dynamics = phytoplankton_default,
-    zoo_dynamics = zooplankton_default,
     parameters::NamedTuple = (;),
     palatability_matrix = nothing,
     assimilation_matrix = nothing,
@@ -101,8 +96,9 @@ function construct(;
         phyto_diameters = Utils.diameter_specification(phyto_diameters),
     )
 
-    plankton_dynamics = (Z = zoo_dynamics, P = phyto_dynamics)
-    biogeochem_dynamics = (N = nutrient_dynamics, D = detritus_dynamics)
+    # Fixed defaults for the public constructor.
+    plankton_dynamics = (Z = zooplankton_default, P = phytoplankton_default)
+    biogeochem_dynamics = (N = nutrient_default, D = detritus_default)
 
     # Interaction overrides (optional).
     #
@@ -115,7 +111,7 @@ function construct(;
 
     interactions = isempty(pairs) ? nothing : (; pairs...)
 
-    return Constructor.construct(
+    return Constructor.construct_factory(
 
         spec;
         plankton_dynamics = plankton_dynamics,

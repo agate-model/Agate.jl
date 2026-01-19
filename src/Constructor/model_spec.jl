@@ -40,7 +40,7 @@ Keywords
 
 All other keywords are forwarded to the model-agnostic constructor.
 """
-function construct(
+function construct_factory(
     spec::ModelSpec;
     plankton_dynamics = default_plankton_dynamics(spec.factory),
     biogeochem_dynamics = default_biogeochem_dynamics(spec.factory),
@@ -52,7 +52,7 @@ function construct(
     grid = nothing,
     open_bottom::Bool = true,
 )
-    return construct(
+    return construct_factory(
         spec.factory;
         plankton_dynamics = plankton_dynamics,
         biogeochem_dynamics = biogeochem_dynamics,

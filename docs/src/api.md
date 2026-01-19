@@ -15,6 +15,6 @@ Agate.required_parameters
 
 ```@docs
 Agate.Constructor.ModelSpec
-Agate.Constructor.construct
+Agate.Constructor.construct_factory
 Agate.Constructor.define_tracer_functions
 ```

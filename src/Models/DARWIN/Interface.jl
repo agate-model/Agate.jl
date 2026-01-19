@@ -6,8 +6,6 @@ instance for a size-structured plankton model with elemental cycling.
 This constructor keeps the surface small:
 
 - structure: choose `n_phyto`, `n_zoo`, and diameter specifications
-- dynamics: optionally swap plankton dynamics and (optionally) override selected
-  biogeochemical tracer dynamics by key
 - parameters: override named parameters via `parameters=(; ...)`
 - interactions: optionally override interaction matrices
 
@@ -39,12 +37,10 @@ Keywords
 - `n_phyto=2`, `n_zoo=2`: number of phytoplankton and zooplankton size classes
 - `phyto_diameters=(1.5, 20.0, :log_splitting)`: diameter specification for phytoplankton
 - `zoo_diameters=(20.0, 100.0, :log_splitting)`: diameter specification for zooplankton
-- `phyto_dynamics`, `zoo_dynamics`: plankton dynamics builders
-- `biogeochem_dynamics=nothing`: optional `NamedTuple` overriding selected tracer dynamics keys
 - `parameters=(;)`: parameter overrides (validated against the DARWIN parameter set)
 - `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrices. Each may be:
   - a full `(n_total, n_total)` matrix
-  - a rectangular `(n_consumer, n_prey)` matrix, embedded into the full square storage
+  - a rectangular `(n_consumer, n_prey)` matrix (the canonical interaction representation)
   - axis-local group-block matrices sized `(n_consumer_groups, n_prey_groups)`
   - a group-block matrix over *all* groups, wrapped as `GroupBlockMatrix(B)` (expanded during construction)
   - a provider function `(ctx) -> matrix` that returns any of the above
@@ -62,9 +58,6 @@ function construct(;
     n_zoo::Int = 2,
     phyto_diameters = (1.5, 20.0, :log_splitting),
     zoo_diameters = (20.0, 100.0, :log_splitting),
-    phyto_dynamics = phytoplankton_growth_two_nutrients_geider_light,
-    zoo_dynamics = zooplankton_default,
-    biogeochem_dynamics = nothing,
     parameters::NamedTuple = (;),
     palatability_matrix = nothing,
     assimilation_matrix = nothing,
@@ -88,10 +81,9 @@ function construct(;
         phyto_diameters = Utils.diameter_specification(phyto_diameters),
     )
 
-    plankton_dynamics = (Z = zoo_dynamics, P = phyto_dynamics)
-
-    default_bgc = FactoryInterface.default_biogeochem_dynamics(factory)
-    merged_bgc = biogeochem_dynamics === nothing ? default_bgc : merge(default_bgc, biogeochem_dynamics)
+    # Fixed defaults for the public constructor.
+    plankton_dynamics = (Z = zooplankton_default, P = phytoplankton_growth_two_nutrients_geider_light)
+    merged_bgc = FactoryInterface.default_biogeochem_dynamics(factory)
     # Interaction overrides (optional).
     #
     # We forward overrides through the model-agnostic constructor as a `NamedTuple`.
@@ -103,7 +95,7 @@ function construct(;
 
     interactions = isempty(pairs) ? nothing : (; pairs...)
 
-    return Constructor.construct(
+    return Constructor.construct_factory(
         spec;
         plankton_dynamics = plankton_dynamics,
         biogeochem_dynamics = merged_bgc,

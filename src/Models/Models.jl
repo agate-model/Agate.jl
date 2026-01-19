@@ -11,6 +11,7 @@ using ..FactoryInterface:
 # -----------------------------------------------------------------------------
 
 include("PredationSums.jl")
+include("Variants.jl")
 
 # -----------------------------------------------------------------------------
 # Model modules
@@ -20,6 +21,9 @@ include("NiPiZD/NiPiZD.jl")
 include("DARWIN/DARWIN.jl")
 
 export NiPiZD, DARWIN
+
+# Variant scaffolding (developer-oriented).
+export ModelId, VariantSpec, register_variant, variant, list_variants
 
 # The factory types remain available for internal/advanced usage via fully-qualified
 # names (e.g. `Agate.Models.NiPiZD.NiPiZDFactory`).
