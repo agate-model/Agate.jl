@@ -15,7 +15,6 @@ const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
 examples = [
     "Box model customisation" => "box_model_factories",
-    "Box model: add heterotroph (H)" => "box_model_add_heterotroph",
     "Column model" => "1D_column",
 ]
 
@@ -65,6 +64,7 @@ makedocs(;
         ],
         "Developer guide" => [
             "Start here" => "developer.md",
+            "Variants" => "variants.md",
             "Adding a model" => "adding_models.md",
             "Constructor API" => "api_constructor.md",
             "Parameters & interactions" => "equations_api.md",

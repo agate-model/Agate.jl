@@ -9,6 +9,7 @@ It assumes you are comfortable reading Julia code and running the test suite.
 - **Parameter metadata**: model parameters are declared in a `parameter_directory` so the constructor can validate shapes and provide clearer errors.
 - **Role-aware interactions**: consumer-by-prey interactions are represented *canonically* as rectangular matrices, and models consume these directly.
 - **GPU and parametric `FT`**: code paths avoid dynamic dispatch and allocate arrays using the chosen floating-point type and architecture.
+- **Variants**: paper- or project-specific configurations live as lightweight variant specs (instead of copying entire model modules).
 
 ## Where things live
 
@@ -20,6 +21,7 @@ It assumes you are comfortable reading Julia code and running the test suite.
 ## Start here
 
 - Read [Adding a model](@ref "Adding a model") for the minimum set of files and functions to implement.
+- Read [Variants](@ref "Variants") for the recommended way to manage manuscript / experiment configurations without repo bloat.
 - Reference docs:
   - [Constructor API](@ref "Constructor API")
   - [Parameters and interaction matrices](@ref "Parameters and interaction matrices")

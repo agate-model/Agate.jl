@@ -34,6 +34,7 @@ Start here:
 
 - Read [Quick start](@ref "Quick start") for a complete working setup.
 - Pick a model: [NiPiZD](@ref NiPiZD) or [DARWIN](@ref DARWIN).
+- If you are using a manuscript or project-specific configuration, see [Variants](@ref "Variants").
 - Clone an example and modify one thing at a time.
 
 ## Common customisations
