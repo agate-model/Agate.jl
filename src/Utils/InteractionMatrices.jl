@@ -8,7 +8,7 @@ constructor pipeline also builds `InteractionMatrixView` objects that present
 the rectangular matrices as zero-padded square `(n_total, n_total)` matrices.
 """
 
-struct InteractionMatrices{PM, AM, VI, MI}
+struct InteractionMatrices{PM,AM,VI,MI}
     palatability::PM
     assimilation::AM
     consumer_global::VI
@@ -24,14 +24,15 @@ This wrapper supports the legacy access pattern `M[predator_idx, prey_idx]` in
 tracer kernels while storing the interaction data in a rectangular
 consumer-by-prey matrix.
 """
-struct InteractionMatrixView{T, M, MI} <: AbstractMatrix{T}
+struct InteractionMatrixView{T,M,MI} <: AbstractMatrix{T}
     rect::M
     global_to_row::MI
     global_to_col::MI
 end
 
-InteractionMatrixView(rect::M, global_to_row::MI, global_to_col::MI) where {M, MI} =
-    InteractionMatrixView{eltype(rect), M, MI}(rect, global_to_row, global_to_col)
+function InteractionMatrixView(rect::M, global_to_row::MI, global_to_col::MI) where {M,MI}
+    return InteractionMatrixView{eltype(rect),M,MI}(rect, global_to_row, global_to_col)
+end
 
 Adapt.@adapt_structure InteractionMatrixView
 
@@ -79,16 +80,24 @@ end
         elseif size(value) == (n_total, n_total)
             return value[row_indices, col_indices]
         else
-            throw(ArgumentError(
-                "interaction matrix '$key' must be $(nr)x$(nc) (axes) or $(n_total)x$(n_total) (full); got size $(size(value))",
-            ))
+            throw(
+                ArgumentError(
+                    "interaction matrix '$key' must be $(nr)x$(nc) (axes) or $(n_total)x$(n_total) (full); got size $(size(value))",
+                ),
+            )
         end
     else
-        throw(ArgumentError("interaction matrix '$key' must be a matrix; got $(typeof(value))"))
+        throw(
+            ArgumentError(
+                "interaction matrix '$key' must be a matrix; got $(typeof(value))"
+            ),
+        )
     end
 end
 
-function finalize_interaction_parameters(factory::AbstractBGCFactory, ctx::InteractionContext, params::NamedTuple)
+function finalize_interaction_parameters(
+    factory::AbstractBGCFactory, ctx::InteractionContext, params::NamedTuple
+)
     spec_pal = parameter_spec(factory, :palatability_matrix)
     spec_assim = parameter_spec(factory, :assimilation_matrix)
 
@@ -105,8 +114,20 @@ function finalize_interaction_parameters(factory::AbstractBGCFactory, ctx::Inter
     consumer_indices = ctx.consumer_indices
     prey_indices = ctx.prey_indices
 
-    pal_rect = _rect_value_for_axes(ctx, params.palatability_matrix, consumer_indices, prey_indices, :palatability_matrix)
-    assim_rect = _rect_value_for_axes(ctx, params.assimilation_matrix, consumer_indices, prey_indices, :assimilation_matrix)
+    pal_rect = _rect_value_for_axes(
+        ctx,
+        params.palatability_matrix,
+        consumer_indices,
+        prey_indices,
+        :palatability_matrix,
+    )
+    assim_rect = _rect_value_for_axes(
+        ctx,
+        params.assimilation_matrix,
+        consumer_indices,
+        prey_indices,
+        :assimilation_matrix,
+    )
 
     global_to_consumer = _inverse_axis_map(consumer_indices, ctx.n_total)
     global_to_prey = _inverse_axis_map(prey_indices, ctx.n_total)
@@ -125,6 +146,10 @@ function finalize_interaction_parameters(factory::AbstractBGCFactory, ctx::Inter
 
     return merge(
         params,
-        (palatability_matrix=pal_view, assimilation_matrix=assim_view, interactions=interactions),
+        (
+            palatability_matrix=pal_view,
+            assimilation_matrix=assim_view,
+            interactions=interactions,
+        ),
     )
 end

@@ -42,8 +42,10 @@ zoo_diameters = [60.0]
 # ## 3. Override parameters
 
 parameter_overrides = (
-    detritus_remineralization = 0.18 / day,
-    maximum_growth_rate = (P = AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15), Z = 0.0),
+    detritus_remineralization=0.18 / day,
+    maximum_growth_rate=(
+        P=AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15), Z=0.0
+    ),
 )
 
 # ## 4. Provide explicit interaction matrices
@@ -53,14 +55,15 @@ parameter_overrides = (
 
 community_ctx = parse_community(
     Float64,
-    (;
-        Z=(; n=n_zoo, diameters=zoo_diameters),
-        P=(; n=n_phyto, diameters=phyto_diameters),
-    );
-    plankton_dynamics=(Z=Agate.Models.NiPiZD.Tracers.zooplankton_default,
-                       P=Agate.Models.NiPiZD.Tracers.phytoplankton_default),
-    biogeochem_dynamics=(N=Agate.Models.NiPiZD.Tracers.nutrient_default,
-                         D=Agate.Models.NiPiZD.Tracers.detritus_default),
+    (; Z=(; n=n_zoo, diameters=zoo_diameters), P=(; n=n_phyto, diameters=phyto_diameters));
+    plankton_dynamics=(
+        Z=Agate.Models.NiPiZD.Tracers.zooplankton_default,
+        P=Agate.Models.NiPiZD.Tracers.phytoplankton_default,
+    ),
+    biogeochem_dynamics=(
+        N=Agate.Models.NiPiZD.Tracers.nutrient_default,
+        D=Agate.Models.NiPiZD.Tracers.detritus_default,
+    ),
 )
 
 # Canonical interaction matrices are rectangular: (consumer, prey).
@@ -72,7 +75,7 @@ assim = zeros(Float64, nc, np)
 
 # For illustration, make the single zooplankton class graze all phytoplankton equally.
 consumer_local = Dict(gidx => i for (i, gidx) in pairs(community_ctx.consumer_indices))
-prey_local     = Dict(gidx => i for (i, gidx) in pairs(community_ctx.prey_indices))
+prey_local = Dict(gidx => i for (i, gidx) in pairs(community_ctx.prey_indices))
 
 z_global = findall(==(:Z), community_ctx.group_symbols)
 p_global = findall(==(:P), community_ctx.group_symbols)
@@ -87,8 +90,7 @@ end
 
 # ## 5. Construct the customised model
 
-bgc_custom = NiPiZD.construct(
-    ;
+bgc_custom = NiPiZD.construct(;
     n_phyto,
     n_zoo,
     phyto_diameters,
@@ -114,11 +116,7 @@ filename = "box_customisation.jld2"
 
 sim = Simulation(box; Δt=30minutes, stop_time=90days)
 sim.output_writers[:fields] = JLD2Writer(
-    box,
-    box.fields;
-    filename=filename,
-    schedule=TimeInterval(1day),
-    overwrite_existing=true,
+    box, box.fields; filename=filename, schedule=TimeInterval(1day), overwrite_existing=true
 )
 
 run!(sim)
@@ -131,7 +129,7 @@ P1 = FieldTimeSeries(filename, "P1")[1, 1, 1, :]
 P2 = FieldTimeSeries(filename, "P2")[1, 1, 1, :]
 P3 = FieldTimeSeries(filename, "P3")[1, 1, 1, :]
 Z1 = FieldTimeSeries(filename, "Z1")[1, 1, 1, :]
-N  = FieldTimeSeries(filename, "N")[1, 1, 1, :]
+N = FieldTimeSeries(filename, "N")[1, 1, 1, :]
 
 fig = Figure(; size=(900, 600), fontsize=18)
 

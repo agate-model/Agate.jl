@@ -19,9 +19,7 @@ using ..Utils:
     validate_plankton_inputs
 
 using ..FactoryInterface:
-    default_plankton_dynamics,
-    default_biogeochem_dynamics,
-    default_community
+    default_plankton_dynamics, default_biogeochem_dynamics, default_community
 
 using ..Functors: CompiledEquation, requirements, req, merge_requirements
 
@@ -58,32 +56,40 @@ function _validate_parameter_directory(factory::AbstractBGCFactory, r)
     # Ensure every required parameter has explicit metadata.
     for k in _required_keys(r)
         spec = parameter_spec(factory, k)
-        spec === nothing && throw(ArgumentError(
-            "Factory $(typeof(factory)) is missing a ParameterSpec for required parameter :$k. " *
-            "Add it to parameter_directory(::$(typeof(factory))).",
-        ))
+        spec === nothing && throw(
+            ArgumentError(
+                "Factory $(typeof(factory)) is missing a ParameterSpec for required parameter :$k. " *
+                "Add it to parameter_directory(::$(typeof(factory))).",
+            ),
+        )
     end
 
     # Ensure the directory is internally consistent with compiled-equation requirements.
     for k in r.scalars
         spec = parameter_spec(factory, k)
-        spec.shape === :scalar || throw(ArgumentError(
-            "parameter_directory(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a scalar.",
-        ))
+        spec.shape === :scalar || throw(
+            ArgumentError(
+                "parameter_directory(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a scalar.",
+            ),
+        )
     end
 
     for k in r.vectors
         spec = parameter_spec(factory, k)
-        spec.shape === :vector || throw(ArgumentError(
-            "parameter_directory(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a vector.",
-        ))
+        spec.shape === :vector || throw(
+            ArgumentError(
+                "parameter_directory(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a vector.",
+            ),
+        )
     end
 
     for k in r.matrices
         spec = parameter_spec(factory, k)
-        spec.shape === :matrix || throw(ArgumentError(
-            "parameter_directory(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a matrix.",
-        ))
+        spec.shape === :matrix || throw(
+            ArgumentError(
+                "parameter_directory(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a matrix.",
+            ),
+        )
     end
 
     return nothing
@@ -94,22 +100,22 @@ function _validate_parameter_shapes(ctx, params::NamedTuple, r)
 
     for k in r.vectors
         v = getproperty(params, k)
-        length(v) == n || throw(ArgumentError(
-            "parameter :$k must have length $n (got $(length(v))).",
-        ))
+        length(v) == n ||
+            throw(ArgumentError("parameter :$k must have length $n (got $(length(v)))."))
     end
 
     for k in r.matrices
         m = getproperty(params, k)
-        (size(m, 1) == n && size(m, 2) == n) || throw(ArgumentError(
-            "parameter :$k must have size ($n,$n) (got $(size(m))).",
-        ))
+        (size(m, 1) == n && size(m, 2) == n) ||
+            throw(ArgumentError("parameter :$k must have size ($n,$n) (got $(size(m)))."))
     end
 
     return nothing
 end
 
-function _validate_override_keys(where_, overrides::NamedTuple, required::Tuple, factory::AbstractBGCFactory)
+function _validate_override_keys(
+    where_, overrides::NamedTuple, required::Tuple, factory::AbstractBGCFactory
+)
     isempty(overrides) && return nothing
 
     required_set = Set(required)
@@ -118,9 +124,8 @@ function _validate_override_keys(where_, overrides::NamedTuple, required::Tuple,
 
         # Optional overrides are permitted only for keys declared in the
         # factory's parameter directory.
-        parameter_spec(factory, k) === nothing && throw(ArgumentError(
-            "$(where_): unknown parameter key :$k.",
-        ))
+        parameter_spec(factory, k) === nothing &&
+            throw(ArgumentError("$(where_): unknown parameter key :$k."))
     end
 
     return nothing
@@ -141,9 +146,11 @@ end
 
 function _reject_missing_values(params::NamedTuple)
     for (k, v) in pairs(params)
-        _contains_missing(v) && throw(ArgumentError(
-            "parameter :$k contains `missing`; all required parameters must be explicitly defined.",
-        ))
+        _contains_missing(v) && throw(
+            ArgumentError(
+                "parameter :$k contains `missing`; all required parameters must be explicitly defined.",
+            ),
+        )
     end
     return nothing
 end
@@ -170,15 +177,15 @@ Key keyword arguments
 """
 function construct_factory(
     factory::AbstractBGCFactory;
-    plankton_dynamics = default_plankton_dynamics(factory),
-    biogeochem_dynamics = default_biogeochem_dynamics(factory),
-    community = default_community(factory),
-    parameters::NamedTuple = (;),
-    interactions::Union{Nothing,NamedTuple} = nothing,
-    arch = nothing,
-    sinking_tracers = nothing,
-    grid = nothing,
-    open_bottom::Bool = true,
+    plankton_dynamics=default_plankton_dynamics(factory),
+    biogeochem_dynamics=default_biogeochem_dynamics(factory),
+    community=default_community(factory),
+    parameters::NamedTuple=(;),
+    interactions::Union{Nothing,NamedTuple}=nothing,
+    arch=nothing,
+    sinking_tracers=nothing,
+    grid=nothing,
+    open_bottom::Bool=true,
 )
 
     # If sinking is requested and no grid was supplied, fall back to a BoxModelGrid.
@@ -193,9 +200,11 @@ function construct_factory(
         if isnothing(arch)
             arch = arch_grid
         elseif typeof(arch) !== typeof(arch_grid)
-            throw(ArgumentError(
-                "arch=$arch does not match architecture(grid)=$arch_grid. Architecture is determined by the grid; either omit arch or construct a grid for $arch.",
-            ))
+            throw(
+                ArgumentError(
+                    "arch=$arch does not match architecture(grid)=$arch_grid. Architecture is determined by the grid; either omit arch or construct a grid for $arch.",
+                ),
+            )
         end
     else
         FT = Float64
@@ -203,15 +212,16 @@ function construct_factory(
     end
 
     validate_plankton_inputs(plankton_dynamics, community)
-    biogeochem_dynamics isa NamedTuple || throw(ArgumentError("biogeochem_dynamics must be a NamedTuple"))
+    biogeochem_dynamics isa NamedTuple ||
+        throw(ArgumentError("biogeochem_dynamics must be a NamedTuple"))
 
     # Parse community.
     ctx = parse_community(
         factory,
         FT,
         community;
-        plankton_dynamics = plankton_dynamics,
-        biogeochem_dynamics = biogeochem_dynamics,
+        plankton_dynamics=plankton_dynamics,
+        biogeochem_dynamics=biogeochem_dynamics,
     )
 
     # ---------------------------------------------------------------------
@@ -228,9 +238,9 @@ function construct_factory(
 
     for (_, f) in pairs(biogeochem_dynamics)
         tr = f(plankton_syms)
-        (tr isa CompiledEquation) || throw(ArgumentError(
-            "biogeochem dynamics $(nameof(f)) must return CompiledEquation",
-        ))
+        (tr isa CompiledEquation) || throw(
+            ArgumentError("biogeochem dynamics $(nameof(f)) must return CompiledEquation"),
+        )
         push!(tracer_defs, tr)
         merged = merge_requirements(merged, requirements(tr))
     end
@@ -241,9 +251,9 @@ function construct_factory(
         trsym = plankton_syms[idx]
 
         tr = f(plankton_syms, trsym, idx)
-        (tr isa CompiledEquation) || throw(ArgumentError(
-            "plankton dynamics $(nameof(f)) must return CompiledEquation",
-        ))
+        (tr isa CompiledEquation) || throw(
+            ArgumentError("plankton dynamics $(nameof(f)) must return CompiledEquation")
+        )
         push!(tracer_defs, tr)
 
         merged = merge_requirements(merged, requirements(tr))
@@ -271,16 +281,17 @@ function construct_factory(
 
     # Recompute any derived matrices affected by explicit trait overrides.
     explicit_override_keys = (keys(parameters)..., keys(overrides)...)
-    params_full = resolve_derived_matrices(factory, ctx, params_full, explicit_override_keys)
+    params_full = resolve_derived_matrices(
+        factory, ctx, params_full, explicit_override_keys
+    )
 
     # Ensure the required keys are present.
     missing = Symbol[]
     for k in required
         hasproperty(params_full, k) || push!(missing, k)
     end
-    isempty(missing) || throw(ArgumentError(
-        "missing required parameters: $(join(string.(missing), ", "))",
-    ))
+    isempty(missing) ||
+        throw(ArgumentError("missing required parameters: $(join(string.(missing), ", "))"))
 
     # Finalize any role-aware interaction matrices.
     params_full = finalize_interaction_parameters(factory, ctx, params_full)
@@ -303,7 +314,9 @@ function construct_factory(
         bgc = bgc_factory(params_req)
     else
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
-        bgc_factory = define_tracer_functions(params_req, tracers; sinking_velocities = sinking_velocities)
+        bgc_factory = define_tracer_functions(
+            params_req, tracers; sinking_velocities=sinking_velocities
+        )
         bgc = bgc_factory(params_req, sinking_velocities)
     end
 

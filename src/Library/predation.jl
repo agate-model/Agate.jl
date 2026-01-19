@@ -110,7 +110,11 @@ struct PreferentialPredationGain{T}
 end
 
 @inline function (f::PreferentialPredationGain)(P, Z)
-    loss = PreferentialPredationLoss(f.maximum_grazing_rate, f.half_saturation, f.palatability)(P, Z)
+    loss = PreferentialPredationLoss(
+        f.maximum_grazing_rate, f.half_saturation, f.palatability
+    )(
+        P, Z
+    )
     return f.assimilation_efficiency * loss
 end
 
@@ -127,7 +131,11 @@ struct PreferentialPredationAssimilationLoss{T}
 end
 
 @inline function (f::PreferentialPredationAssimilationLoss)(P, Z)
-    loss = PreferentialPredationLoss(f.maximum_grazing_rate, f.half_saturation, f.palatability)(P, Z)
+    loss = PreferentialPredationLoss(
+        f.maximum_grazing_rate, f.half_saturation, f.palatability
+    )(
+        P, Z
+    )
     return (one(f.assimilation_efficiency) - f.assimilation_efficiency) * loss
 end
 
@@ -150,10 +158,13 @@ Binary emergent assimilation efficiency controlled by predator/prey traits.
 struct EmergentAssimilationEfficiencyBinary end
 
 @inline function (f::EmergentAssimilationEfficiencyBinary)(
-    prey::AssimilationPreyParameters,
-    predator::AssimilationPredatorParameters,
+    prey::AssimilationPreyParameters, predator::AssimilationPredatorParameters
 )
-    return ifelse(predator.can_eat && prey.can_be_eaten, predator.assimilation_efficiency, zero(predator.assimilation_efficiency))
+    return ifelse(
+        predator.can_eat && prey.can_be_eaten,
+        predator.assimilation_efficiency,
+        zero(predator.assimilation_efficiency),
+    )
 end
 
 end # module

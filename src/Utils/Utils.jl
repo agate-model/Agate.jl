@@ -85,10 +85,8 @@ Return `nothing` to treat all classes as prey.
 """
 prey_groups(::AbstractBGCFactory) = nothing
 
-
 """Internal factory used by `parse_community(FT, ...)` overloads."""
 struct _DefaultRoleFactory <: AbstractBGCFactory end
-
 
 """Sum `f(i)` for `i` in `itr`, starting from `init`.
 
@@ -155,7 +153,6 @@ end
 include("InteractionMatrices.jl")
 include("DerivedMatrices.jl")
 
-
 """Normalize `interactions` into a `NamedTuple` of parameter overrides.
 
 `interactions` may be:
@@ -192,18 +189,21 @@ construction.
 function normalize_interactions(
     factory::AbstractBGCFactory,
     ctx::InteractionContext{FT},
-    interactions::Union{Nothing, NamedTuple},
+    interactions::Union{Nothing,NamedTuple},
 ) where {FT}
     interactions === nothing && return (;)
 
-    resolved = Pair{Symbol, Any}[]
+    resolved = Pair{Symbol,Any}[]
     for (key, value) in pairs(interactions)
         spec = parameter_spec(factory, key)
-        spec !== nothing || throw(ArgumentError(
-            "interaction override '$key' is missing a ParameterSpec in parameter_directory(::$(typeof(factory))).",
-        ))
+        spec !== nothing || throw(
+            ArgumentError(
+                "interaction override '$key' is missing a ParameterSpec in parameter_directory(::$(typeof(factory))).",
+            ),
+        )
 
-        resolved_value = value isa Function ? _call_interaction_provider(value, ctx, key) : value
+        resolved_value =
+            value isa Function ? _call_interaction_provider(value, ctx, key) : value
         resolved_value = _normalize_interaction_value(ctx, spec, key, resolved_value)
         _validate_interaction_override(ctx, spec, key, resolved_value)
         push!(resolved, key => resolved_value)
@@ -212,27 +212,30 @@ function normalize_interactions(
     return (; resolved...)
 end
 
-@inline function _call_interaction_provider(f::Function, ctx::InteractionContext, key::Symbol)
+@inline function _call_interaction_provider(
+    f::Function, ctx::InteractionContext, key::Symbol
+)
     applicable(f, ctx) && return f(ctx)
 
-    throw(ArgumentError(
-        "interaction override '$key' provider must be callable as f(ctx)",
-    ))
+    throw(ArgumentError("interaction override '$key' provider must be callable as f(ctx)"))
 end
 
-@inline _axis_indices(ctx::InteractionContext, axis::Symbol) =
-    axis === :consumer ? ctx.consumer_indices :
-    axis === :prey     ? ctx.prey_indices :
-    haskey(ctx.group_indices, axis) ? ctx.group_indices[axis] :
-    throw(ArgumentError(
+@inline _axis_indices(ctx::InteractionContext, axis::Symbol) = if axis === :consumer
+    ctx.consumer_indices
+elseif axis === :prey
+    ctx.prey_indices
+elseif haskey(ctx.group_indices, axis)
+    ctx.group_indices[axis]
+else
+    throw(
+    ArgumentError(
         "Unknown interaction axis '$axis'. Valid axes are :consumer, :prey, or an existing group symbol.",
-    ))
+    ),
+)
+end
 
 @inline function _normalize_interaction_value(
-    ctx::InteractionContext,
-    spec::ParameterSpec,
-    key::Symbol,
-    value,
+    ctx::InteractionContext, spec::ParameterSpec, key::Symbol, value
 )
     spec.shape === :matrix || return value
     n_total = ctx.n_total
@@ -270,7 +273,9 @@ end
         ngc = length(col_groups)
 
         if size(value) == (ngr, ngc)
-            return _expand_group_block_axis_matrix(ctx, value, row_indices, col_indices, row_groups, col_groups)
+            return _expand_group_block_axis_matrix(
+                ctx, value, row_indices, col_indices, row_groups, col_groups
+            )
         end
 
         # Full-square override: slice to axes.
@@ -280,15 +285,19 @@ end
 
         # Ambiguous: a plain (n_groups, n_groups) matrix could be intended as a group-block matrix.
         if size(value) == (ng, ng)
-            throw(ArgumentError(
-                "interaction override '$key' is ambiguous for axes $(spec.axes): a $(ng)x$(ng) matrix could be either an axis-sized matrix or a group-block matrix. " *
-                "Wrap it as GroupBlockMatrix(B) to force group-block expansion, or pass a $(nr)x$(nc) axis matrix."
-            ))
+            throw(
+                ArgumentError(
+                    "interaction override '$key' is ambiguous for axes $(spec.axes): a $(ng)x$(ng) matrix could be either an axis-sized matrix or a group-block matrix. " *
+                    "Wrap it as GroupBlockMatrix(B) to force group-block expansion, or pass a $(nr)x$(nc) axis matrix.",
+                ),
+            )
         end
 
-        throw(ArgumentError(
-            "interaction override '$key' must be a $(nr)x$(nc) axis matrix, a $(ngr)x$(ngc) axis block, or a $(n_total)x$(n_total) full matrix; got size $(size(value))",
-        ))
+        throw(
+            ArgumentError(
+                "interaction override '$key' must be a $(nr)x$(nc) axis matrix, a $(ngr)x$(ngc) axis block, or a $(n_total)x$(n_total) full matrix; got size $(size(value))",
+            ),
+        )
     end
 
     # Non-axes matrices normalize to full square matrices.
@@ -322,9 +331,9 @@ defined as:
 function expand_group_block_matrix(ctx::InteractionContext, B::AbstractMatrix)
     groups = unique(ctx.group_symbols)
     ng = length(groups)
-    size(B) == (ng, ng) || throw(ArgumentError(
-        "Expected a $(ng)x$(ng) group-block matrix (got size $(size(B))).",
-    ))
+    size(B) == (ng, ng) || throw(
+        ArgumentError("Expected a $(ng)x$(ng) group-block matrix (got size $(size(B)))."),
+    )
 
     group_to_index = Dict{Symbol,Int}(g => i for (i, g) in pairs(groups))
     group_idx = map(g -> group_to_index[g], ctx.group_symbols)
@@ -360,42 +369,53 @@ end
     return R
 end
 
-@inline function _validate_interaction_override(ctx::InteractionContext, spec::ParameterSpec, key::Symbol, value)
+@inline function _validate_interaction_override(
+    ctx::InteractionContext, spec::ParameterSpec, key::Symbol, value
+)
     if spec.shape === :matrix
-        value isa AbstractMatrix || throw(ArgumentError(
-            "interaction override '$key' must be a matrix; got $(typeof(value))",
-        ))
+        value isa AbstractMatrix || throw(
+            ArgumentError(
+                "interaction override '$key' must be a matrix; got $(typeof(value))"
+            ),
+        )
 
         if spec.axes === nothing
             n_total = ctx.n_total
-            size(value) == (n_total, n_total) || throw(ArgumentError(
-                "interaction override '$key' must be a $(n_total)x$(n_total) matrix after normalization; got size $(size(value))",
-            ))
+            size(value) == (n_total, n_total) || throw(
+                ArgumentError(
+                    "interaction override '$key' must be a $(n_total)x$(n_total) matrix after normalization; got size $(size(value))",
+                ),
+            )
         else
             row_axis, col_axis = spec.axes
             row_indices = _axis_indices(ctx, row_axis)
             col_indices = _axis_indices(ctx, col_axis)
             nr = length(row_indices)
             nc = length(col_indices)
-            size(value) == (nr, nc) || throw(ArgumentError(
-                "interaction override '$key' must be a $(nr)x$(nc) matrix for axes $(spec.axes) after normalization; got size $(size(value))",
-            ))
+            size(value) == (nr, nc) || throw(
+                ArgumentError(
+                    "interaction override '$key' must be a $(nr)x$(nc) matrix for axes $(spec.axes) after normalization; got size $(size(value))",
+                ),
+            )
         end
 
     elseif spec.shape === :vector
-        value isa AbstractVector || throw(ArgumentError(
-            "interaction override '$key' must be a vector; got $(typeof(value))",
-        ))
+        value isa AbstractVector || throw(
+            ArgumentError(
+                "interaction override '$key' must be a vector; got $(typeof(value))"
+            ),
+        )
 
         n_total = ctx.n_total
-        length(value) == n_total || throw(ArgumentError(
-            "interaction override '$key' must have length $n_total (got $(length(value)))",
-        ))
+        length(value) == n_total || throw(
+            ArgumentError(
+                "interaction override '$key' must have length $n_total (got $(length(value)))",
+            ),
+        )
     end
 
     return nothing
 end
-
 
 # -----------------------------------------------------------------------------
 # Plankton community parsing
@@ -447,7 +467,11 @@ function validate_plankton_inputs(plankton_dynamics, plankton_args)
             push!(issues, "group $(k): missing required field `diameters`")
         else
             d = getproperty(spec, :diameters)
-            if !(d isa AbstractVector || d isa AbstractDiameterSpecification || (d isa Tuple && length(d) == 3))
+            if !(
+                d isa AbstractVector ||
+                d isa AbstractDiameterSpecification ||
+                (d isa Tuple && length(d) == 3)
+            )
                 push!(issues, "group $(k): invalid `diameters` specification")
             end
 
@@ -458,11 +482,17 @@ function validate_plankton_inputs(plankton_dynamics, plankton_args)
             # a `MethodError` (e.g., when `n === nothing`) instead of a user-facing `ArgumentError`.
             if needs_n
                 if !hasproperty(spec, :n)
-                    push!(issues, "group $(k): missing required field `n` for non-explicit diameters")
+                    push!(
+                        issues,
+                        "group $(k): missing required field `n` for non-explicit diameters",
+                    )
                 else
                     n = getproperty(spec, :n)
                     if !(n isa Integer) || n < 1
-                        push!(issues, "group $(k): `n` must be a positive integer for non-explicit diameters")
+                        push!(
+                            issues,
+                            "group $(k): `n` must be a positive integer for non-explicit diameters",
+                        )
                     end
                 end
             end
@@ -470,7 +500,10 @@ function validate_plankton_inputs(plankton_dynamics, plankton_args)
             if d isa AbstractVector && hasproperty(spec, :n)
                 n = getproperty(spec, :n)
                 if n != length(d)
-                    push!(issues, "group $(k): `n` ($(n)) does not match length(diameters) ($(length(d)))")
+                    push!(
+                        issues,
+                        "group $(k): `n` ($(n)) does not match length(diameters) ($(length(d)))",
+                    )
                 end
             end
         end
@@ -478,9 +511,13 @@ function validate_plankton_inputs(plankton_dynamics, plankton_args)
         if !(hasproperty(spec, :args) || hasproperty(spec, :pft))
             push!(issues, "group $(k): must provide `args` or `pft`")
         else
-            pft = hasproperty(spec, :pft) ? getproperty(spec, :pft) : getproperty(spec, :args)
+            pft =
+                hasproperty(spec, :pft) ? getproperty(spec, :pft) : getproperty(spec, :args)
             ok = pft isa PFTSpecification || pft isa NamedTuple
-            ok || push!(issues, "group $(k): `args`/`pft` must be PFTSpecification or NamedTuple")
+            ok || push!(
+                issues,
+                "group $(k): `args`/`pft` must be PFTSpecification or NamedTuple",
+            )
         end
     end
 
@@ -509,9 +546,14 @@ function parse_community(
     for g in group_symbols
         spec = getfield(plankton_args, g)
         dspec = diameter_specification(getproperty(spec, :diameters))
-        n = dspec isa DiameterListSpecification ? length(dspec.diameters) : getproperty(spec, :n)
+        n = if dspec isa DiameterListSpecification
+            length(dspec.diameters)
+        else
+            getproperty(spec, :n)
+        end
         ds = param_compute_diameters(FT, n, dspec)
-        pft_raw = hasproperty(spec, :pft) ? getproperty(spec, :pft) : getproperty(spec, :args)
+        pft_raw =
+            hasproperty(spec, :pft) ? getproperty(spec, :pft) : getproperty(spec, :args)
         pft = pft_raw isa PFTSpecification ? pft_raw : PFTSpecification(pft_raw)
 
         for i in 1:n
@@ -530,12 +572,18 @@ function parse_community(
         push!(get!(group_indices, g, Int[]), i)
     end
 
-    _indices_for_groups(groups) = groups === nothing ? collect(1:n_total) : begin
-        idx = Int[]
-        for g in groups
-            haskey(group_indices, g) && append!(idx, group_indices[g])
+    function _indices_for_groups(groups)
+        return if groups === nothing
+            collect(1:n_total)
+        else
+            begin
+            idx = Int[]
+            for g in groups
+                haskey(group_indices, g) && append!(idx, group_indices[g])
+            end
+            idx
         end
-        idx
+        end
     end
 
     consumer_indices = _indices_for_groups(consumer_groups(factory))
@@ -676,11 +724,7 @@ same keys as `budgets`.
 This function does not depend on `Test` and can be used for lightweight model diagnostics.
 """
 function box_model_mass_balance(
-    box_model,
-    budgets::NamedTuple;
-    dt,
-    nsteps::Integer,
-    location::NTuple{3,Int}=(1, 1, 1),
+    box_model, budgets::NamedTuple; dt, nsteps::Integer, location::NTuple{3,Int}=(1, 1, 1)
 )
     initial = map(terms -> box_model_budget(box_model, terms; location), budgets)
 
@@ -694,6 +738,5 @@ function box_model_mass_balance(
 
     return (; initial, final, drift, relative_drift)
 end
-
 
 end # module

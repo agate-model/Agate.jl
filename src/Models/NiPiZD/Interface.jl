@@ -35,17 +35,13 @@ Axis-local group-block matrices sized `(n_consumer_groups, n_prey_groups)` are a
 using OceanBioME: BoxModelGrid
 
 using .Tracers:
-    nutrient_default,
-    detritus_default,
-    phytoplankton_default,
-    zooplankton_default
+    nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
 
 import ...Utils
 import ...Constructor
 import ...FactoryInterface
 
 export construct
-
 
 """
     construct(; kw...) -> bgc
@@ -69,17 +65,17 @@ Returns
 An `Oceananigans.Biogeochemistry.AbstractContinuousFormBiogeochemistry` instance.
 """
 function construct(;
-    n_phyto::Int = 2,
-    n_zoo::Int = 2,
-    phyto_diameters = (2, 10, :log_splitting),
-    zoo_diameters = (20, 100, :linear_splitting),
-    parameters::NamedTuple = (;),
-    palatability_matrix = nothing,
-    assimilation_matrix = nothing,
-    grid = BoxModelGrid(),
-    arch = nothing,
-    sinking_tracers = nothing,
-    open_bottom::Bool = true,
+    n_phyto::Int=2,
+    n_zoo::Int=2,
+    phyto_diameters=(2, 10, :log_splitting),
+    zoo_diameters=(20, 100, :linear_splitting),
+    parameters::NamedTuple=(;),
+    palatability_matrix=nothing,
+    assimilation_matrix=nothing,
+    grid=BoxModelGrid(),
+    arch=nothing,
+    sinking_tracers=nothing,
+    open_bottom::Bool=true,
 )
     n_phyto >= 1 || throw(ArgumentError("n_phyto must be >= 1"))
     n_zoo >= 1 || throw(ArgumentError("n_zoo must be >= 1"))
@@ -90,38 +86,39 @@ function construct(;
     base = FactoryInterface.default_community(factory)
     community = Constructor.build_ZP_community(
         base;
-        n_zoo = n_zoo,
-        n_phyto = n_phyto,
-        zoo_diameters = Utils.diameter_specification(zoo_diameters),
-        phyto_diameters = Utils.diameter_specification(phyto_diameters),
+        n_zoo=n_zoo,
+        n_phyto=n_phyto,
+        zoo_diameters=Utils.diameter_specification(zoo_diameters),
+        phyto_diameters=Utils.diameter_specification(phyto_diameters),
     )
 
     # Fixed defaults for the public constructor.
-    plankton_dynamics = (Z = zooplankton_default, P = phytoplankton_default)
-    biogeochem_dynamics = (N = nutrient_default, D = detritus_default)
+    plankton_dynamics = (Z=zooplankton_default, P=phytoplankton_default)
+    biogeochem_dynamics = (N=nutrient_default, D=detritus_default)
 
     # Interaction overrides (optional).
     #
     # We forward overrides through the model-agnostic constructor as a `NamedTuple`.
     # If a value is a function, it will be evaluated once against the InteractionContext
     # during construction.
-    pairs = Pair{Symbol, Any}[]
-    palatability_matrix !== nothing && push!(pairs, :palatability_matrix => palatability_matrix)
-    assimilation_matrix !== nothing && push!(pairs, :assimilation_matrix => assimilation_matrix)
+    pairs = Pair{Symbol,Any}[]
+    palatability_matrix !== nothing &&
+        push!(pairs, :palatability_matrix => palatability_matrix)
+    assimilation_matrix !== nothing &&
+        push!(pairs, :assimilation_matrix => assimilation_matrix)
 
     interactions = isempty(pairs) ? nothing : (; pairs...)
 
     return Constructor.construct_factory(
-
         spec;
-        plankton_dynamics = plankton_dynamics,
-        biogeochem_dynamics = biogeochem_dynamics,
-        community = community,
-        parameters = parameters,
-        interactions = interactions,
-        arch = arch,
-        sinking_tracers = sinking_tracers,
-        grid = grid,
-        open_bottom = open_bottom,
+        plankton_dynamics=plankton_dynamics,
+        biogeochem_dynamics=biogeochem_dynamics,
+        community=community,
+        parameters=parameters,
+        interactions=interactions,
+        arch=arch,
+        sinking_tracers=sinking_tracers,
+        grid=grid,
+        open_bottom=open_bottom,
     )
 end

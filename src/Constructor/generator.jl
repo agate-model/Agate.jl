@@ -78,7 +78,9 @@ end
 
 function (f::AgateBGCFactory)(parameters)
     _validate_parameters(parameters, f.required_params)
-    return AgateBGC(parameters, f.tracer_functions, f.auxiliary_fields, f.default_sinking_velocities)
+    return AgateBGC(
+        parameters, f.tracer_functions, f.auxiliary_fields, f.default_sinking_velocities
+    )
 end
 
 function (f::AgateBGCFactory)(parameters, sinking_velocities)
@@ -108,21 +110,29 @@ function _compile_tracer_functions(parameters, tracers::NamedTuple)
     required_params = Symbol[]
 
     for (tracer_name, tracer_val) in pairs(tracers)
-        tracer_val isa CompiledEquation || throw(ArgumentError(
-            "Tracer map values must be Agate.Functors.CompiledEquation; got $(typeof(tracer_val)).",
-        ))
+        tracer_val isa CompiledEquation || throw(
+            ArgumentError(
+                "Tracer map values must be Agate.Functors.CompiledEquation; got $(typeof(tracer_val)).",
+            ),
+        )
 
         r = requirements(tracer_val)
         used_params = _unique_params_from_requirements(r)
 
         for k in used_params
             if k in coordinates
-                throw(ArgumentError("Tracer :$(tracer_name) declares reserved parameter name :$(k)."))
+                throw(
+                    ArgumentError(
+                        "Tracer :$(tracer_name) declares reserved parameter name :$(k)."
+                    ),
+                )
             end
             if k ∉ parameter_keys
-                throw(ArgumentError(
-                    "Tracer :$(tracer_name) requires parameter :$(k), but it is not present in the provided parameters.",
-                ))
+                throw(
+                    ArgumentError(
+                        "Tracer :$(tracer_name) requires parameter :$(k), but it is not present in the provided parameters.",
+                    ),
+                )
             end
             (k in required_params) || push!(required_params, k)
         end
@@ -159,5 +169,7 @@ function define_tracer_functions(
 
     tracer_functions, required_params = _compile_tracer_functions(parameters, tracers)
 
-    return AgateBGCFactory(tracer_functions, auxiliary_fields, required_params, sinking_velocities)
+    return AgateBGCFactory(
+        tracer_functions, auxiliary_fields, required_params, sinking_velocities
+    )
 end

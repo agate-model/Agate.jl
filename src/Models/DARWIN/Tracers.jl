@@ -62,7 +62,9 @@ end
             p.half_saturation_PO4[i],
             p.photosynthetic_slope[i],
             p.chlorophyll_to_carbon_ratio[i],
-        )(DIN, PO4, P, PAR)
+        )(
+            DIN, PO4, P, PAR
+        )
     end
 end
 
@@ -77,7 +79,7 @@ end
 function DIC_geider_light(plankton_syms)
     npl = length(plankton_syms)
 
-    requirements = req(
+    requirements = req(;
         scalars=(:DOC_remineralization, :POC_remineralization),
         vectors=(
             :maximum_growth_rate,
@@ -100,8 +102,9 @@ function DIC_geider_light(plankton_syms)
 
         uptake = _uptake_sum_geider(p, state, plankton_syms, npl, DIN, PO4, PAR)
 
-        dic_remin = LinearRemineralization(p.DOC_remineralization)(DOC) +
-                    LinearRemineralization(p.POC_remineralization)(POC)
+        dic_remin =
+            LinearRemineralization(p.DOC_remineralization)(DOC) +
+            LinearRemineralization(p.POC_remineralization)(POC)
 
         return dic_remin - uptake
     end
@@ -113,7 +116,7 @@ end
 function DIN_geider_light(plankton_syms)
     npl = length(plankton_syms)
 
-    requirements = req(
+    requirements = req(;
         scalars=(:DON_remineralization, :PON_remineralization, :nitrogen_to_carbon),
         vectors=(
             :maximum_growth_rate,
@@ -136,8 +139,9 @@ function DIN_geider_light(plankton_syms)
 
         uptake = _uptake_sum_geider(p, state, plankton_syms, npl, DIN, PO4, PAR)
 
-        din_remin = LinearRemineralization(p.DON_remineralization)(DON) +
-                    LinearRemineralization(p.PON_remineralization)(PON)
+        din_remin =
+            LinearRemineralization(p.DON_remineralization)(DON) +
+            LinearRemineralization(p.PON_remineralization)(PON)
 
         return din_remin - p.nitrogen_to_carbon * uptake
     end
@@ -149,7 +153,7 @@ end
 function PO4_geider_light(plankton_syms)
     npl = length(plankton_syms)
 
-    requirements = req(
+    requirements = req(;
         scalars=(:DOP_remineralization, :POP_remineralization, :phosphorus_to_carbon),
         vectors=(
             :maximum_growth_rate,
@@ -172,8 +176,9 @@ function PO4_geider_light(plankton_syms)
 
         uptake = _uptake_sum_geider(p, state, plankton_syms, npl, DIN, PO4, PAR)
 
-        po4_remin = LinearRemineralization(p.DOP_remineralization)(DOP) +
-                    LinearRemineralization(p.POP_remineralization)(POP)
+        po4_remin =
+            LinearRemineralization(p.DOP_remineralization)(DOP) +
+            LinearRemineralization(p.POP_remineralization)(POP)
 
         return po4_remin - p.phosphorus_to_carbon * uptake
     end
@@ -187,9 +192,14 @@ end
 function DOC_default(plankton_syms)
     npl = length(plankton_syms)
 
-    requirements = req(
+    requirements = req(;
         scalars=(:DOM_POM_fractionation, :DOC_remineralization),
-        vectors=(:linear_mortality, :quadratic_mortality, :maximum_predation_rate, :holling_half_saturation),
+        vectors=(
+            :linear_mortality,
+            :quadratic_mortality,
+            :maximum_predation_rate,
+            :holling_half_saturation,
+        ),
         matrices=(:palatability_matrix, :assimilation_matrix),
     )
 
@@ -214,9 +224,14 @@ end
 function POC_default(plankton_syms)
     npl = length(plankton_syms)
 
-    requirements = req(
+    requirements = req(;
         scalars=(:DOM_POM_fractionation, :POC_remineralization),
-        vectors=(:linear_mortality, :quadratic_mortality, :maximum_predation_rate, :holling_half_saturation),
+        vectors=(
+            :linear_mortality,
+            :quadratic_mortality,
+            :maximum_predation_rate,
+            :holling_half_saturation,
+        ),
         matrices=(:palatability_matrix, :assimilation_matrix),
     )
 
@@ -240,9 +255,14 @@ end
 function DON_default(plankton_syms)
     npl = length(plankton_syms)
 
-    requirements = req(
+    requirements = req(;
         scalars=(:DOM_POM_fractionation, :DON_remineralization, :nitrogen_to_carbon),
-        vectors=(:linear_mortality, :quadratic_mortality, :maximum_predation_rate, :holling_half_saturation),
+        vectors=(
+            :linear_mortality,
+            :quadratic_mortality,
+            :maximum_predation_rate,
+            :holling_half_saturation,
+        ),
         matrices=(:palatability_matrix, :assimilation_matrix),
     )
 
@@ -267,9 +287,14 @@ end
 function PON_default(plankton_syms)
     npl = length(plankton_syms)
 
-    requirements = req(
+    requirements = req(;
         scalars=(:DOM_POM_fractionation, :PON_remineralization, :nitrogen_to_carbon),
-        vectors=(:linear_mortality, :quadratic_mortality, :maximum_predation_rate, :holling_half_saturation),
+        vectors=(
+            :linear_mortality,
+            :quadratic_mortality,
+            :maximum_predation_rate,
+            :holling_half_saturation,
+        ),
         matrices=(:palatability_matrix, :assimilation_matrix),
     )
 
@@ -293,9 +318,14 @@ end
 function DOP_default(plankton_syms)
     npl = length(plankton_syms)
 
-    requirements = req(
+    requirements = req(;
         scalars=(:DOM_POM_fractionation, :DOP_remineralization, :phosphorus_to_carbon),
-        vectors=(:linear_mortality, :quadratic_mortality, :maximum_predation_rate, :holling_half_saturation),
+        vectors=(
+            :linear_mortality,
+            :quadratic_mortality,
+            :maximum_predation_rate,
+            :holling_half_saturation,
+        ),
         matrices=(:palatability_matrix, :assimilation_matrix),
     )
 
@@ -320,9 +350,14 @@ end
 function POP_default(plankton_syms)
     npl = length(plankton_syms)
 
-    requirements = req(
+    requirements = req(;
         scalars=(:DOM_POM_fractionation, :POP_remineralization, :phosphorus_to_carbon),
-        vectors=(:linear_mortality, :quadratic_mortality, :maximum_predation_rate, :holling_half_saturation),
+        vectors=(
+            :linear_mortality,
+            :quadratic_mortality,
+            :maximum_predation_rate,
+            :holling_half_saturation,
+        ),
         matrices=(:palatability_matrix, :assimilation_matrix),
     )
 
@@ -345,8 +380,10 @@ end
 # --- Plankton ---------------------------------------------------------------
 
 """Phytoplankton tendency with Geider-style, two-nutrient growth."""
-function phytoplankton_growth_two_nutrients_geider_light(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
-    requirements = req(
+function phytoplankton_growth_two_nutrients_geider_light(
+    plankton_syms, plankton_sym::Symbol, plankton_idx::Int
+)
+    requirements = req(;
         vectors=(
             :maximum_growth_rate,
             :half_saturation_DIN,
@@ -375,7 +412,9 @@ function phytoplankton_growth_two_nutrients_geider_light(plankton_syms, plankton
             p.half_saturation_PO4[plankton_idx],
             p.photosynthetic_slope[plankton_idx],
             p.chlorophyll_to_carbon_ratio[plankton_idx],
-        )(DIN, PO4, P, PAR)
+        )(
+            DIN, PO4, P, PAR
+        )
 
         grazing = _grazing_loss_sum(p, state, plankton_syms, P, plankton_idx, zero(P))
 
@@ -389,8 +428,13 @@ end
 
 """Zooplankton tendency with preferential grazing gain."""
 function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
-    requirements = req(
-        vectors=(:linear_mortality, :quadratic_mortality, :maximum_predation_rate, :holling_half_saturation),
+    requirements = req(;
+        vectors=(
+            :linear_mortality,
+            :quadratic_mortality,
+            :maximum_predation_rate,
+            :holling_half_saturation,
+        ),
         matrices=(:palatability_matrix, :assimilation_matrix),
     )
 

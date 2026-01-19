@@ -41,7 +41,6 @@ PFTSpecification(; kwargs...) = PFTSpecification((; kwargs...))
     return pft_has(pft, key) ? getproperty(pft.data, key) : default
 end
 
-
 # Adapt support for `NamedTuple` payloads
 #
 # Many Agate runtime bundles store parameters in `NamedTuple`s for cheap field

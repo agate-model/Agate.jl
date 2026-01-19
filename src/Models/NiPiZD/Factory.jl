@@ -10,13 +10,15 @@ using ...Utils: DiameterRangeSpecification
 
 # NOTE: Defaults are provided by `Constructor.default_parameters` (see `Models/NiPiZD/Parameters.jl`).
 
-import ...FactoryInterface: default_plankton_dynamics, default_community, default_biogeochem_dynamics, factory_groups, consumer_groups, prey_groups
+import ...FactoryInterface:
+    default_plankton_dynamics,
+    default_community,
+    default_biogeochem_dynamics,
+    factory_groups,
+    consumer_groups,
+    prey_groups
 using .Tracers:
-    nutrient_default,
-    detritus_default,
-    phytoplankton_default,
-    zooplankton_default
-
+    nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
 
 """Factory for the size-structured NiPiZD model."""
 struct NiPiZDFactory <: AbstractBGCFactory end
@@ -37,10 +39,8 @@ prey_groups(::NiPiZDFactory) = (:P,)
 
 Returns a `NamedTuple` mapping group prefix => tracer dynamics builder.
 """
-default_plankton_dynamics(::NiPiZDFactory) = (
-    Z = zooplankton_default,
-    P = phytoplankton_default,
-)
+default_plankton_dynamics(::NiPiZDFactory) =
+    (Z=zooplankton_default, P=phytoplankton_default)
 
 """Default plankton arguments for NiPiZD.
 
@@ -52,16 +52,16 @@ function default_community(::NiPiZDFactory)
     # Structural defaults only (sizes/diameters). No parameter defaults.
     empty_pft = PFTSpecification()
     return (
-        Z = (; n = 2, diameters = DiameterRangeSpecification(20, 100, :linear_splitting), pft = empty_pft),
-        P = (; n = 2, diameters = DiameterRangeSpecification(2, 10, :log_splitting), pft = empty_pft),
+        Z=(;
+            n=2,
+            diameters=DiameterRangeSpecification(20, 100, :linear_splitting),
+            pft=empty_pft,
+        ),
+        P=(;
+            n=2, diameters=DiameterRangeSpecification(2, 10, :log_splitting), pft=empty_pft
+        ),
     )
 end
 
 """Default non-plankton tracer dynamics for NiPiZD."""
-default_biogeochem_dynamics(::NiPiZDFactory) = (
-    N = nutrient_default,
-    D = detritus_default,
-)
-
-
-
+default_biogeochem_dynamics(::NiPiZDFactory) = (N=nutrient_default, D=detritus_default)

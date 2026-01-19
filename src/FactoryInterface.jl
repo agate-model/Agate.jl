@@ -10,7 +10,8 @@ dependencies between the generic constructor pipeline and model modules.
 
 module FactoryInterface
 
-using ..Utils: AbstractBGCFactory, ParameterSpec, parameter_directory, consumer_groups, prey_groups
+using ..Utils:
+    AbstractBGCFactory, ParameterSpec, parameter_directory, consumer_groups, prey_groups
 
 export ParameterSpec
 export parameter_directory
@@ -30,14 +31,17 @@ function factory_groups(::AbstractBGCFactory)
     throw(ArgumentError("No method `factory_groups(factory)` is defined for this factory."))
 end
 
-
 """Default plankton dynamics for a factory.
 
 Returns a `NamedTuple` mapping group symbols (e.g. `:Z`, `:P`) to dynamics builder
 functions.
 """
 function default_plankton_dynamics(::AbstractBGCFactory)
-    throw(ArgumentError("No method `default_plankton_dynamics(factory)` is defined for this factory."))
+    throw(
+        ArgumentError(
+            "No method `default_plankton_dynamics(factory)` is defined for this factory."
+        ),
+    )
 end
 
 """Default plankton community structure for a factory.
@@ -49,7 +53,9 @@ PFT specifications, etc.). Numeric parameter defaults are sourced from the
 factory's default parameter generator (`Constructor.default_parameters`).
 """
 function default_community(::AbstractBGCFactory)
-    throw(ArgumentError("No method `default_community(factory)` is defined for this factory."))
+    throw(
+        ArgumentError("No method `default_community(factory)` is defined for this factory.")
+    )
 end
 
 """Default non-plankton tracer dynamics for a factory.
@@ -58,7 +64,11 @@ Returns a `NamedTuple` mapping tracer symbols (e.g. `:N`, `:DIC`) to dynamics
 builder functions.
 """
 function default_biogeochem_dynamics(::AbstractBGCFactory)
-    throw(ArgumentError("No method `default_biogeochem_dynamics(factory)` is defined for this factory."))
+    throw(
+        ArgumentError(
+            "No method `default_biogeochem_dynamics(factory)` is defined for this factory."
+        ),
+    )
 end
 
 end # module FactoryInterface

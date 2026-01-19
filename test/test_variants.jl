@@ -2,9 +2,9 @@
     id = Agate.Models.ModelId(:DARWIN, :citation2026, :A)
 
     # Registry should contain the example variant (loaded when DARWIN is included).
-    @test id in Agate.Models.list_variants(family = :DARWIN)
+    @test id in Agate.Models.list_variants(; family=:DARWIN)
 
-    spec = Agate.Models.variant(id; n_phyto = 3, n_zoo = 2)
+    spec = Agate.Models.variant(id; n_phyto=3, n_zoo=2)
 
     @test spec.id == id
     @test spec.community.P.n == 3

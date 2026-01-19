@@ -8,8 +8,7 @@ and never touch state arrays.
 """
 
 import Oceananigans.Biogeochemistry:
-    required_biogeochemical_auxiliary_fields,
-    required_biogeochemical_tracers
+    required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
 
 @inline function _preview_list(xs; n::Int=12)
     m = length(xs)
@@ -82,10 +81,10 @@ The returned `NamedTuple` contains:
 """
 function model_summary(bgc)
     return (
-        tracers = tracer_names(bgc),
-        auxiliary_fields = auxiliary_field_names(bgc),
-        parameters = parameter_names(bgc),
-        has_sinking_velocities = Base.hasproperty(bgc, :sinking_velocities),
+        tracers=tracer_names(bgc),
+        auxiliary_fields=auxiliary_field_names(bgc),
+        parameters=parameter_names(bgc),
+        has_sinking_velocities=Base.hasproperty(bgc, :sinking_velocities),
     )
 end
 
@@ -100,16 +99,37 @@ function describe(io::IO, bgc; verbose::Bool=false)
     s = model_summary(bgc)
 
     println(io, "Agate biogeochemistry instance")
-    println(io, "  tracers (", length(s.tracers), "): ", verbose ? join(string.(s.tracers), ", ") : _preview_list(s.tracers))
+    println(
+        io,
+        "  tracers (",
+        length(s.tracers),
+        "): ",
+        verbose ? join(string.(s.tracers), ", ") : _preview_list(s.tracers),
+    )
 
     if isempty(s.auxiliary_fields)
         println(io, "  auxiliary fields: (none)")
     else
-        println(io, "  auxiliary fields (", length(s.auxiliary_fields), "): ",
-                verbose ? join(string.(s.auxiliary_fields), ", ") : _preview_list(s.auxiliary_fields))
+        println(
+            io,
+            "  auxiliary fields (",
+            length(s.auxiliary_fields),
+            "): ",
+            if verbose
+                join(string.(s.auxiliary_fields), ", ")
+            else
+                _preview_list(s.auxiliary_fields)
+            end,
+        )
     end
 
-    println(io, "  parameters (", length(s.parameters), "): ", verbose ? join(string.(s.parameters), ", ") : _preview_list(s.parameters))
+    println(
+        io,
+        "  parameters (",
+        length(s.parameters),
+        "): ",
+        verbose ? join(string.(s.parameters), ", ") : _preview_list(s.parameters),
+    )
     println(io, "  sinking velocities: ", s.has_sinking_velocities ? "yes" : "no")
 
     return nothing

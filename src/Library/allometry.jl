@@ -77,9 +77,12 @@ This is the one function the constructor uses when building runtime parameter ve
 
 @inline resolve_param(::Type{FT}, x::Bool, diameter) where {FT<:AbstractFloat} = x
 
-@inline resolve_param(::Type{FT}, p::ConstantParam, diameter) where {FT<:AbstractFloat} = FT(p.value)
+@inline resolve_param(::Type{FT}, p::ConstantParam, diameter) where {FT<:AbstractFloat} =
+    FT(p.value)
 
-@inline function resolve_param(::Type{FT}, p::AllometricParam, diameter) where {FT<:AbstractFloat}
+@inline function resolve_param(
+    ::Type{FT}, p::AllometricParam, diameter
+) where {FT<:AbstractFloat}
     # Coefficients often come from literal numbers (Float64). Convert them to FT so we
     # never mix Float32/Float64 in the underlying allometric calls.
     coeffs = map(v -> v isa Number ? FT(v) : v, p.coeffs)
@@ -116,7 +119,9 @@ struct PalatabilityPredatorParameters{FT<:AbstractFloat}
 end
 
 """Power-law scaling function using spherical volume."""
-@inline function allometric_scaling_power(a::FT, b::FT, diameter::FT) where {FT<:AbstractFloat}
+@inline function allometric_scaling_power(
+    a::FT, b::FT, diameter::FT
+) where {FT<:AbstractFloat}
     r = diameter / FT(2)
     volume = (FT(4) / FT(3)) * FT(π) * r^FT(3)
     return a * volume^b
@@ -136,7 +141,7 @@ end
 
 Protection η reduces palatability as `(1 - η)` (so η=0 means no protection).
 """
- function allometric_palatability_unimodal_protection(
+function allometric_palatability_unimodal_protection(
     prey::PalatabilityPreyParameters{FT}, predator::PalatabilityPredatorParameters{FT}
 ) where {FT<:AbstractFloat}
     base = allometric_palatability_unimodal(prey, predator)
@@ -163,10 +168,7 @@ function palatability_matrix_allometric(
         end
 
         predator = PalatabilityPredatorParameters{FT}(
-            true,
-            diameters[pred],
-            optimum_predator_prey_ratio[pred],
-            specificity[pred],
+            true, diameters[pred], optimum_predator_prey_ratio[pred], specificity[pred]
         )
 
         for prey in 1:n
@@ -209,10 +211,7 @@ function palatability_matrix_allometric_axes(
         end
 
         predator = PalatabilityPredatorParameters{FT}(
-            true,
-            diameters[pred],
-            optimum_predator_prey_ratio[pred],
-            specificity[pred],
+            true, diameters[pred], optimum_predator_prey_ratio[pred], specificity[pred]
         )
 
         for (jj, prey) in pairs(prey_indices)
@@ -351,7 +350,9 @@ function build_palatability_matrix(
         pd = pft_data[i]
         can_eat[i] = Bool(_trait_get(pd, :can_eat, false))
         can_be_eaten[i] = Bool(_trait_get(pd, :can_be_eaten, true))
-        optimum[i] = _resolve_trait(FT, _trait_get(pd, :optimum_predator_prey_ratio, zero(FT)), diameters[i])
+        optimum[i] = _resolve_trait(
+            FT, _trait_get(pd, :optimum_predator_prey_ratio, zero(FT)), diameters[i]
+        )
         spec[i] = _resolve_trait(FT, _trait_get(pd, :specificity, zero(FT)), diameters[i])
         prot[i] = _resolve_trait(FT, _trait_get(pd, :protection, zero(FT)), diameters[i])
     end
@@ -380,9 +381,7 @@ Traits used by the default rule:
 - `assimilation_efficiency` (default `0`)
 """
 function build_assimilation_matrix(
-    ::Type{FT},
-    pft_data,
-    diameters::AbstractVector{FT};
+    ::Type{FT}, pft_data, diameters::AbstractVector{FT};
 ) where {FT<:AbstractFloat}
     n = length(diameters)
 
@@ -394,14 +393,13 @@ function build_assimilation_matrix(
         pd = pft_data[i]
         can_eat[i] = Bool(_trait_get(pd, :can_eat, false))
         can_be_eaten[i] = Bool(_trait_get(pd, :can_be_eaten, true))
-        assim[i] = _resolve_trait(FT, _trait_get(pd, :assimilation_efficiency, zero(FT)), diameters[i])
+        assim[i] = _resolve_trait(
+            FT, _trait_get(pd, :assimilation_efficiency, zero(FT)), diameters[i]
+        )
     end
 
     return assimilation_efficiency_matrix_binary(
-        FT;
-        can_eat=can_eat,
-        can_be_eaten=can_be_eaten,
-        assimilation_efficiency=assim,
+        FT; can_eat=can_eat, can_be_eaten=can_be_eaten, assimilation_efficiency=assim
     )
 end
 

@@ -14,7 +14,7 @@ using Oceananigans.Biogeochemistry:
 
 @testset "Utils" begin
     @testset "define_tracer_functions" begin
-        parameters = (α = 2 / 3, β = 4 / 3, δ = 1.0, γ = 1.0)
+        parameters = (α=2 / 3, β=4 / 3, δ=1.0, γ=1.0)
 
         fR = (bgc, x, y, z, t, R, F) -> begin
             p = bgc.parameters
@@ -27,8 +27,8 @@ using Oceananigans.Biogeochemistry:
         end
 
         tracers = (
-            R = CompiledEquation(fR, req(scalars=(:α, :β))),
-            F = CompiledEquation(fF, req(scalars=(:γ, :δ))),
+            R=CompiledEquation(fR, req(; scalars=(:α, :β))),
+            F=CompiledEquation(fF, req(; scalars=(:γ, :δ))),
         )
 
         bgc_type = define_tracer_functions(parameters, tracers; auxiliary_fields=())
@@ -45,13 +45,13 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "define_tracer_functions error context" begin
-        parameters = (α = 2.0,)
+        parameters = (α=2.0,)
         fR = (bgc, x, y, z, t, R) -> begin
             p = bgc.parameters
             p.α * R
         end
 
-        tracers = (R = CompiledEquation(fR, req(scalars=(:α, :missing_param))),)
+        tracers = (R=CompiledEquation(fR, req(; scalars=(:α, :missing_param))),)
 
         err = try
             define_tracer_functions(parameters, tracers; auxiliary_fields=())
@@ -67,23 +67,20 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "Optional sinking velocities" begin
-        parameters = (k = 1.0,)
+        parameters = (k=1.0,)
         fC = (bgc, x, y, z, t, C) -> begin
             p = bgc.parameters
             -p.k * C
         end
 
-        tracers = (C = CompiledEquation(fC, req(scalars=(:k,))),)
+        tracers = (C=CompiledEquation(fC, req(; scalars=(:k,))),)
 
         grid = BoxModelGrid()
-        sinking_tracers = (C = 1.0 / day,)
+        sinking_tracers = (C=1.0 / day,)
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, true)
 
         bgc_type = define_tracer_functions(
-            parameters,
-            tracers;
-            auxiliary_fields=(),
-            sinking_velocities=sinking_velocities,
+            parameters, tracers; auxiliary_fields=(), sinking_velocities=sinking_velocities
         )
 
         bgc = bgc_type(parameters, sinking_velocities)

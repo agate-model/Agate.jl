@@ -14,8 +14,7 @@ const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
 examples = [
-    "Box model customisation" => "box_model_factories",
-    "Column model" => "1D_column",
+    "Box model customisation" => "box_model_factories", "Column model" => "1D_column"
 ]
 
 example_scripts = [filename * ".jl" for (title, filename) in examples]

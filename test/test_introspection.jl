@@ -1,7 +1,6 @@
 using Agate
 using Test
 
-
 @testset "Public introspection helpers" begin
     @testset "Model-constructed instance" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))

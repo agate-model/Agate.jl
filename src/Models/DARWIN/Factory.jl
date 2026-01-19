@@ -14,7 +14,13 @@ using ...Utils: DiameterRangeSpecification
 
 # NOTE: Defaults are provided by `Constructor.default_parameters` (see `Models/DARWIN/Parameters.jl`).
 
-import ...FactoryInterface: default_plankton_dynamics, default_community, default_biogeochem_dynamics, factory_groups, consumer_groups, prey_groups
+import ...FactoryInterface:
+    default_plankton_dynamics,
+    default_community,
+    default_biogeochem_dynamics,
+    factory_groups,
+    consumer_groups,
+    prey_groups
 
 using .Tracers:
     DIC_geider_light,
@@ -45,10 +51,8 @@ consumer_groups(::DarwinFactory) = (:Z,)
 prey_groups(::DarwinFactory) = (:P,)
 
 """Default plankton dynamics for DARWIN."""
-default_plankton_dynamics(::DarwinFactory) = (
-    Z = zooplankton_default,
-    P = phytoplankton_growth_two_nutrients_geider_light,
-)
+default_plankton_dynamics(::DarwinFactory) =
+    (Z=zooplankton_default, P=phytoplankton_growth_two_nutrients_geider_light)
 
 """Default structural parameter arguments for DARWIN.
 
@@ -60,20 +64,26 @@ function default_community(::DarwinFactory)
     # Structural defaults only (sizes/diameters). No parameter defaults.
     empty_pft = PFTSpecification()
     return (
-        Z = (; n = 2, diameters = DiameterRangeSpecification(20, 100, :linear_splitting), pft = empty_pft),
-        P = (; n = 2, diameters = DiameterRangeSpecification(2, 10, :log_splitting), pft = empty_pft),
+        Z=(;
+            n=2,
+            diameters=DiameterRangeSpecification(20, 100, :linear_splitting),
+            pft=empty_pft,
+        ),
+        P=(;
+            n=2, diameters=DiameterRangeSpecification(2, 10, :log_splitting), pft=empty_pft
+        ),
     )
 end
 
 """Default non-plankton tracer dynamics for DARWIN."""
 default_biogeochem_dynamics(::DarwinFactory) = (
-    DIC = DIC_geider_light,
-    DIN = DIN_geider_light,
-    PO4 = PO4_geider_light,
-    DOC = DOC_default,
-    POC = POC_default,
-    DON = DON_default,
-    PON = PON_default,
-    DOP = DOP_default,
-    POP = POP_default,
+    DIC=DIC_geider_light,
+    DIN=DIN_geider_light,
+    PO4=PO4_geider_light,
+    DOC=DOC_default,
+    POC=POC_default,
+    DON=DON_default,
+    PON=PON_default,
+    DOP=DOP_default,
+    POP=POP_default,
 )

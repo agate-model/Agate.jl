@@ -80,7 +80,9 @@ nothing #hide
 tracer_syms = tracer_names(bgc)
 
 # Extract data for plotting
-timeseries = (; (s => FieldTimeSeries(filename, string(s))[1, 1, 1, :] for s in tracer_syms)...)
+timeseries = (;
+    (s => FieldTimeSeries(filename, string(s))[1, 1, 1, :] for s in tracer_syms)...
+)
 nothing #hide
 
 # Create a figure

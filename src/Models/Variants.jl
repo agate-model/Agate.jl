@@ -44,7 +44,9 @@ Base.string(id::ModelId) = string(id.family, "/", id.citation, "/", id.tag)
 
 `VariantSpec` stores the *inputs* to `Agate.Constructor.construct_factory`.
 """
-struct VariantSpec{F<:AbstractBGCFactory, PD<:NamedTuple, BD<:NamedTuple, C<:NamedTuple, P<:NamedTuple, I}
+struct VariantSpec{
+    F<:AbstractBGCFactory,PD<:NamedTuple,BD<:NamedTuple,C<:NamedTuple,P<:NamedTuple,I
+}
     id::ModelId
     factory::F
     plankton_dynamics::PD
@@ -58,7 +60,7 @@ end
 
 Values are builder functions that accept keyword arguments and return a `VariantSpec`.
 """
-const _VARIANT_REGISTRY = Dict{ModelId, Function}()
+const _VARIANT_REGISTRY = Dict{ModelId,Function}()
 
 """Register a variant builder.
 
@@ -73,7 +75,9 @@ end
 
 You may filter by `family` and/or `citation`.
 """
-function list_variants(; family::Union{Nothing,Symbol} = nothing, citation::Union{Nothing,Symbol} = nothing)
+function list_variants(;
+    family::Union{Nothing,Symbol}=nothing, citation::Union{Nothing,Symbol}=nothing
+)
     ids = collect(keys(_VARIANT_REGISTRY))
     if !isnothing(family)
         ids = filter(id -> id.family == family, ids)
@@ -81,27 +85,35 @@ function list_variants(; family::Union{Nothing,Symbol} = nothing, citation::Unio
     if !isnothing(citation)
         ids = filter(id -> id.citation == citation, ids)
     end
-    sort!(ids; by = string)
+    sort!(ids; by=string)
     return ids
 end
 
 """Construct a `VariantSpec` from the registry."""
 function variant(id::ModelId; kwargs...)
     builder = get(_VARIANT_REGISTRY, id, nothing)
-    isnothing(builder) && throw(ArgumentError(
-        "unknown variant $(string(id)); available variants: $(join(string.(list_variants()), ", "))",
-    ))
+    isnothing(builder) && throw(
+        ArgumentError(
+            "unknown variant $(string(id)); available variants: $(join(string.(list_variants()), ", "))",
+        ),
+    )
     return builder(; kwargs...)
 end
 
 """Convenience overload: `variant(:DARWIN, :citation2026, :A; kwargs...)`."""
-variant(family::Symbol, citation::Symbol, tag::Symbol; kwargs...) = variant(ModelId(family, citation, tag); kwargs...)
+variant(family::Symbol, citation::Symbol, tag::Symbol; kwargs...) =
+    variant(ModelId(family, citation, tag); kwargs...)
 
 """Construct a model instance from a `VariantSpec`.
 
 This is a thin convenience wrapper around `Agate.Constructor.construct_factory`.
 """
-function construct(spec::VariantSpec; parameters::NamedTuple = (;), interactions::Union{Nothing,NamedTuple} = nothing, kwargs...)
+function construct(
+    spec::VariantSpec;
+    parameters::NamedTuple=(;),
+    interactions::Union{Nothing,NamedTuple}=nothing,
+    kwargs...,
+)
     # Merge runtime overrides on top of the variant defaults.
     params = merge(spec.parameters, parameters)
 
@@ -116,11 +128,11 @@ function construct(spec::VariantSpec; parameters::NamedTuple = (;), interactions
 
     return construct_factory(
         spec.factory;
-        plankton_dynamics = spec.plankton_dynamics,
-        biogeochem_dynamics = spec.biogeochem_dynamics,
-        community = spec.community,
-        parameters = params,
-        interactions = inter,
+        plankton_dynamics=spec.plankton_dynamics,
+        biogeochem_dynamics=spec.biogeochem_dynamics,
+        community=spec.community,
+        parameters=params,
+        interactions=inter,
         kwargs...,
     )
 end

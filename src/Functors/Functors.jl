@@ -16,7 +16,13 @@ _symbol_tuple(::Nothing) = ()
 _symbol_tuple(x::Symbol) = (x,)
 _symbol_tuple(x::Tuple) = Symbol.(x)
 _symbol_tuple(x::AbstractVector) = Tuple(Symbol.(x))
-_symbol_tuple(x) = throw(ArgumentError("Requirements must be Symbol, Tuple, Vector, or nothing; got $(typeof(x))."))
+function _symbol_tuple(x)
+    throw(
+        ArgumentError(
+            "Requirements must be Symbol, Tuple, Vector, or nothing; got $(typeof(x))."
+        ),
+    )
+end
 
 """    req(; vectors=(), matrices=(), scalars=())
 
@@ -25,7 +31,9 @@ Construct a `Requirements` object.
 Each keyword accepts a `Symbol`, a tuple of symbols, a vector of symbols, or `nothing`.
 """
 function req(; vectors=(), matrices=(), scalars=())
-    return Requirements(_symbol_tuple(vectors), _symbol_tuple(matrices), _symbol_tuple(scalars))
+    return Requirements(
+        _symbol_tuple(vectors), _symbol_tuple(matrices), _symbol_tuple(scalars)
+    )
 end
 
 """A wrapper that associates a callable with its parameter requirements."""
@@ -57,7 +65,7 @@ end
 Combine two `Requirements` objects.
 """
 function merge_requirements(r1::Requirements, r2::Requirements)
-    return req(
+    return req(;
         vectors=_merge_syms(r1.vectors, r2.vectors),
         matrices=_merge_syms(r1.matrices, r2.matrices),
         scalars=_merge_syms(r1.scalars, r2.scalars),

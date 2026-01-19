@@ -36,8 +36,8 @@ using Oceananigans.Biogeochemistry:
         end
 
         tracers = (
-            R = CompiledEquation(fR, req(scalars=(:α, :β))),
-            F = CompiledEquation(fF, req(scalars=(:γ, :δ))),
+            R=CompiledEquation(fR, req(; scalars=(:α, :β))),
+            F=CompiledEquation(fF, req(; scalars=(:γ, :δ))),
         )
 
         LV = define_tracer_functions(parameters, tracers; auxiliary_fields=(:PAR,))
@@ -84,19 +84,19 @@ using Oceananigans.Biogeochemistry:
         @test isfinite(model(Val(:Z), 0, 0, 0, 0, ordered..., PAR))
 
         sinking_velocities = setup_velocity_fields(
-            (P = 0.2551 / day, D = 2.7489 / day), BoxModelGrid(), true
+            (P=0.2551 / day, D=2.7489 / day), BoxModelGrid(), true
         )
 
         NPZD_sink = define_tracer_functions(
-            parameters,
-            tracers;
-            sinking_velocities=sinking_velocities,
+            parameters, tracers; sinking_velocities=sinking_velocities
         )
 
         model_sink = NPZD_sink(parameters, sinking_velocities)
 
-        @test biogeochemical_drift_velocity(model_sink, Val(:P)).w.data[1, 1, 1] == -0.2551 / day
-        @test biogeochemical_drift_velocity(model_sink, Val(:D)).w.data[1, 1, 1] == -2.7489 / day
+        @test biogeochemical_drift_velocity(model_sink, Val(:P)).w.data[1, 1, 1] ==
+            -0.2551 / day
+        @test biogeochemical_drift_velocity(model_sink, Val(:D)).w.data[1, 1, 1] ==
+            -2.7489 / day
         @test biogeochemical_drift_velocity(model_sink, Val(:Z)).w == ZeroField()
     end
 end

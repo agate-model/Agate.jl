@@ -6,8 +6,8 @@ both CPU and GPU architectures.
 Each model factory provides a mapping from tracer names to `CompiledEquation` values.
 A `CompiledEquation` stores:
 
-- a callable `f` (the tracer tendency), and
-- a `Requirements` object describing which model parameters the callable reads.
+  - a callable `f` (the tracer tendency), and
+  - a `Requirements` object describing which model parameters the callable reads.
 
 The constructor uses these requirements to validate that the parameter set is complete before
 building the final Oceananigans biogeochemistry object.
@@ -16,8 +16,8 @@ building the final Oceananigans biogeochemistry object.
 
 The types live in `Agate.Functors`:
 
-- `req(; scalars=..., vectors=..., matrices=...)`
-- `CompiledEquation(f, r)`
+  - `req(; scalars=..., vectors=..., matrices=...)`
+  - `CompiledEquation(f, r)`
 
 Requirements are just lists of parameter keys (`Symbol`s). They are intentionally explicit:
 there is no expression parsing during construction.
@@ -37,7 +37,7 @@ using Agate.Functors: CompiledEquation, req
     return -k
 end
 
-eq = CompiledEquation(my_tracer, req(scalars=(:detritus_remineralization,)))
+eq = CompiledEquation(my_tracer, req(; scalars=(:detritus_remineralization,)))
 ```
 
 ## Tracer function signature
@@ -56,8 +56,8 @@ Agate passes the model instance as `bgc`, which stores the resolved parameter Na
 Agate's reusable building blocks live in `Agate.Library`.
 They are small callable structs designed to compose inside tracer functions:
 
-- `Agate.Library.Nutrients`
-- `Agate.Library.Photosynthesis`
-- `Agate.Library.Predation`
-- `Agate.Library.Mortality`
-- `Agate.Library.Remineralization`
+  - `Agate.Library.Nutrients`
+  - `Agate.Library.Photosynthesis`
+  - `Agate.Library.Predation`
+  - `Agate.Library.Mortality`
+  - `Agate.Library.Remineralization`

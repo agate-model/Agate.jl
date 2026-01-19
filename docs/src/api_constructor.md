@@ -3,8 +3,8 @@
 Agate's primary user-facing constructors are model-specific and live under the
 model modules:
 
-- `NiPiZD.construct`
-- `DARWIN.construct`
+  - `NiPiZD.construct`
+  - `DARWIN.construct`
 
 Each constructor returns a concrete biogeochemistry **instance** (already
 `Adapt.jl` compatible) that composes with OceanBioME/Oceananigans.
@@ -23,8 +23,8 @@ uses `Float64`.
 
 To construct directly on a GPU architecture, either:
 
-- request a GPU instance via `arch=GPU(...)`, or
-- adapt the returned instance explicitly (for example with CUDA).
+  - request a GPU instance via `arch=GPU(...)`, or
+  - adapt the returned instance explicitly (for example with CUDA).
 
 ```julia
 using Adapt
@@ -46,9 +46,13 @@ Agate infers precision from `eltype(grid)` and defaults `arch = architecture(gri
 using Oceananigans
 using Oceananigans.Architectures: GPU
 
-grid = RectilinearGrid(size=(16, 16, 16), extent=(1, 1, 1),
-                       topology=(Periodic, Periodic, Bounded),
-                       architecture=GPU(), float_type=Float32)
+grid = RectilinearGrid(;
+    size=(16, 16, 16),
+    extent=(1, 1, 1),
+    topology=(Periodic, Periodic, Bounded),
+    architecture=GPU(),
+    float_type=Float32,
+)
 
 bgc_gpu = NiPiZD.construct(; grid)  # precision + architecture inferred from `grid`
 ```
@@ -61,7 +65,7 @@ Unknown parameter keys throw immediately (typo protection).
 ```julia
 using Oceananigans.Units: day
 
-bgc = NiPiZD.construct(; parameters=(detritus_remineralization = 0.18 / day,))
+bgc = NiPiZD.construct(; parameters=(detritus_remineralization=0.18 / day,))
 ```
 
 ## NiPiZD interaction overrides
@@ -73,8 +77,10 @@ You can pass **concrete matrices**.
 ```julia
 using Agate
 
-pal = [0.0 0.0 1.0 0.25;
-       0.0 0.0 0.10 1.0]        # n_zoo x n_phyto
+pal = [
+    0.0 0.0 1.0 0.25
+    0.0 0.0 0.10 1.0
+]        # n_zoo x n_phyto
 
 assim = fill(0.32, size(pal))
 
@@ -116,8 +122,8 @@ the model surface:
 
 ```julia
 names = tracer_names(bgc)                 # Vector{Symbol}
-aux   = auxiliary_field_names(bgc)        # Vector{Symbol}
-pars  = parameter_names(bgc)              # Vector{Symbol}
+aux = auxiliary_field_names(bgc)        # Vector{Symbol}
+pars = parameter_names(bgc)              # Vector{Symbol}
 
 describe(bgc)                            # prints a short summary
 summary = model_summary(bgc)              # returns a NamedTuple

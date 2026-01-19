@@ -9,7 +9,8 @@ plain `NamedTuple`s.
 """
 
 using ..Utils: AbstractBGCFactory
-using ..FactoryInterface: default_plankton_dynamics, default_biogeochem_dynamics, default_community
+using ..FactoryInterface:
+    default_plankton_dynamics, default_biogeochem_dynamics, default_community
 
 """A lightweight wrapper around an `AbstractBGCFactory`."""
 struct ModelSpec{F<:AbstractBGCFactory}
@@ -22,10 +23,12 @@ ModelSpec(factory::AbstractBGCFactory) = ModelSpec{typeof(factory)}(factory)
 
 This is used by both NiPiZD and DARWIN, which share the same plankton group symbols.
 """
-function build_ZP_community(base::NamedTuple; n_zoo::Int, n_phyto::Int, zoo_diameters, phyto_diameters)
+function build_ZP_community(
+    base::NamedTuple; n_zoo::Int, n_phyto::Int, zoo_diameters, phyto_diameters
+)
     Z = (; base.Z..., n=n_zoo, diameters=zoo_diameters)
     P = (; base.P..., n=n_phyto, diameters=phyto_diameters)
-    return (Z = Z, P = P)
+    return (Z=Z, P=P)
 end
 
 """Construct a model instance from `spec`.
@@ -42,26 +45,26 @@ All other keywords are forwarded to the model-agnostic constructor.
 """
 function construct_factory(
     spec::ModelSpec;
-    plankton_dynamics = default_plankton_dynamics(spec.factory),
-    biogeochem_dynamics = default_biogeochem_dynamics(spec.factory),
-    community = default_community(spec.factory),
-    parameters::NamedTuple = (;),
-    interactions::Union{Nothing,NamedTuple} = nothing,
-    arch = nothing,
-    sinking_tracers = nothing,
-    grid = nothing,
-    open_bottom::Bool = true,
+    plankton_dynamics=default_plankton_dynamics(spec.factory),
+    biogeochem_dynamics=default_biogeochem_dynamics(spec.factory),
+    community=default_community(spec.factory),
+    parameters::NamedTuple=(;),
+    interactions::Union{Nothing,NamedTuple}=nothing,
+    arch=nothing,
+    sinking_tracers=nothing,
+    grid=nothing,
+    open_bottom::Bool=true,
 )
     return construct_factory(
         spec.factory;
-        plankton_dynamics = plankton_dynamics,
-        biogeochem_dynamics = biogeochem_dynamics,
-        community = community,
-        parameters = parameters,
-        interactions = interactions,
-        arch = arch,
-        sinking_tracers = sinking_tracers,
-        grid = grid,
-        open_bottom = open_bottom,
+        plankton_dynamics=plankton_dynamics,
+        biogeochem_dynamics=biogeochem_dynamics,
+        community=community,
+        parameters=parameters,
+        interactions=interactions,
+        arch=arch,
+        sinking_tracers=sinking_tracers,
+        grid=grid,
+        open_bottom=open_bottom,
     )
 end

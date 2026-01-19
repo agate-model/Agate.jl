@@ -19,7 +19,7 @@ struct MatrixFn{F,Deps}
     deps::Deps
 end
 
-MatrixFn(f; deps=()) = MatrixFn{typeof(f), typeof(deps)}(f, deps)
+MatrixFn(f; deps=()) = MatrixFn{typeof(f),typeof(deps)}(f, deps)
 
 """Return a `NamedTuple` mapping matrix keys to `MatrixFn`s.
 
@@ -49,22 +49,29 @@ function resolve_derived_matrices(
     override_set = Set(explicit_override_keys)
     K = propertynames(specs)
 
-    vals = ntuple(i -> begin
-        key = K[i]
-        spec = getproperty(specs, key)
+    vals = ntuple(
+        i -> begin
+            key = K[i]
+            spec = getproperty(specs, key)
 
-        # If the matrix itself was explicitly overridden, keep it.
-        if key in override_set && hasproperty(params, key)
-            return getproperty(params, key)
-        end
+            # If the matrix itself was explicitly overridden, keep it.
+            if key in override_set && hasproperty(params, key)
+                return getproperty(params, key)
+            end
 
-        # Only recompute when a declared dependency was explicitly overridden.
-        if !isempty(spec.deps) && !any(d -> d in override_set, spec.deps)
-            return hasproperty(params, key) ? getproperty(params, key) : spec.f(factory, ctx, params)
-        end
+            # Only recompute when a declared dependency was explicitly overridden.
+            if !isempty(spec.deps) && !any(d -> d in override_set, spec.deps)
+                return if hasproperty(params, key)
+                    getproperty(params, key)
+                else
+                    spec.f(factory, ctx, params)
+                end
+            end
 
-        return spec.f(factory, ctx, params)
-    end, length(K))
+            return spec.f(factory, ctx, params)
+        end,
+        length(K),
+    )
 
     updates = NamedTuple{K}(vals)
     return merge(params, updates)

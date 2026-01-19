@@ -25,9 +25,9 @@ end
 ParameterSpec(
     name::Symbol,
     shape::Symbol;
-    kind::Symbol = :real,
-    axes::Union{Nothing,NTuple{2,Symbol}} = nothing,
-    doc::AbstractString = "",
+    kind::Symbol=:real,
+    axes::Union{Nothing,NTuple{2,Symbol}}=nothing,
+    doc::AbstractString="",
 ) = ParameterSpec(name, shape, kind, axes, String(doc))
 
 """Return a tuple of `ParameterSpec` entries for `factory`.

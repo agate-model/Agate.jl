@@ -45,14 +45,14 @@ To use the package from another Julia project, either `develop` a local checkout
 
 ```julia
 using Pkg
-Pkg.develop(path="/path/to/Agate.jl")
+Pkg.develop(; path="/path/to/Agate.jl")
 ```
 
 or add it directly from Git:
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/agate-model/Agate.jl.git")
+Pkg.add(; url="https://github.com/agate-model/Agate.jl.git")
 ```
 
 In a Jupyter notebook, activate a project that has Agate in its environment:
@@ -64,12 +64,13 @@ Pkg.activate("/path/to/project")
 
 ## Repository layout
 
-- `src/`: package source code.
-- `test/`: test suite.
-- `examples/`: runnable scripts (many depend on Oceananigans/OceanBioME; see `examples/README.md`).
-- `docs/`: documentation build.
-  - `docs/src/generated/`: precomputed outputs (figures and small datasets) used by the docs build.
-- `paper/`: scripts and container recipes used for paper/plot reproduction (see `paper/README.md`).
+  - `src/`: package source code.
+  - `test/`: test suite.
+  - `examples/`: runnable scripts (many depend on Oceananigans/OceanBioME; see `examples/README.md`).
+  - `docs/`: documentation build.
+    
+      + `docs/src/generated/`: precomputed outputs (figures and small datasets) used by the docs build.
+  - `paper/`: scripts and container recipes used for paper/plot reproduction (see `paper/README.md`).
 
 ## Development
 
@@ -98,8 +99,8 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 Agate models expose two predator-by-prey interaction matrices:
 
-- `palatability_matrix` — preference of each consumer for each prey
-- `assimilation_matrix` — assimilation efficiency of each consumer on each prey
+  - `palatability_matrix` — preference of each consumer for each prey
+  - `assimilation_matrix` — assimilation efficiency of each consumer on each prey
 
 These matrices are **role-aware** and are stored canonically as
 `(n_consumer, n_prey)` rectangular matrices.
@@ -107,9 +108,9 @@ These matrices are **role-aware** and are stored canonically as
 All public model constructors accept overrides via the two keywords
 `palatability_matrix=` and `assimilation_matrix=`. Each may be:
 
-- a rectangular `(n_consumer, n_prey)` matrix
-- a full `(n_total, n_total)` matrix (embedded/sliced automatically)
-- a provider function `(ctx) -> matrix` evaluated once at construction time
+  - a rectangular `(n_consumer, n_prey)` matrix
+  - a full `(n_total, n_total)` matrix (embedded/sliced automatically)
+  - a provider function `(ctx) -> matrix` evaluated once at construction time
 
 For advanced workflows, the construction context provides explicit axes:
 
@@ -142,6 +143,5 @@ n_phyto = 4
 n_zoo = 2
 n_total = n_phyto + n_zoo
 
-bgc = NiPiZD.construct(; n_phyto, n_zoo,
-                       parameters=(; specificity = fill(0.15f0, n_total),))
+bgc = NiPiZD.construct(; n_phyto, n_zoo, parameters=(; specificity=fill(0.15f0, n_total),))
 ```

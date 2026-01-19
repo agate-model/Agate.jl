@@ -47,7 +47,7 @@ end
     if Pᶜₘₐₓ == zero(Pᶜₘₐₓ)
         return zero(Pᶜₘₐₓ)
     end
-    return Pᶜₘₐₓ * (one(Pᶜₘₐₓ) - exp((- α * θᶜ * PAR) / Pᶜₘₐₓ))
+    return Pᶜₘₐₓ * (one(Pᶜₘₐₓ) - exp((-α * θᶜ * PAR) / Pᶜₘₐₓ))
 end
 
 """
@@ -63,7 +63,10 @@ end
 
 @inline function (g::SingleNutrientGrowthSmith)(R, P, PAR)
     μ₀ = g.maximum_growth_0C
-    return μ₀ * MonodLimitation(g.nutrient_half_saturation)(R) * SmithLightLimitation(g.alpha, μ₀)(PAR) * P
+    return μ₀ *
+           MonodLimitation(g.nutrient_half_saturation)(R) *
+           SmithLightLimitation(g.alpha, μ₀)(PAR) *
+           P
 end
 
 """
@@ -80,7 +83,11 @@ end
 
 @inline function (g::SingleNutrientGrowthGeider)(R, P, PAR)
     return MonodLimitation(g.nutrient_half_saturation)(R) *
-           GeiderLightLimitation(g.alpha, g.maximum_growth_rate, g.chlorophyll_to_carbon_ratio)(PAR) *
+           GeiderLightLimitation(
+               g.alpha, g.maximum_growth_rate, g.chlorophyll_to_carbon_ratio
+           )(
+               PAR
+           ) *
            P
 end
 
@@ -98,8 +105,16 @@ struct TwoNutrientGrowthGeider{T}
 end
 
 @inline function (g::TwoNutrientGrowthGeider)(R1, R2, P, PAR)
-    γ = LiebigMinimum()(MonodLimitation(g.half_saturation_1)(R1), MonodLimitation(g.half_saturation_2)(R2))
-    return γ * GeiderLightLimitation(g.alpha, g.maximum_growth_rate, g.chlorophyll_to_carbon_ratio)(PAR) * P
+    γ = LiebigMinimum()(
+        MonodLimitation(g.half_saturation_1)(R1), MonodLimitation(g.half_saturation_2)(R2)
+    )
+    return γ *
+           GeiderLightLimitation(
+               g.alpha, g.maximum_growth_rate, g.chlorophyll_to_carbon_ratio
+           )(
+               PAR
+           ) *
+           P
 end
 
 end # module

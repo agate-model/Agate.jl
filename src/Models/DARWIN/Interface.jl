@@ -17,9 +17,7 @@ For ease of use, interaction overrides are exposed as two separate keywords:
 
 using OceanBioME: BoxModelGrid
 
-using .Tracers:
-    phytoplankton_growth_two_nutrients_geider_light,
-    zooplankton_default
+using .Tracers: phytoplankton_growth_two_nutrients_geider_light, zooplankton_default
 
 import ...Utils
 import ...Constructor
@@ -54,17 +52,17 @@ Returns
 An `Oceananigans.Biogeochemistry.AbstractContinuousFormBiogeochemistry` instance.
 """
 function construct(;
-    n_phyto::Int = 2,
-    n_zoo::Int = 2,
-    phyto_diameters = (1.5, 20.0, :log_splitting),
-    zoo_diameters = (20.0, 100.0, :log_splitting),
-    parameters::NamedTuple = (;),
-    palatability_matrix = nothing,
-    assimilation_matrix = nothing,
-    grid = BoxModelGrid(),
-    arch = nothing,
-    sinking_tracers = nothing,
-    open_bottom::Bool = true,
+    n_phyto::Int=2,
+    n_zoo::Int=2,
+    phyto_diameters=(1.5, 20.0, :log_splitting),
+    zoo_diameters=(20.0, 100.0, :log_splitting),
+    parameters::NamedTuple=(;),
+    palatability_matrix=nothing,
+    assimilation_matrix=nothing,
+    grid=BoxModelGrid(),
+    arch=nothing,
+    sinking_tracers=nothing,
+    open_bottom::Bool=true,
 )
     n_phyto >= 1 || throw(ArgumentError("n_phyto must be >= 1"))
     n_zoo >= 1 || throw(ArgumentError("n_zoo must be >= 1"))
@@ -75,36 +73,40 @@ function construct(;
     base = FactoryInterface.default_community(factory)
     community = Constructor.build_ZP_community(
         base;
-        n_zoo = n_zoo,
-        n_phyto = n_phyto,
-        zoo_diameters = Utils.diameter_specification(zoo_diameters),
-        phyto_diameters = Utils.diameter_specification(phyto_diameters),
+        n_zoo=n_zoo,
+        n_phyto=n_phyto,
+        zoo_diameters=Utils.diameter_specification(zoo_diameters),
+        phyto_diameters=Utils.diameter_specification(phyto_diameters),
     )
 
     # Fixed defaults for the public constructor.
-    plankton_dynamics = (Z = zooplankton_default, P = phytoplankton_growth_two_nutrients_geider_light)
+    plankton_dynamics = (
+        Z=zooplankton_default, P=phytoplankton_growth_two_nutrients_geider_light
+    )
     merged_bgc = FactoryInterface.default_biogeochem_dynamics(factory)
     # Interaction overrides (optional).
     #
     # We forward overrides through the model-agnostic constructor as a `NamedTuple`.
     # If a value is a function, it will be evaluated once against the InteractionContext
     # during construction.
-    pairs = Pair{Symbol, Any}[]
-    palatability_matrix !== nothing && push!(pairs, :palatability_matrix => palatability_matrix)
-    assimilation_matrix !== nothing && push!(pairs, :assimilation_matrix => assimilation_matrix)
+    pairs = Pair{Symbol,Any}[]
+    palatability_matrix !== nothing &&
+        push!(pairs, :palatability_matrix => palatability_matrix)
+    assimilation_matrix !== nothing &&
+        push!(pairs, :assimilation_matrix => assimilation_matrix)
 
     interactions = isempty(pairs) ? nothing : (; pairs...)
 
     return Constructor.construct_factory(
         spec;
-        plankton_dynamics = plankton_dynamics,
-        biogeochem_dynamics = merged_bgc,
-        community = community,
-        parameters = parameters,
-        interactions = interactions,
-        arch = arch,
-        sinking_tracers = sinking_tracers,
-        grid = grid,
-        open_bottom = open_bottom,
+        plankton_dynamics=plankton_dynamics,
+        biogeochem_dynamics=merged_bgc,
+        community=community,
+        parameters=parameters,
+        interactions=interactions,
+        arch=arch,
+        sinking_tracers=sinking_tracers,
+        grid=grid,
+        open_bottom=open_bottom,
     )
 end

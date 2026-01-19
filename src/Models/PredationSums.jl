@@ -61,7 +61,9 @@ end
 end
 
 """Sum of grazing gain terms for a single predator (given global index)."""
-@inline function _grazing_gain_sum(p, state, plankton_syms, predator, predator_idx::Int, init)
+@inline function _grazing_gain_sum(
+    p, state, plankton_syms, predator, predator_idx::Int, init
+)
     ints = p.interactions
     ic = @inbounds ints.global_to_consumer[predator_idx]
     ic == 0 && return init

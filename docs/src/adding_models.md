@@ -7,12 +7,12 @@ The intent is to keep the required surface area small and to make GPU support vi
 
 A new model typically needs:
 
-1. A model module under `src/Models/<ModelName>/`.
-2. A small public constructor `Agate.Models.<ModelName>.construct` that forwards to `Agate.Constructor.construct_factory(factory; ...)`.
-3. A `parameter_directory(factory)` describing required parameter names and shapes.
-4. `default_parameters(factory, ctx, FT)` that returns defaults using the community context.
-5. A set of compiled dynamics / tracers that consume the parameters and update tendencies.
-6. Tests that exercise defaults, overrides, and GPU smoke (when available).
+ 1. A model module under `src/Models/<ModelName>/`.
+ 2. A small public constructor `Agate.Models.<ModelName>.construct` that forwards to `Agate.Constructor.construct_factory(factory; ...)`.
+ 3. A `parameter_directory(factory)` describing required parameter names and shapes.
+ 4. `default_parameters(factory, ctx, FT)` that returns defaults using the community context.
+ 5. A set of compiled dynamics / tracers that consume the parameters and update tendencies.
+ 6. Tests that exercise defaults, overrides, and GPU smoke (when available).
 
 ## Recommended structure
 
@@ -24,8 +24,8 @@ Define a concrete factory type for your model (for example `struct MyModelFactor
 
 Implement `parameter_directory(factory)` returning a `NamedTuple` of `ParameterSpec`s. Use:
 
-- `shape = :scalar | :vector | :matrix`
-- `axes = (:consumer, :prey)` when a matrix is consumer-by-prey
+  - `shape = :scalar | :vector | :matrix`
+  - `axes = (:consumer, :prey)` when a matrix is consumer-by-prey
 
 This enables early validation and provides the metadata used for interaction normalization.
 
@@ -33,8 +33,8 @@ This enables early validation and provides the metadata used for interaction nor
 
 If your model has prey-only pools (detritus, dissolved pools, or other passive tracers), declare roles:
 
-- `consumer_groups(factory) = (:Z, ...)`
-- `prey_groups(factory) = (:P, :D, ...)`
+  - `consumer_groups(factory) = (:Z, ...)`
+  - `prey_groups(factory) = (:P, :D, ...)`
 
 If you do not implement these, Agate assumes all groups are both consumers and prey.
 
@@ -48,8 +48,8 @@ For axis-tagged interaction matrices, return rectangular defaults of size `(leng
 
 At runtime, the canonical matrices live in:
 
-- `p.interactions.palatability`
-- `p.interactions.assimilation`
+  - `p.interactions.palatability`
+  - `p.interactions.assimilation`
 
 Use the axis maps from `p.interactions` to map between consumer/prey indices and global plankton indices.
 
@@ -59,7 +59,7 @@ If your dynamics follow the consumer-by-prey pattern, prefer calling helpers fro
 
 Add at least:
 
-- constructor defaults
-- parameter overrides (scalar, vector, matrix)
-- interaction overrides (rectangular and provider-function forms)
-- a small GPU smoke test (gated) that checks rectangular matrices move to the device via `p.interactions.*`
+  - constructor defaults
+  - parameter overrides (scalar, vector, matrix)
+  - interaction overrides (rectangular and provider-function forms)
+  - a small GPU smoke test (gated) that checks rectangular matrices move to the device via `p.interactions.*`

@@ -54,21 +54,26 @@ end
     sum_over(npl, zero(N)) do i
         P = getproperty(state, plankton_syms[i])
         SingleNutrientGrowthSmith(
-            p.maximum_growth_rate[i],
-            p.nutrient_half_saturation[i],
-            p.alpha[i],
-        )(N, P, PAR)
+            p.maximum_growth_rate[i], p.nutrient_half_saturation[i], p.alpha[i]
+        )(
+            N, P, PAR
+        )
     end
 end
-
 
 """Nutrient tendency with Smith growth and mortality/remineralization."""
 function nutrient_default(plankton_syms)
     npl = length(plankton_syms)
 
-    requirements = req(
+    requirements = req(;
         scalars=(:detritus_remineralization, :mortality_export_fraction),
-        vectors=(:linear_mortality, :quadratic_mortality, :maximum_growth_rate, :nutrient_half_saturation, :alpha),
+        vectors=(
+            :linear_mortality,
+            :quadratic_mortality,
+            :maximum_growth_rate,
+            :nutrient_half_saturation,
+            :alpha,
+        ),
     )
 
     f = function (bgc, x, y, z, t, args...)
@@ -104,7 +109,7 @@ end
 function detritus_default(plankton_syms)
     npl = length(plankton_syms)
 
-    requirements = req(
+    requirements = req(;
         scalars=(:detritus_remineralization, :mortality_export_fraction),
         vectors=(
             :linear_mortality,
@@ -144,7 +149,7 @@ end
 
 """Phytoplankton tendency with Smith growth, grazing loss, and linear mortality."""
 function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
-    requirements = req(
+    requirements = req(;
         vectors=(
             :maximum_growth_rate,
             :nutrient_half_saturation,
@@ -168,7 +173,9 @@ function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx
             p.maximum_growth_rate[plankton_idx],
             p.nutrient_half_saturation[plankton_idx],
             p.alpha[plankton_idx],
-        )(N, P, PAR)
+        )(
+            N, P, PAR
+        )
 
         grazing = _grazing_loss_sum(p, state, plankton_syms, P, plankton_idx, zero(P))
 
@@ -182,7 +189,7 @@ end
 
 """Zooplankton tendency with preferential grazing gain and mortality losses."""
 function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
-    requirements = req(
+    requirements = req(;
         vectors=(
             :linear_mortality,
             :quadratic_mortality,
