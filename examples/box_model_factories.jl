@@ -55,7 +55,12 @@ parameter_overrides = (
 
 community_ctx = parse_community(
     Float64,
-    (; Z=(; n=n_zoo, diameters=zoo_diameters), P=(; n=n_phyto, diameters=phyto_diameters));
+    (
+        ;
+        # `pft` is optional; an empty NamedTuple means "no extra traits".
+        Z=(; n=n_zoo, diameters=zoo_diameters, pft=(;)),
+        P=(; n=n_phyto, diameters=phyto_diameters, pft=(;)),
+    );
     plankton_dynamics=(
         Z=Agate.Models.NiPiZD.Tracers.zooplankton_default,
         P=Agate.Models.NiPiZD.Tracers.phytoplankton_default,
