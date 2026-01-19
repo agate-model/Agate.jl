@@ -1,35 +1,63 @@
 # Callable dynamics API
 
-Agate supports *callable tracer functions* as an alternative to construction-time symbolic
-[`Agate.Equations.Equation`](@ref) objects.
+Agate expresses tracer tendencies as **callable Julia functions** that are safe to run on
+both CPU and GPU architectures.
 
-## Tracer function values
+Each model factory provides a mapping from tracer names to `CompiledEquation` values.
+A `CompiledEquation` stores:
 
-When calling [`Agate.Constructor.define_tracer_functions`](@ref), the `tracers` `NamedTuple` may map tracer names to:
+- a callable `f` (the tracer tendency), and
+- a `Requirements` object describing which model parameters the callable reads.
 
-- `Expr` (legacy)
-- `Agate.Equations.Equation` (symbolic equation)
-- a callable (already compiled)
-- `Agate.Functors.CompiledEquation` (callable + explicit requirements)
+The constructor uses these requirements to validate that the parameter set is complete before
+building the final Oceananigans biogeochemistry object.
 
-Callable tracer functions must accept the standard Oceananigans biogeochemistry signature:
+## `CompiledEquation` and `Requirements`
+
+The types live in `Agate.Functors`:
+
+- `req(; scalars=..., vectors=..., matrices=...)`
+- `CompiledEquation(f, r)`
+
+Requirements are just lists of parameter keys (`Symbol`s). They are intentionally explicit:
+there is no expression parsing during construction.
+
+Example:
 
 ```julia
-f(bgc, x, y, z, t, tracers..., auxiliary_fields...)
+using Agate.Functors: CompiledEquation, req
+
+# f must follow the Oceananigans biogeochemistry kernel signature.
+#
+# Note: `args...` contains tracer values followed by auxiliary fields, in the
+# order defined by the constructed model.
+@inline function my_tracer(bgc, x, y, z, t, args...)
+    k = bgc.parameters.detritus_remineralization
+    # ... unpack from args as needed ...
+    return -k
+end
+
+eq = CompiledEquation(my_tracer, req(scalars=(:detritus_remineralization,)))
 ```
 
-## `CompiledEquation`
+## Tracer function signature
 
-Wrap a callable with [`Agate.Functors.CompiledEquation`](@ref) to attach a
-[`Agate.Equations.Requirements`](@ref) object. This lets the constructor validate that the
-required parameters exist without parsing expressions.
+Callable tracer functions must accept the Oceananigans biogeochemistry signature:
+
+```julia
+f(bgc, x, y, z, t, args...)
+```
+
+Agate passes the model instance as `bgc`, which stores the resolved parameter NamedTuple at
+`bgc.parameters`.
 
 ## Building blocks
 
-Agate's building blocks are callable functors in `Agate.Library`:
+Agate's reusable building blocks live in `Agate.Library`.
+They are small callable structs designed to compose inside tracer functions:
 
-- `Agate.Library.Nutrients` (e.g. `MonodLimitation`)
-- `Agate.Library.Photosynthesis` (e.g. `SmithLightLimitation`, `GeiderLightLimitation`)
-- `Agate.Library.Predation` (e.g. `HollingTypeII`)
-- `Agate.Library.Mortality` (e.g. `LinearLoss`, `QuadraticLoss`)
-- `Agate.Library.Remineralization` (e.g. `LinearRemineralization`)
+- `Agate.Library.Nutrients`
+- `Agate.Library.Photosynthesis`
+- `Agate.Library.Predation`
+- `Agate.Library.Mortality`
+- `Agate.Library.Remineralization`

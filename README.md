@@ -93,3 +93,55 @@ To run tests:
 ```bash
 julia --project -e 'using Pkg; Pkg.test()'
 ```
+
+## Interaction matrices
+
+Agate models expose two predator-by-prey interaction matrices:
+
+- `palatability_matrix` — preference of each consumer for each prey
+- `assimilation_matrix` — assimilation efficiency of each consumer on each prey
+
+These matrices are **role-aware** and are stored canonically as
+`(n_consumer, n_prey)` rectangular matrices.
+
+All public model constructors accept overrides via the two keywords
+`palatability_matrix=` and `assimilation_matrix=`. Each may be:
+
+- a rectangular `(n_consumer, n_prey)` matrix
+- a full `(n_total, n_total)` matrix (embedded/sliced automatically)
+- a provider function `(ctx) -> matrix` evaluated once at construction time
+
+For advanced workflows, the construction context provides explicit axes:
+
+```julia
+pal = (ctx) -> begin
+    nc = length(ctx.consumer_indices)
+    np = length(ctx.prey_indices)
+    M = zeros(ctx.FT, nc, np)
+    # fill M in consumer-by-prey order
+    return M
+end
+
+bgc = NiPiZD.construct(; palatability_matrix=pal)
+```
+
+If you have a small *group-by-group* block matrix, wrap it in
+`Agate.Utils.GroupBlockMatrix(B)` to force expansion across all size classes.
+
+## Derived matrices (trait overrides)
+
+NiPiZD and DARWIN expose a small set of **interaction traits** (vectors) that
+are used to derive default interaction matrices. If you override one of these
+traits (and do not explicitly override the corresponding matrix), Agate
+recomputes the matrix during construction.
+
+Example (tighten palatability specificity for consumers):
+
+```julia
+n_phyto = 4
+n_zoo = 2
+n_total = n_phyto + n_zoo
+
+bgc = NiPiZD.construct(; n_phyto, n_zoo,
+                       parameters=(; specificity = fill(0.15f0, n_total),))
+```

@@ -63,8 +63,8 @@ makedocs(;
         "Examples" => example_pages,
         "API" => [
             "Constructor API" => "api_constructor.md",
-            "Equation-based dynamics" => "equations_api.md",
-            "Functor-based dynamics" => "functors_api.md",
+            "Parameters & interactions" => "equations_api.md",
+            "Callable dynamics" => "functors_api.md",
             "Reference" => "api.md",
         ],
     ],

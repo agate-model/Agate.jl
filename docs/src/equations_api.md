@@ -1,73 +1,124 @@
-# Equation-based dynamics API
+# Parameters and interaction matrices
 
-Agate builds biogeochemical kernels from *equations*: construction-time symbolic objects that
+Agate model constructors are explicit: you choose community structure and dynamics, then optionally override
+**parameters** and **interactions**.
 
-1. assemble a plain Julia `Expr` for each tracer tendency, and
-2. record which **parameters** and **interaction matrices** are required.
+This page documents the parameter and interaction surface that is shared by the built-in models.
 
-At runtime (CPU or GPU), the model executes a normal `Expr` containing only arithmetic on numeric arrays and scalars. The symbolic objects never enter kernels.
+## Parameter metadata: `parameter_directory`
 
-## Parameter references: `PV.<name>`
+Each model factory defines a **parameter directory** via `Agate.Utils.parameter_directory(factory)`.
+The directory is a collection of `ParameterSpec` entries describing:
 
-Dynamics authors write equations using **parameter placeholders** passed in as the first argument `PV`.
+- the parameter key (a `Symbol`)
+- the expected **shape** (`:scalar`, `:vector`, `:matrix`)
+- the value kind (`:real` or `:bool`)
+- for matrices, optional role-aware `axes` (e.g. `(:consumer, :prey)`)
 
-Dynamics builders accept a first argument `PV` (provided by `construct`). Reference parameters through `PV`:
+The constructor uses this metadata to validate overrides early (typo protection + shape checks).
 
-- Scalars: `PV.detritus_remineralization`
-- Per-size-class vectors: `PV.maximum_predation_rate[i]`
-- Interaction matrices: `PV.palatability_matrix[j, i]`, `PV.assimilation_matrix[j, i]`
+## Overriding parameters
 
-These `PV.<name>` bindings are small placeholders (`ParamVar`) that record requirements when indexed.
-
-During `construct`, Agate builds `PV` from the active parameter registry. So when you add new parameters, you typically **extend the registry** with new parameter specifications (via `scalar_param`, `vector_param`, or `matrix_param`) and keep writing equations using `PV.<name>` — no extra declaration step.
-
-## Missing / `nothing` policy
-
-Agate no longer encodes missing behaviour in the *equation syntax*.
-Instead, each parameter specification in the registry declares how missing values are handled during CPU resolution:
-
-- Missing/`nothing` values are an error at the boundary.
-
-This keeps the equation authoring surface clean and GPU-safe.
-
-## `sum_over`: symbolic sum builder
-
-`sum_over` expands a list of terms into a plain `Expr` sum at construction time.
+All model constructors accept a `parameters=(; ...)` NamedTuple.
 
 ```julia
-function mortality_sum(PV, plankton_syms)
-    return sum_over(plankton_syms) do sym, i
-        PV.linear_mortality[i] * sym
-    end
-end
+bgc = NiPiZD.construct(; parameters=(; detritus_remineralization = 0.18 / day,))
 ```
 
-This is a construction-time helper only: loops are unrolled into the final expression so kernels remain GPU-friendly.
+Validation behaviour:
 
-## `Equation`
+- Unknown keys throw immediately.
+- Vectors must have length `n_total` (one value per plankton class).
+- Matrices must match the declared `ParameterSpec` shape (details below).
 
-All plankton and biogeochemical dynamics builders must return an `Equation`.
+### Interaction traits
 
-- `Equation` cannot be constructed from a raw `Expr`.
-- Use library building blocks (or parameter identifiers and `sum_over`) to assemble expressions.
+NiPiZD and DARWIN also expose a small set of *interaction traits* (vectors) that are used to derive
+default interaction matrices:
 
-Example: a detritivorous heterotroph growth tendency
+- `can_eat`, `can_be_eaten` (Bool)
+- `optimum_predator_prey_ratio`, `specificity`, `protection` (Real)
+- `assimilation_efficiency` (Real)
+
+These are validated like any other vector parameter.
+
+## Interaction matrices
+
+Models expose two interaction matrices:
+
+- `palatability_matrix`
+- `assimilation_matrix`
+
+These are **role-aware** predator-by-prey matrices with axes `(:consumer, :prey)`.
+
+### Accepted override forms
+
+For either matrix key, you may pass:
+
+- a full square matrix of size `(n_total, n_total)`
+- a rectangular axis-sized matrix of size `(n_consumer, n_prey)`
+- an axis-local group-block matrix of size `(n_consumer_groups, n_prey_groups)`
+- a group-block matrix over *all* groups, wrapped as `Agate.Utils.GroupBlockMatrix(B)`
+- a provider function `(ctx) -> matrix` returning any of the above
+
+Role-aware rectangular matrices are the preferred override form because they are explicit and small.
+
+### The construction context: `InteractionContext`
+
+Provider functions receive an `Agate.Utils.InteractionContext` with precomputed axes:
+
+- `ctx.consumer_indices` / `ctx.prey_indices` (global indices)
+- `ctx.group_symbols`, `ctx.diameters`, `ctx.n_total`
+- `ctx.FT` (the floating-point type inferred from the grid)
+
+Example: override palatability as a rectangular matrix:
 
 ```julia
-using Agate.Equations: Equation
-using Agate.Library.Mortality: linear_loss
-using Agate.Library.Predation: grazing_loss
+pal = (ctx) -> begin
+    nc = length(ctx.consumer_indices)
+    np = length(ctx.prey_indices)
 
-@inline monod(D, k) = D / (D + k)
-
-function heterotroph_growth(PV, plankton_syms::AbstractVector{Symbol}, plankton_sym::Symbol, plankton_idx::Int)
-    uptake = PV.maximum_detritus_uptake_rate[plankton_idx] *
-             monod(:D, PV.detritus_half_saturation[plankton_idx]) *
-             plankton_sym
-
-    grazing = grazing_loss(PV, plankton_sym, plankton_idx, plankton_syms)
-    mort = linear_loss(PV, plankton_sym, plankton_idx)
-
-    return Equation(uptake - grazing - mort)
+    M = zeros(ctx.FT, nc, np)
+    # fill M in consumer-by-prey order
+    return M
 end
+
+bgc = NiPiZD.construct(; palatability_matrix=pal)
 ```
+
+### Derived matrices (trait-driven)
+
+During `construct`, Agate resolves defaults, then applies overrides.
+If a matrix is **not** explicitly overridden, but at least one of its declared *trait dependencies*
+*is* explicitly overridden, Agate recomputes the matrix.
+
+This makes it practical to tune interaction behaviour via a small, readable set of vectors.
+
+```julia
+n_phyto = 4
+n_zoo = 2
+n_total = n_phyto + n_zoo
+
+bgc = NiPiZD.construct(; n_phyto, n_zoo,
+                       parameters=(; specificity = fill(0.15f0, n_total),))
+# palatability_matrix is regenerated from the updated specificity
+```
+
+### Access at runtime
+
+To keep kernels GPU-friendly, Agate stores role-aware matrices canonically as rectangular
+`(n_consumer, n_prey)` arrays under:
+
+```julia
+bgc.parameters.interactions.palatability_matrix
+bgc.parameters.interactions.assimilation_matrix
+```
+
+For convenience, Agate also exposes **square views** on the top-level parameter NamedTuple:
+
+```julia
+bgc.parameters.palatability_matrix
+bgc.parameters.assimilation_matrix
+```
+
+These square views are indexed by *global* plankton indices and return zero outside the consumer/prey axes.

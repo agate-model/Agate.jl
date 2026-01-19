@@ -68,7 +68,7 @@ bgc = NiPiZD.construct(; parameters=(detritus_remineralization = 0.18 / day,))
 
 NiPiZD allows overriding the two interaction matrices directly.
 
-You can pass **concrete matrices**:
+You can pass **concrete matrices**.
 
 ```julia
 using Agate
@@ -81,28 +81,33 @@ assim = fill(0.32, size(pal))
 bgc = NiPiZD.construct(; palatability_matrix=pal, assimilation_matrix=assim)
 ```
 
-Or, for a beginner-friendly workflow, pass **provider functions** that take only
-diameters and group names (no `ctx ->` required). One ergonomic pattern is to
-capture `n_phyto`/`n_zoo` in a closure:
+Because these matrices are **role-aware**, the preferred override form is a
+rectangular matrix sized `(n_consumer, n_prey)`.
+
+For programmatic workflows, you can pass **provider functions** evaluated once
+at construction time:
 
 ```julia
-n_phyto = 4
-n_zoo = 2
-
-my_palatability = function (diameters, group_symbols)
-    pal = zeros(Float32, n_zoo, n_phyto)
-    # ... fill palatability here ...
-    return pal
+pal = (ctx) -> begin
+    nc = length(ctx.consumer_indices)
+    np = length(ctx.prey_indices)
+    M = zeros(ctx.FT, nc, np)
+    # fill M in consumer-by-prey order
+    return M
 end
 
-my_assimilation = function (diameters, group_symbols)
-    return fill(0.32f0, n_zoo, n_phyto)
-end
-
-bgc = NiPiZD.construct(; n_phyto, n_zoo,
-                         palatability_matrix=my_palatability,
-                         assimilation_matrix=my_assimilation)
+bgc = NiPiZD.construct(; palatability_matrix=pal)
 ```
+
+If you have a small group-by-group matrix, wrap it in `Agate.Utils.GroupBlockMatrix(B)`
+to force group-block expansion across all size classes.
+
+## Trait-driven derived matrices
+
+NiPiZD and DARWIN expose a small set of *interaction traits* as vector parameters
+(e.g. `specificity`, `protection`, `assimilation_efficiency`). If you override any
+of these traits and do **not** explicitly override the corresponding matrix, Agate
+recomputes the default interaction matrix during construction.
 
 ## Introspection helpers
 

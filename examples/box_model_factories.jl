@@ -68,17 +68,26 @@ community_ctx = parse_community(
                          D=Agate.Models.NiPiZD.Tracers.detritus_default),
 )
 
-n = community_ctx.n_total
-pal = zeros(Float64, n, n)
-assim = zeros(Float64, n, n)
+# Canonical interaction matrices are rectangular: (consumer, prey).
+nc = length(community_ctx.consumer_indices)
+np = length(community_ctx.prey_indices)
+
+pal = zeros(Float64, nc, np)
+assim = zeros(Float64, nc, np)
 
 # For illustration, make the single zooplankton class graze all phytoplankton equally.
-z_idx = findall(==(:Z), community_ctx.group_symbols)
-p_idx = findall(==(:P), community_ctx.group_symbols)
+consumer_local = Dict(gidx => i for (i, gidx) in pairs(community_ctx.consumer_indices))
+prey_local     = Dict(gidx => i for (i, gidx) in pairs(community_ctx.prey_indices))
 
-for i in z_idx, j in p_idx
-    pal[i, j] = 1.0
-    assim[i, j] = 0.3
+z_global = findall(==(:Z), community_ctx.group_symbols)
+p_global = findall(==(:P), community_ctx.group_symbols)
+
+for i in z_global, j in p_global
+    haskey(consumer_local, i) && haskey(prey_local, j) || continue
+    ic = consumer_local[i]
+    jp = prey_local[j]
+    pal[ic, jp] = 1.0
+    assim[ic, jp] = 0.3
 end
 
 # ## 6. Construct the customised model
