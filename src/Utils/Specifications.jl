@@ -35,23 +35,17 @@ end
 
 PFTSpecification(; kwargs...) = PFTSpecification((; kwargs...))
 
+# Ensure `PFTSpecification` payloads adapt correctly to the target architecture.
+#
+# NOTE: Do *not* define `Adapt.adapt_structure` for `NamedTuple` here.
+# `Adapt.jl` already provides a rule for `NamedTuple` and defining a second one
+# triggers method overwrite warnings during documentation builds.
+Adapt.@adapt_structure PFTSpecification
+
 @inline pft_has(pft::PFTSpecification, key::Symbol) = hasproperty(pft.data, key)
 
 @inline function pft_get(pft::PFTSpecification, key::Symbol, default=nothing)
     return pft_has(pft, key) ? getproperty(pft.data, key) : default
-end
-
-# Adapt support for `NamedTuple` payloads
-#
-# Many Agate runtime bundles store parameters in `NamedTuple`s for cheap field
-# access and compile-time key sets. We rely on `Adapt.jl` to move these payloads
-# to the architecture's preferred array type.
-#
-# `Adapt` does not always ship with a recursive rule for `NamedTuple` across all
-# versions, so we define it here to ensure that `adapt(CuArray, params)` converts
-# vectors/matrices inside the `NamedTuple`.
-@inline function Adapt.adapt_structure(to, nt::NamedTuple{names}) where {names}
-    return NamedTuple{names}(map(x -> Adapt.adapt(to, x), values(nt)))
 end
 
 end # module Specifications
