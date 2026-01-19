@@ -4,7 +4,7 @@ using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans.Units
-using Agate.Constructor: construct
+using Agate.Constructor: construct_factory
 using Agate.Models: NiPiZDFactory
 using Agate.Library.Photosynthesis
 using Oceananigans.Fields: FunctionField, ConstantField
@@ -12,13 +12,13 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 using CairoMakie
 
 # Generate a CPU instance (used here to query tracer names).
-bgc_cpu = construct(NiPiZDFactory())
+bgc_cpu = construct_factory(NiPiZDFactory())
 
 # IMPORTANT: get tracer names from the CPU instance (Agate defines the method on this type)
 tracer_names = required_biogeochemical_tracers(bgc_cpu)
 
 # Construct a GPU-ready instance for embedding in Oceananigans / OceanBioME models.
-bgc_instance = construct(NiPiZDFactory(); arch=GPU())
+bgc_instance = construct_factory(NiPiZDFactory(); arch=GPU())
 
 const year = years = 365days
 nothing #hide
