@@ -32,6 +32,9 @@ export normalize_interactions
 export GroupBlockMatrix
 export InteractionMatrices
 export sum_over
+export MatrixFn
+export derived_matrix_specs
+export resolve_derived_matrices
 
 """Wrapper to explicitly mark a matrix as a *group-block* interaction override.
 
@@ -150,6 +153,7 @@ struct InteractionContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
     biogeochem_dynamics::NamedTuple
 end
 include("InteractionMatrices.jl")
+include("DerivedMatrices.jl")
 
 
 """Normalize `interactions` into a `NamedTuple` of parameter overrides.

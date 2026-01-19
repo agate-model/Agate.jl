@@ -9,6 +9,7 @@ export PalatabilityPreyParameters, PalatabilityPredatorParameters
 export allometric_scaling_power
 export allometric_palatability_unimodal, allometric_palatability_unimodal_protection
 export palatability_matrix_allometric, assimilation_efficiency_matrix_binary
+export palatability_matrix_allometric_axes, assimilation_efficiency_matrix_binary_axes
 export build_palatability_matrix, build_assimilation_matrix
 
 # -----------------------------------------------------------------------------
@@ -181,6 +182,52 @@ function palatability_matrix_allometric(
     return M
 end
 
+"""Build a role-aware allometric palatability matrix `M[consumer, prey]`.
+
+This computes only the consumer-by-prey block specified by `consumer_indices`
+and `prey_indices`, avoiding allocation of an intermediate full square matrix.
+"""
+function palatability_matrix_allometric_axes(
+    ::Type{FT},
+    diameters::AbstractVector{FT};
+    can_eat::AbstractVector{Bool},
+    can_be_eaten::AbstractVector{Bool},
+    optimum_predator_prey_ratio::AbstractVector{FT},
+    specificity::AbstractVector{FT},
+    protection::AbstractVector{FT},
+    consumer_indices::AbstractVector{<:Integer},
+    prey_indices::AbstractVector{<:Integer},
+    palatability_fn=allometric_palatability_unimodal_protection,
+) where {FT<:AbstractFloat}
+    nr = length(consumer_indices)
+    nc = length(prey_indices)
+    M = zeros(FT, nr, nc)
+
+    @inbounds for (ii, pred) in pairs(consumer_indices)
+        if !can_eat[pred]
+            continue
+        end
+
+        predator = PalatabilityPredatorParameters{FT}(
+            true,
+            diameters[pred],
+            optimum_predator_prey_ratio[pred],
+            specificity[pred],
+        )
+
+        for (jj, prey) in pairs(prey_indices)
+            if !can_be_eaten[prey]
+                M[ii, jj] = zero(FT)
+                continue
+            end
+            prey_params = PalatabilityPreyParameters{FT}(diameters[prey], protection[prey])
+            M[ii, jj] = palatability_fn(prey_params, predator)
+        end
+    end
+
+    return M
+end
+
 """Build a binary assimilation-efficiency matrix `β[pred, prey]`."""
 function assimilation_efficiency_matrix_binary(
     ::Type{FT};
@@ -199,6 +246,36 @@ function assimilation_efficiency_matrix_binary(
             M[pred, prey] = can_be_eaten[prey] ? β : zero(FT)
         end
     end
+    return M
+end
+
+"""Build a role-aware binary assimilation-efficiency matrix `β[consumer, prey]`.
+
+Only the consumer-by-prey block specified by `consumer_indices` and
+`prey_indices` is computed.
+"""
+function assimilation_efficiency_matrix_binary_axes(
+    ::Type{FT};
+    can_eat::AbstractVector{Bool},
+    can_be_eaten::AbstractVector{Bool},
+    assimilation_efficiency::AbstractVector{FT},
+    consumer_indices::AbstractVector{<:Integer},
+    prey_indices::AbstractVector{<:Integer},
+) where {FT<:AbstractFloat}
+    nr = length(consumer_indices)
+    nc = length(prey_indices)
+    M = zeros(FT, nr, nc)
+
+    @inbounds for (ii, pred) in pairs(consumer_indices)
+        if !can_eat[pred]
+            continue
+        end
+        β = assimilation_efficiency[pred]
+        for (jj, prey) in pairs(prey_indices)
+            M[ii, jj] = can_be_eaten[prey] ? β : zero(FT)
+        end
+    end
+
     return M
 end
 

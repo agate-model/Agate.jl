@@ -159,6 +159,41 @@ using Oceananigans.Biogeochemistry:
         @test all(M3[:, 1:2] .== 0f0)
     end
 
+    @testset "Derived interaction matrices" begin
+        # If a model exposes interaction traits, overriding one of those traits
+        # should regenerate the derived matrices (unless the matrix itself is
+        # explicitly overridden).
+
+        bgc0 = NiPiZD.construct(; grid=dummy_grid(Float32))
+        pal0 = bgc0.parameters.interactions.palatability
+        n_total = size(bgc0.parameters.palatability_matrix, 1)
+
+        specificity = zeros(Float32, n_total)
+        specificity[1:2] .= 3f0  # consumers (Z)
+
+        bgc1 = NiPiZD.construct(; grid=dummy_grid(Float32), parameters=(; specificity=specificity))
+        pal1 = bgc1.parameters.interactions.palatability
+        @test any(pal1 .!= pal0)
+
+        rect = fill(Float32(11), size(pal0))
+        bgc2 = NiPiZD.construct(
+            ;
+            grid=dummy_grid(Float32),
+            parameters=(; specificity=specificity),
+            palatability_matrix=rect,
+        )
+        @test all(bgc2.parameters.interactions.palatability .== rect)
+
+        dar0 = DARWIN.construct(; grid=dummy_grid(Float32))
+        dar_pal0 = dar0.parameters.interactions.palatability
+        dar_n_total = size(dar0.parameters.palatability_matrix, 1)
+        dar_spec = zeros(Float32, dar_n_total)
+        dar_spec[1:length(dar0.parameters.interactions.palatability[:, 1])] .= 2f0
+        dar1 = DARWIN.construct(; grid=dummy_grid(Float32), parameters=(; specificity=dar_spec))
+        dar_pal1 = dar1.parameters.interactions.palatability
+        @test any(dar_pal1 .!= dar_pal0)
+    end
+
     @testset "NiPiZD community structure overrides" begin
         bgc = NiPiZD.construct(; n_phyto=1, phyto_diameters=[3.0], grid=dummy_grid(Float32))
         @test required_biogeochemical_tracers(bgc) == (:N, :D, :Z1, :Z2, :P1)

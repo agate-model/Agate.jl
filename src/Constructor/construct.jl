@@ -13,6 +13,7 @@ using ..Utils:
     AbstractBGCFactory,
     parameter_spec,
     normalize_interactions,
+    resolve_derived_matrices,
     finalize_interaction_parameters,
     parse_community,
     validate_plankton_inputs
@@ -108,13 +109,17 @@ function _validate_parameter_shapes(ctx, params::NamedTuple, r)
     return nothing
 end
 
-function _validate_override_keys(where_, overrides::NamedTuple, required::Tuple)
+function _validate_override_keys(where_, overrides::NamedTuple, required::Tuple, factory::AbstractBGCFactory)
     isempty(overrides) && return nothing
 
     required_set = Set(required)
     for k in keys(overrides)
-        k in required_set || throw(ArgumentError(
-            "$(where_): unknown parameter key :$k. Only required parameters may be overridden.",
+        k in required_set && continue
+
+        # Optional overrides are permitted only for keys declared in the
+        # factory's parameter directory.
+        parameter_spec(factory, k) === nothing && throw(ArgumentError(
+            "$(where_): unknown parameter key :$k.",
         ))
     end
 
@@ -256,13 +261,17 @@ function construct(
 
     overrides = normalize_interactions(factory, ctx, interactions)
 
-    _validate_override_keys("parameters", parameters, required)
-    _validate_override_keys("interactions", overrides, required)
+    _validate_override_keys("parameters", parameters, required, factory)
+    _validate_override_keys("interactions", overrides, required, factory)
 
     defaults = default_parameters(factory, ctx, FT)
 
     # Merge precedence: defaults < parameters < interactions
     params_full = merge(defaults, parameters, overrides)
+
+    # Recompute any derived matrices affected by explicit trait overrides.
+    explicit_override_keys = (keys(parameters)..., keys(overrides)...)
+    params_full = resolve_derived_matrices(factory, ctx, params_full, explicit_override_keys)
 
     # Ensure the required keys are present.
     missing = Symbol[]

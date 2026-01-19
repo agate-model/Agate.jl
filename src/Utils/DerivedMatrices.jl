@@ -1,0 +1,71 @@
+"""Utilities for *derived* interaction matrices.
+
+Some models expose low-level interaction *traits* (e.g. predator-prey size ratio
+preferences) and derive interaction matrices (palatability, assimilation) from
+those traits.
+
+Derived matrices are recomputed during construction when:
+
+- a matrix is *not* explicitly overridden, and
+- at least one of its declared dependencies *is* explicitly overridden.
+
+This allows users to tweak traits (small surface, easy to reason about) without
+needing to hand-build full matrices.
+"""
+
+"""A derived-matrix provider and the parameter keys it depends on."""
+struct MatrixFn{F,Deps}
+    f::F
+    deps::Deps
+end
+
+MatrixFn(f; deps=()) = MatrixFn{typeof(f), typeof(deps)}(f, deps)
+
+"""Return a `NamedTuple` mapping matrix keys to `MatrixFn`s.
+
+Factories override this to declare which matrices can be derived from other
+parameters.
+"""
+derived_matrix_specs(::AbstractBGCFactory) = (;)
+
+"""Resolve derived matrices into `params`.
+
+`explicit_override_keys` should include keys explicitly provided by the user
+either through `parameters` or `interactions`.
+
+If a derived matrix is *explicitly* overridden, its value is kept as-is.
+Otherwise, the matrix is recomputed if any of its dependencies are explicitly
+overridden.
+"""
+function resolve_derived_matrices(
+    factory::AbstractBGCFactory,
+    ctx::InteractionContext,
+    params::NamedTuple,
+    explicit_override_keys::Tuple{Vararg{Symbol}},
+)
+    specs = derived_matrix_specs(factory)
+    isempty(specs) && return params
+
+    override_set = Set(explicit_override_keys)
+    K = propertynames(specs)
+
+    vals = ntuple(i -> begin
+        key = K[i]
+        spec = getproperty(specs, key)
+
+        # If the matrix itself was explicitly overridden, keep it.
+        if key in override_set && hasproperty(params, key)
+            return getproperty(params, key)
+        end
+
+        # Only recompute when a declared dependency was explicitly overridden.
+        if !isempty(spec.deps) && !any(d -> d in override_set, spec.deps)
+            return hasproperty(params, key) ? getproperty(params, key) : spec.f(factory, ctx, params)
+        end
+
+        return spec.f(factory, ctx, params)
+    end, length(K))
+
+    updates = NamedTuple{K}(vals)
+    return merge(params, updates)
+end
