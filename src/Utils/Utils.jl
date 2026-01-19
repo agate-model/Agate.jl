@@ -31,6 +31,7 @@ export InteractionContext
 export normalize_interactions
 export GroupBlockMatrix
 export InteractionMatrices
+export sum_over
 
 """Wrapper to explicitly mark a matrix as a *group-block* interaction override.
 
@@ -85,6 +86,28 @@ prey_groups(::AbstractBGCFactory) = nothing
 """Internal factory used by `parse_community(FT, ...)` overloads."""
 struct _DefaultRoleFactory <: AbstractBGCFactory end
 
+
+"""Sum `f(i)` for `i` in `itr`, starting from `init`.
+
+Designed for use with Julia's `do`-block syntax, e.g.
+
+```julia
+sum_over(n, zero(T)) do i
+    ...
+end
+```
+
+`itr` may be an integer `n` (interpreted as `1:n`), a range, or `eachindex(x)`.
+"""
+@inline function sum_over(f, itr, init)
+    acc = init
+    @inbounds for i in itr
+        acc += f(i)
+    end
+    return acc
+end
+
+@inline sum_over(f, n::Int, init) = sum_over(f, Base.OneTo(n), init)
 
 include("ParameterDirectory.jl")
 

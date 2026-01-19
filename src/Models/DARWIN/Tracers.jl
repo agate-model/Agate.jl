@@ -9,6 +9,8 @@ using ....Library.Photosynthesis: TwoNutrientGrowthGeider
 using ....Library.Predation: PreferentialPredationLoss, PreferentialPredationGain, PreferentialPredationAssimilationLoss
 using ....Library.Remineralization: LinearRemineralization
 
+using ....Utils: sum_over
+
 export DIC_geider_light,
     DIN_geider_light,
     PO4_geider_light,
@@ -44,18 +46,6 @@ end
     return v
 end
 
-"""Sum `f(i)` for `i in 1:n`, starting from `init`.
-
-Designed for use with Julia's `do`-block syntax.
-"""
-@inline function sum_over(f, n::Int, init)
-    acc = init
-    @inbounds for i in 1:n
-        acc += f(i)
-    end
-    return acc
-end
-
 @inline function _uptake_sum_geider(p, state, plankton_syms, npl::Int, DIN, PO4, PAR)
     sum_over(npl, zero(DIN)) do i
         P = getproperty(state, plankton_syms[i])
@@ -77,19 +67,18 @@ end
 end
 
 @inline function _grazing_assimilation_loss_sum(p, state, plankton_syms, npl::Int, init)
-    acc = init
-    @inbounds for predator_idx in 1:npl
+    sum_over(npl, init) do predator_idx
         predator = getproperty(state, plankton_syms[predator_idx])
         gmax = p.maximum_predation_rate[predator_idx]
         K = p.holling_half_saturation[predator_idx]
-        for prey_idx in 1:npl
+
+        sum_over(npl, zero(init)) do prey_idx
             prey = getproperty(state, plankton_syms[prey_idx])
             beta = p.assimilation_matrix[predator_idx, prey_idx]
             phi = p.palatability_matrix[predator_idx, prey_idx]
-            acc += PreferentialPredationAssimilationLoss(beta, gmax, K, phi)(prey, predator)
+            PreferentialPredationAssimilationLoss(beta, gmax, K, phi)(prey, predator)
         end
     end
-    return acc
 end
 
 @inline function _grazing_loss_sum(p, state, plankton_syms, npl::Int, prey, prey_idx::Int, init)
