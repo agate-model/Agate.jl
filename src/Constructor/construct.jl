@@ -11,6 +11,7 @@ using Oceananigans.Architectures: architecture, CPU, GPU
 
 using ..Utils:
     AbstractBGCFactory,
+    parameter_spec,
     normalize_interactions,
     parse_community,
     validate_plankton_inputs
@@ -49,6 +50,41 @@ end
 
 @inline function _required_keys(r)
     return (r.scalars..., r.vectors..., r.matrices...)
+end
+
+function _validate_parameter_directory(factory::AbstractBGCFactory, r)
+    # Ensure every required parameter has explicit metadata.
+    for k in _required_keys(r)
+        spec = parameter_spec(factory, k)
+        spec === nothing && throw(ArgumentError(
+            "Factory $(typeof(factory)) is missing a ParameterSpec for required parameter :$k. " *
+            "Add it to parameter_directory(::$(typeof(factory))).",
+        ))
+    end
+
+    # Ensure the directory is internally consistent with compiled-equation requirements.
+    for k in r.scalars
+        spec = parameter_spec(factory, k)
+        spec.shape === :scalar || throw(ArgumentError(
+            "parameter_directory(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a scalar.",
+        ))
+    end
+
+    for k in r.vectors
+        spec = parameter_spec(factory, k)
+        spec.shape === :vector || throw(ArgumentError(
+            "parameter_directory(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a vector.",
+        ))
+    end
+
+    for k in r.matrices
+        spec = parameter_spec(factory, k)
+        spec.shape === :matrix || throw(ArgumentError(
+            "parameter_directory(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a matrix.",
+        ))
+    end
+
+    return nothing
 end
 
 function _validate_parameter_shapes(ctx, params::NamedTuple, r)
@@ -210,9 +246,11 @@ function construct(
     # Parameters
     # ---------------------------------------------------------------------
 
+    _validate_parameter_directory(factory, merged)
+
     required = _required_keys(merged)
 
-    overrides = normalize_interactions(ctx, interactions)
+    overrides = normalize_interactions(factory, ctx, interactions)
 
     _validate_override_keys("parameters", parameters, required)
     _validate_override_keys("interactions", overrides, required)

@@ -12,7 +12,10 @@ Model implementations add methods for their specific factory types.
 
 module FactoryInterface
 
-using ..Utils: AbstractBGCFactory
+using ..Utils: AbstractBGCFactory, ParameterSpec, parameter_directory
+
+export ParameterSpec
+export parameter_directory
 
 export factory_groups
 export default_plankton_dynamics

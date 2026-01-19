@@ -9,6 +9,7 @@ traits used to derive default matrices are kept internal to this method.
 """
 
 import ...Constructor: default_parameters
+import ...FactoryInterface: parameter_directory, ParameterSpec
 using ...Utils: InteractionContext
 using ...Library.Allometry:
     AllometricParam,
@@ -42,8 +43,27 @@ function _resolve_groupvec_bool(ctx::InteractionContext, group_map::NamedTuple; 
     return out
 end
 
+
+"""Parameter metadata for NiPiZD.
+
+The directory provides expected shapes and short descriptions for all parameters
+required by the compiled NiPiZD equations.
+"""
+parameter_directory(::NiPiZDFactory) = (
+    ParameterSpec(:detritus_remineralization, :scalar; kind=:real, doc="Detritus remineralization rate."),
+    ParameterSpec(:mortality_export_fraction, :scalar; kind=:real, doc="Fraction of mortality routed to detritus export."),
+    ParameterSpec(:linear_mortality, :vector; kind=:real, doc="Linear mortality coefficient per plankton class."),
+    ParameterSpec(:quadratic_mortality, :vector; kind=:real, doc="Quadratic mortality coefficient per plankton class."),
+    ParameterSpec(:maximum_growth_rate, :vector; kind=:real, doc="Maximum phytoplankton growth rate per plankton class."),
+    ParameterSpec(:nutrient_half_saturation, :vector; kind=:real, doc="Nutrient half-saturation constant per plankton class."),
+    ParameterSpec(:alpha, :vector; kind=:real, doc="Initial slope of the P-I curve per plankton class."),
+    ParameterSpec(:maximum_predation_rate, :vector; kind=:real, doc="Maximum zooplankton grazing rate per plankton class."),
+    ParameterSpec(:holling_half_saturation, :vector; kind=:real, doc="Holling type II half-saturation constant per plankton class."),
+    ParameterSpec(:palatability_matrix, :matrix; kind=:real, doc="Predator-by-prey palatability matrix."),
+    ParameterSpec(:assimilation_matrix, :matrix; kind=:real, doc="Predator-by-prey assimilation efficiency matrix."),
+)
+
 function default_parameters(::NiPiZDFactory, ctx::InteractionContext, ::Type{FT}) where {FT}
-    groups = (:Z, :P)
 
     detritus_remineralization = FT(0.1213 / 86400)
     mortality_export_fraction = FT(0.2)

@@ -7,6 +7,7 @@ Only keys required by the compiled DARWIN equations are provided.
 """
 
 import ...Constructor: default_parameters
+import ...FactoryInterface: parameter_directory, ParameterSpec
 using ...Utils: InteractionContext
 using ...Library.Allometry:
     AllometricParam,
@@ -14,6 +15,35 @@ using ...Library.Allometry:
     resolve_param,
     palatability_matrix_allometric,
     assimilation_efficiency_matrix_binary
+
+
+"""Parameter metadata for DARWIN.
+
+The directory provides expected shapes and short descriptions for all parameters
+required by the compiled DARWIN equations.
+"""
+parameter_directory(::DarwinFactory) = (
+    ParameterSpec(:DOC_remineralization, :scalar; kind=:real, doc="DOC remineralization rate."),
+    ParameterSpec(:POC_remineralization, :scalar; kind=:real, doc="POC remineralization rate."),
+    ParameterSpec(:DON_remineralization, :scalar; kind=:real, doc="DON remineralization rate."),
+    ParameterSpec(:PON_remineralization, :scalar; kind=:real, doc="PON remineralization rate."),
+    ParameterSpec(:DOP_remineralization, :scalar; kind=:real, doc="DOP remineralization rate."),
+    ParameterSpec(:POP_remineralization, :scalar; kind=:real, doc="POP remineralization rate."),
+    ParameterSpec(:nitrogen_to_carbon, :scalar; kind=:real, doc="Nitrogen-to-carbon stoichiometric ratio."),
+    ParameterSpec(:phosphorus_to_carbon, :scalar; kind=:real, doc="Phosphorus-to-carbon stoichiometric ratio."),
+    ParameterSpec(:DOM_POM_fractionation, :scalar; kind=:real, doc="Fraction of organic matter routed to DOM vs POM."),
+    ParameterSpec(:linear_mortality, :vector; kind=:real, doc="Linear mortality coefficient per plankton class."),
+    ParameterSpec(:quadratic_mortality, :vector; kind=:real, doc="Quadratic mortality coefficient per plankton class."),
+    ParameterSpec(:maximum_growth_rate, :vector; kind=:real, doc="Maximum phytoplankton growth rate per plankton class."),
+    ParameterSpec(:half_saturation_DIN, :vector; kind=:real, doc="DIN half-saturation constant per plankton class."),
+    ParameterSpec(:half_saturation_PO4, :vector; kind=:real, doc="PO4 half-saturation constant per plankton class."),
+    ParameterSpec(:photosynthetic_slope, :vector; kind=:real, doc="Initial slope of the P-I curve per plankton class."),
+    ParameterSpec(:chlorophyll_to_carbon_ratio, :vector; kind=:real, doc="Chlorophyll-to-carbon ratio per plankton class."),
+    ParameterSpec(:maximum_predation_rate, :vector; kind=:real, doc="Maximum zooplankton grazing rate per plankton class."),
+    ParameterSpec(:holling_half_saturation, :vector; kind=:real, doc="Holling type II half-saturation constant per plankton class."),
+    ParameterSpec(:palatability_matrix, :matrix; kind=:real, doc="Predator-by-prey palatability matrix."),
+    ParameterSpec(:assimilation_matrix, :matrix; kind=:real, doc="Predator-by-prey assimilation efficiency matrix."),
+)
 
 @inline function _group_value(group_map::NamedTuple, group::Symbol, default)
     return Base.hasproperty(group_map, group) ? getproperty(group_map, group) : default
