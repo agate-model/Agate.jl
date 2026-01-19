@@ -10,6 +10,11 @@ This constructor keeps the surface small:
   biogeochemical tracer dynamics by key
 - parameters: override named parameters via `parameters=(; ...)`
 - interactions: optionally override interaction matrices
+
+For ease of use, interaction overrides are exposed as two separate keywords:
+
+- `palatability_matrix`
+- `assimilation_matrix`
 """
 
 using OceanBioME: BoxModelGrid

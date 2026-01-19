@@ -158,7 +158,9 @@ Key keyword arguments
   to `architecture(grid)`.
 - `community`: plankton community structure (size classes, diameters, PFT specs).
 - `parameters`: `NamedTuple` of fully-resolved parameter overrides.
-- `interactions`: optional `NamedTuple` of interaction-related overrides (typically matrices).
+- `interactions`: optional `NamedTuple` of interaction parameter overrides (often matrices such as `:palatability_matrix` and `:assimilation_matrix`).
+  Values may be concrete objects or provider functions callable as `f(ctx)`.
+  For matrix parameters, overrides may be full `(n_total, n_total)` matrices or group-block `(n_groups, n_groups)` matrices (expanded during construction).
 """
 function construct(
     factory::AbstractBGCFactory;
