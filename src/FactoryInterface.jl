@@ -6,18 +6,18 @@ defaults for community structure, tracer dynamics, and group ordering.
 
 These functions intentionally live outside `Agate.Models` to avoid circular load
 dependencies between the generic constructor pipeline and model modules.
-
-Model implementations add methods for their specific factory types.
 """
 
 module FactoryInterface
 
-using ..Utils: AbstractBGCFactory, ParameterSpec, parameter_directory
+using ..Utils: AbstractBGCFactory, ParameterSpec, parameter_directory, consumer_groups, prey_groups
 
 export ParameterSpec
 export parameter_directory
 
 export factory_groups
+export consumer_groups
+export prey_groups
 export default_plankton_dynamics
 export default_community
 export default_biogeochem_dynamics
@@ -29,6 +29,7 @@ The returned tuple defines the canonical group order for group-level parameters.
 function factory_groups(::AbstractBGCFactory)
     throw(ArgumentError("No method `factory_groups(factory)` is defined for this factory."))
 end
+
 
 """Default plankton dynamics for a factory.
 

@@ -23,9 +23,13 @@ the construction context:
 
 - `(ctx) -> matrix`
 
-Matrix overrides may be specified either as full `(n_total, n_total)` matrices or
-as group-block `(n_groups, n_groups)` matrices, which are expanded during
-construction.
+Matrix overrides may be specified as full `(n_total, n_total)` matrices, or (because
+these matrices are role-aware) as rectangular `(n_consumer, n_prey)` matrices.
+Rectangular matrices are embedded into the full square storage with zeros elsewhere.
+
+To pass a group-block matrix over *all* groups, wrap it as `GroupBlockMatrix(B)` to
+force group-block expansion during construction.
+Axis-local group-block matrices sized `(n_consumer_groups, n_prey_groups)` are also accepted.
 """
 
 using OceanBioME: BoxModelGrid

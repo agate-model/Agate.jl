@@ -41,8 +41,8 @@ parameter_directory(::DarwinFactory) = (
     ParameterSpec(:chlorophyll_to_carbon_ratio, :vector; kind=:real, doc="Chlorophyll-to-carbon ratio per plankton class."),
     ParameterSpec(:maximum_predation_rate, :vector; kind=:real, doc="Maximum zooplankton grazing rate per plankton class."),
     ParameterSpec(:holling_half_saturation, :vector; kind=:real, doc="Holling type II half-saturation constant per plankton class."),
-    ParameterSpec(:palatability_matrix, :matrix; kind=:real, doc="Predator-by-prey palatability matrix."),
-    ParameterSpec(:assimilation_matrix, :matrix; kind=:real, doc="Predator-by-prey assimilation efficiency matrix."),
+    ParameterSpec(:palatability_matrix, :matrix; kind=:real, axes=(:consumer, :prey), doc="Preference of each consumer for each prey class."),
+    ParameterSpec(:assimilation_matrix, :matrix; kind=:real, axes=(:consumer, :prey), doc="Assimilation efficiency of each consumer on each prey class."),
 )
 
 @inline function _group_value(group_map::NamedTuple, group::Symbol, default)

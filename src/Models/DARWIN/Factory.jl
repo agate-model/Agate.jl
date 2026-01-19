@@ -14,7 +14,7 @@ using ...Utils: DiameterRangeSpecification
 
 # NOTE: Defaults are provided by `Constructor.default_parameters` (see `Models/DARWIN/Parameters.jl`).
 
-import ...FactoryInterface: default_plankton_dynamics, default_community, default_biogeochem_dynamics, factory_groups
+import ...FactoryInterface: default_plankton_dynamics, default_community, default_biogeochem_dynamics, factory_groups, consumer_groups, prey_groups
 
 using .Tracers:
     DIC_geider_light,
@@ -37,6 +37,12 @@ struct DarwinFactory <: AbstractBGCFactory end
 The ordering matches `default_community` (`Z` then `P`).
 """
 factory_groups(::DarwinFactory) = (:Z, :P)
+
+"""Plankton groups that consume in predator-by-prey matrices."""
+consumer_groups(::DarwinFactory) = (:Z,)
+
+"""Plankton groups that may be eaten in predator-by-prey matrices."""
+prey_groups(::DarwinFactory) = (:P,)
 
 """Default plankton dynamics for DARWIN."""
 default_plankton_dynamics(::DarwinFactory) = (

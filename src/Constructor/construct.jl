@@ -160,7 +160,7 @@ Key keyword arguments
 - `parameters`: `NamedTuple` of fully-resolved parameter overrides.
 - `interactions`: optional `NamedTuple` of interaction parameter overrides (often matrices such as `:palatability_matrix` and `:assimilation_matrix`).
   Values may be concrete objects or provider functions callable as `f(ctx)`.
-  For matrix parameters, overrides may be full `(n_total, n_total)` matrices or group-block `(n_groups, n_groups)` matrices (expanded during construction).
+  For matrix parameters, overrides may be full `(n_total, n_total)` matrices. A group-block `(n_groups, n_groups)` matrix may be supplied and expanded during construction; when the parameter declares role-aware axes, wrap the block matrix as `GroupBlockMatrix(B)` to avoid ambiguity. When axes are declared, rectangular consumer-by-prey matrices sized to those axes (for example `(n_consumer, n_prey)`) are also accepted, as are axis-local group-block matrices.
 """
 function construct(
     factory::AbstractBGCFactory;
@@ -201,6 +201,7 @@ function construct(
 
     # Parse community.
     ctx = parse_community(
+        factory,
         FT,
         community;
         plankton_dynamics = plankton_dynamics,

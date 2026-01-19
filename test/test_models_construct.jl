@@ -52,7 +52,9 @@ using Oceananigans.Biogeochemistry:
         )
 
         # Group-block matrices are expanded to full (n_total, n_total) matrices.
-        block = Float32[0 1; 2 3]
+        # For role-aware interaction matrices, (n_groups, n_groups) matrices are
+        # ambiguous, so we wrap them explicitly.
+        block = Agate.Utils.GroupBlockMatrix(Float32[0 1; 2 3])
         bgc_block = NiPiZD.construct(
             ;
             grid=dummy_grid(Float32),
@@ -64,6 +66,51 @@ using Oceananigans.Biogeochemistry:
         @test bgc_block.parameters.palatability_matrix[1, 3] == 1f0
         @test bgc_block.parameters.palatability_matrix[3, 1] == 2f0
         @test bgc_block.parameters.palatability_matrix[end, end] == 3f0
+
+        # Rectangular consumer-by-prey matrices (n_consumer, n_prey) are embedded
+        # into the full (n_total, n_total) storage with zeros elsewhere.
+        rect = reshape(Float32.(1:4), 2, 2)
+        bgc_rect = NiPiZD.construct(
+            ;
+            grid=dummy_grid(Float32),
+            palatability_matrix=rect,
+            assimilation_matrix=rect,
+        )
+        M = bgc_rect.parameters.palatability_matrix
+        @test size(M) == (n, n)
+        @test M[1, 3] == 1f0
+        @test M[2, 3] == 2f0
+        @test M[1, 4] == 3f0
+        @test M[2, 4] == 4f0
+        @test all(M[3:4, :] .== 0f0)
+        @test all(M[:, 1:2] .== 0f0)
+
+        # Axis-local group-block matrices (n_consumer_groups, n_prey_groups) are
+        # expanded within the consumer/prey axes and then embedded.
+        axis_block = reshape(Float32[7], 1, 1)
+        bgc_axis_block = NiPiZD.construct(
+            ;
+            grid=dummy_grid(Float32),
+            palatability_matrix=axis_block,
+            assimilation_matrix=axis_block,
+        )
+        M2 = bgc_axis_block.parameters.palatability_matrix
+        @test all(M2[1:2, 3:4] .== 7f0)
+        @test all(M2[3:4, :] .== 0f0)
+        @test all(M2[:, 1:2] .== 0f0)
+
+        # Providers can return axis-sized rectangular matrices.
+        rect_provider(ctx) = fill(Float32(9), length(ctx.consumer_indices), length(ctx.prey_indices))
+        bgc_rect_provider = NiPiZD.construct(
+            ;
+            grid=dummy_grid(Float32),
+            palatability_matrix=rect_provider,
+            assimilation_matrix=rect_provider,
+        )
+        M3 = bgc_rect_provider.parameters.palatability_matrix
+        @test all(M3[1:2, 3:4] .== 9f0)
+        @test all(M3[3:4, :] .== 0f0)
+        @test all(M3[:, 1:2] .== 0f0)
 
         correct = zeros(Float32, n, n)
         bgc2 = NiPiZD.construct(
@@ -95,6 +142,21 @@ using Oceananigans.Biogeochemistry:
         )
         @test size(bgc3.parameters.palatability_matrix) == (n, n)
         @test size(bgc3.parameters.assimilation_matrix) == (n, n)
+
+
+        # Providers may also return consumer-by-prey rectangular matrices when the
+        # parameter directory declares axes for the matrix.
+        rect_provider(ctx) = fill(Float32(9), length(ctx.consumer_indices), length(ctx.prey_indices))
+        bgc_rect_provider = NiPiZD.construct(
+            ;
+            grid=dummy_grid(Float32),
+            palatability_matrix=rect_provider,
+            assimilation_matrix=rect_provider,
+        )
+        M3 = bgc_rect_provider.parameters.palatability_matrix
+        @test all(M3[1:2, 3:4] .== 9f0)
+        @test all(M3[3:4, :] .== 0f0)
+        @test all(M3[:, 1:2] .== 0f0)
     end
 
     @testset "NiPiZD community structure overrides" begin

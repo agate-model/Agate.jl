@@ -1,13 +1,11 @@
 """Parameter metadata for safer configuration.
 
-Agate's public constructors accept `NamedTuple` overrides for parameters and
-interaction-related matrices. To keep this user-facing configuration explicit
-(and to avoid brittle naming conventions), each factory can provide a
-`parameter_directory` describing the expected *shape* and *kind* of each
-parameter key.
+Factories define `parameter_directory` entries that declare each required
+parameter key, its shape (`:scalar`, `:vector`, or `:matrix`), and optional axes
+for matrices.
 
-The directory is small by design: it is intended for validation, better error
-messages, and lightweight introspection during construction.
+The directory is used for validation and clearer error messages during
+construction.
 """
 
 export ParameterSpec
@@ -19,12 +17,18 @@ struct ParameterSpec
     name::Symbol
     shape::Symbol  # :scalar | :vector | :matrix
     kind::Symbol   # :real | :bool (introspection / error messages)
+    axes::Union{Nothing,NTuple{2,Symbol}}
     doc::String
 end
 
 """Convenience constructor for `ParameterSpec`."""
-ParameterSpec(name::Symbol, shape::Symbol; kind::Symbol=:real, doc::AbstractString="") =
-    ParameterSpec(name, shape, kind, String(doc))
+ParameterSpec(
+    name::Symbol,
+    shape::Symbol;
+    kind::Symbol = :real,
+    axes::Union{Nothing,NTuple{2,Symbol}} = nothing,
+    doc::AbstractString = "",
+) = ParameterSpec(name, shape, kind, axes, String(doc))
 
 """Return a tuple of `ParameterSpec` entries for `factory`.
 

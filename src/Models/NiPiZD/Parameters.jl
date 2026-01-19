@@ -59,8 +59,8 @@ parameter_directory(::NiPiZDFactory) = (
     ParameterSpec(:alpha, :vector; kind=:real, doc="Initial slope of the P-I curve per plankton class."),
     ParameterSpec(:maximum_predation_rate, :vector; kind=:real, doc="Maximum zooplankton grazing rate per plankton class."),
     ParameterSpec(:holling_half_saturation, :vector; kind=:real, doc="Holling type II half-saturation constant per plankton class."),
-    ParameterSpec(:palatability_matrix, :matrix; kind=:real, doc="Predator-by-prey palatability matrix."),
-    ParameterSpec(:assimilation_matrix, :matrix; kind=:real, doc="Predator-by-prey assimilation efficiency matrix."),
+    ParameterSpec(:palatability_matrix, :matrix; kind=:real, axes=(:consumer, :prey), doc="Preference of each consumer for each prey class."),
+    ParameterSpec(:assimilation_matrix, :matrix; kind=:real, axes=(:consumer, :prey), doc="Assimilation efficiency of each consumer on each prey class."),
 )
 
 function default_parameters(::NiPiZDFactory, ctx::InteractionContext, ::Type{FT}) where {FT}

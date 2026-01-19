@@ -21,6 +21,8 @@ import Agate.FactoryInterface: parameter_directory
         @test specmap[:detritus_remineralization].shape == :scalar
         @test specmap[:maximum_growth_rate].shape == :vector
         @test specmap[:palatability_matrix].shape == :matrix
+        @test specmap[:palatability_matrix].axes == (:consumer, :prey)
+        @test specmap[:assimilation_matrix].axes == (:consumer, :prey)
     end
 
     @testset "DARWIN" begin
@@ -39,5 +41,7 @@ import Agate.FactoryInterface: parameter_directory
         @test specmap[:DOC_remineralization].shape == :scalar
         @test specmap[:linear_mortality].shape == :vector
         @test specmap[:assimilation_matrix].shape == :matrix
+        @test specmap[:palatability_matrix].axes == (:consumer, :prey)
+        @test specmap[:assimilation_matrix].axes == (:consumer, :prey)
     end
 end

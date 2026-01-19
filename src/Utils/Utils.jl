@@ -29,7 +29,26 @@ export parameter_spec
 # Interactions API
 export InteractionContext
 export normalize_interactions
+export GroupBlockMatrix
+
+"""Wrapper to explicitly mark a matrix as a *group-block* interaction override.
+
+For interaction parameters declared as matrices, `normalize_interactions` accepts several
+shapes (full `(n_total, n_total)`, axis-sized matrices when axes are declared, etc.).
+
+When an interaction parameter declares role-aware axes (for example `axes = (:consumer, :prey)`),
+plain `(n_groups, n_groups)` matrices are ambiguous: they could be interpreted as an axis-sized
+matrix or as a block matrix over all groups.
+
+Wrap a matrix in `GroupBlockMatrix(B)` to force it to be interpreted as a group-block matrix
+over *all* groups and expanded to `(n_total, n_total)` via `expand_group_block_matrix`.
+"""
+struct GroupBlockMatrix{T<:AbstractMatrix}
+    B::T
+end
 export expand_group_block_matrix
+export consumer_groups
+export prey_groups
 
 # Community parsing
 export validate_plankton_inputs
@@ -46,6 +65,25 @@ export param_compute_diameters
 
 """Abstract supertype for biogeochemical model factories."""
 abstract type AbstractBGCFactory end
+
+"""Return the plankton groups that act as *consumers* in predator-by-prey matrices.
+
+Factories may override this to declare a consumer axis for interaction matrices.
+Return `nothing` to treat all classes as consumers.
+"""
+consumer_groups(::AbstractBGCFactory) = nothing
+
+"""Return the plankton groups that act as *prey* in predator-by-prey matrices.
+
+Factories may override this to declare a prey axis for interaction matrices.
+Return `nothing` to treat all classes as prey.
+"""
+prey_groups(::AbstractBGCFactory) = nothing
+
+
+"""Internal factory used by `parse_community(FT, ...)` overloads."""
+struct _DefaultRoleFactory <: AbstractBGCFactory end
+
 
 include("ParameterDirectory.jl")
 
@@ -81,6 +119,9 @@ struct InteractionContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
     plankton_symbols::Vector{Symbol}
     group_symbols::Vector{Symbol}
     group_local_index::Vector{Int}
+    group_indices::Dict{Symbol,Vector{Int}}
+    consumer_indices::Vector{Int}
+    prey_indices::Vector{Int}
     plankton_dynamics::NamedTuple
     biogeochem_dynamics::NamedTuple
 end
@@ -100,9 +141,18 @@ and must be callable as:
 
 For matrix parameters, users may pass either:
 
-- a full `(n_total, n_total)` matrix, or
+- a full `(n_total, n_total)` matrix,
 - a group-block `(n_groups, n_groups)` matrix which will be expanded to
-  `(n_total, n_total)` (see `expand_group_block_matrix`).
+  `(n_total, n_total)` (see `expand_group_block_matrix`). When the parameter
+  declares role-aware axes, a plain `(n_groups, n_groups)` matrix is ambiguous;
+  wrap it in `GroupBlockMatrix(B)` to force group-block expansion,
+- or, when the parameter directory declares role-aware axes,
+  a rectangular matrix sized to those axes (for example `(n_consumer, n_prey)`).
+
+When a rectangular matrix is provided, it is embedded into a full
+`(n_total, n_total)` matrix during construction (non-axis rows/columns are set to
+zero). This keeps the internal parameter storage uniform while enabling a
+consumer-by-prey configuration surface.
 
 Shape validation is driven by `parameter_directory(factory)`.
 Final key validation and full parameter shape checks occur during model
@@ -117,9 +167,14 @@ function normalize_interactions(
 
     resolved = Pair{Symbol, Any}[]
     for (key, value) in pairs(interactions)
+        spec = parameter_spec(factory, key)
+        spec !== nothing || throw(ArgumentError(
+            "interaction override '$key' is missing a ParameterSpec in parameter_directory(::$(typeof(factory))).",
+        ))
+
         resolved_value = value isa Function ? _call_interaction_provider(value, ctx, key) : value
-        resolved_value = _maybe_expand_group_block_matrix(factory, ctx, key, resolved_value)
-        _validate_interaction_override(factory, ctx, key, resolved_value)
+        resolved_value = _normalize_interaction_value(ctx, spec, key, resolved_value)
+        _validate_interaction_override(ctx, spec, key, resolved_value)
         push!(resolved, key => resolved_value)
     end
 
@@ -127,13 +182,84 @@ function normalize_interactions(
 end
 
 @inline function _call_interaction_provider(f::Function, ctx::InteractionContext, key::Symbol)
-    if applicable(f, ctx)
-        return f(ctx)
-    end
+    applicable(f, ctx) && return f(ctx)
 
     throw(ArgumentError(
         "interaction override '$key' provider must be callable as f(ctx)",
     ))
+end
+
+@inline _axis_indices(ctx::InteractionContext, axis::Symbol) =
+    axis === :consumer ? ctx.consumer_indices :
+    axis === :prey     ? ctx.prey_indices :
+    haskey(ctx.group_indices, axis) ? ctx.group_indices[axis] :
+    throw(ArgumentError(
+        "Unknown interaction axis '$axis'. Valid axes are :consumer, :prey, or an existing group symbol.",
+    ))
+
+@inline function _normalize_interaction_value(
+    ctx::InteractionContext,
+    spec::ParameterSpec,
+    key::Symbol,
+    value,
+)
+    spec.shape === :matrix || return value
+    # Explicit wrapper to force group-block expansion.
+    if value isa GroupBlockMatrix
+        return expand_group_block_matrix(ctx, value.B)
+    end
+
+    value isa AbstractMatrix || return value
+
+    n_total = ctx.n_total
+
+    # Full override.
+    size(value) == (n_total, n_total) && return value
+
+    groups = unique(ctx.group_symbols)
+    ng = length(groups)
+
+    # Axes-aware overrides (preferred when declared).
+    spec.axes === nothing || begin
+        row_axis, col_axis = spec.axes
+        row_indices = _axis_indices(ctx, row_axis)
+        col_indices = _axis_indices(ctx, col_axis)
+
+        nr = length(row_indices)
+        nc = length(col_indices)
+
+        if size(value) == (nr, nc)
+            return _embed_axis_matrix(ctx, row_indices, col_indices, value)
+        end
+
+        # Axis-local group-block matrix (groups present on each axis, in order of appearance).
+        row_groups = unique(ctx.group_symbols[row_indices])
+        col_groups = unique(ctx.group_symbols[col_indices])
+        ngr = length(row_groups)
+        ngc = length(col_groups)
+
+        if size(value) == (ngr, ngc)
+            R = _expand_group_block_axis_matrix(ctx, value, row_indices, col_indices, row_groups, col_groups)
+            return _embed_axis_matrix(ctx, row_indices, col_indices, R)
+        end
+
+        # Ambiguous: a plain (n_groups, n_groups) matrix could be intended as a group-block matrix.
+        if size(value) == (ng, ng)
+            throw(ArgumentError(
+                "interaction override '$key' is ambiguous for axes $(spec.axes): a $(ng)x$(ng) matrix could be either an axis-sized matrix or a group-block matrix. " *
+                "Wrap it as GroupBlockMatrix(B) to force group-block expansion, or pass a $(nr)x$(nc) axis matrix."
+            ))
+        end
+
+        throw(ArgumentError(
+            "interaction override '$key' must be a $(n_total)x$(n_total) matrix, or (for axes $(spec.axes)) a $(nr)x$(nc) axis matrix (or $(ngr)x$(ngc) axis block); got size $(size(value))",
+        ))
+    end
+
+    # Group-block override over *all* groups (only when no axes are declared).
+    size(value) == (ng, ng) && return expand_group_block_matrix(ctx, value)
+
+    return value
 end
 
 """Expand a group-block matrix to a full `(n_total, n_total)` matrix.
@@ -158,38 +284,54 @@ function expand_group_block_matrix(ctx::InteractionContext, B::AbstractMatrix)
     return B[group_idx, group_idx]
 end
 
-@inline function _maybe_expand_group_block_matrix(
-    factory::AbstractBGCFactory,
+@inline function _expand_group_block_axis_matrix(
     ctx::InteractionContext,
-    key::Symbol,
-    value,
+    B::AbstractMatrix,
+    row_indices::AbstractVector{Int},
+    col_indices::AbstractVector{Int},
+    row_groups::AbstractVector{Symbol},
+    col_groups::AbstractVector{Symbol},
 )
-    spec = parameter_spec(factory, key)
-    spec === nothing && return value
+    row_map = Dict{Symbol,Int}(g => i for (i, g) in pairs(row_groups))
+    col_map = Dict{Symbol,Int}(g => i for (i, g) in pairs(col_groups))
 
-    if spec.shape === :matrix && value isa AbstractMatrix
-        n = ctx.n_total
-        if size(value) == (n, n)
-            return value
-        end
+    nr = length(row_indices)
+    nc = length(col_indices)
+    R = similar(B, nr, nc)
 
-        groups = unique(ctx.group_symbols)
-        ng = length(groups)
-        if size(value) == (ng, ng)
-            return expand_group_block_matrix(ctx, value)
+    for (ii, gi) in enumerate(row_indices)
+        rg = ctx.group_symbols[gi]
+        ri = row_map[rg]
+        for (jj, gj) in enumerate(col_indices)
+            cg = ctx.group_symbols[gj]
+            cj = col_map[cg]
+            @inbounds R[ii, jj] = B[ri, cj]
         end
     end
 
-    return value
+    return R
 end
 
-@inline function _validate_interaction_override(factory::AbstractBGCFactory, ctx::InteractionContext, key::Symbol, value)
-    spec = parameter_spec(factory, key)
+@inline function _embed_axis_matrix(
+    ctx::InteractionContext,
+    row_indices::AbstractVector{Int},
+    col_indices::AbstractVector{Int},
+    R::AbstractMatrix,
+)
+    n_total = ctx.n_total
+    M = similar(R, n_total, n_total)
+    fill!(M, zero(eltype(M)))
 
-    spec !== nothing || throw(ArgumentError(
-        "interaction override '$key' is missing a ParameterSpec in parameter_directory(::$(typeof(factory))).",
-    ))
+    for (ii, gi) in enumerate(row_indices)
+        for (jj, gj) in enumerate(col_indices)
+            @inbounds M[gi, gj] = R[ii, jj]
+        end
+    end
 
+    return M
+end
+
+@inline function _validate_interaction_override(ctx::InteractionContext, spec::ParameterSpec, key::Symbol, value)
     if spec.shape === :matrix
         value isa AbstractMatrix || throw(ArgumentError(
             "interaction override '$key' must be a matrix; got $(typeof(value))",
@@ -197,8 +339,9 @@ end
 
         n_total = ctx.n_total
         size(value) == (n_total, n_total) || throw(ArgumentError(
-            "interaction override '$key' must be a $(n_total)x$(n_total) matrix; got size $(size(value))",
+            "interaction override '$key' must be a $(n_total)x$(n_total) matrix after normalization; got size $(size(value))",
         ))
+
     elseif spec.shape === :vector
         value isa AbstractVector || throw(ArgumentError(
             "interaction override '$key' must be a vector; got $(typeof(value))",
@@ -212,6 +355,7 @@ end
 
     return nothing
 end
+
 
 # -----------------------------------------------------------------------------
 # Plankton community parsing
@@ -309,6 +453,7 @@ end
 
 """Parse and flatten a plankton community into a construction context."""
 function parse_community(
+    factory::AbstractBGCFactory,
     ::Type{FT},
     plankton_args::NamedTuple;
     plankton_dynamics::NamedTuple=NamedTuple(),
@@ -328,8 +473,6 @@ function parse_community(
         ds = param_compute_diameters(FT, n, dspec)
         pft_raw = hasproperty(spec, :pft) ? getproperty(spec, :pft) : getproperty(spec, :args)
         pft = pft_raw isa PFTSpecification ? pft_raw : PFTSpecification(pft_raw)
-        # Keep specifications as-authored; numeric literals are converted to FT when resolved
-        # into runtime parameters.
 
         for i in 1:n
             push!(plankton_symbols, Symbol(string(g), i))
@@ -340,14 +483,35 @@ function parse_community(
         end
     end
 
+    n_total = length(plankton_symbols)
+
+    group_indices = Dict{Symbol,Vector{Int}}()
+    for (i, g) in enumerate(group_of)
+        push!(get!(group_indices, g, Int[]), i)
+    end
+
+    _indices_for_groups(groups) = groups === nothing ? collect(1:n_total) : begin
+        idx = Int[]
+        for g in groups
+            haskey(group_indices, g) && append!(idx, group_indices[g])
+        end
+        idx
+    end
+
+    consumer_indices = _indices_for_groups(consumer_groups(factory))
+    prey_indices = _indices_for_groups(prey_groups(factory))
+
     ctx = InteractionContext{FT,typeof(diameters)}(
         FT,
-        length(plankton_symbols),
+        n_total,
         diameters,
         pfts,
         plankton_symbols,
         group_of,
         local_idx,
+        group_indices,
+        consumer_indices,
+        prey_indices,
         plankton_dynamics,
         biogeochem_dynamics,
     )
@@ -355,6 +519,24 @@ function parse_community(
     return ctx
 end
 
+"""Parse a plankton community without factory-provided role axes.
+
+This overload treats all classes as consumers and prey.
+"""
+function parse_community(
+    ::Type{FT},
+    plankton_args::NamedTuple;
+    plankton_dynamics::NamedTuple=NamedTuple(),
+    biogeochem_dynamics::NamedTuple=NamedTuple(),
+) where {FT<:AbstractFloat}
+    return parse_community(
+        _DefaultRoleFactory(),
+        FT,
+        plankton_args;
+        plankton_dynamics=plankton_dynamics,
+        biogeochem_dynamics=biogeochem_dynamics,
+    )
+end
 ##############################################################################
 # Parameter Utils
 ###############################################################################
