@@ -7,8 +7,7 @@
 # 1. Construct a default model.
 # 2. Change community structure (number of size classes, diameters).
 # 3. Override parameters.
-# 4. Swap components (dynamics functions).
-# 5. Provide explicit interaction matrices.
+# 4. Provide explicit interaction matrices.
 #
 # The same pattern applies to other Agate model modules (e.g. `DARWIN.construct`).
 
@@ -47,11 +46,7 @@ parameter_overrides = (
     maximum_growth_rate = (P = AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15), Z = 0.0),
 )
 
-# ## 4. Swap components (dynamics)
-
-using Agate.Models.NiPiZD.Tracers: nutrient_geider_light, phytoplankton_geider_light
-
-# ## 5. Provide explicit interaction matrices
+# ## 4. Provide explicit interaction matrices
 
 # We compute matrices in the *constructed community order*.
 # `parse_community` is a lightweight helper that matches the constructor's own parsing.
@@ -63,8 +58,8 @@ community_ctx = parse_community(
         P=(; n=n_phyto, diameters=phyto_diameters),
     );
     plankton_dynamics=(Z=Agate.Models.NiPiZD.Tracers.zooplankton_default,
-                       P=phytoplankton_geider_light),
-    biogeochem_dynamics=(N=nutrient_geider_light,
+                       P=Agate.Models.NiPiZD.Tracers.phytoplankton_default),
+    biogeochem_dynamics=(N=Agate.Models.NiPiZD.Tracers.nutrient_default,
                          D=Agate.Models.NiPiZD.Tracers.detritus_default),
 )
 
@@ -90,7 +85,7 @@ for i in z_global, j in p_global
     assim[ic, jp] = 0.3
 end
 
-# ## 6. Construct the customised model
+# ## 5. Construct the customised model
 
 bgc_custom = NiPiZD.construct(
     ;
@@ -98,15 +93,13 @@ bgc_custom = NiPiZD.construct(
     n_zoo,
     phyto_diameters,
     zoo_diameters,
-    nutrient_dynamics=nutrient_geider_light,
-    phyto_dynamics=phytoplankton_geider_light,
     parameters=parameter_overrides,
     palatability_matrix=pal,
     assimilation_matrix=assim,
     sinking_tracers=(D=2.0 / day,),
 )
 
-# ## 7. Run a short box model simulation
+# ## 6. Run a short box model simulation
 
 light = FunctionFieldPAR(; grid=BoxModelGrid())
 bgc_model = Biogeochemistry(bgc_custom; light_attenuation=light)
@@ -130,7 +123,7 @@ sim.output_writers[:fields] = JLD2Writer(
 
 run!(sim)
 
-# ## 8. Plot a few tracers
+# ## 7. Plot a few tracers
 
 times = FieldTimeSeries(filename, "N").times ./ days
 
