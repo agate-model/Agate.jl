@@ -30,6 +30,7 @@ export parameter_spec
 export InteractionContext
 export normalize_interactions
 export GroupBlockMatrix
+export InteractionMatrices
 
 """Wrapper to explicitly mark a matrix as a *group-block* interaction override.
 
@@ -125,6 +126,8 @@ struct InteractionContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
     plankton_dynamics::NamedTuple
     biogeochem_dynamics::NamedTuple
 end
+include("InteractionMatrices.jl")
+
 
 """Normalize `interactions` into a `NamedTuple` of parameter overrides.
 
@@ -142,17 +145,18 @@ and must be callable as:
 For matrix parameters, users may pass either:
 
 - a full `(n_total, n_total)` matrix,
-- a group-block `(n_groups, n_groups)` matrix which will be expanded to
-  `(n_total, n_total)` (see `expand_group_block_matrix`). When the parameter
+- a group-block `(n_groups, n_groups)` matrix which will be expanded (and, for
+  role-aware parameters, sliced to the declared axes) (see `expand_group_block_matrix`). When the parameter
   declares role-aware axes, a plain `(n_groups, n_groups)` matrix is ambiguous;
   wrap it in `GroupBlockMatrix(B)` to force group-block expansion,
 - or, when the parameter directory declares role-aware axes,
   a rectangular matrix sized to those axes (for example `(n_consumer, n_prey)`).
 
-When a rectangular matrix is provided, it is embedded into a full
-`(n_total, n_total)` matrix during construction (non-axis rows/columns are set to
-zero). This keeps the internal parameter storage uniform while enabling a
-consumer-by-prey configuration surface.
+When a rectangular matrix is provided for a role-aware parameter (one that
+declares `axes` in `parameter_directory(factory)`), it is kept rectangular.
+During construction, `finalize_interaction_parameters` will create a
+zero-padded square view for legacy access patterns while storing the canonical
+rectangular form in `parameters.interactions`.
 
 Shape validation is driven by `parameter_directory(factory)`.
 Final key validation and full parameter shape checks occur during model
@@ -204,23 +208,13 @@ end
     value,
 )
     spec.shape === :matrix || return value
-    # Explicit wrapper to force group-block expansion.
-    if value isa GroupBlockMatrix
-        return expand_group_block_matrix(ctx, value.B)
-    end
-
-    value isa AbstractMatrix || return value
-
     n_total = ctx.n_total
-
-    # Full override.
-    size(value) == (n_total, n_total) && return value
 
     groups = unique(ctx.group_symbols)
     ng = length(groups)
 
-    # Axes-aware overrides (preferred when declared).
-    spec.axes === nothing || begin
+    # Axes-aware matrices are normalized into their axis-local rectangular form.
+    if spec.axes !== nothing
         row_axis, col_axis = spec.axes
         row_indices = _axis_indices(ctx, row_axis)
         col_indices = _axis_indices(ctx, col_axis)
@@ -228,8 +222,18 @@ end
         nr = length(row_indices)
         nc = length(col_indices)
 
+        # Explicit wrapper forces group-block expansion (then slice to axes).
+        if value isa GroupBlockMatrix
+            full = expand_group_block_matrix(ctx, value.B)
+            return full[row_indices, col_indices]
+        end
+
+        value isa AbstractMatrix || return value
+
+        value isa AbstractMatrix || return value
+
         if size(value) == (nr, nc)
-            return _embed_axis_matrix(ctx, row_indices, col_indices, value)
+            return value
         end
 
         # Axis-local group-block matrix (groups present on each axis, in order of appearance).
@@ -239,8 +243,12 @@ end
         ngc = length(col_groups)
 
         if size(value) == (ngr, ngc)
-            R = _expand_group_block_axis_matrix(ctx, value, row_indices, col_indices, row_groups, col_groups)
-            return _embed_axis_matrix(ctx, row_indices, col_indices, R)
+            return _expand_group_block_axis_matrix(ctx, value, row_indices, col_indices, row_groups, col_groups)
+        end
+
+        # Full-square override: slice to axes.
+        if size(value) == (n_total, n_total)
+            return value[row_indices, col_indices]
         end
 
         # Ambiguous: a plain (n_groups, n_groups) matrix could be intended as a group-block matrix.
@@ -252,11 +260,24 @@ end
         end
 
         throw(ArgumentError(
-            "interaction override '$key' must be a $(n_total)x$(n_total) matrix, or (for axes $(spec.axes)) a $(nr)x$(nc) axis matrix (or $(ngr)x$(ngc) axis block); got size $(size(value))",
+            "interaction override '$key' must be a $(nr)x$(nc) axis matrix, a $(ngr)x$(ngc) axis block, or a $(n_total)x$(n_total) full matrix; got size $(size(value))",
         ))
     end
 
-    # Group-block override over *all* groups (only when no axes are declared).
+    # Non-axes matrices normalize to full square matrices.
+    if value isa GroupBlockMatrix
+        return expand_group_block_matrix(ctx, value.B)
+    end
+
+    value isa AbstractMatrix || return value
+
+    value isa AbstractMatrix || return value
+
+    value isa AbstractMatrix || return value
+
+    size(value) == (n_total, n_total) && return value
+
+    # Group-block override over *all* groups.
     size(value) == (ng, ng) && return expand_group_block_matrix(ctx, value)
 
     return value
@@ -312,35 +333,27 @@ end
     return R
 end
 
-@inline function _embed_axis_matrix(
-    ctx::InteractionContext,
-    row_indices::AbstractVector{Int},
-    col_indices::AbstractVector{Int},
-    R::AbstractMatrix,
-)
-    n_total = ctx.n_total
-    M = similar(R, n_total, n_total)
-    fill!(M, zero(eltype(M)))
-
-    for (ii, gi) in enumerate(row_indices)
-        for (jj, gj) in enumerate(col_indices)
-            @inbounds M[gi, gj] = R[ii, jj]
-        end
-    end
-
-    return M
-end
-
 @inline function _validate_interaction_override(ctx::InteractionContext, spec::ParameterSpec, key::Symbol, value)
     if spec.shape === :matrix
         value isa AbstractMatrix || throw(ArgumentError(
             "interaction override '$key' must be a matrix; got $(typeof(value))",
         ))
 
-        n_total = ctx.n_total
-        size(value) == (n_total, n_total) || throw(ArgumentError(
-            "interaction override '$key' must be a $(n_total)x$(n_total) matrix after normalization; got size $(size(value))",
-        ))
+        if spec.axes === nothing
+            n_total = ctx.n_total
+            size(value) == (n_total, n_total) || throw(ArgumentError(
+                "interaction override '$key' must be a $(n_total)x$(n_total) matrix after normalization; got size $(size(value))",
+            ))
+        else
+            row_axis, col_axis = spec.axes
+            row_indices = _axis_indices(ctx, row_axis)
+            col_indices = _axis_indices(ctx, col_axis)
+            nr = length(row_indices)
+            nc = length(col_indices)
+            size(value) == (nr, nc) || throw(ArgumentError(
+                "interaction override '$key' must be a $(nr)x$(nc) matrix for axes $(spec.axes) after normalization; got size $(size(value))",
+            ))
+        end
 
     elseif spec.shape === :vector
         value isa AbstractVector || throw(ArgumentError(

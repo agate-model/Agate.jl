@@ -163,6 +163,12 @@ function default_parameters(::DarwinFactory, ctx::InteractionContext, ::Type{FT}
 
     assimilation_matrix = assimilation_efficiency_matrix_binary(can_eat, can_be_eaten, assimilation_efficiency)
 
+    # Canonical interaction storage is consumer-by-prey.
+    consumer_idx = ctx.consumer_indices
+    prey_idx = ctx.prey_indices
+    palatability_matrix = palatability_matrix[consumer_idx, prey_idx]
+    assimilation_matrix = assimilation_matrix[consumer_idx, prey_idx]
+
     return (
         ;
         DOC_remineralization,

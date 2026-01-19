@@ -13,6 +13,7 @@ using ..Utils:
     AbstractBGCFactory,
     parameter_spec,
     normalize_interactions,
+    finalize_interaction_parameters,
     parse_community,
     validate_plankton_inputs
 
@@ -272,8 +273,13 @@ function construct(
         "missing required parameters: $(join(string.(missing), ", "))",
     ))
 
-    # Slice down to only the required keys for better type stability.
-    params_req = NamedTuple{required}(Tuple(getproperty(params_full, k) for k in required))
+    # Finalize any role-aware interaction matrices.
+    params_full = finalize_interaction_parameters(factory, ctx, params_full)
+
+    # Slice down to the required keys (plus selected internal helpers) for better type stability.
+    internal = hasproperty(params_full, :interactions) ? (:interactions,) : ()
+    all_keys = (required..., internal...)
+    params_req = NamedTuple{all_keys}(Tuple(getproperty(params_full, k) for k in all_keys))
 
     _reject_missing_values(params_req)
 

@@ -53,7 +53,12 @@ this list is typically a *minimal* runtime set.
 """
 function parameter_names(bgc)::Vector{Symbol}
     params = getproperty(bgc, :parameters)
-    return collect(propertynames(params))
+    keys = collect(propertynames(params))
+
+    # Some parameter fields are internal containers (for example, interaction
+    # matrices plus axis maps). Hide these from the public parameter list.
+    filter!(k -> k !== :interactions, keys)
+    return keys
 end
 
 """

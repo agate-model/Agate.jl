@@ -118,6 +118,12 @@ function default_parameters(::NiPiZDFactory, ctx::InteractionContext, ::Type{FT}
         assimilation_efficiency,
     )
 
+    # Canonical interaction storage is consumer-by-prey.
+    consumer_idx = ctx.consumer_indices
+    prey_idx = ctx.prey_indices
+    palatability_matrix = palatability_matrix[consumer_idx, prey_idx]
+    assimilation_matrix = assimilation_matrix[consumer_idx, prey_idx]
+
     return (
         ;
         detritus_remineralization,

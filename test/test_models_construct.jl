@@ -51,9 +51,9 @@ using Oceananigans.Biogeochemistry:
             assimilation_matrix=wrong,
         )
 
-        # Group-block matrices are expanded to full (n_total, n_total) matrices.
-        # For role-aware interaction matrices, (n_groups, n_groups) matrices are
-        # ambiguous, so we wrap them explicitly.
+        # Group-block matrices are accepted when wrapped explicitly.
+        # For role-aware matrices, the group-block is interpreted on the
+        # consumer-by-prey axes (non-axis entries are zero).
         block = Agate.Utils.GroupBlockMatrix(Float32[0 1; 2 3])
         bgc_block = NiPiZD.construct(
             ;
@@ -62,13 +62,13 @@ using Oceananigans.Biogeochemistry:
             assimilation_matrix=block,
         )
         @test size(bgc_block.parameters.palatability_matrix) == (n, n)
-        @test bgc_block.parameters.palatability_matrix[1, 1] == 0f0
-        @test bgc_block.parameters.palatability_matrix[1, 3] == 1f0
-        @test bgc_block.parameters.palatability_matrix[3, 1] == 2f0
-        @test bgc_block.parameters.palatability_matrix[end, end] == 3f0
+        M0 = bgc_block.parameters.palatability_matrix
+        @test all(M0[1:2, 3:4] .== 1f0)
+        @test all(M0[3:4, :] .== 0f0)
+        @test all(M0[:, 1:2] .== 0f0)
 
-        # Rectangular consumer-by-prey matrices (n_consumer, n_prey) are embedded
-        # into the full (n_total, n_total) storage with zeros elsewhere.
+        # Rectangular consumer-by-prey matrices (n_consumer, n_prey) are stored
+        # as-is and exposed as zero-padded square views.
         rect = reshape(Float32.(1:4), 2, 2)
         bgc_rect = NiPiZD.construct(
             ;
@@ -86,7 +86,7 @@ using Oceananigans.Biogeochemistry:
         @test all(M[:, 1:2] .== 0f0)
 
         # Axis-local group-block matrices (n_consumer_groups, n_prey_groups) are
-        # expanded within the consumer/prey axes and then embedded.
+        # expanded within the consumer/prey axes and then exposed as square views.
         axis_block = reshape(Float32[7], 1, 1)
         bgc_axis_block = NiPiZD.construct(
             ;
@@ -194,7 +194,7 @@ using Oceananigans.Biogeochemistry:
                 bgc_gpu = NiPiZD.construct(; grid=dummy_grid(Float32; arch=GPU()))
 
                 @test required_biogeochemical_tracers(bgc_gpu) == required_biogeochemical_tracers(bgc_cpu)
-                @test bgc_gpu.parameters.palatability_matrix isa array_type(GPU())
+                @test bgc_gpu.parameters.interactions.palatability isa array_type(GPU())
                 @test bgc_gpu.parameters.maximum_predation_rate isa array_type(GPU())
             else
                 @test true
