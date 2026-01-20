@@ -17,8 +17,6 @@ struct ModelSpec{F<:AbstractBGCFactory}
     factory::F
 end
 
-ModelSpec(factory::AbstractBGCFactory) = ModelSpec{typeof(factory)}(factory)
-
 """Build a `(Z,P)` community from a base community spec.
 
 This is used by both NiPiZD and DARWIN, which share the same plankton group symbols.

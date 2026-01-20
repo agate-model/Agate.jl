@@ -24,7 +24,8 @@ struct ConstantParam{T} <: AbstractParamDef
     value::T
 end
 
-ConstantParam(x) = ConstantParam{typeof(x)}(x)
+# NOTE: the default outer constructor `ConstantParam(x)` already exists and infers `T`.
+# We avoid redefining it to prevent method overwrite warnings during precompilation.
 
 """A parameter that is computed from an explicit model/callable and coefficient bundle."""
 struct AllometricParam{F,C} <: AbstractParamDef

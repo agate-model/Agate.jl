@@ -41,11 +41,14 @@ zoo_diameters = [60.0]
 
 # ## 3. Override parameters
 
+# We'll override one scalar parameter directly, and we'll also override a *per-tracer* vector
+# parameter (`maximum_growth_rate`). Vector parameters must be provided in the *global plankton
+# order* used by the constructor (we'll build it after calling `parse_community`).
+
+μmax_phyto_def = AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15)
+
 parameter_overrides = (
     detritus_remineralization=0.18 / day,
-    maximum_growth_rate=(
-        P=AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15), Z=0.0
-    ),
 )
 
 # ## 4. Provide explicit interaction matrices
@@ -55,9 +58,7 @@ parameter_overrides = (
 
 community_ctx = parse_community(
     Float64,
-    (
-        ;
-        # `pft` is optional; an empty NamedTuple means "no extra traits".
+    (;
         Z=(; n=n_zoo, diameters=zoo_diameters, pft=(;)),
         P=(; n=n_phyto, diameters=phyto_diameters, pft=(;)),
     );
@@ -70,6 +71,21 @@ community_ctx = parse_community(
         D=Agate.Models.NiPiZD.Tracers.detritus_default,
     ),
 )
+
+# Build a `maximum_growth_rate` vector in the constructor's plankton order.
+# Here we apply an allometric rule to phytoplankton classes and set zooplankton to zero.
+maximum_growth_rate = zeros(Float64, length(community_ctx.diameters))
+for (i, grp) in pairs(community_ctx.group_symbols)
+    if grp == :P
+        maximum_growth_rate[i] = Agate.Library.Allometry.resolve_param(
+            Float64, μmax_phyto_def, community_ctx.diameters[i]
+        )
+    else
+        maximum_growth_rate[i] = 0.0
+    end
+end
+
+parameter_overrides = merge(parameter_overrides, (; maximum_growth_rate))
 
 # Canonical interaction matrices are rectangular: (consumer, prey).
 nc = length(community_ctx.consumer_indices)

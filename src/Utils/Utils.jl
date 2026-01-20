@@ -508,11 +508,9 @@ function validate_plankton_inputs(plankton_dynamics, plankton_args)
             end
         end
 
-        # Optional PFT/trait payloads.
-        #
-        # Older examples and many simple use cases do not require per-PFT traits,
-        # so we allow omitting `pft`/`args` and default to an empty specification.
-        if hasproperty(spec, :args) || hasproperty(spec, :pft)
+        if !(hasproperty(spec, :args) || hasproperty(spec, :pft))
+            push!(issues, "group $(k): must provide `args` or `pft`")
+        else
             pft =
                 hasproperty(spec, :pft) ? getproperty(spec, :pft) : getproperty(spec, :args)
             ok = pft isa PFTSpecification || pft isa NamedTuple
@@ -554,16 +552,9 @@ function parse_community(
             getproperty(spec, :n)
         end
         ds = param_compute_diameters(FT, n, dspec)
-        pft = if hasproperty(spec, :pft)
-            pft_raw = getproperty(spec, :pft)
-            pft_raw isa PFTSpecification ? pft_raw : PFTSpecification(pft_raw)
-        elseif hasproperty(spec, :args)
-            pft_raw = getproperty(spec, :args)
-            pft_raw isa PFTSpecification ? pft_raw : PFTSpecification(pft_raw)
-        else
-            # Default to an empty trait payload.
-            PFTSpecification()
-        end
+        pft_raw =
+            hasproperty(spec, :pft) ? getproperty(spec, :pft) : getproperty(spec, :args)
+        pft = pft_raw isa PFTSpecification ? pft_raw : PFTSpecification(pft_raw)
 
         for i in 1:n
             push!(plankton_symbols, Symbol(string(g), i))
