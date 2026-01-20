@@ -129,15 +129,12 @@ describe(bgc)                            # prints a short summary
 summary = model_summary(bgc)              # returns a NamedTuple
 ```
 
-## API reference
+## Related references
 
-```@docs
-Agate.NiPiZD.construct
-Agate.DARWIN.construct
-Agate.tracer_names
-Agate.auxiliary_field_names
-Agate.model_summary
-Agate.describe
-Agate.parameter_names
-Agate.required_parameters
-```
+The full API reference (including `tracer_names`, `parameter_names`, and low-level constructors)
+is collected in the [API reference](@ref "API reference").
+
+For model-specific constructors, see:
+
+  - [NiPiZD](@ref NiPiZD)
+  - [DARWIN](@ref DARWIN)

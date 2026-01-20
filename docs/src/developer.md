@@ -1,4 +1,4 @@
-# Developer guide {#developer-guide}
+# [Developer guide](@id developer_guide)
 
 This section is for contributors who want to extend Agate: add new models, add new parameters, or change the compiled dynamics.
 It assumes you are comfortable reading Julia code and running the test suite.

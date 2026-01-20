@@ -1,4 +1,4 @@
-# Beginner guide {#beginner-guide}
+# [Beginner guide](@id beginner_guide)
 
 This section is for readers who are **new to Julia**, but have used Python / MATLAB / R.
 The goal is to get you productive quickly.
@@ -71,4 +71,4 @@ See the reference: [Parameters and interaction matrices](@ref "Parameters and in
 
 ## When you are ready for deeper changes
 
-If you want to add a new model, define new parameters, or change the compiled dynamics, jump to the [Developer guide](@ref developer-guide).
+If you want to add a new model, define new parameters, or change the compiled dynamics, jump to the [Developer guide](@ref developer_guide).

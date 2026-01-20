@@ -35,6 +35,8 @@ for example in example_scripts
             OUTPUT_DIR;
             flavor=Literate.DocumenterFlavor(),
             repo_root_url="https://github.com/agate-model/Agate.jl",
+            # Avoid JuliaFormatter rewriting NamedTuple literals like `(; x=1)` into invalid syntax.
+            format=false,
             execute=true,
             postprocess=replace_silly_warning,
         )
