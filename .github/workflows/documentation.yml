@@ -23,10 +23,12 @@ jobs:
         with:
           version: '1.10'
 
-      - name: Install docs dependencies
+      - name: Install docs dependencies (use local Agate)
         run: |
+
           julia --project=docs -e '
             using Pkg
+            Pkg.develop(PackageSpec(path=pwd()))
             Pkg.instantiate()
             Pkg.precompile()
           '
