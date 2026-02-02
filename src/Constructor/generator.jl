@@ -119,9 +119,9 @@ end
 
 function _compile_tracer_functions(parameters, tracers::NamedTuple)
     coordinates = (:x, :y, :z, :t)
-    parameter_keys = collect(propertynames(_parameter_view(parameters)))
 
-    compiled = Any[]
+    # Keep this as a tuple for fast `in` checks without allocations.
+    parameter_keys = propertynames(_parameter_view(parameters))
     required_params = Symbol[]
 
     for (tracer_name, tracer_val) in pairs(tracers)
@@ -152,12 +152,13 @@ function _compile_tracer_functions(parameters, tracers::NamedTuple)
             (k in required_params) || push!(required_params, k)
         end
 
-        # Store only the callable (GPU-friendly).
-        push!(compiled, tracer_val.f)
+        # Tracer callables are extracted below with `map` to preserve concrete types.
     end
 
-    tracer_vars = keys(tracers)
-    tracer_functions = NamedTuple{Tuple(tracer_vars)}(Tuple(compiled))
+    # IMPORTANT: avoid type erasure.
+    # Building via `Vector{Any}` (or `Tuple(vec)`) would produce `Any`-typed fields,
+    # which triggers dynamic dispatch in kernels and breaks GPU compilation.
+    tracer_functions = map(tr -> tr.f, tracers)
     return tracer_functions, required_params
 end
 
@@ -187,8 +188,6 @@ function define_tracer_functions(
     tracer_index=nothing,
     sinking_velocities=nothing,
 )
-    Base.@nospecialize parameters tracers auxiliary_fields tracer_index sinking_velocities
-
     tracer_functions, required_params = _compile_tracer_functions(parameters, tracers)
 
     idx = if tracer_index === nothing

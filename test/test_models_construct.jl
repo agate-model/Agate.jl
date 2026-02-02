@@ -12,6 +12,9 @@ using Oceananigans.Biogeochemistry:
     @testset "NiPiZD defaults" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
 
+        # Guardrail for GPU compilation: tracer callables must be concretely typed.
+        @test !any(t -> t === Any, fieldtypes(typeof(bgc.tracer_functions)))
+
         @test required_biogeochemical_tracers(bgc) == (:N, :D, :Z1, :Z2, :P1, :P2)
 
         P1 = 0.01f0
@@ -186,6 +189,8 @@ using Oceananigans.Biogeochemistry:
 
     @testset "DARWIN defaults" begin
         bgc = DARWIN.construct(; grid=dummy_grid(Float32))
+
+        @test !any(t -> t === Any, fieldtypes(typeof(bgc.tracer_functions)))
 
         @test required_biogeochemical_tracers(bgc)[1:9] ==
             (:DIC, :DIN, :PO4, :DOC, :POC, :DON, :PON, :DOP, :POP)

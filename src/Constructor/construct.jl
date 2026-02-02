@@ -256,10 +256,11 @@ function construct_factory(
 
     plankton_syms = ctx.plankton_symbols
 
-    tracer_names = Symbol[collect(keys(biogeochem_dynamics))...]
-    append!(tracer_names, plankton_syms)
+    # Keep tracer names as a tuple so downstream NamedTuple construction preserves concrete types.
+    tracer_names = (keys(biogeochem_dynamics)..., Tuple(plankton_syms)...)
 
-    tracer_defs = Any[]
+    # Accumulate compiled tracer definitions in a tuple to avoid `Any` erasure.
+    tracer_defs = ()
     merged = req()
 
     for (_, f) in pairs(biogeochem_dynamics)
@@ -267,7 +268,7 @@ function construct_factory(
         (tr isa CompiledEquation) || throw(
             ArgumentError("biogeochem dynamics $(nameof(f)) must return CompiledEquation"),
         )
-        push!(tracer_defs, tr)
+        tracer_defs = (tracer_defs..., tr)
         merged = merge_requirements(merged, requirements(tr))
     end
 
@@ -280,12 +281,12 @@ function construct_factory(
         (tr isa CompiledEquation) || throw(
             ArgumentError("plankton dynamics $(nameof(f)) must return CompiledEquation")
         )
-        push!(tracer_defs, tr)
+        tracer_defs = (tracer_defs..., tr)
 
         merged = merge_requirements(merged, requirements(tr))
     end
 
-    tracers = NamedTuple{Tuple(tracer_names)}(Tuple(tracer_defs))
+    tracers = NamedTuple{tracer_names}(tracer_defs)
 
     # ---------------------------------------------------------------------
     # Parameters
@@ -341,7 +342,7 @@ function construct_factory(
     auxiliary_fields = (:PAR,)
     tracer_index = build_tracer_index(
         ctx,
-        Tuple(tracer_names),
+        tracer_names,
         auxiliary_fields;
         n_biogeochem_tracers=length(keys(biogeochem_dynamics)),
     )
