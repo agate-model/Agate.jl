@@ -32,14 +32,15 @@ Validation behaviour:
 
 ### Interaction traits
 
-NiPiZD and DARWIN also expose a small set of *interaction traits* (vectors) that are used to derive
-default interaction matrices:
+NiPiZD and DARWIN expose a small set of *interaction traits* (vectors) that are used to derive
+default interaction matrices over the active consumer/prey role axes:
 
-  - `can_eat`, `can_be_eaten` (Bool)
   - `optimum_predator_prey_ratio`, `specificity`, `protection` (Real)
   - `assimilation_efficiency` (Real)
 
-These are validated like any other vector parameter.
+Role axes are defined via the `roles` argument to `construct(...)` (typically using group symbols).
+
+These traits are validated like any other vector parameter.
 
 ## Interaction matrices
 

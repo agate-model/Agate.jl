@@ -120,17 +120,7 @@ parameter_directory(::DarwinFactory) = (
         doc="Assimilation efficiency of each consumer on each prey class.",
     ),
 
-    # Interaction traits used to derive the default matrices.
-    ParameterSpec(
-        :can_eat,
-        :vector;
-        doc="Whether each plankton class can act as a consumer in grazing interactions.",
-    ),
-    ParameterSpec(
-        :can_be_eaten,
-        :vector;
-        doc="Whether each plankton class can be grazed (acts as prey).",
-    ),
+    # Traits used to derive the default interaction matrices.
     ParameterSpec(
         :optimum_predator_prey_ratio,
         :vector;
@@ -168,8 +158,7 @@ end
     return palatability_matrix_allometric_axes(
         FT,
         ctx.diameters;
-        can_eat=params.can_eat,
-        can_be_eaten=params.can_be_eaten,
+
         optimum_predator_prey_ratio=params.optimum_predator_prey_ratio,
         specificity=params.specificity,
         protection=params.protection,
@@ -184,8 +173,7 @@ end
     FT = ctx.FT
     return assimilation_efficiency_matrix_binary_axes(
         FT;
-        can_eat=params.can_eat,
-        can_be_eaten=params.can_be_eaten,
+
         assimilation_efficiency=params.assimilation_efficiency,
         consumer_indices=ctx.consumer_indices,
         prey_indices=ctx.prey_indices,
@@ -196,17 +184,11 @@ function derived_matrix_specs(::DarwinFactory)
     return (;
         palatability_matrix=MatrixFn(
             _derive_palatability_matrix;
-            deps=(
-                :can_eat,
-                :can_be_eaten,
-                :optimum_predator_prey_ratio,
-                :specificity,
-                :protection,
-            ),
+            deps=(:optimum_predator_prey_ratio, :specificity, :protection),
         ),
         assimilation_matrix=MatrixFn(
             _derive_assimilation_matrix;
-            deps=(:can_eat, :can_be_eaten, :assimilation_efficiency),
+            deps=(:assimilation_efficiency),
         ),
     )
 end
@@ -220,18 +202,6 @@ function _resolve_groupvec(
         g = ctx.group_symbols[i]
         v = _group_value(group_map, g, default)
         out[i] = resolve_param(FT, v, ctx.diameters[i])
-    end
-    return out
-end
-
-function _resolve_groupvec_bool(
-    ctx::InteractionContext, group_map::NamedTuple; default=false
-)
-    n = ctx.n_total
-    out = Vector{Bool}(undef, n)
-    @inbounds for i in 1:n
-        g = ctx.group_symbols[i]
-        out[i] = Bool(_group_value(group_map, g, default))
     end
     return out
 end
@@ -308,9 +278,6 @@ function default_parameters(::DarwinFactory, ctx::InteractionContext, ::Type{FT}
     # Interaction matrices
     # ---------------------------------------------------------------------
 
-    can_eat = _resolve_groupvec_bool(ctx, (; Z=true); default=false)
-    can_be_eaten = _resolve_groupvec_bool(ctx, (; P=true); default=false)
-
     assimilation_efficiency = _resolve_groupvec(FT, ctx, (; Z=FT(0.32)); default=0.0)
 
     optimum_predator_prey_ratio = _resolve_groupvec(FT, ctx, (; Z=FT(10.0)); default=0.0)
@@ -324,8 +291,7 @@ function default_parameters(::DarwinFactory, ctx::InteractionContext, ::Type{FT}
     palatability_matrix = palatability_matrix_allometric_axes(
         FT,
         ctx.diameters;
-        can_eat=can_eat,
-        can_be_eaten=can_be_eaten,
+
         optimum_predator_prey_ratio=optimum_predator_prey_ratio,
         specificity=specificity,
         protection=protection,
@@ -335,8 +301,7 @@ function default_parameters(::DarwinFactory, ctx::InteractionContext, ::Type{FT}
 
     assimilation_matrix = assimilation_efficiency_matrix_binary_axes(
         FT;
-        can_eat=can_eat,
-        can_be_eaten=can_be_eaten,
+
         assimilation_efficiency=assimilation_efficiency,
         consumer_indices=consumer_idx,
         prey_indices=prey_idx,
@@ -363,8 +328,7 @@ function default_parameters(::DarwinFactory, ctx::InteractionContext, ::Type{FT}
         holling_half_saturation,
         palatability_matrix,
         assimilation_matrix,
-        can_eat,
-        can_be_eaten,
+
         optimum_predator_prey_ratio,
         specificity,
         protection,

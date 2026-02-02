@@ -8,10 +8,7 @@ export HollingTypeII,
     IdealizedPredationAssimilationLoss,
     PreferentialPredationLoss,
     PreferentialPredationGain,
-    PreferentialPredationAssimilationLoss,
-    AssimilationPreyParameters,
-    AssimilationPredatorParameters,
-    EmergentAssimilationEfficiencyBinary
+    PreferentialPredationAssimilationLoss
 
 """
     HollingTypeII(K)
@@ -139,32 +136,5 @@ end
     return (one(f.assimilation_efficiency) - f.assimilation_efficiency) * loss
 end
 
-"""Parameters describing prey traits relevant to assimilation."""
-Base.@kwdef struct AssimilationPreyParameters
-    can_be_eaten::Bool = false
-end
-
-"""Parameters describing predator traits relevant to assimilation."""
-Base.@kwdef struct AssimilationPredatorParameters{T}
-    can_eat::Bool = false
-    assimilation_efficiency::T = 0.0
-end
-
-"""
-    EmergentAssimilationEfficiencyBinary()
-
-Binary emergent assimilation efficiency controlled by predator/prey traits.
-"""
-struct EmergentAssimilationEfficiencyBinary end
-
-@inline function (f::EmergentAssimilationEfficiencyBinary)(
-    prey::AssimilationPreyParameters, predator::AssimilationPredatorParameters
-)
-    return ifelse(
-        predator.can_eat && prey.can_be_eaten,
-        predator.assimilation_efficiency,
-        zero(predator.assimilation_efficiency),
-    )
-end
-
 end # module
+

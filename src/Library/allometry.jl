@@ -10,8 +10,6 @@ export allometric_scaling_power
 export allometric_palatability_unimodal, allometric_palatability_unimodal_protection
 export palatability_matrix_allometric, assimilation_efficiency_matrix_binary
 export palatability_matrix_allometric_axes, assimilation_efficiency_matrix_binary_axes
-export build_palatability_matrix, build_assimilation_matrix
-
 # -----------------------------------------------------------------------------
 # Explicit parameter definitions
 # -----------------------------------------------------------------------------
@@ -113,7 +111,6 @@ struct PalatabilityPreyParameters{FT<:AbstractFloat}
 end
 
 struct PalatabilityPredatorParameters{FT<:AbstractFloat}
-    can_eat::Bool
     diameter::FT
     optimum_predator_prey_ratio::FT
     specificity::FT
@@ -132,7 +129,6 @@ end
 @inline function allometric_palatability_unimodal(
     prey::PalatabilityPreyParameters{FT}, predator::PalatabilityPredatorParameters{FT}
 ) where {FT<:AbstractFloat}
-    predator.can_eat || return zero(FT)
     ratio = predator.diameter / prey.diameter
     width = one(FT) + (ratio - predator.optimum_predator_prey_ratio)^FT(2)
     return one(FT) / width^predator.specificity
@@ -150,11 +146,15 @@ function allometric_palatability_unimodal_protection(
 end
 
 """Build an allometric palatability matrix `M[pred, prey]`."""
+"""Build an allometric palatability matrix `M[pred, prey]`.
+
+This variant computes the full square matrix over all plankton classes.
+Most model code should prefer `palatability_matrix_allometric_axes`, which
+computes only the consumer-by-prey block specified by role axes.
+"""
 function palatability_matrix_allometric(
     ::Type{FT},
     diameters::AbstractVector{FT};
-    can_eat::AbstractVector{Bool},
-    can_be_eaten::AbstractVector{Bool},
     optimum_predator_prey_ratio::AbstractVector{FT},
     specificity::AbstractVector{FT},
     protection::AbstractVector{FT},
@@ -164,19 +164,10 @@ function palatability_matrix_allometric(
     M = zeros(FT, n, n)
 
     @inbounds for pred in 1:n
-        if !can_eat[pred]
-            continue
-        end
-
         predator = PalatabilityPredatorParameters{FT}(
-            true, diameters[pred], optimum_predator_prey_ratio[pred], specificity[pred]
+            diameters[pred], optimum_predator_prey_ratio[pred], specificity[pred]
         )
-
         for prey in 1:n
-            if !can_be_eaten[prey]
-                M[pred, prey] = zero(FT)
-                continue
-            end
             prey_params = PalatabilityPreyParameters{FT}(diameters[prey], protection[prey])
             M[pred, prey] = palatability_fn(prey_params, predator)
         end
@@ -185,16 +176,20 @@ function palatability_matrix_allometric(
     return M
 end
 
+
 """Build a role-aware allometric palatability matrix `M[consumer, prey]`.
 
 This computes only the consumer-by-prey block specified by `consumer_indices`
 and `prey_indices`, avoiding allocation of an intermediate full square matrix.
 """
+"""Build a role-aware allometric palatability matrix `M[consumer, prey]`.
+
+Only the consumer-by-prey block specified by `consumer_indices` and `prey_indices`
+is computed.
+"""
 function palatability_matrix_allometric_axes(
     ::Type{FT},
     diameters::AbstractVector{FT};
-    can_eat::AbstractVector{Bool},
-    can_be_eaten::AbstractVector{Bool},
     optimum_predator_prey_ratio::AbstractVector{FT},
     specificity::AbstractVector{FT},
     protection::AbstractVector{FT},
@@ -207,19 +202,10 @@ function palatability_matrix_allometric_axes(
     M = zeros(FT, nr, nc)
 
     @inbounds for (ii, pred) in pairs(consumer_indices)
-        if !can_eat[pred]
-            continue
-        end
-
         predator = PalatabilityPredatorParameters{FT}(
-            true, diameters[pred], optimum_predator_prey_ratio[pred], specificity[pred]
+            diameters[pred], optimum_predator_prey_ratio[pred], specificity[pred]
         )
-
         for (jj, prey) in pairs(prey_indices)
-            if !can_be_eaten[prey]
-                M[ii, jj] = zero(FT)
-                continue
-            end
             prey_params = PalatabilityPreyParameters{FT}(diameters[prey], protection[prey])
             M[ii, jj] = palatability_fn(prey_params, predator)
         end
@@ -228,36 +214,40 @@ function palatability_matrix_allometric_axes(
     return M
 end
 
+
 """Build a binary assimilation-efficiency matrix `β[pred, prey]`."""
+"""Build a binary assimilation-efficiency matrix `β[pred, prey]`.
+
+This fills each predator row with its assimilation efficiency.
+"""
 function assimilation_efficiency_matrix_binary(
     ::Type{FT};
-    can_eat::AbstractVector{Bool},
-    can_be_eaten::AbstractVector{Bool},
     assimilation_efficiency::AbstractVector{FT},
 ) where {FT<:AbstractFloat}
-    n = length(can_eat)
+    n = length(assimilation_efficiency)
     M = zeros(FT, n, n)
     @inbounds for pred in 1:n
-        if !can_eat[pred]
-            continue
-        end
         β = assimilation_efficiency[pred]
         for prey in 1:n
-            M[pred, prey] = can_be_eaten[prey] ? β : zero(FT)
+            M[pred, prey] = β
         end
     end
     return M
 end
+
 
 """Build a role-aware binary assimilation-efficiency matrix `β[consumer, prey]`.
 
 Only the consumer-by-prey block specified by `consumer_indices` and
 `prey_indices` is computed.
 """
+"""Build a role-aware binary assimilation-efficiency matrix `β[consumer, prey]`.
+
+Only the consumer-by-prey block specified by `consumer_indices` and `prey_indices`
+is computed.
+"""
 function assimilation_efficiency_matrix_binary_axes(
     ::Type{FT};
-    can_eat::AbstractVector{Bool},
-    can_be_eaten::AbstractVector{Bool},
     assimilation_efficiency::AbstractVector{FT},
     consumer_indices::AbstractVector{<:Integer},
     prey_indices::AbstractVector{<:Integer},
@@ -267,17 +257,15 @@ function assimilation_efficiency_matrix_binary_axes(
     M = zeros(FT, nr, nc)
 
     @inbounds for (ii, pred) in pairs(consumer_indices)
-        if !can_eat[pred]
-            continue
-        end
         β = assimilation_efficiency[pred]
-        for (jj, prey) in pairs(prey_indices)
-            M[ii, jj] = can_be_eaten[prey] ? β : zero(FT)
+        for jj in 1:nc
+            M[ii, jj] = β
         end
     end
 
     return M
 end
+
 
 """Convenience overload that infers `FT` from `assimilation_efficiency`.
 
@@ -285,123 +273,13 @@ This avoids call sites needing to thread `FT` explicitly while still preserving
 GPU compatibility (no mixed float types).
 """
 function assimilation_efficiency_matrix_binary(
-    can_eat::AbstractVector{Bool},
-    can_be_eaten::AbstractVector{Bool},
     assimilation_efficiency::AbstractVector{FT},
 ) where {FT<:AbstractFloat}
     return assimilation_efficiency_matrix_binary(
         FT;
-        can_eat=can_eat,
-        can_be_eaten=can_be_eaten,
         assimilation_efficiency=assimilation_efficiency,
     )
 end
 
-# -----------------------------------------------------------------------------
-# High-level interaction matrix builders
-# -----------------------------------------------------------------------------
-
-@inline function _trait_get(pft_data, key::Symbol, default)
-    if !hasproperty(pft_data, key)
-        return default
-    end
-    v = getproperty(pft_data, key)
-    return v === nothing ? default : v
-end
-
-@inline function _resolve_trait(::Type{FT}, v, diameter::FT) where {FT<:AbstractFloat}
-    return resolve_param(FT, v, diameter)
-end
-
-"""
-    build_palatability_matrix(FT, pft_data, diameters;
-                              palatability_fn=allometric_palatability_unimodal_protection)
-
-Build the default palatability matrix `M[pred, prey]` from PFT trait definitions.
-
-`pft_data` must be an indexable collection (length `n`) where each element supports
-`hasproperty`/`getproperty` for the trait keys used by the default rule:
-
-- `can_eat::Bool` (default `false`)
-- `can_be_eaten::Bool` (default `true`)
-- `optimum_predator_prey_ratio` (default `0`)
-- `specificity` (default `0`)
-- `protection` (default `0`)
-
-Traits may be numeric constants or `AbstractParamDef` instances.
-
-Missing traits default to inactive values; explicit `nothing` is treated the same
-as missing (inactive). This matches Agate's fixed missing/nothing semantics.
-"""
-function build_palatability_matrix(
-    ::Type{FT},
-    pft_data,
-    diameters::AbstractVector{FT};
-    palatability_fn=allometric_palatability_unimodal_protection,
-) where {FT<:AbstractFloat}
-    n = length(diameters)
-
-    can_eat = Vector{Bool}(undef, n)
-    can_be_eaten = Vector{Bool}(undef, n)
-    optimum = Vector{FT}(undef, n)
-    spec = Vector{FT}(undef, n)
-    prot = Vector{FT}(undef, n)
-
-    @inbounds for i in 1:n
-        pd = pft_data[i]
-        can_eat[i] = Bool(_trait_get(pd, :can_eat, false))
-        can_be_eaten[i] = Bool(_trait_get(pd, :can_be_eaten, true))
-        optimum[i] = _resolve_trait(
-            FT, _trait_get(pd, :optimum_predator_prey_ratio, zero(FT)), diameters[i]
-        )
-        spec[i] = _resolve_trait(FT, _trait_get(pd, :specificity, zero(FT)), diameters[i])
-        prot[i] = _resolve_trait(FT, _trait_get(pd, :protection, zero(FT)), diameters[i])
-    end
-
-    return palatability_matrix_allometric(
-        FT,
-        diameters;
-        can_eat=can_eat,
-        can_be_eaten=can_be_eaten,
-        optimum_predator_prey_ratio=optimum,
-        specificity=spec,
-        protection=prot,
-        palatability_fn=palatability_fn,
-    )
-end
-
-"""
-    build_assimilation_matrix(FT, pft_data, diameters)
-
-Build the default assimilation-efficiency matrix `β[pred, prey]`.
-
-Traits used by the default rule:
-
-- `can_eat::Bool` (default `false`)
-- `can_be_eaten::Bool` (default `true`)
-- `assimilation_efficiency` (default `0`)
-"""
-function build_assimilation_matrix(
-    ::Type{FT}, pft_data, diameters::AbstractVector{FT};
-) where {FT<:AbstractFloat}
-    n = length(diameters)
-
-    can_eat = Vector{Bool}(undef, n)
-    can_be_eaten = Vector{Bool}(undef, n)
-    assim = Vector{FT}(undef, n)
-
-    @inbounds for i in 1:n
-        pd = pft_data[i]
-        can_eat[i] = Bool(_trait_get(pd, :can_eat, false))
-        can_be_eaten[i] = Bool(_trait_get(pd, :can_be_eaten, true))
-        assim[i] = _resolve_trait(
-            FT, _trait_get(pd, :assimilation_efficiency, zero(FT)), diameters[i]
-        )
-    end
-
-    return assimilation_efficiency_matrix_binary(
-        FT; can_eat=can_eat, can_be_eaten=can_be_eaten, assimilation_efficiency=assim
-    )
-end
 
 end # module Allometry
