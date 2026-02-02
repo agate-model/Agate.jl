@@ -24,7 +24,11 @@ using ...PredationSums: _grazing_assimilation_loss_sum, _grazing_loss_sum, _graz
 
 export nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
 
-@inline function _uptake_sum_smith(p, tracers, args, npl::Int, N, PAR)
+@inline function _uptake_sum_smith(kb::KernelBundle, npl::Int, N, PAR)
+    p = kb.p
+    tracers = kb.tracers
+    args = kb.args
+
     sum_over(npl, zero(N)) do i
         P = tracers.plankton(args, i)
         SingleNutrientGrowthSmith(
@@ -51,8 +55,9 @@ function nutrient_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = bgc.parameters
-        tracers = bgc.tracers
+        kb = KernelBundle(bgc, args)
+        p = kb.p
+        tracers = kb.tracers
 
         N = tracers.N(args)
         D = tracers.D(args)
@@ -68,7 +73,7 @@ function nutrient_default(plankton_syms)
             QuadraticLoss(p.quadratic_mortality[i])(P)
         end
 
-        uptake = _uptake_sum_smith(p, tracers, args, npl, N, PAR)
+        uptake = _uptake_sum_smith(kb, npl, N, PAR)
 
         export_frac = p.mortality_export_fraction
         remin = LinearRemineralization(p.detritus_remineralization)(D)
@@ -95,10 +100,9 @@ function detritus_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = bgc.parameters
-        tracers = bgc.tracers
-
-        kb = KernelBundle(tracers, args)
+        kb = KernelBundle(bgc, args)
+        p = kb.p
+        tracers = kb.tracers
 
         D = tracers.D(args)
 
@@ -112,7 +116,7 @@ function detritus_default(plankton_syms)
             QuadraticLoss(p.quadratic_mortality[i])(P)
         end
 
-        assim_loss = _grazing_assimilation_loss_sum(p, kb)
+        assim_loss = _grazing_assimilation_loss_sum(kb)
 
         export_frac = p.mortality_export_fraction
         remin = LinearRemineralization(p.detritus_remineralization)(D)
@@ -138,10 +142,9 @@ function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = bgc.parameters
-        tracers = bgc.tracers
-
-        kb = KernelBundle(tracers, args)
+        kb = KernelBundle(bgc, args)
+        p = kb.p
+        tracers = kb.tracers
 
         N = tracers.N(args)
         P = tracers.plankton(args, plankton_idx)
@@ -153,7 +156,7 @@ function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx
             p.alpha[plankton_idx],
         )(N, P, PAR)
 
-        grazing = _grazing_loss_sum(p, kb, P, plankton_idx)
+        grazing = _grazing_loss_sum(kb, P, plankton_idx)
         mort = LinearLoss(p.linear_mortality[plankton_idx])(P)
 
         return growth - grazing - mort
@@ -175,14 +178,13 @@ function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = bgc.parameters
-        tracers = bgc.tracers
-
-        kb = KernelBundle(tracers, args)
+        kb = KernelBundle(bgc, args)
+        p = kb.p
+        tracers = kb.tracers
 
         Z = tracers.plankton(args, plankton_idx)
 
-        gain = _grazing_gain_sum(p, kb, Z, plankton_idx)
+        gain = _grazing_gain_sum(kb, Z, plankton_idx)
 
         lin = LinearLoss(p.linear_mortality[plankton_idx])(Z)
         quad = QuadraticLoss(p.quadratic_mortality[plankton_idx])(Z)

@@ -33,15 +33,11 @@ export DIC_geider_light,
     phytoplankton_growth_two_nutrients_geider_light,
     zooplankton_default
 
-@inline function _uptake_sum_geider(
-    p,
-    tracers,
-    args,
-    npl::Int,
-    DIN,
-    PO4,
-    PAR,
-)
+@inline function _uptake_sum_geider(kb::KernelBundle, npl::Int, DIN, PO4, PAR)
+    p = kb.p
+    tracers = kb.tracers
+    args = kb.args
+
     sum_over(npl, zero(DIN)) do i
         P = tracers.plankton(args, i)
         TwoNutrientGrowthGeider(
@@ -56,7 +52,8 @@ export DIC_geider_light,
     end
 end
 
-@inline function _mortality_loss_sum(p, kb::KernelBundle, npl::Int)
+@inline function _mortality_loss_sum(kb::KernelBundle, npl::Int)
+    p = kb.p
     tracers = kb.tracers
     args = kb.args
 
@@ -85,8 +82,9 @@ function DIC_geider_light(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = bgc.parameters
-        tracers = bgc.tracers
+        kb = KernelBundle(bgc, args)
+        p = kb.p
+        tracers = kb.tracers
 
         DIN = tracers.DIN(args)
         PO4 = tracers.PO4(args)
@@ -94,7 +92,7 @@ function DIC_geider_light(plankton_syms)
         POC = tracers.POC(args)
         PAR = tracers.PAR(args)
 
-        uptake = _uptake_sum_geider(p, tracers, args, npl, DIN, PO4, PAR)
+        uptake = _uptake_sum_geider(kb, npl, DIN, PO4, PAR)
 
         dic_remin =
             LinearRemineralization(p.DOC_remineralization)(DOC) +
@@ -122,8 +120,9 @@ function DIN_geider_light(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = bgc.parameters
-        tracers = bgc.tracers
+        kb = KernelBundle(bgc, args)
+        p = kb.p
+        tracers = kb.tracers
 
         DIN = tracers.DIN(args)
         PO4 = tracers.PO4(args)
@@ -131,7 +130,7 @@ function DIN_geider_light(plankton_syms)
         PON = tracers.PON(args)
         PAR = tracers.PAR(args)
 
-        uptake = _uptake_sum_geider(p, tracers, args, npl, DIN, PO4, PAR)
+        uptake = _uptake_sum_geider(kb, npl, DIN, PO4, PAR)
 
         din_remin =
             LinearRemineralization(p.DON_remineralization)(DON) +
@@ -159,8 +158,9 @@ function PO4_geider_light(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = bgc.parameters
-        tracers = bgc.tracers
+        kb = KernelBundle(bgc, args)
+        p = kb.p
+        tracers = kb.tracers
 
         DIN = tracers.DIN(args)
         PO4 = tracers.PO4(args)
@@ -168,7 +168,7 @@ function PO4_geider_light(plankton_syms)
         POP = tracers.POP(args)
         PAR = tracers.PAR(args)
 
-        uptake = _uptake_sum_geider(p, tracers, args, npl, DIN, PO4, PAR)
+        uptake = _uptake_sum_geider(kb, npl, DIN, PO4, PAR)
 
         po4_remin =
             LinearRemineralization(p.DOP_remineralization)(DOP) +
@@ -198,15 +198,14 @@ function DOC_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = bgc.parameters
-        tracers = bgc.tracers
-
-        kb = KernelBundle(tracers, args)
+        kb = KernelBundle(bgc, args)
+        p = kb.p
+        tracers = kb.tracers
 
         DOC = tracers.DOC(args)
 
-        M = _mortality_loss_sum(p, kb, npl)
-        g = _grazing_assimilation_loss_sum(p, kb)
+        M = _mortality_loss_sum(kb, npl)
+        g = _grazing_assimilation_loss_sum(kb)
         R = LinearRemineralization(p.DOC_remineralization)(DOC)
 
         frac = one(p.DOM_POM_fractionation) - p.DOM_POM_fractionation
@@ -232,15 +231,14 @@ function POC_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = bgc.parameters
-        tracers = bgc.tracers
-
-        kb = KernelBundle(tracers, args)
+        kb = KernelBundle(bgc, args)
+        p = kb.p
+        tracers = kb.tracers
 
         POC = tracers.POC(args)
 
-        M = _mortality_loss_sum(p, kb, npl)
-        g = _grazing_assimilation_loss_sum(p, kb)
+        M = _mortality_loss_sum(kb, npl)
+        g = _grazing_assimilation_loss_sum(kb)
         R = LinearRemineralization(p.POC_remineralization)(POC)
 
         return p.DOM_POM_fractionation * (M + g) - R
@@ -265,15 +263,14 @@ function DON_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = bgc.parameters
-        tracers = bgc.tracers
-
-        kb = KernelBundle(tracers, args)
+        kb = KernelBundle(bgc, args)
+        p = kb.p
+        tracers = kb.tracers
 
         DON = tracers.DON(args)
 
-        M = _mortality_loss_sum(p, kb, npl)
-        g = _grazing_assimilation_loss_sum(p, kb)
+        M = _mortality_loss_sum(kb, npl)
+        g = _grazing_assimilation_loss_sum(kb)
         R = LinearRemineralization(p.DON_remineralization)(DON)
 
         frac = one(p.DOM_POM_fractionation) - p.DOM_POM_fractionation
@@ -299,15 +296,14 @@ function PON_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = bgc.parameters
-        tracers = bgc.tracers
-
-        kb = KernelBundle(tracers, args)
+        kb = KernelBundle(bgc, args)
+        p = kb.p
+        tracers = kb.tracers
 
         PON = tracers.PON(args)
 
-        M = _mortality_loss_sum(p, kb, npl)
-        g = _grazing_assimilation_loss_sum(p, kb)
+        M = _mortality_loss_sum(kb, npl)
+        g = _grazing_assimilation_loss_sum(kb)
         R = LinearRemineralization(p.PON_remineralization)(PON)
 
         return p.DOM_POM_fractionation * p.nitrogen_to_carbon * (M + g) - R
@@ -332,15 +328,14 @@ function DOP_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = bgc.parameters
-        tracers = bgc.tracers
-
-        kb = KernelBundle(tracers, args)
+        kb = KernelBundle(bgc, args)
+        p = kb.p
+        tracers = kb.tracers
 
         DOP = tracers.DOP(args)
 
-        M = _mortality_loss_sum(p, kb, npl)
-        g = _grazing_assimilation_loss_sum(p, kb)
+        M = _mortality_loss_sum(kb, npl)
+        g = _grazing_assimilation_loss_sum(kb)
         R = LinearRemineralization(p.DOP_remineralization)(DOP)
 
         frac = one(p.DOM_POM_fractionation) - p.DOM_POM_fractionation
@@ -366,15 +361,14 @@ function POP_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = bgc.parameters
-        tracers = bgc.tracers
-
-        kb = KernelBundle(tracers, args)
+        kb = KernelBundle(bgc, args)
+        p = kb.p
+        tracers = kb.tracers
 
         POP = tracers.POP(args)
 
-        M = _mortality_loss_sum(p, kb, npl)
-        g = _grazing_assimilation_loss_sum(p, kb)
+        M = _mortality_loss_sum(kb, npl)
+        g = _grazing_assimilation_loss_sum(kb)
         R = LinearRemineralization(p.POP_remineralization)(POP)
 
         return p.DOM_POM_fractionation * p.phosphorus_to_carbon * (M + g) - R
@@ -406,10 +400,9 @@ function phytoplankton_growth_two_nutrients_geider_light(
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = bgc.parameters
-        tracers = bgc.tracers
-
-        kb = KernelBundle(tracers, args)
+        kb = KernelBundle(bgc, args)
+        p = kb.p
+        tracers = kb.tracers
 
         DIN = tracers.DIN(args)
         PO4 = tracers.PO4(args)
@@ -426,7 +419,7 @@ function phytoplankton_growth_two_nutrients_geider_light(
             DIN, PO4, P, PAR
         )
 
-        grazing = _grazing_loss_sum(p, kb, P, plankton_idx)
+        grazing = _grazing_loss_sum(kb, P, plankton_idx)
 
         mort = LinearLoss(p.linear_mortality[plankton_idx])(P)
 
@@ -449,14 +442,13 @@ function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::
     )
 
     f = function (bgc, x, y, z, t, args...)
-        p = bgc.parameters
-        tracers = bgc.tracers
-
-        kb = KernelBundle(tracers, args)
+        kb = KernelBundle(bgc, args)
+        p = kb.p
+        tracers = kb.tracers
 
         Z = tracers.plankton(args, plankton_idx)
 
-        gain = _grazing_gain_sum(p, kb, Z, plankton_idx)
+        gain = _grazing_gain_sum(kb, Z, plankton_idx)
 
         lin = LinearLoss(p.linear_mortality[plankton_idx])(Z)
         quad = QuadraticLoss(p.quadratic_mortality[plankton_idx])(Z)

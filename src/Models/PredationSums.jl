@@ -24,15 +24,13 @@ using ...Library.Predation:
 The accumulator is always the model float type `FT`, which is inferred from
 the interaction parameters. This keeps kernel call sites simple:
 
-    loss = _grazing_assimilation_loss_sum(p, kb)
+    loss = _grazing_assimilation_loss_sum(kb)
 
 No generic reduction seed is required because Agate always runs with a single
 adapted floating-point type.
 """
-@inline function _grazing_assimilation_loss_sum(
-    p,
-    kb::KernelBundle,
-)
+@inline function _grazing_assimilation_loss_sum(kb::KernelBundle)
+    p = kb.p
     tracers = kb.tracers
     args = kb.args
 
@@ -62,11 +60,11 @@ end
 
 """Sum of grazing loss terms for a single prey (given global index)."""
 @inline function _grazing_loss_sum(
-    p,
     kb::KernelBundle,
     prey,
     prey_idx::Int,
 )
+    p = kb.p
     tracers = kb.tracers
     args = kb.args
 
@@ -91,11 +89,11 @@ end
 
 """Sum of grazing gain terms for a single predator (given global index)."""
 @inline function _grazing_gain_sum(
-    p,
     kb::KernelBundle,
     predator,
     predator_idx::Int,
 )
+    p = kb.p
     tracers = kb.tracers
     args = kb.args
 
