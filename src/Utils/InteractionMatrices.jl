@@ -59,12 +59,10 @@ end
     elseif value isa AbstractMatrix
         if size(value) == (nr, nc)
             return value
-        elseif size(value) == (n_total, n_total)
-            return value[row_indices, col_indices]
         else
             throw(
                 ArgumentError(
-                    "interaction matrix '$key' must be $(nr)x$(nc) (axes) or $(n_total)x$(n_total) (full); got size $(size(value))",
+                    "interaction matrix '$key' must be $(nr)x$(nc) (axes); got size $(size(value))",
                 ),
             )
         end
