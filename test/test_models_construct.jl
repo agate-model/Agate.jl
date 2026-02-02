@@ -97,18 +97,21 @@ using Oceananigans.Biogeochemistry:
         )
         M3 = bgc_rect_provider.parameters.palatability_matrix
         @test size(M3) == (n_cons, n_prey)
-        @test all(M3 .== 9.0f0)        # Full-square matrices are rejected (interactions are rectangular by design).
+        @test all(M3 .== 9.0f0)
+
+        # Full-square matrices are accepted but are stored sliced to the consumer/prey axes.
         correct = zeros(Float32, n_total, n_total)
-        @test_throws ArgumentError NiPiZD.construct(;
+        bgc2 = NiPiZD.construct(;
             grid=dummy_grid(Float32),
             palatability_matrix=correct,
             assimilation_matrix=correct,
         )
-
+        @test required_biogeochemical_tracers(bgc2) == (:N, :D, :Z1, :Z2, :P1, :P2)
+        @test size(bgc2.parameters.palatability_matrix) == (n_cons, n_prey)
 
         # Providers are allowed for the public keywords. They are evaluated once during construction.
-        pal_provider(ctx) = zeros(Float32, length(ctx.consumer_indices), length(ctx.prey_indices))
-        assim_provider(ctx) = zeros(Float32, length(ctx.consumer_indices), length(ctx.prey_indices))
+        pal_provider(ctx) = zeros(Float32, ctx.n_total, ctx.n_total)
+        assim_provider(ctx) = zeros(Float32, ctx.n_total, ctx.n_total)
 
         # Old-style providers are rejected.
         old_style_provider(diameters, group_symbols) =

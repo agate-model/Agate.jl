@@ -5,10 +5,15 @@ pattern using the canonical `parameters.interactions` container.
 
 They are shared by multiple model tracer kernels (e.g. NiPiZD and DARWIN) to
 avoid duplicated indexing logic.
+
+GPU notes
+---------
+All functions operate on positional tracer arguments via a `Tracers` accessor.
+No runtime `Symbol` lookup is performed in kernel-callable code.
 """
 module PredationSums
 
-using ...Utils: sum_over
+using ...Utils: sum_over, KernelBundle
 using ...Library.Predation:
     PreferentialPredationLoss,
     PreferentialPredationGain,
@@ -16,24 +21,38 @@ using ...Library.Predation:
 
 """Sum of assimilation loss terms across all consumer-by-prey pairs.
 
-Returns a value with the same type as `init`.
+The accumulator is always the model float type `FT`, which is inferred from
+the interaction parameters. This keeps kernel call sites simple:
+
+    loss = _grazing_assimilation_loss_sum(p, kb)
+
+No generic reduction seed is required because Agate always runs with a single
+adapted floating-point type.
 """
-@inline function _grazing_assimilation_loss_sum(p, state, plankton_syms, init)
+@inline function _grazing_assimilation_loss_sum(
+    p,
+    kb::KernelBundle,
+)
+    tracers = kb.tracers
+    args = kb.args
+
+    FT = eltype(p.maximum_predation_rate)
+    z = zero(FT)
     ints = p.interactions
     pal = ints.palatability
     assim = ints.assimilation
     consumer_global = ints.consumer_global
     prey_global = ints.prey_global
 
-    sum_over(eachindex(consumer_global), init) do ic
+    sum_over(eachindex(consumer_global), z) do ic
         predator_idx = consumer_global[ic]
-        predator = getproperty(state, plankton_syms[predator_idx])
+        predator = tracers.plankton(args, predator_idx)
         gmax = p.maximum_predation_rate[predator_idx]
         K = p.holling_half_saturation[predator_idx]
 
-        sum_over(eachindex(prey_global), zero(init)) do ip
+        sum_over(eachindex(prey_global), z) do ip
             prey_idx = prey_global[ip]
-            prey = getproperty(state, plankton_syms[prey_idx])
+            prey = tracers.plankton(args, prey_idx)
             beta = assim[ic, ip]
             phi = pal[ic, ip]
             PreferentialPredationAssimilationLoss(beta, gmax, K, phi)(prey, predator)
@@ -42,17 +61,27 @@ Returns a value with the same type as `init`.
 end
 
 """Sum of grazing loss terms for a single prey (given global index)."""
-@inline function _grazing_loss_sum(p, state, plankton_syms, prey, prey_idx::Int, init)
+@inline function _grazing_loss_sum(
+    p,
+    kb::KernelBundle,
+    prey,
+    prey_idx::Int,
+)
+    tracers = kb.tracers
+    args = kb.args
+
+    FT = eltype(p.maximum_predation_rate)
+    z = zero(FT)
     ints = p.interactions
     ip = @inbounds ints.global_to_prey[prey_idx]
-    ip == 0 && return init
+    ip == 0 && return z
 
     pal = ints.palatability
     consumer_global = ints.consumer_global
 
-    sum_over(eachindex(consumer_global), init) do ic
+    sum_over(eachindex(consumer_global), z) do ic
         predator_idx = consumer_global[ic]
-        predator = getproperty(state, plankton_syms[predator_idx])
+        predator = tracers.plankton(args, predator_idx)
         gmax = p.maximum_predation_rate[predator_idx]
         K = p.holling_half_saturation[predator_idx]
         phi = pal[ic, ip]
@@ -62,11 +91,19 @@ end
 
 """Sum of grazing gain terms for a single predator (given global index)."""
 @inline function _grazing_gain_sum(
-    p, state, plankton_syms, predator, predator_idx::Int, init
+    p,
+    kb::KernelBundle,
+    predator,
+    predator_idx::Int,
 )
+    tracers = kb.tracers
+    args = kb.args
+
+    FT = eltype(p.maximum_predation_rate)
+    z = zero(FT)
     ints = p.interactions
     ic = @inbounds ints.global_to_consumer[predator_idx]
-    ic == 0 && return init
+    ic == 0 && return z
 
     pal = ints.palatability
     assim = ints.assimilation
@@ -75,9 +112,9 @@ end
     gmax = p.maximum_predation_rate[predator_idx]
     K = p.holling_half_saturation[predator_idx]
 
-    sum_over(eachindex(prey_global), init) do ip
+    sum_over(eachindex(prey_global), z) do ip
         prey_idx = prey_global[ip]
-        prey = getproperty(state, plankton_syms[prey_idx])
+        prey = tracers.plankton(args, prey_idx)
         beta = assim[ic, ip]
         phi = pal[ic, ip]
         PreferentialPredationGain(beta, gmax, K, phi)(prey, predator)

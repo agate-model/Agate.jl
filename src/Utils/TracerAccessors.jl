@@ -1,0 +1,230 @@
+"""GPU-safe tracer access helpers.
+
+Oceananigans passes tracer and auxiliary-field values into biogeochemistry
+kernels as a *positional* argument list.
+
+Agate keeps the underlying layout positional for performance, but provides
+`Tracers` accessors so model code can be written in a readable, group-oriented
+style without doing any runtime Symbol work inside kernels.
+
+Design notes
+------------
+- Group behaviour is expressed with `Val{:Group}` specialization.
+- Group names remain `Symbol`s at the API boundary, but symbols are *not*
+  searched/iterated inside kernels.
+- `TracerIndex` stores only integers and is safe to embed in GPU kernels.
+"""
+
+"""Mapping from user-facing names (groups/tracers/aux fields) to positional indices.
+
+`TracerIndex` is a small, inference-friendly container of integer offsets.
+The symbol sets are encoded in type parameters for compile-time specialization.
+
+Type parameters
+---------------
+- `TR`: tuple of tracer symbols in positional order (as used by Oceananigans)
+- `GS`: tuple of plankton group symbols (e.g. `(:Z, :P)`)
+- `AF`: tuple of auxiliary field symbols (e.g. `(:PAR,)`)
+- `NG`: number of groups (`length(GS)`)
+"""
+struct TracerIndex{TR,GS,AF,NG}
+    n_tracers::Int
+    aux_base::Int              # 1-based position of the first auxiliary value in args
+    plankton_base::Int          # 1-based position of the first plankton tracer in args (0 if none)
+    group_bases::NTuple{NG,Int} # 1-based positions of each group's first class tracer
+    group_counts::NTuple{NG,Int}
+end
+
+"""Accessor wrapper used inside kernels.
+
+`Tracers` is a lightweight handle that exposes convenient, readable accessors
+such as `tracers.P(args, i)` and `tracers.N(args)`.
+"""
+struct Tracers{TI}
+    idx::TI
+end
+
+"""Callable accessor returned by `tr.<name>`.
+
+The accessor kind is encoded in the `K` type parameter:
+- `:group` for group-level access that takes a class index
+- `:scalar` for scalar tracer/aux access with no class index
+- `:plankton` for global plankton-class access
+"""
+struct TracerAccessor{S,TI,K}
+    idx::TI
+end
+
+@inline (a::TracerAccessor{S,TI,:scalar})(args) where {S,TI} =
+    _scalar_value(a.idx, args, Val(S))
+
+@inline (a::TracerAccessor{S,TI,:group})(args, i::Int) where {S,TI} =
+    _group_value(a.idx, args, Val(S), i)
+
+@inline (a::TracerAccessor{S,TI,:plankton})(args, i::Int) where {S,TI} =
+    _plankton_value(a.idx, args, i)
+
+"""Create a default `TracerIndex` for an arbitrary tracer set.
+
+This constructor does not assume any plankton-group structure.
+"""
+function build_tracer_index(tracers::Tuple, auxiliary_fields::Tuple)
+    TR = tracers
+    AF = auxiliary_fields
+    return TracerIndex{TR,(),AF,0}(
+        length(tracers),
+        length(tracers) + 1,
+        0,
+        (),
+        (),
+    )
+end
+
+"""Create a `TracerIndex` using a parsed community context.
+
+`n_biogeochem_tracers` is the count of non-plankton tracers appearing before
+plankton tracers in the positional tracer list.
+"""
+function build_tracer_index(
+    ctx,
+    tracers::Tuple,
+    auxiliary_fields::Tuple;
+    n_biogeochem_tracers::Int,
+)
+    # Preserve community order (first-seen order in the flattened class list).
+    groups_vec = Symbol[]
+    seen = Set{Symbol}()
+    for g in ctx.group_symbols
+        if g ∉ seen
+            push!(groups_vec, g)
+            push!(seen, g)
+        end
+    end
+
+    groups = Tuple(groups_vec)
+    NG = length(groups)
+
+    plankton_base = n_biogeochem_tracers + 1
+    bases = ntuple(i -> begin
+        g = groups[i]
+        first_global = first(ctx.group_indices[g])
+        plankton_base + first_global - 1
+    end, NG)
+    counts = ntuple(i -> length(ctx.group_indices[groups[i]]), NG)
+
+    TR = tracers
+    AF = auxiliary_fields
+    return TracerIndex{TR,groups,AF,NG}(
+        length(tracers),
+        length(tracers) + 1,
+        plankton_base,
+        bases,
+        counts,
+    )
+end
+
+# -----------------------------------------------------------------------------
+# Compile-time lookup helpers
+# -----------------------------------------------------------------------------
+
+@generated function _find_in_tuple(::Val{sym}, ::Val{tup}) where {sym,tup}
+    for (i, s) in enumerate(tup)
+        if s === sym
+            return :( $i )
+        end
+    end
+    return :( 0 )
+end
+
+@inline _tracer_position(::TracerIndex{TR}, ::Val{sym}) where {TR,sym} =
+    _find_in_tuple(Val(sym), Val(TR))
+
+@inline _aux_slot(::TracerIndex{TR,GS,AF,NG}, ::Val{sym}) where {TR,GS,AF,NG,sym} =
+    _find_in_tuple(Val(sym), Val(AF))
+
+@inline _group_slot(::TracerIndex{TR,GS,AF,NG}, ::Val{g}) where {TR,GS,AF,NG,g} =
+    _find_in_tuple(Val(g), Val(GS))
+
+# -----------------------------------------------------------------------------
+# Value extraction
+# -----------------------------------------------------------------------------
+
+@inline function _scalar_value(
+    idx::TracerIndex{TR,GS,AF,NG},
+    args,
+    ::Val{sym},
+) where {TR,GS,AF,NG,sym}
+    pos = _tracer_position(idx, Val(sym))
+    if pos == 0
+        slot = _aux_slot(idx, Val(sym))
+        slot == 0 && throw(ArgumentError("Unknown tracer/auxiliary name :$sym"))
+        return @inbounds args[idx.aux_base + (slot - 1)]
+    end
+    return @inbounds args[pos]
+end
+
+@inline function _group_value(
+    idx::TracerIndex{TR,GS,AF,NG},
+    args,
+    ::Val{g},
+    i::Int,
+) where {TR,GS,AF,NG,g}
+    slot = _group_slot(idx, Val(g))
+    slot == 0 && throw(ArgumentError("Unknown group :$g"))
+    base = @inbounds idx.group_bases[slot]
+    return @inbounds args[base + (i - 1)]
+end
+
+@inline function _plankton_value(idx::TracerIndex, args, i::Int)
+    idx.plankton_base == 0 && throw(ArgumentError("No plankton layout is defined for this TracerIndex."))
+    return @inbounds args[idx.plankton_base + (i - 1)]
+end
+
+# -----------------------------------------------------------------------------
+# User-facing access (dot syntax)
+# -----------------------------------------------------------------------------
+
+@inline Base.getproperty(tr::Tracers, s::Symbol) = _getproperty(tr, Val(s))
+
+@inline _getproperty(tr::Tracers, ::Val{:idx}) = getfield(tr, :idx)
+
+@inline function _getproperty(tr::Tracers{TI}, ::Val{:plankton}) where {TI}
+    return TracerAccessor{:plankton,TI,:plankton}(tr.idx)
+end
+
+@inline function _getproperty(tr::Tracers{TI}, ::Val{s}) where {TI,s}
+    return _make_accessor(tr.idx, Val(s))
+end
+
+@generated function _make_accessor(idx::TI, ::Val{s}) where {TI<:TracerIndex,s}
+    # Decide whether `s` is a group name or a scalar tracer/aux name.
+    TR = TI.parameters[1]
+    GS = TI.parameters[2]
+    AF = TI.parameters[3]
+
+    # IMPORTANT: `s` is a *value* type parameter (a `Symbol`). When we splice it
+    # into the returned expression we must use `QuoteNode(s)` so Julia treats it
+    # as a literal value (e.g. `:N`) rather than a variable reference (`N`).
+    s_q = QuoteNode(s)
+
+    # group?
+    for g in GS
+        if g === s
+            return :(TracerAccessor{$s_q,$TI,:group}(idx))
+        end
+    end
+    # scalar tracer?
+    for tr in TR
+        if tr === s
+            return :(TracerAccessor{$s_q,$TI,:scalar}(idx))
+        end
+    end
+    # aux?
+    for a in AF
+        if a === s
+            return :(TracerAccessor{$s_q,$TI,:scalar}(idx))
+        end
+    end
+
+    return :(throw(ArgumentError("Unknown tracer/group/auxiliary name :$s")))
+end

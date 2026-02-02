@@ -2,6 +2,12 @@
 
 Predation terms use the canonical rectangular interaction matrices stored in
 `bgc.parameters.interactions` (consumer-by-prey).
+
+GPU notes
+---------
+The compiled tracer equations operate directly on positional tracer arguments
+via `bgc.tracers`. No runtime Symbol indexing is performed in kernel-callable
+code.
 """
 
 module Tracers
@@ -12,50 +18,20 @@ using ....Library.Mortality: LinearLoss, QuadraticLoss
 using ....Library.Photosynthesis: SingleNutrientGrowthSmith
 using ....Library.Remineralization: LinearRemineralization
 
-using ....Utils: sum_over
+using ....Utils: sum_over, KernelBundle
 
 using ...PredationSums: _grazing_assimilation_loss_sum, _grazing_loss_sum, _grazing_gain_sum
 
 export nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
 
-@inline function _state(bgc, args)
-    K = keys(bgc.tracer_functions)
-    N = length(K)
-    vals = ntuple(i -> args[i], N)
-    return NamedTuple{K}(vals), N
-end
-
-@inline function _aux_value(bgc, args, nstate::Int, name::Symbol)
-    aux = bgc.auxiliary_fields
-    @inbounds for i in eachindex(aux)
-        if aux[i] === name
-            return args[nstate + i]
-        end
-    end
-    return nothing
-end
-
-@inline function _require_aux(bgc, args, nstate::Int, name::Symbol)
-    v = _aux_value(bgc, args, nstate, name)
-    v === nothing && throw(ArgumentError("missing required auxiliary field: $(name)"))
-    return v
-end
-
-@inline function _mortality_loss_sum(p, state, plankton_syms, npl::Int, init)
-    sum_over(npl, init) do i
-        P = getproperty(state, plankton_syms[i])
-        LinearLoss(p.linear_mortality[i])(P) + QuadraticLoss(p.quadratic_mortality[i])(P)
-    end
-end
-
-@inline function _uptake_sum_smith(p, state, plankton_syms, npl::Int, N, PAR)
+@inline function _uptake_sum_smith(p, tracers, args, npl::Int, N, PAR)
     sum_over(npl, zero(N)) do i
-        P = getproperty(state, plankton_syms[i])
+        P = tracers.plankton(args, i)
         SingleNutrientGrowthSmith(
-            p.maximum_growth_rate[i], p.nutrient_half_saturation[i], p.alpha[i]
-        )(
-            N, P, PAR
-        )
+            p.maximum_growth_rate[i],
+            p.nutrient_half_saturation[i],
+            p.alpha[i],
+        )(N, P, PAR)
     end
 end
 
@@ -76,23 +52,23 @@ function nutrient_default(plankton_syms)
 
     f = function (bgc, x, y, z, t, args...)
         p = bgc.parameters
+        tracers = bgc.tracers
 
-        state, nstate = _state(bgc, args)
-        N = state.N
-        D = state.D
-        PAR = _require_aux(bgc, args, nstate, :PAR)
+        N = tracers.N(args)
+        D = tracers.D(args)
+        PAR = tracers.PAR(args)
 
         lin_sum = sum_over(npl, zero(N)) do i
-            P = getproperty(state, plankton_syms[i])
+            P = tracers.plankton(args, i)
             LinearLoss(p.linear_mortality[i])(P)
         end
 
         quad_sum = sum_over(npl, zero(N)) do i
-            P = getproperty(state, plankton_syms[i])
+            P = tracers.plankton(args, i)
             QuadraticLoss(p.quadratic_mortality[i])(P)
         end
 
-        uptake = _uptake_sum_smith(p, state, plankton_syms, npl, N, PAR)
+        uptake = _uptake_sum_smith(p, tracers, args, npl, N, PAR)
 
         export_frac = p.mortality_export_fraction
         remin = LinearRemineralization(p.detritus_remineralization)(D)
@@ -120,21 +96,23 @@ function detritus_default(plankton_syms)
 
     f = function (bgc, x, y, z, t, args...)
         p = bgc.parameters
+        tracers = bgc.tracers
 
-        state, _ = _state(bgc, args)
-        D = state.D
+        kb = KernelBundle(tracers, args)
+
+        D = tracers.D(args)
 
         lin_sum = sum_over(npl, zero(D)) do i
-            P = getproperty(state, plankton_syms[i])
+            P = tracers.plankton(args, i)
             LinearLoss(p.linear_mortality[i])(P)
         end
 
         quad_sum = sum_over(npl, zero(D)) do i
-            P = getproperty(state, plankton_syms[i])
+            P = tracers.plankton(args, i)
             QuadraticLoss(p.quadratic_mortality[i])(P)
         end
 
-        assim_loss = _grazing_assimilation_loss_sum(p, state, plankton_syms, zero(D))
+        assim_loss = _grazing_assimilation_loss_sum(p, kb)
 
         export_frac = p.mortality_export_fraction
         remin = LinearRemineralization(p.detritus_remineralization)(D)
@@ -161,22 +139,21 @@ function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx
 
     f = function (bgc, x, y, z, t, args...)
         p = bgc.parameters
+        tracers = bgc.tracers
 
-        state, nstate = _state(bgc, args)
-        N = state.N
-        P = getproperty(state, plankton_sym)
-        PAR = _require_aux(bgc, args, nstate, :PAR)
+        kb = KernelBundle(tracers, args)
+
+        N = tracers.N(args)
+        P = tracers.plankton(args, plankton_idx)
+        PAR = tracers.PAR(args)
 
         growth = SingleNutrientGrowthSmith(
             p.maximum_growth_rate[plankton_idx],
             p.nutrient_half_saturation[plankton_idx],
             p.alpha[plankton_idx],
-        )(
-            N, P, PAR
-        )
+        )(N, P, PAR)
 
-        grazing = _grazing_loss_sum(p, state, plankton_syms, P, plankton_idx, zero(P))
-
+        grazing = _grazing_loss_sum(p, kb, P, plankton_idx)
         mort = LinearLoss(p.linear_mortality[plankton_idx])(P)
 
         return growth - grazing - mort
@@ -199,14 +176,13 @@ function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::
 
     f = function (bgc, x, y, z, t, args...)
         p = bgc.parameters
+        tracers = bgc.tracers
 
-        state, _ = _state(bgc, args)
-        Z = getproperty(state, plankton_sym)
+        kb = KernelBundle(tracers, args)
 
-        gmax = p.maximum_predation_rate[plankton_idx]
-        K = p.holling_half_saturation[plankton_idx]
+        Z = tracers.plankton(args, plankton_idx)
 
-        gain = _grazing_gain_sum(p, state, plankton_syms, Z, plankton_idx, zero(Z))
+        gain = _grazing_gain_sum(p, kb, Z, plankton_idx)
 
         lin = LinearLoss(p.linear_mortality[plankton_idx])(Z)
         quad = QuadraticLoss(p.quadratic_mortality[plankton_idx])(Z)

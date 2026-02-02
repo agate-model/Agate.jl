@@ -5,6 +5,8 @@
 using Adapt
 
 using ..Functors: CompiledEquation, requirements
+using ..Utils: Tracers, TracerIndex, build_tracer_index
+
 using OceanBioME
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 using Oceananigans.Fields: ZeroField
@@ -21,18 +23,31 @@ export define_tracer_functions
 """A concrete Oceananigans biogeochemistry model.
 
 Tracer tendencies are dispatched through a stored `NamedTuple` of callables.
+
+The model stores a small, GPU-safe `Tracers` accessor (`bgc.tracers`) that
+converts human-friendly names (e.g. `tr.N`, `tr.PAR`, `tr.plankton`) into
+integer indexing into the positional argument list passed to kernels.
 """
-struct AgateBGC{PT,TF,AF,SV} <: AbstractContinuousFormBiogeochemistry
+struct AgateBGC{PT,TF,TR,SV} <: AbstractContinuousFormBiogeochemistry
     parameters::PT
     tracer_functions::TF
-    auxiliary_fields::AF
+    tracers::TR
     sinking_velocities::SV
 end
 
 Adapt.@adapt_structure AgateBGC
 
 @inline required_biogeochemical_tracers(bgc::AgateBGC) = keys(bgc.tracer_functions)
-@inline required_biogeochemical_auxiliary_fields(bgc::AgateBGC) = bgc.auxiliary_fields
+
+@generated function _auxiliary_fields_from_tracers(::Type{TR}) where {TR}
+    # TR is expected to be `Tracers{TracerIndex{TRSYMS,GS,AF,NG}}`.
+    TI = TR.parameters[1]
+    AF = TI.parameters[3]
+    return :( $AF )
+end
+
+@inline required_biogeochemical_auxiliary_fields(bgc::AgateBGC) =
+    _auxiliary_fields_from_tracers(typeof(bgc.tracers))
 
 @inline function (bgc::AgateBGC)(::Val{tracer}, args...) where {tracer}
     f = getfield(bgc.tracer_functions, tracer)
@@ -56,9 +71,9 @@ end
 
 The factory validates parameters and produces `AgateBGC` instances.
 """
-struct AgateBGCFactory{TF,AF,RP,SV}
+struct AgateBGCFactory{TF,TI,RP,SV}
     tracer_functions::TF
-    auxiliary_fields::AF
+    tracer_index::TI
     required_params::RP
     default_sinking_velocities::SV
 end
@@ -78,14 +93,14 @@ end
 
 function (f::AgateBGCFactory)(parameters)
     _validate_parameters(parameters, f.required_params)
-    return AgateBGC(
-        parameters, f.tracer_functions, f.auxiliary_fields, f.default_sinking_velocities
-    )
+    tr = Tracers(f.tracer_index)
+    return AgateBGC(parameters, f.tracer_functions, tr, f.default_sinking_velocities)
 end
 
 function (f::AgateBGCFactory)(parameters, sinking_velocities)
     _validate_parameters(parameters, f.required_params)
-    return AgateBGC(parameters, f.tracer_functions, f.auxiliary_fields, sinking_velocities)
+    tr = Tracers(f.tracer_index)
+    return AgateBGC(parameters, f.tracer_functions, tr, sinking_velocities)
 end
 
 @inline function _unique_params_from_requirements(r)
@@ -146,7 +161,7 @@ function _compile_tracer_functions(parameters, tracers::NamedTuple)
     return tracer_functions, required_params
 end
 
-"""    define_tracer_functions(parameters, tracers; auxiliary_fields=(:PAR,), sinking_velocities=nothing)
+"""    define_tracer_functions(parameters, tracers; auxiliary_fields=(:PAR,), tracer_index=nothing, sinking_velocities=nothing)
 
 Create a callable Oceananigans biogeochemistry model factory.
 
@@ -158,18 +173,29 @@ parameters are accessed by the callable.
 Callable tracer values must accept the Oceananigans biogeochemistry kernel signature:
 
     f(bgc, x, y, z, t, tracers..., auxiliary_fields...)
+
+Notes
+-----
+- `auxiliary_fields` defines the ordered list of auxiliary values appended to the tracer argument list.
+- `tracer_index` controls how `bgc.tracers` maps names to positional indices. If omitted, a scalar-only
+  index is generated from `keys(tracers)`.
 """
 function define_tracer_functions(
     parameters,
     tracers::NamedTuple;
     auxiliary_fields::Tuple=(:PAR,),
+    tracer_index=nothing,
     sinking_velocities=nothing,
 )
-    Base.@nospecialize parameters tracers auxiliary_fields sinking_velocities
+    Base.@nospecialize parameters tracers auxiliary_fields tracer_index sinking_velocities
 
     tracer_functions, required_params = _compile_tracer_functions(parameters, tracers)
 
-    return AgateBGCFactory(
-        tracer_functions, auxiliary_fields, required_params, sinking_velocities
-    )
+    idx = if tracer_index === nothing
+        build_tracer_index(keys(tracers), auxiliary_fields)
+    else
+        tracer_index
+    end
+
+    return AgateBGCFactory(tracer_functions, idx, required_params, sinking_velocities)
 end

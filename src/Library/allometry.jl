@@ -8,7 +8,6 @@ export PowerLaw, resolve_param, cast_paramdef
 export PalatabilityPreyParameters, PalatabilityPredatorParameters
 export allometric_scaling_power
 export allometric_palatability_unimodal, allometric_palatability_unimodal_protection
-export palatability_matrix_allometric, assimilation_efficiency_matrix_binary
 export palatability_matrix_allometric_axes, assimilation_efficiency_matrix_binary_axes
 # -----------------------------------------------------------------------------
 # Explicit parameter definitions
@@ -145,47 +144,10 @@ function allometric_palatability_unimodal_protection(
     return base * (one(FT) - prey.protection)
 end
 
-"""Build an allometric palatability matrix `M[pred, prey]`."""
-"""Build an allometric palatability matrix `M[pred, prey]`.
-
-This variant computes the full square matrix over all plankton classes.
-Most model code should prefer `palatability_matrix_allometric_axes`, which
-computes only the consumer-by-prey block specified by role axes.
-"""
-function palatability_matrix_allometric(
-    ::Type{FT},
-    diameters::AbstractVector{FT};
-    optimum_predator_prey_ratio::AbstractVector{FT},
-    specificity::AbstractVector{FT},
-    protection::AbstractVector{FT},
-    palatability_fn=allometric_palatability_unimodal_protection,
-) where {FT<:AbstractFloat}
-    n = length(diameters)
-    M = zeros(FT, n, n)
-
-    @inbounds for pred in 1:n
-        predator = PalatabilityPredatorParameters{FT}(
-            diameters[pred], optimum_predator_prey_ratio[pred], specificity[pred]
-        )
-        for prey in 1:n
-            prey_params = PalatabilityPreyParameters{FT}(diameters[prey], protection[prey])
-            M[pred, prey] = palatability_fn(prey_params, predator)
-        end
-    end
-
-    return M
-end
-
-
-"""Build a role-aware allometric palatability matrix `M[consumer, prey]`.
-
-This computes only the consumer-by-prey block specified by `consumer_indices`
-and `prey_indices`, avoiding allocation of an intermediate full square matrix.
-"""
 """Build a role-aware allometric palatability matrix `M[consumer, prey]`.
 
 Only the consumer-by-prey block specified by `consumer_indices` and `prey_indices`
-is computed.
+is computed, producing a rectangular (n_consumer × n_prey) matrix.
 """
 function palatability_matrix_allometric_axes(
     ::Type{FT},
@@ -215,32 +177,6 @@ function palatability_matrix_allometric_axes(
 end
 
 
-"""Build a binary assimilation-efficiency matrix `β[pred, prey]`."""
-"""Build a binary assimilation-efficiency matrix `β[pred, prey]`.
-
-This fills each predator row with its assimilation efficiency.
-"""
-function assimilation_efficiency_matrix_binary(
-    ::Type{FT};
-    assimilation_efficiency::AbstractVector{FT},
-) where {FT<:AbstractFloat}
-    n = length(assimilation_efficiency)
-    M = zeros(FT, n, n)
-    @inbounds for pred in 1:n
-        β = assimilation_efficiency[pred]
-        for prey in 1:n
-            M[pred, prey] = β
-        end
-    end
-    return M
-end
-
-
-"""Build a role-aware binary assimilation-efficiency matrix `β[consumer, prey]`.
-
-Only the consumer-by-prey block specified by `consumer_indices` and
-`prey_indices` is computed.
-"""
 """Build a role-aware binary assimilation-efficiency matrix `β[consumer, prey]`.
 
 Only the consumer-by-prey block specified by `consumer_indices` and `prey_indices`
@@ -264,21 +200,6 @@ function assimilation_efficiency_matrix_binary_axes(
     end
 
     return M
-end
-
-
-"""Convenience overload that infers `FT` from `assimilation_efficiency`.
-
-This avoids call sites needing to thread `FT` explicitly while still preserving
-GPU compatibility (no mixed float types).
-"""
-function assimilation_efficiency_matrix_binary(
-    assimilation_efficiency::AbstractVector{FT},
-) where {FT<:AbstractFloat}
-    return assimilation_efficiency_matrix_binary(
-        FT;
-        assimilation_efficiency=assimilation_efficiency,
-    )
 end
 
 

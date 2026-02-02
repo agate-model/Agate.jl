@@ -246,7 +246,7 @@ function derived_matrix_specs(::NiPiZDFactory)
         ),
         assimilation_matrix=MatrixFn(
             _derive_assimilation_matrix;
-            deps=(:assimilation_efficiency),
+            deps=(:assimilation_efficiency,),
         ),
     )
 end

@@ -38,6 +38,11 @@ Keywords
 - `community`: `NamedTuple` describing plankton size structure.
 - `parameters`: `NamedTuple` of parameter overrides.
 - `interactions`: optional interaction-related overrides (typically matrices). Values may be matrices or provider functions.
+- `roles`: optional `NamedTuple` mapping group symbols to role symbols.
+- `arch`: architecture specification.
+- `sinking_tracers`: collection of tracer symbols that sink and their sinking velocities.
+- `grid`: grid specification.
+- `open_bottom`: boolean indicating if the bottom boundary is open.
 
 All other keywords are forwarded to the model-agnostic constructor.
 """
@@ -48,6 +53,7 @@ function construct_factory(
     community=default_community(spec.factory),
     parameters::NamedTuple=(;),
     interactions::Union{Nothing,NamedTuple}=nothing,
+    roles::Union{Nothing,NamedTuple}=nothing,
     arch=nothing,
     sinking_tracers=nothing,
     grid=nothing,
@@ -60,6 +66,7 @@ function construct_factory(
         community=community,
         parameters=parameters,
         interactions=interactions,
+        roles=roles,
         arch=arch,
         sinking_tracers=sinking_tracers,
         grid=grid,

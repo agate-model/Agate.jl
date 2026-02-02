@@ -12,10 +12,12 @@ using Oceananigans.Architectures: architecture, CPU, GPU
 using ..Utils:
     AbstractBGCFactory,
     parameter_spec,
+    axis_indices,
     normalize_interactions,
     resolve_derived_matrices,
     finalize_interaction_parameters,
     parse_community,
+    build_tracer_index,
     validate_plankton_inputs
 
 using ..FactoryInterface:
@@ -95,7 +97,7 @@ function _validate_parameter_directory(factory::AbstractBGCFactory, r)
     return nothing
 end
 
-function _validate_parameter_shapes(ctx, params::NamedTuple, r)
+function _validate_parameter_shapes(factory::AbstractBGCFactory, ctx, params::NamedTuple, r)
     n = ctx.n_total
 
     for k in r.vectors
@@ -106,8 +108,29 @@ function _validate_parameter_shapes(ctx, params::NamedTuple, r)
 
     for k in r.matrices
         m = getproperty(params, k)
-        (size(m, 1) == n && size(m, 2) == n) ||
-            throw(ArgumentError("parameter :$k must have size ($n,$n) (got $(size(m)))."))
+        spec = parameter_spec(factory, k)
+        spec === nothing && throw(
+            ArgumentError(
+                "Factory $(typeof(factory)) is missing a ParameterSpec for required parameter :$k.",
+            ),
+        )
+
+        if spec.axes === nothing
+            (size(m, 1) == n && size(m, 2) == n) || throw(
+                ArgumentError(
+                    "parameter :$k must have size ($n,$n) (got $(size(m))).",
+                ),
+            )
+        else
+            row_axis, col_axis = spec.axes
+            nr = length(axis_indices(ctx, row_axis))
+            nc = length(axis_indices(ctx, col_axis))
+            (size(m, 1) == nr && size(m, 2) == nc) || throw(
+                ArgumentError(
+                    "parameter :$k must have size ($nr,$nc) for axes $(spec.axes) (got $(size(m))).",
+                ),
+            )
+        end
     end
 
     return nothing
@@ -306,19 +329,39 @@ function construct_factory(
 
     _reject_missing_values(params_req)
 
-    _validate_parameter_shapes(ctx, params_req, merged)
+    _validate_parameter_shapes(factory, ctx, params_req, merged)
 
     # ---------------------------------------------------------------------
     # Compile + instantiate.
     # ---------------------------------------------------------------------
 
+    # Auxiliary fields are appended to the Oceananigans kernel argument list.
+    # The symbol tuple lives only on the host side; the compiled model stores
+    # a GPU-safe integer `TracerIndex`.
+    auxiliary_fields = (:PAR,)
+    tracer_index = build_tracer_index(
+        ctx,
+        Tuple(tracer_names),
+        auxiliary_fields;
+        n_biogeochem_tracers=length(keys(biogeochem_dynamics)),
+    )
+
     if isnothing(sinking_tracers)
-        bgc_factory = define_tracer_functions(params_req, tracers)
+        bgc_factory = define_tracer_functions(
+            params_req,
+            tracers;
+            auxiliary_fields=auxiliary_fields,
+            tracer_index=tracer_index,
+        )
         bgc = bgc_factory(params_req)
     else
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
         bgc_factory = define_tracer_functions(
-            params_req, tracers; sinking_velocities=sinking_velocities
+            params_req,
+            tracers;
+            auxiliary_fields=auxiliary_fields,
+            tracer_index=tracer_index,
+            sinking_velocities=sinking_velocities,
         )
         bgc = bgc_factory(params_req, sinking_velocities)
     end

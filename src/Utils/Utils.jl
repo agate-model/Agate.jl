@@ -29,13 +29,27 @@ export parameter_spec
 
 # Interactions API
 export InteractionContext
+export axis_indices
 export normalize_interactions
 export GroupBlockMatrix
 export InteractionMatrices
 export sum_over
+
+export KernelBundle
 export MatrixFn
 export derived_matrix_specs
 export resolve_derived_matrices
+
+# Class references (group + ordinal)
+export ClassRef
+export class
+export resolve_class
+export class_count
+
+# GPU-safe tracer access
+export TracerIndex
+export Tracers
+export build_tracer_index
 
 """Wrapper to explicitly mark a matrix as a *group-block* interaction override.
 
@@ -107,6 +121,11 @@ end
 
 include("ParameterDirectory.jl")
 
+include("KernelBundle.jl")
+
+include("ClassRefs.jl")
+include("TracerAccessors.jl")
+
 # -----------------------------------------------------------------------------
 # Diameter specifications
 # -----------------------------------------------------------------------------
@@ -173,9 +192,9 @@ For matrix parameters, users may pass either:
 
 When a rectangular matrix is provided for a role-aware parameter (one that
 declares `axes` in `parameter_directory(factory)`), it is kept rectangular.
-During construction, `finalize_interaction_parameters` will create a
-zero-padded square view for legacy access patterns while storing the canonical
-rectangular form in `parameters.interactions`.
+During construction, `finalize_interaction_parameters` will populate the
+canonical `parameters.interactions` container and keep the matrix parameter
+itself in its axis-local rectangular form.
 
 Shape validation is driven by `parameter_directory(factory)`.
 Final key validation and full parameter shape checks occur during model
@@ -215,7 +234,15 @@ end
     throw(ArgumentError("interaction override '$key' provider must be callable as f(ctx)"))
 end
 
-@inline _axis_indices(ctx::InteractionContext, axis::Symbol) = if axis === :consumer
+"""Return the global plankton indices for an interaction axis.
+
+Axes may be:
+
+- `:consumer` (role-defined consumer axis)
+- `:prey` (role-defined prey axis)
+- any existing group `Symbol` present in `ctx.group_indices`
+"""
+@inline axis_indices(ctx::InteractionContext, axis::Symbol) = if axis === :consumer
     ctx.consumer_indices
 elseif axis === :prey
     ctx.prey_indices
@@ -223,11 +250,12 @@ elseif haskey(ctx.group_indices, axis)
     ctx.group_indices[axis]
 else
     throw(
-    ArgumentError(
-        "Unknown interaction axis '$axis'. Valid axes are :consumer, :prey, or an existing group symbol.",
-    ),
-)
+        ArgumentError(
+            "Unknown interaction axis '$axis'. Valid axes are :consumer, :prey, or an existing group symbol.",
+        ),
+    )
 end
+
 
 @inline function _normalize_interaction_value(
     ctx::InteractionContext, spec::ParameterSpec, key::Symbol, value
@@ -241,8 +269,8 @@ end
     # Axes-aware matrices are normalized into their axis-local rectangular form.
     if spec.axes !== nothing
         row_axis, col_axis = spec.axes
-        row_indices = _axis_indices(ctx, row_axis)
-        col_indices = _axis_indices(ctx, col_axis)
+        row_indices = axis_indices(ctx, row_axis)
+        col_indices = axis_indices(ctx, col_axis)
 
         nr = length(row_indices)
         nc = length(col_indices)
@@ -252,8 +280,6 @@ end
             full = expand_group_block_matrix(ctx, value.B)
             return full[row_indices, col_indices]
         end
-
-        value isa AbstractMatrix || return value
 
         value isa AbstractMatrix || return value
 
@@ -299,8 +325,6 @@ end
     if value isa GroupBlockMatrix
         return expand_group_block_matrix(ctx, value.B)
     end
-
-    value isa AbstractMatrix || return value
 
     value isa AbstractMatrix || return value
 
@@ -383,8 +407,8 @@ end
             )
         else
             row_axis, col_axis = spec.axes
-            row_indices = _axis_indices(ctx, row_axis)
-            col_indices = _axis_indices(ctx, col_axis)
+            row_indices = axis_indices(ctx, row_axis)
+            col_indices = axis_indices(ctx, col_axis)
             nr = length(row_indices)
             nc = length(col_indices)
             size(value) == (nr, nc) || throw(

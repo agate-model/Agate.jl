@@ -17,10 +17,14 @@ needing to hand-build full matrices.
 struct MatrixFn{F,Deps}
     f::F
     deps::Deps
+    function MatrixFn(f; deps=())
+        deps_norm = deps === nothing ? () :
+                    deps isa Symbol ? (deps,) :
+                    deps isa AbstractVector ? Tuple(deps) :
+                    deps
+        return new{typeof(f), typeof(deps_norm)}(f, deps_norm)
+    end
 end
-
-MatrixFn(f; deps=()) = MatrixFn{typeof(f),typeof(deps)}(f, deps)
-
 """Return a `NamedTuple` mapping matrix keys to `MatrixFn`s.
 
 Factories override this to declare which matrices can be derived from other

@@ -188,7 +188,7 @@ function derived_matrix_specs(::DarwinFactory)
         ),
         assimilation_matrix=MatrixFn(
             _derive_assimilation_matrix;
-            deps=(:assimilation_efficiency),
+            deps=(:assimilation_efficiency,),
         ),
     )
 end
