@@ -2,7 +2,7 @@ using Agate
 using Test
 
 using Agate.Utils: parse_community, class, resolve_class, class_count, build_tracer_index, Tracers
-using Agate.FactoryInterface: default_plankton_dynamics, default_biogeochem_dynamics, default_community, default_roles
+using Agate.Interface: default_plankton_dynamics, default_biogeochem_dynamics, default_community, default_roles
 
 @testset "ClassRef + Tracers accessors" begin
     factory = Agate.Models.NiPiZD.NiPiZDFactory()

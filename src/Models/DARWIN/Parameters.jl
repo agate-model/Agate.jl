@@ -11,7 +11,7 @@ construction.
 """
 
 import ...Constructor: default_parameters
-import ...FactoryInterface: parameter_directory, ParameterSpec
+import ...Interface: parameter_directory, ParameterSpec
 using ...Utils: InteractionContext
 using ...Library.Allometry:
     AllometricParam,

@@ -3,14 +3,14 @@ module Agate
 include("Utils/Utils.jl")
 include("Functors/Functors.jl")
 include("Library/Library.jl")
-include("FactoryInterface.jl")
+include("Interface.jl")
 include("Constructor/Constructor.jl")
 include("Models/Models.jl")
 include("Introspection.jl")
 
 using .Library
 using .Utils
-using .FactoryInterface
+using .Interface
 using .Functors
 using .Models
 using .Constructor
@@ -19,7 +19,7 @@ export Library
 export Models
 export Utils
 export Functors
-export FactoryInterface
+export Interface
 
 # Public model modules.
 const NiPiZD = Models.NiPiZD

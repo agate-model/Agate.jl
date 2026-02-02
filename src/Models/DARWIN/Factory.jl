@@ -14,11 +14,11 @@ using ...Utils: DiameterRangeSpecification
 
 # NOTE: Defaults are provided by `Constructor.default_parameters` (see `Models/DARWIN/Parameters.jl`).
 
-import ...FactoryInterface:
+import ...Interface:
     default_plankton_dynamics,
     default_community,
     default_biogeochem_dynamics,
-    factory_groups,
+    required_groups,
     default_roles
 
 using .Tracers:
@@ -41,7 +41,7 @@ struct DarwinFactory <: AbstractBGCFactory end
 
 The ordering matches `default_community` (`Z` then `P`).
 """
-factory_groups(::DarwinFactory) = (:Z, :P)
+required_groups(::DarwinFactory) = (:Z, :P)
 
 """Default roles for DARWIN.
 

@@ -20,7 +20,7 @@ using ..Utils:
     build_tracer_index,
     validate_plankton_inputs
 
-using ..FactoryInterface:
+using ..Interface:
     default_plankton_dynamics, default_biogeochem_dynamics, default_community
 
 using ..Functors: CompiledEquation, requirements, req, merge_requirements

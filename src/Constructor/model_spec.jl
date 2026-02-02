@@ -9,7 +9,7 @@ plain `NamedTuple`s.
 """
 
 using ..Utils: AbstractBGCFactory
-using ..FactoryInterface:
+using ..Interface:
     default_plankton_dynamics, default_biogeochem_dynamics, default_community
 
 """A lightweight wrapper around an `AbstractBGCFactory`."""

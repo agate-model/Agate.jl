@@ -20,6 +20,17 @@ A new model typically needs:
 
 Define a concrete factory type for your model (for example `struct MyModelFactory <: AbstractBGCFactory end`) and implement the factory hooks needed by the generic constructor.
 
+At minimum you should implement:
+
+  - `required_groups(factory) -> Tuple{Vararg{Symbol}}` (canonical group order)
+  - `default_plankton_dynamics(factory)`
+  - `default_biogeochem_dynamics(factory)`
+  - `default_community(factory)`
+  - `parameter_directory(factory)`
+  - `default_parameters(factory, ctx, FT)`
+
+Most models also implement `default_roles(factory)` to define consumer/prey membership for rectangular interaction matrices.
+
 ### 2) Declare parameters with a directory
 
 Implement `parameter_directory(factory)` returning a `NamedTuple` of `ParameterSpec`s. Use:
@@ -55,6 +66,25 @@ At runtime, the canonical matrices live in:
 Use the axis maps from `p.interactions` to map between consumer/prey indices and global plankton indices.
 
 If your dynamics follow the consumer-by-prey pattern, prefer calling helpers from `Agate.Models.PredationSums` rather than re-implementing index plumbing.
+
+### Optional: group-level hooks (OceanBioME-style)
+
+Agate supports *group-level* dispatch via `Val{:Group}` for model-specific behaviour that should be chosen at compile time (GPU friendly).
+
+Define methods in `Agate.Interface` such as:
+
+```julia
+using Agate.Interface: sinking_velocity, grazing_kernel
+
+# Sinking speed (positive downward) for plankton group G and within-group class id
+@inline sinking_velocity(model_or_factory, ::Val{:P}, class_id::Int, ctx, params) = nothing
+
+# Grazing kernel selector for a predator/prey group pair (optional)
+# Implementations should return a callable `k(prey, predator)`
+@inline grazing_kernel(model_or_factory, ::Val{:Z}, ::Val{:P}, predator_class::Int, prey_class::Int, ctx, params) = my_kernel
+```
+
+These hooks are optional; if you do not implement them, Agate will use the default behaviour for your model.
 
 ### 6) Tests
 

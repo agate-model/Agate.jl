@@ -22,7 +22,7 @@ using .Tracers: phytoplankton_growth_two_nutrients_geider_light, zooplankton_def
 
 import ...Utils
 import ...Constructor
-import ...FactoryInterface
+import ...Interface
 
 export construct
 
@@ -73,7 +73,7 @@ function construct(;
     factory = DarwinFactory()
     spec = Constructor.ModelSpec(factory)
 
-    base = FactoryInterface.default_community(factory)
+    base = Interface.default_community(factory)
     community = Constructor.build_ZP_community(
         base;
         n_zoo=n_zoo,
@@ -86,7 +86,7 @@ function construct(;
     plankton_dynamics = (
         Z=zooplankton_default, P=phytoplankton_growth_two_nutrients_geider_light
     )
-    merged_bgc = FactoryInterface.default_biogeochem_dynamics(factory)
+    merged_bgc = Interface.default_biogeochem_dynamics(factory)
     # Interaction overrides (optional).
     #
     # We forward overrides through the model-agnostic constructor as a `NamedTuple`.

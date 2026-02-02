@@ -21,6 +21,7 @@ export DiameterRangeSpecification
 # Model-agnostic construction/runtime containers
 export AbstractBGCFactory
 export default_roles
+export required_groups
 
 # Parameter metadata
 export ParameterSpec
@@ -96,6 +97,16 @@ Return a `NamedTuple` with fields:
 These roles define the interaction axes. Overlap is allowed.
 """
 default_roles(::AbstractBGCFactory) = (consumers=nothing, prey=nothing)
+
+"""Return the canonical group ordering for a factory.
+
+Factories must implement this to define the set and ordering of plankton groups (e.g. `(:Z, :P)`).
+
+This ordering is used to flatten community inputs and to interpret group-block interaction matrices.
+"""
+function required_groups(::AbstractBGCFactory)
+    throw(ArgumentError("No method `required_groups(factory)` is defined for this factory."))
+end
 
 """Sum `f(i)` for `i` in `itr`, starting from `init`.
 
@@ -563,7 +574,18 @@ function parse_community(
     biogeochem_dynamics::NamedTuple=NamedTuple(),
     roles=nothing,
 ) where {FT<:AbstractFloat}
-    group_symbols = collect(keys(plankton_args))
+    group_symbols = required_groups(factory)
+
+    # Validate the community matches the factory's declared group set.
+    arg_keys = keys(plankton_args)
+    missing = [g for g in group_symbols if g ∉ arg_keys]
+    extra = [g for g in arg_keys if g ∉ group_symbols]
+    if !isempty(missing) || !isempty(extra)
+        msg = String[]
+        !isempty(missing) && push!(msg, "plankton_args is missing required groups: $(missing)")
+        !isempty(extra) && push!(msg, "plankton_args has extra groups not declared by required_groups(factory): $(extra)")
+        throw(ArgumentError(join(msg, "\n")))
+    end
     plankton_symbols = Symbol[]
     group_of = Symbol[]
     local_idx = Int[]

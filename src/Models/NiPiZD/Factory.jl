@@ -10,11 +10,11 @@ using ...Utils: DiameterRangeSpecification
 
 # NOTE: Defaults are provided by `Constructor.default_parameters` (see `Models/NiPiZD/Parameters.jl`).
 
-import ...FactoryInterface:
+import ...Interface:
     default_plankton_dynamics,
     default_community,
     default_biogeochem_dynamics,
-    factory_groups,
+    required_groups,
     default_roles
 using .Tracers:
     nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
@@ -26,7 +26,7 @@ struct NiPiZDFactory <: AbstractBGCFactory end
 
 The ordering matches `default_community` (`Z` then `P`).
 """
-factory_groups(::NiPiZDFactory) = (:Z, :P)
+required_groups(::NiPiZDFactory) = (:Z, :P)
 
 """Default roles for NiPiZD.
 

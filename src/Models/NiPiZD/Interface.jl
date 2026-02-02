@@ -40,7 +40,7 @@ using .Tracers:
 
 import ...Utils
 import ...Constructor
-import ...FactoryInterface
+import ...Interface
 
 export construct
 
@@ -86,7 +86,7 @@ function construct(;
     factory = NiPiZDFactory()
     spec = Constructor.ModelSpec(factory)
 
-    base = FactoryInterface.default_community(factory)
+    base = Interface.default_community(factory)
     community = Constructor.build_ZP_community(
         base;
         n_zoo=n_zoo,

@@ -9,7 +9,7 @@ The intent is to keep it as a thin construction-time wrapper:
 - leave all biology implementation in `Models/DARWIN/*`
 """
 
-using ...FactoryInterface:
+using ...Interface:
     default_plankton_dynamics, default_biogeochem_dynamics, default_community
 using ...Constructor: build_ZP_community
 using Agate.Models: ModelId, VariantSpec, register_variant
