@@ -46,43 +46,37 @@ using Oceananigans.Biogeochemistry:
 
     @testset "NiPiZD interaction overrides" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
-        n = size(bgc.parameters.palatability_matrix, 1)
+        ints0 = bgc.parameters.interactions
+        n_total = length(ints0.global_to_prey)
+        n_cons = length(ints0.consumer_global)
+        n_prey = length(ints0.prey_global)
 
         wrong = zeros(Float32, 3, 3)
         @test_throws ArgumentError NiPiZD.construct(;
             grid=dummy_grid(Float32), palatability_matrix=wrong, assimilation_matrix=wrong
         )
 
-        # Group-block matrices are accepted when wrapped explicitly.
-        # For role-aware matrices, the group-block is interpreted on the
-        # consumer-by-prey axes (non-axis entries are zero).
+        # Group-block matrices are accepted when wrapped explicitly. They are expanded
+        # over all groups and then sliced to the consumer-by-prey axes.
         block = Agate.Utils.GroupBlockMatrix(Float32[0 1; 2 3])
         bgc_block = NiPiZD.construct(;
             grid=dummy_grid(Float32), palatability_matrix=block, assimilation_matrix=block
         )
-        @test size(bgc_block.parameters.palatability_matrix) == (n, n)
         M0 = bgc_block.parameters.palatability_matrix
-        @test all(M0[1:2, 3:4] .== 1.0f0)
-        @test all(M0[3:4, :] .== 0.0f0)
-        @test all(M0[:, 1:2] .== 0.0f0)
+        @test size(M0) == (n_cons, n_prey)
+        @test all(M0 .== 1.0f0)
 
-        # Rectangular consumer-by-prey matrices (n_consumer, n_prey) are stored
-        # as-is and exposed as zero-padded square views.
-        rect = reshape(Float32.(1:4), 2, 2)
+        # Rectangular consumer-by-prey matrices are stored as-is.
+        rect = reshape(Float32.(1:(n_cons * n_prey)), n_cons, n_prey)
         bgc_rect = NiPiZD.construct(;
             grid=dummy_grid(Float32), palatability_matrix=rect, assimilation_matrix=rect
         )
         M = bgc_rect.parameters.palatability_matrix
-        @test size(M) == (n, n)
-        @test M[1, 3] == 1.0f0
-        @test M[2, 3] == 2.0f0
-        @test M[1, 4] == 3.0f0
-        @test M[2, 4] == 4.0f0
-        @test all(M[3:4, :] .== 0.0f0)
-        @test all(M[:, 1:2] .== 0.0f0)
+        @test size(M) == (n_cons, n_prey)
+        @test all(M .== rect)
 
-        # Axis-local group-block matrices (n_consumer_groups, n_prey_groups) are
-        # expanded within the consumer/prey axes and then exposed as square views.
+        # Axis-local group-block matrices (consumer_groups, prey_groups) are expanded
+        # within the consumer/prey axes.
         axis_block = reshape(Float32[7], 1, 1)
         bgc_axis_block = NiPiZD.construct(;
             grid=dummy_grid(Float32),
@@ -90,9 +84,8 @@ using Oceananigans.Biogeochemistry:
             assimilation_matrix=axis_block,
         )
         M2 = bgc_axis_block.parameters.palatability_matrix
-        @test all(M2[1:2, 3:4] .== 7.0f0)
-        @test all(M2[3:4, :] .== 0.0f0)
-        @test all(M2[:, 1:2] .== 0.0f0)
+        @test size(M2) == (n_cons, n_prey)
+        @test all(M2 .== 7.0f0)
 
         # Providers can return axis-sized rectangular matrices.
         rect_provider(ctx) =
@@ -103,17 +96,18 @@ using Oceananigans.Biogeochemistry:
             assimilation_matrix=rect_provider,
         )
         M3 = bgc_rect_provider.parameters.palatability_matrix
-        @test all(M3[1:2, 3:4] .== 9.0f0)
-        @test all(M3[3:4, :] .== 0.0f0)
-        @test all(M3[:, 1:2] .== 0.0f0)
+        @test size(M3) == (n_cons, n_prey)
+        @test all(M3 .== 9.0f0)
 
-        correct = zeros(Float32, n, n)
+        # Full-square matrices are accepted but are stored sliced to the consumer/prey axes.
+        correct = zeros(Float32, n_total, n_total)
         bgc2 = NiPiZD.construct(;
             grid=dummy_grid(Float32),
             palatability_matrix=correct,
             assimilation_matrix=correct,
         )
         @test required_biogeochemical_tracers(bgc2) == (:N, :D, :Z1, :Z2, :P1, :P2)
+        @test size(bgc2.parameters.palatability_matrix) == (n_cons, n_prey)
 
         # Providers are allowed for the public keywords. They are evaluated once during construction.
         pal_provider(ctx) = zeros(Float32, ctx.n_total, ctx.n_total)
@@ -133,22 +127,8 @@ using Oceananigans.Biogeochemistry:
             palatability_matrix=pal_provider,
             assimilation_matrix=assim_provider,
         )
-        @test size(bgc3.parameters.palatability_matrix) == (n, n)
-        @test size(bgc3.parameters.assimilation_matrix) == (n, n)
-
-        # Providers may also return consumer-by-prey rectangular matrices when the
-        # parameter directory declares axes for the matrix.
-        rect_provider(ctx) =
-            fill(Float32(9), length(ctx.consumer_indices), length(ctx.prey_indices))
-        bgc_rect_provider = NiPiZD.construct(;
-            grid=dummy_grid(Float32),
-            palatability_matrix=rect_provider,
-            assimilation_matrix=rect_provider,
-        )
-        M3 = bgc_rect_provider.parameters.palatability_matrix
-        @test all(M3[1:2, 3:4] .== 9.0f0)
-        @test all(M3[3:4, :] .== 0.0f0)
-        @test all(M3[:, 1:2] .== 0.0f0)
+        @test size(bgc3.parameters.palatability_matrix) == (n_cons, n_prey)
+        @test size(bgc3.parameters.assimilation_matrix) == (n_cons, n_prey)
     end
 
     @testset "Derived interaction matrices" begin
@@ -158,10 +138,10 @@ using Oceananigans.Biogeochemistry:
 
         bgc0 = NiPiZD.construct(; grid=dummy_grid(Float32))
         pal0 = bgc0.parameters.interactions.palatability
-        n_total = size(bgc0.parameters.palatability_matrix, 1)
+        n_total = length(bgc0.parameters.interactions.global_to_prey)
 
         specificity = zeros(Float32, n_total)
-        specificity[1:2] .= 3.0f0  # consumers (Z)
+        specificity[bgc0.parameters.interactions.consumer_global] .= 3.0f0
 
         bgc1 = NiPiZD.construct(;
             grid=dummy_grid(Float32), parameters=(; specificity=specificity)
@@ -179,9 +159,9 @@ using Oceananigans.Biogeochemistry:
 
         dar0 = DARWIN.construct(; grid=dummy_grid(Float32))
         dar_pal0 = dar0.parameters.interactions.palatability
-        dar_n_total = size(dar0.parameters.palatability_matrix, 1)
+        dar_n_total = length(dar0.parameters.interactions.global_to_prey)
         dar_spec = zeros(Float32, dar_n_total)
-        dar_spec[1:length(dar0.parameters.interactions.palatability[:, 1])] .= 2.0f0
+        dar_spec[dar0.parameters.interactions.consumer_global] .= 2.0f0
         dar1 = DARWIN.construct(;
             grid=dummy_grid(Float32), parameters=(; specificity=dar_spec)
         )
@@ -244,8 +224,9 @@ using Oceananigans.Biogeochemistry:
 
         # Wrong interaction matrix sizes should error.
         bgc = NiPiZD.construct(; grid=dummy_grid(Float64))
-        n_total = size(bgc.parameters.palatability_matrix, 1)
-        wrong = zeros(Float64, n_total + 1, n_total + 1)
+        n_cons = size(bgc.parameters.palatability_matrix, 1)
+        n_prey = size(bgc.parameters.palatability_matrix, 2)
+        wrong = zeros(Float64, n_cons + 1, n_prey + 1)
         @test_throws ArgumentError NiPiZD.construct(;
             grid=dummy_grid(Float64), palatability_matrix=wrong, assimilation_matrix=wrong
         )

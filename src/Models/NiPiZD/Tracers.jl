@@ -1,9 +1,7 @@
 """Tracer tendency functors for the NiPiZD model.
 
 Predation terms use the canonical rectangular interaction matrices stored in
-`bgc.parameters.interactions` (consumer-by-prey). The legacy square
-`palatability_matrix[predator_idx, prey_idx]` access pattern remains available
-via a zero-padded view, but the NiPiZD tracer kernels no longer rely on it.
+`bgc.parameters.interactions` (consumer-by-prey).
 """
 
 module Tracers

@@ -105,19 +105,21 @@ bgc = NiPiZD.construct(; n_phyto, n_zoo, parameters=(; specificity=fill(0.15f0, 
 
 ### Access at runtime
 
-To keep kernels GPU-friendly, Agate stores role-aware matrices canonically as rectangular
-`(n_consumer, n_prey)` arrays under:
-
-```julia
-bgc.parameters.interactions.palatability_matrix
-bgc.parameters.interactions.assimilation_matrix
-```
-
-For convenience, Agate also exposes **square views** on the top-level parameter NamedTuple:
+Agate stores role-aware matrices canonically as rectangular `(n_consumer, n_prey)` arrays:
 
 ```julia
 bgc.parameters.palatability_matrix
 bgc.parameters.assimilation_matrix
 ```
 
-These square views are indexed by *global* plankton indices and return zero outside the consumer/prey axes.
+The same matrices (plus axis mappings) are available in the internal helper container:
+
+```julia
+ints = bgc.parameters.interactions
+ints.palatability
+ints.assimilation
+ints.consumer_global      # axis → global
+ints.prey_global          # axis → global
+ints.global_to_consumer   # global → axis (0 means "not on axis")
+ints.global_to_prey       # global → axis (0 means "not on axis")
+```

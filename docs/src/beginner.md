@@ -63,7 +63,7 @@ pal_provider = ctx -> begin
     return ones(n_consumer, n_prey)
 end
 
-model = Agate.Models.NiPiZD.construct(; interactions=(; palatability_matrix=pal_provider))
+model = Agate.Models.NiPiZD.construct(; palatability_matrix=pal_provider)
 ```
 
 Advanced forms (full square matrices and group-block matrices) exist for convenience, but you can ignore them when you're starting.

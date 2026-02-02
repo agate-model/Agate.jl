@@ -3,9 +3,25 @@ import Adapt
 """Rectangular consumer-by-prey interaction matrices and axis mappings.
 
 `InteractionMatrices` is the canonical runtime representation for role-aware
-interaction matrices. For compatibility with the existing tracer code, the
-constructor pipeline also builds `InteractionMatrixView` objects that present
-the rectangular matrices as zero-padded square `(n_total, n_total)` matrices.
+interaction matrices.
+
+Interaction data is stored in rectangular matrices sized `(n_consumer, n_prey)`
+where:
+
+- `n_consumer = length(ctx.consumer_indices)`
+- `n_prey     = length(ctx.prey_indices)`
+
+The axis vectors map axis-local indices to global plankton class indices:
+
+- `consumer_global[ic]` gives the global index for consumer axis position `ic`
+- `prey_global[ip]` gives the global index for prey axis position `ip`
+
+The inverse maps support fast lookup of axis-local indices from global indices:
+
+- `global_to_consumer[g]` returns `ic` or `0` if `g` is not a consumer
+- `global_to_prey[g]` returns `ip` or `0` if `g` is not a prey
+
+No square matrices (or square views) are created or stored.
 """
 
 struct InteractionMatrices{PM,AM,VI,MI}
@@ -18,40 +34,8 @@ struct InteractionMatrices{PM,AM,VI,MI}
 end
 Adapt.@adapt_structure InteractionMatrices
 
-"""A zero-padded square view of a rectangular interaction matrix.
-
-This wrapper supports the legacy access pattern `M[predator_idx, prey_idx]` in
-tracer kernels while storing the interaction data in a rectangular
-consumer-by-prey matrix.
-"""
-struct InteractionMatrixView{T,M,MI} <: AbstractMatrix{T}
-    rect::M
-    global_to_row::MI
-    global_to_col::MI
-end
-
-function InteractionMatrixView(rect::M, global_to_row::MI, global_to_col::MI) where {M,MI}
-    return InteractionMatrixView{eltype(rect),M,MI}(rect, global_to_row, global_to_col)
-end
-
-Adapt.@adapt_structure InteractionMatrixView
-
-Base.eltype(V::InteractionMatrixView) = eltype(V.rect)
-Base.size(V::InteractionMatrixView) = (length(V.global_to_row), length(V.global_to_col))
-Base.IndexStyle(::Type{<:InteractionMatrixView}) = IndexCartesian()
-
-@inline function Base.getindex(V::InteractionMatrixView, i::Int, j::Int)
-    ri = @inbounds V.global_to_row[i]
-    cj = @inbounds V.global_to_col[j]
-    if ri == 0 || cj == 0
-        return zero(eltype(V))
-    end
-    return @inbounds V.rect[ri, cj]
-end
-
 @inline function _inverse_axis_map(axis_indices::AbstractVector{Int}, n_total::Int)
     m = zeros(Int, n_total)
-    # NOTE: avoid reserved keywords (`global`, `local`) as variable names
     for (lidx, gidx) in pairs(axis_indices)
         @inbounds m[gidx] = lidx
     end
@@ -69,9 +53,7 @@ end
     nr = length(row_indices)
     nc = length(col_indices)
 
-    if value isa InteractionMatrixView
-        return value.rect
-    elseif value isa GroupBlockMatrix
+    if value isa GroupBlockMatrix
         full = expand_group_block_matrix(ctx, value.B)
         return full[row_indices, col_indices]
     elseif value isa AbstractMatrix
@@ -89,7 +71,7 @@ end
     else
         throw(
             ArgumentError(
-                "interaction matrix '$key' must be a matrix; got $(typeof(value))"
+                "interaction matrix '$key' must be a matrix; got $(typeof(value))",
             ),
         )
     end
@@ -132,9 +114,6 @@ function finalize_interaction_parameters(
     global_to_consumer = _inverse_axis_map(consumer_indices, ctx.n_total)
     global_to_prey = _inverse_axis_map(prey_indices, ctx.n_total)
 
-    pal_view = InteractionMatrixView(pal_rect, global_to_consumer, global_to_prey)
-    assim_view = InteractionMatrixView(assim_rect, global_to_consumer, global_to_prey)
-
     interactions = InteractionMatrices(
         pal_rect,
         assim_rect,
@@ -147,8 +126,8 @@ function finalize_interaction_parameters(
     return merge(
         params,
         (
-            palatability_matrix=pal_view,
-            assimilation_matrix=assim_view,
+            palatability_matrix=pal_rect,
+            assimilation_matrix=assim_rect,
             interactions=interactions,
         ),
     )
