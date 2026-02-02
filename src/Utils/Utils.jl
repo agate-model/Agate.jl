@@ -20,6 +20,7 @@ export DiameterRangeSpecification
 
 # Model-agnostic construction/runtime containers
 export AbstractBGCFactory
+export default_roles
 
 # Parameter metadata
 export ParameterSpec
@@ -52,8 +53,6 @@ struct GroupBlockMatrix{T<:AbstractMatrix}
     B::T
 end
 export expand_group_block_matrix
-export consumer_groups
-export prey_groups
 
 # Community parsing
 export validate_plankton_inputs
@@ -71,22 +70,18 @@ export param_compute_diameters
 """Abstract supertype for biogeochemical model factories."""
 abstract type AbstractBGCFactory end
 
-"""Return the plankton groups that act as *consumers* in predator-by-prey matrices.
+"""Return default role membership for a factory.
 
-Factories may override this to declare a consumer axis for interaction matrices.
-Return `nothing` to treat all classes as consumers.
+Factories may override this to define which groups participate as consumers and prey
+in interaction matrices and predation sums.
+
+Return a `NamedTuple` with fields:
+- `consumers`: `nothing` (all groups) or an iterable of group `Symbol`s
+- `prey`: `nothing` (all groups) or an iterable of group `Symbol`s
+
+These roles define the interaction axes. Overlap is allowed.
 """
-consumer_groups(::AbstractBGCFactory) = nothing
-
-"""Return the plankton groups that act as *prey* in predator-by-prey matrices.
-
-Factories may override this to declare a prey axis for interaction matrices.
-Return `nothing` to treat all classes as prey.
-"""
-prey_groups(::AbstractBGCFactory) = nothing
-
-"""Internal factory used by `parse_community(FT, ...)` overloads."""
-struct _DefaultRoleFactory <: AbstractBGCFactory end
+default_roles(::AbstractBGCFactory) = (consumers=nothing, prey=nothing)
 
 """Sum `f(i)` for `i` in `itr`, starting from `init`.
 
@@ -528,13 +523,21 @@ function validate_plankton_inputs(plankton_dynamics, plankton_args)
     return nothing
 end
 
-"""Parse and flatten a plankton community into a construction context."""
+"""Parse and flatten a plankton community into a construction context.
+
+Role axes (consumer/prey membership) are defined by `roles`, a `NamedTuple` with fields:
+- `consumers`: `nothing` (all groups/classes) or an iterable of group `Symbol`s, indices, or a boolean mask
+- `prey`: `nothing` (all groups/classes) or an iterable of group `Symbol`s, indices, or a boolean mask
+
+When `roles` is omitted, `default_roles(factory)` is used.
+"""
 function parse_community(
     factory::AbstractBGCFactory,
     ::Type{FT},
     plankton_args::NamedTuple;
     plankton_dynamics::NamedTuple=NamedTuple(),
     biogeochem_dynamics::NamedTuple=NamedTuple(),
+    roles=nothing,
 ) where {FT<:AbstractFloat}
     group_symbols = collect(keys(plankton_args))
     plankton_symbols = Symbol[]
@@ -572,22 +575,42 @@ function parse_community(
         push!(get!(group_indices, g, Int[]), i)
     end
 
-    function _indices_for_groups(groups)
-        return if groups === nothing
-            collect(1:n_total)
-        else
-            begin
+    roles_resolved = isnothing(roles) ? default_roles(factory) : roles
+    hasproperty(roles_resolved, :consumers) ||
+        throw(ArgumentError("roles must define :consumers"))
+    hasproperty(roles_resolved, :prey) || throw(ArgumentError("roles must define :prey"))
+
+    function _indices_for_role(role, role_name::Symbol)
+        if role === nothing
+            return collect(1:n_total)
+        elseif role isa AbstractVector{Bool}
+            length(role) == n_total ||
+                throw(ArgumentError("$role_name mask must have length $n_total"))
+            return findall(role)
+        elseif role isa AbstractVector{Int}
+            idx = collect(role)
+            all(1 .<= idx .<= n_total) ||
+                throw(ArgumentError("$role_name indices must be in 1:$n_total"))
+            return idx
+        elseif role isa Tuple || role isa AbstractVector{Symbol}
             idx = Int[]
-            for g in groups
-                haskey(group_indices, g) && append!(idx, group_indices[g])
+            for g in role
+                haskey(group_indices, g) ||
+                    throw(ArgumentError("Unknown group symbol $g in $role_name roles"))
+                append!(idx, group_indices[g])
             end
-            idx
-        end
+            return idx
+        else
+            throw(
+                ArgumentError(
+                    "$role_name roles must be nothing, a Bool mask, an Int index vector, or a collection of group Symbols",
+                ),
+            )
         end
     end
 
-    consumer_indices = _indices_for_groups(consumer_groups(factory))
-    prey_indices = _indices_for_groups(prey_groups(factory))
+    consumer_indices = _indices_for_role(getproperty(roles_resolved, :consumers), :consumers)
+    prey_indices = _indices_for_role(getproperty(roles_resolved, :prey), :prey)
 
     ctx = InteractionContext{FT,typeof(diameters)}(
         FT,
@@ -607,24 +630,6 @@ function parse_community(
     return ctx
 end
 
-"""Parse a plankton community without factory-provided role axes.
-
-This overload treats all classes as consumers and prey.
-"""
-function parse_community(
-    ::Type{FT},
-    plankton_args::NamedTuple;
-    plankton_dynamics::NamedTuple=NamedTuple(),
-    biogeochem_dynamics::NamedTuple=NamedTuple(),
-) where {FT<:AbstractFloat}
-    return parse_community(
-        _DefaultRoleFactory(),
-        FT,
-        plankton_args;
-        plankton_dynamics=plankton_dynamics,
-        biogeochem_dynamics=biogeochem_dynamics,
-    )
-end
 ##############################################################################
 # Parameter Utils
 ###############################################################################

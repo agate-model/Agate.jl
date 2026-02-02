@@ -19,8 +19,7 @@ import ...FactoryInterface:
     default_community,
     default_biogeochem_dynamics,
     factory_groups,
-    consumer_groups,
-    prey_groups
+    default_roles
 
 using .Tracers:
     DIC_geider_light,
@@ -44,11 +43,11 @@ The ordering matches `default_community` (`Z` then `P`).
 """
 factory_groups(::DarwinFactory) = (:Z, :P)
 
-"""Plankton groups that consume in predator-by-prey matrices."""
-consumer_groups(::DarwinFactory) = (:Z,)
+"""Default roles for DARWIN.
 
-"""Plankton groups that may be eaten in predator-by-prey matrices."""
-prey_groups(::DarwinFactory) = (:P,)
+Consumers are zooplankton (Z) and prey are phytoplankton (P).
+"""
+default_roles(::DarwinFactory) = (consumers=(:Z,), prey=(:P,))
 
 """Default plankton dynamics for DARWIN."""
 default_plankton_dynamics(::DarwinFactory) =

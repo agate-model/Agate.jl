@@ -31,12 +31,13 @@ This enables early validation and provides the metadata used for interaction nor
 
 ### 3) Define consumer/prey roles
 
-If your model has prey-only pools (detritus, dissolved pools, or other passive tracers), declare roles:
+If your model uses role-aware consumer-by-prey interactions (e.g. predators only in a subset of groups), implement `default_roles(factory)`:
 
-  - `consumer_groups(factory) = (:Z, ...)`
-  - `prey_groups(factory) = (:P, :D, ...)`
+  - `default_roles(factory) = (consumers = (:Z, ...), prey = (:P, :D, ...))`
 
-If you do not implement these, Agate assumes all groups are both consumers and prey.
+Return `nothing` for either field to include all classes on that axis. Overlap is allowed.
+
+If you do not implement `default_roles`, Agate assumes all groups are both consumers and prey.
 
 ### 4) Provide defaults
 

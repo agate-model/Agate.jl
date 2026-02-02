@@ -15,8 +15,7 @@ import ...FactoryInterface:
     default_community,
     default_biogeochem_dynamics,
     factory_groups,
-    consumer_groups,
-    prey_groups
+    default_roles
 using .Tracers:
     nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
 
@@ -29,11 +28,11 @@ The ordering matches `default_community` (`Z` then `P`).
 """
 factory_groups(::NiPiZDFactory) = (:Z, :P)
 
-"""Plankton groups that consume in predator-by-prey matrices."""
-consumer_groups(::NiPiZDFactory) = (:Z,)
+"""Default roles for NiPiZD.
 
-"""Plankton groups that may be eaten in predator-by-prey matrices."""
-prey_groups(::NiPiZDFactory) = (:P,)
+Consumers are zooplankton (Z) and prey are phytoplankton (P).
+"""
+default_roles(::NiPiZDFactory) = (consumers=(:Z,), prey=(:P,))
 
 """Default plankton dynamics for NiPiZD.
 

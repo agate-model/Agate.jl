@@ -11,14 +11,13 @@ dependencies between the generic constructor pipeline and model modules.
 module FactoryInterface
 
 using ..Utils:
-    AbstractBGCFactory, ParameterSpec, parameter_directory, consumer_groups, prey_groups
+    AbstractBGCFactory, ParameterSpec, parameter_directory, default_roles
 
 export ParameterSpec
 export parameter_directory
 
 export factory_groups
-export consumer_groups
-export prey_groups
+export default_roles
 export default_plankton_dynamics
 export default_community
 export default_biogeochem_dynamics

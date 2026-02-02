@@ -10,6 +10,7 @@ The public interface keeps the surface small and explicit:
 
 - structure: choose `n_phyto`, `n_zoo`, and diameter specifications
 - parameters: override named parameters via `parameters=(; ...)`
+- roles: optionally define consumer/prey membership by group symbols via `roles=(consumers=(...), prey=(...))`
 - interactions: optionally override interaction matrices
 
 For ease of use, interaction overrides are exposed as two separate keywords:
@@ -54,6 +55,7 @@ Keywords
 - `phyto_diameters=(2, 10, :log_splitting)`: diameter specification for phytoplankton
 - `zoo_diameters=(20, 100, :linear_splitting)`: diameter specification for zooplankton
 - `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set)
+- `roles=nothing`: optional role membership for consumer/prey axes; provide as `(; consumers=(:Z, ...), prey=(:P, ...))`
 - `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrix overrides
 - `grid=BoxModelGrid()`: grid used for precision/architecture inference and sinking velocity fields
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
@@ -70,6 +72,7 @@ function construct(;
     phyto_diameters=(2, 10, :log_splitting),
     zoo_diameters=(20, 100, :linear_splitting),
     parameters::NamedTuple=(;),
+    roles=nothing,
     palatability_matrix=nothing,
     assimilation_matrix=nothing,
     grid=BoxModelGrid(),
@@ -115,6 +118,7 @@ function construct(;
         biogeochem_dynamics=biogeochem_dynamics,
         community=community,
         parameters=parameters,
+        roles=roles,
         interactions=interactions,
         arch=arch,
         sinking_tracers=sinking_tracers,
