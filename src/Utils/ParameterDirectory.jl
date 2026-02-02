@@ -16,7 +16,6 @@ export parameter_spec
 struct ParameterSpec
     name::Symbol
     shape::Symbol  # :scalar | :vector | :matrix
-    kind::Symbol   # :real | :bool (introspection / error messages)
     axes::Union{Nothing,NTuple{2,Symbol}}
     doc::String
 end
@@ -25,10 +24,9 @@ end
 ParameterSpec(
     name::Symbol,
     shape::Symbol;
-    kind::Symbol=:real,
     axes::Union{Nothing,NTuple{2,Symbol}}=nothing,
     doc::AbstractString="",
-) = ParameterSpec(name, shape, kind, axes, String(doc))
+) = ParameterSpec(name, shape, axes, String(doc))
 
 """Return a tuple of `ParameterSpec` entries for `factory`.
 

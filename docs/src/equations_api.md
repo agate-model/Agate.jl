@@ -12,7 +12,6 @@ The directory is a collection of `ParameterSpec` entries describing:
 
   - the parameter key (a `Symbol`)
   - the expected **shape** (`:scalar`, `:vector`, `:matrix`)
-  - the value kind (`:real` or `:bool`)
   - for matrices, optional role-aware `axes` (e.g. `(:consumer, :prey)`)
 
 The constructor uses this metadata to validate overrides early (typo protection + shape checks).
