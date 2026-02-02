@@ -23,10 +23,8 @@ the construction context:
 
 - `(ctx) -> matrix`
 
-Matrix overrides may be specified as full `(n_total, n_total)` matrices, or (because
-these matrices are role-aware) as rectangular `(n_consumer, n_prey)` matrices.
-Internally interactions are stored in rectangular form and exposed through a square
-view for convenience; entries outside the consumer-by-prey block behave as zeros.
+Matrix overrides may be specified as rectangular `(n_consumer, n_prey)` matrices.
+Internally interactions are stored in rectangular form.
 
 To pass a group-block matrix over *all* groups, wrap it as `GroupBlockMatrix(B)` to
 force group-block expansion during construction.
