@@ -14,9 +14,9 @@ module Tracers
 
 using ....Functors: CompiledEquation, Requirements
 
-using ....Library.Mortality: LinearLoss, QuadraticLoss
-using ....Library.Photosynthesis: SingleNutrientGrowthSmith
-using ....Library.Remineralization: LinearRemineralization
+import ....Library.Mortality
+import ....Library.Photosynthesis
+import ....Library.Remineralization: remin
 
 using ....Utils: sum_over, TendencyContext, tendency_views
 
@@ -24,20 +24,20 @@ using ...PredationSums: _grazing_assimilation_loss_sum, _grazing_loss_sum, _graz
 
 export nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
 
-@inline remin(D, k) = LinearRemineralization(k)(D)
 
-@inline linear_loss(P, k) = LinearLoss(k)(P)
-@inline linear_loss(parameters, idx::Int, P) = linear_loss(P, parameters.linear_mortality[idx])
+@inline linear_loss(parameters, idx::Int, P) = Mortality.linear_loss(P, parameters.linear_mortality[idx])
 
-@inline quadratic_loss(P, k) = QuadraticLoss(k)(P)
-@inline quadratic_loss(parameters, idx::Int, P) = quadratic_loss(P, parameters.quadratic_mortality[idx])
+@inline quadratic_loss(parameters, idx::Int, P) = Mortality.quadratic_loss(P, parameters.quadratic_mortality[idx])
 
 @inline function smith_growth(parameters, idx::Int, N, P, PAR)
-    SingleNutrientGrowthSmith(
+    Photosynthesis.smith_growth(
         parameters.maximum_growth_rate[idx],
         parameters.nutrient_half_saturation[idx],
         parameters.alpha[idx],
-    )(N, P, PAR)
+        N,
+        P,
+        PAR,
+    )
 end
 
 @inline function _uptake_sum_smith(parameters, vals, n_plankton::Int, N, PAR)

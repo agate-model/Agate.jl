@@ -8,7 +8,10 @@ export SmithLightLimitation,
     GeiderLightLimitation,
     SingleNutrientGrowthSmith,
     SingleNutrientGrowthGeider,
-    TwoNutrientGrowthGeider
+    TwoNutrientGrowthGeider,
+    smith_growth,
+    geider_growth,
+    geider_growth_two_nutrients
 
 """
     SmithLightLimitation(alpha, maximum_growth_0C)
@@ -116,5 +119,47 @@ end
            ) *
            P
 end
+
+
+
+"""
+    smith_growth(maximum_growth_0C, nutrient_half_saturation, alpha, R, P, PAR)
+
+Convenience wrapper for `SingleNutrientGrowthSmith(maximum_growth_0C, nutrient_half_saturation, alpha)(R, P, PAR)`.
+"""
+@inline smith_growth(maximum_growth_0C, nutrient_half_saturation, alpha, R, P, PAR) =
+    SingleNutrientGrowthSmith(maximum_growth_0C, nutrient_half_saturation, alpha)(R, P, PAR)
+
+"""
+    geider_growth(maximum_growth_rate, nutrient_half_saturation, alpha, chlorophyll_to_carbon_ratio, R, P, PAR)
+
+Convenience wrapper for `SingleNutrientGrowthGeider(maximum_growth_rate, nutrient_half_saturation, alpha, chlorophyll_to_carbon_ratio)(R, P, PAR)`.
+"""
+@inline geider_growth(maximum_growth_rate, nutrient_half_saturation, alpha, chlorophyll_to_carbon_ratio, R, P, PAR) =
+    SingleNutrientGrowthGeider(maximum_growth_rate, nutrient_half_saturation, alpha, chlorophyll_to_carbon_ratio)(R, P, PAR)
+
+"""
+    geider_growth_two_nutrients(maximum_growth_rate, half_saturation_1, half_saturation_2, alpha, chlorophyll_to_carbon_ratio, R1, R2, P, PAR)
+
+Convenience wrapper for `TwoNutrientGrowthGeider(maximum_growth_rate, half_saturation_1, half_saturation_2, alpha, chlorophyll_to_carbon_ratio)(R1, R2, P, PAR)`.
+"""
+@inline geider_growth_two_nutrients(
+    maximum_growth_rate,
+    half_saturation_1,
+    half_saturation_2,
+    alpha,
+    chlorophyll_to_carbon_ratio,
+    R1,
+    R2,
+    P,
+    PAR,
+) =
+    TwoNutrientGrowthGeider(
+        maximum_growth_rate,
+        half_saturation_1,
+        half_saturation_2,
+        alpha,
+        chlorophyll_to_carbon_ratio,
+    )(R1, R2, P, PAR)
 
 end # module

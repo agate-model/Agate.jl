@@ -13,9 +13,9 @@ module Tracers
 
 using ....Functors: CompiledEquation, Requirements
 
-using ....Library.Mortality: LinearLoss, QuadraticLoss
-using ....Library.Photosynthesis: TwoNutrientGrowthGeider
-using ....Library.Remineralization: LinearRemineralization
+import ....Library.Mortality
+import ....Library.Photosynthesis: geider_growth_two_nutrients
+import ....Library.Remineralization: remin
 
 using ....Utils: sum_over, TendencyContext, tendency_views
 
@@ -33,22 +33,23 @@ export DIC_geider_light,
     phytoplankton_growth_two_nutrients_geider_light,
     zooplankton_default
 
-@inline remin(D, k) = LinearRemineralization(k)(D)
 
-@inline linear_loss(P, k) = LinearLoss(k)(P)
-@inline linear_loss(parameters, idx::Int, P) = linear_loss(P, parameters.linear_mortality[idx])
+@inline linear_loss(parameters, idx::Int, P) = Mortality.linear_loss(P, parameters.linear_mortality[idx])
 
-@inline quadratic_loss(P, k) = QuadraticLoss(k)(P)
-@inline quadratic_loss(parameters, idx::Int, P) = quadratic_loss(P, parameters.quadratic_mortality[idx])
+@inline quadratic_loss(parameters, idx::Int, P) = Mortality.quadratic_loss(P, parameters.quadratic_mortality[idx])
 
 @inline function growth_geider_two_nutrients(parameters, idx::Int, DIN, PO4, P, PAR)
-    TwoNutrientGrowthGeider(
+    geider_growth_two_nutrients(
         parameters.maximum_growth_rate[idx],
         parameters.half_saturation_DIN[idx],
         parameters.half_saturation_PO4[idx],
         parameters.photosynthetic_slope[idx],
         parameters.chlorophyll_to_carbon_ratio[idx],
-    )(DIN, PO4, P, PAR)
+        DIN,
+        PO4,
+        P,
+        PAR,
+    )
 end
 
 @inline function _uptake_sum_geider(parameters, vals, n_plankton::Int, DIN, PO4, PAR)

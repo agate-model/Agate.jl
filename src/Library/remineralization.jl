@@ -2,7 +2,7 @@
 
 module Remineralization
 
-export LinearRemineralization
+export remin
 
 """
     LinearRemineralization(rate)
@@ -14,5 +14,12 @@ struct LinearRemineralization{T}
 end
 
 @inline (r::LinearRemineralization)(D) = r.rate * D
+
+"""
+    remin(D, rate)
+
+Convenience wrapper for `LinearRemineralization(rate)(D)`.
+"""
+@inline remin(D, rate) = LinearRemineralization(rate)(D)
 
 end # module

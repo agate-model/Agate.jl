@@ -2,7 +2,7 @@
 
 module Mortality
 
-export LinearLoss, QuadraticLoss
+export linear_loss, quadratic_loss
 
 """
     LinearLoss(rate)
@@ -25,5 +25,19 @@ struct QuadraticLoss{T}
 end
 
 @inline (q::QuadraticLoss)(P) = q.rate * P * P
+
+"""
+    linear_loss(P, rate)
+
+Convenience wrapper for `LinearLoss(rate)(P)`.
+"""
+@inline linear_loss(P, rate) = LinearLoss(rate)(P)
+
+"""
+    quadratic_loss(P, rate)
+
+Convenience wrapper for `QuadraticLoss(rate)(P)`.
+"""
+@inline quadratic_loss(P, rate) = QuadraticLoss(rate)(P)
 
 end # module
