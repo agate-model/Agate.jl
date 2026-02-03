@@ -36,31 +36,23 @@ AllometricParam(model; kwargs...) = AllometricParam(model, (; kwargs...))
 """Common allometry model: power-law scaling with spherical volume."""
 struct PowerLaw end
 
+
 """Evaluate a `PowerLaw` model.
 
 Expected coefficient names:
-- `prefactor` and `exponent` (recommended), or
-- `scale` and `exponent` (alias), or
-- `a` and `b` (legacy).
+- `prefactor`
+- `exponent`
+
+(Backward-compat coefficient aliases were intentionally removed.)
 """
 @inline function (m::PowerLaw)(coeffs::NamedTuple, diameter)
-    if hasproperty(coeffs, :prefactor)
-        a = getproperty(coeffs, :prefactor)
-    elseif hasproperty(coeffs, :scale)
-        a = getproperty(coeffs, :scale)
-    elseif hasproperty(coeffs, :a)
-        a = getproperty(coeffs, :a)
-    else
-        throw(ArgumentError("PowerLaw requires coefficient `prefactor` (or `scale`/`a`)"))
-    end
+    hasproperty(coeffs, :prefactor) ||
+        throw(ArgumentError("PowerLaw requires coefficient `prefactor`"))
+    hasproperty(coeffs, :exponent) ||
+        throw(ArgumentError("PowerLaw requires coefficient `exponent`"))
 
-    if hasproperty(coeffs, :exponent)
-        b = getproperty(coeffs, :exponent)
-    elseif hasproperty(coeffs, :b)
-        b = getproperty(coeffs, :b)
-    else
-        throw(ArgumentError("PowerLaw requires coefficient `exponent` (or `b`)"))
-    end
+    a = getproperty(coeffs, :prefactor)
+    b = getproperty(coeffs, :exponent)
 
     # By construction we keep coefficients and diameter the same floating type (FT),
     # so this call never mixes Float32/Float64 (important for GPU use).
