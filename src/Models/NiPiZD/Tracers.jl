@@ -18,24 +18,33 @@ using ....Library.Mortality: LinearLoss, QuadraticLoss
 using ....Library.Photosynthesis: SingleNutrientGrowthSmith
 using ....Library.Remineralization: LinearRemineralization
 
-using ....Utils: sum_over, TendencyContext
+using ....Utils: sum_over, TendencyContext, tendency_views
 
 using ...PredationSums: _grazing_assimilation_loss_sum, _grazing_loss_sum, _grazing_gain_sum
 
 export nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
 
-@inline function _uptake_sum_smith(tendency::TendencyContext, n_plankton::Int, N, PAR)
-    parameters = tendency.parameters
-    tracers = tendency.tracers
-    args = tendency.args
+@inline remin(D, k) = LinearRemineralization(k)(D)
+
+@inline linear_loss(P, k) = LinearLoss(k)(P)
+@inline linear_loss(parameters, idx::Int, P) = linear_loss(P, parameters.linear_mortality[idx])
+
+@inline quadratic_loss(P, k) = QuadraticLoss(k)(P)
+@inline quadratic_loss(parameters, idx::Int, P) = quadratic_loss(P, parameters.quadratic_mortality[idx])
+
+@inline function smith_growth(parameters, idx::Int, N, P, PAR)
+    SingleNutrientGrowthSmith(
+        parameters.maximum_growth_rate[idx],
+        parameters.nutrient_half_saturation[idx],
+        parameters.alpha[idx],
+    )(N, P, PAR)
+end
+
+@inline function _uptake_sum_smith(parameters, vals, n_plankton::Int, N, PAR)
 
     sum_over(n_plankton, zero(N)) do i
-        P = tracers.plankton(args, i)
-        SingleNutrientGrowthSmith(
-            parameters.maximum_growth_rate[i],
-            parameters.nutrient_half_saturation[i],
-            parameters.alpha[i],
-        )(N, P, PAR)
+        P = vals.plankton(i)
+        smith_growth(parameters, i, N, P, PAR)
     end
 end
 
@@ -55,30 +64,28 @@ function nutrient_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency = TendencyContext(bgc, args)
-        parameters = tendency.parameters
-        tracers = tendency.tracers
+        tendency, parameters, vals = tendency_views(bgc, args)
 
-        N = tracers.N(args)
-        D = tracers.D(args)
-        PAR = tracers.PAR(args)
+        N = vals.N
+        D = vals.D
+        PAR = vals.PAR
 
         lin_sum = sum_over(n_plankton, zero(N)) do i
-            P = tracers.plankton(args, i)
-            LinearLoss(parameters.linear_mortality[i])(P)
+            P = vals.plankton(i)
+            linear_loss(parameters, i, P)
         end
 
         quad_sum = sum_over(n_plankton, zero(N)) do i
-            P = tracers.plankton(args, i)
-            QuadraticLoss(parameters.quadratic_mortality[i])(P)
+            P = vals.plankton(i)
+            quadratic_loss(parameters, i, P)
         end
 
-        uptake = _uptake_sum_smith(tendency, n_plankton, N, PAR)
+        uptake = _uptake_sum_smith(parameters, vals, n_plankton, N, PAR)
 
         export_frac = parameters.mortality_export_fraction
-        remin = LinearRemineralization(parameters.detritus_remineralization)(D)
+        remin_term = remin(D, parameters.detritus_remineralization)
 
-        return export_frac * (lin_sum + quad_sum) + remin - uptake
+        return export_frac * (lin_sum + quad_sum) + remin_term - uptake
     end
 
     return CompiledEquation(f, requirements)
@@ -100,28 +107,26 @@ function detritus_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency = TendencyContext(bgc, args)
-        parameters = tendency.parameters
-        tracers = tendency.tracers
+        tendency, parameters, vals = tendency_views(bgc, args)
 
-        D = tracers.D(args)
+        D = vals.D
 
         lin_sum = sum_over(n_plankton, zero(D)) do i
-            P = tracers.plankton(args, i)
-            LinearLoss(parameters.linear_mortality[i])(P)
+            P = vals.plankton(i)
+            linear_loss(parameters, i, P)
         end
 
         quad_sum = sum_over(n_plankton, zero(D)) do i
-            P = tracers.plankton(args, i)
-            QuadraticLoss(parameters.quadratic_mortality[i])(P)
+            P = vals.plankton(i)
+            quadratic_loss(parameters, i, P)
         end
 
         assim_loss = _grazing_assimilation_loss_sum(tendency)
 
         export_frac = parameters.mortality_export_fraction
-        remin = LinearRemineralization(parameters.detritus_remineralization)(D)
+        remin_term = remin(D, parameters.detritus_remineralization)
 
-        return (one(export_frac) - export_frac) * (lin_sum + quad_sum) + assim_loss - remin
+        return (one(export_frac) - export_frac) * (lin_sum + quad_sum) + assim_loss - remin_term
     end
 
     return CompiledEquation(f, requirements)
@@ -142,22 +147,16 @@ function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency = TendencyContext(bgc, args)
-        parameters = tendency.parameters
-        tracers = tendency.tracers
+        tendency, parameters, vals = tendency_views(bgc, args)
 
-        N = tracers.N(args)
-        P = tracers.plankton(args, plankton_idx)
-        PAR = tracers.PAR(args)
+        N = vals.N
+        P = vals.plankton(plankton_idx)
+        PAR = vals.PAR
 
-        growth = SingleNutrientGrowthSmith(
-            parameters.maximum_growth_rate[plankton_idx],
-            parameters.nutrient_half_saturation[plankton_idx],
-            parameters.alpha[plankton_idx],
-        )(N, P, PAR)
+        growth = smith_growth(parameters, plankton_idx, N, P, PAR)
 
         grazing = _grazing_loss_sum(tendency, P, plankton_idx)
-        mort = LinearLoss(parameters.linear_mortality[plankton_idx])(P)
+        mort = linear_loss(parameters, plankton_idx, P)
 
         return growth - grazing - mort
     end
@@ -178,16 +177,14 @@ function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency = TendencyContext(bgc, args)
-        parameters = tendency.parameters
-        tracers = tendency.tracers
+        tendency, parameters, vals = tendency_views(bgc, args)
 
-        Z = tracers.plankton(args, plankton_idx)
+        Z = vals.plankton(plankton_idx)
 
         gain = _grazing_gain_sum(tendency, Z, plankton_idx)
 
-        lin = LinearLoss(parameters.linear_mortality[plankton_idx])(Z)
-        quad = QuadraticLoss(parameters.quadratic_mortality[plankton_idx])(Z)
+        lin = linear_loss(parameters, plankton_idx, Z)
+        quad = quadratic_loss(parameters, plankton_idx, Z)
 
         return gain - lin - quad
     end

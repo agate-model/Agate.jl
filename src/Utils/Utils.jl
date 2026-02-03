@@ -43,6 +43,8 @@ export InteractionMatrices
 export sum_over
 
 export TendencyContext
+export TracerValues
+export tendency_views
 export MatrixProvider
 export derived_matrix_specs
 export resolve_derived_matrices

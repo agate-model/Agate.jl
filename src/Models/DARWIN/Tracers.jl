@@ -17,7 +17,7 @@ using ....Library.Mortality: LinearLoss, QuadraticLoss
 using ....Library.Photosynthesis: TwoNutrientGrowthGeider
 using ....Library.Remineralization: LinearRemineralization
 
-using ....Utils: sum_over, TendencyContext
+using ....Utils: sum_over, TendencyContext, tendency_views
 
 using ...PredationSums: _grazing_assimilation_loss_sum, _grazing_loss_sum, _grazing_gain_sum
 
@@ -33,36 +33,38 @@ export DIC_geider_light,
     phytoplankton_growth_two_nutrients_geider_light,
     zooplankton_default
 
-@inline function _uptake_sum_geider(tendency::TendencyContext, n_plankton::Int, DIN, PO4, PAR)
-    parameters = tendency.parameters
-    tracers = tendency.tracers
-    args = tendency.args
+@inline remin(D, k) = LinearRemineralization(k)(D)
 
+@inline linear_loss(P, k) = LinearLoss(k)(P)
+@inline linear_loss(parameters, idx::Int, P) = linear_loss(P, parameters.linear_mortality[idx])
+
+@inline quadratic_loss(P, k) = QuadraticLoss(k)(P)
+@inline quadratic_loss(parameters, idx::Int, P) = quadratic_loss(P, parameters.quadratic_mortality[idx])
+
+@inline function growth_geider_two_nutrients(parameters, idx::Int, DIN, PO4, P, PAR)
+    TwoNutrientGrowthGeider(
+        parameters.maximum_growth_rate[idx],
+        parameters.half_saturation_DIN[idx],
+        parameters.half_saturation_PO4[idx],
+        parameters.photosynthetic_slope[idx],
+        parameters.chlorophyll_to_carbon_ratio[idx],
+    )(DIN, PO4, P, PAR)
+end
+
+@inline function _uptake_sum_geider(parameters, vals, n_plankton::Int, DIN, PO4, PAR)
     sum_over(n_plankton, zero(DIN)) do i
-        P = tracers.plankton(args, i)
-        TwoNutrientGrowthGeider(
-            parameters.maximum_growth_rate[i],
-            parameters.half_saturation_DIN[i],
-            parameters.half_saturation_PO4[i],
-            parameters.photosynthetic_slope[i],
-            parameters.chlorophyll_to_carbon_ratio[i],
-        )(
-            DIN, PO4, P, PAR
-        )
+        P = vals.plankton(i)
+        growth_geider_two_nutrients(parameters, i, DIN, PO4, P, PAR)
     end
 end
 
-@inline function _mortality_loss_sum(tendency::TendencyContext, n_plankton::Int)
-    parameters = tendency.parameters
-    tracers = tendency.tracers
-    args = tendency.args
-
+@inline function _mortality_loss_sum(parameters, vals, n_plankton::Int)
     FT = eltype(parameters.maximum_growth_rate)
     z = zero(FT)
 
     sum_over(n_plankton, z) do i
-        P = tracers.plankton(args, i)
-        LinearLoss(parameters.linear_mortality[i])(P) + QuadraticLoss(parameters.quadratic_mortality[i])(P)
+        P = vals.plankton(i)
+        linear_loss(parameters, i, P) + quadratic_loss(parameters, i, P)
     end
 end
 
@@ -82,21 +84,17 @@ function DIC_geider_light(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency = TendencyContext(bgc, args)
-        parameters = tendency.parameters
-        tracers = tendency.tracers
+        tendency, parameters, vals = tendency_views(bgc, args)
 
-        DIN = tracers.DIN(args)
-        PO4 = tracers.PO4(args)
-        DOC = tracers.DOC(args)
-        POC = tracers.POC(args)
-        PAR = tracers.PAR(args)
+        DIN = vals.DIN
+        PO4 = vals.PO4
+        DOC = vals.DOC
+        POC = vals.POC
+        PAR = vals.PAR
 
-        uptake = _uptake_sum_geider(tendency, n_plankton, DIN, PO4, PAR)
+        uptake = _uptake_sum_geider(parameters, vals, n_plankton, DIN, PO4, PAR)
 
-        dic_remin =
-            LinearRemineralization(parameters.DOC_remineralization)(DOC) +
-            LinearRemineralization(parameters.POC_remineralization)(POC)
+        dic_remin = remin(DOC, parameters.DOC_remineralization) + remin(POC, parameters.POC_remineralization)
 
         return dic_remin - uptake
     end
@@ -120,21 +118,17 @@ function DIN_geider_light(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency = TendencyContext(bgc, args)
-        parameters = tendency.parameters
-        tracers = tendency.tracers
+        tendency, parameters, vals = tendency_views(bgc, args)
 
-        DIN = tracers.DIN(args)
-        PO4 = tracers.PO4(args)
-        DON = tracers.DON(args)
-        PON = tracers.PON(args)
-        PAR = tracers.PAR(args)
+        DIN = vals.DIN
+        PO4 = vals.PO4
+        DON = vals.DON
+        PON = vals.PON
+        PAR = vals.PAR
 
-        uptake = _uptake_sum_geider(tendency, n_plankton, DIN, PO4, PAR)
+        uptake = _uptake_sum_geider(parameters, vals, n_plankton, DIN, PO4, PAR)
 
-        din_remin =
-            LinearRemineralization(parameters.DON_remineralization)(DON) +
-            LinearRemineralization(parameters.PON_remineralization)(PON)
+        din_remin = remin(DON, parameters.DON_remineralization) + remin(PON, parameters.PON_remineralization)
 
         return din_remin - parameters.nitrogen_to_carbon * uptake
     end
@@ -158,21 +152,17 @@ function PO4_geider_light(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency = TendencyContext(bgc, args)
-        parameters = tendency.parameters
-        tracers = tendency.tracers
+        tendency, parameters, vals = tendency_views(bgc, args)
 
-        DIN = tracers.DIN(args)
-        PO4 = tracers.PO4(args)
-        DOP = tracers.DOP(args)
-        POP = tracers.POP(args)
-        PAR = tracers.PAR(args)
+        DIN = vals.DIN
+        PO4 = vals.PO4
+        DOP = vals.DOP
+        POP = vals.POP
+        PAR = vals.PAR
 
-        uptake = _uptake_sum_geider(tendency, n_plankton, DIN, PO4, PAR)
+        uptake = _uptake_sum_geider(parameters, vals, n_plankton, DIN, PO4, PAR)
 
-        po4_remin =
-            LinearRemineralization(parameters.DOP_remineralization)(DOP) +
-            LinearRemineralization(parameters.POP_remineralization)(POP)
+        po4_remin = remin(DOP, parameters.DOP_remineralization) + remin(POP, parameters.POP_remineralization)
 
         return po4_remin - parameters.phosphorus_to_carbon * uptake
     end
@@ -198,15 +188,13 @@ function DOC_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency = TendencyContext(bgc, args)
-        parameters = tendency.parameters
-        tracers = tendency.tracers
+        tendency, parameters, vals = tendency_views(bgc, args)
 
-        DOC = tracers.DOC(args)
+        DOC = vals.DOC
 
-        M = _mortality_loss_sum(tendency, n_plankton)
+        M = _mortality_loss_sum(parameters, vals, n_plankton)
         g = _grazing_assimilation_loss_sum(tendency)
-        R = LinearRemineralization(parameters.DOC_remineralization)(DOC)
+        R = remin(DOC, parameters.DOC_remineralization)
 
         frac = one(parameters.DOM_POM_fractionation) - parameters.DOM_POM_fractionation
         return frac * (M + g) - R
@@ -231,15 +219,13 @@ function POC_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency = TendencyContext(bgc, args)
-        parameters = tendency.parameters
-        tracers = tendency.tracers
+        tendency, parameters, vals = tendency_views(bgc, args)
 
-        POC = tracers.POC(args)
+        POC = vals.POC
 
-        M = _mortality_loss_sum(tendency, n_plankton)
+        M = _mortality_loss_sum(parameters, vals, n_plankton)
         g = _grazing_assimilation_loss_sum(tendency)
-        R = LinearRemineralization(parameters.POC_remineralization)(POC)
+        R = remin(POC, parameters.POC_remineralization)
 
         return parameters.DOM_POM_fractionation * (M + g) - R
     end
@@ -263,15 +249,13 @@ function DON_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency = TendencyContext(bgc, args)
-        parameters = tendency.parameters
-        tracers = tendency.tracers
+        tendency, parameters, vals = tendency_views(bgc, args)
 
-        DON = tracers.DON(args)
+        DON = vals.DON
 
-        M = _mortality_loss_sum(tendency, n_plankton)
+        M = _mortality_loss_sum(parameters, vals, n_plankton)
         g = _grazing_assimilation_loss_sum(tendency)
-        R = LinearRemineralization(parameters.DON_remineralization)(DON)
+        R = remin(DON, parameters.DON_remineralization)
 
         frac = one(parameters.DOM_POM_fractionation) - parameters.DOM_POM_fractionation
         return frac * parameters.nitrogen_to_carbon * (M + g) - R
@@ -296,15 +280,13 @@ function PON_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency = TendencyContext(bgc, args)
-        parameters = tendency.parameters
-        tracers = tendency.tracers
+        tendency, parameters, vals = tendency_views(bgc, args)
 
-        PON = tracers.PON(args)
+        PON = vals.PON
 
-        M = _mortality_loss_sum(tendency, n_plankton)
+        M = _mortality_loss_sum(parameters, vals, n_plankton)
         g = _grazing_assimilation_loss_sum(tendency)
-        R = LinearRemineralization(parameters.PON_remineralization)(PON)
+        R = remin(PON, parameters.PON_remineralization)
 
         return parameters.DOM_POM_fractionation * parameters.nitrogen_to_carbon * (M + g) - R
     end
@@ -328,15 +310,13 @@ function DOP_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency = TendencyContext(bgc, args)
-        parameters = tendency.parameters
-        tracers = tendency.tracers
+        tendency, parameters, vals = tendency_views(bgc, args)
 
-        DOP = tracers.DOP(args)
+        DOP = vals.DOP
 
-        M = _mortality_loss_sum(tendency, n_plankton)
+        M = _mortality_loss_sum(parameters, vals, n_plankton)
         g = _grazing_assimilation_loss_sum(tendency)
-        R = LinearRemineralization(parameters.DOP_remineralization)(DOP)
+        R = remin(DOP, parameters.DOP_remineralization)
 
         frac = one(parameters.DOM_POM_fractionation) - parameters.DOM_POM_fractionation
         return frac * parameters.phosphorus_to_carbon * (M + g) - R
@@ -361,15 +341,13 @@ function POP_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency = TendencyContext(bgc, args)
-        parameters = tendency.parameters
-        tracers = tendency.tracers
+        tendency, parameters, vals = tendency_views(bgc, args)
 
-        POP = tracers.POP(args)
+        POP = vals.POP
 
-        M = _mortality_loss_sum(tendency, n_plankton)
+        M = _mortality_loss_sum(parameters, vals, n_plankton)
         g = _grazing_assimilation_loss_sum(tendency)
-        R = LinearRemineralization(parameters.POP_remineralization)(POP)
+        R = remin(POP, parameters.POP_remineralization)
 
         return parameters.DOM_POM_fractionation * parameters.phosphorus_to_carbon * (M + g) - R
     end
@@ -400,28 +378,16 @@ function phytoplankton_growth_two_nutrients_geider_light(
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency = TendencyContext(bgc, args)
-        parameters = tendency.parameters
-        tracers = tendency.tracers
+        tendency, parameters, vals = tendency_views(bgc, args)
 
-        DIN = tracers.DIN(args)
-        PO4 = tracers.PO4(args)
-        P = tracers.plankton(args, plankton_idx)
-        PAR = tracers.PAR(args)
+        DIN = vals.DIN
+        PO4 = vals.PO4
+        P = vals.plankton(plankton_idx)
+        PAR = vals.PAR
 
-        growth = TwoNutrientGrowthGeider(
-            parameters.maximum_growth_rate[plankton_idx],
-            parameters.half_saturation_DIN[plankton_idx],
-            parameters.half_saturation_PO4[plankton_idx],
-            parameters.photosynthetic_slope[plankton_idx],
-            parameters.chlorophyll_to_carbon_ratio[plankton_idx],
-        )(
-            DIN, PO4, P, PAR
-        )
-
+        growth = growth_geider_two_nutrients(parameters, plankton_idx, DIN, PO4, P, PAR)
         grazing = _grazing_loss_sum(tendency, P, plankton_idx)
-
-        mort = LinearLoss(parameters.linear_mortality[plankton_idx])(P)
+        mort = linear_loss(parameters, plankton_idx, P)
 
         return growth - grazing - mort
     end
@@ -442,16 +408,14 @@ function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency = TendencyContext(bgc, args)
-        parameters = tendency.parameters
-        tracers = tendency.tracers
+        tendency, parameters, vals = tendency_views(bgc, args)
 
-        Z = tracers.plankton(args, plankton_idx)
+        Z = vals.plankton(plankton_idx)
 
         gain = _grazing_gain_sum(tendency, Z, plankton_idx)
 
-        lin = LinearLoss(parameters.linear_mortality[plankton_idx])(Z)
-        quad = QuadraticLoss(parameters.quadratic_mortality[plankton_idx])(Z)
+        lin = linear_loss(parameters, plankton_idx, Z)
+        quad = quadratic_loss(parameters, plankton_idx, Z)
 
         return gain - lin - quad
     end
