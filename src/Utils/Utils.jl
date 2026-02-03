@@ -33,6 +33,12 @@ export InteractionContext
 export axis_indices
 export normalize_interaction_overrides
 export GroupBlockMatrix
+export InteractionBlocks
+export roles_from_groups
+export interaction_blocks
+export forbid_link!
+export set_block!
+export scale_block!
 export InteractionMatrices
 export sum_over
 
@@ -137,6 +143,8 @@ include("TendencyContext.jl")
 include("ClassRefs.jl")
 include("TracerAccessors.jl")
 
+include("InteractionBlocks.jl")
+
 # -----------------------------------------------------------------------------
 # Diameter specifications
 # -----------------------------------------------------------------------------
@@ -200,6 +208,9 @@ For matrix parameters, users may pass either:
   wrap it in `GroupBlockMatrix(B)` to force group-block expansion,
 - or, when the parameter directory declares role-aware axes,
   a rectangular matrix sized to those axes (for example `(n_consumer, n_prey)`).
+
+For consumer-by-prey matrices with axes `(:consumer, :prey)`, users may also pass
+an `InteractionBlocks` object created by `interaction_blocks(factory; roles=...)`.
 
 When a rectangular matrix is provided for a role-aware parameter (one that
 declares `axes` in `parameter_directory(factory)`), it is kept rectangular.
@@ -286,6 +297,45 @@ end
 
         nr = length(row_indices)
         nc = length(col_indices)
+
+        # Convenience wrapper: explicit group order for a consumer-by-prey block.
+        if value isa InteractionBlocks
+            spec.axes == (:consumer, :prey) || throw(
+                ArgumentError(
+                    "InteractionBlocks can only be used for axes (:consumer, :prey); got axes $(spec.axes) for '$key'.",
+                ),
+            )
+
+            row_groups_axis = unique(ctx.group_symbols[row_indices])
+            col_groups_axis = unique(ctx.group_symbols[col_indices])
+
+            Set(row_groups_axis) == Set(value.consumer_groups) || throw(
+                ArgumentError(
+                    "InteractionBlocks consumer_groups $(value.consumer_groups) do not match consumer axis groups $(Tuple(row_groups_axis)) for '$key'.",
+                ),
+            )
+            Set(col_groups_axis) == Set(value.prey_groups) || throw(
+                ArgumentError(
+                    "InteractionBlocks prey_groups $(value.prey_groups) do not match prey axis groups $(Tuple(col_groups_axis)) for '$key'.",
+                ),
+            )
+
+            size(value.B) == (length(value.consumer_groups), length(value.prey_groups)) ||
+                throw(
+                    ArgumentError(
+                        "InteractionBlocks.B must have size $(length(value.consumer_groups))x$(length(value.prey_groups)); got size $(size(value.B)) for '$key'.",
+                    ),
+                )
+
+            return _expand_group_block_axis_matrix(
+                ctx,
+                value.B,
+                row_indices,
+                col_indices,
+                value.consumer_groups,
+                value.prey_groups,
+            )
+        end
 
         # Explicit wrapper forces group-block expansion (then slice to axes).
         if value isa GroupBlockMatrix
