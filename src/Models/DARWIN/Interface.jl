@@ -18,8 +18,6 @@ For ease of use, interaction overrides are exposed as two separate keywords:
 
 using OceanBioME: BoxModelGrid
 
-using .Tracers: phytoplankton_growth_two_nutrients_geider_light, zooplankton_default
-
 import ...Utils
 import ...Constructor
 import ...Interface
@@ -71,7 +69,6 @@ function construct(;
     n_zoo >= 1 || throw(ArgumentError("n_zoo must be >= 1"))
 
     factory = DarwinFactory()
-    spec = Constructor.ModelSpec(factory)
 
     base = Interface.default_community(factory)
     community = Constructor.build_ZP_community(
@@ -82,16 +79,7 @@ function construct(;
         phyto_diameters=Utils.diameter_specification(phyto_diameters),
     )
 
-    # Fixed defaults for the public constructor.
-    plankton_dynamics = (
-        Z=zooplankton_default, P=phytoplankton_growth_two_nutrients_geider_light
-    )
-    merged_bgc = Interface.default_biogeochem_dynamics(factory)
     # Interaction overrides (optional).
-    #
-    # We forward overrides through the model-agnostic constructor as a `NamedTuple`.
-    # If a value is a function, it will be evaluated once against the InteractionContext
-    # during construction.
     pairs = Pair{Symbol,Any}[]
     palatability_matrix !== nothing &&
         push!(pairs, :palatability_matrix => palatability_matrix)
@@ -101,9 +89,7 @@ function construct(;
     interaction_overrides = isempty(pairs) ? nothing : (; pairs...)
 
     return Constructor.construct_factory(
-        spec;
-        plankton_dynamics=plankton_dynamics,
-        biogeochem_dynamics=merged_bgc,
+        factory;
         community=community,
         parameters=parameters,
         roles=roles,

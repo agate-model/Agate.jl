@@ -284,29 +284,6 @@ function default_parameters(::DarwinFactory, ctx::InteractionContext, ::Type{FT}
     specificity = _resolve_groupvec(FT, ctx, (; Z=FT(0.3)); default=0.0)
     protection = _resolve_groupvec(FT, ctx, (;); default=0.0)
 
-    # Canonical interaction storage is consumer-by-prey.
-    consumer_idx = ctx.consumer_indices
-    prey_idx = ctx.prey_indices
-
-    palatability_matrix = palatability_matrix_allometric_axes(
-        FT,
-        ctx.diameters;
-
-        optimum_predator_prey_ratio=optimum_predator_prey_ratio,
-        specificity=specificity,
-        protection=protection,
-        consumer_indices=consumer_idx,
-        prey_indices=prey_idx,
-    )
-
-    assimilation_matrix = assimilation_efficiency_matrix_binary_axes(
-        FT;
-
-        assimilation_efficiency=assimilation_efficiency,
-        consumer_indices=consumer_idx,
-        prey_indices=prey_idx,
-    )
-
     return (;
         DOC_remineralization,
         POC_remineralization,
@@ -326,8 +303,6 @@ function default_parameters(::DarwinFactory, ctx::InteractionContext, ::Type{FT}
         chlorophyll_to_carbon_ratio,
         maximum_predation_rate,
         holling_half_saturation,
-        palatability_matrix,
-        assimilation_matrix,
 
         optimum_predator_prey_ratio,
         specificity,

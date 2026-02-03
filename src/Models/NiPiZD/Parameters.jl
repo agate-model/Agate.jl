@@ -164,27 +164,6 @@ function default_parameters(::NiPiZDFactory, ctx::InteractionContext, ::Type{FT}
     protection = _resolve_groupvec(FT, ctx, (; Z=1.0, P=0.0); default=0.0)
     assimilation_efficiency = _resolve_groupvec(FT, ctx, (; Z=0.32, P=0.0); default=0.0)
 
-    # Canonical interaction storage is consumer-by-prey.
-    consumer_idx = ctx.consumer_indices
-    prey_idx = ctx.prey_indices
-
-    palatability_matrix = palatability_matrix_allometric_axes(
-        FT,
-        ctx.diameters;
-        optimum_predator_prey_ratio=optimum_predator_prey_ratio,
-        specificity=specificity,
-        protection=protection,
-        consumer_indices=consumer_idx,
-        prey_indices=prey_idx,
-    )
-
-    assimilation_matrix = assimilation_efficiency_matrix_binary_axes(
-        FT;
-        assimilation_efficiency=assimilation_efficiency,
-        consumer_indices=consumer_idx,
-        prey_indices=prey_idx,
-    )
-
     return (;
         detritus_remineralization,
         mortality_export_fraction,
@@ -195,8 +174,6 @@ function default_parameters(::NiPiZDFactory, ctx::InteractionContext, ::Type{FT}
         alpha,
         maximum_predation_rate,
         holling_half_saturation,
-        palatability_matrix,
-        assimilation_matrix,
 
         optimum_predator_prey_ratio,
         specificity,

@@ -36,9 +36,6 @@ Axis-local group-block matrices sized `(n_consumer_groups, n_prey_groups)` are a
 
 using OceanBioME: BoxModelGrid
 
-using .Tracers:
-    nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
-
 import ...Utils
 import ...Constructor
 import ...Interface
@@ -85,7 +82,6 @@ function construct(;
     n_zoo >= 1 || throw(ArgumentError("n_zoo must be >= 1"))
 
     factory = NiPiZDFactory()
-    spec = Constructor.ModelSpec(factory)
 
     base = Interface.default_community(factory)
     community = Constructor.build_ZP_community(
@@ -95,10 +91,6 @@ function construct(;
         zoo_diameters=Utils.diameter_specification(zoo_diameters),
         phyto_diameters=Utils.diameter_specification(phyto_diameters),
     )
-
-    # Fixed defaults for the public constructor.
-    plankton_dynamics = (Z=zooplankton_default, P=phytoplankton_default)
-    biogeochem_dynamics = (N=nutrient_default, D=detritus_default)
 
     # Interaction overrides (optional).
     #
@@ -114,9 +106,7 @@ function construct(;
     interaction_overrides = isempty(pairs) ? nothing : (; pairs...)
 
     return Constructor.construct_factory(
-        spec;
-        plankton_dynamics=plankton_dynamics,
-        biogeochem_dynamics=biogeochem_dynamics,
+        factory;
         community=community,
         parameters=parameters,
         roles=roles,
