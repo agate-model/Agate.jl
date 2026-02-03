@@ -16,7 +16,7 @@ building the final Oceananigans biogeochemistry object.
 
 The types live in `Agate.Functors`:
 
-  - `req(; scalars=..., vectors=..., matrices=...)`
+  - `Requirements(; scalars=..., vectors=..., matrices=...)`
   - `CompiledEquation(f, r)`
 
 Requirements are just lists of parameter keys (`Symbol`s). They are intentionally explicit:
@@ -25,7 +25,7 @@ there is no expression parsing during construction.
 Example:
 
 ```julia
-using Agate.Functors: CompiledEquation, req
+using Agate.Functors: CompiledEquation, Requirements
 
 # f must follow the Oceananigans biogeochemistry kernel signature.
 #
@@ -37,7 +37,7 @@ using Agate.Functors: CompiledEquation, req
     return -k
 end
 
-eq = CompiledEquation(my_tracer, req(; scalars=(:detritus_remineralization,)))
+eq = CompiledEquation(my_tracer, Requirements(; scalars=(:detritus_remineralization,)))
 ```
 
 ## Tracer function signature

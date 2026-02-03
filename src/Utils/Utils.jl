@@ -29,7 +29,7 @@ export parameter_directory
 export parameter_spec
 
 # Interactions API
-export InteractionContext
+export CommunityContext
 export axis_indices
 export normalize_interaction_overrides
 export GroupBlockMatrix
@@ -43,7 +43,7 @@ export InteractionMatrices
 export sum_over
 
 export TendencyContext
-export MatrixFn
+export MatrixProvider
 export derived_matrix_specs
 export resolve_derived_matrices
 
@@ -76,7 +76,7 @@ end
 export expand_group_block_matrix
 
 # Community parsing
-export validate_plankton_inputs
+export validate_community_inputs
 export parse_community
 
 export param_check_length
@@ -168,8 +168,13 @@ end
 # Construction context
 ##############################################################################
 
-"""Context passed to constructor-time provider functions (e.g. `palatability_matrix = (ctx) -> ...`)."""
-struct InteractionContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
+"""Context passed to constructor-time provider functions (e.g. `palatability_matrix = (ctx) -> ...`).
+
+`CommunityContext` exists at **construction time** (community parsing, parameter
+resolution, interaction normalization, derived matrices). It is distinct from
+`TendencyContext`, which is used at **tendency time** inside Oceananigans kernels.
+"""
+struct CommunityContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
     FT::Type{FT}
     n_total::Int
     diameters::VT
@@ -194,7 +199,7 @@ include("DerivedMatrices.jl")
 - a `NamedTuple` of updates
 
 Within the `NamedTuple`, values may be concrete objects (e.g. matrices) *or*
-provider functions. Provider functions are evaluated against an `InteractionContext`
+provider functions. Provider functions are evaluated against a `CommunityContext`
 and must be callable as:
 
 - `f(ctx)`
@@ -224,7 +229,7 @@ construction.
 """
 function normalize_interaction_overrides(
     factory::AbstractBGCFactory,
-    ctx::InteractionContext{FT},
+    ctx::CommunityContext{FT},
     interaction_overrides::Union{Nothing,NamedTuple},
 ) where {FT}
     interaction_overrides === nothing && return (;)
@@ -250,7 +255,7 @@ function normalize_interaction_overrides(
 end
 
 @inline function _call_interaction_provider(
-    f::Function, ctx::InteractionContext, key::Symbol
+    f::Function, ctx::CommunityContext, key::Symbol
 )
     applicable(f, ctx) && return f(ctx)
 
@@ -265,7 +270,7 @@ Axes may be:
 - `:prey` (role-defined prey axis)
 - any existing group `Symbol` present in `ctx.group_indices`
 """
-@inline axis_indices(ctx::InteractionContext, axis::Symbol) = if axis === :consumer
+@inline axis_indices(ctx::CommunityContext, axis::Symbol) = if axis === :consumer
     ctx.consumer_indices
 elseif axis === :prey
     ctx.prey_indices
@@ -281,7 +286,7 @@ end
 
 
 @inline function _normalize_interaction_value(
-    ctx::InteractionContext, spec::ParameterSpec, key::Symbol, value
+    ctx::CommunityContext, spec::ParameterSpec, key::Symbol, value
 )
     spec.shape === :matrix || return value
     n_total = ctx.n_total
@@ -409,7 +414,7 @@ defined as:
 
 `M[predator, prey] = B[group(predator), group(prey)]`.
 """
-function expand_group_block_matrix(ctx::InteractionContext, B::AbstractMatrix)
+function expand_group_block_matrix(ctx::CommunityContext, B::AbstractMatrix)
     groups = unique(ctx.group_symbols)
     ng = length(groups)
     size(B) == (ng, ng) || throw(
@@ -422,7 +427,7 @@ function expand_group_block_matrix(ctx::InteractionContext, B::AbstractMatrix)
     return _convert_matrix_eltype(ctx, B[group_idx, group_idx])
 end
 
-@inline function _convert_matrix_eltype(ctx::InteractionContext, A::AbstractMatrix)
+@inline function _convert_matrix_eltype(ctx::CommunityContext, A::AbstractMatrix)
     eltype(A) === ctx.FT && return A
     R = similar(A, ctx.FT, size(A)...)
     copyto!(R, A)
@@ -430,7 +435,7 @@ end
 end
 
 @inline function _expand_group_block_axis_matrix(
-    ctx::InteractionContext,
+    ctx::CommunityContext,
     B::AbstractMatrix,
     row_indices::AbstractVector{<:Integer},
     col_indices::AbstractVector{<:Integer},
@@ -458,7 +463,7 @@ end
 end
 
 @inline function _validate_interaction_override(
-    ctx::InteractionContext, spec::ParameterSpec, key::Symbol, value
+    ctx::CommunityContext, spec::ParameterSpec, key::Symbol, value
 )
     if spec.shape === :matrix
         value isa AbstractMatrix || throw(
@@ -506,7 +511,7 @@ end
 end
 
 # -----------------------------------------------------------------------------
-# Plankton community parsing
+# Community parsing
 # -----------------------------------------------------------------------------
 
 """Return a diameter specification for an explicit diameter list."""
@@ -519,18 +524,18 @@ diameter_specification(spec::Tuple{Any,Any,Symbol}) =
 """Return the diameter specification when one is already provided."""
 diameter_specification(spec::AbstractDiameterSpecification) = spec
 
-"""Validate `plankton_dynamics` and `plankton_args` inputs.
+"""Validate `plankton_dynamics` and `community` inputs.
 
 Throws a single `ArgumentError` listing all issues.
 """
-function validate_plankton_inputs(plankton_dynamics, plankton_args)
+function validate_community_inputs(plankton_dynamics, community)
     issues = String[]
 
     if !(plankton_dynamics isa NamedTuple)
         push!(issues, "plankton_dynamics must be a NamedTuple")
     end
-    if !(plankton_args isa NamedTuple)
-        push!(issues, "plankton_args must be a NamedTuple")
+    if !(community isa NamedTuple)
+        push!(issues, "community must be a NamedTuple")
     end
 
     if !isempty(issues)
@@ -538,18 +543,18 @@ function validate_plankton_inputs(plankton_dynamics, plankton_args)
     end
 
     dyn_keys = collect(keys(plankton_dynamics))
-    arg_keys = collect(keys(plankton_args))
+    arg_keys = collect(keys(community))
 
     missing = setdiff(dyn_keys, arg_keys)
     extra = setdiff(arg_keys, dyn_keys)
-    !isempty(missing) && push!(issues, "plankton_args is missing groups: $(missing)")
-    !isempty(extra) && push!(issues, "plankton_args has extra groups: $(extra)")
+    !isempty(missing) && push!(issues, "community is missing groups: $(missing)")
+    !isempty(extra) && push!(issues, "community has extra groups: $(extra)")
 
     for k in arg_keys
-        if !haskey(plankton_args, k)
+        if !haskey(community, k)
             continue
         end
-        spec = getfield(plankton_args, k)
+        spec = getfield(community, k)
 
         if !hasproperty(spec, :diameters)
             push!(issues, "group $(k): missing required field `diameters`")
@@ -616,7 +621,7 @@ function validate_plankton_inputs(plankton_dynamics, plankton_args)
     return nothing
 end
 
-"""Parse and flatten a plankton community into a construction context.
+"""Parse and flatten a plankton community into a `CommunityContext`.
 
 Role axes (consumer/prey membership) are defined by `roles`, a `NamedTuple` with fields:
 - `consumers`: `nothing` (all groups/classes) or an iterable of group `Symbol`s, indices, or a boolean mask
@@ -627,7 +632,7 @@ When `roles` is omitted, `default_roles(factory)` is used.
 function parse_community(
     factory::AbstractBGCFactory,
     ::Type{FT},
-    plankton_args::NamedTuple;
+    community::NamedTuple;
     plankton_dynamics::NamedTuple=NamedTuple(),
     biogeochem_dynamics::NamedTuple=NamedTuple(),
     roles=nothing,
@@ -635,13 +640,13 @@ function parse_community(
     group_symbols = required_groups(factory)
 
     # Validate the community matches the factory's declared group set.
-    arg_keys = keys(plankton_args)
+    arg_keys = keys(community)
     missing = [g for g in group_symbols if g ∉ arg_keys]
     extra = [g for g in arg_keys if g ∉ group_symbols]
     if !isempty(missing) || !isempty(extra)
         msg = String[]
-        !isempty(missing) && push!(msg, "plankton_args is missing required groups: $(missing)")
-        !isempty(extra) && push!(msg, "plankton_args has extra groups not declared by required_groups(factory): $(extra)")
+        !isempty(missing) && push!(msg, "community is missing required groups: $(missing)")
+        !isempty(extra) && push!(msg, "community has extra groups not declared by required_groups(factory): $(extra)")
         throw(ArgumentError(join(msg, "\n")))
     end
     plankton_symbols = Symbol[]
@@ -651,7 +656,7 @@ function parse_community(
     diameters = FT[]
 
     for g in group_symbols
-        spec = getfield(plankton_args, g)
+        spec = getfield(community, g)
         dspec = diameter_specification(getproperty(spec, :diameters))
         n = if dspec isa DiameterListSpecification
             length(dspec.diameters)
@@ -726,7 +731,7 @@ function parse_community(
     consumer_indices = _indices_for_role(getproperty(roles_resolved, :consumers), :consumers)
     prey_indices = _indices_for_role(getproperty(roles_resolved, :prey), :prey)
 
-    ctx = InteractionContext{FT,typeof(diameters)}(
+    ctx = CommunityContext{FT,typeof(diameters)}(
         FT,
         n_total,
         diameters,

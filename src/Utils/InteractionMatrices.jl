@@ -43,7 +43,7 @@ Adapt.@adapt_structure InteractionMatrices
 end
 
 @inline function _rect_value_for_axes(
-    ctx::InteractionContext,
+    ctx::CommunityContext,
     value,
     row_indices::Vector{Int},
     col_indices::Vector{Int},
@@ -78,7 +78,7 @@ end
 end
 
 function finalize_interaction_parameters(
-    factory::AbstractBGCFactory, ctx::InteractionContext, params::NamedTuple
+    factory::AbstractBGCFactory, ctx::CommunityContext, params::NamedTuple
 )
     spec_pal = parameter_spec(factory, :palatability_matrix)
     spec_assim = parameter_spec(factory, :assimilation_matrix)

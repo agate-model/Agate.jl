@@ -12,7 +12,7 @@ code.
 
 module Tracers
 
-using ....Functors: CompiledEquation, req
+using ....Functors: CompiledEquation, Requirements
 
 using ....Library.Mortality: LinearLoss, QuadraticLoss
 using ....Library.Photosynthesis: SingleNutrientGrowthSmith
@@ -43,7 +43,7 @@ end
 function nutrient_default(plankton_syms)
     n_plankton = length(plankton_syms)
 
-    requirements = req(;
+    requirements = Requirements(;
         scalars=(:detritus_remineralization, :mortality_export_fraction),
         vectors=(
             :linear_mortality,
@@ -88,7 +88,7 @@ end
 function detritus_default(plankton_syms)
     n_plankton = length(plankton_syms)
 
-    requirements = req(;
+    requirements = Requirements(;
         scalars=(:detritus_remineralization, :mortality_export_fraction),
         vectors=(
             :linear_mortality,
@@ -129,7 +129,7 @@ end
 
 """Phytoplankton tendency with Smith growth, grazing loss, and linear mortality."""
 function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
-    requirements = req(;
+    requirements = Requirements(;
         vectors=(
             :maximum_growth_rate,
             :nutrient_half_saturation,
@@ -167,7 +167,7 @@ end
 
 """Zooplankton tendency with preferential grazing gain and mortality losses."""
 function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
-    requirements = req(;
+    requirements = Requirements(;
         vectors=(
             :linear_mortality,
             :quadratic_mortality,

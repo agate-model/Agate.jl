@@ -13,7 +13,7 @@ construction.
 
 import ...Constructor: default_parameters
 import ...Interface: parameter_directory, ParameterSpec
-using ...Utils: InteractionContext
+using ...Utils: CommunityContext
 using ...Library.Allometry:
     AllometricParam,
     PowerLaw,
@@ -21,14 +21,14 @@ using ...Library.Allometry:
     palatability_matrix_allometric_axes,
     assimilation_efficiency_matrix_binary_axes
 
-import ...Utils: MatrixFn, derived_matrix_specs
+import ...Utils: MatrixProvider, derived_matrix_specs
 
 @inline function _group_value(group_map::NamedTuple, group::Symbol, default)
     return Base.hasproperty(group_map, group) ? getproperty(group_map, group) : default
 end
 
 function _resolve_groupvec(
-    ::Type{FT}, ctx::InteractionContext, group_map::NamedTuple; default=0.0
+    ::Type{FT}, ctx::CommunityContext, group_map::NamedTuple; default=0.0
 ) where {FT}
     n = ctx.n_total
     out = Vector{FT}(undef, n)
@@ -128,7 +128,7 @@ parameter_directory(::NiPiZDFactory) = (
     ),
 )
 
-function default_parameters(::NiPiZDFactory, ctx::InteractionContext, ::Type{FT}) where {FT}
+function default_parameters(::NiPiZDFactory, ctx::CommunityContext, ::Type{FT}) where {FT}
     detritus_remineralization = FT(0.1213 / 86400)
     mortality_export_fraction = FT(0.2)
 
@@ -187,7 +187,7 @@ end
 # -----------------------------------------------------------------------------
 
 @inline function _derive_palatability_matrix(
-    ::NiPiZDFactory, ctx::InteractionContext, params::NamedTuple
+    ::NiPiZDFactory, ctx::CommunityContext, params::NamedTuple
 )
     FT = ctx.FT
     return palatability_matrix_allometric_axes(
@@ -203,7 +203,7 @@ end
 end
 
 @inline function _derive_assimilation_matrix(
-    ::NiPiZDFactory, ctx::InteractionContext, params::NamedTuple
+    ::NiPiZDFactory, ctx::CommunityContext, params::NamedTuple
 )
     FT = ctx.FT
     return assimilation_efficiency_matrix_binary_axes(
@@ -217,11 +217,11 @@ end
 
 function derived_matrix_specs(::NiPiZDFactory)
     return (;
-        palatability_matrix=MatrixFn(
+        palatability_matrix=MatrixProvider(
             _derive_palatability_matrix;
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
         ),
-        assimilation_matrix=MatrixFn(
+        assimilation_matrix=MatrixProvider(
             _derive_assimilation_matrix;
             deps=(:assimilation_efficiency,),
         ),

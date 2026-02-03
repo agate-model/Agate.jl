@@ -1,6 +1,6 @@
 module Functors
 
-export Requirements, req, merge_requirements, CompiledEquation, requirements
+export Requirements, merge_requirements, CompiledEquation, requirements
 
 """A small immutable set of parameter requirements.
 
@@ -24,13 +24,13 @@ function _symbol_tuple(x)
     )
 end
 
-"""    req(; vectors=(), matrices=(), scalars=())
+"""    Requirements(; vectors=(), matrices=(), scalars=())
 
 Construct a `Requirements` object.
 
 Each keyword accepts a `Symbol`, a tuple of symbols, a vector of symbols, or `nothing`.
 """
-function req(; vectors=(), matrices=(), scalars=())
+function Requirements(; vectors=(), matrices=(), scalars=())
     return Requirements(
         _symbol_tuple(vectors), _symbol_tuple(matrices), _symbol_tuple(scalars)
     )
@@ -65,7 +65,7 @@ end
 Combine two `Requirements` objects.
 """
 function merge_requirements(r1::Requirements, r2::Requirements)
-    return req(;
+    return Requirements(;
         vectors=_merge_syms(r1.vectors, r2.vectors),
         matrices=_merge_syms(r1.matrices, r2.matrices),
         scalars=_merge_syms(r1.scalars, r2.scalars),

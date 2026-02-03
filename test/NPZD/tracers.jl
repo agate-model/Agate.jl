@@ -1,5 +1,5 @@
 using Agate
-using Agate.Functors: CompiledEquation, req
+using Agate.Functors: CompiledEquation, Requirements
 using Agate.Constructor: define_tracer_functions
 using Oceananigans.Units
 
@@ -55,10 +55,10 @@ fZ =
     end
 
 tracers = (
-    N=CompiledEquation(fN, req(; scalars=(:lᵖⁿ, :lᶻⁿ, :rᵈⁿ, :μ₀, :kₙ, :α))),
-    D=CompiledEquation(fD, req(; scalars=(:lᵖᵈ, :β, :gₘₐₓ, :kₚ, :lᶻᵈ, :rᵈⁿ))),
-    P=CompiledEquation(fP, req(; scalars=(:μ₀, :kₙ, :α, :gₘₐₓ, :kₚ, :lᵖⁿ, :lᵖᵈ))),
-    Z=CompiledEquation(fZ, req(; scalars=(:β, :gₘₐₓ, :kₚ, :lᶻⁿ, :lᶻᵈ))),
+    N=CompiledEquation(fN, Requirements(; scalars=(:lᵖⁿ, :lᶻⁿ, :rᵈⁿ, :μ₀, :kₙ, :α))),
+    D=CompiledEquation(fD, Requirements(; scalars=(:lᵖᵈ, :β, :gₘₐₓ, :kₚ, :lᶻᵈ, :rᵈⁿ))),
+    P=CompiledEquation(fP, Requirements(; scalars=(:μ₀, :kₙ, :α, :gₘₐₓ, :kₚ, :lᵖⁿ, :lᵖᵈ))),
+    Z=CompiledEquation(fZ, Requirements(; scalars=(:β, :gₘₐₓ, :kₚ, :lᶻⁿ, :lᶻᵈ))),
 )
 
 AgateNPZD = define_tracer_functions(parameters, tracers)

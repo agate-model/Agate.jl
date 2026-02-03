@@ -18,12 +18,43 @@ using ..Utils:
     finalize_interaction_parameters,
     parse_community,
     build_tracer_index,
-    validate_plankton_inputs
+    validate_community_inputs
 
 using ..Interface:
     default_plankton_dynamics, default_biogeochem_dynamics, default_community
 
-using ..Functors: CompiledEquation, requirements, req, merge_requirements
+using ..Functors: CompiledEquation, requirements, Requirements, merge_requirements
+
+"""A factory-supplied callable that builds a non-plankton tracer equation.
+
+Biogeochemical dynamics builders are stored in `biogeochem_dynamics` and are called
+once per tracer symbol during construction.
+
+Expected signature
+------------------
+`builder(plankton_symbols) -> CompiledEquation`
+
+where `plankton_symbols` is the full ordered vector of plankton tracer symbols
+(e.g. `[:Z1, :P1, :P2, ...]`).
+"""
+const BiogeochemDynamicsBuilder = Function
+
+"""A factory-supplied callable that builds a plankton tracer equation.
+
+Plankton dynamics builders are stored in `plankton_dynamics` under their group
+symbol (e.g. `P`, `Z`) and are called once per plankton class.
+
+Expected signature
+------------------
+`builder(plankton_symbols, tracer_symbol, global_index) -> CompiledEquation`
+
+Arguments
+---------
+- `plankton_symbols`: full ordered vector of all plankton tracer symbols
+- `tracer_symbol`: the symbol for the current class (e.g. `:P3`)
+- `global_index`: the global plankton class index corresponding to `tracer_symbol`
+"""
+const PlanktonDynamicsBuilder = Function
 
 """Return factory-specific default runtime parameters.
 
@@ -236,7 +267,7 @@ function construct_factory(
         isnothing(arch) && (arch = CPU())
     end
 
-    validate_plankton_inputs(plankton_dynamics, community)
+    validate_community_inputs(plankton_dynamics, community)
     biogeochem_dynamics isa NamedTuple ||
         throw(ArgumentError("biogeochem_dynamics must be a NamedTuple"))
 
@@ -261,7 +292,7 @@ function construct_factory(
 
     # Accumulate compiled tracer definitions in a tuple to avoid `Any` erasure.
     tracer_defs = ()
-    merged = req()
+    merged = Requirements()
 
     for (_, f) in pairs(biogeochem_dynamics)
         tr = f(plankton_syms)

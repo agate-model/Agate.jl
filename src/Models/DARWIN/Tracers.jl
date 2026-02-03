@@ -11,7 +11,7 @@ via `bgc.tracers`. No runtime Symbol indexing is performed in kernel-callable co
 
 module Tracers
 
-using ....Functors: CompiledEquation, req
+using ....Functors: CompiledEquation, Requirements
 
 using ....Library.Mortality: LinearLoss, QuadraticLoss
 using ....Library.Photosynthesis: TwoNutrientGrowthGeider
@@ -70,7 +70,7 @@ end
 function DIC_geider_light(plankton_syms)
     n_plankton = length(plankton_syms)
 
-    requirements = req(;
+    requirements = Requirements(;
         scalars=(:DOC_remineralization, :POC_remineralization),
         vectors=(
             :maximum_growth_rate,
@@ -108,7 +108,7 @@ end
 function DIN_geider_light(plankton_syms)
     n_plankton = length(plankton_syms)
 
-    requirements = req(;
+    requirements = Requirements(;
         scalars=(:DON_remineralization, :PON_remineralization, :nitrogen_to_carbon),
         vectors=(
             :maximum_growth_rate,
@@ -146,7 +146,7 @@ end
 function PO4_geider_light(plankton_syms)
     n_plankton = length(plankton_syms)
 
-    requirements = req(;
+    requirements = Requirements(;
         scalars=(:DOP_remineralization, :POP_remineralization, :phosphorus_to_carbon),
         vectors=(
             :maximum_growth_rate,
@@ -186,7 +186,7 @@ end
 function DOC_default(plankton_syms)
     n_plankton = length(plankton_syms)
 
-    requirements = req(;
+    requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :DOC_remineralization),
         vectors=(
             :linear_mortality,
@@ -219,7 +219,7 @@ end
 function POC_default(plankton_syms)
     n_plankton = length(plankton_syms)
 
-    requirements = req(;
+    requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :POC_remineralization),
         vectors=(
             :linear_mortality,
@@ -251,7 +251,7 @@ end
 function DON_default(plankton_syms)
     n_plankton = length(plankton_syms)
 
-    requirements = req(;
+    requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :DON_remineralization, :nitrogen_to_carbon),
         vectors=(
             :linear_mortality,
@@ -284,7 +284,7 @@ end
 function PON_default(plankton_syms)
     n_plankton = length(plankton_syms)
 
-    requirements = req(;
+    requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :PON_remineralization, :nitrogen_to_carbon),
         vectors=(
             :linear_mortality,
@@ -316,7 +316,7 @@ end
 function DOP_default(plankton_syms)
     n_plankton = length(plankton_syms)
 
-    requirements = req(;
+    requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :DOP_remineralization, :phosphorus_to_carbon),
         vectors=(
             :linear_mortality,
@@ -349,7 +349,7 @@ end
 function POP_default(plankton_syms)
     n_plankton = length(plankton_syms)
 
-    requirements = req(;
+    requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :POP_remineralization, :phosphorus_to_carbon),
         vectors=(
             :linear_mortality,
@@ -385,7 +385,7 @@ function phytoplankton_growth_two_nutrients_geider_light(
     plankton_sym::Symbol,
     plankton_idx::Int,
 )
-    requirements = req(;
+    requirements = Requirements(;
         vectors=(
             :maximum_growth_rate,
             :half_saturation_DIN,
@@ -431,7 +431,7 @@ end
 
 """Zooplankton tendency with preferential grazing gain."""
 function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
-    requirements = req(;
+    requirements = Requirements(;
         vectors=(
             :linear_mortality,
             :quadratic_mortality,

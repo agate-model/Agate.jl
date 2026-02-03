@@ -95,7 +95,7 @@ function construct(;
     # Interaction overrides (optional).
     #
     # We forward overrides through the model-agnostic constructor as a `NamedTuple`.
-    # If a value is a function, it will be evaluated once against the InteractionContext
+    # If a value is a function, it will be evaluated once against the CommunityContext
     # during construction.
     pairs = Pair{Symbol,Any}[]
     palatability_matrix !== nothing &&

@@ -64,9 +64,9 @@ For either matrix key, you may pass:
 
 Role-aware rectangular matrices are the preferred override form because they are explicit and small.
 
-### The construction context: `InteractionContext`
+### The construction context: `CommunityContext`
 
-Provider functions receive an `Agate.Utils.InteractionContext` with precomputed axes:
+Provider functions receive an `Agate.Utils.CommunityContext` with precomputed axes:
 
   - `ctx.consumer_indices` / `ctx.prey_indices` (global indices)
   - `ctx.group_symbols`, `ctx.diameters`, `ctx.n_total`

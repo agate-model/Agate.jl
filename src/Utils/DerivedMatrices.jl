@@ -14,10 +14,10 @@ needing to hand-build full matrices.
 """
 
 """A derived-matrix provider and the parameter keys it depends on."""
-struct MatrixFn{F,Deps}
+struct MatrixProvider{F,Deps}
     f::F
     deps::Deps
-    function MatrixFn(f; deps=())
+    function MatrixProvider(f; deps=())
         deps_norm = deps === nothing ? () :
                     deps isa Symbol ? (deps,) :
                     deps isa AbstractVector ? Tuple(deps) :
@@ -25,7 +25,7 @@ struct MatrixFn{F,Deps}
         return new{typeof(f), typeof(deps_norm)}(f, deps_norm)
     end
 end
-"""Return a `NamedTuple` mapping matrix keys to `MatrixFn`s.
+"""Return a `NamedTuple` mapping matrix keys to `MatrixProvider`s.
 
 Factories override this to declare which matrices can be derived from other
 parameters.
@@ -43,7 +43,7 @@ overridden.
 """
 function resolve_derived_matrices(
     factory::AbstractBGCFactory,
-    ctx::InteractionContext,
+    ctx::CommunityContext,
     params::NamedTuple,
     explicit_override_keys::Tuple{Vararg{Symbol}},
 )
