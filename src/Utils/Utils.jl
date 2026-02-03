@@ -210,7 +210,7 @@ For matrix parameters, users may pass either:
   a rectangular matrix sized to those axes (for example `(n_consumer, n_prey)`).
 
 For consumer-by-prey matrices with axes `(:consumer, :prey)`, users may also pass
-an `InteractionBlocks` object created by `interaction_blocks(factory; roles=...)`.
+an `InteractionBlocks` object created by `interaction_blocks(roles; init=...)`.
 
 When a rectangular matrix is provided for a role-aware parameter (one that
 declares `axes` in `parameter_directory(factory)`), it is kept rectangular.
@@ -346,7 +346,7 @@ end
         value isa AbstractMatrix || return value
 
         if size(value) == (nr, nc)
-            return value
+            return _convert_matrix_eltype(ctx, value)
         end
 
         # Axis-local group-block matrix (groups present on each axis, in order of appearance).
@@ -363,7 +363,7 @@ end
 
         # Full-square override: slice to axes.
         if size(value) == (n_total, n_total)
-            return value[row_indices, col_indices]
+            return _convert_matrix_eltype(ctx, value[row_indices, col_indices])
         end
 
         # Ambiguous: a plain (n_groups, n_groups) matrix could be intended as a group-block matrix.
@@ -392,7 +392,7 @@ end
 
     value isa AbstractMatrix || return value
 
-    size(value) == (n_total, n_total) && return value
+    size(value) == (n_total, n_total) && return _convert_matrix_eltype(ctx, value)
 
     # Group-block override over *all* groups.
     size(value) == (ng, ng) && return expand_group_block_matrix(ctx, value)
@@ -419,23 +419,30 @@ function expand_group_block_matrix(ctx::InteractionContext, B::AbstractMatrix)
     group_to_index = Dict{Symbol,Int}(g => i for (i, g) in pairs(groups))
     group_idx = map(g -> group_to_index[g], ctx.group_symbols)
 
-    return B[group_idx, group_idx]
+    return _convert_matrix_eltype(ctx, B[group_idx, group_idx])
+end
+
+@inline function _convert_matrix_eltype(ctx::InteractionContext, A::AbstractMatrix)
+    eltype(A) === ctx.FT && return A
+    R = similar(A, ctx.FT, size(A)...)
+    copyto!(R, A)
+    return R
 end
 
 @inline function _expand_group_block_axis_matrix(
     ctx::InteractionContext,
     B::AbstractMatrix,
-    row_indices::AbstractVector{Int},
-    col_indices::AbstractVector{Int},
-    row_groups::AbstractVector{Symbol},
-    col_groups::AbstractVector{Symbol},
+    row_indices::AbstractVector{<:Integer},
+    col_indices::AbstractVector{<:Integer},
+    row_groups,
+    col_groups,
 )
     row_map = Dict{Symbol,Int}(g => i for (i, g) in pairs(row_groups))
     col_map = Dict{Symbol,Int}(g => i for (i, g) in pairs(col_groups))
 
     nr = length(row_indices)
     nc = length(col_indices)
-    R = similar(B, nr, nc)
+    R = similar(B, ctx.FT, nr, nc)
 
     for (ii, gi) in enumerate(row_indices)
         rg = ctx.group_symbols[gi]
@@ -690,10 +697,20 @@ function parse_community(
                 throw(ArgumentError("$role_name indices must be in 1:$n_total"))
             return idx
         elseif role isa Tuple || role isa AbstractVector{Symbol}
-            idx = Int[]
-            for g in role
+            # Treat symbol collections as *membership* (not ordering): preserve the
+            # canonical group ordering from `required_groups(factory)` to avoid
+            # surprising axis re-ordering when users pass e.g. `(:P, :Z)`.
+            requested = Set{Symbol}(role)
+
+            # Validate upfront to give a clean error message.
+            for g in requested
                 haskey(group_indices, g) ||
                     throw(ArgumentError("Unknown group symbol $g in $role_name roles"))
+            end
+
+            idx = Int[]
+            for g in group_symbols
+                g ∈ requested || continue
                 append!(idx, group_indices[g])
             end
             return idx

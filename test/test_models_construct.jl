@@ -240,10 +240,9 @@ using Oceananigans.Biogeochemistry:
     @testset "InteractionBlocks helpers" begin
         using Agate.Utils: roles_from_groups, interaction_blocks, set_block!, scale_block!, forbid_link!
 
-        factory = Agate.Models.NiPiZD.NiPiZDFactory()
         roles = roles_from_groups(consumers=:Z, prey=(:P, :Z))
 
-        pal = interaction_blocks(factory; roles, init=0, Float32)
+        pal = interaction_blocks(roles; init=0)
         set_block!(pal; consumer_group=:Z, prey_group=:P, value=1f0)
         set_block!(pal; consumer_group=:Z, prey_group=:Z, value=0.25f0)
         forbid_link!(pal; consumer_group=:Z, prey_group=:Z)

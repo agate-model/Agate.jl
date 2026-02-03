@@ -12,14 +12,13 @@ Agate provides two small helpers:
 ```julia
 using Agate
 using Agate.Library.Light
-using Agate.Models.NiPiZD: NiPiZDFactory
 using Agate.Utils: roles_from_groups, interaction_blocks, set_block!, forbid_link!
 
 # Allow Z to be both a consumer and (optionally) prey.
 roles = roles_from_groups(consumers = :Z, prey = (:P, :Z))
 
 # Create an editable group-by-group block matrix in the same group order as `roles`.
-pal = interaction_blocks(NiPiZDFactory(); roles)
+pal = interaction_blocks(roles; init = 0)
 
 # Z eats P strongly.
 set_block!(pal; consumer_group = :Z, prey_group = :P, value = 1.0)

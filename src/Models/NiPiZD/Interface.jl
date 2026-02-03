@@ -25,8 +25,9 @@ the construction context:
 
 Matrix overrides may be specified as full `(n_total, n_total)` matrices, or (because
 these matrices are role-aware) as rectangular `(n_consumer, n_prey)` matrices.
-Internally interactions are stored in rectangular form and exposed through a square
-view for convenience; entries outside the consumer-by-prey block behave as zeros.
+
+Internally, role-aware interactions are stored **only** in rectangular form.
+No square matrices or square views are created.
 
 To pass a group-block matrix over *all* groups, wrap it as `GroupBlockMatrix(B)` to
 force group-block expansion during construction.

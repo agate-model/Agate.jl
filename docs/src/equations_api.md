@@ -58,7 +58,7 @@ For either matrix key, you may pass:
   - a full square matrix of size `(n_total, n_total)`
   - a rectangular axis-sized matrix of size `(n_consumer, n_prey)`
   - an axis-local group-block matrix of size `(n_consumer_groups, n_prey_groups)`
-  - an editable `InteractionBlocks` object created by `interaction_blocks(factory; roles=...)`
+  - an editable `InteractionBlocks` object created by `interaction_blocks(roles; init=...)`
   - a group-block matrix over *all* groups, wrapped as `Agate.Utils.GroupBlockMatrix(B)`
   - a provider function `(ctx) -> matrix` returning any of the above
 

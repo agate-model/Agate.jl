@@ -56,39 +56,43 @@ This returns the `NamedTuple` accepted by `construct(...; roles=roles)`.
     return (consumers=_as_group_tuple(consumers), prey=_as_group_tuple(prey))
 end
 
-"""Create a consumer-by-prey group-block interaction object.
+"""Create a consumer-by-prey group-block interaction object from `roles`.
 
-The group order is taken from (in order of precedence):
+```julia
+roles = roles_from_groups(consumers = :Z, prey = (:P, :Z))
+pal = interaction_blocks(roles; init = 0)
+```
 
-1. `roles` (when provided), otherwise
-2. `default_roles(factory)`.
+This is a host-side convenience object: it stores a small group-by-group matrix and
+is expanded (and converted to the model float type) during model construction.
 
-If either role axis is `nothing`, the axis uses `required_groups(factory)`.
-
-The returned `InteractionBlocks` can be edited with `set_block!` and passed
-directly as an interaction override.
+Because no factory is provided, `roles.consumers` and `roles.prey` must be explicit
+(group symbols or tuples of group symbols).
 """
 function interaction_blocks(
-    factory::AbstractBGCFactory;
-    roles=nothing,
-    init=0,
-    ::Type{T}=Float64,
-) where {T}
-    roles_resolved = isnothing(roles) ? default_roles(factory) : roles
-
+    roles::NamedTuple;
+    init = 0,
+)
     # Roles are expected to be group symbols (or `nothing`).
-    consumers = _as_group_tuple(getproperty(roles_resolved, :consumers))
-    prey = _as_group_tuple(getproperty(roles_resolved, :prey))
+    consumers = _as_group_tuple(getproperty(roles, :consumers))
+    prey = _as_group_tuple(getproperty(roles, :prey))
 
-    consumers === nothing && (consumers = required_groups(factory))
-    prey === nothing && (prey = required_groups(factory))
+    consumers === nothing && throw(
+        ArgumentError("interaction_blocks(roles) requires roles.consumers to be set when no factory is provided."),
+    )
+    prey === nothing && throw(
+        ArgumentError("interaction_blocks(roles) requires roles.prey to be set when no factory is provided."),
+    )
 
     nc = length(consumers)
     np = length(prey)
 
-    B = init == 0 ? zeros(T, nc, np) : fill(T(init), nc, np)
+    # Host-side convenience only: store a small group-by-group matrix. This object is
+    # expanded and converted to the model float type during construction.
+    B = init == 0 ? zeros(Float64, nc, np) : fill(Float64(init), nc, np)
     return InteractionBlocks(consumers, prey, B)
 end
+
 
 @inline function _group_slot(groups, g::Symbol)
     for (i, s) in pairs(groups)
