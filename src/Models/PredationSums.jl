@@ -13,7 +13,7 @@ No runtime `Symbol` lookup is performed in kernel-callable code.
 """
 module PredationSums
 
-using ...Utils: sum_over, KernelBundle
+using ...Utils: sum_over, TendencyContext
 using ...Library.Predation:
     PreferentialPredationLoss,
     PreferentialPredationGain,
@@ -24,19 +24,19 @@ using ...Library.Predation:
 The accumulator is always the model float type `FT`, which is inferred from
 the interaction parameters. This keeps kernel call sites simple:
 
-    loss = _grazing_assimilation_loss_sum(kb)
+    loss = _grazing_assimilation_loss_sum(tendency)
 
 No generic reduction seed is required because Agate always runs with a single
 adapted floating-point type.
 """
-@inline function _grazing_assimilation_loss_sum(kb::KernelBundle)
-    p = kb.p
-    tracers = kb.tracers
-    args = kb.args
+@inline function _grazing_assimilation_loss_sum(tendency::TendencyContext)
+    parameters = tendency.parameters
+    tracers = tendency.tracers
+    args = tendency.args
 
-    FT = eltype(p.maximum_predation_rate)
+    FT = eltype(parameters.maximum_predation_rate)
     z = zero(FT)
-    ints = p.interactions
+    ints = parameters.interactions
     pal = ints.palatability
     assim = ints.assimilation
     consumer_global = ints.consumer_global
@@ -45,8 +45,8 @@ adapted floating-point type.
     sum_over(eachindex(consumer_global), z) do ic
         predator_idx = consumer_global[ic]
         predator = tracers.plankton(args, predator_idx)
-        gmax = p.maximum_predation_rate[predator_idx]
-        K = p.holling_half_saturation[predator_idx]
+        gmax = parameters.maximum_predation_rate[predator_idx]
+        K = parameters.holling_half_saturation[predator_idx]
 
         sum_over(eachindex(prey_global), z) do ip
             prey_idx = prey_global[ip]
@@ -60,17 +60,17 @@ end
 
 """Sum of grazing loss terms for a single prey (given global index)."""
 @inline function _grazing_loss_sum(
-    kb::KernelBundle,
+    tendency::TendencyContext,
     prey,
     prey_idx::Int,
 )
-    p = kb.p
-    tracers = kb.tracers
-    args = kb.args
+    parameters = tendency.parameters
+    tracers = tendency.tracers
+    args = tendency.args
 
-    FT = eltype(p.maximum_predation_rate)
+    FT = eltype(parameters.maximum_predation_rate)
     z = zero(FT)
-    ints = p.interactions
+    ints = parameters.interactions
     ip = @inbounds ints.global_to_prey[prey_idx]
     ip == 0 && return z
 
@@ -80,8 +80,8 @@ end
     sum_over(eachindex(consumer_global), z) do ic
         predator_idx = consumer_global[ic]
         predator = tracers.plankton(args, predator_idx)
-        gmax = p.maximum_predation_rate[predator_idx]
-        K = p.holling_half_saturation[predator_idx]
+        gmax = parameters.maximum_predation_rate[predator_idx]
+        K = parameters.holling_half_saturation[predator_idx]
         phi = pal[ic, ip]
         PreferentialPredationLoss(gmax, K, phi)(prey, predator)
     end
@@ -89,17 +89,17 @@ end
 
 """Sum of grazing gain terms for a single predator (given global index)."""
 @inline function _grazing_gain_sum(
-    kb::KernelBundle,
+    tendency::TendencyContext,
     predator,
     predator_idx::Int,
 )
-    p = kb.p
-    tracers = kb.tracers
-    args = kb.args
+    parameters = tendency.parameters
+    tracers = tendency.tracers
+    args = tendency.args
 
-    FT = eltype(p.maximum_predation_rate)
+    FT = eltype(parameters.maximum_predation_rate)
     z = zero(FT)
-    ints = p.interactions
+    ints = parameters.interactions
     ic = @inbounds ints.global_to_consumer[predator_idx]
     ic == 0 && return z
 
@@ -107,8 +107,8 @@ end
     assim = ints.assimilation
     prey_global = ints.prey_global
 
-    gmax = p.maximum_predation_rate[predator_idx]
-    K = p.holling_half_saturation[predator_idx]
+    gmax = parameters.maximum_predation_rate[predator_idx]
+    K = parameters.holling_half_saturation[predator_idx]
 
     sum_over(eachindex(prey_global), z) do ip
         prey_idx = prey_global[ip]

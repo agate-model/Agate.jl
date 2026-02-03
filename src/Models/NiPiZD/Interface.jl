@@ -11,7 +11,7 @@ The public interface keeps the surface small and explicit:
 - structure: choose `n_phyto`, `n_zoo`, and diameter specifications
 - parameters: override named parameters via `parameters=(; ...)`
 - roles: optionally define consumer/prey membership by group symbols via `roles=(consumers=(...), prey=(...))`
-- interactions: optionally override interaction matrices
+- interaction_overrides: optionally override interaction matrices
 
 For ease of use, interaction overrides are exposed as two separate keywords:
 
@@ -110,7 +110,7 @@ function construct(;
     assimilation_matrix !== nothing &&
         push!(pairs, :assimilation_matrix => assimilation_matrix)
 
-    interactions = isempty(pairs) ? nothing : (; pairs...)
+    interaction_overrides = isempty(pairs) ? nothing : (; pairs...)
 
     return Constructor.construct_factory(
         spec;
@@ -119,7 +119,7 @@ function construct(;
         community=community,
         parameters=parameters,
         roles=roles,
-        interactions=interactions,
+        interaction_overrides=interaction_overrides,
         arch=arch,
         sinking_tracers=sinking_tracers,
         grid=grid,

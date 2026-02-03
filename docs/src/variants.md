@@ -39,13 +39,13 @@ id = ModelId(:DARWIN, :citation2026, :A)
 # The builder may accept kwargs such as n_phyto/n_zoo to set the community.
 spec = variant(id; n_phyto=2, n_zoo=2)
 
-bgc = construct(spec; parameters=(;), interactions=nothing, grid=BoxModelGrid())
+bgc = construct(spec; parameters=(;), interaction_overrides=nothing, grid=BoxModelGrid())
 ```
 
 ### Runtime overrides
 
   - `parameters=...` is merged on top of the spec's default `spec.parameters`.
-  - `interactions=...` is merged on top of the spec's default `spec.interactions`.
+  - `interaction_overrides=...` is merged on top of the spec's default `spec.interaction_overrides`.
 
 This makes variants a good place to define *defaults*, while keeping per-run changes explicit.
 
@@ -83,4 +83,4 @@ end
 register_variant(ModelId(:DARWIN, :citation2026, :B), citation2026_B_spec)
 ```
 
-Keep variant defaults minimal: store only the parameters/interactions that differ from the family defaults.
+Keep variant defaults minimal: store only the parameters/interaction_overrides that differ from the family defaults.

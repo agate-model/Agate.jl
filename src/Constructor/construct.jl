@@ -13,7 +13,7 @@ using ..Utils:
     AbstractBGCFactory,
     parameter_spec,
     axis_indices,
-    normalize_interactions,
+    normalize_interaction_overrides,
     resolve_derived_matrices,
     finalize_interaction_parameters,
     parse_community,
@@ -195,7 +195,7 @@ Key keyword arguments
 - `community`: plankton community structure (size classes, diameters, PFT specs).
 - `parameters`: `NamedTuple` of fully-resolved parameter overrides.
 - `roles=nothing`: optional role membership for consumer/prey axes. Provide as a `NamedTuple` with fields `consumers` and `prey`, each either `nothing` (all classes), a collection of group `Symbol`s, an index vector, or a boolean mask. When omitted, `default_roles(factory)` is used.
-- `interactions`: optional `NamedTuple` of interaction parameter overrides (often matrices such as `:palatability_matrix` and `:assimilation_matrix`).
+- `interaction_overrides`: optional `NamedTuple` of interaction-parameter overrides (often matrices such as `:palatability_matrix` and `:assimilation_matrix`).
   Values may be concrete objects or provider functions callable as `f(ctx)`.
   For matrix parameters, overrides may be full `(n_total, n_total)` matrices. A group-block `(n_groups, n_groups)` matrix may be supplied and expanded during construction; when the parameter declares role-aware axes, wrap the block matrix as `GroupBlockMatrix(B)` to avoid ambiguity. When axes are declared, rectangular consumer-by-prey matrices sized to those axes (for example `(n_consumer, n_prey)`) are also accepted, as are axis-local group-block matrices.
 """
@@ -205,7 +205,7 @@ function construct_factory(
     biogeochem_dynamics=default_biogeochem_dynamics(factory),
     community=default_community(factory),
     parameters::NamedTuple=(;),
-    interactions::Union{Nothing,NamedTuple}=nothing,
+    interaction_overrides::Union{Nothing,NamedTuple}=nothing,
     roles=nothing,
     arch=nothing,
     sinking_tracers=nothing,
@@ -241,7 +241,7 @@ function construct_factory(
         throw(ArgumentError("biogeochem_dynamics must be a NamedTuple"))
 
     # Parse community.
-    ctx = parse_community(
+    interaction_context = parse_community(
         factory,
         FT,
         community;
@@ -254,7 +254,7 @@ function construct_factory(
     # Build tracer expressions and collect parameter requirements.
     # ---------------------------------------------------------------------
 
-    plankton_syms = ctx.plankton_symbols
+    plankton_syms = interaction_context.plankton_symbols
 
     # Keep tracer names as a tuple so downstream NamedTuple construction preserves concrete types.
     tracer_names = (keys(biogeochem_dynamics)..., Tuple(plankton_syms)...)
@@ -273,7 +273,7 @@ function construct_factory(
     end
 
     for idx in eachindex(plankton_syms)
-        g = ctx.group_symbols[idx]
+        g = interaction_context.group_symbols[idx]
         f = getfield(plankton_dynamics, g)
         trsym = plankton_syms[idx]
 
@@ -296,20 +296,20 @@ function construct_factory(
 
     required = _required_keys(merged)
 
-    overrides = normalize_interactions(factory, ctx, interactions)
+    overrides = normalize_interaction_overrides(factory, interaction_context, interaction_overrides)
 
     _validate_override_keys("parameters", parameters, required, factory)
-    _validate_override_keys("interactions", overrides, required, factory)
+    _validate_override_keys("interaction_overrides", overrides, required, factory)
 
-    defaults = default_parameters(factory, ctx, FT)
+    defaults = default_parameters(factory, interaction_context, FT)
 
-    # Merge precedence: defaults < parameters < interactions
+    # Merge precedence: defaults < parameters < interaction_overrides
     params_full = merge(defaults, parameters, overrides)
 
     # Recompute any derived matrices affected by explicit trait overrides.
     explicit_override_keys = (keys(parameters)..., keys(overrides)...)
     params_full = resolve_derived_matrices(
-        factory, ctx, params_full, explicit_override_keys
+        factory, interaction_context, params_full, explicit_override_keys
     )
 
     # Ensure the required keys are present.
@@ -321,7 +321,7 @@ function construct_factory(
         throw(ArgumentError("missing required parameters: $(join(string.(missing), ", "))"))
 
     # Finalize any role-aware interaction matrices.
-    params_full = finalize_interaction_parameters(factory, ctx, params_full)
+    params_full = finalize_interaction_parameters(factory, interaction_context, params_full)
 
     # Slice down to the required keys (plus selected internal helpers) for better type stability.
     internal = hasproperty(params_full, :interactions) ? (:interactions,) : ()
@@ -330,7 +330,7 @@ function construct_factory(
 
     _reject_missing_values(params_req)
 
-    _validate_parameter_shapes(factory, ctx, params_req, merged)
+    _validate_parameter_shapes(factory, interaction_context, params_req, merged)
 
     # ---------------------------------------------------------------------
     # Compile + instantiate.
@@ -341,7 +341,7 @@ function construct_factory(
     # a GPU-safe integer `TracerIndex`.
     auxiliary_fields = (:PAR,)
     tracer_index = build_tracer_index(
-        ctx,
+        interaction_context,
         tracer_names,
         auxiliary_fields;
         n_biogeochem_tracers=length(keys(biogeochem_dynamics)),

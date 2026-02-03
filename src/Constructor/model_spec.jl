@@ -37,7 +37,7 @@ Keywords
 - `biogeochem_dynamics`: `NamedTuple` mapping non-plankton tracer symbols to builder functions.
 - `community`: `NamedTuple` describing plankton size structure.
 - `parameters`: `NamedTuple` of parameter overrides.
-- `interactions`: optional interaction-related overrides (typically matrices). Values may be matrices or provider functions.
+- `interaction_overrides`: optional interaction-related overrides (typically matrices). Values may be matrices or provider functions.
 - `roles`: optional `NamedTuple` mapping group symbols to role symbols.
 - `arch`: architecture specification.
 - `sinking_tracers`: collection of tracer symbols that sink and their sinking velocities.
@@ -52,7 +52,7 @@ function construct_factory(
     biogeochem_dynamics=default_biogeochem_dynamics(spec.factory),
     community=default_community(spec.factory),
     parameters::NamedTuple=(;),
-    interactions::Union{Nothing,NamedTuple}=nothing,
+    interaction_overrides::Union{Nothing,NamedTuple}=nothing,
     roles::Union{Nothing,NamedTuple}=nothing,
     arch=nothing,
     sinking_tracers=nothing,
@@ -65,7 +65,7 @@ function construct_factory(
         biogeochem_dynamics=biogeochem_dynamics,
         community=community,
         parameters=parameters,
-        interactions=interactions,
+        interaction_overrides=interaction_overrides,
         roles=roles,
         arch=arch,
         sinking_tracers=sinking_tracers,

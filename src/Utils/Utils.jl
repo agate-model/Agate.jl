@@ -31,12 +31,12 @@ export parameter_spec
 # Interactions API
 export InteractionContext
 export axis_indices
-export normalize_interactions
+export normalize_interaction_overrides
 export GroupBlockMatrix
 export InteractionMatrices
 export sum_over
 
-export KernelBundle
+export TendencyContext
 export MatrixFn
 export derived_matrix_specs
 export resolve_derived_matrices
@@ -54,7 +54,7 @@ export build_tracer_index
 
 """Wrapper to explicitly mark a matrix as a *group-block* interaction override.
 
-For interaction parameters declared as matrices, `normalize_interactions` accepts several
+For interaction parameters declared as matrices, `normalize_interaction_overrides` accepts several
 shapes (full `(n_total, n_total)`, axis-sized matrices when axes are declared, etc.).
 
 When an interaction parameter declares role-aware axes (for example `axes = (:consumer, :prey)`),
@@ -132,7 +132,7 @@ end
 
 include("ParameterDirectory.jl")
 
-include("KernelBundle.jl")
+include("TendencyContext.jl")
 
 include("ClassRefs.jl")
 include("TracerAccessors.jl")
@@ -160,7 +160,7 @@ end
 # Construction context
 ##############################################################################
 
-"""Context passed to constructor callbacks (e.g. `interactions(ctx)`)."""
+"""Context passed to constructor-time provider functions (e.g. `palatability_matrix = (ctx) -> ...`)."""
 struct InteractionContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
     FT::Type{FT}
     n_total::Int
@@ -178,9 +178,9 @@ end
 include("InteractionMatrices.jl")
 include("DerivedMatrices.jl")
 
-"""Normalize `interactions` into a `NamedTuple` of parameter overrides.
+"""Normalize `interaction_overrides` into a `NamedTuple` of parameter overrides.
 
-`interactions` may be:
+`interaction_overrides` may be:
 
 - `nothing` (no overrides)
 - a `NamedTuple` of updates
@@ -211,15 +211,15 @@ Shape validation is driven by `parameter_directory(factory)`.
 Final key validation and full parameter shape checks occur during model
 construction.
 """
-function normalize_interactions(
+function normalize_interaction_overrides(
     factory::AbstractBGCFactory,
     ctx::InteractionContext{FT},
-    interactions::Union{Nothing,NamedTuple},
+    interaction_overrides::Union{Nothing,NamedTuple},
 ) where {FT}
-    interactions === nothing && return (;)
+    interaction_overrides === nothing && return (;)
 
-    resolved = Pair{Symbol,Any}[]
-    for (key, value) in pairs(interactions)
+    resolved = ()
+    for (key, value) in pairs(interaction_overrides)
         spec = parameter_spec(factory, key)
         spec !== nothing || throw(
             ArgumentError(
@@ -231,8 +231,9 @@ function normalize_interactions(
             value isa Function ? _call_interaction_provider(value, ctx, key) : value
         resolved_value = _normalize_interaction_value(ctx, spec, key, resolved_value)
         _validate_interaction_override(ctx, spec, key, resolved_value)
-        push!(resolved, key => resolved_value)
+        resolved = (resolved..., key => resolved_value)
     end
+
 
     return (; resolved...)
 end

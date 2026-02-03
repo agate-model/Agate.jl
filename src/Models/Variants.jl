@@ -53,7 +53,7 @@ struct VariantSpec{
     biogeochem_dynamics::BD
     community::C
     parameters::P
-    interactions::I # `Nothing` or a `NamedTuple`
+    interaction_overrides::I # `Nothing` or a `NamedTuple`
 end
 
 """Internal registry of known variants.
@@ -111,19 +111,19 @@ This is a thin convenience wrapper around `Agate.Constructor.construct_factory`.
 function construct(
     spec::VariantSpec;
     parameters::NamedTuple=(;),
-    interactions::Union{Nothing,NamedTuple}=nothing,
+    interaction_overrides::Union{Nothing,NamedTuple}=nothing,
     kwargs...,
 )
     # Merge runtime overrides on top of the variant defaults.
     params = merge(spec.parameters, parameters)
 
-    inter = spec.interactions
+    inter = spec.interaction_overrides
     if isnothing(inter)
-        inter = interactions
-    elseif isnothing(interactions)
-        # Keep the spec's interactions.
+        inter = interaction_overrides
+    elseif isnothing(interaction_overrides)
+        # Keep the spec's interaction overrides.
     else
-        inter = merge(inter, interactions)
+        inter = merge(inter, interaction_overrides)
     end
 
     return construct_factory(
@@ -132,7 +132,7 @@ function construct(
         biogeochem_dynamics=spec.biogeochem_dynamics,
         community=spec.community,
         parameters=params,
-        interactions=inter,
+        interaction_overrides=inter,
         kwargs...,
     )
 end

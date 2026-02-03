@@ -21,7 +21,7 @@ function citation2026_A_spec(;
     phyto_diameters=(2, 10, :log_splitting),
     zoo_diameters=(20, 100, :linear_splitting),
     parameters::NamedTuple=(;),
-    interactions::Union{Nothing,NamedTuple}=nothing,
+    interaction_overrides::Union{Nothing,NamedTuple}=nothing,
 )
     factory = DarwinFactory()
 
@@ -41,7 +41,7 @@ function citation2026_A_spec(;
         default_biogeochem_dynamics(factory),
         community,
         parameters,
-        interactions,
+        interaction_overrides,
     )
 end
 
