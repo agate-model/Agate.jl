@@ -108,6 +108,9 @@ bgc = NiPiZD.construct(; palatability_matrix=pal)
 If you have a small group-by-group matrix, wrap it in `Agate.Utils.GroupBlockMatrix(B)`
 to force group-block expansion across all size classes.
 
+For a convenient *editable* group-block workflow (with `forbid_link!`, `set_block!`, and `scale_block!`),
+see [Editing interaction blocks by group](@ref "Editing interaction blocks by group").
+
 ## Trait-driven derived matrices
 
 NiPiZD and DARWIN expose a small set of *interaction traits* as vector parameters

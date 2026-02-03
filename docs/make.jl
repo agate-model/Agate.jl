@@ -67,6 +67,8 @@ makedocs(;
             "Start here" => "developer.md",
             "Variants" => "variants.md",
             "Adding a model" => "adding_models.md",
+            "Group hooks & class refs" => "oceanbiome_group_hooks.md",
+            "Interaction block editing" => "interaction_block_editing.md",
             "Constructor API" => "api_constructor.md",
             "Parameters & interactions" => "equations_api.md",
             "Callable dynamics" => "functors_api.md",
