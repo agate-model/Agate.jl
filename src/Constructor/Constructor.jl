@@ -40,7 +40,7 @@ export construct_factory
 # Re-export key parameter containers as part of the constructor surface.
 export PFTSpecification
 
-include("model_spec.jl")
+include("community.jl")
 include("generator.jl")
 include("construct.jl")
 
