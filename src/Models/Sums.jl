@@ -3,10 +3,10 @@
 This module centralizes small, kernel-friendly reductions that are reused
 across model tracer kernels (e.g. NiPiZD and DARWIN).
 
+The helpers here are **domain-specific** (Agate model internals) and are
+intended to support a hot-path tracer DSL with predictable types.
 """
 module Sums
-
-using ...Utils: sum_over
 
 using ...Library.Mortality: linear_loss, quadratic_loss
 using ...Library.Photosynthesis: smith_single_nutrient_growth, geider_two_nutrient_growth
@@ -14,6 +14,32 @@ using ...Library.Predation:
     preferential_predation_loss,
     preferential_predation_gain,
     preferential_predation_unassimilated_loss
+
+# -----------------------------------------------------------------------------
+# Local reduction helper
+# -----------------------------------------------------------------------------
+
+"""Sum `f(i)` for `i` in `itr` with accumulator type `FT`.
+
+Designed for Julia's `do`-block syntax, e.g.
+
+```julia
+sum_over(n, FT) do i
+    ...
+end
+```
+
+`itr` may be an integer `n` (interpreted as `1:n`), a range, or `eachindex(x)`.
+"""
+@inline function sum_over(f, itr, ::Type{FT}) where {FT}
+    acc = zero(FT)
+    @inbounds for i in itr
+        acc += f(i)
+    end
+    return acc
+end
+
+@inline sum_over(f, n::Int, ::Type{FT}) where {FT} = sum_over(f, Base.OneTo(n), FT)
 
 # -----------------------------------------------------------------------------
 # Predation / grazing matrix reductions
@@ -25,26 +51,25 @@ function grazing_unassimilated_loss_sum(parameters, plankton)
     consumer_global = ints.consumer_global
     prey_global = ints.prey_global
 
+    FT = eltype(parameters.maximum_predation_rate)
+
     n_cons = length(consumer_global)
     n_prey = length(prey_global)
 
     if n_cons == 0 || n_prey == 0
-        return zero(plankton(1))
+        return zero(FT)
     end
 
     pal = ints.palatability
     assim = ints.assimilation
 
-    # Use a parameter scalar as the accumulator seed to avoid extra tracer loads.
-    z = zero(parameters.maximum_predation_rate[consumer_global[1]])
-
-    sum_over(eachindex(consumer_global), z) do ic
+    @inbounds sum_over(eachindex(consumer_global), FT) do ic
         predator_idx = consumer_global[ic]
         predator = plankton(predator_idx)
         gmax = parameters.maximum_predation_rate[predator_idx]
         K = parameters.holling_half_saturation[predator_idx]
 
-        sum_over(eachindex(prey_global), z) do ip
+        @inbounds sum_over(eachindex(prey_global), FT) do ip
             prey_idx = prey_global[ip]
             prey = plankton(prey_idx)
             beta = assim[ic, ip]
@@ -64,13 +89,13 @@ function grazing_loss_sum(
     ints = parameters.interactions
     ip = ints.global_to_prey[prey_idx]
 
-    z = zero(prey)
-    ip == 0 && return z
+    FT = typeof(prey)
+    ip == 0 && return zero(FT)
 
     pal = ints.palatability
     consumer_global = ints.consumer_global
 
-    sum_over(eachindex(consumer_global), z) do ic
+    @inbounds sum_over(eachindex(consumer_global), FT) do ic
         predator_idx = consumer_global[ic]
         predator = plankton(predator_idx)
         gmax = parameters.maximum_predation_rate[predator_idx]
@@ -90,8 +115,8 @@ function grazing_gain_sum(
     ints = parameters.interactions
     ic = ints.global_to_consumer[predator_idx]
 
-    z = zero(predator)
-    ic == 0 && return z
+    FT = typeof(predator)
+    ic == 0 && return zero(FT)
 
     pal = ints.palatability
     assim = ints.assimilation
@@ -100,7 +125,7 @@ function grazing_gain_sum(
     gmax = parameters.maximum_predation_rate[predator_idx]
     K = parameters.holling_half_saturation[predator_idx]
 
-    sum_over(eachindex(prey_global), z) do ip
+    @inbounds sum_over(eachindex(prey_global), FT) do ip
         prey_idx = prey_global[ip]
         prey = plankton(prey_idx)
         beta = assim[ic, ip]
@@ -113,25 +138,28 @@ end
 # Mortality reductions (plankton-class sums)
 # -----------------------------------------------------------------------------
 
-function linear_mortality_sum(plankton, linear_mortality, z)
+function linear_mortality_sum(plankton, linear_mortality)
     n_plankton = length(linear_mortality)
-    sum_over(n_plankton, z) do i
+    FT = eltype(linear_mortality)
+    @inbounds sum_over(n_plankton, FT) do i
         P = plankton(i)
         linear_loss(P, linear_mortality[i])
     end
 end
 
-function quadratic_mortality_sum(plankton, quadratic_mortality, z)
+function quadratic_mortality_sum(plankton, quadratic_mortality)
     n_plankton = length(quadratic_mortality)
-    sum_over(n_plankton, z) do i
+    FT = eltype(quadratic_mortality)
+    @inbounds sum_over(n_plankton, FT) do i
         P = plankton(i)
         quadratic_loss(P, quadratic_mortality[i])
     end
 end
 
-function mortality_loss_sum(plankton, linear_mortality, quadratic_mortality, z)
+function mortality_loss_sum(plankton, linear_mortality, quadratic_mortality)
     n_plankton = length(linear_mortality)
-    sum_over(n_plankton, z) do i
+    FT = eltype(linear_mortality)
+    @inbounds sum_over(n_plankton, FT) do i
         P = plankton(i)
         linear_loss(P, linear_mortality[i]) + quadratic_loss(P, quadratic_mortality[i])
     end
@@ -151,7 +179,9 @@ function smith_uptake_sum(
     alpha,
 )
     n_plankton = length(maximum_growth_rate)
-    sum_over(n_plankton, zero(N)) do i
+    FT = eltype(maximum_growth_rate)
+
+    @inbounds sum_over(n_plankton, FT) do i
         P = plankton(i)
         smith_single_nutrient_growth(
             N,
@@ -177,7 +207,9 @@ function geider_two_nutrient_uptake_sum(
     chlorophyll_to_carbon_ratio,
 )
     n_plankton = length(maximum_growth_rate)
-    sum_over(n_plankton, zero(DIN)) do i
+    FT = eltype(maximum_growth_rate)
+
+    @inbounds sum_over(n_plankton, FT) do i
         P = plankton(i)
         geider_two_nutrient_growth(
             DIN,

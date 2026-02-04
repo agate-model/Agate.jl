@@ -200,8 +200,7 @@ function DOC_default(plankton_syms)
         M = mortality_loss_sum(
             plankton,
             parameters.linear_mortality,
-            parameters.quadratic_mortality,
-            zero(DOC),
+            parameters.quadratic_mortality
         )
         g = grazing_unassimilated_loss_sum(parameters, plankton)
         R = linear_remineralization(DOC, parameters.DOC_remineralization)
@@ -235,8 +234,7 @@ function POC_default(plankton_syms)
         M = mortality_loss_sum(
             plankton,
             parameters.linear_mortality,
-            parameters.quadratic_mortality,
-            zero(POC),
+            parameters.quadratic_mortality
         )
         g = grazing_unassimilated_loss_sum(parameters, plankton)
         R = linear_remineralization(POC, parameters.POC_remineralization)
@@ -269,8 +267,7 @@ function DON_default(plankton_syms)
         M = mortality_loss_sum(
             plankton,
             parameters.linear_mortality,
-            parameters.quadratic_mortality,
-            zero(DON),
+            parameters.quadratic_mortality
         )
         g = grazing_unassimilated_loss_sum(parameters, plankton)
         R = linear_remineralization(DON, parameters.DON_remineralization)
@@ -304,8 +301,7 @@ function PON_default(plankton_syms)
         M = mortality_loss_sum(
             plankton,
             parameters.linear_mortality,
-            parameters.quadratic_mortality,
-            zero(PON),
+            parameters.quadratic_mortality
         )
         g = grazing_unassimilated_loss_sum(parameters, plankton)
         R = linear_remineralization(PON, parameters.PON_remineralization)
@@ -338,8 +334,7 @@ function DOP_default(plankton_syms)
         M = mortality_loss_sum(
             plankton,
             parameters.linear_mortality,
-            parameters.quadratic_mortality,
-            zero(DOP),
+            parameters.quadratic_mortality
         )
         g = grazing_unassimilated_loss_sum(parameters, plankton)
         R = linear_remineralization(DOP, parameters.DOP_remineralization)
@@ -373,8 +368,7 @@ function POP_default(plankton_syms)
         M = mortality_loss_sum(
             plankton,
             parameters.linear_mortality,
-            parameters.quadratic_mortality,
-            zero(POP),
+            parameters.quadratic_mortality
         )
         g = grazing_unassimilated_loss_sum(parameters, plankton)
         R = linear_remineralization(POP, parameters.POP_remineralization)
