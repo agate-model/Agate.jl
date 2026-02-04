@@ -71,13 +71,7 @@ This constructor does not assume any plankton-group structure.
 function build_tracer_index(tracers::Tuple, auxiliary_fields::Tuple)
     TR = tracers
     AF = auxiliary_fields
-    return TracerIndex{TR,(),AF,0}(
-        length(tracers),
-        length(tracers) + 1,
-        0,
-        (),
-        (),
-    )
+    return TracerIndex{TR,(),AF,0}(length(tracers), length(tracers) + 1, 0, (), ())
 end
 
 """Create a `TracerIndex` using a parsed community context.
@@ -86,10 +80,7 @@ end
 plankton tracers in the positional tracer list.
 """
 function build_tracer_index(
-    ctx,
-    tracers::Tuple,
-    auxiliary_fields::Tuple;
-    n_biogeochem_tracers::Int,
+    ctx, tracers::Tuple, auxiliary_fields::Tuple; n_biogeochem_tracers::Int
 )
     # Preserve community order (explicit group ordering from `parse_community`).
     # `parse_community` appends classes group-by-group, so group symbols are contiguous.
@@ -120,11 +111,7 @@ function build_tracer_index(
     TR = tracers
     AF = auxiliary_fields
     return TracerIndex{TR,groups,AF,NG}(
-        length(tracers),
-        length(tracers) + 1,
-        plankton_base,
-        bases,
-        counts,
+        length(tracers), length(tracers) + 1, plankton_base, bases, counts
     )
 end
 
@@ -135,10 +122,10 @@ end
 @generated function _find_in_tuple(::Val{sym}, ::Val{tup}) where {sym,tup}
     for (i, s) in enumerate(tup)
         if s === sym
-            return :( $i )
+            return :($i)
         end
     end
-    return :( 0 )
+    return :(0)
 end
 
 @inline _tracer_position(::TracerIndex{TR}, ::Val{sym}) where {TR,sym} =
@@ -155,9 +142,7 @@ end
 # -----------------------------------------------------------------------------
 
 @inline function _scalar_value(
-    idx::TracerIndex{TR,GS,AF,NG},
-    args,
-    ::Val{sym},
+    idx::TracerIndex{TR,GS,AF,NG}, args, ::Val{sym}
 ) where {TR,GS,AF,NG,sym}
     pos = _tracer_position(idx, Val(sym))
     if pos == 0
@@ -169,10 +154,7 @@ end
 end
 
 @inline function _group_value(
-    idx::TracerIndex{TR,GS,AF,NG},
-    args,
-    ::Val{g},
-    i::Int,
+    idx::TracerIndex{TR,GS,AF,NG}, args, ::Val{g}, i::Int
 ) where {TR,GS,AF,NG,g}
     slot = _group_slot(idx, Val(g))
     slot == 0 && throw(ArgumentError("Unknown group :$g"))
@@ -181,7 +163,8 @@ end
 end
 
 @inline function _plankton_value(idx::TracerIndex, args, i::Int)
-    idx.plankton_base == 0 && throw(ArgumentError("No plankton layout is defined for this TracerIndex."))
+    idx.plankton_base == 0 &&
+        throw(ArgumentError("No plankton layout is defined for this TracerIndex."))
     return @inbounds args[idx.plankton_base + (i - 1)]
 end
 

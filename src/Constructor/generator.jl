@@ -43,7 +43,7 @@ Adapt.@adapt_structure AgateBGC
     # TR is expected to be `Tracers{TracerIndex{TRSYMS,GS,AF,NG}}`.
     TI = TR.parameters[1]
     AF = TI.parameters[3]
-    return :( $AF )
+    return :($AF)
 end
 
 @inline required_biogeochemical_auxiliary_fields(bgc::AgateBGC) =

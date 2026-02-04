@@ -15,9 +15,7 @@ using ...Utils: DiameterRangeSpecification
 # NOTE: Defaults are provided by `Constructor.default_parameters` (see `Models/DARWIN/Parameters.jl`).
 
 import ...Interface:
-    default_plankton_dynamics,
-    default_community,
-    default_biogeochem_dynamics
+    default_plankton_dynamics, default_community, default_biogeochem_dynamics
 
 using .Tracers:
     DIC_geider_light,

@@ -65,6 +65,7 @@ Pkg.activate("/path/to/project")
 ## Repository layout
 
   - `src/`: package source code.
+
   - `test/`: test suite.
   - `examples/`: runnable scripts (many depend on Oceananigans/OceanBioME; see `examples/README.md`).
   - `docs/`: documentation build.

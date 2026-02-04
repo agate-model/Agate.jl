@@ -20,10 +20,7 @@ These hooks are optional; if unused they impose no kernel cost.
 
 module Interface
 
-using ..Utils:
-    AbstractBGCFactory,
-    ParameterSpec,
-    parameter_directory
+using ..Utils: AbstractBGCFactory, ParameterSpec, parameter_directory
 
 export ParameterSpec
 export parameter_directory
@@ -42,7 +39,7 @@ functions.
 function default_plankton_dynamics(::AbstractBGCFactory)
     throw(
         ArgumentError(
-            "No method `default_plankton_dynamics(factory)` is defined for this factory.",
+            "No method `default_plankton_dynamics(factory)` is defined for this factory."
         ),
     )
 end
@@ -56,7 +53,9 @@ PFT specifications, etc.). Numeric parameter defaults are sourced from the
 factory's default parameter generator (`Constructor.default_parameters`).
 """
 function default_community(::AbstractBGCFactory)
-    throw(ArgumentError("No method `default_community(factory)` is defined for this factory."))
+    throw(
+        ArgumentError("No method `default_community(factory)` is defined for this factory.")
+    )
 end
 
 """Default non-plankton tracer dynamics for a factory.
@@ -67,7 +66,7 @@ builder functions.
 function default_biogeochem_dynamics(::AbstractBGCFactory)
     throw(
         ArgumentError(
-            "No method `default_biogeochem_dynamics(factory)` is defined for this factory.",
+            "No method `default_biogeochem_dynamics(factory)` is defined for this factory."
         ),
     )
 end

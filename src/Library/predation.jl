@@ -148,55 +148,42 @@ end
     IdealizedPredationLoss(maximum_grazing_rate, half_saturation)(P, Z)
 
 """Assimilated idealized predation gain to predator `Z` from prey `P`."""
-@inline idealized_predation_gain(P, Z, assimilation_efficiency, maximum_grazing_rate, half_saturation) =
-    IdealizedPredationGain(assimilation_efficiency, maximum_grazing_rate, half_saturation)(P, Z)
+@inline idealized_predation_gain(
+    P, Z, assimilation_efficiency, maximum_grazing_rate, half_saturation
+) = IdealizedPredationGain(assimilation_efficiency, maximum_grazing_rate, half_saturation)(
+    P, Z
+)
 
 """Unassimilated fraction of idealized predation loss."""
 @inline idealized_predation_unassimilated_loss(
-    P,
-    Z,
-    assimilation_efficiency,
-    maximum_grazing_rate,
-    half_saturation,
+    P, Z, assimilation_efficiency, maximum_grazing_rate, half_saturation
 ) = IdealizedPredationAssimilationLoss(
-    assimilation_efficiency,
-    maximum_grazing_rate,
-    half_saturation,
-)(P, Z)
+    assimilation_efficiency, maximum_grazing_rate, half_saturation
+)(
+    P, Z
+)
 
 """Preferential predation loss from prey `P` to predator `Z`."""
-@inline preferential_predation_loss(P, Z, maximum_grazing_rate, half_saturation, palatability) =
-    PreferentialPredationLoss(maximum_grazing_rate, half_saturation, palatability)(P, Z)
+@inline preferential_predation_loss(
+    P, Z, maximum_grazing_rate, half_saturation, palatability
+) = PreferentialPredationLoss(maximum_grazing_rate, half_saturation, palatability)(P, Z)
 
 """Assimilated preferential predation gain to predator `Z` from prey `P`."""
 @inline preferential_predation_gain(
-    P,
-    Z,
-    assimilation_efficiency,
-    maximum_grazing_rate,
-    half_saturation,
-    palatability,
+    P, Z, assimilation_efficiency, maximum_grazing_rate, half_saturation, palatability
 ) = PreferentialPredationGain(
-    assimilation_efficiency,
-    maximum_grazing_rate,
-    half_saturation,
-    palatability,
-)(P, Z)
+    assimilation_efficiency, maximum_grazing_rate, half_saturation, palatability
+)(
+    P, Z
+)
 
 """Unassimilated fraction of preferential predation loss."""
 @inline preferential_predation_unassimilated_loss(
-    P,
-    Z,
-    assimilation_efficiency,
-    maximum_grazing_rate,
-    half_saturation,
-    palatability,
+    P, Z, assimilation_efficiency, maximum_grazing_rate, half_saturation, palatability
 ) = PreferentialPredationAssimilationLoss(
-    assimilation_efficiency,
-    maximum_grazing_rate,
-    half_saturation,
-    palatability,
-)(P, Z)
+    assimilation_efficiency, maximum_grazing_rate, half_saturation, palatability
+)(
+    P, Z
+)
 
 end # module
-

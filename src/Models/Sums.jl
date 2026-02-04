@@ -80,12 +80,7 @@ function grazing_unassimilated_loss_sum(parameters, plankton)
 end
 
 """Sum of grazing loss terms for a single prey (given global plankton index)."""
-function grazing_loss_sum(
-    parameters,
-    plankton,
-    prey,
-    prey_idx::Int,
-)
+function grazing_loss_sum(parameters, plankton, prey, prey_idx::Int)
     ints = parameters.interactions
     ip = ints.global_to_prey[prey_idx]
 
@@ -106,12 +101,7 @@ function grazing_loss_sum(
 end
 
 """Sum of grazing gain terms for a single predator (given global plankton index)."""
-function grazing_gain_sum(
-    parameters,
-    plankton,
-    predator,
-    predator_idx::Int,
-)
+function grazing_gain_sum(parameters, plankton, predator, predator_idx::Int)
     ints = parameters.interactions
     ic = ints.global_to_consumer[predator_idx]
 
@@ -171,12 +161,7 @@ end
 
 """Smith-style single-nutrient uptake summed over all plankton classes."""
 function smith_uptake_sum(
-    plankton,
-    N,
-    PAR,
-    maximum_growth_rate,
-    nutrient_half_saturation,
-    alpha,
+    plankton, N, PAR, maximum_growth_rate, nutrient_half_saturation, alpha
 )
     n_plankton = length(maximum_growth_rate)
     FT = eltype(maximum_growth_rate)
@@ -184,12 +169,7 @@ function smith_uptake_sum(
     @inbounds sum_over(n_plankton, FT) do i
         P = plankton(i)
         smith_single_nutrient_growth(
-            N,
-            P,
-            PAR,
-            maximum_growth_rate[i],
-            nutrient_half_saturation[i],
-            alpha[i],
+            N, P, PAR, maximum_growth_rate[i], nutrient_half_saturation[i], alpha[i]
         )
     end
 end

@@ -71,7 +71,7 @@ end
     else
         throw(
             ArgumentError(
-                "interaction matrix '$key' must be a matrix; got $(typeof(value))",
+                "interaction matrix '$key' must be a matrix; got $(typeof(value))"
             ),
         )
     end

@@ -97,7 +97,6 @@ dynamics builders. Group ordering is inferred from the *explicit* ordering of th
 `community::NamedTuple` passed to `Constructor.construct_factory`.
 """
 
-
 include("ParameterDirectory.jl")
 
 include("TendencyContext.jl")
@@ -219,13 +218,10 @@ function normalize_interaction_overrides(
         resolved = (resolved..., key => resolved_value)
     end
 
-
     return (; resolved...)
 end
 
-@inline function _call_interaction_provider(
-    f::Function, ctx::CommunityContext, key::Symbol
-)
+@inline function _call_interaction_provider(f::Function, ctx::CommunityContext, key::Symbol)
     applicable(f, ctx) && return f(ctx)
 
     throw(ArgumentError("interaction override '$key' provider must be callable as f(ctx)"))
@@ -239,20 +235,20 @@ Axes may be:
 - `:prey` (role-defined prey axis)
 - any existing group `Symbol` present in `ctx.group_indices`
 """
-@inline axis_indices(ctx::CommunityContext, axis::Symbol) = if axis === :consumer
-    ctx.consumer_indices
-elseif axis === :prey
-    ctx.prey_indices
-elseif haskey(ctx.group_indices, axis)
-    ctx.group_indices[axis]
-else
-    throw(
-        ArgumentError(
-            "Unknown interaction axis '$axis'. Valid axes are :consumer, :prey, or an existing group symbol.",
-        ),
-    )
-end
-
+@inline axis_indices(ctx::CommunityContext, axis::Symbol) =
+    if axis === :consumer
+        ctx.consumer_indices
+    elseif axis === :prey
+        ctx.prey_indices
+    elseif haskey(ctx.group_indices, axis)
+        ctx.group_indices[axis]
+    else
+        throw(
+            ArgumentError(
+                "Unknown interaction axis '$axis'. Valid axes are :consumer, :prey, or an existing group symbol.",
+            ),
+        )
+    end
 
 @inline function _normalize_interaction_value(
     ctx::CommunityContext, spec::ParameterSpec, key::Symbol, value
@@ -654,7 +650,10 @@ function parse_community(
     # - producers := roles.prey
     # - consumers := roles.consumers
     parameter_groups_resolved = if isnothing(parameter_groups)
-        (producers=getproperty(roles_resolved, :prey), consumers=getproperty(roles_resolved, :consumers))
+        (
+            producers=getproperty(roles_resolved, :prey),
+            consumers=getproperty(roles_resolved, :consumers),
+        )
     else
         parameter_groups
     end
@@ -702,7 +701,9 @@ function parse_community(
         end
     end
 
-    consumer_indices = _indices_for_role(getproperty(roles_resolved, :consumers), :consumers)
+    consumer_indices = _indices_for_role(
+        getproperty(roles_resolved, :consumers), :consumers
+    )
     prey_indices = _indices_for_role(getproperty(roles_resolved, :prey), :prey)
 
     producer_param_indices = _indices_for_role(

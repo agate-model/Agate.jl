@@ -47,9 +47,7 @@ zoo_diameters = [60.0]
 
 μmax_phyto_def = AllometricParam(PowerLaw(); prefactor=3.0 / day, exponent=-0.15)
 
-parameter_overrides = (
-    detritus_remineralization=0.18 / day,
-)
+parameter_overrides = (detritus_remineralization=0.18 / day,)
 
 # ## 4. Provide explicit interaction matrices
 

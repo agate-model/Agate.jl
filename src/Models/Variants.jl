@@ -148,8 +148,16 @@ function construct(
         parameters=params,
         interaction_overrides=inter,
         roles=isnothing(roles) ? spec.roles : roles,
-        parameter_groups=isnothing(parameter_groups) ? spec.parameter_groups : parameter_groups,
-        auxiliary_fields=isnothing(auxiliary_fields) ? spec.auxiliary_fields : auxiliary_fields,
+        parameter_groups=if isnothing(parameter_groups)
+            spec.parameter_groups
+        else
+            parameter_groups
+        end,
+        auxiliary_fields=if isnothing(auxiliary_fields)
+            spec.auxiliary_fields
+        else
+            auxiliary_fields
+        end,
         kwargs...,
     )
 end

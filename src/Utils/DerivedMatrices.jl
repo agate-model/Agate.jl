@@ -18,11 +18,16 @@ struct MatrixProvider{F,Deps}
     f::F
     deps::Deps
     function MatrixProvider(f; deps=())
-        deps_norm = deps === nothing ? () :
-                    deps isa Symbol ? (deps,) :
-                    deps isa AbstractVector ? Tuple(deps) :
-                    deps
-        return new{typeof(f), typeof(deps_norm)}(f, deps_norm)
+        deps_norm = if deps === nothing
+            ()
+        elseif deps isa Symbol
+            (deps,)
+        elseif deps isa AbstractVector
+            Tuple(deps)
+        else
+            deps
+        end
+        return new{typeof(f),typeof(deps_norm)}(f, deps_norm)
     end
 end
 """Return a `NamedTuple` mapping matrix keys to `MatrixProvider`s.

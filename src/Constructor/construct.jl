@@ -20,8 +20,7 @@ using ..Utils:
     build_tracer_index,
     validate_community_inputs
 
-using ..Interface:
-    default_plankton_dynamics, default_biogeochem_dynamics, default_community
+using ..Interface: default_plankton_dynamics, default_biogeochem_dynamics, default_community
 
 using ..Functors: CompiledEquation, requirements, Requirements, merge_requirements
 
@@ -143,9 +142,7 @@ function _validate_parameter_shapes(factory::AbstractBGCFactory, ctx, params::Na
 
         if spec.axes === nothing
             (size(m, 1) == n && size(m, 2) == n) || throw(
-                ArgumentError(
-                    "parameter :$k must have size ($n,$n) (got $(size(m))).",
-                ),
+                ArgumentError("parameter :$k must have size ($n,$n) (got $(size(m))).")
             )
         else
             row_axis, col_axis = spec.axes
@@ -236,11 +233,14 @@ function _validate_auxiliary_fields(auxiliary_fields::Tuple, tracer_names::Tuple
 
     seen = Set{Symbol}()
     for s in auxiliary_fields
-        s isa Symbol || throw(ArgumentError("auxiliary_fields entries must be Symbols, got $(typeof(s))"))
+        s isa Symbol || throw(
+            ArgumentError("auxiliary_fields entries must be Symbols, got $(typeof(s))")
+        )
         (s ∉ seen) || throw(ArgumentError("auxiliary_fields contains duplicate entry :$s"))
         push!(seen, s)
-        (s ∉ tracer_names) ||
-            throw(ArgumentError("auxiliary field :$s conflicts with an existing tracer name"))
+        (s ∉ tracer_names) || throw(
+            ArgumentError("auxiliary field :$s conflicts with an existing tracer name")
+        )
     end
 
     return nothing
@@ -344,7 +344,9 @@ function construct_factory(
 
     required = _required_keys(merged)
 
-    overrides = normalize_interaction_overrides(factory, interaction_context, interaction_overrides)
+    overrides = normalize_interaction_overrides(
+        factory, interaction_context, interaction_overrides
+    )
 
     _validate_override_keys("parameters", parameters, required, factory)
     _validate_override_keys("interaction_overrides", overrides, required, factory)

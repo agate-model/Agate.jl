@@ -28,13 +28,13 @@ cannibalism by writing the `:Z` prey columns to zero or to a nonzero value.
 using Agate
 
 # Build a community where Z is both a consumer and a potential prey.
-roles = (consumers = (:Z,), prey = (:P, :Z))
+roles = (consumers=(:Z,), prey=(:P, :Z))
 
 # Disable cannibalism by zeroing the prey columns whose group is :Z.
 pal_no_cannibalism = (ctx) -> begin
     nC = length(ctx.consumer_indices)
     nP = length(ctx.prey_indices)
-    P  = ones(ctx.FT, nC, nP)
+    P = ones(ctx.FT, nC, nP)
 
     prey_groups = ctx.group_symbols[ctx.prey_indices]
     z_cols = findall(==(:Z), prey_groups)
@@ -43,13 +43,12 @@ pal_no_cannibalism = (ctx) -> begin
     return P
 end
 
-bgc = NiPiZD.construct(; roles, palatability_matrix = pal_no_cannibalism)
+bgc = NiPiZD.construct(; roles, palatability_matrix=pal_no_cannibalism)
 
 # Alternatively, if cannibalism should be *impossible* (and you want smaller matrices),
 # omit :Z from the prey axis entirely:
-bgc_small = NiPiZD.construct(; roles = (consumers = (:Z,), prey = (:P,)))
+bgc_small = NiPiZD.construct(; roles=(consumers=(:Z,), prey=(:P,)))
 ```
-
 
 Roles define which plankton classes participate as **consumers** and **prey**. By default,
 NiPiZD uses consumers `(:Z,)` and prey `(:P,)`, but you can override this via the

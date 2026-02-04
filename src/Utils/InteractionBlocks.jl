@@ -69,19 +69,20 @@ is expanded (and converted to the model float type) during model construction.
 Because no factory is provided, `roles.consumers` and `roles.prey` must be explicit
 (group symbols or tuples of group symbols).
 """
-function interaction_blocks(
-    roles::NamedTuple;
-    init = 0,
-)
+function interaction_blocks(roles::NamedTuple; init=0)
     # Roles are expected to be group symbols (or `nothing`).
     consumers = _as_group_tuple(getproperty(roles, :consumers))
     prey = _as_group_tuple(getproperty(roles, :prey))
 
     consumers === nothing && throw(
-        ArgumentError("interaction_blocks(roles) requires roles.consumers to be set when no factory is provided."),
+        ArgumentError(
+            "interaction_blocks(roles) requires roles.consumers to be set when no factory is provided.",
+        ),
     )
     prey === nothing && throw(
-        ArgumentError("interaction_blocks(roles) requires roles.prey to be set when no factory is provided."),
+        ArgumentError(
+            "interaction_blocks(roles) requires roles.prey to be set when no factory is provided.",
+        ),
     )
 
     nc = length(consumers)
@@ -93,7 +94,6 @@ function interaction_blocks(
     return InteractionBlocks(consumers, prey, B)
 end
 
-
 @inline function _group_slot(groups, g::Symbol)
     for (i, s) in pairs(groups)
         s === g && return i
@@ -103,10 +103,7 @@ end
 
 """Set a consumer-by-prey group block to a value."""
 function set_block!(
-    blocks::InteractionBlocks;
-    consumer_group::Symbol,
-    prey_group::Symbol,
-    value,
+    blocks::InteractionBlocks; consumer_group::Symbol, prey_group::Symbol, value
 )
     ic = _group_slot(blocks.consumer_groups, consumer_group)
     ic == 0 && throw(ArgumentError("Unknown consumer_group $consumer_group"))
@@ -118,10 +115,7 @@ end
 
 """Scale a consumer-by-prey group block by a factor."""
 function scale_block!(
-    blocks::InteractionBlocks;
-    consumer_group::Symbol,
-    prey_group::Symbol,
-    factor,
+    blocks::InteractionBlocks; consumer_group::Symbol, prey_group::Symbol, factor
 )
     ic = _group_slot(blocks.consumer_groups, consumer_group)
     ic == 0 && throw(ArgumentError("Unknown consumer_group $consumer_group"))
@@ -133,9 +127,7 @@ end
 
 """Convenience: set a consumer-prey group link to zero."""
 @inline function forbid_link!(
-    blocks::InteractionBlocks;
-    consumer_group::Symbol,
-    prey_group::Symbol,
+    blocks::InteractionBlocks; consumer_group::Symbol, prey_group::Symbol
 )
     return set_block!(
         blocks;

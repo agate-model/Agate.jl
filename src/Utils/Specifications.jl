@@ -50,7 +50,7 @@ end
 # `Adapt.jl` defines recursion for `NamedTuple` in modern releases. Defining it
 # unconditionally overwrites upstream methods and triggers warnings during docs
 # builds / precompilation. We only define a fallback rule when needed.
-if !hasmethod(Adapt.adapt_structure, Tuple{Any, NamedTuple})
+if !hasmethod(Adapt.adapt_structure, Tuple{Any,NamedTuple})
     @inline function Adapt.adapt_structure(to, nt::NamedTuple{names}) where {names}
         return NamedTuple{names}(map(x -> Adapt.adapt(to, x), values(nt)))
     end

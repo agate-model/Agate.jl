@@ -25,19 +25,20 @@ using Oceananigans.Biogeochemistry:
         D = 1.0f0
         PAR = 100.0f0
 
-        tracer_vals(sym) = if sym === :P1
-            P1
-        elseif sym === :P2
-            P2
-        elseif sym === :Z1
-            Z1
-        elseif sym === :Z2
-            Z2
-        elseif sym === :N
-            N
-        else
-            D
-        end
+        tracer_vals(sym) =
+            if sym === :P1
+                P1
+            elseif sym === :P2
+                P2
+            elseif sym === :Z1
+                Z1
+            elseif sym === :Z2
+                Z2
+            elseif sym === :N
+                N
+            else
+                D
+            end
 
         ordered = [tracer_vals(s) for s in required_biogeochemical_tracers(bgc)]
 
@@ -238,24 +239,29 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "InteractionBlocks helpers" begin
-        using Agate.Utils: roles_from_groups, interaction_blocks, set_block!, scale_block!, forbid_link!
+        using Agate.Utils:
+            roles_from_groups, interaction_blocks, set_block!, scale_block!, forbid_link!
 
-        roles = roles_from_groups(consumers=:Z, prey=(:P, :Z))
+        roles = roles_from_groups(; consumers=:Z, prey=(:P, :Z))
 
         pal = interaction_blocks(roles; init=0)
-        set_block!(pal; consumer_group=:Z, prey_group=:P, value=1f0)
+        set_block!(pal; consumer_group=:Z, prey_group=:P, value=1.0f0)
         set_block!(pal; consumer_group=:Z, prey_group=:Z, value=0.25f0)
         forbid_link!(pal; consumer_group=:Z, prey_group=:Z)
 
-        bgc = NiPiZD.construct(; grid=dummy_grid(Float32), roles=roles, palatability_matrix=pal)
+        bgc = NiPiZD.construct(;
+            grid=dummy_grid(Float32), roles=roles, palatability_matrix=pal
+        )
         M = bgc.parameters.palatability_matrix
         @test size(M, 1) == 2
         @test size(M, 2) == 4
-        @test all(M[:, 1:2] .== 0f0) # Z as prey
-        @test all(M[:, 3:4] .== 1f0) # P as prey
+        @test all(M[:, 1:2] .== 0.0f0) # Z as prey
+        @test all(M[:, 3:4] .== 1.0f0) # P as prey
 
         scale_block!(pal; consumer_group=:Z, prey_group=:P, factor=0.5f0)
-        bgc2 = NiPiZD.construct(; grid=dummy_grid(Float32), roles=roles, palatability_matrix=pal)
+        bgc2 = NiPiZD.construct(;
+            grid=dummy_grid(Float32), roles=roles, palatability_matrix=pal
+        )
         M2 = bgc2.parameters.palatability_matrix
         @test all(M2[:, 3:4] .== 0.5f0)
     end

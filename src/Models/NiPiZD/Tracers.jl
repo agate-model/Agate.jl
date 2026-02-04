@@ -52,9 +52,7 @@ function nutrient_default()
         PAR = vals.PAR
 
         mortality = mortality_loss_sum(
-            plankton,
-            parameters.linear_mortality,
-            parameters.quadratic_mortality
+            plankton, parameters.linear_mortality, parameters.quadratic_mortality
         )
 
         uptake = smith_uptake_sum(
@@ -95,9 +93,7 @@ function detritus_default()
         D = vals.D
 
         mortality = mortality_loss_sum(
-            plankton,
-            parameters.linear_mortality,
-            parameters.quadratic_mortality
+            plankton, parameters.linear_mortality, parameters.quadratic_mortality
         )
 
         unassimilated = grazing_unassimilated_loss_sum(parameters, plankton)

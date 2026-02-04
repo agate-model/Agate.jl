@@ -36,7 +36,6 @@ AllometricParam(model; kwargs...) = AllometricParam(model, (; kwargs...))
 """Common allometry model: power-law scaling with spherical volume."""
 struct PowerLaw end
 
-
 """Evaluate a `PowerLaw` model.
 
 Expected coefficient names:
@@ -168,7 +167,6 @@ function palatability_matrix_allometric_axes(
     return M
 end
 
-
 """Build a role-aware binary assimilation-efficiency matrix `β[consumer, prey]`.
 
 Only the consumer-by-prey block specified by `consumer_indices` and `prey_indices`
@@ -193,6 +191,5 @@ function assimilation_efficiency_matrix_binary_axes(
 
     return M
 end
-
 
 end # module Allometry

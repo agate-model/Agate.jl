@@ -80,7 +80,15 @@ using Agate.Interface: sinking_velocity, grazing_kernel
 
 # Grazing kernel selector for a predator/prey group pair (optional)
 # Implementations should return a callable `k(prey, predator)`
-@inline grazing_kernel(model_or_factory, ::Val{:Z}, ::Val{:P}, predator_class::Int, prey_class::Int, ctx, params) = my_kernel
+@inline grazing_kernel(
+    model_or_factory,
+    ::Val{:Z},
+    ::Val{:P},
+    predator_class::Int,
+    prey_class::Int,
+    ctx,
+    params,
+) = my_kernel
 ```
 
 These hooks are optional; if you do not implement them, Agate will use the default behaviour for your model.

@@ -28,9 +28,7 @@ function citation2026_A_spec(;
 
     base = default_community(factory)
     community = build_plankton_community(
-        base;
-        n=(Z=n_zoo, P=n_phyto),
-        diameters=(Z=zoo_diameters, P=phyto_diameters),
+        base; n=(Z=n_zoo, P=n_phyto), diameters=(Z=zoo_diameters, P=phyto_diameters)
     )
 
     roles = (consumers=(:Z,), prey=(:P,))
@@ -44,7 +42,7 @@ function citation2026_A_spec(;
         community,
         roles,
         parameter_groups,
-    auxiliary_fields,
+        auxiliary_fields,
         parameters,
         interaction_overrides,
     )

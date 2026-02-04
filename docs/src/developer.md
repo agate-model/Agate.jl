@@ -21,6 +21,7 @@ It assumes you are comfortable reading Julia code and running the test suite.
 ## Start here
 
   - Read [Adding a model](@ref "Adding a model") for the minimum set of files and functions to implement.
+
   - Read [Variants](@ref "Variants") for the recommended way to manage manuscript / experiment configurations without repo bloat.
   - Reference docs:
     

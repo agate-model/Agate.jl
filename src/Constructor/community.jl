@@ -23,9 +23,7 @@ community = build_plankton_community(base;
 ```
 """
 function build_plankton_community(
-    base::NamedTuple;
-    n::NamedTuple=NamedTuple(),
-    diameters::NamedTuple=NamedTuple(),
+    base::NamedTuple; n::NamedTuple=NamedTuple(), diameters::NamedTuple=NamedTuple()
 )
     base_keys = keys(base)
 
@@ -42,7 +40,11 @@ function build_plankton_community(
         spec = getfield(base, g)
 
         # Only touch structural fields; preserve everything else.
-        new_d = hasproperty(diameters, g) ? getfield(diameters, g) : getproperty(spec, :diameters)
+        new_d = if hasproperty(diameters, g)
+            getfield(diameters, g)
+        else
+            getproperty(spec, :diameters)
+        end
 
         # `n` is optional when diameters are given explicitly as a vector/list.
         # Prefer an explicit `n` override, otherwise infer from explicit diameters,

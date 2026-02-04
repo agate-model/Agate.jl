@@ -94,7 +94,10 @@ function construct(;
     roles_resolved = isnothing(roles) ? (consumers=(:Z,), prey=(:P,)) : roles
 
     parameter_groups_resolved = if isnothing(parameter_groups)
-        (producers=getproperty(roles_resolved, :prey), consumers=getproperty(roles_resolved, :consumers))
+        (
+            producers=getproperty(roles_resolved, :prey),
+            consumers=getproperty(roles_resolved, :consumers),
+        )
     else
         parameter_groups
     end

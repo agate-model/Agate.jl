@@ -46,7 +46,6 @@ function _resolve_indexedvec(
     return out
 end
 
-
 """Parameter metadata for NiPiZD.
 
 The directory provides expected shapes and short descriptions for all parameters
@@ -55,9 +54,7 @@ traits used to derive the default interaction matrices.
 """
 parameter_directory(::NiPiZDFactory) = (
     ParameterSpec(
-        :detritus_remineralization,
-        :scalar;
-        doc="Detritus remineralization rate.",
+        :detritus_remineralization, :scalar; doc="Detritus remineralization rate."
     ),
     ParameterSpec(
         :mortality_export_fraction,
@@ -85,9 +82,7 @@ parameter_directory(::NiPiZDFactory) = (
         doc="Nutrient half-saturation constant per plankton class.",
     ),
     ParameterSpec(
-        :alpha,
-        :vector;
-        doc="Initial slope of the P-I curve per plankton class.",
+        :alpha, :vector; doc="Initial slope of the P-I curve per plankton class."
     ),
     ParameterSpec(
         :maximum_predation_rate,
@@ -141,7 +136,9 @@ function default_parameters(::NiPiZDFactory, ctx::CommunityContext, ::Type{FT}) 
 
     # Group vectors (length = ctx.n_total)
     linear_mortality = fill(FT(8e-7), ctx.n_total)
-    quadratic_mortality = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, FT(1e-6); default=FT(0))
+    quadratic_mortality = _resolve_indexedvec(
+        FT, ctx, ctx.consumer_param_indices, FT(1e-6); default=FT(0)
+    )
 
     maximum_growth_rate = _resolve_indexedvec(
         FT,
@@ -159,7 +156,9 @@ function default_parameters(::NiPiZDFactory, ctx::CommunityContext, ::Type{FT}) 
         default=FT(0),
     )
 
-    alpha = _resolve_indexedvec(FT, ctx, ctx.producer_param_indices, FT(0.1953 / 86400); default=FT(0))
+    alpha = _resolve_indexedvec(
+        FT, ctx, ctx.producer_param_indices, FT(0.1953 / 86400); default=FT(0)
+    )
 
     maximum_predation_rate = _resolve_indexedvec(
         FT,
@@ -169,15 +168,21 @@ function default_parameters(::NiPiZDFactory, ctx::CommunityContext, ::Type{FT}) 
         default=FT(0),
     )
 
-    holling_half_saturation = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, FT(5.0); default=FT(0))
+    holling_half_saturation = _resolve_indexedvec(
+        FT, ctx, ctx.consumer_param_indices, FT(5.0); default=FT(0)
+    )
 
     # --- Default interaction matrices (internal trait defaults) ------------
 
     optimum_predator_prey_ratio = _resolve_indexedvec(
         FT, ctx, ctx.consumer_param_indices, FT(10.0); default=FT(0)
     )
-    specificity = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, FT(0.3); default=FT(0))
-    protection = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, FT(1.0); default=FT(0))
+    specificity = _resolve_indexedvec(
+        FT, ctx, ctx.consumer_param_indices, FT(0.3); default=FT(0)
+    )
+    protection = _resolve_indexedvec(
+        FT, ctx, ctx.consumer_param_indices, FT(1.0); default=FT(0)
+    )
     assimilation_efficiency = _resolve_indexedvec(
         FT, ctx, ctx.consumer_param_indices, FT(0.32); default=FT(0)
     )
@@ -192,7 +197,6 @@ function default_parameters(::NiPiZDFactory, ctx::CommunityContext, ::Type{FT}) 
         alpha,
         maximum_predation_rate,
         holling_half_saturation,
-
         optimum_predator_prey_ratio,
         specificity,
         protection,
@@ -211,7 +215,6 @@ end
     return palatability_matrix_allometric_axes(
         FT,
         ctx.diameters;
-
         optimum_predator_prey_ratio=params.optimum_predator_prey_ratio,
         specificity=params.specificity,
         protection=params.protection,
@@ -226,7 +229,6 @@ end
     FT = ctx.FT
     return assimilation_efficiency_matrix_binary_axes(
         FT;
-
         assimilation_efficiency=params.assimilation_efficiency,
         consumer_indices=ctx.consumer_indices,
         prey_indices=ctx.prey_indices,
@@ -240,8 +242,7 @@ function derived_matrix_specs(::NiPiZDFactory)
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
         ),
         assimilation_matrix=MatrixProvider(
-            _derive_assimilation_matrix;
-            deps=(:assimilation_efficiency,),
+            _derive_assimilation_matrix; deps=(:assimilation_efficiency,)
         ),
     )
 end

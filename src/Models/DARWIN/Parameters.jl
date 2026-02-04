@@ -29,33 +29,17 @@ required by the compiled DARWIN equations, plus a small set of interaction
 traits used to derive the default interaction matrices.
 """
 parameter_directory(::DarwinFactory) = (
+    ParameterSpec(:DOC_remineralization, :scalar; doc="DOC remineralization rate."),
+    ParameterSpec(:POC_remineralization, :scalar; doc="POC remineralization rate."),
+    ParameterSpec(:DON_remineralization, :scalar; doc="DON remineralization rate."),
+    ParameterSpec(:PON_remineralization, :scalar; doc="PON remineralization rate."),
+    ParameterSpec(:DOP_remineralization, :scalar; doc="DOP remineralization rate."),
+    ParameterSpec(:POP_remineralization, :scalar; doc="POP remineralization rate."),
     ParameterSpec(
-        :DOC_remineralization, :scalar; doc="DOC remineralization rate."
+        :nitrogen_to_carbon, :scalar; doc="Nitrogen-to-carbon stoichiometric ratio."
     ),
     ParameterSpec(
-        :POC_remineralization, :scalar; doc="POC remineralization rate."
-    ),
-    ParameterSpec(
-        :DON_remineralization, :scalar; doc="DON remineralization rate."
-    ),
-    ParameterSpec(
-        :PON_remineralization, :scalar; doc="PON remineralization rate."
-    ),
-    ParameterSpec(
-        :DOP_remineralization, :scalar; doc="DOP remineralization rate."
-    ),
-    ParameterSpec(
-        :POP_remineralization, :scalar; doc="POP remineralization rate."
-    ),
-    ParameterSpec(
-        :nitrogen_to_carbon,
-        :scalar;
-        doc="Nitrogen-to-carbon stoichiometric ratio.",
-    ),
-    ParameterSpec(
-        :phosphorus_to_carbon,
-        :scalar;
-        doc="Phosphorus-to-carbon stoichiometric ratio.",
+        :phosphorus_to_carbon, :scalar; doc="Phosphorus-to-carbon stoichiometric ratio."
     ),
     ParameterSpec(
         :DOM_POM_fractionation,
@@ -154,7 +138,6 @@ parameter_directory(::DarwinFactory) = (
     return palatability_matrix_allometric_axes(
         FT,
         ctx.diameters;
-
         optimum_predator_prey_ratio=params.optimum_predator_prey_ratio,
         specificity=params.specificity,
         protection=params.protection,
@@ -169,7 +152,6 @@ end
     FT = ctx.FT
     return assimilation_efficiency_matrix_binary_axes(
         FT;
-
         assimilation_efficiency=params.assimilation_efficiency,
         consumer_indices=ctx.consumer_indices,
         prey_indices=ctx.prey_indices,
@@ -183,8 +165,7 @@ function derived_matrix_specs(::DarwinFactory)
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
         ),
         assimilation_matrix=MatrixProvider(
-            _derive_assimilation_matrix;
-            deps=(:assimilation_efficiency,),
+            _derive_assimilation_matrix; deps=(:assimilation_efficiency,)
         ),
     )
 end
@@ -237,32 +218,74 @@ function default_parameters(::DarwinFactory, ctx::CommunityContext, ::Type{FT}) 
 
     # Mortality
     linear_mortality = fill(FT(8e-7), ctx.n_total)
-    quadratic_mortality = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, FT(1e-6); default=FT(0))
+    quadratic_mortality = _resolve_indexedvec(
+        FT, ctx, ctx.consumer_param_indices, FT(1e-6); default=FT(0)
+    )
 
     # Phytoplankton growth (Geider light limitation + 2 nutrients)
-    maximum_growth_rate = _resolve_indexedvec(FT, ctx, ctx.producer_param_indices, AllometricParam(PowerLaw(); prefactor=FT(2 / 86400), exponent=FT(-0.15)); default=FT(0))
+    maximum_growth_rate = _resolve_indexedvec(
+        FT,
+        ctx,
+        ctx.producer_param_indices,
+        AllometricParam(PowerLaw(); prefactor=FT(2 / 86400), exponent=FT(-0.15));
+        default=FT(0),
+    )
 
     # Defaults to zero for non-phyto groups; MonodLimitation guards 0/0.
-    half_saturation_DIN = _resolve_indexedvec(FT, ctx, ctx.producer_param_indices, AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27)); default=FT(0))
-    half_saturation_PO4 = _resolve_indexedvec(FT, ctx, ctx.producer_param_indices, AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27)); default=FT(0))
+    half_saturation_DIN = _resolve_indexedvec(
+        FT,
+        ctx,
+        ctx.producer_param_indices,
+        AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27));
+        default=FT(0),
+    )
+    half_saturation_PO4 = _resolve_indexedvec(
+        FT,
+        ctx,
+        ctx.producer_param_indices,
+        AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27));
+        default=FT(0),
+    )
 
-    photosynthetic_slope = _resolve_indexedvec(FT, ctx, ctx.producer_param_indices, FT(0.1 / 86400); default=FT(0))
-    chlorophyll_to_carbon_ratio = _resolve_indexedvec(FT, ctx, ctx.producer_param_indices, FT(0.02); default=FT(0))
+    photosynthetic_slope = _resolve_indexedvec(
+        FT, ctx, ctx.producer_param_indices, FT(0.1 / 86400); default=FT(0)
+    )
+    chlorophyll_to_carbon_ratio = _resolve_indexedvec(
+        FT, ctx, ctx.producer_param_indices, FT(0.02); default=FT(0)
+    )
 
     # Zooplankton grazing (preferential predation)
-    maximum_predation_rate = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, AllometricParam(PowerLaw(); prefactor=FT(30.84 / 86400), exponent=FT(-0.16)); default=FT(0))
+    maximum_predation_rate = _resolve_indexedvec(
+        FT,
+        ctx,
+        ctx.consumer_param_indices,
+        AllometricParam(PowerLaw(); prefactor=FT(30.84 / 86400), exponent=FT(-0.16));
+        default=FT(0),
+    )
 
     # Defaults to zero for non-zoo groups; HollingTypeII guards 0/0.
-    holling_half_saturation = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, AllometricParam(PowerLaw(); prefactor=FT(1.0), exponent=FT(-0.23)); default=FT(0))
+    holling_half_saturation = _resolve_indexedvec(
+        FT,
+        ctx,
+        ctx.consumer_param_indices,
+        AllometricParam(PowerLaw(); prefactor=FT(1.0), exponent=FT(-0.23));
+        default=FT(0),
+    )
 
     # ---------------------------------------------------------------------
     # Interaction matrices
     # ---------------------------------------------------------------------
 
-    assimilation_efficiency = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, FT(0.32); default=FT(0))
+    assimilation_efficiency = _resolve_indexedvec(
+        FT, ctx, ctx.consumer_param_indices, FT(0.32); default=FT(0)
+    )
 
-    optimum_predator_prey_ratio = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, FT(10.0); default=FT(0))
-    specificity = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, FT(0.3); default=FT(0))
+    optimum_predator_prey_ratio = _resolve_indexedvec(
+        FT, ctx, ctx.consumer_param_indices, FT(10.0); default=FT(0)
+    )
+    specificity = _resolve_indexedvec(
+        FT, ctx, ctx.consumer_param_indices, FT(0.3); default=FT(0)
+    )
     protection = fill(FT(0), ctx.n_total)
 
     return (;
@@ -284,7 +307,6 @@ function default_parameters(::DarwinFactory, ctx::CommunityContext, ::Type{FT}) 
         chlorophyll_to_carbon_ratio,
         maximum_predation_rate,
         holling_half_saturation,
-
         optimum_predator_prey_ratio,
         specificity,
         protection,
