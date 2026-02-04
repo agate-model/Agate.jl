@@ -11,7 +11,7 @@ The intent is to keep it as a thin construction-time wrapper:
 
 using ...Interface:
     default_plankton_dynamics, default_biogeochem_dynamics, default_community
-using ...Constructor: build_ZP_community
+using ...Constructor: build_plankton_community
 using Agate.Models: ModelId, VariantSpec, register_variant
 
 """Return the `DARWIN/citation2026/A` variant specification."""
@@ -26,12 +26,10 @@ function citation2026_A_spec(;
     factory = DarwinFactory()
 
     base = default_community(factory)
-    community = build_ZP_community(
+    community = build_plankton_community(
         base;
-        n_zoo=n_zoo,
-        n_phyto=n_phyto,
-        zoo_diameters=zoo_diameters,
-        phyto_diameters=phyto_diameters,
+        n=(Z=n_zoo, P=n_phyto),
+        diameters=(Z=zoo_diameters, P=phyto_diameters),
     )
 
     return VariantSpec(

@@ -617,17 +617,35 @@ function parse_community(
     biogeochem_dynamics::NamedTuple=NamedTuple(),
     roles=nothing,
 ) where {FT<:AbstractFloat}
-    group_symbols = required_groups(factory)
+    # Canonical group ordering is the (explicit, stable) ordering of `community`.
+    # This is preferable to a separate `required_groups(factory)` ordering because
+    # it makes ordering decisions visible to the caller.
+    group_order = keys(community)
 
-    # Validate the community matches the factory's declared group set.
-    arg_keys = keys(community)
-    missing = [g for g in group_symbols if g ∉ arg_keys]
-    extra = [g for g in arg_keys if g ∉ group_symbols]
-    if !isempty(missing) || !isempty(extra)
-        msg = String[]
-        !isempty(missing) && push!(msg, "community is missing required groups: $(missing)")
-        !isempty(extra) && push!(msg, "community has extra groups not declared by required_groups(factory): $(extra)")
-        throw(ArgumentError(join(msg, "\n")))
+    # Optional validation against a factory-declared group set.
+    #
+    # Some factories may not define `required_groups(factory)`; in that case we
+    # accept whatever group set the user provided and rely on downstream
+    # dynamics/parameter validation.
+    expected = try
+        required_groups(factory)
+    catch err
+        # The default `required_groups(::AbstractBGCFactory)` throws an
+        # `ArgumentError` when a factory does not declare a fixed group set.
+        # Do not mask other errors (bugs) from concrete implementations.
+        err isa ArgumentError ? nothing : rethrow()
+    end
+
+    if expected !== nothing
+        missing = [g for g in expected if g ∉ group_order]
+        extra = [g for g in group_order if g ∉ expected]
+        if !isempty(missing) || !isempty(extra)
+            msg = String[]
+            !isempty(missing) && push!(msg, "community is missing required groups: $(missing)")
+            !isempty(extra) &&
+                push!(msg, "community has extra groups not declared by required_groups(factory): $(extra)")
+            throw(ArgumentError(join(msg, "\n")))
+        end
     end
     plankton_symbols = Symbol[]
     group_of = Symbol[]
@@ -635,7 +653,7 @@ function parse_community(
     pfts = PFTSpecification[]
     diameters = FT[]
 
-    for g in group_symbols
+    for g in group_order
         spec = getfield(community, g)
         dspec = diameter_specification(getproperty(spec, :diameters))
         n = if dspec isa DiameterListSpecification
@@ -683,7 +701,7 @@ function parse_community(
             return idx
         elseif role isa Tuple || role isa AbstractVector{Symbol}
             # Treat symbol collections as *membership* (not ordering): preserve the
-            # canonical group ordering from `required_groups(factory)` to avoid
+            # canonical group ordering from `keys(community)` to avoid
             # surprising axis re-ordering when users pass e.g. `(:P, :Z)`.
             requested = Set{Symbol}(role)
 
@@ -694,7 +712,7 @@ function parse_community(
             end
 
             idx = Int[]
-            for g in group_symbols
+            for g in group_order
                 g ∈ requested || continue
                 append!(idx, group_indices[g])
             end

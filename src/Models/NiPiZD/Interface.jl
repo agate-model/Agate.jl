@@ -84,12 +84,13 @@ function construct(;
     factory = NiPiZDFactory()
 
     base = Interface.default_community(factory)
-    community = Constructor.build_ZP_community(
+    community = Constructor.build_plankton_community(
         base;
-        n_zoo=n_zoo,
-        n_phyto=n_phyto,
-        zoo_diameters=Utils.diameter_specification(zoo_diameters),
-        phyto_diameters=Utils.diameter_specification(phyto_diameters),
+        n=(Z=n_zoo, P=n_phyto),
+        diameters=(
+            Z=Utils.diameter_specification(zoo_diameters),
+            P=Utils.diameter_specification(phyto_diameters),
+        ),
     )
 
     # Interaction overrides (optional).
