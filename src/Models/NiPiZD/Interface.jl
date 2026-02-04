@@ -106,11 +106,13 @@ function construct(;
 
     interaction_overrides = isempty(pairs) ? nothing : (; pairs...)
 
+    roles_resolved = isnothing(roles) ? (consumers=(:Z,), prey=(:P,)) : roles
+
     return Constructor.construct_factory(
         factory;
         community=community,
         parameters=parameters,
-        roles=roles,
+        roles=roles_resolved,
         interaction_overrides=interaction_overrides,
         arch=arch,
         sinking_tracers=sinking_tracers,

@@ -17,9 +17,7 @@ using ...Utils: DiameterRangeSpecification
 import ...Interface:
     default_plankton_dynamics,
     default_community,
-    default_biogeochem_dynamics,
-    required_groups,
-    default_roles
+    default_biogeochem_dynamics
 
 using .Tracers:
     DIC_geider_light,
@@ -36,18 +34,6 @@ using .Tracers:
 
 """Factory for the simplified DARWIN-like elemental cycling model."""
 struct DarwinFactory <: AbstractBGCFactory end
-
-"""Return the fixed group set for DARWIN.
-
-The ordering matches `default_community` (`Z` then `P`).
-"""
-required_groups(::DarwinFactory) = (:Z, :P)
-
-"""Default roles for DARWIN.
-
-Consumers are zooplankton (Z) and prey are phytoplankton (P).
-"""
-default_roles(::DarwinFactory) = (consumers=(:Z,), prey=(:P,))
 
 """Default plankton dynamics for DARWIN."""
 default_plankton_dynamics(::DarwinFactory) =

@@ -2,19 +2,16 @@ using Agate
 using Test
 
 using Agate.Utils: parse_community, class, resolve_class, class_count, build_tracer_index, Tracers
-using Agate.Interface: default_plankton_dynamics, default_biogeochem_dynamics, default_community, default_roles
+using Agate.Interface: default_plankton_dynamics, default_biogeochem_dynamics, default_community
 
 @testset "ClassRef + Tracers accessors" begin
     factory = Agate.Models.NiPiZD.NiPiZDFactory()
     community = default_community(factory)
     plankton_dyn = default_plankton_dynamics(factory)
     biogeochem_dyn = default_biogeochem_dynamics(factory)
-    roles = default_roles(factory)
-
     ctx = parse_community(factory, Float64, community;
                           plankton_dynamics=plankton_dyn,
-                          biogeochem_dynamics=biogeochem_dyn,
-                          roles=roles)
+                          biogeochem_dynamics=biogeochem_dyn)
 
     @test class_count(ctx, :Z) == 2
     @test class_count(ctx, :P) == 2

@@ -1,7 +1,6 @@
 module Models
 
 using ..Interface:
-    required_groups,
     default_plankton_dynamics,
     default_community,
     default_biogeochem_dynamics

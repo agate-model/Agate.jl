@@ -13,26 +13,12 @@ using ...Utils: DiameterRangeSpecification
 import ...Interface:
     default_plankton_dynamics,
     default_community,
-    default_biogeochem_dynamics,
-    required_groups,
-    default_roles
+    default_biogeochem_dynamics
 using .Tracers:
     nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
 
 """Factory for the size-structured NiPiZD model."""
 struct NiPiZDFactory <: AbstractBGCFactory end
-
-"""Return the fixed group set for NiPiZD.
-
-The ordering matches `default_community` (`Z` then `P`).
-"""
-required_groups(::NiPiZDFactory) = (:Z, :P)
-
-"""Default roles for NiPiZD.
-
-Consumers are zooplankton (Z) and prey are phytoplankton (P).
-"""
-default_roles(::NiPiZDFactory) = (consumers=(:Z,), prey=(:P,))
 
 """Default plankton dynamics for NiPiZD.
 

@@ -22,14 +22,13 @@ Define a concrete factory type for your model (for example `struct MyModelFactor
 
 At minimum you should implement:
 
-  - `required_groups(factory) -> Tuple{Vararg{Symbol}}` (canonical group order)
   - `default_plankton_dynamics(factory)`
   - `default_biogeochem_dynamics(factory)`
   - `default_community(factory)`
   - `parameter_directory(factory)`
   - `default_parameters(factory, ctx, FT)`
 
-Most models also implement `default_roles(factory)` to define consumer/prey membership for rectangular interaction matrices.
+Canonical group ordering is inferred from the *explicit* ordering of the `community::NamedTuple` passed to the generic constructor.
 
 ### 2) Declare parameters with a directory
 
@@ -42,13 +41,13 @@ This enables early validation and provides the metadata used for interaction nor
 
 ### 3) Define consumer/prey roles
 
-If your model uses role-aware consumer-by-prey interactions (e.g. predators only in a subset of groups), implement `default_roles(factory)`:
+If your model uses role-aware consumer-by-prey interactions (e.g. predators only in a subset of groups), define a `roles` `NamedTuple` and pass it to `Agate.Constructor.construct_factory` (or set it as a default in your public constructor / model variant):
 
-  - `default_roles(factory) = (consumers = (:Z, ...), prey = (:P, :D, ...))`
+  - `roles = (consumers = (:Z, ...), prey = (:P, :D, ...))`
 
 Return `nothing` for either field to include all classes on that axis. Overlap is allowed.
 
-If you do not implement `default_roles`, Agate assumes all groups are both consumers and prey.
+If you do not pass `roles`, Agate assumes all classes are both consumers and prey.
 
 ### 4) Provide defaults
 

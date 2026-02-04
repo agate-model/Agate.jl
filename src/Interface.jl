@@ -23,15 +23,10 @@ module Interface
 using ..Utils:
     AbstractBGCFactory,
     ParameterSpec,
-    parameter_directory,
-    default_roles,
-    required_groups
+    parameter_directory
 
 export ParameterSpec
 export parameter_directory
-
-export default_roles
-export required_groups
 export default_plankton_dynamics
 export default_community
 export default_biogeochem_dynamics

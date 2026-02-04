@@ -45,7 +45,7 @@ scale_block!(pal; consumer_group = :Z, prey_group = :P, factor = 0.5)
 
 ## Passing a full group-block matrix
 
-If you have a full group-by-group matrix over *all* groups (in the order returned by `required_groups(factory)`), wrap it explicitly:
+If you have a full group-by-group matrix over *all* groups (in the explicit order of the `community` `NamedTuple` used for construction), wrap it explicitly:
 
 ```julia
 using Agate.Utils: GroupBlockMatrix

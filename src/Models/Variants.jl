@@ -45,13 +45,20 @@ Base.string(id::ModelId) = string(id.family, "/", id.citation, "/", id.tag)
 `VariantSpec` stores the *inputs* to `Agate.Constructor.construct_factory`.
 """
 struct VariantSpec{
-    F<:AbstractBGCFactory,PD<:NamedTuple,BD<:NamedTuple,C<:NamedTuple,P<:NamedTuple,I
+    F<:AbstractBGCFactory,
+    PD<:NamedTuple,
+    BD<:NamedTuple,
+    C<:NamedTuple,
+    R<:NamedTuple,
+    P<:NamedTuple,
+    I,
 }
     id::ModelId
     factory::F
     plankton_dynamics::PD
     biogeochem_dynamics::BD
     community::C
+    roles::R
     parameters::P
     interaction_overrides::I # `Nothing` or a `NamedTuple`
 end
@@ -112,6 +119,7 @@ function construct(
     spec::VariantSpec;
     parameters::NamedTuple=(;),
     interaction_overrides::Union{Nothing,NamedTuple}=nothing,
+    roles=nothing,
     kwargs...,
 )
     # Merge runtime overrides on top of the variant defaults.
@@ -133,6 +141,7 @@ function construct(
         community=spec.community,
         parameters=params,
         interaction_overrides=inter,
+        roles=isnothing(roles) ? spec.roles : roles,
         kwargs...,
     )
 end

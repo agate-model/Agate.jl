@@ -20,8 +20,6 @@ export DiameterRangeSpecification
 
 # Model-agnostic construction/runtime containers
 export AbstractBGCFactory
-export default_roles
-export required_groups
 
 # Parameter metadata
 export ParameterSpec
@@ -92,28 +90,12 @@ export param_compute_diameters
 """Abstract supertype for biogeochemical model factories."""
 abstract type AbstractBGCFactory end
 
-"""Return default role membership for a factory.
+"""Model families provide implementations via the `Interface` module.
 
-Factories may override this to define which groups participate as consumers and prey
-in interaction matrices and predation sums.
-
-Return a `NamedTuple` with fields:
-- `consumers`: `nothing` (all groups) or an iterable of group `Symbol`s
-- `prey`: `nothing` (all groups) or an iterable of group `Symbol`s
-
-These roles define the interaction axes. Overlap is allowed.
+Factories are intentionally minimal: they declare defaults for community structure and
+dynamics builders. Group ordering is inferred from the *explicit* ordering of the
+`community::NamedTuple` passed to `Constructor.construct_factory`.
 """
-default_roles(::AbstractBGCFactory) = (consumers=nothing, prey=nothing)
-
-"""Return the canonical group ordering for a factory.
-
-Factories must implement this to define the set and ordering of plankton groups (e.g. `(:Z, :P)`).
-
-This ordering is used to flatten community inputs and to interpret group-block interaction matrices.
-"""
-function required_groups(::AbstractBGCFactory)
-    throw(ArgumentError("No method `required_groups(factory)` is defined for this factory."))
-end
 
 
 include("ParameterDirectory.jl")
@@ -607,7 +589,7 @@ Role axes (consumer/prey membership) are defined by `roles`, a `NamedTuple` with
 - `consumers`: `nothing` (all groups/classes) or an iterable of group `Symbol`s, indices, or a boolean mask
 - `prey`: `nothing` (all groups/classes) or an iterable of group `Symbol`s, indices, or a boolean mask
 
-When `roles` is omitted, `default_roles(factory)` is used.
+When `roles` is omitted, both roles default to `nothing` (all classes).
 """
 function parse_community(
     factory::AbstractBGCFactory,
@@ -618,35 +600,12 @@ function parse_community(
     roles=nothing,
 ) where {FT<:AbstractFloat}
     # Canonical group ordering is the (explicit, stable) ordering of `community`.
-    # This is preferable to a separate `required_groups(factory)` ordering because
-    # it makes ordering decisions visible to the caller.
+    # This makes ordering decisions visible to the caller and avoids hidden
+    # factory-specific group ordering.
     group_order = keys(community)
 
-    # Optional validation against a factory-declared group set.
-    #
-    # Some factories may not define `required_groups(factory)`; in that case we
-    # accept whatever group set the user provided and rely on downstream
-    # dynamics/parameter validation.
-    expected = try
-        required_groups(factory)
-    catch err
-        # The default `required_groups(::AbstractBGCFactory)` throws an
-        # `ArgumentError` when a factory does not declare a fixed group set.
-        # Do not mask other errors (bugs) from concrete implementations.
-        err isa ArgumentError ? nothing : rethrow()
-    end
-
-    if expected !== nothing
-        missing = [g for g in expected if g ∉ group_order]
-        extra = [g for g in group_order if g ∉ expected]
-        if !isempty(missing) || !isempty(extra)
-            msg = String[]
-            !isempty(missing) && push!(msg, "community is missing required groups: $(missing)")
-            !isempty(extra) &&
-                push!(msg, "community has extra groups not declared by required_groups(factory): $(extra)")
-            throw(ArgumentError(join(msg, "\n")))
-        end
-    end
+    # `validate_community_inputs(plankton_dynamics, community)` is responsible for
+    # ensuring the dynamics and community group sets match.
     plankton_symbols = Symbol[]
     group_of = Symbol[]
     local_idx = Int[]
@@ -682,7 +641,7 @@ function parse_community(
         push!(get!(group_indices, g, Int[]), i)
     end
 
-    roles_resolved = isnothing(roles) ? default_roles(factory) : roles
+    roles_resolved = isnothing(roles) ? (consumers=nothing, prey=nothing) : roles
     hasproperty(roles_resolved, :consumers) ||
         throw(ArgumentError("roles must define :consumers"))
     hasproperty(roles_resolved, :prey) || throw(ArgumentError("roles must define :prey"))

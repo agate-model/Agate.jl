@@ -32,12 +32,15 @@ function citation2026_A_spec(;
         diameters=(Z=zoo_diameters, P=phyto_diameters),
     )
 
+    roles = (consumers=(:Z,), prey=(:P,))
+
     return VariantSpec(
         ModelId(:DARWIN, :citation2026, :A),
         factory,
         default_plankton_dynamics(factory),
         default_biogeochem_dynamics(factory),
         community,
+        roles,
         parameters,
         interaction_overrides,
     )
