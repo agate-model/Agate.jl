@@ -221,6 +221,7 @@ Key keyword arguments
 - `community`: plankton community structure (size classes, diameters, PFT specs).
 - `parameters`: `NamedTuple` of fully-resolved parameter overrides.
 - `roles=nothing`: optional role membership for consumer/prey axes. Provide as a `NamedTuple` with fields `consumers` and `prey`, each either `nothing` (all classes), a collection of group `Symbol`s, an index vector, or a boolean mask. When omitted, both roles default to `nothing` (all classes). Higher-level constructors / variants typically pass explicit defaults.
+- `parameter_groups=nothing`: optional group membership used **only** for generating default parameters (e.g. producer vs consumer-like defaults). Provide as `(; producers=..., consumers=...)` using the same formats as `roles`. When omitted, defaults to `(; producers=roles.prey, consumers=roles.consumers)`.
 - `interaction_overrides`: optional `NamedTuple` of interaction-parameter overrides (often matrices such as `:palatability_matrix` and `:assimilation_matrix`).
   Values may be concrete objects or provider functions callable as `f(ctx)`.
   For matrix parameters, overrides may be full `(n_total, n_total)` matrices. A group-block `(n_groups, n_groups)` matrix may be supplied and expanded during construction; when the parameter declares role-aware axes, wrap the block matrix as `GroupBlockMatrix(B)` to avoid ambiguity. When axes are declared, rectangular consumer-by-prey matrices sized to those axes (for example `(n_consumer, n_prey)`) are also accepted, as are axis-local group-block matrices.
@@ -233,6 +234,7 @@ function construct_factory(
     parameters::NamedTuple=(;),
     interaction_overrides::Union{Nothing,NamedTuple}=nothing,
     roles=nothing,
+    parameter_groups=nothing,
     arch=nothing,
     sinking_tracers=nothing,
     grid=nothing,
@@ -274,6 +276,7 @@ function construct_factory(
         plankton_dynamics=plankton_dynamics,
         biogeochem_dynamics=biogeochem_dynamics,
         roles=roles,
+        parameter_groups=parameter_groups,
     )
 
     # ---------------------------------------------------------------------

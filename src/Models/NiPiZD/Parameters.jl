@@ -23,22 +23,29 @@ using ...Library.Allometry:
 
 import ...Utils: MatrixProvider, derived_matrix_specs
 
-@inline function _group_value(group_map::NamedTuple, group::Symbol, default)
-    return Base.hasproperty(group_map, group) ? getproperty(group_map, group) : default
-end
-
-function _resolve_groupvec(
-    ::Type{FT}, ctx::CommunityContext, group_map::NamedTuple; default=0.0
-) where {FT}
+function _resolve_allvec(::Type{FT}, ctx::CommunityContext, value) where {FT}
     n = ctx.n_total
     out = Vector{FT}(undef, n)
-    for i in 1:n
-        g = ctx.group_symbols[i]
-        v = _group_value(group_map, g, default)
-        out[i] = resolve_param(FT, v, ctx.diameters[i])
+    @inbounds for i in 1:n
+        out[i] = resolve_param(FT, value, ctx.diameters[i])
     end
     return out
 end
+
+function _resolve_indexedvec(
+    ::Type{FT}, ctx::CommunityContext, indices::AbstractVector{Int}, value; default::FT
+) where {FT}
+    n = ctx.n_total
+    out = Vector{FT}(undef, n)
+    @inbounds for i in 1:n
+        out[i] = default
+    end
+    @inbounds for i in indices
+        out[i] = resolve_param(FT, value, ctx.diameters[i])
+    end
+    return out
+end
+
 
 """Parameter metadata for NiPiZD.
 
@@ -132,37 +139,48 @@ function default_parameters(::NiPiZDFactory, ctx::CommunityContext, ::Type{FT}) 
     detritus_remineralization = FT(0.1213 / 86400)
     mortality_export_fraction = FT(0.2)
 
-    linear_mortality = _resolve_groupvec(FT, ctx, (; Z=8e-7, P=8e-7); default=0.0)
-    quadratic_mortality = _resolve_groupvec(FT, ctx, (; Z=1e-6, P=0.0); default=0.0)
+    # Group vectors (length = ctx.n_total)
+    linear_mortality = fill(FT(8e-7), ctx.n_total)
+    quadratic_mortality = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, FT(1e-6); default=FT(0))
 
-    maximum_growth_rate = _resolve_groupvec(
+    maximum_growth_rate = _resolve_indexedvec(
         FT,
         ctx,
-        (; P=AllometricParam(PowerLaw(); prefactor=2 / 86400, exponent=-0.15), Z=0.0);
-        default=0.0,
+        ctx.producer_param_indices,
+        AllometricParam(PowerLaw(); prefactor=FT(2 / 86400), exponent=FT(-0.15));
+        default=FT(0),
     )
-    nutrient_half_saturation = _resolve_groupvec(
-        FT,
-        ctx,
-        (; P=AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27), Z=0.0);
-        default=0.0,
-    )
-    alpha = _resolve_groupvec(FT, ctx, (; P=0.1953 / 86400, Z=0.0); default=0.0)
 
-    maximum_predation_rate = _resolve_groupvec(
+    nutrient_half_saturation = _resolve_indexedvec(
         FT,
         ctx,
-        (; Z=AllometricParam(PowerLaw(); prefactor=30.84 / 86400, exponent=-0.16), P=0.0);
-        default=0.0,
+        ctx.producer_param_indices,
+        AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27));
+        default=FT(0),
     )
-    holling_half_saturation = _resolve_groupvec(FT, ctx, (; Z=5.0, P=0.0); default=0.0)
+
+    alpha = _resolve_indexedvec(FT, ctx, ctx.producer_param_indices, FT(0.1953 / 86400); default=FT(0))
+
+    maximum_predation_rate = _resolve_indexedvec(
+        FT,
+        ctx,
+        ctx.consumer_param_indices,
+        AllometricParam(PowerLaw(); prefactor=FT(30.84 / 86400), exponent=FT(-0.16));
+        default=FT(0),
+    )
+
+    holling_half_saturation = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, FT(5.0); default=FT(0))
 
     # --- Default interaction matrices (internal trait defaults) ------------
 
-    optimum_predator_prey_ratio = _resolve_groupvec(FT, ctx, (; Z=10.0, P=0.0); default=0.0)
-    specificity = _resolve_groupvec(FT, ctx, (; Z=0.3, P=0.0); default=0.0)
-    protection = _resolve_groupvec(FT, ctx, (; Z=1.0, P=0.0); default=0.0)
-    assimilation_efficiency = _resolve_groupvec(FT, ctx, (; Z=0.32, P=0.0); default=0.0)
+    optimum_predator_prey_ratio = _resolve_indexedvec(
+        FT, ctx, ctx.consumer_param_indices, FT(10.0); default=FT(0)
+    )
+    specificity = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, FT(0.3); default=FT(0))
+    protection = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, FT(1.0); default=FT(0))
+    assimilation_efficiency = _resolve_indexedvec(
+        FT, ctx, ctx.consumer_param_indices, FT(0.32); default=FT(0)
+    )
 
     return (;
         detritus_remineralization,

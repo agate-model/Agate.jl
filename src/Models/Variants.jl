@@ -50,6 +50,7 @@ struct VariantSpec{
     BD<:NamedTuple,
     C<:NamedTuple,
     R<:NamedTuple,
+    PG<:NamedTuple,
     P<:NamedTuple,
     I,
 }
@@ -59,6 +60,7 @@ struct VariantSpec{
     biogeochem_dynamics::BD
     community::C
     roles::R
+    parameter_groups::PG
     parameters::P
     interaction_overrides::I # `Nothing` or a `NamedTuple`
 end
@@ -120,6 +122,7 @@ function construct(
     parameters::NamedTuple=(;),
     interaction_overrides::Union{Nothing,NamedTuple}=nothing,
     roles=nothing,
+    parameter_groups=nothing,
     kwargs...,
 )
     # Merge runtime overrides on top of the variant defaults.
@@ -142,6 +145,7 @@ function construct(
         parameters=params,
         interaction_overrides=inter,
         roles=isnothing(roles) ? spec.roles : roles,
+        parameter_groups=isnothing(parameter_groups) ? spec.parameter_groups : parameter_groups,
         kwargs...,
     )
 end

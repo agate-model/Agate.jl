@@ -145,8 +145,15 @@ struct CommunityContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
     group_symbols::Vector{Symbol}
     group_local_index::Vector{Int}
     group_indices::Dict{Symbol,Vector{Int}}
+
+    # Interaction-role axes (used for matrix shapes + tendency kernels)
     consumer_indices::Vector{Int}
     prey_indices::Vector{Int}
+
+    # Parameter-default classification (used by `default_parameters`)
+    producer_param_indices::Vector{Int}
+    consumer_param_indices::Vector{Int}
+
     plankton_dynamics::NamedTuple
     biogeochem_dynamics::NamedTuple
 end
@@ -594,6 +601,7 @@ function parse_community(
     plankton_dynamics::NamedTuple=NamedTuple(),
     biogeochem_dynamics::NamedTuple=NamedTuple(),
     roles=nothing,
+    parameter_groups=nothing,
 ) where {FT<:AbstractFloat}
     # Canonical group ordering is the (explicit, stable) ordering of `community`.
     # This makes ordering decisions visible to the caller and avoids hidden
@@ -641,6 +649,20 @@ function parse_community(
         throw(ArgumentError("roles must define :consumers"))
     hasproperty(roles_resolved, :prey) || throw(ArgumentError("roles must define :prey"))
 
+    # Parameter-default group membership is controlled separately from interaction roles.
+    # When `parameter_groups` is omitted, we default to matching the role axes:
+    # - producers := roles.prey
+    # - consumers := roles.consumers
+    parameter_groups_resolved = if isnothing(parameter_groups)
+        (producers=getproperty(roles_resolved, :prey), consumers=getproperty(roles_resolved, :consumers))
+    else
+        parameter_groups
+    end
+    hasproperty(parameter_groups_resolved, :producers) ||
+        throw(ArgumentError("parameter_groups must define :producers"))
+    hasproperty(parameter_groups_resolved, :consumers) ||
+        throw(ArgumentError("parameter_groups must define :consumers"))
+
     function _indices_for_role(role, role_name::Symbol)
         if role === nothing
             return collect(1:n_total)
@@ -683,6 +705,13 @@ function parse_community(
     consumer_indices = _indices_for_role(getproperty(roles_resolved, :consumers), :consumers)
     prey_indices = _indices_for_role(getproperty(roles_resolved, :prey), :prey)
 
+    producer_param_indices = _indices_for_role(
+        getproperty(parameter_groups_resolved, :producers), :producers
+    )
+    consumer_param_indices = _indices_for_role(
+        getproperty(parameter_groups_resolved, :consumers), :parameter_consumers
+    )
+
     ctx = CommunityContext{FT,typeof(diameters)}(
         FT,
         n_total,
@@ -694,6 +723,8 @@ function parse_community(
         group_indices,
         consumer_indices,
         prey_indices,
+        producer_param_indices,
+        consumer_param_indices,
         plankton_dynamics,
         biogeochem_dynamics,
     )

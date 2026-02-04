@@ -33,6 +33,7 @@ function citation2026_A_spec(;
     )
 
     roles = (consumers=(:Z,), prey=(:P,))
+    parameter_groups = (producers=(:P,), consumers=(:Z,))
 
     return VariantSpec(
         ModelId(:DARWIN, :citation2026, :A),
@@ -41,6 +42,7 @@ function citation2026_A_spec(;
         default_biogeochem_dynamics(factory),
         community,
         roles,
+        parameter_groups,
         parameters,
         interaction_overrides,
     )

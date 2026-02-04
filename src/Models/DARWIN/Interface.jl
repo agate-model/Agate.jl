@@ -36,6 +36,7 @@ Keywords
 - `zoo_diameters=(20.0, 100.0, :log_splitting)`: diameter specification for zooplankton
 - `parameters=(;)`: parameter overrides (validated against the DARWIN parameter set)
 - `roles=nothing`: optional role membership for consumer/prey axes; provide as `(; consumers=(:Z, ...), prey=(:P, ...))`
+- `parameter_groups=nothing`: optional group membership used only for generating default parameters; provide as `(; producers=(:P, ...), consumers=(:Z, ...))`
 - `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrices. Each may be:
   - a full `(n_total, n_total)` matrix
   - a rectangular `(n_consumer, n_prey)` matrix (the canonical interaction representation)
@@ -58,6 +59,7 @@ function construct(;
     zoo_diameters=(20.0, 100.0, :log_splitting),
     parameters::NamedTuple=(;),
     roles=nothing,
+    parameter_groups=nothing,
     palatability_matrix=nothing,
     assimilation_matrix=nothing,
     grid=BoxModelGrid(),
@@ -91,11 +93,18 @@ function construct(;
 
     roles_resolved = isnothing(roles) ? (consumers=(:Z,), prey=(:P,)) : roles
 
+    parameter_groups_resolved = if isnothing(parameter_groups)
+        (producers=getproperty(roles_resolved, :prey), consumers=getproperty(roles_resolved, :consumers))
+    else
+        parameter_groups
+    end
+
     return Constructor.construct_factory(
         factory;
         community=community,
         parameters=parameters,
         roles=roles_resolved,
+        parameter_groups=parameter_groups_resolved,
         interaction_overrides=interaction_overrides,
         arch=arch,
         sinking_tracers=sinking_tracers,

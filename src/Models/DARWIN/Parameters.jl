@@ -143,10 +143,6 @@ parameter_directory(::DarwinFactory) = (
     ),
 )
 
-@inline function _group_value(group_map::NamedTuple, group::Symbol, default)
-    return Base.hasproperty(group_map, group) ? getproperty(group_map, group) : default
-end
-
 # -----------------------------------------------------------------------------
 # Derived interaction matrices
 # -----------------------------------------------------------------------------
@@ -193,15 +189,25 @@ function derived_matrix_specs(::DarwinFactory)
     )
 end
 
-function _resolve_groupvec(
-    ::Type{FT}, ctx::CommunityContext, group_map::NamedTuple; default
+function _resolve_allvec(::Type{FT}, ctx::CommunityContext, value) where {FT}
+    n = ctx.n_total
+    out = Vector{FT}(undef, n)
+    @inbounds for i in 1:n
+        out[i] = resolve_param(FT, value, ctx.diameters[i])
+    end
+    return out
+end
+
+function _resolve_indexedvec(
+    ::Type{FT}, ctx::CommunityContext, indices::AbstractVector{Int}, value; default::FT
 ) where {FT}
     n = ctx.n_total
     out = Vector{FT}(undef, n)
     @inbounds for i in 1:n
-        g = ctx.group_symbols[i]
-        v = _group_value(group_map, g, default)
-        out[i] = resolve_param(FT, v, ctx.diameters[i])
+        out[i] = default
+    end
+    @inbounds for i in indices
+        out[i] = resolve_param(FT, value, ctx.diameters[i])
     end
     return out
 end
@@ -230,59 +236,34 @@ function default_parameters(::DarwinFactory, ctx::CommunityContext, ::Type{FT}) 
     # ---------------------------------------------------------------------
 
     # Mortality
-    linear_mortality = _resolve_groupvec(FT, ctx, (; Z=8e-7, P=8e-7); default=0.0)
-    quadratic_mortality = _resolve_groupvec(FT, ctx, (; Z=1e-6); default=0.0)
+    linear_mortality = fill(FT(8e-7), ctx.n_total)
+    quadratic_mortality = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, FT(1e-6); default=FT(0))
 
     # Phytoplankton growth (Geider light limitation + 2 nutrients)
-    maximum_growth_rate = _resolve_groupvec(
-        FT,
-        ctx,
-        (; P=AllometricParam(PowerLaw(); prefactor=FT(2 / 86400), exponent=FT(-0.15)));
-        default=0.0,
-    )
+    maximum_growth_rate = _resolve_indexedvec(FT, ctx, ctx.producer_param_indices, AllometricParam(PowerLaw(); prefactor=FT(2 / 86400), exponent=FT(-0.15)); default=FT(0))
 
     # Defaults to zero for non-phyto groups; MonodLimitation guards 0/0.
-    half_saturation_DIN = _resolve_groupvec(
-        FT,
-        ctx,
-        (; P=AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27)));
-        default=FT(0.0),
-    )
-    half_saturation_PO4 = _resolve_groupvec(
-        FT,
-        ctx,
-        (; P=AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27)));
-        default=FT(0.0),
-    )
+    half_saturation_DIN = _resolve_indexedvec(FT, ctx, ctx.producer_param_indices, AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27)); default=FT(0))
+    half_saturation_PO4 = _resolve_indexedvec(FT, ctx, ctx.producer_param_indices, AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27)); default=FT(0))
 
-    photosynthetic_slope = _resolve_groupvec(FT, ctx, (; P=FT(0.1 / 86400)); default=0.0)
-    chlorophyll_to_carbon_ratio = _resolve_groupvec(FT, ctx, (; P=FT(0.02)); default=0.0)
+    photosynthetic_slope = _resolve_indexedvec(FT, ctx, ctx.producer_param_indices, FT(0.1 / 86400); default=FT(0))
+    chlorophyll_to_carbon_ratio = _resolve_indexedvec(FT, ctx, ctx.producer_param_indices, FT(0.02); default=FT(0))
 
     # Zooplankton grazing (preferential predation)
-    maximum_predation_rate = _resolve_groupvec(
-        FT,
-        ctx,
-        (; Z=AllometricParam(PowerLaw(); prefactor=FT(30.84 / 86400), exponent=FT(-0.16)));
-        default=0.0,
-    )
+    maximum_predation_rate = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, AllometricParam(PowerLaw(); prefactor=FT(30.84 / 86400), exponent=FT(-0.16)); default=FT(0))
 
     # Defaults to zero for non-zoo groups; HollingTypeII guards 0/0.
-    holling_half_saturation = _resolve_groupvec(
-        FT,
-        ctx,
-        (; Z=AllometricParam(PowerLaw(); prefactor=FT(1.0), exponent=FT(-0.23)));
-        default=FT(0.0),
-    )
+    holling_half_saturation = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, AllometricParam(PowerLaw(); prefactor=FT(1.0), exponent=FT(-0.23)); default=FT(0))
 
     # ---------------------------------------------------------------------
     # Interaction matrices
     # ---------------------------------------------------------------------
 
-    assimilation_efficiency = _resolve_groupvec(FT, ctx, (; Z=FT(0.32)); default=0.0)
+    assimilation_efficiency = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, FT(0.32); default=FT(0))
 
-    optimum_predator_prey_ratio = _resolve_groupvec(FT, ctx, (; Z=FT(10.0)); default=0.0)
-    specificity = _resolve_groupvec(FT, ctx, (; Z=FT(0.3)); default=0.0)
-    protection = _resolve_groupvec(FT, ctx, (;); default=0.0)
+    optimum_predator_prey_ratio = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, FT(10.0); default=FT(0))
+    specificity = _resolve_indexedvec(FT, ctx, ctx.consumer_param_indices, FT(0.3); default=FT(0))
+    protection = fill(FT(0), ctx.n_total)
 
     return (;
         DOC_remineralization,
