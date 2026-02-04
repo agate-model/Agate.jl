@@ -2,13 +2,13 @@
 
 module Predation
 
-export HollingTypeII,
-    IdealizedPredationLoss,
-    IdealizedPredationGain,
-    IdealizedPredationAssimilationLoss,
-    PreferentialPredationLoss,
-    PreferentialPredationGain,
-    PreferentialPredationAssimilationLoss
+export holling_type_ii,
+    idealized_predation_loss,
+    idealized_predation_gain,
+    idealized_predation_unassimilated_loss,
+    preferential_predation_loss,
+    preferential_predation_gain,
+    preferential_predation_unassimilated_loss
 
 """
     HollingTypeII(K)
@@ -135,6 +135,68 @@ end
     )
     return (one(f.assimilation_efficiency) - f.assimilation_efficiency) * loss
 end
+
+# -----------------------------------------------------------------------------
+# Explicit function aliases (preferred developer UX).
+# -----------------------------------------------------------------------------
+
+"""Holling type-II saturation factor `P/(K+P)`."""
+@inline holling_type_ii(P, K) = HollingTypeII(K)(P)
+
+"""Idealized predation loss from prey `P` to predator `Z` (squared Holling)."""
+@inline idealized_predation_loss(P, Z, maximum_grazing_rate, half_saturation) =
+    IdealizedPredationLoss(maximum_grazing_rate, half_saturation)(P, Z)
+
+"""Assimilated idealized predation gain to predator `Z` from prey `P`."""
+@inline idealized_predation_gain(P, Z, assimilation_efficiency, maximum_grazing_rate, half_saturation) =
+    IdealizedPredationGain(assimilation_efficiency, maximum_grazing_rate, half_saturation)(P, Z)
+
+"""Unassimilated fraction of idealized predation loss."""
+@inline idealized_predation_unassimilated_loss(
+    P,
+    Z,
+    assimilation_efficiency,
+    maximum_grazing_rate,
+    half_saturation,
+) = IdealizedPredationAssimilationLoss(
+    assimilation_efficiency,
+    maximum_grazing_rate,
+    half_saturation,
+)(P, Z)
+
+"""Preferential predation loss from prey `P` to predator `Z`."""
+@inline preferential_predation_loss(P, Z, maximum_grazing_rate, half_saturation, palatability) =
+    PreferentialPredationLoss(maximum_grazing_rate, half_saturation, palatability)(P, Z)
+
+"""Assimilated preferential predation gain to predator `Z` from prey `P`."""
+@inline preferential_predation_gain(
+    P,
+    Z,
+    assimilation_efficiency,
+    maximum_grazing_rate,
+    half_saturation,
+    palatability,
+) = PreferentialPredationGain(
+    assimilation_efficiency,
+    maximum_grazing_rate,
+    half_saturation,
+    palatability,
+)(P, Z)
+
+"""Unassimilated fraction of preferential predation loss."""
+@inline preferential_predation_unassimilated_loss(
+    P,
+    Z,
+    assimilation_efficiency,
+    maximum_grazing_rate,
+    half_saturation,
+    palatability,
+) = PreferentialPredationAssimilationLoss(
+    assimilation_efficiency,
+    maximum_grazing_rate,
+    half_saturation,
+    palatability,
+)(P, Z)
 
 end # module
 

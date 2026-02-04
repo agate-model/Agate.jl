@@ -15,6 +15,9 @@ end
 
 @inline (l::LinearLoss)(P) = l.rate * P
 
+"""Apply a linear loss rate to a state variable."""
+@inline linear_loss(P, rate) = LinearLoss(rate)(P)
+
 """
     QuadraticLoss(rate)
 
@@ -26,18 +29,7 @@ end
 
 @inline (q::QuadraticLoss)(P) = q.rate * P * P
 
-"""
-    linear_loss(P, rate)
-
-Convenience wrapper for `LinearLoss(rate)(P)`.
-"""
-@inline linear_loss(P, rate) = LinearLoss(rate)(P)
-
-"""
-    quadratic_loss(P, rate)
-
-Convenience wrapper for `QuadraticLoss(rate)(P)`.
-"""
+"""Apply a quadratic loss rate to a state variable."""
 @inline quadratic_loss(P, rate) = QuadraticLoss(rate)(P)
 
 end # module

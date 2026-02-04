@@ -2,7 +2,7 @@
 
 module Remineralization
 
-export remin
+export linear_remineralization
 
 """
     LinearRemineralization(rate)
@@ -15,11 +15,7 @@ end
 
 @inline (r::LinearRemineralization)(D) = r.rate * D
 
-"""
-    remin(D, rate)
-
-Convenience wrapper for `LinearRemineralization(rate)(D)`.
-"""
-@inline remin(D, rate) = LinearRemineralization(rate)(D)
+"""Apply a linear remineralization rate to detrital material."""
+@inline linear_remineralization(D, rate) = LinearRemineralization(rate)(D)
 
 end # module

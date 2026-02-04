@@ -4,14 +4,11 @@ module Photosynthesis
 
 using ..Nutrients: MonodLimitation, LiebigMinimum
 
-export SmithLightLimitation,
-    GeiderLightLimitation,
-    SingleNutrientGrowthSmith,
-    SingleNutrientGrowthGeider,
-    TwoNutrientGrowthGeider,
-    smith_growth,
-    geider_growth,
-    geider_growth_two_nutrients
+export smith_light_limitation,
+    geider_light_limitation,
+    smith_single_nutrient_growth,
+    geider_single_nutrient_growth,
+    geider_two_nutrient_growth
 
 """
     SmithLightLimitation(alpha, maximum_growth_0C)
@@ -120,46 +117,55 @@ end
            P
 end
 
+# -----------------------------------------------------------------------------
+# Explicit function aliases (preferred developer UX).
+# -----------------------------------------------------------------------------
 
+"""Smith-style light limitation as a function of PAR."""
+@inline smith_light_limitation(PAR, alpha, maximum_growth_0C) =
+    SmithLightLimitation(alpha, maximum_growth_0C)(PAR)
 
-"""
-    smith_growth(maximum_growth_0C, nutrient_half_saturation, alpha, R, P, PAR)
+"""Geider-style light limitation as a function of PAR."""
+@inline geider_light_limitation(PAR, alpha, maximum_growth_rate, chlorophyll_to_carbon_ratio) =
+    GeiderLightLimitation(alpha, maximum_growth_rate, chlorophyll_to_carbon_ratio)(PAR)
 
-Convenience wrapper for `SingleNutrientGrowthSmith(maximum_growth_0C, nutrient_half_saturation, alpha)(R, P, PAR)`.
-"""
-@inline smith_growth(maximum_growth_0C, nutrient_half_saturation, alpha, R, P, PAR) =
+"""Single-nutrient photosynthetic growth with Smith light limitation."""
+@inline smith_single_nutrient_growth(R, P, PAR, maximum_growth_0C, nutrient_half_saturation, alpha) =
     SingleNutrientGrowthSmith(maximum_growth_0C, nutrient_half_saturation, alpha)(R, P, PAR)
 
-"""
-    geider_growth(maximum_growth_rate, nutrient_half_saturation, alpha, chlorophyll_to_carbon_ratio, R, P, PAR)
+"""Single-nutrient photosynthetic growth with Geider light limitation."""
+@inline geider_single_nutrient_growth(
+    R,
+    P,
+    PAR,
+    maximum_growth_rate,
+    nutrient_half_saturation,
+    alpha,
+    chlorophyll_to_carbon_ratio,
+) = SingleNutrientGrowthGeider(
+    maximum_growth_rate,
+    nutrient_half_saturation,
+    alpha,
+    chlorophyll_to_carbon_ratio,
+)(R, P, PAR)
 
-Convenience wrapper for `SingleNutrientGrowthGeider(maximum_growth_rate, nutrient_half_saturation, alpha, chlorophyll_to_carbon_ratio)(R, P, PAR)`.
-"""
-@inline geider_growth(maximum_growth_rate, nutrient_half_saturation, alpha, chlorophyll_to_carbon_ratio, R, P, PAR) =
-    SingleNutrientGrowthGeider(maximum_growth_rate, nutrient_half_saturation, alpha, chlorophyll_to_carbon_ratio)(R, P, PAR)
-
-"""
-    geider_growth_two_nutrients(maximum_growth_rate, half_saturation_1, half_saturation_2, alpha, chlorophyll_to_carbon_ratio, R1, R2, P, PAR)
-
-Convenience wrapper for `TwoNutrientGrowthGeider(maximum_growth_rate, half_saturation_1, half_saturation_2, alpha, chlorophyll_to_carbon_ratio)(R1, R2, P, PAR)`.
-"""
-@inline geider_growth_two_nutrients(
+"""Two-nutrient photosynthetic growth with Liebig limitation and Geider light limitation."""
+@inline geider_two_nutrient_growth(
+    R1,
+    R2,
+    P,
+    PAR,
     maximum_growth_rate,
     half_saturation_1,
     half_saturation_2,
     alpha,
     chlorophyll_to_carbon_ratio,
-    R1,
-    R2,
-    P,
-    PAR,
-) =
-    TwoNutrientGrowthGeider(
-        maximum_growth_rate,
-        half_saturation_1,
-        half_saturation_2,
-        alpha,
-        chlorophyll_to_carbon_ratio,
-    )(R1, R2, P, PAR)
+) = TwoNutrientGrowthGeider(
+    maximum_growth_rate,
+    half_saturation_1,
+    half_saturation_2,
+    alpha,
+    chlorophyll_to_carbon_ratio,
+)(R1, R2, P, PAR)
 
 end # module

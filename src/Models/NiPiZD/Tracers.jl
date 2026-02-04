@@ -14,9 +14,9 @@ module Tracers
 
 using ....Functors: CompiledEquation, Requirements
 
-import ....Library.Mortality
-import ....Library.Photosynthesis
-import ....Library.Remineralization: remin
+using ....Library.Mortality: linear_loss, quadratic_loss
+using ....Library.Photosynthesis: smith_single_nutrient_growth
+using ....Library.Remineralization: linear_remineralization
 
 using ....Utils: sum_over, TendencyContext, tendency_views
 
@@ -24,19 +24,20 @@ using ...PredationSums: _grazing_assimilation_loss_sum, _grazing_loss_sum, _graz
 
 export nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
 
+@inline linear_mortality_loss(parameters, idx::Int, P) =
+    linear_loss(P, parameters.linear_mortality[idx])
 
-@inline linear_loss(parameters, idx::Int, P) = Mortality.linear_loss(P, parameters.linear_mortality[idx])
-
-@inline quadratic_loss(parameters, idx::Int, P) = Mortality.quadratic_loss(P, parameters.quadratic_mortality[idx])
+@inline quadratic_mortality_loss(parameters, idx::Int, P) =
+    quadratic_loss(P, parameters.quadratic_mortality[idx])
 
 @inline function smith_growth(parameters, idx::Int, N, P, PAR)
-    Photosynthesis.smith_growth(
-        parameters.maximum_growth_rate[idx],
-        parameters.nutrient_half_saturation[idx],
-        parameters.alpha[idx],
+    return smith_single_nutrient_growth(
         N,
         P,
         PAR,
+        parameters.maximum_growth_rate[idx],
+        parameters.nutrient_half_saturation[idx],
+        parameters.alpha[idx],
     )
 end
 
@@ -72,18 +73,18 @@ function nutrient_default(plankton_syms)
 
         lin_sum = sum_over(n_plankton, zero(N)) do i
             P = vals.plankton(i)
-            linear_loss(parameters, i, P)
+            linear_mortality_loss(parameters, i, P)
         end
 
         quad_sum = sum_over(n_plankton, zero(N)) do i
             P = vals.plankton(i)
-            quadratic_loss(parameters, i, P)
+            quadratic_mortality_loss(parameters, i, P)
         end
 
         uptake = _uptake_sum_smith(parameters, vals, n_plankton, N, PAR)
 
         export_frac = parameters.mortality_export_fraction
-        remin_term = remin(D, parameters.detritus_remineralization)
+        remin_term = linear_remineralization(D, parameters.detritus_remineralization)
 
         return export_frac * (lin_sum + quad_sum) + remin_term - uptake
     end
@@ -113,18 +114,18 @@ function detritus_default(plankton_syms)
 
         lin_sum = sum_over(n_plankton, zero(D)) do i
             P = vals.plankton(i)
-            linear_loss(parameters, i, P)
+            linear_mortality_loss(parameters, i, P)
         end
 
         quad_sum = sum_over(n_plankton, zero(D)) do i
             P = vals.plankton(i)
-            quadratic_loss(parameters, i, P)
+            quadratic_mortality_loss(parameters, i, P)
         end
 
         assim_loss = _grazing_assimilation_loss_sum(tendency)
 
         export_frac = parameters.mortality_export_fraction
-        remin_term = remin(D, parameters.detritus_remineralization)
+        remin_term = linear_remineralization(D, parameters.detritus_remineralization)
 
         return (one(export_frac) - export_frac) * (lin_sum + quad_sum) + assim_loss - remin_term
     end
@@ -156,7 +157,7 @@ function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx
         growth = smith_growth(parameters, plankton_idx, N, P, PAR)
 
         grazing = _grazing_loss_sum(tendency, P, plankton_idx)
-        mort = linear_loss(parameters, plankton_idx, P)
+        mort = linear_mortality_loss(parameters, plankton_idx, P)
 
         return growth - grazing - mort
     end
@@ -183,8 +184,8 @@ function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::
 
         gain = _grazing_gain_sum(tendency, Z, plankton_idx)
 
-        lin = linear_loss(parameters, plankton_idx, Z)
-        quad = quadratic_loss(parameters, plankton_idx, Z)
+        lin = linear_mortality_loss(parameters, plankton_idx, Z)
+        quad = quadratic_mortality_loss(parameters, plankton_idx, Z)
 
         return gain - lin - quad
     end

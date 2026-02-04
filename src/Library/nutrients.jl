@@ -2,7 +2,7 @@
 
 module Nutrients
 
-export MonodLimitation, LiebigMinimum
+export monod_limitation, liebig_minimum
 
 """
     MonodLimitation(K)
@@ -22,6 +22,12 @@ end
     end
     return R / (K + R)
 end
+
+"""Apply Monod nutrient limitation `R/(K+R)`.
+
+This is a thin, inlined alias around `MonodLimitation(K)(R)` for clearer model code.
+"""
+@inline monod_limitation(R, K) = MonodLimitation(K)(R)
 
 """
     LiebigMinimum()
@@ -43,5 +49,15 @@ end
     end
     return m
 end
+
+"""Return the Liebig minimum across inputs.
+
+This is an explicit alias around `LiebigMinimum()` for clearer model code.
+"""
+@inline liebig_minimum(a, b) = LiebigMinimum()(a, b)
+
+@inline liebig_minimum(a, b, c, rest...) = LiebigMinimum()(a, b, c, rest...)
+
+@inline liebig_minimum(values::NTuple{N,T}) where {N,T} = LiebigMinimum()(values)
 
 end # module

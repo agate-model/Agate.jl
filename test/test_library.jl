@@ -2,12 +2,12 @@ using Agate
 using Test
 
 using Agate.Library.Predation:
-    HollingTypeII,
-    IdealizedPredationLoss
+    holling_type_ii,
+    idealized_predation_loss
 
 @testset "Library" begin
-    @test HollingTypeII(1.0)(1.0) == 0.5
+    @test holling_type_ii(1.0, 1.0) == 0.5
 
-    loss = IdealizedPredationLoss(0.1, 0.2)(1.0, 0.5)
+    loss = idealized_predation_loss(1.0, 0.5, 0.1, 0.2)
     @test loss > 0
 end

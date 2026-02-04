@@ -15,9 +15,9 @@ module PredationSums
 
 using ...Utils: sum_over, TendencyContext
 using ...Library.Predation:
-    PreferentialPredationLoss,
-    PreferentialPredationGain,
-    PreferentialPredationAssimilationLoss
+    preferential_predation_loss,
+    preferential_predation_gain,
+    preferential_predation_unassimilated_loss
 
 """Sum of assimilation loss terms across all consumer-by-prey pairs.
 
@@ -53,7 +53,7 @@ adapted floating-point type.
             prey = tracers.plankton(args, prey_idx)
             beta = assim[ic, ip]
             phi = pal[ic, ip]
-            PreferentialPredationAssimilationLoss(beta, gmax, K, phi)(prey, predator)
+            preferential_predation_unassimilated_loss(prey, predator, beta, gmax, K, phi)
         end
     end
 end
@@ -83,7 +83,7 @@ end
         gmax = parameters.maximum_predation_rate[predator_idx]
         K = parameters.holling_half_saturation[predator_idx]
         phi = pal[ic, ip]
-        PreferentialPredationLoss(gmax, K, phi)(prey, predator)
+        preferential_predation_loss(prey, predator, gmax, K, phi)
     end
 end
 
@@ -115,7 +115,7 @@ end
         prey = tracers.plankton(args, prey_idx)
         beta = assim[ic, ip]
         phi = pal[ic, ip]
-        PreferentialPredationGain(beta, gmax, K, phi)(prey, predator)
+        preferential_predation_gain(prey, predator, beta, gmax, K, phi)
     end
 end
 
