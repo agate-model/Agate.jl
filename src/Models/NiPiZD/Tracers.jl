@@ -18,39 +18,19 @@ using ....Library.Mortality: linear_loss, quadratic_loss
 using ....Library.Photosynthesis: smith_single_nutrient_growth
 using ....Library.Remineralization: linear_remineralization
 
-using ....Utils: sum_over, TendencyContext, tendency_views
+using ....Utils: tendency_views
 
 using ...Sums:
     grazing_unassimilated_loss_sum,
     grazing_loss_sum,
     grazing_gain_sum,
     smith_uptake_sum,
-    linear_mortality_sum,
-    quadratic_mortality_sum
+    mortality_loss_sum
 
 export nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
 
-@inline linear_mortality_loss(parameters, idx::Int, P) =
-    linear_loss(P, parameters.linear_mortality[idx])
-
-@inline quadratic_mortality_loss(parameters, idx::Int, P) =
-    quadratic_loss(P, parameters.quadratic_mortality[idx])
-
-@inline function smith_growth(parameters, idx::Int, N, P, PAR)
-    return smith_single_nutrient_growth(
-        N,
-        P,
-        PAR,
-        parameters.maximum_growth_rate[idx],
-        parameters.nutrient_half_saturation[idx],
-        parameters.alpha[idx],
-    )
-end
-
 """Nutrient tendency with Smith growth and mortality/remineralization."""
 function nutrient_default(plankton_syms)
-    n_plankton = length(plankton_syms)
-
     requirements = Requirements(;
         scalars=(:detritus_remineralization, :mortality_export_fraction),
         vectors=(
@@ -63,18 +43,23 @@ function nutrient_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency, parameters, vals = tendency_views(bgc, args)
+        _, parameters, vals = tendency_views(bgc, args)
+
+        plankton = vals.plankton
 
         N = vals.N
         D = vals.D
         PAR = vals.PAR
 
-        lin_sum = linear_mortality_sum(n_plankton, vals, parameters.linear_mortality)
-        quad_sum = quadratic_mortality_sum(n_plankton, vals, parameters.quadratic_mortality)
+        mortality = mortality_loss_sum(
+            plankton,
+            parameters.linear_mortality,
+            parameters.quadratic_mortality,
+            zero(N),
+        )
 
         uptake = smith_uptake_sum(
-            n_plankton,
-            vals,
+            plankton,
             N,
             PAR,
             parameters.maximum_growth_rate,
@@ -85,7 +70,7 @@ function nutrient_default(plankton_syms)
         export_frac = parameters.mortality_export_fraction
         remin_term = linear_remineralization(D, parameters.detritus_remineralization)
 
-        return export_frac * (lin_sum + quad_sum) + remin_term - uptake
+        return export_frac * mortality + remin_term - uptake
     end
 
     return CompiledEquation(f, requirements)
@@ -93,8 +78,6 @@ end
 
 """Detritus tendency from mortality, sloppy feeding, and remineralization."""
 function detritus_default(plankton_syms)
-    n_plankton = length(plankton_syms)
-
     requirements = Requirements(;
         scalars=(:detritus_remineralization, :mortality_export_fraction),
         vectors=(
@@ -107,19 +90,24 @@ function detritus_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency, parameters, vals = tendency_views(bgc, args)
+        _, parameters, vals = tendency_views(bgc, args)
 
+        plankton = vals.plankton
         D = vals.D
 
-        lin_sum = linear_mortality_sum(n_plankton, vals, parameters.linear_mortality)
-        quad_sum = quadratic_mortality_sum(n_plankton, vals, parameters.quadratic_mortality)
+        mortality = mortality_loss_sum(
+            plankton,
+            parameters.linear_mortality,
+            parameters.quadratic_mortality,
+            zero(D),
+        )
 
-        unassimilated = grazing_unassimilated_loss_sum(tendency)
+        unassimilated = grazing_unassimilated_loss_sum(parameters, plankton)
 
         export_frac = parameters.mortality_export_fraction
         remin_term = linear_remineralization(D, parameters.detritus_remineralization)
 
-        return (one(export_frac) - export_frac) * (lin_sum + quad_sum) + unassimilated - remin_term
+        return (one(export_frac) - export_frac) * mortality + unassimilated - remin_term
     end
 
     return CompiledEquation(f, requirements)
@@ -140,16 +128,24 @@ function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency, parameters, vals = tendency_views(bgc, args)
+        _, parameters, vals = tendency_views(bgc, args)
+
+        plankton = vals.plankton
 
         N = vals.N
-        P = vals.plankton(plankton_idx)
         PAR = vals.PAR
+        P = plankton(plankton_idx)
 
-        growth = smith_growth(parameters, plankton_idx, N, P, PAR)
+        μmax = @inbounds parameters.maximum_growth_rate[plankton_idx]
+        K = @inbounds parameters.nutrient_half_saturation[plankton_idx]
+        α = @inbounds parameters.alpha[plankton_idx]
 
-        grazing = grazing_loss_sum(tendency, P, plankton_idx)
-        mort = linear_mortality_loss(parameters, plankton_idx, P)
+        growth = smith_single_nutrient_growth(N, P, PAR, μmax, K, α)
+
+        grazing = grazing_loss_sum(parameters, plankton, P, plankton_idx)
+
+        m = @inbounds parameters.linear_mortality[plankton_idx]
+        mort = linear_loss(P, m)
 
         return growth - grazing - mort
     end
@@ -170,14 +166,18 @@ function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency, parameters, vals = tendency_views(bgc, args)
+        _, parameters, vals = tendency_views(bgc, args)
 
-        Z = vals.plankton(plankton_idx)
+        plankton = vals.plankton
+        Z = plankton(plankton_idx)
 
-        gain = grazing_gain_sum(tendency, Z, plankton_idx)
+        gain = grazing_gain_sum(parameters, plankton, Z, plankton_idx)
 
-        lin = linear_mortality_loss(parameters, plankton_idx, Z)
-        quad = quadratic_mortality_loss(parameters, plankton_idx, Z)
+        m_lin = @inbounds parameters.linear_mortality[plankton_idx]
+        m_quad = @inbounds parameters.quadratic_mortality[plankton_idx]
+
+        lin = linear_loss(Z, m_lin)
+        quad = quadratic_loss(Z, m_quad)
 
         return gain - lin - quad
     end

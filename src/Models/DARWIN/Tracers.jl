@@ -17,7 +17,7 @@ using ....Library.Mortality: linear_loss, quadratic_loss
 using ....Library.Photosynthesis: geider_two_nutrient_growth
 using ....Library.Remineralization: linear_remineralization
 
-using ....Utils: sum_over, TendencyContext, tendency_views
+using ....Utils: tendency_views
 
 using ...Sums:
     grazing_unassimilated_loss_sum,
@@ -38,32 +38,8 @@ export DIC_geider_light,
     phytoplankton_growth_two_nutrients_geider_light,
     zooplankton_default
 
-@inline linear_mortality_loss(parameters, idx::Int, P) =
-    linear_loss(P, parameters.linear_mortality[idx])
-
-@inline quadratic_mortality_loss(parameters, idx::Int, P) =
-    quadratic_loss(P, parameters.quadratic_mortality[idx])
-
-@inline function growth_geider_two_nutrients(parameters, idx::Int, DIN, PO4, P, PAR)
-    return geider_two_nutrient_growth(
-        DIN,
-        PO4,
-        P,
-        PAR,
-        parameters.maximum_growth_rate[idx],
-        parameters.half_saturation_DIN[idx],
-        parameters.half_saturation_PO4[idx],
-        parameters.photosynthetic_slope[idx],
-        parameters.chlorophyll_to_carbon_ratio[idx],
-    )
-end
-
-
-
 """DIC tendency with Geider-style growth (carbon units)."""
 function DIC_geider_light(plankton_syms)
-    n_plankton = length(plankton_syms)
-
     requirements = Requirements(;
         scalars=(:DOC_remineralization, :POC_remineralization),
         vectors=(
@@ -76,7 +52,9 @@ function DIC_geider_light(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency, parameters, vals = tendency_views(bgc, args)
+        _, parameters, vals = tendency_views(bgc, args)
+
+        plankton = vals.plankton
 
         DIN = vals.DIN
         PO4 = vals.PO4
@@ -85,8 +63,7 @@ function DIC_geider_light(plankton_syms)
         PAR = vals.PAR
 
         uptake = geider_two_nutrient_uptake_sum(
-            n_plankton,
-            vals,
+            plankton,
             DIN,
             PO4,
             PAR,
@@ -97,7 +74,9 @@ function DIC_geider_light(plankton_syms)
             parameters.chlorophyll_to_carbon_ratio,
         )
 
-        dic_remin = linear_remineralization(DOC, parameters.DOC_remineralization) + linear_remineralization(POC, parameters.POC_remineralization)
+        dic_remin =
+            linear_remineralization(DOC, parameters.DOC_remineralization) +
+            linear_remineralization(POC, parameters.POC_remineralization)
 
         return dic_remin - uptake
     end
@@ -107,8 +86,6 @@ end
 
 """DIN tendency assuming fixed stoichiometry (N:C)."""
 function DIN_geider_light(plankton_syms)
-    n_plankton = length(plankton_syms)
-
     requirements = Requirements(;
         scalars=(:DON_remineralization, :PON_remineralization, :nitrogen_to_carbon),
         vectors=(
@@ -121,7 +98,9 @@ function DIN_geider_light(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency, parameters, vals = tendency_views(bgc, args)
+        _, parameters, vals = tendency_views(bgc, args)
+
+        plankton = vals.plankton
 
         DIN = vals.DIN
         PO4 = vals.PO4
@@ -130,8 +109,7 @@ function DIN_geider_light(plankton_syms)
         PAR = vals.PAR
 
         uptake = geider_two_nutrient_uptake_sum(
-            n_plankton,
-            vals,
+            plankton,
             DIN,
             PO4,
             PAR,
@@ -142,7 +120,9 @@ function DIN_geider_light(plankton_syms)
             parameters.chlorophyll_to_carbon_ratio,
         )
 
-        din_remin = linear_remineralization(DON, parameters.DON_remineralization) + linear_remineralization(PON, parameters.PON_remineralization)
+        din_remin =
+            linear_remineralization(DON, parameters.DON_remineralization) +
+            linear_remineralization(PON, parameters.PON_remineralization)
 
         return din_remin - parameters.nitrogen_to_carbon * uptake
     end
@@ -152,8 +132,6 @@ end
 
 """PO4 tendency assuming fixed stoichiometry (P:C)."""
 function PO4_geider_light(plankton_syms)
-    n_plankton = length(plankton_syms)
-
     requirements = Requirements(;
         scalars=(:DOP_remineralization, :POP_remineralization, :phosphorus_to_carbon),
         vectors=(
@@ -166,7 +144,9 @@ function PO4_geider_light(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency, parameters, vals = tendency_views(bgc, args)
+        _, parameters, vals = tendency_views(bgc, args)
+
+        plankton = vals.plankton
 
         DIN = vals.DIN
         PO4 = vals.PO4
@@ -175,8 +155,7 @@ function PO4_geider_light(plankton_syms)
         PAR = vals.PAR
 
         uptake = geider_two_nutrient_uptake_sum(
-            n_plankton,
-            vals,
+            plankton,
             DIN,
             PO4,
             PAR,
@@ -187,7 +166,9 @@ function PO4_geider_light(plankton_syms)
             parameters.chlorophyll_to_carbon_ratio,
         )
 
-        po4_remin = linear_remineralization(DOP, parameters.DOP_remineralization) + linear_remineralization(POP, parameters.POP_remineralization)
+        po4_remin =
+            linear_remineralization(DOP, parameters.DOP_remineralization) +
+            linear_remineralization(POP, parameters.POP_remineralization)
 
         return po4_remin - parameters.phosphorus_to_carbon * uptake
     end
@@ -199,8 +180,6 @@ end
 
 """DOC tendency from plankton losses and remineralization."""
 function DOC_default(plankton_syms)
-    n_plankton = length(plankton_syms)
-
     requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :DOC_remineralization),
         vectors=(
@@ -213,17 +192,18 @@ function DOC_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency, parameters, vals = tendency_views(bgc, args)
+        _, parameters, vals = tendency_views(bgc, args)
 
+        plankton = vals.plankton
         DOC = vals.DOC
 
         M = mortality_loss_sum(
-            n_plankton,
-            vals,
+            plankton,
             parameters.linear_mortality,
             parameters.quadratic_mortality,
+            zero(DOC),
         )
-        g = grazing_unassimilated_loss_sum(tendency)
+        g = grazing_unassimilated_loss_sum(parameters, plankton)
         R = linear_remineralization(DOC, parameters.DOC_remineralization)
 
         frac = one(parameters.DOM_POM_fractionation) - parameters.DOM_POM_fractionation
@@ -235,8 +215,6 @@ end
 
 """POC tendency from plankton losses and remineralization."""
 function POC_default(plankton_syms)
-    n_plankton = length(plankton_syms)
-
     requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :POC_remineralization),
         vectors=(
@@ -249,17 +227,18 @@ function POC_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency, parameters, vals = tendency_views(bgc, args)
+        _, parameters, vals = tendency_views(bgc, args)
 
+        plankton = vals.plankton
         POC = vals.POC
 
         M = mortality_loss_sum(
-            n_plankton,
-            vals,
+            plankton,
             parameters.linear_mortality,
             parameters.quadratic_mortality,
+            zero(POC),
         )
-        g = grazing_unassimilated_loss_sum(tendency)
+        g = grazing_unassimilated_loss_sum(parameters, plankton)
         R = linear_remineralization(POC, parameters.POC_remineralization)
 
         return parameters.DOM_POM_fractionation * (M + g) - R
@@ -270,8 +249,6 @@ end
 
 """DON tendency assuming fixed stoichiometry (N:C)."""
 function DON_default(plankton_syms)
-    n_plankton = length(plankton_syms)
-
     requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :DON_remineralization, :nitrogen_to_carbon),
         vectors=(
@@ -284,17 +261,18 @@ function DON_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency, parameters, vals = tendency_views(bgc, args)
+        _, parameters, vals = tendency_views(bgc, args)
 
+        plankton = vals.plankton
         DON = vals.DON
 
         M = mortality_loss_sum(
-            n_plankton,
-            vals,
+            plankton,
             parameters.linear_mortality,
             parameters.quadratic_mortality,
+            zero(DON),
         )
-        g = grazing_unassimilated_loss_sum(tendency)
+        g = grazing_unassimilated_loss_sum(parameters, plankton)
         R = linear_remineralization(DON, parameters.DON_remineralization)
 
         frac = one(parameters.DOM_POM_fractionation) - parameters.DOM_POM_fractionation
@@ -306,8 +284,6 @@ end
 
 """PON tendency assuming fixed stoichiometry (N:C)."""
 function PON_default(plankton_syms)
-    n_plankton = length(plankton_syms)
-
     requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :PON_remineralization, :nitrogen_to_carbon),
         vectors=(
@@ -320,17 +296,18 @@ function PON_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency, parameters, vals = tendency_views(bgc, args)
+        _, parameters, vals = tendency_views(bgc, args)
 
+        plankton = vals.plankton
         PON = vals.PON
 
         M = mortality_loss_sum(
-            n_plankton,
-            vals,
+            plankton,
             parameters.linear_mortality,
             parameters.quadratic_mortality,
+            zero(PON),
         )
-        g = grazing_unassimilated_loss_sum(tendency)
+        g = grazing_unassimilated_loss_sum(parameters, plankton)
         R = linear_remineralization(PON, parameters.PON_remineralization)
 
         return parameters.DOM_POM_fractionation * parameters.nitrogen_to_carbon * (M + g) - R
@@ -341,8 +318,6 @@ end
 
 """DOP tendency assuming fixed stoichiometry (P:C)."""
 function DOP_default(plankton_syms)
-    n_plankton = length(plankton_syms)
-
     requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :DOP_remineralization, :phosphorus_to_carbon),
         vectors=(
@@ -355,17 +330,18 @@ function DOP_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency, parameters, vals = tendency_views(bgc, args)
+        _, parameters, vals = tendency_views(bgc, args)
 
+        plankton = vals.plankton
         DOP = vals.DOP
 
         M = mortality_loss_sum(
-            n_plankton,
-            vals,
+            plankton,
             parameters.linear_mortality,
             parameters.quadratic_mortality,
+            zero(DOP),
         )
-        g = grazing_unassimilated_loss_sum(tendency)
+        g = grazing_unassimilated_loss_sum(parameters, plankton)
         R = linear_remineralization(DOP, parameters.DOP_remineralization)
 
         frac = one(parameters.DOM_POM_fractionation) - parameters.DOM_POM_fractionation
@@ -377,8 +353,6 @@ end
 
 """POP tendency assuming fixed stoichiometry (P:C)."""
 function POP_default(plankton_syms)
-    n_plankton = length(plankton_syms)
-
     requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :POP_remineralization, :phosphorus_to_carbon),
         vectors=(
@@ -391,17 +365,18 @@ function POP_default(plankton_syms)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency, parameters, vals = tendency_views(bgc, args)
+        _, parameters, vals = tendency_views(bgc, args)
 
+        plankton = vals.plankton
         POP = vals.POP
 
         M = mortality_loss_sum(
-            n_plankton,
-            vals,
+            plankton,
             parameters.linear_mortality,
             parameters.quadratic_mortality,
+            zero(POP),
         )
-        g = grazing_unassimilated_loss_sum(tendency)
+        g = grazing_unassimilated_loss_sum(parameters, plankton)
         R = linear_remineralization(POP, parameters.POP_remineralization)
 
         return parameters.DOM_POM_fractionation * parameters.phosphorus_to_carbon * (M + g) - R
@@ -433,16 +408,27 @@ function phytoplankton_growth_two_nutrients_geider_light(
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency, parameters, vals = tendency_views(bgc, args)
+        _, parameters, vals = tendency_views(bgc, args)
+
+        plankton = vals.plankton
 
         DIN = vals.DIN
         PO4 = vals.PO4
-        P = vals.plankton(plankton_idx)
         PAR = vals.PAR
+        P = plankton(plankton_idx)
 
-        growth = growth_geider_two_nutrients(parameters, plankton_idx, DIN, PO4, P, PAR)
-        grazing = grazing_loss_sum(tendency, P, plankton_idx)
-        mort = linear_mortality_loss(parameters, plankton_idx, P)
+        μmax = parameters.maximum_growth_rate[plankton_idx]
+        KDIN = parameters.half_saturation_DIN[plankton_idx]
+        KPO4 = parameters.half_saturation_PO4[plankton_idx]
+        α = parameters.photosynthetic_slope[plankton_idx]
+        θc = parameters.chlorophyll_to_carbon_ratio[plankton_idx]
+
+        growth = geider_two_nutrient_growth(DIN, PO4, P, PAR, μmax, KDIN, KPO4, α, θc)
+
+        grazing = grazing_loss_sum(parameters, plankton, P, plankton_idx)
+
+        m = parameters.linear_mortality[plankton_idx]
+        mort = linear_loss(P, m)
 
         return growth - grazing - mort
     end
@@ -463,14 +449,18 @@ function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::
     )
 
     f = function (bgc, x, y, z, t, args...)
-        tendency, parameters, vals = tendency_views(bgc, args)
+        _, parameters, vals = tendency_views(bgc, args)
 
-        Z = vals.plankton(plankton_idx)
+        plankton = vals.plankton
+        Z = plankton(plankton_idx)
 
-        gain = grazing_gain_sum(tendency, Z, plankton_idx)
+        gain = grazing_gain_sum(parameters, plankton, Z, plankton_idx)
 
-        lin = linear_mortality_loss(parameters, plankton_idx, Z)
-        quad = quadratic_mortality_loss(parameters, plankton_idx, Z)
+        m_lin = parameters.linear_mortality[plankton_idx]
+        m_quad = parameters.quadratic_mortality[plankton_idx]
+
+        lin = linear_loss(Z, m_lin)
+        quad = quadratic_loss(Z, m_quad)
 
         return gain - lin - quad
     end
