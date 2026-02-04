@@ -563,16 +563,12 @@ function validate_community_inputs(plankton_dynamics, community)
             end
         end
 
-        if !(hasproperty(spec, :args) || hasproperty(spec, :pft))
-            push!(issues, "group $(k): must provide `args` or `pft`")
+        if !hasproperty(spec, :pft)
+            push!(issues, "group $(k): missing required field `pft`")
         else
-            pft =
-                hasproperty(spec, :pft) ? getproperty(spec, :pft) : getproperty(spec, :args)
+            pft = getproperty(spec, :pft)
             ok = pft isa PFTSpecification || pft isa NamedTuple
-            ok || push!(
-                issues,
-                "group $(k): `args`/`pft` must be PFTSpecification or NamedTuple",
-            )
+            ok || push!(issues, "group $(k): `pft` must be PFTSpecification or NamedTuple")
         end
     end
 
@@ -621,8 +617,7 @@ function parse_community(
             getproperty(spec, :n)
         end
         ds = param_compute_diameters(FT, n, dspec)
-        pft_raw =
-            hasproperty(spec, :pft) ? getproperty(spec, :pft) : getproperty(spec, :args)
+        pft_raw = getproperty(spec, :pft)
         pft = pft_raw isa PFTSpecification ? pft_raw : PFTSpecification(pft_raw)
 
         for i in 1:n
