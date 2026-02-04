@@ -19,7 +19,12 @@ using ....Library.Remineralization: linear_remineralization
 
 using ....Utils: sum_over, TendencyContext, tendency_views
 
-using ...PredationSums: _grazing_assimilation_loss_sum, _grazing_loss_sum, _grazing_gain_sum
+using ...Sums:
+    grazing_unassimilated_loss_sum,
+    grazing_loss_sum,
+    grazing_gain_sum,
+    geider_two_nutrient_uptake_sum,
+    mortality_loss_sum
 
 export DIC_geider_light,
     DIN_geider_light,
@@ -53,22 +58,7 @@ export DIC_geider_light,
     )
 end
 
-@inline function _uptake_sum_geider(parameters, vals, n_plankton::Int, DIN, PO4, PAR)
-    sum_over(n_plankton, zero(DIN)) do i
-        P = vals.plankton(i)
-        growth_geider_two_nutrients(parameters, i, DIN, PO4, P, PAR)
-    end
-end
 
-@inline function _mortality_loss_sum(parameters, vals, n_plankton::Int)
-    FT = eltype(parameters.maximum_growth_rate)
-    z = zero(FT)
-
-    sum_over(n_plankton, z) do i
-        P = vals.plankton(i)
-        linear_mortality_loss(parameters, i, P) + quadratic_mortality_loss(parameters, i, P)
-    end
-end
 
 """DIC tendency with Geider-style growth (carbon units)."""
 function DIC_geider_light(plankton_syms)
@@ -94,7 +84,18 @@ function DIC_geider_light(plankton_syms)
         POC = vals.POC
         PAR = vals.PAR
 
-        uptake = _uptake_sum_geider(parameters, vals, n_plankton, DIN, PO4, PAR)
+        uptake = geider_two_nutrient_uptake_sum(
+            n_plankton,
+            vals,
+            DIN,
+            PO4,
+            PAR,
+            parameters.maximum_growth_rate,
+            parameters.half_saturation_DIN,
+            parameters.half_saturation_PO4,
+            parameters.photosynthetic_slope,
+            parameters.chlorophyll_to_carbon_ratio,
+        )
 
         dic_remin = linear_remineralization(DOC, parameters.DOC_remineralization) + linear_remineralization(POC, parameters.POC_remineralization)
 
@@ -128,7 +129,18 @@ function DIN_geider_light(plankton_syms)
         PON = vals.PON
         PAR = vals.PAR
 
-        uptake = _uptake_sum_geider(parameters, vals, n_plankton, DIN, PO4, PAR)
+        uptake = geider_two_nutrient_uptake_sum(
+            n_plankton,
+            vals,
+            DIN,
+            PO4,
+            PAR,
+            parameters.maximum_growth_rate,
+            parameters.half_saturation_DIN,
+            parameters.half_saturation_PO4,
+            parameters.photosynthetic_slope,
+            parameters.chlorophyll_to_carbon_ratio,
+        )
 
         din_remin = linear_remineralization(DON, parameters.DON_remineralization) + linear_remineralization(PON, parameters.PON_remineralization)
 
@@ -162,7 +174,18 @@ function PO4_geider_light(plankton_syms)
         POP = vals.POP
         PAR = vals.PAR
 
-        uptake = _uptake_sum_geider(parameters, vals, n_plankton, DIN, PO4, PAR)
+        uptake = geider_two_nutrient_uptake_sum(
+            n_plankton,
+            vals,
+            DIN,
+            PO4,
+            PAR,
+            parameters.maximum_growth_rate,
+            parameters.half_saturation_DIN,
+            parameters.half_saturation_PO4,
+            parameters.photosynthetic_slope,
+            parameters.chlorophyll_to_carbon_ratio,
+        )
 
         po4_remin = linear_remineralization(DOP, parameters.DOP_remineralization) + linear_remineralization(POP, parameters.POP_remineralization)
 
@@ -194,8 +217,13 @@ function DOC_default(plankton_syms)
 
         DOC = vals.DOC
 
-        M = _mortality_loss_sum(parameters, vals, n_plankton)
-        g = _grazing_assimilation_loss_sum(tendency)
+        M = mortality_loss_sum(
+            n_plankton,
+            vals,
+            parameters.linear_mortality,
+            parameters.quadratic_mortality,
+        )
+        g = grazing_unassimilated_loss_sum(tendency)
         R = linear_remineralization(DOC, parameters.DOC_remineralization)
 
         frac = one(parameters.DOM_POM_fractionation) - parameters.DOM_POM_fractionation
@@ -225,8 +253,13 @@ function POC_default(plankton_syms)
 
         POC = vals.POC
 
-        M = _mortality_loss_sum(parameters, vals, n_plankton)
-        g = _grazing_assimilation_loss_sum(tendency)
+        M = mortality_loss_sum(
+            n_plankton,
+            vals,
+            parameters.linear_mortality,
+            parameters.quadratic_mortality,
+        )
+        g = grazing_unassimilated_loss_sum(tendency)
         R = linear_remineralization(POC, parameters.POC_remineralization)
 
         return parameters.DOM_POM_fractionation * (M + g) - R
@@ -255,8 +288,13 @@ function DON_default(plankton_syms)
 
         DON = vals.DON
 
-        M = _mortality_loss_sum(parameters, vals, n_plankton)
-        g = _grazing_assimilation_loss_sum(tendency)
+        M = mortality_loss_sum(
+            n_plankton,
+            vals,
+            parameters.linear_mortality,
+            parameters.quadratic_mortality,
+        )
+        g = grazing_unassimilated_loss_sum(tendency)
         R = linear_remineralization(DON, parameters.DON_remineralization)
 
         frac = one(parameters.DOM_POM_fractionation) - parameters.DOM_POM_fractionation
@@ -286,8 +324,13 @@ function PON_default(plankton_syms)
 
         PON = vals.PON
 
-        M = _mortality_loss_sum(parameters, vals, n_plankton)
-        g = _grazing_assimilation_loss_sum(tendency)
+        M = mortality_loss_sum(
+            n_plankton,
+            vals,
+            parameters.linear_mortality,
+            parameters.quadratic_mortality,
+        )
+        g = grazing_unassimilated_loss_sum(tendency)
         R = linear_remineralization(PON, parameters.PON_remineralization)
 
         return parameters.DOM_POM_fractionation * parameters.nitrogen_to_carbon * (M + g) - R
@@ -316,8 +359,13 @@ function DOP_default(plankton_syms)
 
         DOP = vals.DOP
 
-        M = _mortality_loss_sum(parameters, vals, n_plankton)
-        g = _grazing_assimilation_loss_sum(tendency)
+        M = mortality_loss_sum(
+            n_plankton,
+            vals,
+            parameters.linear_mortality,
+            parameters.quadratic_mortality,
+        )
+        g = grazing_unassimilated_loss_sum(tendency)
         R = linear_remineralization(DOP, parameters.DOP_remineralization)
 
         frac = one(parameters.DOM_POM_fractionation) - parameters.DOM_POM_fractionation
@@ -347,8 +395,13 @@ function POP_default(plankton_syms)
 
         POP = vals.POP
 
-        M = _mortality_loss_sum(parameters, vals, n_plankton)
-        g = _grazing_assimilation_loss_sum(tendency)
+        M = mortality_loss_sum(
+            n_plankton,
+            vals,
+            parameters.linear_mortality,
+            parameters.quadratic_mortality,
+        )
+        g = grazing_unassimilated_loss_sum(tendency)
         R = linear_remineralization(POP, parameters.POP_remineralization)
 
         return parameters.DOM_POM_fractionation * parameters.phosphorus_to_carbon * (M + g) - R
@@ -388,7 +441,7 @@ function phytoplankton_growth_two_nutrients_geider_light(
         PAR = vals.PAR
 
         growth = growth_geider_two_nutrients(parameters, plankton_idx, DIN, PO4, P, PAR)
-        grazing = _grazing_loss_sum(tendency, P, plankton_idx)
+        grazing = grazing_loss_sum(tendency, P, plankton_idx)
         mort = linear_mortality_loss(parameters, plankton_idx, P)
 
         return growth - grazing - mort
@@ -414,7 +467,7 @@ function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::
 
         Z = vals.plankton(plankton_idx)
 
-        gain = _grazing_gain_sum(tendency, Z, plankton_idx)
+        gain = grazing_gain_sum(tendency, Z, plankton_idx)
 
         lin = linear_mortality_loss(parameters, plankton_idx, Z)
         quad = quadratic_mortality_loss(parameters, plankton_idx, Z)

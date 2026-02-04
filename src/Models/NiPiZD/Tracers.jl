@@ -20,7 +20,13 @@ using ....Library.Remineralization: linear_remineralization
 
 using ....Utils: sum_over, TendencyContext, tendency_views
 
-using ...PredationSums: _grazing_assimilation_loss_sum, _grazing_loss_sum, _grazing_gain_sum
+using ...Sums:
+    grazing_unassimilated_loss_sum,
+    grazing_loss_sum,
+    grazing_gain_sum,
+    smith_uptake_sum,
+    linear_mortality_sum,
+    quadratic_mortality_sum
 
 export nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
 
@@ -39,14 +45,6 @@ export nutrient_default, detritus_default, phytoplankton_default, zooplankton_de
         parameters.nutrient_half_saturation[idx],
         parameters.alpha[idx],
     )
-end
-
-@inline function _uptake_sum_smith(parameters, vals, n_plankton::Int, N, PAR)
-
-    sum_over(n_plankton, zero(N)) do i
-        P = vals.plankton(i)
-        smith_growth(parameters, i, N, P, PAR)
-    end
 end
 
 """Nutrient tendency with Smith growth and mortality/remineralization."""
@@ -71,17 +69,18 @@ function nutrient_default(plankton_syms)
         D = vals.D
         PAR = vals.PAR
 
-        lin_sum = sum_over(n_plankton, zero(N)) do i
-            P = vals.plankton(i)
-            linear_mortality_loss(parameters, i, P)
-        end
+        lin_sum = linear_mortality_sum(n_plankton, vals, parameters.linear_mortality)
+        quad_sum = quadratic_mortality_sum(n_plankton, vals, parameters.quadratic_mortality)
 
-        quad_sum = sum_over(n_plankton, zero(N)) do i
-            P = vals.plankton(i)
-            quadratic_mortality_loss(parameters, i, P)
-        end
-
-        uptake = _uptake_sum_smith(parameters, vals, n_plankton, N, PAR)
+        uptake = smith_uptake_sum(
+            n_plankton,
+            vals,
+            N,
+            PAR,
+            parameters.maximum_growth_rate,
+            parameters.nutrient_half_saturation,
+            parameters.alpha,
+        )
 
         export_frac = parameters.mortality_export_fraction
         remin_term = linear_remineralization(D, parameters.detritus_remineralization)
@@ -112,22 +111,15 @@ function detritus_default(plankton_syms)
 
         D = vals.D
 
-        lin_sum = sum_over(n_plankton, zero(D)) do i
-            P = vals.plankton(i)
-            linear_mortality_loss(parameters, i, P)
-        end
+        lin_sum = linear_mortality_sum(n_plankton, vals, parameters.linear_mortality)
+        quad_sum = quadratic_mortality_sum(n_plankton, vals, parameters.quadratic_mortality)
 
-        quad_sum = sum_over(n_plankton, zero(D)) do i
-            P = vals.plankton(i)
-            quadratic_mortality_loss(parameters, i, P)
-        end
-
-        assim_loss = _grazing_assimilation_loss_sum(tendency)
+        unassimilated = grazing_unassimilated_loss_sum(tendency)
 
         export_frac = parameters.mortality_export_fraction
         remin_term = linear_remineralization(D, parameters.detritus_remineralization)
 
-        return (one(export_frac) - export_frac) * (lin_sum + quad_sum) + assim_loss - remin_term
+        return (one(export_frac) - export_frac) * (lin_sum + quad_sum) + unassimilated - remin_term
     end
 
     return CompiledEquation(f, requirements)
@@ -156,7 +148,7 @@ function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx
 
         growth = smith_growth(parameters, plankton_idx, N, P, PAR)
 
-        grazing = _grazing_loss_sum(tendency, P, plankton_idx)
+        grazing = grazing_loss_sum(tendency, P, plankton_idx)
         mort = linear_mortality_loss(parameters, plankton_idx, P)
 
         return growth - grazing - mort
@@ -182,7 +174,7 @@ function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::
 
         Z = vals.plankton(plankton_idx)
 
-        gain = _grazing_gain_sum(tendency, Z, plankton_idx)
+        gain = grazing_gain_sum(tendency, Z, plankton_idx)
 
         lin = linear_mortality_loss(parameters, plankton_idx, Z)
         quad = quadratic_mortality_loss(parameters, plankton_idx, Z)

@@ -10,7 +10,7 @@ using ..Interface:
 # Shared model utilities
 # -----------------------------------------------------------------------------
 
-include("PredationSums.jl")
+include("Sums.jl")
 include("Variants.jl")
 
 # -----------------------------------------------------------------------------
