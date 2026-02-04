@@ -32,10 +32,7 @@ once per tracer symbol during construction.
 
 Expected signature
 ------------------
-`builder(plankton_symbols) -> CompiledEquation`
-
-where `plankton_symbols` is the full ordered vector of plankton tracer symbols
-(e.g. `[:Z1, :P1, :P2, ...]`).
+`builder() -> CompiledEquation`.
 """
 const BiogeochemDynamicsBuilder = Function
 
@@ -46,13 +43,11 @@ symbol (e.g. `P`, `Z`) and are called once per plankton class.
 
 Expected signature
 ------------------
-`builder(plankton_symbols, tracer_symbol, global_index) -> CompiledEquation`
+`builder(global_index::Int) -> CompiledEquation`
 
 Arguments
 ---------
-- `plankton_symbols`: full ordered vector of all plankton tracer symbols
-- `tracer_symbol`: the symbol for the current class (e.g. `:P3`)
-- `global_index`: the global plankton class index corresponding to `tracer_symbol`
+- `global_index`: global plankton class index (ordered as in `ctx.plankton_symbols`)
 """
 const PlanktonDynamicsBuilder = Function
 
@@ -295,7 +290,7 @@ function construct_factory(
     merged = Requirements()
 
     for (_, f) in pairs(biogeochem_dynamics)
-        tr = f(plankton_syms)
+        tr = f()
         (tr isa CompiledEquation) || throw(
             ArgumentError("biogeochem dynamics $(nameof(f)) must return CompiledEquation"),
         )
@@ -306,9 +301,7 @@ function construct_factory(
     for idx in eachindex(plankton_syms)
         g = interaction_context.group_symbols[idx]
         f = getfield(plankton_dynamics, g)
-        trsym = plankton_syms[idx]
-
-        tr = f(plankton_syms, trsym, idx)
+        tr = f(idx)
         (tr isa CompiledEquation) || throw(
             ArgumentError("plankton dynamics $(nameof(f)) must return CompiledEquation")
         )

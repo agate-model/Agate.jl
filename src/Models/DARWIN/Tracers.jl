@@ -39,7 +39,7 @@ export DIC_geider_light,
     zooplankton_default
 
 """DIC tendency with Geider-style growth (carbon units)."""
-function DIC_geider_light(plankton_syms)
+function DIC_geider_light()
     requirements = Requirements(;
         scalars=(:DOC_remineralization, :POC_remineralization),
         vectors=(
@@ -85,7 +85,7 @@ function DIC_geider_light(plankton_syms)
 end
 
 """DIN tendency assuming fixed stoichiometry (N:C)."""
-function DIN_geider_light(plankton_syms)
+function DIN_geider_light()
     requirements = Requirements(;
         scalars=(:DON_remineralization, :PON_remineralization, :nitrogen_to_carbon),
         vectors=(
@@ -131,7 +131,7 @@ function DIN_geider_light(plankton_syms)
 end
 
 """PO4 tendency assuming fixed stoichiometry (P:C)."""
-function PO4_geider_light(plankton_syms)
+function PO4_geider_light()
     requirements = Requirements(;
         scalars=(:DOP_remineralization, :POP_remineralization, :phosphorus_to_carbon),
         vectors=(
@@ -179,7 +179,7 @@ end
 # --- Organic matter ---------------------------------------------------------
 
 """DOC tendency from plankton losses and remineralization."""
-function DOC_default(plankton_syms)
+function DOC_default()
     requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :DOC_remineralization),
         vectors=(
@@ -213,7 +213,7 @@ function DOC_default(plankton_syms)
 end
 
 """POC tendency from plankton losses and remineralization."""
-function POC_default(plankton_syms)
+function POC_default()
     requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :POC_remineralization),
         vectors=(
@@ -246,7 +246,7 @@ function POC_default(plankton_syms)
 end
 
 """DON tendency assuming fixed stoichiometry (N:C)."""
-function DON_default(plankton_syms)
+function DON_default()
     requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :DON_remineralization, :nitrogen_to_carbon),
         vectors=(
@@ -280,7 +280,7 @@ function DON_default(plankton_syms)
 end
 
 """PON tendency assuming fixed stoichiometry (N:C)."""
-function PON_default(plankton_syms)
+function PON_default()
     requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :PON_remineralization, :nitrogen_to_carbon),
         vectors=(
@@ -313,7 +313,7 @@ function PON_default(plankton_syms)
 end
 
 """DOP tendency assuming fixed stoichiometry (P:C)."""
-function DOP_default(plankton_syms)
+function DOP_default()
     requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :DOP_remineralization, :phosphorus_to_carbon),
         vectors=(
@@ -347,7 +347,7 @@ function DOP_default(plankton_syms)
 end
 
 """POP tendency assuming fixed stoichiometry (P:C)."""
-function POP_default(plankton_syms)
+function POP_default()
     requirements = Requirements(;
         scalars=(:DOM_POM_fractionation, :POP_remineralization, :phosphorus_to_carbon),
         vectors=(
@@ -382,11 +382,7 @@ end
 # --- Plankton ---------------------------------------------------------------
 
 """Phytoplankton tendency with Geider-style, two-nutrient growth."""
-function phytoplankton_growth_two_nutrients_geider_light(
-    plankton_syms,
-    plankton_sym::Symbol,
-    plankton_idx::Int,
-)
+function phytoplankton_growth_two_nutrients_geider_light(plankton_idx::Int)
     requirements = Requirements(;
         vectors=(
             :maximum_growth_rate,
@@ -431,7 +427,7 @@ function phytoplankton_growth_two_nutrients_geider_light(
 end
 
 """Zooplankton tendency with preferential grazing gain."""
-function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
+function zooplankton_default(plankton_idx::Int)
     requirements = Requirements(;
         vectors=(
             :linear_mortality,

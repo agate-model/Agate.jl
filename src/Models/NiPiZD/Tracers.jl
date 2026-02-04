@@ -30,7 +30,7 @@ using ...Sums:
 export nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
 
 """Nutrient tendency with Smith growth and mortality/remineralization."""
-function nutrient_default(plankton_syms)
+function nutrient_default()
     requirements = Requirements(;
         scalars=(:detritus_remineralization, :mortality_export_fraction),
         vectors=(
@@ -76,7 +76,7 @@ function nutrient_default(plankton_syms)
 end
 
 """Detritus tendency from mortality, sloppy feeding, and remineralization."""
-function detritus_default(plankton_syms)
+function detritus_default()
     requirements = Requirements(;
         scalars=(:detritus_remineralization, :mortality_export_fraction),
         vectors=(
@@ -112,7 +112,7 @@ function detritus_default(plankton_syms)
 end
 
 """Phytoplankton tendency with Smith growth, grazing loss, and linear mortality."""
-function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
+function phytoplankton_default(plankton_idx::Int)
     requirements = Requirements(;
         vectors=(
             :maximum_growth_rate,
@@ -152,7 +152,7 @@ function phytoplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx
 end
 
 """Zooplankton tendency with preferential grazing gain and mortality losses."""
-function zooplankton_default(plankton_syms, plankton_sym::Symbol, plankton_idx::Int)
+function zooplankton_default(plankton_idx::Int)
     requirements = Requirements(;
         vectors=(
             :linear_mortality,
