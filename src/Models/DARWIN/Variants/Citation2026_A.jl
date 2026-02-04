@@ -22,6 +22,7 @@ function citation2026_A_spec(;
     zoo_diameters=(20, 100, :linear_splitting),
     parameters::NamedTuple=(;),
     interaction_overrides::Union{Nothing,NamedTuple}=nothing,
+    auxiliary_fields::Tuple=(:PAR,),
 )
     factory = DarwinFactory()
 
@@ -43,6 +44,7 @@ function citation2026_A_spec(;
         community,
         roles,
         parameter_groups,
+    auxiliary_fields,
         parameters,
         interaction_overrides,
     )

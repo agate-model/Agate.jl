@@ -51,6 +51,7 @@ struct VariantSpec{
     C<:NamedTuple,
     R<:NamedTuple,
     PG<:NamedTuple,
+    AF<:Tuple,
     P<:NamedTuple,
     I,
 }
@@ -61,6 +62,7 @@ struct VariantSpec{
     community::C
     roles::R
     parameter_groups::PG
+    auxiliary_fields::AF
     parameters::P
     interaction_overrides::I # `Nothing` or a `NamedTuple`
 end
@@ -123,6 +125,7 @@ function construct(
     interaction_overrides::Union{Nothing,NamedTuple}=nothing,
     roles=nothing,
     parameter_groups=nothing,
+    auxiliary_fields=nothing,
     kwargs...,
 )
     # Merge runtime overrides on top of the variant defaults.
@@ -146,6 +149,7 @@ function construct(
         interaction_overrides=inter,
         roles=isnothing(roles) ? spec.roles : roles,
         parameter_groups=isnothing(parameter_groups) ? spec.parameter_groups : parameter_groups,
+        auxiliary_fields=isnothing(auxiliary_fields) ? spec.auxiliary_fields : auxiliary_fields,
         kwargs...,
     )
 end

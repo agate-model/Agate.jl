@@ -91,13 +91,18 @@ function build_tracer_index(
     auxiliary_fields::Tuple;
     n_biogeochem_tracers::Int,
 )
-    # Preserve community order (first-seen order in the flattened class list).
+    # Preserve community order (explicit group ordering from `parse_community`).
+    # `parse_community` appends classes group-by-group, so group symbols are contiguous.
     groups_vec = Symbol[]
-    seen = Set{Symbol}()
-    for g in ctx.group_symbols
-        if g ∉ seen
-            push!(groups_vec, g)
-            push!(seen, g)
+    if !isempty(ctx.group_symbols)
+        last = ctx.group_symbols[1]
+        push!(groups_vec, last)
+        @inbounds for i in 2:length(ctx.group_symbols)
+            g = ctx.group_symbols[i]
+            if g !== last
+                push!(groups_vec, g)
+                last = g
+            end
         end
     end
 

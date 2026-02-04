@@ -122,6 +122,7 @@ function construct(;
         parameters=parameters,
         roles=roles_resolved,
         parameter_groups=parameter_groups_resolved,
+        auxiliary_fields=(:PAR,),
         interaction_overrides=interaction_overrides,
         arch=arch,
         sinking_tracers=sinking_tracers,

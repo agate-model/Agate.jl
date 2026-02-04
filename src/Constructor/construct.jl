@@ -226,6 +226,26 @@ Key keyword arguments
   Values may be concrete objects or provider functions callable as `f(ctx)`.
   For matrix parameters, overrides may be full `(n_total, n_total)` matrices. A group-block `(n_groups, n_groups)` matrix may be supplied and expanded during construction; when the parameter declares role-aware axes, wrap the block matrix as `GroupBlockMatrix(B)` to avoid ambiguity. When axes are declared, rectangular consumer-by-prey matrices sized to those axes (for example `(n_consumer, n_prey)`) are also accepted, as are axis-local group-block matrices.
 """
+
+# ---------------------------------------------------------------------
+# Auxiliary field validation
+# ---------------------------------------------------------------------
+
+function _validate_auxiliary_fields(auxiliary_fields::Tuple, tracer_names::Tuple)
+    isempty(auxiliary_fields) && return nothing
+
+    seen = Set{Symbol}()
+    for s in auxiliary_fields
+        s isa Symbol || throw(ArgumentError("auxiliary_fields entries must be Symbols, got $(typeof(s))"))
+        (s ∉ seen) || throw(ArgumentError("auxiliary_fields contains duplicate entry :$s"))
+        push!(seen, s)
+        (s ∉ tracer_names) ||
+            throw(ArgumentError("auxiliary field :$s conflicts with an existing tracer name"))
+    end
+
+    return nothing
+end
+
 function construct_factory(
     factory::AbstractBGCFactory;
     plankton_dynamics=default_plankton_dynamics(factory),
@@ -235,6 +255,7 @@ function construct_factory(
     interaction_overrides::Union{Nothing,NamedTuple}=nothing,
     roles=nothing,
     parameter_groups=nothing,
+    auxiliary_fields::Tuple=(:PAR,),
     arch=nothing,
     sinking_tracers=nothing,
     grid=nothing,
@@ -366,7 +387,11 @@ function construct_factory(
     # Auxiliary fields are appended to the Oceananigans kernel argument list.
     # The symbol tuple lives only on the host side; the compiled model stores
     # a GPU-safe integer `TracerIndex`.
-    auxiliary_fields = (:PAR,)
+    #
+    # NOTE: `auxiliary_fields` is a host-side tuple of `Symbol`s only. The compiled
+    # model stores a GPU-safe integer `TracerIndex`, so no runtime Symbol work
+    # occurs inside kernels.
+    _validate_auxiliary_fields(auxiliary_fields, tracer_names)
     tracer_index = build_tracer_index(
         interaction_context,
         tracer_names,
