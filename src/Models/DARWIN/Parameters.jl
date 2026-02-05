@@ -16,7 +16,7 @@ using ...Utils: CommunityContext
 using ...Library.Allometry:
     AllometricParam,
     PowerLaw,
-    resolve_param,
+    resolve_diameter_indexed_vector,
     palatability_matrix_allometric_axes,
     assimilation_efficiency_matrix_binary_axes
 
@@ -170,29 +170,6 @@ function derived_matrix_specs(::DarwinFactory)
     )
 end
 
-function _resolve_allvec(::Type{FT}, ctx::CommunityContext, value) where {FT}
-    n = ctx.n_total
-    out = Vector{FT}(undef, n)
-    @inbounds for i in 1:n
-        out[i] = resolve_param(FT, value, ctx.diameters[i])
-    end
-    return out
-end
-
-function _resolve_indexedvec(
-    ::Type{FT}, ctx::CommunityContext, indices::AbstractVector{Int}, value; default::FT
-) where {FT}
-    n = ctx.n_total
-    out = Vector{FT}(undef, n)
-    @inbounds for i in 1:n
-        out[i] = default
-    end
-    @inbounds for i in indices
-        out[i] = resolve_param(FT, value, ctx.diameters[i])
-    end
-    return out
-end
-
 function default_parameters(::DarwinFactory, ctx::CommunityContext, ::Type{FT}) where {FT}
     # ---------------------------------------------------------------------
     # Scalars
@@ -218,55 +195,55 @@ function default_parameters(::DarwinFactory, ctx::CommunityContext, ::Type{FT}) 
 
     # Mortality
     linear_mortality = fill(FT(8e-7), ctx.n_total)
-    quadratic_mortality = _resolve_indexedvec(
-        FT, ctx, ctx.consumer_param_indices, FT(1e-6); default=FT(0)
+    quadratic_mortality = resolve_diameter_indexed_vector(
+        FT, ctx.diameters, ctx.consumer_param_indices, FT(1e-6); default=FT(0)
     )
 
     # Phytoplankton growth (Geider light limitation + 2 nutrients)
-    maximum_growth_rate = _resolve_indexedvec(
+    maximum_growth_rate = resolve_diameter_indexed_vector(
         FT,
-        ctx,
+        ctx.diameters,
         ctx.producer_param_indices,
         AllometricParam(PowerLaw(); prefactor=FT(2 / 86400), exponent=FT(-0.15));
         default=FT(0),
     )
 
     # Defaults to zero for non-phyto groups; MonodLimitation guards 0/0.
-    half_saturation_DIN = _resolve_indexedvec(
+    half_saturation_DIN = resolve_diameter_indexed_vector(
         FT,
-        ctx,
+        ctx.diameters,
         ctx.producer_param_indices,
         AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27));
         default=FT(0),
     )
-    half_saturation_PO4 = _resolve_indexedvec(
+    half_saturation_PO4 = resolve_diameter_indexed_vector(
         FT,
-        ctx,
+        ctx.diameters,
         ctx.producer_param_indices,
         AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27));
         default=FT(0),
     )
 
-    photosynthetic_slope = _resolve_indexedvec(
-        FT, ctx, ctx.producer_param_indices, FT(0.1 / 86400); default=FT(0)
+    photosynthetic_slope = resolve_diameter_indexed_vector(
+        FT, ctx.diameters, ctx.producer_param_indices, FT(0.1 / 86400); default=FT(0)
     )
-    chlorophyll_to_carbon_ratio = _resolve_indexedvec(
-        FT, ctx, ctx.producer_param_indices, FT(0.02); default=FT(0)
+    chlorophyll_to_carbon_ratio = resolve_diameter_indexed_vector(
+        FT, ctx.diameters, ctx.producer_param_indices, FT(0.02); default=FT(0)
     )
 
     # Zooplankton grazing (preferential predation)
-    maximum_predation_rate = _resolve_indexedvec(
+    maximum_predation_rate = resolve_diameter_indexed_vector(
         FT,
-        ctx,
+        ctx.diameters,
         ctx.consumer_param_indices,
         AllometricParam(PowerLaw(); prefactor=FT(30.84 / 86400), exponent=FT(-0.16));
         default=FT(0),
     )
 
     # Defaults to zero for non-zoo groups; HollingTypeII guards 0/0.
-    holling_half_saturation = _resolve_indexedvec(
+    holling_half_saturation = resolve_diameter_indexed_vector(
         FT,
-        ctx,
+        ctx.diameters,
         ctx.consumer_param_indices,
         AllometricParam(PowerLaw(); prefactor=FT(1.0), exponent=FT(-0.23));
         default=FT(0),
@@ -276,15 +253,15 @@ function default_parameters(::DarwinFactory, ctx::CommunityContext, ::Type{FT}) 
     # Interaction matrices
     # ---------------------------------------------------------------------
 
-    assimilation_efficiency = _resolve_indexedvec(
-        FT, ctx, ctx.consumer_param_indices, FT(0.32); default=FT(0)
+    assimilation_efficiency = resolve_diameter_indexed_vector(
+        FT, ctx.diameters, ctx.consumer_param_indices, FT(0.32); default=FT(0)
     )
 
-    optimum_predator_prey_ratio = _resolve_indexedvec(
-        FT, ctx, ctx.consumer_param_indices, FT(10.0); default=FT(0)
+    optimum_predator_prey_ratio = resolve_diameter_indexed_vector(
+        FT, ctx.diameters, ctx.consumer_param_indices, FT(10.0); default=FT(0)
     )
-    specificity = _resolve_indexedvec(
-        FT, ctx, ctx.consumer_param_indices, FT(0.3); default=FT(0)
+    specificity = resolve_diameter_indexed_vector(
+        FT, ctx.diameters, ctx.consumer_param_indices, FT(0.3); default=FT(0)
     )
     protection = fill(FT(0), ctx.n_total)
 

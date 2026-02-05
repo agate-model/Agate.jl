@@ -4,6 +4,7 @@ module Allometry
 
 export AbstractParamDef, ConstantParam, AllometricParam
 export PowerLaw, resolve_param, cast_paramdef
+export resolve_diameter_vector, resolve_diameter_indexed_vector
 
 export PalatabilityPreyParameters, PalatabilityPredatorParameters
 export allometric_scaling_power
@@ -76,6 +77,46 @@ This is the one function the constructor uses when building runtime parameter ve
     # never mix Float32/Float64 in the underlying allometric calls.
     coeffs = map(v -> v isa Number ? FT(v) : v, p.coeffs)
     return FT(p.model(coeffs, FT(diameter)))
+end
+
+"""Resolve a parameter definition across a set of diameters.
+
+Returns a vector `v` where `v[i] = resolve_param(FT, value, diameters[i])`.
+
+This helper is typically used when building constructor-time default parameter
+vectors from scalar or allometric definitions.
+"""
+function resolve_diameter_vector(
+    ::Type{FT}, diameters::AbstractVector, value
+) where {FT<:AbstractFloat}
+    n = length(diameters)
+    out = Vector{FT}(undef, n)
+    @inbounds for i in 1:n
+        out[i] = resolve_param(FT, value, diameters[i])
+    end
+    return out
+end
+
+"""Resolve a parameter definition over a subset of diameters.
+
+Returns a vector of length `length(diameters)` filled with `default`, then
+overwrites entries indexed by `indices` with `resolve_param(FT, value, diameters[i])`.
+
+This is convenient for parameters that apply only to certain plankton roles
+(e.g. producer-only growth rates or consumer-only predation rates).
+"""
+function resolve_diameter_indexed_vector(
+    ::Type{FT},
+    diameters::AbstractVector,
+    indices::AbstractVector{<:Integer},
+    value;
+    default::FT,
+) where {FT<:AbstractFloat}
+    out = fill(default, length(diameters))
+    @inbounds for i in indices
+        out[i] = resolve_param(FT, value, diameters[i])
+    end
+    return out
 end
 
 """Cast numeric entries inside a parameter definition to `FT`."""
