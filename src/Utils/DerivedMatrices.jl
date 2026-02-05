@@ -48,20 +48,20 @@ overridden.
 """
 function resolve_derived_matrices(
     factory::AbstractBGCFactory,
-    ctx::CommunityContext,
+    context::CommunityContext,
     params::NamedTuple,
     explicit_override_keys::Tuple{Vararg{Symbol}},
 )
-    specs = derived_matrix_specs(factory)
-    isempty(specs) && return params
+    derived_matrix_providers = derived_matrix_specs(factory)
+    isempty(derived_matrix_providers) && return params
 
     override_set = Set(explicit_override_keys)
-    K = propertynames(specs)
+    matrix_keys = propertynames(derived_matrix_providers)
 
     vals = ntuple(
         i -> begin
-            key = K[i]
-            spec = getproperty(specs, key)
+            key = matrix_keys[i]
+            provider = getproperty(derived_matrix_providers, key)
 
             # If the matrix itself was explicitly overridden, keep it.
             if key in override_set && hasproperty(params, key)
@@ -69,19 +69,19 @@ function resolve_derived_matrices(
             end
 
             # Only recompute when a declared dependency was explicitly overridden.
-            if !isempty(spec.deps) && !any(d -> d in override_set, spec.deps)
+            if !isempty(provider.deps) && !any(d -> d in override_set, provider.deps)
                 return if hasproperty(params, key)
                     getproperty(params, key)
                 else
-                    spec.f(factory, ctx, params)
+                    provider.f(factory, context, params)
                 end
             end
 
-            return spec.f(factory, ctx, params)
+            return provider.f(factory, context, params)
         end,
-        length(K),
+        length(matrix_keys),
     )
 
-    updates = NamedTuple{K}(vals)
+    updates = NamedTuple{matrix_keys}(vals)
     return merge(params, updates)
 end

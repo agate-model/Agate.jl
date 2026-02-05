@@ -46,19 +46,19 @@ Expected signature
 
 Arguments
 ---------
-- `global_index`: global plankton class index (ordered as in `ctx.plankton_symbols`)
+- `global_index`: global plankton class index (ordered as in `community_context.plankton_symbols`)
 """
 const PlanktonDynamicsBuilder = Function
 
 """Return factory-specific default runtime parameters.
 
 Factories can extend this method to compute default parameters from the parsed
-community (`ctx`) and the target float type (`FT`).
+community context (`community_context`) and the target float type (`FT`).
 
-The returned `NamedTuple` is expected to contain *resolved* values (scalars,
+The returned `NamedTuple` is expected to contain concrete values (scalars,
 vectors, matrices), not higher-level providers.
 """
-default_parameters(::AbstractBGCFactory, ctx, ::Type{FT}) where {FT} = (;)
+default_parameters(::AbstractBGCFactory, community_context, ::Type{FT}) where {FT} = (;)
 
 """Move `x` to the requested Oceananigans architecture."""
 function _on_architecture(arch, x)
@@ -122,8 +122,10 @@ function _validate_parameter_directory(factory::AbstractBGCFactory, r)
     return nothing
 end
 
-function _validate_parameter_shapes(factory::AbstractBGCFactory, ctx, params::NamedTuple, r)
-    n = ctx.n_total
+function _validate_parameter_shapes(
+    factory::AbstractBGCFactory, context, params::NamedTuple, r
+)
+    n = context.n_total
 
     for k in r.vectors
         v = getproperty(params, k)
@@ -146,8 +148,8 @@ function _validate_parameter_shapes(factory::AbstractBGCFactory, ctx, params::Na
             )
         else
             row_axis, col_axis = spec.axes
-            nr = length(axis_indices(ctx, row_axis))
-            nc = length(axis_indices(ctx, col_axis))
+            nr = length(axis_indices(context, row_axis))
+            nc = length(axis_indices(context, col_axis))
             (size(m, 1) == nr && size(m, 2) == nc) || throw(
                 ArgumentError(
                     "parameter :$k must have size ($nr,$nc) for axes $(spec.axes) (got $(size(m))).",
@@ -220,7 +222,7 @@ Key keyword arguments
 - `roles=nothing`: optional role membership for consumer/prey axes. Provide as a `NamedTuple` with fields `consumers` and `prey`, each either `nothing` (all classes), a collection of group `Symbol`s, an index vector, or a boolean mask. When omitted, both roles default to `nothing` (all classes). Higher-level constructors / variants typically pass explicit defaults.
 - `parameter_groups=nothing`: optional group membership used **only** for generating default parameters (e.g. producer vs consumer-like defaults). Provide as `(; producers=..., consumers=...)` using the same formats as `roles`. When omitted, defaults to `(; producers=roles.prey, consumers=roles.consumers)`.
 - `interaction_overrides`: optional `NamedTuple` of interaction-parameter overrides (often matrices such as `:palatability_matrix` and `:assimilation_matrix`).
-  Values may be concrete objects or provider functions callable as `f(ctx)`.
+  Values may be concrete objects or provider functions callable as `f(context)`.
   For matrix parameters, overrides may be full `(n_total, n_total)` matrices. A group-block `(n_groups, n_groups)` matrix may be supplied and expanded during construction; when the parameter declares role-aware axes, wrap the block matrix as `GroupBlockMatrix(B)` to avoid ambiguity. When axes are declared, rectangular consumer-by-prey matrices sized to those axes (for example `(n_consumer, n_prey)`) are also accepted, as are axis-local group-block matrices.
 """
 
@@ -290,7 +292,7 @@ function construct_factory(
         throw(ArgumentError("biogeochem_dynamics must be a NamedTuple"))
 
     # Parse community.
-    interaction_context = parse_community(
+    community_context = parse_community(
         factory,
         FT,
         community;
@@ -304,7 +306,7 @@ function construct_factory(
     # Build tracer expressions and collect parameter requirements.
     # ---------------------------------------------------------------------
 
-    plankton_syms = interaction_context.plankton_symbols
+    plankton_syms = community_context.plankton_symbols
 
     # Keep tracer names as a tuple so downstream NamedTuple construction preserves concrete types.
     tracer_names = (keys(biogeochem_dynamics)..., Tuple(plankton_syms)...)
@@ -323,7 +325,7 @@ function construct_factory(
     end
 
     for idx in eachindex(plankton_syms)
-        g = interaction_context.group_symbols[idx]
+        g = community_context.group_symbols[idx]
         f = getfield(plankton_dynamics, g)
         tr = f(idx)
         (tr isa CompiledEquation) || throw(
@@ -345,42 +347,46 @@ function construct_factory(
     required = _required_keys(merged)
 
     overrides = normalize_interaction_overrides(
-        factory, interaction_context, interaction_overrides
+        factory, community_context, interaction_overrides
     )
 
     _validate_override_keys("parameters", parameters, required, factory)
     _validate_override_keys("interaction_overrides", overrides, required, factory)
 
-    defaults = default_parameters(factory, interaction_context, FT)
+    parameter_defaults = default_parameters(factory, community_context, FT)
 
-    # Merge precedence: defaults < parameters < interaction_overrides
-    params_full = merge(defaults, parameters, overrides)
+    # Merge precedence: parameter_defaults < parameters < interaction_overrides
+    candidate_parameters = merge(parameter_defaults, parameters, overrides)
 
     # Recompute any derived matrices affected by explicit trait overrides.
     explicit_override_keys = (keys(parameters)..., keys(overrides)...)
-    params_full = resolve_derived_matrices(
-        factory, interaction_context, params_full, explicit_override_keys
+    candidate_parameters = resolve_derived_matrices(
+        factory, community_context, candidate_parameters, explicit_override_keys
     )
 
     # Ensure the required keys are present.
     missing = Symbol[]
     for k in required
-        hasproperty(params_full, k) || push!(missing, k)
+        hasproperty(candidate_parameters, k) || push!(missing, k)
     end
     isempty(missing) ||
         throw(ArgumentError("missing required parameters: $(join(string.(missing), ", "))"))
 
     # Finalize any role-aware interaction matrices.
-    params_full = finalize_interaction_parameters(factory, interaction_context, params_full)
+    candidate_parameters = finalize_interaction_parameters(
+        factory, community_context, candidate_parameters
+    )
 
     # Slice down to the required keys (plus selected internal helpers) for better type stability.
-    internal = hasproperty(params_full, :interactions) ? (:interactions,) : ()
+    internal = hasproperty(candidate_parameters, :interactions) ? (:interactions,) : ()
     all_keys = (required..., internal...)
-    params_req = NamedTuple{all_keys}(Tuple(getproperty(params_full, k) for k in all_keys))
+    resolved_parameters = NamedTuple{all_keys}(
+        Tuple(getproperty(candidate_parameters, k) for k in all_keys)
+    )
 
-    _reject_missing_values(params_req)
+    _reject_missing_values(resolved_parameters)
 
-    _validate_parameter_shapes(factory, interaction_context, params_req, merged)
+    _validate_parameter_shapes(factory, community_context, resolved_parameters, merged)
 
     # ---------------------------------------------------------------------
     # Compile + instantiate.
@@ -395,7 +401,7 @@ function construct_factory(
     # occurs inside kernels.
     _validate_auxiliary_fields(auxiliary_fields, tracer_names)
     tracer_index = build_tracer_index(
-        interaction_context,
+        community_context,
         tracer_names,
         auxiliary_fields;
         n_biogeochem_tracers=length(keys(biogeochem_dynamics)),
@@ -403,22 +409,22 @@ function construct_factory(
 
     if isnothing(sinking_tracers)
         bgc_factory = define_tracer_functions(
-            params_req,
+            resolved_parameters,
             tracers;
             auxiliary_fields=auxiliary_fields,
             tracer_index=tracer_index,
         )
-        bgc = bgc_factory(params_req)
+        bgc = bgc_factory(resolved_parameters)
     else
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
         bgc_factory = define_tracer_functions(
-            params_req,
+            resolved_parameters,
             tracers;
             auxiliary_fields=auxiliary_fields,
             tracer_index=tracer_index,
             sinking_velocities=sinking_velocities,
         )
-        bgc = bgc_factory(params_req, sinking_velocities)
+        bgc = bgc_factory(resolved_parameters, sinking_velocities)
     end
 
     # Move any arrays inside `bgc` onto the requested architecture.
