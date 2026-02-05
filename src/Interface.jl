@@ -50,7 +50,7 @@ Returns a `NamedTuple` mapping group symbols to group specifications.
 
 This is structural information only (group symbols, diameter specifications,
 PFT specifications, etc.). Numeric parameter defaults are sourced from the
-factory's default parameter generator (`Constructor.default_parameters`).
+factory's default parameter providers (via `Constructor.build_parameter_defaults`).
 """
 function default_community(::AbstractBGCFactory)
     throw(

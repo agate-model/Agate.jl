@@ -1,7 +1,7 @@
 """Default parameter values for the DARWIN model.
 
-This file defines `default_parameters(::DarwinFactory, ctx, FT)`, used by the
-model-agnostic constructor.
+This file registers constructor-time default parameters via `parameter_default_registry`.
+Defaults are computed for a particular community (sizes + groups) and floating-point type.
 
 Only keys required by the compiled DARWIN equations are used at runtime.
 
@@ -10,7 +10,7 @@ that may be overridden to regenerate the interaction matrices during
 construction.
 """
 
-import ...Constructor: default_parameters
+import ...Constructor: parameter_default_registry
 import ...Interface: parameter_directory, ParameterSpec
 using ...Utils: CommunityContext
 using ...Library.Allometry:
@@ -170,7 +170,11 @@ function derived_matrix_specs(::DarwinFactory)
     )
 end
 
-function default_parameters(::DarwinFactory, ctx::CommunityContext, ::Type{FT}) where {FT}
+parameter_default_registry(::DarwinFactory) = (darwin_parameter_defaults,)
+
+function darwin_parameter_defaults(
+    ::DarwinFactory, ctx::CommunityContext, ::Type{FT}
+) where {FT}
     # ---------------------------------------------------------------------
     # Scalars
     # ---------------------------------------------------------------------

@@ -149,7 +149,7 @@ struct CommunityContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
     consumer_indices::Vector{Int}
     prey_indices::Vector{Int}
 
-    # Parameter-default classification (used by `default_parameters`)
+    # Parameter-default classification (used by default-parameter providers)
     producer_param_indices::Vector{Int}
     consumer_param_indices::Vector{Int}
 

@@ -3,8 +3,8 @@
 This file defines `DarwinFactory` and the default inputs used by
 `Agate.Constructor.construct_factory(factory; ...)`.
 
-**Note:** All parameter defaults live exclusively in the DARWIN default parameter
-generator (see `Models/DARWIN/Parameters.jl`). This factory provides only
+**Note:** All numeric parameter defaults are registered via `parameter_default_registry`
+(see `Models/DARWIN/Parameters.jl`). This factory provides only
 structural defaults (community sizes/diameters) and default dynamics functions.
 """
 
@@ -12,7 +12,7 @@ using ...Utils: AbstractBGCFactory
 using ...Utils.Specifications: PFTSpecification
 using ...Utils: DiameterRangeSpecification
 
-# NOTE: Defaults are provided by `Constructor.default_parameters` (see `Models/DARWIN/Parameters.jl`).
+# NOTE: Numeric parameter defaults are provided via `Constructor.parameter_default_registry` (see `Models/DARWIN/Parameters.jl`).
 
 import ...Interface:
     default_plankton_dynamics, default_community, default_biogeochem_dynamics

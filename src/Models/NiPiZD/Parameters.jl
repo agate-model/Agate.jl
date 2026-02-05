@@ -1,8 +1,8 @@
 """Default parameter values for the NiPiZD model.
 
-The public constructor (`NiPiZD.construct`) takes a `parameters::NamedTuple` override.
-This file provides a single method that generates a complete, resolved parameter
-`NamedTuple` for a particular community (sizes + groups) and floating-point type.
+The public constructor (`NiPiZD.construct`) accepts a `parameters::NamedTuple` override.
+This file registers constructor-time default parameters via `parameter_default_registry`.
+Defaults are computed for a particular community (sizes + groups) and floating-point type.
 
 Only parameters required by the model's compiled equations are used at runtime.
 
@@ -11,7 +11,7 @@ that may be overridden to regenerate the interaction matrices during
 construction.
 """
 
-import ...Constructor: default_parameters
+import ...Constructor: parameter_default_registry
 import ...Interface: parameter_directory, ParameterSpec
 using ...Utils: CommunityContext
 using ...Library.Allometry:
@@ -107,7 +107,11 @@ parameter_directory(::NiPiZDFactory) = (
     ),
 )
 
-function default_parameters(::NiPiZDFactory, ctx::CommunityContext, ::Type{FT}) where {FT}
+parameter_default_registry(::NiPiZDFactory) = (nipizd_parameter_defaults,)
+
+function nipizd_parameter_defaults(
+    ::NiPiZDFactory, ctx::CommunityContext, ::Type{FT}
+) where {FT}
     detritus_remineralization = FT(0.1213 / 86400)
     mortality_export_fraction = FT(0.2)
 

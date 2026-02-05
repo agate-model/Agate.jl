@@ -50,15 +50,43 @@ Arguments
 """
 const PlanktonDynamicsBuilder = Function
 
-"""Return factory-specific default runtime parameters.
+"""A factory-supplied callable that produces numeric parameter defaults.
 
-Factories can extend this method to compute default parameters from the parsed
-community context (`community_context`) and the target float type (`FT`).
+Default providers are evaluated during construction and must return a `NamedTuple`
+mapping parameter keys to concrete values (scalars, vectors, matrices).
 
-The returned `NamedTuple` is expected to contain concrete values (scalars,
-vectors, matrices), not higher-level providers.
+Expected signature
+------------------
+`provider(factory::AbstractBGCFactory, context, ::Type{FT}) -> NamedTuple`
 """
-default_parameters(::AbstractBGCFactory, community_context, ::Type{FT}) where {FT} = (;)
+const ParameterDefaultsProvider = Function
+
+"""Return a tuple of default-parameter providers for `factory`.
+
+Factories can extend this method to return one or more providers. Providers are
+evaluated in order and merged with `merge`, so later providers override earlier
+ones.
+"""
+parameter_default_registry(::AbstractBGCFactory) = ()
+
+"""Evaluate `parameter_default_registry(factory)` to produce baseline parameter defaults."""
+function build_parameter_defaults(
+    factory::AbstractBGCFactory, context, ::Type{FT}
+) where {FT}
+    providers = parameter_default_registry(factory)
+    isempty(providers) && return (;)
+
+    default_sets = map(p -> p(factory, context, FT), providers)
+    for nt in default_sets
+        nt isa NamedTuple || throw(
+            ArgumentError(
+                "default-parameter provider must return a NamedTuple (got $(typeof(nt))).",
+            ),
+        )
+    end
+
+    return merge(default_sets...)
+end
 
 """Move `x` to the requested Oceananigans architecture."""
 function _on_architecture(arch, x)
@@ -353,7 +381,7 @@ function construct_factory(
     _validate_override_keys("parameters", parameters, required, factory)
     _validate_override_keys("interaction_overrides", overrides, required, factory)
 
-    parameter_defaults = default_parameters(factory, community_context, FT)
+    parameter_defaults = build_parameter_defaults(factory, community_context, FT)
 
     # Merge precedence: parameter_defaults < parameters < interaction_overrides
     candidate_parameters = merge(parameter_defaults, parameters, overrides)
