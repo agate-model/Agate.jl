@@ -4,7 +4,8 @@ Some models expose low-level interaction *traits* (e.g. predator-prey size ratio
 preferences) and derive interaction matrices (palatability, assimilation) from
 those traits.
 
-Derived matrices are recomputed during construction when:
+Derived matrices are computed during construction when missing. They are
+recomputed when:
 
 - a matrix is *not* explicitly overridden, and
 - at least one of its declared dependencies *is* explicitly overridden.
@@ -39,12 +40,15 @@ derived_matrix_specs(::AbstractBGCFactory) = (;)
 
 """Resolve derived matrices into `params`.
 
-`explicit_override_keys` should include keys explicitly provided by the user
-either through `parameters` or `interactions`.
+`explicit_override_keys` must list keys explicitly provided by the user (either
+through `parameters` or `interaction_overrides`).
 
-If a derived matrix is *explicitly* overridden, its value is kept as-is.
-Otherwise, the matrix is recomputed if any of its dependencies are explicitly
-overridden.
+Resolution rules for each derived matrix key `K`:
+
+1. If `K` is explicitly overridden, keep the provided value.
+2. Else if `K` is missing, compute it.
+3. Else if any declared dependency was explicitly overridden, recompute it.
+4. Else keep the existing value.
 """
 function resolve_derived_matrices(
     factory::AbstractBGCFactory,
@@ -63,21 +67,23 @@ function resolve_derived_matrices(
             key = matrix_keys[i]
             provider = getproperty(derived_matrix_providers, key)
 
-            # If the matrix itself was explicitly overridden, keep it.
+            # Rule 1: explicit override wins.
             if key in override_set && hasproperty(params, key)
                 return getproperty(params, key)
             end
 
-            # Only recompute when a declared dependency was explicitly overridden.
-            if !isempty(provider.deps) && !any(d -> d in override_set, provider.deps)
-                return if hasproperty(params, key)
-                    getproperty(params, key)
-                else
-                    provider.f(factory, context, params)
-                end
+            # Rule 2: compute missing matrices.
+            if !hasproperty(params, key)
+                return provider.f(factory, context, params)
             end
 
-            return provider.f(factory, context, params)
+            # Rule 3: recompute when any dependency was explicitly overridden.
+            if !isempty(provider.deps) && any(d -> d in override_set, provider.deps)
+                return provider.f(factory, context, params)
+            end
+
+            # Rule 4: otherwise keep the current value.
+            return getproperty(params, key)
         end,
         length(matrix_keys),
     )
