@@ -8,8 +8,8 @@ interaction matrices.
 Interaction data is stored in rectangular matrices sized `(n_consumer, n_prey)`
 where:
 
-- `n_consumer = length(ctx.consumer_indices)`
-- `n_prey     = length(ctx.prey_indices)`
+- `n_consumer = length(community_context.consumer_indices)`
+- `n_prey     = length(community_context.prey_indices)`
 
 The axis vectors map axis-local indices to global plankton class indices:
 
@@ -43,18 +43,18 @@ Adapt.@adapt_structure InteractionMatrices
 end
 
 @inline function _rect_value_for_axes(
-    ctx::CommunityContext,
+    community_context::CommunityContext,
     value,
     row_indices::Vector{Int},
     col_indices::Vector{Int},
     key::Symbol,
 )
-    n_total = ctx.n_total
+    n_total = community_context.n_total
     nr = length(row_indices)
     nc = length(col_indices)
 
     if value isa GroupBlockMatrix
-        full = expand_group_block_matrix(ctx, value.B)
+        full = expand_group_block_matrix(community_context, value.B)
         return full[row_indices, col_indices]
     elseif value isa AbstractMatrix
         if size(value) == (nr, nc)
@@ -78,7 +78,7 @@ end
 end
 
 function finalize_interaction_parameters(
-    factory::AbstractBGCFactory, ctx::CommunityContext, params::NamedTuple
+    factory::AbstractBGCFactory, community_context::CommunityContext, params::NamedTuple
 )
     spec_pal = parameter_spec(factory, :palatability_matrix)
     spec_assim = parameter_spec(factory, :assimilation_matrix)
@@ -93,26 +93,26 @@ function finalize_interaction_parameters(
         return params
     end
 
-    consumer_indices = ctx.consumer_indices
-    prey_indices = ctx.prey_indices
+    consumer_indices = community_context.consumer_indices
+    prey_indices = community_context.prey_indices
 
     pal_rect = _rect_value_for_axes(
-        ctx,
+        community_context,
         params.palatability_matrix,
         consumer_indices,
         prey_indices,
         :palatability_matrix,
     )
     assim_rect = _rect_value_for_axes(
-        ctx,
+        community_context,
         params.assimilation_matrix,
         consumer_indices,
         prey_indices,
         :assimilation_matrix,
     )
 
-    global_to_consumer = _inverse_axis_map(consumer_indices, ctx.n_total)
-    global_to_prey = _inverse_axis_map(prey_indices, ctx.n_total)
+    global_to_consumer = _inverse_axis_map(consumer_indices, community_context.n_total)
+    global_to_prey = _inverse_axis_map(prey_indices, community_context.n_total)
 
     interactions = InteractionMatrices(
         pal_rect,

@@ -132,29 +132,29 @@ parameter_directory(::DarwinFactory) = (
 # -----------------------------------------------------------------------------
 
 @inline function _derive_palatability_matrix(
-    ::DarwinFactory, ctx::CommunityContext, params::NamedTuple
+    ::DarwinFactory, community_context::CommunityContext, params::NamedTuple
 )
-    FT = ctx.FT
+    FT = community_context.FT
     return palatability_matrix_allometric_axes(
         FT,
-        ctx.diameters;
+        community_context.diameters;
         optimum_predator_prey_ratio=params.optimum_predator_prey_ratio,
         specificity=params.specificity,
         protection=params.protection,
-        consumer_indices=ctx.consumer_indices,
-        prey_indices=ctx.prey_indices,
+        consumer_indices=community_context.consumer_indices,
+        prey_indices=community_context.prey_indices,
     )
 end
 
 @inline function _derive_assimilation_matrix(
-    ::DarwinFactory, ctx::CommunityContext, params::NamedTuple
+    ::DarwinFactory, community_context::CommunityContext, params::NamedTuple
 )
-    FT = ctx.FT
+    FT = community_context.FT
     return assimilation_efficiency_matrix_binary_axes(
         FT;
         assimilation_efficiency=params.assimilation_efficiency,
-        consumer_indices=ctx.consumer_indices,
-        prey_indices=ctx.prey_indices,
+        consumer_indices=community_context.consumer_indices,
+        prey_indices=community_context.prey_indices,
     )
 end
 
@@ -173,7 +173,7 @@ end
 parameter_default_registry(::DarwinFactory) = (darwin_parameter_defaults,)
 
 function darwin_parameter_defaults(
-    ::DarwinFactory, ctx::CommunityContext, ::Type{FT}
+    ::DarwinFactory, community_context::CommunityContext, ::Type{FT}
 ) where {FT}
     # ---------------------------------------------------------------------
     # Scalars
@@ -194,20 +194,20 @@ function darwin_parameter_defaults(
     DOM_POM_fractionation = FT(0.5)
 
     # ---------------------------------------------------------------------
-    # Group vectors (length = ctx.n_total)
+    # Group vectors (length = community_context.n_total)
     # ---------------------------------------------------------------------
 
     # Mortality
-    linear_mortality = fill(FT(8e-7), ctx.n_total)
+    linear_mortality = fill(FT(8e-7), community_context.n_total)
     quadratic_mortality = resolve_diameter_indexed_vector(
-        FT, ctx.diameters, ctx.consumer_param_indices, FT(1e-6); default=FT(0)
+        FT, community_context.diameters, community_context.consumer_param_indices, FT(1e-6); default=FT(0)
     )
 
     # Phytoplankton growth (Geider light limitation + 2 nutrients)
     maximum_growth_rate = resolve_diameter_indexed_vector(
         FT,
-        ctx.diameters,
-        ctx.producer_param_indices,
+        community_context.diameters,
+        community_context.producer_param_indices,
         AllometricParam(PowerLaw(); prefactor=FT(2 / 86400), exponent=FT(-0.15));
         default=FT(0),
     )
@@ -215,31 +215,31 @@ function darwin_parameter_defaults(
     # Defaults to zero for non-phyto groups; MonodLimitation guards 0/0.
     half_saturation_DIN = resolve_diameter_indexed_vector(
         FT,
-        ctx.diameters,
-        ctx.producer_param_indices,
+        community_context.diameters,
+        community_context.producer_param_indices,
         AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27));
         default=FT(0),
     )
     half_saturation_PO4 = resolve_diameter_indexed_vector(
         FT,
-        ctx.diameters,
-        ctx.producer_param_indices,
+        community_context.diameters,
+        community_context.producer_param_indices,
         AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27));
         default=FT(0),
     )
 
     photosynthetic_slope = resolve_diameter_indexed_vector(
-        FT, ctx.diameters, ctx.producer_param_indices, FT(0.1 / 86400); default=FT(0)
+        FT, community_context.diameters, community_context.producer_param_indices, FT(0.1 / 86400); default=FT(0)
     )
     chlorophyll_to_carbon_ratio = resolve_diameter_indexed_vector(
-        FT, ctx.diameters, ctx.producer_param_indices, FT(0.02); default=FT(0)
+        FT, community_context.diameters, community_context.producer_param_indices, FT(0.02); default=FT(0)
     )
 
     # Zooplankton grazing (preferential predation)
     maximum_predation_rate = resolve_diameter_indexed_vector(
         FT,
-        ctx.diameters,
-        ctx.consumer_param_indices,
+        community_context.diameters,
+        community_context.consumer_param_indices,
         AllometricParam(PowerLaw(); prefactor=FT(30.84 / 86400), exponent=FT(-0.16));
         default=FT(0),
     )
@@ -247,8 +247,8 @@ function darwin_parameter_defaults(
     # Defaults to zero for non-zoo groups; HollingTypeII guards 0/0.
     holling_half_saturation = resolve_diameter_indexed_vector(
         FT,
-        ctx.diameters,
-        ctx.consumer_param_indices,
+        community_context.diameters,
+        community_context.consumer_param_indices,
         AllometricParam(PowerLaw(); prefactor=FT(1.0), exponent=FT(-0.23));
         default=FT(0),
     )
@@ -258,16 +258,16 @@ function darwin_parameter_defaults(
     # ---------------------------------------------------------------------
 
     assimilation_efficiency = resolve_diameter_indexed_vector(
-        FT, ctx.diameters, ctx.consumer_param_indices, FT(0.32); default=FT(0)
+        FT, community_context.diameters, community_context.consumer_param_indices, FT(0.32); default=FT(0)
     )
 
     optimum_predator_prey_ratio = resolve_diameter_indexed_vector(
-        FT, ctx.diameters, ctx.consumer_param_indices, FT(10.0); default=FT(0)
+        FT, community_context.diameters, community_context.consumer_param_indices, FT(10.0); default=FT(0)
     )
     specificity = resolve_diameter_indexed_vector(
-        FT, ctx.diameters, ctx.consumer_param_indices, FT(0.3); default=FT(0)
+        FT, community_context.diameters, community_context.consumer_param_indices, FT(0.3); default=FT(0)
     )
-    protection = fill(FT(0), ctx.n_total)
+    protection = fill(FT(0), community_context.n_total)
 
     return (;
         DOC_remineralization,

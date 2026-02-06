@@ -21,7 +21,7 @@ For ease of use, interaction overrides are exposed as two separate keywords:
 Each may be either a concrete matrix, or a function that computes a matrix from
 the construction context:
 
-- `(ctx) -> matrix`
+- `(community_context) -> matrix`
 
 Matrix overrides may be specified as full `(n_total, n_total)` matrices, or (because
 these matrices are role-aware) as rectangular `(n_consumer, n_prey)` matrices.

@@ -71,12 +71,12 @@ parameter_default_registry(::AbstractBGCFactory) = ()
 
 """Evaluate `parameter_default_registry(factory)` to produce baseline parameter defaults."""
 function build_parameter_defaults(
-    factory::AbstractBGCFactory, context, ::Type{FT}
+    factory::AbstractBGCFactory, community_context, ::Type{FT}
 ) where {FT}
     providers = parameter_default_registry(factory)
     isempty(providers) && return (;)
 
-    default_sets = map(p -> p(factory, context, FT), providers)
+    default_sets = map(p -> p(factory, community_context, FT), providers)
     for nt in default_sets
         nt isa NamedTuple || throw(
             ArgumentError(
@@ -234,8 +234,7 @@ end
 """
     construct_factory(factory::AbstractBGCFactory; kw...) -> bgc
 
-Construct and compile a concrete biogeochemistry *instance* from a factory and
-optional overrides.
+Construct and compile a concrete biogeochemistry *instance* from a factory and optional parameter overrides.
 
 Key keyword arguments
 ---------------------
@@ -246,11 +245,11 @@ Key keyword arguments
 - `arch=nothing`: `CPU()` or `GPU()`; when omitted and `grid` is provided, defaults
   to `architecture(grid)`.
 - `community`: plankton community structure (size classes, diameters, PFT specs).
-- `parameters`: `NamedTuple` of fully-resolved parameter overrides.
+- `parameters`: `NamedTuple` of user-supplied parameter overrides.
 - `roles=nothing`: optional role membership for consumer/prey axes. Provide as a `NamedTuple` with fields `consumers` and `prey`, each either `nothing` (all classes), a collection of group `Symbol`s, an index vector, or a boolean mask. When omitted, both roles default to `nothing` (all classes). Higher-level constructors / variants typically pass explicit defaults.
 - `parameter_groups=nothing`: optional group membership used **only** for generating default parameters (e.g. producer vs consumer-like defaults). Provide as `(; producers=..., consumers=...)` using the same formats as `roles`. When omitted, defaults to `(; producers=roles.prey, consumers=roles.consumers)`.
 - `interaction_overrides`: optional `NamedTuple` of interaction-parameter overrides (often matrices such as `:palatability_matrix` and `:assimilation_matrix`).
-  Values may be concrete objects or provider functions callable as `f(context)`.
+  Values may be concrete objects or provider functions callable as `f(community_context)`.
   For matrix parameters, overrides may be full `(n_total, n_total)` matrices. A group-block `(n_groups, n_groups)` matrix may be supplied and expanded during construction; when the parameter declares role-aware axes, wrap the block matrix as `GroupBlockMatrix(B)` to avoid ambiguity. When axes are declared, rectangular consumer-by-prey matrices sized to those axes (for example `(n_consumer, n_prey)`) are also accepted, as are axis-local group-block matrices.
 """
 
@@ -374,42 +373,42 @@ function construct_factory(
 
     required = _required_keys(merged)
 
-    overrides = normalize_interaction_overrides(
+    interaction_parameter_overrides = normalize_interaction_overrides(
         factory, community_context, interaction_overrides
     )
 
     _validate_override_keys("parameters", parameters, required, factory)
-    _validate_override_keys("interaction_overrides", overrides, required, factory)
+    _validate_override_keys("interaction_overrides", interaction_parameter_overrides, required, factory)
 
     parameter_defaults = build_parameter_defaults(factory, community_context, FT)
 
     # Merge precedence: parameter_defaults < parameters < interaction_overrides
-    candidate_parameters = merge(parameter_defaults, parameters, overrides)
+    merged_parameters = merge(parameter_defaults, parameters, interaction_parameter_overrides)
 
     # Recompute any derived matrices affected by explicit trait overrides.
-    explicit_override_keys = (keys(parameters)..., keys(overrides)...)
-    candidate_parameters = resolve_derived_matrices(
-        factory, community_context, candidate_parameters, explicit_override_keys
+    explicit_override_keys = (keys(parameters)..., keys(interaction_parameter_overrides)...)
+    merged_parameters = resolve_derived_matrices(
+        factory, community_context, merged_parameters, explicit_override_keys
     )
 
     # Ensure the required keys are present.
     missing = Symbol[]
     for k in required
-        hasproperty(candidate_parameters, k) || push!(missing, k)
+        hasproperty(merged_parameters, k) || push!(missing, k)
     end
     isempty(missing) ||
         throw(ArgumentError("missing required parameters: $(join(string.(missing), ", "))"))
 
     # Finalize any role-aware interaction matrices.
-    candidate_parameters = finalize_interaction_parameters(
-        factory, community_context, candidate_parameters
+    merged_parameters = finalize_interaction_parameters(
+        factory, community_context, merged_parameters
     )
 
     # Slice down to the required keys (plus selected internal helpers) for better type stability.
-    internal = hasproperty(candidate_parameters, :interactions) ? (:interactions,) : ()
+    internal = hasproperty(merged_parameters, :interactions) ? (:interactions,) : ()
     all_keys = (required..., internal...)
     resolved_parameters = NamedTuple{all_keys}(
-        Tuple(getproperty(candidate_parameters, k) for k in all_keys)
+        Tuple(getproperty(merged_parameters, k) for k in all_keys)
     )
 
     _reject_missing_values(resolved_parameters)

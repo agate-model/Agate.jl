@@ -29,22 +29,22 @@ cref = class(:P, 1)
 """
 @inline class(group::Symbol, i::Integer) = ClassRef(group, Int(i))
 
-"""Return the number of classes in `group` within a parsed community `ctx`."""
-function class_count(ctx, group::Symbol)::Int
-    idx = get(ctx.group_indices, group, nothing)
+"""Return the number of classes in `group` within a parsed community `community_context`."""
+function class_count(community_context, group::Symbol)::Int
+    idx = get(community_context.group_indices, group, nothing)
     idx === nothing && throw(ArgumentError("Unknown group symbol $group"))
     return length(idx)
 end
 
-"""Resolve `cref` to the *global* plankton-class index within `ctx`.
+"""Resolve `cref` to the *global* plankton-class index within `community_context`.
 
 The returned index is 1-based and refers to the flattened plankton ordering
-(`ctx.plankton_symbols` / `ctx.group_symbols`).
+(`community_context.plankton_symbols` / `community_context.group_symbols`).
 
 This is intended for host-side utilities (initial conditions, diagnostics).
 """
-function resolve_class(ctx, cref::ClassRef)::Int
-    idx = get(ctx.group_indices, cref.group, nothing)
+function resolve_class(community_context, cref::ClassRef)::Int
+    idx = get(community_context.group_indices, cref.group, nothing)
     idx === nothing && throw(ArgumentError("Unknown group symbol $(cref.group)"))
     1 <= cref.i <= length(idx) || throw(
         ArgumentError(

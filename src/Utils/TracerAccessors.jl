@@ -80,16 +80,16 @@ end
 plankton tracers in the positional tracer list.
 """
 function build_tracer_index(
-    ctx, tracers::Tuple, auxiliary_fields::Tuple; n_biogeochem_tracers::Int
+    community_context, tracers::Tuple, auxiliary_fields::Tuple; n_biogeochem_tracers::Int
 )
     # Preserve community order (explicit group ordering from `parse_community`).
     # `parse_community` appends classes group-by-group, so group symbols are contiguous.
     groups_vec = Symbol[]
-    if !isempty(ctx.group_symbols)
-        last = ctx.group_symbols[1]
+    if !isempty(community_context.group_symbols)
+        last = community_context.group_symbols[1]
         push!(groups_vec, last)
-        @inbounds for i in 2:length(ctx.group_symbols)
-            g = ctx.group_symbols[i]
+        @inbounds for i in 2:length(community_context.group_symbols)
+            g = community_context.group_symbols[i]
             if g !== last
                 push!(groups_vec, g)
                 last = g
@@ -103,10 +103,10 @@ function build_tracer_index(
     plankton_base = n_biogeochem_tracers + 1
     bases = ntuple(i -> begin
         g = groups[i]
-        first_global = first(ctx.group_indices[g])
+        first_global = first(community_context.group_indices[g])
         plankton_base + first_global - 1
     end, NG)
-    counts = ntuple(i -> length(ctx.group_indices[groups[i]]), NG)
+    counts = ntuple(i -> length(community_context.group_indices[groups[i]]), NG)
 
     TR = tracers
     AF = auxiliary_fields

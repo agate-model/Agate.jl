@@ -42,7 +42,7 @@ Keywords
   - a rectangular `(n_consumer, n_prey)` matrix (the canonical interaction representation)
   - axis-local group-block matrices sized `(n_consumer_groups, n_prey_groups)`
   - a group-block matrix over *all* groups, wrapped as `GroupBlockMatrix(B)` (expanded during construction)
-  - a provider function `(ctx) -> matrix` that returns any of the above
+  - a provider function `(community_context) -> matrix` that returns any of the above
 - `grid=BoxModelGrid()`: grid used for precision/architecture inference and sinking velocity fields
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
 - `sinking_tracers=nothing`: sinking speed overrides, e.g. `(POC = 10/day, ...)`

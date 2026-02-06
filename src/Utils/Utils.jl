@@ -129,7 +129,7 @@ end
 # Construction context
 ##############################################################################
 
-"""Context passed to constructor-time provider functions (e.g. `palatability_matrix = (ctx) -> ...`).
+"""Context passed to constructor-time provider functions (e.g. `palatability_matrix = (community_context) -> ...`).
 
 `CommunityContext` exists at **construction time** (community parsing, parameter
 resolution, interaction normalization, derived matrices). It is distinct from
@@ -170,7 +170,7 @@ Within the `NamedTuple`, values may be concrete objects (e.g. matrices) *or*
 provider functions. Provider functions are evaluated against a `CommunityContext`
 and must be callable as:
 
-- `f(ctx)`
+- `f(community_context)`
 
 For matrix parameters, users may pass either:
 
@@ -197,7 +197,7 @@ construction.
 """
 function normalize_interaction_overrides(
     factory::AbstractBGCFactory,
-    ctx::CommunityContext{FT},
+    community_context::CommunityContext{FT},
     interaction_overrides::Union{Nothing,NamedTuple},
 ) where {FT}
     interaction_overrides === nothing && return (;)
@@ -212,19 +212,19 @@ function normalize_interaction_overrides(
         )
 
         resolved_value =
-            value isa Function ? _call_interaction_provider(value, ctx, key) : value
-        resolved_value = _normalize_interaction_value(ctx, spec, key, resolved_value)
-        _validate_interaction_override(ctx, spec, key, resolved_value)
+            value isa Function ? _call_interaction_provider(value, community_context, key) : value
+        resolved_value = _normalize_interaction_value(community_context, spec, key, resolved_value)
+        _validate_interaction_override(community_context, spec, key, resolved_value)
         resolved = (resolved..., key => resolved_value)
     end
 
     return (; resolved...)
 end
 
-@inline function _call_interaction_provider(f::Function, ctx::CommunityContext, key::Symbol)
-    applicable(f, ctx) && return f(ctx)
+@inline function _call_interaction_provider(f::Function, community_context::CommunityContext, key::Symbol)
+    applicable(f, community_context) && return f(community_context)
 
-    throw(ArgumentError("interaction override '$key' provider must be callable as f(ctx)"))
+    throw(ArgumentError("interaction override '$key' provider must be callable as f(community_context)"))
 end
 
 """Return the global plankton indices for an interaction axis.
@@ -233,15 +233,15 @@ Axes may be:
 
 - `:consumer` (role-defined consumer axis)
 - `:prey` (role-defined prey axis)
-- any existing group `Symbol` present in `ctx.group_indices`
+- any existing group `Symbol` present in `community_context.group_indices`
 """
-@inline axis_indices(ctx::CommunityContext, axis::Symbol) =
+@inline axis_indices(community_context::CommunityContext, axis::Symbol) =
     if axis === :consumer
-        ctx.consumer_indices
+        community_context.consumer_indices
     elseif axis === :prey
-        ctx.prey_indices
-    elseif haskey(ctx.group_indices, axis)
-        ctx.group_indices[axis]
+        community_context.prey_indices
+    elseif haskey(community_context.group_indices, axis)
+        community_context.group_indices[axis]
     else
         throw(
             ArgumentError(
@@ -251,19 +251,19 @@ Axes may be:
     end
 
 @inline function _normalize_interaction_value(
-    ctx::CommunityContext, spec::ParameterSpec, key::Symbol, value
+    community_context::CommunityContext, spec::ParameterSpec, key::Symbol, value
 )
     spec.shape === :matrix || return value
-    n_total = ctx.n_total
+    n_total = community_context.n_total
 
-    groups = unique(ctx.group_symbols)
+    groups = unique(community_context.group_symbols)
     ng = length(groups)
 
     # Axes-aware matrices are normalized into their axis-local rectangular form.
     if spec.axes !== nothing
         row_axis, col_axis = spec.axes
-        row_indices = axis_indices(ctx, row_axis)
-        col_indices = axis_indices(ctx, col_axis)
+        row_indices = axis_indices(community_context, row_axis)
+        col_indices = axis_indices(community_context, col_axis)
 
         nr = length(row_indices)
         nc = length(col_indices)
@@ -276,8 +276,8 @@ Axes may be:
                 ),
             )
 
-            row_groups_axis = unique(ctx.group_symbols[row_indices])
-            col_groups_axis = unique(ctx.group_symbols[col_indices])
+            row_groups_axis = unique(community_context.group_symbols[row_indices])
+            col_groups_axis = unique(community_context.group_symbols[col_indices])
 
             Set(row_groups_axis) == Set(value.consumer_groups) || throw(
                 ArgumentError(
@@ -298,7 +298,7 @@ Axes may be:
                 )
 
             return _expand_group_block_axis_matrix(
-                ctx,
+                community_context,
                 value.B,
                 row_indices,
                 col_indices,
@@ -309,31 +309,31 @@ Axes may be:
 
         # Explicit wrapper forces group-block expansion (then slice to axes).
         if value isa GroupBlockMatrix
-            full = expand_group_block_matrix(ctx, value.B)
+            full = expand_group_block_matrix(community_context, value.B)
             return full[row_indices, col_indices]
         end
 
         value isa AbstractMatrix || return value
 
         if size(value) == (nr, nc)
-            return _convert_matrix_eltype(ctx, value)
+            return _convert_matrix_eltype(community_context, value)
         end
 
         # Axis-local group-block matrix (groups present on each axis, in order of appearance).
-        row_groups = unique(ctx.group_symbols[row_indices])
-        col_groups = unique(ctx.group_symbols[col_indices])
+        row_groups = unique(community_context.group_symbols[row_indices])
+        col_groups = unique(community_context.group_symbols[col_indices])
         ngr = length(row_groups)
         ngc = length(col_groups)
 
         if size(value) == (ngr, ngc)
             return _expand_group_block_axis_matrix(
-                ctx, value, row_indices, col_indices, row_groups, col_groups
+                community_context, value, row_indices, col_indices, row_groups, col_groups
             )
         end
 
         # Full-square override: slice to axes.
         if size(value) == (n_total, n_total)
-            return _convert_matrix_eltype(ctx, value[row_indices, col_indices])
+            return _convert_matrix_eltype(community_context, value[row_indices, col_indices])
         end
 
         # Ambiguous: a plain (n_groups, n_groups) matrix could be intended as a group-block matrix.
@@ -355,52 +355,52 @@ Axes may be:
 
     # Non-axes matrices normalize to full square matrices.
     if value isa GroupBlockMatrix
-        return expand_group_block_matrix(ctx, value.B)
+        return expand_group_block_matrix(community_context, value.B)
     end
 
     value isa AbstractMatrix || return value
 
     value isa AbstractMatrix || return value
 
-    size(value) == (n_total, n_total) && return _convert_matrix_eltype(ctx, value)
+    size(value) == (n_total, n_total) && return _convert_matrix_eltype(community_context, value)
 
     # Group-block override over *all* groups.
-    size(value) == (ng, ng) && return expand_group_block_matrix(ctx, value)
+    size(value) == (ng, ng) && return expand_group_block_matrix(community_context, value)
 
     return value
 end
 
 """Expand a group-block matrix to a full `(n_total, n_total)` matrix.
 
-The group ordering is the order of first appearance in `ctx.group_symbols`.
+The group ordering is the order of first appearance in `community_context.group_symbols`.
 
 For a block matrix `B` sized `(n_groups, n_groups)`, the expanded matrix `M` is
 defined as:
 
 `M[predator, prey] = B[group(predator), group(prey)]`.
 """
-function expand_group_block_matrix(ctx::CommunityContext, B::AbstractMatrix)
-    groups = unique(ctx.group_symbols)
+function expand_group_block_matrix(community_context::CommunityContext, B::AbstractMatrix)
+    groups = unique(community_context.group_symbols)
     ng = length(groups)
     size(B) == (ng, ng) || throw(
         ArgumentError("Expected a $(ng)x$(ng) group-block matrix (got size $(size(B)))."),
     )
 
     group_to_index = Dict{Symbol,Int}(g => i for (i, g) in pairs(groups))
-    group_idx = map(g -> group_to_index[g], ctx.group_symbols)
+    group_idx = map(g -> group_to_index[g], community_context.group_symbols)
 
-    return _convert_matrix_eltype(ctx, B[group_idx, group_idx])
+    return _convert_matrix_eltype(community_context, B[group_idx, group_idx])
 end
 
-@inline function _convert_matrix_eltype(ctx::CommunityContext, A::AbstractMatrix)
-    eltype(A) === ctx.FT && return A
-    R = similar(A, ctx.FT, size(A)...)
+@inline function _convert_matrix_eltype(community_context::CommunityContext, A::AbstractMatrix)
+    eltype(A) === community_context.FT && return A
+    R = similar(A, community_context.FT, size(A)...)
     copyto!(R, A)
     return R
 end
 
 @inline function _expand_group_block_axis_matrix(
-    ctx::CommunityContext,
+    community_context::CommunityContext,
     B::AbstractMatrix,
     row_indices::AbstractVector{<:Integer},
     col_indices::AbstractVector{<:Integer},
@@ -412,13 +412,13 @@ end
 
     nr = length(row_indices)
     nc = length(col_indices)
-    R = similar(B, ctx.FT, nr, nc)
+    R = similar(B, community_context.FT, nr, nc)
 
     for (ii, gi) in enumerate(row_indices)
-        rg = ctx.group_symbols[gi]
+        rg = community_context.group_symbols[gi]
         ri = row_map[rg]
         for (jj, gj) in enumerate(col_indices)
-            cg = ctx.group_symbols[gj]
+            cg = community_context.group_symbols[gj]
             cj = col_map[cg]
             @inbounds R[ii, jj] = B[ri, cj]
         end
@@ -428,7 +428,7 @@ end
 end
 
 @inline function _validate_interaction_override(
-    ctx::CommunityContext, spec::ParameterSpec, key::Symbol, value
+    community_context::CommunityContext, spec::ParameterSpec, key::Symbol, value
 )
     if spec.shape === :matrix
         value isa AbstractMatrix || throw(
@@ -438,7 +438,7 @@ end
         )
 
         if spec.axes === nothing
-            n_total = ctx.n_total
+            n_total = community_context.n_total
             size(value) == (n_total, n_total) || throw(
                 ArgumentError(
                     "interaction override '$key' must be a $(n_total)x$(n_total) matrix after normalization; got size $(size(value))",
@@ -446,8 +446,8 @@ end
             )
         else
             row_axis, col_axis = spec.axes
-            row_indices = axis_indices(ctx, row_axis)
-            col_indices = axis_indices(ctx, col_axis)
+            row_indices = axis_indices(community_context, row_axis)
+            col_indices = axis_indices(community_context, col_axis)
             nr = length(row_indices)
             nc = length(col_indices)
             size(value) == (nr, nc) || throw(
@@ -464,7 +464,7 @@ end
             ),
         )
 
-        n_total = ctx.n_total
+        n_total = community_context.n_total
         length(value) == n_total || throw(
             ArgumentError(
                 "interaction override '$key' must have length $n_total (got $(length(value)))",
@@ -713,7 +713,7 @@ function parse_community(
         getproperty(parameter_groups_resolved, :consumers), :parameter_consumers
     )
 
-    ctx = CommunityContext{FT,typeof(diameters)}(
+    community_context = CommunityContext{FT,typeof(diameters)}(
         FT,
         n_total,
         diameters,
@@ -730,7 +730,7 @@ function parse_community(
         biogeochem_dynamics,
     )
 
-    return ctx
+    return community_context
 end
 
 ##############################################################################
