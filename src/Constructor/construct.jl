@@ -336,6 +336,38 @@ function _validate_auxiliary_fields(auxiliary_fields::Tuple, tracer_names::Tuple
     return nothing
 end
 
+"""
+    construct_factory(factory::AbstractBGCFactory; kwargs...) -> bgc
+
+Generic constructor used by model-specific entrypoints like `NiPiZD.construct` and `DARWIN.construct`.
+
+This function assembles a biogeochemistry instance in four conceptual steps:
+
+1. **Parse community structure** into a `CommunityContext` (group ordering, diameter classes, role axes).
+2. **Build baseline parameters** by evaluating `parameter_definitions(factory)` into concrete numeric values
+   (scalars, vectors, matrices) with element type `FT`.
+3. **Apply overrides** (`parameters` and interaction overrides), then compute or recompute any derived interaction
+   matrices declared by `derived_matrix_specs(factory)`.
+4. **Finalize interactions** into a canonical consumer-by-prey representation and adapt the instance to the
+   requested architecture.
+
+Precision is determined by the grid when `grid` is provided: `FT = eltype(grid)` (the grid is the single source of
+truth for floating-point type). GPU compatibility is provided by an architecture-wide `Adapt.adapt` pass at the end of
+construction; default providers run on the host and should allocate host arrays.
+
+Keyword arguments
+-----------------
+- `plankton_dynamics`, `biogeochem_dynamics`: dynamics builders (defaults come from the factory).
+- `community`: community specification (defaults come from the factory).
+- `parameters`: a `NamedTuple` of parameter overrides.
+- `interaction_overrides`: optional `NamedTuple` of interaction matrix overrides (model-specific constructors may also
+  expose these as convenience keywords).
+- `grid`, `arch`: optionally choose precision and architecture; when `grid` is provided, architecture is determined by
+  `architecture(grid)`.
+
+The returned object stores the fully **resolved** parameter set at `bgc.parameters`.
+"""
+
 function construct_factory(
     factory::AbstractBGCFactory;
     plankton_dynamics=default_plankton_dynamics(factory),
