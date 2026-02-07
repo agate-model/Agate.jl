@@ -11,7 +11,7 @@ that may be overridden to regenerate the interaction matrices during
 construction.
 """
 
-import ...Constructor: parameter_default_registry
+import ...Constructor: parameter_default_registry, FnDefault, NoDefault
 import ...Interface: parameter_directory, ParameterSpec
 using ...Utils: CommunityContext
 using ...Library.Allometry:
@@ -107,7 +107,60 @@ parameter_directory(::NiPiZDFactory) = (
     ),
 )
 
-parameter_default_registry(::NiPiZDFactory) = (nipizd_parameter_defaults,)
+function parameter_default_registry(factory::NiPiZDFactory)
+    return (
+        detritus_remineralization = FnDefault((factory, community_context, FT, cache) ->
+            nipizd_parameter_default_values(factory, community_context, FT, cache).detritus_remineralization
+        ),
+        mortality_export_fraction = FnDefault((factory, community_context, FT, cache) ->
+            nipizd_parameter_default_values(factory, community_context, FT, cache).mortality_export_fraction
+        ),
+        linear_mortality = FnDefault((factory, community_context, FT, cache) ->
+            nipizd_parameter_default_values(factory, community_context, FT, cache).linear_mortality
+        ),
+        quadratic_mortality = FnDefault((factory, community_context, FT, cache) ->
+            nipizd_parameter_default_values(factory, community_context, FT, cache).quadratic_mortality
+        ),
+        maximum_growth_rate = FnDefault((factory, community_context, FT, cache) ->
+            nipizd_parameter_default_values(factory, community_context, FT, cache).maximum_growth_rate
+        ),
+        nutrient_half_saturation = FnDefault((factory, community_context, FT, cache) ->
+            nipizd_parameter_default_values(factory, community_context, FT, cache).nutrient_half_saturation
+        ),
+        alpha = FnDefault((factory, community_context, FT, cache) ->
+            nipizd_parameter_default_values(factory, community_context, FT, cache).alpha
+        ),
+        maximum_predation_rate = FnDefault((factory, community_context, FT, cache) ->
+            nipizd_parameter_default_values(factory, community_context, FT, cache).maximum_predation_rate
+        ),
+        holling_half_saturation = FnDefault((factory, community_context, FT, cache) ->
+            nipizd_parameter_default_values(factory, community_context, FT, cache).holling_half_saturation
+        ),
+        palatability_matrix = NoDefault(),
+        assimilation_matrix = NoDefault(),
+        optimum_predator_prey_ratio = FnDefault((factory, community_context, FT, cache) ->
+            nipizd_parameter_default_values(factory, community_context, FT, cache).optimum_predator_prey_ratio
+        ),
+        specificity = FnDefault((factory, community_context, FT, cache) ->
+            nipizd_parameter_default_values(factory, community_context, FT, cache).specificity
+        ),
+        protection = FnDefault((factory, community_context, FT, cache) ->
+            nipizd_parameter_default_values(factory, community_context, FT, cache).protection
+        ),
+        assimilation_efficiency = FnDefault((factory, community_context, FT, cache) ->
+            nipizd_parameter_default_values(factory, community_context, FT, cache).assimilation_efficiency
+        ),
+    )
+end
+
+@inline function nipizd_parameter_default_values(
+    factory::NiPiZDFactory, community_context::CommunityContext, ::Type{FT}, cache::Dict{Symbol,Any}
+) where {FT}
+    return get!(cache, :nipizd_parameter_default_values) do
+        nipizd_parameter_defaults(factory, community_context, FT)
+    end
+end
+
 
 function nipizd_parameter_defaults(
     ::NiPiZDFactory, community_context::CommunityContext, ::Type{FT}

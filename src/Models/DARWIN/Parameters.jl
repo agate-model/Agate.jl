@@ -10,7 +10,7 @@ that may be overridden to regenerate the interaction matrices during
 construction.
 """
 
-import ...Constructor: parameter_default_registry
+import ...Constructor: parameter_default_registry, FnDefault, NoDefault
 import ...Interface: parameter_directory, ParameterSpec
 using ...Utils: CommunityContext
 using ...Library.Allometry:
@@ -170,7 +170,87 @@ function derived_matrix_specs(::DarwinFactory)
     )
 end
 
-parameter_default_registry(::DarwinFactory) = (darwin_parameter_defaults,)
+function parameter_default_registry(factory::DarwinFactory)
+    return (
+        DOC_remineralization = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).DOC_remineralization
+        ),
+        POC_remineralization = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).POC_remineralization
+        ),
+        DON_remineralization = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).DON_remineralization
+        ),
+        PON_remineralization = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).PON_remineralization
+        ),
+        DOP_remineralization = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).DOP_remineralization
+        ),
+        POP_remineralization = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).POP_remineralization
+        ),
+        nitrogen_to_carbon = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).nitrogen_to_carbon
+        ),
+        phosphorus_to_carbon = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).phosphorus_to_carbon
+        ),
+        DOM_POM_fractionation = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).DOM_POM_fractionation
+        ),
+        linear_mortality = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).linear_mortality
+        ),
+        quadratic_mortality = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).quadratic_mortality
+        ),
+        maximum_growth_rate = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).maximum_growth_rate
+        ),
+        half_saturation_DIN = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).half_saturation_DIN
+        ),
+        half_saturation_PO4 = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).half_saturation_PO4
+        ),
+        photosynthetic_slope = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).photosynthetic_slope
+        ),
+        chlorophyll_to_carbon_ratio = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).chlorophyll_to_carbon_ratio
+        ),
+        maximum_predation_rate = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).maximum_predation_rate
+        ),
+        holling_half_saturation = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).holling_half_saturation
+        ),
+        palatability_matrix = NoDefault(),
+        assimilation_matrix = NoDefault(),
+        optimum_predator_prey_ratio = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).optimum_predator_prey_ratio
+        ),
+        specificity = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).specificity
+        ),
+        protection = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).protection
+        ),
+        assimilation_efficiency = FnDefault((factory, community_context, FT, cache) ->
+            darwin_parameter_default_values(factory, community_context, FT, cache).assimilation_efficiency
+        ),
+    )
+end
+
+@inline function darwin_parameter_default_values(
+    factory::DarwinFactory, community_context::CommunityContext, ::Type{FT}, cache::Dict{Symbol,Any}
+) where {FT}
+    return get!(cache, :darwin_parameter_default_values) do
+        darwin_parameter_defaults(factory, community_context, FT)
+    end
+end
+
 
 function darwin_parameter_defaults(
     ::DarwinFactory, community_context::CommunityContext, ::Type{FT}

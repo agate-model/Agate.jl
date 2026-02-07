@@ -11,6 +11,7 @@ using Oceananigans.Architectures: architecture, CPU, GPU
 
 using ..Utils:
     AbstractBGCFactory,
+    parameter_directory,
     parameter_spec,
     axis_indices,
     normalize_interaction_overrides,
@@ -50,43 +51,137 @@ Arguments
 """
 const PlanktonDynamicsBuilder = Function
 
-"""A factory-supplied callable that produces numeric parameter defaults.
+"""Default-parameter providers.
 
-Default providers are evaluated during construction and must return a `NamedTuple`
-mapping parameter keys to concrete values (scalars, vectors, matrices).
+Factories implement `parameter_default_registry(factory)` returning a `NamedTuple`
+mapping parameter keys to `DefaultProvider`s.
 
-Expected signature
-------------------
-`provider(factory::AbstractBGCFactory, context, ::Type{FT}) -> NamedTuple`
+Providers are evaluated during construction to produce baseline parameter values
+(scalars, vectors, matrices) on the host. The resolved parameter set is moved to
+CPU/GPU architectures later via `Adapt`.
 """
-const ParameterDefaultsProvider = Function
 
-"""Return a tuple of default-parameter providers for `factory`.
+abstract type DefaultProvider end
 
-Factories can extend this method to return one or more providers. Providers are
-evaluated in order and merged with `merge`, so later providers override earlier
-ones.
+"""A constant default value.
+
+`ConstDefault` values are cast to the requested float type `FT` when possible.
 """
-parameter_default_registry(::AbstractBGCFactory) = ()
+struct ConstDefault{T} <: DefaultProvider
+    value::T
+end
 
+"""A callable default value.
+
+The stored function is called as
+
+`f(factory, community_context, ::Type{FT}, cache)`
+
+where `cache` is a small construction-time dictionary intended to memoize shared
+intermediates (for example, a full `NamedTuple` of defaults).
+"""
+struct FnDefault{F} <: DefaultProvider
+    f::F
+end
+
+"""A marker indicating that a parameter has no constructor-time default.
+
+This is useful for parameters that are derived later (for example, matrices built
+from trait vectors).
+"""
+struct NoDefault <: DefaultProvider end
+
+ConstDefault(x) = ConstDefault{typeof(x)}(x)
+FnDefault(f) = FnDefault{typeof(f)}(f)
+
+parameter_default_registry(::AbstractBGCFactory) = NamedTuple()
 """Evaluate `parameter_default_registry(factory)` to produce baseline parameter defaults."""
+_cast_default(x::Number, ::Type{FT}) where {FT} = FT(x)
+_cast_default(x::AbstractArray{FT}, ::Type{FT}) where {FT} = x
+_cast_default(x::AbstractArray, ::Type{FT}) where {FT} = convert.(FT, x)
+_cast_default(x, ::Type{FT}) where {FT} = x
+
+evaluate_default(d::ConstDefault, factory, community_context, ::Type{FT}, cache) where {FT} =
+    _cast_default(d.value, FT)
+
+evaluate_default(d::FnDefault, factory, community_context, ::Type{FT}, cache) where {FT} =
+    d.f(factory, community_context, FT, cache)
+
+evaluate_default(::NoDefault, factory, community_context, ::Type{FT}, cache) where {FT} = nothing
+
+"""Build baseline parameter defaults for `factory`.
+
+Defaults are computed by evaluating `parameter_default_registry(factory)` against
+the `ParameterSpec`s returned by `parameter_directory(factory)`.
+
+Every `ParameterSpec` must have a corresponding entry in the registry. Use
+`NoDefault()` for parameters that are derived later (for example, interaction
+matrices built from trait vectors).
+"""
 function build_parameter_defaults(
     factory::AbstractBGCFactory, community_context, ::Type{FT}
 ) where {FT}
-    providers = parameter_default_registry(factory)
-    isempty(providers) && return (;)
+    parameter_specs = parameter_directory(factory)
+    default_registry = parameter_default_registry(factory)
 
-    default_sets = map(p -> p(factory, community_context, FT), providers)
-    for nt in default_sets
-        nt isa NamedTuple || throw(
-            ArgumentError(
-                "default-parameter provider must return a NamedTuple (got $(typeof(nt))).",
-            ),
-        )
+    default_registry isa NamedTuple || throw(
+        ArgumentError(
+            "parameter_default_registry(::$(typeof(factory))) must return a NamedTuple " *
+            "mapping parameter keys to DefaultProvider values.",
+        ),
+    )
+
+    spec_names = map(s -> s.name, parameter_specs)
+    spec_set = Set(spec_names)
+
+    missing = Symbol[]
+    for k in spec_names
+        haskey(default_registry, k) || push!(missing, k)
     end
 
-    return merge(default_sets...)
+    isempty(missing) || throw(
+        ArgumentError(
+            "parameter_default_registry(::$(typeof(factory))) is missing default providers for: " *
+            join(map(k -> ":" * string(k), sort(missing)), ", ") *
+            ". Add entries to the registry (or use NoDefault() for derived parameters).",
+        ),
+    )
+
+    extra = Symbol[]
+    for k in keys(default_registry)
+        (k in spec_set) || push!(extra, k)
+    end
+
+    isempty(extra) || throw(
+        ArgumentError(
+            "parameter_default_registry(::$(typeof(factory))) defines defaults for unknown keys: " *
+            join(map(k -> ":" * string(k), sort(extra)), ", ") *
+            ". Remove these entries or add matching ParameterSpec entries.",
+        ),
+    )
+
+    cache = Dict{Symbol,Any}()
+
+    defaults = ()
+    for spec in parameter_specs
+        provider = getproperty(default_registry, spec.name)
+
+        provider isa DefaultProvider || throw(
+            ArgumentError(
+                "Default registry entry for :$(spec.name) must be a DefaultProvider " *
+                "(got $(typeof(provider))).",
+            ),
+        )
+
+        provider isa NoDefault && continue
+
+        value = evaluate_default(provider, factory, community_context, FT, cache)
+        defaults = (defaults..., spec.name => value)
+    end
+
+    return (; defaults...)
 end
+
 
 """Move `x` to the requested Oceananigans architecture."""
 function _on_architecture(arch, x)
