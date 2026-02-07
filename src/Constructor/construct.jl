@@ -11,7 +11,11 @@ using Oceananigans.Architectures: architecture, CPU, GPU
 
 using ..Utils:
     AbstractBGCFactory,
-    parameter_directory,
+    parameter_definitions,
+    ConstDefault,
+    NoDefault,
+    FillDefault,
+    DiameterIndexedVectorDefault,
     parameter_spec,
     axis_indices,
     normalize_interaction_overrides,
@@ -24,6 +28,8 @@ using ..Utils:
 using ..Interface: default_plankton_dynamics, default_biogeochem_dynamics, default_community
 
 using ..Functors: CompiledEquation, requirements, Requirements, merge_requirements
+
+using ..Library.Allometry: resolve_diameter_indexed_vector
 
 """A factory-supplied callable that builds a non-plankton tracer equation.
 
@@ -51,137 +57,97 @@ Arguments
 """
 const PlanktonDynamicsBuilder = Function
 
-"""Default-parameter providers.
+"""Evaluate `parameter_definitions(factory)` to produce baseline parameter defaults.
 
-Factories implement `parameter_default_registry(factory)` returning a `NamedTuple`
-mapping parameter keys to `DefaultProvider`s.
+Defaults are evaluated on the host during model construction. The returned
+`NamedTuple` maps parameter keys to concrete values (scalars, vectors, matrices).
 
-Providers are evaluated during construction to produce baseline parameter values
-(scalars, vectors, matrices) on the host. The resolved parameter set is moved to
-CPU/GPU architectures later via `Adapt`.
-"""
-
-abstract type DefaultProvider end
-
-"""A constant default value.
-
-`ConstDefault` values are cast to the requested float type `FT` when possible.
-"""
-struct ConstDefault{T} <: DefaultProvider
-    value::T
-end
-
-"""A callable default value.
-
-The stored function is called as
-
-`f(factory, community_context, ::Type{FT}, cache)`
-
-where `cache` is a small construction-time dictionary intended to memoize shared
-intermediates (for example, a full `NamedTuple` of defaults).
-"""
-struct FnDefault{F} <: DefaultProvider
-    f::F
-end
-
-"""A marker indicating that a parameter has no constructor-time default.
-
-This is useful for parameters that are derived later (for example, matrices built
-from trait vectors).
-"""
-struct NoDefault <: DefaultProvider end
-
-ConstDefault(x) = ConstDefault{typeof(x)}(x)
-FnDefault(f) = FnDefault{typeof(f)}(f)
-
-parameter_default_registry(::AbstractBGCFactory) = NamedTuple()
-"""Evaluate `parameter_default_registry(factory)` to produce baseline parameter defaults."""
-_cast_default(x::Number, ::Type{FT}) where {FT} = FT(x)
-_cast_default(x::AbstractArray{FT}, ::Type{FT}) where {FT} = x
-_cast_default(x::AbstractArray, ::Type{FT}) where {FT} = convert.(FT, x)
-_cast_default(x, ::Type{FT}) where {FT} = x
-
-evaluate_default(d::ConstDefault, factory, community_context, ::Type{FT}, cache) where {FT} =
-    _cast_default(d.value, FT)
-
-evaluate_default(d::FnDefault, factory, community_context, ::Type{FT}, cache) where {FT} =
-    d.f(factory, community_context, FT, cache)
-
-evaluate_default(::NoDefault, factory, community_context, ::Type{FT}, cache) where {FT} = nothing
-
-"""Build baseline parameter defaults for `factory`.
-
-Defaults are computed by evaluating `parameter_default_registry(factory)` against
-the `ParameterSpec`s returned by `parameter_directory(factory)`.
-
-Every `ParameterSpec` must have a corresponding entry in the registry. Use
-`NoDefault()` for parameters that are derived later (for example, interaction
-matrices built from trait vectors).
+Parameters declared with `NoDefault()` are omitted; they are expected to be
+provided by user overrides or derived-matrix providers later in construction.
 """
 function build_parameter_defaults(
     factory::AbstractBGCFactory, community_context, ::Type{FT}
 ) where {FT}
-    parameter_specs = parameter_directory(factory)
-    default_registry = parameter_default_registry(factory)
+    defs = parameter_definitions(factory)
+    isempty(defs) && return (;)
 
-    default_registry isa NamedTuple || throw(
+    keys_ = map(d -> d.spec.name, defs)
+    length(unique(keys_)) == length(keys_) || throw(
         ArgumentError(
-            "parameter_default_registry(::$(typeof(factory))) must return a NamedTuple " *
-            "mapping parameter keys to DefaultProvider values.",
+            "parameter_definitions(::$(typeof(factory))) contains duplicate keys.",
         ),
     )
 
-    spec_names = map(s -> s.name, parameter_specs)
-    spec_set = Set(spec_names)
-
-    missing = Symbol[]
-    for k in spec_names
-        haskey(default_registry, k) || push!(missing, k)
-    end
-
-    isempty(missing) || throw(
-        ArgumentError(
-            "parameter_default_registry(::$(typeof(factory))) is missing default providers for: " *
-            join(map(k -> ":" * string(k), sort(missing)), ", ") *
-            ". Add entries to the registry (or use NoDefault() for derived parameters).",
-        ),
-    )
-
-    extra = Symbol[]
-    for k in keys(default_registry)
-        (k in spec_set) || push!(extra, k)
-    end
-
-    isempty(extra) || throw(
-        ArgumentError(
-            "parameter_default_registry(::$(typeof(factory))) defines defaults for unknown keys: " *
-            join(map(k -> ":" * string(k), sort(extra)), ", ") *
-            ". Remove these entries or add matching ParameterSpec entries.",
-        ),
-    )
-
-    cache = Dict{Symbol,Any}()
-
-    defaults = ()
-    for spec in parameter_specs
-        provider = getproperty(default_registry, spec.name)
-
-        provider isa DefaultProvider || throw(
-            ArgumentError(
-                "Default registry entry for :$(spec.name) must be a DefaultProvider " *
-                "(got $(typeof(provider))).",
-            ),
-        )
-
+    pairs = Pair{Symbol,Any}[]
+    for def in defs
+        spec = def.spec
+        provider = def.default
         provider isa NoDefault && continue
-
-        value = evaluate_default(provider, factory, community_context, FT, cache)
-        defaults = (defaults..., spec.name => value)
+        value = _evaluate_default(provider, spec, factory, community_context, FT)
+        push!(pairs, spec.name => value)
     end
 
-    return (; defaults...)
+    return (; pairs...)
 end
 
+@inline function _evaluate_default(
+    provider::ConstDefault, spec, ::AbstractBGCFactory, ::Any, ::Type{FT}
+) where {FT}
+    spec.shape === :scalar || throw(
+        ArgumentError("ConstDefault can only be used for scalar parameters (:$((spec.name)))."),
+    )
+    v = provider.value
+    return v isa Bool ? v : FT(v)
+end
+
+@inline function _evaluate_default(
+    provider::FillDefault, spec, ::AbstractBGCFactory, community_context, ::Type{FT}
+) where {FT}
+    spec.shape in (:vector, :matrix) || throw(
+        ArgumentError("FillDefault can only be used for vector or matrix parameters (:$((spec.name)))."),
+    )
+
+    v = provider.value
+    v = v isa Bool ? v : FT(v)
+
+    if spec.shape === :vector
+        return fill(v, community_context.n_total)
+    end
+
+    if spec.axes === nothing
+        n = community_context.n_total
+        return fill(v, n, n)
+    end
+
+    row_axis, col_axis = spec.axes
+    nr = length(axis_indices(community_context, row_axis))
+    nc = length(axis_indices(community_context, col_axis))
+    return fill(v, nr, nc)
+end
+
+@inline function _evaluate_default(
+    provider::DiameterIndexedVectorDefault,
+    spec,
+    ::AbstractBGCFactory,
+    community_context,
+    ::Type{FT},
+) where {FT}
+    spec.shape === :vector || throw(
+        ArgumentError(
+            "DiameterIndexedVectorDefault can only be used for vector parameters (:$((spec.name))).",
+        ),
+    )
+
+    indices = getproperty(community_context, provider.indices_field)
+    default = FT(provider.default)
+    return resolve_diameter_indexed_vector(
+        FT,
+        community_context.diameters,
+        indices,
+        provider.value;
+        default=default,
+    )
+end
 
 """Move `x` to the requested Oceananigans architecture."""
 function _on_architecture(arch, x)
@@ -209,7 +175,7 @@ function _validate_parameter_directory(factory::AbstractBGCFactory, r)
         spec === nothing && throw(
             ArgumentError(
                 "Factory $(typeof(factory)) is missing a ParameterSpec for required parameter :$k. " *
-                "Add it to parameter_directory(::$(typeof(factory))).",
+                "Add it to parameter_definitions(::$(typeof(factory))).",
             ),
         )
     end
@@ -219,7 +185,7 @@ function _validate_parameter_directory(factory::AbstractBGCFactory, r)
         spec = parameter_spec(factory, k)
         spec.shape === :scalar || throw(
             ArgumentError(
-                "parameter_directory(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a scalar.",
+                "parameter_definitions(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a scalar.",
             ),
         )
     end
@@ -228,7 +194,7 @@ function _validate_parameter_directory(factory::AbstractBGCFactory, r)
         spec = parameter_spec(factory, k)
         spec.shape === :vector || throw(
             ArgumentError(
-                "parameter_directory(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a vector.",
+                "parameter_definitions(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a vector.",
             ),
         )
     end
@@ -237,7 +203,7 @@ function _validate_parameter_directory(factory::AbstractBGCFactory, r)
         spec = parameter_spec(factory, k)
         spec.shape === :matrix || throw(
             ArgumentError(
-                "parameter_directory(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a matrix.",
+                "parameter_definitions(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a matrix.",
             ),
         )
     end

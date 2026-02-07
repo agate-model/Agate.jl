@@ -23,6 +23,13 @@ export AbstractBGCFactory
 
 # Parameter metadata
 export ParameterSpec
+export DefaultProvider
+export ParameterDefinition
+export parameter_definitions
+export ConstDefault
+export NoDefault
+export FillDefault
+export DiameterIndexedVectorDefault
 export parameter_directory
 export parameter_spec
 

@@ -1,240 +1,172 @@
-"""Default parameter values for the NiPiZD model.
+"""Parameter definitions for the NiPiZD model.
 
-The public constructor (`NiPiZD.construct`) accepts a `parameters::NamedTuple` override.
-This file registers constructor-time default parameters via `parameter_default_registry`.
-Defaults are computed for a particular community (sizes + groups) and floating-point type.
+This file defines a single source of truth for:
+- parameter metadata (`ParameterSpec`)
+- constructor-time default values (via `DefaultProvider` entries)
 
-Only parameters required by the model's compiled equations are used at runtime.
+Numeric defaults are evaluated on the host during construction and later moved to the
+target architecture with `Adapt`.
 
-In addition, this file exposes a small set of *interaction traits* (vectors)
-that may be overridden to regenerate the interaction matrices during
-construction.
+Interaction matrices (`palatability_matrix`, `assimilation_matrix`) are derived from
+trait vectors using `derived_matrix_specs`.
 """
 
-import ...Constructor: parameter_default_registry, FnDefault, NoDefault
-import ...Interface: parameter_directory, ParameterSpec
-using ...Utils: CommunityContext
+import ...Utils:
+    parameter_definitions,
+    ParameterDefinition,
+    ParameterSpec,
+    ConstDefault,
+    NoDefault,
+    FillDefault,
+    DiameterIndexedVectorDefault,
+    CommunityContext,
+    MatrixProvider,
+    derived_matrix_specs
+
 using ...Library.Allometry:
     AllometricParam,
     PowerLaw,
-    resolve_diameter_indexed_vector,
     palatability_matrix_allometric_axes,
     assimilation_efficiency_matrix_binary_axes
 
-import ...Utils: MatrixProvider, derived_matrix_specs
+function parameter_definitions(::NiPiZDFactory)
+    detritus_remin = 0.1213 / 86400
 
-"""Parameter metadata for NiPiZD.
-
-The directory provides expected shapes and short descriptions for all parameters
-required by the compiled NiPiZD equations, plus a small set of interaction
-traits used to derive the default interaction matrices.
-"""
-parameter_directory(::NiPiZDFactory) = (
-    ParameterSpec(
-        :detritus_remineralization, :scalar; doc="Detritus remineralization rate."
-    ),
-    ParameterSpec(
-        :mortality_export_fraction,
-        :scalar;
-        doc="Fraction of mortality routed to detritus export.",
-    ),
-    ParameterSpec(
-        :linear_mortality,
-        :vector;
-        doc="Linear mortality coefficient per plankton class.",
-    ),
-    ParameterSpec(
-        :quadratic_mortality,
-        :vector;
-        doc="Quadratic mortality coefficient per plankton class.",
-    ),
-    ParameterSpec(
-        :maximum_growth_rate,
-        :vector;
-        doc="Maximum phytoplankton growth rate per plankton class.",
-    ),
-    ParameterSpec(
-        :nutrient_half_saturation,
-        :vector;
-        doc="Nutrient half-saturation constant per plankton class.",
-    ),
-    ParameterSpec(
-        :alpha, :vector; doc="Initial slope of the P-I curve per plankton class."
-    ),
-    ParameterSpec(
-        :maximum_predation_rate,
-        :vector;
-        doc="Maximum zooplankton grazing rate per plankton class.",
-    ),
-    ParameterSpec(
-        :holling_half_saturation,
-        :vector;
-        doc="Holling type II half-saturation constant per plankton class.",
-    ),
-    ParameterSpec(
-        :palatability_matrix,
-        :matrix;
-        axes=(:consumer, :prey),
-        doc="Preference of each consumer for each prey class.",
-    ),
-    ParameterSpec(
-        :assimilation_matrix,
-        :matrix;
-        axes=(:consumer, :prey),
-        doc="Assimilation efficiency of each consumer on each prey class.",
-    ),
-
-    # Traits used to derive the default interaction matrices.
-    ParameterSpec(
-        :optimum_predator_prey_ratio,
-        :vector;
-        doc="Preferred predator:prey diameter ratio per consumer (used to derive palatability_matrix).",
-    ),
-    ParameterSpec(
-        :specificity,
-        :vector;
-        doc="Unimodal palatability specificity per consumer (used to derive palatability_matrix).",
-    ),
-    ParameterSpec(
-        :protection,
-        :vector;
-        doc="Prey protection factor (used to derive palatability_matrix).",
-    ),
-    ParameterSpec(
-        :assimilation_efficiency,
-        :vector;
-        doc="Assimilation efficiency per consumer (used to derive assimilation_matrix).",
-    ),
-)
-
-function parameter_default_registry(factory::NiPiZDFactory)
     return (
-        detritus_remineralization = FnDefault((factory, community_context, FT, cache) ->
-            nipizd_parameter_default_values(factory, community_context, FT, cache).detritus_remineralization
+        ParameterDefinition(
+            ParameterSpec(
+                :detritus_remineralization,
+                :scalar;
+                doc="Detritus remineralization rate.",
+            ),
+            ConstDefault(detritus_remin),
         ),
-        mortality_export_fraction = FnDefault((factory, community_context, FT, cache) ->
-            nipizd_parameter_default_values(factory, community_context, FT, cache).mortality_export_fraction
+        ParameterDefinition(
+            ParameterSpec(
+                :mortality_export_fraction,
+                :scalar;
+                doc="Fraction of mortality routed to detritus export.",
+            ),
+            ConstDefault(0.2),
         ),
-        linear_mortality = FnDefault((factory, community_context, FT, cache) ->
-            nipizd_parameter_default_values(factory, community_context, FT, cache).linear_mortality
+        ParameterDefinition(
+            ParameterSpec(
+                :linear_mortality,
+                :vector;
+                doc="Linear mortality coefficient per plankton class.",
+            ),
+            FillDefault(8e-7),
         ),
-        quadratic_mortality = FnDefault((factory, community_context, FT, cache) ->
-            nipizd_parameter_default_values(factory, community_context, FT, cache).quadratic_mortality
+        ParameterDefinition(
+            ParameterSpec(
+                :quadratic_mortality,
+                :vector;
+                doc="Quadratic mortality coefficient per plankton class.",
+            ),
+            DiameterIndexedVectorDefault(1e-6, :consumer_param_indices; default=0),
         ),
-        maximum_growth_rate = FnDefault((factory, community_context, FT, cache) ->
-            nipizd_parameter_default_values(factory, community_context, FT, cache).maximum_growth_rate
+        ParameterDefinition(
+            ParameterSpec(
+                :maximum_growth_rate,
+                :vector;
+                doc="Maximum phytoplankton growth rate per plankton class.",
+            ),
+            DiameterIndexedVectorDefault(
+                AllometricParam(PowerLaw(); prefactor=2 / 86400, exponent=-0.15),
+                :producer_param_indices;
+                default=0,
+            ),
         ),
-        nutrient_half_saturation = FnDefault((factory, community_context, FT, cache) ->
-            nipizd_parameter_default_values(factory, community_context, FT, cache).nutrient_half_saturation
+        ParameterDefinition(
+            ParameterSpec(
+                :nutrient_half_saturation,
+                :vector;
+                doc="Nutrient half-saturation constant per plankton class.",
+            ),
+            DiameterIndexedVectorDefault(
+                AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27),
+                :producer_param_indices;
+                default=0,
+            ),
         ),
-        alpha = FnDefault((factory, community_context, FT, cache) ->
-            nipizd_parameter_default_values(factory, community_context, FT, cache).alpha
+        ParameterDefinition(
+            ParameterSpec(
+                :alpha,
+                :vector;
+                doc="Initial slope of the P-I curve per plankton class.",
+            ),
+            DiameterIndexedVectorDefault(0.1953 / 86400, :producer_param_indices; default=0),
         ),
-        maximum_predation_rate = FnDefault((factory, community_context, FT, cache) ->
-            nipizd_parameter_default_values(factory, community_context, FT, cache).maximum_predation_rate
+        ParameterDefinition(
+            ParameterSpec(
+                :maximum_predation_rate,
+                :vector;
+                doc="Maximum zooplankton grazing rate per plankton class.",
+            ),
+            DiameterIndexedVectorDefault(
+                AllometricParam(PowerLaw(); prefactor=30.84 / 86400, exponent=-0.16),
+                :consumer_param_indices;
+                default=0,
+            ),
         ),
-        holling_half_saturation = FnDefault((factory, community_context, FT, cache) ->
-            nipizd_parameter_default_values(factory, community_context, FT, cache).holling_half_saturation
+        ParameterDefinition(
+            ParameterSpec(
+                :holling_half_saturation,
+                :vector;
+                doc="Holling type II half-saturation constant per plankton class.",
+            ),
+            DiameterIndexedVectorDefault(5.0, :consumer_param_indices; default=0),
         ),
-        palatability_matrix = NoDefault(),
-        assimilation_matrix = NoDefault(),
-        optimum_predator_prey_ratio = FnDefault((factory, community_context, FT, cache) ->
-            nipizd_parameter_default_values(factory, community_context, FT, cache).optimum_predator_prey_ratio
+        ParameterDefinition(
+            ParameterSpec(
+                :palatability_matrix,
+                :matrix;
+                axes=(:consumer, :prey),
+                doc="Preference of each consumer for each prey class.",
+            ),
+            NoDefault(),
         ),
-        specificity = FnDefault((factory, community_context, FT, cache) ->
-            nipizd_parameter_default_values(factory, community_context, FT, cache).specificity
+        ParameterDefinition(
+            ParameterSpec(
+                :assimilation_matrix,
+                :matrix;
+                axes=(:consumer, :prey),
+                doc="Assimilation efficiency of each consumer on each prey class.",
+            ),
+            NoDefault(),
         ),
-        protection = FnDefault((factory, community_context, FT, cache) ->
-            nipizd_parameter_default_values(factory, community_context, FT, cache).protection
+        ParameterDefinition(
+            ParameterSpec(
+                :optimum_predator_prey_ratio,
+                :vector;
+                doc="Preferred predator:prey diameter ratio per consumer (used to derive palatability_matrix).",
+            ),
+            DiameterIndexedVectorDefault(10.0, :consumer_param_indices; default=0),
         ),
-        assimilation_efficiency = FnDefault((factory, community_context, FT, cache) ->
-            nipizd_parameter_default_values(factory, community_context, FT, cache).assimilation_efficiency
+        ParameterDefinition(
+            ParameterSpec(
+                :specificity,
+                :vector;
+                doc="Unimodal palatability specificity per consumer (used to derive palatability_matrix).",
+            ),
+            DiameterIndexedVectorDefault(0.3, :consumer_param_indices; default=0),
         ),
-    )
-end
-
-@inline function nipizd_parameter_default_values(
-    factory::NiPiZDFactory, community_context::CommunityContext, ::Type{FT}, cache::Dict{Symbol,Any}
-) where {FT}
-    return get!(cache, :nipizd_parameter_default_values) do
-        nipizd_parameter_defaults(factory, community_context, FT)
-    end
-end
-
-
-function nipizd_parameter_defaults(
-    ::NiPiZDFactory, community_context::CommunityContext, ::Type{FT}
-) where {FT}
-    detritus_remineralization = FT(0.1213 / 86400)
-    mortality_export_fraction = FT(0.2)
-
-    # Group vectors (length = community_context.n_total)
-    linear_mortality = fill(FT(8e-7), community_context.n_total)
-    quadratic_mortality = resolve_diameter_indexed_vector(
-        FT, community_context.diameters, community_context.consumer_param_indices, FT(1e-6); default=FT(0)
-    )
-
-    maximum_growth_rate = resolve_diameter_indexed_vector(
-        FT,
-        community_context.diameters,
-        community_context.producer_param_indices,
-        AllometricParam(PowerLaw(); prefactor=FT(2 / 86400), exponent=FT(-0.15));
-        default=FT(0),
-    )
-
-    nutrient_half_saturation = resolve_diameter_indexed_vector(
-        FT,
-        community_context.diameters,
-        community_context.producer_param_indices,
-        AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27));
-        default=FT(0),
-    )
-
-    alpha = resolve_diameter_indexed_vector(
-        FT, community_context.diameters, community_context.producer_param_indices, FT(0.1953 / 86400); default=FT(0)
-    )
-
-    maximum_predation_rate = resolve_diameter_indexed_vector(
-        FT,
-        community_context.diameters,
-        community_context.consumer_param_indices,
-        AllometricParam(PowerLaw(); prefactor=FT(30.84 / 86400), exponent=FT(-0.16));
-        default=FT(0),
-    )
-
-    holling_half_saturation = resolve_diameter_indexed_vector(
-        FT, community_context.diameters, community_context.consumer_param_indices, FT(5.0); default=FT(0)
-    )
-
-    # --- Default interaction matrices (internal trait defaults) ------------
-
-    optimum_predator_prey_ratio = resolve_diameter_indexed_vector(
-        FT, community_context.diameters, community_context.consumer_param_indices, FT(10.0); default=FT(0)
-    )
-    specificity = resolve_diameter_indexed_vector(
-        FT, community_context.diameters, community_context.consumer_param_indices, FT(0.3); default=FT(0)
-    )
-    protection = resolve_diameter_indexed_vector(
-        FT, community_context.diameters, community_context.consumer_param_indices, FT(1.0); default=FT(0)
-    )
-    assimilation_efficiency = resolve_diameter_indexed_vector(
-        FT, community_context.diameters, community_context.consumer_param_indices, FT(0.32); default=FT(0)
-    )
-
-    return (;
-        detritus_remineralization,
-        mortality_export_fraction,
-        linear_mortality,
-        quadratic_mortality,
-        maximum_growth_rate,
-        nutrient_half_saturation,
-        alpha,
-        maximum_predation_rate,
-        holling_half_saturation,
-        optimum_predator_prey_ratio,
-        specificity,
-        protection,
-        assimilation_efficiency,
+        ParameterDefinition(
+            ParameterSpec(
+                :protection,
+                :vector;
+                doc="Prey protection factor (used to derive palatability_matrix).",
+            ),
+            DiameterIndexedVectorDefault(1.0, :consumer_param_indices; default=0),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :assimilation_efficiency,
+                :vector;
+                doc="Assimilation efficiency per consumer (used to derive assimilation_matrix).",
+            ),
+            DiameterIndexedVectorDefault(0.32, :consumer_param_indices; default=0),
+        ),
     )
 end
 

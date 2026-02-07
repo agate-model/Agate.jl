@@ -8,7 +8,8 @@ using ...Utils: AbstractBGCFactory
 using ...Utils.Specifications: PFTSpecification
 using ...Utils: DiameterRangeSpecification
 
-# NOTE: Numeric parameter defaults are provided via `Constructor.parameter_default_registry` (see `Models/NiPiZD/Parameters.jl`).
+# NOTE: Numeric parameter defaults are declared alongside parameter metadata in
+# `parameter_definitions(::NiPiZDFactory)` (see `Models/NiPiZD/Parameters.jl`).
 
 import ...Interface:
     default_plankton_dynamics, default_community, default_biogeochem_dynamics

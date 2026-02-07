@@ -1,131 +1,229 @@
-"""Default parameter values for the DARWIN model.
+"""Parameter definitions for the DARWIN model.
 
-This file registers constructor-time default parameters via `parameter_default_registry`.
-Defaults are computed for a particular community (sizes + groups) and floating-point type.
+This file defines a single source of truth for:
+- parameter metadata (`ParameterSpec`)
+- constructor-time default values (via `DefaultProvider` entries)
 
-Only keys required by the compiled DARWIN equations are used at runtime.
+Defaults are evaluated on the host during construction and later moved to the
+target architecture with `Adapt`.
 
-In addition, this file exposes a small set of *interaction traits* (vectors)
-that may be overridden to regenerate the interaction matrices during
-construction.
+Interaction matrices (`palatability_matrix`, `assimilation_matrix`) are derived from
+trait vectors using `derived_matrix_specs`.
 """
 
-import ...Constructor: parameter_default_registry, FnDefault, NoDefault
-import ...Interface: parameter_directory, ParameterSpec
-using ...Utils: CommunityContext
+import ...Utils:
+    parameter_definitions,
+    ParameterDefinition,
+    ParameterSpec,
+    ConstDefault,
+    NoDefault,
+    FillDefault,
+    DiameterIndexedVectorDefault,
+    CommunityContext,
+    MatrixProvider,
+    derived_matrix_specs
+
 using ...Library.Allometry:
     AllometricParam,
     PowerLaw,
-    resolve_diameter_indexed_vector,
     palatability_matrix_allometric_axes,
     assimilation_efficiency_matrix_binary_axes
 
-import ...Utils: MatrixProvider, derived_matrix_specs
+function parameter_definitions(::DarwinFactory)
 
-"""Parameter metadata for DARWIN.
-
-The directory provides expected shapes and short descriptions for all parameters
-required by the compiled DARWIN equations, plus a small set of interaction
-traits used to derive the default interaction matrices.
-"""
-parameter_directory(::DarwinFactory) = (
-    ParameterSpec(:DOC_remineralization, :scalar; doc="DOC remineralization rate."),
-    ParameterSpec(:POC_remineralization, :scalar; doc="POC remineralization rate."),
-    ParameterSpec(:DON_remineralization, :scalar; doc="DON remineralization rate."),
-    ParameterSpec(:PON_remineralization, :scalar; doc="PON remineralization rate."),
-    ParameterSpec(:DOP_remineralization, :scalar; doc="DOP remineralization rate."),
-    ParameterSpec(:POP_remineralization, :scalar; doc="POP remineralization rate."),
-    ParameterSpec(
-        :nitrogen_to_carbon, :scalar; doc="Nitrogen-to-carbon stoichiometric ratio."
-    ),
-    ParameterSpec(
-        :phosphorus_to_carbon, :scalar; doc="Phosphorus-to-carbon stoichiometric ratio."
-    ),
-    ParameterSpec(
-        :DOM_POM_fractionation,
-        :scalar;
-        doc="Fraction of organic matter routed to DOM vs POM.",
-    ),
-    ParameterSpec(
-        :linear_mortality,
-        :vector;
-        doc="Linear mortality coefficient per plankton class.",
-    ),
-    ParameterSpec(
-        :quadratic_mortality,
-        :vector;
-        doc="Quadratic mortality coefficient per plankton class.",
-    ),
-    ParameterSpec(
-        :maximum_growth_rate,
-        :vector;
-        doc="Maximum phytoplankton growth rate per plankton class.",
-    ),
-    ParameterSpec(
-        :half_saturation_DIN,
-        :vector;
-        doc="DIN half-saturation constant per plankton class.",
-    ),
-    ParameterSpec(
-        :half_saturation_PO4,
-        :vector;
-        doc="PO4 half-saturation constant per plankton class.",
-    ),
-    ParameterSpec(
-        :photosynthetic_slope,
-        :vector;
-        doc="Initial slope of the P-I curve per plankton class.",
-    ),
-    ParameterSpec(
-        :chlorophyll_to_carbon_ratio,
-        :vector;
-        doc="Chlorophyll-to-carbon ratio per plankton class.",
-    ),
-    ParameterSpec(
-        :maximum_predation_rate,
-        :vector;
-        doc="Maximum zooplankton grazing rate per plankton class.",
-    ),
-    ParameterSpec(
-        :holling_half_saturation,
-        :vector;
-        doc="Holling type II half-saturation constant per plankton class.",
-    ),
-    ParameterSpec(
-        :palatability_matrix,
-        :matrix;
-        axes=(:consumer, :prey),
-        doc="Preference of each consumer for each prey class.",
-    ),
-    ParameterSpec(
-        :assimilation_matrix,
-        :matrix;
-        axes=(:consumer, :prey),
-        doc="Assimilation efficiency of each consumer on each prey class.",
-    ),
-
-    # Traits used to derive the default interaction matrices.
-    ParameterSpec(
-        :optimum_predator_prey_ratio,
-        :vector;
-        doc="Preferred predator:prey diameter ratio per consumer (used to derive palatability_matrix).",
-    ),
-    ParameterSpec(
-        :specificity,
-        :vector;
-        doc="Unimodal palatability specificity per consumer (used to derive palatability_matrix).",
-    ),
-    ParameterSpec(
-        :protection,
-        :vector;
-        doc="Prey protection factor (used to derive palatability_matrix).",
-    ),
-    ParameterSpec(
-        :assimilation_efficiency,
-        :vector;
-        doc="Assimilation efficiency per consumer (used to derive assimilation_matrix).",
-    ),
-)
+    return (
+        ParameterDefinition(
+            ParameterSpec(:DOC_remineralization, :scalar; doc="DOC remineralization rate."),
+            ConstDefault(0.1213 / 86400),
+        ),
+        ParameterDefinition(
+            ParameterSpec(:POC_remineralization, :scalar; doc="POC remineralization rate."),
+            ConstDefault(0.1213 / 86400),
+        ),
+        ParameterDefinition(
+            ParameterSpec(:DON_remineralization, :scalar; doc="DON remineralization rate."),
+            ConstDefault(0.1213 / 86400),
+        ),
+        ParameterDefinition(
+            ParameterSpec(:PON_remineralization, :scalar; doc="PON remineralization rate."),
+            ConstDefault(0.1213 / 86400),
+        ),
+        ParameterDefinition(
+            ParameterSpec(:DOP_remineralization, :scalar; doc="DOP remineralization rate."),
+            ConstDefault(0.1213 / 86400),
+        ),
+        ParameterDefinition(
+            ParameterSpec(:POP_remineralization, :scalar; doc="POP remineralization rate."),
+            ConstDefault(0.1213 / 86400),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :nitrogen_to_carbon,
+                :scalar;
+                doc="Nitrogen-to-carbon stoichiometric ratio.",
+            ),
+            ConstDefault(16 / 106),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :phosphorus_to_carbon,
+                :scalar;
+                doc="Phosphorus-to-carbon stoichiometric ratio.",
+            ),
+            ConstDefault(1 / 106),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :DOM_POM_fractionation,
+                :scalar;
+                doc="Fraction of organic matter routed to DOM vs POM.",
+            ),
+            ConstDefault(0.5),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :linear_mortality,
+                :vector;
+                doc="Linear mortality coefficient per plankton class.",
+            ),
+            FillDefault(8e-7),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :quadratic_mortality,
+                :vector;
+                doc="Quadratic mortality coefficient per plankton class.",
+            ),
+            DiameterIndexedVectorDefault(1e-6, :consumer_param_indices; default=0),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :maximum_growth_rate,
+                :vector;
+                doc="Maximum phytoplankton growth rate per plankton class.",
+            ),
+            DiameterIndexedVectorDefault(
+                AllometricParam(PowerLaw(); prefactor=2 / 86400, exponent=-0.15),
+                :producer_param_indices;
+                default=0,
+            ),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :half_saturation_DIN,
+                :vector;
+                doc="DIN half-saturation constant per plankton class.",
+            ),
+            DiameterIndexedVectorDefault(
+                AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27),
+                :producer_param_indices;
+                default=0,
+            ),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :half_saturation_PO4,
+                :vector;
+                doc="PO4 half-saturation constant per plankton class.",
+            ),
+            DiameterIndexedVectorDefault(
+                AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27),
+                :producer_param_indices;
+                default=0,
+            ),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :photosynthetic_slope,
+                :vector;
+                doc="Initial slope of the P-I curve per plankton class.",
+            ),
+            DiameterIndexedVectorDefault(0.1 / 86400, :producer_param_indices; default=0),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :chlorophyll_to_carbon_ratio,
+                :vector;
+                doc="Chlorophyll-to-carbon ratio per plankton class.",
+            ),
+            DiameterIndexedVectorDefault(0.02, :producer_param_indices; default=0),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :maximum_predation_rate,
+                :vector;
+                doc="Maximum zooplankton grazing rate per plankton class.",
+            ),
+            DiameterIndexedVectorDefault(
+                AllometricParam(PowerLaw(); prefactor=30.84 / 86400, exponent=-0.16),
+                :consumer_param_indices;
+                default=0,
+            ),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :holling_half_saturation,
+                :vector;
+                doc="Holling type II half-saturation constant per plankton class.",
+            ),
+            DiameterIndexedVectorDefault(
+                AllometricParam(PowerLaw(); prefactor=1.0, exponent=-0.23),
+                :consumer_param_indices;
+                default=0,
+            ),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :palatability_matrix,
+                :matrix;
+                axes=(:consumer, :prey),
+                doc="Preference of each consumer for each prey class.",
+            ),
+            NoDefault(),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :assimilation_matrix,
+                :matrix;
+                axes=(:consumer, :prey),
+                doc="Assimilation efficiency of each consumer on each prey class.",
+            ),
+            NoDefault(),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :optimum_predator_prey_ratio,
+                :vector;
+                doc="Preferred predator:prey diameter ratio per consumer (used to derive palatability_matrix).",
+            ),
+            DiameterIndexedVectorDefault(10.0, :consumer_param_indices; default=0),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :specificity,
+                :vector;
+                doc="Unimodal palatability specificity per consumer (used to derive palatability_matrix).",
+            ),
+            DiameterIndexedVectorDefault(0.3, :consumer_param_indices; default=0),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :protection,
+                :vector;
+                doc="Prey protection factor (used to derive palatability_matrix).",
+            ),
+            FillDefault(0),
+        ),
+        ParameterDefinition(
+            ParameterSpec(
+                :assimilation_efficiency,
+                :vector;
+                doc="Assimilation efficiency per consumer (used to derive assimilation_matrix).",
+            ),
+            DiameterIndexedVectorDefault(0.32, :consumer_param_indices; default=0),
+        ),
+    )
+end
 
 # -----------------------------------------------------------------------------
 # Derived interaction matrices
@@ -167,210 +265,5 @@ function derived_matrix_specs(::DarwinFactory)
         assimilation_matrix=MatrixProvider(
             _derive_assimilation_matrix; deps=(:assimilation_efficiency,)
         ),
-    )
-end
-
-function parameter_default_registry(factory::DarwinFactory)
-    return (
-        DOC_remineralization = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).DOC_remineralization
-        ),
-        POC_remineralization = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).POC_remineralization
-        ),
-        DON_remineralization = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).DON_remineralization
-        ),
-        PON_remineralization = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).PON_remineralization
-        ),
-        DOP_remineralization = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).DOP_remineralization
-        ),
-        POP_remineralization = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).POP_remineralization
-        ),
-        nitrogen_to_carbon = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).nitrogen_to_carbon
-        ),
-        phosphorus_to_carbon = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).phosphorus_to_carbon
-        ),
-        DOM_POM_fractionation = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).DOM_POM_fractionation
-        ),
-        linear_mortality = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).linear_mortality
-        ),
-        quadratic_mortality = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).quadratic_mortality
-        ),
-        maximum_growth_rate = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).maximum_growth_rate
-        ),
-        half_saturation_DIN = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).half_saturation_DIN
-        ),
-        half_saturation_PO4 = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).half_saturation_PO4
-        ),
-        photosynthetic_slope = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).photosynthetic_slope
-        ),
-        chlorophyll_to_carbon_ratio = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).chlorophyll_to_carbon_ratio
-        ),
-        maximum_predation_rate = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).maximum_predation_rate
-        ),
-        holling_half_saturation = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).holling_half_saturation
-        ),
-        palatability_matrix = NoDefault(),
-        assimilation_matrix = NoDefault(),
-        optimum_predator_prey_ratio = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).optimum_predator_prey_ratio
-        ),
-        specificity = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).specificity
-        ),
-        protection = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).protection
-        ),
-        assimilation_efficiency = FnDefault((factory, community_context, FT, cache) ->
-            darwin_parameter_default_values(factory, community_context, FT, cache).assimilation_efficiency
-        ),
-    )
-end
-
-@inline function darwin_parameter_default_values(
-    factory::DarwinFactory, community_context::CommunityContext, ::Type{FT}, cache::Dict{Symbol,Any}
-) where {FT}
-    return get!(cache, :darwin_parameter_default_values) do
-        darwin_parameter_defaults(factory, community_context, FT)
-    end
-end
-
-
-function darwin_parameter_defaults(
-    ::DarwinFactory, community_context::CommunityContext, ::Type{FT}
-) where {FT}
-    # ---------------------------------------------------------------------
-    # Scalars
-    # ---------------------------------------------------------------------
-
-    detritus_remin = FT(0.1213 / 86400)
-
-    DOC_remineralization = detritus_remin
-    POC_remineralization = detritus_remin
-    DON_remineralization = detritus_remin
-    PON_remineralization = detritus_remin
-    DOP_remineralization = detritus_remin
-    POP_remineralization = detritus_remin
-
-    nitrogen_to_carbon = FT(16 / 106)
-    phosphorus_to_carbon = FT(1 / 106)
-
-    DOM_POM_fractionation = FT(0.5)
-
-    # ---------------------------------------------------------------------
-    # Group vectors (length = community_context.n_total)
-    # ---------------------------------------------------------------------
-
-    # Mortality
-    linear_mortality = fill(FT(8e-7), community_context.n_total)
-    quadratic_mortality = resolve_diameter_indexed_vector(
-        FT, community_context.diameters, community_context.consumer_param_indices, FT(1e-6); default=FT(0)
-    )
-
-    # Phytoplankton growth (Geider light limitation + 2 nutrients)
-    maximum_growth_rate = resolve_diameter_indexed_vector(
-        FT,
-        community_context.diameters,
-        community_context.producer_param_indices,
-        AllometricParam(PowerLaw(); prefactor=FT(2 / 86400), exponent=FT(-0.15));
-        default=FT(0),
-    )
-
-    # Defaults to zero for non-phyto groups; MonodLimitation guards 0/0.
-    half_saturation_DIN = resolve_diameter_indexed_vector(
-        FT,
-        community_context.diameters,
-        community_context.producer_param_indices,
-        AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27));
-        default=FT(0),
-    )
-    half_saturation_PO4 = resolve_diameter_indexed_vector(
-        FT,
-        community_context.diameters,
-        community_context.producer_param_indices,
-        AllometricParam(PowerLaw(); prefactor=FT(0.17), exponent=FT(0.27));
-        default=FT(0),
-    )
-
-    photosynthetic_slope = resolve_diameter_indexed_vector(
-        FT, community_context.diameters, community_context.producer_param_indices, FT(0.1 / 86400); default=FT(0)
-    )
-    chlorophyll_to_carbon_ratio = resolve_diameter_indexed_vector(
-        FT, community_context.diameters, community_context.producer_param_indices, FT(0.02); default=FT(0)
-    )
-
-    # Zooplankton grazing (preferential predation)
-    maximum_predation_rate = resolve_diameter_indexed_vector(
-        FT,
-        community_context.diameters,
-        community_context.consumer_param_indices,
-        AllometricParam(PowerLaw(); prefactor=FT(30.84 / 86400), exponent=FT(-0.16));
-        default=FT(0),
-    )
-
-    # Defaults to zero for non-zoo groups; HollingTypeII guards 0/0.
-    holling_half_saturation = resolve_diameter_indexed_vector(
-        FT,
-        community_context.diameters,
-        community_context.consumer_param_indices,
-        AllometricParam(PowerLaw(); prefactor=FT(1.0), exponent=FT(-0.23));
-        default=FT(0),
-    )
-
-    # ---------------------------------------------------------------------
-    # Interaction matrices
-    # ---------------------------------------------------------------------
-
-    assimilation_efficiency = resolve_diameter_indexed_vector(
-        FT, community_context.diameters, community_context.consumer_param_indices, FT(0.32); default=FT(0)
-    )
-
-    optimum_predator_prey_ratio = resolve_diameter_indexed_vector(
-        FT, community_context.diameters, community_context.consumer_param_indices, FT(10.0); default=FT(0)
-    )
-    specificity = resolve_diameter_indexed_vector(
-        FT, community_context.diameters, community_context.consumer_param_indices, FT(0.3); default=FT(0)
-    )
-    protection = fill(FT(0), community_context.n_total)
-
-    return (;
-        DOC_remineralization,
-        POC_remineralization,
-        DON_remineralization,
-        PON_remineralization,
-        DOP_remineralization,
-        POP_remineralization,
-        nitrogen_to_carbon,
-        phosphorus_to_carbon,
-        DOM_POM_fractionation,
-        linear_mortality,
-        quadratic_mortality,
-        maximum_growth_rate,
-        half_saturation_DIN,
-        half_saturation_PO4,
-        photosynthetic_slope,
-        chlorophyll_to_carbon_ratio,
-        maximum_predation_rate,
-        holling_half_saturation,
-        optimum_predator_prey_ratio,
-        specificity,
-        protection,
-        assimilation_efficiency,
     )
 end
