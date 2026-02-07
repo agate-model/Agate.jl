@@ -49,7 +49,7 @@ export InteractionMatrices
 export TendencyContext
 export TracerValues
 export tendency_inputs
-export MatrixProvider
+export derivation_deps
 export derived_matrix_specs
 export resolve_derived_matrices
 

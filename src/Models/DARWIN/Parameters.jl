@@ -19,7 +19,6 @@ import ...Utils:
     NoDefault,
     FillDefault,
     DiameterIndexedVectorDefault,
-    MatrixProvider,
     derived_matrix_specs
 
 using ...Library.Allometry:
@@ -227,13 +226,7 @@ end
 
 function derived_matrix_specs(::DarwinFactory)
     return (;
-        palatability_matrix=MatrixProvider(
-            derive_palatability_matrix_allometric;
-            deps=(:optimum_predator_prey_ratio, :specificity, :protection),
-        ),
-        assimilation_matrix=MatrixProvider(
-            derive_assimilation_matrix_binary;
-            deps=(:assimilation_efficiency,),
-        ),
+        palatability_matrix=derive_palatability_matrix_allometric,
+        assimilation_matrix=derive_assimilation_matrix_binary,
     )
 end

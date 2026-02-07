@@ -10,7 +10,7 @@ The returned matrices are host arrays. They can later be moved to the target
 architecture via `Adapt` during model construction.
 """
 
-import ..Utils: AbstractBGCFactory, CommunityContext
+import ..Utils: AbstractBGCFactory, CommunityContext, derivation_deps
 
 using ..Library.Allometry:
     palatability_matrix_allometric_axes, assimilation_efficiency_matrix_binary_axes
@@ -37,6 +37,9 @@ Required fields in `params`:
     )
 end
 
+derivation_deps(::typeof(derive_palatability_matrix_allometric)) =
+    (:optimum_predator_prey_ratio, :specificity, :protection)
+
 """Derive `assimilation_matrix` from trait vectors in `params`.
 
 Required fields in `params`:
@@ -53,3 +56,5 @@ Required fields in `params`:
         prey_indices=community_context.prey_indices,
     )
 end
+
+derivation_deps(::typeof(derive_assimilation_matrix_binary)) = (:assimilation_efficiency,)

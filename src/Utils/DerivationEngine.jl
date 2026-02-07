@@ -14,24 +14,16 @@ This allows users to tweak traits (small surface, easy to reason about) without
 needing to hand-build full matrices.
 """
 
-"""A derived-matrix provider and the parameter keys it depends on."""
-struct MatrixProvider{F,Deps}
-    f::F
-    deps::Deps
-    function MatrixProvider(f; deps=())
-        deps_norm = if deps === nothing
-            ()
-        elseif deps isa Symbol
-            (deps,)
-        elseif deps isa AbstractVector
-            Tuple(deps)
-        else
-            deps
-        end
-        return new{typeof(f),typeof(deps_norm)}(f, deps_norm)
-    end
-end
-"""Return a `NamedTuple` mapping matrix keys to `MatrixProvider`s.
+"""Return the dependency keys for a derivation callable.
+
+Derivation dependencies are used to decide when a derived matrix must be
+recomputed if its inputs are explicitly overridden.
+
+Override this for specific derivation functions.
+"""
+derivation_deps(::Function) = ()
+
+"""Return a `NamedTuple` mapping matrix keys to derivation callables.
 
 Factories override this to declare which matrices can be derived from other
 parameters.
@@ -66,6 +58,16 @@ function resolve_derived_matrices(
         i -> begin
             key = matrix_keys[i]
             provider = getproperty(derived_matrix_providers, key)
+            deps = derivation_deps(provider)
+            deps_norm = if deps === nothing
+                ()
+            elseif deps isa Symbol
+                (deps,)
+            elseif deps isa AbstractVector
+                Tuple(deps)
+            else
+                deps
+            end
 
             # Rule 1: explicit override wins.
             if key in override_set && hasproperty(params, key)
@@ -74,12 +76,12 @@ function resolve_derived_matrices(
 
             # Rule 2: compute missing matrices.
             if !hasproperty(params, key)
-                return provider.f(factory, context, params)
+                return provider(factory, context, params)
             end
 
             # Rule 3: recompute when any dependency was explicitly overridden.
-            if !isempty(provider.deps) && any(d -> d in override_set, provider.deps)
-                return provider.f(factory, context, params)
+            if !isempty(deps_norm) && any(d -> d in override_set, deps_norm)
+                return provider(factory, context, params)
             end
 
             # Rule 4: otherwise keep the current value.
