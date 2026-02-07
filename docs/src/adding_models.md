@@ -9,8 +9,8 @@ A new model typically needs:
 
  1. A model module under `src/Models/<ModelName>/`.
  2. A small public constructor `Agate.Models.<ModelName>.construct` that forwards to `Agate.Constructor.construct_factory(factory; ...)`.
- 3. A `parameter_directory(factory)` describing required parameter names and shapes.
- 4. `default_parameters(factory, ctx, FT)` that returns defaults using the community context.
+ 3. A single-source `parameter_definitions(factory)` that pairs each `ParameterSpec` with a default provider.
+ 4. Optionally, `derived_matrix_specs(factory)` (and `derivation_deps` for the derivation functions) for derived interaction matrices.
  5. A set of compiled dynamics / tracers that consume the parameters and update tendencies.
  6. Tests that exercise defaults, overrides, and GPU smoke (when available).
 
@@ -25,14 +25,35 @@ At minimum you should implement:
   - `default_plankton_dynamics(factory)`
   - `default_biogeochem_dynamics(factory)`
   - `default_community(factory)`
-  - `parameter_directory(factory)`
-  - `default_parameters(factory, ctx, FT)`
+  - `parameter_definitions(factory)` (spec + default in one place)
+  - `parameter_directory(factory)` (derived automatically; can be overloaded if needed)
 
 Canonical group ordering is inferred from the *explicit* ordering of the `community::NamedTuple` passed to the generic constructor.
 
-### 2) Declare parameters with a directory
+### 2) Declare parameters with `parameter_definitions`
 
-Implement `parameter_directory(factory)` returning a `NamedTuple` of `ParameterSpec`s. Use:
+Implement `parameter_definitions(factory)` returning a tuple of `ParameterDefinition` entries (a `ParameterSpec` paired with a `DefaultProvider`).
+Example:
+
+```julia
+using Agate.Utils: ParameterSpec, ParameterDefinition, ConstDefault, FillDefault, NoDefault
+
+parameter_definitions(::MyModelFactory) = (
+    ParameterDefinition(
+        ParameterSpec(:remineralization, :scalar; doc="Detritus remineralization rate."),
+        ConstDefault(0.18 / day),
+    ),
+    ParameterDefinition(
+        ParameterSpec(:maximum_growth_rate, :vector; doc="Per-class growth rate."),
+        FillDefault(2.0 / day),
+    ),
+    ParameterDefinition(
+        ParameterSpec(:palatability_matrix, :matrix; axes=(:consumer, :prey), doc="Consumer preference."),
+        NoDefault(),  # derived later
+    ),
+)
+```
+ Use:
 
   - `shape = :scalar | :vector | :matrix`
   - `axes = (:consumer, :prey)` when a matrix is consumer-by-prey
@@ -49,11 +70,30 @@ Return `nothing` for either field to include all classes on that axis. Overlap i
 
 If you do not pass `roles`, Agate assumes all classes are both consumers and prey.
 
-### 4) Provide defaults
+### 4) Default providers and derived matrices
 
-Implement `default_parameters(factory, ctx, FT)` and return a `NamedTuple` keyed by the directory keys.
+Defaults are declared alongside parameter metadata in `parameter_definitions(factory)` by choosing an explicit `DefaultProvider`:
 
-For axis-tagged interaction matrices, return rectangular defaults of size `(length(ctx.consumer_indices), length(ctx.prey_indices))`.
+- `ConstDefault(x)` for scalar literals,
+- `FillDefault(x)` for uniform vectors or matrices,
+- `DiameterIndexedVectorDefault(x, :indices_field; default=...)` for vectors defined over a subset of diameter-indexed classes,
+- `NoDefault()` when a parameter has no direct default (for example matrices derived later from trait vectors).
+
+If your model derives interaction matrices from trait vectors, register the derivations with:
+
+```julia
+using Agate.Utils: derived_matrix_specs, derivation_deps
+
+derived_matrix_specs(::MyModelFactory) = (;
+    palatability_matrix = derive_palatability_matrix,
+)
+
+derivation_deps(::typeof(derive_palatability_matrix)) =
+    (:optimum_predator_prey_ratio, :specificity, :protection)
+```
+
+The constructor recomputes a derived matrix when it is not explicitly overridden and at least one dependency key is explicitly overridden.
+
 
 ### 5) Dynamics should consume rectangular interactions
 

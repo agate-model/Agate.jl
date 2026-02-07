@@ -51,6 +51,30 @@ f(bgc, x, y, z, t, args...)
 Agate passes the model instance as `bgc`, which stores the resolved parameter NamedTuple at
 `bgc.parameters`.
 
+**Resolved** means: defaults have been built, user overrides have been applied, derived interaction matrices (if any) have been computed or recomputed, and role-aware interaction parameters have been finalized into a canonical representation.
+
+
+## Convenience unpacking: `tendency_inputs`
+
+Inside tracer tendency functions, Oceananigans passes state values positionally via `args...`.
+Agate provides a small helper that converts this positional tuple into explicit, named accessors:
+
+```julia
+using Agate.Utils: tendency_inputs
+
+@inline function my_tracer(bgc, x, y, z, t, args...)
+    parameters, tracer_values = tendency_inputs(bgc, args)
+
+    # Scalar parameter (already cast to FT and adapted to the chosen architecture):
+    k = parameters.detritus_remineralization
+
+    # Tracer values:
+    N = tracer_values.N
+
+    return -k * N
+end
+```
+
 ## Building blocks
 
 Agate's reusable building blocks live in `Agate.Library`.

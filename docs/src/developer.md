@@ -6,7 +6,7 @@ It assumes you are comfortable reading Julia code and running the test suite.
 ## Key design ideas
 
   - **Explicit model boundaries**: each model lives under `src/Models/<ModelName>/` and exposes a small, keyword-driven `construct` API.
-  - **Parameter metadata**: model parameters are declared in a `parameter_directory` so the constructor can validate shapes and provide clearer errors.
+  - **Parameter metadata**: factories declare parameters via `parameter_definitions` (spec + default). The derived `parameter_directory` is used for validation and clearer errors.
   - **Role-aware interactions**: consumer-by-prey interactions are represented *canonically* as rectangular matrices, and models consume these directly.
   - **GPU and parametric `FT`**: code paths avoid dynamic dispatch and allocate arrays using the chosen floating-point type and architecture.
   - **Variants**: paper- or project-specific configurations live as lightweight variant specs (instead of copying entire model modules).

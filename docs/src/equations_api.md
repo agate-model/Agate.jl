@@ -16,6 +16,8 @@ The directory is a collection of `ParameterSpec` entries describing:
 
 The constructor uses this metadata to validate overrides early (typo protection + shape checks).
 
+For developers: `parameter_directory(factory)` is derived from `parameter_definitions(factory)` by default, so specs and defaults can be declared in one place.
+
 ## Overriding parameters
 
 All model constructors accept a `parameters=(; ...)` NamedTuple.
@@ -41,6 +43,8 @@ default interaction matrices over the active consumer/prey role axes:
 Role axes are defined via the `roles` argument to `construct(...)` (typically using group symbols).
 
 These traits are validated like any other vector parameter.
+
+When you override any of these traits *without* explicitly overriding the corresponding interaction matrix, Agate recomputes the derived matrix during construction so the resolved parameter set remains consistent.
 
 ## Interaction matrices
 

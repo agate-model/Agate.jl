@@ -17,6 +17,22 @@ A model constructor returns a biogeochemistry object you can plug into an Oceana
 
 ## Julia translation layer (coming from Python)
 
+## Overriding parameters
+
+Agate uses `NamedTuple`s for explicit parameter overrides. A `NamedTuple` is like a lightweight dictionary whose keys are fixed at compile time.
+
+```julia
+using Agate
+using Oceananigans.Units: day
+
+# Override one scalar parameter by name.
+bgc = NiPiZD.construct(; parameters=(detritus_remineralization=0.18 / day,))
+```
+
+Parameter keys are `Symbol`s (written with a leading `:`). When you write `detritus_remineralization=...` inside a `NamedTuple`,
+Julia stores the key as the symbol `:detritus_remineralization`.
+
+
 You do not need to "learn Julia" to use Agate, but a few correspondences help:
 
   - **Keyword arguments**: in Julia you call `f(x=1, y=2)` (similar to Python). You may also see `f(; x=1, y=2)`.
