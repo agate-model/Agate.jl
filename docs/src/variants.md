@@ -69,12 +69,17 @@ function citation2026_B_spec(; n_phyto=2, n_zoo=2)
     id = ModelId(:DARWIN, :citation2026, :B)
     factory = DarwinFactory()
 
+    interaction_roles = (consumers=(:Z,), prey=(:P,))
+    auxiliary_fields = (:PAR,)
+
     return VariantSpec(
         id,
         factory,
         default_plankton_dynamics(factory),
         default_biogeochem_dynamics(factory),
         default_community(factory),
+        interaction_roles,
+        auxiliary_fields,
         (;),
         nothing,
     )

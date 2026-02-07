@@ -7,7 +7,6 @@ This constructor keeps the surface small:
 
 - structure: choose `n_phyto`, `n_zoo`, and diameter specifications
 - parameters: override named parameters via `parameters=(; ...)`
-- roles: optionally define consumer/prey membership by group symbols via `roles=(consumers=(...), prey=(...))`
 - interaction_overrides: optionally override interaction matrices
 
 For ease of use, interaction overrides are exposed as two separate keywords:
@@ -35,8 +34,6 @@ Keywords
 - `phyto_diameters=(1.5, 20.0, :log_splitting)`: diameter specification for phytoplankton
 - `zoo_diameters=(20.0, 100.0, :log_splitting)`: diameter specification for zooplankton
 - `parameters=(;)`: parameter overrides (validated against the DARWIN parameter set)
-- `roles=nothing`: optional role membership for consumer/prey axes; provide as `(; consumers=(:Z, ...), prey=(:P, ...))`
-- `parameter_groups=nothing`: optional group membership used only for generating default parameters; provide as `(; producers=(:P, ...), consumers=(:Z, ...))`
 - `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrices. Each may be:
   - a full `(n_total, n_total)` matrix
   - a rectangular `(n_consumer, n_prey)` matrix (the canonical interaction representation)
@@ -58,8 +55,6 @@ function construct(;
     phyto_diameters=(1.5, 20.0, :log_splitting),
     zoo_diameters=(20.0, 100.0, :log_splitting),
     parameters::NamedTuple=(;),
-    roles=nothing,
-    parameter_groups=nothing,
     palatability_matrix=nothing,
     assimilation_matrix=nothing,
     grid=BoxModelGrid(),
@@ -91,23 +86,13 @@ function construct(;
 
     interaction_overrides = isempty(pairs) ? nothing : (; pairs...)
 
-    roles_resolved = isnothing(roles) ? (consumers=(:Z,), prey=(:P,)) : roles
-
-    parameter_groups_resolved = if isnothing(parameter_groups)
-        (
-            producers=getproperty(roles_resolved, :prey),
-            consumers=getproperty(roles_resolved, :consumers),
-        )
-    else
-        parameter_groups
-    end
+    interaction_roles = (consumers=(:Z,), prey=(:P,))
 
     return Constructor.construct_factory(
         factory;
         community=community,
         parameters=parameters,
-        roles=roles_resolved,
-        parameter_groups=parameter_groups_resolved,
+        interaction_roles=interaction_roles,
         auxiliary_fields=(:PAR,),
         interaction_overrides=interaction_overrides,
         arch=arch,

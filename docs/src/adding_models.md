@@ -1,7 +1,6 @@
 # Adding a model
 
 This page is for developers who want to integrate a new ecosystem model into Agate.
-The intent is to keep the required surface area small and to make GPU support via parametric floating-point types (`FT`) straightforward.
 
 ## Checklist
 
@@ -12,7 +11,7 @@ A new model typically needs:
  3. A single-source `parameter_definitions(factory)` that pairs each `ParameterSpec` with a default provider.
  4. Optionally, `derived_matrix_specs(factory)` (and `derivation_deps` for the derivation functions) for derived interaction matrices.
  5. A set of compiled dynamics / tracers that consume the parameters and update tendencies.
- 6. Tests that exercise defaults, overrides, and GPU smoke (when available).
+ 6. Tests that exercise defaults and overrides.
 
 ## Recommended structure
 
@@ -62,13 +61,13 @@ This enables early validation and provides the metadata used for interaction nor
 
 ### 3) Define consumer/prey roles
 
-If your model uses role-aware consumer-by-prey interactions (e.g. predators only in a subset of groups), define a `roles` `NamedTuple` and pass it to `Agate.Constructor.construct_factory` (or set it as a default in your public constructor / model variant):
+If your model uses role-aware consumer-by-prey interactions (e.g. predators only in a subset of groups), define a `roles` `NamedTuple` and pass it as `interaction_roles` to `Agate.Constructor.construct_factory` (or set it as a default in your public constructor / model variant):
 
   - `roles = (consumers = (:Z, ...), prey = (:P, :D, ...))`
 
 Return `nothing` for either field to include all classes on that axis. Overlap is allowed.
 
-If you do not pass `roles`, Agate assumes all classes are both consumers and prey.
+If you do not pass `interaction_roles`, Agate assumes all classes are both consumers and prey.
 
 ### 4) Default providers and derived matrices
 

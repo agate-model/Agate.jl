@@ -31,8 +31,7 @@ function citation2026_A_spec(;
         base; n=(Z=n_zoo, P=n_phyto), diameters=(Z=zoo_diameters, P=phyto_diameters)
     )
 
-    roles = (consumers=(:Z,), prey=(:P,))
-    parameter_groups = (producers=(:P,), consumers=(:Z,))
+    interaction_roles = (consumers=(:Z,), prey=(:P,))
 
     return VariantSpec(
         ModelId(:DARWIN, :citation2026, :A),
@@ -40,8 +39,7 @@ function citation2026_A_spec(;
         default_plankton_dynamics(factory),
         default_biogeochem_dynamics(factory),
         community,
-        roles,
-        parameter_groups,
+        interaction_roles,
         auxiliary_fields,
         parameters,
         interaction_overrides,

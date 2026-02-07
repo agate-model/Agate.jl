@@ -74,7 +74,7 @@ end
 
 The provider fills a full-length vector (length `community_context.n_total`) with
 `default`, then overwrites the indices stored in `indices_field` (a field of
-`CommunityContext`, e.g. `:producer_param_indices`) using
+`CommunityContext`, e.g. `:default_producer_indices`) using
 `resolve_diameter_indexed_vector`.
 """
 struct DiameterIndexedVectorDefault{V,T} <: DefaultProvider

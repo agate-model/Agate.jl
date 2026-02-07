@@ -249,8 +249,21 @@ using Oceananigans.Biogeochemistry:
         set_block!(pal; consumer_group=:Z, prey_group=:Z, value=0.25f0)
         forbid_link!(pal; consumer_group=:Z, prey_group=:Z)
 
-        bgc = NiPiZD.construct(;
-            grid=dummy_grid(Float32), roles=roles, palatability_matrix=pal
+        factory = Agate.NiPiZD.NiPiZDFactory()
+        base = Agate.Interface.default_community(factory)
+        community = Agate.Constructor.build_plankton_community(
+            base;
+            n=(Z=2, P=2),
+            diameters=(Z=(20, 100, :linear_splitting), P=(2, 10, :log_splitting)),
+        )
+
+        bgc = Agate.Constructor.construct_factory(
+            factory;
+            grid=dummy_grid(Float32),
+            community=community,
+            interaction_roles=roles,
+            interaction_overrides=(palatability_matrix=pal,),
+            auxiliary_fields=(:PAR,),
         )
         M = bgc.parameters.palatability_matrix
         @test size(M, 1) == 2
@@ -259,8 +272,13 @@ using Oceananigans.Biogeochemistry:
         @test all(M[:, 3:4] .== 1.0f0) # P as prey
 
         scale_block!(pal; consumer_group=:Z, prey_group=:P, factor=0.5f0)
-        bgc2 = NiPiZD.construct(;
-            grid=dummy_grid(Float32), roles=roles, palatability_matrix=pal
+        bgc2 = Agate.Constructor.construct_factory(
+            factory;
+            grid=dummy_grid(Float32),
+            community=community,
+            interaction_roles=roles,
+            interaction_overrides=(palatability_matrix=pal,),
+            auxiliary_fields=(:PAR,),
         )
         M2 = bgc2.parameters.palatability_matrix
         @test all(M2[:, 3:4] .== 0.5f0)

@@ -156,9 +156,9 @@ struct CommunityContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
     consumer_indices::Vector{Int}
     prey_indices::Vector{Int}
 
-    # Parameter-default classification (used by default-parameter providers)
-    producer_param_indices::Vector{Int}
-    consumer_param_indices::Vector{Int}
+    # Default-parameter membership (used only when generating default parameter vectors)
+    default_producer_indices::Vector{Int}
+    default_consumer_indices::Vector{Int}
 
     plankton_dynamics::NamedTuple
     biogeochem_dynamics::NamedTuple
@@ -603,9 +603,27 @@ function parse_community(
     community::NamedTuple;
     plankton_dynamics::NamedTuple=NamedTuple(),
     biogeochem_dynamics::NamedTuple=NamedTuple(),
-    roles=nothing,
-    parameter_groups=nothing,
+    interaction_roles=nothing,
+    default_parameter_roles=nothing,
 ) where {FT<:AbstractFloat}
+    if !isnothing(interaction_roles)
+        (hasproperty(interaction_roles, :consumers) && hasproperty(interaction_roles, :prey)) ||
+            throw(
+                ArgumentError(
+                    "interaction_roles must have fields :consumers and :prey (each may be `nothing`, group Symbols, indices, or boolean masks).",
+                ),
+            )
+    end
+
+    if !isnothing(default_parameter_roles)
+        (hasproperty(default_parameter_roles, :producers) &&
+            hasproperty(default_parameter_roles, :consumers)) ||
+            throw(
+                ArgumentError(
+                    "default_parameter_roles must have fields :producers and :consumers (each may be `nothing`, group Symbols, indices, or boolean masks).",
+                ),
+            )
+    end
     # Canonical group ordering is the (explicit, stable) ordering of `community`.
     # This makes ordering decisions visible to the caller and avoids hidden
     # factory-specific group ordering.
@@ -647,27 +665,29 @@ function parse_community(
         push!(get!(group_indices, g, Int[]), i)
     end
 
-    roles_resolved = isnothing(roles) ? (consumers=nothing, prey=nothing) : roles
-    hasproperty(roles_resolved, :consumers) ||
-        throw(ArgumentError("roles must define :consumers"))
-    hasproperty(roles_resolved, :prey) || throw(ArgumentError("roles must define :prey"))
+    interaction_roles_resolved =
+        isnothing(interaction_roles) ? (consumers=nothing, prey=nothing) : interaction_roles
+    hasproperty(interaction_roles_resolved, :consumers) ||
+        throw(ArgumentError("interaction_roles must define :consumers"))
+    hasproperty(interaction_roles_resolved, :prey) ||
+        throw(ArgumentError("interaction_roles must define :prey"))
 
-    # Parameter-default group membership is controlled separately from interaction roles.
-    # When `parameter_groups` is omitted, we default to matching the role axes:
-    # - producers := roles.prey
-    # - consumers := roles.consumers
-    parameter_groups_resolved = if isnothing(parameter_groups)
+    # Default-parameter membership is controlled separately from interaction roles.
+    # When `default_parameter_roles` is omitted, we match the interaction axes:
+    # - producers := interaction_roles.prey
+    # - consumers := interaction_roles.consumers
+    default_parameter_roles_resolved = if isnothing(default_parameter_roles)
         (
-            producers=getproperty(roles_resolved, :prey),
-            consumers=getproperty(roles_resolved, :consumers),
+            producers=getproperty(interaction_roles_resolved, :prey),
+            consumers=getproperty(interaction_roles_resolved, :consumers),
         )
     else
-        parameter_groups
+        default_parameter_roles
     end
-    hasproperty(parameter_groups_resolved, :producers) ||
-        throw(ArgumentError("parameter_groups must define :producers"))
-    hasproperty(parameter_groups_resolved, :consumers) ||
-        throw(ArgumentError("parameter_groups must define :consumers"))
+    hasproperty(default_parameter_roles_resolved, :producers) ||
+        throw(ArgumentError("default_parameter_roles must define :producers"))
+    hasproperty(default_parameter_roles_resolved, :consumers) ||
+        throw(ArgumentError("default_parameter_roles must define :consumers"))
 
     function _indices_for_role(role, role_name::Symbol)
         if role === nothing
@@ -709,15 +729,15 @@ function parse_community(
     end
 
     consumer_indices = _indices_for_role(
-        getproperty(roles_resolved, :consumers), :consumers
+        getproperty(interaction_roles_resolved, :consumers), :consumers
     )
-    prey_indices = _indices_for_role(getproperty(roles_resolved, :prey), :prey)
+    prey_indices = _indices_for_role(getproperty(interaction_roles_resolved, :prey), :prey)
 
-    producer_param_indices = _indices_for_role(
-        getproperty(parameter_groups_resolved, :producers), :producers
+    default_producer_indices = _indices_for_role(
+        getproperty(default_parameter_roles_resolved, :producers), :default_producers
     )
-    consumer_param_indices = _indices_for_role(
-        getproperty(parameter_groups_resolved, :consumers), :parameter_consumers
+    default_consumer_indices = _indices_for_role(
+        getproperty(default_parameter_roles_resolved, :consumers), :default_consumers
     )
 
     community_context = CommunityContext{FT,typeof(diameters)}(
@@ -731,8 +751,8 @@ function parse_community(
         group_indices,
         consumer_indices,
         prey_indices,
-        producer_param_indices,
-        consumer_param_indices,
+        default_producer_indices,
+        default_consumer_indices,
         plankton_dynamics,
         biogeochem_dynamics,
     )

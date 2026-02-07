@@ -50,7 +50,6 @@ struct VariantSpec{
     BD<:NamedTuple,
     C<:NamedTuple,
     R<:NamedTuple,
-    PG<:NamedTuple,
     AF<:Tuple,
     P<:NamedTuple,
     I,
@@ -60,8 +59,7 @@ struct VariantSpec{
     plankton_dynamics::PD
     biogeochem_dynamics::BD
     community::C
-    roles::R
-    parameter_groups::PG
+    interaction_roles::R
     auxiliary_fields::AF
     parameters::P
     interaction_overrides::I # `Nothing` or a `NamedTuple`
@@ -123,8 +121,6 @@ function construct(
     spec::VariantSpec;
     parameters::NamedTuple=(;),
     interaction_overrides::Union{Nothing,NamedTuple}=nothing,
-    roles=nothing,
-    parameter_groups=nothing,
     auxiliary_fields=nothing,
     kwargs...,
 )
@@ -147,12 +143,7 @@ function construct(
         community=spec.community,
         parameters=params,
         interaction_overrides=inter,
-        roles=isnothing(roles) ? spec.roles : roles,
-        parameter_groups=if isnothing(parameter_groups)
-            spec.parameter_groups
-        else
-            parameter_groups
-        end,
+        interaction_roles=spec.interaction_roles,
         auxiliary_fields=if isnothing(auxiliary_fields)
             spec.auxiliary_fields
         else

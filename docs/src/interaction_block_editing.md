@@ -27,7 +27,32 @@ set_block!(pal; consumer_group=:Z, prey_group=:P, value=1.0)
 set_block!(pal; consumer_group=:Z, prey_group=:Z, value=0.25)
 forbid_link!(pal; consumer_group=:Z, prey_group=:Z)
 
-bgc = NiPiZD.construct(; roles, palatability_matrix=pal)
+# Next, build a model instance using these role axes and overrides.
+```
+
+`NiPiZD.construct` keeps its surface small and does not expose role customization. To use custom role axes, call the model-agnostic constructor:
+
+```julia
+using Agate
+using OceanBioME: BoxModelGrid
+using Agate.Utils: roles_from_groups, interaction_blocks, set_block!, forbid_link!
+
+factory = Agate.NiPiZD.NiPiZDFactory()
+base = Agate.Interface.default_community(factory)
+community = Agate.Constructor.build_plankton_community(
+    base;
+    n=(Z=2, P=2),
+    diameters=(Z=(20, 100, :linear_splitting), P=(2, 10, :log_splitting)),
+)
+
+bgc = Agate.Constructor.construct_factory(
+    factory;
+    grid=BoxModelGrid(),
+    community=community,
+    interaction_roles=roles,
+    interaction_overrides=(palatability_matrix=pal,),
+    auxiliary_fields=(:PAR,),
+)
 ```
 
 Notes:

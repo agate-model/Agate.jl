@@ -50,7 +50,7 @@ end
 roles = roles_from_groups(consumers = :Z, prey = (:P, :Z))
 ```
 
-This returns the `NamedTuple` accepted by `construct(...; roles=roles)`.
+This returns the `NamedTuple` accepted by `Agate.Constructor.construct_factory(...; interaction_roles=roles)`.
 """
 @inline function roles_from_groups(; consumers=nothing, prey=nothing)
     return (consumers=_as_group_tuple(consumers), prey=_as_group_tuple(prey))

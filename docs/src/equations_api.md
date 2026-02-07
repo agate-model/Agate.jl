@@ -40,7 +40,7 @@ default interaction matrices over the active consumer/prey role axes:
   - `optimum_predator_prey_ratio`, `specificity`, `protection` (Real)
   - `assimilation_efficiency` (Real)
 
-Role axes are defined via the `roles` argument to `construct(...)` (typically using group symbols).
+Role axes are defined via the `interaction_roles` argument to `Agate.Constructor.construct_factory` (typically using group symbols).
 
 These traits are validated like any other vector parameter.
 
