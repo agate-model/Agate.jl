@@ -8,6 +8,7 @@ using ..Interface: default_plankton_dynamics, default_community, default_biogeoc
 
 include("Sums.jl")
 include("Variants.jl")
+include("InteractionMatrixDerivations.jl")
 
 # -----------------------------------------------------------------------------
 # Model modules

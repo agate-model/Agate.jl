@@ -19,15 +19,14 @@ import ...Utils:
     NoDefault,
     FillDefault,
     DiameterIndexedVectorDefault,
-    CommunityContext,
     MatrixProvider,
     derived_matrix_specs
 
 using ...Library.Allometry:
     AllometricParam,
-    PowerLaw,
-    palatability_matrix_allometric_axes,
-    assimilation_efficiency_matrix_binary_axes
+    PowerLaw
+
+using ...Models: derive_assimilation_matrix_binary, derive_palatability_matrix_allometric
 
 function parameter_definitions(::NiPiZDFactory)
     detritus_remin = 0.1213 / 86400
@@ -170,45 +169,15 @@ function parameter_definitions(::NiPiZDFactory)
     )
 end
 
-# -----------------------------------------------------------------------------
-# Derived interaction matrices
-# -----------------------------------------------------------------------------
-
-@inline function _derive_palatability_matrix(
-    ::NiPiZDFactory, community_context::CommunityContext, params::NamedTuple
-)
-    FT = community_context.FT
-    return palatability_matrix_allometric_axes(
-        FT,
-        community_context.diameters;
-        optimum_predator_prey_ratio=params.optimum_predator_prey_ratio,
-        specificity=params.specificity,
-        protection=params.protection,
-        consumer_indices=community_context.consumer_indices,
-        prey_indices=community_context.prey_indices,
-    )
-end
-
-@inline function _derive_assimilation_matrix(
-    ::NiPiZDFactory, community_context::CommunityContext, params::NamedTuple
-)
-    FT = community_context.FT
-    return assimilation_efficiency_matrix_binary_axes(
-        FT;
-        assimilation_efficiency=params.assimilation_efficiency,
-        consumer_indices=community_context.consumer_indices,
-        prey_indices=community_context.prey_indices,
-    )
-end
-
 function derived_matrix_specs(::NiPiZDFactory)
     return (;
         palatability_matrix=MatrixProvider(
-            _derive_palatability_matrix;
+            derive_palatability_matrix_allometric;
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
         ),
         assimilation_matrix=MatrixProvider(
-            _derive_assimilation_matrix; deps=(:assimilation_efficiency,)
+            derive_assimilation_matrix_binary;
+            deps=(:assimilation_efficiency,),
         ),
     )
 end

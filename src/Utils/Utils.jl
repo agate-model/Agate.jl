@@ -164,7 +164,7 @@ struct CommunityContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
     biogeochem_dynamics::NamedTuple
 end
 include("InteractionMatrices.jl")
-include("DerivedMatrices.jl")
+include("DerivationEngine.jl")
 
 """Normalize `interaction_overrides` into a `NamedTuple` of parameter overrides.
 
