@@ -17,7 +17,7 @@ using ....Library.Mortality: linear_loss, quadratic_loss
 using ....Library.Photosynthesis: geider_two_nutrient_growth
 using ....Library.Remineralization: linear_remineralization
 
-using ....Utils: tendency_views
+using ....Utils: tendency_inputs
 
 using ...Sums:
     grazing_unassimilated_loss_sum,
@@ -52,15 +52,15 @@ function DIC_geider_light()
     )
 
     f = function (bgc, x, y, z, t, args...)
-        _, parameters, vals = tendency_views(bgc, args)
+        parameters, tracer_values = tendency_inputs(bgc, args)
 
-        plankton = vals.plankton
+        plankton = tracer_values.plankton
 
-        DIN = vals.DIN
-        PO4 = vals.PO4
-        DOC = vals.DOC
-        POC = vals.POC
-        PAR = vals.PAR
+        DIN = tracer_values.DIN
+        PO4 = tracer_values.PO4
+        DOC = tracer_values.DOC
+        POC = tracer_values.POC
+        PAR = tracer_values.PAR
 
         uptake = geider_two_nutrient_uptake_sum(
             plankton,
@@ -98,15 +98,15 @@ function DIN_geider_light()
     )
 
     f = function (bgc, x, y, z, t, args...)
-        _, parameters, vals = tendency_views(bgc, args)
+        parameters, tracer_values = tendency_inputs(bgc, args)
 
-        plankton = vals.plankton
+        plankton = tracer_values.plankton
 
-        DIN = vals.DIN
-        PO4 = vals.PO4
-        DON = vals.DON
-        PON = vals.PON
-        PAR = vals.PAR
+        DIN = tracer_values.DIN
+        PO4 = tracer_values.PO4
+        DON = tracer_values.DON
+        PON = tracer_values.PON
+        PAR = tracer_values.PAR
 
         uptake = geider_two_nutrient_uptake_sum(
             plankton,
@@ -144,15 +144,15 @@ function PO4_geider_light()
     )
 
     f = function (bgc, x, y, z, t, args...)
-        _, parameters, vals = tendency_views(bgc, args)
+        parameters, tracer_values = tendency_inputs(bgc, args)
 
-        plankton = vals.plankton
+        plankton = tracer_values.plankton
 
-        DIN = vals.DIN
-        PO4 = vals.PO4
-        DOP = vals.DOP
-        POP = vals.POP
-        PAR = vals.PAR
+        DIN = tracer_values.DIN
+        PO4 = tracer_values.PO4
+        DOP = tracer_values.DOP
+        POP = tracer_values.POP
+        PAR = tracer_values.PAR
 
         uptake = geider_two_nutrient_uptake_sum(
             plankton,
@@ -192,10 +192,10 @@ function DOC_default()
     )
 
     f = function (bgc, x, y, z, t, args...)
-        _, parameters, vals = tendency_views(bgc, args)
+        parameters, tracer_values = tendency_inputs(bgc, args)
 
-        plankton = vals.plankton
-        DOC = vals.DOC
+        plankton = tracer_values.plankton
+        DOC = tracer_values.DOC
 
         M = mortality_loss_sum(
             plankton, parameters.linear_mortality, parameters.quadratic_mortality
@@ -224,10 +224,10 @@ function POC_default()
     )
 
     f = function (bgc, x, y, z, t, args...)
-        _, parameters, vals = tendency_views(bgc, args)
+        parameters, tracer_values = tendency_inputs(bgc, args)
 
-        plankton = vals.plankton
-        POC = vals.POC
+        plankton = tracer_values.plankton
+        POC = tracer_values.POC
 
         M = mortality_loss_sum(
             plankton, parameters.linear_mortality, parameters.quadratic_mortality
@@ -255,10 +255,10 @@ function DON_default()
     )
 
     f = function (bgc, x, y, z, t, args...)
-        _, parameters, vals = tendency_views(bgc, args)
+        parameters, tracer_values = tendency_inputs(bgc, args)
 
-        plankton = vals.plankton
-        DON = vals.DON
+        plankton = tracer_values.plankton
+        DON = tracer_values.DON
 
         M = mortality_loss_sum(
             plankton, parameters.linear_mortality, parameters.quadratic_mortality
@@ -287,10 +287,10 @@ function PON_default()
     )
 
     f = function (bgc, x, y, z, t, args...)
-        _, parameters, vals = tendency_views(bgc, args)
+        parameters, tracer_values = tendency_inputs(bgc, args)
 
-        plankton = vals.plankton
-        PON = vals.PON
+        plankton = tracer_values.plankton
+        PON = tracer_values.PON
 
         M = mortality_loss_sum(
             plankton, parameters.linear_mortality, parameters.quadratic_mortality
@@ -318,10 +318,10 @@ function DOP_default()
     )
 
     f = function (bgc, x, y, z, t, args...)
-        _, parameters, vals = tendency_views(bgc, args)
+        parameters, tracer_values = tendency_inputs(bgc, args)
 
-        plankton = vals.plankton
-        DOP = vals.DOP
+        plankton = tracer_values.plankton
+        DOP = tracer_values.DOP
 
         M = mortality_loss_sum(
             plankton, parameters.linear_mortality, parameters.quadratic_mortality
@@ -350,10 +350,10 @@ function POP_default()
     )
 
     f = function (bgc, x, y, z, t, args...)
-        _, parameters, vals = tendency_views(bgc, args)
+        parameters, tracer_values = tendency_inputs(bgc, args)
 
-        plankton = vals.plankton
-        POP = vals.POP
+        plankton = tracer_values.plankton
+        POP = tracer_values.POP
 
         M = mortality_loss_sum(
             plankton, parameters.linear_mortality, parameters.quadratic_mortality
@@ -388,13 +388,13 @@ function phytoplankton_growth_two_nutrients_geider_light(plankton_idx::Int)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        _, parameters, vals = tendency_views(bgc, args)
+        parameters, tracer_values = tendency_inputs(bgc, args)
 
-        plankton = vals.plankton
+        plankton = tracer_values.plankton
 
-        DIN = vals.DIN
-        PO4 = vals.PO4
-        PAR = vals.PAR
+        DIN = tracer_values.DIN
+        PO4 = tracer_values.PO4
+        PAR = tracer_values.PAR
         P = plankton(plankton_idx)
 
         μmax = parameters.maximum_growth_rate[plankton_idx]
@@ -429,9 +429,9 @@ function zooplankton_default(plankton_idx::Int)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        _, parameters, vals = tendency_views(bgc, args)
+        parameters, tracer_values = tendency_inputs(bgc, args)
 
-        plankton = vals.plankton
+        plankton = tracer_values.plankton
         Z = plankton(plankton_idx)
 
         gain = grazing_gain_sum(parameters, plankton, Z, plankton_idx)

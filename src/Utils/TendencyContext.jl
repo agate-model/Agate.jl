@@ -75,18 +75,19 @@ end
     end
 end
 
-"""Return `(tendency, parameters, vals)` for a tendency function.
+"""Return `(parameters, tracer_values)` for a tracer tendency function.
 
 This is the recommended prologue for tracer tendency callables:
 
 ```julia
-tendency, parameters, vals = tendency_views(bgc, args)
+parameters, tracer_values = tendency_inputs(bgc, args)
 ```
 
-`tendency` remains available for interaction helpers (predation sums, etc), while
-`parameters` and `vals` make the common path terse and intention-revealing.
+`tracer_values` provides property accessors for the positional tracer arguments, including
+`tracer_values.plankton(i)` for plankton tracers.
 """
-@inline function tendency_views(bgc, args)
-    tendency = TendencyContext(bgc, args)
-    return tendency, tendency.parameters, TracerValues(tendency.tracers, tendency.args)
+@inline function tendency_inputs(bgc, args)
+    context = TendencyContext(bgc, args)
+    tracer_values = TracerValues(context.tracers, context.args)
+    return context.parameters, tracer_values
 end

@@ -48,7 +48,7 @@ export InteractionMatrices
 
 export TendencyContext
 export TracerValues
-export tendency_views
+export tendency_inputs
 export MatrixProvider
 export derived_matrix_specs
 export resolve_derived_matrices

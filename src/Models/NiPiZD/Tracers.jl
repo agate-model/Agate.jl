@@ -18,7 +18,7 @@ using ....Library.Mortality: linear_loss, quadratic_loss
 using ....Library.Photosynthesis: smith_single_nutrient_growth
 using ....Library.Remineralization: linear_remineralization
 
-using ....Utils: tendency_views
+using ....Utils: tendency_inputs
 
 using ...Sums:
     grazing_unassimilated_loss_sum,
@@ -43,13 +43,13 @@ function nutrient_default()
     )
 
     f = function (bgc, x, y, z, t, args...)
-        _, parameters, vals = tendency_views(bgc, args)
+        parameters, tracer_values = tendency_inputs(bgc, args)
 
-        plankton = vals.plankton
+        plankton = tracer_values.plankton
 
-        N = vals.N
-        D = vals.D
-        PAR = vals.PAR
+        N = tracer_values.N
+        D = tracer_values.D
+        PAR = tracer_values.PAR
 
         mortality = mortality_loss_sum(
             plankton, parameters.linear_mortality, parameters.quadratic_mortality
@@ -87,10 +87,10 @@ function detritus_default()
     )
 
     f = function (bgc, x, y, z, t, args...)
-        _, parameters, vals = tendency_views(bgc, args)
+        parameters, tracer_values = tendency_inputs(bgc, args)
 
-        plankton = vals.plankton
-        D = vals.D
+        plankton = tracer_values.plankton
+        D = tracer_values.D
 
         mortality = mortality_loss_sum(
             plankton, parameters.linear_mortality, parameters.quadratic_mortality
@@ -122,12 +122,12 @@ function phytoplankton_default(plankton_idx::Int)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        _, parameters, vals = tendency_views(bgc, args)
+        parameters, tracer_values = tendency_inputs(bgc, args)
 
-        plankton = vals.plankton
+        plankton = tracer_values.plankton
 
-        N = vals.N
-        PAR = vals.PAR
+        N = tracer_values.N
+        PAR = tracer_values.PAR
         P = plankton(plankton_idx)
 
         μmax = @inbounds parameters.maximum_growth_rate[plankton_idx]
@@ -160,9 +160,9 @@ function zooplankton_default(plankton_idx::Int)
     )
 
     f = function (bgc, x, y, z, t, args...)
-        _, parameters, vals = tendency_views(bgc, args)
+        parameters, tracer_values = tendency_inputs(bgc, args)
 
-        plankton = vals.plankton
+        plankton = tracer_values.plankton
         Z = plankton(plankton_idx)
 
         gain = grazing_gain_sum(parameters, plankton, Z, plankton_idx)
