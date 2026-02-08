@@ -3,8 +3,8 @@ using Test
 
 include("test_helpers.jl")
 
-include("test_utils.jl")
-include("test_classrefs_and_tracers.jl")
+include("test_tracer_functions.jl")
+include("test_classrefs_and_tracer_accessors.jl")
 include("test_library.jl")
 include("test_box_model.jl")
 
