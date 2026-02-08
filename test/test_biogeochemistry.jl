@@ -1,7 +1,7 @@
 using Agate
 using Test
 
-using Agate.Equations: CompiledEquation, EquationRequirements
+using Agate.Equations: CompiledEquation
 using Agate.Construction: define_tracer_functions
 
 using OceanBioME
@@ -35,10 +35,7 @@ using Oceananigans.Biogeochemistry:
             -p.γ * F + p.δ * R * F
         end
 
-        tracers = (
-            R=CompiledEquation(fR, EquationRequirements(; scalars=(:α, :β))),
-            F=CompiledEquation(fF, EquationRequirements(; scalars=(:γ, :δ))),
-        )
+        tracers = (R=CompiledEquation(fR), F=CompiledEquation(fF))
 
         LV = define_tracer_functions(parameters, tracers; auxiliary_fields=(:PAR,))
         model1 = LV(parameters)

@@ -1,7 +1,7 @@
 using Agate
 using Test
 
-using Agate.Equations: CompiledEquation, EquationRequirements
+using Agate.Equations: CompiledEquation
 using Agate.Construction: define_tracer_functions
 
 using OceanBioME: BoxModelGrid, setup_velocity_fields
@@ -26,10 +26,7 @@ using Oceananigans.Biogeochemistry:
             -p.γ * F + p.δ * R * F
         end
 
-        tracers = (
-            R=CompiledEquation(fR, EquationRequirements(; scalars=(:α, :β))),
-            F=CompiledEquation(fF, EquationRequirements(; scalars=(:γ, :δ))),
-        )
+        tracers = (R=CompiledEquation(fR), F=CompiledEquation(fF))
 
         bgc_type = define_tracer_functions(parameters, tracers; auxiliary_fields=())
         bgc = bgc_type(parameters)
@@ -51,10 +48,11 @@ using Oceananigans.Biogeochemistry:
             p.α * R
         end
 
-        tracers = (R=CompiledEquation(fR, EquationRequirements(; scalars=(:α, :missing_param))),)
+        tracers = (R=CompiledEquation(fR),)
+        bgc_type = define_tracer_functions(parameters, tracers; auxiliary_fields=())
 
         err = try
-            define_tracer_functions(parameters, tracers; auxiliary_fields=())
+            bgc_type((;))
             nothing
         catch e
             e
@@ -62,8 +60,7 @@ using Oceananigans.Biogeochemistry:
 
         @test err isa ArgumentError
         msg = sprint(showerror, err)
-        @test occursin("Tracer :R", msg)
-        @test occursin("missing_param", msg)
+        @test occursin("missing required field :α", msg)
     end
 
     @testset "Optional sinking velocities" begin
@@ -72,8 +69,7 @@ using Oceananigans.Biogeochemistry:
             p = bgc.parameters
             -p.k * C
         end
-
-        tracers = (C=CompiledEquation(fC, EquationRequirements(; scalars=(:k,))),)
+        tracers = (C=CompiledEquation(fC),)
 
         grid = BoxModelGrid()
         sinking_tracers = (C=1.0 / day,)

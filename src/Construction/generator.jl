@@ -4,7 +4,7 @@
 
 using Adapt
 
-using ..Equations: CompiledEquation, requirements
+using ..Equations: CompiledEquation
 using ..Runtime: Tracers, TracerIndex, build_tracer_index
 
 using OceanBioME
@@ -103,62 +103,36 @@ function (f::AgateBGCFactory)(parameters, sinking_velocities)
     return AgateBGC(parameters, f.tracer_functions, tr, sinking_velocities)
 end
 
-@inline function _unique_params_from_requirements(r)
-    out = Symbol[]
-    for k in r.vectors
-        (k in out) || push!(out, k)
-    end
-    for k in r.matrices
-        (k in out) || push!(out, k)
-    end
-    for k in r.scalars
-        (k in out) || push!(out, k)
-    end
-    return out
-end
-
 function _compile_tracer_functions(parameters, tracers::NamedTuple)
     coordinates = (:x, :y, :z, :t)
 
     # Keep this as a tuple for fast `in` checks without allocations.
     parameter_keys = propertynames(_parameter_view(parameters))
-    required_params = Symbol[]
 
-    for (tracer_name, tracer_val) in pairs(tracers)
+    # Disallow reserved names that are used as Oceananigans kernel arguments.
+    for k in parameter_keys
+        if k in coordinates
+            throw(ArgumentError("Parameters contain reserved field :$(k)."))
+        end
+    end
+
+    for (_, tracer_val) in pairs(tracers)
         tracer_val isa CompiledEquation || throw(
             ArgumentError(
                 "Tracer map values must be Agate.Equations.CompiledEquation; got $(typeof(tracer_val)).",
             ),
         )
-
-        r = requirements(tracer_val)
-        used_params = _unique_params_from_requirements(r)
-
-        for k in used_params
-            if k in coordinates
-                throw(
-                    ArgumentError(
-                        "Tracer :$(tracer_name) declares reserved parameter name :$(k)."
-                    ),
-                )
-            end
-            if k ∉ parameter_keys
-                throw(
-                    ArgumentError(
-                        "Tracer :$(tracer_name) requires parameter :$(k), but it is not present in the provided parameters.",
-                    ),
-                )
-            end
-            (k in required_params) || push!(required_params, k)
-        end
-
-        # Tracer callables are extracted below with `map` to preserve concrete types.
     end
 
     # IMPORTANT: avoid type erasure.
     # Building via `Vector{Any}` (or `Tuple(vec)`) would produce `Any`-typed fields,
     # which triggers dynamic dispatch in kernels and breaks GPU compilation.
     tracer_functions = map(tr -> tr.f, tracers)
+
+    # By construction, the parameter object passed to this factory defines the required
+    # fields expected when instantiating `AgateBGC`.
+    required_params = parameter_keys
+
     return tracer_functions, required_params
 end
 
@@ -168,8 +142,7 @@ Create a callable Oceananigans biogeochemistry model factory.
 
 `tracers` is a `NamedTuple` mapping tracer names to `CompiledEquation` values.
 
-Each compiled equation wraps a callable `f` plus a `EquationRequirements` object describing which model
-parameters are accessed by the callable.
+Each compiled equation wraps a callable `f`. Parameter validation is handled upstream by model construction.
 
 Callable tracer values must accept the Oceananigans biogeochemistry kernel signature:
 

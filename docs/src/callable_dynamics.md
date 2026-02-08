@@ -4,28 +4,23 @@ Agate expresses tracer tendencies as **callable Julia functions** that are safe 
 both CPU and GPU architectures.
 
 Each model factory provides a mapping from tracer names to `CompiledEquation` values.
-A `CompiledEquation` stores:
+A `CompiledEquation` stores a callable `f` (the tracer tendency).
 
-  - a callable `f` (the tracer tendency), and
-  - a `EquationRequirements` object describing which model parameters the callable reads.
+Parameter completeness and parameter shape validation are handled by the factory's
+**parameter directory** (see `parameter_definitions(factory)` and `ParameterSpec`).
+During construction, Agate builds defaults, applies user overrides, computes any derived
+interaction matrices, and then errors if any declared parameter is still missing.
 
-The constructor uses these requirements to validate that the parameter set is complete before
-building the final Oceananigans biogeochemistry object.
+## `CompiledEquation`
 
-## `CompiledEquation` and `EquationRequirements`
+The type lives in `Agate.Equations`:
 
-The types live in `Agate.Equations`:
-
-  - `EquationRequirements(; scalars=..., vectors=..., matrices=...)`
-  - `CompiledEquation(f, r)`
-
-EquationRequirements are just lists of parameter keys (`Symbol`s). They are intentionally explicit:
-there is no expression parsing during construction.
+  - `CompiledEquation(f)`
 
 Example:
 
 ```julia
-using Agate.Equations: CompiledEquation, EquationRequirements
+using Agate.Equations: CompiledEquation
 
 # f must follow the Oceananigans biogeochemistry kernel signature.
 #
@@ -37,7 +32,7 @@ using Agate.Equations: CompiledEquation, EquationRequirements
     return -k
 end
 
-eq = CompiledEquation(my_tracer, EquationRequirements(; scalars=(:detritus_remineralization,)))
+eq = CompiledEquation(my_tracer)
 ```
 
 ## Tracer function signature
@@ -51,8 +46,9 @@ f(bgc, x, y, z, t, args...)
 Agate passes the model instance as `bgc`, which stores the resolved parameter NamedTuple at
 `bgc.parameters`.
 
-**Resolved** means: defaults have been built, user overrides have been applied, derived interaction matrices (if any) have been computed or recomputed, and role-aware interaction parameters have been finalized into a canonical representation.
-
+**Resolved** means: defaults have been built, user overrides have been applied, derived interaction
+matrices (if any) have been computed or recomputed, and role-aware interaction parameters have been
+finalized into a canonical representation.
 
 ## Convenience unpacking: `tendency_inputs`
 

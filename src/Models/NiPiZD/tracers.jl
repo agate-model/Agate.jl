@@ -12,7 +12,7 @@ code.
 
 module Tracers
 
-using ....Equations: CompiledEquation, EquationRequirements
+using ....Equations: CompiledEquation
 
 using ....Library.Mortality: linear_loss, quadratic_loss
 using ....Library.Photosynthesis: smith_single_nutrient_growth
@@ -31,16 +31,6 @@ export nutrient_default, detritus_default, phytoplankton_default, zooplankton_de
 
 """Nutrient tendency with Smith growth and mortality/remineralization."""
 function nutrient_default()
-    requirements = EquationRequirements(;
-        scalars=(:detritus_remineralization, :mortality_export_fraction),
-        vectors=(
-            :linear_mortality,
-            :quadratic_mortality,
-            :maximum_growth_rate,
-            :nutrient_half_saturation,
-            :alpha,
-        ),
-    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
@@ -70,21 +60,11 @@ function nutrient_default()
         return export_frac * mortality + remin_term - uptake
     end
 
-    return CompiledEquation(f, requirements)
+    return CompiledEquation(f)
 end
 
 """Detritus tendency from mortality, sloppy feeding, and remineralization."""
 function detritus_default()
-    requirements = EquationRequirements(;
-        scalars=(:detritus_remineralization, :mortality_export_fraction),
-        vectors=(
-            :linear_mortality,
-            :quadratic_mortality,
-            :maximum_predation_rate,
-            :holling_half_saturation,
-        ),
-        matrices=(:palatability_matrix, :assimilation_matrix),
-    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
@@ -104,22 +84,11 @@ function detritus_default()
         return (one(export_frac) - export_frac) * mortality + unassimilated - remin_term
     end
 
-    return CompiledEquation(f, requirements)
+    return CompiledEquation(f)
 end
 
 """Phytoplankton tendency with Smith growth, grazing loss, and linear mortality."""
 function phytoplankton_default(plankton_idx::Int)
-    requirements = EquationRequirements(;
-        vectors=(
-            :maximum_growth_rate,
-            :nutrient_half_saturation,
-            :alpha,
-            :linear_mortality,
-            :maximum_predation_rate,
-            :holling_half_saturation,
-        ),
-        matrices=(:palatability_matrix,),
-    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
@@ -144,20 +113,11 @@ function phytoplankton_default(plankton_idx::Int)
         return growth - grazing - mort
     end
 
-    return CompiledEquation(f, requirements)
+    return CompiledEquation(f)
 end
 
 """Zooplankton tendency with preferential grazing gain and mortality losses."""
 function zooplankton_default(plankton_idx::Int)
-    requirements = EquationRequirements(;
-        vectors=(
-            :linear_mortality,
-            :quadratic_mortality,
-            :maximum_predation_rate,
-            :holling_half_saturation,
-        ),
-        matrices=(:palatability_matrix, :assimilation_matrix),
-    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
@@ -176,7 +136,7 @@ function zooplankton_default(plankton_idx::Int)
         return gain - lin - quad
     end
 
-    return CompiledEquation(f, requirements)
+    return CompiledEquation(f)
 end
 
 end # module

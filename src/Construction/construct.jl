@@ -32,7 +32,7 @@ using ..Configuration:
 using ..Runtime: build_tracer_index
 
 
-using ..Equations: CompiledEquation, requirements, EquationRequirements, merge_requirements
+using ..Equations: CompiledEquation
 
 using ..Library.Allometry: resolve_diameter_indexed_vector
 
@@ -169,91 +169,101 @@ function _architecture_array_type(arch)
     return Array
 end
 
-@inline function _required_keys(r)
-    return (r.scalars..., r.vectors..., r.matrices...)
-end
+const _RESERVED_PARAMETER_KEYS = (:x, :y, :z, :t)
 
-function _validate_parameter_directory(factory::AbstractBGCFactory, r)
-    # Ensure every required parameter has explicit metadata.
-    for k in _required_keys(r)
-        spec = parameter_spec(factory, k)
-        spec === nothing && throw(
+function _validate_parameter_directory(factory::AbstractBGCFactory)
+    defs = parameter_definitions(factory)
+    isempty(defs) && return ()
+
+    keys_ = map(d -> d.spec.name, defs)
+    length(unique(keys_)) == length(keys_) || throw(
+        ArgumentError(
+            "parameter_definitions(::$(typeof(factory))) contains duplicate keys.",
+        ),
+    )
+
+    for k in keys_
+        (k in _RESERVED_PARAMETER_KEYS) && throw(
             ArgumentError(
-                "Factory $(typeof(factory)) is missing a ParameterSpec for required parameter :$k. " *
-                "Add it to parameter_definitions(::$(typeof(factory))).",
+                "parameter_definitions(::$(typeof(factory))) declares reserved parameter key :$k.",
             ),
         )
     end
 
-    # Ensure the directory is internally consistent with compiled-equation requirements.
-    for k in r.scalars
-        spec = parameter_spec(factory, k)
-        spec.shape === :scalar || throw(
+    for def in defs
+        spec = def.spec
+        spec.shape in (:scalar, :vector, :matrix) || throw(
             ArgumentError(
-                "parameter_definitions(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a scalar.",
-            ),
-        )
-    end
-
-    for k in r.vectors
-        spec = parameter_spec(factory, k)
-        spec.shape === :vector || throw(
-            ArgumentError(
-                "parameter_definitions(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a vector.",
-            ),
-        )
-    end
-
-    for k in r.matrices
-        spec = parameter_spec(factory, k)
-        spec.shape === :matrix || throw(
-            ArgumentError(
-                "parameter_definitions(::$(typeof(factory))) declares :$k as shape $(spec.shape), but compiled equations require a matrix.",
-            ),
-        )
-    end
-
-    return nothing
-end
-
-function _validate_parameter_shapes(
-    factory::AbstractBGCFactory, context, params::NamedTuple, r
-)
-    n = context.n_total
-
-    for k in r.vectors
-        v = getproperty(params, k)
-        length(v) == n ||
-            throw(ArgumentError("parameter :$k must have length $n (got $(length(v)))."))
-    end
-
-    for k in r.matrices
-        m = getproperty(params, k)
-        spec = parameter_spec(factory, k)
-        spec === nothing && throw(
-            ArgumentError(
-                "Factory $(typeof(factory)) is missing a ParameterSpec for required parameter :$k.",
+                "parameter_definitions(::$(typeof(factory))) declares :$(spec.name) with invalid shape $(spec.shape).",
             ),
         )
 
-        if spec.axes === nothing
-            (size(m, 1) == n && size(m, 2) == n) || throw(
-                ArgumentError("parameter :$k must have size ($n,$n) (got $(size(m))).")
-            )
+        if spec.shape === :matrix
+            if spec.axes !== nothing
+                (spec.axes isa Tuple && length(spec.axes) == 2) || throw(
+                    ArgumentError(
+                        "parameter :$(spec.name) axes must be a 2-tuple of Symbols (got $(typeof(spec.axes))).",
+                    ),
+                )
+                row_axis, col_axis = spec.axes
+                (row_axis isa Symbol && col_axis isa Symbol) || throw(
+                    ArgumentError(
+                        "parameter :$(spec.name) axes must be Symbols (got $(spec.axes)).",
+                    ),
+                )
+            end
         else
-            row_axis, col_axis = spec.axes
-            nr = length(axis_indices(context, row_axis))
-            nc = length(axis_indices(context, col_axis))
-            (size(m, 1) == nr && size(m, 2) == nc) || throw(
+            spec.axes === nothing || throw(
                 ArgumentError(
-                    "parameter :$k must have size ($nr,$nc) for axes $(spec.axes) (got $(size(m))).",
+                    "parameter :$(spec.name) has axes=$(spec.axes) but is not a matrix.",
                 ),
             )
         end
     end
 
+    return Tuple(keys_)
+end
+
+function _validate_parameter_shapes(
+    factory::AbstractBGCFactory, context, params::NamedTuple, required::Tuple
+)
+    n = context.n_total
+
+    for k in required
+        spec = parameter_spec(factory, k)
+        spec === nothing && throw(
+            ArgumentError(
+                "Factory $(typeof(factory)) is missing a ParameterSpec for parameter :$k.",
+            ),
+        )
+
+        if spec.shape === :vector
+            v = getproperty(params, k)
+            length(v) == n ||
+                throw(ArgumentError("parameter :$k must have length $n (got $(length(v)))."))
+        elseif spec.shape === :matrix
+            m = getproperty(params, k)
+
+            if spec.axes === nothing
+                (size(m, 1) == n && size(m, 2) == n) || throw(
+                    ArgumentError("parameter :$k must have size ($n,$n) (got $(size(m)))."),
+                )
+            else
+                row_axis, col_axis = spec.axes
+                nr = length(axis_indices(context, row_axis))
+                nc = length(axis_indices(context, col_axis))
+                (size(m, 1) == nr && size(m, 2) == nc) || throw(
+                    ArgumentError(
+                        "parameter :$k must have size ($nr,$nc) for axes $(spec.axes) (got $(size(m))).",
+                    ),
+                )
+            end
+        end
+    end
+
     return nothing
 end
+
 
 function _validate_override_keys(
     where_, overrides::NamedTuple, required::Tuple, factory::AbstractBGCFactory
@@ -428,7 +438,7 @@ function construct_factory(
     )
 
     # ---------------------------------------------------------------------
-    # Build tracer expressions and collect parameter requirements.
+    # Build tracer expressions.
     # ---------------------------------------------------------------------
 
     plankton_syms = community_context.plankton_symbols
@@ -438,7 +448,6 @@ function construct_factory(
 
     # Accumulate compiled tracer definitions in a tuple to avoid `Any` erasure.
     tracer_defs = ()
-    merged = EquationRequirements()
 
     for (_, f) in pairs(biogeochem_dynamics)
         tr = f()
@@ -446,7 +455,6 @@ function construct_factory(
             ArgumentError("biogeochem dynamics $(nameof(f)) must return CompiledEquation"),
         )
         tracer_defs = (tracer_defs..., tr)
-        merged = merge_requirements(merged, requirements(tr))
     end
 
     for idx in eachindex(plankton_syms)
@@ -454,11 +462,9 @@ function construct_factory(
         f = getfield(plankton_dynamics, g)
         tr = f(idx)
         (tr isa CompiledEquation) || throw(
-            ArgumentError("plankton dynamics $(nameof(f)) must return CompiledEquation")
+            ArgumentError("plankton dynamics $(nameof(f)) must return CompiledEquation"),
         )
         tracer_defs = (tracer_defs..., tr)
-
-        merged = merge_requirements(merged, requirements(tr))
     end
 
     tracers = NamedTuple{tracer_names}(tracer_defs)
@@ -467,9 +473,7 @@ function construct_factory(
     # Parameters
     # ---------------------------------------------------------------------
 
-    _validate_parameter_directory(factory, merged)
-
-    required = _required_keys(merged)
+    required = _validate_parameter_directory(factory)
 
     interaction_parameter_overrides = normalize_interaction_overrides(
         factory, community_context, interaction_overrides
@@ -511,7 +515,7 @@ function construct_factory(
 
     _reject_missing_values(resolved_parameters)
 
-    _validate_parameter_shapes(factory, community_context, resolved_parameters, merged)
+    _validate_parameter_shapes(factory, community_context, resolved_parameters, required)
 
     # ---------------------------------------------------------------------
     # Compile + instantiate.

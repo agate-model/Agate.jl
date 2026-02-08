@@ -1,5 +1,5 @@
 using Agate
-using Agate.Equations: CompiledEquation, EquationRequirements
+using Agate.Equations: CompiledEquation
 using Agate.Construction: define_tracer_functions
 using Oceananigans.Units
 
@@ -54,11 +54,6 @@ fZ =
         quadratic_loss(Z, p.lᶻᵈ)
     end
 
-tracers = (
-    N=CompiledEquation(fN, EquationRequirements(; scalars=(:lᵖⁿ, :lᶻⁿ, :rᵈⁿ, :μ₀, :kₙ, :α))),
-    D=CompiledEquation(fD, EquationRequirements(; scalars=(:lᵖᵈ, :β, :gₘₐₓ, :kₚ, :lᶻᵈ, :rᵈⁿ))),
-    P=CompiledEquation(fP, EquationRequirements(; scalars=(:μ₀, :kₙ, :α, :gₘₐₓ, :kₚ, :lᵖⁿ, :lᵖᵈ))),
-    Z=CompiledEquation(fZ, EquationRequirements(; scalars=(:β, :gₘₐₓ, :kₚ, :lᶻⁿ, :lᶻᵈ))),
-)
+tracers = (N=CompiledEquation(fN), D=CompiledEquation(fD), P=CompiledEquation(fP), Z=CompiledEquation(fZ))
 
 AgateNPZD = define_tracer_functions(parameters, tracers)

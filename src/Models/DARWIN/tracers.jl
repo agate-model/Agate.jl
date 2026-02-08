@@ -11,7 +11,7 @@ via `bgc.tracers`. No runtime Symbol indexing is performed in kernel-callable co
 
 module Tracers
 
-using ....Equations: CompiledEquation, EquationRequirements
+using ....Equations: CompiledEquation
 
 using ....Library.Mortality: linear_loss, quadratic_loss
 using ....Library.Photosynthesis: geider_two_nutrient_growth
@@ -40,16 +40,6 @@ export DIC_geider_light,
 
 """DIC tendency with Geider-style growth (carbon units)."""
 function DIC_geider_light()
-    requirements = EquationRequirements(;
-        scalars=(:DOC_remineralization, :POC_remineralization),
-        vectors=(
-            :maximum_growth_rate,
-            :half_saturation_DIN,
-            :half_saturation_PO4,
-            :photosynthetic_slope,
-            :chlorophyll_to_carbon_ratio,
-        ),
-    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
@@ -81,21 +71,11 @@ function DIC_geider_light()
         return dic_remin - uptake
     end
 
-    return CompiledEquation(f, requirements)
+    return CompiledEquation(f)
 end
 
 """DIN tendency assuming fixed stoichiometry (N:C)."""
 function DIN_geider_light()
-    requirements = EquationRequirements(;
-        scalars=(:DON_remineralization, :PON_remineralization, :nitrogen_to_carbon),
-        vectors=(
-            :maximum_growth_rate,
-            :half_saturation_DIN,
-            :half_saturation_PO4,
-            :photosynthetic_slope,
-            :chlorophyll_to_carbon_ratio,
-        ),
-    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
@@ -127,21 +107,11 @@ function DIN_geider_light()
         return din_remin - parameters.nitrogen_to_carbon * uptake
     end
 
-    return CompiledEquation(f, requirements)
+    return CompiledEquation(f)
 end
 
 """PO4 tendency assuming fixed stoichiometry (P:C)."""
 function PO4_geider_light()
-    requirements = EquationRequirements(;
-        scalars=(:DOP_remineralization, :POP_remineralization, :phosphorus_to_carbon),
-        vectors=(
-            :maximum_growth_rate,
-            :half_saturation_DIN,
-            :half_saturation_PO4,
-            :photosynthetic_slope,
-            :chlorophyll_to_carbon_ratio,
-        ),
-    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
@@ -173,23 +143,13 @@ function PO4_geider_light()
         return po4_remin - parameters.phosphorus_to_carbon * uptake
     end
 
-    return CompiledEquation(f, requirements)
+    return CompiledEquation(f)
 end
 
 # --- Organic matter ---------------------------------------------------------
 
 """DOC tendency from plankton losses and remineralization."""
 function DOC_default()
-    requirements = EquationRequirements(;
-        scalars=(:DOM_POM_fractionation, :DOC_remineralization),
-        vectors=(
-            :linear_mortality,
-            :quadratic_mortality,
-            :maximum_predation_rate,
-            :holling_half_saturation,
-        ),
-        matrices=(:palatability_matrix, :assimilation_matrix),
-    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
@@ -207,21 +167,11 @@ function DOC_default()
         return frac * (M + g) - R
     end
 
-    return CompiledEquation(f, requirements)
+    return CompiledEquation(f)
 end
 
 """POC tendency from plankton losses and remineralization."""
 function POC_default()
-    requirements = EquationRequirements(;
-        scalars=(:DOM_POM_fractionation, :POC_remineralization),
-        vectors=(
-            :linear_mortality,
-            :quadratic_mortality,
-            :maximum_predation_rate,
-            :holling_half_saturation,
-        ),
-        matrices=(:palatability_matrix, :assimilation_matrix),
-    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
@@ -238,21 +188,11 @@ function POC_default()
         return parameters.DOM_POM_fractionation * (M + g) - R
     end
 
-    return CompiledEquation(f, requirements)
+    return CompiledEquation(f)
 end
 
 """DON tendency assuming fixed stoichiometry (N:C)."""
 function DON_default()
-    requirements = EquationRequirements(;
-        scalars=(:DOM_POM_fractionation, :DON_remineralization, :nitrogen_to_carbon),
-        vectors=(
-            :linear_mortality,
-            :quadratic_mortality,
-            :maximum_predation_rate,
-            :holling_half_saturation,
-        ),
-        matrices=(:palatability_matrix, :assimilation_matrix),
-    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
@@ -270,21 +210,11 @@ function DON_default()
         return frac * parameters.nitrogen_to_carbon * (M + g) - R
     end
 
-    return CompiledEquation(f, requirements)
+    return CompiledEquation(f)
 end
 
 """PON tendency assuming fixed stoichiometry (N:C)."""
 function PON_default()
-    requirements = EquationRequirements(;
-        scalars=(:DOM_POM_fractionation, :PON_remineralization, :nitrogen_to_carbon),
-        vectors=(
-            :linear_mortality,
-            :quadratic_mortality,
-            :maximum_predation_rate,
-            :holling_half_saturation,
-        ),
-        matrices=(:palatability_matrix, :assimilation_matrix),
-    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
@@ -301,21 +231,11 @@ function PON_default()
         return parameters.DOM_POM_fractionation * parameters.nitrogen_to_carbon * (M + g) - R
     end
 
-    return CompiledEquation(f, requirements)
+    return CompiledEquation(f)
 end
 
 """DOP tendency assuming fixed stoichiometry (P:C)."""
 function DOP_default()
-    requirements = EquationRequirements(;
-        scalars=(:DOM_POM_fractionation, :DOP_remineralization, :phosphorus_to_carbon),
-        vectors=(
-            :linear_mortality,
-            :quadratic_mortality,
-            :maximum_predation_rate,
-            :holling_half_saturation,
-        ),
-        matrices=(:palatability_matrix, :assimilation_matrix),
-    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
@@ -333,21 +253,11 @@ function DOP_default()
         return frac * parameters.phosphorus_to_carbon * (M + g) - R
     end
 
-    return CompiledEquation(f, requirements)
+    return CompiledEquation(f)
 end
 
 """POP tendency assuming fixed stoichiometry (P:C)."""
 function POP_default()
-    requirements = EquationRequirements(;
-        scalars=(:DOM_POM_fractionation, :POP_remineralization, :phosphorus_to_carbon),
-        vectors=(
-            :linear_mortality,
-            :quadratic_mortality,
-            :maximum_predation_rate,
-            :holling_half_saturation,
-        ),
-        matrices=(:palatability_matrix, :assimilation_matrix),
-    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
@@ -366,26 +276,13 @@ function POP_default()
                (M + g) - R
     end
 
-    return CompiledEquation(f, requirements)
+    return CompiledEquation(f)
 end
 
 # --- Plankton ---------------------------------------------------------------
 
 """Phytoplankton tendency with Geider-style, two-nutrient growth."""
 function phytoplankton_growth_two_nutrients_geider_light(plankton_idx::Int)
-    requirements = EquationRequirements(;
-        vectors=(
-            :maximum_growth_rate,
-            :half_saturation_DIN,
-            :half_saturation_PO4,
-            :photosynthetic_slope,
-            :chlorophyll_to_carbon_ratio,
-            :linear_mortality,
-            :maximum_predation_rate,
-            :holling_half_saturation,
-        ),
-        matrices=(:palatability_matrix,),
-    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
@@ -413,20 +310,11 @@ function phytoplankton_growth_two_nutrients_geider_light(plankton_idx::Int)
         return growth - grazing - mort
     end
 
-    return CompiledEquation(f, requirements)
+    return CompiledEquation(f)
 end
 
 """Zooplankton tendency with preferential grazing gain."""
 function zooplankton_default(plankton_idx::Int)
-    requirements = EquationRequirements(;
-        vectors=(
-            :linear_mortality,
-            :quadratic_mortality,
-            :maximum_predation_rate,
-            :holling_half_saturation,
-        ),
-        matrices=(:palatability_matrix, :assimilation_matrix),
-    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
@@ -445,7 +333,7 @@ function zooplankton_default(plankton_idx::Int)
         return gain - lin - quad
     end
 
-    return CompiledEquation(f, requirements)
+    return CompiledEquation(f)
 end
 
 end # module
