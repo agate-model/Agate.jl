@@ -11,15 +11,16 @@ Interaction matrices (`palatability_matrix`, `assimilation_matrix`) are derived 
 trait vectors using `derived_matrix_specs`.
 """
 
-import ...Utils:
+import ...Factories:
     parameter_definitions,
     ParameterDefinition,
     ParameterSpec,
     ConstDefault,
     NoDefault,
     FillDefault,
-    DiameterIndexedVectorDefault,
-    derived_matrix_specs
+    DiameterIndexedVectorDefault
+
+import ...Utils: derived_matrix_specs
 
 using ...Library.Allometry:
     AllometricParam,

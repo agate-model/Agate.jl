@@ -1,7 +1,7 @@
 using Agate
 using Test
 
-import Agate.Interface: parameter_directory
+import Agate.Factories: parameter_directory
 
 @testset "Parameter directory" begin
     @testset "NiPiZD" begin

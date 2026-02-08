@@ -14,7 +14,7 @@ using ...Utils: DiameterRangeSpecification
 
 # NOTE: Numeric parameter defaults are declared in `Models/DARWIN/Parameters.jl`.
 
-import ...Interface:
+import ...Factories:
     default_plankton_dynamics, default_community, default_biogeochem_dynamics
 
 using .Tracers:

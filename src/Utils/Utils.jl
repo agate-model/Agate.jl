@@ -8,7 +8,7 @@ Contains:
 """
 module Utils
 
-using ..Factories: AbstractBGCFactory
+using ..Factories: AbstractBGCFactory, ParameterSpec, parameter_spec
 
 include("Specifications.jl")
 
@@ -21,18 +21,6 @@ export DiameterListSpecification
 export DiameterRangeSpecification
 
 # Model-agnostic construction/runtime containers
-
-# Parameter metadata
-export ParameterSpec
-export DefaultProvider
-export ParameterDefinition
-export parameter_definitions
-export ConstDefault
-export NoDefault
-export FillDefault
-export DiameterIndexedVectorDefault
-export parameter_directory
-export parameter_spec
 
 # Interactions API
 export CommunityContext
@@ -90,8 +78,6 @@ export param_check_length
 export box_model_mass_balance
 export box_model_budget
 export param_compute_diameters
-
-include("ParameterDirectory.jl")
 
 include("TendencyContext.jl")
 

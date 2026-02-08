@@ -62,7 +62,7 @@ A minimal sketch:
 ```julia
 using Agate.Models: ModelId, VariantSpec, register_variant
 using Agate.Models.DARWIN: DarwinFactory
-using Agate.Interface:
+using Agate.Factories:
     default_plankton_dynamics, default_biogeochem_dynamics, default_community
 
 function citation2026_B_spec(; n_phyto=2, n_zoo=2)

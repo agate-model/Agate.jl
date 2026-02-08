@@ -250,7 +250,7 @@ using Oceananigans.Biogeochemistry:
         forbid_link!(pal; consumer_group=:Z, prey_group=:Z)
 
         factory = Agate.NiPiZD.NiPiZDFactory()
-        base = Agate.Interface.default_community(factory)
+        base = Agate.Factories.default_community(factory)
         community = Agate.Construction.build_plankton_community(
             base;
             n=(Z=2, P=2),

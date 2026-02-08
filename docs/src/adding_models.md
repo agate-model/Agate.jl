@@ -109,10 +109,10 @@ If your dynamics follow the consumer-by-prey pattern, prefer calling helpers fro
 
 Agate supports *group-level* dispatch via `Val{:Group}` for model-specific behaviour that should be chosen at compile time (GPU friendly).
 
-Define methods in `Agate.Interface` such as:
+Define methods in `Agate.Factories` such as:
 
 ```julia
-using Agate.Interface: sinking_velocity, grazing_kernel
+using Agate.Factories: sinking_velocity, grazing_kernel
 
 # Sinking speed (positive downward) for plankton group G and within-group class id
 @inline sinking_velocity(model_or_factory, ::Val{:P}, class_id::Int, ctx, params) = nothing

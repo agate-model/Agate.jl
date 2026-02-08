@@ -11,7 +11,7 @@ using ...Utils: DiameterRangeSpecification
 # NOTE: Numeric parameter defaults are declared alongside parameter metadata in
 # `parameter_definitions(::NiPiZDFactory)` (see `Models/NiPiZD/Parameters.jl`).
 
-import ...Interface:
+import ...Factories:
     default_plankton_dynamics, default_community, default_biogeochem_dynamics
 using .Tracers:
     nutrient_default, detritus_default, phytoplankton_default, zooplankton_default

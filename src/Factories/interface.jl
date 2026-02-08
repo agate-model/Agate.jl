@@ -7,7 +7,7 @@ Factories provide explicit defaults for:
 - community structure (groups, size structure)
 - tracer dynamics builders
 
-This module also defines optional *group-level hook points* intended for
+This file also defines optional *group-level hook points* intended for
 OceanBioME-style extensibility.
 
 GPU notes
@@ -18,13 +18,6 @@ runtime `Symbol` lookups inside kernels.
 These hooks are optional; if unused they impose no kernel cost.
 """
 
-module Interface
-
-using ..Factories: AbstractBGCFactory
-using ..Utils: ParameterSpec, parameter_directory
-
-export ParameterSpec
-export parameter_directory
 export default_plankton_dynamics
 export default_community
 export default_biogeochem_dynamics
@@ -55,7 +48,7 @@ factory's `parameter_definitions` (via `Construction.build_parameter_defaults`).
 """
 function default_community(::AbstractBGCFactory)
     throw(
-        ArgumentError("No method `default_community(factory)` is defined for this factory.")
+        ArgumentError("No method `default_community(factory)` is defined for this factory."),
     )
 end
 
@@ -106,5 +99,3 @@ function grazing_kernel(::Any, ::Val, ::Val, ::Int, ::Int, community_context, pa
         ),
     )
 end
-
-end # module Interface

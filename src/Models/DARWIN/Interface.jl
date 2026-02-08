@@ -19,7 +19,7 @@ using OceanBioME: BoxModelGrid
 
 import ...Utils
 import ...Construction
-import ...Interface
+import ...Factories
 
 export construct
 
@@ -67,7 +67,7 @@ function construct(;
 
     factory = DarwinFactory()
 
-    base = Interface.default_community(factory)
+    base = Factories.default_community(factory)
     community = Construction.build_plankton_community(
         base;
         n=(Z=n_zoo, P=n_phyto),

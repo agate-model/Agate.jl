@@ -9,15 +9,19 @@ import Oceananigans
 
 using Oceananigans.Architectures: architecture, CPU, GPU
 
-using ..Factories: AbstractBGCFactory
-
-using ..Utils:
+using ..Factories:
+    AbstractBGCFactory,
     parameter_definitions,
     ConstDefault,
     NoDefault,
     FillDefault,
     DiameterIndexedVectorDefault,
     parameter_spec,
+    default_plankton_dynamics,
+    default_biogeochem_dynamics,
+    default_community
+
+using ..Utils:
     axis_indices,
     normalize_interaction_overrides,
     resolve_derived_matrices,
@@ -26,7 +30,6 @@ using ..Utils:
     build_tracer_index,
     validate_community_inputs
 
-using ..Interface: default_plankton_dynamics, default_biogeochem_dynamics, default_community
 
 using ..Equations: CompiledEquation, requirements, EquationRequirements, merge_requirements
 

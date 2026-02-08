@@ -1,11 +1,13 @@
 """Factory interfaces.
 
-This module contains the shared base types used by model families to expose
-construction-time defaults.
+This module contains the shared base types and hook points used by model families to
+expose construction-time defaults.
 
-Factories are intentionally minimal: they declare defaults for community structure and
-dynamics builders. Group ordering is inferred from the *explicit* ordering of the
-`community::NamedTuple` passed to `Construction.construct_factory`.
+Factories are intentionally explicit: they declare defaults for community structure and
+compiled-equation builders, and optionally provide group-level hooks.
+
+The parameter directory (`parameter_definitions`, `ParameterSpec`, etc.) also lives here
+because it is factory-facing metadata used during construction-time validation.
 """
 module Factories
 
@@ -14,4 +16,10 @@ export AbstractBGCFactory
 """Abstract supertype for biogeochemical model factories."""
 abstract type AbstractBGCFactory end
 
-end # module
+# Factory-facing parameter metadata + defaults.
+include("parameter_directory.jl")
+
+# Default builders + optional hook points.
+include("interface.jl")
+
+end # module Factories

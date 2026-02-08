@@ -38,7 +38,7 @@ using OceanBioME: BoxModelGrid
 using Agate.Utils: roles_from_groups, interaction_blocks, set_block!, forbid_link!
 
 factory = Agate.NiPiZD.NiPiZDFactory()
-base = Agate.Interface.default_community(factory)
+base = Agate.Factories.default_community(factory)
 community = Agate.Construction.build_plankton_community(
     base;
     n=(Z=2, P=2),

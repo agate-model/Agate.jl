@@ -1,6 +1,6 @@
 module Models
 
-using ..Interface: default_plankton_dynamics, default_community, default_biogeochem_dynamics
+using ..Factories: default_plankton_dynamics, default_community, default_biogeochem_dynamics
 
 # -----------------------------------------------------------------------------
 # Shared model utilities
