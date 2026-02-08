@@ -1,5 +1,6 @@
 module Agate
 
+include("Factories/Factories.jl")
 include("Utils/Utils.jl")
 include("Equations/Equations.jl")
 include("Library/Library.jl")
@@ -9,6 +10,7 @@ include("Models/Models.jl")
 include("Introspection.jl")
 
 using .Library
+using .Factories
 using .Utils
 using .Interface
 using .Models
@@ -17,6 +19,7 @@ using .Construction
 
 export Library
 export Models
+export Factories
 export Utils
 export Equations
 export Interface

@@ -2,11 +2,13 @@
 Utilities for configuring and inspecting Agate models.
 
 Contains:
-- factory interfaces (`AbstractBGCFactory`)
+- shared base types (e.g. `Factories.AbstractBGCFactory`)
 - community parsing helpers (`parse_community`, diameter specifications)
 - lightweight box-model diagnostics (`box_model_budget`, `box_model_mass_balance`)
 """
 module Utils
+
+using ..Factories: AbstractBGCFactory
 
 include("Specifications.jl")
 
@@ -19,7 +21,6 @@ export DiameterListSpecification
 export DiameterRangeSpecification
 
 # Model-agnostic construction/runtime containers
-export AbstractBGCFactory
 
 # Parameter metadata
 export ParameterSpec
@@ -89,20 +90,6 @@ export param_check_length
 export box_model_mass_balance
 export box_model_budget
 export param_compute_diameters
-
-# -----------------------------------------------------------------------------
-# Model-agnostic factories
-# -----------------------------------------------------------------------------
-
-"""Abstract supertype for biogeochemical model factories."""
-abstract type AbstractBGCFactory end
-
-"""Model families provide implementations via the `Interface` module.
-
-Factories are intentionally minimal: they declare defaults for community structure and
-dynamics builders. Group ordering is inferred from the *explicit* ordering of the
-`community::NamedTuple` passed to `Construction.construct_factory`.
-"""
 
 include("ParameterDirectory.jl")
 

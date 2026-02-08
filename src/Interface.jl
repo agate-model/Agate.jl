@@ -20,7 +20,8 @@ These hooks are optional; if unused they impose no kernel cost.
 
 module Interface
 
-using ..Utils: AbstractBGCFactory, ParameterSpec, parameter_directory
+using ..Factories: AbstractBGCFactory
+using ..Utils: ParameterSpec, parameter_directory
 
 export ParameterSpec
 export parameter_directory

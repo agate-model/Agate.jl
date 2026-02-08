@@ -8,7 +8,7 @@ This file defines `DarwinFactory` and the default inputs used by
 structural defaults (community sizes/diameters) and default dynamics functions.
 """
 
-using ...Utils: AbstractBGCFactory
+using ...Factories: AbstractBGCFactory
 using ...Utils.Specifications: PFTSpecification
 using ...Utils: DiameterRangeSpecification
 

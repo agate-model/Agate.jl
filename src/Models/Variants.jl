@@ -20,7 +20,7 @@ This scaffolding is intentionally small. It is *not* a full experiment-managemen
 system; it only helps keep model-family code clean as variants accumulate.
 """
 
-using ..Utils: AbstractBGCFactory
+using ..Factories: AbstractBGCFactory
 using ..Construction: construct_factory
 
 """Stable identifier for a model variant.

@@ -10,7 +10,8 @@ The returned matrices are host arrays. They can later be moved to the target
 architecture via `Adapt` during model construction.
 """
 
-import ..Utils: AbstractBGCFactory, CommunityContext, derivation_deps
+import ..Factories: AbstractBGCFactory
+import ..Utils: CommunityContext, derivation_deps
 
 using ..Library.Allometry:
     palatability_matrix_allometric_axes, assimilation_efficiency_matrix_binary_axes

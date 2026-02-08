@@ -4,7 +4,7 @@ This file defines `NiPiZDFactory` and the default inputs used by
 `Agate.Construction.construct_factory(factory; ...)`.
 """
 
-using ...Utils: AbstractBGCFactory
+using ...Factories: AbstractBGCFactory
 using ...Utils.Specifications: PFTSpecification
 using ...Utils: DiameterRangeSpecification
 

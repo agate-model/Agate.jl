@@ -9,8 +9,9 @@ import Oceananigans
 
 using Oceananigans.Architectures: architecture, CPU, GPU
 
+using ..Factories: AbstractBGCFactory
+
 using ..Utils:
-    AbstractBGCFactory,
     parameter_definitions,
     ConstDefault,
     NoDefault,
