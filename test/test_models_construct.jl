@@ -62,7 +62,7 @@ using Oceananigans.Biogeochemistry:
 
         # Group-block matrices are accepted when wrapped explicitly. They are expanded
         # over all groups and then sliced to the consumer-by-prey axes.
-        block = Agate.Utils.GroupBlockMatrix(Float32[0 1; 2 3])
+        block = Agate.Configuration.GroupBlockMatrix(Float32[0 1; 2 3])
         bgc_block = NiPiZD.construct(;
             grid=dummy_grid(Float32), palatability_matrix=block, assimilation_matrix=block
         )
@@ -239,7 +239,7 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "InteractionBlocks helpers" begin
-        using Agate.Utils:
+        using Agate.Configuration:
             roles_from_groups, interaction_blocks, set_block!, scale_block!, forbid_link!
 
         roles = roles_from_groups(; consumers=:Z, prey=(:P, :Z))
@@ -251,7 +251,7 @@ using Oceananigans.Biogeochemistry:
 
         factory = Agate.NiPiZD.NiPiZDFactory()
         base = Agate.Factories.default_community(factory)
-        community = Agate.Construction.build_plankton_community(
+        community = Agate.Configuration.build_plankton_community(
             base;
             n=(Z=2, P=2),
             diameters=(Z=(20, 100, :linear_splitting), P=(2, 10, :log_splitting)),

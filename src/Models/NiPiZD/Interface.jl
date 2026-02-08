@@ -1,41 +1,41 @@
-"""Public constructor for the NiPiZD ecosystem model.
-
-`NiPiZD.construct` builds an Oceananigans/OceanBioME-compatible biogeochemistry
-instance for a size-structured plankton model with:
-
-- two plankton groups: phytoplankton (`P`) and zooplankton (`Z`)
-- two non-plankton tracers: dissolved inorganic nutrient (`N`) and detritus (`D`)
-
-The public interface keeps the surface small and explicit:
-
-- structure: choose `n_phyto`, `n_zoo`, and diameter specifications
-- parameters: override named parameters via `parameters=(; ...)`
-- interaction_overrides: optionally override interaction matrices
-
-For ease of use, interaction overrides are exposed as two separate keywords:
-
-- `palatability_matrix`
-- `assimilation_matrix`
-
-Each may be either a concrete matrix, or a function that computes a matrix from
-the construction context:
-
-- `(community_context) -> matrix`
-
-Matrix overrides may be specified as full `(n_total, n_total)` matrices, or (because
-these matrices are role-aware) as rectangular `(n_consumer, n_prey)` matrices.
-
-Internally, role-aware interactions are stored **only** in rectangular form.
-No square matrices or square views are created.
-
-To pass a group-block matrix over *all* groups, wrap it as `GroupBlockMatrix(B)` to
-force group-block expansion during construction.
-Axis-local group-block matrices sized `(n_consumer_groups, n_prey_groups)` are also accepted.
-"""
+# """Public constructor for the NiPiZD ecosystem model.
+# 
+# `NiPiZD.construct` builds an Oceananigans/OceanBioME-compatible biogeochemistry
+# instance for a size-structured plankton model with:
+# 
+# - two plankton groups: phytoplankton (`P`) and zooplankton (`Z`)
+# - two non-plankton tracers: dissolved inorganic nutrient (`N`) and detritus (`D`)
+# 
+# The public interface keeps the surface small and explicit:
+# 
+# - structure: choose `n_phyto`, `n_zoo`, and diameter specifications
+# - parameters: override named parameters via `parameters=(; ...)`
+# - interaction_overrides: optionally override interaction matrices
+# 
+# For ease of use, interaction overrides are exposed as two separate keywords:
+# 
+# - `palatability_matrix`
+# - `assimilation_matrix`
+# 
+# Each may be either a concrete matrix, or a function that computes a matrix from
+# the construction context:
+# 
+# - `(community_context) -> matrix`
+# 
+# Matrix overrides may be specified as full `(n_total, n_total)` matrices, or (because
+# these matrices are role-aware) as rectangular `(n_consumer, n_prey)` matrices.
+# 
+# Internally, role-aware interactions are stored **only** in rectangular form.
+# No square matrices or square views are created.
+# 
+# To pass a group-block matrix over *all* groups, wrap it as `GroupBlockMatrix(B)` to
+# force group-block expansion during construction.
+# Axis-local group-block matrices sized `(n_consumer_groups, n_prey_groups)` are also accepted.
+# """
 
 using OceanBioME: BoxModelGrid
 
-import ...Utils
+import ...Configuration
 import ...Construction
 import ...Factories
 
@@ -81,12 +81,12 @@ function construct(;
     factory = NiPiZDFactory()
 
     base = Factories.default_community(factory)
-    community = Construction.build_plankton_community(
+    community = Configuration.build_plankton_community(
         base;
         n=(Z=n_zoo, P=n_phyto),
         diameters=(
-            Z=Utils.diameter_specification(zoo_diameters),
-            P=Utils.diameter_specification(phyto_diameters),
+            Z=Configuration.diameter_specification(zoo_diameters),
+            P=Configuration.diameter_specification(phyto_diameters),
         ),
     )
 

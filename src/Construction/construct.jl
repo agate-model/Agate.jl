@@ -21,14 +21,15 @@ using ..Factories:
     default_biogeochem_dynamics,
     default_community
 
-using ..Utils:
+using ..Configuration:
     axis_indices,
     normalize_interaction_overrides,
     resolve_derived_matrices,
     finalize_interaction_parameters,
     parse_community,
-    build_tracer_index,
     validate_community_inputs
+
+using ..Utils: build_tracer_index
 
 
 using ..Equations: CompiledEquation, requirements, EquationRequirements, merge_requirements

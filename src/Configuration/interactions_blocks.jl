@@ -1,31 +1,31 @@
-"""Group-level editing helpers for interaction matrices.
+# """Group-level editing helpers for interaction matrices.
+# 
+# Agate accepts several forms for overriding interaction matrices (see
+# `normalize_interaction_overrides`). For *role-aware* matrices with axes
+# `(:consumer, :prey)`, a particularly convenient form is a small **group-by-group
+# block matrix**.
+# 
+# `InteractionBlocks` stores:
+# 
+# - the consumer-group ordering,
+# - the prey-group ordering,
+# - the underlying group-block matrix.
+# 
+# It is a host-side convenience object: it is normalized during construction into
+# the canonical rectangular consumer-by-prey matrix used at runtime.
+# 
+# The editing helpers `set_block!`, `scale_block!`, and `forbid_link!` let users
+# toggle group links without manually tracking group indices.
+# """
 
-Agate accepts several forms for overriding interaction matrices (see
-`normalize_interaction_overrides`). For *role-aware* matrices with axes
-`(:consumer, :prey)`, a particularly convenient form is a small **group-by-group
-block matrix**.
-
-`InteractionBlocks` stores:
-
-- the consumer-group ordering,
-- the prey-group ordering,
-- the underlying group-block matrix.
-
-It is a host-side convenience object: it is normalized during construction into
-the canonical rectangular consumer-by-prey matrix used at runtime.
-
-The editing helpers `set_block!`, `scale_block!`, and `forbid_link!` let users
-toggle group links without manually tracking group indices.
-"""
-
-"""A group-by-group block matrix for a consumer-by-prey interaction.
-
-Fields
-------
-- `consumer_groups`: tuple of group symbols defining the **row** ordering
-- `prey_groups`: tuple of group symbols defining the **column** ordering
-- `B`: the group-block matrix (size `length(consumer_groups) x length(prey_groups)`)
-"""
+# """A group-by-group block matrix for a consumer-by-prey interaction.
+# 
+# Fields
+# ------
+# - `consumer_groups`: tuple of group symbols defining the **row** ordering
+# - `prey_groups`: tuple of group symbols defining the **column** ordering
+# - `B`: the group-block matrix (size `length(consumer_groups) x length(prey_groups)`)
+# """
 struct InteractionBlocks{CG,PG,M}
     consumer_groups::CG
     prey_groups::PG

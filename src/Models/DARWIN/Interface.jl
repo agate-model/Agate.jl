@@ -1,23 +1,23 @@
-"""Public constructor for the simplified DARWIN-like ecosystem model.
-
-`DARWIN.construct` builds an Oceananigans/OceanBioME-compatible biogeochemistry
-instance for a size-structured plankton model with elemental cycling.
-
-This constructor keeps the surface small:
-
-- structure: choose `n_phyto`, `n_zoo`, and diameter specifications
-- parameters: override named parameters via `parameters=(; ...)`
-- interaction_overrides: optionally override interaction matrices
-
-For ease of use, interaction overrides are exposed as two separate keywords:
-
-- `palatability_matrix`
-- `assimilation_matrix`
-"""
+# """Public constructor for the simplified DARWIN-like ecosystem model.
+# 
+# `DARWIN.construct` builds an Oceananigans/OceanBioME-compatible biogeochemistry
+# instance for a size-structured plankton model with elemental cycling.
+# 
+# This constructor keeps the surface small:
+# 
+# - structure: choose `n_phyto`, `n_zoo`, and diameter specifications
+# - parameters: override named parameters via `parameters=(; ...)`
+# - interaction_overrides: optionally override interaction matrices
+# 
+# For ease of use, interaction overrides are exposed as two separate keywords:
+# 
+# - `palatability_matrix`
+# - `assimilation_matrix`
+# """
 
 using OceanBioME: BoxModelGrid
 
-import ...Utils
+import ...Configuration
 import ...Construction
 import ...Factories
 
@@ -68,12 +68,12 @@ function construct(;
     factory = DarwinFactory()
 
     base = Factories.default_community(factory)
-    community = Construction.build_plankton_community(
+    community = Configuration.build_plankton_community(
         base;
         n=(Z=n_zoo, P=n_phyto),
         diameters=(
-            Z=Utils.diameter_specification(zoo_diameters),
-            P=Utils.diameter_specification(phyto_diameters),
+            Z=Configuration.diameter_specification(zoo_diameters),
+            P=Configuration.diameter_specification(phyto_diameters),
         ),
     )
 

@@ -1,12 +1,12 @@
-"""NiPiZD defaults expressed as a model-agnostic factory.
-
-This file defines `NiPiZDFactory` and the default inputs used by
-`Agate.Construction.construct_factory(factory; ...)`.
-"""
+# """NiPiZD defaults expressed as a model-agnostic factory.
+# 
+# This file defines `NiPiZDFactory` and the default inputs used by
+# `Agate.Construction.construct_factory(factory; ...)`.
+# """
 
 using ...Factories: AbstractBGCFactory
-using ...Utils.Specifications: PFTSpecification
-using ...Utils: DiameterRangeSpecification
+using ...Configuration: PFTSpecification
+using ...Configuration: DiameterRangeSpecification
 
 # NOTE: Numeric parameter defaults are declared alongside parameter metadata in
 # `parameter_definitions(::NiPiZDFactory)` (see `Models/NiPiZD/Parameters.jl`).

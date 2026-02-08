@@ -1,18 +1,16 @@
-"""Agate.Utils.Specifications
-
-Specification/container types used by Agate factories and constructors.
-
-These are lightweight wrappers around `NamedTuple`s that support:
-
-- ergonomic keyword-based overrides,
-- consistent casting to a target float type `FT` for CPU/GPU execution,
-- `Adapt.jl` compatibility for runtime parameter structs.
-
-These types live under `Agate.Utils.Specifications` and are re-exported from
-`Agate.Construction` as part of the public factory/constructor API.
-"""
-module Specifications
-
+# """Agate.Configuration
+# 
+# Specification/container types used by Agate factories and constructors.
+# 
+# These are lightweight wrappers around `NamedTuple`s that support:
+# 
+# - ergonomic keyword-based overrides,
+# - consistent casting to a target float type `FT` for CPU/GPU execution,
+# - `Adapt.jl` compatibility for runtime parameter structs.
+# 
+# These types live under `Agate.Configuration` and are re-exported from
+# `Agate.Construction` as part of the public factory/constructor API.
+# """
 using Adapt
 
 export PFTSpecification, pft_get, pft_has
@@ -55,5 +53,3 @@ if !hasmethod(Adapt.adapt_structure, Tuple{Any,NamedTuple})
         return NamedTuple{names}(map(x -> Adapt.adapt(to, x), values(nt)))
     end
 end
-
-end # module Specifications

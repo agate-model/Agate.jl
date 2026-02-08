@@ -20,13 +20,13 @@ import ...Factories:
     FillDefault,
     DiameterIndexedVectorDefault
 
-import ...Utils: derived_matrix_specs
+import ...Configuration: derived_matrix_specs
 
 using ...Library.Allometry:
     AllometricParam,
     PowerLaw
 
-using ...Models: derive_assimilation_matrix_binary, derive_palatability_matrix_allometric
+using ...Configuration: derive_assimilation_matrix_binary, derive_palatability_matrix_allometric
 
 function parameter_definitions(::DarwinFactory)
     detritus_remin = 0.1213 / 86400

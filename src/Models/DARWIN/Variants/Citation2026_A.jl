@@ -1,17 +1,17 @@
-"""Citation2026 style DARWIN configuration.
-
-This is an *example* variant showing how to register a paper-specific recipe
-without forking the whole DARWIN module.
-
-The intent is to keep it as a thin construction-time wrapper:
-- pick defaults (community sizes/diameters)
-- use the family defaults for dynamics
-- leave all biology implementation in `Models/DARWIN/*`
-"""
+# """Citation2026 style DARWIN configuration.
+# 
+# This is an *example* variant showing how to register a paper-specific recipe
+# without forking the whole DARWIN module.
+# 
+# The intent is to keep it as a thin construction-time wrapper:
+# - pick defaults (community sizes/diameters)
+# - use the family defaults for dynamics
+# - leave all biology implementation in `Models/DARWIN/*`
+# """
 
 using ...Factories:
     default_plankton_dynamics, default_biogeochem_dynamics, default_community
-using ...Construction: build_plankton_community
+using ...Configuration: build_plankton_community
 using Agate.Models: ModelId, VariantSpec, register_variant
 
 """Return the `DARWIN/citation2026/A` variant specification."""
