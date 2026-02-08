@@ -1,8 +1,8 @@
 ### [Agate.jl DARWIN model](@id DARWIN)
 
-Agate's simplified DARWIN-like model is constructed via `DARWIN.construct`.
+Agate's simplified DARWIN-like model is constructed via `Agate.Models.DARWIN.construct`.
 
-The high-level pattern matches `NiPiZD.construct`, with additional elemental cycling tracers.
+The high-level pattern matches `Agate.Models.NiPiZD.construct`, with additional elemental cycling tracers.
 
   - **Community structure**: choose `n_phyto`, `n_zoo`, and diameter specifications
   - **Dynamics**: optionally swap plankton dynamics and override selected biogeochemical tracer dynamics by key

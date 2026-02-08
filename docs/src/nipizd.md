@@ -1,6 +1,6 @@
 ### [Agate.jl NiPiZD model](@id NiPiZD)
 
-Agate's NiPiZD model is constructed via `NiPiZD.construct`.
+Agate's NiPiZD model is constructed via `Agate.Models.NiPiZD.construct`.
 
 The constructor is intentionally small and explicit:
 
