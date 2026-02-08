@@ -19,9 +19,9 @@ export build_tracer_index
 export box_model_budget
 export box_model_mass_balance
 
-include("TendencyContext.jl")
-include("ClassRefs.jl")
-include("TracerAccessors.jl")
+include("tendency_context.jl")
+include("class_refs.jl")
+include("tracer_accessors.jl")
 
 
 # -----------------------------------------------------------------------------

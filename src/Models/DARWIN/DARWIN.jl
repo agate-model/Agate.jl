@@ -1,10 +1,10 @@
 module DARWIN
 
-include("Tracers.jl")
-include("Factory.jl")
-include("Parameters.jl")
-include("Interface.jl")
-include("Variants/Variants.jl")
+include("tracers.jl")
+include("factory.jl")
+include("parameters.jl")
+include("interface.jl")
+include("Variants/variants.jl")
 
 export construct
 

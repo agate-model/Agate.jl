@@ -6,4 +6,4 @@ Keep these files small: they should mostly wire together existing tracers,
 dynamics builders, and parameter overrides.
 """
 
-include("Citation2026_A.jl")
+include("citation2026_a.jl")

@@ -6,8 +6,8 @@ using ..Factories: default_plankton_dynamics, default_community, default_biogeoc
 # Shared model utilities
 # -----------------------------------------------------------------------------
 
-include("Sums.jl")
-include("Variants.jl")
+include("sums.jl")
+include("variants.jl")
 # -----------------------------------------------------------------------------
 # Model modules
 # -----------------------------------------------------------------------------
