@@ -67,7 +67,6 @@ makedocs(;
             "Start here" => "developer.md",
             "Variants" => "variants.md",
             "Adding a model" => "adding_models.md",
-            "Interaction block editing" => "interaction_block_editing.md",
             "Constructor API" => "api_constructor.md",
             "Parameters & interactions" => "parameters_and_interactions.md",
             "Callable dynamics" => "callable_dynamics.md",

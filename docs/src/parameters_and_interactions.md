@@ -23,7 +23,7 @@ For developers: `parameter_directory(factory)` is derived from `parameter_defini
 All model constructors accept a `parameters=(; ...)` NamedTuple.
 
 ```julia
-bgc = NiPiZD.construct(; parameters=(; detritus_remineralization=0.18 / day,))
+bgc = Agate.Models.NiPiZD.construct(; parameters=(; detritus_remineralization=0.18 / day,))
 ```
 
 Validation behaviour:
@@ -59,12 +59,11 @@ These are **role-aware** predator-by-prey matrices with axes `(:consumer, :prey)
 
 For either matrix key, you may pass:
 
-  - a full square matrix of size `(n_total, n_total)`
   - a rectangular axis-sized matrix of size `(n_consumer, n_prey)`
-  - an axis-local group-block matrix of size `(n_consumer_groups, n_prey_groups)`
-  - an editable `InteractionBlocks` object created by `interaction_blocks(roles; init=...)`
-  - a group-block matrix over *all* groups, wrapped as `Agate.Configuration.GroupBlockMatrix(B)`
-  - a provider function `(ctx) -> matrix` returning any of the above
+  - a provider function `(ctx) -> matrix` returning one of the above
+
+Full-square `(n_total, n_total)` matrices are not accepted as overrides for role-aware parameters.
+If you want to override based on a full matrix, slice it to the active axes yourself.
 
 Role-aware rectangular matrices are the preferred override form because they are explicit and small.
 
@@ -88,7 +87,7 @@ pal = (ctx) -> begin
     return M
 end
 
-bgc = NiPiZD.construct(; palatability_matrix=pal)
+bgc = Agate.Models.NiPiZD.construct(; palatability_matrix=pal)
 ```
 
 ### Derived matrices (trait-driven)
@@ -104,7 +103,7 @@ n_phyto = 4
 n_zoo = 2
 n_total = n_phyto + n_zoo
 
-bgc = NiPiZD.construct(; n_phyto, n_zoo, parameters=(; specificity=fill(0.15f0, n_total),))
+bgc = Agate.Models.NiPiZD.construct(; n_phyto, n_zoo, parameters=(; specificity=fill(0.15f0, n_total),))
 # palatability_matrix is regenerated from the updated specificity
 ```
 

@@ -28,9 +28,6 @@
 # Internally, role-aware interactions are stored **only** in rectangular form.
 # No square matrices or square views are created.
 # 
-# To pass a group-block matrix over *all* groups, wrap it as `GroupBlockMatrix(B)` to
-# force group-block expansion during construction.
-# Axis-local group-block matrices sized `(n_consumer_groups, n_prey_groups)` are also accepted.
 # """
 
 using OceanBioME: BoxModelGrid

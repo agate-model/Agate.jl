@@ -24,7 +24,8 @@ Here, we use a default 2 phytoplankton, 2 zooplankton `Agate.jl-NiPiZD` ecosyste
 
 ```@example quickstart
 
-bgc = NiPiZD.construct()
+bgc = Agate.Models.NiPiZD.construct()
+using Agate.Introspection: tracer_names
 nothing #hide
 
 # Inspect the required tracer names.

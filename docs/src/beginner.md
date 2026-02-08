@@ -26,7 +26,7 @@ using Agate
 using Oceananigans.Units: day
 
 # Override one scalar parameter by name.
-bgc = NiPiZD.construct(; parameters=(detritus_remineralization=0.18 / day,))
+bgc = Agate.Models.NiPiZD.construct(; parameters=(detritus_remineralization=0.18 / day,))
 ```
 
 Parameter keys are `Symbol`s (written with a leading `:`). When you write `detritus_remineralization=...` inside a `NamedTuple`,
@@ -82,7 +82,7 @@ end
 model = Agate.Models.NiPiZD.construct(; palatability_matrix=pal_provider)
 ```
 
-Advanced forms (full square matrices and group-block matrices) exist for convenience, but you can ignore them when you're starting.
+Advanced forms (like provider functions for matrices) exist for convenience, but you can ignore them when you're starting.
 See the reference: [Parameters and interaction matrices](@ref "Parameters and interaction matrices").
 
 ## When you are ready for deeper changes

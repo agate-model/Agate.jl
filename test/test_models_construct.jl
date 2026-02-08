@@ -64,16 +64,6 @@ using Oceananigans.Biogeochemistry:
             grid=dummy_grid(Float32), palatability_matrix=wrong, assimilation_matrix=wrong
         )
 
-        # Group-block matrices are accepted when wrapped explicitly. They are expanded
-        # over all groups and then sliced to the consumer-by-prey axes.
-        block = Agate.Configuration.GroupBlockMatrix(Float32[0 1; 2 3])
-        bgc_block = NiPiZD.construct(;
-            grid=dummy_grid(Float32), palatability_matrix=block, assimilation_matrix=block
-        )
-        M0 = bgc_block.parameters.palatability_matrix
-        @test size(M0) == (n_cons, n_prey)
-        @test all(M0 .== 1.0f0)
-
         # Rectangular consumer-by-prey matrices are stored as-is.
         rect = reshape(Float32.(1:(n_cons * n_prey)), n_cons, n_prey)
         bgc_rect = NiPiZD.construct(;
@@ -83,17 +73,14 @@ using Oceananigans.Biogeochemistry:
         @test size(M) == (n_cons, n_prey)
         @test all(M .== rect)
 
-        # Axis-local group-block matrices (consumer_groups, prey_groups) are expanded
-        # within the consumer/prey axes.
+        # Non-axis-sized matrices are not accepted; provide an explicit
+        # axis-sized matrix (n_consumer, n_prey) instead.
         axis_block = reshape(Float32[7], 1, 1)
-        bgc_axis_block = NiPiZD.construct(;
+        @test_throws ArgumentError NiPiZD.construct(;
             grid=dummy_grid(Float32),
             palatability_matrix=axis_block,
             assimilation_matrix=axis_block,
         )
-        M2 = bgc_axis_block.parameters.palatability_matrix
-        @test size(M2) == (n_cons, n_prey)
-        @test all(M2 .== 7.0f0)
 
         # Providers can return axis-sized rectangular matrices.
         rect_provider(ctx) =
@@ -107,19 +94,18 @@ using Oceananigans.Biogeochemistry:
         @test size(M3) == (n_cons, n_prey)
         @test all(M3 .== 9.0f0)
 
-        # Full-square matrices are accepted but are stored sliced to the consumer/prey axes.
+        # Full-square matrices are not accepted; slice to axes or provide a provider
+        # returning an axis-sized matrix.
         correct = zeros(Float32, n_total, n_total)
-        bgc2 = NiPiZD.construct(;
+        @test_throws ArgumentError NiPiZD.construct(;
             grid=dummy_grid(Float32),
             palatability_matrix=correct,
             assimilation_matrix=correct,
         )
-        @test required_biogeochemical_tracers(bgc2) == (:N, :D, :Z1, :Z2, :P1, :P2)
-        @test size(bgc2.parameters.palatability_matrix) == (n_cons, n_prey)
 
         # Providers are allowed for the public keywords. They are evaluated once during construction.
-        pal_provider(ctx) = zeros(Float32, ctx.n_total, ctx.n_total)
-        assim_provider(ctx) = zeros(Float32, ctx.n_total, ctx.n_total)
+        pal_provider(ctx) = zeros(Float32, length(ctx.consumer_indices), length(ctx.prey_indices))
+        assim_provider(ctx) = zeros(Float32, length(ctx.consumer_indices), length(ctx.prey_indices))
 
         # Old-style providers are rejected.
         old_style_provider(diameters, group_symbols) =
@@ -242,49 +228,4 @@ using Oceananigans.Biogeochemistry:
         )
     end
 
-    @testset "InteractionBlocks helpers" begin
-        using Agate.Configuration:
-            roles_from_groups, interaction_blocks, set_block!, scale_block!, forbid_link!
-
-        roles = roles_from_groups(; consumers=:Z, prey=(:P, :Z))
-
-        pal = interaction_blocks(roles; init=0)
-        set_block!(pal; consumer_group=:Z, prey_group=:P, value=1.0f0)
-        set_block!(pal; consumer_group=:Z, prey_group=:Z, value=0.25f0)
-        forbid_link!(pal; consumer_group=:Z, prey_group=:Z)
-
-        factory = Agate.Models.NiPiZD.NiPiZDFactory()
-        base = Agate.Factories.default_community(factory)
-        community = Agate.Configuration.build_plankton_community(
-            base;
-            n=(Z=2, P=2),
-            diameters=(Z=(20, 100, :linear_splitting), P=(2, 10, :log_splitting)),
-        )
-
-        bgc = Agate.Construction.construct_factory(
-            factory;
-            grid=dummy_grid(Float32),
-            community=community,
-            interaction_roles=roles,
-            interaction_overrides=(palatability_matrix=pal,),
-            auxiliary_fields=(:PAR,),
-        )
-        M = bgc.parameters.palatability_matrix
-        @test size(M, 1) == 2
-        @test size(M, 2) == 4
-        @test all(M[:, 1:2] .== 0.0f0) # Z as prey
-        @test all(M[:, 3:4] .== 1.0f0) # P as prey
-
-        scale_block!(pal; consumer_group=:Z, prey_group=:P, factor=0.5f0)
-        bgc2 = Agate.Construction.construct_factory(
-            factory;
-            grid=dummy_grid(Float32),
-            community=community,
-            interaction_roles=roles,
-            interaction_overrides=(palatability_matrix=pal,),
-            auxiliary_fields=(:PAR,),
-        )
-        M2 = bgc2.parameters.palatability_matrix
-        @test all(M2[:, 3:4] .== 0.5f0)
-    end
 end

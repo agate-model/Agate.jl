@@ -1,8 +1,3 @@
-"""Wrapper to explicitly mark a matrix as a *group-block* interaction override."""
-struct GroupBlockMatrix{T<:AbstractMatrix}
-    B::T
-end
-
 import Adapt
 
 """Rectangular consumer-by-prey interaction matrices and axis mappings.
@@ -57,11 +52,7 @@ end
     n_total = community_context.n_total
     nr = length(row_indices)
     nc = length(col_indices)
-
-    if value isa GroupBlockMatrix
-        full = expand_group_block_matrix(community_context, value.B)
-        return full[row_indices, col_indices]
-    elseif value isa AbstractMatrix
+    if value isa AbstractMatrix
         if size(value) == (nr, nc)
             return value
         elseif size(value) == (n_total, n_total)
@@ -151,24 +142,14 @@ and must be callable as:
 
 - `f(community_context)`
 
-For matrix parameters, users may pass either:
+For matrix parameters with declared `axes` (for example `(:consumer, :prey)`), users must pass either:
 
-- a full `(n_total, n_total)` matrix,
-- a group-block `(n_groups, n_groups)` matrix which will be expanded (and, for
-  role-aware parameters, sliced to the declared axes) (see `expand_group_block_matrix`). When the parameter
-  declares role-aware axes, a plain `(n_groups, n_groups)` matrix is ambiguous;
-  wrap it in `GroupBlockMatrix(B)` to force group-block expansion,
-- or, when the parameter directory declares role-aware axes,
-  a rectangular matrix sized to those axes (for example `(n_consumer, n_prey)`).
+- a rectangular matrix sized to the declared axes (for example `(n_consumer, n_prey)`), or
+- a provider function `(ctx) -> matrix` returning an axis-sized rectangular matrix.
 
-For consumer-by-prey matrices with axes `(:consumer, :prey)`, users may also pass
-an `InteractionBlocks` object created by `interaction_blocks(roles; init=...)`.
+For matrix parameters without `axes`, users must pass a full square `(n_total, n_total)` matrix (or a provider returning one).
 
-When a rectangular matrix is provided for a role-aware parameter (one that
-declares `axes` in `parameter_directory(factory)`), it is kept rectangular.
-During construction, `finalize_interaction_parameters` will populate the
-canonical `parameters.interactions` container and keep the matrix parameter
-itself in its axis-local rectangular form.
+Full-square matrices are not accepted as overrides for role-aware (axes-declared) parameters to keep the override surface explicit.
 
 Shape validation is driven by `parameter_directory(factory)`.
 Final key validation and full parameter shape checks occur during model
@@ -247,162 +228,52 @@ Axes may be:
         nr = length(row_indices)
         nc = length(col_indices)
 
-        # Convenience wrapper: explicit group order for a consumer-by-prey block.
-        if value isa InteractionBlocks
-            spec.axes == (:consumer, :prey) || throw(
-                ArgumentError(
-                    "InteractionBlocks can only be used for axes (:consumer, :prey); got axes $(spec.axes) for '$key'.",
-                ),
-            )
-
-            row_groups_axis = unique(community_context.group_symbols[row_indices])
-            col_groups_axis = unique(community_context.group_symbols[col_indices])
-
-            Set(row_groups_axis) == Set(value.consumer_groups) || throw(
-                ArgumentError(
-                    "InteractionBlocks consumer_groups $(value.consumer_groups) do not match consumer axis groups $(Tuple(row_groups_axis)) for '$key'.",
-                ),
-            )
-            Set(col_groups_axis) == Set(value.prey_groups) || throw(
-                ArgumentError(
-                    "InteractionBlocks prey_groups $(value.prey_groups) do not match prey axis groups $(Tuple(col_groups_axis)) for '$key'.",
-                ),
-            )
-
-            size(value.B) == (length(value.consumer_groups), length(value.prey_groups)) ||
-                throw(
-                    ArgumentError(
-                        "InteractionBlocks.B must have size $(length(value.consumer_groups))x$(length(value.prey_groups)); got size $(size(value.B)) for '$key'.",
-                    ),
-                )
-
-            return _expand_group_block_axis_matrix(
-                community_context,
-                value.B,
-                row_indices,
-                col_indices,
-                value.consumer_groups,
-                value.prey_groups,
-            )
-        end
-
-        # Explicit wrapper forces group-block expansion (then slice to axes).
-        if value isa GroupBlockMatrix
-            full = expand_group_block_matrix(community_context, value.B)
-            return full[row_indices, col_indices]
-        end
-
         value isa AbstractMatrix || return value
 
         if size(value) == (nr, nc)
             return _convert_matrix_eltype(community_context, value)
         end
 
-        # Axis-local group-block matrix (groups present on each axis, in order of appearance).
-        row_groups = unique(community_context.group_symbols[row_indices])
-        col_groups = unique(community_context.group_symbols[col_indices])
-        ngr = length(row_groups)
-        ngc = length(col_groups)
-
-        if size(value) == (ngr, ngc)
-            return _expand_group_block_axis_matrix(
-                community_context, value, row_indices, col_indices, row_groups, col_groups
-            )
-        end
-
-        # Full-square override: slice to axes.
-        if size(value) == (n_total, n_total)
-            return _convert_matrix_eltype(community_context, value[row_indices, col_indices])
-        end
-
-        # Ambiguous: a plain (n_groups, n_groups) matrix could be intended as a group-block matrix.
         if size(value) == (ng, ng)
             throw(
                 ArgumentError(
-                    "interaction override '$key' is ambiguous for axes $(spec.axes): a $(ng)x$(ng) matrix could be either an axis-sized matrix or a group-block matrix. " *
-                    "Wrap it as GroupBlockMatrix(B) to force group-block expansion, or pass a $(nr)x$(nc) axis matrix.",
+                    "interaction override '$key' looks like a group-by-group matrix (size $(ng)x$(ng)). Group-block overrides are not supported; pass a $(nr)x$(nc) axis matrix for axes $(spec.axes) (or a provider returning one).",
                 ),
             )
         end
 
         throw(
             ArgumentError(
-                "interaction override '$key' must be a $(nr)x$(nc) axis matrix, a $(ngr)x$(ngc) axis block, or a $(n_total)x$(n_total) full matrix; got size $(size(value))",
+                "interaction override '$key' must be a $(nr)x$(nc) axis matrix for axes $(spec.axes); got size $(size(value))",
             ),
         )
     end
-
     # Non-axes matrices normalize to full square matrices.
-    if value isa GroupBlockMatrix
-        return expand_group_block_matrix(community_context, value.B)
-    end
-
-    value isa AbstractMatrix || return value
 
     value isa AbstractMatrix || return value
 
     size(value) == (n_total, n_total) && return _convert_matrix_eltype(community_context, value)
 
-    # Group-block override over *all* groups.
-    size(value) == (ng, ng) && return expand_group_block_matrix(community_context, value)
+    if size(value) == (ng, ng)
+        throw(
+            ArgumentError(
+                "interaction override '$key' looks like a group-by-group matrix (size $(ng)x$(ng)). Group-block overrides are not supported; pass a $(n_total)x$(n_total) matrix instead.",
+            ),
+        )
+    end
 
-    return value
-end
-
-"""Expand a group-block matrix to a full `(n_total, n_total)` matrix.
-
-The group ordering is the order of first appearance in `community_context.group_symbols`.
-
-For a block matrix `B` sized `(n_groups, n_groups)`, the expanded matrix `M` is
-defined as:
-
-`M[predator, prey] = B[group(predator), group(prey)]`.
-"""
-function expand_group_block_matrix(community_context::CommunityContext, B::AbstractMatrix)
-    groups = unique(community_context.group_symbols)
-    ng = length(groups)
-    size(B) == (ng, ng) || throw(
-        ArgumentError("Expected a $(ng)x$(ng) group-block matrix (got size $(size(B)))."),
+    throw(
+        ArgumentError(
+            "interaction override '$key' must be a $(n_total)x$(n_total) matrix; got size $(size(value))",
+        ),
     )
-
-    group_to_index = Dict{Symbol,Int}(g => i for (i, g) in pairs(groups))
-    group_idx = map(g -> group_to_index[g], community_context.group_symbols)
-
-    return _convert_matrix_eltype(community_context, B[group_idx, group_idx])
 end
+
 
 @inline function _convert_matrix_eltype(community_context::CommunityContext, A::AbstractMatrix)
     eltype(A) === community_context.FT && return A
     R = similar(A, community_context.FT, size(A)...)
     copyto!(R, A)
-    return R
-end
-
-@inline function _expand_group_block_axis_matrix(
-    community_context::CommunityContext,
-    B::AbstractMatrix,
-    row_indices::AbstractVector{<:Integer},
-    col_indices::AbstractVector{<:Integer},
-    row_groups,
-    col_groups,
-)
-    row_map = Dict{Symbol,Int}(g => i for (i, g) in pairs(row_groups))
-    col_map = Dict{Symbol,Int}(g => i for (i, g) in pairs(col_groups))
-
-    nr = length(row_indices)
-    nc = length(col_indices)
-    R = similar(B, community_context.FT, nr, nc)
-
-    for (ii, gi) in enumerate(row_indices)
-        rg = community_context.group_symbols[gi]
-        ri = row_map[rg]
-        for (jj, gj) in enumerate(col_indices)
-            cg = community_context.group_symbols[gj]
-            cj = col_map[cg]
-            @inbounds R[ii, jj] = B[ri, cj]
-        end
-    end
-
     return R
 end
 

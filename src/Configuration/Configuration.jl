@@ -12,10 +12,6 @@ export validate_community_inputs, parse_community, CommunityContext
 
 export axis_indices
 export normalize_interaction_overrides
-export GroupBlockMatrix
-export expand_group_block_matrix
-export InteractionBlocks, roles_from_groups, interaction_blocks
-export forbid_link!, set_block!, scale_block!
 export InteractionMatrices
 export finalize_interaction_parameters
 
@@ -24,7 +20,6 @@ export derive_palatability_matrix_allometric, derive_assimilation_matrix_binary
 
 include("specifications.jl")
 include("community.jl")
-include("interactions_blocks.jl")
 include("interactions_matrices.jl")
 include("interactions_derivations.jl")
 

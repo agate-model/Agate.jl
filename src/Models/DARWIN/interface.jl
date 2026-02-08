@@ -37,8 +37,6 @@ Keywords
 - `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrices. Each may be:
   - a full `(n_total, n_total)` matrix
   - a rectangular `(n_consumer, n_prey)` matrix (the canonical interaction representation)
-  - axis-local group-block matrices sized `(n_consumer_groups, n_prey_groups)`
-  - a group-block matrix over *all* groups, wrapped as `GroupBlockMatrix(B)` (expanded during construction)
   - a provider function `(community_context) -> matrix` that returns any of the above
 - `grid=BoxModelGrid()`: grid used for precision/architecture inference and sinking velocity fields
 - `arch=nothing`: override the architecture (usually inferred from `grid`)

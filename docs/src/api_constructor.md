@@ -3,8 +3,8 @@
 Agate's primary user-facing constructors are model-specific and live under the
 model modules:
 
-  - `NiPiZD.construct`
-  - `DARWIN.construct`
+  - `Agate.Models.NiPiZD.construct`
+  - `Agate.Models.DARWIN.construct`
 
 Each constructor returns a concrete biogeochemistry **instance** (already
 `Adapt.jl` compatible) that composes with OceanBioME/Oceananigans.
@@ -14,7 +14,7 @@ Each constructor returns a concrete biogeochemistry **instance** (already
 ```julia
 using Agate
 
-bgc = NiPiZD.construct()  # CPU instance by default
+bgc = Agate.Models.NiPiZD.construct()  # CPU instance by default
 ```
 
 Precision is determined by the **grid element type** when you pass `grid=...`.
@@ -31,11 +31,11 @@ using Adapt
 using CUDA
 using Oceananigans.Architectures: GPU
 
-bgc = NiPiZD.construct()
+bgc = Agate.Models.NiPiZD.construct()
 bgc_gpu = Adapt.adapt(CuArray, bgc)
 
 # Or request a GPU instance directly.
-bgc_gpu2 = NiPiZD.construct(; arch=GPU())
+bgc_gpu2 = Agate.Models.NiPiZD.construct(; arch=GPU())
 ```
 
 When interfacing with Oceananigans/OceanBioME, it is usually better to let the
@@ -54,7 +54,7 @@ grid = RectilinearGrid(;
     float_type=Float32,
 )
 
-bgc_gpu = NiPiZD.construct(; grid)  # precision + architecture inferred from `grid`
+bgc_gpu = Agate.Models.NiPiZD.construct(; grid)  # precision + architecture inferred from `grid`
 ```
 
 ## Parameter overrides
@@ -65,7 +65,7 @@ Unknown parameter keys throw immediately (typo protection).
 ```julia
 using Oceananigans.Units: day
 
-bgc = NiPiZD.construct(; parameters=(detritus_remineralization=0.18 / day,))
+bgc = Agate.Models.NiPiZD.construct(; parameters=(detritus_remineralization=0.18 / day,))
 ```
 
 ## NiPiZD interaction overrides
@@ -84,7 +84,7 @@ pal = [
 
 assim = fill(0.32, size(pal))
 
-bgc = NiPiZD.construct(; palatability_matrix=pal, assimilation_matrix=assim)
+bgc = Agate.Models.NiPiZD.construct(; palatability_matrix=pal, assimilation_matrix=assim)
 ```
 
 Because these matrices are **role-aware**, the preferred override form is a
@@ -102,14 +102,11 @@ pal = (ctx) -> begin
     return M
 end
 
-bgc = NiPiZD.construct(; palatability_matrix=pal)
+bgc = Agate.Models.NiPiZD.construct(; palatability_matrix=pal)
 ```
 
-If you have a small group-by-group matrix, wrap it in `Agate.Configuration.GroupBlockMatrix(B)`
-to force group-block expansion across all size classes.
-
-For a convenient *editable* group-block workflow (with `forbid_link!`, `set_block!`, and `scale_block!`),
-see [Editing interaction blocks by group](@ref "Editing interaction blocks by group").
+Group-by-group (block) matrices are not accepted as overrides. Provide an explicit `(n_consumer, n_prey)`
+rectangular matrix (or a provider returning one).
 
 ## Trait-driven derived matrices
 
@@ -124,6 +121,9 @@ For interactive work (REPL/notebooks), Agate provides small helpers to discover
 the model surface:
 
 ```julia
+using Agate.Introspection:
+    tracer_names, auxiliary_field_names, parameter_names, describe, model_summary
+
 names = tracer_names(bgc)                 # Vector{Symbol}
 aux = auxiliary_field_names(bgc)        # Vector{Symbol}
 pars = parameter_names(bgc)              # Vector{Symbol}

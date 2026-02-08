@@ -130,7 +130,7 @@ bgc = Agate.Models.NiPiZD.construct(; palatability_matrix=pal)
 ```
 
 If you have a small *group-by-group* block matrix, wrap it in
-`Agate.Configuration.GroupBlockMatrix(B)` to force expansion across all size classes.
+an explicit rectangular matrix to match the consumer-by-prey axes.
 
 ## Derived matrices (trait overrides)
 
