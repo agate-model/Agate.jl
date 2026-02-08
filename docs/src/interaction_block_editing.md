@@ -12,7 +12,7 @@ Agate provides two small helpers:
 ```julia
 using Agate
 using Agate.Library.Light
-using Agate.Utils: roles_from_groups, interaction_blocks, set_block!, forbid_link!
+using Agate.Configuration: roles_from_groups, interaction_blocks, set_block!, forbid_link!
 
 # Allow Z to be both a consumer and (optionally) prey.
 roles = roles_from_groups(; consumers=:Z, prey=(:P, :Z))
@@ -35,7 +35,7 @@ forbid_link!(pal; consumer_group=:Z, prey_group=:Z)
 ```julia
 using Agate
 using OceanBioME: BoxModelGrid
-using Agate.Utils: roles_from_groups, interaction_blocks, set_block!, forbid_link!
+using Agate.Configuration: roles_from_groups, interaction_blocks, set_block!, forbid_link!
 
 factory = Agate.NiPiZD.NiPiZDFactory()
 base = Agate.Factories.default_community(factory)
@@ -63,7 +63,7 @@ Notes:
 ## Scaling links
 
 ```julia
-using Agate.Utils: scale_block!
+using Agate.Configuration: scale_block!
 
 scale_block!(pal; consumer_group=:Z, prey_group=:P, factor=0.5)
 ```
@@ -73,7 +73,7 @@ scale_block!(pal; consumer_group=:Z, prey_group=:P, factor=0.5)
 If you have a full group-by-group matrix over *all* groups (in the explicit order of the `community` `NamedTuple` used for construction), wrap it explicitly:
 
 ```julia
-using Agate.Utils: GroupBlockMatrix
+using Agate.Configuration: GroupBlockMatrix
 
 B = [0.0 1.0; 0.0 0.0]
 bgc = NiPiZD.construct(; palatability_matrix=GroupBlockMatrix(B))

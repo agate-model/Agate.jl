@@ -128,7 +128,7 @@ bgc = NiPiZD.construct(; palatability_matrix=pal)
 ```
 
 If you have a small *group-by-group* block matrix, wrap it in
-`Agate.Utils.GroupBlockMatrix(B)` to force expansion across all size classes.
+`Agate.Configuration.GroupBlockMatrix(B)` to force expansion across all size classes.
 
 ## Derived matrices (trait overrides)
 

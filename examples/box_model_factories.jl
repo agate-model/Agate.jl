@@ -12,7 +12,7 @@
 # The same pattern applies to other Agate model modules (e.g. `DARWIN.construct`).
 
 using Agate
-using Agate.Utils: parse_community
+using Agate.Configuration: parse_community
 using Agate.Library.Light
 using Agate.Library.Allometry: AllometricParam, PowerLaw
 

@@ -7,7 +7,7 @@ This page documents the parameter and interaction surface that is shared by the 
 
 ## Parameter metadata: `parameter_directory`
 
-Each model factory defines a **parameter directory** via `Agate.Utils.parameter_directory(factory)`.
+Each model factory defines a **parameter directory** via `Agate.Factories.parameter_directory(factory)`.
 The directory is a collection of `ParameterSpec` entries describing:
 
   - the parameter key (a `Symbol`)
@@ -63,14 +63,14 @@ For either matrix key, you may pass:
   - a rectangular axis-sized matrix of size `(n_consumer, n_prey)`
   - an axis-local group-block matrix of size `(n_consumer_groups, n_prey_groups)`
   - an editable `InteractionBlocks` object created by `interaction_blocks(roles; init=...)`
-  - a group-block matrix over *all* groups, wrapped as `Agate.Utils.GroupBlockMatrix(B)`
+  - a group-block matrix over *all* groups, wrapped as `Agate.Configuration.GroupBlockMatrix(B)`
   - a provider function `(ctx) -> matrix` returning any of the above
 
 Role-aware rectangular matrices are the preferred override form because they are explicit and small.
 
 ### The construction context: `CommunityContext`
 
-Provider functions receive an `Agate.Utils.CommunityContext` with precomputed axes:
+Provider functions receive an `Agate.Configuration.CommunityContext` with precomputed axes:
 
   - `ctx.consumer_indices` / `ctx.prey_indices` (global indices)
   - `ctx.group_symbols`, `ctx.diameters`, `ctx.n_total`

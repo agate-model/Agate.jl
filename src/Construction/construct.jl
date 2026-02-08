@@ -29,7 +29,7 @@ using ..Configuration:
     parse_community,
     validate_community_inputs
 
-using ..Utils: build_tracer_index
+using ..Runtime: build_tracer_index
 
 
 using ..Equations: CompiledEquation, requirements, EquationRequirements, merge_requirements

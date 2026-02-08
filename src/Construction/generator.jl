@@ -5,7 +5,7 @@
 using Adapt
 
 using ..Equations: CompiledEquation, requirements
-using ..Utils: Tracers, TracerIndex, build_tracer_index
+using ..Runtime: Tracers, TracerIndex, build_tracer_index
 
 using OceanBioME
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry

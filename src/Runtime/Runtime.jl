@@ -1,5 +1,5 @@
-"""Runtime and diagnostic utilities."""
-module Utils
+# Runtime and diagnostic utilities.
+module Runtime
 
 import Oceananigans: time_step!
 

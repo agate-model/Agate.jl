@@ -18,7 +18,7 @@ using ....Library.Mortality: linear_loss, quadratic_loss
 using ....Library.Photosynthesis: smith_single_nutrient_growth
 using ....Library.Remineralization: linear_remineralization
 
-using ....Utils: tendency_inputs
+using ....Runtime: tendency_inputs
 
 using ...Sums:
     grazing_unassimilated_loss_sum,

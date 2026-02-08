@@ -35,7 +35,7 @@ Implement `parameter_definitions(factory)` returning a tuple of `ParameterDefini
 Example:
 
 ```julia
-using Agate.Utils: ParameterSpec, ParameterDefinition, ConstDefault, FillDefault, NoDefault
+using Agate.Factories: ParameterSpec, ParameterDefinition, ConstDefault, FillDefault, NoDefault
 
 parameter_definitions(::MyModelFactory) = (
     ParameterDefinition(
@@ -81,7 +81,7 @@ Defaults are declared alongside parameter metadata in `parameter_definitions(fac
 If your model derives interaction matrices from trait vectors, register the derivations with:
 
 ```julia
-using Agate.Utils: derived_matrix_specs, derivation_deps
+using Agate.Configuration: derived_matrix_specs, derivation_deps
 
 derived_matrix_specs(::MyModelFactory) = (;
     palatability_matrix = derive_palatability_matrix,

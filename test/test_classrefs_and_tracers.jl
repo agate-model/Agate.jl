@@ -2,7 +2,7 @@ using Agate
 using Test
 
 using Agate.Configuration: parse_community
-using Agate.Utils: class, resolve_class, class_count, build_tracer_index, Tracers
+using Agate.Runtime: class, resolve_class, class_count, build_tracer_index, Tracers
 using Agate.Factories:
     default_plankton_dynamics, default_biogeochem_dynamics, default_community
 

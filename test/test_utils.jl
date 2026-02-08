@@ -12,7 +12,7 @@ using Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields,
     biogeochemical_drift_velocity
 
-@testset "Utils" begin
+@testset "Runtime" begin
     @testset "define_tracer_functions" begin
         parameters = (α=2 / 3, β=4 / 3, δ=1.0, γ=1.0)
 

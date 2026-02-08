@@ -60,7 +60,7 @@ Inside tracer tendency functions, Oceananigans passes state values positionally 
 Agate provides a small helper that converts this positional tuple into explicit, named accessors:
 
 ```julia
-using Agate.Utils: tendency_inputs
+using Agate.Runtime: tendency_inputs
 
 @inline function my_tracer(bgc, x, y, z, t, args...)
     parameters, tracer_values = tendency_inputs(bgc, args)

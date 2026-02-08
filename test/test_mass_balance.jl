@@ -1,6 +1,6 @@
 using Agate
 using Agate.Library.Light
-using Agate.Utils: box_model_mass_balance
+using Agate.Runtime: box_model_mass_balance
 
 using OceanBioME
 using OceanBioME: Biogeochemistry
