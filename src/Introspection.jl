@@ -1,11 +1,18 @@
 """Introspection helpers for constructed Agate biogeochemistry instances.
 
 These functions are meant for interactive use (REPL / notebooks): they let you
-inspect what a constructed model expects without digging into generated types.
+inspect what a constructed model exposes without digging into generated types.
 
 All helpers are CPU/GPU-safe: they operate on small metadata (names and keys)
 and never touch state arrays.
 """
+module Introspection
+
+export tracer_names
+export auxiliary_field_names
+export parameter_names
+export model_summary
+export describe
 
 import Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
@@ -47,8 +54,8 @@ end
 
 Return the parameter keys available on `bgc.parameters`.
 
-Agate resolves only the parameters required by the constructed equations, so
-this list is typically a *minimal* runtime set.
+This list describes the resolved parameter fields available on the constructed
+biogeochemistry instance.
 """
 function parameter_names(bgc)::Vector{Symbol}
     params = getproperty(bgc, :parameters)
@@ -59,13 +66,6 @@ function parameter_names(bgc)::Vector{Symbol}
     filter!(k -> k !== :interactions, keys)
     return keys
 end
-
-"""
-    required_parameters(bgc) -> Vector{Symbol}
-
-Alias for [`parameter_names`](@ref).
-"""
-required_parameters(bgc)::Vector{Symbol} = parameter_names(bgc)
 
 """
     model_summary(bgc) -> NamedTuple
@@ -136,3 +136,5 @@ function describe(io::IO, bgc; verbose::Bool=false)
 end
 
 describe(bgc; kwargs...) = describe(stdout, bgc; kwargs...)
+
+end # module

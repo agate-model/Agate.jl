@@ -1,4 +1,5 @@
 using Agate
+using Agate.Introspection: parameter_names
 using Test
 
 import Agate.Factories: parameter_directory
@@ -9,7 +10,7 @@ import Agate.Factories: parameter_directory
         dir = parameter_directory(factory)
         @test !isempty(dir)
 
-        bgc = Agate.NiPiZD.construct(; grid=dummy_grid(Float32))
+        bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
         dir_names = Set(spec.name for spec in dir)
 
         # All constructed parameters should be declared in the directory.
@@ -30,7 +31,7 @@ import Agate.Factories: parameter_directory
         dir = parameter_directory(factory)
         @test !isempty(dir)
 
-        bgc = Agate.DARWIN.construct(; grid=dummy_grid(Float32))
+        bgc = Agate.Models.DARWIN.construct(; grid=dummy_grid(Float32))
         dir_names = Set(spec.name for spec in dir)
 
         for k in parameter_names(bgc)

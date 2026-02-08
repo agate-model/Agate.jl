@@ -27,7 +27,7 @@ nothing #hide
 # First, we construct our ecosystem model.
 # Here, we use a default 2 phytoplankton, 2 zooplankton `Agate.jl-NiPiZD` ecosystem model.
 
-bgc = NiPiZD.construct()
+bgc = Agate.Models.NiPiZD.construct()
 nothing #hide
 
 # ## Forcings

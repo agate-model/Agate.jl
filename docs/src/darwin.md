@@ -13,5 +13,5 @@ DARWIN shares the same interaction-matrix surface as NiPiZD: rectangular `(n_con
 provider functions `(ctx) -> matrix`, and trait-driven derived matrices.
 
 ```@docs
-Agate.DARWIN.construct
+Agate.Models.DARWIN.construct
 ```

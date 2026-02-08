@@ -116,6 +116,8 @@ All public model constructors accept overrides via the two keywords
 For advanced workflows, the construction context provides explicit axes:
 
 ```julia
+using Agate
+
 pal = (ctx) -> begin
     nc = length(ctx.consumer_indices)
     np = length(ctx.prey_indices)
@@ -124,7 +126,7 @@ pal = (ctx) -> begin
     return M
 end
 
-bgc = NiPiZD.construct(; palatability_matrix=pal)
+bgc = Agate.Models.NiPiZD.construct(; palatability_matrix=pal)
 ```
 
 If you have a small *group-by-group* block matrix, wrap it in
@@ -140,9 +142,11 @@ recomputes the matrix during construction.
 Example (tighten palatability specificity for consumers):
 
 ```julia
+using Agate
+
 n_phyto = 4
 n_zoo = 2
 n_total = n_phyto + n_zoo
 
-bgc = NiPiZD.construct(; n_phyto, n_zoo, parameters=(; specificity=fill(0.15f0, n_total),))
+bgc = Agate.Models.NiPiZD.construct(; n_phyto, n_zoo, parameters=(; specificity=fill(0.15f0, n_total),))
 ```

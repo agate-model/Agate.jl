@@ -1,4 +1,8 @@
 using Agate
+
+const NiPiZD = Agate.Models.NiPiZD
+const DARWIN = Agate.Models.DARWIN
+
 using Agate.Library.Light
 using Agate.Diagnostics: box_model_mass_balance
 

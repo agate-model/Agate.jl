@@ -9,7 +9,7 @@
 # 3. Override parameters.
 # 4. Provide explicit interaction matrices.
 #
-# The same pattern applies to other Agate model modules (e.g. `DARWIN.construct`).
+# The same pattern applies to other Agate model modules (e.g. `Agate.Models.DARWIN.construct`).
 
 using Agate
 using Agate.Configuration: parse_community
@@ -29,7 +29,7 @@ nothing #hide
 
 # ## 1. Start from a default model
 
-bgc_default = NiPiZD.construct()
+bgc_default = Agate.Models.NiPiZD.construct()
 
 # ## 2. Override community structure
 
@@ -109,7 +109,7 @@ end
 
 # ## 5. Construct the customised model
 
-bgc_custom = NiPiZD.construct(;
+bgc_custom = Agate.Models.NiPiZD.construct(;
     n_phyto,
     n_zoo,
     phyto_diameters,

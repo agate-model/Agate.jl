@@ -1,4 +1,8 @@
 using Agate
+
+const NiPiZD = Agate.Models.NiPiZD
+const DARWIN = Agate.Models.DARWIN
+
 using Test
 
 using OceanBioME: BoxModelGrid
@@ -249,7 +253,7 @@ using Oceananigans.Biogeochemistry:
         set_block!(pal; consumer_group=:Z, prey_group=:Z, value=0.25f0)
         forbid_link!(pal; consumer_group=:Z, prey_group=:Z)
 
-        factory = Agate.NiPiZD.NiPiZDFactory()
+        factory = Agate.Models.NiPiZD.NiPiZDFactory()
         base = Agate.Factories.default_community(factory)
         community = Agate.Configuration.build_plankton_community(
             base;

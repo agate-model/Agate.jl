@@ -3,12 +3,11 @@
 ## Introspection
 
 ```@docs
-Agate.model_summary
-Agate.describe
-Agate.tracer_names
-Agate.auxiliary_field_names
-Agate.parameter_names
-Agate.required_parameters
+Agate.Introspection.model_summary
+Agate.Introspection.describe
+Agate.Introspection.tracer_names
+Agate.Introspection.auxiliary_field_names
+Agate.Introspection.parameter_names
 ```
 
 ## Low level API

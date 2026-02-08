@@ -21,5 +21,5 @@ You can provide interaction overrides as:
 
 
 ```@docs
-Agate.NiPiZD.construct
+Agate.Models.NiPiZD.construct
 ```
