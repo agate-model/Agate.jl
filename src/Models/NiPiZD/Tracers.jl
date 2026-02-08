@@ -12,7 +12,7 @@ code.
 
 module Tracers
 
-using ....Functors: CompiledEquation, Requirements
+using ....Equations: CompiledEquation, EquationRequirements
 
 using ....Library.Mortality: linear_loss, quadratic_loss
 using ....Library.Photosynthesis: smith_single_nutrient_growth
@@ -31,7 +31,7 @@ export nutrient_default, detritus_default, phytoplankton_default, zooplankton_de
 
 """Nutrient tendency with Smith growth and mortality/remineralization."""
 function nutrient_default()
-    requirements = Requirements(;
+    requirements = EquationRequirements(;
         scalars=(:detritus_remineralization, :mortality_export_fraction),
         vectors=(
             :linear_mortality,
@@ -75,7 +75,7 @@ end
 
 """Detritus tendency from mortality, sloppy feeding, and remineralization."""
 function detritus_default()
-    requirements = Requirements(;
+    requirements = EquationRequirements(;
         scalars=(:detritus_remineralization, :mortality_export_fraction),
         vectors=(
             :linear_mortality,
@@ -109,7 +109,7 @@ end
 
 """Phytoplankton tendency with Smith growth, grazing loss, and linear mortality."""
 function phytoplankton_default(plankton_idx::Int)
-    requirements = Requirements(;
+    requirements = EquationRequirements(;
         vectors=(
             :maximum_growth_rate,
             :nutrient_half_saturation,
@@ -149,7 +149,7 @@ end
 
 """Zooplankton tendency with preferential grazing gain and mortality losses."""
 function zooplankton_default(plankton_idx::Int)
-    requirements = Requirements(;
+    requirements = EquationRequirements(;
         vectors=(
             :linear_mortality,
             :quadratic_mortality,

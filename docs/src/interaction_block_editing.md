@@ -39,13 +39,13 @@ using Agate.Utils: roles_from_groups, interaction_blocks, set_block!, forbid_lin
 
 factory = Agate.NiPiZD.NiPiZDFactory()
 base = Agate.Interface.default_community(factory)
-community = Agate.Constructor.build_plankton_community(
+community = Agate.Construction.build_plankton_community(
     base;
     n=(Z=2, P=2),
     diameters=(Z=(20, 100, :linear_splitting), P=(2, 10, :log_splitting)),
 )
 
-bgc = Agate.Constructor.construct_factory(
+bgc = Agate.Construction.construct_factory(
     factory;
     grid=BoxModelGrid(),
     community=community,

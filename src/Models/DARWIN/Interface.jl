@@ -18,7 +18,7 @@ For ease of use, interaction overrides are exposed as two separate keywords:
 using OceanBioME: BoxModelGrid
 
 import ...Utils
-import ...Constructor
+import ...Construction
 import ...Interface
 
 export construct
@@ -68,7 +68,7 @@ function construct(;
     factory = DarwinFactory()
 
     base = Interface.default_community(factory)
-    community = Constructor.build_plankton_community(
+    community = Construction.build_plankton_community(
         base;
         n=(Z=n_zoo, P=n_phyto),
         diameters=(
@@ -88,7 +88,7 @@ function construct(;
 
     interaction_roles = (consumers=(:Z,), prey=(:P,))
 
-    return Constructor.construct_factory(
+    return Construction.construct_factory(
         factory;
         community=community,
         parameters=parameters,

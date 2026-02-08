@@ -36,7 +36,7 @@ Axis-local group-block matrices sized `(n_consumer_groups, n_prey_groups)` are a
 using OceanBioME: BoxModelGrid
 
 import ...Utils
-import ...Constructor
+import ...Construction
 import ...Interface
 
 export construct
@@ -81,7 +81,7 @@ function construct(;
     factory = NiPiZDFactory()
 
     base = Interface.default_community(factory)
-    community = Constructor.build_plankton_community(
+    community = Construction.build_plankton_community(
         base;
         n=(Z=n_zoo, P=n_phyto),
         diameters=(
@@ -105,7 +105,7 @@ function construct(;
 
     interaction_roles = (consumers=(:Z,), prey=(:P,))
 
-    return Constructor.construct_factory(
+    return Construction.construct_factory(
         factory;
         community=community,
         parameters=parameters,

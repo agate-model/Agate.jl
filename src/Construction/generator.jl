@@ -4,7 +4,7 @@
 
 using Adapt
 
-using ..Functors: CompiledEquation, requirements
+using ..Equations: CompiledEquation, requirements
 using ..Utils: Tracers, TracerIndex, build_tracer_index
 
 using OceanBioME
@@ -127,7 +127,7 @@ function _compile_tracer_functions(parameters, tracers::NamedTuple)
     for (tracer_name, tracer_val) in pairs(tracers)
         tracer_val isa CompiledEquation || throw(
             ArgumentError(
-                "Tracer map values must be Agate.Functors.CompiledEquation; got $(typeof(tracer_val)).",
+                "Tracer map values must be Agate.Equations.CompiledEquation; got $(typeof(tracer_val)).",
             ),
         )
 
@@ -168,7 +168,7 @@ Create a callable Oceananigans biogeochemistry model factory.
 
 `tracers` is a `NamedTuple` mapping tracer names to `CompiledEquation` values.
 
-Each compiled equation wraps a callable `f` plus a `Requirements` object describing which model
+Each compiled equation wraps a callable `f` plus a `EquationRequirements` object describing which model
 parameters are accessed by the callable.
 
 Callable tracer values must accept the Oceananigans biogeochemistry kernel signature:

@@ -1,6 +1,6 @@
 using Agate
-using Agate.Functors: CompiledEquation, Requirements
-using Agate.Constructor: define_tracer_functions
+using Agate.Equations: CompiledEquation, EquationRequirements
+using Agate.Construction: define_tracer_functions
 using Oceananigans.Units
 
 include(joinpath(@__DIR__, "functions.jl"))
@@ -55,10 +55,10 @@ fZ =
     end
 
 tracers = (
-    N=CompiledEquation(fN, Requirements(; scalars=(:lᵖⁿ, :lᶻⁿ, :rᵈⁿ, :μ₀, :kₙ, :α))),
-    D=CompiledEquation(fD, Requirements(; scalars=(:lᵖᵈ, :β, :gₘₐₓ, :kₚ, :lᶻᵈ, :rᵈⁿ))),
-    P=CompiledEquation(fP, Requirements(; scalars=(:μ₀, :kₙ, :α, :gₘₐₓ, :kₚ, :lᵖⁿ, :lᵖᵈ))),
-    Z=CompiledEquation(fZ, Requirements(; scalars=(:β, :gₘₐₓ, :kₚ, :lᶻⁿ, :lᶻᵈ))),
+    N=CompiledEquation(fN, EquationRequirements(; scalars=(:lᵖⁿ, :lᶻⁿ, :rᵈⁿ, :μ₀, :kₙ, :α))),
+    D=CompiledEquation(fD, EquationRequirements(; scalars=(:lᵖᵈ, :β, :gₘₐₓ, :kₚ, :lᶻᵈ, :rᵈⁿ))),
+    P=CompiledEquation(fP, EquationRequirements(; scalars=(:μ₀, :kₙ, :α, :gₘₐₓ, :kₚ, :lᵖⁿ, :lᵖᵈ))),
+    Z=CompiledEquation(fZ, EquationRequirements(; scalars=(:β, :gₘₐₓ, :kₚ, :lᶻⁿ, :lᶻᵈ))),
 )
 
 AgateNPZD = define_tracer_functions(parameters, tracers)

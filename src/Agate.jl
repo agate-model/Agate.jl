@@ -1,24 +1,24 @@
 module Agate
 
 include("Utils/Utils.jl")
-include("Functors/Functors.jl")
+include("Equations/Equations.jl")
 include("Library/Library.jl")
 include("Interface.jl")
-include("Constructor/Constructor.jl")
+include("Construction/Construction.jl")
 include("Models/Models.jl")
 include("Introspection.jl")
 
 using .Library
 using .Utils
 using .Interface
-using .Functors
 using .Models
-using .Constructor
+using .Equations
+using .Construction
 
 export Library
 export Models
 export Utils
-export Functors
+export Equations
 export Interface
 
 # Public model modules.

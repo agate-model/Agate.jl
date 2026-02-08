@@ -1,12 +1,12 @@
-module Functors
+module Equations
 
-export Requirements, merge_requirements, CompiledEquation, requirements
+export EquationRequirements, merge_requirements, CompiledEquation, requirements
 
 """A small immutable set of parameter requirements.
 
 The requirement lists are tuples of `Symbol`s.
 """
-struct Requirements{V,M,S}
+struct EquationRequirements{V,M,S}
     vectors::V
     matrices::M
     scalars::S
@@ -19,19 +19,19 @@ _symbol_tuple(x::AbstractVector) = Tuple(Symbol.(x))
 function _symbol_tuple(x)
     throw(
         ArgumentError(
-            "Requirements must be Symbol, Tuple, Vector, or nothing; got $(typeof(x))."
+            "EquationRequirements must be Symbol, Tuple, Vector, or nothing; got $(typeof(x))."
         ),
     )
 end
 
-"""    Requirements(; vectors=(), matrices=(), scalars=())
+"""    EquationRequirements(; vectors=(), matrices=(), scalars=())
 
-Construct a `Requirements` object.
+Construct an `EquationRequirements` object.
 
 Each keyword accepts a `Symbol`, a tuple of symbols, a vector of symbols, or `nothing`.
 """
-function Requirements(; vectors=(), matrices=(), scalars=())
-    return Requirements(
+function EquationRequirements(; vectors=(), matrices=(), scalars=())
+    return EquationRequirements(
         _symbol_tuple(vectors), _symbol_tuple(matrices), _symbol_tuple(scalars)
     )
 end
@@ -62,10 +62,10 @@ end
 
 """    merge_requirements(r1, r2)
 
-Combine two `Requirements` objects.
+Combine two `EquationRequirements` objects.
 """
-function merge_requirements(r1::Requirements, r2::Requirements)
-    return Requirements(;
+function merge_requirements(r1::EquationRequirements, r2::EquationRequirements)
+    return EquationRequirements(;
         vectors=_merge_syms(r1.vectors, r2.vectors),
         matrices=_merge_syms(r1.matrices, r2.matrices),
         scalars=_merge_syms(r1.scalars, r2.scalars),

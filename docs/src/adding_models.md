@@ -7,7 +7,7 @@ This page is for developers who want to integrate a new ecosystem model into Aga
 A new model typically needs:
 
  1. A model module under `src/Models/<ModelName>/`.
- 2. A small public constructor `Agate.Models.<ModelName>.construct` that forwards to `Agate.Constructor.construct_factory(factory; ...)`.
+ 2. A small public constructor `Agate.Models.<ModelName>.construct` that forwards to `Agate.Construction.construct_factory(factory; ...)`.
  3. A single-source `parameter_definitions(factory)` that pairs each `ParameterSpec` with a default provider.
  4. Optionally, `derived_matrix_specs(factory)` (and `derivation_deps` for the derivation functions) for derived interaction matrices.
  5. A set of compiled dynamics / tracers that consume the parameters and update tendencies.
@@ -61,7 +61,7 @@ This enables early validation and provides the metadata used for interaction nor
 
 ### 3) Define consumer/prey roles
 
-If your model uses role-aware consumer-by-prey interactions (e.g. predators only in a subset of groups), define a `roles` `NamedTuple` and pass it as `interaction_roles` to `Agate.Constructor.construct_factory` (or set it as a default in your public constructor / model variant):
+If your model uses role-aware consumer-by-prey interactions (e.g. predators only in a subset of groups), define a `roles` `NamedTuple` and pass it as `interaction_roles` to `Agate.Construction.construct_factory` (or set it as a default in your public constructor / model variant):
 
   - `roles = (consumers = (:Z, ...), prey = (:P, :D, ...))`
 

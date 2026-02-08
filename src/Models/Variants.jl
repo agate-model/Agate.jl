@@ -21,7 +21,7 @@ system; it only helps keep model-family code clean as variants accumulate.
 """
 
 using ..Utils: AbstractBGCFactory
-using ..Constructor: construct_factory
+using ..Construction: construct_factory
 
 """Stable identifier for a model variant.
 
@@ -42,7 +42,7 @@ Base.string(id::ModelId) = string(id.family, "/", id.citation, "/", id.tag)
 
 """Construction-time container for a model variant.
 
-`VariantSpec` stores the *inputs* to `Agate.Constructor.construct_factory`.
+`VariantSpec` stores the *inputs* to `Agate.Construction.construct_factory`.
 """
 struct VariantSpec{
     F<:AbstractBGCFactory,
@@ -115,7 +115,7 @@ variant(family::Symbol, citation::Symbol, tag::Symbol; kwargs...) =
 
 """Construct a model instance from a `VariantSpec`.
 
-This is a thin convenience wrapper around `Agate.Constructor.construct_factory`.
+This is a thin convenience wrapper around `Agate.Construction.construct_factory`.
 """
 function construct(
     spec::VariantSpec;

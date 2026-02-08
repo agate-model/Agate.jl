@@ -101,7 +101,7 @@ abstract type AbstractBGCFactory end
 
 Factories are intentionally minimal: they declare defaults for community structure and
 dynamics builders. Group ordering is inferred from the *explicit* ordering of the
-`community::NamedTuple` passed to `Constructor.construct_factory`.
+`community::NamedTuple` passed to `Construction.construct_factory`.
 """
 
 include("ParameterDirectory.jl")

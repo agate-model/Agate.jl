@@ -11,7 +11,7 @@ via `bgc.tracers`. No runtime Symbol indexing is performed in kernel-callable co
 
 module Tracers
 
-using ....Functors: CompiledEquation, Requirements
+using ....Equations: CompiledEquation, EquationRequirements
 
 using ....Library.Mortality: linear_loss, quadratic_loss
 using ....Library.Photosynthesis: geider_two_nutrient_growth
@@ -40,7 +40,7 @@ export DIC_geider_light,
 
 """DIC tendency with Geider-style growth (carbon units)."""
 function DIC_geider_light()
-    requirements = Requirements(;
+    requirements = EquationRequirements(;
         scalars=(:DOC_remineralization, :POC_remineralization),
         vectors=(
             :maximum_growth_rate,
@@ -86,7 +86,7 @@ end
 
 """DIN tendency assuming fixed stoichiometry (N:C)."""
 function DIN_geider_light()
-    requirements = Requirements(;
+    requirements = EquationRequirements(;
         scalars=(:DON_remineralization, :PON_remineralization, :nitrogen_to_carbon),
         vectors=(
             :maximum_growth_rate,
@@ -132,7 +132,7 @@ end
 
 """PO4 tendency assuming fixed stoichiometry (P:C)."""
 function PO4_geider_light()
-    requirements = Requirements(;
+    requirements = EquationRequirements(;
         scalars=(:DOP_remineralization, :POP_remineralization, :phosphorus_to_carbon),
         vectors=(
             :maximum_growth_rate,
@@ -180,7 +180,7 @@ end
 
 """DOC tendency from plankton losses and remineralization."""
 function DOC_default()
-    requirements = Requirements(;
+    requirements = EquationRequirements(;
         scalars=(:DOM_POM_fractionation, :DOC_remineralization),
         vectors=(
             :linear_mortality,
@@ -212,7 +212,7 @@ end
 
 """POC tendency from plankton losses and remineralization."""
 function POC_default()
-    requirements = Requirements(;
+    requirements = EquationRequirements(;
         scalars=(:DOM_POM_fractionation, :POC_remineralization),
         vectors=(
             :linear_mortality,
@@ -243,7 +243,7 @@ end
 
 """DON tendency assuming fixed stoichiometry (N:C)."""
 function DON_default()
-    requirements = Requirements(;
+    requirements = EquationRequirements(;
         scalars=(:DOM_POM_fractionation, :DON_remineralization, :nitrogen_to_carbon),
         vectors=(
             :linear_mortality,
@@ -275,7 +275,7 @@ end
 
 """PON tendency assuming fixed stoichiometry (N:C)."""
 function PON_default()
-    requirements = Requirements(;
+    requirements = EquationRequirements(;
         scalars=(:DOM_POM_fractionation, :PON_remineralization, :nitrogen_to_carbon),
         vectors=(
             :linear_mortality,
@@ -306,7 +306,7 @@ end
 
 """DOP tendency assuming fixed stoichiometry (P:C)."""
 function DOP_default()
-    requirements = Requirements(;
+    requirements = EquationRequirements(;
         scalars=(:DOM_POM_fractionation, :DOP_remineralization, :phosphorus_to_carbon),
         vectors=(
             :linear_mortality,
@@ -338,7 +338,7 @@ end
 
 """POP tendency assuming fixed stoichiometry (P:C)."""
 function POP_default()
-    requirements = Requirements(;
+    requirements = EquationRequirements(;
         scalars=(:DOM_POM_fractionation, :POP_remineralization, :phosphorus_to_carbon),
         vectors=(
             :linear_mortality,
@@ -373,7 +373,7 @@ end
 
 """Phytoplankton tendency with Geider-style, two-nutrient growth."""
 function phytoplankton_growth_two_nutrients_geider_light(plankton_idx::Int)
-    requirements = Requirements(;
+    requirements = EquationRequirements(;
         vectors=(
             :maximum_growth_rate,
             :half_saturation_DIN,
@@ -418,7 +418,7 @@ end
 
 """Zooplankton tendency with preferential grazing gain."""
 function zooplankton_default(plankton_idx::Int)
-    requirements = Requirements(;
+    requirements = EquationRequirements(;
         vectors=(
             :linear_mortality,
             :quadratic_mortality,

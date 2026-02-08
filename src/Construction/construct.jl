@@ -27,7 +27,7 @@ using ..Utils:
 
 using ..Interface: default_plankton_dynamics, default_biogeochem_dynamics, default_community
 
-using ..Functors: CompiledEquation, requirements, Requirements, merge_requirements
+using ..Equations: CompiledEquation, requirements, EquationRequirements, merge_requirements
 
 using ..Library.Allometry: resolve_diameter_indexed_vector
 
@@ -433,7 +433,7 @@ function construct_factory(
 
     # Accumulate compiled tracer definitions in a tuple to avoid `Any` erasure.
     tracer_defs = ()
-    merged = Requirements()
+    merged = EquationRequirements()
 
     for (_, f) in pairs(biogeochem_dynamics)
         tr = f()

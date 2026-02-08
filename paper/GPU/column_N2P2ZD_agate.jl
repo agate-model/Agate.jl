@@ -4,7 +4,7 @@ using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans.Units
-using Agate.Constructor: construct_factory
+using Agate.Construction: construct_factory
 using Agate.Models: NiPiZDFactory
 using Agate.Library.Photosynthesis
 using Oceananigans.Fields: FunctionField, ConstantField

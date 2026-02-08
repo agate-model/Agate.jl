@@ -1,7 +1,7 @@
 """NiPiZD defaults expressed as a model-agnostic factory.
 
 This file defines `NiPiZDFactory` and the default inputs used by
-`Agate.Constructor.construct_factory(factory; ...)`.
+`Agate.Construction.construct_factory(factory; ...)`.
 """
 
 using ...Utils: AbstractBGCFactory

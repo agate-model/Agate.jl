@@ -251,13 +251,13 @@ using Oceananigans.Biogeochemistry:
 
         factory = Agate.NiPiZD.NiPiZDFactory()
         base = Agate.Interface.default_community(factory)
-        community = Agate.Constructor.build_plankton_community(
+        community = Agate.Construction.build_plankton_community(
             base;
             n=(Z=2, P=2),
             diameters=(Z=(20, 100, :linear_splitting), P=(2, 10, :log_splitting)),
         )
 
-        bgc = Agate.Constructor.construct_factory(
+        bgc = Agate.Construction.construct_factory(
             factory;
             grid=dummy_grid(Float32),
             community=community,
@@ -272,7 +272,7 @@ using Oceananigans.Biogeochemistry:
         @test all(M[:, 3:4] .== 1.0f0) # P as prey
 
         scale_block!(pal; consumer_group=:Z, prey_group=:P, factor=0.5f0)
-        bgc2 = Agate.Constructor.construct_factory(
+        bgc2 = Agate.Construction.construct_factory(
             factory;
             grid=dummy_grid(Float32),
             community=community,

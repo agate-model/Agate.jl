@@ -11,7 +11,7 @@ The intent is to keep it as a thin construction-time wrapper:
 
 using ...Interface:
     default_plankton_dynamics, default_biogeochem_dynamics, default_community
-using ...Constructor: build_plankton_community
+using ...Construction: build_plankton_community
 using Agate.Models: ModelId, VariantSpec, register_variant
 
 """Return the `DARWIN/citation2026/A` variant specification."""

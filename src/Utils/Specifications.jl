@@ -9,7 +9,7 @@ These are lightweight wrappers around `NamedTuple`s that support:
 - `Adapt.jl` compatibility for runtime parameter structs.
 
 These types live under `Agate.Utils.Specifications` and are re-exported from
-`Agate.Constructor` as part of the public factory/constructor API.
+`Agate.Construction` as part of the public factory/constructor API.
 """
 module Specifications
 

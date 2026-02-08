@@ -14,7 +14,7 @@ Agate.required_parameters
 ## Low level API
 
 ```@docs
-Agate.Constructor.ModelSpec
-Agate.Constructor.construct_factory
-Agate.Constructor.define_tracer_functions
+Agate.Construction.ModelSpec
+Agate.Construction.construct_factory
+Agate.Construction.define_tracer_functions
 ```

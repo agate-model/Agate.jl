@@ -7,25 +7,25 @@ Each model factory provides a mapping from tracer names to `CompiledEquation` va
 A `CompiledEquation` stores:
 
   - a callable `f` (the tracer tendency), and
-  - a `Requirements` object describing which model parameters the callable reads.
+  - a `EquationRequirements` object describing which model parameters the callable reads.
 
 The constructor uses these requirements to validate that the parameter set is complete before
 building the final Oceananigans biogeochemistry object.
 
-## `CompiledEquation` and `Requirements`
+## `CompiledEquation` and `EquationRequirements`
 
-The types live in `Agate.Functors`:
+The types live in `Agate.Equations`:
 
-  - `Requirements(; scalars=..., vectors=..., matrices=...)`
+  - `EquationRequirements(; scalars=..., vectors=..., matrices=...)`
   - `CompiledEquation(f, r)`
 
-Requirements are just lists of parameter keys (`Symbol`s). They are intentionally explicit:
+EquationRequirements are just lists of parameter keys (`Symbol`s). They are intentionally explicit:
 there is no expression parsing during construction.
 
 Example:
 
 ```julia
-using Agate.Functors: CompiledEquation, Requirements
+using Agate.Equations: CompiledEquation, EquationRequirements
 
 # f must follow the Oceananigans biogeochemistry kernel signature.
 #
@@ -37,7 +37,7 @@ using Agate.Functors: CompiledEquation, Requirements
     return -k
 end
 
-eq = CompiledEquation(my_tracer, Requirements(; scalars=(:detritus_remineralization,)))
+eq = CompiledEquation(my_tracer, EquationRequirements(; scalars=(:detritus_remineralization,)))
 ```
 
 ## Tracer function signature

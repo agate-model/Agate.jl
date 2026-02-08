@@ -1,8 +1,8 @@
 using Agate
 using Test
 
-using Agate.Functors: CompiledEquation, Requirements
-using Agate.Constructor: define_tracer_functions
+using Agate.Equations: CompiledEquation, EquationRequirements
+using Agate.Construction: define_tracer_functions
 
 using OceanBioME: BoxModelGrid, setup_velocity_fields
 using Oceananigans.Units
@@ -27,8 +27,8 @@ using Oceananigans.Biogeochemistry:
         end
 
         tracers = (
-            R=CompiledEquation(fR, Requirements(; scalars=(:α, :β))),
-            F=CompiledEquation(fF, Requirements(; scalars=(:γ, :δ))),
+            R=CompiledEquation(fR, EquationRequirements(; scalars=(:α, :β))),
+            F=CompiledEquation(fF, EquationRequirements(; scalars=(:γ, :δ))),
         )
 
         bgc_type = define_tracer_functions(parameters, tracers; auxiliary_fields=())
@@ -51,7 +51,7 @@ using Oceananigans.Biogeochemistry:
             p.α * R
         end
 
-        tracers = (R=CompiledEquation(fR, Requirements(; scalars=(:α, :missing_param))),)
+        tracers = (R=CompiledEquation(fR, EquationRequirements(; scalars=(:α, :missing_param))),)
 
         err = try
             define_tracer_functions(parameters, tracers; auxiliary_fields=())
@@ -73,7 +73,7 @@ using Oceananigans.Biogeochemistry:
             -p.k * C
         end
 
-        tracers = (C=CompiledEquation(fC, Requirements(; scalars=(:k,))),)
+        tracers = (C=CompiledEquation(fC, EquationRequirements(; scalars=(:k,))),)
 
         grid = BoxModelGrid()
         sinking_tracers = (C=1.0 / day,)
