@@ -9,8 +9,9 @@ The high-level pattern matches `Agate.Models.NiPiZD.construct`, with additional 
   - **Parameters**: override named parameters via `parameters=(; ...)`
   - **Interactions**: optionally override palatability and assimilation matrices
 
-DARWIN shares the same interaction-matrix surface as NiPiZD: rectangular `(n_consumer, n_prey)` overrides,
-provider functions `(ctx) -> matrix`, and trait-driven derived matrices.
+DARWIN shares the same interaction-matrix surface as NiPiZD: rectangular `(n_consumer, n_prey)` overrides and trait-driven derived matrices.
+
+Provider functions / callables are not supported in user overrides. If you need matrices derived from traits or other parameters, define a `Variant` / `Factory` default that produces concrete rectangular matrices during construction.
 
 ```@docs
 Agate.Models.DARWIN.construct

@@ -90,23 +90,10 @@ bgc = Agate.Models.NiPiZD.construct(; palatability_matrix=pal, assimilation_matr
 Because these matrices are **role-aware**, the preferred override form is a
 rectangular matrix sized `(n_consumer, n_prey)`.
 
-For programmatic workflows, you can pass **provider functions** evaluated once
-at construction time:
-
-```julia
-pal = (ctx) -> begin
-    nc = length(ctx.consumer_indices)
-    np = length(ctx.prey_indices)
-    M = zeros(ctx.FT, nc, np)
-    # fill M in consumer-by-prey order
-    return M
-end
-
-bgc = Agate.Models.NiPiZD.construct(; palatability_matrix=pal)
-```
+If you need matrices derived from traits or other parameters, define a Variant/Factory default that produces concrete rectangular matrices during construction.
 
 Group-by-group (block) matrices are not accepted as overrides. Provide an explicit `(n_consumer, n_prey)`
-rectangular matrix (or a provider returning one).
+rectangular matrix.
 
 ## Trait-driven derived matrices
 

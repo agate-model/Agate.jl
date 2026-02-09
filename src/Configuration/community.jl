@@ -94,11 +94,9 @@ end
 # Construction context
 ##############################################################################
 
-"""Context passed to constructor-time provider functions (e.g. `palatability_matrix = (community_context) -> ...`).
+"""Context used during model construction (community parsing, parameter resolution, interaction normalization, derived matrices).
 
-`CommunityContext` exists at **construction time** (community parsing, parameter
-resolution, interaction normalization, derived matrices). It is distinct from
-`TendencyContext`, which is used at **tendency time** inside Oceananigans kernels.
+`CommunityContext` exists at **construction time** and is used by factory/variant code to compute concrete parameter defaults. User-facing interaction overrides are data-only and are validated separately. It is distinct from `TendencyContext`, which is used at **tendency time** inside Oceananigans kernels.
 """
 struct CommunityContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
     FT::Type{FT}

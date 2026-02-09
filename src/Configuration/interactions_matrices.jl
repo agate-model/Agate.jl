@@ -136,23 +136,16 @@ end
 - `nothing` (no overrides)
 - a `NamedTuple` of updates
 
-Within the `NamedTuple`, values may be concrete objects (e.g. matrices) *or*
-provider functions. Provider functions are evaluated against a `CommunityContext`
-and must be callable as:
+Interaction overrides are **data-only**. Values must be explicit, canonical
+axis-sized rectangular matrices. Provider functions / callables are **not**
+supported.
 
-- `f(community_context)`
+For a matrix parameter with declared `axes` (for example `(:consumer, :prey)`),
+users must pass a rectangular matrix sized to the declared axes (for example
+`(n_consumer, n_prey)`).
 
-For matrix parameters with declared `axes` (for example `(:consumer, :prey)`), users must pass either:
-
-- a rectangular matrix sized to the declared axes (for example `(n_consumer, n_prey)`), or
-- a provider function `(ctx) -> matrix` returning an axis-sized rectangular matrix.
-
-For matrix parameters without `axes`, users must pass a full square `(n_total, n_total)` matrix (or a provider returning one).
-
-Full-square matrices are not accepted as overrides for role-aware (axes-declared) parameters to keep the override surface explicit.
-
-Shape validation is driven by `parameter_directory(factory)`.
-Final key validation and full parameter shape checks occur during model
+If you need to derive matrices from traits or other parameters, define a
+`Variant` / `Factory` default that produces concrete rectangular matrices during
 construction.
 """
 function normalize_interaction_overrides(
@@ -171,9 +164,38 @@ function normalize_interaction_overrides(
             ),
         )
 
-        resolved_value =
-            value isa Function ? _call_interaction_provider(value, community_context, key) : value
-        resolved_value = _normalize_interaction_value(community_context, spec, key, resolved_value)
+        (spec.shape === :matrix) || throw(
+            ArgumentError(
+                "interaction override '$key' must target a matrix ParameterSpec; got shape $(spec.shape). Use `parameters=(; ...)` for non-matrix parameters.",
+            ),
+        )
+        (spec.axes !== nothing) || throw(
+            ArgumentError(
+                "interaction override '$key' must target an axes-declared matrix ParameterSpec (canonical rectangular matrices only). Providers are not supported; use a Variant/Factory if you need derived matrices.",
+            ),
+        )
+
+        row_axis, col_axis = spec.axes
+        row_indices = axis_indices(community_context, row_axis)
+        col_indices = axis_indices(community_context, col_axis)
+        nr = length(row_indices)
+        nc = length(col_indices)
+
+        if value isa Function || applicable(value, community_context)
+            throw(
+                ArgumentError(
+                    "interaction override '$key' expected rectangular matrix of size ($(nr), $(nc)) for axes $(spec.axes); providers are not supported; use a Variant/Factory if you need derived matrices.",
+                ),
+            )
+        end
+
+        value isa AbstractMatrix || throw(
+            ArgumentError(
+                "interaction override '$key' expected rectangular matrix of size ($(nr), $(nc)) for axes $(spec.axes); got $(typeof(value)). Providers are not supported; use a Variant/Factory if you need derived matrices.",
+            ),
+        )
+
+        resolved_value = _normalize_interaction_value(community_context, spec, key, value)
         _validate_interaction_override(community_context, spec, key, resolved_value)
         resolved = (resolved..., key => resolved_value)
     end
@@ -181,11 +203,6 @@ function normalize_interaction_overrides(
     return (; resolved...)
 end
 
-@inline function _call_interaction_provider(f::Function, community_context::CommunityContext, key::Symbol)
-    applicable(f, community_context) && return f(community_context)
-
-    throw(ArgumentError("interaction override '$key' provider must be callable as f(community_context)"))
-end
 
 """Return the global plankton indices for an interaction axis.
 
@@ -237,7 +254,7 @@ Axes may be:
         if size(value) == (ng, ng)
             throw(
                 ArgumentError(
-                    "interaction override '$key' looks like a group-by-group matrix (size $(ng)x$(ng)). Group-block overrides are not supported; pass a $(nr)x$(nc) axis matrix for axes $(spec.axes) (or a provider returning one).",
+                    "interaction override '$key' looks like a group-by-group matrix (size $(ng)x$(ng)). Group-block overrides are not supported; pass a $(nr)x$(nc) axis matrix for axes $(spec.axes). Providers are not supported; use a Variant/Factory if you need derived matrices.",
                 ),
             )
         end

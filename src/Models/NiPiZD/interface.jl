@@ -17,13 +17,12 @@
 # - `palatability_matrix`
 # - `assimilation_matrix`
 # 
-# Each may be either a concrete matrix, or a function that computes a matrix from
-# the construction context:
-# 
-# - `(community_context) -> matrix`
-# 
-# Matrix overrides may be specified as full `(n_total, n_total)` matrices, or (because
-# these matrices are role-aware) as rectangular `(n_consumer, n_prey)` matrices.
+# Each must be an explicit rectangular matrix sized to the canonical interaction
+# axes `(n_consumer, n_prey)` (for NiPiZD defaults, `(n_zoo, n_phyto)`).
+#
+# Provider functions / callables are **not** supported in user-facing overrides.
+# If you need matrices derived from traits or other parameters, define a Variant /
+# Factory default that produces concrete matrices during construction.
 # 
 # Internally, role-aware interactions are stored **only** in rectangular form.
 # No square matrices or square views are created.
@@ -90,8 +89,7 @@ function construct(;
     # Interaction overrides (optional).
     #
     # We forward overrides through the model-agnostic constructor as a `NamedTuple`.
-    # If a value is a function, it will be evaluated once against the CommunityContext
-    # during construction.
+    # Interaction overrides are data-only: values must be explicit matrices.
     pairs = Pair{Symbol,Any}[]
     palatability_matrix !== nothing &&
         push!(pairs, :palatability_matrix => palatability_matrix)

@@ -82,20 +82,9 @@ using Oceananigans.Biogeochemistry:
             assimilation_matrix=axis_block,
         )
 
-        # Providers can return axis-sized rectangular matrices.
-        rect_provider(ctx) =
-            fill(Float32(9), length(ctx.consumer_indices), length(ctx.prey_indices))
-        bgc_rect_provider = NiPiZD.construct(;
-            grid=dummy_grid(Float32),
-            palatability_matrix=rect_provider,
-            assimilation_matrix=rect_provider,
-        )
-        M3 = bgc_rect_provider.parameters.palatability_matrix
-        @test size(M3) == (n_cons, n_prey)
-        @test all(M3 .== 9.0f0)
 
-        # Full-square matrices are not accepted; slice to axes or provide a provider
-        # returning an axis-sized matrix.
+
+        # Full-square matrices are not accepted for role-aware interaction overrides.
         correct = zeros(Float32, n_total, n_total)
         @test_throws ArgumentError NiPiZD.construct(;
             grid=dummy_grid(Float32),
@@ -103,26 +92,21 @@ using Oceananigans.Biogeochemistry:
             assimilation_matrix=correct,
         )
 
-        # Providers are allowed for the public keywords. They are evaluated once during construction.
-        pal_provider(ctx) = zeros(Float32, length(ctx.consumer_indices), length(ctx.prey_indices))
-        assim_provider(ctx) = zeros(Float32, length(ctx.consumer_indices), length(ctx.prey_indices))
 
-        # Old-style providers are rejected.
-        old_style_provider(diameters, group_symbols) =
-            zeros(Float32, length(diameters), length(diameters))
-        @test_throws ArgumentError NiPiZD.construct(;
-            grid=dummy_grid(Float32),
-            palatability_matrix=pal_provider,
-            assimilation_matrix=old_style_provider,
-        )
-
-        bgc3 = NiPiZD.construct(;
-            grid=dummy_grid(Float32),
-            palatability_matrix=pal_provider,
-            assimilation_matrix=assim_provider,
-        )
-        @test size(bgc3.parameters.palatability_matrix) == (n_cons, n_prey)
-        @test size(bgc3.parameters.assimilation_matrix) == (n_cons, n_prey)
+        # Provider/callable values are not supported for interaction overrides.
+        rect_provider(ctx) = fill(Float32(9), length(ctx.consumer_indices), length(ctx.prey_indices))
+        err = try
+            NiPiZD.construct(;
+                grid=dummy_grid(Float32),
+                palatability_matrix=rect_provider,
+                assimilation_matrix=rect_provider,
+            )
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("providers are not supported", sprint(showerror, err))
     end
 
     @testset "Derived interaction matrices" begin

@@ -14,10 +14,9 @@ The constructor is intentionally small and explicit:
 Interaction matrices are role-aware predator-by-prey matrices.
 The preferred override form is a rectangular `(n_consumer, n_prey)` matrix.
 
-You can provide interaction overrides as:
+You can provide interaction overrides as concrete matrices (`palatability_matrix=...`, `assimilation_matrix=...`).
 
-  - concrete matrices (`palatability_matrix=...`, `assimilation_matrix=...`)
-  - provider functions `(ctx) -> matrix`, evaluated once during construction
+Provider functions / callables are not supported in user overrides. If you need matrices derived from traits or other parameters, define a `Variant` / `Factory` default that produces concrete rectangular matrices during construction.
 
 
 ```@docs

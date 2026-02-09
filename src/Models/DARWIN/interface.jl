@@ -34,10 +34,8 @@ Keywords
 - `phyto_diameters=(1.5, 20.0, :log_splitting)`: diameter specification for phytoplankton
 - `zoo_diameters=(20.0, 100.0, :log_splitting)`: diameter specification for zooplankton
 - `parameters=(;)`: parameter overrides (validated against the DARWIN parameter set)
-- `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrices. Each may be:
-  - a full `(n_total, n_total)` matrix
-  - a rectangular `(n_consumer, n_prey)` matrix (the canonical interaction representation)
-  - a provider function `(community_context) -> matrix` that returns any of the above
+- `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrix overrides.
+  Each must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)` (for DARWIN defaults, `(n_zoo, n_phyto)`). Provider functions / callables are not supported; use a Variant/Factory default if you need derived matrices.
 - `grid=BoxModelGrid()`: grid used for precision/architecture inference and sinking velocity fields
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
 - `sinking_tracers=nothing`: sinking speed overrides, e.g. `(POC = 10/day, ...)`
@@ -76,6 +74,7 @@ function construct(;
     )
 
     # Interaction overrides (optional).
+    # Interaction overrides are data-only: values must be explicit matrices.
     pairs = Pair{Symbol,Any}[]
     palatability_matrix !== nothing &&
         push!(pairs, :palatability_matrix => palatability_matrix)

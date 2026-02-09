@@ -57,38 +57,17 @@ These are **role-aware** predator-by-prey matrices with axes `(:consumer, :prey)
 
 ### Accepted override forms
 
-For either matrix key, you may pass:
+For either matrix key, you must pass an **explicit** rectangular axis-sized matrix of size `(n_consumer, n_prey)`.
 
-  - a rectangular axis-sized matrix of size `(n_consumer, n_prey)`
-  - a provider function `(ctx) -> matrix` returning one of the above
-
-Full-square `(n_total, n_total)` matrices are not accepted as overrides for role-aware parameters.
-If you want to override based on a full matrix, slice it to the active axes yourself.
+Provider functions / callables are not supported in user overrides. If you need matrices derived from traits or other parameters, define a `Variant` / `Factory` default that produces concrete rectangular matrices during construction.
 
 Role-aware rectangular matrices are the preferred override form because they are explicit and small.
 
 ### The construction context: `CommunityContext`
 
-Provider functions receive an `Agate.Configuration.CommunityContext` with precomputed axes:
+`CommunityContext` is available during construction (community parsing, default parameter resolution, derived matrices). It is intended for **factory/variant code**, not user overrides.
 
-  - `ctx.consumer_indices` / `ctx.prey_indices` (global indices)
-  - `ctx.group_symbols`, `ctx.diameters`, `ctx.n_total`
-  - `ctx.FT` (the floating-point type inferred from the grid)
-
-Example: override palatability as a rectangular matrix:
-
-```julia
-pal = (ctx) -> begin
-    nc = length(ctx.consumer_indices)
-    np = length(ctx.prey_indices)
-
-    M = zeros(ctx.FT, nc, np)
-    # fill M in consumer-by-prey order
-    return M
-end
-
-bgc = Agate.Models.NiPiZD.construct(; palatability_matrix=pal)
-```
+User-facing interaction overrides are data-only and must be explicit matrices. To compute matrices programmatically, do it in a Variant/Factory layer and store the concrete matrix as a default.
 
 ### Derived matrices (trait-driven)
 

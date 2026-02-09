@@ -138,5 +138,5 @@ Add at least:
 
   - constructor defaults
   - parameter overrides (scalar, vector, matrix)
-  - interaction overrides (rectangular and provider-function forms)
+  - interaction overrides (rectangular matrices)
   - a small GPU smoke test (gated) that checks rectangular matrices move to the device via `p.interactions.*`

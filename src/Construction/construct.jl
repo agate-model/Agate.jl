@@ -325,8 +325,8 @@ Key keyword arguments
 - `interaction_roles=nothing`: optional role membership for consumer/prey axes. Provide as a `NamedTuple` with fields `consumers` and `prey`, each either `nothing` (all classes), a collection of group `Symbol`s, an index vector, or a boolean mask. When omitted, both roles default to `nothing` (all classes).
 - `default_parameter_roles=nothing`: optional role membership used **only** when generating default parameter vectors (e.g. producer- vs consumer-like trait defaults). Provide as `(; producers=..., consumers=...)` using the same formats as `interaction_roles`. When omitted, defaults to matching the interaction axes: `(; producers=interaction_roles.prey, consumers=interaction_roles.consumers)`.
 - `interaction_overrides`: optional `NamedTuple` of interaction-parameter overrides (often matrices such as `:palatability_matrix` and `:assimilation_matrix`).
-  Values may be concrete objects or provider functions callable as `f(community_context)`.
-  For matrix parameters with declared `axes`, overrides must be axis-sized rectangular matrices (for example `(n_consumer, n_prey)` for `(:consumer, :prey)`), or provider functions returning such matrices. Full-square `(n_total, n_total)` matrices are not accepted for axes-declared parameters. For matrix parameters without `axes`, overrides must be full `(n_total, n_total)` matrices (or providers returning them).
+  Interaction overrides are **data-only**: values must be explicit rectangular matrices sized to the declared axes (for example `(n_consumer, n_prey)` for `(:consumer, :prey)`).
+  Provider functions / callables are **not** supported; if you need derived matrices, define a `Variant` / `Factory` default that produces concrete matrices during construction.
 """
 
 # ---------------------------------------------------------------------

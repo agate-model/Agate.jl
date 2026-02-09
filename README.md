@@ -107,26 +107,24 @@ These matrices are **role-aware** and are stored canonically as
 `(n_consumer, n_prey)` rectangular matrices.
 
 All public model constructors accept overrides via the two keywords
-`palatability_matrix=` and `assimilation_matrix=`. Each may be:
+`palatability_matrix=` and `assimilation_matrix=`. Each must be an **explicit**,
+rectangular `(n_consumer, n_prey)` matrix in canonical consumer-by-prey order.
+Provider functions / callables are **not** supported in user overrides.
 
-  - a rectangular `(n_consumer, n_prey)` matrix
-  - a full `(n_total, n_total)` matrix (embedded/sliced automatically)
-  - a provider function `(ctx) -> matrix` evaluated once at construction time
+If you need matrices derived from traits or other parameters, define a Variant/Factory
+default that produces concrete rectangular matrices during construction.
 
-For advanced workflows, the construction context provides explicit axes:
+Example (NiPiZD default axes: consumers=Z, prey=P, so `2×2` by default):
 
 ```julia
 using Agate
 
-pal = (ctx) -> begin
-    nc = length(ctx.consumer_indices)
-    np = length(ctx.prey_indices)
-    M = zeros(ctx.FT, nc, np)
-    # fill M in consumer-by-prey order
-    return M
-end
+pal = Float32[ 1 0;
+              0 1 ]
+assim = Float32[ 0.7 0.7;
+                0.7 0.7 ]
 
-bgc = Agate.Models.NiPiZD.construct(; palatability_matrix=pal)
+bgc = Agate.Models.NiPiZD.construct(; palatability_matrix=pal, assimilation_matrix=assim)
 ```
 
 If you have a small *group-by-group* block matrix, wrap it in

@@ -66,23 +66,19 @@ model = Agate.Models.NiPiZD.construct(; parameters=params)
 
 ### Override interaction matrices
 
-For palatability and assimilation matrices, the recommended override is a **rectangular consumer-by-prey** matrix of size
-`(n_consumer, n_prey)`.
+For palatability and assimilation matrices, overrides are **data-only**: pass an explicit rectangular consumer-by-prey matrix of size `(n_consumer, n_prey)`.
 
-You can also provide a function `f(ctx)` that returns the matrix. Here, `ctx` is an **interaction context** describing the community
-(size classes, groups, and which indices are consumers vs prey). In practice, you mainly use it to size your matrix:
+For the default NiPiZD roles (consumers=Z, prey=P), the matrix size is `(n_zoo, n_phyto)`:
 
 ```julia
-pal_provider = ctx -> begin
-    n_consumer = length(ctx.consumer_indices)
-    n_prey = length(ctx.prey_indices)
-    return ones(n_consumer, n_prey)
-end
-
-model = Agate.Models.NiPiZD.construct(; palatability_matrix=pal_provider)
+pal = Float32[ 1 0;
+              0 1 ]
+assim = fill(0.7f0, 2, 2)
+model = Agate.Models.NiPiZD.construct(; palatability_matrix=pal, assimilation_matrix=assim)
 ```
 
-Advanced forms (like provider functions for matrices) exist for convenience, but you can ignore them when you're starting.
+If you need matrices derived from traits or other parameters, define a `Variant` / `Factory` default that produces concrete rectangular matrices during construction (see [Variants](@ref "Variants")).
+
 See the reference: [Parameters and interaction matrices](@ref "Parameters and interaction matrices").
 
 ## When you are ready for deeper changes
