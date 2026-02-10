@@ -55,7 +55,9 @@ makedocs(;
         size_threshold=500000,  # 500KB threshold
         size_threshold_warn=200000,
     ), # 200KB warning
-    # modules=[Agate],
+    modules=[Agate],
+    checkdocs=:exports,
+    warnonly=[:missing_docs],
     pages=[
         "Home" => "index.md",
         "Quick start" => "quick_start.md",
