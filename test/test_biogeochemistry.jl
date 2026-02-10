@@ -42,7 +42,11 @@ using Oceananigans.Biogeochemistry:
         model2 = LV(LVParameters{Float64}(1.0, 1.0, 2.0, 2.0))
 
         @test required_biogeochemical_tracers(model1) == (:R, :F)
+        @test required_biogeochemical_tracers(typeof(model1)) ==
+            required_biogeochemical_tracers(model1)
         @test required_biogeochemical_auxiliary_fields(model1) == (:PAR,)
+        @test required_biogeochemical_auxiliary_fields(typeof(model1)) ==
+            required_biogeochemical_auxiliary_fields(model1)
 
         @test model1(Val(:R), 0, 0, 0, 0, 10, 2, 0) == 2 / 3 * 10 - 4 / 3 * 10 * 2
         @test model1(Val(:F), 0, 0, 0, 0, 10, 2, 0) == -1 * 2 + 1 * 10 * 2
