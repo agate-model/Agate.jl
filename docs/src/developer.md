@@ -29,9 +29,3 @@ It assumes you are comfortable reading Julia code and running the test suite.
       + [Parameters and interaction matrices](@ref "Parameters and interaction matrices")
       + [Callable dynamics API](@ref "Callable dynamics API")
       + [API reference](@ref "API reference")
-
-## Development workflow
-
-  - Run the tests in `test/` regularly while refactoring.
-  - Prefer small, explicit functions with clear type signatures.
-  - Keep docstrings aligned with the current implementation (avoid describing removed behavior).

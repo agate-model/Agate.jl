@@ -1,3 +1,4 @@
+# to build docs from terminal `julia --project=docs docs/make.jl`
 push!(LOAD_PATH, "../src/")
 using Documenter, Literate
 using Agate
@@ -14,7 +15,7 @@ const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
 examples = [
-    "Box model customisation" => "box_model_factories", "Column model" => "1D_column"
+    "Column model" => "1D_column"
 ]
 
 example_scripts = [filename * ".jl" for (title, filename) in examples]
@@ -57,22 +58,19 @@ makedocs(;
     # modules=[Agate],
     pages=[
         "Home" => "index.md",
-        "Beginner guide" => [
-            "Start here" => "beginner.md",
-            "Quick start" => "quick_start.md",
-            "Using built-in models" => model_pages,
-            "Examples" => example_pages,
-        ],
-        "Developer guide" => [
-            "Start here" => "developer.md",
+        "Quick start" => "quick_start.md",
+        "Examples" => example_pages,
+        "Models" => model_pages,
+        "Library" => "library.md",
+        "Implementing new models" => [
+            "Overview" => "developer.md",
             "Variants" => "variants.md",
             "Adding a model" => "adding_models.md",
             "Constructor API" => "api_constructor.md",
             "Parameters & interactions" => "parameters_and_interactions.md",
             "Callable dynamics" => "callable_dynamics.md",
-            "API reference" => "api.md",
         ],
-        "Library" => "library.md",
+        "API reference" => "api.md",
     ],
 )
 
