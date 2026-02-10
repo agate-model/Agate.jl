@@ -10,10 +10,11 @@ Agate.Introspection.auxiliary_field_names
 Agate.Introspection.parameter_names
 ```
 
-## Low level API
+## Construction API
 
 ```@docs
-Agate.Construction.ModelSpec
-Agate.Construction.construct_factory
+Agate.Construction.PFTSpecification
+Agate.Factories.AbstractBGCFactory
+Agate.Equations.CompiledEquation
 Agate.Construction.define_tracer_functions
 ```
