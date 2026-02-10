@@ -39,6 +39,10 @@ Adapt.@adapt_structure AgateBGC
 
 @inline required_biogeochemical_tracers(bgc::AgateBGC) = keys(bgc.tracer_functions)
 
+@inline function required_biogeochemical_tracers(::Type{<:AgateBGC{PT,TF}}) where {PT,TF<:NamedTuple}
+    return fieldnames(TF)
+end
+
 @generated function _auxiliary_fields_from_tracers(::Type{TR}) where {TR}
     # TR is expected to be `Tracers{TracerIndex{TRSYMS,GS,AF,NG}}`.
     TI = TR.parameters[1]
@@ -48,6 +52,12 @@ end
 
 @inline required_biogeochemical_auxiliary_fields(bgc::AgateBGC) =
     _auxiliary_fields_from_tracers(typeof(bgc.tracers))
+
+@inline function required_biogeochemical_auxiliary_fields(
+    ::Type{<:AgateBGC{PT,TF,TR}},
+) where {PT,TF,TR}
+    return _auxiliary_fields_from_tracers(TR)
+end
 
 @inline function (bgc::AgateBGC)(::Val{tracer}, args...) where {tracer}
     f = getfield(bgc.tracer_functions, tracer)
