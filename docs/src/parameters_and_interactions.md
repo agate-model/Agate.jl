@@ -77,6 +77,8 @@ If a matrix is **not** explicitly overridden, but at least one of its declared *
 
 This makes it practical to tune interaction behaviour via a small, readable set of vectors.
 
+Trait vectors used for derivations are ordinary parameters and must have eltype `FT` (the grid float type). Override them as `Vector{FT}` to keep construction explicit.
+
 ```julia
 n_phyto = 4
 n_zoo = 2
@@ -85,6 +87,13 @@ n_total = n_phyto + n_zoo
 bgc = Agate.Models.NiPiZD.construct(; n_phyto, n_zoo, parameters=(; specificity=fill(0.15f0, n_total),))
 # palatability_matrix is regenerated from the updated specificity
 ```
+
+## Recommended advanced workflow: Variants
+
+If you want matrices to be derived automatically, define those derivations in a Variant/Factory layer
+and construct the model from the variant. User-facing interaction overrides remain matrix-only.
+
+See the **Variants** page for how to define a Variant/Factory that computes or swaps derived interaction matrices via `matrix_definitions`. If you override trait vectors directly, they must have eltype `FT` (the grid float type).
 
 ### Access at runtime
 

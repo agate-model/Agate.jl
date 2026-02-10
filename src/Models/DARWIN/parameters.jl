@@ -8,7 +8,7 @@ Defaults are evaluated on the host during construction and later moved to the
 target architecture with `Adapt`.
 
 Interaction matrices (`palatability_matrix`, `assimilation_matrix`) are derived from
-trait vectors using `derived_matrix_specs`.
+trait vectors using `matrix_definitions`.
 """
 
 import ...Factories:
@@ -20,13 +20,13 @@ import ...Factories:
     FillDefault,
     DiameterIndexedVectorDefault
 
-import ...Configuration: derived_matrix_specs
+import ...Configuration: matrix_definitions
 
 using ...Library.Allometry:
     AllometricParam,
     PowerLaw
 
-using ...Configuration: derive_assimilation_matrix_binary, derive_palatability_matrix_allometric
+using ...Configuration: MatrixDefinition, PalatabilityAllometric, AssimilationBinary
 
 function parameter_definitions(::DarwinFactory)
     detritus_remin = 0.1213 / 86400
@@ -225,9 +225,9 @@ function parameter_definitions(::DarwinFactory)
     )
 end
 
-function derived_matrix_specs(::DarwinFactory)
+function matrix_definitions(::DarwinFactory)
     return (;
-        palatability_matrix=derive_palatability_matrix_allometric,
-        assimilation_matrix=derive_assimilation_matrix_binary,
+        palatability_matrix=MatrixDefinition(PalatabilityAllometric()),
+        assimilation_matrix=MatrixDefinition(AssimilationBinary()),
     )
 end

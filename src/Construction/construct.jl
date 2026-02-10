@@ -362,7 +362,7 @@ This function assembles a biogeochemistry instance in four conceptual steps:
 2. **Build baseline parameters** by evaluating `parameter_definitions(factory)` into concrete numeric values
    (scalars, vectors, matrices) with element type `FT`.
 3. **Apply overrides** (`parameters` and interaction overrides), then compute or recompute any derived interaction
-   matrices declared by `derived_matrix_specs(factory)`.
+   matrices declared by `matrix_definitions(factory)`.
 4. **Finalize interactions** into a canonical consumer-by-prey representation and adapt the instance to the
    requested architecture.
 

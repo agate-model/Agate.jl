@@ -13,6 +13,8 @@ DARWIN shares the same interaction-matrix surface as NiPiZD: rectangular `(n_con
 
 Provider functions / callables are not supported in user overrides. If you need matrices derived from traits or other parameters, define a `Variant` / `Factory` default that produces concrete rectangular matrices during construction.
 
+See also: the Variants section for how to define a Variant/Factory that changes interaction-matrix defaults or derivation strategies via `matrix_definitions`.
+
 ```@docs
 Agate.Models.DARWIN.construct
 ```

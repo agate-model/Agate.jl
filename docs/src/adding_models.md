@@ -9,7 +9,7 @@ A new model typically needs:
  1. A model module under `src/Models/<ModelName>/`.
  2. A small public constructor `Agate.Models.<ModelName>.construct` that forwards to `Agate.Construction.construct_factory(factory; ...)`.
  3. A single-source `parameter_definitions(factory)` that pairs each `ParameterSpec` with a default provider.
- 4. Optionally, `derived_matrix_specs(factory)` (and `derivation_deps` for the derivation functions) for derived interaction matrices.
+ 4. Optionally, `matrix_definitions(factory)` for derived interaction matrices.
  5. A set of compiled dynamics / tracers that consume the parameters and update tendencies.
  6. Tests that exercise defaults and overrides.
 
@@ -78,20 +78,44 @@ Defaults are declared alongside parameter metadata in `parameter_definitions(fac
 - `DiameterIndexedVectorDefault(x, :indices_field; default=...)` for vectors defined over a subset of diameter-indexed classes,
 - `NoDefault()` when a parameter has no direct default (for example matrices derived later from trait vectors).
 
-If your model derives interaction matrices from trait vectors, register the derivations with:
+If your model derives interaction matrices from trait vectors, register the derivations with strategy objects:
 
 ```julia
-using Agate.Configuration: derived_matrix_specs, derivation_deps
+using Agate.Configuration:
+    matrix_definitions,
+    AbstractMatrixDeriver,
+    MatrixDefinition,
+    derivation_deps,
+    derive_matrix
 
-derived_matrix_specs(::MyModelFactory) = (;
-    palatability_matrix = derive_palatability_matrix,
-)
+using Agate.Factories: AbstractBGCFactory
+using Agate.Configuration: CommunityContext, axis_indices
 
-derivation_deps(::typeof(derive_palatability_matrix)) =
+struct MyPalatabilityDeriver <: AbstractMatrixDeriver end
+
+# List the parameter keys that the derivation depends on.
+derivation_deps(::MyPalatabilityDeriver) =
     (:optimum_predator_prey_ratio, :specificity, :protection)
+
+# Compute and return a concrete Matrix{FT} of size (n_consumer, n_prey).
+function derive_matrix(
+    ::MyPalatabilityDeriver,
+    factory::AbstractBGCFactory,
+    ctx::CommunityContext,
+    params::NamedTuple,
+)
+    FT = ctx.FT
+    # ...compute...
+    return Matrix{FT}(undef, length(axis_indices(ctx, :consumer)), length(axis_indices(ctx, :prey)))
+end
+
+matrix_definitions(::MyModelFactory) = (;
+    palatability_matrix = MatrixDefinition(MyPalatabilityDeriver()),
+)
 ```
 
 The constructor recomputes a derived matrix when it is not explicitly overridden and at least one dependency key is explicitly overridden.
+Derived matrices are validated during construction: they must be rectangular, match the declared axes sizes, and have `eltype == FT`.
 
 
 ### 5) Dynamics should consume rectangular interactions

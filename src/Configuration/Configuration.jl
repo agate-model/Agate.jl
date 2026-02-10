@@ -15,8 +15,15 @@ export normalize_interaction_overrides
 export InteractionMatrices
 export finalize_interaction_parameters
 
-export derivation_deps, derived_matrix_specs, resolve_derived_matrices
-export derive_palatability_matrix_allometric, derive_assimilation_matrix_binary
+export AbstractMatrixDeriver
+export MatrixDefinition
+export derivation_deps
+export derive_matrix
+export matrix_definitions
+export resolve_derived_matrices
+
+export PalatabilityAllometric
+export AssimilationBinary
 
 include("specifications.jl")
 include("community.jl")

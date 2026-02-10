@@ -49,6 +49,43 @@ bgc = construct(spec; parameters=(;), interaction_overrides=nothing, grid=BoxMod
 
 This makes variants a good place to define *defaults*, while keeping per-run changes explicit.
 
+## Deriving interaction matrices
+
+User-facing interaction overrides are **data-only**: you must pass explicit rectangular matrices.
+If you want interaction matrices to be *derived* from traits or other parameters, do that work in a
+Variant/Factory layer and ensure the factory receives concrete rectangular matrices during construction.
+
+The built-in DARWIN factory derives `palatability_matrix` and `assimilation_matrix` from trait vectors.
+If you want to change the derivation algorithm, do it in a custom Variant/Factory by overriding
+`matrix_definitions(::MyFactory)` to swap the *strategy object* used for a given matrix.
+
+```julia
+using Agate
+using Agate.Models: ModelId, variant, construct
+
+spec = variant(ModelId(:DARWIN, :citation2026, :A); n_phyto=8, n_zoo=4)
+bgc = construct(spec; grid=BoxModelGrid())
+
+size(bgc.parameters.palatability_matrix)   # (n_consumer, n_prey)
+size(bgc.parameters.assimilation_matrix)  # (n_consumer, n_prey)
+```
+
+### Python/MATLAB-style workflow
+
+1. Choose a built-in variant or create your own.
+2. Construct the model.
+3. If you need to change interactions at runtime, pass **explicit rectangular matrices**.
+
+```julia
+spec = variant(:DARWIN, :citation2026, :A)
+bgc0 = construct(spec; grid=BoxModelGrid())
+
+# Override interactions with explicit matrices (no function-valued overrides).
+n_cons, n_prey = size(bgc0.parameters.palatability_matrix)
+M = fill(0.1, n_cons, n_prey)
+bgc1 = construct(spec; grid=BoxModelGrid(), interaction_overrides=(; palatability_matrix=M,))
+```
+
 ## Adding a new variant (developer)
 
 The recommended pattern is:
