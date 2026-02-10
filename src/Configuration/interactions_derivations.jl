@@ -37,16 +37,6 @@ rectangular matrices with canonical axes and have `eltype == FT` (the grid float
 type). No implicit casting is performed.
 """
 
-export AbstractMatrixDeriver
-export MatrixDefinition
-export derivation_deps
-export derive_matrix
-export matrix_definitions
-export resolve_derived_matrices
-
-export PalatabilityAllometric
-export AssimilationBinary
-
 """Abstract supertype for derived matrix strategies.
 
 Derivers run during construction on the host and must return concrete matrices
