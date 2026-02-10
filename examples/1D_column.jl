@@ -80,7 +80,7 @@ fig_forcing
 
 # ## Physical model
 
-grid = RectilinearGrid(; size=(1, 1, 25), extent=(20meters, 20meters, 200meters))
+grid = RectilinearGrid(; size=(1, 1, 20), extent=(20meters, 20meters, 200meters))
 nothing #hide
 
 bgc_model = Biogeochemistry(
@@ -91,7 +91,8 @@ nothing #hide
 full_model = NonhydrostaticModel(;
     grid,
     clock=Clock(; time=0.0),
-    closure=ScalarDiffusivity(; ν=diffusivity, κ=diffusivity),
+    timestepper = :QuasiAdamsBashforth2,
+    closure = ScalarDiffusivity(VerticallyImplicitTimeDiscretization(), ν=diffusivity, κ=diffusivity),
     biogeochemistry=bgc_model,
 )
 nothing #hide
@@ -103,7 +104,7 @@ set!(full_model; N=7.0, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, D=0.0) # mmol N / m�
 # ## Simulation
 filename = "N2P2ZD_column.jld2"
 
-simulation = Simulation(full_model; Δt=20minutes, stop_time=1year)
+simulation = Simulation(full_model; Δt=1hours, stop_time=1year)
 
 simulation.output_writers[:profiles] = JLD2Writer(
     full_model,
