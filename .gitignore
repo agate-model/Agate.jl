@@ -3,6 +3,7 @@
 # Documenter.jl
 docs/build/
 docs/Manifest.toml
+docs/src/generated
 
 # Model output
 *.jld
