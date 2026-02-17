@@ -34,7 +34,7 @@ At minimum you should implement:
 
 Parameter definitions defines parameter specification (such as types and string describing it's function), as well as parameter values.
 
-To generate a new parameter definition we will leverage Julia's [multiple dispatch](https://en.wikipedia.org/wiki/Multiple_dispatch) functionality. Effectively, we will define a new method (`::MyModelFactory`) for and existing `parameter_definitions` function, which will then allow us to call the parameter specifications for our new model by passing the method to this function (`parameter_definitions(::MyModelFactory)`). 
+To generate a new parameter definition we will leverage Julia's [multiple dispatch](https://en.wikipedia.org/wiki/Multiple_dispatch) functionality. Effectively, we will define a new method (`::MyModelFactory`) for an existing `parameter_definitions` function, which will then allow us to call the parameter specifications for our new model by passing the method to this function (`parameter_definitions(::MyModelFactory)`). 
 
 Example:
 
@@ -59,9 +59,9 @@ parameter_definitions(::MyModelFactory) = (   # differs from e.g. ::NiPiZDFactor
  Use:
 
   - `shape = :scalar | :vector | :matrix`
-  - `axes = (:consumer, :prey)` when a matrix is consumer-by-prey
+  - `default = ConstDefault() | FillDefault() | NoDefault()` 
 
-This enables early validation and provides the metadata used for interaction normalization.
+Canonically, this should live in `src/Models/<ModelName>/parameters.jl`
 
 ### 3) Define consumer/prey roles
 

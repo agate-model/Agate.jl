@@ -23,9 +23,3 @@ It assumes you are comfortable reading Julia code and running the test suite.
   - Read [Adding a model](@ref "Adding a model") for the minimum set of files and functions to implement.
 
   - Read [Variants](@ref "Variants") for the recommended way to manage manuscript / experiment configurations without repo bloat.
-  - Reference docs:
-    
-      + [Constructor API](@ref "Constructor API")
-      + [Parameters and interaction matrices](@ref "Parameters and interaction matrices")
-      + [Callable dynamics API](@ref "Callable dynamics API")
-      + [API reference](@ref "API reference")
