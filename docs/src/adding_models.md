@@ -1,6 +1,9 @@
 # Adding a model
 
 This page is for developers who want to integrate a new ecosystem model into Agate.
+If you intent to implement a new model please feel free [open a new discussion](https://github.com/agate-model/Agate.jl/discussions/new/choose) or reach out to us directly.
+
+Before proceeding, please also check out our contributor guide so your new model can be integrated smoothly.
 
 ## Checklist
 
@@ -11,7 +14,7 @@ A new model typically needs:
  3. A single-source `parameter_definitions(factory)` that pairs each `ParameterSpec` with a default provider.
  4. Optionally, `matrix_definitions(factory)` for derived interaction matrices.
  5. A set of compiled dynamics / tracers that consume the parameters and update tendencies.
- 6. Tests that exercise defaults and overrides.
+ 6. Tests that check mass balance, and exercise defaults and overrides.
 
 ## Recommended structure
 
@@ -21,23 +24,24 @@ Define a concrete factory type for your model (for example `struct MyModelFactor
 
 At minimum you should implement:
 
+  - `parameter_definitions(factory)` (defines parameter specs and default values)
   - `default_plankton_dynamics(factory)`
   - `default_biogeochem_dynamics(factory)`
   - `default_community(factory)`
-  - `parameter_definitions(factory)` (spec + default in one place)
   - `parameter_directory(factory)` (derived automatically; can be overloaded if needed)
-
-Canonical group ordering is inferred from the *explicit* ordering of the `community::NamedTuple` passed to the generic constructor.
 
 ### 2) Declare parameters with `parameter_definitions`
 
-Implement `parameter_definitions(factory)` returning a tuple of `ParameterDefinition` entries (a `ParameterSpec` paired with a `DefaultProvider`).
+Parameter definitions defines parameter specification (such as types and string describing it's function), as well as parameter values.
+
+To generate a new parameter definition we will leverage Julia's [multiple dispatch](https://en.wikipedia.org/wiki/Multiple_dispatch) functionality. Effectively, we will define a new method (`::MyModelFactory`) for and existing `parameter_definitions` function, which will then allow us to call the parameter specifications for our new model by passing the method to this function (`parameter_definitions(::MyModelFactory)`). 
+
 Example:
 
 ```julia
 using Agate.Factories: ParameterSpec, ParameterDefinition, ConstDefault, FillDefault, NoDefault
 
-parameter_definitions(::MyModelFactory) = (
+parameter_definitions(::MyModelFactory) = (   # differs from e.g. ::NiPiZDFactory
     ParameterDefinition(
         ParameterSpec(:remineralization, :scalar; doc="Detritus remineralization rate."),
         ConstDefault(0.18 / day),
