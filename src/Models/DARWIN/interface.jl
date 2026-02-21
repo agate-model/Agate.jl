@@ -1,20 +1,3 @@
-# """Public constructor for the simplified DARWIN-like ecosystem model.
-# 
-# `DARWIN.construct` builds an Oceananigans/OceanBioME-compatible biogeochemistry
-# instance for a size-structured plankton model with elemental cycling.
-# 
-# This constructor keeps the surface small:
-# 
-# - structure: choose `n_phyto`, `n_zoo`, and diameter specifications
-# - parameters: override named parameters via `parameters=(; ...)`
-# - interaction_overrides: optionally override interaction matrices
-# 
-# For ease of use, interaction overrides are exposed as two separate keywords:
-# 
-# - `palatability_matrix`
-# - `assimilation_matrix`
-# """
-
 using OceanBioME: BoxModelGrid
 
 import ...Configuration
@@ -26,7 +9,71 @@ export construct
 """
     construct(; kw...) -> bgc
 
-Construct a DARWIN biogeochemistry instance.
+Construct a simplified DARWIN-like, size-structured ecosystem model.
+
+!!! info
+    This model is in active development and has not been validated against `MITgcm-DARWIN`.
+
+!!! formulation
+    TRACERS:
+
+    ∂t cⱼ = ``Uⱼ``DIC - ``Mⱼ`` + ``Gⱼ`` - ``gⱼ``
+
+    ∂t DIC = ∑(``Uⱼ`` DIC) + ``R``DOC + ``R``POC
+
+    ∂t DIN = ∑(``Uⱼ``DIC * ``Qⱼ``N)  + ``R``DON + ``R``PON
+
+    ∂t PO4 = ∑(``Uⱼ``DIC * ``Qⱼ``P)  + ``R``DOP + ``R``POP
+
+    ∂t DOC = ∑(``Mⱼ``DOC) + ``g``DOC - ``R``DOC
+
+    ∂t DON = ∑(``Mⱼ``DOC * ``Qⱼ``N) + ``g``DON - ``R``DON
+
+    ∂t DOP = ∑(``Mⱼ``DOC * ``Qⱼ``P) + ``g``DOP - ``R``DOP
+
+    ∂t POC = ∑(``Mⱼ``POC) + ``g``POC - ``R``POC
+
+    ∂t PON = ∑(``Mⱼ``POC * ``Qⱼ``N) + ``g``PON - ``R``PON
+
+    ∂t POP = ∑(``Mⱼ``POC * ``Qⱼ``P) + ``g``POP - ``R``POP
+
+    where:
+    - ``U`` = uptake
+    - ``R`` = remineralization
+    - ``M`` = mortality
+    - ``g, G`` = grazing losses and gains
+    - ``Q`` = plankton elemental ratios
+
+    TRAITS:
+
+    μmax, KR, gmax = a*Volume^b
+
+    palat = η/(1+(``ratio``-``opt``)^2)^σ
+
+    where:
+    - μmax = maximum photosynthetic growth
+    - KR = nutrient half saturation
+    - gmax = maximum predation rate
+    - palat = palatability
+    - ``ratio`` = predator to prey size ratio (diameter)
+    - ``opt`` = predator to prey size optimum (diameter)
+    - η = prey protection
+    - σ = predator specificity
+
+The DARWIN model contains two plankton groups: phytoplankton (`P`) and zooplankton (`Z`),
+each represented by `n_phyto` and `n_zoo` size classes.
+
+In addition to plankton, the default DARWIN factory includes elemental cycling tracers:
+dissolved inorganic carbon (DIC), dissolved inorganic nitrogen (DIN), phosphate (PO4),
+dissolved organic matter (DOC, DON, DOP), and particulate organic matter (POC, PON, POP).
+
+During construction, plankton size (diameter) is used to resolve trait-based parameter
+vectors and interaction matrices (e.g. palatability and assimilation efficiency). You
+may override interaction matrices explicitly with `palatability_matrix` and/or
+`assimilation_matrix`.
+
+The returned biogeochemistry instance includes a photosynthetically active radiation (PAR)
+auxiliary field.
 
 Keywords
 --------
@@ -35,7 +82,8 @@ Keywords
 - `zoo_diameters=(20.0, 100.0, :log_splitting)`: diameter specification for zooplankton
 - `parameters=(;)`: parameter overrides (validated against the DARWIN parameter set)
 - `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrix overrides.
-  Each must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)` (for DARWIN defaults, `(n_zoo, n_phyto)`). Provider functions / callables are not supported; use a Variant/Factory default if you need derived matrices.
+  Each must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)`
+  (for DARWIN defaults, `(n_zoo, n_phyto)`).
 - `grid=BoxModelGrid()`: grid used for precision/architecture inference and sinking velocity fields
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
 - `sinking_tracers=nothing`: sinking speed overrides, e.g. `(POC = 10/day, ...)`
@@ -44,6 +92,14 @@ Keywords
 Returns
 -------
 An `Oceananigans.Biogeochemistry.AbstractContinuousFormBiogeochemistry` instance.
+
+Example
+-------
+```julia
+using Agate.Models: DARWIN
+
+bgc = DARWIN.construct()
+```
 """
 function construct(;
     n_phyto::Int=2,

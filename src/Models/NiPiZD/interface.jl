@@ -1,34 +1,3 @@
-# """Public constructor for the NiPiZD ecosystem model.
-# 
-# `NiPiZD.construct` builds an Oceananigans/OceanBioME-compatible biogeochemistry
-# instance for a size-structured plankton model with:
-# 
-# - two plankton groups: phytoplankton (`P`) and zooplankton (`Z`)
-# - two non-plankton tracers: dissolved inorganic nutrient (`N`) and detritus (`D`)
-# 
-# The public interface keeps the surface small and explicit:
-# 
-# - structure: choose `n_phyto`, `n_zoo`, and diameter specifications
-# - parameters: override named parameters via `parameters=(; ...)`
-# - interaction_overrides: optionally override interaction matrices
-# 
-# For ease of use, interaction overrides are exposed as two separate keywords:
-# 
-# - `palatability_matrix`
-# - `assimilation_matrix`
-# 
-# Each must be an explicit rectangular matrix sized to the canonical interaction
-# axes `(n_consumer, n_prey)` (for NiPiZD defaults, `(n_zoo, n_phyto)`).
-#
-# Provider functions / callables are **not** supported in user-facing overrides.
-# If you need matrices derived from traits or other parameters, define a Variant /
-# Factory default that produces concrete matrices during construction.
-# 
-# Internally, role-aware interactions are stored **only** in rectangular form.
-# No square matrices or square views are created.
-# 
-# """
-
 using OceanBioME: BoxModelGrid
 
 import ...Configuration
@@ -40,7 +9,19 @@ export construct
 """
     construct(; kw...) -> bgc
 
-Construct a NiPiZD biogeochemistry instance.
+Construct a size-structured NiPiZD ecosystem model.
+
+The NiPiZD model contains two plankton groups: phytoplankton (`P`) and zooplankton (`Z`),
+each represented by `n_phyto` and `n_zoo` size classes.
+
+In addition to plankton, the default NiPiZD factory includes idealized nutrient (`N`) and
+detritus (`D`) cycling. The returned biogeochemistry instance includes a photosynthetically
+active radiation (PAR) auxiliary field.
+
+During construction, plankton size (diameter) is used to resolve trait-based parameter
+vectors and interaction matrices (e.g. palatability and assimilation efficiency). You
+may override interaction matrices explicitly with `palatability_matrix` and/or
+`assimilation_matrix`.
 
 Keywords
 --------
@@ -51,12 +32,20 @@ Keywords
 - `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrix overrides
 - `grid=BoxModelGrid()`: grid used for precision/architecture inference and sinking velocity fields
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
-- `sinking_tracers=nothing`: sinking speed overrides, e.g. `(D = 2/ day, P1 = 0.1/day, ...)`
+- `sinking_tracers=nothing`: sinking speed overrides, e.g. `(D = 2/day, P1 = 0.1/day, ...)`
 - `open_bottom=true`: whether sinking tracers leave the domain
 
 Returns
 -------
 An `Oceananigans.Biogeochemistry.AbstractContinuousFormBiogeochemistry` instance.
+
+Example
+-------
+```julia
+using Agate.Models: NiPiZD
+
+bgc = NiPiZD.construct()
+```
 """
 function construct(;
     n_phyto::Int=2,

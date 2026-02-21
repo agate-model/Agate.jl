@@ -3,5 +3,3 @@
 ```@docs
 Agate.Models.NiPiZD.construct
 ```
-
-```
