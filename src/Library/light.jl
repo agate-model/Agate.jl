@@ -27,8 +27,19 @@ end
     CyclicalPAR()
     CyclicalPAR(z)
 
-Cyclical, depth-attenuated PAR suitable for box (`CyclicalPAR(z)(t)`) and column
-models (`CyclicalPAR()(x, y, z, t)`).
+Cyclical, depth-attenuated PAR suitable for box and column models.
+
+- For box models: `CyclicalPAR(z)(t)` evaluates PAR at fixed depth `z`.
+- For column models: `CyclicalPAR()(x, y, z, t)` evaluates PAR at runtime depth `z`.
+
+!!! formulation
+    60 *
+    (1 - cos((t + 15days) * 2π / year)) *
+    (1 / (1 + 0.2 * exp(-((mod(t, year) - 200days) / 50days)^2))) + 2
+
+    with depth attenuation:
+
+    PAR(z, t) = PAR⁰(t) * exp(0.2 * z)
 """
 struct CyclicalPAR{Z}
     z::Z
@@ -46,6 +57,9 @@ end
     FunctionFieldPAR(field)
 
 Light module wrapping an `Oceananigans.FunctionField` that represents PAR.
+
+# Fields
+- `field`: `Oceananigans.Fields.FunctionField`
 """
 struct FunctionFieldPAR{F}
     field::F
@@ -58,8 +72,9 @@ Adapt.@adapt_structure FunctionFieldPAR
 
 Create a PAR module backed by a `FunctionField`.
 
+# Keywords
 - `grid`: an Oceananigans grid.
-- `PAR_f`: a callable compatible with `FunctionField`.
+- `PAR_f`: a callable compatible with `FunctionField` (defaults to `CyclicalPAR(-10)`).
 """
 function FunctionFieldPAR(; grid, PAR_f=CyclicalPAR(-10))
     clock = Clock(; time=0.0)
@@ -67,14 +82,22 @@ function FunctionFieldPAR(; grid, PAR_f=CyclicalPAR(-10))
     return FunctionFieldPAR(PAR_field)
 end
 
-"""Update and compute the PAR field."""
+"""
+    update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
+
+`Oceananigans.Biogechemistry` hook that computes and updates the irradiance field in-place.
+"""
 function update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
     PAR.field.clock.time = model.clock.time
     compute!(PAR.field)
     return nothing
 end
 
-"""Return the PAR auxiliary field."""
+"""
+    biogeochemical_auxiliary_fields(par::FunctionFieldPAR)
+
+Return a named tuple containing the Photosynthetically Active Radiation (PAR) field.
+"""
 function biogeochemical_auxiliary_fields(par::FunctionFieldPAR)
     return (PAR=par.field,)
 end
