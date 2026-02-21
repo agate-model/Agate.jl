@@ -1,4 +1,9 @@
 # to build docs from terminal `julia --project=docs docs/make.jl`
+import Pkg
+Pkg.activate(@__DIR__)
+Pkg.develop(Pkg.PackageSpec(path=joinpath(@__DIR__, "..")))
+Pkg.instantiate()
+
 push!(LOAD_PATH, "../src/")
 using Documenter, Literate
 using Agate
@@ -64,14 +69,6 @@ makedocs(;
         "Examples" => example_pages,
         "Models" => model_pages,
         "Library" => "library.md",
-        "Implementing new models" => [
-            "Overview" => "developer.md",
-            "Variants" => "variants.md",
-            "Adding a model" => "adding_models.md",
-            "Constructor API" => "api_constructor.md",
-            "Parameters & interactions" => "parameters_and_interactions.md",
-            "Callable dynamics" => "callable_dynamics.md",
-        ],
         "API reference" => "api.md",
     ],
 )
