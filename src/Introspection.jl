@@ -2,9 +2,6 @@
 
 These functions are meant for interactive use (REPL / notebooks): they let you
 inspect what a constructed model exposes without digging into generated types.
-
-All helpers are CPU/GPU-safe: they operate on small metadata (names and keys)
-and never touch state arrays.
 """
 module Introspection
 

@@ -2,9 +2,6 @@ using OceanBioME: BoxModelGrid, setup_velocity_fields
 
 using Adapt: adapt
 
-# We use Oceananigans' architecture abstraction (CPU/GPU + backend-specific array types).
-# Importing from a submodule does not bind the `Oceananigans` name, and we also
-# reference `Oceananigans.Architectures` directly below.
 import Oceananigans
 
 using Oceananigans.Architectures: architecture, CPU, GPU

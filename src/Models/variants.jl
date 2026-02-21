@@ -1,9 +1,6 @@
 # """Model-variant scaffolding.
 # 
-# As models grow, we want to avoid copying entire modules just to represent a
-# paper-specific configuration or an internal experiment.
-# 
-# This file provides a small registry for **variants**: lightweight construction-time
+# This module provides a small registry for **variants**: lightweight construction-time
 # recipes that bundle together a factory, default community structure, default
 # dynamics, and optional parameter/interaction overrides.
 # 
@@ -16,8 +13,6 @@
 #   `:submission`, `:accepted`). We intentionally avoid implying chronology; use any
 #   tag scheme that remains meaningful for your workflow.
 # 
-# This scaffolding is intentionally small. It is *not* a full experiment-management
-# system; it only helps keep model-family code clean as variants accumulate.
 # """
 
 using ..Factories: AbstractBGCFactory

@@ -12,21 +12,9 @@ Agate.Construction.construct_factory(factory::AbstractBGCFactory; kwargs...) -> 
 
 `construct_factory` returns the biogeochemistry instance directly.
 
-Design goals
-------------
-- Maintainability over cleverness.
-- Explicit behavior (no hidden magic).
-- GPU compatibility via `Adapt.jl` + Oceananigans architectures.
-- Preserve composability with Oceananigans/OceanBioME conventions.
-
-Anything that *patches* or *extends* configuration containers is intentionally
-left to normal Julia mechanisms (`merge`, `NamedTuple` construction, etc.) to keep
-the public surface area small.
 """
 module Construction
 
-# Oceananigans is a core dependency for Agate's host/GPU architecture model.
-# Import it here so constructor code can reliably query `Oceananigans.Architectures`.
 import Oceananigans
 
 # NOTE: This submodule lives under `Agate` (i.e. `Agate.Construction`).

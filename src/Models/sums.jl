@@ -3,8 +3,6 @@
 This module centralizes small, kernel-friendly reductions that are reused
 across model tracer kernels (e.g. NiPiZD and DARWIN).
 
-The helpers here are **domain-specific** (Agate model internals) and are
-intended to support a hot-path tracer DSL with predictable types.
 """
 module Sums
 
