@@ -16,8 +16,6 @@ Monod (Michaelis–Menten) nutrient limitation functor.
     - ``R`` = nutrient concentration (e.g. N, P, Si)
     - ``K`` = half-saturation constant
 
-!!! tip
-    This functional form is sometimes also used for predation (≈ Holling type II).
 """
 struct MonodLimitation{T}
     K::T
@@ -48,7 +46,7 @@ Monod (Michaelis–Menten) nutrient limitation.
 - `K`: nutrient half-saturation constant
 
 !!! tip
-    This is a thin, inlined alias around `MonodLimitation(K)(R)`.
+    This functional form is sometimes also used for predation (≈ Holling type II).
 """
 @inline monod_limitation(R, K) = MonodLimitation(K)(R)
 
