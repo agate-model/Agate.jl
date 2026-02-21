@@ -82,8 +82,6 @@ using Oceananigans.Biogeochemistry:
             assimilation_matrix=axis_block,
         )
 
-
-
         # Full-square matrices are not accepted for role-aware interaction overrides.
         correct = zeros(Float32, n_total, n_total)
         @test_throws ArgumentError NiPiZD.construct(;
@@ -92,9 +90,9 @@ using Oceananigans.Biogeochemistry:
             assimilation_matrix=correct,
         )
 
-
         # Provider/callable values are not supported for interaction overrides.
-        rect_provider(ctx) = fill(Float32(9), length(ctx.consumer_indices), length(ctx.prey_indices))
+        rect_provider(ctx) =
+            fill(Float32(9), length(ctx.consumer_indices), length(ctx.prey_indices))
         err = try
             NiPiZD.construct(;
                 grid=dummy_grid(Float32),
@@ -211,5 +209,4 @@ using Oceananigans.Biogeochemistry:
             grid=dummy_grid(Float64), palatability_matrix=wrong, assimilation_matrix=wrong
         )
     end
-
 end

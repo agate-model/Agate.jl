@@ -83,8 +83,9 @@ struct DiameterIndexedVectorDefault{V,T} <: DefaultProvider
     default::T
 end
 
-DiameterIndexedVectorDefault(value, indices_field::Symbol; default) =
-    DiameterIndexedVectorDefault(value, indices_field, default)
+function DiameterIndexedVectorDefault(value, indices_field::Symbol; default)
+    return DiameterIndexedVectorDefault(value, indices_field, default)
+end
 
 """Return a tuple of `ParameterDefinition` entries for `factory`.
 
@@ -98,7 +99,8 @@ parameter_definitions(::AbstractBGCFactory) = ()
 By default the directory is derived from `parameter_definitions(factory)`.
 Factories may still overload `parameter_directory` directly if needed.
 """
-parameter_directory(factory::AbstractBGCFactory) = map(d -> d.spec, parameter_definitions(factory))
+parameter_directory(factory::AbstractBGCFactory) =
+    map(d -> d.spec, parameter_definitions(factory))
 
 """Return the `ParameterSpec` for `key`, or `nothing` if absent."""
 function parameter_spec(factory::AbstractBGCFactory, key::Symbol)

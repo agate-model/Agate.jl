@@ -22,9 +22,7 @@ import ...Factories:
 
 import ...Configuration: matrix_definitions
 
-using ...Library.Allometry:
-    AllometricParam,
-    PowerLaw
+using ...Library.Allometry: AllometricParam, PowerLaw
 
 using ...Configuration: MatrixDefinition, PalatabilityAllometric, AssimilationBinary
 
@@ -34,9 +32,7 @@ function parameter_definitions(::NiPiZDFactory)
     return (
         ParameterDefinition(
             ParameterSpec(
-                :detritus_remineralization,
-                :scalar;
-                doc="Detritus remineralization rate.",
+                :detritus_remineralization, :scalar; doc="Detritus remineralization rate."
             ),
             ConstDefault(detritus_remin),
         ),
@@ -90,11 +86,11 @@ function parameter_definitions(::NiPiZDFactory)
         ),
         ParameterDefinition(
             ParameterSpec(
-                :alpha,
-                :vector;
-                doc="Initial slope of the P-I curve per plankton class.",
+                :alpha, :vector; doc="Initial slope of the P-I curve per plankton class."
             ),
-            DiameterIndexedVectorDefault(0.1953 / 86400, :default_producer_indices; default=0),
+            DiameterIndexedVectorDefault(
+                0.1953 / 86400, :default_producer_indices; default=0
+            ),
         ),
         ParameterDefinition(
             ParameterSpec(

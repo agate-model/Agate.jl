@@ -54,6 +54,11 @@ fZ =
         quadratic_loss(Z, p.lᶻᵈ)
     end
 
-tracers = (N=CompiledEquation(fN), D=CompiledEquation(fD), P=CompiledEquation(fP), Z=CompiledEquation(fZ))
+tracers = (
+    N=CompiledEquation(fN),
+    D=CompiledEquation(fD),
+    P=CompiledEquation(fP),
+    Z=CompiledEquation(fZ),
+)
 
 AgateNPZD = define_tracer_functions(parameters, tracers)

@@ -91,8 +91,10 @@ nothing #hide
 full_model = NonhydrostaticModel(;
     grid,
     clock=Clock(; time=0.0),
-    timestepper = :QuasiAdamsBashforth2,
-    closure = ScalarDiffusivity(VerticallyImplicitTimeDiscretization(), ν=diffusivity, κ=diffusivity),
+    timestepper=:QuasiAdamsBashforth2,
+    closure=ScalarDiffusivity(
+        VerticallyImplicitTimeDiscretization(); ν=diffusivity, κ=diffusivity
+    ),
     biogeochemistry=bgc_model,
 )
 nothing #hide

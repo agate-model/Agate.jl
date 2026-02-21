@@ -203,7 +203,6 @@ function normalize_interaction_overrides(
     return (; resolved...)
 end
 
-
 """Return the global plankton indices for an interaction axis.
 
 Axes may be:
@@ -269,7 +268,8 @@ Axes may be:
 
     value isa AbstractMatrix || return value
 
-    size(value) == (n_total, n_total) && return _convert_matrix_eltype(community_context, value)
+    size(value) == (n_total, n_total) &&
+        return _convert_matrix_eltype(community_context, value)
 
     if size(value) == (ng, ng)
         throw(
@@ -286,8 +286,9 @@ Axes may be:
     )
 end
 
-
-@inline function _convert_matrix_eltype(community_context::CommunityContext, A::AbstractMatrix)
+@inline function _convert_matrix_eltype(
+    community_context::CommunityContext, A::AbstractMatrix
+)
     eltype(A) === community_context.FT && return A
     R = similar(A, community_context.FT, size(A)...)
     copyto!(R, A)

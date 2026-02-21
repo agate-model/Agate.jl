@@ -48,7 +48,7 @@ factory's `parameter_definitions` (via `Construction.build_parameter_defaults`).
 """
 function default_community(::AbstractBGCFactory)
     throw(
-        ArgumentError("No method `default_community(factory)` is defined for this factory."),
+        ArgumentError("No method `default_community(factory)` is defined for this factory.")
     )
 end
 

@@ -1,7 +1,7 @@
 # to build docs from terminal `julia --project=docs docs/make.jl`
 import Pkg
 Pkg.activate(@__DIR__)
-Pkg.develop(Pkg.PackageSpec(path=joinpath(@__DIR__, "..")))
+Pkg.develop(Pkg.PackageSpec(; path=joinpath(@__DIR__, "..")))
 Pkg.instantiate()
 
 push!(LOAD_PATH, "../src/")
@@ -19,9 +19,7 @@ using CairoMakie
 const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
-examples = [
-    "Column model" => "1D_column"
-]
+examples = ["Column model" => "1D_column"]
 
 example_scripts = [filename * ".jl" for (title, filename) in examples]
 

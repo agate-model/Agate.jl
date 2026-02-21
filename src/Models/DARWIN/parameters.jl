@@ -22,9 +22,7 @@ import ...Factories:
 
 import ...Configuration: matrix_definitions
 
-using ...Library.Allometry:
-    AllometricParam,
-    PowerLaw
+using ...Library.Allometry: AllometricParam, PowerLaw
 
 using ...Configuration: MatrixDefinition, PalatabilityAllometric, AssimilationBinary
 
@@ -58,9 +56,7 @@ function parameter_definitions(::DarwinFactory)
         ),
         ParameterDefinition(
             ParameterSpec(
-                :nitrogen_to_carbon,
-                :scalar;
-                doc="Nitrogen-to-carbon stoichiometric ratio.",
+                :nitrogen_to_carbon, :scalar; doc="Nitrogen-to-carbon stoichiometric ratio."
             ),
             ConstDefault(16 / 106),
         ),

@@ -40,7 +40,6 @@ export DIC_geider_light,
 
 """DIC tendency with Geider-style growth (carbon units)."""
 function DIC_geider_light()
-
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 
@@ -76,7 +75,6 @@ end
 
 """DIN tendency assuming fixed stoichiometry (N:C)."""
 function DIN_geider_light()
-
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 
@@ -112,7 +110,6 @@ end
 
 """PO4 tendency assuming fixed stoichiometry (P:C)."""
 function PO4_geider_light()
-
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 
@@ -150,7 +147,6 @@ end
 
 """DOC tendency from plankton losses and remineralization."""
 function DOC_default()
-
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 
@@ -172,7 +168,6 @@ end
 
 """POC tendency from plankton losses and remineralization."""
 function POC_default()
-
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 
@@ -193,7 +188,6 @@ end
 
 """DON tendency assuming fixed stoichiometry (N:C)."""
 function DON_default()
-
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 
@@ -215,7 +209,6 @@ end
 
 """PON tendency assuming fixed stoichiometry (N:C)."""
 function PON_default()
-
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 
@@ -236,7 +229,6 @@ end
 
 """DOP tendency assuming fixed stoichiometry (P:C)."""
 function DOP_default()
-
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 
@@ -258,7 +250,6 @@ end
 
 """POP tendency assuming fixed stoichiometry (P:C)."""
 function POP_default()
-
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 
@@ -283,7 +274,6 @@ end
 
 """Phytoplankton tendency with Geider-style, two-nutrient growth."""
 function phytoplankton_growth_two_nutrients_geider_light(plankton_idx::Int)
-
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 
@@ -315,7 +305,6 @@ end
 
 """Zooplankton tendency with preferential grazing gain."""
 function zooplankton_default(plankton_idx::Int)
-
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 

@@ -245,22 +245,25 @@ function parse_community(
     default_parameter_roles=nothing,
 ) where {FT<:AbstractFloat}
     if !isnothing(interaction_roles)
-        (hasproperty(interaction_roles, :consumers) && hasproperty(interaction_roles, :prey)) ||
-            throw(
-                ArgumentError(
-                    "interaction_roles must have fields :consumers and :prey (each may be `nothing`, group Symbols, indices, or boolean masks).",
-                ),
-            )
+        (
+            hasproperty(interaction_roles, :consumers) &&
+            hasproperty(interaction_roles, :prey)
+        ) || throw(
+            ArgumentError(
+                "interaction_roles must have fields :consumers and :prey (each may be `nothing`, group Symbols, indices, or boolean masks).",
+            ),
+        )
     end
 
     if !isnothing(default_parameter_roles)
-        (hasproperty(default_parameter_roles, :producers) &&
-            hasproperty(default_parameter_roles, :consumers)) ||
-            throw(
-                ArgumentError(
-                    "default_parameter_roles must have fields :producers and :consumers (each may be `nothing`, group Symbols, indices, or boolean masks).",
-                ),
-            )
+        (
+            hasproperty(default_parameter_roles, :producers) &&
+            hasproperty(default_parameter_roles, :consumers)
+        ) || throw(
+            ArgumentError(
+                "default_parameter_roles must have fields :producers and :consumers (each may be `nothing`, group Symbols, indices, or boolean masks).",
+            ),
+        )
     end
     # Canonical group ordering is the (explicit, stable) ordering of `community`.
     # This makes ordering decisions visible to the caller and avoids hidden

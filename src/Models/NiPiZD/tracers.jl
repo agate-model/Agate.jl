@@ -31,7 +31,6 @@ export nutrient_default, detritus_default, phytoplankton_default, zooplankton_de
 
 """Nutrient tendency with Smith growth and mortality/remineralization."""
 function nutrient_default()
-
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 
@@ -65,7 +64,6 @@ end
 
 """Detritus tendency from mortality, sloppy feeding, and remineralization."""
 function detritus_default()
-
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 
@@ -89,7 +87,6 @@ end
 
 """Phytoplankton tendency with Smith growth, grazing loss, and linear mortality."""
 function phytoplankton_default(plankton_idx::Int)
-
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 
@@ -118,7 +115,6 @@ end
 
 """Zooplankton tendency with preferential grazing gain and mortality losses."""
 function zooplankton_default(plankton_idx::Int)
-
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 

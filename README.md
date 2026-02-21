@@ -119,10 +119,14 @@ Example (NiPiZD default axes: consumers=Z, prey=P, so `2×2` by default):
 ```julia
 using Agate
 
-pal = Float32[ 1 0;
-              0 1 ]
-assim = Float32[ 0.7 0.7;
-                0.7 0.7 ]
+pal = Float32[
+    1 0
+    0 1
+]
+assim = Float32[
+    0.7 0.7
+    0.7 0.7
+]
 
 bgc = Agate.Models.NiPiZD.construct(; palatability_matrix=pal, assimilation_matrix=assim)
 ```
@@ -146,5 +150,7 @@ n_phyto = 4
 n_zoo = 2
 n_total = n_phyto + n_zoo
 
-bgc = Agate.Models.NiPiZD.construct(; n_phyto, n_zoo, parameters=(; specificity=fill(0.15f0, n_total),))
+bgc = Agate.Models.NiPiZD.construct(;
+    n_phyto, n_zoo, parameters=(; specificity=fill(0.15f0, n_total),)
+)
 ```

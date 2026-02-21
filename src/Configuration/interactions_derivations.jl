@@ -54,12 +54,11 @@ struct MatrixDefinition{D<:AbstractMatrixDeriver}
     deps::Tuple{Vararg{Symbol}}
 end
 
-function MatrixDefinition(deriver::D; deps=derivation_deps(deriver)) where {D<:AbstractMatrixDeriver}
-    deps isa Tuple{Vararg{Symbol}} || throw(
-        ArgumentError(
-            "deps must be a tuple of Symbols (got $(typeof(deps))).",
-        ),
-    )
+function MatrixDefinition(
+    deriver::D; deps=derivation_deps(deriver)
+) where {D<:AbstractMatrixDeriver}
+    deps isa Tuple{Vararg{Symbol}} ||
+        throw(ArgumentError("deps must be a tuple of Symbols (got $(typeof(deps)))."))
     return MatrixDefinition{D}(deriver, deps)
 end
 
@@ -75,10 +74,7 @@ derivation_deps(::AbstractMatrixDeriver) = ()
 Derivers must implement `derive_matrix(::Deriver, factory, context, params)`.
 """
 function derive_matrix(
-    ::AbstractMatrixDeriver,
-    ::AbstractBGCFactory,
-    ::CommunityContext,
-    ::NamedTuple,
+    ::AbstractMatrixDeriver, ::AbstractBGCFactory, ::CommunityContext, ::NamedTuple
 )
     throw(ArgumentError("derive_matrix is not implemented for this deriver"))
 end
@@ -91,10 +87,7 @@ parameters.
 matrix_definitions(::AbstractBGCFactory) = (;)
 
 function _validate_derived_matrix_result(
-    factory::AbstractBGCFactory,
-    context::CommunityContext,
-    key::Symbol,
-    value,
+    factory::AbstractBGCFactory, context::CommunityContext, key::Symbol, value
 )
     spec = parameter_spec(factory, key)
     spec !== nothing || throw(
@@ -110,9 +103,7 @@ function _validate_derived_matrix_result(
     )
 
     value isa AbstractMatrix || throw(
-        ArgumentError(
-            "derived matrix '$key' must be a matrix; got $(typeof(value)).",
-        ),
+        ArgumentError("derived matrix '$key' must be a matrix; got $(typeof(value)).")
     )
 
     FT = context.FT
@@ -129,7 +120,7 @@ function _validate_derived_matrix_result(
                 "derived matrix '$key' must be a $(n)x$(n) matrix; got size $(size(value)).",
             ),
         )
-        return
+        return nothing
     end
 
     row_axis, col_axis = spec.axes
@@ -142,7 +133,7 @@ function _validate_derived_matrix_result(
         ),
     )
 
-    return
+    return nothing
 end
 
 """Resolve derived matrices into `params`.
@@ -222,7 +213,9 @@ struct PalatabilityAllometric <: AbstractMatrixDeriver end
 struct AssimilationBinary <: AbstractMatrixDeriver end
 
 # Dependency keys are the trait vectors used by each derivation.
-derivation_deps(::PalatabilityAllometric) = (:optimum_predator_prey_ratio, :specificity, :protection)
+function derivation_deps(::PalatabilityAllometric)
+    return (:optimum_predator_prey_ratio, :specificity, :protection)
+end
 derivation_deps(::AssimilationBinary) = (:assimilation_efficiency,)
 
 @inline function derive_matrix(
@@ -236,9 +229,7 @@ derivation_deps(::AssimilationBinary) = (:assimilation_efficiency,)
         FT,
         context.diameters;
         optimum_predator_prey_ratio=_require_FT_vector(
-            FT,
-            params.optimum_predator_prey_ratio,
-            :optimum_predator_prey_ratio,
+            FT, params.optimum_predator_prey_ratio, :optimum_predator_prey_ratio
         ),
         specificity=_require_FT_vector(FT, params.specificity, :specificity),
         protection=_require_FT_vector(FT, params.protection, :protection),
@@ -257,9 +248,7 @@ end
     return assimilation_efficiency_matrix_binary_axes(
         FT;
         assimilation_efficiency=_require_FT_vector(
-            FT,
-            params.assimilation_efficiency,
-            :assimilation_efficiency,
+            FT, params.assimilation_efficiency, :assimilation_efficiency
         ),
         consumer_indices=context.consumer_indices,
         prey_indices=context.prey_indices,

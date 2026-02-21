@@ -31,7 +31,6 @@ using ..Configuration:
 
 using ..Runtime: build_tracer_index
 
-
 using ..Equations: CompiledEquation
 
 using ..Library.Allometry: resolve_diameter_indexed_vector
@@ -79,7 +78,7 @@ function build_parameter_defaults(
     keys_ = map(d -> d.spec.name, defs)
     length(unique(keys_)) == length(keys_) || throw(
         ArgumentError(
-            "parameter_definitions(::$(typeof(factory))) contains duplicate keys.",
+            "parameter_definitions(::$(typeof(factory))) contains duplicate keys."
         ),
     )
 
@@ -99,7 +98,9 @@ end
     provider::ConstDefault, spec, ::AbstractBGCFactory, ::Any, ::Type{FT}
 ) where {FT}
     spec.shape === :scalar || throw(
-        ArgumentError("ConstDefault can only be used for scalar parameters (:$((spec.name)))."),
+        ArgumentError(
+            "ConstDefault can only be used for scalar parameters (:$((spec.name)))."
+        ),
     )
     v = provider.value
     return v isa Bool ? v : FT(v)
@@ -109,7 +110,9 @@ end
     provider::FillDefault, spec, ::AbstractBGCFactory, community_context, ::Type{FT}
 ) where {FT}
     spec.shape in (:vector, :matrix) || throw(
-        ArgumentError("FillDefault can only be used for vector or matrix parameters (:$((spec.name)))."),
+        ArgumentError(
+            "FillDefault can only be used for vector or matrix parameters (:$((spec.name))).",
+        ),
     )
 
     v = provider.value
@@ -146,11 +149,7 @@ end
     indices = getproperty(community_context, provider.indices_field)
     default = FT(provider.default)
     return resolve_diameter_indexed_vector(
-        FT,
-        community_context.diameters,
-        indices,
-        provider.value;
-        default=default,
+        FT, community_context.diameters, indices, provider.value; default=default
     )
 end
 
@@ -178,7 +177,7 @@ function _validate_parameter_directory(factory::AbstractBGCFactory)
     keys_ = map(d -> d.spec.name, defs)
     length(unique(keys_)) == length(keys_) || throw(
         ArgumentError(
-            "parameter_definitions(::$(typeof(factory))) contains duplicate keys.",
+            "parameter_definitions(::$(typeof(factory))) contains duplicate keys."
         ),
     )
 
@@ -215,7 +214,7 @@ function _validate_parameter_directory(factory::AbstractBGCFactory)
         else
             spec.axes === nothing || throw(
                 ArgumentError(
-                    "parameter :$(spec.name) has axes=$(spec.axes) but is not a matrix.",
+                    "parameter :$(spec.name) has axes=$(spec.axes) but is not a matrix."
                 ),
             )
         end
@@ -239,8 +238,9 @@ function _validate_parameter_shapes(
 
         if spec.shape === :vector
             v = getproperty(params, k)
-            length(v) == n ||
-                throw(ArgumentError("parameter :$k must have length $n (got $(length(v)))."))
+            length(v) == n || throw(
+                ArgumentError("parameter :$k must have length $n (got $(length(v))).")
+            )
         elseif spec.shape === :matrix
             m = getproperty(params, k)
 
@@ -263,7 +263,6 @@ function _validate_parameter_shapes(
 
     return nothing
 end
-
 
 function _validate_override_keys(
     where_, overrides::NamedTuple, required::Tuple, factory::AbstractBGCFactory
@@ -462,7 +461,7 @@ function construct_factory(
         f = getfield(plankton_dynamics, g)
         tr = f(idx)
         (tr isa CompiledEquation) || throw(
-            ArgumentError("plankton dynamics $(nameof(f)) must return CompiledEquation"),
+            ArgumentError("plankton dynamics $(nameof(f)) must return CompiledEquation")
         )
         tracer_defs = (tracer_defs..., tr)
     end
@@ -480,12 +479,16 @@ function construct_factory(
     )
 
     _validate_override_keys("parameters", parameters, required, factory)
-    _validate_override_keys("interaction_overrides", interaction_parameter_overrides, required, factory)
+    _validate_override_keys(
+        "interaction_overrides", interaction_parameter_overrides, required, factory
+    )
 
     parameter_defaults = build_parameter_defaults(factory, community_context, FT)
 
     # Merge precedence: parameter_defaults < parameters < interaction_overrides
-    merged_parameters = merge(parameter_defaults, parameters, interaction_parameter_overrides)
+    merged_parameters = merge(
+        parameter_defaults, parameters, interaction_parameter_overrides
+    )
 
     # Recompute any derived matrices affected by explicit trait overrides.
     explicit_override_keys = (keys(parameters)..., keys(interaction_parameter_overrides)...)
