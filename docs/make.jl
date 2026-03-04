@@ -20,8 +20,9 @@ const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
 examples = ["Column model" => "1D_column"]
+dev = ["Variants" => "variant"]
 
-example_scripts = [filename * ".jl" for (title, filename) in examples]
+example_scripts = [filename * ".jl" for (title, filename) in vcat(examples, dev)]
 
 function replace_silly_warning(content)
     return replace(
@@ -48,6 +49,7 @@ for example in example_scripts
 end
 
 example_pages = [title => "generated/$(filename).md" for (title, filename) in examples]
+dev_pages = [title => "generated/$(filename).md" for (title, filename) in dev]
 
 model_pages = ["NiPiZD" => "nipizd.md", "DARWIN" => "darwin.md"]
 
@@ -67,6 +69,7 @@ makedocs(;
         "Examples" => example_pages,
         "Models" => model_pages,
         "Library" => "library.md",
+        "Implementing new models" => dev_pages,
         "API reference" => "api.md",
     ],
 )
