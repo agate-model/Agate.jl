@@ -16,17 +16,11 @@ Agate.Construction.construct_factory(factory::AbstractBGCFactory; kwargs...) -> 
 module Construction
 
 import Oceananigans
-
-# NOTE: This submodule lives under `Agate` (i.e. `Agate.Construction`).
-# Refer to sibling modules via relative paths (`..`) instead of the parent
-# module name (`Agate`) because the parent name is not guaranteed to be bound
-# inside submodules (especially for code that is `eval`'d into modules).
 using ..Configuration: PFTSpecification
 
 export construct_factory
-
-# Re-export key parameter containers as part of the constructor surface.
 export PFTSpecification
+
 include("generator.jl")
 include("construct.jl")
 
