@@ -65,16 +65,17 @@ end
 @inline (bp::BoundPlankton)(i::Int) = bp.tracers.plankton(bp.args, i)
 
 @inline function Base.getproperty(v::TracerValues, name::Symbol)
-    if name === :tracers || name === :args
-        return getfield(v, name)
+    if name === :tracers
+        return getfield(v, :tracers)
+    elseif name === :args
+        return getfield(v, :args)
     elseif name === :plankton
-        return BoundPlankton(v.tracers, v.args)
+        return BoundPlankton(getfield(v, :tracers), getfield(v, :args))
     else
-        accessor = getproperty(v.tracers, name)
-        return accessor(v.args)
+        acc = getproperty(getfield(v, :tracers), name)
+        return acc(getfield(v, :args))
     end
 end
-
 """Return `(parameters, tracer_values)` for a tracer tendency function.
 
 This is the recommended prologue for tracer tendency callables:

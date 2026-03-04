@@ -168,51 +168,47 @@ end
     return @inbounds args[idx.plankton_base + (i - 1)]
 end
 
-# -----------------------------------------------------------------------------
-# User-facing access (dot syntax)
-# -----------------------------------------------------------------------------
+# Generates a small `if/elseif` ladder over the known symbol set
+# encoded in the `TracerIndex` type parameters. When property access uses a
+# literal symbol (the common case: `tr.N`, `vals.PAR`, `tr.plankton`), the
+# compiler constant-propagates `name` and eliminates all but the relevant
+# branch, producing GPU-safe, fully inferred code.
 
-@inline Base.getproperty(tr::Tracers, s::Symbol) = _getproperty(tr, Val(s))
-
-@inline _getproperty(tr::Tracers, ::Val{:idx}) = getfield(tr, :idx)
-
-@inline function _getproperty(tr::Tracers{TI}, ::Val{:plankton}) where {TI}
-    return TracerAccessor{:plankton,TI,:plankton}(tr.idx)
-end
-
-@inline function _getproperty(tr::Tracers{TI}, ::Val{s}) where {TI,s}
-    return _make_accessor(tr.idx, Val(s))
-end
-
-@generated function _make_accessor(idx::TI, ::Val{s}) where {TI<:TracerIndex,s}
-    # Decide whether `s` is a group name or a scalar tracer/aux name.
+@generated function Base.getproperty(tr::Tracers{TI}, name::Symbol) where {TI}
     TR = TI.parameters[1]
     GS = TI.parameters[2]
     AF = TI.parameters[3]
 
-    # IMPORTANT: `s` is a *value* type parameter (a `Symbol`). When we splice it
-    # into the returned expression we must use `QuoteNode(s)` so Julia treats it
-    # as a literal value (e.g. `:N`) rather than a variable reference (`N`).
-    s_q = QuoteNode(s)
+    idx_expr = :(getfield(tr, :idx))
 
-    # group?
+    # We build the ladder using nested `Expr(:if, ...)` nodes to avoid invalid
+    # syntax when splicing expressions.
+    branches = Tuple{Expr, Expr}[]
+
+    push!(branches, (:(name === :idx), :(return $idx_expr)))
+    push!(branches, (:(name === :plankton), :(return TracerAccessor{:plankton, TI, :plankton}($idx_expr))))
+
     for g in GS
-        if g === s
-            return :(TracerAccessor{$s_q,$TI,:group}(idx))
-        end
-    end
-    # scalar tracer?
-    for tr in TR
-        if tr === s
-            return :(TracerAccessor{$s_q,$TI,:scalar}(idx))
-        end
-    end
-    # aux?
-    for a in AF
-        if a === s
-            return :(TracerAccessor{$s_q,$TI,:scalar}(idx))
-        end
+        g_q = QuoteNode(g)
+        push!(branches, (:(name === $g_q), :(return TracerAccessor{$g_q, TI, :group}($idx_expr))))
     end
 
-    return :(throw(ArgumentError("Unknown tracer/group/auxiliary name :$s")))
+    for s in TR
+        s_q = QuoteNode(s)
+        push!(branches, (:(name === $s_q), :(return TracerAccessor{$s_q, TI, :scalar}($idx_expr))))
+    end
+
+    for a in AF
+        a_q = QuoteNode(a)
+        push!(branches, (:(name === $a_q), :(return TracerAccessor{$a_q, TI, :scalar}($idx_expr))))
+    end
+
+    # Default branch.
+    ex = :(throw(ArgumentError("Unknown tracer/group/auxiliary name")))
+    for i in reverse(eachindex(branches))
+        cond, body = branches[i]
+        ex = Expr(:if, cond, body, ex)
+    end
+
+    return ex
 end
