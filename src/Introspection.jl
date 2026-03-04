@@ -23,28 +23,27 @@ import Oceananigans.Biogeochemistry:
     return head * ", ... (" * string(m) * ")"
 end
 
-"""
-    tracer_names(bgc) -> Vector{Symbol}
+"""    tracer_names(bgc) -> Tuple
 
 Return the ordered tracer symbols required by `bgc`.
 
+This returns a `Tuple` (rather than a `Vector`) so that tracer names can remain
+type-stable when they originate from `NamedTuple` fieldnames. This is
+important for GPU execution in Oceananigans, which relies on tracer names being
+known to the compiler.
+
 The ordering matches Oceananigans / OceanBioME state-vector conventions.
 """
-function tracer_names(bgc)::Vector{Symbol}
-    return collect(required_biogeochemical_tracers(bgc))
-end
+@inline tracer_names(bgc) = required_biogeochemical_tracers(bgc)
 
-"""
-    auxiliary_field_names(bgc) -> Vector{Symbol}
+"""    auxiliary_field_names(bgc) -> Tuple
 
 Return the ordered auxiliary field symbols required by `bgc`.
 
 Auxiliary fields are non-tracer state fields (for example, light or temperature)
 that appear in tracer tendencies.
 """
-function auxiliary_field_names(bgc)::Vector{Symbol}
-    return collect(required_biogeochemical_auxiliary_fields(bgc))
-end
+@inline auxiliary_field_names(bgc) = required_biogeochemical_auxiliary_fields(bgc)
 
 """
     parameter_names(bgc) -> Vector{Symbol}
@@ -64,15 +63,14 @@ function parameter_names(bgc)::Vector{Symbol}
     return keys
 end
 
-"""
-    model_summary(bgc) -> NamedTuple
+"""    model_summary(bgc) -> NamedTuple
 
 Return a compact summary of a constructed biogeochemistry instance.
 
 The returned `NamedTuple` contains:
 
-- `tracers::Vector{Symbol}`
-- `auxiliary_fields::Vector{Symbol}`
+- `tracers::Tuple`
+- `auxiliary_fields::Tuple`
 - `parameters::Vector{Symbol}`
 - `has_sinking_velocities::Bool`
 """
