@@ -1,3 +1,16 @@
+# paper/GPU/double_gyre_gpu_online_NiPiZD_noCC_noFW.jl
+#
+# Double gyre (GPU, online physics) + Agate NiPiZD (Z1, Z2, P1, P2, D, N) with light attenuation.
+# Seasonal forcing kept; NO warming; NO freshwater flux; max Δt = 180 minutes.
+#
+# Run:
+#   julia --project=paper/GPU paper/GPU/double_gyre_gpu_online_NiPiZD_noCC_noFW.jl 70 30 15
+#
+# Args:
+#   1: stop_years (default 70)
+#   2: Δt0_minutes (default 30)
+#   3: out_interval_days (default 15; set 0 to disable output)
+
 using Oceananigans
 using Oceananigans.Units: minute, hour, day
 using Oceananigans.Advection: UpwindBiased
@@ -6,14 +19,21 @@ using Printf
 
 using CUDA
 CUDA.allowscalar(false)
-
 using JLD2
 
+using Agate
+using Agate.Library.Light
+using Agate.Models: NiPiZD
+using OceanBioME
+using OceanBioME: Biogeochemistry
+using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
+using Adapt
+
 if !CUDA.functional()
-    error("CUDA is not functional in this Julia session. Check GPU passthrough (nvidia-smi) and CUDA.jl setup.")
+    error("CUDA is not functional. Check nvidia-smi and CUDA.jl setup inside the container.")
 end
 
-const FT = Float32
+const FT   = Float32
 const year = 365day
 const arch = GPU()
 
@@ -79,12 +99,11 @@ function build_closure()
 end
 
 # -------------------------
-# Seasonal forcing 
+# Seasonal forcing only (NO warming, NO freshwater flux)
 # -------------------------
 const ρ0 = FT(1026.0)
 const τ0       = FT(0.10)    # N/m²
 const τ_season = FT(0.015)
-
 const h_surface  = FT(50.0)  # m
 const τT_restore = 30day
 const S0 = FT(35.0)
@@ -106,7 +125,38 @@ end
 @inline surface_mask(x, y, z) = z > -h_surface ? FT(1) : FT(0)
 
 # -------------------------
-# Boundary conditions (closed basin, free-slip-ish)
+# Light forcing + attenuation (Agate)
+# -------------------------
+@inline function PAR0(x, y, t)
+    seasonal = 1 - cos((t + 15day) * 2π / year)
+    gaussian = exp(-((mod(t, year) - 200day) / (50day))^2)
+    pulse    = 1 / (1 + 0.2 * gaussian) + 2
+    return FT(60) * FT(seasonal) * FT(pulse)
+end
+
+@inline PAR_f(x, y, z, t) = PAR0(x, y, t) * exp(FT(0.2) * z)
+
+light_attenuation = FunctionFieldPAR(; grid, PAR_f=PAR_f)
+
+# -------------------------
+# Build NiPiZD biogeochem (GPU) — robust to construct() returning instance vs builder
+# -------------------------
+bgc_obj = NiPiZD.construct()
+
+bgc_cpu = try
+    bgc_obj()
+catch
+    bgc_obj
+end
+
+bgc_tracers_any = required_biogeochemical_tracers(bgc_cpu)
+bgc_tracers = bgc_tracers_any isa Symbol ? (bgc_tracers_any,) : Tuple(bgc_tracers_any)
+
+bgc_gpu = Adapt.adapt(CuArray, bgc_cpu)
+biogeochemistry = Biogeochemistry(bgc_gpu; light_attenuation)
+
+# -------------------------
+# Boundary conditions (closed basin)
 # -------------------------
 u_bcs = FieldBoundaryConditions(
     top    = FluxBoundaryCondition((x, y, t) -> τx_surface(y, t) / ρ0),
@@ -132,24 +182,24 @@ T_bcs = FieldBoundaryConditions(top=FluxBoundaryCondition(FT(0)),
 S_bcs = T_bcs
 
 # -------------------------
-# Model
+# Model builder
 # -------------------------
 function build_model()
-    free_surface = ImplicitFreeSurface()
     closure = build_closure()
+    adv = UpwindBiased(order=3)
 
     T_restoring = Relaxation(; rate   = 1 / τT_restore,
                                mask   = surface_mask,
                                target = (x, y, z, t) -> T_air(y, t))
 
-    adv = UpwindBiased(order=3)
+    all_tracers = Tuple(unique([:T, :S, bgc_tracers...]))
 
-    return HydrostaticFreeSurfaceModel(
+    model = HydrostaticFreeSurfaceModel(
         grid = grid,
-        free_surface = free_surface,
+        free_surface = ImplicitFreeSurface(),
         coriolis = coriolis,
         buoyancy = buoyancy,
-        tracers = (:T, :S),
+        tracers = all_tracers,
         closure = closure,
         boundary_conditions = (u=u_bcs, v=v_bcs, T=T_bcs, S=S_bcs),
 
@@ -158,21 +208,40 @@ function build_model()
 
         timestepper = :SplitRungeKutta3,
 
-        forcing = (T = T_restoring,)  
+        forcing = (T = T_restoring,),
+        biogeochemistry = biogeochemistry
     )
+
+    return model
 end
 
 # -------------------------
 # Initial conditions
 # -------------------------
 @inline T_init(z) = FT(20.0) + (FT(5.0) - FT(20.0)) * (-z / FT(H))
-@inline S_init(z) = S0
 
 function set_initial_conditions!(model)
+    # physics tracers
     set!(model,
          u = FT(0), v = FT(0),
          T = (x, y, z) -> T_init(z),
-         S = (x, y, z) -> S_init(z))
+         S = S0)
+
+    # biogeochem tracers: set fields directly (no dynamic keywords)
+    defaults = Dict{Symbol, FT}(
+        :P1 => FT(0.01), :P2 => FT(0.01),
+        :Z1 => FT(0.05), :Z2 => FT(0.05),
+        :N  => FT(7.0),
+        :D  => FT(1.0)
+    )
+
+    for (name, val) in defaults
+        if haskey(model.tracers, name)
+            set!(model.tracers[name], val)
+        end
+    end
+
+    return nothing
 end
 
 # -------------------------
@@ -180,15 +249,14 @@ end
 # -------------------------
 function run_simulation(; stop_years::Float64=70.0,
                           Δt0 = 30minute,
-                          filename::String="double_gyre_online_noCC_noFW",
-                          out_interval_days::Int=180)
+                          out_interval_days::Int=15,
+                          filename::String="double_gyre_NiPiZD_noCC_noFW")
 
     model = build_model()
     set_initial_conditions!(model)
 
     simulation = Simulation(model; Δt=Δt0, stop_time=stop_years * year)
 
-    # Allow Δt up to 180 minutes (3 hours)
     wizard = TimeStepWizard(cfl=0.6, max_change=1.2, min_change=0.5, max_Δt=180minute)
     simulation.callbacks[:wizard] = Callback(wizard, IterationInterval(10))
 
@@ -201,14 +269,9 @@ function run_simulation(; stop_years::Float64=70.0,
     simulation.callbacks[:progress] = Callback(progress, IterationInterval(200))
 
     if out_interval_days > 0
-        # Like your working pattern:
-        # - pass a NamedTuple of fields
-        # - write at TimeInterval(out_interval_days * day)
-        fields_to_write = merge(model.tracers, (; η = model.free_surface.η))
-
         simulation.output_writers[:profiles] = JLD2Writer(
             model,
-            fields_to_write;
+            model.tracers;
             filename = "$(filename).jld2",
             schedule = TimeInterval(out_interval_days * day),
             overwrite_existing = true
@@ -225,16 +288,8 @@ end
 # -------------------------
 # CLI
 # -------------------------
-# Usage:
-#   julia --project=paper/GPU paper/GPU/double_gyre_gpu_online_noCC_noFW.jl
-#   julia --project=paper/GPU paper/GPU/double_gyre_gpu_online_noCC_noFW.jl 70 30 180
-#
-# Args:
-#   1: stop_years (default 70)
-#   2: Δt0_minutes (default 30)
-#   3: out_interval_days (default 180; set 0 to disable output)
-stop_years = length(ARGS) >= 1 ? parse(Float64, ARGS[1]) : 70.0
-Δt0_minutes = length(ARGS) >= 2 ? parse(Float64, ARGS[2]) : 30.0
+stop_years        = length(ARGS) >= 1 ? parse(Float64, ARGS[1]) : 70.0
+Δt0_minutes       = length(ARGS) >= 2 ? parse(Float64, ARGS[2]) : 30.0
 out_interval_days = length(ARGS) >= 3 ? parse(Int, ARGS[3]) : 15
 
 run_simulation(; stop_years=stop_years,
