@@ -1,24 +1,14 @@
 using Agate
 using Agate.Library.Light
+using Agate.Introspection: tracer_names
+using Agate.Models: NiPiZD
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans.Units
-using Agate.Construction: construct_factory
-using Agate.Models: NiPiZDFactory
 using Agate.Library.Photosynthesis
 using Oceananigans.Fields: FunctionField, ConstantField
-using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 using CairoMakie
-
-# Generate a CPU instance (used here to query tracer names).
-bgc_cpu = construct_factory(NiPiZDFactory())
-
-# IMPORTANT: get tracer names from the CPU instance (Agate defines the method on this type)
-tracer_names = required_biogeochemical_tracers(bgc_cpu)
-
-# Construct a GPU-ready instance for embedding in Oceananigans / OceanBioME models.
-bgc_instance = construct_factory(NiPiZDFactory(); arch=GPU())
 
 const year = years = 365days
 nothing #hide
@@ -48,6 +38,12 @@ nothing #hide
 
 grid = RectilinearGrid(GPU(); size=(1, 1, 50), extent=(20meters, 20meters, 200meters))
 
+# Construct a GPU-ready instance for embedding in Oceananigans / OceanBioME models.
+# The grid determines precision and architecture.
+bgc_instance = NiPiZD.construct(; grid)
+
+tracer_syms = Tuple(tracer_names(bgc_instance))
+
 # Build light attenuation on the column grid
 light_attenuation = FunctionFieldPAR(; grid, PAR_f=PAR_f)
 
@@ -60,7 +56,7 @@ S = ConstantField(35)
 model = NonhydrostaticModel(;
     grid,
     clock,
-    tracers=tracer_names,  # IMPORTANT: ensure P1/P2/Z1/Z2/N/D exist
+    tracers=tracer_syms,
     closure=ScalarDiffusivity(; ν=κₜ, κ=κₜ),
     biogeochemistry,
     auxiliary_fields=(; T, S),
