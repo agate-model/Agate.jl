@@ -51,6 +51,7 @@ end
 example_pages = [title => "generated/$(filename).md" for (title, filename) in examples]
 dev_pages = [title => "generated/$(filename).md" for (title, filename) in dev]
 
+contributor_pages = ["Architecture" => "architecture_overview.md"]
 model_pages = ["NiPiZD" => "nipizd.md", "DARWIN" => "darwin.md"]
 
 makedocs(;
@@ -70,6 +71,7 @@ makedocs(;
         "Models" => model_pages,
         "Library" => "library.md",
         "Implementing new models" => dev_pages,
+        "Contributor guide" => contributor_pages,
         "API reference" => "api.md",
     ],
 )
