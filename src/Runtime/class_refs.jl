@@ -1,20 +1,13 @@
-"""Class identity handles for size-structured plankton communities.
+"""ClassRef handles for size-structured plankton communities.
 
-Agate's public API uses **group symbols** (for example `:P`, `:Z`) to describe
-roles and to configure interaction matrices. Individual size classes within a
-group are addressed using `ClassRef` handles rather than "symbol-with-suffix"
-names like `:P1`.
-
-`ClassRef` is intentionally tiny and GPU-friendly (isbits). It is meant to be
-resolved on the host to concrete indices.
-"""
-
-"""A stable reference to a plankton size class.
+Agate's public API uses **group symbols** (for example `:P`, `:Z` instead of e.g. `:P1`, `:P2`) to describe
+roles and to configure interaction matrices. 
+Individual size classes within a group are addressed using `ClassRef` handles which include the group symbol and an index of the group which starts at 1.
 
 Fields
 ------
 - `group`: group symbol (e.g. `:P`, `:Z`)
-- `i`: 1-based ordinal within the group
+- `i`: index of the class within the group (starting at 1)
 """
 struct ClassRef
     group::Symbol
@@ -22,6 +15,8 @@ struct ClassRef
 end
 
 """Construct a `ClassRef`.
+
+A thin wrapper around the `ClassRef` constructor for convenient syntax.
 
 ```julia
 cref = class(:P, 1)
@@ -36,12 +31,12 @@ function class_count(community_context, group::Symbol)::Int
     return length(idx)
 end
 
-"""Resolve `cref` to the *global* plankton-class index within `community_context`.
+"""Resolve `cref` to the global plankton-class index within `community_context`.
 
-The returned index is 1-based and refers to the flattened plankton ordering
-(`community_context.plankton_symbols` / `community_context.group_symbols`).
+The returned index starts at 1 and refers to the flattened plankton ordering
+underlying both `community_context.plankton_symbols` and `community_context.group_symbols`.
 
-This is intended for host-side utilities (initial conditions, diagnostics).
+This is intended for host-side utilities such as initial conditions and diagnostics.
 """
 function resolve_class(community_context, cref::ClassRef)::Int
     idx = get(community_context.group_indices, cref.group, nothing)
