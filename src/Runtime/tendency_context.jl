@@ -1,24 +1,21 @@
-# Tendency-time context for tidy, GPU-friendly code.
-#
-# Oceananigans calls biogeochemistry tracers with a positional `args...` argument
-# list. Within kernel-callable tendency helpers we frequently need to thread
-# through the same trio:
-#
-# - model parameters (`bgc.parameters`)
-# - a `Tracers` accessor (name → integer index)
-# - the positional argument tuple (`args`)
-#
-# `TendencyContext` keeps these values together in a concrete struct so helpers
-# can accept a single argument without vararg plumbing.
+"""Concrete context for tracer tendency helper functions.
 
-"""Small, concrete context passed through tendency helper functions.
+Oceananigans supplies biogeochemistry tracers as a positional `args...` tuple.
+Tendency helper functions commonly need three associated values together:
 
-`TendencyContext` is intentionally minimal: it stores only concrete, GPU-safe
-objects (typically model parameters, a `Tracers` accessor, and a tuple of
-tracer/aux values).
+- model parameters (`bgc.parameters`)
+- a `Tracers` accessor that maps tracer names to integer indices
+- the positional runtime argument tuple (`args`)
 
-All fields are fully inferred, which helps GPU compilation and reduces
-kernel-callsite argument noise.
+`TendencyContext` bundles these values into a concrete, GPU-safe struct so
+helper functions can accept a single argument while preserving full type
+inference.
+
+Fields
+------
+- `parameters`: model parameters
+- `tracers`: tracer accessor
+- `args`: positional tracer and auxiliary values passed at runtime
 """
 struct TendencyContext{P,TR,ARGS}
     parameters::P
@@ -76,16 +73,18 @@ end
         return acc(getfield(v, :args))
     end
 end
-"""Return `(parameters, tracer_values)` for a tracer tendency function.
 
-This is the recommended prologue for tracer tendency callables:
+"""Return model parameters and tracer accessors for a tracer tendency function.
+
+Call this helper at the start of a tracer tendency implementation to unpack
+`bgc` and `args` into the values commonly needed by the function:
 
 ```julia
 parameters, tracer_values = tendency_inputs(bgc, args)
 ```
 
-`tracer_values` provides property accessors for the positional tracer arguments, including
-`tracer_values.plankton(i)` for plankton tracers.
+The returned `tracer_values` object provides named access to the positional
+tracer arguments, including `tracer_values.plankton(i)` for plankton tracers.
 """
 @inline function tendency_inputs(bgc, args)
     context = TendencyContext(bgc, args)
