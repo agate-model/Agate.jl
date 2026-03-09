@@ -1,20 +1,3 @@
-# """Model-variant scaffolding.
-# 
-# This module provides a small registry for **variants**: lightweight construction-time
-# recipes that bundle together a factory, default community structure, default
-# dynamics, and optional parameter/interaction overrides.
-# 
-# Naming
-# ------
-# Variants are identified by a `ModelId(family, citation, tag)` where:
-# - `family`: the model family (e.g. `:DARWIN`, `:NiPiZD`).
-# - `citation`: a citation key (e.g. `:citation2026`).
-# - `tag`: a stable label for a concrete recipe within that citation (e.g. `:A`, `:B`,
-#   `:submission`, `:accepted`). We intentionally avoid implying chronology; use any
-#   tag scheme that remains meaningful for your workflow.
-# 
-# """
-
 using ..Factories: AbstractBGCFactory
 using ..Construction: construct_factory
 
