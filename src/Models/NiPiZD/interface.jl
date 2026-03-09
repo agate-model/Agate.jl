@@ -25,11 +25,13 @@ may override interaction matrices explicitly with `palatability_matrix` and/or
 
 Keywords
 --------
-- `n_phyto=2`, `n_zoo=2`: number of phytoplankton and zooplankton size classes
+- `n_phyto=2`: number of phytoplankton size classes
+- `n_zoo=2`: number of zooplankton size classes
 - `phyto_diameters=(2, 10, :log_splitting)`: diameter specification for phytoplankton
 - `zoo_diameters=(20, 100, :linear_splitting)`: diameter specification for zooplankton
 - `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set)
-- `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrix overrides
+- `palatability_matrix=nothing`: optional palatability matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)` (for NiPiZD defaults, `(n_zoo, n_phyto)`).
+- `assimilation_matrix=nothing`: optional assimilation matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)` (for NiPiZD defaults, `(n_zoo, n_phyto)`).
 - `grid=BoxModelGrid()`: grid used for precision/architecture inference and sinking velocity fields
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
 - `sinking_tracers=nothing`: sinking speed overrides, e.g. `(D = 2/day, P1 = 0.1/day, ...)`

@@ -77,12 +77,13 @@ auxiliary field.
 
 Keywords
 --------
-- `n_phyto=2`, `n_zoo=2`: number of phytoplankton and zooplankton size classes
+- `n_phyto=2`: number of phytoplankton size classes
+- `n_zoo=2`: number of zooplankton size classes
 - `phyto_diameters=(1.5, 20.0, :log_splitting)`: diameter specification for phytoplankton
 - `zoo_diameters=(20.0, 100.0, :log_splitting)`: diameter specification for zooplankton
 - `parameters=(;)`: parameter overrides (validated against the DARWIN parameter set)
-- `palatability_matrix=nothing`, `assimilation_matrix=nothing`: optional interaction matrix overrides.
-  Each must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)`
+- `palatability_matrix=nothing`: optional palatability matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)` (for DARWIN defaults, `(n_zoo, n_phyto)`).
+- `assimilation_matrix=nothing`: optional assimilation matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)`
   (for DARWIN defaults, `(n_zoo, n_phyto)`).
 - `grid=BoxModelGrid()`: grid used for precision/architecture inference and sinking velocity fields
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
