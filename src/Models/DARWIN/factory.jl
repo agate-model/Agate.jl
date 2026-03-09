@@ -2,7 +2,7 @@ using ...Factories: AbstractBGCFactory
 using ...Configuration: PFTSpecification
 using ...Configuration: DiameterRangeSpecification
 
-# NOTE: Numeric parameter defaults are declared in `Models/DARWIN/Parameters.jl`.
+# NOTE: Numeric parameter defaults are declared in `Models/DARWIN/parameters.jl`.
 
 import ...Factories:
     default_plankton_dynamics, default_community, default_biogeochem_dynamics

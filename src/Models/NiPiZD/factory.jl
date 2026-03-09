@@ -3,7 +3,7 @@ using ...Configuration: PFTSpecification
 using ...Configuration: DiameterRangeSpecification
 
 # NOTE: Numeric parameter defaults are declared alongside parameter metadata in
-# `parameter_definitions(::NiPiZDFactory)` (see `Models/NiPiZD/Parameters.jl`).
+# `parameter_definitions(::NiPiZDFactory)` (see `Models/NiPiZD/parameters.jl`).
 
 import ...Factories:
     default_plankton_dynamics, default_community, default_biogeochem_dynamics
