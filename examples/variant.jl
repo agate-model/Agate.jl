@@ -13,7 +13,7 @@ using Agate.Configuration: build_plankton_community
 using Agate.Models: ModelId, VariantSpec, register_variant, variant, construct
 using Agate.Models.DARWIN: DarwinFactory
 
-# ## ModelID definition
+# ## ModelId definition
 # First we define a `ModelId` for our variant. The `ModelId` is a stable identifier that uniquely identifies the variant. It consists of three parts:
 # - `family`: the model family (e.g. DARWIN, NiPiZD, etc.)
 # - `citation`: a citation key that identifies the paper or source of the variant (e.g. citation2026)
@@ -87,7 +87,7 @@ bgc  = construct(spec)
 nothing #hide
 
 
-# ## Calling existing (already-registered) variants by ModelId
+# ## Calling existing variants by ModelId
 #
 # You can always look up by ModelId — as long as the code that called `register_variant(...)`
 # has run in this session.
@@ -101,7 +101,7 @@ built_in_spec = variant(built_in_id)              # looks up and calls the regis
 built_in_bgc  = construct(built_in_spec)
 nothing #hide
 
-# ## Calling your own variants (outside Agate)
+# ## Calling your own variants
 #
 # If you define a variant in your own project (not inside Agate’s src tree),
 # you must `include` (or `using MyVariantsPackage`) before calling `variant(model_id)`.
