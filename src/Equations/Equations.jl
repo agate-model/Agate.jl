@@ -2,13 +2,10 @@ module Equations
 
 export CompiledEquation
 
-"""A wrapper around a callable equation.
+"""Wrap a callable tracer equation in a concrete, type-stable container.
 
-`CompiledEquation` is used throughout Agate to store GPU-callable tracer tendency
-functions in a type-stable way.
-
-Parameter validation is handled by the factory's parameter directory
-(`parameter_definitions(factory)`).
+`CompiledEquation` stores the kernel-callable function used for a single tracer
+tendency.
 """
 struct CompiledEquation{F}
     f::F
