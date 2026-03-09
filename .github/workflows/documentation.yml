@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - meta_constructor_model_specs
     tags: '*'
   pull_request:
     types:
