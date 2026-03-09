@@ -65,7 +65,7 @@ You may filter by `family` and/or `citation`.
 function list_variants(;
     family::Union{Nothing,Symbol}=nothing, citation::Union{Nothing,Symbol}=nothing
 )
-    ids = collect(keys(_VARIANT_REGISTRY))
+    ids = collect(keys(VARIANT_REGISTRY))
     if !isnothing(family)
         ids = filter(id -> id.family == family, ids)
     end
@@ -78,7 +78,7 @@ end
 
 """Construct a `VariantSpec` from the registry."""
 function variant(id::ModelId; kwargs...)
-    builder = get(_VARIANT_REGISTRY, id, nothing)
+    builder = get(VARIANT_REGISTRY, id, nothing)
     isnothing(builder) && throw(
         ArgumentError(
             "unknown variant $(string(id)); available variants: $(join(string.(list_variants()), ", "))",
