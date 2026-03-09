@@ -269,9 +269,6 @@ function _validate_override_keys(
     required_set = Set(required)
     for k in keys(overrides)
         k in required_set && continue
-
-        # Optional overrides are permitted only for keys declared in the
-        # factory's parameter directory.
         parameter_spec(factory, k) === nothing &&
             throw(ArgumentError("$(where_): unknown parameter key :$k."))
     end
@@ -303,32 +300,6 @@ function _reject_missing_values(params::NamedTuple)
     return nothing
 end
 
-"""
-    construct_factory(factory::AbstractBGCFactory; kw...) -> bgc
-
-Construct and compile a concrete biogeochemistry *instance* from a factory and optional parameter overrides.
-
-Key keyword arguments
----------------------
-- `grid=nothing`: optional grid used for sinking-velocity fields and for choosing
-  the floating point type when interfacing with Oceananigans / OceanBioME.
-  Precision is determined by `eltype(grid)`. When `grid` is not provided,
-  Agate constructs a `Float64` instance.
-- `arch=nothing`: `CPU()` or `GPU()`; when omitted and `grid` is provided, defaults
-  to `architecture(grid)`.
-- `community`: plankton community structure (size classes, diameters, PFT specs).
-- `parameters`: `NamedTuple` of user-supplied parameter overrides.
-- `interaction_roles=nothing`: optional role membership for consumer/prey axes. Provide as a `NamedTuple` with fields `consumers` and `prey`, each either `nothing` (all classes), a collection of group `Symbol`s, an index vector, or a boolean mask. When omitted, both roles default to `nothing` (all classes).
-- `default_parameter_roles=nothing`: optional role membership used **only** when generating default parameter vectors (e.g. producer- vs consumer-like trait defaults). Provide as `(; producers=..., consumers=...)` using the same formats as `interaction_roles`. When omitted, defaults to matching the interaction axes: `(; producers=interaction_roles.prey, consumers=interaction_roles.consumers)`.
-- `interaction_overrides`: optional `NamedTuple` of interaction-parameter overrides (often matrices such as `:palatability_matrix` and `:assimilation_matrix`).
-  Interaction overrides are **data-only**: values must be explicit rectangular matrices sized to the declared axes (for example `(n_consumer, n_prey)` for `(:consumer, :prey)`).
-  Provider functions / callables are **not** supported; if you need derived matrices, define a `Variant` / `Factory` default that produces concrete matrices during construction.
-"""
-
-# ---------------------------------------------------------------------
-# Auxiliary field validation
-# ---------------------------------------------------------------------
-
 function _validate_auxiliary_fields(auxiliary_fields::Tuple, tracer_names::Tuple)
     isempty(auxiliary_fields) && return nothing
 
@@ -350,33 +321,34 @@ end
 """
     construct_factory(factory::AbstractBGCFactory; kwargs...) -> bgc
 
-Generic constructor used by model-specific entrypoints like `NiPiZD.construct` and `DARWIN.construct`.
+Construct a concrete biogeochemistry model from `factory` and optional
+configuration overrides.
 
-This function assembles a biogeochemistry instance in four conceptual steps:
+Construction proceeds in four stages:
 
-1. **Parse community structure** into a `CommunityContext` (group ordering, diameter classes, role axes).
-2. **Build baseline parameters** by evaluating `parameter_definitions(factory)` into concrete numeric values
-   (scalars, vectors, matrices) with element type `FT`.
-3. **Apply overrides** (`parameters` and interaction overrides), then compute or recompute any derived interaction
-   matrices declared by `matrix_definitions(factory)`.
-4. **Finalize interactions** into a canonical consumer-by-prey representation and adapt the instance to the
-   requested architecture.
-
-Precision is determined by the grid when `grid` is provided: `FT = eltype(grid)` (the grid is the single source of
-truth for floating-point type). GPU compatibility is provided by an architecture-wide `Adapt.adapt` pass at the end of
-construction; default providers run on the host and should allocate host arrays.
+1. Parse the community into a `CommunityContext`.
+2. Evaluate `parameter_definitions(factory)` into concrete defaults.
+3. Apply user overrides and resolve any derived interaction matrices.
+4. Finalize interaction parameters, compile tracer functions, and adapt the
+   result to the requested architecture.
 
 Keyword arguments
 -----------------
-- `plankton_dynamics`, `biogeochem_dynamics`: dynamics builders (defaults come from the factory).
-- `community`: community specification (defaults come from the factory).
-- `parameters`: a `NamedTuple` of parameter overrides.
-- `interaction_overrides`: optional `NamedTuple` of interaction matrix overrides (model-specific constructors may also
-  expose these as convenience keywords).
-- `grid`, `arch`: optionally choose precision and architecture; when `grid` is provided, architecture is determined by
-  `architecture(grid)`.
+- `plankton_dynamics`, `biogeochem_dynamics`: dynamics builders.
+- `community`: plankton community specification.
+- `parameters`: `NamedTuple` of parameter overrides.
+- `interaction_overrides`: `NamedTuple` of explicit interaction-matrix
+  overrides.
+- `interaction_roles`: optional `NamedTuple` with `consumers` and `prey`
+  membership for interaction axes.
+- `default_parameter_roles`: optional `NamedTuple` with `producers` and
+  `consumers` membership used only when generating default parameter vectors.
+- `auxiliary_fields`: auxiliary values appended to the tracer argument list.
+- `grid`, `arch`: optional precision and architecture inputs.
+- `sinking_tracers`, `open_bottom`: sinking-velocity configuration.
 
-The returned object stores the fully **resolved** parameter set at `bgc.parameters`.
+The returned object stores the fully resolved parameter set in
+`bgc.parameters`.
 """
 
 function construct_factory(
@@ -394,13 +366,9 @@ function construct_factory(
     grid=nothing,
     open_bottom::Bool=true,
 )
-
-    # If sinking is requested and no grid was supplied, fall back to a BoxModelGrid.
     if isnothing(grid) && !isnothing(sinking_tracers)
         grid = BoxModelGrid()
     end
-
-    # Precision + architecture selection.
     if !isnothing(grid)
         FT = eltype(grid)
         arch_grid = architecture(grid)
@@ -421,8 +389,6 @@ function construct_factory(
     validate_community_inputs(plankton_dynamics, community)
     biogeochem_dynamics isa NamedTuple ||
         throw(ArgumentError("biogeochem_dynamics must be a NamedTuple"))
-
-    # Parse community.
     community_context = parse_community(
         factory,
         FT,
@@ -433,16 +399,8 @@ function construct_factory(
         default_parameter_roles=default_parameter_roles,
     )
 
-    # ---------------------------------------------------------------------
-    # Build tracer expressions.
-    # ---------------------------------------------------------------------
-
     plankton_syms = community_context.plankton_symbols
-
-    # Keep tracer names as a tuple so downstream NamedTuple construction preserves concrete types.
     tracer_names = (keys(biogeochem_dynamics)..., Tuple(plankton_syms)...)
-
-    # Accumulate compiled tracer definitions in a tuple to avoid `Any` erasure.
     tracer_defs = ()
 
     for (_, f) in pairs(biogeochem_dynamics)
@@ -465,10 +423,6 @@ function construct_factory(
 
     tracers = NamedTuple{tracer_names}(tracer_defs)
 
-    # ---------------------------------------------------------------------
-    # Parameters
-    # ---------------------------------------------------------------------
-
     required = _validate_parameter_directory(factory)
 
     interaction_parameter_overrides = normalize_interaction_overrides(
@@ -481,32 +435,22 @@ function construct_factory(
     )
 
     parameter_defaults = build_parameter_defaults(factory, community_context, FT)
-
-    # Merge precedence: parameter_defaults < parameters < interaction_overrides
     merged_parameters = merge(
         parameter_defaults, parameters, interaction_parameter_overrides
     )
-
-    # Recompute any derived matrices affected by explicit trait overrides.
     explicit_override_keys = (keys(parameters)..., keys(interaction_parameter_overrides)...)
     merged_parameters = resolve_derived_matrices(
         factory, community_context, merged_parameters, explicit_override_keys
     )
-
-    # Ensure the required keys are present.
     missing = Symbol[]
     for k in required
         hasproperty(merged_parameters, k) || push!(missing, k)
     end
     isempty(missing) ||
         throw(ArgumentError("missing required parameters: $(join(string.(missing), ", "))"))
-
-    # Finalize any role-aware interaction matrices.
     merged_parameters = finalize_interaction_parameters(
         factory, community_context, merged_parameters
     )
-
-    # Slice down to the required keys (plus selected internal helpers) for better type stability.
     internal = hasproperty(merged_parameters, :interactions) ? (:interactions,) : ()
     all_keys = (required..., internal...)
     resolved_parameters = NamedTuple{all_keys}(
@@ -516,18 +460,6 @@ function construct_factory(
     _reject_missing_values(resolved_parameters)
 
     _validate_parameter_shapes(factory, community_context, resolved_parameters, required)
-
-    # ---------------------------------------------------------------------
-    # Compile + instantiate.
-    # ---------------------------------------------------------------------
-
-    # Auxiliary fields are appended to the Oceananigans kernel argument list.
-    # The symbol tuple lives only on the host side; the compiled model stores
-    # a GPU-safe integer `TracerIndex`.
-    #
-    # NOTE: `auxiliary_fields` is a host-side tuple of `Symbol`s only. The compiled
-    # model stores a GPU-safe integer `TracerIndex`, so no runtime Symbol work
-    # occurs inside kernels.
     _validate_auxiliary_fields(auxiliary_fields, tracer_names)
     tracer_index = build_tracer_index(
         community_context,
@@ -555,8 +487,6 @@ function construct_factory(
         )
         bgc = bgc_factory(resolved_parameters, sinking_velocities)
     end
-
-    # Move any arrays inside `bgc` onto the requested architecture.
     bgc = _on_architecture(arch, bgc)
 
     return bgc
