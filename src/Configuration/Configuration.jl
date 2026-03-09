@@ -7,7 +7,6 @@ export PFTSpecification
 
 export build_plankton_community
 
-# Advanced factory/variant authoring API (kept intentionally small).
 export AbstractMatrixDeriver
 export MatrixDefinition
 export matrix_definitions
