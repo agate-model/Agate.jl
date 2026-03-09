@@ -21,9 +21,7 @@ The inverse maps support fast lookup of axis-local indices from global indices:
 - `global_to_consumer[g]` returns `ic` or `0` if `g` is not a consumer
 - `global_to_prey[g]` returns `ip` or `0` if `g` is not a prey
 
-No square matrices (or square views) are created or stored.
 """
-
 struct InteractionMatrices{PM,AM,VI,MI}
     palatability::PM
     assimilation::AM
@@ -137,8 +135,7 @@ end
 - a `NamedTuple` of updates
 
 Interaction overrides are **data-only**. Values must be explicit, canonical
-axis-sized rectangular matrices. Provider functions / callables are **not**
-supported.
+axis-sized rectangular matrices.
 
 For a matrix parameter with declared `axes` (for example `(:consumer, :prey)`),
 users must pass a rectangular matrix sized to the declared axes (for example
