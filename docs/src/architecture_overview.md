@@ -3,9 +3,9 @@
 
 At a high level, Agate is organized into four broad layers:
 
-1. **Model families** in `Models/`, such as [`NiPiZD`](@ref NiPiZD) and [`DARWIN`](@ref DARWIN), which provide the user-facing constructors and define model-specific variants.
+1. **Model constructors** in `Models/`, such as [`NiPiZD`](@ref NiPiZD) and [`DARWIN`](@ref DARWIN), which provide the user-facing constructors and define model-specific variants.
 
-2. **Reusable scientific building blocks** in `Library/`, which provide shared components for processes such as photosynthesis, predation, remineralization, light limitation, mortality, and allometry.
+2. **Reusable model building blocks** in `Library/`, which provide shared components for processes such as photosynthesis, predation, remineralization, light limitation, mortality, and allometry.
 
 3. **Construction-time machinery** in `Factories/`, `Configuration/`, `Construction/`, and `Equations/`, which resolves defaults, normalizes configuration inputs, and assembles a concrete biogeochemistry object.
 
@@ -13,7 +13,7 @@ At a high level, Agate is organized into four broad layers:
 
 ## Model workflow
 
-A typical model build in Agate moves through a staged pipeline from user inputs to a runnable model.
+A typical model build in Agate has seven components.
 
 1. **Model entry point** (`Models/`).
    Each model is defined using a user-facing constructor such as `Agate.Models.<Model>.construct(...)`. The `Models/` layer defines the public entry points for the built-in model families.
@@ -25,7 +25,7 @@ A typical model build in Agate moves through a staged pipeline from user inputs 
    Community structure, trophic roles, and interaction inputs are converted into a consistent internal representation. The `Configuration/` layer is responsible for parsing and normalizing these inputs before assembly begins.
 
 4. **Parameter resolution** (`Factories/`, `Configuration/`, and `Construction/`).
-   After the configuration has been normalized, Agate resolves explicit inputs, applies defaults, and constructs any derived matrices required by the model. This stage draws on shared metadata, normalized configuration, and assembly logic.
+   After the configuration has been normalized, Agate resolves explicit inputs, applies defaults, and constructs any derived matrices required by the model. This step draws on shared metadata, normalized configuration, and assembly logic.
 
 5. **Model assembly** (`Construction/`, `Equations/`, and `Library/`).
    Tracer equations and supporting components are assembled into a concrete Agate model object. `Construction/` contains the core assembly pipeline, while `Equations/` and `Library/` provide equation wrappers and reusable scientific components.
@@ -34,7 +34,7 @@ A typical model build in Agate moves through a staged pipeline from user inputs 
    Once assembled, the model exposes tracer accessors, indexing utilities, and other helpers needed at runtime. The `Runtime/` layer provides GPU-safe tracer access and related support for Oceananigans kernels.
 
 7. **Inspection and diagnostics** (`Diagnostics/` and `Introspection.jl`).
-   After construction, helper tools are available to inspect the generated model and evaluate its structure or behaviour. `Diagnostics/` and `Introspection.jl` provide utilities for understanding, checking, and summarizing the assembled model.
+   After construction, helper tools are available to inspect the generated model and evaluate its structure or behavior. `Diagnostics/` and `Introspection.jl` provide utilities for understanding, checking, and summarizing the assembled model.
 
 ## Source tree
 
@@ -68,7 +68,7 @@ docs/
 
 examples/                 # example scripts
 
-test/                     # integration and behaviour checks
+test/                     # integration and behavior checks
 
 paper/                    # paper-related and GPU-oriented workflows
 ```
