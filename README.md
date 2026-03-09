@@ -8,6 +8,12 @@
 
 A Julia library to build flexible and composable aquatic ecosystems.
 
+## Note on maintenance and development
+
+Agate.jl is currently under active development. While we welcome contributions, please be aware that the API and functionality may change as we continue to improve the package. We recommend checking the documentation and release notes regularly for updates.
+
+We intend to release a stable version of Agate.jl for Ocean Sciences 2026.
+
 ## Documentation
 
   - [**DEV**](https://agate-model.github.io/Agate.jl/dev/) — *documentation of the in-development version.*
