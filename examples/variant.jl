@@ -83,9 +83,8 @@ nothing #hide
 # 2) `construct(spec; ...)` constructs the concrete biogeochemistry model
 
 spec = variant(id; n_phyto=3, n_zoo=2)
-bgc  = construct(spec)
+bgc = construct(spec)
 nothing #hide
-
 
 # ## Calling existing variants by ModelId
 #
@@ -98,7 +97,7 @@ using Agate.Models.DARWIN  # ensures DARWIN’s built-in variants are registered
 
 built_in_id = ModelId(:DARWIN, :citation2026, :A)  # example
 built_in_spec = variant(built_in_id)              # looks up and calls the registered builder
-built_in_bgc  = construct(built_in_spec)
+built_in_bgc = construct(built_in_spec)
 nothing #hide
 
 # ## Calling your own variants

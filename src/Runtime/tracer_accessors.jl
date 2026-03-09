@@ -156,24 +156,39 @@ end
     AF = TI.parameters[3]
 
     idx_expr = :(getfield(tr, :idx))
-    branches = Tuple{Expr, Expr}[]
+    branches = Tuple{Expr,Expr}[]
 
     push!(branches, (:(name === :idx), :(return $idx_expr)))
-    push!(branches, (:(name === :plankton), :(return TracerAccessor{:plankton, TI, :plankton}($idx_expr))))
+    push!(
+        branches,
+        (
+            :(name === :plankton),
+            :(return TracerAccessor{:plankton,TI,:plankton}($idx_expr)),
+        ),
+    )
 
     for g in GS
         g_q = QuoteNode(g)
-        push!(branches, (:(name === $g_q), :(return TracerAccessor{$g_q, TI, :group}($idx_expr))))
+        push!(
+            branches,
+            (:(name === $g_q), :(return TracerAccessor{$g_q,TI,:group}($idx_expr))),
+        )
     end
 
     for s in TR
         s_q = QuoteNode(s)
-        push!(branches, (:(name === $s_q), :(return TracerAccessor{$s_q, TI, :scalar}($idx_expr))))
+        push!(
+            branches,
+            (:(name === $s_q), :(return TracerAccessor{$s_q,TI,:scalar}($idx_expr))),
+        )
     end
 
     for a in AF
         a_q = QuoteNode(a)
-        push!(branches, (:(name === $a_q), :(return TracerAccessor{$a_q, TI, :scalar}($idx_expr))))
+        push!(
+            branches,
+            (:(name === $a_q), :(return TracerAccessor{$a_q,TI,:scalar}($idx_expr))),
+        )
     end
     ex = :(throw(ArgumentError("Unknown tracer/group/auxiliary name")))
     for i in reverse(eachindex(branches))

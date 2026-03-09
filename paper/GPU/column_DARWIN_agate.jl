@@ -58,9 +58,7 @@ model = NonhydrostaticModel(;
     clock,
     tracers=tracer_syms,
     timestepper=:QuasiAdamsBashforth2,
-    closure=ScalarDiffusivity(
-        VerticallyImplicitTimeDiscretization(); ν=κₜ, κ=κₜ
-    ),
+    closure=ScalarDiffusivity(VerticallyImplicitTimeDiscretization(); ν=κₜ, κ=κₜ),
     biogeochemistry,
     auxiliary_fields=(; T, S),
 )

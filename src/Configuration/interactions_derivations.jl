@@ -43,7 +43,6 @@ function derive_matrix(
     throw(ArgumentError("derive_matrix is not implemented for this deriver"))
 end
 
-
 """Return derivation specs for matrices exposed by `factory`.
 
 Some models expose low-level interaction traits (for example,
