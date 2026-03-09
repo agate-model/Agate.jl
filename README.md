@@ -2,7 +2,7 @@
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/agate-model/Agate.jl/blob/main/LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-dev-blue)](https://agate-model.github.io/Agate.jl/dev/)
-[![Build Status](https://github.com/agate-model/Agate.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/agate-model/Agate.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://github.com/agate-model/AGATE.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/agate-model/Agate.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
 ## Aquatic Gcm-Agnostic Tunable Ecosystems
 
@@ -11,8 +11,6 @@ A Julia library to build flexible and composable aquatic ecosystems.
 ## Note on maintenance and development
 
 Agate.jl is currently under active development. While we welcome contributions, please be aware that the API and functionality may change as we continue to improve the package. We recommend checking the documentation and release notes regularly for updates.
-
-We intend to release a stable version of Agate.jl for Ocean Sciences 2026.
 
 ## Documentation
 
@@ -25,11 +23,11 @@ Download Julia by following instructions at https://julialang.org/downloads/.
 Clone this repository and change your current working directory to this project:
 
 ```bash
-git clone https://github.com/agate-model/Agate.jl.git
+https://github.com/agate-model/Agate.jl.git
 cd Agate.jl
 ```
 
-Instantiate the project environment (this may take a while the first time):
+To activate the project (this takes a while as it installs all the packages):
 
 ```bash
 julia --project -e 'using Pkg; Pkg.instantiate()'
@@ -41,122 +39,37 @@ You can then use the package interactively, in the terminal:
 julia --project=.
 ```
 
-To run one of the scripts in `examples/`:
+To run an example script:
 
 ```bash
-julia --project=. examples/box_model_factories.jl
+julia --project <path to script>
 ```
 
-To use the package from another Julia project, either `develop` a local checkout:
+To use the package in a Jupyter notebook run:
 
-```julia
+```Julia
 using Pkg
-Pkg.develop(; path="/path/to/Agate.jl")
+Pkg.activate("<path to Agate.jl repo>")
 ```
-
-or add it directly from Git:
-
-```julia
-using Pkg
-Pkg.add(; url="https://github.com/agate-model/Agate.jl.git")
-```
-
-In a Jupyter notebook, activate a project that has Agate in its environment:
-
-```julia
-using Pkg
-Pkg.activate("/path/to/project")
-```
-
-## Repository layout
-
-  - `src/`: package source code.
-
-  - `test/`: test suite.
-  - `examples/`: runnable scripts (many depend on Oceananigans/OceanBioME; see `examples/README.md`).
-  - `docs/`: documentation build.
-    
-      + `docs/src/generated/`: precomputed outputs (figures and small datasets) used by the docs build.
-  - `paper/`: scripts and container recipes used for paper/plot reproduction (see `paper/README.md`).
 
 ## Development
 
-We follow the [Blue](https://github.com/JuliaDiff/BlueStyle) style guide for Julia. To automatically format all Julia files in the project you can use JuliaFormatter:
+We follow the [Blue](https://github.com/JuliaDiff/BlueStyle) style guide for Julia. To automatically format all Julia files in the project you can use the JuliaFormatter. Once you have installed it (`add JuliaFormatter`) run:
 
-```julia
-using Pkg
-Pkg.add("JuliaFormatter")
+```Julia
 using JuliaFormatter
+
 format(".")
 ```
 
-To update project dependencies in the REPL, press `]` and run:
+To update project dependencies:
 
-```text
-add <package>
+```Julia
+] add <package>
 ```
 
 To run tests:
 
-```bash
-julia --project -e 'using Pkg; Pkg.test()'
-```
-
-## Interaction matrices
-
-Agate models expose two predator-by-prey interaction matrices:
-
-  - `palatability_matrix` — preference of each consumer for each prey
-  - `assimilation_matrix` — assimilation efficiency of each consumer on each prey
-
-These matrices are **role-aware** and are stored canonically as
-`(n_consumer, n_prey)` rectangular matrices.
-
-All public model constructors accept overrides via the two keywords
-`palatability_matrix=` and `assimilation_matrix=`. Each must be an **explicit**,
-rectangular `(n_consumer, n_prey)` matrix in canonical consumer-by-prey order.
-Provider functions / callables are **not** supported in user overrides.
-
-If you need matrices derived from traits or other parameters, define a Variant/Factory
-default that produces concrete rectangular matrices during construction.
-
-Example (NiPiZD default axes: consumers=Z, prey=P, so `2×2` by default):
-
-```julia
-using Agate
-
-pal = Float32[
-    1 0
-    0 1
-]
-assim = Float32[
-    0.7 0.7
-    0.7 0.7
-]
-
-bgc = Agate.Models.NiPiZD.construct(; palatability_matrix=pal, assimilation_matrix=assim)
-```
-
-If you have a small *group-by-group* block matrix, wrap it in
-an explicit rectangular matrix to match the consumer-by-prey axes.
-
-## Derived matrices (trait overrides)
-
-NiPiZD and DARWIN expose a small set of **interaction traits** (vectors) that
-are used to derive default interaction matrices. If you override one of these
-traits (and do not explicitly override the corresponding matrix), Agate
-recomputes the matrix during construction.
-
-Example (tighten palatability specificity for consumers):
-
-```julia
-using Agate
-
-n_phyto = 4
-n_zoo = 2
-n_total = n_phyto + n_zoo
-
-bgc = Agate.Models.NiPiZD.construct(;
-    n_phyto, n_zoo, parameters=(; specificity=fill(0.15f0, n_total),)
-)
+```Julia
+] test
 ```
