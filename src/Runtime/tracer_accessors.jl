@@ -48,13 +48,13 @@ struct TracerAccessor{S,TI,K}
 end
 
 @inline (a::TracerAccessor{S,TI,:scalar})(args) where {S,TI} =
-    _scalar_value(a.idx, args, Val(S))
+    scalar_value(a.idx, args, Val(S))
 
 @inline (a::TracerAccessor{S,TI,:group})(args, i::Int) where {S,TI} =
-    _group_value(a.idx, args, Val(S), i)
+    group_value(a.idx, args, Val(S), i)
 
 @inline (a::TracerAccessor{S,TI,:plankton})(args, i::Int) where {S,TI} =
-    _plankton_value(a.idx, args, i)
+    plankton_value(a.idx, args, i)
 
 """Create a default `TracerIndex` for an arbitrary tracer set.
 
@@ -105,7 +105,7 @@ function build_tracer_index(
     )
 end
 
-@generated function _find_in_tuple(::Val{sym}, ::Val{tup}) where {sym,tup}
+@generated function find_in_tuple(::Val{sym}, ::Val{tup}) where {sym,tup}
     for (i, s) in enumerate(tup)
         if s === sym
             return :($i)
@@ -114,37 +114,37 @@ end
     return :(0)
 end
 
-@inline _tracer_position(::TracerIndex{TR}, ::Val{sym}) where {TR,sym} =
-    _find_in_tuple(Val(sym), Val(TR))
+@inline tracer_position(::TracerIndex{TR}, ::Val{sym}) where {TR,sym} =
+    find_in_tuple(Val(sym), Val(TR))
 
-@inline _aux_slot(::TracerIndex{TR,GS,AF,NG}, ::Val{sym}) where {TR,GS,AF,NG,sym} =
-    _find_in_tuple(Val(sym), Val(AF))
+@inline aux_slot(::TracerIndex{TR,GS,AF,NG}, ::Val{sym}) where {TR,GS,AF,NG,sym} =
+    find_in_tuple(Val(sym), Val(AF))
 
-@inline _group_slot(::TracerIndex{TR,GS,AF,NG}, ::Val{g}) where {TR,GS,AF,NG,g} =
-    _find_in_tuple(Val(g), Val(GS))
+@inline group_slot(::TracerIndex{TR,GS,AF,NG}, ::Val{g}) where {TR,GS,AF,NG,g} =
+    find_in_tuple(Val(g), Val(GS))
 
-@inline function _scalar_value(
+@inline function scalar_value(
     idx::TracerIndex{TR,GS,AF,NG}, args, ::Val{sym}
 ) where {TR,GS,AF,NG,sym}
-    pos = _tracer_position(idx, Val(sym))
+    pos = tracer_position(idx, Val(sym))
     if pos == 0
-        slot = _aux_slot(idx, Val(sym))
+        slot = aux_slot(idx, Val(sym))
         slot == 0 && throw(ArgumentError("Unknown tracer/auxiliary name :$sym"))
         return @inbounds args[idx.aux_base + (slot - 1)]
     end
     return @inbounds args[pos]
 end
 
-@inline function _group_value(
+@inline function group_value(
     idx::TracerIndex{TR,GS,AF,NG}, args, ::Val{g}, i::Int
 ) where {TR,GS,AF,NG,g}
-    slot = _group_slot(idx, Val(g))
+    slot = group_slot(idx, Val(g))
     slot == 0 && throw(ArgumentError("Unknown group :$g"))
     base = @inbounds idx.group_bases[slot]
     return @inbounds args[base + (i - 1)]
 end
 
-@inline function _plankton_value(idx::TracerIndex, args, i::Int)
+@inline function plankton_value(idx::TracerIndex, args, i::Int)
     idx.plankton_base == 0 &&
         throw(ArgumentError("No plankton layout is defined for this TracerIndex."))
     return @inbounds args[idx.plankton_base + (i - 1)]

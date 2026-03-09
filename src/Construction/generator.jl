@@ -42,19 +42,19 @@ Adapt.@adapt_structure AgateBGC
     return fieldnames(TF)
 end
 
-@generated function _auxiliary_fields_from_tracers(::Type{TR}) where {TR}
+@generated function auxiliary_fields_from_tracers(::Type{TR}) where {TR}
     TI = TR.parameters[1]
     AF = TI.parameters[3]
     return :($AF)
 end
 
 @inline required_biogeochemical_auxiliary_fields(bgc::AgateBGC) =
-    _auxiliary_fields_from_tracers(typeof(bgc.tracers))
+    auxiliary_fields_from_tracers(typeof(bgc.tracers))
 
 @inline function required_biogeochemical_auxiliary_fields(
     ::Type{<:AgateBGC{PT,TF,TR}}
 ) where {PT,TF,TR}
-    return _auxiliary_fields_from_tracers(TR)
+    return auxiliary_fields_from_tracers(TR)
 end
 
 @inline function (bgc::AgateBGC)(::Val{tracer}, args...) where {tracer}
@@ -86,11 +86,11 @@ struct AgateBGCFactory{TF,TI,RP,SV}
     default_sinking_velocities::SV
 end
 
-@inline _parameter_view(parameters) = parameters
+@inline parameter_view(parameters) = parameters
 
-@inline function _validate_parameters(parameters, required_params)
+@inline function validate_parameters(parameters, required_params)
     isempty(required_params) && return nothing
-    keys = propertynames(_parameter_view(parameters))
+    keys = propertynames(parameter_view(parameters))
     for k in required_params
         if k ∉ keys
             throw(ArgumentError("Provided parameters are missing required field :$(k)."))
@@ -100,20 +100,20 @@ end
 end
 
 function (f::AgateBGCFactory)(parameters)
-    _validate_parameters(parameters, f.required_params)
+    validate_parameters(parameters, f.required_params)
     tr = Tracers(f.tracer_index)
     return AgateBGC(parameters, f.tracer_functions, tr, f.default_sinking_velocities)
 end
 
 function (f::AgateBGCFactory)(parameters, sinking_velocities)
-    _validate_parameters(parameters, f.required_params)
+    validate_parameters(parameters, f.required_params)
     tr = Tracers(f.tracer_index)
     return AgateBGC(parameters, f.tracer_functions, tr, sinking_velocities)
 end
 
-function _compile_tracer_functions(parameters, tracers::NamedTuple)
+function compile_tracer_functions(parameters, tracers::NamedTuple)
     coordinates = (:x, :y, :z, :t)
-    parameter_keys = propertynames(_parameter_view(parameters))
+    parameter_keys = propertynames(parameter_view(parameters))
     for k in parameter_keys
         if k in coordinates
             throw(ArgumentError("Parameters contain reserved field :$(k)."))
@@ -160,7 +160,7 @@ function define_tracer_functions(
     tracer_index=nothing,
     sinking_velocities=nothing,
 )
-    tracer_functions, required_params = _compile_tracer_functions(parameters, tracers)
+    tracer_functions, required_params = compile_tracer_functions(parameters, tracers)
 
     idx = if tracer_index === nothing
         build_tracer_index(keys(tracers), auxiliary_fields)

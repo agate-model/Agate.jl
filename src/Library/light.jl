@@ -15,7 +15,7 @@ const year = years = 365day
 
 export CyclicalPAR, FunctionFieldPAR
 
-@inline function _cyclical_par_at_depth(z, t)
+@inline function cyclical_par_at_depth(z, t)
     PAR⁰ =
         60 *
         (1 - cos((t + 15days) * 2π / year)) *
@@ -47,10 +47,10 @@ end
 
 @inline CyclicalPAR() = CyclicalPAR(nothing)
 
-@inline (p::CyclicalPAR{T})(t) where {T} = _cyclical_par_at_depth(p.z, t)
+@inline (p::CyclicalPAR{T})(t) where {T} = cyclical_par_at_depth(p.z, t)
 
 @inline function (p::CyclicalPAR{Nothing})(x, y, z, t)
-    return _cyclical_par_at_depth(z, t)
+    return cyclical_par_at_depth(z, t)
 end
 
 """

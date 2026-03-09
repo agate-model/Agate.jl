@@ -32,7 +32,7 @@ struct InteractionMatrices{PM,AM,VI,MI}
 end
 Adapt.@adapt_structure InteractionMatrices
 
-@inline function _inverse_axis_map(axis_indices::AbstractVector{Int}, n_total::Int)
+@inline function inverse_axis_map(axis_indices::AbstractVector{Int}, n_total::Int)
     m = zeros(Int, n_total)
     for (lidx, gidx) in pairs(axis_indices)
         @inbounds m[gidx] = lidx
@@ -40,7 +40,7 @@ Adapt.@adapt_structure InteractionMatrices
     return m
 end
 
-@inline function _rect_value_for_axes(
+@inline function rect_value_for_axes(
     community_context::CommunityContext,
     value,
     row_indices::Vector{Int},
@@ -90,14 +90,14 @@ function finalize_interaction_parameters(
     consumer_indices = community_context.consumer_indices
     prey_indices = community_context.prey_indices
 
-    pal_rect = _rect_value_for_axes(
+    pal_rect = rect_value_for_axes(
         community_context,
         params.palatability_matrix,
         consumer_indices,
         prey_indices,
         :palatability_matrix,
     )
-    assim_rect = _rect_value_for_axes(
+    assim_rect = rect_value_for_axes(
         community_context,
         params.assimilation_matrix,
         consumer_indices,
@@ -105,8 +105,8 @@ function finalize_interaction_parameters(
         :assimilation_matrix,
     )
 
-    global_to_consumer = _inverse_axis_map(consumer_indices, community_context.n_total)
-    global_to_prey = _inverse_axis_map(prey_indices, community_context.n_total)
+    global_to_consumer = inverse_axis_map(consumer_indices, community_context.n_total)
+    global_to_prey = inverse_axis_map(prey_indices, community_context.n_total)
 
     interactions = InteractionMatrices(
         pal_rect,
@@ -192,8 +192,8 @@ function normalize_interaction_overrides(
             ),
         )
 
-        resolved_value = _normalize_interaction_value(community_context, spec, key, value)
-        _validate_interaction_override(community_context, spec, key, resolved_value)
+        resolved_value = normalize_interaction_value(community_context, spec, key, value)
+        validate_interaction_override(community_context, spec, key, resolved_value)
         resolved = (resolved..., key => resolved_value)
     end
 
@@ -223,7 +223,7 @@ Axes may be:
         )
     end
 
-@inline function _normalize_interaction_value(
+@inline function normalize_interaction_value(
     community_context::CommunityContext, spec::ParameterSpec, key::Symbol, value
 )
     spec.shape === :matrix || return value
@@ -244,7 +244,7 @@ Axes may be:
         value isa AbstractMatrix || return value
 
         if size(value) == (nr, nc)
-            return _convert_matrix_eltype(community_context, value)
+            return convert_matrix_eltype(community_context, value)
         end
 
         if size(value) == (ng, ng)
@@ -266,7 +266,7 @@ Axes may be:
     value isa AbstractMatrix || return value
 
     size(value) == (n_total, n_total) &&
-        return _convert_matrix_eltype(community_context, value)
+        return convert_matrix_eltype(community_context, value)
 
     if size(value) == (ng, ng)
         throw(
@@ -283,7 +283,7 @@ Axes may be:
     )
 end
 
-@inline function _convert_matrix_eltype(
+@inline function convert_matrix_eltype(
     community_context::CommunityContext, A::AbstractMatrix
 )
     eltype(A) === community_context.FT && return A
@@ -292,7 +292,7 @@ end
     return R
 end
 
-@inline function _validate_interaction_override(
+@inline function validate_interaction_override(
     community_context::CommunityContext, spec::ParameterSpec, key::Symbol, value
 )
     if spec.shape === :matrix

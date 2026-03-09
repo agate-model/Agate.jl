@@ -315,7 +315,7 @@ function parse_community(
     hasproperty(default_parameter_roles_resolved, :consumers) ||
         throw(ArgumentError("default_parameter_roles must define :consumers"))
 
-    function _indices_for_role(role, role_name::Symbol)
+    function indices_for_role(role, role_name::Symbol)
         if role === nothing
             return collect(1:n_total)
         elseif role isa AbstractVector{Bool}
@@ -349,15 +349,15 @@ function parse_community(
         end
     end
 
-    consumer_indices = _indices_for_role(
+    consumer_indices = indices_for_role(
         getproperty(interaction_roles_resolved, :consumers), :consumers
     )
-    prey_indices = _indices_for_role(getproperty(interaction_roles_resolved, :prey), :prey)
+    prey_indices = indices_for_role(getproperty(interaction_roles_resolved, :prey), :prey)
 
-    default_producer_indices = _indices_for_role(
+    default_producer_indices = indices_for_role(
         getproperty(default_parameter_roles_resolved, :producers), :default_producers
     )
-    default_consumer_indices = _indices_for_role(
+    default_consumer_indices = indices_for_role(
         getproperty(default_parameter_roles_resolved, :consumers), :default_consumers
     )
 

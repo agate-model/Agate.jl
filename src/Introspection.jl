@@ -14,7 +14,7 @@ export describe
 import Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
 
-@inline function _preview_list(xs; n::Int=12)
+@inline function preview_list(xs; n::Int=12)
     m = length(xs)
     if m <= n
         return join(string.(xs), ", ")
@@ -99,7 +99,7 @@ function describe(io::IO, bgc; verbose::Bool=false)
         "  tracers (",
         length(s.tracers),
         "): ",
-        verbose ? join(string.(s.tracers), ", ") : _preview_list(s.tracers),
+        verbose ? join(string.(s.tracers), ", ") : preview_list(s.tracers),
     )
 
     if isempty(s.auxiliary_fields)
@@ -113,7 +113,7 @@ function describe(io::IO, bgc; verbose::Bool=false)
             if verbose
                 join(string.(s.auxiliary_fields), ", ")
             else
-                _preview_list(s.auxiliary_fields)
+                preview_list(s.auxiliary_fields)
             end,
         )
     end
@@ -123,7 +123,7 @@ function describe(io::IO, bgc; verbose::Bool=false)
         "  parameters (",
         length(s.parameters),
         "): ",
-        verbose ? join(string.(s.parameters), ", ") : _preview_list(s.parameters),
+        verbose ? join(string.(s.parameters), ", ") : preview_list(s.parameters),
     )
     println(io, "  sinking velocities: ", s.has_sinking_velocities ? "yes" : "no")
 

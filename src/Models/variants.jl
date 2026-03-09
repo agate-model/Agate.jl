@@ -47,14 +47,14 @@ end
 
 Values are builder functions that accept keyword arguments and return a `VariantSpec`.
 """
-const _VARIANT_REGISTRY = Dict{ModelId,Function}()
+const VARIANT_REGISTRY = Dict{ModelId,Function}()
 
 """Register a variant builder.
 
 The builder must return a `VariantSpec`.
 """
 function register_variant(id::ModelId, builder::Function)
-    _VARIANT_REGISTRY[id] = builder
+    VARIANT_REGISTRY[id] = builder
     return id
 end
 

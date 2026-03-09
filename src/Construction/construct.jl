@@ -84,14 +84,14 @@ function build_parameter_defaults(
         spec = def.spec
         provider = def.default
         provider isa NoDefault && continue
-        value = _evaluate_default(provider, spec, factory, community_context, FT)
+        value = evaluate_default(provider, spec, factory, community_context, FT)
         push!(pairs, spec.name => value)
     end
 
     return (; pairs...)
 end
 
-@inline function _evaluate_default(
+@inline function evaluate_default(
     provider::ConstDefault, spec, ::AbstractBGCFactory, ::Any, ::Type{FT}
 ) where {FT}
     spec.shape === :scalar || throw(
@@ -103,7 +103,7 @@ end
     return v isa Bool ? v : FT(v)
 end
 
-@inline function _evaluate_default(
+@inline function evaluate_default(
     provider::FillDefault, spec, ::AbstractBGCFactory, community_context, ::Type{FT}
 ) where {FT}
     spec.shape in (:vector, :matrix) || throw(
@@ -130,7 +130,7 @@ end
     return fill(v, nr, nc)
 end
 
-@inline function _evaluate_default(
+@inline function evaluate_default(
     provider::DiameterIndexedVectorDefault,
     spec,
     ::AbstractBGCFactory,
@@ -151,23 +151,23 @@ end
 end
 
 """Move `x` to the requested Oceananigans architecture."""
-function _on_architecture(arch, x)
+function on_architecture(arch, x)
     arch === nothing && return x
     arch isa CPU && return x
 
-    return Base.invokelatest(Adapt.adapt, _architecture_array_type(arch), x)
+    return Base.invokelatest(Adapt.adapt, architecture_array_type(arch), x)
 end
 
 """Return the preferred array storage type for `arch`."""
-function _architecture_array_type(arch)
+function architecture_array_type(arch)
     arch isa CPU && return Array
     arch isa GPU && return Oceananigans.Architectures.array_type(arch)
     return Array
 end
 
-const _RESERVED_PARAMETER_KEYS = (:x, :y, :z, :t)
+const RESERVED_PARAMETER_KEYS = (:x, :y, :z, :t)
 
-function _validate_parameter_directory(factory::AbstractBGCFactory)
+function validate_parameter_directory(factory::AbstractBGCFactory)
     defs = parameter_definitions(factory)
     isempty(defs) && return ()
 
@@ -179,7 +179,7 @@ function _validate_parameter_directory(factory::AbstractBGCFactory)
     )
 
     for k in keys_
-        (k in _RESERVED_PARAMETER_KEYS) && throw(
+        (k in RESERVED_PARAMETER_KEYS) && throw(
             ArgumentError(
                 "parameter_definitions(::$(typeof(factory))) declares reserved parameter key :$k.",
             ),
@@ -220,7 +220,7 @@ function _validate_parameter_directory(factory::AbstractBGCFactory)
     return Tuple(keys_)
 end
 
-function _validate_parameter_shapes(
+function validate_parameter_shapes(
     factory::AbstractBGCFactory, context, params::NamedTuple, required::Tuple
 )
     n = context.n_total
@@ -261,7 +261,7 @@ function _validate_parameter_shapes(
     return nothing
 end
 
-function _validate_override_keys(
+function validate_override_keys(
     where_, overrides::NamedTuple, required::Tuple, factory::AbstractBGCFactory
 )
     isempty(overrides) && return nothing
@@ -276,22 +276,22 @@ function _validate_override_keys(
     return nothing
 end
 
-@inline _contains_missing(x) = x === missing
+@inline contains_missing(x) = x === missing
 
-function _contains_missing(x::NamedTuple)
+function contains_missing(x::NamedTuple)
     for v in values(x)
-        _contains_missing(v) && return true
+        contains_missing(v) && return true
     end
     return false
 end
 
-function _contains_missing(x::AbstractArray)
+function contains_missing(x::AbstractArray)
     return any(ismissing, x)
 end
 
-function _reject_missing_values(params::NamedTuple)
+function reject_missing_values(params::NamedTuple)
     for (k, v) in pairs(params)
-        _contains_missing(v) && throw(
+        contains_missing(v) && throw(
             ArgumentError(
                 "parameter :$k contains `missing`; all required parameters must be explicitly defined.",
             ),
@@ -300,7 +300,7 @@ function _reject_missing_values(params::NamedTuple)
     return nothing
 end
 
-function _validate_auxiliary_fields(auxiliary_fields::Tuple, tracer_names::Tuple)
+function validate_auxiliary_fields(auxiliary_fields::Tuple, tracer_names::Tuple)
     isempty(auxiliary_fields) && return nothing
 
     seen = Set{Symbol}()
@@ -423,14 +423,14 @@ function construct_factory(
 
     tracers = NamedTuple{tracer_names}(tracer_defs)
 
-    required = _validate_parameter_directory(factory)
+    required = validate_parameter_directory(factory)
 
     interaction_parameter_overrides = normalize_interaction_overrides(
         factory, community_context, interaction_overrides
     )
 
-    _validate_override_keys("parameters", parameters, required, factory)
-    _validate_override_keys(
+    validate_override_keys("parameters", parameters, required, factory)
+    validate_override_keys(
         "interaction_overrides", interaction_parameter_overrides, required, factory
     )
 
@@ -457,10 +457,10 @@ function construct_factory(
         Tuple(getproperty(merged_parameters, k) for k in all_keys)
     )
 
-    _reject_missing_values(resolved_parameters)
+    reject_missing_values(resolved_parameters)
 
-    _validate_parameter_shapes(factory, community_context, resolved_parameters, required)
-    _validate_auxiliary_fields(auxiliary_fields, tracer_names)
+    validate_parameter_shapes(factory, community_context, resolved_parameters, required)
+    validate_auxiliary_fields(auxiliary_fields, tracer_names)
     tracer_index = build_tracer_index(
         community_context,
         tracer_names,
@@ -487,7 +487,7 @@ function construct_factory(
         )
         bgc = bgc_factory(resolved_parameters, sinking_velocities)
     end
-    bgc = _on_architecture(arch, bgc)
+    bgc = on_architecture(arch, bgc)
 
     return bgc
 end

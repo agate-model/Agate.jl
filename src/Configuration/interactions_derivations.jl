@@ -84,7 +84,7 @@ grid floating-point type. No implicit casting is performed.
 matrix_definitions(::AbstractBGCFactory) = (;)
 
 """Validate the shape and element type of a derived matrix result."""
-function _validate_derived_matrix_result(
+function validate_derived_matrix_result(
     factory::AbstractBGCFactory, context::CommunityContext, key::Symbol, value
 )
     spec = parameter_spec(factory, key)
@@ -177,7 +177,7 @@ function resolve_derived_matrices(
 
         if needs_compute || needs_recompute
             value = derive_matrix(spec.deriver, factory, context, resolved)
-            _validate_derived_matrix_result(factory, context, key, value)
+            validate_derived_matrix_result(factory, context, key, value)
             resolved = merge(resolved, NamedTuple{(key,)}((value,)))
         end
     end
@@ -193,7 +193,7 @@ using ..Library.Allometry:
     palatability_matrix_allometric_axes, assimilation_efficiency_matrix_binary_axes
 
 """Return `v` if it has element type `FT`, otherwise throw an `ArgumentError`."""
-@inline function _require_FT_vector(
+@inline function require_FT_vector(
     ::Type{FT}, v::AbstractVector, name::Symbol
 ) where {FT<:AbstractFloat}
     eltype(v) === FT && return v
@@ -228,11 +228,11 @@ derivation_deps(::AssimilationBinary) = (:assimilation_efficiency,)
     return palatability_matrix_allometric_axes(
         FT,
         context.diameters;
-        optimum_predator_prey_ratio=_require_FT_vector(
+        optimum_predator_prey_ratio=require_FT_vector(
             FT, params.optimum_predator_prey_ratio, :optimum_predator_prey_ratio
         ),
-        specificity=_require_FT_vector(FT, params.specificity, :specificity),
-        protection=_require_FT_vector(FT, params.protection, :protection),
+        specificity=require_FT_vector(FT, params.specificity, :specificity),
+        protection=require_FT_vector(FT, params.protection, :protection),
         consumer_indices=context.consumer_indices,
         prey_indices=context.prey_indices,
     )
@@ -247,7 +247,7 @@ end
     FT = context.FT
     return assimilation_efficiency_matrix_binary_axes(
         FT;
-        assimilation_efficiency=_require_FT_vector(
+        assimilation_efficiency=require_FT_vector(
             FT, params.assimilation_efficiency, :assimilation_efficiency
         ),
         consumer_indices=context.consumer_indices,
