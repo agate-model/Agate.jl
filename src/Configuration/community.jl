@@ -24,8 +24,6 @@ function build_plankton_community(
     base::NamedTuple; n::NamedTuple=NamedTuple(), diameters::NamedTuple=NamedTuple()
 )
     base_keys = keys(base)
-
-    # Explicit errors for unknown update keys.
     for k in keys(n)
         k in base_keys || throw(ArgumentError("n: unknown group symbol $k"))
     end
@@ -36,17 +34,11 @@ function build_plankton_community(
     values_ = ntuple(length(base_keys)) do i
         g = base_keys[i]
         spec = getfield(base, g)
-
-        # Only touch structural fields; preserve everything else.
         new_d = if hasproperty(diameters, g)
             getfield(diameters, g)
         else
             getproperty(spec, :diameters)
         end
-
-        # `n` is optional when diameters are given explicitly as a vector/list.
-        # Prefer an explicit `n` override, otherwise infer from explicit diameters,
-        # otherwise fall back to the base spec.
         new_n = if hasproperty(n, g)
             getfield(n, g)
         elseif new_d isa AbstractVector
@@ -67,10 +59,6 @@ function build_plankton_community(
     return NamedTuple{base_keys}(values_)
 end
 
-# -----------------------------------------------------------------------------
-# Diameter specifications
-# -----------------------------------------------------------------------------
-
 """Abstract supertype for diameter specifications."""
 abstract type AbstractDiameterSpecification end
 
@@ -86,13 +74,29 @@ struct DiameterRangeSpecification{T} <: AbstractDiameterSpecification
     splitting::Symbol
 end
 
-##############################################################################
-# Construction context
-##############################################################################
+"""Construction-time representation of a parsed plankton community.
 
-"""Context used during model construction (community parsing, parameter resolution, interaction normalization, derived matrices).
+`CommunityContext` stores the flattened plankton layout, class metadata, role
+axes, and dynamics needed while resolving parameters and interaction matrices.
+It is distinct from `TendencyContext`, which is used inside tracer-tendency
+kernels.
 
-`CommunityContext` exists at **construction time** and is used by factory/variant code to compute concrete parameter defaults. User-facing interaction overrides are data-only and are validated separately. It is distinct from `TendencyContext`, which is used at **tendency time** inside Oceananigans kernels.
+Fields
+------
+- `FT`: floating-point type used for construction.
+- `n_total`: total number of plankton classes.
+- `diameters`: flattened diameter vector in global plankton order.
+- `pfts`: per-class PFT specifications.
+- `plankton_symbols`: flattened class symbols such as `:P1`, `:P2`.
+- `group_symbols`: group symbol for each flattened class.
+- `group_local_index`: within-group class index for each flattened class.
+- `group_indices`: mapping from group symbol to flattened class indices.
+- `consumer_indices`: flattened indices used for the consumer axis.
+- `prey_indices`: flattened indices used for the prey axis.
+- `default_producer_indices`: flattened indices used when building producer defaults.
+- `default_consumer_indices`: flattened indices used when building consumer defaults.
+- `plankton_dynamics`: group-level plankton dynamics builders.
+- `biogeochem_dynamics`: non-plankton tracer dynamics builders.
 """
 struct CommunityContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
     FT::Type{FT}
@@ -103,22 +107,14 @@ struct CommunityContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
     group_symbols::Vector{Symbol}
     group_local_index::Vector{Int}
     group_indices::Dict{Symbol,Vector{Int}}
-
-    # Interaction-role axes (used for matrix shapes + tendency kernels)
     consumer_indices::Vector{Int}
     prey_indices::Vector{Int}
-
-    # Default-parameter membership (used only when generating default parameter vectors)
     default_producer_indices::Vector{Int}
     default_consumer_indices::Vector{Int}
 
     plankton_dynamics::NamedTuple
     biogeochem_dynamics::NamedTuple
 end
-
-# -----------------------------------------------------------------------------
-# Community parsing
-# -----------------------------------------------------------------------------
 
 """Return a diameter specification for an explicit diameter list."""
 diameter_specification(diameters::AbstractVector) = DiameterListSpecification(diameters)
@@ -175,10 +171,6 @@ function validate_community_inputs(plankton_dynamics, community)
             end
 
             needs_n = !(d isa AbstractVector)
-
-            # For non-explicit diameter specifications (range/splitting or pre-built specs), `n` is required
-            # and must be a positive integer. Without this check the downstream community parser will throw
-            # a `MethodError` (e.g., when `n === nothing`) instead of a user-facing `ArgumentError`.
             if needs_n
                 if !hasproperty(spec, :n)
                     push!(
@@ -223,13 +215,21 @@ function validate_community_inputs(plankton_dynamics, community)
     return nothing
 end
 
-"""Parse and flatten a plankton community into a `CommunityContext`.
+"""Parse `community` into a flattened `CommunityContext`.
 
-Role axes (consumer/prey membership) are defined by `roles`, a `NamedTuple` with fields:
-- `consumers`: `nothing` (all groups/classes) or an iterable of group `Symbol`s, indices, or a boolean mask
-- `prey`: `nothing` (all groups/classes) or an iterable of group `Symbol`s, indices, or a boolean mask
+Keyword arguments
+-----------------
+- `plankton_dynamics`: group-level plankton dynamics builders.
+- `biogeochem_dynamics`: non-plankton tracer dynamics builders.
+- `interaction_roles`: optional `NamedTuple` with fields `consumers` and
+  `prey`. Each field may be `nothing`, a collection of group symbols, an index
+  vector, or a boolean mask.
+- `default_parameter_roles`: optional `NamedTuple` with fields `producers` and
+  `consumers` used only when generating default parameter vectors.
 
-When `roles` is omitted, both roles default to `nothing` (all classes).
+When `interaction_roles` is omitted, both interaction axes include all classes.
+When `default_parameter_roles` is omitted, producer membership defaults to the
+prey axis and consumer membership defaults to the consumer axis.
 """
 function parse_community(
     factory::AbstractBGCFactory,
@@ -261,13 +261,7 @@ function parse_community(
             ),
         )
     end
-    # Canonical group ordering is the (explicit, stable) ordering of `community`.
-    # This makes ordering decisions visible to the caller and avoids hidden
-    # factory-specific group ordering.
     group_order = keys(community)
-
-    # `validate_community_inputs(plankton_dynamics, community)` is responsible for
-    # ensuring the dynamics and community group sets match.
     plankton_symbols = Symbol[]
     group_of = Symbol[]
     local_idx = Int[]
@@ -308,11 +302,6 @@ function parse_community(
         throw(ArgumentError("interaction_roles must define :consumers"))
     hasproperty(interaction_roles_resolved, :prey) ||
         throw(ArgumentError("interaction_roles must define :prey"))
-
-    # Default-parameter membership is controlled separately from interaction roles.
-    # When `default_parameter_roles` is omitted, we match the interaction axes:
-    # - producers := interaction_roles.prey
-    # - consumers := interaction_roles.consumers
     default_parameter_roles_resolved = if isnothing(default_parameter_roles)
         (
             producers=getproperty(interaction_roles_resolved, :prey),
@@ -339,12 +328,7 @@ function parse_community(
                 throw(ArgumentError("$role_name indices must be in 1:$n_total"))
             return idx
         elseif role isa Tuple || role isa AbstractVector{Symbol}
-            # Treat symbol collections as *membership* (not ordering): preserve the
-            # canonical group ordering from `keys(community)` to avoid
-            # surprising axis re-ordering when users pass e.g. `(:P, :Z)`.
             requested = Set{Symbol}(role)
-
-            # Validate upfront to give a clean error message.
             for g in requested
                 haskey(group_indices, g) ||
                     throw(ArgumentError("Unknown group symbol $g in $role_name roles"))
@@ -396,10 +380,6 @@ function parse_community(
 
     return community_context
 end
-
-##############################################################################
-# Parameter Utils
-###############################################################################
 
 @inline function param_check_length(name::Symbol, expected::Int, got::Int)
     if expected != got
