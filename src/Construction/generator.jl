@@ -1,6 +1,3 @@
-# -----------------------------------------------------------------------------
-# Functor-based biogeochemistry driver
-# -----------------------------------------------------------------------------
 
 using Adapt
 
@@ -46,7 +43,6 @@ Adapt.@adapt_structure AgateBGC
 end
 
 @generated function _auxiliary_fields_from_tracers(::Type{TR}) where {TR}
-    # TR is expected to be `Tracers{TracerIndex{TRSYMS,GS,AF,NG}}`.
     TI = TR.parameters[1]
     AF = TI.parameters[3]
     return :($AF)
@@ -117,11 +113,7 @@ end
 
 function _compile_tracer_functions(parameters, tracers::NamedTuple)
     coordinates = (:x, :y, :z, :t)
-
-    # Keep this as a tuple for fast `in` checks without allocations.
     parameter_keys = propertynames(_parameter_view(parameters))
-
-    # Disallow reserved names that are used as Oceananigans kernel arguments.
     for k in parameter_keys
         if k in coordinates
             throw(ArgumentError("Parameters contain reserved field :$(k)."))
@@ -135,36 +127,31 @@ function _compile_tracer_functions(parameters, tracers::NamedTuple)
             ),
         )
     end
-
-    # IMPORTANT: avoid type erasure.
-    # Building via `Vector{Any}` (or `Tuple(vec)`) would produce `Any`-typed fields,
-    # which triggers dynamic dispatch in kernels and breaks GPU compilation.
     tracer_functions = map(tr -> tr.f, tracers)
-
-    # By construction, the parameter object passed to this factory defines the required
-    # fields expected when instantiating `AgateBGC`.
     required_params = parameter_keys
 
     return tracer_functions, required_params
 end
 
-"""    define_tracer_functions(parameters, tracers; auxiliary_fields=(:PAR,), tracer_index=nothing, sinking_velocities=nothing)
+"""
+    define_tracer_functions(parameters, tracers; auxiliary_fields=(:PAR,), tracer_index=nothing, sinking_velocities=nothing)
 
-Create a callable Oceananigans biogeochemistry model factory.
+Create an `AgateBGCFactory` from compiled tracer equations.
 
-`tracers` is a `NamedTuple` mapping tracer names to `CompiledEquation` values.
-
-Each compiled equation wraps a callable `f`. Parameter validation is handled upstream by model construction.
-
-Callable tracer values must accept the Oceananigans biogeochemistry kernel signature:
+`tracers` must be a `NamedTuple` that maps tracer names to `CompiledEquation`
+values. Each wrapped callable must accept the Oceananigans biogeochemistry
+kernel signature
 
     f(bgc, x, y, z, t, tracers..., auxiliary_fields...)
 
-Notes
------
-- `auxiliary_fields` defines the ordered list of auxiliary values appended to the tracer argument list.
-- `tracer_index` controls how `bgc.tracers` maps names to positional indices. If omitted, a scalar-only
-  index is generated from `keys(tracers)`.
+Keyword arguments
+-----------------
+- `auxiliary_fields`: ordered auxiliary values appended to the tracer argument
+  list.
+- `tracer_index`: explicit positional tracer index. When omitted, a scalar-only
+  index is built from `keys(tracers)`.
+- `sinking_velocities`: optional prebuilt sinking-velocity fields stored on the
+  resulting factory.
 """
 function define_tracer_functions(
     parameters,
