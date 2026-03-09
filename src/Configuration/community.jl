@@ -1,29 +1,25 @@
-# """Community specification and parsing utilities."""
+"""Build a plankton community from a base community spec.
 
-# """Community helpers for common model families."""
+This helper updates structural fields (`n` and `diameters`) for one or
+more plankton groups, leaving all other group fields intact.
 
-# """Build a plankton community from a base community spec.
-# 
-# This helper updates only *structural* fields (`n` and `diameters`) for one or
-# more plankton groups, leaving all other group fields intact (e.g. `pft`).
-# 
-# The ordering of groups in the returned `NamedTuple` is the ordering of
-# `base` (i.e. `keys(base)`), which is stable and explicit.
-# 
-# Keywords
-# --------
-# - `n=(; ...)`: optional per-group size-class counts, keyed by group symbol.
-# - `diameters=(; ...)`: optional per-group diameter specifications, keyed by group symbol.
-# 
-# Examples
-# --------
-# ```julia
-# community = build_plankton_community(base;
-#     n=(Z=10, P=20),
-#     diameters=(Z=zoo_diameters, P=phyto_diameters),
-# )
-# ```
-# """
+The ordering of groups in the returned `NamedTuple` is the ordering of
+`base` (i.e. `keys(base)`).
+
+Keywords
+--------
+- `n=(; ...)`: optional per-group size-class counts, keyed by group symbol.
+- `diameters=(; ...)`: optional per-group diameter specifications, keyed by group symbol.
+
+Examples
+--------
+```julia
+community = build_plankton_community(base;
+    n=(Z=10, P=20),
+    diameters=(Z=zoo_diameters, P=phyto_diameters),
+)
+```
+"""
 function build_plankton_community(
     base::NamedTuple; n::NamedTuple=NamedTuple(), diameters::NamedTuple=NamedTuple()
 )
