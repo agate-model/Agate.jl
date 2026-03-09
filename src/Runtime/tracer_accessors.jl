@@ -1,37 +1,29 @@
-"""GPU-safe tracer access helpers.
+"""Map tracer, group, and auxiliary names to positional runtime indices.
 
-Oceananigans passes tracer and auxiliary-field values into biogeochemistry
-kernels as a *positional* argument list.
-
-Agate keeps the underlying layout positional for performance, but provides
-`Tracers` accessors so model code can be written in a readable, group-oriented
-style without doing any runtime Symbol work inside kernels.
-
-Design notes
-------------
-- Group behaviour is expressed with `Val{:Group}` specialization.
-- Group names remain `Symbol`s at the API boundary, but symbols are *not*
-  searched/iterated inside kernels.
-- `TracerIndex` stores only integers and is safe to embed in GPU kernels.
-"""
-
-"""Mapping from user-facing names (groups/tracers/aux fields) to positional indices.
-
-`TracerIndex` is a small, inference-friendly container of integer offsets.
+`TracerIndex` stores only integer offsets and is safe to embed in GPU kernels.
 The symbol sets are encoded in type parameters for compile-time specialization.
 
 Type parameters
 ---------------
-- `TR`: tuple of tracer symbols in positional order (as used by Oceananigans)
-- `GS`: tuple of plankton group symbols (e.g. `(:Z, :P)`)
-- `AF`: tuple of auxiliary field symbols (e.g. `(:PAR,)`)
-- `NG`: number of groups (`length(GS)`)
+- `TR`: tracer symbols in positional order.
+- `GS`: plankton group symbols.
+- `AF`: auxiliary field symbols.
+- `NG`: number of plankton groups.
+
+Fields
+------
+- `n_tracers`: number of tracer arguments.
+- `aux_base`: one-based position of the first auxiliary value in `args`.
+- `plankton_base`: one-based position of the first plankton tracer in `args`, or
+  `0` when no plankton layout is defined.
+- `group_bases`: one-based positions of each group's first class tracer.
+- `group_counts`: number of classes in each group.
 """
 struct TracerIndex{TR,GS,AF,NG}
     n_tracers::Int
-    aux_base::Int              # 1-based position of the first auxiliary value in args
-    plankton_base::Int          # 1-based position of the first plankton tracer in args (0 if none)
-    group_bases::NTuple{NG,Int} # 1-based positions of each group's first class tracer
+    aux_base::Int
+    plankton_base::Int
+    group_bases::NTuple{NG,Int}
     group_counts::NTuple{NG,Int}
 end
 
@@ -82,8 +74,6 @@ plankton tracers in the positional tracer list.
 function build_tracer_index(
     community_context, tracers::Tuple, auxiliary_fields::Tuple; n_biogeochem_tracers::Int
 )
-    # Preserve community order (explicit group ordering from `parse_community`).
-    # `parse_community` appends classes group-by-group, so group symbols are contiguous.
     groups_vec = Symbol[]
     if !isempty(community_context.group_symbols)
         last = community_context.group_symbols[1]
@@ -115,10 +105,6 @@ function build_tracer_index(
     )
 end
 
-# -----------------------------------------------------------------------------
-# Compile-time lookup helpers
-# -----------------------------------------------------------------------------
-
 @generated function _find_in_tuple(::Val{sym}, ::Val{tup}) where {sym,tup}
     for (i, s) in enumerate(tup)
         if s === sym
@@ -136,10 +122,6 @@ end
 
 @inline _group_slot(::TracerIndex{TR,GS,AF,NG}, ::Val{g}) where {TR,GS,AF,NG,g} =
     _find_in_tuple(Val(g), Val(GS))
-
-# -----------------------------------------------------------------------------
-# Value extraction
-# -----------------------------------------------------------------------------
 
 @inline function _scalar_value(
     idx::TracerIndex{TR,GS,AF,NG}, args, ::Val{sym}
@@ -168,21 +150,12 @@ end
     return @inbounds args[idx.plankton_base + (i - 1)]
 end
 
-# Generates a small `if/elseif` ladder over the known symbol set
-# encoded in the `TracerIndex` type parameters. When property access uses a
-# literal symbol (the common case: `tr.N`, `vals.PAR`, `tr.plankton`), the
-# compiler constant-propagates `name` and eliminates all but the relevant
-# branch, producing GPU-safe, fully inferred code.
-
 @generated function Base.getproperty(tr::Tracers{TI}, name::Symbol) where {TI}
     TR = TI.parameters[1]
     GS = TI.parameters[2]
     AF = TI.parameters[3]
 
     idx_expr = :(getfield(tr, :idx))
-
-    # We build the ladder using nested `Expr(:if, ...)` nodes to avoid invalid
-    # syntax when splicing expressions.
     branches = Tuple{Expr, Expr}[]
 
     push!(branches, (:(name === :idx), :(return $idx_expr)))
@@ -202,8 +175,6 @@ end
         a_q = QuoteNode(a)
         push!(branches, (:(name === $a_q), :(return TracerAccessor{$a_q, TI, :scalar}($idx_expr))))
     end
-
-    # Default branch.
     ex = :(throw(ArgumentError("Unknown tracer/group/auxiliary name")))
     for i in reverse(eachindex(branches))
         cond, body = branches[i]

@@ -25,10 +25,6 @@ end
 
 @inline TendencyContext(bgc, args) = TendencyContext(bgc.parameters, bgc.tracers, args)
 
-# -----------------------------------------------------------------------------
-# Convenience views
-# -----------------------------------------------------------------------------
-
 """A value-oriented view of tracer arguments.
 
 `TracerValues` bundles a `Tracers` accessor with the positional runtime state

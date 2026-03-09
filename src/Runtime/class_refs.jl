@@ -1,13 +1,9 @@
-"""ClassRef handles for size-structured plankton communities.
-
-Agate's public API uses **group symbols** (for example `:P`, `:Z` instead of e.g. `:P1`, `:P2`) to describe
-roles and to configure interaction matrices. 
-Individual size classes within a group are addressed using `ClassRef` handles which include the group symbol and an index of the group which starts at 1.
+"""Reference a single plankton class within a size-structured group.
 
 Fields
 ------
-- `group`: group symbol (e.g. `:P`, `:Z`)
-- `i`: index of the class within the group (starting at 1)
+- `group`: plankton group symbol such as `:P` or `:Z`.
+- `i`: one-based class index within that group.
 """
 struct ClassRef
     group::Symbol
