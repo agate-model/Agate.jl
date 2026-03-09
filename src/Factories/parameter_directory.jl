@@ -1,13 +1,3 @@
-"""Parameter metadata for safer configuration.
-
-Factories define `parameter_directory` entries that declare each required
-parameter key, its shape (`:scalar`, `:vector`, or `:matrix`), and optional axes
-for matrices.
-
-The directory is used for validation and clearer error messages during
-construction.
-"""
-
 export ParameterSpec
 export DefaultProvider
 export ParameterDefinition
@@ -19,10 +9,18 @@ export DiameterIndexedVectorDefault
 export parameter_directory
 export parameter_spec
 
-"""A small metadata record describing a model parameter."""
+"""Describe a configurable model parameter.
+
+Fields
+------
+- `name`: parameter key.
+- `shape`: one of `:scalar`, `:vector`, or `:matrix`.
+- `axes`: optional matrix-axis names.
+- `doc`: human-readable description.
+"""
 struct ParameterSpec
     name::Symbol
-    shape::Symbol  # :scalar | :vector | :matrix
+    shape::Symbol
     axes::Union{Nothing,NTuple{2,Symbol}}
     doc::String
 end
@@ -34,10 +32,6 @@ ParameterSpec(
     axes::Union{Nothing,NTuple{2,Symbol}}=nothing,
     doc::AbstractString="",
 ) = ParameterSpec(name, shape, axes, String(doc))
-
-# -----------------------------------------------------------------------------
-# Single-source parameter definitions (spec + default)
-# -----------------------------------------------------------------------------
 
 """Abstract supertype for constructor-time default providers.
 

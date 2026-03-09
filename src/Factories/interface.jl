@@ -1,23 +1,3 @@
-"""Model/Factory interface for defaults and group-level hooks.
-
-Agate's public model constructors (`NiPiZD.construct`, `DARWIN.construct`, …) are
-implemented as thin wrappers around factories.
-
-Factories provide explicit defaults for:
-- community structure (groups, size structure)
-- tracer dynamics builders
-
-This file also defines optional *group-level hook points* intended for
-OceanBioME-style extensibility.
-
-GPU notes
----------
-Hook dispatch uses `Val{:Group}` so downstream code can specialize without any
-runtime `Symbol` lookups inside kernels.
-
-These hooks are optional; if unused they impose no kernel cost.
-"""
-
 export default_plankton_dynamics
 export default_community
 export default_biogeochem_dynamics
@@ -42,9 +22,9 @@ end
 
 Returns a `NamedTuple` mapping group symbols to group specifications.
 
-This is structural information only (group symbols, diameter specifications,
-PFT specifications, etc.). Numeric parameter defaults are sourced from the
-factory's `parameter_definitions` (via `Construction.build_parameter_defaults`).
+This is structural information only, such as group symbols, diameter
+specifications, and PFT specifications. Numeric parameter defaults are provided
+separately through `parameter_definitions(factory)`.
 """
 function default_community(::AbstractBGCFactory)
     throw(
@@ -64,10 +44,6 @@ function default_biogeochem_dynamics(::AbstractBGCFactory)
         ),
     )
 end
-
-# -----------------------------------------------------------------------------
-# Optional group-level hooks
-# -----------------------------------------------------------------------------
 
 """Return a sinking velocity for a plankton group/class.
 
