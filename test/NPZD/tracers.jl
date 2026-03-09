@@ -1,56 +1,64 @@
 using Agate
+using Agate.Equations: CompiledEquation
+using Agate.Construction: define_tracer_functions
 using Oceananigans.Units
 
-"""Runtime parameters for the test NPZD model."""
-struct NPZDParameters{FT<:AbstractFloat}
-    μ₀::FT
-    kₙ::FT
-    lᵖⁿ::FT
-    lᶻⁿ::FT
-    lᵖᵈ::FT
-    gₘₐₓ::FT
-    kₚ::FT
-    β::FT
-    lᶻᵈ::FT
-    rᵈⁿ::FT
-    α::FT
-end
+include(joinpath(@__DIR__, "functions.jl"))
 
-parameters = NPZDParameters{Float64}(
-    0.6989 / day,
-    2.3868,
-    0.066 / day,
-    0.0102 / day,
-    0.0101 / day,
-    2.1522 / day,
-    0.5573,
-    0.9116,
-    0.3395 / day,
-    0.1213 / day,
-    0.1953 / day,
+# Test NPZD model used to validate that Agate-generated tracer functions integrate
+# consistently with OceanBioME's BoxModel infrastructure.
+
+parameters = (;
+    μ₀=0.6989 / day,
+    kₙ=2.3868,
+    lᵖⁿ=0.066 / day,
+    lᶻⁿ=0.0102 / day,
+    lᵖᵈ=0.0101 / day,
+    gₘₐₓ=2.1522 / day,
+    kₚ=0.5573,
+    β=0.9116,
+    lᶻᵈ=0.3395 / day,
+    rᵈⁿ=0.1213 / day,
+    α=0.1953 / day,
 )
+
+fN =
+    (bgc, x, y, z, t, N, D, P, Z, PAR) -> begin
+        p = bgc.parameters
+        linear_loss(P, p.lᵖⁿ) +
+        linear_loss(Z, p.lᶻⁿ) +
+        remineralization_idealized(D, p.rᵈⁿ) -
+        photosynthetic_growth_idealized(N, P, PAR, p.μ₀, p.kₙ, p.α)
+    end
+
+fD =
+    (bgc, x, y, z, t, N, D, P, Z, PAR) -> begin
+        p = bgc.parameters
+        linear_loss(P, p.lᵖᵈ) +
+        predation_assimilation_loss_idealized(P, Z, p.β, p.gₘₐₓ, p.kₚ) +
+        quadratic_loss(Z, p.lᶻᵈ) - remineralization_idealized(D, p.rᵈⁿ)
+    end
+
+fP =
+    (bgc, x, y, z, t, N, D, P, Z, PAR) -> begin
+        p = bgc.parameters
+        photosynthetic_growth_idealized(N, P, PAR, p.μ₀, p.kₙ, p.α) -
+        predation_loss_idealized(P, Z, p.gₘₐₓ, p.kₚ) - linear_loss(P, p.lᵖⁿ) -
+        linear_loss(P, p.lᵖᵈ)
+    end
+
+fZ =
+    (bgc, x, y, z, t, N, D, P, Z, PAR) -> begin
+        p = bgc.parameters
+        predation_gain_idealized(P, Z, p.β, p.gₘₐₓ, p.kₚ) - linear_loss(Z, p.lᶻⁿ) -
+        quadratic_loss(Z, p.lᶻᵈ)
+    end
 
 tracers = (
-    N=:(
-        linear_loss(P, lᵖⁿ) + linear_loss(Z, lᶻⁿ) + remineralization_idealized(D, rᵈⁿ) -
-        photosynthetic_growth_idealized(N, P, PAR, μ₀, kₙ, α)
-    ),
-    D=:(
-        linear_loss(P, lᵖᵈ) +
-        predation_assimilation_loss_idealized(P, Z, β, gₘₐₓ, kₚ) +
-        quadratic_loss(Z, lᶻᵈ) - remineralization_idealized(D, rᵈⁿ)
-    ),
-    P=:(
-        photosynthetic_growth_idealized(N, P, PAR, μ₀, kₙ, α) -
-        predation_loss_idealized(P, Z, gₘₐₓ, kₚ) - linear_loss(P, lᵖⁿ) -
-        linear_loss(P, lᵖᵈ)
-    ),
-    Z=:(
-        predation_gain_idealized(P, Z, β, gₘₐₓ, kₚ) - linear_loss(Z, lᶻⁿ) -
-        quadratic_loss(Z, lᶻᵈ)
-    ),
+    N=CompiledEquation(fN),
+    D=CompiledEquation(fD),
+    P=CompiledEquation(fP),
+    Z=CompiledEquation(fZ),
 )
 
-NPZD = define_tracer_functions(
-    parameters, tracers; helper_functions=joinpath(@__DIR__, "functions.jl")
-)
+AgateNPZD = define_tracer_functions(parameters, tracers)

@@ -3,7 +3,3 @@
 ```@docs
 Agate.Models.NiPiZD.construct
 ```
-
-```@docs
-Agate.Models.NiPiZD.instantiate
-```

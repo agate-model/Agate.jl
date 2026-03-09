@@ -18,7 +18,7 @@ const year = years = 365day
         # Agate NPZD model
         # ==================================================
         agate_bgc_model = Biogeochemistry(
-            NPZD(); light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
+            AgateNPZD(parameters); light_attenuation=FunctionFieldPAR(; grid=BoxModelGrid())
         )
         agate_box_model = BoxModel(; biogeochemistry=agate_bgc_model)
         set!(agate_box_model; N=7.0, P=0.01, Z=0.05, D=0.0)
@@ -28,7 +28,7 @@ const year = years = 365day
         # ==================================================
         grid = BoxModelGrid()
         clock = Clock(; time=zero(grid))
-        PAR = FunctionField{Center,Center,Center}(cyclical_PAR(; z=-10), grid; clock)
+        PAR = FunctionField{Center,Center,Center}(CyclicalPAR(-10), grid; clock)
 
         biogeochemistry = NutrientPhytoplanktonZooplanktonDetritus(;
             grid,

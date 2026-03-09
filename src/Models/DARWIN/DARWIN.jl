@@ -1,14 +1,11 @@
 module DARWIN
 
-include("Tracers.jl")
-include("Parameters.jl")
-include("Constructor.jl")
-
-using .Parameters
-using .Tracers
-using .Constructor
+include("tracers.jl")
+include("factory.jl")
+include("parameters.jl")
+include("interface.jl")
+include("Variants/variants.jl")
 
 export construct
-export instantiate
 
 end # module

@@ -4,7 +4,7 @@ A library of modules to create marine biogeochemical models
 """
 module Library
 
-include("allometry.jl")
+include("Allometry/Allometry.jl")
 include("light.jl")
 include("mortality.jl")
 include("nutrients.jl")

@@ -1,6 +1,4 @@
-"""
-Functions related to photosynthetically available radiation (PAR).
-"""
+"""Photosynthetically Active Radiation (PAR) utilities."""
 
 module Light
 
@@ -15,19 +13,9 @@ import Oceananigans.Biogeochemistry:
 
 const year = years = 365day
 
-export cyclical_PAR, FunctionFieldPAR
+export CyclicalPAR, FunctionFieldPAR
 
-"""
-    cyclical_PAR(t, z) -> Float
-
-Time-dependent cyclical PAR at depth `z` (suitable for use with box models).
-
-!!! formulation
-    60 *
-    (1 - cos((t + 15days) * 2π / year)) *
-    (1 / (1 + 0.2 * exp(-((mod(t, year) - 200days) / 50days)^2))) + 2
-"""
-function cyclical_PAR(z, t)
+@inline function cyclical_par_at_depth(z, t)
     PAR⁰ =
         60 *
         (1 - cos((t + 15days) * 2π / year)) *
@@ -35,40 +23,60 @@ function cyclical_PAR(z, t)
     return PAR⁰ * exp(0.2 * z)
 end
 
-cyclical_PAR(; z) = t -> cyclical_PAR(z, t)
-
 """
-    cyclical_PAR(x, y, z, t)
+    CyclicalPAR()
+    CyclicalPAR(z)
 
-Time and depth dependent cyclical PAR (suitable for use with column models).
+Cyclical, depth-attenuated PAR suitable for box and column models.
+
+- For box models: `CyclicalPAR(z)(t)` evaluates PAR at fixed depth `z`.
+- For column models: `CyclicalPAR()(x, y, z, t)` evaluates PAR at runtime depth `z`.
+
+!!! formulation
+    60 *
+    (1 - cos((t + 15days) * 2π / year)) *
+    (1 / (1 + 0.2 * exp(-((mod(t, year) - 200days) / 50days)^2))) + 2
+
+    with depth attenuation:
+
+    PAR(z, t) = PAR⁰(t) * exp(0.2 * z)
 """
-@inline function cyclical_PAR(x, y, z, t)
-    return cyclical_PAR(z, t)
+struct CyclicalPAR{Z}
+    z::Z
+end
+
+@inline CyclicalPAR() = CyclicalPAR(nothing)
+
+@inline (p::CyclicalPAR{T})(t) where {T} = cyclical_par_at_depth(p.z, t)
+
+@inline function (p::CyclicalPAR{Nothing})(x, y, z, t)
+    return cyclical_par_at_depth(z, t)
 end
 
 """
     FunctionFieldPAR(field)
 
-Light module for PAR defined by simple functions (can be used with box or column models).
+Light module wrapping an `Oceananigans.FunctionField` that represents PAR.
 
 # Fields
-- `field`: Oceananigans.FunctionField
+- `field`: `Oceananigans.Fields.FunctionField`
 """
 struct FunctionFieldPAR{F}
     field::F
 end
 
-# Critical for GPU: allow CUDA.cudaconvert / Adapt to recurse into `field`
 Adapt.@adapt_structure FunctionFieldPAR
 
 """
-    FunctionFieldPAR(; grid, PAR_f=cyclical_PAR(; z=-10))
+    FunctionFieldPAR(; grid, PAR_f=CyclicalPAR(-10))
+
+Create a PAR module backed by a `FunctionField`.
 
 # Keywords
-- `grid`: the geometry to build the model on defined as an Oceananigans grid object
-- `PAR_f`: a PAR function of time (and depth), defaults to `cyclical_PAR`
+- `grid`: an Oceananigans grid.
+- `PAR_f`: a callable compatible with `FunctionField` (defaults to `CyclicalPAR(-10)`).
 """
-function FunctionFieldPAR(; grid, PAR_f=cyclical_PAR(; z=-10))
+function FunctionFieldPAR(; grid, PAR_f=CyclicalPAR(-10))
     clock = Clock(; time=0.0)
     PAR_field = FunctionField{Center,Center,Center}(PAR_f, grid; clock)
     return FunctionFieldPAR(PAR_field)
@@ -77,7 +85,7 @@ end
 """
     update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
 
-`Oceananigans.Biogechemistry` function which computes and updates the irradiance field in-place.
+`Oceananigans.Biogechemistry` hook that computes and updates the irradiance field in-place.
 """
 function update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
     PAR.field.clock.time = model.clock.time

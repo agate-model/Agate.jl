@@ -1,62 +1,102 @@
-"""Functions related to plankton nutrient uptake."""
+"""Building-block functors for nutrient limitation."""
 
 module Nutrients
 
 export monod_limitation, liebig_minimum
 
 """
-    monod_limitation(nutrient_concentration, nutrient_half_saturation)
+    MonodLimitation(K)
 
-
-Monod formulation of nutrient limitation, which is based on Michaelis-Menten enzyme kinetics.
+Monod (Michaelis–Menten) nutrient limitation functor.
 
 !!! formulation
-    ``R`` / (``kᵣ`` + ``R``)
+    ``R`` / (``K`` + ``R``)
 
     where:
     - ``R`` = nutrient concentration (e.g. N, P, Si)
-    - ``kᵣ`` = nutrient half saturation constant    
+    - ``K`` = half-saturation constant
 
-# Arguments
-- `nutrient_concentration`: nutrient (e.g. N, P, Si)
-- `nutrient_half_saturation`: nutrient half saturation constant
-
-!!! tip
-    Sometimes this formulation is also used for predation (≈'Holling type 2').
 """
-@inline function monod_limitation(nutrient_concentration, nutrient_half_saturation)
-    return nutrient_concentration / (nutrient_half_saturation + nutrient_concentration)
+struct MonodLimitation{T}
+    K::T
+end
+
+@inline function (m::MonodLimitation)(R)
+    K = m.K
+    if K == zero(K) && R == zero(R)
+        return zero(R)
+    end
+    return R / (K + R)
 end
 
 """
-    liebig_minimum(a, b, rest...)
+    monod_limitation(R, K)
 
-Liebig's law of the minimum, which states that growth is limited by the scarcest (most limiting) resource.
+Monod (Michaelis–Menten) nutrient limitation.
+
+!!! formulation
+    ``R`` / (``K`` + ``R``)
+
+    where:
+    - ``R`` = nutrient concentration
+    - ``K`` = half-saturation constant
+
+# Arguments
+- `R`: nutrient concentration
+- `K`: nutrient half-saturation constant
+
+!!! tip
+    This functional form is sometimes also used for predation (≈ Holling type II).
+"""
+@inline monod_limitation(R, K) = MonodLimitation(K)(R)
+
+"""
+    LiebigMinimum()
+
+Liebig's law of the minimum: return the minimum of nutrient limitation factors.
 
 !!! formulation
     minimum(nutrient_limitations)
 
-    where:
-    - nutrient_limitations = an array of nutrient limitation values
-        (e.g. [N, P, Si])
-
 # Arguments
-- `nutrient_limitations`: an array of nutrient limitation values
-
-Returns the minimum value among the given nutrient limitations.
+- `nutrient_limitations`: limitation factors (e.g. γᴺ, γᴾ, γˢⁱ) provided as positional
+  arguments or as an `NTuple`.
 """
-@inline liebig_minimum(a, b) = ifelse(a < b, a, b)
+struct LiebigMinimum end
 
-@inline function liebig_minimum(a, b, c, rest...)
-    return liebig_minimum(liebig_minimum(a, b), c, rest...)
+@inline (l::LiebigMinimum)(a, b) = ifelse(a < b, a, b)
+
+@inline function (l::LiebigMinimum)(a, b, c, rest...)
+    return l(l(a, b), c, rest...)
 end
 
-@inline function liebig_minimum(values::NTuple{N,T}) where {N,T}
+@inline function (l::LiebigMinimum)(values::NTuple{N,T}) where {N,T}
     m = values[1]
     @inbounds for i in 2:N
-        m = liebig_minimum(m, values[i])
+        m = l(m, values[i])
     end
     return m
 end
+
+"""
+    liebig_minimum(a, b, rest...)
+    liebig_minimum(values::NTuple)
+
+Return the minimum value among the given limitation factors.
+
+!!! formulation
+    minimum(nutrient_limitations)
+
+# Arguments
+- `a, b, rest...`: limitation factors
+- `values`: an `NTuple` of limitation factors
+
+This is an explicit alias around `LiebigMinimum()` for clearer model code.
+"""
+@inline liebig_minimum(a, b) = LiebigMinimum()(a, b)
+
+@inline liebig_minimum(a, b, c, rest...) = LiebigMinimum()(a, b, c, rest...)
+
+@inline liebig_minimum(values::NTuple{N,T}) where {N,T} = LiebigMinimum()(values)
 
 end # module

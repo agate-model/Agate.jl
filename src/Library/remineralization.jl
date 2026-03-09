@@ -1,10 +1,30 @@
+"""Remineralization functors."""
+
 module Remineralization
 
-export remineralization_idealized
+export linear_remineralization
 
 """
-    remineralization_idealized(D, remineralization_rate)
-    
+    LinearRemineralization(rate)
+
+Linear remineralization functor.
+
+!!! formulation
+    r * D
+
+    where:
+    - D = detritus (or organic matter) concentration
+    - r = remineralization rate
+"""
+struct LinearRemineralization{T}
+    rate::T
+end
+
+@inline (r::LinearRemineralization)(D) = r.rate * D
+
+"""
+    linear_remineralization(D, rate)
+
 Idealized remineralization of detritus into dissolved nutrients.
 
 !!! formulation
@@ -16,10 +36,8 @@ Idealized remineralization of detritus into dissolved nutrients.
 
 # Arguments
 - `D`: detritus concentration
-- `remineralization_rate`: remineralization rate
+- `rate`: remineralization rate
 """
-function remineralization_idealized(D, remineralization_rate)
-    return remineralization_rate * D
-end
+@inline linear_remineralization(D, rate) = LinearRemineralization(rate)(D)
 
 end # module

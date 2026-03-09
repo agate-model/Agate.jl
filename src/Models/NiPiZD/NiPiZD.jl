@@ -1,14 +1,10 @@
 module NiPiZD
 
-include("Parameters.jl")
-include("Tracers.jl")
-include("Constructor.jl")
-
-using .Parameters
-using .Tracers
-using .Constructor
+include("tracers.jl")
+include("factory.jl")
+include("parameters.jl")
+include("interface.jl")
 
 export construct
-export instantiate
 
 end # module

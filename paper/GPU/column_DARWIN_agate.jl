@@ -1,29 +1,14 @@
 using Agate
 using Agate.Library.Light
+using Agate.Introspection: tracer_names
+using Agate.Models: DARWIN
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans.Units
-using Agate.Models: DARWIN
 using Agate.Library.Photosynthesis
-using Oceananigans, Printf
 using Oceananigans.Fields: FunctionField, ConstantField
-using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
-using Adapt
-using CUDA
 using CairoMakie
-
-# Generate the biogeochemical model
-bgc_type = DARWIN.construct()
-
-# Create an instance of the model (CPU)
-bgc_instance = bgc_type()
-
-# IMPORTANT: get tracer names from the CPU instance (Agate defines the method on this type)
-tracer_names = required_biogeochemical_tracers(bgc_instance)
-
-# Test GPU compatibility
-adapted_instance = Adapt.adapt(CuArray, bgc_instance)
 
 const year = years = 365days
 nothing #hide
@@ -53,10 +38,16 @@ nothing #hide
 
 grid = RectilinearGrid(GPU(); size=(1, 1, 50), extent=(20meters, 20meters, 200meters))
 
+# Construct a GPU-ready instance for embedding in Oceananigans / OceanBioME models.
+# The grid determines precision and architecture.
+bgc_instance = DARWIN.construct(; grid)
+
+tracer_syms = Tuple(tracer_names(bgc_instance))
+
 # Build light attenuation on the column grid
 light_attenuation = FunctionFieldPAR(; grid, PAR_f=PAR_f)
 
-biogeochemistry = Biogeochemistry(adapted_instance; light_attenuation)
+biogeochemistry = Biogeochemistry(bgc_instance; light_attenuation)
 
 clock = Clock(; time=0.0)
 T = FunctionField{Center,Center,Center}(temp, grid; clock)
@@ -65,8 +56,9 @@ S = ConstantField(35)
 model = NonhydrostaticModel(;
     grid,
     clock,
-    tracers=tracer_names, # IMPORTANT: ensure all DARWIN tracers exist
-    closure=ScalarDiffusivity(; ν=κₜ, κ=κₜ),
+    tracers=tracer_syms,
+    timestepper=:QuasiAdamsBashforth2,
+    closure=ScalarDiffusivity(VerticallyImplicitTimeDiscretization(); ν=κₜ, κ=κₜ),
     biogeochemistry,
     auxiliary_fields=(; T, S),
 )

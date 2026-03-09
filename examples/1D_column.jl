@@ -12,7 +12,6 @@
 # CairoMakie is used for plotting.
 
 using Agate
-using Agate.Models: NiPiZD
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -28,7 +27,7 @@ nothing #hide
 # First, we construct our ecosystem model.
 # Here, we use a default 2 phytoplankton, 2 zooplankton `Agate.jl-NiPiZD` ecosystem model.
 
-N2P2ZD = NiPiZD.construct()
+bgc = Agate.Models.NiPiZD.construct()
 nothing #hide
 
 # ## Forcings
@@ -81,18 +80,21 @@ fig_forcing
 
 # ## Physical model
 
-grid = RectilinearGrid(; size=(1, 1, 25), extent=(20meters, 20meters, 200meters))
+grid = RectilinearGrid(; size=(1, 1, 20), extent=(20meters, 20meters, 200meters))
 nothing #hide
 
 bgc_model = Biogeochemistry(
-    N2P2ZD(); light_attenuation=FunctionFieldPAR(; grid, PAR_f=seasonal_PAR)
+    bgc; light_attenuation=FunctionFieldPAR(; grid, PAR_f=seasonal_PAR)
 )
 nothing #hide
 
 full_model = NonhydrostaticModel(;
     grid,
     clock=Clock(; time=0.0),
-    closure=ScalarDiffusivity(; ν=diffusivity, κ=diffusivity),
+    timestepper=:QuasiAdamsBashforth2,
+    closure=ScalarDiffusivity(
+        VerticallyImplicitTimeDiscretization(); ν=diffusivity, κ=diffusivity
+    ),
     biogeochemistry=bgc_model,
 )
 nothing #hide
@@ -104,7 +106,7 @@ set!(full_model; N=7.0, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, D=0.0) # mmol N / m�
 # ## Simulation
 filename = "N2P2ZD_column.jld2"
 
-simulation = Simulation(full_model; Δt=20minutes, stop_time=1year)
+simulation = Simulation(full_model; Δt=1hours, stop_time=1year)
 
 simulation.output_writers[:profiles] = JLD2Writer(
     full_model,
