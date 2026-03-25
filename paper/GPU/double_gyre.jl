@@ -57,10 +57,12 @@ function couespel_z_faces(::Type{FT}; H=4000.0, Nz=30) where {FT}
     Δz2 .*= FT(380.0) / sum(Δz2)
     Δz3 .*= FT(H - 500.0) / sum(Δz3)
 
-    z_faces = zeros(FT, Nz+1)
+    Δz = vcat(Δz3, Δz2, Δz1)
+
+    z_faces = zeros(FT, Nz + 1)
     z_faces[1] = -FT(H)
     for k in 1:Nz
-        z_faces[k+1] = z_faces[k] + (k <= 10 ? Δz1[k] : k <= 20 ? Δz2[k-10] : Δz3[k-20])
+        z_faces[k + 1] = z_faces[k] + Δz[k]
     end
     z_faces[end] = FT(0)
     return z_faces
