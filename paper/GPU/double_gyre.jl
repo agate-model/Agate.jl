@@ -28,6 +28,7 @@ using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 using Adapt
+using Oceananigans.Grids: Center, node
 
 if !CUDA.functional()
     error("CUDA is not functional. Check nvidia-smi and CUDA.jl setup inside the container.")
@@ -184,13 +185,19 @@ S_bcs = T_bcs
 # -------------------------
 # Model builder
 # -------------------------
+@inline function T_restoring_discrete(i, j, k, grid, clock, fields)
+    x, y, z = node(i, j, k, grid, Center(), Center(), Center())
+    T = @inbounds fields.T[i, j, k]
+    return ifelse(z > -h_surface,
+                  (T_air(y, clock.time) - T) / τT_restore,
+                  FT(0))
+end
+
 function build_model()
     closure = build_closure()
     adv = UpwindBiased(order=3)
 
-    T_restoring = Relaxation(; rate   = 1 / τT_restore,
-                               mask   = surface_mask,
-                               target = (x, y, z, t) -> T_air(y, t))
+    T_restoring = Forcing(T_restoring_discrete; discrete_form=true)
 
     all_tracers = Tuple(unique([:T, :S, bgc_tracers...]))
 
