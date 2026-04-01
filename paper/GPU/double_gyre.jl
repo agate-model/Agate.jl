@@ -1,14 +1,14 @@
 # paper/GPU/double_gyre_gpu_online_NiPiZD_noCC_noFW.jl
 #
 # Double gyre (GPU, online physics) + Agate NiPiZD (Z1, Z2, P1, P2, D, N) with light attenuation.
-# Seasonal forcing kept; NO warming; NO freshwater flux; max Δt = 180 minutes.
+# Seasonal forcing kept; NO warming; NO freshwater flux; safer tracer advection; max Δt = 30 minutes.
 #
 # Run:
-#   julia --project=paper/GPU paper/GPU/double_gyre_gpu_online_NiPiZD_noCC_noFW.jl 70 30 15
+#   julia --project=paper/GPU paper/GPU/double_gyre_gpu_online_NiPiZD_noCC_noFW.jl 70 20 15
 #
 # Args:
 #   1: stop_years (default 70)
-#   2: Δt0_minutes (default 30)
+#   2: Δt0_minutes (default 20)
 #   3: out_interval_days (default 15; set 0 to disable output)
 
 using Oceananigans
@@ -44,8 +44,8 @@ const arch = GPU()
 const Lx = 3180e3
 const Ly = 3180e3
 const H  = 4000.0
-const Nx = 30
-const Ny = 30
+const Nx = 60
+const Ny = 60
 const Nz = 30
 
 function couespel_z_faces(::Type{FT}; H=4000.0, Nz=30) where {FT}
@@ -91,7 +91,7 @@ buoyancy = SeawaterBuoyancy(; equation_of_state=eos)
 # Mixing / closure
 # -------------------------
 const νh    = FT(1.0e5)
-const κh    = FT(1000.0)
+const κh    = FT(3.0e3)
 const νz_bg = FT(1.0e-4)
 const κz_bg = FT(1.0e-5)
 
@@ -197,7 +197,8 @@ end
 
 function build_model()
     closure = build_closure()
-    adv = UpwindBiased(order=3)
+    momentum_adv = UpwindBiased(order=3)
+    tracer_adv = UpwindBiased(order=1)
 
     T_restoring = Forcing(T_restoring_discrete; discrete_form=true)
 
@@ -212,8 +213,8 @@ function build_model()
         closure = closure,
         boundary_conditions = (u=u_bcs, v=v_bcs, T=T_bcs, S=S_bcs),
 
-        momentum_advection = adv,
-        tracer_advection   = adv,
+        momentum_advection = momentum_adv,
+        tracer_advection   = tracer_adv,
 
         timestepper = :SplitRungeKutta3,
 
@@ -240,7 +241,7 @@ function set_initial_conditions!(model)
     defaults = Dict{Symbol, FT}(
         :P1 => FT(0.01), :P2 => FT(0.01),
         :Z1 => FT(0.05), :Z2 => FT(0.05),
-        :N  => FT(7.0),
+        :N  => FT(0.1),
         :D  => FT(1.0)
     )
 
@@ -257,7 +258,7 @@ end
 # Run
 # -------------------------
 function run_simulation(; stop_years::Float64=70.0,
-                          Δt0 = 30minute,
+                          Δt0 = 20minute,
                           out_interval_days::Int=15,
                           filename::String="double_gyre_NiPiZD_noCC_noFW")
 
@@ -266,7 +267,7 @@ function run_simulation(; stop_years::Float64=70.0,
 
     simulation = Simulation(model; Δt=Δt0, stop_time=stop_years * year)
 
-    wizard = TimeStepWizard(cfl=0.6, max_change=1.2, min_change=0.5, max_Δt=180minute)
+    wizard = TimeStepWizard(cfl=0.5, max_change=1.1, min_change=0.5, max_Δt=30minute)
     simulation.callbacks[:wizard] = Callback(wizard, IterationInterval(10))
 
     function progress(sim)
@@ -297,8 +298,8 @@ end
 # -------------------------
 # CLI
 # -------------------------
-stop_years        = length(ARGS) >= 1 ? parse(Float64, ARGS[1]) : 70.0
-Δt0_minutes       = length(ARGS) >= 2 ? parse(Float64, ARGS[2]) : 30.0
+stop_years        = length(ARGS) >= 1 ? parse(Float64, ARGS[1]) : 30.0
+Δt0_minutes       = length(ARGS) >= 2 ? parse(Float64, ARGS[2]) : 20.0
 out_interval_days = length(ARGS) >= 3 ? parse(Int, ARGS[3]) : 15
 
 run_simulation(; stop_years=stop_years,
