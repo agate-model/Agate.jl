@@ -128,11 +128,13 @@ end
     return Tmean + Tseason
 end
 
+@inline τx_flux(x, y, t) = τx_surface(y, t) / ρ0
+
 # -------------------------
 # Boundary conditions
 # -------------------------
 u_bcs = FieldBoundaryConditions(
-    top    = FluxBoundaryCondition((x, y, t) -> τx_surface(y, t) / ρ0),
+    top    = FluxBoundaryCondition(τx_flux),
     bottom = FluxBoundaryCondition(FT(0)),
     south  = FluxBoundaryCondition(FT(0)),
     north  = FluxBoundaryCondition(FT(0))
