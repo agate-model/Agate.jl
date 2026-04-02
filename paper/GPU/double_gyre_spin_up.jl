@@ -288,7 +288,7 @@ function run_simulation(; total_years::Float64 = 70.0,
     )
 
     @info "Phase 2: archiving final year every $(archive_days) days"
-    run!(simulation; checkpoint_at_end=true)
+    run!(simulation)
 
     save_state("$(prefix)_terminal_state.jld2", model)
 
