@@ -1,0 +1,55 @@
+Bootstrap: docker
+From: nvidia/cuda:12.4.1-devel-ubuntu22.04
+
+%labels
+    Author Joost de Vries
+    Description Agate.jl CUDA image for double gyre spin-up on SLURM/Apptainer
+
+%environment
+    export PATH=/opt/julia/bin:$PATH
+    export JULIA_PROJECT=/opt/agate
+    export JULIA_DEPOT_PATH=/opt/julia_depot
+    export JULIA_CUDA_USE_BINARYBUILDER=false
+
+%files
+    . /opt/agate
+
+%post
+    set -eux
+
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        git \
+        build-essential \
+        libatomic1 \
+        libgomp1 \
+        libstdc++6 \
+        libopenmpi-dev \
+        openmpi-bin \
+        pkg-config
+    rm -rf /var/lib/apt/lists/*
+
+    JULIA_VERSION=1.10.10
+    JULIA_TARBALL=julia-${JULIA_VERSION}-linux-x86_64.tar.gz
+    JULIA_URL=https://julialang-s3.julialang.org/bin/linux/x64/1.10/${JULIA_TARBALL}
+
+    curl -L ${JULIA_URL} -o /tmp/${JULIA_TARBALL}
+    tar -xzf /tmp/${JULIA_TARBALL} -C /opt
+    ln -s /opt/julia-${JULIA_VERSION} /opt/julia
+    rm /tmp/${JULIA_TARBALL}
+
+    mkdir -p /opt/julia_depot
+
+    export PATH=/opt/julia/bin:$PATH
+    export JULIA_PROJECT=/opt/agate
+    export JULIA_DEPOT_PATH=/opt/julia_depot
+    export JULIA_CUDA_USE_BINARYBUILDER=false
+    export JULIA_NUM_THREADS=auto
+
+    julia --project=/opt/agate -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+    julia --project=/opt/agate -e 'using CUDA; using Oceananigans; using Agate'
+
+%runscript
+    exec julia --project=/opt/agate "$@"
