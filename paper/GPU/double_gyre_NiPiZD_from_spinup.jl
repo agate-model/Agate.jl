@@ -145,7 +145,12 @@ end
     return FT(60) * FT(seasonal) * FT(pulse)
 end
 
-@inline PAR_f(x, y, z, t) = PAR0(x, y, t) * exp(FT(0.2) * z)
+@inline function k_bg(y)
+    η = ηy(y)
+    return FT(0.04) + FT(0.04) * FT(η)
+end
+
+@inline PAR_f(x, y, z, t) = PAR0(x, y, t) * exp(k_bg(y) * z)
 
 light_attenuation = FunctionFieldPAR(; grid, PAR_f=PAR_f)
 
