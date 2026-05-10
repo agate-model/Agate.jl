@@ -1,11 +1,11 @@
 # double_gyre_NiPiZD_from_spunup_with_plots_and_monthly.jl
 #
-# Three-year double gyre NiPiZD run initialized from a spun-up physical state.
+# Thirty-year double gyre NiPiZD run initialized from a spun-up physical state.
 # The script writes summary plots after the run:
-#   - domain-mean tracer time series
-#   - final depth profiles
-#   - final surface maps
-#   - last-year monthly-mean domain averages
+#   - domain-mean tracer time series over the full 30-year run
+#   - depth profiles after year 10 and year 30
+#   - surface maps after year 10 and year 30
+#   - monthly-mean surface maps for the final year ending at year 10 and year 30
 #
 # Notes:
 #   - initializes u, v, T, and S from double_gyre_physics_terminal_state.jld2
@@ -40,6 +40,8 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 using Adapt
 
 using Plots
+
+gr()
 
 if !CUDA.functional()
     error("CUDA is not functional. Check nvidia-smi and CUDA.jl setup.")
@@ -298,11 +300,33 @@ function month_index_from_time(t)
     return 12
 end
 
-function plot_domain_mean_timeseries(filepath::String, filename::String; tracer_names=[:N, :P1, :P2, :Z1, :Z2, :D])
+function open_timeseries(filepath::String, name::Symbol)
+    return FieldTimeSeries(filepath, String(name); backend=OnDisk())
+end
+
+function tracer_exists(filepath::String, name::Symbol)
+    try
+        fts = open_timeseries(filepath, name)
+        return length(fts.times) > 0
+    catch
+        return false
+    end
+end
+
+function snapshot_at_or_before(filepath::String, name::Symbol, target_time)
+    fts = open_timeseries(filepath, name)
+    times = Float64.(fts.times)
+    idx = findlast(t -> t <= target_time + 1e-6, times)
+    idx === nothing && error("No snapshot found for $(name) at or before target time $(target_time / day) days")
+    return Array(fts[idx]), times[idx]
+end
+
+function plot_domain_mean_timeseries(filepath::String, filename::String; tracer_names=[:P1, :P2, :Z1, :Z2])
     plt = plot(xlabel="Time (years)", ylabel="Domain mean", title="Domain-mean NiPiZD tracers")
 
     for name in tracer_names
-        fts = FieldTimeSeries(filepath, String(name); backend=OnDisk())
+        tracer_exists(filepath, name) || continue
+        fts = open_timeseries(filepath, name)
         n = length(fts.times)
         tyears = Float64.(fts.times) ./ year
         means = zeros(Float64, n)
@@ -318,73 +342,35 @@ function plot_domain_mean_timeseries(filepath::String, filename::String; tracer_
     return nothing
 end
 
-function plot_last_year_monthly_means(filepath::String, filename::String; tracer_names=[:N, :P1, :P2, :Z1, :Z2, :D])
-    plt = plot(xlabel="Month", ylabel="Domain mean",
-               title="Last-year monthly means")
-
-    for name in tracer_names
-        fts = FieldTimeSeries(filepath, String(name); backend=OnDisk())
-        times = Float64.(fts.times)
-
-        if isempty(times)
-            continue
-        end
-
-        last_time = maximum(times)
-        start_last_year = last_time - year
-
-        sums = zeros(Float64, 12)
-        counts = zeros(Int, 12)
-
-        for i in eachindex(times)
-            t = times[i]
-            if t >= start_last_year
-                m = month_index_from_time(t)
-                sums[m] += mean(Array(fts[i]))
-                counts[m] += 1
-            end
-        end
-
-        monthly_means = [counts[m] > 0 ? sums[m] / counts[m] : NaN for m in 1:12]
-        plot!(plt, 1:12, monthly_means, label=String(name), lw=2, marker=:circle)
-    end
-
-    plot!(plt, xticks=(1:12, month_labels))
-    savefig(plt, "$(filename)_last_year_monthly_means.png")
-    return nothing
-end
-
-function plot_final_profile(model, filename::String; tracer_names=[:T, :N, :P1, :P2, :D])
-    zc = znodes(model.tracers.T)
+function plot_profile_at_time(filepath::String, target_time, filename::String, label::String; tracer_names=[:T, :N, :P1, :P2, :Z1, :Z2])
+    zc = Array(znodes(grid, Center(), Center(), Center()))
     zplot = reverse(zc)
 
-    plt = plot(xlabel="Value", ylabel="Depth (m)", title="Final horizontally averaged profiles")
+    plt = plot(xlabel="Value", ylabel="Depth (m)", title="$(label) horizontally averaged profiles")
 
     for name in tracer_names
-        if haskey(model.tracers, name)
-            data = to_cpu(model.tracers[name])
-            prof = vec(mean(data, dims=(1, 2)))
-            plot!(plt, reverse(prof), zplot, label=String(name), lw=2)
-        end
+        tracer_exists(filepath, name) || continue
+        data, _ = snapshot_at_or_before(filepath, name, target_time)
+        prof = vec(mean(data, dims=(1, 2)))
+        plot!(plt, reverse(prof), zplot, label=String(name), lw=2)
     end
 
     savefig(plt, "$(filename)_profiles.png")
     return nothing
 end
 
-function plot_surface_map(model, name::Symbol, filename::String)
-    if !haskey(model.tracers, name)
-        return nothing
-    end
+function plot_surface_map_at_time(filepath::String, name::Symbol, target_time, filename::String, label::String)
+    tracer_exists(filepath, name) || return nothing
 
-    x = Array(xnodes(model.tracers[name], Center()))
-    y = Array(ynodes(model.tracers[name], Center()))
-    data = to_cpu(model.tracers[name])[:, :, Nz]
+    x = Array(xnodes(grid, Center(), Center(), Center()))
+    y = Array(ynodes(grid, Center(), Center(), Center()))
+    field, _ = snapshot_at_or_before(filepath, name, target_time)
+    data = field[:, :, end]
 
     plt = heatmap(x ./ 1e3, y ./ 1e3, permutedims(data);
                   xlabel="x (km)",
                   ylabel="y (km)",
-                  title="Surface $(tracer_label(name))",
+                  title="$(label) surface $(tracer_label(name))",
                   colorbar_title=String(name),
                   aspect_ratio=:equal)
 
@@ -392,19 +378,109 @@ function plot_surface_map(model, name::Symbol, filename::String)
     return nothing
 end
 
-function write_plots(model, output_file::String, filename::String)
-    if isfile(output_file)
-        plot_domain_mean_timeseries(output_file, filename)
-        plot_last_year_monthly_means(output_file, filename)
+function compute_window_monthly_surface_means(filepath::String, name::Symbol, window_start, window_end)
+    tracer_exists(filepath, name) || error("Tracer $(name) not found in $(filepath)")
+
+    fts = open_timeseries(filepath, name)
+    times = Float64.(fts.times)
+
+    monthly_sums = [zeros(Float64, Nx, Ny) for _ in 1:12]
+    monthly_counts = zeros(Int, 12)
+
+    for i in eachindex(times)
+        t = times[i]
+        if window_start < t <= window_end
+            m = month_index_from_time(t)
+            snapshot = Array(fts[i])
+            surface = snapshot[:, :, end]
+            monthly_sums[m] .+= surface
+            monthly_counts[m] += 1
+        end
     end
 
-    plot_final_profile(model, filename)
-    plot_surface_map(model, :T, filename)
-    plot_surface_map(model, :N, filename)
-    plot_surface_map(model, :P1, filename)
-    plot_surface_map(model, :P2, filename)
+    monthly_means = Vector{Matrix{Float64}}(undef, 12)
+    for m in 1:12
+        if monthly_counts[m] > 0
+            monthly_means[m] = monthly_sums[m] ./ monthly_counts[m]
+        else
+            monthly_means[m] = fill(NaN, Nx, Ny)
+        end
+    end
 
-    @info "Wrote summary plots with prefix $(filename)_*.png"
+    return monthly_means, monthly_counts
+end
+
+function robust_clims(monthly_means)
+    finite_values = Float64[]
+    for field in monthly_means
+        vals = field[isfinite.(field)]
+        append!(finite_values, vec(vals))
+    end
+
+    isempty(finite_values) && error("No finite values found for monthly means.")
+
+    lo, hi = quantile(finite_values, [0.02, 0.98])
+    if !isfinite(lo) || !isfinite(hi) || hi <= lo
+        lo = minimum(finite_values)
+        hi = maximum(finite_values)
+    end
+    if hi <= lo
+        hi = lo + eps(Float64)
+    end
+
+    return lo, hi
+end
+
+function plot_window_monthly_surface_maps(filepath::String, name::Symbol, window_start, window_end, filename::String, label::String)
+    tracer_exists(filepath, name) || return nothing
+
+    monthly_means, monthly_counts = compute_window_monthly_surface_means(filepath, name, window_start, window_end)
+    x = Array(xnodes(grid, Center(), Center(), Center())) ./ 1e3
+    y = Array(ynodes(grid, Center(), Center(), Center())) ./ 1e3
+    cmin, cmax = robust_clims(monthly_means)
+
+    plt = plot(layout=(3, 4), size=(1400, 1000),
+               plot_title="$(label) monthly mean surface $(tracer_label(name))")
+
+    for m in 1:12
+        subtitle = "$(month_labels[m]) (n=$(monthly_counts[m]))"
+        heatmap!(plt[m], x, y, permutedims(monthly_means[m]);
+                 xlabel="x (km)",
+                 ylabel="y (km)",
+                 title=subtitle,
+                 clims=(cmin, cmax),
+                 aspect_ratio=:equal)
+    end
+
+    savefig(plt, "$(filename)_monthly_surface_$(String(name)).png")
+    return nothing
+end
+
+function write_plots(output_file::String, filename::String, start_time)
+    isfile(output_file) || return nothing
+
+    plot_domain_mean_timeseries(output_file, filename)
+
+    milestones = ((10, "year10"), (30, "year30"))
+
+    for (yr, tag) in milestones
+        target_time = start_time + yr * year
+        window_start = target_time - year
+        prefix = "$(filename)_$(tag)"
+        label = "After $(yr) years"
+
+        plot_profile_at_time(output_file, target_time, prefix, label)
+
+        for name in (:N, :P1, :P2, :Z1, :Z2)
+            plot_surface_map_at_time(output_file, name, target_time, prefix, label)
+        end
+
+        for name in (:P1, :P2, :Z1, :Z2)
+            plot_window_monthly_surface_maps(output_file, name, window_start, target_time, prefix, label)
+        end
+    end
+
+    @info "Wrote milestone plots with prefix $(filename)_year10_* and $(filename)_year30_*"
     return nothing
 end
 
@@ -445,11 +521,11 @@ function progress(sim, start_time)
     return nothing
 end
 
-function run_simulation(; stop_years::Float64 = 3.0,
+function run_simulation(; stop_years::Float64 = 30.0,
                           Δt0 = 20minute,
                           out_interval_days::Int = 15,
                           physics_state_file::String = "double_gyre_physics_terminal_state.jld2",
-                          filename::String = "double_gyre_NiPiZD_from_spunup",
+                          filename::String = "double_gyre_NiPiZD_from_spunup_30yr",
                           make_plots::Bool = true)
 
     model = build_model()
@@ -492,15 +568,15 @@ function run_simulation(; stop_years::Float64 = 3.0,
     write_runtime_summary(filename, elapsed_seconds, simulated_days, start_time, model.clock.time)
 
     if make_plots
-        write_plots(model, output_file, filename)
+        write_plots(output_file, filename, start_time)
     end
 
     return nothing
 end
 
-run_simulation(; stop_years = 3.0,
+run_simulation(; stop_years = 30.0,
                Δt0 = 20minute,
                out_interval_days = 15,
                physics_state_file = "double_gyre_physics_terminal_state.jld2",
-               filename = "double_gyre_NiPiZD_from_spunup",
+               filename = "double_gyre_NiPiZD_from_spunup_30yr",
                make_plots = true)
