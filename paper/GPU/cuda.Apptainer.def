@@ -3,13 +3,14 @@ From: nvidia/cuda:12.4.1-devel-ubuntu22.04
 
 %labels
     Author Joost de Vries
-    Description Agate.jl CUDA image for double gyre spin-up on SLURM/Apptainer
+    Description Agate.jl CUDA image with Plots support for double gyre runs
 
 %environment
     export PATH=/opt/julia/bin:$PATH
     export JULIA_PROJECT=/opt/agate
     export JULIA_DEPOT_PATH=/opt/julia_depot
     export JULIA_CUDA_USE_BINARYBUILDER=false
+    export GKSwstype=100
 
 %files
     . /opt/agate
@@ -28,7 +29,13 @@ From: nvidia/cuda:12.4.1-devel-ubuntu22.04
         libstdc++6 \
         libopenmpi-dev \
         openmpi-bin \
-        pkg-config
+        pkg-config \
+        libgl1 \
+        libxrender1 \
+        libxext6 \
+        libxt6 \
+        libx11-6 \
+        fonts-dejavu-core
     rm -rf /var/lib/apt/lists/*
 
     JULIA_VERSION=1.10.10
@@ -47,9 +54,15 @@ From: nvidia/cuda:12.4.1-devel-ubuntu22.04
     export JULIA_DEPOT_PATH=/opt/julia_depot
     export JULIA_CUDA_USE_BINARYBUILDER=false
     export JULIA_NUM_THREADS=auto
+    export GKSwstype=100
 
-    julia --project=/opt/agate -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
-    julia --project=/opt/agate -e 'using CUDA; using Oceananigans; using Agate'
+    # If the copied repo contains a stale Manifest.toml, it can break resolution for newly
+    # added packages. Remove it and resolve from Project.toml during the image build.
+    rm -f /opt/agate/Manifest.toml
+
+    julia --project=/opt/agate -e 'using Pkg; Pkg.Registry.update(); Pkg.add("Plots"); Pkg.resolve(); Pkg.instantiate(); Pkg.precompile()'
+    julia --project=/opt/agate -e 'using CUDA; using Oceananigans; using Agate; using Plots'
 
 %runscript
+    export GKSwstype=100
     exec julia --project=/opt/agate "$@"
