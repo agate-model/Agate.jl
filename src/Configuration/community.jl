@@ -83,7 +83,7 @@ kernels.
 
 Fields
 ------
-- `FT`: floating-point type used for construction.
+- `T`: scalar type used for construction.
 - `n_total`: total number of plankton classes.
 - `diameters`: flattened diameter vector in global plankton order.
 - `pfts`: per-class PFT specifications.
@@ -98,8 +98,8 @@ Fields
 - `plankton_dynamics`: group-level plankton dynamics builders.
 - `biogeochem_dynamics`: non-plankton tracer dynamics builders.
 """
-struct CommunityContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
-    FT::Type{FT}
+struct CommunityContext{T<:Real,VT<:AbstractVector{T}}
+    FT::Type{T}
     n_total::Int
     diameters::VT
     pfts::Vector{PFTSpecification}
@@ -239,7 +239,7 @@ function parse_community(
     biogeochem_dynamics::NamedTuple=NamedTuple(),
     interaction_roles=nothing,
     default_parameter_roles=nothing,
-) where {FT<:AbstractFloat}
+) where {FT<:Real}
     if !isnothing(interaction_roles)
         (
             hasproperty(interaction_roles, :consumers) &&
@@ -390,7 +390,7 @@ end
 
 function param_compute_diameters(
     ::Type{FT}, n::Int, spec::DiameterRangeSpecification
-) where {FT<:AbstractFloat}
+) where {FT<:Real}
     min_d = FT(spec.min_diameter)
     max_d = FT(spec.max_diameter)
 
@@ -421,7 +421,7 @@ end
 
 function param_compute_diameters(
     ::Type{FT}, n::Int, spec::DiameterListSpecification
-) where {FT<:AbstractFloat}
+) where {FT<:Real}
     param_check_length(:diameters, n, length(spec.diameters))
     diameters = Vector{FT}(undef, n)
     @inbounds for i in 1:n

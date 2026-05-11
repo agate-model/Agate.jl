@@ -195,12 +195,12 @@ using ..Library.Allometry:
 """Return `v` if it has element type `FT`, otherwise throw an `ArgumentError`."""
 @inline function require_FT_vector(
     ::Type{FT}, v::AbstractVector, name::Symbol
-) where {FT<:AbstractFloat}
+) where {FT<:Real}
     eltype(v) === FT && return v
     throw(
         ArgumentError(
             "expected trait vector :$name to have eltype $(FT); got eltype $(eltype(v)) (type: $(typeof(v))). " *
-            "Traits must be provided as Vector{$(FT)} (the grid float type). " *
+            "Traits must be provided as Vector{$(FT)} (the construction scalar type). " *
             "No implicit casting is performed; define traits in a Variant/Factory default.",
         ),
     )

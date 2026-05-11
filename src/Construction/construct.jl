@@ -67,8 +67,8 @@ Parameters declared with `NoDefault()` are omitted; they are expected to be
 provided by user overrides or derived-matrix providers later in construction.
 """
 function build_parameter_defaults(
-    factory::AbstractBGCFactory, community_context, ::Type{FT}
-) where {FT}
+    factory::AbstractBGCFactory, community_context, ::Type{T}
+) where {T<:Real}
     defs = parameter_definitions(factory)
     isempty(defs) && return (;)
 
@@ -84,7 +84,7 @@ function build_parameter_defaults(
         spec = def.spec
         provider = def.default
         provider isa NoDefault && continue
-        value = evaluate_default(provider, spec, factory, community_context, FT)
+        value = evaluate_default(provider, spec, factory, community_context, T)
         push!(pairs, spec.name => value)
     end
 
@@ -92,20 +92,20 @@ function build_parameter_defaults(
 end
 
 @inline function evaluate_default(
-    provider::ConstDefault, spec, ::AbstractBGCFactory, ::Any, ::Type{FT}
-) where {FT}
+    provider::ConstDefault, spec, ::AbstractBGCFactory, ::Any, ::Type{T}
+) where {T<:Real}
     spec.shape === :scalar || throw(
         ArgumentError(
             "ConstDefault can only be used for scalar parameters (:$((spec.name)))."
         ),
     )
     v = provider.value
-    return v isa Bool ? v : FT(v)
+    return v isa Bool ? v : T(v)
 end
 
 @inline function evaluate_default(
-    provider::FillDefault, spec, ::AbstractBGCFactory, community_context, ::Type{FT}
-) where {FT}
+    provider::FillDefault, spec, ::AbstractBGCFactory, community_context, ::Type{T}
+) where {T<:Real}
     spec.shape in (:vector, :matrix) || throw(
         ArgumentError(
             "FillDefault can only be used for vector or matrix parameters (:$((spec.name))).",
@@ -113,7 +113,7 @@ end
     )
 
     v = provider.value
-    v = v isa Bool ? v : FT(v)
+    v = v isa Bool ? v : T(v)
 
     if spec.shape === :vector
         return fill(v, community_context.n_total)
@@ -135,8 +135,8 @@ end
     spec,
     ::AbstractBGCFactory,
     community_context,
-    ::Type{FT},
-) where {FT}
+    ::Type{T},
+) where {T<:Real}
     spec.shape === :vector || throw(
         ArgumentError(
             "DiameterIndexedVectorDefault can only be used for vector parameters (:$((spec.name))).",
@@ -144,9 +144,9 @@ end
     )
 
     indices = getproperty(community_context, provider.indices_field)
-    default = FT(provider.default)
+    default = T(provider.default)
     return resolve_diameter_indexed_vector(
-        FT, community_context.diameters, indices, provider.value; default=default
+        T, community_context.diameters, indices, provider.value; default=default
     )
 end
 
@@ -344,7 +344,8 @@ Keyword arguments
 - `default_parameter_roles`: optional `NamedTuple` with `producers` and
   `consumers` membership used only when generating default parameter vectors.
 - `auxiliary_fields`: auxiliary values appended to the tracer argument list.
-- `grid`, `arch`: optional precision and architecture inputs.
+- `grid`, `arch`: optional grid and architecture inputs.
+- `scalar_type`: explicit runtime scalar type; when omitted, construction uses `eltype(grid)` or `Float64` if no grid is supplied.
 - `sinking_tracers`, `open_bottom`: sinking-velocity configuration.
 
 The returned object stores the fully resolved parameter set in
@@ -370,7 +371,6 @@ function construct_factory(
         grid = BoxModelGrid()
     end
     if !isnothing(grid)
-        FT = eltype(grid)
         arch_grid = architecture(grid)
         if isnothing(arch)
             arch = arch_grid
@@ -382,7 +382,6 @@ function construct_factory(
             )
         end
     else
-        FT = Float64
         isnothing(arch) && (arch = CPU())
     end
 
@@ -391,7 +390,7 @@ function construct_factory(
         throw(ArgumentError("biogeochem_dynamics must be a NamedTuple"))
     community_context = parse_community(
         factory,
-        FT,
+        T,
         community;
         plankton_dynamics=plankton_dynamics,
         biogeochem_dynamics=biogeochem_dynamics,
@@ -436,7 +435,7 @@ function construct_factory(
 
     parameter_defaults = build_parameter_defaults(factory, community_context, FT)
     merged_parameters = merge(
-        parameter_defaults, parameters, interaction_parameter_overrides
+        parameter_defaults, parameter_overrides, interaction_parameter_overrides
     )
     explicit_override_keys = (keys(parameters)..., keys(interaction_parameter_overrides)...)
     merged_parameters = resolve_derived_matrices(
