@@ -287,17 +287,17 @@ function materialize_parameter_overrides(
 ) where {T<:Real}
     isempty(overrides) && return overrides
 
-    pairs = Pair{Symbol,Any}[]
-    for (key, value) in pairs(overrides)
+    entries = Pair{Symbol,Any}[]
+    for (key, value) in Base.pairs(overrides)
         spec = parameter_spec(factory, key)
         spec === nothing && begin
-            push!(pairs, key => value)
+            push!(entries, key => value)
             continue
         end
-        push!(pairs, key => materialize_parameter_value(spec, value, T))
+        push!(entries, key => materialize_parameter_value(spec, value, T))
     end
 
-    return (; pairs...)
+    return (; entries...)
 end
 
 function validate_override_keys(
