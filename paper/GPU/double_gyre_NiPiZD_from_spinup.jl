@@ -1,5 +1,3 @@
-# double_gyre_NiPiZD_from_spunup_with_plots_and_monthly.jl
-#
 # Thirty-year double gyre NiPiZD run initialized from a spun-up physical state.
 # The script writes summary plots after the run:
 #   - domain-mean tracer time series over the full 30-year run

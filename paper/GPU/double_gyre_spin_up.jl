@@ -1,5 +1,3 @@
-# double_gyre_physics_spinup_offline_year.jl
-#
 # Physics-only double gyre spin-up:
 #   - years 1:69  : physics only, no archive
 #   - year 70     : physics only, archive u, v, w, T, S for offline cyclic BGC forcing
