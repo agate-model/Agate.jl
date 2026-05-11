@@ -47,7 +47,7 @@ struct ParameterDefinition{D<:DefaultProvider}
     default::D
 end
 
-"""A scalar default that converts a literal value to `FT`."""
+"""A scalar default that converts a literal value to the construction scalar type."""
 struct ConstDefault{T} <: DefaultProvider
     value::T
 end
