@@ -261,6 +261,45 @@ function validate_parameter_shapes(
     return nothing
 end
 
+
+function materialize_parameter_value(spec, value, ::Type{T}) where {T<:Real}
+    if spec.shape === :scalar
+        return value isa Bool ? value : T(value)
+    elseif spec.shape === :vector
+        value isa AbstractVector || return value
+        eltype(value) === T && return value
+        out = similar(value, T, axes(value))
+        copyto!(out, value)
+        return out
+    elseif spec.shape === :matrix
+        value isa AbstractMatrix || return value
+        eltype(value) === T && return value
+        out = similar(value, T, axes(value))
+        copyto!(out, value)
+        return out
+    end
+
+    return value
+end
+
+function materialize_parameter_overrides(
+    factory::AbstractBGCFactory, overrides::NamedTuple, ::Type{T}
+) where {T<:Real}
+    isempty(overrides) && return overrides
+
+    pairs = Pair{Symbol,Any}[]
+    for (key, value) in pairs(overrides)
+        spec = parameter_spec(factory, key)
+        spec === nothing && begin
+            push!(pairs, key => value)
+            continue
+        end
+        push!(pairs, key => materialize_parameter_value(spec, value, T))
+    end
+
+    return (; pairs...)
+end
+
 function validate_override_keys(
     where_, overrides::NamedTuple, required::Tuple, factory::AbstractBGCFactory
 )
@@ -352,6 +391,22 @@ The returned object stores the fully resolved parameter set in
 `bgc.parameters`.
 """
 
+
+function resolve_construction_scalar_type(grid, scalar_type)
+    if scalar_type !== nothing
+        scalar_type isa Type ||
+            throw(ArgumentError("scalar_type must be a concrete subtype of Real; got $(scalar_type)"))
+        scalar_type <: Real ||
+            throw(ArgumentError("scalar_type must be a concrete subtype of Real; got $(scalar_type)"))
+        isconcretetype(scalar_type) ||
+            throw(ArgumentError("scalar_type must be concrete; got $(scalar_type)"))
+        return scalar_type
+    end
+
+    grid !== nothing && return eltype(grid)
+    return Float64
+end
+
 function construct_factory(
     factory::AbstractBGCFactory;
     plankton_dynamics=default_plankton_dynamics(factory),
@@ -365,11 +420,14 @@ function construct_factory(
     arch=nothing,
     sinking_tracers=nothing,
     grid=nothing,
+    scalar_type=nothing,
     open_bottom::Bool=true,
 )
     if isnothing(grid) && !isnothing(sinking_tracers)
         grid = BoxModelGrid()
     end
+    T = resolve_construction_scalar_type(grid, scalar_type)
+
     if !isnothing(grid)
         arch_grid = architecture(grid)
         if isnothing(arch)
@@ -433,7 +491,9 @@ function construct_factory(
         "interaction_overrides", interaction_parameter_overrides, required, factory
     )
 
-    parameter_defaults = build_parameter_defaults(factory, community_context, FT)
+    parameter_overrides = materialize_parameter_overrides(factory, parameters, T)
+
+    parameter_defaults = build_parameter_defaults(factory, community_context, T)
     merged_parameters = merge(
         parameter_defaults, parameter_overrides, interaction_parameter_overrides
     )
