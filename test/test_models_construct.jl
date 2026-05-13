@@ -168,6 +168,10 @@ using Oceananigans.Biogeochemistry:
 
         @test required_biogeochemical_tracers(bgc)[1:9] ==
             (:DIC, :DIN, :PO4, :DOC, :POC, :DON, :PON, :DOP, :POP)
+
+        bgc_explicit = DARWIN.construct(; scalar_type=Float32)
+        @test bgc_explicit.parameters.DOC_remineralization isa Float32
+        @test eltype(bgc_explicit.parameters.maximum_growth_rate) === Float32
     end
 
     @testset "GPU smoke test" begin

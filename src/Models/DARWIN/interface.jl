@@ -82,6 +82,7 @@ Keywords
 - `phyto_diameters=(1.5, 20.0, :log_splitting)`: diameter specification for phytoplankton
 - `zoo_diameters=(20.0, 100.0, :log_splitting)`: diameter specification for zooplankton
 - `parameters=(;)`: parameter overrides (validated against the DARWIN parameter set)
+- `scalar_type=nothing`: explicit runtime scalar type. When omitted, construction uses `eltype(grid)` or `Float64` if no grid is supplied
 - `palatability_matrix=nothing`: optional palatability matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)` (for DARWIN defaults, `(n_zoo, n_phyto)`).
 - `assimilation_matrix=nothing`: optional assimilation matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)`
   (for DARWIN defaults, `(n_zoo, n_phyto)`).
@@ -108,6 +109,7 @@ function construct(;
     phyto_diameters=(1.5, 20.0, :log_splitting),
     zoo_diameters=(20.0, 100.0, :log_splitting),
     parameters::NamedTuple=(;),
+    scalar_type=nothing,
     palatability_matrix=nothing,
     assimilation_matrix=nothing,
     grid=BoxModelGrid(),
@@ -152,6 +154,7 @@ function construct(;
         arch=arch,
         sinking_tracers=sinking_tracers,
         grid=grid,
+        scalar_type=scalar_type,
         open_bottom=open_bottom,
     )
 end
