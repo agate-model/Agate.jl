@@ -19,7 +19,7 @@ const NiPiZD = Agate.Models.NiPiZD
 const TRACERS = (:N, :D, :Z1, :Z2, :P1, :P2)
 nothing #hide
 
-# ## Constructing an AD-active model
+# ## Constructing an ForwardDiff compatible model
 
 # Agate uses an explicit constructor-boundary scalar type contract.
 # For ordinary Oceananigans.jl simulations this scalar type comes from the grid, or defaults to `Float64`.
