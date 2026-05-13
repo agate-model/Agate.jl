@@ -48,7 +48,7 @@ end
 
 constant_PAR(::Type{T}) where {T} = T(100.0)
 
-function solve_nipizd(mu; saveat=range(0.0, 8day; length=81))
+function solve_nipizd(mu; saveat=range(0.0, 365day; length=366))
     T = typeof(mu)
     bgc = nipizd_model_with_p1_growth_rate(mu)
 
@@ -71,7 +71,7 @@ end
 # We expose the `P1` trajectory (e.g. biomass values over time) as a vector-valued function of one parameter.
 # This is the function that ForwardDiff differentiates.
 
-function p1_trajectory(theta; saveat=range(0.0, 365day; length=81))
+function p1_trajectory(theta; saveat=range(0.0, 365day; length=366))
     sol = solve_nipizd(theta[1]; saveat=saveat)
     values = reduce(hcat, sol.u)
     return vec(values[5, :])
@@ -94,7 +94,7 @@ function finite_difference_p1_trajectory(mu0, delta; saveat)
     return (plus .- minus) ./ (2delta)
 end
 
-saveat = collect(range(0.0, 365day; length=81))
+saveat = collect(range(0.0, 365day; length=366))
 mu0 = 0.7 / day
 delta = mu0 * 1e-6
 
@@ -126,8 +126,6 @@ axislegend(ax1; position=:rb)
 ax2 = Axis(fig[2, 1]; xlabel="time (days)", ylabel="sensitivity to P1 growth rate", title="ForwardDiff sensitivity with finite-difference check")
 lines!(ax2, time_days, forwarddiff_sensitivity[1, :]; label="dP1/dmu, ForwardDiff")
 lines!(ax2, time_days, finite_difference_sensitivity[1, :]; linestyle=:dash, label="dP1/dmu, finite difference")
-lines!(ax2, time_days, forwarddiff_sensitivity[2, :]; label="dP2/dmu, ForwardDiff")
-lines!(ax2, time_days, finite_difference_sensitivity[2, :]; linestyle=:dash, label="dP2/dmu, finite difference")
 axislegend(ax2; position=:rb)
 
 output_path = joinpath(@__DIR__, "forwarddiff_nipizd_ode_sensitivity.png")
