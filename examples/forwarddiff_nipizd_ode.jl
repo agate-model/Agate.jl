@@ -1,6 +1,6 @@
 # # [Forward-mode AD sensitivity] (@id forwarddiff_nipizd_ode_example)
 
-# In this example we use ForwardDiff.jl to compute the sensitivity of P1 in the N2P2ZD model to the maximum growth rate parameter.
+# In this example we use ForwardDiff.jl to compute the sensitivity of phytoplankton 1 (P1) in the N2P2ZD model to the maximum growth rate parameter.
 
 # ## Loading dependencies
 # The example uses Agate.jl for the ecosystem model, OrdinaryDiffEq.jl for a small standalone ODE solve,
@@ -19,9 +19,9 @@ const NiPiZD = Agate.Models.NiPiZD
 const TRACERS = (:N, :D, :Z1, :Z2, :P1, :P2)
 nothing #hide
 
-# ## Constructing an ForwardDiff compatible model
+# ## Constructing an ForwardDiff.jl compatible model
 
-# Agate uses an explicit constructor-boundary scalar type contract.
+# Agate.jl uses an explicit constructor-boundary scalar type contract.
 # For ordinary Oceananigans.jl simulations this scalar type comes from the grid, or defaults to `Float64`.
 # For ForwardDiff.jl, we pass the active scalar type explicitly with `scalar_type = typeof(mu)`.
 
@@ -41,7 +41,7 @@ nothing #hide
 
 # ## Standalone ODE problem
 
-# We define a small standalone ODE that calls Agate's generated biological tendency functions directly.
+# We define a small standalone ODE that calls Agate.jl's generated biological tendency functions directly.
 
 function initial_conditions(::Type{T}) where {T}
     return T[7.0, 1.0, 0.05, 0.05, 0.01, 0.01]
@@ -71,7 +71,7 @@ end
 nothing #hide
 
 # We expose the `P1` trajectory (e.g. biomass values over time) as a vector-valued function of one parameter.
-# This is the function that ForwardDiff differentiates.
+# This is the function that ForwardDiff.jl differentiates.
 
 function p1_trajectory(theta; saveat=range(0.0, 365day; length=366))
     sol = solve_nipizd(theta[1]; saveat=saveat)
@@ -86,7 +86,7 @@ function p1_solution(mu; saveat=range(0.0, 365day; length=366))
 end
 nothing #hide
 
-# ## ForwardDiff and finite differences
+# ## ForwardDiff.jl and finite differences
 
 # We compute the time-dependent sensitivity of `P1` to its own maximum growth rate.
 # A central finite difference provides a simple independent check.
@@ -116,7 +116,7 @@ finite_difference_sensitivity = finite_difference_p1_trajectory(mu0, delta; save
 # ## Plotting
 
 # The top panel shows P1 biomass over time.
-# The bottom panel compares the ForwardDiff sensitivity with the central finite-difference estimate.
+# The bottom panel compares the ForwardDiff.jl sensitivity with the central finite difference estimate.
 
 time_days = saveat ./ day
 fig = Figure(; size=(900, 620), fontsize=14)
