@@ -16,10 +16,8 @@ using Agate.Models: ModelId, VariantSpec, register_variant
 
 """Return the `DARWIN/citation2026/A` variant specification."""
 function citation2026_A_spec(;
-    n_phyto::Int=20,
-    n_zoo::Int=10,
-    phyto_diameters=(2, 10, :log_splitting),
-    zoo_diameters=(20, 100, :linear_splitting),
+    phyto_diameters=(n=20, min_esd=2, max_esd=10, splitting=:log_splitting),
+    zoo_diameters=(n=10, min_esd=20, max_esd=100, splitting=:linear_splitting),
     parameters::NamedTuple=(;),
     interaction_overrides::Union{Nothing,NamedTuple}=nothing,
     auxiliary_fields::Tuple=(:PAR,),
@@ -28,7 +26,7 @@ function citation2026_A_spec(;
 
     base = default_community(factory)
     community = build_plankton_community(
-        base; n=(Z=n_zoo, P=n_phyto), diameters=(Z=zoo_diameters, P=phyto_diameters)
+        base; diameters=(Z=zoo_diameters, P=phyto_diameters)
     )
 
     interaction_roles = (consumers=(:Z,), prey=(:P,))

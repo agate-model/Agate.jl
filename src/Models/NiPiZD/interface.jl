@@ -12,7 +12,7 @@ export construct
 Construct a size-structured NiPiZD ecosystem model.
 
 The NiPiZD model contains two plankton groups: phytoplankton (`P`) and zooplankton (`Z`),
-each represented by `n_phyto` and `n_zoo` size classes.
+with size classes defined by their diameter inputs.
 
 In addition to plankton, the default NiPiZD factory includes idealized nutrient (`N`) and
 detritus (`D`) cycling. The returned biogeochemistry instance includes a photosynthetically
@@ -25,13 +25,11 @@ may override interaction matrices explicitly with `palatability_matrix` and/or
 
 Keywords
 --------
-- `n_phyto=2`: number of phytoplankton size classes
-- `n_zoo=2`: number of zooplankton size classes
-- `phyto_diameters=(2, 10, :log_splitting)`: diameter specification for phytoplankton
-- `zoo_diameters=(20, 100, :linear_splitting)`: diameter specification for zooplankton
+- `phyto_diameters=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting)`: phytoplankton diameter definition
+- `zoo_diameters=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting)`: zooplankton diameter definition
 - `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set)
-- `palatability_matrix=nothing`: optional palatability matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)` (for NiPiZD defaults, `(n_zoo, n_phyto)`).
-- `assimilation_matrix=nothing`: optional assimilation matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)` (for NiPiZD defaults, `(n_zoo, n_phyto)`).
+- `palatability_matrix=nothing`: optional palatability matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)`.
+- `assimilation_matrix=nothing`: optional assimilation matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)`.
 - `grid=BoxModelGrid()`: grid used for architecture inference and default scalar-type selection
 - `scalar_type=nothing`: explicit runtime scalar type. When omitted, construction uses `eltype(grid)` or `Float64` if no grid is supplied
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
@@ -51,10 +49,8 @@ bgc = NiPiZD.construct()
 ```
 """
 function construct(;
-    n_phyto::Int=2,
-    n_zoo::Int=2,
-    phyto_diameters=(2, 10, :log_splitting),
-    zoo_diameters=(20, 100, :linear_splitting),
+    phyto_diameters=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting),
+    zoo_diameters=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),
     parameters::NamedTuple=(;),
     palatability_matrix=nothing,
     assimilation_matrix=nothing,
@@ -64,19 +60,11 @@ function construct(;
     sinking_tracers=nothing,
     open_bottom::Bool=true,
 )
-    n_phyto >= 1 || throw(ArgumentError("n_phyto must be >= 1"))
-    n_zoo >= 1 || throw(ArgumentError("n_zoo must be >= 1"))
-
     factory = NiPiZDFactory()
 
     base = Factories.default_community(factory)
     community = Configuration.build_plankton_community(
-        base;
-        n=(Z=n_zoo, P=n_phyto),
-        diameters=(
-            Z=Configuration.diameter_specification(zoo_diameters),
-            P=Configuration.diameter_specification(phyto_diameters),
-        ),
+        base; diameters=(Z=zoo_diameters, P=phyto_diameters)
     )
 
     # Interaction overrides (optional).
