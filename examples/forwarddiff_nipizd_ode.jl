@@ -1,6 +1,6 @@
 # # [Forward-mode AD sensitivity] (@id forwarddiff_nipizd_ode_example)
 
-# In this example we use ForwardDiff.jl to compute the sensitivity of phytoplankton 1 (P1) in the N2P2ZD model to the maximum growth rate parameter.
+# In this example we use ForwardDiff.jl to compute the sensitivity of phytoplankton 1 (P1) in an N2P2ZD model to P1's maximum growth rate parameter.
 
 # ## Loading dependencies
 # The example uses Agate.jl for the ecosystem model, OrdinaryDiffEq.jl for a small standalone ODE solve,
