@@ -1,3 +1,11 @@
+# # [ForwardDiff sensitivity example] (@id forwarddiff_nipizd_ode_example)
+
+# In this example we use ForwardDiff to compute the sensitivity of the NiPiZD model to the maximum growth rate parameter.
+
+# ## Loading dependencies
+# The example uses Agate.jl for the ecosystem model, OrdinaryDiffEq.jl for a small standalone ODE solve,
+# ForwardDiff.jl for the derivative, and CairoMakie.jl for plotting.
+
 using Agate
 using ForwardDiff
 using OrdinaryDiffEq: ODEProblem, Tsit5, solve
@@ -9,24 +17,38 @@ using Oceananigans.Units: day
 
 const NiPiZD = Agate.Models.NiPiZD
 const TRACERS = (:N, :D, :Z1, :Z2, :P1, :P2)
+nothing #hide
+
+# ## Constructing an AD-active model
+
+# Agate uses an explicit constructor-boundary scalar type contract.
+# For ordinary Oceananigans.jl simulations this scalar type comes from the grid, or defaults to `Float64`.
+# For ForwardDiff, we pass the active scalar type explicitly with `scalar_type = typeof(mu)`.
 
 function nipizd_model_with_p1_growth_rate(mu)
     T = typeof(mu)
+
     return NiPiZD.construct(;
         scalar_type=T,
         parameters=(; maximum_growth_rate=[zero(T), zero(T), mu, T(0.7 / day)]),
     )
 end
 
+# Here `mu` is the maximum growth rate of `P1`.
+# The two leading zeros correspond to zooplankton entries.
+# The second phytoplankton growth rate is held fixed.
+
+# ## Standalone ODE problem
+
+# We define a small standalone ODE that calls Agate's generated biological tendency functions directly.
+
 function initial_conditions(::Type{T}) where {T}
     return T[7.0, 1.0, 0.05, 0.05, 0.01, 0.01]
 end
 
-function constant_par(::Type{T}) where {T}
-    return T(100.0)
-end
+constant_PAR(::Type{T}) where {T} = T(100.0)
 
-function solve_nipizd(mu; saveat=range(0.0, 30day; length=121))
+function solve_nipizd(mu; saveat=range(0.0, 8day; length=81))
     T = typeof(mu)
     bgc = nipizd_model_with_p1_growth_rate(mu)
 
@@ -34,7 +56,7 @@ function solve_nipizd(mu; saveat=range(0.0, 30day; length=121))
         error("Unexpected NiPiZD tracer order: $(required_biogeochemical_tracers(bgc))")
 
     function rhs!(du, u, _, t)
-        PAR = constant_par(T)
+        PAR = constant_PAR(T)
         for (i, tracer) in enumerate(TRACERS)
             du[i] = bgc(Val(tracer), 0, 0, 0, t, u..., PAR)
         end
@@ -46,41 +68,55 @@ function solve_nipizd(mu; saveat=range(0.0, 30day; length=121))
     return solve(problem, Tsit5(); saveat=saveat, abstol=1e-10, reltol=1e-10)
 end
 
-function phytoplankton_trajectory(theta; saveat=range(0.0, 30day; length=121))
+# We expose the `P1` trajectory (e.g. biomass values over time) as a vector-valued function of one parameter.
+# This is the function that ForwardDiff differentiates.
+
+function p1_trajectory(theta; saveat=range(0.0, 365day; length=81))
     sol = solve_nipizd(theta[1]; saveat=saveat)
     values = reduce(hcat, sol.u)
-    return vec(values[5:6, :])
+    return vec(values[5, :])
 end
 
-function finite_difference_trajectory(mu0, delta; saveat)
-    plus = reshape(phytoplankton_trajectory([mu0 + delta]; saveat=saveat), 2, :)
-    minus = reshape(phytoplankton_trajectory([mu0 - delta]; saveat=saveat), 2, :)
+function phytoplankton_trajectories(mu; saveat=range(0.0, 365day; length=366))
+    sol = solve_nipizd(mu; saveat=saveat)
+    values = reduce(hcat, sol.u)
+    return values[5:6, :]
+end
+
+# ## ForwardDiff and finite differences
+
+# We compute the time-dependent sensitivity of `P1` to its own maximum growth rate.
+# A central finite difference provides a simple independent check.
+
+function finite_difference_p1_trajectory(mu0, delta; saveat)
+    plus = p1_trajectory([mu0 + delta]; saveat=saveat)
+    minus = p1_trajectory([mu0 - delta]; saveat=saveat)
     return (plus .- minus) ./ (2delta)
 end
 
-saveat = collect(range(0.0, 30day; length=121))
+saveat = collect(range(0.0, 365day; length=81))
 mu0 = 0.7 / day
 delta = mu0 * 1e-6
 
-baseline = reshape(phytoplankton_trajectory([mu0]; saveat=saveat), 2, :)
-J = ForwardDiff.jacobian(theta -> phytoplankton_trajectory(theta; saveat=saveat), [mu0])
-forwarddiff_sensitivity = reshape(J[:, 1], 2, :)
-finite_difference_sensitivity = finite_difference_trajectory(mu0, delta; saveat=saveat)
+baseline = phytoplankton_trajectories(mu0; saveat=saveat)
+J = ForwardDiff.jacobian(theta -> p1_trajectory(theta; saveat=saveat), [mu0])
+forwarddiff_sensitivity = J[:, 1]
+finite_difference_sensitivity = finite_difference_p1_trajectory(mu0, delta; saveat=saveat)
 
-final_forwarddiff = forwarddiff_sensitivity[:, end]
-final_finite_difference = finite_difference_sensitivity[:, end]
-
-@printf("Final dP1/dmu, ForwardDiff:       %.8e\n", final_forwarddiff[1])
-@printf("Final dP1/dmu, finite difference: %.8e\n", final_finite_difference[1])
-@printf("Final dP2/dmu, ForwardDiff:       %.8e\n", final_forwarddiff[2])
-@printf("Final dP2/dmu, finite difference: %.8e\n", final_finite_difference[2])
+@printf("Final dP1/dmu, ForwardDiff:       %.8e\n", forwarddiff_sensitivity[end])
+@printf("Final dP1/dmu, finite difference: %.8e\n", finite_difference_sensitivity[end])
 @printf(
     "Maximum absolute sensitivity difference: %.8e\n",
     maximum(abs.(forwarddiff_sensitivity .- finite_difference_sensitivity)),
 )
 
-fig = Figure(; size=(900, 620))
+# ## Plotting
+
+# The top panel shows P1 biomass over time.
+# The bottom panel compares the ForwardDiff sensitivity with the central finite-difference estimate.
+
 time_days = saveat ./ day
+fig = Figure(; size=(900, 620), fontsize=14)
 
 ax1 = Axis(fig[1, 1]; xlabel="time (days)", ylabel="phytoplankton concentration", title="NiPiZD phytoplankton trajectory")
 lines!(ax1, time_days, baseline[1, :]; label="P1")
@@ -96,4 +132,5 @@ axislegend(ax2; position=:rb)
 
 output_path = joinpath(@__DIR__, "forwarddiff_nipizd_ode_sensitivity.png")
 save(output_path, fig)
-@info "Saved figure" output_path
+
+fig
