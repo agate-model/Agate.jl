@@ -42,7 +42,7 @@ Expected coefficient names:
     a = getproperty(coeffs, :prefactor)
     b = getproperty(coeffs, :exponent)
 
-    # By construction we keep coefficients and diameter the same floating type (FT),
+    # By construction we keep coefficients and diameter the same scalar type,
     # so this call never mixes Float32/Float64 (important for GPU use).
     return allometric_scaling_power(a, b, diameter)
 end
@@ -51,36 +51,33 @@ end
 
 This is the one function the constructor uses when building runtime parameter vectors.
 """
-@inline resolve_param(::Type{FT}, x, diameter) where {FT<:AbstractFloat} = FT(x)
+@inline resolve_param(::Type{T}, x, diameter) where {T<:Real} = T(x)
 
-@inline resolve_param(::Type{FT}, x::Bool, diameter) where {FT<:AbstractFloat} = x
+@inline resolve_param(::Type{T}, x::Bool, diameter) where {T<:Real} = x
 
-@inline resolve_param(::Type{FT}, p::ConstantParam, diameter) where {FT<:AbstractFloat} =
-    FT(p.value)
+@inline resolve_param(::Type{T}, p::ConstantParam, diameter) where {T<:Real} = T(p.value)
 
-@inline function resolve_param(
-    ::Type{FT}, p::AllometricParam, diameter
-) where {FT<:AbstractFloat}
-    # Coefficients often come from literal numbers (Float64). Convert them to FT so we
+@inline function resolve_param(::Type{T}, p::AllometricParam, diameter) where {T<:Real}
+    # Coefficients often come from literal numbers (Float64). Convert them to the construction scalar type so we
     # never mix Float32/Float64 in the underlying allometric calls.
-    coeffs = map(v -> v isa Number ? FT(v) : v, p.coeffs)
-    return FT(p.model(coeffs, FT(diameter)))
+    coeffs = map(v -> v isa Number ? T(v) : v, p.coeffs)
+    return T(p.model(coeffs, T(diameter)))
 end
 
 """Resolve a parameter definition across a set of diameters.
 
-Returns a vector `v` where `v[i] = resolve_param(FT, value, diameters[i])`.
+Returns a vector `v` where `v[i] = resolve_param(T, value, diameters[i])`.
 
 This helper is typically used when building constructor-time default parameter
 vectors from scalar or allometric definitions.
 """
 function resolve_diameter_vector(
-    ::Type{FT}, diameters::AbstractVector, value
-) where {FT<:AbstractFloat}
+    ::Type{T}, diameters::AbstractVector, value
+) where {T<:Real}
     n = length(diameters)
-    out = Vector{FT}(undef, n)
+    out = Vector{T}(undef, n)
     @inbounds for i in 1:n
-        out[i] = resolve_param(FT, value, diameters[i])
+        out[i] = resolve_param(T, value, diameters[i])
     end
     return out
 end
@@ -88,34 +85,34 @@ end
 """Resolve a parameter definition over a subset of diameters.
 
 Returns a vector of length `length(diameters)` filled with `default`, then
-overwrites entries indexed by `indices` with `resolve_param(FT, value, diameters[i])`.
+overwrites entries indexed by `indices` with `resolve_param(T, value, diameters[i])`.
 
 This is convenient for parameters that apply only to certain plankton roles
 (e.g. producer-only growth rates or consumer-only predation rates).
 """
 function resolve_diameter_indexed_vector(
-    ::Type{FT},
+    ::Type{T},
     diameters::AbstractVector,
     indices::AbstractVector{<:Integer},
     value;
-    default::FT,
-) where {FT<:AbstractFloat}
+    default::T,
+) where {T<:Real}
     out = fill(default, length(diameters))
     @inbounds for i in indices
-        out[i] = resolve_param(FT, value, diameters[i])
+        out[i] = resolve_param(T, value, diameters[i])
     end
     return out
 end
 
-"""Cast numeric entries inside a parameter definition to `FT`."""
-@inline function cast_paramdef(::Type{FT}, p::ConstantParam) where {FT<:AbstractFloat}
-    return ConstantParam(FT(p.value))
+"""Cast numeric entries inside a parameter definition to `T`."""
+@inline function cast_paramdef(::Type{T}, p::ConstantParam) where {T<:Real}
+    return ConstantParam(T(p.value))
 end
 
-@inline function cast_paramdef(::Type{FT}, p::AllometricParam) where {FT<:AbstractFloat}
+@inline function cast_paramdef(::Type{T}, p::AllometricParam) where {T<:Real}
     coeffs = p.coeffs
     if coeffs isa NamedTuple
-        coeffs = map(v -> v isa Number ? FT(v) : v, coeffs)
+        coeffs = map(v -> v isa Number ? T(v) : v, coeffs)
     end
     return AllometricParam(p.model, coeffs)
 end

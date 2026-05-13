@@ -3,16 +3,16 @@
 # -----------------------------------------------------------------------------
 
 """Prey traits used for allometric palatability."""
-struct PalatabilityPreyParameters{FT<:AbstractFloat}
-    diameter::FT
-    protection::FT
+struct PalatabilityPreyParameters{T<:Real}
+    diameter::T
+    protection::T
 end
 
 """Predator traits used for allometric palatability."""
-struct PalatabilityPredatorParameters{FT<:AbstractFloat}
-    diameter::FT
-    optimum_predator_prey_ratio::FT
-    specificity::FT
+struct PalatabilityPredatorParameters{T<:Real}
+    diameter::T
+    optimum_predator_prey_ratio::T
+    specificity::T
 end
 
 """
@@ -37,11 +37,9 @@ Allometric scaling function using a power law on spherical cell volume.
 # Returns
 `a * V^b` where `V` is the spherical volume computed from `diameter`.
 """
-@inline function allometric_scaling_power(
-    a::FT, b::FT, diameter::FT
-) where {FT<:AbstractFloat}
-    r = diameter / FT(2)
-    volume = (FT(4) / FT(3)) * FT(π) * r^FT(3)
+@inline function allometric_scaling_power(a::T, b::T, diameter::T) where {T<:Real}
+    r = diameter / T(2)
+    volume = (T(4) / T(3)) * T(π) * r^T(3)
     return a * volume^b
 end
 
@@ -66,11 +64,11 @@ Unimodal allometric palatability based on predator–prey diameters.
 A palatability value in `[0, 1]`.
 """
 @inline function allometric_palatability_unimodal(
-    prey::PalatabilityPreyParameters{FT}, predator::PalatabilityPredatorParameters{FT}
-) where {FT<:AbstractFloat}
+    prey::PalatabilityPreyParameters{T}, predator::PalatabilityPredatorParameters{T}
+) where {T<:Real}
     ratio = predator.diameter / prey.diameter
-    width = one(FT) + (ratio - predator.optimum_predator_prey_ratio)^FT(2)
-    return one(FT) / width^predator.specificity
+    width = one(T) + (ratio - predator.optimum_predator_prey_ratio)^T(2)
+    return one(T) / width^predator.specificity
 end
 
 """
@@ -86,14 +84,14 @@ Protection η reduces palatability as `(1 - η)` (so η=0 means no protection).
     where η is `prey.protection`.
 """
 function allometric_palatability_unimodal_protection(
-    prey::PalatabilityPreyParameters{FT}, predator::PalatabilityPredatorParameters{FT}
-) where {FT<:AbstractFloat}
+    prey::PalatabilityPreyParameters{T}, predator::PalatabilityPredatorParameters{T}
+) where {T<:Real}
     base = allometric_palatability_unimodal(prey, predator)
-    return base * (one(FT) - prey.protection)
+    return base * (one(T) - prey.protection)
 end
 
 """
-    palatability_matrix_allometric_axes(FT, diameters; optimum_predator_prey_ratio, specificity, protection,
+    palatability_matrix_allometric_axes(T, diameters; optimum_predator_prey_ratio, specificity, protection,
                                         consumer_indices, prey_indices; palatability_fn=allometric_palatability_unimodal_protection)
 
 Build a role-aware palatability matrix `M[consumer, prey]` using allometric traits.
@@ -102,25 +100,25 @@ Only the consumer-by-prey block specified by `consumer_indices` and `prey_indice
 computed, producing a rectangular (n_consumer × n_prey) matrix.
 """
 function palatability_matrix_allometric_axes(
-    ::Type{FT},
-    diameters::AbstractVector{FT};
-    optimum_predator_prey_ratio::AbstractVector{FT},
-    specificity::AbstractVector{FT},
-    protection::AbstractVector{FT},
+    ::Type{T},
+    diameters::AbstractVector{T};
+    optimum_predator_prey_ratio::AbstractVector{T},
+    specificity::AbstractVector{T},
+    protection::AbstractVector{T},
     consumer_indices::AbstractVector{<:Integer},
     prey_indices::AbstractVector{<:Integer},
     palatability_fn=allometric_palatability_unimodal_protection,
-) where {FT<:AbstractFloat}
+) where {T<:Real}
     nr = length(consumer_indices)
     nc = length(prey_indices)
-    M = zeros(FT, nr, nc)
+    M = zeros(T, nr, nc)
 
     @inbounds for (ii, pred) in pairs(consumer_indices)
-        predator = PalatabilityPredatorParameters{FT}(
+        predator = PalatabilityPredatorParameters{T}(
             diameters[pred], optimum_predator_prey_ratio[pred], specificity[pred]
         )
         for (jj, prey) in pairs(prey_indices)
-            prey_params = PalatabilityPreyParameters{FT}(diameters[prey], protection[prey])
+            prey_params = PalatabilityPreyParameters{T}(diameters[prey], protection[prey])
             M[ii, jj] = palatability_fn(prey_params, predator)
         end
     end
@@ -129,7 +127,7 @@ function palatability_matrix_allometric_axes(
 end
 
 """
-    assimilation_efficiency_matrix_binary_axes(FT; assimilation_efficiency, consumer_indices, prey_indices)
+    assimilation_efficiency_matrix_binary_axes(T; assimilation_efficiency, consumer_indices, prey_indices)
 
 Build a role-aware assimilation-efficiency matrix `β[consumer, prey]`.
 
@@ -140,14 +138,14 @@ The returned matrix assigns each consumer's scalar `assimilation_efficiency` acr
 prey indices.
 """
 function assimilation_efficiency_matrix_binary_axes(
-    ::Type{FT};
-    assimilation_efficiency::AbstractVector{FT},
+    ::Type{T};
+    assimilation_efficiency::AbstractVector{T},
     consumer_indices::AbstractVector{<:Integer},
     prey_indices::AbstractVector{<:Integer},
-) where {FT<:AbstractFloat}
+) where {T<:Real}
     nr = length(consumer_indices)
     nc = length(prey_indices)
-    M = zeros(FT, nr, nc)
+    M = zeros(T, nr, nc)
 
     @inbounds for (ii, pred) in pairs(consumer_indices)
         β = assimilation_efficiency[pred]

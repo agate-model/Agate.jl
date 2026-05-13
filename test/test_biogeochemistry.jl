@@ -16,11 +16,11 @@ using Oceananigans.Biogeochemistry:
 
 @testset "Biogeochemistry" begin
     @testset "define_tracer_functions with plain struct parameters" begin
-        struct LVParameters{FT<:AbstractFloat}
-            α::FT
-            β::FT
-            δ::FT
-            γ::FT
+        struct LVParameters{T<:AbstractFloat}
+            α::T
+            β::T
+            δ::T
+            γ::T
         end
 
         parameters = LVParameters{Float64}(2 / 3, 4 / 3, 1.0, 1.0)

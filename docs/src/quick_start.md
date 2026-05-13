@@ -1,7 +1,7 @@
 # Quick start
 
 !!! info
-    
+
     Agate.jl is designed to interface with [Oceananigans.jl](https://clima.github.io/OceananigansDocumentation/stable/) and [OceanBioME.jl](https://oceanbiome.github.io/OceanBioME.jl/stable/). We thus recommend familiarizing yourself with their user interface.
 
 ### Loading dependencies

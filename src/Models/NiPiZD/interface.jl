@@ -32,7 +32,8 @@ Keywords
 - `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set)
 - `palatability_matrix=nothing`: optional palatability matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)` (for NiPiZD defaults, `(n_zoo, n_phyto)`).
 - `assimilation_matrix=nothing`: optional assimilation matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)` (for NiPiZD defaults, `(n_zoo, n_phyto)`).
-- `grid=BoxModelGrid()`: grid used for precision/architecture inference and sinking velocity fields
+- `grid=BoxModelGrid()`: grid used for architecture inference and default scalar-type selection
+- `scalar_type=nothing`: explicit runtime scalar type. When omitted, construction uses `eltype(grid)` or `Float64` if no grid is supplied
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
 - `sinking_tracers=nothing`: sinking speed overrides, e.g. `(D = 2/day, P1 = 0.1/day, ...)`
 - `open_bottom=true`: whether sinking tracers leave the domain
@@ -58,6 +59,7 @@ function construct(;
     palatability_matrix=nothing,
     assimilation_matrix=nothing,
     grid=BoxModelGrid(),
+    scalar_type=nothing,
     arch=nothing,
     sinking_tracers=nothing,
     open_bottom::Bool=true,
@@ -101,6 +103,7 @@ function construct(;
         arch=arch,
         sinking_tracers=sinking_tracers,
         grid=grid,
+        scalar_type=scalar_type,
         open_bottom=open_bottom,
     )
 end

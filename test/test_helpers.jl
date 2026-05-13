@@ -16,13 +16,12 @@ carry backend state (e.g. a CUDA backend) and are not nullary-constructible.
 
 This test grid therefore stores an *architecture instance* and returns it directly.
 """
-struct DummyGrid{FT,Arch}
+struct DummyGrid{T,Arch}
     arch::Arch
 end
 
-Base.eltype(::DummyGrid{FT,Arch}) where {FT,Arch} = FT
+Base.eltype(::DummyGrid{T,Arch}) where {T,Arch} = T
 architecture(g::DummyGrid) = g.arch
 
 """Construct a `DummyGrid` that behaves like an Oceananigans grid."""
-dummy_grid(::Type{FT}; arch=CPU()) where {FT<:AbstractFloat} =
-    DummyGrid{FT,typeof(arch)}(arch)
+dummy_grid(::Type{T}; arch=CPU()) where {T<:AbstractFloat} = DummyGrid{T,typeof(arch)}(arch)

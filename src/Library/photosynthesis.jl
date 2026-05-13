@@ -198,8 +198,11 @@ Smith (1936) formulation of light limitation.
 - `alpha`: initial photosynthetic slope α
 - `maximum_growth_0C`: maximum growth rate μ₀ at T = 0 °C
 """
-@inline smith_light_limitation(PAR, alpha, maximum_growth_0C) =
-    SmithLightLimitation(alpha, maximum_growth_0C)(PAR)
+@inline smith_light_limitation(PAR, alpha, maximum_growth_0C) = SmithLightLimitation(
+    alpha, maximum_growth_0C
+)(
+    PAR
+)
 
 """
     geider_light_limitation(PAR, alpha, maximum_growth_rate, chlorophyll_to_carbon_ratio)
@@ -215,9 +218,11 @@ Geider-style light limitation.
 - `maximum_growth_rate`: maximum growth rate Pᶜₘₐₓ
 - `chlorophyll_to_carbon_ratio`: chlorophyll-to-carbon ratio θᶜ
 """
-@inline geider_light_limitation(
-    PAR, alpha, maximum_growth_rate, chlorophyll_to_carbon_ratio
-) = GeiderLightLimitation(alpha, maximum_growth_rate, chlorophyll_to_carbon_ratio)(PAR)
+@inline geider_light_limitation(PAR, alpha, maximum_growth_rate, chlorophyll_to_carbon_ratio) = GeiderLightLimitation(
+    alpha, maximum_growth_rate, chlorophyll_to_carbon_ratio
+)(
+    PAR
+)
 
 """
     smith_single_nutrient_growth(R, P, PAR, maximum_growth_0C, nutrient_half_saturation, alpha)
@@ -235,9 +240,11 @@ Single-nutrient photosynthetic growth with Monod nutrient limitation and Smith l
 - `nutrient_half_saturation`: nutrient half-saturation kᵣ
 - `alpha`: initial photosynthetic slope α
 """
-@inline smith_single_nutrient_growth(
-    R, P, PAR, maximum_growth_0C, nutrient_half_saturation, alpha
-) = SingleNutrientGrowthSmith(maximum_growth_0C, nutrient_half_saturation, alpha)(R, P, PAR)
+@inline smith_single_nutrient_growth(R, P, PAR, maximum_growth_0C, nutrient_half_saturation, alpha) = SingleNutrientGrowthSmith(
+    maximum_growth_0C, nutrient_half_saturation, alpha
+)(
+    R, P, PAR
+)
 
 """
     geider_single_nutrient_growth(R, P, PAR, maximum_growth_rate, nutrient_half_saturation, alpha, chlorophyll_to_carbon_ratio)
@@ -256,15 +263,7 @@ Single-nutrient photosynthetic growth with Monod nutrient limitation and Geider 
 - `alpha`: photosynthetic slope α
 - `chlorophyll_to_carbon_ratio`: chlorophyll-to-carbon ratio θᶜ
 """
-@inline geider_single_nutrient_growth(
-    R,
-    P,
-    PAR,
-    maximum_growth_rate,
-    nutrient_half_saturation,
-    alpha,
-    chlorophyll_to_carbon_ratio,
-) = SingleNutrientGrowthGeider(
+@inline geider_single_nutrient_growth(R, P, PAR, maximum_growth_rate, nutrient_half_saturation, alpha, chlorophyll_to_carbon_ratio) = SingleNutrientGrowthGeider(
     maximum_growth_rate, nutrient_half_saturation, alpha, chlorophyll_to_carbon_ratio
 )(
     R, P, PAR
@@ -292,17 +291,7 @@ Two-nutrient photosynthetic growth with Liebig limitation and Geider light limit
 !!! info
     Unlike the MITgcm-DARWIN formulation, this growth function does not include light inhibition.
 """
-@inline geider_two_nutrient_growth(
-    R1,
-    R2,
-    P,
-    PAR,
-    maximum_growth_rate,
-    half_saturation_1,
-    half_saturation_2,
-    alpha,
-    chlorophyll_to_carbon_ratio,
-) = TwoNutrientGrowthGeider(
+@inline geider_two_nutrient_growth(R1, R2, P, PAR, maximum_growth_rate, half_saturation_1, half_saturation_2, alpha, chlorophyll_to_carbon_ratio) = TwoNutrientGrowthGeider(
     maximum_growth_rate,
     half_saturation_1,
     half_saturation_2,

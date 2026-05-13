@@ -147,9 +147,9 @@ construction.
 """
 function normalize_interaction_overrides(
     factory::AbstractBGCFactory,
-    community_context::CommunityContext{FT},
+    community_context::CommunityContext{T},
     interaction_overrides::Union{Nothing,NamedTuple},
-) where {FT}
+) where {T}
     interaction_overrides === nothing && return (;)
 
     resolved = ()
@@ -286,8 +286,8 @@ end
 @inline function convert_matrix_eltype(
     community_context::CommunityContext, A::AbstractMatrix
 )
-    eltype(A) === community_context.FT && return A
-    R = similar(A, community_context.FT, size(A)...)
+    eltype(A) === community_context.scalar_type && return A
+    R = similar(A, community_context.scalar_type, size(A)...)
     copyto!(R, A)
     return R
 end

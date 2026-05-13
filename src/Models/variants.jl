@@ -88,8 +88,9 @@ function variant(id::ModelId; kwargs...)
 end
 
 """Convenience overload: `variant(:DARWIN, :citation2026, :A; kwargs...)`."""
-variant(family::Symbol, citation::Symbol, tag::Symbol; kwargs...) =
+function variant(family::Symbol, citation::Symbol, tag::Symbol; kwargs...)
     variant(ModelId(family, citation, tag); kwargs...)
+end
 
 """Construct a model instance from a `VariantSpec`.
 

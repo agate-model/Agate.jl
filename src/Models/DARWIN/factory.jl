@@ -24,8 +24,9 @@ using .Tracers:
 struct DarwinFactory <: AbstractBGCFactory end
 
 """Default plankton dynamics for DARWIN."""
-default_plankton_dynamics(::DarwinFactory) =
+function default_plankton_dynamics(::DarwinFactory)
     (Z=zooplankton_default, P=phytoplankton_growth_two_nutrients_geider_light)
+end
 
 """Default structural parameter arguments for DARWIN.
 
@@ -49,14 +50,16 @@ function default_community(::DarwinFactory)
 end
 
 """Default non-plankton tracer dynamics for DARWIN."""
-default_biogeochem_dynamics(::DarwinFactory) = (
-    DIC=DIC_geider_light,
-    DIN=DIN_geider_light,
-    PO4=PO4_geider_light,
-    DOC=DOC_default,
-    POC=POC_default,
-    DON=DON_default,
-    PON=PON_default,
-    DOP=DOP_default,
-    POP=POP_default,
-)
+function default_biogeochem_dynamics(::DarwinFactory)
+    (
+        DIC=DIC_geider_light,
+        DIN=DIN_geider_light,
+        PO4=PO4_geider_light,
+        DOC=DOC_default,
+        POC=POC_default,
+        DON=DON_default,
+        PON=PON_default,
+        DOP=DOP_default,
+        POP=POP_default,
+    )
+end

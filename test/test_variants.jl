@@ -16,23 +16,13 @@
     @test size(bgc.parameters.palatability_matrix) == (2, 3)
     @test size(bgc.parameters.assimilation_matrix) == (2, 3)
 
-    # Trait vectors used for derivations must have eltype FT (the grid float type).
+    # Trait vectors supplied as ordinary literals are materialized to the construction scalar type.
     n_total = 3 + 2
-    bad_traits = fill(10.0, n_total) # Float64 literals
-
-    try
-        Agate.Models.construct(
-            spec;
-            grid=dummy_grid(Float32),
-            parameters=(; optimum_predator_prey_ratio=bad_traits),
-        )
-        @test false
-    catch e
-        @test e isa ArgumentError
-        msg = sprint(showerror, e)
-        @test occursin("expected trait vector", msg)
-        @test occursin("Vector{Float32}", msg)
-    end
+    traits = fill(10.0, n_total)
+    bgc_traits = Agate.Models.construct(
+        spec; grid=dummy_grid(Float32), parameters=(; optimum_predator_prey_ratio=traits)
+    )
+    @test eltype(bgc_traits.parameters.optimum_predator_prey_ratio) === Float32
 
     # Explicit interaction matrices are never overwritten by derived recomputation.
     explicit_assim = fill(0.123f0, 2, 3)

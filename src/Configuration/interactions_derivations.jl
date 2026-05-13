@@ -78,8 +78,8 @@ end
 ```
 
 `resolve_derived_matrices` enforces that every derived matrix is a concrete
-rectangular matrix with canonical axes and `eltype == FT`, where `FT` is the
-grid floating-point type. No implicit casting is performed.
+rectangular matrix with canonical axes and `eltype == T`, where `T` is the
+construction scalar type. No implicit casting is performed.
 """
 matrix_definitions(::AbstractBGCFactory) = (;)
 
@@ -104,10 +104,10 @@ function validate_derived_matrix_result(
         ArgumentError("derived matrix '$key' must be a matrix; got $(typeof(value)).")
     )
 
-    FT = context.FT
-    eltype(value) === FT || throw(
+    T = context.scalar_type
+    eltype(value) === T || throw(
         ArgumentError(
-            "derived matrix '$key' must have eltype $(FT); got eltype $(eltype(value)) (type: $(typeof(value))). No implicit casting is performed.",
+            "derived matrix '$key' must have eltype $(T); got eltype $(eltype(value)) (type: $(typeof(value))). No implicit casting is performed.",
         ),
     )
 
@@ -192,15 +192,15 @@ end
 using ..Library.Allometry:
     palatability_matrix_allometric_axes, assimilation_efficiency_matrix_binary_axes
 
-"""Return `v` if it has element type `FT`, otherwise throw an `ArgumentError`."""
-@inline function require_FT_vector(
-    ::Type{FT}, v::AbstractVector, name::Symbol
-) where {FT<:AbstractFloat}
-    eltype(v) === FT && return v
+"""Return `v` if it has the construction scalar element type, otherwise throw an `ArgumentError`."""
+@inline function require_scalar_vector(
+    ::Type{T}, v::AbstractVector, name::Symbol
+) where {T<:Real}
+    eltype(v) === T && return v
     throw(
         ArgumentError(
-            "expected trait vector :$name to have eltype $(FT); got eltype $(eltype(v)) (type: $(typeof(v))). " *
-            "Traits must be provided as Vector{$(FT)} (the grid float type). " *
+            "expected trait vector :$name to have eltype $(T); got eltype $(eltype(v)) (type: $(typeof(v))). " *
+            "Traits must be provided as Vector{$(T)} (the construction scalar type). " *
             "No implicit casting is performed; define traits in a Variant/Factory default.",
         ),
     )
@@ -224,15 +224,15 @@ derivation_deps(::AssimilationBinary) = (:assimilation_efficiency,)
     context::CommunityContext,
     params::NamedTuple,
 )
-    FT = context.FT
+    T = context.scalar_type
     return palatability_matrix_allometric_axes(
-        FT,
+        T,
         context.diameters;
-        optimum_predator_prey_ratio=require_FT_vector(
-            FT, params.optimum_predator_prey_ratio, :optimum_predator_prey_ratio
+        optimum_predator_prey_ratio=require_scalar_vector(
+            T, params.optimum_predator_prey_ratio, :optimum_predator_prey_ratio
         ),
-        specificity=require_FT_vector(FT, params.specificity, :specificity),
-        protection=require_FT_vector(FT, params.protection, :protection),
+        specificity=require_scalar_vector(T, params.specificity, :specificity),
+        protection=require_scalar_vector(T, params.protection, :protection),
         consumer_indices=context.consumer_indices,
         prey_indices=context.prey_indices,
     )
@@ -244,11 +244,11 @@ end
     context::CommunityContext,
     params::NamedTuple,
 )
-    FT = context.FT
+    T = context.scalar_type
     return assimilation_efficiency_matrix_binary_axes(
-        FT;
-        assimilation_efficiency=require_FT_vector(
-            FT, params.assimilation_efficiency, :assimilation_efficiency
+        T;
+        assimilation_efficiency=require_scalar_vector(
+            T, params.assimilation_efficiency, :assimilation_efficiency
         ),
         consumer_indices=context.consumer_indices,
         prey_indices=context.prey_indices,

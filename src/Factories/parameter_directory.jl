@@ -26,12 +26,14 @@ struct ParameterSpec
 end
 
 """Convenience constructor for `ParameterSpec`."""
-ParameterSpec(
+function ParameterSpec(
     name::Symbol,
     shape::Symbol;
     axes::Union{Nothing,NTuple{2,Symbol}}=nothing,
     doc::AbstractString="",
-) = ParameterSpec(name, shape, axes, String(doc))
+)
+    ParameterSpec(name, shape, axes, String(doc))
+end
 
 """Abstract supertype for constructor-time default providers.
 
@@ -47,7 +49,7 @@ struct ParameterDefinition{D<:DefaultProvider}
     default::D
 end
 
-"""A scalar default that converts a literal value to `FT`."""
+"""A scalar default that converts a literal value to the construction scalar type."""
 struct ConstDefault{T} <: DefaultProvider
     value::T
 end
@@ -93,8 +95,9 @@ parameter_definitions(::AbstractBGCFactory) = ()
 By default the directory is derived from `parameter_definitions(factory)`.
 Factories may still overload `parameter_directory` directly if needed.
 """
-parameter_directory(factory::AbstractBGCFactory) =
+function parameter_directory(factory::AbstractBGCFactory)
     map(d -> d.spec, parameter_definitions(factory))
+end
 
 """Return the `ParameterSpec` for `key`, or `nothing` if absent."""
 function parameter_spec(factory::AbstractBGCFactory, key::Symbol)

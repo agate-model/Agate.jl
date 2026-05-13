@@ -83,7 +83,7 @@ kernels.
 
 Fields
 ------
-- `FT`: floating-point type used for construction.
+- `T`: scalar type used for construction.
 - `n_total`: total number of plankton classes.
 - `diameters`: flattened diameter vector in global plankton order.
 - `pfts`: per-class PFT specifications.
@@ -98,8 +98,8 @@ Fields
 - `plankton_dynamics`: group-level plankton dynamics builders.
 - `biogeochem_dynamics`: non-plankton tracer dynamics builders.
 """
-struct CommunityContext{FT<:AbstractFloat,VT<:AbstractVector{FT}}
-    FT::Type{FT}
+struct CommunityContext{T<:Real,VT<:AbstractVector{T}}
+    scalar_type::Type{T}
     n_total::Int
     diameters::VT
     pfts::Vector{PFTSpecification}
@@ -120,8 +120,9 @@ end
 diameter_specification(diameters::AbstractVector) = DiameterListSpecification(diameters)
 
 """Return a diameter specification defined by (min, max, splitting)."""
-diameter_specification(spec::Tuple{Any,Any,Symbol}) =
+function diameter_specification(spec::Tuple{Any,Any,Symbol})
     DiameterRangeSpecification(spec[1], spec[2], spec[3])
+end
 
 """Return the diameter specification when one is already provided."""
 diameter_specification(spec::AbstractDiameterSpecification) = spec
@@ -233,13 +234,13 @@ prey axis and consumer membership defaults to the consumer axis.
 """
 function parse_community(
     factory::AbstractBGCFactory,
-    ::Type{FT},
+    ::Type{T},
     community::NamedTuple;
     plankton_dynamics::NamedTuple=NamedTuple(),
     biogeochem_dynamics::NamedTuple=NamedTuple(),
     interaction_roles=nothing,
     default_parameter_roles=nothing,
-) where {FT<:AbstractFloat}
+) where {T<:Real}
     if !isnothing(interaction_roles)
         (
             hasproperty(interaction_roles, :consumers) &&
@@ -266,7 +267,7 @@ function parse_community(
     group_of = Symbol[]
     local_idx = Int[]
     pfts = PFTSpecification[]
-    diameters = FT[]
+    diameters = T[]
 
     for g in group_order
         spec = getfield(community, g)
@@ -276,7 +277,7 @@ function parse_community(
         else
             getproperty(spec, :n)
         end
-        ds = param_compute_diameters(FT, n, dspec)
+        ds = param_compute_diameters(T, n, dspec)
         pft_raw = getproperty(spec, :pft)
         pft = pft_raw isa PFTSpecification ? pft_raw : PFTSpecification(pft_raw)
 
@@ -361,8 +362,8 @@ function parse_community(
         getproperty(default_parameter_roles_resolved, :consumers), :default_consumers
     )
 
-    community_context = CommunityContext{FT,typeof(diameters)}(
-        FT,
+    community_context = CommunityContext{T,typeof(diameters)}(
+        T,
         n_total,
         diameters,
         pfts,
@@ -389,28 +390,28 @@ end
 end
 
 function param_compute_diameters(
-    ::Type{FT}, n::Int, spec::DiameterRangeSpecification
-) where {FT<:AbstractFloat}
-    min_d = FT(spec.min_diameter)
-    max_d = FT(spec.max_diameter)
+    ::Type{T}, n::Int, spec::DiameterRangeSpecification
+) where {T<:Real}
+    min_d = T(spec.min_diameter)
+    max_d = T(spec.max_diameter)
 
     if n == 1
-        return FT[min_d]
+        return T[min_d]
     end
 
-    diameters = Vector{FT}(undef, n)
+    diameters = Vector{T}(undef, n)
 
     if spec.splitting === :log_splitting
         log_min = log(min_d)
         log_max = log(max_d)
-        step = (log_max - log_min) / FT(n - 1)
+        step = (log_max - log_min) / T(n - 1)
         @inbounds for i in 1:n
-            diameters[i] = exp(log_min + FT(i - 1) * step)
+            diameters[i] = exp(log_min + T(i - 1) * step)
         end
     elseif spec.splitting === :linear_splitting
-        step = (max_d - min_d) / FT(n - 1)
+        step = (max_d - min_d) / T(n - 1)
         @inbounds for i in 1:n
-            diameters[i] = min_d + FT(i - 1) * step
+            diameters[i] = min_d + T(i - 1) * step
         end
     else
         throw(ArgumentError("Unsupported splitting method: $(spec.splitting)"))
@@ -420,12 +421,12 @@ function param_compute_diameters(
 end
 
 function param_compute_diameters(
-    ::Type{FT}, n::Int, spec::DiameterListSpecification
-) where {FT<:AbstractFloat}
+    ::Type{T}, n::Int, spec::DiameterListSpecification
+) where {T<:Real}
     param_check_length(:diameters, n, length(spec.diameters))
-    diameters = Vector{FT}(undef, n)
+    diameters = Vector{T}(undef, n)
     @inbounds for i in 1:n
-        diameters[i] = FT(spec.diameters[i])
+        diameters[i] = T(spec.diameters[i])
     end
     return diameters
 end
