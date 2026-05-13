@@ -34,15 +34,16 @@ function build_plankton_community(
     values_ = ntuple(length(base_keys)) do i
         g = base_keys[i]
         spec = getfield(base, g)
-        new_d = if hasproperty(diameters, g)
+        diameter_definition = if hasproperty(diameters, g)
             getfield(diameters, g)
         else
             getproperty(spec, :diameters)
         end
+        normalized_diameters = normalize_diameters(diameter_definition)
         new_n = if hasproperty(n, g)
             getfield(n, g)
-        elseif new_d isa AbstractVector
-            length(new_d)
+        elseif !isnothing(normalized_diameters.n)
+            normalized_diameters.n
         elseif hasproperty(spec, :n)
             getproperty(spec, :n)
         else
@@ -53,7 +54,7 @@ function build_plankton_community(
             )
         end
 
-        return (; spec..., n=new_n, diameters=new_d)
+        return (; spec..., n=new_n, diameters=diameter_definition)
     end
 
     return NamedTuple{base_keys}(values_)
@@ -116,16 +117,32 @@ struct CommunityContext{T<:Real,VT<:AbstractVector{T}}
     biogeochem_dynamics::NamedTuple
 end
 
-"""Return a diameter specification for an explicit diameter list."""
-diameter_specification(diameters::AbstractVector) = DiameterListSpecification(diameters)
+"""Return normalized diameter input and any size-class count it defines."""
+normalize_diameters(diameters::AbstractVector) =
+    (; n=length(diameters), specification=DiameterListSpecification(diameters))
 
-"""Return a diameter specification defined by (min, max, splitting)."""
-function diameter_specification(spec::Tuple{Any,Any,Symbol})
-    DiameterRangeSpecification(spec[1], spec[2], spec[3])
+function normalize_diameters(spec::NamedTuple)
+    required = (:n, :min_esd, :max_esd, :splitting)
+    all(hasproperty(spec, field) for field in required) || throw(
+        ArgumentError(
+            "diameter range NamedTuple must define `n`, `min_esd`, `max_esd`, and `splitting`",
+        ),
+    )
+    return (;
+        n=spec.n,
+        specification=DiameterRangeSpecification(spec.min_esd, spec.max_esd, spec.splitting),
+    )
 end
 
-"""Return the diameter specification when one is already provided."""
-diameter_specification(spec::AbstractDiameterSpecification) = spec
+normalize_diameters(spec::Tuple{Any,Any,Symbol}) =
+    (; n=nothing, specification=DiameterRangeSpecification(spec[1], spec[2], spec[3]))
+
+normalize_diameters(spec::AbstractDiameterSpecification) = (; n=nothing, specification=spec)
+
+normalize_diameters(spec) = throw(ArgumentError("invalid `diameters` specification"))
+
+"""Return a diameter specification for diameter input."""
+diameter_specification(spec) = normalize_diameters(spec).specification
 
 """Validate `plankton_dynamics` and `community` inputs.
 
@@ -163,38 +180,38 @@ function validate_community_inputs(plankton_dynamics, community)
             push!(issues, "group $(k): missing required field `diameters`")
         else
             d = getproperty(spec, :diameters)
-            if !(
-                d isa AbstractVector ||
-                d isa AbstractDiameterSpecification ||
-                (d isa Tuple && length(d) == 3)
-            )
+            normalized_diameters = try
+                normalize_diameters(d)
+            catch err
+                err isa ArgumentError || rethrow()
                 push!(issues, "group $(k): invalid `diameters` specification")
+                nothing
             end
 
-            needs_n = !(d isa AbstractVector)
-            if needs_n
-                if !hasproperty(spec, :n)
+            if !isnothing(normalized_diameters)
+                spec_n = hasproperty(spec, :n) ? getproperty(spec, :n) : nothing
+                diameter_n = normalized_diameters.n
+
+                if !isnothing(spec_n) && !isnothing(diameter_n) && spec_n != diameter_n
+                    push!(
+                        issues,
+                        "group $(k): `n` ($(spec_n)) does not match diameters.n ($(diameter_n))",
+                    )
+                end
+
+                n_source = !isnothing(diameter_n) ? diameter_n : spec_n
+
+                if isnothing(n_source)
                     push!(
                         issues,
                         "group $(k): missing required field `n` for non-explicit diameters",
                     )
-                else
-                    n = getproperty(spec, :n)
-                    if !(n isa Integer) || n < 1
-                        push!(
-                            issues,
-                            "group $(k): `n` must be a positive integer for non-explicit diameters",
-                        )
-                    end
-                end
-            end
-
-            if d isa AbstractVector && hasproperty(spec, :n)
-                n = getproperty(spec, :n)
-                if n != length(d)
+                elseif !(n_source isa Integer) || n_source < 1
+                    push!(issues, "group $(k): `n` must be a positive integer")
+                elseif d isa AbstractVector && n_source != length(d)
                     push!(
                         issues,
-                        "group $(k): `n` ($(n)) does not match length(diameters) ($(length(d)))",
+                        "group $(k): `n` ($(n_source)) does not match length(diameters) ($(length(d)))",
                     )
                 end
             end
@@ -271,11 +288,16 @@ function parse_community(
 
     for g in group_order
         spec = getfield(community, g)
-        dspec = diameter_specification(getproperty(spec, :diameters))
+        normalized_diameters = normalize_diameters(getproperty(spec, :diameters))
+        dspec = normalized_diameters.specification
         n = if dspec isa DiameterListSpecification
             length(dspec.diameters)
-        else
+        elseif !isnothing(normalized_diameters.n)
+            normalized_diameters.n
+        elseif hasproperty(spec, :n)
             getproperty(spec, :n)
+        else
+            throw(ArgumentError("group $g: missing required field `n`"))
         end
         ds = param_compute_diameters(T, n, dspec)
         pft_raw = getproperty(spec, :pft)
