@@ -48,7 +48,7 @@ end
 
 constant_PAR(::Type{T}) where {T} = T(100.0)
 
-function solve_nipizd(mu; saveat=range(0.0, 365day; length=366))
+function solve_nipizd(mu; saveat=range(0.0, 8day; length=81))
     T = typeof(mu)
     bgc = nipizd_model_with_p1_growth_rate(mu)
 
@@ -71,16 +71,16 @@ end
 # We expose the `P1` trajectory (e.g. biomass values over time) as a vector-valued function of one parameter.
 # This is the function that ForwardDiff differentiates.
 
-function p1_trajectory(theta; saveat=range(0.0, 365day; length=366))
+function p1_trajectory(theta; saveat=range(0.0, 365day; length=81))
     sol = solve_nipizd(theta[1]; saveat=saveat)
     values = reduce(hcat, sol.u)
     return vec(values[5, :])
 end
 
-function phytoplankton_trajectories(mu; saveat=range(0.0, 365day; length=366))
+function p1_solution(mu; saveat=range(0.0, 365day; length=366))
     sol = solve_nipizd(mu; saveat=saveat)
     values = reduce(hcat, sol.u)
-    return values[5:6, :]
+    return vec(values[5, :])
 end
 
 # ## ForwardDiff and finite differences
@@ -94,11 +94,11 @@ function finite_difference_p1_trajectory(mu0, delta; saveat)
     return (plus .- minus) ./ (2delta)
 end
 
-saveat = collect(range(0.0, 365day; length=366))
+saveat = collect(range(0.0, 365day; length=81))
 mu0 = 0.7 / day
 delta = mu0 * 1e-6
 
-baseline = phytoplankton_trajectories(mu0; saveat=saveat)
+baseline = p1_solution(mu0; saveat=saveat)
 J = ForwardDiff.jacobian(theta -> p1_trajectory(theta; saveat=saveat), [mu0])
 forwarddiff_sensitivity = J[:, 1]
 finite_difference_sensitivity = finite_difference_p1_trajectory(mu0, delta; saveat=saveat)
@@ -118,14 +118,13 @@ finite_difference_sensitivity = finite_difference_p1_trajectory(mu0, delta; save
 time_days = saveat ./ day
 fig = Figure(; size=(900, 620), fontsize=14)
 
-ax1 = Axis(fig[1, 1]; xlabel="time (days)", ylabel="phytoplankton concentration", title="NiPiZD phytoplankton trajectory")
-lines!(ax1, time_days, baseline[1, :]; label="P1")
-lines!(ax1, time_days, baseline[2, :]; label="P2")
+ax1 = Axis(fig[1, 1]; xlabel="time (days)", ylabel="P1 concentration", title="NiPiZD P1 trajectory")
+lines!(ax1, time_days, baseline; label="P1", linewidth=3)
 axislegend(ax1; position=:rb)
 
-ax2 = Axis(fig[2, 1]; xlabel="time (days)", ylabel="sensitivity to P1 growth rate", title="ForwardDiff sensitivity with finite-difference check")
-lines!(ax2, time_days, forwarddiff_sensitivity[1, :]; label="dP1/dmu, ForwardDiff")
-lines!(ax2, time_days, finite_difference_sensitivity[1, :]; linestyle=:dash, label="dP1/dmu, finite difference")
+ax2 = Axis(fig[2, 1]; xlabel="time (days)", ylabel="sensitivity to P1 growth rate", title="ForwardDiff sensitivity vs finite-difference sensitivity")
+lines!(ax2, time_days, forwarddiff_sensitivity; label="dP1/dμ₁, ForwardDiff", linewidth=3)
+lines!(ax2, time_days, finite_difference_sensitivity; linestyle=:dash, label="dP1/dμ₁, finite difference", linewidth=3)
 axislegend(ax2; position=:rb)
 
 output_path = joinpath(@__DIR__, "forwarddiff_nipizd_ode_sensitivity.png")
