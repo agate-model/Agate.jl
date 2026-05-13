@@ -21,11 +21,13 @@ const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
 examples = [
     "Column model" => "1D_column",
-    "ForwardDiff sensitivity" => "forwarddiff_nipizd_ode",
 ]
 dev = ["Variants" => "variant"]
+differentiable_modelling = [
+    "Forward-mode AD sensitivity" => "forwarddiff_nipizd_ode",
+]
 
-example_scripts = [filename * ".jl" for (title, filename) in vcat(examples, dev)]
+example_scripts = [filename * ".jl" for (title, filename) in vcat(examples, dev, differentiable_modelling)]
 
 function replace_silly_warning(content)
     return replace(
@@ -53,6 +55,7 @@ end
 
 example_pages = [title => "generated/$(filename).md" for (title, filename) in examples]
 dev_pages = [title => "generated/$(filename).md" for (title, filename) in dev]
+differentiable_modelling_pages = [title => "generated/$(filename).md" for (title, filename) in differentiable_modelling]
 
 contributor_pages = ["Architecture" => "architecture_overview.md"]
 model_pages = ["NiPiZD" => "nipizd.md", "DARWIN" => "darwin.md"]
@@ -74,6 +77,7 @@ makedocs(;
         "Models" => model_pages,
         "Library" => "library.md",
         "Implementing new models" => dev_pages,
+        "Differentiable modelling" => differentiable_modelling_pages,
         "Contributor guide" => contributor_pages,
         "API reference" => "api.md",
     ],
