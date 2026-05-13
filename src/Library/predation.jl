@@ -232,8 +232,11 @@ Loss rate of prey `P` to predator `Z` using a squared Holling term.
 - `maximum_grazing_rate`: maximum grazing rate gₘₐₓ
 - `half_saturation`: prey half-saturation K
 """
-@inline idealized_predation_loss(P, Z, maximum_grazing_rate, half_saturation) =
-    IdealizedPredationLoss(maximum_grazing_rate, half_saturation)(P, Z)
+@inline idealized_predation_loss(P, Z, maximum_grazing_rate, half_saturation) = IdealizedPredationLoss(
+    maximum_grazing_rate, half_saturation
+)(
+    P, Z
+)
 
 """
     idealized_predation_gain(P, Z, assimilation_efficiency, maximum_grazing_rate, half_saturation)
@@ -252,9 +255,9 @@ Assimilated gain rate to predator `Z` feeding on prey `P`.
 - `maximum_grazing_rate`: maximum grazing rate gₘₐₓ
 - `half_saturation`: prey half-saturation K
 """
-@inline idealized_predation_gain(
-    P, Z, assimilation_efficiency, maximum_grazing_rate, half_saturation
-) = IdealizedPredationGain(assimilation_efficiency, maximum_grazing_rate, half_saturation)(
+@inline idealized_predation_gain(P, Z, assimilation_efficiency, maximum_grazing_rate, half_saturation) = IdealizedPredationGain(
+    assimilation_efficiency, maximum_grazing_rate, half_saturation
+)(
     P, Z
 )
 
@@ -275,9 +278,7 @@ Unassimilated fraction of idealized predation loss ("sloppy feeding").
 - `maximum_grazing_rate`: maximum grazing rate gₘₐₓ
 - `half_saturation`: prey half-saturation K
 """
-@inline idealized_predation_unassimilated_loss(
-    P, Z, assimilation_efficiency, maximum_grazing_rate, half_saturation
-) = IdealizedPredationAssimilationLoss(
+@inline idealized_predation_unassimilated_loss(P, Z, assimilation_efficiency, maximum_grazing_rate, half_saturation) = IdealizedPredationAssimilationLoss(
     assimilation_efficiency, maximum_grazing_rate, half_saturation
 )(
     P, Z
@@ -298,9 +299,11 @@ Preferential predation loss from prey `P` to predator `Z`.
 - `half_saturation`: prey half-saturation K
 - `palatability`: palatability η
 """
-@inline preferential_predation_loss(
-    P, Z, maximum_grazing_rate, half_saturation, palatability
-) = PreferentialPredationLoss(maximum_grazing_rate, half_saturation, palatability)(P, Z)
+@inline preferential_predation_loss(P, Z, maximum_grazing_rate, half_saturation, palatability) = PreferentialPredationLoss(
+    maximum_grazing_rate, half_saturation, palatability
+)(
+    P, Z
+)
 
 """
     preferential_predation_gain(P, Z, assimilation_efficiency, maximum_grazing_rate, half_saturation, palatability)
@@ -320,9 +323,7 @@ Assimilated preferential predation gain.
 - `half_saturation`: prey half-saturation K
 - `palatability`: palatability η
 """
-@inline preferential_predation_gain(
-    P, Z, assimilation_efficiency, maximum_grazing_rate, half_saturation, palatability
-) = PreferentialPredationGain(
+@inline preferential_predation_gain(P, Z, assimilation_efficiency, maximum_grazing_rate, half_saturation, palatability) = PreferentialPredationGain(
     assimilation_efficiency, maximum_grazing_rate, half_saturation, palatability
 )(
     P, Z
@@ -346,9 +347,7 @@ Unassimilated fraction of preferential predation loss ("sloppy feeding").
 - `half_saturation`: prey half-saturation K
 - `palatability`: palatability η
 """
-@inline preferential_predation_unassimilated_loss(
-    P, Z, assimilation_efficiency, maximum_grazing_rate, half_saturation, palatability
-) = PreferentialPredationAssimilationLoss(
+@inline preferential_predation_unassimilated_loss(P, Z, assimilation_efficiency, maximum_grazing_rate, half_saturation, palatability) = PreferentialPredationAssimilationLoss(
     assimilation_efficiency, maximum_grazing_rate, half_saturation, palatability
 )(
     P, Z

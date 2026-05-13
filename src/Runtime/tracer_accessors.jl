@@ -47,14 +47,17 @@ struct TracerAccessor{S,TI,K}
     idx::TI
 end
 
-@inline (a::TracerAccessor{S,TI,:scalar})(args) where {S,TI} =
-    scalar_value(a.idx, args, Val(S))
+@inline (a::TracerAccessor{S,TI,:scalar})(args) where {S,TI} = scalar_value(
+    a.idx, args, Val(S)
+)
 
-@inline (a::TracerAccessor{S,TI,:group})(args, i::Int) where {S,TI} =
-    group_value(a.idx, args, Val(S), i)
+@inline (a::TracerAccessor{S,TI,:group})(args, i::Int) where {S,TI} = group_value(
+    a.idx, args, Val(S), i
+)
 
-@inline (a::TracerAccessor{S,TI,:plankton})(args, i::Int) where {S,TI} =
-    plankton_value(a.idx, args, i)
+@inline (a::TracerAccessor{S,TI,:plankton})(args, i::Int) where {S,TI} = plankton_value(
+    a.idx, args, i
+)
 
 """Create a default `TracerIndex` for an arbitrary tracer set.
 
@@ -114,14 +117,17 @@ end
     return :(0)
 end
 
-@inline tracer_position(::TracerIndex{TR}, ::Val{sym}) where {TR,sym} =
-    find_in_tuple(Val(sym), Val(TR))
+@inline tracer_position(::TracerIndex{TR}, ::Val{sym}) where {TR,sym} = find_in_tuple(
+    Val(sym), Val(TR)
+)
 
-@inline aux_slot(::TracerIndex{TR,GS,AF,NG}, ::Val{sym}) where {TR,GS,AF,NG,sym} =
-    find_in_tuple(Val(sym), Val(AF))
+@inline aux_slot(::TracerIndex{TR,GS,AF,NG}, ::Val{sym}) where {TR,GS,AF,NG,sym} = find_in_tuple(
+    Val(sym), Val(AF)
+)
 
-@inline group_slot(::TracerIndex{TR,GS,AF,NG}, ::Val{g}) where {TR,GS,AF,NG,g} =
-    find_in_tuple(Val(g), Val(GS))
+@inline group_slot(::TracerIndex{TR,GS,AF,NG}, ::Val{g}) where {TR,GS,AF,NG,g} = find_in_tuple(
+    Val(g), Val(GS)
+)
 
 @inline function scalar_value(
     idx::TracerIndex{TR,GS,AF,NG}, args, ::Val{sym}

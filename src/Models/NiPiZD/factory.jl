@@ -17,8 +17,9 @@ struct NiPiZDFactory <: AbstractBGCFactory end
 
 Returns a `NamedTuple` mapping group prefix => tracer dynamics builder.
 """
-default_plankton_dynamics(::NiPiZDFactory) =
+function default_plankton_dynamics(::NiPiZDFactory)
     (Z=zooplankton_default, P=phytoplankton_default)
+end
 
 """Default plankton arguments for NiPiZD.
 

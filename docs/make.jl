@@ -19,15 +19,13 @@ using CairoMakie
 const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
-examples = [
-    "Column model" => "1D_column",
-]
+examples = ["Column model" => "1D_column"]
 dev = ["Variants" => "variant"]
-differentiable_modelling = [
-    "Forward-mode AD sensitivity" => "forwarddiff_nipizd_ode",
-]
+differentiable_modelling = ["Forward-mode AD sensitivity" => "forwarddiff_nipizd_ode"]
 
-example_scripts = [filename * ".jl" for (title, filename) in vcat(examples, dev, differentiable_modelling)]
+example_scripts = [
+    filename * ".jl" for (title, filename) in vcat(examples, dev, differentiable_modelling)
+]
 
 function replace_silly_warning(content)
     return replace(
@@ -55,7 +53,9 @@ end
 
 example_pages = [title => "generated/$(filename).md" for (title, filename) in examples]
 dev_pages = [title => "generated/$(filename).md" for (title, filename) in dev]
-differentiable_modelling_pages = [title => "generated/$(filename).md" for (title, filename) in differentiable_modelling]
+differentiable_modelling_pages = [
+    title => "generated/$(filename).md" for (title, filename) in differentiable_modelling
+]
 
 contributor_pages = ["Architecture" => "architecture_overview.md"]
 model_pages = ["NiPiZD" => "nipizd.md", "DARWIN" => "darwin.md"]

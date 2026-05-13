@@ -24,5 +24,4 @@ Base.eltype(::DummyGrid{T,Arch}) where {T,Arch} = T
 architecture(g::DummyGrid) = g.arch
 
 """Construct a `DummyGrid` that behaves like an Oceananigans grid."""
-dummy_grid(::Type{T}; arch=CPU()) where {T<:AbstractFloat} =
-    DummyGrid{T,typeof(arch)}(arch)
+dummy_grid(::Type{T}; arch=CPU()) where {T<:AbstractFloat} = DummyGrid{T,typeof(arch)}(arch)

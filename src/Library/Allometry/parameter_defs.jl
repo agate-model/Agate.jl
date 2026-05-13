@@ -55,12 +55,9 @@ This is the one function the constructor uses when building runtime parameter ve
 
 @inline resolve_param(::Type{T}, x::Bool, diameter) where {T<:Real} = x
 
-@inline resolve_param(::Type{T}, p::ConstantParam, diameter) where {T<:Real} =
-    T(p.value)
+@inline resolve_param(::Type{T}, p::ConstantParam, diameter) where {T<:Real} = T(p.value)
 
-@inline function resolve_param(
-    ::Type{T}, p::AllometricParam, diameter
-) where {T<:Real}
+@inline function resolve_param(::Type{T}, p::AllometricParam, diameter) where {T<:Real}
     # Coefficients often come from literal numbers (Float64). Convert them to the construction scalar type so we
     # never mix Float32/Float64 in the underlying allometric calls.
     coeffs = map(v -> v isa Number ? T(v) : v, p.coeffs)

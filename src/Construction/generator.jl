@@ -48,8 +48,9 @@ end
     return :($AF)
 end
 
-@inline required_biogeochemical_auxiliary_fields(bgc::AgateBGC) =
-    auxiliary_fields_from_tracers(typeof(bgc.tracers))
+@inline required_biogeochemical_auxiliary_fields(bgc::AgateBGC) = auxiliary_fields_from_tracers(
+    typeof(bgc.tracers)
+)
 
 @inline function required_biogeochemical_auxiliary_fields(
     ::Type{<:AgateBGC{PT,TF,TR}}

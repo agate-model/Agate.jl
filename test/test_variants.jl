@@ -20,9 +20,7 @@
     n_total = 3 + 2
     traits = fill(10.0, n_total)
     bgc_traits = Agate.Models.construct(
-        spec;
-        grid=dummy_grid(Float32),
-        parameters=(; optimum_predator_prey_ratio=traits),
+        spec; grid=dummy_grid(Float32), parameters=(; optimum_predator_prey_ratio=traits)
     )
     @test eltype(bgc_traits.parameters.optimum_predator_prey_ratio) === Float32
 

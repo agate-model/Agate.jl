@@ -52,7 +52,6 @@ using Oceananigans.Biogeochemistry:
         @test isfinite(bgc(Val(:Z1), 0, 0, 0, 0, ordered..., PAR))
     end
 
-
     @testset "NiPiZD interaction overrides" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
         ints0 = bgc.parameters.interactions
@@ -92,8 +91,9 @@ using Oceananigans.Biogeochemistry:
         )
 
         # Provider/callable values are not supported for interaction overrides.
-        rect_provider(ctx) =
-            fill(Float32(9), length(ctx.consumer_indices), length(ctx.prey_indices))
+        rect_provider(ctx) = fill(
+            Float32(9), length(ctx.consumer_indices), length(ctx.prey_indices)
+        )
         err = try
             NiPiZD.construct(;
                 grid=dummy_grid(Float32),
@@ -201,9 +201,17 @@ using Oceananigans.Biogeochemistry:
         @test_throws ArgumentError NiPiZD.construct(; n_phyto=0)
         @test_throws ArgumentError NiPiZD.construct(; n_zoo=0)
 
-        # Grid determines precision.
+        # Grid determines precision unless an explicit scalar type is supplied.
         bgc_f32 = NiPiZD.construct(; grid=dummy_grid(Float32))
         @test bgc_f32.parameters.detritus_remineralization isa Float32
+
+        bgc_explicit_f32 = NiPiZD.construct(; grid=dummy_grid(Float64), scalar_type=Float32)
+        @test bgc_explicit_f32.parameters.detritus_remineralization isa Float32
+        @test eltype(bgc_explicit_f32.parameters.maximum_growth_rate) === Float32
+
+        @test_throws ArgumentError NiPiZD.construct(; scalar_type=Real)
+        @test_throws ArgumentError NiPiZD.construct(; scalar_type=ComplexF64)
+        @test_throws ArgumentError NiPiZD.construct(; scalar_type=1.0)
 
         # Wrong interaction matrix sizes should error.
         bgc = NiPiZD.construct(; grid=dummy_grid(Float64))

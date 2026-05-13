@@ -134,7 +134,7 @@ for (i, key) in enumerate(all_keys)
         ax,
         times,
         z_vals,
-        Float32.(interior(timeseries[key], 1, 1, :, :)');
+        Float32.(interior(timeseries[key],1,1,:,:)');
         colormap=:viridis,
         rasterize=true,
     )

@@ -121,13 +121,27 @@ finite_difference_sensitivity = finite_difference_p1_trajectory(mu0, delta; save
 time_days = saveat ./ day
 fig = Figure(; size=(900, 620), fontsize=14)
 
-ax1 = Axis(fig[1, 1]; xlabel="time (days)", ylabel="P1 concentration", title="NiPiZD P1 biomass")
+ax1 = Axis(
+    fig[1, 1]; xlabel="time (days)", ylabel="P1 concentration", title="NiPiZD P1 biomass"
+)
 lines!(ax1, time_days, baseline; label="P1", linewidth=3)
 axislegend(ax1; position=:rb)
 
-ax2 = Axis(fig[2, 1]; xlabel="time (days)", ylabel="sensitivity to P1 growth rate", title="ForwardDiff sensitivity vs finite-difference sensitivity")
+ax2 = Axis(
+    fig[2, 1];
+    xlabel="time (days)",
+    ylabel="sensitivity to P1 growth rate",
+    title="ForwardDiff sensitivity vs finite-difference sensitivity",
+)
 lines!(ax2, time_days, forwarddiff_sensitivity; label="dP1/dμ₁, ForwardDiff", linewidth=3)
-lines!(ax2, time_days, finite_difference_sensitivity; linestyle=:dash, label="dP1/dμ₁, finite difference", linewidth=3)
+lines!(
+    ax2,
+    time_days,
+    finite_difference_sensitivity;
+    linestyle=:dash,
+    label="dP1/dμ₁, finite difference",
+    linewidth=3,
+)
 axislegend(ax2; position=:rb)
 
 output_path = joinpath(@__DIR__, "forwarddiff_nipizd_ode_sensitivity.png")

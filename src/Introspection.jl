@@ -41,8 +41,9 @@ Return the ordered auxiliary field symbols required by `bgc`.
 Auxiliary fields are non-tracer state fields (for example, light or temperature)
 that appear in tracer tendencies.
 """
-@inline auxiliary_field_names(bgc)::Vector{Symbol} =
-    collect(required_biogeochemical_auxiliary_fields(bgc))
+@inline auxiliary_field_names(bgc)::Vector{Symbol} = collect(
+    required_biogeochemical_auxiliary_fields(bgc)
+)
 
 """
     parameter_names(bgc) -> Vector{Symbol}

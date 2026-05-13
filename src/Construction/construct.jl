@@ -261,7 +261,6 @@ function validate_parameter_shapes(
     return nothing
 end
 
-
 function materialize_parameter_value(spec, value, ::Type{T}) where {T<:Real}
     if spec.shape === :scalar
         return value isa Bool ? value : T(value)
@@ -391,13 +390,18 @@ The returned object stores the fully resolved parameter set in
 `bgc.parameters`.
 """
 
-
 function resolve_construction_scalar_type(grid, scalar_type)
     if scalar_type !== nothing
-        scalar_type isa Type ||
-            throw(ArgumentError("scalar_type must be a concrete subtype of Real; got $(scalar_type)"))
-        scalar_type <: Real ||
-            throw(ArgumentError("scalar_type must be a concrete subtype of Real; got $(scalar_type)"))
+        scalar_type isa Type || throw(
+            ArgumentError(
+                "scalar_type must be a concrete subtype of Real; got $(scalar_type)"
+            ),
+        )
+        scalar_type <: Real || throw(
+            ArgumentError(
+                "scalar_type must be a concrete subtype of Real; got $(scalar_type)"
+            ),
+        )
         isconcretetype(scalar_type) ||
             throw(ArgumentError("scalar_type must be concrete; got $(scalar_type)"))
         return scalar_type

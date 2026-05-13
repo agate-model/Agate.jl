@@ -44,7 +44,6 @@ using Oceananigans.Units: day
     @test isapprox(dP1_dmu, fd; rtol=1e-4, atol=1e-10)
 end
 
-
 @testset "ForwardDiff DARWIN tendency smoke tests" begin
     function p1_tendency_with_growth_rate(mu)
         T = typeof(mu)

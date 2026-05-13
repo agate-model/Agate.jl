@@ -37,9 +37,7 @@ Allometric scaling function using a power law on spherical cell volume.
 # Returns
 `a * V^b` where `V` is the spherical volume computed from `diameter`.
 """
-@inline function allometric_scaling_power(
-    a::T, b::T, diameter::T
-) where {T<:Real}
+@inline function allometric_scaling_power(a::T, b::T, diameter::T) where {T<:Real}
     r = diameter / T(2)
     volume = (T(4) / T(3)) * T(π) * r^T(3)
     return a * volume^b

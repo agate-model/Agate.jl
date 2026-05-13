@@ -120,8 +120,9 @@ end
 diameter_specification(diameters::AbstractVector) = DiameterListSpecification(diameters)
 
 """Return a diameter specification defined by (min, max, splitting)."""
-diameter_specification(spec::Tuple{Any,Any,Symbol}) =
+function diameter_specification(spec::Tuple{Any,Any,Symbol})
     DiameterRangeSpecification(spec[1], spec[2], spec[3])
+end
 
 """Return the diameter specification when one is already provided."""
 diameter_specification(spec::AbstractDiameterSpecification) = spec
