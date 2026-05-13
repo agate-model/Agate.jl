@@ -19,7 +19,10 @@ using CairoMakie
 const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
-examples = ["Column model" => "1D_column"]
+examples = [
+    "Column model" => "1D_column",
+    "ForwardDiff sensitivity" => "forwarddiff_nipizd_ode",
+]
 dev = ["Variants" => "variant"]
 
 example_scripts = [filename * ".jl" for (title, filename) in vcat(examples, dev)]
