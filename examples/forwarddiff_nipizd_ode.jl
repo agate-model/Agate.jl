@@ -118,7 +118,7 @@ finite_difference_sensitivity = finite_difference_p1_trajectory(mu0, delta; save
 time_days = saveat ./ day
 fig = Figure(; size=(900, 620), fontsize=14)
 
-ax1 = Axis(fig[1, 1]; xlabel="time (days)", ylabel="P1 concentration", title="NiPiZD P1 trajectory")
+ax1 = Axis(fig[1, 1]; xlabel="time (days)", ylabel="P1 concentration", title="NiPiZD P1 biomass")
 lines!(ax1, time_days, baseline; label="P1", linewidth=3)
 axislegend(ax1; position=:rb)
 
