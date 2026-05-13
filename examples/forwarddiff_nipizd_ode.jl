@@ -1,6 +1,6 @@
-# # [ForwardDiff sensitivity example] (@id forwarddiff_nipizd_ode_example)
+# # [Forward-mode AD sensitivity] (@id forwarddiff_nipizd_ode_example)
 
-# In this example we use ForwardDiff to compute the sensitivity of the NiPiZD model to the maximum growth rate parameter.
+# In this example we use ForwardDiff.jl to compute the sensitivity of P1 in the N2P2ZD model to the maximum growth rate parameter.
 
 # ## Loading dependencies
 # The example uses Agate.jl for the ecosystem model, OrdinaryDiffEq.jl for a small standalone ODE solve,
@@ -23,7 +23,7 @@ nothing #hide
 
 # Agate uses an explicit constructor-boundary scalar type contract.
 # For ordinary Oceananigans.jl simulations this scalar type comes from the grid, or defaults to `Float64`.
-# For ForwardDiff, we pass the active scalar type explicitly with `scalar_type = typeof(mu)`.
+# For ForwardDiff.jl, we pass the active scalar type explicitly with `scalar_type = typeof(mu)`.
 
 function nipizd_model_with_p1_growth_rate(mu)
     T = typeof(mu)
@@ -33,6 +33,7 @@ function nipizd_model_with_p1_growth_rate(mu)
         parameters=(; maximum_growth_rate=[zero(T), zero(T), mu, T(0.7 / day)]),
     )
 end
+nothing #hide
 
 # Here `mu` is the maximum growth rate of `P1`.
 # The two leading zeros correspond to zooplankton entries.
@@ -48,7 +49,7 @@ end
 
 constant_PAR(::Type{T}) where {T} = T(100.0)
 
-function solve_nipizd(mu; saveat=range(0.0, 8day; length=81))
+function solve_nipizd(mu; saveat=range(0.0, 365day; length=366))
     T = typeof(mu)
     bgc = nipizd_model_with_p1_growth_rate(mu)
 
@@ -67,11 +68,12 @@ function solve_nipizd(mu; saveat=range(0.0, 8day; length=81))
     problem = ODEProblem(rhs!, u0, (first(saveat), last(saveat)))
     return solve(problem, Tsit5(); saveat=saveat, abstol=1e-10, reltol=1e-10)
 end
+nothing #hide
 
 # We expose the `P1` trajectory (e.g. biomass values over time) as a vector-valued function of one parameter.
 # This is the function that ForwardDiff differentiates.
 
-function p1_trajectory(theta; saveat=range(0.0, 365day; length=81))
+function p1_trajectory(theta; saveat=range(0.0, 365day; length=366))
     sol = solve_nipizd(theta[1]; saveat=saveat)
     values = reduce(hcat, sol.u)
     return vec(values[5, :])
@@ -82,6 +84,7 @@ function p1_solution(mu; saveat=range(0.0, 365day; length=366))
     values = reduce(hcat, sol.u)
     return vec(values[5, :])
 end
+nothing #hide
 
 # ## ForwardDiff and finite differences
 
@@ -94,7 +97,7 @@ function finite_difference_p1_trajectory(mu0, delta; saveat)
     return (plus .- minus) ./ (2delta)
 end
 
-saveat = collect(range(0.0, 365day; length=81))
+saveat = collect(range(0.0, 365day; length=366))
 mu0 = 0.7 / day
 delta = mu0 * 1e-6
 
