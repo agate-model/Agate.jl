@@ -10,7 +10,7 @@ OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
 Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
 
 [compat]
-ForwardDiff = "0.10"
+ForwardDiff = "1"
 OrdinaryDiffEq = "6"
 OceanBioME = "0.16"
 Oceananigans = "0.101.1, 0.102"
