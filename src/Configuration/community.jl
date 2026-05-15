@@ -11,6 +11,14 @@ Keywords
 --------
 - `diameters=(; ...)`: optional per-group size-structure inputs, keyed by group symbol.
 
+Accepted size-structure inputs
+------------------------------
+Each group size structure must define class diameters either as a generated
+range or as explicit values. Accepted public forms are:
+
+- `(n=3, min_esd=1, max_esd=10, splitting=:log_splitting)` for a generated range.
+- `[1.0, 3.2, 10.0]` for explicit class diameters.
+
 Examples
 --------
 ```julia
@@ -51,12 +59,20 @@ end
 """Abstract supertype for diameter specifications."""
 abstract type AbstractDiameterSpecification end
 
-"""A diameter specification defined by an explicit list of diameters."""
+"""A diameter specification defined by an explicit list of class diameters.
+
+The size-class count is inferred from `length(diameters)`.
+"""
 struct DiameterListSpecification{T,VT<:AbstractVector{T}} <: AbstractDiameterSpecification
     diameters::VT
 end
 
-"""A diameter specification defined by a range and a splitting method."""
+"""A diameter specification defined by a class count, range, and splitting method.
+
+`n` is the number of size classes. `min_diameter` and `max_diameter` define the
+range of equivalent spherical diameters. `splitting` selects the spacing method,
+for example `:log_splitting` or `:linear_splitting`.
+"""
 struct DiameterRangeSpecification{I<:Integer,T} <: AbstractDiameterSpecification
     n::I
     min_diameter::T
@@ -124,9 +140,6 @@ function normalize_diameters(spec::NamedTuple)
         ),
     )
 end
-
-normalize_diameters(spec::Tuple{<:Integer,Any,Any,Symbol}) =
-    (; n=spec[1], specification=DiameterRangeSpecification(spec[1], spec[2], spec[3], spec[4]))
 
 normalize_diameters(spec::DiameterListSpecification) =
     (; n=length(spec.diameters), specification=spec)
