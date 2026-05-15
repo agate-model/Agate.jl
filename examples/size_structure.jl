@@ -28,12 +28,12 @@ nothing #hide
 # 10 μm equivalent spherical diameter (ESD), using logarithmic spacing.
 
 phyto_size_structure = (n=3, min_esd=1, max_esd=10, splitting=:log_splitting)
+nothing #hide
 
 # Alternatively, an explicit array can be used.
 # This zooplankton size structure also defines three classes, specifying the ESD of each class directly.
 
 zoo_size_structure = [10.0, 32.0, 100.0]
-
 nothing #hide
 
 # The model is constructed following the default model setup but with the custom size structures. 
