@@ -122,8 +122,9 @@ function normalize_diameters(spec::NamedTuple)
     )
 end
 
-normalize_diameters(spec::Tuple{Any,Any,Symbol}) =
-    (; n=nothing, specification=DiameterRangeSpecification(spec[1], spec[2], spec[3]))
+normalize_diameters(spec::Tuple{<:Integer,Any,Any,Symbol}) =
+    (; n=spec[1], specification=DiameterRangeSpecification(spec[2], spec[3], spec[4]))
+
 
 normalize_diameters(spec::AbstractDiameterSpecification) = (; n=nothing, specification=spec)
 

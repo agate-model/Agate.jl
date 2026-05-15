@@ -57,10 +57,11 @@ end
     community = build_plankton_community(
         base;
         diameters=(
-            Z=[20.0, 100.0],
+            Z=(2, 20.0, 100.0, :linear_splitting),
             P=(n=3, min_esd=2.0, max_esd=10.0, splitting=:log_splitting),
         ),
     )
+
 
     ctx = parse_community(
         factory,
