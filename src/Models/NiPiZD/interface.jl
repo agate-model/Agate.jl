@@ -12,7 +12,7 @@ export construct
 Construct a size-structured NiPiZD ecosystem model.
 
 The NiPiZD model contains two plankton groups: phytoplankton (`P`) and zooplankton (`Z`),
-with size classes defined by their diameter inputs.
+with size classes defined by their size-structure inputs.
 
 In addition to plankton, the default NiPiZD factory includes idealized nutrient (`N`) and
 detritus (`D`) cycling. The returned biogeochemistry instance includes a photosynthetically
@@ -25,8 +25,8 @@ may override interaction matrices explicitly with `palatability_matrix` and/or
 
 Keywords
 --------
-- `phyto_diameters=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting)`: phytoplankton diameter definition
-- `zoo_diameters=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting)`: zooplankton diameter definition
+- `phyto_size_structure=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting)`: phytoplankton size structure
+- `zoo_size_structure=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting)`: zooplankton size structure
 - `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set)
 - `palatability_matrix=nothing`: optional palatability matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)`.
 - `assimilation_matrix=nothing`: optional assimilation matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)`.
@@ -49,8 +49,8 @@ bgc = NiPiZD.construct()
 ```
 """
 function construct(;
-    phyto_diameters=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting),
-    zoo_diameters=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),
+    phyto_size_structure=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting),
+    zoo_size_structure=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),
     parameters::NamedTuple=(;),
     palatability_matrix=nothing,
     assimilation_matrix=nothing,
@@ -64,7 +64,7 @@ function construct(;
 
     base = Factories.default_community(factory)
     community = Configuration.build_plankton_community(
-        base; diameters=(Z=zoo_diameters, P=phyto_diameters)
+        base; diameters=(Z=zoo_size_structure, P=phyto_size_structure)
     )
 
     # Interaction overrides (optional).

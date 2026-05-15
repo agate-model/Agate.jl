@@ -1,21 +1,21 @@
 """Build a plankton community from a base community spec.
 
-This helper updates diameter definitions for one or more plankton groups,
+This helper updates the size structure for one or more plankton groups,
 leaving all other group fields intact. Size-class counts are inferred from
-explicit diameter vectors or read from range-style diameter definitions.
+explicit diameter vectors or read from structured size definitions.
 
 The ordering of groups in the returned `NamedTuple` is the ordering of
 `base` (i.e. `keys(base)`).
 
 Keywords
 --------
-- `diameters=(; ...)`: optional per-group diameter definitions, keyed by group symbol.
+- `diameters=(; ...)`: optional per-group size-structure inputs, keyed by group symbol.
 
 Examples
 --------
 ```julia
 community = build_plankton_community(base;
-    diameters=(Z=zoo_diameters, P=phyto_diameters),
+    diameters=(Z=zoo_size_structure, P=phyto_size_structure),
 )
 ```
 """
@@ -39,7 +39,7 @@ function build_plankton_community(base::NamedTuple; diameters::NamedTuple=NamedT
         elseif hasproperty(spec, :n)
             getproperty(spec, :n)
         else
-            throw(ArgumentError("group $g: diameter definition must provide `n`"))
+            throw(ArgumentError("group $g: size structure must provide `n`"))
         end
 
         return (; spec..., n=size_class_count, diameters=diameter_definition)

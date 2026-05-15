@@ -34,8 +34,8 @@ nothing #hide
 # In this case, we will only update the interaction_roles, leaving the rest as defaults.
 
 function citation2026_B_spec(;
-    phyto_diameters=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting),
-    zoo_diameters=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),
+    phyto_size_structure=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting),
+    zoo_size_structure=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),
     parameters::NamedTuple=(;),
     interaction_overrides::Union{Nothing,NamedTuple}=nothing,
     auxiliary_fields::Tuple=(:PAR,),
@@ -44,7 +44,7 @@ function citation2026_B_spec(;
 
     base = default_community(factory)
     community = build_plankton_community(
-        base; diameters=(Z=zoo_diameters, P=phyto_diameters)
+        base; diameters=(Z=zoo_size_structure, P=phyto_size_structure)
     )
 
     interaction_roles = (consumers=(:Z,), prey=(:P, :Z)) # allow Z to eat Z 
@@ -82,8 +82,8 @@ nothing #hide
 
 spec = variant(
     id;
-    phyto_diameters=(n=3, min_esd=2, max_esd=10, splitting=:log_splitting),
-    zoo_diameters=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),
+    phyto_size_structure=(n=3, min_esd=2, max_esd=10, splitting=:log_splitting),
+    zoo_size_structure=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),
 )
 bgc = construct(spec)
 nothing #hide
