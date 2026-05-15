@@ -105,7 +105,7 @@ nothing #hide
 
 times = FieldTimeSeries(filename, string(first(tracer_syms))).times
 
-fig = Figure(; size=(650, 520), fontsize=16)
+fig = Figure(; size=(650, 520), fontsize=12)
 
 for (idx, sym) in enumerate(tracer_syms)
     ax = Axis(
@@ -113,6 +113,11 @@ for (idx, sym) in enumerate(tracer_syms)
         ylabel=string(sym),
         xlabel="Days",
         title="$(sym) concentration (mmol N / m³)",
+        titlesize=16,
+        xlabelsize=12,
+        ylabelsize=12,
+        xticklabelsize=10,
+        yticklabelsize=10,
     )
     lines!(ax, times / day, getproperty(timeseries, sym); linewidth=1.5)
 end
