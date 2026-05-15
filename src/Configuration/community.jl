@@ -1,32 +1,34 @@
 """Build a plankton community from a base community spec.
 
-This helper updates structural fields (`n` and `diameters`) for one or
-more plankton groups, leaving all other group fields intact.
+This helper updates the size structure for one or more plankton groups,
+leaving all other group fields intact. Size-class counts are inferred from
+explicit diameter vectors or read from structured size definitions.
 
 The ordering of groups in the returned `NamedTuple` is the ordering of
 `base` (i.e. `keys(base)`).
 
 Keywords
 --------
-- `n=(; ...)`: optional per-group size-class counts, keyed by group symbol.
-- `diameters=(; ...)`: optional per-group diameter specifications, keyed by group symbol.
+- `diameters=(; ...)`: optional per-group size-structure inputs, keyed by group symbol.
+
+Accepted size-structure inputs
+------------------------------
+Each group size structure must define class diameters either as a generated
+range or as explicit values. Accepted public forms are:
+
+- `(n=3, min_esd=1, max_esd=10, splitting=:log_splitting)` for a generated range.
+- `[1.0, 3.2, 10.0]` for explicit class diameters.
 
 Examples
 --------
 ```julia
 community = build_plankton_community(base;
-    n=(Z=10, P=20),
-    diameters=(Z=zoo_diameters, P=phyto_diameters),
+    diameters=(Z=zoo_size_structure, P=phyto_size_structure),
 )
 ```
 """
-function build_plankton_community(
-    base::NamedTuple; n::NamedTuple=NamedTuple(), diameters::NamedTuple=NamedTuple()
-)
+function build_plankton_community(base::NamedTuple; diameters::NamedTuple=NamedTuple())
     base_keys = keys(base)
-    for k in keys(n)
-        k in base_keys || throw(ArgumentError("n: unknown group symbol $k"))
-    end
     for k in keys(diameters)
         k in base_keys || throw(ArgumentError("diameters: unknown group symbol $k"))
     end
@@ -34,26 +36,21 @@ function build_plankton_community(
     values_ = ntuple(length(base_keys)) do i
         g = base_keys[i]
         spec = getfield(base, g)
-        new_d = if hasproperty(diameters, g)
+        diameter_definition = if hasproperty(diameters, g)
             getfield(diameters, g)
         else
             getproperty(spec, :diameters)
         end
-        new_n = if hasproperty(n, g)
-            getfield(n, g)
-        elseif new_d isa AbstractVector
-            length(new_d)
+        normalized_diameters = normalize_diameters(diameter_definition)
+        size_class_count = if !isnothing(normalized_diameters.n)
+            normalized_diameters.n
         elseif hasproperty(spec, :n)
             getproperty(spec, :n)
         else
-            throw(
-                ArgumentError(
-                    "group $g: missing `n` and diameters are not an explicit vector; provide `n` explicitly",
-                ),
-            )
+            throw(ArgumentError("group $g: size structure must provide `n`"))
         end
 
-        return (; spec..., n=new_n, diameters=new_d)
+        return (; spec..., n=size_class_count, diameters=diameter_definition)
     end
 
     return NamedTuple{base_keys}(values_)
@@ -62,13 +59,22 @@ end
 """Abstract supertype for diameter specifications."""
 abstract type AbstractDiameterSpecification end
 
-"""A diameter specification defined by an explicit list of diameters."""
+"""A diameter specification defined by an explicit list of class diameters.
+
+The size-class count is inferred from `length(diameters)`.
+"""
 struct DiameterListSpecification{T,VT<:AbstractVector{T}} <: AbstractDiameterSpecification
     diameters::VT
 end
 
-"""A diameter specification defined by a range and a splitting method."""
-struct DiameterRangeSpecification{T} <: AbstractDiameterSpecification
+"""A diameter specification defined by a class count, range, and splitting method.
+
+`n` is the number of size classes. `min_diameter` and `max_diameter` define the
+range of equivalent spherical diameters. `splitting` selects the spacing method,
+for example `:log_splitting` or `:linear_splitting`.
+"""
+struct DiameterRangeSpecification{I<:Integer,T} <: AbstractDiameterSpecification
+    n::I
     min_diameter::T
     max_diameter::T
     splitting::Symbol
@@ -116,16 +122,32 @@ struct CommunityContext{T<:Real,VT<:AbstractVector{T}}
     biogeochem_dynamics::NamedTuple
 end
 
-"""Return a diameter specification for an explicit diameter list."""
-diameter_specification(diameters::AbstractVector) = DiameterListSpecification(diameters)
+"""Return normalized diameter input and any size-class count it defines."""
+normalize_diameters(diameters::AbstractVector) =
+    (; n=length(diameters), specification=DiameterListSpecification(diameters))
 
-"""Return a diameter specification defined by (min, max, splitting)."""
-function diameter_specification(spec::Tuple{Any,Any,Symbol})
-    DiameterRangeSpecification(spec[1], spec[2], spec[3])
+function normalize_diameters(spec::NamedTuple)
+    required = (:n, :min_esd, :max_esd, :splitting)
+    all(hasproperty(spec, field) for field in required) || throw(
+        ArgumentError(
+            "diameter range NamedTuple must define `n`, `min_esd`, `max_esd`, and `splitting`",
+        ),
+    )
+    return (;
+        n=spec.n,
+        specification=DiameterRangeSpecification(
+            spec.n, spec.min_esd, spec.max_esd, spec.splitting
+        ),
+    )
 end
 
-"""Return the diameter specification when one is already provided."""
-diameter_specification(spec::AbstractDiameterSpecification) = spec
+normalize_diameters(spec::DiameterListSpecification) =
+    (; n=length(spec.diameters), specification=spec)
+
+normalize_diameters(spec::DiameterRangeSpecification) = (; n=spec.n, specification=spec)
+
+normalize_diameters(spec) = throw(ArgumentError("invalid `diameters` specification"))
+
 
 """Validate `plankton_dynamics` and `community` inputs.
 
@@ -163,38 +185,38 @@ function validate_community_inputs(plankton_dynamics, community)
             push!(issues, "group $(k): missing required field `diameters`")
         else
             d = getproperty(spec, :diameters)
-            if !(
-                d isa AbstractVector ||
-                d isa AbstractDiameterSpecification ||
-                (d isa Tuple && length(d) == 3)
-            )
+            normalized_diameters = try
+                normalize_diameters(d)
+            catch err
+                err isa ArgumentError || rethrow()
                 push!(issues, "group $(k): invalid `diameters` specification")
+                nothing
             end
 
-            needs_n = !(d isa AbstractVector)
-            if needs_n
-                if !hasproperty(spec, :n)
+            if !isnothing(normalized_diameters)
+                spec_n = hasproperty(spec, :n) ? getproperty(spec, :n) : nothing
+                diameter_n = normalized_diameters.n
+
+                if !isnothing(spec_n) && !isnothing(diameter_n) && spec_n != diameter_n
+                    push!(
+                        issues,
+                        "group $(k): `n` ($(spec_n)) does not match diameters.n ($(diameter_n))",
+                    )
+                end
+
+                n_source = !isnothing(diameter_n) ? diameter_n : spec_n
+
+                if isnothing(n_source)
                     push!(
                         issues,
                         "group $(k): missing required field `n` for non-explicit diameters",
                     )
-                else
-                    n = getproperty(spec, :n)
-                    if !(n isa Integer) || n < 1
-                        push!(
-                            issues,
-                            "group $(k): `n` must be a positive integer for non-explicit diameters",
-                        )
-                    end
-                end
-            end
-
-            if d isa AbstractVector && hasproperty(spec, :n)
-                n = getproperty(spec, :n)
-                if n != length(d)
+                elseif !(n_source isa Integer) || n_source < 1
+                    push!(issues, "group $(k): `n` must be a positive integer")
+                elseif d isa AbstractVector && n_source != length(d)
                     push!(
                         issues,
-                        "group $(k): `n` ($(n)) does not match length(diameters) ($(length(d)))",
+                        "group $(k): `n` ($(n_source)) does not match length(diameters) ($(length(d)))",
                     )
                 end
             end
@@ -271,11 +293,16 @@ function parse_community(
 
     for g in group_order
         spec = getfield(community, g)
-        dspec = diameter_specification(getproperty(spec, :diameters))
+        normalized_diameters = normalize_diameters(getproperty(spec, :diameters))
+        dspec = normalized_diameters.specification
         n = if dspec isa DiameterListSpecification
             length(dspec.diameters)
-        else
+        elseif !isnothing(normalized_diameters.n)
+            normalized_diameters.n
+        elseif hasproperty(spec, :n)
             getproperty(spec, :n)
+        else
+            throw(ArgumentError("group $g: missing required field `n`"))
         end
         ds = param_compute_diameters(T, n, dspec)
         pft_raw = getproperty(spec, :pft)

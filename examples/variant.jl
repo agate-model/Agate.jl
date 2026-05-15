@@ -34,10 +34,8 @@ nothing #hide
 # In this case, we will only update the interaction_roles, leaving the rest as defaults.
 
 function citation2026_B_spec(;
-    n_phyto::Int=2,
-    n_zoo::Int=2,
-    phyto_diameters=(2, 10, :log_splitting),
-    zoo_diameters=(20, 100, :linear_splitting),
+    phyto_size_structure=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting),
+    zoo_size_structure=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),
     parameters::NamedTuple=(;),
     interaction_overrides::Union{Nothing,NamedTuple}=nothing,
     auxiliary_fields::Tuple=(:PAR,),
@@ -46,7 +44,7 @@ function citation2026_B_spec(;
 
     base = default_community(factory)
     community = build_plankton_community(
-        base; n=(Z=n_zoo, P=n_phyto), diameters=(Z=zoo_diameters, P=phyto_diameters)
+        base; diameters=(Z=zoo_size_structure, P=phyto_size_structure)
     )
 
     interaction_roles = (consumers=(:Z,), prey=(:P, :Z)) # allow Z to eat Z 
@@ -82,7 +80,11 @@ nothing #hide
 # 1) `variant(id; kwargs...)` returns the `VariantSpec` (kwargs forwarded to the spec builder)
 # 2) `construct(spec; ...)` constructs the concrete biogeochemistry model
 
-spec = variant(id; n_phyto=3, n_zoo=2)
+spec = variant(
+    id;
+    phyto_size_structure=(n=3, min_esd=2, max_esd=10, splitting=:log_splitting),
+    zoo_size_structure=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),
+)
 bgc = construct(spec)
 nothing #hide
 

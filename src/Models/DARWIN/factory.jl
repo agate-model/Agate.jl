@@ -1,6 +1,5 @@
 using ...Factories: AbstractBGCFactory
 using ...Configuration: PFTSpecification
-using ...Configuration: DiameterRangeSpecification
 
 # NOTE: Numeric parameter defaults are declared in `Models/DARWIN/parameters.jl`.
 
@@ -39,12 +38,12 @@ function default_community(::DarwinFactory)
     empty_pft = PFTSpecification()
     return (
         Z=(;
-            n=2,
-            diameters=DiameterRangeSpecification(20, 100, :linear_splitting),
+            diameters=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),
             pft=empty_pft,
         ),
         P=(;
-            n=2, diameters=DiameterRangeSpecification(2, 10, :log_splitting), pft=empty_pft
+            diameters=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting),
+            pft=empty_pft,
         ),
     )
 end

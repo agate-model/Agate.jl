@@ -1,7 +1,7 @@
 using Agate
 using Test
 
-using Agate.Configuration: parse_community
+using Agate.Configuration: build_plankton_community, parse_community, DiameterRangeSpecification
 using Agate.Runtime: class, resolve_class, class_count, build_tracer_index, Tracers
 using Agate.Factories:
     default_plankton_dynamics, default_biogeochem_dynamics, default_community
@@ -46,4 +46,33 @@ using Agate.Factories:
     @test tracers.PAR(args) == 42.0
 
     @test @inferred(tracers.P(args, 2)) == 4.0
+end
+
+@testset "Diameter input normalization" begin
+    factory = Agate.Models.NiPiZD.NiPiZDFactory()
+    base = default_community(factory)
+    plankton_dyn = default_plankton_dynamics(factory)
+    biogeochem_dyn = default_biogeochem_dynamics(factory)
+
+    community = build_plankton_community(
+        base;
+        diameters=(
+            Z=DiameterRangeSpecification(2, 20.0, 100.0, :linear_splitting),
+            P=(n=3, min_esd=2.0, max_esd=10.0, splitting=:log_splitting),
+        ),
+    )
+
+
+    ctx = parse_community(
+        factory,
+        Float64,
+        community;
+        plankton_dynamics=plankton_dyn,
+        biogeochem_dynamics=biogeochem_dyn,
+    )
+
+    @test class_count(ctx, :Z) == 2
+    @test class_count(ctx, :P) == 3
+    @test ctx.diameters[1:2] == [20.0, 100.0]
+    @test ctx.diameters[3:5] ≈ [2.0, sqrt(20.0), 10.0]
 end

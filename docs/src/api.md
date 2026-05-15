@@ -18,3 +18,9 @@ Agate.Factories.AbstractBGCFactory
 Agate.Equations.CompiledEquation
 Agate.Construction.define_tracer_functions
 ```
+
+## Plankton communities and size structure
+
+```@docs
+Agate.Configuration.build_plankton_community
+```
