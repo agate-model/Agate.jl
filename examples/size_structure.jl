@@ -23,12 +23,14 @@ nothing #hide
 
 # ## Ecosystem model
 
-# First, we define custom size structures for phytoplankton and zooplankton.
-# A diameter range defines the number of size classes (`n`), the minimum and maximum
-# equivalent spherical diameters, and the spacing used to generate the classes.
+# The plankton size structure is set through size structure definitions. Here,
+# phytoplankton are split into three classes spanning 1 to 10 μm equivalent
+# spherical diameter (ESD), and zooplankton into three classes spanning 10 to
+# 100 μm ESD, with logarithmic spacing in both cases.
 
 phyto_diameters = (n=3, min_esd=1, max_esd=10, splitting=:log_splitting)
 zoo_diameters = (n=3, min_esd=10, max_esd=100, splitting=:log_splitting)
+
 nothing #hide
 
 # The model is constructed as in the quick start, with these diameter definitions passed
