@@ -1,32 +1,26 @@
 """Build a plankton community from a base community spec.
 
-This helper updates structural fields (`n` and `diameters`) for one or
-more plankton groups, leaving all other group fields intact.
+This helper updates diameter definitions for one or more plankton groups,
+leaving all other group fields intact. Size-class counts are inferred from
+explicit diameter vectors or read from range-style diameter definitions.
 
 The ordering of groups in the returned `NamedTuple` is the ordering of
 `base` (i.e. `keys(base)`).
 
 Keywords
 --------
-- `n=(; ...)`: optional per-group size-class counts, keyed by group symbol.
-- `diameters=(; ...)`: optional per-group diameter specifications, keyed by group symbol.
+- `diameters=(; ...)`: optional per-group diameter definitions, keyed by group symbol.
 
 Examples
 --------
 ```julia
 community = build_plankton_community(base;
-    n=(Z=10, P=20),
     diameters=(Z=zoo_diameters, P=phyto_diameters),
 )
 ```
 """
-function build_plankton_community(
-    base::NamedTuple; n::NamedTuple=NamedTuple(), diameters::NamedTuple=NamedTuple()
-)
+function build_plankton_community(base::NamedTuple; diameters::NamedTuple=NamedTuple())
     base_keys = keys(base)
-    for k in keys(n)
-        k in base_keys || throw(ArgumentError("n: unknown group symbol $k"))
-    end
     for k in keys(diameters)
         k in base_keys || throw(ArgumentError("diameters: unknown group symbol $k"))
     end
@@ -40,21 +34,15 @@ function build_plankton_community(
             getproperty(spec, :diameters)
         end
         normalized_diameters = normalize_diameters(diameter_definition)
-        new_n = if hasproperty(n, g)
-            getfield(n, g)
-        elseif !isnothing(normalized_diameters.n)
+        size_class_count = if !isnothing(normalized_diameters.n)
             normalized_diameters.n
         elseif hasproperty(spec, :n)
             getproperty(spec, :n)
         else
-            throw(
-                ArgumentError(
-                    "group $g: missing `n` and diameters are not an explicit vector; provide `n` explicitly",
-                ),
-            )
+            throw(ArgumentError("group $g: diameter definition must provide `n`"))
         end
 
-        return (; spec..., n=new_n, diameters=diameter_definition)
+        return (; spec..., n=size_class_count, diameters=diameter_definition)
     end
 
     return NamedTuple{base_keys}(values_)
@@ -141,8 +129,6 @@ normalize_diameters(spec::AbstractDiameterSpecification) = (; n=nothing, specifi
 
 normalize_diameters(spec) = throw(ArgumentError("invalid `diameters` specification"))
 
-"""Return a diameter specification for diameter input."""
-diameter_specification(spec) = normalize_diameters(spec).specification
 
 """Validate `plankton_dynamics` and `community` inputs.
 
