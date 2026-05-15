@@ -8,11 +8,17 @@ module Introspection
 export tracer_names
 export auxiliary_field_names
 export parameter_names
+export plankton_groups
+export plankton_tracers
+export nonplankton_tracers
+export tracer_groups
 export model_summary
 export describe
 
 import Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
+
+using ..Runtime: TracerIndex
 
 @inline function preview_list(xs; n::Int=12)
     m = length(xs)
@@ -61,6 +67,79 @@ function parameter_names(bgc)::Vector{Symbol}
     # matrices plus axis maps). Hide these from the public parameter list.
     filter!(k -> k !== :interactions, keys)
     return keys
+end
+
+
+function _tracer_index(bgc)
+    hasproperty(bgc, :tracers) || return nothing
+    tracers = getproperty(bgc, :tracers)
+    hasproperty(tracers, :idx) || return nothing
+    return getproperty(tracers, :idx)
+end
+
+_all_tracer_symbols(::TracerIndex{TR,GS,AF,NG}) where {TR,GS,AF,NG} = collect(TR)
+_plankton_group_symbols(::TracerIndex{TR,GS,AF,NG}) where {TR,GS,AF,NG} = collect(GS)
+
+"""    plankton_groups(bgc) -> NamedTuple
+
+Return a `NamedTuple` mapping plankton group symbols to the tracer symbols in
+each group. The group and tracer order follows the constructed runtime tracer
+layout.
+"""
+function plankton_groups(bgc)
+    idx = _tracer_index(bgc)
+    idx isa TracerIndex || return NamedTuple()
+
+    all_tracers = _all_tracer_symbols(idx)
+    groups = _plankton_group_symbols(idx)
+    isempty(groups) && return NamedTuple()
+
+    pairs = Pair{Symbol,Vector{Symbol}}[]
+    for (i, group) in enumerate(groups)
+        first_index = idx.group_bases[i]
+        n_tracers = idx.group_counts[i]
+        push!(pairs, group => all_tracers[first_index:(first_index + n_tracers - 1)])
+    end
+
+    return (; pairs...)
+end
+
+"""    plankton_tracers(bgc) -> Vector{Symbol}
+
+Return all plankton tracer symbols as a flat vector in runtime group order.
+"""
+function plankton_tracers(bgc)
+    groups = plankton_groups(bgc)
+    isempty(groups) && return Symbol[]
+
+    tracers = Symbol[]
+    for group_tracers in values(groups)
+        append!(tracers, group_tracers)
+    end
+
+    return tracers
+end
+
+"""    nonplankton_tracers(bgc) -> Vector{Symbol}
+
+Return the tracer symbols that are not part of a plankton group.
+"""
+function nonplankton_tracers(bgc)
+    plankton = Set(plankton_tracers(bgc))
+    return [tracer for tracer in tracer_names(bgc) if tracer ∉ plankton]
+end
+
+"""    tracer_groups(bgc) -> NamedTuple
+
+Return a structural grouping summary of the constructed tracer layout.
+"""
+function tracer_groups(bgc)
+    return (
+        all=tracer_names(bgc),
+        nonplankton=nonplankton_tracers(bgc),
+        plankton=plankton_tracers(bgc),
+        by_group=plankton_groups(bgc),
+    )
 end
 
 """    model_summary(bgc) -> NamedTuple
