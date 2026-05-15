@@ -34,7 +34,6 @@ nothing #hide
 # This zooplankton size structure also defines three classes, specifying the ESD of each class directly.
 
 zoo_size_structure = [10.0, 32.0, 100.0]
-nothing #hide
 
 # The model is constructed following the default model setup but with the custom size structures. 
 # This creates three phytoplankton tracers and three zooplankton tracers.
@@ -106,7 +105,7 @@ nothing #hide
 
 times = FieldTimeSeries(filename, string(first(tracer_syms))).times
 
-fig = Figure(; size=(1200, 1000), fontsize=24)
+fig = Figure(; size=(650, 520), fontsize=12)
 
 for (idx, sym) in enumerate(tracer_syms)
     ax = Axis(
@@ -114,8 +113,13 @@ for (idx, sym) in enumerate(tracer_syms)
         ylabel=string(sym),
         xlabel="Days",
         title="$(sym) concentration (mmol N / m³)",
+        titlesize=16,
+        xlabelsize=12,
+        ylabelsize=12,
+        xticklabelsize=10,
+        yticklabelsize=10,
     )
-    lines!(ax, times / day, getproperty(timeseries, sym); linewidth=3)
+    lines!(ax, times / day, getproperty(timeseries, sym); linewidth=1.5)
 end
 
 fig
