@@ -23,6 +23,10 @@ vectors and interaction matrices (e.g. palatability and assimilation efficiency)
 may override interaction matrices explicitly with `palatability_matrix` and/or
 `assimilation_matrix`.
 
+Size-structure inputs may be a NamedTuple range, for example
+`(n=3, min_esd=1, max_esd=10, splitting=:log_splitting)`, or an explicit
+diameter vector such as `[1.0, 3.2, 10.0]`.
+
 Keywords
 --------
 - `phyto_size_structure=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting)`: phytoplankton size structure
