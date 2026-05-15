@@ -27,8 +27,8 @@ nothing #hide
 # A diameter range defines the number of size classes (`n`), the minimum and maximum
 # equivalent spherical diameters, and the spacing used to generate the classes.
 
-phyto_diameters = (n=3, min_esd=1, max_esd=20, splitting=:log_splitting)
-zoo_diameters = (n=3, min_esd=10, max_esd=200, splitting=:log_splitting)
+phyto_diameters = (n=3, min_esd=1, max_esd=10, splitting=:log_splitting)
+zoo_diameters = (n=3, min_esd=10, max_esd=100, splitting=:log_splitting)
 nothing #hide
 
 # The model is constructed as in the quick start, with these diameter definitions passed
