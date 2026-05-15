@@ -57,7 +57,8 @@ struct DiameterListSpecification{T,VT<:AbstractVector{T}} <: AbstractDiameterSpe
 end
 
 """A diameter specification defined by a range and a splitting method."""
-struct DiameterRangeSpecification{T} <: AbstractDiameterSpecification
+struct DiameterRangeSpecification{I<:Integer,T} <: AbstractDiameterSpecification
+    n::I
     min_diameter::T
     max_diameter::T
     splitting::Symbol
@@ -118,15 +119,19 @@ function normalize_diameters(spec::NamedTuple)
     )
     return (;
         n=spec.n,
-        specification=DiameterRangeSpecification(spec.min_esd, spec.max_esd, spec.splitting),
+        specification=DiameterRangeSpecification(
+            spec.n, spec.min_esd, spec.max_esd, spec.splitting
+        ),
     )
 end
 
 normalize_diameters(spec::Tuple{<:Integer,Any,Any,Symbol}) =
-    (; n=spec[1], specification=DiameterRangeSpecification(spec[2], spec[3], spec[4]))
+    (; n=spec[1], specification=DiameterRangeSpecification(spec[1], spec[2], spec[3], spec[4]))
 
+normalize_diameters(spec::DiameterListSpecification) =
+    (; n=length(spec.diameters), specification=spec)
 
-normalize_diameters(spec::AbstractDiameterSpecification) = (; n=nothing, specification=spec)
+normalize_diameters(spec::DiameterRangeSpecification) = (; n=spec.n, specification=spec)
 
 normalize_diameters(spec) = throw(ArgumentError("invalid `diameters` specification"))
 

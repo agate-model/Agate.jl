@@ -1,7 +1,7 @@
 using Agate
 using Test
 
-using Agate.Configuration: build_plankton_community, parse_community
+using Agate.Configuration: build_plankton_community, parse_community, DiameterRangeSpecification
 using Agate.Runtime: class, resolve_class, class_count, build_tracer_index, Tracers
 using Agate.Factories:
     default_plankton_dynamics, default_biogeochem_dynamics, default_community
@@ -57,7 +57,7 @@ end
     community = build_plankton_community(
         base;
         diameters=(
-            Z=(2, 20.0, 100.0, :linear_splitting),
+            Z=DiameterRangeSpecification(2, 20.0, 100.0, :linear_splitting),
             P=(n=3, min_esd=2.0, max_esd=10.0, splitting=:log_splitting),
         ),
     )
