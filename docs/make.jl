@@ -19,7 +19,7 @@ using CairoMakie
 const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
-examples = ["Column model" => "1D_column"]
+examples = ["Size structure" => "size_structure", "Column model" => "1D_column"]
 dev = ["Variants" => "variant"]
 differentiable_modelling = ["Forward-mode AD sensitivity" => "forwarddiff_nipizd_ode"]
 
