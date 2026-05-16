@@ -12,6 +12,10 @@ export plankton_groups
 export plankton_tracers
 export nonplankton_tracers
 export tracer_groups
+export interaction_matrices
+export interaction_matrix
+export interaction_axes
+export interaction_table
 export model_summary
 export describe
 
@@ -138,6 +142,128 @@ function tracer_groups(bgc)
         nonplankton=nonplankton_tracers(bgc),
         plankton=plankton_tracers(bgc),
         by_group=plankton_groups(bgc),
+    )
+end
+
+
+function _interaction_container(bgc)
+    hasproperty(bgc, :parameters) || return nothing
+    params = getproperty(bgc, :parameters)
+    hasproperty(params, :interactions) || return nothing
+    return getproperty(params, :interactions)
+end
+
+function _available_interaction_kinds(interactions)
+    return [kind for kind in (:palatability, :assimilation) if hasproperty(interactions, kind)]
+end
+
+function _require_interactions(bgc)
+    interactions = _interaction_container(bgc)
+    interactions === nothing && throw(ArgumentError("No interaction matrices found for this model."))
+    return interactions
+end
+
+function _require_interaction_kind(interactions, kind::Symbol)
+    hasproperty(interactions, kind) && return getproperty(interactions, kind)
+
+    available = _available_interaction_kinds(interactions)
+    available_text = isempty(available) ? "none" : join(string.(available), ", ")
+    throw(ArgumentError("Unknown interaction matrix kind: $kind. Available kinds are: $available_text."))
+end
+
+function _plankton_axis_labels(bgc, indices)
+    plankton = plankton_tracers(bgc)
+    isempty(plankton) && throw(ArgumentError("Interaction axes require plankton tracer metadata."))
+
+    labels = Symbol[]
+    for index in Array(indices)
+        i = Int(index)
+        1 <= i <= length(plankton) || throw(
+            ArgumentError("Interaction axis index $i is outside the plankton tracer axis of length $(length(plankton)).")
+        )
+        push!(labels, plankton[i])
+    end
+
+    return labels
+end
+
+"""    interaction_matrices(bgc) -> NamedTuple
+
+Return the available runtime interaction matrices for `bgc`.
+
+The returned `NamedTuple` exposes labelled interaction matrix kinds without
+exposing the full internal interaction container.
+"""
+function interaction_matrices(bgc)
+    interactions = _require_interactions(bgc)
+    pairs = Pair{Symbol,Any}[]
+
+    for kind in _available_interaction_kinds(interactions)
+        push!(pairs, kind => getproperty(interactions, kind))
+    end
+
+    return (; pairs...)
+end
+
+"""    interaction_matrix(bgc, kind::Symbol)
+
+Return one runtime interaction matrix from `bgc`.
+
+Supported `kind` values are the available interaction matrix fields, such as
+`:palatability` and `:assimilation`.
+"""
+function interaction_matrix(bgc, kind::Symbol)
+    interactions = _require_interactions(bgc)
+    return _require_interaction_kind(interactions, kind)
+end
+
+"""    interaction_axes(bgc) -> NamedTuple
+
+Return labelled axes for runtime interaction matrices.
+
+Rows are consumers and columns are prey for the current runtime interaction
+container. Labels are resolved from the plankton tracer order because the
+runtime interaction axes store global plankton-class indices.
+"""
+function interaction_axes(bgc)
+    interactions = _require_interactions(bgc)
+
+    for field in (:consumer_global, :prey_global)
+        hasproperty(interactions, field) || throw(
+            ArgumentError("Interaction matrices are missing required axis field: $field.")
+        )
+    end
+
+    rows = _plankton_axis_labels(bgc, getproperty(interactions, :consumer_global))
+    columns = _plankton_axis_labels(bgc, getproperty(interactions, :prey_global))
+
+    return (
+        rows=rows,
+        columns=columns,
+        row_axis=:consumer,
+        column_axis=:prey,
+    )
+end
+
+"""    interaction_table(bgc, kind::Symbol) -> NamedTuple
+
+Return a labelled interaction matrix table.
+
+The returned `NamedTuple` contains `kind`, `matrix`, `rows`, `columns`,
+`row_axis`, and `column_axis`. Matrix orientation follows the runtime container:
+rows are consumers and columns are prey.
+"""
+function interaction_table(bgc, kind::Symbol)
+    axes = interaction_axes(bgc)
+    matrix = interaction_matrix(bgc, kind)
+
+    return (
+        kind=kind,
+        matrix=matrix,
+        rows=axes.rows,
+        columns=axes.columns,
+        row_axis=axes.row_axis,
+        column_axis=axes.column_axis,
     )
 end
 

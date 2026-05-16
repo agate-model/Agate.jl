@@ -5,7 +5,11 @@ using Agate.Introspection:
     plankton_groups,
     plankton_tracers,
     nonplankton_tracers,
-    tracer_groups
+    tracer_groups,
+    interaction_matrices,
+    interaction_matrix,
+    interaction_axes,
+    interaction_table
 using Test
 
 @testset "Public introspection helpers" begin
@@ -27,6 +31,34 @@ using Test
         pars = parameter_names(bgc)
         @test !isempty(pars)
         @test :data ∉ pars
+
+        matrices = interaction_matrices(bgc)
+        @test propertynames(matrices) == (:palatability, :assimilation)
+
+        axes = interaction_axes(bgc)
+        @test axes.rows == [:Z1, :Z2]
+        @test axes.columns == [:P1, :P2]
+        @test axes.row_axis == :consumer
+        @test axes.column_axis == :prey
+
+        pal = interaction_table(bgc, :palatability)
+        assim = interaction_table(bgc, :assimilation)
+
+        @test pal.kind == :palatability
+        @test assim.kind == :assimilation
+        @test pal.matrix === interaction_matrix(bgc, :palatability)
+        @test assim.matrix === interaction_matrix(bgc, :assimilation)
+        @test pal.rows == axes.rows
+        @test pal.columns == axes.columns
+        @test assim.rows == axes.rows
+        @test assim.columns == axes.columns
+        @test pal.row_axis == :consumer
+        @test pal.column_axis == :prey
+        @test size(pal.matrix) == (length(pal.rows), length(pal.columns))
+        @test size(assim.matrix) == (length(assim.rows), length(assim.columns))
+        @test all(row in tracer_names(bgc) for row in pal.rows)
+        @test all(col in tracer_names(bgc) for col in pal.columns)
+        @test_throws ArgumentError interaction_matrix(bgc, :unknown)
     end
 
     @testset "Generated model (define_tracer_functions)" begin
@@ -44,5 +76,8 @@ using Test
         @test groups.plankton == Symbol[]
         @test groups.nonplankton == tracer_names(model)
         @test !isempty(parameter_names(model))
+        @test_throws ArgumentError interaction_matrices(model)
+        @test_throws ArgumentError interaction_axes(model)
+        @test_throws ArgumentError interaction_table(model, :palatability)
     end
 end
