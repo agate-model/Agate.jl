@@ -198,8 +198,12 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "Input validation" begin
-        @test_throws ArgumentError NiPiZD.construct(; phyto_size_structure=(n=0, min_esd=2, max_esd=10, splitting=:log_splitting))
-        @test_throws ArgumentError NiPiZD.construct(; zoo_size_structure=(n=0, min_esd=20, max_esd=100, splitting=:linear_splitting))
+        @test_throws ArgumentError NiPiZD.construct(;
+            phyto_size_structure=(n=0, min_esd=2, max_esd=10, splitting=:log_splitting)
+        )
+        @test_throws ArgumentError NiPiZD.construct(;
+            zoo_size_structure=(n=0, min_esd=20, max_esd=100, splitting=:linear_splitting)
+        )
 
         # Grid determines precision unless an explicit scalar type is supplied.
         bgc_f32 = NiPiZD.construct(; grid=dummy_grid(Float32))

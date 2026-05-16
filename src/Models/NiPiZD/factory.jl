@@ -35,8 +35,7 @@ function default_community(::NiPiZDFactory)
             pft=empty_pft,
         ),
         P=(;
-            diameters=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting),
-            pft=empty_pft,
+            diameters=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting), pft=empty_pft
         ),
     )
 end

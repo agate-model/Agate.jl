@@ -4,7 +4,8 @@
     # Registry should contain the example variants (loaded when DARWIN is included).
     @test id in Agate.Models.list_variants(; family=:DARWIN)
 
-    spec = Agate.Models.variant(id;
+    spec = Agate.Models.variant(
+        id;
         phyto_size_structure=(n=3, min_esd=2, max_esd=10, splitting=:log_splitting),
         zoo_size_structure=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),
     )

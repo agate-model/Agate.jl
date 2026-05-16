@@ -69,7 +69,6 @@ function parameter_names(bgc)::Vector{Symbol}
     return keys
 end
 
-
 function _tracer_index(bgc)
     hasproperty(bgc, :tracers) || return nothing
     tracers = getproperty(bgc, :tracers)

@@ -1,5 +1,11 @@
 using Agate
-using Agate.Introspection: tracer_names, parameter_names, plankton_groups, plankton_tracers, nonplankton_tracers, tracer_groups
+using Agate.Introspection:
+    tracer_names,
+    parameter_names,
+    plankton_groups,
+    plankton_tracers,
+    nonplankton_tracers,
+    tracer_groups
 using Test
 
 @testset "Public introspection helpers" begin

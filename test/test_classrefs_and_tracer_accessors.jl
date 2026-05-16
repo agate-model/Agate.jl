@@ -1,7 +1,8 @@
 using Agate
 using Test
 
-using Agate.Configuration: build_plankton_community, parse_community, DiameterRangeSpecification
+using Agate.Configuration:
+    build_plankton_community, parse_community, DiameterRangeSpecification
 using Agate.Runtime: class, resolve_class, class_count, build_tracer_index, Tracers
 using Agate.Factories:
     default_plankton_dynamics, default_biogeochem_dynamics, default_community
@@ -61,7 +62,6 @@ end
             P=(n=3, min_esd=2.0, max_esd=10.0, splitting=:log_splitting),
         ),
     )
-
 
     ctx = parse_community(
         factory,
