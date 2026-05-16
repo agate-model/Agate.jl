@@ -35,6 +35,11 @@ vopt_bgc = Agate.Models.NiPiZD.construct(;
 )
 vopt_pal = interaction_table(vopt_bgc, :palatability)
 
+custom_bgc = Agate.Models.NiPiZD.construct(;
+    palatability_matrix=[0.0 1.0; 1.0 0.0]
+)
+custom_pal = interaction_table(custom_bgc, :palatability)
+
 nothing #hide
 
 # ## Helper for labelled matrix plots
@@ -74,15 +79,17 @@ nothing #hide
 
 # ## Compare the interaction matrices
 
-matrix_fig = Figure(; size=(800, 380), fontsize=16)
+matrix_fig = Figure(; size=(1100, 380), fontsize=16)
 
 hm_pal_default = plot_matrix!(matrix_fig, (1, 1), default_pal; title="Vopt = 10 (default)")
 
 plot_matrix!(matrix_fig, (1, 2), vopt_pal; title="Vopt = 5")
 
-Colorbar(matrix_fig[1, 3], hm_pal_default; label="palatability")
+plot_matrix!(matrix_fig, (1, 3), custom_pal; title="Custom matrix")
 
-Label(matrix_fig[0, 1:3], "Predator optimal prey size"; fontsize=22)
+Colorbar(matrix_fig[1, 4], hm_pal_default; label="palatability")
+
+Label(matrix_fig[0, 1:4], "Predator optimal prey size"; fontsize=22)
 
 nothing #hide
 
@@ -100,7 +107,7 @@ function run_box_model(bgc, filename)
 
     set!(full_model; N=7.0, P1=0.01, Z1=0.01, P2=0.1, Z2=0.01, D=0.01)
 
-    simulation = Simulation(full_model; Δt=240minutes, stop_time=1095days)
+    simulation = Simulation(full_model; Δt=240minutes, stop_time=365days)
 
     simulation.output_writers[:fields] = JLD2Writer(
         full_model,
@@ -117,6 +124,7 @@ end
 
 default_filename = run_box_model(default_bgc, "predator_optimal_prey_size_default.jld2")
 vopt_filename = run_box_model(vopt_bgc, "predator_optimal_prey_size_vopt5.jld2")
+custom_filename = run_box_model(custom_bgc, "predator_optimal_prey_size_custom.jld2")
 
 nothing #hide
 
@@ -130,6 +138,10 @@ default_timeseries = (;
 
 vopt_timeseries = (;
     (s => FieldTimeSeries(vopt_filename, string(s))[1, 1, 1, :] for s in tracer_syms)...
+)
+
+custom_timeseries = (;
+    (s => FieldTimeSeries(custom_filename, string(s))[1, 1, 1, :] for s in tracer_syms)...
 )
 
 times = FieldTimeSeries(default_filename, string(first(tracer_syms))).times
@@ -167,10 +179,17 @@ for (idx, sym) in enumerate(tracer_syms)
         label="Vopt = 5",
         linewidth=2,
     )
+    lines!(
+        ax,
+        times / day,
+        getproperty(custom_timeseries, sym);
+        label="custom",
+        linewidth=2,
+    )
     axislegend(ax; position=:rt)
 end
 
-#Save figure
+# Save figure
 save("predator_optimal_prey_size_simulation.png", simulation_fig; px_per_unit=1)
 
 simulation_fig
