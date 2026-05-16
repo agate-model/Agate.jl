@@ -145,7 +145,6 @@ function tracer_groups(bgc)
     )
 end
 
-
 function _interaction_container(bgc)
     hasproperty(bgc, :parameters) || return nothing
     params = getproperty(bgc, :parameters)
@@ -154,12 +153,15 @@ function _interaction_container(bgc)
 end
 
 function _available_interaction_kinds(interactions)
-    return [kind for kind in (:palatability, :assimilation) if hasproperty(interactions, kind)]
+    return [
+        kind for kind in (:palatability, :assimilation) if hasproperty(interactions, kind)
+    ]
 end
 
 function _require_interactions(bgc)
     interactions = _interaction_container(bgc)
-    interactions === nothing && throw(ArgumentError("No interaction matrices found for this model."))
+    interactions === nothing &&
+        throw(ArgumentError("No interaction matrices found for this model."))
     return interactions
 end
 
@@ -168,18 +170,25 @@ function _require_interaction_kind(interactions, kind::Symbol)
 
     available = _available_interaction_kinds(interactions)
     available_text = isempty(available) ? "none" : join(string.(available), ", ")
-    throw(ArgumentError("Unknown interaction matrix kind: $kind. Available kinds are: $available_text."))
+    throw(
+        ArgumentError(
+            "Unknown interaction matrix kind: $kind. Available kinds are: $available_text."
+        ),
+    )
 end
 
 function _plankton_axis_labels(bgc, indices)
     plankton = plankton_tracers(bgc)
-    isempty(plankton) && throw(ArgumentError("Interaction axes require plankton tracer metadata."))
+    isempty(plankton) &&
+        throw(ArgumentError("Interaction axes require plankton tracer metadata."))
 
     labels = Symbol[]
     for index in Array(indices)
         i = Int(index)
         1 <= i <= length(plankton) || throw(
-            ArgumentError("Interaction axis index $i is outside the plankton tracer axis of length $(length(plankton)).")
+            ArgumentError(
+                "Interaction axis index $i is outside the plankton tracer axis of length $(length(plankton)).",
+            ),
         )
         push!(labels, plankton[i])
     end
@@ -230,19 +239,14 @@ function interaction_axes(bgc)
 
     for field in (:consumer_global, :prey_global)
         hasproperty(interactions, field) || throw(
-            ArgumentError("Interaction matrices are missing required axis field: $field.")
+            ArgumentError("Interaction matrices are missing required axis field: $field."),
         )
     end
 
     rows = _plankton_axis_labels(bgc, getproperty(interactions, :consumer_global))
     columns = _plankton_axis_labels(bgc, getproperty(interactions, :prey_global))
 
-    return (
-        rows=rows,
-        columns=columns,
-        row_axis=:consumer,
-        column_axis=:prey,
-    )
+    return (rows=rows, columns=columns, row_axis=:consumer, column_axis=:prey)
 end
 
 """    interaction_table(bgc, kind::Symbol) -> NamedTuple

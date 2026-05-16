@@ -63,17 +63,7 @@ nothing #hide
 
 # ## Initial conditions
 
-set!(
-    full_model;
-    N=8.0,
-    P1=0.01,
-    P2=0.05,
-    P3=0.1,
-    Z1=0.01,
-    Z2=0.01,
-    Z3=0.01,
-    D=0.01,
-)
+set!(full_model; N=8.0, P1=0.01, P2=0.05, P3=0.1, Z1=0.01, Z2=0.01, Z3=0.01, D=0.01)
 
 # ## Simulation
 
@@ -99,7 +89,9 @@ nothing #hide
 
 tracer_syms = tracer_names(bgc)
 
-timeseries = (; (s => FieldTimeSeries(filename, string(s))[1, 1, 1, :] for s in tracer_syms)...)
+timeseries = (;
+    (s => FieldTimeSeries(filename, string(s))[1, 1, 1, :] for s in tracer_syms)...
+)
 nothing #hide
 
 # Plot each tracer concentration through time.
