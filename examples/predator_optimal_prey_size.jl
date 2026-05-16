@@ -72,6 +72,25 @@ end
 
 nothing #hide
 
+# ## Compare the interaction matrices
+
+matrix_fig = Figure(; size=(800, 380), fontsize=16)
+
+hm_pal_default = plot_matrix!(matrix_fig, (1, 1), default_pal; title="Vopt = 10 (default)")
+
+plot_matrix!(matrix_fig, (1, 2), vopt_pal; title="Vopt = 5")
+
+Colorbar(matrix_fig[1, 3], hm_pal_default; label="palatability")
+
+Label(matrix_fig[0, 1:3], "Predator optimal prey size"; fontsize=22)
+
+nothing #hide
+
+# Save figure
+save("predator_optimal_prey_size_matrices.png", matrix_fig; px_per_unit=1)
+
+matrix_fig
+
 # ## Run both configurations in the quickstart box model
 
 function run_box_model(bgc, filename)
@@ -117,24 +136,18 @@ times = FieldTimeSeries(default_filename, string(first(tracer_syms))).times
 
 nothing #hide
 
-# ## Plot matrix and trajectory comparisons
+# ## Compare the simulation output
 
-fig = Figure(; size=(900, 1100), fontsize=16)
+simulation_fig = Figure(; size=(900, 900), fontsize=16)
 
-hm_pal_default = plot_matrix!(fig, (1, 1), default_pal; title="Vopt = 10 (default)")
-
-plot_matrix!(fig, (1, 2), vopt_pal; title="Vopt = 5")
-
-Colorbar(fig[1, 3], hm_pal_default; label="palatability")
-
-Label(fig[0, 1:3], "Predator optimal prey size and box-model response"; fontsize=22)
+Label(simulation_fig[0, 1:2], "Box-model response"; fontsize=22)
 
 for (idx, sym) in enumerate(tracer_syms)
-    row = 2 + div(idx - 1, 2)
+    row = 1 + div(idx - 1, 2)
     col = 1 + mod(idx - 1, 2)
 
     ax = Axis(
-        fig[row, col];
+        simulation_fig[row, col];
         ylabel=string(sym),
         xlabel="Days",
         title="$(sym) concentration (mmol N / m³)",
@@ -148,12 +161,16 @@ for (idx, sym) in enumerate(tracer_syms)
         linewidth=2,
     )
     lines!(
-        ax, times / day, getproperty(vopt_timeseries, sym); label="Vopt = 5", linewidth=2
+        ax,
+        times / day,
+        getproperty(vopt_timeseries, sym);
+        label="Vopt = 5",
+        linewidth=2,
     )
     axislegend(ax; position=:rt)
 end
 
 #Save figure
-save("predator_optimal_prey_size.png", fig; px_per_unit=1)
+save("predator_optimal_prey_size_simulation.png", simulation_fig; px_per_unit=1)
 
-fig  # Display the figure
+simulation_fig
