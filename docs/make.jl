@@ -19,7 +19,11 @@ using CairoMakie
 const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
-examples = ["Size structure" => "size_structure", "Column model" => "1D_column"]
+examples = [
+    "Size structure" => "size_structure",
+    "Predator optimal prey size" => "predator_optimal_prey_size",
+    "Column model" => "1D_column",
+]
 dev = ["Variants" => "variant"]
 differentiable_modelling = ["Forward-mode AD sensitivity" => "forwarddiff_nipizd_ode"]
 
@@ -64,7 +68,7 @@ makedocs(;
     sitename="Agate.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", nothing) == "true",
-        size_threshold=500000,  # 500KB threshold
+        size_threshold=1000000,  # 1000KB threshold
         size_threshold_warn=200000,
     ), # 200KB warning
     modules=[Agate],
