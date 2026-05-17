@@ -270,16 +270,9 @@ function validate_parameter_shapes(
 end
 
 
-function parameter_axis_names(context, axis::Symbol)
+function parameter_axis_names(context, axis::Symbol, parameter_name::Symbol)
     axis === :plankton && return context.plankton_symbols
-    return (:__unsupported_axis__,)
-end
-
-function named_override_error(parameter_name, key, expected)
-    expected_list = join(string.(expected), ", ")
-    return ArgumentError(
-        "Unknown key `$(key)` for parameter `$(parameter_name)`. Expected one of: $(expected_list)."
-    )
+    throw(ArgumentError("parameter :$parameter_name has unsupported vector axis :$axis."))
 end
 
 function expand_named_vector_override(
@@ -291,13 +284,7 @@ function expand_named_vector_override(
         ),
     )
 
-    names = parameter_axis_names(context, spec.axes)
-    names == (:__unsupported_axis__,) && throw(
-        ArgumentError(
-            "parameter :$(spec.name) has unsupported vector axis :$(spec.axes)."
-        ),
-    )
-
+    names = parameter_axis_names(context, spec.axes, spec.name)
     length(default_value) == length(names) || throw(
         ArgumentError(
             "parameter :$(spec.name) default length $(length(default_value)) does not match axis :$(spec.axes) length $(length(names))."
@@ -307,7 +294,14 @@ function expand_named_vector_override(
     expanded = copy(default_value)
     for (key, value) in pairs(user_value)
         idx = findfirst(==(key), names)
-        idx === nothing && throw(named_override_error(spec.name, key, names))
+        if idx === nothing
+            expected = join(string.(names), ", ")
+            throw(
+                ArgumentError(
+                    "Unknown key `$(key)` for parameter `$(spec.name)`. Expected one of: $(expected)."
+                ),
+            )
+        end
         expanded[idx] = value isa Bool ? value : T(value)
     end
     return expanded
