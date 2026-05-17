@@ -7,8 +7,8 @@
 # This example changes the number of plankton and the size structure of the [Agate.jl-NiPiZD](@ref NiPiZD) model. 
 
 # ## Loading dependencies
-# The example uses Agate.jl, Oceananigans.jl, and OceanBioME.jl for the ocean simulation.
-# CairoMakie is used for plotting.
+# The example uses Agate.jl, Oceananigans.jl, and OceanBioME.jl for the ecosystem simulation.
+# CairoMakie.jl is used for plotting.
 
 using Agate
 using Agate.Introspection: tracer_names

@@ -12,8 +12,8 @@
 # in a 0D box-model setup so their tracer trajectories can be compared.
 
 # ## Loading dependencies
-# The example uses Agate.jl, Oceananigans.jl, and OceanBioME.jl for the ocean simulation.
-# CairoMakie is used for plotting.
+# The example uses Agate.jl, Oceananigans.jl, and OceanBioME.jl for the ecosystem simulation.
+# CairoMakie.jl is used for plotting.
 
 using Agate
 using Agate.Introspection: interaction_matrix, tracer_names
