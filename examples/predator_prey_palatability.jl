@@ -1,11 +1,12 @@
 # # [Predator-prey palatability] (@id predator_prey_palatability_example)
 
-# This example compares three ways of configuring predator-prey palatability in
-# the NiPiZD model. The default configuration computes the palatability matrix
-# from allometric traits. The second configuration changes the preferred
-# predator:prey size ratio (`optimum_predator_prey_ratio`, abbreviated here as
-# `Vopt`). The third configuration bypasses the allometric calculation by
-# supplying an explicit custom `palatability_matrix`.
+# This example compares two ways of configuring predator-prey palatability in
+# the NiPiZD model. By default, the model computes the palatability matrix
+# from allometric traits based on the preferred predator:prey size ratio
+# (`optimum_predator_prey_ratio`, abbreviated here as `Vopt`). We will change
+# this default value to use a different optimum. Additionally, we will show how
+# the allometric calculation can be bypassed by supplying an explicit custom
+# `palatability_matrix`.
 #
 # After inspecting the resulting interaction matrices, each configuration is run
 # in a 0D box-model setup so their tracer trajectories can be compared.
