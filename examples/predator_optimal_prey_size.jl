@@ -91,12 +91,11 @@ Colorbar(matrix_fig[1, 4], hm_pal_default; label="palatability")
 
 Label(matrix_fig[0, 1:4], "Predator optimal prey size"; fontsize=22)
 
-nothing #hide
-
-# Save figure
+#Save figure
 save("predator_optimal_prey_size_matrices.png", matrix_fig; px_per_unit=1)
 
-matrix_fig
+matrix_fig # Display the figure
+
 
 # ## Run both configurations in the quickstart box model
 
@@ -189,7 +188,7 @@ for (idx, sym) in enumerate(tracer_syms)
     axislegend(ax; position=:rt)
 end
 
-# Save figure
+#Save figure
 save("predator_optimal_prey_size_simulation.png", simulation_fig; px_per_unit=1)
 
-simulation_fig
+simulation_fig # Display the figure
