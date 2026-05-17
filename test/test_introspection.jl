@@ -35,6 +35,20 @@ using Test
         matrices = interaction_matrices(bgc)
         @test propertynames(matrices) == (:palatability, :assimilation)
 
+        synthetic_interactions = (;
+            palatability=ones(1, 1),
+            encounter=zeros(1, 1),
+            consumer_global=[1],
+            prey_global=[1],
+            global_to_consumer=[1],
+            global_to_prey=[1],
+        )
+        synthetic_bgc = (; parameters=(; interactions=synthetic_interactions))
+        synthetic_matrices = interaction_matrices(synthetic_bgc)
+        @test propertynames(synthetic_matrices) == (:palatability, :encounter)
+        @test synthetic_matrices.encounter === synthetic_interactions.encounter
+        @test interaction_matrix(synthetic_bgc, :encounter) === synthetic_interactions.encounter
+
         axes = interaction_axes(bgc)
         @test axes.rows == [:Z1, :Z2]
         @test axes.columns == [:P1, :P2]

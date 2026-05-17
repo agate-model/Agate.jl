@@ -152,10 +152,25 @@ function _interaction_container(bgc)
     return getproperty(params, :interactions)
 end
 
+const _INTERACTION_AXIS_FIELDS = (
+    :consumer_global,
+    :prey_global,
+    :global_to_consumer,
+    :global_to_prey,
+)
+
+_is_matrix_like(value) = value isa AbstractMatrix
+
 function _available_interaction_kinds(interactions)
-    return [
-        kind for kind in (:palatability, :assimilation) if hasproperty(interactions, kind)
-    ]
+    kinds = Symbol[]
+
+    for property in propertynames(interactions)
+        property in _INTERACTION_AXIS_FIELDS && continue
+        value = getproperty(interactions, property)
+        _is_matrix_like(value) && push!(kinds, property)
+    end
+
+    return kinds
 end
 
 function _require_interactions(bgc)
