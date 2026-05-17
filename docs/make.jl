@@ -21,7 +21,7 @@ const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
 examples = [
     "Size structure" => "size_structure",
-    "Predator optimal prey size" => "predator_optimal_prey_size",
+    "Predator-prey palatability" => "predator_prey_palatability",
     "Column model" => "1D_column",
 ]
 dev = ["Variants" => "variant"]

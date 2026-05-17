@@ -1,10 +1,14 @@
-# # [Predator optimal prey size] (@id predator_optimal_prey_size_example)
+# # [Predator-prey palatability] (@id predator_prey_palatability_example)
 
-# This example compares the default NiPiZD palatability matrix with a model
-# constructed using a different preferred predator:prey size ratio
-# (`optimum_predator_prey_ratio`, abbreviated here as `Vopt`). It then runs the
-# two configurations in the quickstart 0D box-model setup and compares their
-# tracer trajectories.
+# This example compares three ways of configuring predator-prey palatability in
+# the NiPiZD model. The default configuration computes the palatability matrix
+# from allometric traits. The second configuration changes the preferred
+# predator:prey size ratio (`optimum_predator_prey_ratio`, abbreviated here as
+# `Vopt`). The third configuration bypasses the allometric calculation by
+# supplying an explicit custom `palatability_matrix`.
+#
+# After inspecting the resulting interaction matrices, each configuration is run
+# in a 0D box-model setup so their tracer trajectories can be compared.
 
 using Agate
 using Agate.Introspection: interaction_table, tracer_names
@@ -18,22 +22,29 @@ using Printf
 
 nothing #hide
 
-# ## Construct the two ecosystem configurations
+# ## Construct the ecosystem configurations
 
 default_bgc = Agate.Models.NiPiZD.construct()
 default_pal = interaction_table(default_bgc, :palatability)
 nothing #hide
 
-# By default, predators in the NiPiZD model prefer prey that are 10 times smaller than themselves (`Vopt` = 10). 
-# Here we construct a variant with an optimum predator:prey size ratio of 5.
-# NiPiZD's default plankton-tracer order is `Z1, Z2, P1, P2`. `Vopt` is a
-# consumer trait, so the zooplankton entries are set to 5 and the phytoplankton
-# entries remain zero.
+# The default configuration uses the model's allometric palatability calculation.
+# By default, predators prefer prey that are 10 times smaller than themselves
+# (`Vopt = 10`).
+#
+# Instead, we will change that optimum to `Vopt = 5` for the two
+# zooplankton consumers. NiPiZD's default plankton-tracer order is
+# `Z1, Z2, P1, P2`. `Vopt` is a consumer trait, so the zooplankton entries are
+# set to 5 and the phytoplankton entries remain zero.
 
 vopt_bgc = Agate.Models.NiPiZD.construct(;
     parameters=(; optimum_predator_prey_ratio=[5.0, 5.0, 0.0, 0.0])
 )
 vopt_pal = interaction_table(vopt_bgc, :palatability)
+
+# Another option is to provide the palatability matrix directly. This is useful
+# for experiments where the intended interaction structure is known explicitly,
+# rather than derived from size traits.
 
 custom_bgc = Agate.Models.NiPiZD.construct(;
     palatability_matrix=[0.0 1.0; 1.0 0.0]
@@ -77,7 +88,7 @@ end
 
 nothing #hide
 
-# ## Compare the interaction matrices
+# ## Compare the palatability matrices
 
 matrix_fig = Figure(; size=(1100, 380), fontsize=16)
 
@@ -85,19 +96,20 @@ hm_pal_default = plot_matrix!(matrix_fig, (1, 1), default_pal; title="Vopt = 10 
 
 plot_matrix!(matrix_fig, (1, 2), vopt_pal; title="Vopt = 5")
 
-plot_matrix!(matrix_fig, (1, 3), custom_pal; title="Custom matrix")
+plot_matrix!(matrix_fig, (1, 3), custom_pal; title="Custom")
 
 Colorbar(matrix_fig[1, 4], hm_pal_default; label="palatability")
 
-Label(matrix_fig[0, 1:4], "Predator optimal prey size"; fontsize=22)
+Label(matrix_fig[0, 1:4], "Predator-prey palatability"; fontsize=22)
+
+nothing #hide
 
 #Save figure
-save("predator_optimal_prey_size_matrices.png", matrix_fig; px_per_unit=1)
+save("predator_prey_palatability_matrices.png", matrix_fig; px_per_unit=1)
 
-matrix_fig # Display the figure
+matrix_fig
 
-
-# ## Run both configurations in the quickstart box model
+# ## Run each configuration in a box model
 
 function run_box_model(bgc, filename)
     light_attenuation = FunctionFieldPAR(; grid=BoxModelGrid())
@@ -106,7 +118,7 @@ function run_box_model(bgc, filename)
 
     set!(full_model; N=7.0, P1=0.01, Z1=0.01, P2=0.1, Z2=0.01, D=0.01)
 
-    simulation = Simulation(full_model; Δt=240minutes, stop_time=365days)
+    simulation = Simulation(full_model; Δt=240minutes, stop_time=1095days)
 
     simulation.output_writers[:fields] = JLD2Writer(
         full_model,
@@ -121,9 +133,9 @@ function run_box_model(bgc, filename)
     return filename
 end
 
-default_filename = run_box_model(default_bgc, "predator_optimal_prey_size_default.jld2")
-vopt_filename = run_box_model(vopt_bgc, "predator_optimal_prey_size_vopt5.jld2")
-custom_filename = run_box_model(custom_bgc, "predator_optimal_prey_size_custom.jld2")
+default_filename = run_box_model(default_bgc, "predator_prey_palatability_default.jld2")
+vopt_filename = run_box_model(vopt_bgc, "predator_prey_palatability_vopt5.jld2")
+custom_filename = run_box_model(custom_bgc, "predator_prey_palatability_custom.jld2")
 
 nothing #hide
 
@@ -147,7 +159,7 @@ times = FieldTimeSeries(default_filename, string(first(tracer_syms))).times
 
 nothing #hide
 
-# ## Compare the simulation output
+# ## Compare the box-model output
 
 simulation_fig = Figure(; size=(900, 900), fontsize=16)
 
@@ -189,6 +201,6 @@ for (idx, sym) in enumerate(tracer_syms)
 end
 
 #Save figure
-save("predator_optimal_prey_size_simulation.png", simulation_fig; px_per_unit=1)
+save("predator_prey_palatability_simulation.png", simulation_fig; px_per_unit=1)
 
-simulation_fig # Display the figure
+simulation_fig
