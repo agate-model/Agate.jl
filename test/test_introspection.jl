@@ -45,16 +45,15 @@ using Test
         @test all(row in tracer_names(bgc) for row in pal.rows)
         @test all(col in tracer_names(bgc) for col in pal.columns)
 
-        synthetic_interactions = (;
-            palatability=ones(1, 1),
-            encounter=zeros(1, 1),
-            consumer_global=[1],
-            prey_global=[1],
+        synthetic_bgc = (;
+            parameters=(;
+                interactions=(; encounter=zeros(1, 1), consumer_global=[1], prey_global=[1]),
+            ),
+            tracers=bgc.tracers,
         )
-        synthetic_bgc = (; parameters=(; interactions=synthetic_interactions), tracers=bgc.tracers)
         encounter = interaction_matrix(synthetic_bgc, :encounter)
         @test encounter.kind == :encounter
-        @test encounter.matrix === synthetic_interactions.encounter
+        @test encounter.matrix === synthetic_bgc.parameters.interactions.encounter
 
         @test_throws ArgumentError interaction_matrix(bgc, :consumer_global)
         @test_throws ArgumentError interaction_matrix(bgc, :unknown)
