@@ -68,9 +68,9 @@ makedocs(;
     sitename="Agate.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", nothing) == "true",
-        size_threshold=1000000,  # 1000KB threshold
-        size_threshold_warn=200000,
-    ), # 200KB warning
+        size_threshold=1_000_000,  # allow larger example pages with embedded figures
+        size_threshold_warn=300_000,
+    ), # 300KB warning
     modules=[Agate],
     checkdocs=:exports,
     warnonly=[:missing_docs],
