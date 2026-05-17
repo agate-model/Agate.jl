@@ -1,7 +1,7 @@
 # # [Predator-prey palatability] (@id predator_prey_palatability_example)
 
 # This example compares two ways of configuring predator-prey palatability in
-# the NiPiZD model. By default, the model computes the palatability matrix
+# the [Agate.jl-NiPiZD](@ref NiPiZD) model. By default, the model computes the palatability matrix
 # from allometric traits based on the preferred predator:prey size ratio
 # (`optimum_predator_prey_ratio`, abbreviated here as `Vopt`). We will change
 # this default value to use a different optimum. Additionally, we will show how
