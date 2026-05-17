@@ -146,6 +146,78 @@ using Oceananigans.Biogeochemistry:
         @test any(dar_pal1 .!= dar_pal0)
     end
 
+
+    @testset "Named parameter vector overrides" begin
+        bgc_default = NiPiZD.construct(; grid=dummy_grid(Float32))
+        vopt = copy(bgc_default.parameters.optimum_predator_prey_ratio)
+        vopt[1] = 5.0f0
+        vopt[2] = 5.0f0
+        growth = copy(bgc_default.parameters.maximum_growth_rate)
+        growth[3] = Float32(1.2 / day)
+
+        bgc_named = NiPiZD.construct(;
+            grid=dummy_grid(Float32),
+            parameters=(;
+                optimum_predator_prey_ratio=(Z1=5.0, Z2=5.0),
+                maximum_growth_rate=(P1=1.2 / day,),
+            ),
+        )
+        bgc_positional = NiPiZD.construct(;
+            grid=dummy_grid(Float32),
+            parameters=(; optimum_predator_prey_ratio=vopt, maximum_growth_rate=growth),
+        )
+
+        @test bgc_named.parameters.optimum_predator_prey_ratio == vopt
+        @test bgc_named.parameters.maximum_growth_rate == growth
+        @test bgc_named.parameters.optimum_predator_prey_ratio ==
+            bgc_positional.parameters.optimum_predator_prey_ratio
+        @test bgc_named.parameters.maximum_growth_rate ==
+            bgc_positional.parameters.maximum_growth_rate
+        @test bgc_named.parameters.interactions.palatability ==
+            bgc_positional.parameters.interactions.palatability
+
+        dar_default = DARWIN.construct(; grid=dummy_grid(Float32))
+        dar_spec = copy(dar_default.parameters.specificity)
+        dar_spec[1] = 2.0f0
+        dar_spec[2] = 2.5f0
+        dar_din = copy(dar_default.parameters.half_saturation_DIN)
+        dar_din[4] = 0.3f0
+
+        dar_named = DARWIN.construct(;
+            grid=dummy_grid(Float32),
+            parameters=(; specificity=(Z1=2.0, Z2=2.5), half_saturation_DIN=(P2=0.3,)),
+        )
+        dar_positional = DARWIN.construct(;
+            grid=dummy_grid(Float32),
+            parameters=(; specificity=dar_spec, half_saturation_DIN=dar_din),
+        )
+
+        @test dar_named.parameters.specificity == dar_spec
+        @test dar_named.parameters.half_saturation_DIN == dar_din
+        @test dar_named.parameters.interactions.palatability ==
+            dar_positional.parameters.interactions.palatability
+
+        err = try
+            NiPiZD.construct(;
+                grid=dummy_grid(Float32),
+                parameters=(; optimum_predator_prey_ratio=(Z3=5.0,)),
+            )
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("Unknown key `Z3`", sprint(showerror, err))
+        @test occursin("Z1, Z2, P1, P2", sprint(showerror, err))
+
+        @test_throws ArgumentError NiPiZD.construct(;
+            grid=dummy_grid(Float32), parameters=(; detritus_remineralization=(Z1=1.0,))
+        )
+        @test_throws ArgumentError NiPiZD.construct(;
+            grid=dummy_grid(Float32), parameters=(; palatability_matrix=(Z1=(P1=1.0,),))
+        )
+    end
+
     @testset "NiPiZD community structure overrides" begin
         bgc = NiPiZD.construct(; phyto_size_structure=[3.0], grid=dummy_grid(Float32))
         @test required_biogeochemical_tracers(bgc) == (:N, :D, :Z1, :Z2, :P1)

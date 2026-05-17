@@ -80,6 +80,7 @@ function parameter_definitions(::DarwinFactory)
             ParameterSpec(
                 :linear_mortality,
                 :vector;
+                axes=:plankton,
                 doc="Linear mortality coefficient per plankton class.",
             ),
             FillDefault(8e-7),
@@ -88,6 +89,7 @@ function parameter_definitions(::DarwinFactory)
             ParameterSpec(
                 :quadratic_mortality,
                 :vector;
+                axes=:plankton,
                 doc="Quadratic mortality coefficient per plankton class.",
             ),
             DiameterIndexedVectorDefault(1e-6, :default_consumer_indices; default=0),
@@ -96,6 +98,7 @@ function parameter_definitions(::DarwinFactory)
             ParameterSpec(
                 :maximum_growth_rate,
                 :vector;
+                axes=:plankton,
                 doc="Maximum phytoplankton growth rate per plankton class.",
             ),
             DiameterIndexedVectorDefault(
@@ -108,6 +111,7 @@ function parameter_definitions(::DarwinFactory)
             ParameterSpec(
                 :half_saturation_DIN,
                 :vector;
+                axes=:plankton,
                 doc="DIN half-saturation constant per plankton class.",
             ),
             DiameterIndexedVectorDefault(
@@ -120,6 +124,7 @@ function parameter_definitions(::DarwinFactory)
             ParameterSpec(
                 :half_saturation_PO4,
                 :vector;
+                axes=:plankton,
                 doc="PO4 half-saturation constant per plankton class.",
             ),
             DiameterIndexedVectorDefault(
@@ -132,6 +137,7 @@ function parameter_definitions(::DarwinFactory)
             ParameterSpec(
                 :photosynthetic_slope,
                 :vector;
+                axes=:plankton,
                 doc="Initial slope of the P-I curve per plankton class.",
             ),
             DiameterIndexedVectorDefault(0.1 / 86400, :default_producer_indices; default=0),
@@ -140,6 +146,7 @@ function parameter_definitions(::DarwinFactory)
             ParameterSpec(
                 :chlorophyll_to_carbon_ratio,
                 :vector;
+                axes=:plankton,
                 doc="Chlorophyll-to-carbon ratio per plankton class.",
             ),
             DiameterIndexedVectorDefault(0.02, :default_producer_indices; default=0),
@@ -148,6 +155,7 @@ function parameter_definitions(::DarwinFactory)
             ParameterSpec(
                 :maximum_predation_rate,
                 :vector;
+                axes=:plankton,
                 doc="Maximum zooplankton grazing rate per plankton class.",
             ),
             DiameterIndexedVectorDefault(
@@ -160,6 +168,7 @@ function parameter_definitions(::DarwinFactory)
             ParameterSpec(
                 :holling_half_saturation,
                 :vector;
+                axes=:plankton,
                 doc="Holling type II half-saturation constant per plankton class.",
             ),
             DiameterIndexedVectorDefault(
@@ -190,6 +199,7 @@ function parameter_definitions(::DarwinFactory)
             ParameterSpec(
                 :optimum_predator_prey_ratio,
                 :vector;
+                axes=:plankton,
                 doc="Preferred predator:prey diameter ratio per consumer (used to derive palatability_matrix).",
             ),
             DiameterIndexedVectorDefault(10.0, :default_consumer_indices; default=0),
@@ -198,6 +208,7 @@ function parameter_definitions(::DarwinFactory)
             ParameterSpec(
                 :specificity,
                 :vector;
+                axes=:plankton,
                 doc="Unimodal palatability specificity per consumer (used to derive palatability_matrix).",
             ),
             DiameterIndexedVectorDefault(0.3, :default_consumer_indices; default=0),
@@ -206,6 +217,7 @@ function parameter_definitions(::DarwinFactory)
             ParameterSpec(
                 :protection,
                 :vector;
+                axes=:plankton,
                 doc="Prey protection factor (used to derive palatability_matrix).",
             ),
             FillDefault(0),
@@ -214,6 +226,7 @@ function parameter_definitions(::DarwinFactory)
             ParameterSpec(
                 :assimilation_efficiency,
                 :vector;
+                axes=:plankton,
                 doc="Assimilation efficiency per consumer (used to derive assimilation_matrix).",
             ),
             DiameterIndexedVectorDefault(0.32, :default_consumer_indices; default=0),

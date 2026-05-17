@@ -15,13 +15,13 @@ Fields
 ------
 - `name`: parameter key.
 - `shape`: one of `:scalar`, `:vector`, or `:matrix`.
-- `axes`: optional matrix-axis names.
+- `axes`: optional vector axis name or matrix-axis names.
 - `doc`: human-readable description.
 """
 struct ParameterSpec
     name::Symbol
     shape::Symbol
-    axes::Union{Nothing,NTuple{2,Symbol}}
+    axes::Union{Nothing,Symbol,NTuple{2,Symbol}}
     doc::String
 end
 
@@ -29,7 +29,7 @@ end
 function ParameterSpec(
     name::Symbol,
     shape::Symbol;
-    axes::Union{Nothing,NTuple{2,Symbol}}=nothing,
+    axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
     doc::AbstractString="",
 )
     ParameterSpec(name, shape, axes, String(doc))

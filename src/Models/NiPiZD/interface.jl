@@ -31,7 +31,7 @@ Keywords
 --------
 - `phyto_size_structure=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting)`: phytoplankton size structure
 - `zoo_size_structure=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting)`: zooplankton size structure
-- `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set)
+- `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set). Vector parameters may be supplied positionally or as partial NamedTuple overrides keyed by plankton class name.
 - `palatability_matrix=nothing`: optional palatability matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)`.
 - `assimilation_matrix=nothing`: optional assimilation matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)`.
 - `grid=BoxModelGrid()`: grid used for architecture inference and default scalar-type selection

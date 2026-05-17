@@ -21,6 +21,7 @@ import Agate.Factories: parameter_directory
         specmap = Dict(spec.name => spec for spec in dir)
         @test specmap[:detritus_remineralization].shape == :scalar
         @test specmap[:maximum_growth_rate].shape == :vector
+        @test specmap[:maximum_growth_rate].axes == :plankton
         @test specmap[:palatability_matrix].shape == :matrix
         @test specmap[:palatability_matrix].axes == (:consumer, :prey)
         @test specmap[:assimilation_matrix].axes == (:consumer, :prey)
@@ -41,6 +42,7 @@ import Agate.Factories: parameter_directory
         specmap = Dict(spec.name => spec for spec in dir)
         @test specmap[:DOC_remineralization].shape == :scalar
         @test specmap[:linear_mortality].shape == :vector
+        @test specmap[:linear_mortality].axes == :plankton
         @test specmap[:assimilation_matrix].shape == :matrix
         @test specmap[:palatability_matrix].axes == (:consumer, :prey)
         @test specmap[:assimilation_matrix].axes == (:consumer, :prey)
