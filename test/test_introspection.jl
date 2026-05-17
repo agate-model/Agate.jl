@@ -83,15 +83,7 @@ using Test
                 name === :palatability ? ones(1, 1) : getproperty(interactions, name)
             end,
         )
-        parameter_field_names = propertynames(params)
-        broken_params = NamedTuple{parameter_field_names}(
-            map(parameter_field_names) do name
-                name === :interactions ? broken_interactions : getproperty(params, name)
-            end,
-        )
-        broken_bgc = typeof(bgc)(
-            broken_params, bgc.tracer_functions, bgc.tracers, bgc.sinking_velocities
-        )
+        broken_bgc = (; parameters=(; interactions=broken_interactions), tracers=bgc.tracers)
         @test_throws ArgumentError labelled_interaction_matrix(broken_bgc, :palatability)
     end
 
