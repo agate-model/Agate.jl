@@ -72,7 +72,27 @@ using Test
         @test size(assim.matrix) == (length(assim.rows), length(assim.columns))
         @test all(row in tracer_names(bgc) for row in pal.rows)
         @test all(col in tracer_names(bgc) for col in pal.columns)
+        @test_throws ArgumentError interaction_matrix(bgc, :consumer_global)
         @test_throws ArgumentError interaction_matrix(bgc, :unknown)
+
+        params = bgc.parameters
+        interactions = params.interactions
+        interaction_names = propertynames(interactions)
+        broken_interactions = NamedTuple{interaction_names}(
+            map(interaction_names) do name
+                name === :palatability ? ones(1, 1) : getproperty(interactions, name)
+            end,
+        )
+        parameter_field_names = propertynames(params)
+        broken_params = NamedTuple{parameter_field_names}(
+            map(parameter_field_names) do name
+                name === :interactions ? broken_interactions : getproperty(params, name)
+            end,
+        )
+        broken_bgc = typeof(bgc)(
+            broken_params, bgc.tracer_functions, bgc.tracers, bgc.sinking_velocities
+        )
+        @test_throws ArgumentError interaction_table(broken_bgc, :palatability)
     end
 
     @testset "Generated model (define_tracer_functions)" begin

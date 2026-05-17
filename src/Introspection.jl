@@ -181,9 +181,9 @@ function _require_interactions(bgc)
 end
 
 function _require_interaction_kind(interactions, kind::Symbol)
-    hasproperty(interactions, kind) && return getproperty(interactions, kind)
-
     available = _available_interaction_kinds(interactions)
+    kind in available && return getproperty(interactions, kind)
+
     available_text = isempty(available) ? "none" : join(string.(available), ", ")
     throw(
         ArgumentError(
@@ -272,9 +272,21 @@ The returned `NamedTuple` contains `kind`, `matrix`, `rows`, `columns`,
 `row_axis`, and `column_axis`. Matrix orientation follows the runtime container:
 rows are consumers and columns are prey.
 """
+function _require_interaction_shape(matrix, rows, columns, kind::Symbol)
+    expected = (length(rows), length(columns))
+    size(matrix) == expected && return nothing
+
+    throw(
+        ArgumentError(
+            "Interaction matrix $kind has size $(size(matrix)); expected $expected from labelled interaction axes.",
+        ),
+    )
+end
+
 function interaction_table(bgc, kind::Symbol)
     axes = interaction_axes(bgc)
     matrix = interaction_matrix(bgc, kind)
+    _require_interaction_shape(matrix, axes.rows, axes.columns, kind)
 
     return (
         kind=kind,
