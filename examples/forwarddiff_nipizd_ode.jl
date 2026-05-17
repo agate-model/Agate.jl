@@ -30,14 +30,13 @@ function nipizd_model_with_p1_growth_rate(mu)
 
     return NiPiZD.construct(;
         scalar_type=T,
-        parameters=(; maximum_growth_rate=[zero(T), zero(T), mu, T(0.7 / day)]),
+        parameters=(; maximum_growth_rate=(P1=mu, P2=T(0.7 / day))),
     )
 end
 nothing #hide
 
 # Here `mu` is the maximum growth rate of `P1`.
-# The two leading zeros correspond to zooplankton entries.
-# The second phytoplankton growth rate is held fixed.
+# The `P2` growth rate is held fixed, and omitted zooplankton entries are filled from defaults.
 
 # ## Standalone ODE problem
 
