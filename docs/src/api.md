@@ -8,6 +8,25 @@ Agate.Introspection.describe
 Agate.Introspection.tracer_names
 Agate.Introspection.auxiliary_field_names
 Agate.Introspection.parameter_names
+Agate.Introspection.plankton_groups
+Agate.Introspection.plankton_tracers
+Agate.Introspection.nonplankton_tracers
+Agate.Introspection.tracer_groups
+Agate.Introspection.interaction_matrix
+```
+
+### Interaction matrix introspection
+
+```julia
+using Agate
+using Agate.Introspection
+
+bgc = Agate.Models.NiPiZD.construct()
+pal = interaction_matrix(bgc, :palatability)
+
+pal.rows     # consumer labels
+pal.columns  # prey labels
+pal.matrix   # consumer-by-prey matrix
 ```
 
 ## Construction API

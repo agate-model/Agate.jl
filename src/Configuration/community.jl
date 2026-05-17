@@ -123,8 +123,9 @@ struct CommunityContext{T<:Real,VT<:AbstractVector{T}}
 end
 
 """Return normalized diameter input and any size-class count it defines."""
-normalize_diameters(diameters::AbstractVector) =
+function normalize_diameters(diameters::AbstractVector)
     (; n=length(diameters), specification=DiameterListSpecification(diameters))
+end
 
 function normalize_diameters(spec::NamedTuple)
     required = (:n, :min_esd, :max_esd, :splitting)
@@ -141,13 +142,13 @@ function normalize_diameters(spec::NamedTuple)
     )
 end
 
-normalize_diameters(spec::DiameterListSpecification) =
+function normalize_diameters(spec::DiameterListSpecification)
     (; n=length(spec.diameters), specification=spec)
+end
 
 normalize_diameters(spec::DiameterRangeSpecification) = (; n=spec.n, specification=spec)
 
 normalize_diameters(spec) = throw(ArgumentError("invalid `diameters` specification"))
-
 
 """Validate `plankton_dynamics` and `community` inputs.
 

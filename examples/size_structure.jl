@@ -7,8 +7,8 @@
 # This example changes the number of plankton and the size structure of the [Agate.jl-NiPiZD](@ref NiPiZD) model. 
 
 # ## Loading dependencies
-# The example uses Agate.jl, Oceananigans.jl, and OceanBioME.jl for the ocean simulation.
-# CairoMakie is used for plotting.
+# The example uses Agate.jl, Oceananigans.jl, and OceanBioME.jl for the ecosystem simulation.
+# CairoMakie.jl is used for plotting.
 
 using Agate
 using Agate.Introspection: tracer_names
@@ -62,17 +62,7 @@ nothing #hide
 
 # ## Initial conditions
 
-set!(
-    full_model;
-    N=8.0,
-    P1=0.01,
-    P2=0.05,
-    P3=0.1,
-    Z1=0.01,
-    Z2=0.01,
-    Z3=0.01,
-    D=0.01,
-)
+set!(full_model; N=8.0, P1=0.01, P2=0.05, P3=0.1, Z1=0.01, Z2=0.01, Z3=0.01, D=0.01)
 
 # ## Simulation
 
@@ -98,7 +88,9 @@ nothing #hide
 
 tracer_syms = tracer_names(bgc)
 
-timeseries = (; (s => FieldTimeSeries(filename, string(s))[1, 1, 1, :] for s in tracer_syms)...)
+timeseries = (;
+    (s => FieldTimeSeries(filename, string(s))[1, 1, 1, :] for s in tracer_syms)...
+)
 nothing #hide
 
 # Plot each tracer concentration through time.

@@ -12,6 +12,7 @@
 # CairoMakie is used for plotting.
 
 using Agate
+using Agate.Introspection: tracer_groups
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -28,6 +29,7 @@ nothing #hide
 # Here, we use a default 2 phytoplankton, 2 zooplankton `Agate.jl-NiPiZD` ecosystem model.
 
 bgc = Agate.Models.NiPiZD.construct()
+groups = tracer_groups(bgc)
 nothing #hide
 
 # ## Forcings
@@ -126,17 +128,9 @@ timeseries = NamedTuple{keys(full_model.tracers)}(
     FieldTimeSeries(filename, "$field") for field in keys(full_model.tracers)
 )
 
-timeseries_keys = keys(timeseries)
+# Use Agate's introspection helpers to recover the structural tracer layout
+all_keys = [groups.plankton..., groups.nonplankton...]
 nothing #hide
-
-#Filter keys for P, Z, N, and D fields
-P_keys = filter(k -> startswith(string(k), "P"), timeseries_keys)
-Z_keys = filter(k -> startswith(string(k), "Z"), timeseries_keys)
-N_key = :N
-D_key = :D
-
-#Combine all keys into a single list for iteration
-all_keys = [P_keys..., Z_keys..., N_key, D_key]
 
 #Create figure with appropriate size
 fig = Figure(; size=(800, 1200), fontsize=16)
