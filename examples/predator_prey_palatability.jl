@@ -16,7 +16,7 @@
 # CairoMakie is used for plotting.
 
 using Agate
-using Agate.Introspection: interaction_table, tracer_names
+using Agate.Introspection: labelled_interaction_matrix, tracer_names
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -28,10 +28,8 @@ nothing #hide
 
 # ## Construct the ecosystem configurations
 
-#bgc model with default V_opt
 default_bgc = Agate.Models.NiPiZD.construct()
-#extract matrix for plotting
-default_pal = interaction_table(default_bgc, :palatability)
+default_pal = labelled_interaction_matrix(default_bgc, :palatability)
 nothing #hide
 
 # The default configuration uses the model's allometric palatability calculation.
@@ -43,24 +41,20 @@ nothing #hide
 # `Z1, Z2, P1, P2`. `Vopt` is a consumer trait, so the zooplankton entries are
 # set to 5 and the phytoplankton entries remain zero.
 
-#bgc model with Vopt of 5 for predators
 vopt_bgc = Agate.Models.NiPiZD.construct(;
     parameters=(; optimum_predator_prey_ratio=[5.0, 5.0, 0.0, 0.0])
 )
-#extract matrix for plotting
-vopt_pal = interaction_table(vopt_bgc, :palatability)
+vopt_pal = labelled_interaction_matrix(vopt_bgc, :palatability)
 nothing #hide
 
 # Another option is to provide the palatability matrix directly. This is useful
 # for experiments where the intended interaction structure is known explicitly,
 # rather than derived from size traits.
 
-#bgc model with custom matrix
 custom_bgc = Agate.Models.NiPiZD.construct(;
     palatability_matrix=[0.0 1.0; 1.0 0.0]
 )
-#extract matrix for plotting
-custom_pal = interaction_table(custom_bgc, :palatability)
+custom_pal = labelled_interaction_matrix(custom_bgc, :palatability)
 
 nothing #hide
 
@@ -114,7 +108,6 @@ Colorbar(matrix_fig[1, 4], hm_pal_default; label="palatability")
 Label(matrix_fig[0, 1:4], "Predator-prey palatability"; fontsize=22)
 nothing #hide
 
-#Save figure
 save("predator_prey_palatability_matrices.png", matrix_fig; px_per_unit=1)
 
 matrix_fig
@@ -210,7 +203,6 @@ for (idx, sym) in enumerate(tracer_syms)
     axislegend(ax; position=:rt)
 end
 
-#Save figure
 save("predator_prey_palatability_simulation.png", simulation_fig; px_per_unit=1)
 
 simulation_fig

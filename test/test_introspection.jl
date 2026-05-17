@@ -9,7 +9,7 @@ using Agate.Introspection:
     interaction_matrices,
     interaction_matrix,
     interaction_axes,
-    interaction_table
+    labelled_interaction_matrix
 using Test
 
 @testset "Public introspection helpers" begin
@@ -55,8 +55,8 @@ using Test
         @test axes.row_axis == :consumer
         @test axes.column_axis == :prey
 
-        pal = interaction_table(bgc, :palatability)
-        assim = interaction_table(bgc, :assimilation)
+        pal = labelled_interaction_matrix(bgc, :palatability)
+        assim = labelled_interaction_matrix(bgc, :assimilation)
 
         @test pal.kind == :palatability
         @test assim.kind == :assimilation
@@ -92,7 +92,7 @@ using Test
         broken_bgc = typeof(bgc)(
             broken_params, bgc.tracer_functions, bgc.tracers, bgc.sinking_velocities
         )
-        @test_throws ArgumentError interaction_table(broken_bgc, :palatability)
+        @test_throws ArgumentError labelled_interaction_matrix(broken_bgc, :palatability)
     end
 
     @testset "Generated model (define_tracer_functions)" begin
@@ -112,6 +112,6 @@ using Test
         @test !isempty(parameter_names(model))
         @test_throws ArgumentError interaction_matrices(model)
         @test_throws ArgumentError interaction_axes(model)
-        @test_throws ArgumentError interaction_table(model, :palatability)
+        @test_throws ArgumentError labelled_interaction_matrix(model, :palatability)
     end
 end

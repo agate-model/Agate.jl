@@ -15,7 +15,7 @@ export tracer_groups
 export interaction_matrices
 export interaction_matrix
 export interaction_axes
-export interaction_table
+export labelled_interaction_matrix
 export model_summary
 export describe
 
@@ -139,8 +139,8 @@ Return a structural grouping summary of the constructed tracer layout.
 function tracer_groups(bgc)
     return (
         all=tracer_names(bgc),
-        nonplankton=nonplankton_tracers(bgc),
         plankton=plankton_tracers(bgc),
+        nonplankton=nonplankton_tracers(bgc),
         by_group=plankton_groups(bgc),
     )
 end
@@ -264,9 +264,9 @@ function interaction_axes(bgc)
     return (rows=rows, columns=columns, row_axis=:consumer, column_axis=:prey)
 end
 
-"""    interaction_table(bgc, kind::Symbol) -> NamedTuple
+"""    labelled_interaction_matrix(bgc, kind::Symbol) -> NamedTuple
 
-Return a labelled interaction matrix table.
+Return an interaction matrix with consumer and prey labels.
 
 The returned `NamedTuple` contains `kind`, `matrix`, `rows`, `columns`,
 `row_axis`, and `column_axis`. Matrix orientation follows the runtime container:
@@ -283,7 +283,7 @@ function _require_interaction_shape(matrix, rows, columns, kind::Symbol)
     )
 end
 
-function interaction_table(bgc, kind::Symbol)
+function labelled_interaction_matrix(bgc, kind::Symbol)
     axes = interaction_axes(bgc)
     matrix = interaction_matrix(bgc, kind)
     _require_interaction_shape(matrix, axes.rows, axes.columns, kind)
