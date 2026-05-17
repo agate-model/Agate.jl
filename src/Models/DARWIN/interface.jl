@@ -83,7 +83,7 @@ Keywords
 --------
 - `phyto_size_structure=(n=2, min_esd=1.5, max_esd=20.0, splitting=:log_splitting)`: phytoplankton size structure
 - `zoo_size_structure=(n=2, min_esd=20.0, max_esd=100.0, splitting=:log_splitting)`: zooplankton size structure
-- `parameters=(;)`: parameter overrides (validated against the DARWIN parameter set)
+- `parameters=(;)`: parameter overrides (validated against the DARWIN parameter set). Vector parameters may be supplied positionally or as partial NamedTuple overrides keyed by plankton class name.
 - `scalar_type=nothing`: explicit runtime scalar type. When omitted, construction uses `eltype(grid)` or `Float64` if no grid is supplied
 - `palatability_matrix=nothing`: optional palatability matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)`.
 - `assimilation_matrix=nothing`: optional assimilation matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)`

@@ -48,6 +48,7 @@ function parameter_definitions(::NiPiZDFactory)
             ParameterSpec(
                 :linear_mortality,
                 :vector;
+                axes=:plankton,
                 doc="Linear mortality coefficient per plankton class.",
             ),
             FillDefault(8e-7),
@@ -56,6 +57,7 @@ function parameter_definitions(::NiPiZDFactory)
             ParameterSpec(
                 :quadratic_mortality,
                 :vector;
+                axes=:plankton,
                 doc="Quadratic mortality coefficient per plankton class.",
             ),
             DiameterIndexedVectorDefault(1e-6, :default_consumer_indices; default=0),
@@ -64,6 +66,7 @@ function parameter_definitions(::NiPiZDFactory)
             ParameterSpec(
                 :maximum_growth_rate,
                 :vector;
+                axes=:plankton,
                 doc="Maximum phytoplankton growth rate per plankton class.",
             ),
             DiameterIndexedVectorDefault(
@@ -76,6 +79,7 @@ function parameter_definitions(::NiPiZDFactory)
             ParameterSpec(
                 :nutrient_half_saturation,
                 :vector;
+                axes=:plankton,
                 doc="Nutrient half-saturation constant per plankton class.",
             ),
             DiameterIndexedVectorDefault(
@@ -86,7 +90,7 @@ function parameter_definitions(::NiPiZDFactory)
         ),
         ParameterDefinition(
             ParameterSpec(
-                :alpha, :vector; doc="Initial slope of the P-I curve per plankton class."
+                :alpha, :vector; axes=:plankton, doc="Initial slope of the P-I curve per plankton class."
             ),
             DiameterIndexedVectorDefault(
                 0.1953 / 86400, :default_producer_indices; default=0
@@ -96,6 +100,7 @@ function parameter_definitions(::NiPiZDFactory)
             ParameterSpec(
                 :maximum_predation_rate,
                 :vector;
+                axes=:plankton,
                 doc="Maximum zooplankton grazing rate per plankton class.",
             ),
             DiameterIndexedVectorDefault(
@@ -108,6 +113,7 @@ function parameter_definitions(::NiPiZDFactory)
             ParameterSpec(
                 :holling_half_saturation,
                 :vector;
+                axes=:plankton,
                 doc="Holling type II half-saturation constant per plankton class.",
             ),
             DiameterIndexedVectorDefault(5.0, :default_consumer_indices; default=0),
@@ -134,6 +140,7 @@ function parameter_definitions(::NiPiZDFactory)
             ParameterSpec(
                 :optimum_predator_prey_ratio,
                 :vector;
+                axes=:plankton,
                 doc="Preferred predator:prey diameter ratio per consumer (used to derive palatability_matrix).",
             ),
             DiameterIndexedVectorDefault(10.0, :default_consumer_indices; default=0),
@@ -142,6 +149,7 @@ function parameter_definitions(::NiPiZDFactory)
             ParameterSpec(
                 :specificity,
                 :vector;
+                axes=:plankton,
                 doc="Unimodal palatability specificity per consumer (used to derive palatability_matrix).",
             ),
             DiameterIndexedVectorDefault(0.3, :default_consumer_indices; default=0),
@@ -150,6 +158,7 @@ function parameter_definitions(::NiPiZDFactory)
             ParameterSpec(
                 :protection,
                 :vector;
+                axes=:plankton,
                 doc="Prey protection factor (used to derive palatability_matrix).",
             ),
             DiameterIndexedVectorDefault(1.0, :default_consumer_indices; default=0),
@@ -158,6 +167,7 @@ function parameter_definitions(::NiPiZDFactory)
             ParameterSpec(
                 :assimilation_efficiency,
                 :vector;
+                axes=:plankton,
                 doc="Assimilation efficiency per consumer (used to derive assimilation_matrix).",
             ),
             DiameterIndexedVectorDefault(0.32, :default_consumer_indices; default=0),

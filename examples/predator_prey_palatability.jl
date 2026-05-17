@@ -37,12 +37,12 @@ nothing #hide
 # (`Vopt = 10`).
 #
 # Instead, we will change that optimum to `Vopt = 5` for the two
-# zooplankton consumers. NiPiZD's default plankton-tracer order is
-# `Z1, Z2, P1, P2`. `Vopt` is a consumer trait, so the zooplankton entries are
-# set to 5 and the phytoplankton entries remain zero.
+# zooplankton consumers. Vector parameters can be overridden by plankton class
+# name, so only the relevant entries need to be supplied. Omitted entries are
+# filled from the model defaults.
 
 vopt_bgc = Agate.Models.NiPiZD.construct(;
-    parameters=(; optimum_predator_prey_ratio=[5.0, 5.0, 0.0, 0.0])
+    parameters=(; optimum_predator_prey_ratio=(Z1=5.0, Z2=5.0))
 )
 vopt_pal = interaction_matrix(vopt_bgc, :palatability)
 nothing #hide

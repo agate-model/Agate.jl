@@ -194,7 +194,15 @@ function validate_parameter_directory(factory::AbstractBGCFactory)
             ),
         )
 
-        if spec.shape === :matrix
+        if spec.shape === :vector
+            if spec.axes !== nothing
+                spec.axes isa Symbol || throw(
+                    ArgumentError(
+                        "parameter :$(spec.name) vector axis must be a Symbol (got $(typeof(spec.axes))).",
+                    ),
+                )
+            end
+        elseif spec.shape === :matrix
             if spec.axes !== nothing
                 (spec.axes isa Tuple && length(spec.axes) == 2) || throw(
                     ArgumentError(
@@ -211,7 +219,7 @@ function validate_parameter_directory(factory::AbstractBGCFactory)
         else
             spec.axes === nothing || throw(
                 ArgumentError(
-                    "parameter :$(spec.name) has axes=$(spec.axes) but is not a matrix."
+                    "parameter :$(spec.name) has axes=$(spec.axes) but is not vector or matrix."
                 ),
             )
         end
@@ -261,6 +269,44 @@ function validate_parameter_shapes(
     return nothing
 end
 
+
+function parameter_axis_names(context, axis::Symbol, parameter_name::Symbol)
+    axis === :plankton && return context.plankton_symbols
+    throw(ArgumentError("parameter :$parameter_name has unsupported vector axis :$axis."))
+end
+
+function expand_named_vector_override(
+    spec, default_value, user_value::NamedTuple, context, ::Type{T}
+) where {T<:Real}
+    spec.axes === nothing && throw(
+        ArgumentError(
+            "parameter :$(spec.name) does not support NamedTuple overrides because it has no named vector axis."
+        ),
+    )
+
+    names = parameter_axis_names(context, spec.axes, spec.name)
+    length(default_value) == length(names) || throw(
+        ArgumentError(
+            "parameter :$(spec.name) default length $(length(default_value)) does not match axis :$(spec.axes) length $(length(names))."
+        ),
+    )
+
+    expanded = copy(default_value)
+    for (key, value) in pairs(user_value)
+        idx = findfirst(==(key), names)
+        if idx === nothing
+            expected = join(string.(names), ", ")
+            throw(
+                ArgumentError(
+                    "Unknown key `$(key)` for parameter `$(spec.name)`. Expected one of: $(expected)."
+                ),
+            )
+        end
+        expanded[idx] = value isa Bool ? value : T(value)
+    end
+    return expanded
+end
+
 function materialize_parameter_value(spec, value, ::Type{T}) where {T<:Real}
     if spec.shape === :scalar
         return value isa Bool ? value : T(value)
@@ -282,7 +328,11 @@ function materialize_parameter_value(spec, value, ::Type{T}) where {T<:Real}
 end
 
 function materialize_parameter_overrides(
-    factory::AbstractBGCFactory, overrides::NamedTuple, ::Type{T}
+    factory::AbstractBGCFactory,
+    context,
+    defaults::NamedTuple,
+    overrides::NamedTuple,
+    ::Type{T},
 ) where {T<:Real}
     isempty(overrides) && return overrides
 
@@ -293,7 +343,27 @@ function materialize_parameter_overrides(
             push!(entries, key => value)
             continue
         end
-        push!(entries, key => materialize_parameter_value(spec, value, T))
+
+        if value isa NamedTuple
+            spec.shape === :vector || throw(
+                ArgumentError(
+                    "parameter :$key does not support NamedTuple overrides because it is $(spec.shape)-shaped."
+                ),
+            )
+            hasproperty(defaults, key) || throw(
+                ArgumentError(
+                    "parameter :$key does not support partial NamedTuple overrides because it has no direct default value."
+                ),
+            )
+            push!(
+                entries,
+                key => expand_named_vector_override(
+                    spec, getproperty(defaults, key), value, context, T
+                ),
+            )
+        else
+            push!(entries, key => materialize_parameter_value(spec, value, T))
+        end
     end
 
     return (; entries...)
@@ -495,9 +565,11 @@ function construct_factory(
         "interaction_overrides", interaction_parameter_overrides, required, factory
     )
 
-    parameter_overrides = materialize_parameter_overrides(factory, parameters, T)
-
     parameter_defaults = build_parameter_defaults(factory, community_context, T)
+    parameter_overrides = materialize_parameter_overrides(
+        factory, community_context, parameter_defaults, parameters, T
+    )
+
     merged_parameters = merge(
         parameter_defaults, parameter_overrides, interaction_parameter_overrides
     )
