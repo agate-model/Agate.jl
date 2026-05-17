@@ -12,10 +12,7 @@ export plankton_groups
 export plankton_tracers
 export nonplankton_tracers
 export tracer_groups
-export interaction_matrices
 export interaction_matrix
-export interaction_axes
-export labelled_interaction_matrix
 export model_summary
 export describe
 
@@ -159,7 +156,6 @@ const _INTERACTION_AXIS_FIELDS = (
     :global_to_prey,
 )
 
-_is_matrix_like(value) = value isa AbstractMatrix
 
 function _available_interaction_kinds(interactions)
     kinds = Symbol[]
@@ -167,7 +163,7 @@ function _available_interaction_kinds(interactions)
     for property in propertynames(interactions)
         property in _INTERACTION_AXIS_FIELDS && continue
         value = getproperty(interactions, property)
-        _is_matrix_like(value) && push!(kinds, property)
+        value isa AbstractMatrix && push!(kinds, property)
     end
 
     return kinds
@@ -211,47 +207,7 @@ function _plankton_axis_labels(bgc, indices)
     return labels
 end
 
-"""    interaction_matrices(bgc) -> NamedTuple
-
-Return the available runtime interaction matrices for `bgc`.
-
-The returned `NamedTuple` exposes labelled interaction matrix kinds without
-exposing the full internal interaction container.
-"""
-function interaction_matrices(bgc)
-    interactions = _require_interactions(bgc)
-    pairs = Pair{Symbol,Any}[]
-
-    for kind in _available_interaction_kinds(interactions)
-        push!(pairs, kind => getproperty(interactions, kind))
-    end
-
-    return (; pairs...)
-end
-
-"""    interaction_matrix(bgc, kind::Symbol)
-
-Return one runtime interaction matrix from `bgc`.
-
-Supported `kind` values are the available interaction matrix fields, such as
-`:palatability` and `:assimilation`.
-"""
-function interaction_matrix(bgc, kind::Symbol)
-    interactions = _require_interactions(bgc)
-    return _require_interaction_kind(interactions, kind)
-end
-
-"""    interaction_axes(bgc) -> NamedTuple
-
-Return labelled axes for runtime interaction matrices.
-
-Rows are consumers and columns are prey for the current runtime interaction
-container. Labels are resolved from the plankton tracer order because the
-runtime interaction axes store global plankton-class indices.
-"""
-function interaction_axes(bgc)
-    interactions = _require_interactions(bgc)
-
+function _interaction_axes(bgc, interactions)
     for field in (:consumer_global, :prey_global)
         hasproperty(interactions, field) || throw(
             ArgumentError("Interaction matrices are missing required axis field: $field."),
@@ -264,14 +220,6 @@ function interaction_axes(bgc)
     return (rows=rows, columns=columns, row_axis=:consumer, column_axis=:prey)
 end
 
-"""    labelled_interaction_matrix(bgc, kind::Symbol) -> NamedTuple
-
-Return an interaction matrix with consumer and prey labels.
-
-The returned `NamedTuple` contains `kind`, `matrix`, `rows`, `columns`,
-`row_axis`, and `column_axis`. Matrix orientation follows the runtime container:
-rows are consumers and columns are prey.
-"""
 function _require_interaction_shape(matrix, rows, columns, kind::Symbol)
     expected = (length(rows), length(columns))
     size(matrix) == expected && return nothing
@@ -283,9 +231,19 @@ function _require_interaction_shape(matrix, rows, columns, kind::Symbol)
     )
 end
 
-function labelled_interaction_matrix(bgc, kind::Symbol)
-    axes = interaction_axes(bgc)
-    matrix = interaction_matrix(bgc, kind)
+"""    interaction_matrix(bgc, kind::Symbol) -> NamedTuple
+
+Return an interaction matrix with consumer and prey labels.
+
+Supported `kind` values are the available interaction matrix fields, such as
+`:palatability` and `:assimilation`. The returned `NamedTuple` contains `kind`,
+`matrix`, `rows`, `columns`, `row_axis`, and `column_axis`. Matrix orientation
+follows the runtime container: rows are consumers and columns are prey.
+"""
+function interaction_matrix(bgc, kind::Symbol)
+    interactions = _require_interactions(bgc)
+    axes = _interaction_axes(bgc, interactions)
+    matrix = _require_interaction_kind(interactions, kind)
     _require_interaction_shape(matrix, axes.rows, axes.columns, kind)
 
     return (

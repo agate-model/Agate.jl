@@ -12,10 +12,7 @@ Agate.Introspection.plankton_groups
 Agate.Introspection.plankton_tracers
 Agate.Introspection.nonplankton_tracers
 Agate.Introspection.tracer_groups
-Agate.Introspection.interaction_matrices
 Agate.Introspection.interaction_matrix
-Agate.Introspection.interaction_axes
-Agate.Introspection.labelled_interaction_matrix
 ```
 
 ### Interaction matrix introspection
@@ -25,7 +22,7 @@ using Agate
 using Agate.Introspection
 
 bgc = Agate.Models.NiPiZD.construct()
-pal = labelled_interaction_matrix(bgc, :palatability)
+pal = interaction_matrix(bgc, :palatability)
 
 pal.rows     # consumer labels
 pal.columns  # prey labels

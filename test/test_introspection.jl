@@ -6,10 +6,7 @@ using Agate.Introspection:
     plankton_tracers,
     nonplankton_tracers,
     tracer_groups,
-    interaction_matrices,
-    interaction_matrix,
-    interaction_axes,
-    labelled_interaction_matrix
+    interaction_matrix
 using Test
 
 @testset "Public introspection helpers" begin
@@ -32,48 +29,42 @@ using Test
         @test !isempty(pars)
         @test :data ∉ pars
 
-        matrices = interaction_matrices(bgc)
-        @test propertynames(matrices) == (:palatability, :assimilation)
-
-        synthetic_interactions = (;
-            palatability=ones(1, 1),
-            encounter=zeros(1, 1),
-            consumer_global=[1],
-            prey_global=[1],
-            global_to_consumer=[1],
-            global_to_prey=[1],
-        )
-        synthetic_bgc = (; parameters=(; interactions=synthetic_interactions))
-        synthetic_matrices = interaction_matrices(synthetic_bgc)
-        @test propertynames(synthetic_matrices) == (:palatability, :encounter)
-        @test synthetic_matrices.encounter === synthetic_interactions.encounter
-        @test interaction_matrix(synthetic_bgc, :encounter) === synthetic_interactions.encounter
-
-        axes = interaction_axes(bgc)
-        @test axes.rows == [:Z1, :Z2]
-        @test axes.columns == [:P1, :P2]
-        @test axes.row_axis == :consumer
-        @test axes.column_axis == :prey
-
-        pal = labelled_interaction_matrix(bgc, :palatability)
-        assim = labelled_interaction_matrix(bgc, :assimilation)
+        pal = interaction_matrix(bgc, :palatability)
+        assim = interaction_matrix(bgc, :assimilation)
 
         @test pal.kind == :palatability
         @test assim.kind == :assimilation
-        @test pal.matrix === interaction_matrix(bgc, :palatability)
-        @test assim.matrix === interaction_matrix(bgc, :assimilation)
-        @test pal.rows == axes.rows
-        @test pal.columns == axes.columns
-        @test assim.rows == axes.rows
-        @test assim.columns == axes.columns
+        @test pal.rows == [:Z1, :Z2]
+        @test pal.columns == [:P1, :P2]
+        @test assim.rows == pal.rows
+        @test assim.columns == pal.columns
         @test pal.row_axis == :consumer
         @test pal.column_axis == :prey
         @test size(pal.matrix) == (length(pal.rows), length(pal.columns))
         @test size(assim.matrix) == (length(assim.rows), length(assim.columns))
         @test all(row in tracer_names(bgc) for row in pal.rows)
         @test all(col in tracer_names(bgc) for col in pal.columns)
+
+        synthetic_interactions = (;
+            palatability=ones(1, 1),
+            encounter=zeros(1, 1),
+            consumer_global=[1],
+            prey_global=[1],
+        )
+        synthetic_bgc = (; parameters=(; interactions=synthetic_interactions), tracers=bgc.tracers)
+        encounter = interaction_matrix(synthetic_bgc, :encounter)
+        @test encounter.kind == :encounter
+        @test encounter.matrix === synthetic_interactions.encounter
+
         @test_throws ArgumentError interaction_matrix(bgc, :consumer_global)
         @test_throws ArgumentError interaction_matrix(bgc, :unknown)
+        try
+            interaction_matrix(bgc, :unknown)
+        catch err
+            @test err isa ArgumentError
+            @test occursin("palatability", sprint(showerror, err))
+            @test occursin("assimilation", sprint(showerror, err))
+        end
 
         params = bgc.parameters
         interactions = params.interactions
@@ -84,7 +75,7 @@ using Test
             end,
         )
         broken_bgc = (; parameters=(; interactions=broken_interactions), tracers=bgc.tracers)
-        @test_throws ArgumentError labelled_interaction_matrix(broken_bgc, :palatability)
+        @test_throws ArgumentError interaction_matrix(broken_bgc, :palatability)
     end
 
     @testset "Generated model (define_tracer_functions)" begin
@@ -102,8 +93,6 @@ using Test
         @test groups.plankton == Symbol[]
         @test groups.nonplankton == tracer_names(model)
         @test !isempty(parameter_names(model))
-        @test_throws ArgumentError interaction_matrices(model)
-        @test_throws ArgumentError interaction_axes(model)
-        @test_throws ArgumentError labelled_interaction_matrix(model, :palatability)
+        @test_throws ArgumentError interaction_matrix(model, :palatability)
     end
 end

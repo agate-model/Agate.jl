@@ -16,7 +16,7 @@
 # CairoMakie is used for plotting.
 
 using Agate
-using Agate.Introspection: labelled_interaction_matrix, tracer_names
+using Agate.Introspection: interaction_matrix, tracer_names
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -29,7 +29,7 @@ nothing #hide
 # ## Construct the ecosystem configurations
 
 default_bgc = Agate.Models.NiPiZD.construct()
-default_pal = labelled_interaction_matrix(default_bgc, :palatability)
+default_pal = interaction_matrix(default_bgc, :palatability)
 nothing #hide
 
 # The default configuration uses the model's allometric palatability calculation.
@@ -44,7 +44,7 @@ nothing #hide
 vopt_bgc = Agate.Models.NiPiZD.construct(;
     parameters=(; optimum_predator_prey_ratio=[5.0, 5.0, 0.0, 0.0])
 )
-vopt_pal = labelled_interaction_matrix(vopt_bgc, :palatability)
+vopt_pal = interaction_matrix(vopt_bgc, :palatability)
 nothing #hide
 
 # Another option is to provide the palatability matrix directly. This is useful
@@ -54,7 +54,7 @@ nothing #hide
 custom_bgc = Agate.Models.NiPiZD.construct(;
     palatability_matrix=[0.0 1.0; 1.0 0.0]
 )
-custom_pal = labelled_interaction_matrix(custom_bgc, :palatability)
+custom_pal = interaction_matrix(custom_bgc, :palatability)
 
 nothing #hide
 
