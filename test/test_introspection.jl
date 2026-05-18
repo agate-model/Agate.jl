@@ -4,6 +4,7 @@ using Agate.Introspection:
     parameter_names,
     plankton_groups,
     plankton_tracers,
+    plankton_diameters,
     nonplankton_tracers,
     tracer_groups,
     interaction_matrix
@@ -23,6 +24,9 @@ using Test
         @test groups.nonplankton == [:N, :D]
         @test plankton_groups(bgc) == groups.by_group
         @test plankton_tracers(bgc) == groups.plankton
+        @test length(plankton_diameters(bgc)) == length(groups.plankton)
+        @test plankton_diameters(bgc) == collect(bgc.plankton_diameters)
+        @test eltype(plankton_diameters(bgc)) === Float32
         @test nonplankton_tracers(bgc) == groups.nonplankton
 
         pars = parameter_names(bgc)
@@ -65,6 +69,19 @@ using Test
             @test occursin("assimilation", sprint(showerror, err))
         end
 
+
+        phyto_diameters = [2.0, sqrt(20.0), 10.0]
+        zoo_diameters = [20.0, 100.0]
+        sized_bgc = Agate.Models.NiPiZD.construct(;
+            phyto_size_structure=phyto_diameters, zoo_size_structure=zoo_diameters
+        )
+        @test plankton_tracers(sized_bgc) == [:Z1, :Z2, :P1, :P2, :P3]
+        @test plankton_diameters(sized_bgc) ≈ [zoo_diameters; phyto_diameters]
+
+        darwin_bgc = Agate.Models.DARWIN.construct(; grid=dummy_grid(Float32))
+        @test length(plankton_diameters(darwin_bgc)) == length(plankton_tracers(darwin_bgc))
+        @test plankton_diameters(darwin_bgc) == collect(darwin_bgc.plankton_diameters)
+
         params = bgc.parameters
         interactions = params.interactions
         interaction_names = propertynames(interactions)
@@ -84,6 +101,7 @@ using Test
         @test tracer_names(model) == [:N, :D, :P, :Z]
         @test plankton_groups(model) == NamedTuple()
         @test plankton_tracers(model) == Symbol[]
+        @test plankton_diameters(model) == Float64[]
         @test nonplankton_tracers(model) == tracer_names(model)
 
         groups = tracer_groups(model)
