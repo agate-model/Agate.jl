@@ -636,6 +636,8 @@ function construct_factory(
         n_biogeochem_tracers=length(keys(biogeochem_dynamics)),
     )
 
+    plankton_diameter_metadata = Tuple(community_context.diameters)
+
     if isnothing(sinking_tracers)
         bgc_factory = define_tracer_functions(
             resolved_parameters,
@@ -643,7 +645,9 @@ function construct_factory(
             auxiliary_fields=auxiliary_fields,
             tracer_index=tracer_index,
         )
-        bgc = bgc_factory(resolved_parameters)
+        bgc = bgc_factory(
+            resolved_parameters; plankton_diameters=plankton_diameter_metadata
+        )
     else
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
         bgc_factory = define_tracer_functions(
@@ -653,7 +657,11 @@ function construct_factory(
             tracer_index=tracer_index,
             sinking_velocities=sinking_velocities,
         )
-        bgc = bgc_factory(resolved_parameters, sinking_velocities)
+        bgc = bgc_factory(
+            resolved_parameters,
+            sinking_velocities;
+            plankton_diameters=plankton_diameter_metadata,
+        )
     end
     bgc = on_architecture(arch, bgc)
 
