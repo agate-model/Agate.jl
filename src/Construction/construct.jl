@@ -30,7 +30,7 @@ using ..Runtime: build_tracer_index
 
 using ..Equations: CompiledEquation
 
-using ..Library.Allometry: resolve_diameter_indexed_vector
+using ..Library.Allometry: AllometricParam, resolve_diameter_indexed_vector
 
 """A factory-supplied callable that builds a non-plankton tracer equation.
 
@@ -307,6 +307,32 @@ function expand_named_vector_override(
     return expanded
 end
 
+function parameter_definition(factory::AbstractBGCFactory, key::Symbol)
+    for def in parameter_definitions(factory)
+        def.spec.name === key && return def
+    end
+    return nothing
+end
+
+function materialize_allometric_parameter_override(
+    factory::AbstractBGCFactory, context, key::Symbol, value::AllometricParam, ::Type{T}
+) where {T<:Real}
+    def = parameter_definition(factory, key)
+    provider = def === nothing ? nothing : def.default
+
+    provider isa DiameterIndexedVectorDefault || throw(
+        ArgumentError(
+            "parameter :$key only supports AllometricParam overrides for diameter-indexed vector parameters."
+        ),
+    )
+
+    indices = getproperty(context, provider.indices_field)
+    default = T(provider.default)
+    return resolve_diameter_indexed_vector(
+        T, context.diameters, indices, value; default=default
+    )
+end
+
 function materialize_parameter_value(spec, value, ::Type{T}) where {T<:Real}
     if spec.shape === :scalar
         return value isa Bool ? value : T(value)
@@ -344,7 +370,14 @@ function materialize_parameter_overrides(
             continue
         end
 
-        if value isa NamedTuple
+        if value isa AllometricParam
+            push!(
+                entries,
+                key => materialize_allometric_parameter_override(
+                    factory, context, key, value, T
+                ),
+            )
+        elseif value isa NamedTuple
             spec.shape === :vector || throw(
                 ArgumentError(
                     "parameter :$key does not support NamedTuple overrides because it is $(spec.shape)-shaped."
