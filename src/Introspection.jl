@@ -10,6 +10,7 @@ export auxiliary_field_names
 export parameter_names
 export plankton_groups
 export plankton_tracers
+export plankton_diameters
 export nonplankton_tracers
 export tracer_groups
 export interaction_matrix
@@ -118,6 +119,17 @@ function plankton_tracers(bgc)
     end
 
     return tracers
+end
+
+"""    plankton_diameters(bgc) -> Vector
+
+Return the equivalent spherical diameters for plankton tracers in the same order
+as `plankton_tracers(bgc)`. Models without plankton diameter metadata return
+an empty vector.
+"""
+function plankton_diameters(bgc)
+    hasproperty(bgc, :plankton_diameters) || return []
+    return collect(getproperty(bgc, :plankton_diameters))
 end
 
 """    nonplankton_tracers(bgc) -> Vector{Symbol}

@@ -11,7 +11,7 @@
 # CairoMakie.jl is used for plotting.
 
 using Agate
-using Agate.Introspection: tracer_names
+using Agate.Introspection: tracer_names, plankton_tracers, plankton_diameters
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -44,7 +44,12 @@ nothing #hide
 # We can inspect the tracer names required by the model.
 
 println(tracer_names(bgc))
-nothing #hide
+
+# As well as the plankton sizes:
+
+for (name, diameter) in zip(plankton_tracers(bgc), plankton_diameters(bgc))
+    println(name, ": ", diameter, " μm")
+end
 
 # ## Physical model
 
