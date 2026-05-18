@@ -45,10 +45,11 @@ nothing #hide
 
 println(tracer_names(bgc))
 
+# As well as the plankton sizes:
+
 for (name, diameter) in zip(plankton_tracers(bgc), plankton_diameters(bgc))
     println(name, ": ", diameter, " μm")
 end
-nothing #hide
 
 # ## Physical model
 
