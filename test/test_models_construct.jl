@@ -8,6 +8,7 @@ using Test
 using OceanBioME: BoxModelGrid
 
 using Oceananigans.Units
+using Agate.Library.Allometry: AllometricParam, PowerLaw
 using Oceananigans.Fields: ZeroField
 using Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers, biogeochemical_drift_velocity
@@ -217,6 +218,88 @@ using Oceananigans.Biogeochemistry:
             grid=dummy_grid(Float32), parameters=(; palatability_matrix=(Z1=(P1=1.0,),))
         )
     end
+
+    @testset "Allometric parameter overrides" begin
+        phyto_diameters = [2.0, 8.0]
+        zoo_diameters = [20.0, 100.0]
+
+        powerlaw_value(T, prefactor, exponent, diameter) = begin
+            d = T(diameter)
+            volume = (T(4) / T(3)) * T(π) * (d / T(2))^T(3)
+            T(prefactor) * volume^T(exponent)
+        end
+
+        growth_prefactor = 2 / day
+        growth_exponent = -0.15
+        predation_prefactor = 30.84 / day
+        predation_exponent = -0.16
+
+        bgc = NiPiZD.construct(;
+            phyto_size_structure=phyto_diameters,
+            zoo_size_structure=zoo_diameters,
+            grid=dummy_grid(Float32),
+            parameters=(;
+                maximum_growth_rate=AllometricParam(
+                    PowerLaw(); prefactor=growth_prefactor, exponent=growth_exponent
+                ),
+                maximum_predation_rate=AllometricParam(
+                    PowerLaw(); prefactor=predation_prefactor, exponent=predation_exponent
+                ),
+            ),
+        )
+
+        expected_growth = Float32[
+            0,
+            0,
+            powerlaw_value(Float32, growth_prefactor, growth_exponent, phyto_diameters[1]),
+            powerlaw_value(Float32, growth_prefactor, growth_exponent, phyto_diameters[2]),
+        ]
+        expected_predation = Float32[
+            powerlaw_value(Float32, predation_prefactor, predation_exponent, zoo_diameters[1]),
+            powerlaw_value(Float32, predation_prefactor, predation_exponent, zoo_diameters[2]),
+            0,
+            0,
+        ]
+
+        @test bgc.parameters.maximum_growth_rate ≈ expected_growth
+        @test bgc.parameters.maximum_predation_rate ≈ expected_predation
+        @test eltype(bgc.parameters.maximum_growth_rate) === Float32
+        @test eltype(bgc.parameters.maximum_predation_rate) === Float32
+
+        bgc_full_vector = NiPiZD.construct(;
+            phyto_size_structure=phyto_diameters,
+            zoo_size_structure=zoo_diameters,
+            grid=dummy_grid(Float32),
+            parameters=(; maximum_growth_rate=expected_growth),
+        )
+        bgc_named = NiPiZD.construct(;
+            phyto_size_structure=phyto_diameters,
+            zoo_size_structure=zoo_diameters,
+            grid=dummy_grid(Float32),
+            parameters=(; maximum_growth_rate=(P1=1.2 / day,)),
+        )
+
+        @test bgc_full_vector.parameters.maximum_growth_rate == expected_growth
+        @test bgc_named.parameters.maximum_growth_rate[3] == Float32(1.2 / day)
+
+        err = try
+            NiPiZD.construct(;
+                grid=dummy_grid(Float32),
+                parameters=(;
+                    detritus_remineralization=AllometricParam(
+                        PowerLaw(); prefactor=1.0, exponent=0.0
+                    ),
+                ),
+            )
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("detritus_remineralization", sprint(showerror, err))
+        @test occursin("diameter-indexed vector", sprint(showerror, err))
+    end
+
 
     @testset "NiPiZD community structure overrides" begin
         bgc = NiPiZD.construct(; phyto_size_structure=[3.0], grid=dummy_grid(Float32))
