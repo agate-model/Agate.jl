@@ -10,6 +10,7 @@ Agate.Introspection.auxiliary_field_names
 Agate.Introspection.parameter_names
 Agate.Introspection.plankton_groups
 Agate.Introspection.plankton_tracers
+Agate.Introspection.plankton_diameters
 Agate.Introspection.nonplankton_tracers
 Agate.Introspection.tracer_groups
 Agate.Introspection.interaction_matrix
