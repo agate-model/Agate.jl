@@ -128,10 +128,8 @@ as `plankton_tracers(bgc)`. Models without plankton diameter metadata return
 an empty vector.
 """
 function plankton_diameters(bgc)
-    hasproperty(bgc, :plankton_diameters) || return Float64[]
-    diameters = getproperty(bgc, :plankton_diameters)
-    isempty(diameters) && return Float64[]
-    return collect(diameters)
+    hasproperty(bgc, :plankton_diameters) || return []
+    return collect(getproperty(bgc, :plankton_diameters))
 end
 
 """    nonplankton_tracers(bgc) -> Vector{Symbol}

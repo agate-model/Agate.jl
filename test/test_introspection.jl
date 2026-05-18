@@ -101,7 +101,7 @@ using Test
         @test tracer_names(model) == [:N, :D, :P, :Z]
         @test plankton_groups(model) == NamedTuple()
         @test plankton_tracers(model) == Symbol[]
-        @test plankton_diameters(model) == Float64[]
+        @test isempty(plankton_diameters(model))
         @test nonplankton_tracers(model) == tracer_names(model)
 
         groups = tracer_groups(model)
