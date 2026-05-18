@@ -104,6 +104,21 @@ using Agate.Models: DARWIN
 
 bgc = DARWIN.construct()
 ```
+
+Trait-style allometric parameter overrides may be supplied during construction:
+
+```julia
+using Oceananigans.Units: day
+using Agate.Library.Allometry: AllometricParam, PowerLaw
+
+bgc = DARWIN.construct(;
+    parameters=(;
+        maximum_growth_rate=AllometricParam(
+            PowerLaw(); prefactor=2 / day, exponent=-0.15
+        ),
+    ),
+)
+```
 """
 function construct(;
     phyto_size_structure=(n=2, min_esd=1.5, max_esd=20.0, splitting=:log_splitting),
