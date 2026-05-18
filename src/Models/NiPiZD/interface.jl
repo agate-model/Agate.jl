@@ -31,7 +31,7 @@ Keywords
 --------
 - `phyto_size_structure=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting)`: phytoplankton size structure
 - `zoo_size_structure=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting)`: zooplankton size structure
-- `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set). Vector parameters may be supplied positionally or as partial NamedTuple overrides keyed by plankton class name.
+- `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set). Vector parameters may be supplied positionally, as partial NamedTuple overrides keyed by plankton class name, or as allometric definitions for diameter-indexed plankton vectors.
 - `palatability_matrix=nothing`: optional palatability matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)`.
 - `assimilation_matrix=nothing`: optional assimilation matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)`.
 - `grid=BoxModelGrid()`: grid used for architecture inference and default scalar-type selection
@@ -50,6 +50,21 @@ Example
 using Agate.Models: NiPiZD
 
 bgc = NiPiZD.construct()
+```
+
+Trait-style allometric parameter overrides may be supplied during construction:
+
+```julia
+using Oceananigans.Units: day
+using Agate.Library.Allometry: AllometricParam, PowerLaw
+
+bgc = NiPiZD.construct(;
+    parameters=(;
+        maximum_growth_rate=AllometricParam(
+            PowerLaw(); prefactor=2 / day, exponent=-0.15
+        ),
+    ),
+)
 ```
 """
 function construct(;
