@@ -15,5 +15,6 @@ include("test_mass_balance.jl")
 
 include("test_introspection.jl")
 include("test_variants.jl")
+include("test_traceability.jl")
 
 include("test_biogeochemistry.jl")
