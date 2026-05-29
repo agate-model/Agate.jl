@@ -459,6 +459,53 @@ function validate_auxiliary_fields(auxiliary_fields::Tuple, tracer_names::Tuple)
     return nothing
 end
 
+
+function manifest_axis(axis)
+    axis === nothing && return nothing
+    axis isa Symbol && return string(axis)
+    axis isa Tuple && return Any[string(a) for a in axis]
+    return string(axis)
+end
+
+function manifest_parameter_value(x)
+    if x isa Symbol
+        return string(x)
+    elseif x isa AbstractMatrix
+        return Any[
+            Any[manifest_parameter_value(x[i, j]) for j in axes(x, 2)] for i in axes(x, 1)
+        ]
+    elseif x isa AbstractVector || x isa Tuple
+        return Any[manifest_parameter_value(v) for v in x]
+    elseif x isa AbstractFloat && !isfinite(x)
+        return string(x)
+    else
+        return x
+    end
+end
+
+function parameter_record_manifest(spec, value)
+    return Dict{String,Any}(
+        "shape" => string(spec.shape),
+        "axes" => manifest_axis(spec.axes),
+        "doc" => spec.doc,
+        "value" => manifest_parameter_value(value),
+    )
+end
+
+function parameter_manifest(factory::AbstractBGCFactory, params::NamedTuple, required::Tuple)
+    records = Dict{String,Any}()
+    for key in required
+        spec = parameter_spec(factory, key)
+        spec === nothing && throw(
+            ArgumentError(
+                "Factory $(typeof(factory)) is missing a ParameterSpec for parameter :$key."
+            ),
+        )
+        records[string(key)] = parameter_record_manifest(spec, getproperty(params, key))
+    end
+    return records
+end
+
 """
     construct_factory(factory::AbstractBGCFactory; kwargs...) -> bgc
 
@@ -514,7 +561,16 @@ function resolve_construction_scalar_type(grid, scalar_type)
     return Float64
 end
 
-function construct_factory(
+function construct_factory(factory::AbstractBGCFactory; kwargs...)
+    bgc, _ = construct_factory_with_context(factory; kwargs...)
+    return bgc
+end
+
+function construct_factory_with_context(factory::AbstractBGCFactory; kwargs...)
+    return _construct_factory_with_context(factory; kwargs...)
+end
+
+function _construct_factory_with_context(
     factory::AbstractBGCFactory;
     plankton_dynamics=default_plankton_dynamics(factory),
     biogeochem_dynamics=default_biogeochem_dynamics(factory),
@@ -637,6 +693,15 @@ function construct_factory(
     )
 
     plankton_diameter_metadata = Tuple(community_context.diameters)
+    construction_context = (
+        tracers=Any[string(name) for name in tracer_names],
+        auxiliary_fields=Any[string(name) for name in auxiliary_fields],
+        parameters=parameter_manifest(factory, resolved_parameters, required),
+        plankton_diameters=Any[manifest_parameter_value(d) for d in plankton_diameter_metadata],
+        scalar_type=string(T),
+        architecture=string(typeof(arch)),
+        has_sinking_velocities=!isnothing(sinking_tracers),
+    )
 
     if isnothing(sinking_tracers)
         bgc_factory = define_tracer_functions(
@@ -665,5 +730,5 @@ function construct_factory(
     end
     bgc = on_architecture(arch, bgc)
 
-    return bgc
+    return bgc, construction_context
 end

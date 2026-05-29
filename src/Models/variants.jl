@@ -1,5 +1,6 @@
 using ..Factories: AbstractBGCFactory
-using ..Construction: construct_factory
+using ..Construction: construct_factory_with_context
+using ..Traceability: finalize_construction_manifest
 
 """Stable identifier for a model variant.
 
@@ -103,7 +104,46 @@ function construct(
     auxiliary_fields=nothing,
     kwargs...,
 )
-    # Merge runtime overrides on top of the variant defaults.
+    bgc, _ = _construct_variant_with_context(
+        spec;
+        parameters=parameters,
+        interaction_overrides=interaction_overrides,
+        auxiliary_fields=auxiliary_fields,
+        kwargs...,
+    )
+    return bgc
+end
+
+"""Construct a model instance and return `(bgc, manifest)`.
+
+The returned `bgc` is the same runtime object returned by `construct(spec; ...)`.
+The manifest is generated during construction from the same resolved state and is
+kept separate from `AgateBGC` so the runtime object stays GPU-friendly.
+"""
+function construct_with_manifest(
+    spec::VariantSpec;
+    parameters::NamedTuple=(;),
+    interaction_overrides::Union{Nothing,NamedTuple}=nothing,
+    auxiliary_fields=nothing,
+    kwargs...,
+)
+    bgc, context = _construct_variant_with_context(
+        spec;
+        parameters=parameters,
+        interaction_overrides=interaction_overrides,
+        auxiliary_fields=auxiliary_fields,
+        kwargs...,
+    )
+    return bgc, finalize_construction_manifest(context)
+end
+
+function _construct_variant_with_context(
+    spec::VariantSpec;
+    parameters::NamedTuple=(;),
+    interaction_overrides::Union{Nothing,NamedTuple}=nothing,
+    auxiliary_fields=nothing,
+    kwargs...,
+)
     params = merge(spec.parameters, parameters)
 
     inter = spec.interaction_overrides
@@ -115,7 +155,13 @@ function construct(
         inter = merge(inter, interaction_overrides)
     end
 
-    return construct_factory(
+    effective_auxiliary_fields = if isnothing(auxiliary_fields)
+        spec.auxiliary_fields
+    else
+        auxiliary_fields
+    end
+
+    bgc, resolved = construct_factory_with_context(
         spec.factory;
         plankton_dynamics=spec.plankton_dynamics,
         biogeochem_dynamics=spec.biogeochem_dynamics,
@@ -123,11 +169,19 @@ function construct(
         parameters=params,
         interaction_overrides=inter,
         interaction_roles=spec.interaction_roles,
-        auxiliary_fields=if isnothing(auxiliary_fields)
-            spec.auxiliary_fields
-        else
-            auxiliary_fields
-        end,
+        auxiliary_fields=effective_auxiliary_fields,
         kwargs...,
     )
+
+    context = (
+        model=(
+            id=string(spec.id),
+            family=string(spec.id.family),
+            citation=string(spec.id.citation),
+            tag=string(spec.id.tag),
+        ),
+        resolved=resolved,
+    )
+
+    return bgc, context
 end

@@ -18,7 +18,7 @@ include("DARWIN/DARWIN.jl")
 export NiPiZD, DARWIN
 
 # Variant scaffolding (developer-oriented).
-export ModelId, VariantSpec, register_variant, variant, list_variants
+export ModelId, VariantSpec, register_variant, variant, list_variants, construct, construct_with_manifest
 
 # The factory types remain available for internal/advanced usage via fully-qualified
 # names (e.g. `Agate.Models.NiPiZD.NiPiZDFactory`).
