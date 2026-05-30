@@ -68,6 +68,7 @@ function finalize_construction_manifest(context)
             "scalar_type" => resolved.scalar_type,
             "architecture" => resolved.architecture,
             "has_sinking_velocities" => resolved.has_sinking_velocities,
+            "sinking" => resolved.sinking,
         ),
     )
 end

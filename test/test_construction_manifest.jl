@@ -1,5 +1,6 @@
 using Adapt
 using JSON
+using Oceananigans.Units: day
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 
 struct UnsupportedManifestValue end
@@ -73,7 +74,23 @@ end
     @test darwin_manifest["model"]["id"] == "DARWIN/default"
     @test darwin_manifest["model"]["family"] == "DARWIN"
     @test darwin_manifest["resolved"]["scalar_type"] == "Float32"
+    @test darwin_manifest["resolved"]["sinking"] == Dict{String,Any}(
+        "enabled" => false, "tracers" => nothing, "open_bottom" => true
+    )
     @test "P3" in darwin_manifest["resolved"]["tracers"]
+
+    _, sinking_manifest = Agate.Models.NiPiZD.construct_with_manifest(
+        ;
+        grid=dummy_grid(Float32),
+        sinking_tracers=(P1=0.2551 / day, D=2.7489 / day),
+        open_bottom=false,
+    )
+    @test sinking_manifest["resolved"]["has_sinking_velocities"]
+    @test sinking_manifest["resolved"]["sinking"]["enabled"]
+    @test sinking_manifest["resolved"]["sinking"]["open_bottom"] == false
+    @test sinking_manifest["resolved"]["sinking"]["tracers"] == Dict{String,Any}(
+        "P1" => 0.2551 / day, "D" => 2.7489 / day
+    )
 
     nipizd_bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
     traced_nipizd, nipizd_manifest = Agate.Models.NiPiZD.construct_with_manifest(

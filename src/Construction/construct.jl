@@ -746,6 +746,11 @@ function _construct_factory_with_context(
         scalar_type=string(T),
         architecture=string(typeof(arch)),
         has_sinking_velocities=!isnothing(sinking_tracers),
+        sinking=Dict{String,Any}(
+            "enabled" => !isnothing(sinking_tracers),
+            "tracers" => manifest_parameter_value(sinking_tracers),
+            "open_bottom" => open_bottom,
+        ),
     ) : nothing
 
     return bgc, construction_context
