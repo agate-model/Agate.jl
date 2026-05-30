@@ -4,9 +4,9 @@
 #     This example uses [Oceananigans.jl](https://clima.github.io/OceananigansDocumentation/stable/) and [OceanBioME.jl](https://oceanbiome.github.io/OceanBioME.jl/stable/).
 #     We recommend familiarizing yourself with their user interface if you intend to change the physical model setup.
 
-# In this example we construct a default Agate.jl variant for use in a zero-dimensional box model.
-# The construction workflow returns the runtime biogeochemistry object and a separate construction manifest.
-# The manifest is kept out of the runtime object, so the `bgc` passed to OceanBioME.jl stays focused on simulation.
+# In this example we construct a DARWIN model for a zero-dimensional box model and export a
+# construction manifest. The manifest is kept out of the runtime object, so the `bgc` passed
+# to OceanBioME.jl stays focused on simulation.
 
 # ## Loading dependencies
 # The example uses Agate.jl for ecosystem construction and manifest export.
@@ -14,8 +14,8 @@
 
 using Agate
 using Agate.Library.Light
-using Agate.Models: ModelId, variant, construct_with_manifest, export_manifest
-using Agate.Models.DARWIN
+using Agate.Models: export_manifest
+using Agate.Models: DARWIN
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
@@ -24,15 +24,16 @@ nothing #hide
 
 # ## Ecosystem model and construction manifest
 
-# First, we look up a built-in DARWIN variant and construct it with manifest generation enabled.
-# `construct_with_manifest` returns two values:
+# `DARWIN.construct_with_manifest` accepts the same keywords as `DARWIN.construct`, but returns
+# two values:
 # - `bgc`: the runtime biogeochemistry object used by OceanBioME.jl
 # - `manifest`: a JSON-compatible record of the resolved construction state
 
-id = ModelId(:DARWIN, :citation2026, :A)
-spec = variant(id)
-
-bgc, manifest = construct_with_manifest(spec; grid=BoxModelGrid())
+bgc, manifest = DARWIN.construct_with_manifest(;
+    grid=BoxModelGrid(),
+    phyto_size_structure=(n=3, min_esd=1.5, max_esd=20.0, splitting=:log_splitting),
+    zoo_size_structure=(n=2, min_esd=20.0, max_esd=100.0, splitting=:log_splitting),
+)
 nothing #hide
 
 # The manifest records the model identity, Agate version, Julia version, resolved tracers,

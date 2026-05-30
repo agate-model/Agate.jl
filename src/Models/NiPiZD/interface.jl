@@ -4,10 +4,58 @@ import ...Configuration
 import ...Construction
 import ...Factories
 
-export construct
+using ..: default_model_manifest_context, finalize_construction_manifest
+
+export construct, construct_with_manifest
+
+function _construction_inputs(;
+    phyto_size_structure=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting),
+    zoo_size_structure=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),
+    parameters::NamedTuple=(;),
+    palatability_matrix=nothing,
+    assimilation_matrix=nothing,
+    grid=BoxModelGrid(),
+    scalar_type=nothing,
+    arch=nothing,
+    sinking_tracers=nothing,
+    open_bottom::Bool=true,
+)
+    factory = NiPiZDFactory()
+
+    base = Factories.default_community(factory)
+    community = Configuration.build_plankton_community(
+        base; diameters=(Z=zoo_size_structure, P=phyto_size_structure)
+    )
+
+    pairs = Pair{Symbol,Any}[]
+    palatability_matrix !== nothing &&
+        push!(pairs, :palatability_matrix => palatability_matrix)
+    assimilation_matrix !== nothing &&
+        push!(pairs, :assimilation_matrix => assimilation_matrix)
+
+    interaction_overrides = isempty(pairs) ? nothing : (; pairs...)
+    interaction_roles = (consumers=(:Z,), prey=(:P,))
+
+    return (
+        factory=factory,
+        kwargs=(;
+            community=community,
+            parameters=parameters,
+            interaction_roles=interaction_roles,
+            auxiliary_fields=(:PAR,),
+            interaction_overrides=interaction_overrides,
+            arch=arch,
+            sinking_tracers=sinking_tracers,
+            grid=grid,
+            scalar_type=scalar_type,
+            open_bottom=open_bottom,
+        ),
+    )
+end
 
 """
     construct(; kw...) -> bgc
+    construct_with_manifest(; kw...) -> bgc, manifest
 
 Construct a size-structured NiPiZD ecosystem model.
 
@@ -42,7 +90,8 @@ Keywords
 
 Returns
 -------
-An `Oceananigans.Biogeochemistry.AbstractContinuousFormBiogeochemistry` instance.
+`construct` returns an `Oceananigans.Biogeochemistry.AbstractContinuousFormBiogeochemistry` instance.
+`construct_with_manifest` returns `(bgc, manifest)`, where `manifest` is a JSON-compatible construction record.
 
 Example
 -------
@@ -67,50 +116,23 @@ bgc = NiPiZD.construct(;
 )
 ```
 """
-function construct(;
-    phyto_size_structure=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting),
-    zoo_size_structure=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),
-    parameters::NamedTuple=(;),
-    palatability_matrix=nothing,
-    assimilation_matrix=nothing,
-    grid=BoxModelGrid(),
-    scalar_type=nothing,
-    arch=nothing,
-    sinking_tracers=nothing,
-    open_bottom::Bool=true,
-)
-    factory = NiPiZDFactory()
+function construct(; kwargs...)
+    inputs = _construction_inputs(; kwargs...)
+    return Construction.construct_factory(inputs.factory; inputs.kwargs...)
+end
 
-    base = Factories.default_community(factory)
-    community = Configuration.build_plankton_community(
-        base; diameters=(Z=zoo_size_structure, P=phyto_size_structure)
+"""
+    construct_with_manifest(; kw...) -> bgc, manifest
+
+Construct a model instance and return it with a JSON-compatible construction manifest.
+"""
+function construct_with_manifest(; kwargs...)
+    inputs = _construction_inputs(; kwargs...)
+    bgc, resolved = Construction.construct_factory_with_context(
+        inputs.factory; inputs.kwargs...
     )
-
-    # Interaction overrides (optional).
-    #
-    # We forward overrides through the model-agnostic constructor as a `NamedTuple`.
-    # Interaction overrides are data-only: values must be explicit matrices.
-    pairs = Pair{Symbol,Any}[]
-    palatability_matrix !== nothing &&
-        push!(pairs, :palatability_matrix => palatability_matrix)
-    assimilation_matrix !== nothing &&
-        push!(pairs, :assimilation_matrix => assimilation_matrix)
-
-    interaction_overrides = isempty(pairs) ? nothing : (; pairs...)
-
-    interaction_roles = (consumers=(:Z,), prey=(:P,))
-
-    return Construction.construct_factory(
-        factory;
-        community=community,
-        parameters=parameters,
-        interaction_roles=interaction_roles,
-        auxiliary_fields=(:PAR,),
-        interaction_overrides=interaction_overrides,
-        arch=arch,
-        sinking_tracers=sinking_tracers,
-        grid=grid,
-        scalar_type=scalar_type,
-        open_bottom=open_bottom,
+    manifest = finalize_construction_manifest(
+        default_model_manifest_context(:NiPiZD, resolved)
     )
+    return bgc, manifest
 end

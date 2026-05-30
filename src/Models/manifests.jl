@@ -31,6 +31,19 @@ function export_manifest(::AbstractString, manifest)
     )
 end
 
+function default_model_manifest_context(family::Symbol, resolved)
+    family_name = string(family)
+    return (
+        model=(
+            id=string(family_name, "/default"),
+            family=family_name,
+            citation="default",
+            tag="default",
+        ),
+        resolved=resolved,
+    )
+end
+
 function finalize_construction_manifest(context)
     model = context.model
     resolved = context.resolved

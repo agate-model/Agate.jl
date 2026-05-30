@@ -54,3 +54,35 @@ end
     @test typeof(adapted) == typeof(traced_bgc)
     @test !hasproperty(adapted, :agate_metadata)
 end
+
+@testset "Model-level construction manifests" begin
+    darwin_bgc = Agate.Models.DARWIN.construct(
+        ;
+        grid=dummy_grid(Float32),
+        phyto_size_structure=(n=3, min_esd=1.5, max_esd=20.0, splitting=:log_splitting),
+        zoo_size_structure=(n=2, min_esd=20.0, max_esd=100.0, splitting=:log_splitting),
+    )
+    traced_darwin, darwin_manifest = Agate.Models.DARWIN.construct_with_manifest(
+        ;
+        grid=dummy_grid(Float32),
+        phyto_size_structure=(n=3, min_esd=1.5, max_esd=20.0, splitting=:log_splitting),
+        zoo_size_structure=(n=2, min_esd=20.0, max_esd=100.0, splitting=:log_splitting),
+    )
+
+    @test typeof(traced_darwin) == typeof(darwin_bgc)
+    @test darwin_manifest["model"]["id"] == "DARWIN/default"
+    @test darwin_manifest["model"]["family"] == "DARWIN"
+    @test darwin_manifest["resolved"]["scalar_type"] == "Float32"
+    @test "P3" in darwin_manifest["resolved"]["tracers"]
+
+    nipizd_bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
+    traced_nipizd, nipizd_manifest = Agate.Models.NiPiZD.construct_with_manifest(
+        ; grid=dummy_grid(Float32)
+    )
+
+    @test typeof(traced_nipizd) == typeof(nipizd_bgc)
+    @test nipizd_manifest["model"]["id"] == "NiPiZD/default"
+    @test nipizd_manifest["model"]["family"] == "NiPiZD"
+    @test nipizd_manifest["resolved"]["scalar_type"] == "Float32"
+    @test haskey(nipizd_manifest["resolved"], "parameters")
+end
