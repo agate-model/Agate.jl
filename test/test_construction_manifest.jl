@@ -1,6 +1,7 @@
 using Adapt
 using JSON
 using Oceananigans.Units: day
+using OceanBioME: BoxModelGrid
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 
 struct UnsupportedManifestValue end
@@ -90,7 +91,7 @@ end
 
     _, sinking_manifest = Agate.Models.NiPiZD.construct_with_manifest(
         ;
-        grid=dummy_grid(Float32),
+        grid=BoxModelGrid(),
         sinking_tracers=(P1=0.2551 / day, D=2.7489 / day),
         open_bottom=false,
     )
