@@ -2,6 +2,19 @@ using Adapt
 using JSON
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 
+struct UnsupportedManifestValue end
+
+
+@testset "Manifest value serialization" begin
+    value = Agate.Construction.manifest_parameter_value
+
+    @test value(:foo) == "foo"
+    @test value((1, :x, NaN)) == Any[1, "x", "NaN"]
+    @test value((a=1, b=:x)) == Dict{String,Any}("a" => 1, "b" => "x")
+    @test value(Dict(:a => [1, Inf])) == Dict{String,Any}("a" => Any[1, "Inf"])
+    @test_throws ArgumentError value(UnsupportedManifestValue())
+end
+
 @testset "Construction traceability" begin
     id = Agate.Models.ModelId(:DARWIN, :citation2026, :A)
     spec = Agate.Models.variant(
@@ -22,6 +35,7 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
     @test haskey(manifest["agate"], "version")
     @test !isempty(manifest["resolved"]["tracers"])
     @test manifest["resolved"]["scalar_type"] == "Float32"
+    @test manifest["resolved"]["auxiliary_fields"] == Any["PAR"]
     @test haskey(manifest["resolved"], "parameters")
     @test haskey(manifest["resolved"]["parameters"], "palatability_matrix")
     @test manifest["resolved"]["parameters"]["palatability_matrix"]["shape"] == "matrix"
@@ -29,6 +43,7 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 
     path = tempname() * ".json"
     @test Agate.Traceability.export_manifest(path, manifest) == path
+    @test_throws ArgumentError Agate.Traceability.export_manifest(path, (; schema="x"))
     @test isfile(path)
     parsed = JSON.parsefile(path)
     @test parsed["schema"] == "agate.construction_manifest.v1"
