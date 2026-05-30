@@ -78,6 +78,15 @@ end
         "enabled" => false, "tracers" => nothing, "open_bottom" => true
     )
     @test "P3" in darwin_manifest["resolved"]["tracers"]
+    @test darwin_manifest["recipe"]["constructor"] == "Agate.Models.DARWIN.construct"
+    @test darwin_manifest["recipe"]["kwargs"]["phyto_size_structure"] ==
+        darwin_manifest["resolved"]["plankton_diameters_by_group"]["P"]
+    @test darwin_manifest["recipe"]["kwargs"]["zoo_size_structure"] ==
+        darwin_manifest["resolved"]["plankton_diameters_by_group"]["Z"]
+    @test darwin_manifest["recipe"]["kwargs"]["parameters"] isa Dict
+    @test darwin_manifest["recipe"]["kwargs"]["sinking_tracers"] === nothing
+    @test darwin_manifest["recipe"]["kwargs"]["open_bottom"] == true
+    @test darwin_manifest["recipe"]["kwargs"]["scalar_type"] == "Float32"
 
     _, sinking_manifest = Agate.Models.NiPiZD.construct_with_manifest(
         ;
@@ -91,6 +100,10 @@ end
     @test sinking_manifest["resolved"]["sinking"]["tracers"] == Dict{String,Any}(
         "P1" => 0.2551 / day, "D" => 2.7489 / day
     )
+    @test sinking_manifest["recipe"]["kwargs"]["sinking_tracers"] == Dict{String,Any}(
+        "P1" => 0.2551 / day, "D" => 2.7489 / day
+    )
+    @test sinking_manifest["recipe"]["kwargs"]["open_bottom"] == false
 
     nipizd_bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
     traced_nipizd, nipizd_manifest = Agate.Models.NiPiZD.construct_with_manifest(
@@ -102,4 +115,6 @@ end
     @test nipizd_manifest["model"]["family"] == "NiPiZD"
     @test nipizd_manifest["resolved"]["scalar_type"] == "Float32"
     @test haskey(nipizd_manifest["resolved"], "parameters")
+    @test nipizd_manifest["recipe"]["constructor"] == "Agate.Models.NiPiZD.construct"
+    @test haskey(nipizd_manifest["recipe"]["kwargs"], "parameters")
 end

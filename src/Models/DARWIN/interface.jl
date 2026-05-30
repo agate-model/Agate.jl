@@ -4,7 +4,7 @@ import ...Configuration
 import ...Construction
 import ...Factories
 
-using ..: default_model_manifest_context, finalize_construction_manifest
+using ..: default_model_manifest_context, default_model_recipe, finalize_construction_manifest
 
 export construct, construct_with_manifest
 
@@ -185,7 +185,9 @@ function construct_with_manifest(; kwargs...)
         inputs.factory; inputs.kwargs...
     )
     manifest = finalize_construction_manifest(
-        default_model_manifest_context(:DARWIN, resolved)
+        default_model_manifest_context(
+            :DARWIN, resolved; recipe=default_model_recipe(:DARWIN, resolved)
+        )
     )
     return bgc, manifest
 end

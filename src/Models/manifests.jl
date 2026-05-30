@@ -31,7 +31,7 @@ function export_manifest(::AbstractString, manifest)
     )
 end
 
-function default_model_manifest_context(family::Symbol, resolved)
+function default_model_manifest_context(family::Symbol, resolved; recipe=nothing)
     family_name = string(family)
     return (
         model=(
@@ -40,7 +40,26 @@ function default_model_manifest_context(family::Symbol, resolved)
             citation="default",
             tag="default",
         ),
+        recipe=recipe,
         resolved=resolved,
+    )
+end
+
+
+function default_model_recipe(family::Symbol, resolved)
+    family_name = string(family)
+    diameters = resolved.plankton_diameters_by_group
+
+    return Dict{String,Any}(
+        "constructor" => string("Agate.Models.", family_name, ".construct"),
+        "kwargs" => Dict{String,Any}(
+            "phyto_size_structure" => diameters["P"],
+            "zoo_size_structure" => diameters["Z"],
+            "parameters" => resolved.parameter_values,
+            "sinking_tracers" => resolved.sinking["tracers"],
+            "open_bottom" => resolved.sinking["open_bottom"],
+            "scalar_type" => resolved.scalar_type,
+        ),
     )
 end
 
@@ -48,7 +67,7 @@ function finalize_construction_manifest(context)
     model = context.model
     resolved = context.resolved
 
-    return Dict{String,Any}(
+    manifest = Dict{String,Any}(
         "schema" => "agate.construction_manifest.v1",
         "created_at" => string(now(UTC)),
         "agate" => Dict{String,Any}(
@@ -65,10 +84,17 @@ function finalize_construction_manifest(context)
             "auxiliary_fields" => resolved.auxiliary_fields,
             "parameters" => resolved.parameters,
             "plankton_diameters" => resolved.plankton_diameters,
+            "plankton_diameters_by_group" => resolved.plankton_diameters_by_group,
             "scalar_type" => resolved.scalar_type,
             "architecture" => resolved.architecture,
             "has_sinking_velocities" => resolved.has_sinking_velocities,
             "sinking" => resolved.sinking,
         ),
     )
+
+    if hasproperty(context, :recipe) && !isnothing(context.recipe)
+        manifest["recipe"] = context.recipe
+    end
+
+    return manifest
 end

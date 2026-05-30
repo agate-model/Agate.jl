@@ -27,7 +27,7 @@ nothing #hide
 # `DARWIN.construct_with_manifest` accepts the same keywords as `DARWIN.construct`, but returns
 # two values:
 # - `bgc`: the runtime biogeochemistry object used by OceanBioME.jl
-# - `manifest`: a JSON-compatible record of the resolved construction state
+# - `manifest`: a JSON-compatible reconstruction recipe with resolved model metadata
 
 bgc, manifest = DARWIN.construct_with_manifest(;
     grid=BoxModelGrid(),
@@ -36,10 +36,13 @@ bgc, manifest = DARWIN.construct_with_manifest(;
 )
 nothing #hide
 
-# The manifest records the model identity, Agate version, Julia version, resolved tracers,
-# auxiliary fields, plankton diameters, and resolved parameter values.
+# The manifest includes a recipe section for reconstructing the Agate biogeochemistry
+# object, plus a resolved section for inspecting the model that was built. The recipe
+# stores explicit plankton diameters so future reconstruction does not need to rehydrate
+# size-splitting options.
 
 println(manifest["model"]["id"])
+println(manifest["recipe"]["constructor"])
 println(join(manifest["resolved"]["tracers"], ", "))
 nothing #hide
 

@@ -522,6 +522,19 @@ function parameter_manifest(factory::AbstractBGCFactory, params::NamedTuple, req
     return records
 end
 
+function parameter_value_manifest(params::NamedTuple, required::Tuple)
+    return Dict{String,Any}(
+        string(key) => manifest_parameter_value(getproperty(params, key)) for key in required
+    )
+end
+
+function plankton_diameter_group_manifest(context)
+    return Dict{String,Any}(
+        string(group) => Any[manifest_parameter_value(context.diameters[i]) for i in indices]
+        for (group, indices) in context.group_indices
+    )
+end
+
 """
     construct_factory(factory::AbstractBGCFactory; kwargs...) -> bgc
 
@@ -742,7 +755,9 @@ function _construct_factory_with_context(
         tracers=Any[string(name) for name in tracer_names],
         auxiliary_fields=Any[string(name) for name in auxiliary_fields],
         parameters=parameter_manifest(factory, resolved_parameters, required),
+        parameter_values=parameter_value_manifest(resolved_parameters, required),
         plankton_diameters=Any[manifest_parameter_value(d) for d in plankton_diameter_metadata],
+        plankton_diameters_by_group=plankton_diameter_group_manifest(community_context),
         scalar_type=string(T),
         architecture=string(typeof(arch)),
         has_sinking_velocities=!isnothing(sinking_tracers),
