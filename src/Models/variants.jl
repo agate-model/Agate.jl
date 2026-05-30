@@ -1,5 +1,5 @@
 using ..Factories: AbstractBGCFactory
-using ..Construction: construct_factory_with_context
+using ..Construction: construct_factory, construct_factory_with_context
 using ..Traceability: finalize_construction_manifest
 
 """Stable identifier for a model variant.
@@ -93,25 +93,41 @@ function variant(family::Symbol, citation::Symbol, tag::Symbol; kwargs...)
     variant(ModelId(family, citation, tag); kwargs...)
 end
 
-"""Construct a model instance from a `VariantSpec`.
-
-This is a thin convenience wrapper around `Agate.Construction.construct_factory`.
-"""
-function construct(
+function _resolved_variant_kwargs(
     spec::VariantSpec;
     parameters::NamedTuple=(;),
     interaction_overrides::Union{Nothing,NamedTuple}=nothing,
     auxiliary_fields=nothing,
     kwargs...,
 )
-    bgc, _ = _construct_variant_with_context(
-        spec;
-        parameters=parameters,
-        interaction_overrides=interaction_overrides,
-        auxiliary_fields=auxiliary_fields,
+    inter = spec.interaction_overrides
+    if isnothing(inter)
+        inter = interaction_overrides
+    elseif !isnothing(interaction_overrides)
+        inter = merge(inter, interaction_overrides)
+    end
+
+    effective_auxiliary_fields =
+        isnothing(auxiliary_fields) ? spec.auxiliary_fields : auxiliary_fields
+
+    return (;
+        plankton_dynamics=spec.plankton_dynamics,
+        biogeochem_dynamics=spec.biogeochem_dynamics,
+        community=spec.community,
+        parameters=merge(spec.parameters, parameters),
+        interaction_overrides=inter,
+        interaction_roles=spec.interaction_roles,
+        auxiliary_fields=effective_auxiliary_fields,
         kwargs...,
     )
-    return bgc
+end
+
+"""Construct a model instance from a `VariantSpec`.
+
+This is a thin convenience wrapper around `Agate.Construction.construct_factory`.
+"""
+function construct(spec::VariantSpec; kwargs...)
+    return construct_factory(spec.factory; _resolved_variant_kwargs(spec; kwargs...)...)
 end
 
 """Construct a model instance and return `(bgc, manifest)`.
@@ -120,57 +136,14 @@ The returned `bgc` is the same runtime object returned by `construct(spec; ...)`
 The manifest is generated during construction from the same resolved state and is
 kept separate from `AgateBGC` so the runtime object stays GPU-friendly.
 """
-function construct_with_manifest(
-    spec::VariantSpec;
-    parameters::NamedTuple=(;),
-    interaction_overrides::Union{Nothing,NamedTuple}=nothing,
-    auxiliary_fields=nothing,
-    kwargs...,
-)
-    bgc, context = _construct_variant_with_context(
-        spec;
-        parameters=parameters,
-        interaction_overrides=interaction_overrides,
-        auxiliary_fields=auxiliary_fields,
-        kwargs...,
-    )
+function construct_with_manifest(spec::VariantSpec; kwargs...)
+    bgc, context = _construct_variant_with_context(spec; kwargs...)
     return bgc, finalize_construction_manifest(context)
 end
 
-function _construct_variant_with_context(
-    spec::VariantSpec;
-    parameters::NamedTuple=(;),
-    interaction_overrides::Union{Nothing,NamedTuple}=nothing,
-    auxiliary_fields=nothing,
-    kwargs...,
-)
-    params = merge(spec.parameters, parameters)
-
-    inter = spec.interaction_overrides
-    if isnothing(inter)
-        inter = interaction_overrides
-    elseif isnothing(interaction_overrides)
-        # Keep the spec's interaction overrides.
-    else
-        inter = merge(inter, interaction_overrides)
-    end
-
-    effective_auxiliary_fields = if isnothing(auxiliary_fields)
-        spec.auxiliary_fields
-    else
-        auxiliary_fields
-    end
-
+function _construct_variant_with_context(spec::VariantSpec; kwargs...)
     bgc, resolved = construct_factory_with_context(
-        spec.factory;
-        plankton_dynamics=spec.plankton_dynamics,
-        biogeochem_dynamics=spec.biogeochem_dynamics,
-        community=spec.community,
-        parameters=params,
-        interaction_overrides=inter,
-        interaction_roles=spec.interaction_roles,
-        auxiliary_fields=effective_auxiliary_fields,
-        kwargs...,
+        spec.factory; _resolved_variant_kwargs(spec; kwargs...)...
     )
 
     context = (

@@ -467,19 +467,35 @@ function manifest_axis(axis)
     return string(axis)
 end
 
-function manifest_parameter_value(x)
-    if x isa Symbol
+function manifest_parameter_value(x, name=nothing)
+    if x === nothing || x isa Bool || x isa Integer || x isa AbstractString
+        return x
+    elseif x isa AbstractFloat
+        return isfinite(x) ? x : string(x)
+    elseif x isa Symbol
         return string(x)
+    elseif x isa NamedTuple
+        return Dict{String,Any}(
+            string(k) => manifest_parameter_value(v, k) for (k, v) in pairs(x)
+        )
+    elseif x isa AbstractDict
+        return Dict{String,Any}(
+            string(k) => manifest_parameter_value(v, k) for (k, v) in pairs(x)
+        )
     elseif x isa AbstractMatrix
         return Any[
-            Any[manifest_parameter_value(x[i, j]) for j in axes(x, 2)] for i in axes(x, 1)
+            Any[manifest_parameter_value(x[i, j], name) for j in axes(x, 2)]
+            for i in axes(x, 1)
         ]
     elseif x isa AbstractVector || x isa Tuple
-        return Any[manifest_parameter_value(v) for v in x]
-    elseif x isa AbstractFloat && !isfinite(x)
-        return string(x)
+        return Any[manifest_parameter_value(v, name) for v in x]
     else
-        return x
+        label = isnothing(name) ? "" : " $(repr(name))"
+        throw(
+            ArgumentError(
+                "Cannot serialize manifest parameter$(label) of type $(typeof(x))."
+            )
+        )
     end
 end
 
@@ -562,12 +578,12 @@ function resolve_construction_scalar_type(grid, scalar_type)
 end
 
 function construct_factory(factory::AbstractBGCFactory; kwargs...)
-    bgc, _ = construct_factory_with_context(factory; kwargs...)
+    bgc, _ = _construct_factory_with_context(factory; build_context=false, kwargs...)
     return bgc
 end
 
 function construct_factory_with_context(factory::AbstractBGCFactory; kwargs...)
-    return _construct_factory_with_context(factory; kwargs...)
+    return _construct_factory_with_context(factory; build_context=true, kwargs...)
 end
 
 function _construct_factory_with_context(
@@ -585,6 +601,7 @@ function _construct_factory_with_context(
     grid=nothing,
     scalar_type=nothing,
     open_bottom::Bool=true,
+    build_context::Bool=true,
 )
     if isnothing(grid) && !isnothing(sinking_tracers)
         grid = BoxModelGrid()
@@ -693,15 +710,6 @@ function _construct_factory_with_context(
     )
 
     plankton_diameter_metadata = Tuple(community_context.diameters)
-    construction_context = (
-        tracers=Any[string(name) for name in tracer_names],
-        auxiliary_fields=Any[string(name) for name in auxiliary_fields],
-        parameters=parameter_manifest(factory, resolved_parameters, required),
-        plankton_diameters=Any[manifest_parameter_value(d) for d in plankton_diameter_metadata],
-        scalar_type=string(T),
-        architecture=string(typeof(arch)),
-        has_sinking_velocities=!isnothing(sinking_tracers),
-    )
 
     if isnothing(sinking_tracers)
         bgc_factory = define_tracer_functions(
@@ -729,6 +737,16 @@ function _construct_factory_with_context(
         )
     end
     bgc = on_architecture(arch, bgc)
+
+    construction_context = build_context ? (
+        tracers=Any[string(name) for name in tracer_names],
+        auxiliary_fields=Any[string(name) for name in auxiliary_fields],
+        parameters=parameter_manifest(factory, resolved_parameters, required),
+        plankton_diameters=Any[manifest_parameter_value(d) for d in plankton_diameter_metadata],
+        scalar_type=string(T),
+        architecture=string(typeof(arch)),
+        has_sinking_velocities=!isnothing(sinking_tracers),
+    ) : nothing
 
     return bgc, construction_context
 end
