@@ -6,7 +6,6 @@ include("Library/Library.jl")
 include("Configuration/Configuration.jl")
 include("Runtime/Runtime.jl")
 include("Diagnostics/Diagnostics.jl")
-include("Traceability.jl")
 include("Construction/Construction.jl")
 include("Models/Models.jl")
 include("Introspection.jl")
@@ -17,7 +16,6 @@ export Factories
 export Configuration
 export Runtime
 export Diagnostics
-export Traceability
 export Equations
 export Construction
 export Introspection

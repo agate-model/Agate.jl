@@ -1,6 +1,5 @@
 using ..Factories: AbstractBGCFactory
 using ..Construction: construct_factory, construct_factory_with_context
-using ..Traceability: finalize_construction_manifest
 
 """Stable identifier for a model variant.
 

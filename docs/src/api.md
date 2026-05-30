@@ -34,7 +34,7 @@ pal.matrix   # consumer-by-prey matrix
 
 ```@docs
 Agate.Models.construct_with_manifest
-Agate.Traceability.export_manifest
+Agate.Models.export_manifest
 Agate.Construction.PFTSpecification
 Agate.Factories.AbstractBGCFactory
 Agate.Equations.CompiledEquation
