@@ -14,7 +14,7 @@
 
 using Agate
 using Agate.Library.Light
-using Agate.Models: export_manifest
+using Agate.Models: export_manifest, construct_from_manifest
 using Agate.Models: DARWIN
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -44,6 +44,14 @@ nothing #hide
 println(manifest["model"]["id"])
 println(manifest["recipe"]["constructor"])
 println(join(manifest["resolved"]["tracers"], ", "))
+nothing #hide
+
+# The same manifest can later be used to reconstruct the Agate biogeochemistry object.
+# Because the manifest does not yet encode the physical grid, we pass `grid=BoxModelGrid()`
+# explicitly when replaying the recipe.
+
+reconstructed_bgc = construct_from_manifest(manifest; grid=BoxModelGrid())
+println(typeof(reconstructed_bgc))
 nothing #hide
 
 # ## Physical model

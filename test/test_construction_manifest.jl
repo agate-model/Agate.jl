@@ -118,4 +118,22 @@ end
     @test haskey(nipizd_manifest["resolved"], "parameters")
     @test nipizd_manifest["recipe"]["constructor"] == "Agate.Models.NiPiZD.construct"
     @test haskey(nipizd_manifest["recipe"]["kwargs"], "parameters")
+
+    replayed_darwin = Agate.Models.construct_from_manifest(darwin_manifest; grid=dummy_grid(Float32))
+    @test typeof(replayed_darwin) == typeof(darwin_bgc)
+    @test required_biogeochemical_tracers(replayed_darwin) == required_biogeochemical_tracers(darwin_bgc)
+
+    replayed_nipizd = Agate.Models.construct_from_manifest(nipizd_manifest; grid=dummy_grid(Float32))
+    @test typeof(replayed_nipizd) == typeof(nipizd_bgc)
+    @test required_biogeochemical_tracers(replayed_nipizd) == required_biogeochemical_tracers(nipizd_bgc)
+
+    replayed_sinking_nipizd = Agate.Models.construct_from_manifest(sinking_manifest; grid=BoxModelGrid())
+    @test typeof(replayed_sinking_nipizd) == typeof(Agate.Models.NiPiZD.construct(; grid=BoxModelGrid(), sinking_tracers=(P1=0.2551 / day, D=2.7489 / day), open_bottom=false))
+
+    path = tempname() * ".json"
+    Agate.Models.export_manifest(path, darwin_manifest)
+    replayed_from_path = Agate.Models.construct_from_manifest(path; grid=dummy_grid(Float32))
+    @test typeof(replayed_from_path) == typeof(darwin_bgc)
+
+    @test_throws ArgumentError Agate.Models.construct_from_manifest(Dict{String,Any}("schema" => "agate.construction_manifest.v1"))
 end

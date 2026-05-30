@@ -31,6 +31,161 @@ function export_manifest(::AbstractString, manifest)
     )
 end
 
+
+
+"""
+    construct_from_manifest(manifest; grid=nothing, arch=nothing) -> bgc
+    construct_from_manifest(path::AbstractString; grid=nothing, arch=nothing) -> bgc
+
+Reconstruct an Agate biogeochemistry object from a model-level construction manifest.
+
+This uses the manifest's `recipe` section to call the corresponding public model
+constructor. The manifest must therefore contain a top-level `"recipe"` entry,
+which is currently produced by model-level `construct_with_manifest` methods such as
+`Agate.Models.DARWIN.construct_with_manifest` and
+`Agate.Models.NiPiZD.construct_with_manifest`.
+
+The manifest does not currently encode a grid specification. Pass `grid=...` when you
+want to reconstruct against a specific grid; otherwise the target constructor's default
+behavior is used.
+"""
+function construct_from_manifest(manifest::AbstractDict; grid=nothing, arch=nothing)
+    haskey(manifest, "recipe") || throw(
+        ArgumentError(
+            "Manifest does not contain a top-level \"recipe\" section required for reconstruction."
+        ),
+    )
+
+    recipe = manifest["recipe"]
+    recipe isa AbstractDict || throw(
+        ArgumentError("Manifest recipe must be a dictionary, got $(typeof(recipe)).")
+    )
+
+    constructor = get(recipe, "constructor", nothing)
+    constructor isa AbstractString || throw(
+        ArgumentError("Manifest recipe is missing a string \"constructor\" entry.")
+    )
+
+    kwargs_dict = get(recipe, "kwargs", nothing)
+    kwargs_dict isa AbstractDict || throw(
+        ArgumentError("Manifest recipe is missing a dictionary \"kwargs\" entry.")
+    )
+
+    constructor_kwargs = _recipe_constructor_kwargs(kwargs_dict, manifest; grid=grid, arch=arch)
+
+    if constructor == "Agate.Models.DARWIN.construct"
+        return DARWIN.construct(; constructor_kwargs...)
+    elseif constructor == "Agate.Models.NiPiZD.construct"
+        return NiPiZD.construct(; constructor_kwargs...)
+    else
+        throw(ArgumentError("Unsupported manifest constructor $(repr(constructor))."))
+    end
+end
+
+function construct_from_manifest(path::AbstractString; grid=nothing, arch=nothing)
+    return construct_from_manifest(JSON.parsefile(path); grid=grid, arch=arch)
+end
+
+function _recipe_constructor_kwargs(kwargs_dict::AbstractDict, manifest::AbstractDict; grid=nothing, arch=nothing)
+    pairs = Pair{Symbol,Any}[]
+
+    for key in ("phyto_size_structure", "zoo_size_structure", "open_bottom")
+        haskey(kwargs_dict, key) && push!(pairs, Symbol(key) => kwargs_dict[key])
+    end
+
+    if haskey(kwargs_dict, "parameters")
+        parameters = kwargs_dict["parameters"]
+        parameters isa AbstractDict || throw(
+            ArgumentError(
+                "Manifest recipe \"parameters\" entry must be a dictionary, got $(typeof(parameters))."
+            ),
+        )
+        push!(pairs, :parameters => _parameter_kwargs(parameters, manifest))
+    end
+
+    if haskey(kwargs_dict, "sinking_tracers")
+        sinking = kwargs_dict["sinking_tracers"]
+        if isnothing(sinking)
+            push!(pairs, :sinking_tracers => nothing)
+        else
+            sinking isa AbstractDict || throw(
+                ArgumentError(
+                    "Manifest recipe \"sinking_tracers\" entry must be a dictionary or nothing, got $(typeof(sinking))."
+                ),
+            )
+            push!(pairs, :sinking_tracers => _dict_to_namedtuple(sinking))
+        end
+    end
+
+    if haskey(kwargs_dict, "scalar_type")
+        push!(pairs, :scalar_type => _decode_manifest_scalar_type(kwargs_dict["scalar_type"]))
+    end
+
+    !isnothing(grid) && push!(pairs, :grid => grid)
+    !isnothing(arch) && push!(pairs, :arch => arch)
+
+    return (; pairs...)
+end
+
+function _parameter_kwargs(parameters::AbstractDict, manifest::AbstractDict)
+    records = get(get(manifest, "resolved", Dict{String,Any}()), "parameters", Dict{String,Any}())
+    return (; (
+        Symbol(k) => _manifest_parameter_value_to_julia(k, v, records) for
+        (k, v) in pairs(parameters)
+    )...)
+end
+
+function _manifest_parameter_value_to_julia(key, value, records)
+    record = records isa AbstractDict ? get(records, string(key), nothing) : nothing
+    if record isa AbstractDict && get(record, "shape", nothing) == "matrix"
+        return _manifest_matrix(value)
+    end
+    return _manifest_value_to_julia(value)
+end
+
+function _manifest_matrix(value)
+    value isa AbstractVector || throw(
+        ArgumentError(
+            "Manifest matrix parameter must be encoded as a vector of rows, got $(typeof(value))."
+        ),
+    )
+    rows = Any[value[i] for i in eachindex(value)]
+    isempty(rows) && return Matrix{Any}(undef, 0, 0)
+    all(row -> row isa AbstractVector, rows) || throw(
+        ArgumentError("Manifest matrix parameter rows must be vectors."),
+    )
+    ncols = length(rows[1])
+    all(row -> length(row) == ncols, rows) || throw(
+        ArgumentError("Manifest matrix parameter rows must all have the same length."),
+    )
+    return [_manifest_value_to_julia(rows[i][j]) for i in eachindex(rows), j in 1:ncols]
+end
+
+function _dict_to_namedtuple(dict::AbstractDict)
+    return (; (Symbol(k) => _manifest_value_to_julia(v) for (k, v) in pairs(dict))...)
+end
+
+_manifest_value_to_julia(x) = x
+
+function _decode_manifest_scalar_type(x)
+    isnothing(x) && return nothing
+    x isa Type && x <: Real && return x
+    x isa AbstractString || throw(
+        ArgumentError(
+            "Manifest recipe scalar_type must be a string or concrete Real type, got $(typeof(x))."
+        ),
+    )
+
+    name = Symbol(x)
+    for mod in (Core, Base)
+        if isdefined(mod, name)
+            T = getfield(mod, name)
+            T isa Type && T <: Real && return T
+        end
+    end
+
+    throw(ArgumentError("Unsupported manifest scalar_type $(repr(x))."))
+end
 function default_model_manifest_context(family::Symbol, resolved; recipe=nothing)
     family_name = string(family)
     return (
