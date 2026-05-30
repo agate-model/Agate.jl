@@ -14,6 +14,12 @@ function agate_version()
     return string(project["version"])
 end
 
+
+"""
+    export_manifest(path, manifest) -> path
+
+Write an Agate construction manifest dictionary to `path` as pretty-printed JSON.
+"""
 function export_manifest(path::AbstractString, manifest::AbstractDict)
     open(path, "w") do io
         JSON.print(io, manifest, 4)
