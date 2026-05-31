@@ -1,7 +1,13 @@
 # # [Exporting a model setup] (@id export_model_setup_example)
 
-# This example shows how to construct a NiPiZD model, export the setup used to
-# build it, and reload that setup later to reconstruct the model.
+# This example shows how to save the inputs used to construct an Agate model.
+# Saving the setup makes it easier to recreate the same model later, or to share
+# the model configuration with someone else.
+
+# ## Loading dependencies
+# The example uses Agate.jl to construct the model and OceanBioME.jl to provide a
+# simple box-model grid. Agate.Manifests provides the functions used to export and reload 
+# the model setup.
 
 using Agate
 using Agate.Manifests: construct_from_manifest, export_manifest
@@ -10,45 +16,43 @@ using OceanBioME: BoxModelGrid
 
 nothing #hide
 
-# ## Construct with a setup record
+# ## Construct a model and setup record
 
-# `NiPiZD.construct_with_manifest` accepts the same keywords as `NiPiZD.construct`,
-# but also returns a JSON-compatible setup record. Agate represents this setup as
-# a manifest.
+# `NiPiZD.construct_with_manifest` accepts the same keywords as `NiPiZD.construct`.
+# In addition to the biogeochemistry object, it returns a setup record describing
+# the model recipe and constructor inputs. Agate stores this setup as a manifest,
+# which is a JSON-compatible dictionary.
 
 grid = BoxModelGrid()
 
-bgc, setup = NiPiZD.construct_with_manifest(;
-    grid=grid,
+bgc, manifest = NiPiZD.construct_with_manifest(;
+    grid,
     phyto_size_structure=(n=3, min_esd=1.0, max_esd=10.0, splitting=:log_splitting),
     zoo_size_structure=(n=2, min_esd=20.0, max_esd=100.0, splitting=:linear_splitting),
 )
 
-println(setup["model"]["id"])
-println(setup["recipe"]["family"])
-println(join(setup["resolved"]["tracers"], ", "))
+nothing #hide
+
+# ## Export the manifest
+
+# `export_manifest` writes the setup to a JSON file. The exported file records the
+# biological model configuration, but not the physical grid, so the grid remains
+# explicit when the setup is loaded again.
+
+manifest_path = tempname() * ".json"
+export_manifest(manifest_path, manifest)
+
+println("Wrote model manifest to ", manifest_path)
 
 nothing #hide
 
-# ## Export
+# ## Reload the manifest
 
-# Exporting writes the setup record to a JSON file. Construction does not write
-# files automatically.
+# `construct_from_manifest` reads the exported manifest and reconstructs the Agate
+# biogeochemistry object. The grid is supplied separately because it describes the
+# physical domain rather than the biological model setup.
 
-setup_path = tempname() * ".json"
-export_manifest(setup_path, setup)
-
-println("Wrote model setup to ", setup_path)
-
-nothing #hide
-
-# ## Import
-
-# The exported setup can be loaded later to reconstruct the Agate biogeochemistry
-# object. The physical grid is not encoded in the setup, so it is supplied when
-# replaying it.
-
-reloaded_bgc = construct_from_manifest(setup_path; grid)
+reloaded_bgc = construct_from_manifest(manifest_path; grid)
 
 println(typeof(bgc))
 println(typeof(reloaded_bgc))
