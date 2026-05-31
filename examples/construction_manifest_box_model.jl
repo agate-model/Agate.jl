@@ -42,7 +42,7 @@ nothing #hide
 # size-splitting options.
 
 println(manifest["model"]["id"])
-println(manifest["recipe"]["constructor"])
+println(manifest["recipe"]["family"])
 println(join(manifest["resolved"]["tracers"], ", "))
 nothing #hide
 

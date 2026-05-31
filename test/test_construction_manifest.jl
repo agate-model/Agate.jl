@@ -80,7 +80,8 @@ end
     )
     @test "P3" in darwin_manifest["resolved"]["tracers"]
     @test darwin_manifest["recipe"]["type"] == "model_constructor"
-    @test darwin_manifest["recipe"]["constructor"] == "Agate.Models.DARWIN.construct"
+    @test darwin_manifest["recipe"]["family"] == "DARWIN"
+    @test !haskey(darwin_manifest["recipe"], "constructor")
     @test darwin_manifest["recipe"]["kwargs"]["phyto_size_structure"] ==
         darwin_manifest["resolved"]["plankton_diameters_by_group"]["P"]
     @test darwin_manifest["recipe"]["kwargs"]["zoo_size_structure"] ==
@@ -119,7 +120,8 @@ end
     @test nipizd_manifest["resolved"]["scalar_type"] == "Float32"
     @test haskey(nipizd_manifest["resolved"], "parameters")
     @test nipizd_manifest["recipe"]["type"] == "model_constructor"
-    @test nipizd_manifest["recipe"]["constructor"] == "Agate.Models.NiPiZD.construct"
+    @test nipizd_manifest["recipe"]["family"] == "NiPiZD"
+    @test !haskey(nipizd_manifest["recipe"], "constructor")
     @test haskey(nipizd_manifest["recipe"]["kwargs"], "parameters")
 
     replayed_darwin = Agate.Models.construct_from_manifest(darwin_manifest; grid=dummy_grid(Float32))
@@ -128,6 +130,7 @@ end
 
     replayed_nipizd = Agate.Models.construct_from_manifest(nipizd_manifest; grid=dummy_grid(Float32))
     @test typeof(replayed_nipizd) == typeof(nipizd_bgc)
+
     @test required_biogeochemical_tracers(replayed_nipizd) == required_biogeochemical_tracers(nipizd_bgc)
 
     replayed_sinking_nipizd = Agate.Models.construct_from_manifest(sinking_manifest; grid=BoxModelGrid())
@@ -149,4 +152,23 @@ end
     unsupported_type_manifest = deepcopy(darwin_manifest)
     unsupported_type_manifest["recipe"]["type"] = "factory_graph"
     @test_throws ArgumentError Agate.Models.construct_from_manifest(unsupported_type_manifest; grid=dummy_grid(Float32))
+
+    missing_family_manifest = deepcopy(darwin_manifest)
+    delete!(missing_family_manifest["recipe"], "family")
+    @test_throws ArgumentError Agate.Models.construct_from_manifest(
+        missing_family_manifest; grid=dummy_grid(Float32)
+    )
+
+    unsupported_family_manifest = deepcopy(darwin_manifest)
+    unsupported_family_manifest["recipe"]["family"] = "NPZD"
+    @test_throws ArgumentError Agate.Models.construct_from_manifest(
+        unsupported_family_manifest; grid=dummy_grid(Float32)
+    )
+
+    constructor_only_manifest = deepcopy(darwin_manifest)
+    delete!(constructor_only_manifest["recipe"], "family")
+    constructor_only_manifest["recipe"]["constructor"] = "Agate.Models.DARWIN.construct"
+    @test_throws ArgumentError Agate.Models.construct_from_manifest(
+        constructor_only_manifest; grid=dummy_grid(Float32)
+    )
 end

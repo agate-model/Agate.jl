@@ -39,8 +39,8 @@ end
 
 Reconstruct an Agate biogeochemistry object from a model-level construction manifest.
 
-This uses the manifest's `recipe` section to call the corresponding public model
-constructor. The manifest must therefore contain a top-level `"recipe"` entry,
+This uses the manifest's `recipe` section to resolve an allowed model family.
+The manifest must therefore contain a top-level `"recipe"` entry,
 which is currently produced by model-level `construct_with_manifest` methods such as
 `Agate.Models.DARWIN.construct_with_manifest` and
 `Agate.Models.NiPiZD.construct_with_manifest`.
@@ -51,20 +51,21 @@ behavior is used.
 """
 const CONSTRUCTION_MANIFEST_SCHEMA = "agate.construction_manifest.v1"
 const MODEL_CONSTRUCTOR_RECIPE_TYPE = "model_constructor"
+const MODEL_CONSTRUCTOR_FAMILIES = ("DARWIN", "NiPiZD")
 
 function construct_from_manifest(manifest::AbstractDict; grid=nothing, arch=nothing)
     recipe = _validated_manifest_recipe(manifest)
 
-    constructor = recipe["constructor"]
+    family = _model_constructor_family(recipe)
     kwargs_dict = recipe["kwargs"]
     constructor_kwargs = _recipe_constructor_kwargs(kwargs_dict, manifest; grid=grid, arch=arch)
 
-    if constructor == "Agate.Models.DARWIN.construct"
+    if family == "DARWIN"
         return DARWIN.construct(; constructor_kwargs...)
-    elseif constructor == "Agate.Models.NiPiZD.construct"
+    elseif family == "NiPiZD"
         return NiPiZD.construct(; constructor_kwargs...)
     else
-        throw(ArgumentError("Unsupported manifest constructor $(repr(constructor))."))
+        throw(ArgumentError("Unsupported model constructor family $(repr(family))."))
     end
 end
 
@@ -100,10 +101,11 @@ function _validated_manifest_recipe(manifest::AbstractDict)
         ),
     )
 
-    constructor = get(recipe, "constructor", nothing)
-    constructor isa AbstractString || throw(
-        ArgumentError("Manifest recipe is missing a string \"constructor\" entry.")
+    family = get(recipe, "family", nothing)
+    family isa AbstractString || throw(
+        ArgumentError("Manifest recipe is missing a string \"family\" entry.")
     )
+    _model_constructor_family(recipe)
 
     kwargs_dict = get(recipe, "kwargs", nothing)
     kwargs_dict isa AbstractDict || throw(
@@ -111,6 +113,13 @@ function _validated_manifest_recipe(manifest::AbstractDict)
     )
 
     return recipe
+end
+
+
+function _model_constructor_family(recipe::AbstractDict)
+    family = recipe["family"]
+    family in MODEL_CONSTRUCTOR_FAMILIES && return family
+    throw(ArgumentError("Unsupported model constructor family $(repr(family))."))
 end
 
 function construct_from_manifest(path::AbstractString; grid=nothing, arch=nothing)
@@ -259,7 +268,7 @@ function default_model_recipe(family::Symbol, resolved)
 
     return Dict{String,Any}(
         "type" => MODEL_CONSTRUCTOR_RECIPE_TYPE,
-        "constructor" => string("Agate.Models.", family_name, ".construct"),
+        "family" => family_name,
         "kwargs" => Dict{String,Any}(
             "phyto_size_structure" => diameters["P"],
             "zoo_size_structure" => diameters["Z"],
