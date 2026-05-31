@@ -104,17 +104,7 @@ function _recipe_constructor_kwargs(kwargs_dict::AbstractDict, manifest::Abstrac
     end
 
     if haskey(kwargs_dict, "sinking_tracers")
-        sinking = kwargs_dict["sinking_tracers"]
-        if isnothing(sinking)
-            push!(pairs, :sinking_tracers => nothing)
-        else
-            sinking isa AbstractDict || throw(
-                ArgumentError(
-                    "Manifest recipe \"sinking_tracers\" entry must be a dictionary or nothing, got $(typeof(sinking))."
-                ),
-            )
-            push!(pairs, :sinking_tracers => _dict_to_namedtuple(sinking))
-        end
+        push!(pairs, :sinking_tracers => _sinking_tracers_kwargs(kwargs_dict["sinking_tracers"]))
     end
 
     if haskey(kwargs_dict, "scalar_type")
@@ -125,6 +115,37 @@ function _recipe_constructor_kwargs(kwargs_dict::AbstractDict, manifest::Abstrac
     !isnothing(arch) && push!(pairs, :arch => arch)
 
     return (; pairs...)
+end
+
+
+function _sinking_tracers_kwargs(sinking)
+    isnothing(sinking) && return nothing
+
+    if sinking isa AbstractDict
+        return _dict_to_namedtuple(sinking)
+    elseif sinking isa AbstractVector
+        pairs = Pair{Symbol,Any}[]
+        for item in sinking
+            item isa AbstractDict || throw(
+                ArgumentError(
+                    "Manifest recipe ordered sinking tracer entries must be dictionaries, got $(typeof(item))."
+                ),
+            )
+            haskey(item, "name") && haskey(item, "value") || throw(
+                ArgumentError(
+                    "Manifest recipe ordered sinking tracer entries must contain \"name\" and \"value\"."
+                ),
+            )
+            push!(pairs, Symbol(item["name"]) => _manifest_value_to_julia(item["value"]))
+        end
+        return (; pairs...)
+    else
+        throw(
+            ArgumentError(
+                "Manifest recipe \"sinking_tracers\" entry must be an ordered vector, dictionary, or nothing, got $(typeof(sinking))."
+            ),
+        )
+    end
 end
 
 function _parameter_kwargs(parameters::AbstractDict, manifest::AbstractDict)
@@ -211,7 +232,7 @@ function default_model_recipe(family::Symbol, resolved)
             "phyto_size_structure" => diameters["P"],
             "zoo_size_structure" => diameters["Z"],
             "parameters" => resolved.parameter_values,
-            "sinking_tracers" => resolved.sinking["tracers"],
+            "sinking_tracers" => resolved.sinking_tracers_recipe,
             "open_bottom" => resolved.sinking["open_bottom"],
             "scalar_type" => resolved.scalar_type,
         ),

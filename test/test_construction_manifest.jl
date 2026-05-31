@@ -101,9 +101,10 @@ end
     @test sinking_manifest["resolved"]["sinking"]["tracers"] == Dict{String,Any}(
         "P1" => 0.2551 / day, "D" => 2.7489 / day
     )
-    @test sinking_manifest["recipe"]["kwargs"]["sinking_tracers"] == Dict{String,Any}(
-        "P1" => 0.2551 / day, "D" => 2.7489 / day
-    )
+    @test sinking_manifest["recipe"]["kwargs"]["sinking_tracers"] == Any[
+        Dict{String,Any}("name" => "P1", "value" => 0.2551 / day),
+        Dict{String,Any}("name" => "D", "value" => 2.7489 / day),
+    ]
     @test sinking_manifest["recipe"]["kwargs"]["open_bottom"] == false
 
     nipizd_bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))

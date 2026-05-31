@@ -499,6 +499,19 @@ function manifest_parameter_value(x, name=nothing)
     end
 end
 
+
+function manifest_ordered_pairs(x)
+    x === nothing && return nothing
+    if x isa NamedTuple || x isa AbstractDict
+        return Any[
+            Dict{String,Any}("name" => string(k), "value" => manifest_parameter_value(v, k))
+            for (k, v) in pairs(x)
+        ]
+    else
+        return manifest_parameter_value(x)
+    end
+end
+
 function parameter_record_manifest(spec, value)
     return Dict{String,Any}(
         "shape" => string(spec.shape),
@@ -766,6 +779,7 @@ function _construct_factory_with_context(
             "tracers" => manifest_parameter_value(sinking_tracers),
             "open_bottom" => open_bottom,
         ),
+        sinking_tracers_recipe=manifest_ordered_pairs(sinking_tracers),
     ) : nothing
 
     return bgc, construction_context
