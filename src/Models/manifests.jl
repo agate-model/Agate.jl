@@ -49,7 +49,36 @@ The manifest does not currently encode a grid specification. Pass `grid=...` whe
 want to reconstruct against a specific grid; otherwise the target constructor's default
 behavior is used.
 """
+const CONSTRUCTION_MANIFEST_SCHEMA = "agate.construction_manifest.v1"
+const MODEL_CONSTRUCTOR_RECIPE_TYPE = "model_constructor"
+
 function construct_from_manifest(manifest::AbstractDict; grid=nothing, arch=nothing)
+    recipe = _validated_manifest_recipe(manifest)
+
+    constructor = recipe["constructor"]
+    kwargs_dict = recipe["kwargs"]
+    constructor_kwargs = _recipe_constructor_kwargs(kwargs_dict, manifest; grid=grid, arch=arch)
+
+    if constructor == "Agate.Models.DARWIN.construct"
+        return DARWIN.construct(; constructor_kwargs...)
+    elseif constructor == "Agate.Models.NiPiZD.construct"
+        return NiPiZD.construct(; constructor_kwargs...)
+    else
+        throw(ArgumentError("Unsupported manifest constructor $(repr(constructor))."))
+    end
+end
+
+function _validated_manifest_recipe(manifest::AbstractDict)
+    schema = get(manifest, "schema", nothing)
+    schema isa AbstractString || throw(
+        ArgumentError("Manifest is missing a string \"schema\" entry.")
+    )
+    schema == CONSTRUCTION_MANIFEST_SCHEMA || throw(
+        ArgumentError(
+            "Unsupported manifest schema $(repr(schema)); expected $(repr(CONSTRUCTION_MANIFEST_SCHEMA))."
+        ),
+    )
+
     haskey(manifest, "recipe") || throw(
         ArgumentError(
             "Manifest does not contain a top-level \"recipe\" section required for reconstruction."
@@ -59,6 +88,16 @@ function construct_from_manifest(manifest::AbstractDict; grid=nothing, arch=noth
     recipe = manifest["recipe"]
     recipe isa AbstractDict || throw(
         ArgumentError("Manifest recipe must be a dictionary, got $(typeof(recipe)).")
+    )
+
+    recipe_type = get(recipe, "type", nothing)
+    recipe_type isa AbstractString || throw(
+        ArgumentError("Manifest recipe is missing a string \"type\" entry.")
+    )
+    recipe_type == MODEL_CONSTRUCTOR_RECIPE_TYPE || throw(
+        ArgumentError(
+            "Unsupported manifest recipe type $(repr(recipe_type)); expected $(repr(MODEL_CONSTRUCTOR_RECIPE_TYPE))."
+        ),
     )
 
     constructor = get(recipe, "constructor", nothing)
@@ -71,15 +110,7 @@ function construct_from_manifest(manifest::AbstractDict; grid=nothing, arch=noth
         ArgumentError("Manifest recipe is missing a dictionary \"kwargs\" entry.")
     )
 
-    constructor_kwargs = _recipe_constructor_kwargs(kwargs_dict, manifest; grid=grid, arch=arch)
-
-    if constructor == "Agate.Models.DARWIN.construct"
-        return DARWIN.construct(; constructor_kwargs...)
-    elseif constructor == "Agate.Models.NiPiZD.construct"
-        return NiPiZD.construct(; constructor_kwargs...)
-    else
-        throw(ArgumentError("Unsupported manifest constructor $(repr(constructor))."))
-    end
+    return recipe
 end
 
 function construct_from_manifest(path::AbstractString; grid=nothing, arch=nothing)
@@ -227,7 +258,7 @@ function default_model_recipe(family::Symbol, resolved)
     diameters = resolved.plankton_diameters_by_group
 
     return Dict{String,Any}(
-        "type" => "model_constructor",
+        "type" => MODEL_CONSTRUCTOR_RECIPE_TYPE,
         "constructor" => string("Agate.Models.", family_name, ".construct"),
         "kwargs" => Dict{String,Any}(
             "phyto_size_structure" => diameters["P"],
@@ -245,7 +276,7 @@ function finalize_construction_manifest(context)
     resolved = context.resolved
 
     manifest = Dict{String,Any}(
-        "schema" => "agate.construction_manifest.v1",
+        "schema" => CONSTRUCTION_MANIFEST_SCHEMA,
         "created_at" => string(now(UTC)),
         "agate" => Dict{String,Any}(
             "version" => agate_version(), "julia_version" => string(VERSION)

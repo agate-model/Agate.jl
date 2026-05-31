@@ -138,5 +138,15 @@ end
     replayed_from_path = Agate.Models.construct_from_manifest(path; grid=dummy_grid(Float32))
     @test typeof(replayed_from_path) == typeof(darwin_bgc)
 
+    @test_throws ArgumentError Agate.Models.construct_from_manifest(Dict{String,Any}())
+    @test_throws ArgumentError Agate.Models.construct_from_manifest(Dict{String,Any}("schema" => "agate.construction_manifest.v2"))
     @test_throws ArgumentError Agate.Models.construct_from_manifest(Dict{String,Any}("schema" => "agate.construction_manifest.v1"))
+
+    missing_type_manifest = deepcopy(darwin_manifest)
+    delete!(missing_type_manifest["recipe"], "type")
+    @test_throws ArgumentError Agate.Models.construct_from_manifest(missing_type_manifest; grid=dummy_grid(Float32))
+
+    unsupported_type_manifest = deepcopy(darwin_manifest)
+    unsupported_type_manifest["recipe"]["type"] = "factory_graph"
+    @test_throws ArgumentError Agate.Models.construct_from_manifest(unsupported_type_manifest; grid=dummy_grid(Float32))
 end
