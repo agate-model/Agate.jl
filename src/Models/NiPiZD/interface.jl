@@ -55,7 +55,6 @@ end
 
 """
     construct(; kw...) -> bgc
-    construct_with_manifest(; kw...) -> bgc, manifest
 
 Construct a size-structured NiPiZD ecosystem model.
 
@@ -90,8 +89,7 @@ Keywords
 
 Returns
 -------
-`construct` returns an `Oceananigans.Biogeochemistry.AbstractContinuousFormBiogeochemistry` instance.
-`construct_with_manifest` returns `(bgc, manifest)`, where `manifest` is a JSON-compatible construction record.
+An `Oceananigans.Biogeochemistry.AbstractContinuousFormBiogeochemistry` instance.
 
 Example
 -------
