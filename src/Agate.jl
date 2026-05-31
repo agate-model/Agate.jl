@@ -8,6 +8,7 @@ include("Runtime/Runtime.jl")
 include("Diagnostics/Diagnostics.jl")
 include("Manifests/Manifests.jl")
 include("Construction/Construction.jl")
+include("Tendencies/Tendencies.jl")
 include("Models/Models.jl")
 include("Introspection.jl")
 
@@ -20,6 +21,7 @@ export Diagnostics
 export Manifests
 export Equations
 export Construction
+export Tendencies
 export Introspection
 
 end # module
