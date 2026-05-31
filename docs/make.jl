@@ -25,11 +25,11 @@ examples = [
     "Construction manifest box model" => "construction_manifest_box_model",
     "Column model" => "1D_column",
 ]
-dev = []
+
 differentiable_modelling = ["Forward-mode AD sensitivity" => "forwarddiff_nipizd_ode"]
 
 example_scripts = [
-    filename * ".jl" for (title, filename) in vcat(examples, dev, differentiable_modelling)
+    filename * ".jl" for (title, filename) in vcat(examples, differentiable_modelling)
 ]
 
 function replace_silly_warning(content)
@@ -57,7 +57,6 @@ for example in example_scripts
 end
 
 example_pages = [title => "generated/$(filename).md" for (title, filename) in examples]
-dev_pages = [title => "generated/$(filename).md" for (title, filename) in dev]
 differentiable_modelling_pages = [
     title => "generated/$(filename).md" for (title, filename) in differentiable_modelling
 ]
