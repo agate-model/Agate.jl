@@ -6,18 +6,45 @@ using ...Configuration: PFTSpecification
 
 import ...Factories:
     default_plankton_dynamics, default_community, default_biogeochem_dynamics
-using .Tracers:
-    nutrient_default, detritus_default, phytoplankton_default, zooplankton_default
+
+using ...Tendencies:
+    TendencyConfig,
+    nutrient_coupling,
+    phytoplankton_tendency,
+    zooplankton_tendency,
+    inorganic_tendency,
+    detritus_tendency
 
 """Factory for the size-structured NiPiZD model."""
 struct NiPiZDFactory <: AbstractBGCFactory end
+
+const NIPIZD_TENDENCIES = TendencyConfig(;
+    growth=:smith,
+    nutrient_limitation=:liebig,
+    cycling=:simple_detritus,
+    nutrients=(
+        nutrient_coupling(
+            :N,
+            :nutrient_half_saturation;
+            remineralization=((:D, :detritus_remineralization),),
+        ),
+    ),
+)
+
+phytoplankton_nipizd(plankton_idx::Int) = phytoplankton_tendency(
+    NIPIZD_TENDENCIES; plankton_idx
+)
+
+zooplankton_nipizd(plankton_idx::Int) = zooplankton_tendency(
+    NIPIZD_TENDENCIES; plankton_idx
+)
 
 """Default plankton dynamics for NiPiZD.
 
 Returns a `NamedTuple` mapping group prefix => tracer dynamics builder.
 """
 function default_plankton_dynamics(::NiPiZDFactory)
-    (Z=zooplankton_default, P=phytoplankton_default)
+    (Z=zooplankton_nipizd, P=phytoplankton_nipizd)
 end
 
 """Default plankton arguments for NiPiZD.
@@ -41,4 +68,9 @@ function default_community(::NiPiZDFactory)
 end
 
 """Default non-plankton tracer dynamics for NiPiZD."""
-default_biogeochem_dynamics(::NiPiZDFactory) = (N=nutrient_default, D=detritus_default)
+function default_biogeochem_dynamics(::NiPiZDFactory)
+    (
+        N=() -> inorganic_tendency(NIPIZD_TENDENCIES; target=:N),
+        D=() -> detritus_tendency(NIPIZD_TENDENCIES),
+    )
+end
