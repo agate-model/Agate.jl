@@ -19,7 +19,6 @@ end
         scalar_type=Float32,
         palatability_matrix,
         sinking_tracers,
-        open_bottom=false,
     )
 
     path = tempname() * ".json"
@@ -30,8 +29,14 @@ end
 
     @test reconstructed.parameters.palatability_matrix ≈ palatability_matrix
     @test !isnothing(reconstructed.sinking_velocities)
-    @test biogeochemical_drift_velocity(reconstructed, Val(:P1)).w.data[1, 1, 1] ≈ -sinking_tracers.P1
-    @test biogeochemical_drift_velocity(reconstructed, Val(:D)).w.data[1, 1, 1] ≈ -sinking_tracers.D
+
+    reconstructed_P1 = biogeochemical_drift_velocity(reconstructed, Val(:P1)).w.data[1, 1, 1]
+    reconstructed_D = biogeochemical_drift_velocity(reconstructed, Val(:D)).w.data[1, 1, 1]
+
+    @test reconstructed_P1 ≈ biogeochemical_drift_velocity(bgc, Val(:P1)).w.data[1, 1, 1]
+    @test reconstructed_D ≈ biogeochemical_drift_velocity(bgc, Val(:D)).w.data[1, 1, 1]
+    @test reconstructed_P1 ≈ -sinking_tracers.P1
+    @test reconstructed_D ≈ -sinking_tracers.D
 end
 
 @testset "DARWIN model setup import" begin
