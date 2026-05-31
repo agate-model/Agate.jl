@@ -31,7 +31,7 @@ function test_manifest_roundtrip(manifest, expected_bgc; grid)
 end
 
 @testset "Manifest value serialization" begin
-    value = Agate.Construction.manifest_parameter_value
+    value = Agate.Manifests.Serialization.manifest_value
 
     @test value(:foo) == "foo"
     @test value((1, :x, NaN)) == Any[1, "x", "NaN"]
