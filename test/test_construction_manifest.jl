@@ -32,6 +32,9 @@ end
 
     @test typeof(traced_bgc) == typeof(bgc)
     @test manifest["schema"] == "agate.construction_manifest.v1"
+    @test manifest["replayable"] == false
+    @test !haskey(manifest, "recipe")
+    @test_throws ArgumentError Agate.Models.construct_from_manifest(manifest; grid=dummy_grid(Float32))
     @test manifest["model"]["id"] == "DARWIN/citation2026/A"
     @test !haskey(manifest, "requested")
     @test haskey(manifest["agate"], "version")
@@ -49,6 +52,7 @@ end
     @test isfile(path)
     parsed = JSON.parsefile(path)
     @test parsed["schema"] == "agate.construction_manifest.v1"
+    @test parsed["replayable"] == false
     @test parsed["model"]["id"] == "DARWIN/citation2026/A"
 
     @test !isempty(required_biogeochemical_tracers(traced_bgc))
@@ -74,6 +78,7 @@ end
     @test typeof(traced_darwin) == typeof(darwin_bgc)
     @test darwin_manifest["model"]["id"] == "DARWIN/default"
     @test darwin_manifest["model"]["family"] == "DARWIN"
+    @test darwin_manifest["replayable"] == true
     @test darwin_manifest["resolved"]["scalar_type"] == "Float32"
     @test darwin_manifest["resolved"]["sinking"] == Dict{String,Any}(
         "enabled" => false, "tracers" => nothing, "open_bottom" => true
@@ -117,6 +122,7 @@ end
     @test typeof(traced_nipizd) == typeof(nipizd_bgc)
     @test nipizd_manifest["model"]["id"] == "NiPiZD/default"
     @test nipizd_manifest["model"]["family"] == "NiPiZD"
+    @test nipizd_manifest["replayable"] == true
     @test nipizd_manifest["resolved"]["scalar_type"] == "Float32"
     @test haskey(nipizd_manifest["resolved"], "parameters")
     @test nipizd_manifest["recipe"]["type"] == "model_constructor"

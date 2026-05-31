@@ -80,11 +80,19 @@ function _validated_manifest_recipe(manifest::AbstractDict)
         ),
     )
 
-    haskey(manifest, "recipe") || throw(
-        ArgumentError(
-            "Manifest does not contain a top-level \"recipe\" section required for reconstruction."
-        ),
-    )
+    if !haskey(manifest, "recipe")
+        replayable = get(manifest, "replayable", nothing)
+        replayable === false && throw(
+            ArgumentError(
+                "Manifest is descriptive only and is not replayable; use a model-level construct_with_manifest method to export a replay recipe."
+            ),
+        )
+        throw(
+            ArgumentError(
+                "Manifest does not contain a top-level \"recipe\" section required for reconstruction."
+            ),
+        )
+    end
 
     recipe = manifest["recipe"]
     recipe isa AbstractDict || throw(
@@ -309,7 +317,10 @@ function finalize_construction_manifest(context)
         ),
     )
 
-    if hasproperty(context, :recipe) && !isnothing(context.recipe)
+    replayable = hasproperty(context, :recipe) && !isnothing(context.recipe)
+    manifest["replayable"] = replayable
+
+    if replayable
         manifest["recipe"] = context.recipe
     end
 

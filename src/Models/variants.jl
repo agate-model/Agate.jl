@@ -134,6 +134,10 @@ end
 The returned `bgc` is the same runtime object returned by `construct(spec; ...)`.
 The manifest is generated during construction from the same resolved state and is
 kept separate from `AgateBGC` so the runtime object stays GPU-friendly.
+
+Variant manifests are descriptive records of the resolved construction state, not
+replay recipes. Use model-level `construct_with_manifest` methods when you need
+a manifest that can be reconstructed with `construct_from_manifest`.
 """
 function construct_with_manifest(spec::VariantSpec; kwargs...)
     bgc, context = _construct_variant_with_context(spec; kwargs...)
