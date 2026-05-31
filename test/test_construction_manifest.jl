@@ -104,6 +104,41 @@ end
     replayed_from_path = Agate.Models.construct_from_manifest(path; grid=dummy_grid(Float32))
     @test typeof(replayed_from_path) == typeof(darwin_bgc)
 
+    roundtrip_matrix = Float32[0.8 0.2; 0.3 0.7]
+    roundtrip_sinking = (P1=0.125f0 / day, D=1.5f0 / day)
+    roundtrip_bgc, roundtrip_manifest = Agate.Models.NiPiZD.construct_with_manifest(
+        ;
+        grid=BoxModelGrid(),
+        scalar_type=Float32,
+        palatability_matrix=roundtrip_matrix,
+        sinking_tracers=roundtrip_sinking,
+        open_bottom=false,
+    )
+    roundtrip_path = tempname() * ".json"
+    @test Agate.Models.export_manifest(roundtrip_path, roundtrip_manifest) == roundtrip_path
+
+    roundtrip_json = JSON.parsefile(roundtrip_path)
+    @test roundtrip_json["recipe"]["kwargs"]["scalar_type"] == "Float32"
+    @test roundtrip_json["recipe"]["kwargs"]["open_bottom"] == false
+    sinking_entries = roundtrip_json["recipe"]["kwargs"]["sinking_tracers"]
+    @test getindex.(sinking_entries, "name") == ["P1", "D"]
+    @test getindex.(sinking_entries, "value") ≈ [0.125f0 / day, 1.5f0 / day]
+
+    matrix_rows = roundtrip_json["recipe"]["kwargs"]["parameters"]["palatability_matrix"]
+    decoded_matrix = [matrix_rows[i][j] for i in eachindex(matrix_rows), j in eachindex(matrix_rows[1])]
+    @test decoded_matrix ≈ roundtrip_matrix
+
+    replayed_roundtrip = Agate.Models.construct_from_manifest(
+        roundtrip_path; grid=BoxModelGrid()
+    )
+    @test typeof(replayed_roundtrip) == typeof(roundtrip_bgc)
+    @test required_biogeochemical_tracers(replayed_roundtrip) ==
+        required_biogeochemical_tracers(roundtrip_bgc)
+    @test !isnothing(replayed_roundtrip.sinking_velocities)
+    @test hasproperty(replayed_roundtrip.sinking_velocities, :P1)
+    @test hasproperty(replayed_roundtrip.sinking_velocities, :D)
+    @test replayed_roundtrip.parameters.palatability_matrix ≈ roundtrip_matrix
+
     @test_throws ArgumentError Agate.Models.construct_from_manifest(Dict{String,Any}())
     @test_throws ArgumentError Agate.Models.construct_from_manifest(Dict{String,Any}("schema" => "agate.construction_manifest.v2"))
     @test_throws ArgumentError Agate.Models.construct_from_manifest(Dict{String,Any}("schema" => "agate.construction_manifest.v1"))
