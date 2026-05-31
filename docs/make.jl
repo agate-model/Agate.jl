@@ -22,7 +22,7 @@ const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 examples = [
     "Size structure" => "size_structure",
     "Predator-prey palatability" => "predator_prey_palatability",
-    "Construction manifest box model" => "construction_manifest_box_model",
+    "Exporting a model setup" => "export_model_setup",
     "Column model" => "1D_column",
 ]
 
