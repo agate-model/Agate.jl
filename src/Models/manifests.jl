@@ -227,6 +227,7 @@ function default_model_recipe(family::Symbol, resolved)
     diameters = resolved.plankton_diameters_by_group
 
     return Dict{String,Any}(
+        "type" => "model_constructor",
         "constructor" => string("Agate.Models.", family_name, ".construct"),
         "kwargs" => Dict{String,Any}(
             "phyto_size_structure" => diameters["P"],

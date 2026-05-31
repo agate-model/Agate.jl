@@ -79,6 +79,7 @@ end
         "enabled" => false, "tracers" => nothing, "open_bottom" => true
     )
     @test "P3" in darwin_manifest["resolved"]["tracers"]
+    @test darwin_manifest["recipe"]["type"] == "model_constructor"
     @test darwin_manifest["recipe"]["constructor"] == "Agate.Models.DARWIN.construct"
     @test darwin_manifest["recipe"]["kwargs"]["phyto_size_structure"] ==
         darwin_manifest["resolved"]["plankton_diameters_by_group"]["P"]
@@ -117,6 +118,7 @@ end
     @test nipizd_manifest["model"]["family"] == "NiPiZD"
     @test nipizd_manifest["resolved"]["scalar_type"] == "Float32"
     @test haskey(nipizd_manifest["resolved"], "parameters")
+    @test nipizd_manifest["recipe"]["type"] == "model_constructor"
     @test nipizd_manifest["recipe"]["constructor"] == "Agate.Models.NiPiZD.construct"
     @test haskey(nipizd_manifest["recipe"]["kwargs"], "parameters")
 
