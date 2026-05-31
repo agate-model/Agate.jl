@@ -1,10 +1,10 @@
 """Inorganic pool tendency using the configured growth and nutrient couplings."""
 function inorganic_tendency(
-    config::TendencyConfig{Growth,Limitation,Cycling};
+    config::TendencyConfig{Formulation,Zooplankton,Limitation};
     target::Symbol,
     remineralization=nothing,
     stoichiometry=nothing,
-) where {Growth,Limitation,Cycling}
+) where {Formulation,Zooplankton,Limitation}
     nutrients = config.nutrients
     target_nutrient = target in map(tracer_name, nutrients) ? target_coupling(nutrients, target) : nothing
     sources = remineralization === nothing ? remineralization_sources(target_nutrient) : remineralization
@@ -16,14 +16,14 @@ function inorganic_tendency(
         resources = nutrient_resources(tracer_values, nutrients)
         half_saturations = half_saturation_parameters(parameters, nutrients)
         uptake = growth_sum(
-            Val(Growth),
+            Val(Formulation),
             Val(Limitation),
             tracer_values.plankton,
             resources,
             tracer_values.PAR,
             parameters.maximum_growth_rate,
             half_saturations,
-            growth_parameters(Val(Growth), parameters)...,
+            growth_parameters(Val(Formulation), parameters)...,
         )
 
         remin = remineralization_sum(tracer_values, parameters, sources)

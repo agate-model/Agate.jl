@@ -18,9 +18,9 @@ using ...Tendencies:
 struct DarwinFactory <: AbstractBGCFactory end
 
 const DARWIN_TENDENCIES = TendencyConfig(;
-    growth=:geider,
+    formulation=:geider_dom_pom,
+    zooplankton=:preferential_grazing,
     nutrient_limitation=:liebig,
-    cycling=:dom_pom,
     nutrients=(
         nutrient_coupling(
             :DIN,

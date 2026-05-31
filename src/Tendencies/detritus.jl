@@ -1,10 +1,10 @@
 """Simple detritus pool tendency for exported mortality and unassimilated grazing."""
 function detritus_tendency(
-    config::TendencyConfig{Growth,Limitation,:simple_detritus};
+    config::TendencyConfig{:smith_detritus,Zooplankton,Limitation};
     target::Symbol=:D,
     remineralization::Symbol=:detritus_remineralization,
     export_fraction::Symbol=:mortality_export_fraction,
-) where {Growth,Limitation}
+) where {Zooplankton,Limitation}
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 

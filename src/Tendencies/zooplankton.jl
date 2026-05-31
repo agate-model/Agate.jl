@@ -1,5 +1,8 @@
 """Zooplankton tendency with preferential grazing gain and mortality losses."""
-function zooplankton_tendency(config::TendencyConfig; plankton_idx::Int)
+function zooplankton_tendency(
+    config::TendencyConfig{Formulation,:preferential_grazing,Limitation};
+    plankton_idx::Int,
+) where {Formulation,Limitation}
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 
