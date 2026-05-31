@@ -1,6 +1,6 @@
 using Oceananigans.Units: day
 using OceanBioME: BoxModelGrid
-using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
+using Oceananigans.Biogeochemistry: biogeochemical_drift_velocity, required_biogeochemical_tracers
 using Agate.Manifests: construct_from_manifest, export_manifest
 
 function test_reconstructed_model(reconstructed, expected)
@@ -30,8 +30,8 @@ end
 
     @test reconstructed.parameters.palatability_matrix ≈ palatability_matrix
     @test !isnothing(reconstructed.sinking_velocities)
-    @test reconstructed.sinking_velocities.P1 ≈ sinking_tracers.P1
-    @test reconstructed.sinking_velocities.D ≈ sinking_tracers.D
+    @test biogeochemical_drift_velocity(reconstructed, Val(:P1)).w.data[1, 1, 1] ≈ -sinking_tracers.P1
+    @test biogeochemical_drift_velocity(reconstructed, Val(:D)).w.data[1, 1, 1] ≈ -sinking_tracers.D
 end
 
 @testset "DARWIN model setup import" begin
