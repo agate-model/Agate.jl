@@ -28,6 +28,8 @@ using ..Configuration:
 
 using ..Runtime: build_tracer_index
 
+using ..Manifests: Serialization
+
 using ..Equations: CompiledEquation
 
 using ..Library.Allometry: AllometricParam, resolve_diameter_indexed_vector
@@ -459,6 +461,7 @@ function validate_auxiliary_fields(auxiliary_fields::Tuple, tracer_names::Tuple)
     return nothing
 end
 
+
 """
     construct_factory(factory::AbstractBGCFactory; kwargs...) -> bgc
 
@@ -514,7 +517,16 @@ function resolve_construction_scalar_type(grid, scalar_type)
     return Float64
 end
 
-function construct_factory(
+function construct_factory(factory::AbstractBGCFactory; kwargs...)
+    bgc, _ = _construct_factory(factory; build_manifest_data=false, kwargs...)
+    return bgc
+end
+
+function construct_factory_with_manifest_data(factory::AbstractBGCFactory; kwargs...)
+    return _construct_factory(factory; build_manifest_data=true, kwargs...)
+end
+
+function _construct_factory(
     factory::AbstractBGCFactory;
     plankton_dynamics=default_plankton_dynamics(factory),
     biogeochem_dynamics=default_biogeochem_dynamics(factory),
@@ -529,6 +541,7 @@ function construct_factory(
     grid=nothing,
     scalar_type=nothing,
     open_bottom::Bool=true,
+    build_manifest_data::Bool=true,
 )
     if isnothing(grid) && !isnothing(sinking_tracers)
         grid = BoxModelGrid()
@@ -665,5 +678,13 @@ function construct_factory(
     end
     bgc = on_architecture(arch, bgc)
 
-    return bgc
+    manifest_data = build_manifest_data ? (
+        parameter_values=Serialization.parameter_values(resolved_parameters, required),
+        plankton_diameters_by_group=Serialization.plankton_diameter_groups(community_context),
+        scalar_type=string(T),
+        sinking_tracers=Serialization.manifest_ordered_pairs(sinking_tracers),
+        open_bottom=open_bottom,
+    ) : nothing
+
+    return bgc, manifest_data
 end

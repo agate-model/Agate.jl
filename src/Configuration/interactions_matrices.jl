@@ -168,7 +168,7 @@ function normalize_interaction_overrides(
         )
         (spec.axes !== nothing) || throw(
             ArgumentError(
-                "interaction override '$key' must target an axes-declared matrix ParameterSpec (canonical rectangular matrices only). Providers are not supported; use a Variant/Factory if you need derived matrices.",
+                "interaction override '$key' must target an axes-declared matrix ParameterSpec (canonical rectangular matrices only). Providers are not supported; use a Factory if you need derived matrices.",
             ),
         )
 
@@ -181,14 +181,14 @@ function normalize_interaction_overrides(
         if value isa Function || applicable(value, community_context)
             throw(
                 ArgumentError(
-                    "interaction override '$key' expected rectangular matrix of size ($(nr), $(nc)) for axes $(spec.axes); providers are not supported; use a Variant/Factory if you need derived matrices.",
+                    "interaction override '$key' expected rectangular matrix of size ($(nr), $(nc)) for axes $(spec.axes); providers are not supported; use a Factory if you need derived matrices.",
                 ),
             )
         end
 
         value isa AbstractMatrix || throw(
             ArgumentError(
-                "interaction override '$key' expected rectangular matrix of size ($(nr), $(nc)) for axes $(spec.axes); got $(typeof(value)). Providers are not supported; use a Variant/Factory if you need derived matrices.",
+                "interaction override '$key' expected rectangular matrix of size ($(nr), $(nc)) for axes $(spec.axes); got $(typeof(value)). Providers are not supported; use a Factory if you need derived matrices.",
             ),
         )
 
@@ -250,7 +250,7 @@ Axes may be:
         if size(value) == (ng, ng)
             throw(
                 ArgumentError(
-                    "interaction override '$key' looks like a group-by-group matrix (size $(ng)x$(ng)). Group-block overrides are not supported; pass a $(nr)x$(nc) axis matrix for axes $(spec.axes). Providers are not supported; use a Variant/Factory if you need derived matrices.",
+                    "interaction override '$key' looks like a group-by-group matrix (size $(ng)x$(ng)). Group-block overrides are not supported; pass a $(nr)x$(nc) axis matrix for axes $(spec.axes). Providers are not supported; use a Factory if you need derived matrices.",
                 ),
             )
         end

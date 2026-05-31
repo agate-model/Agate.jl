@@ -22,13 +22,14 @@ const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 examples = [
     "Size structure" => "size_structure",
     "Predator-prey palatability" => "predator_prey_palatability",
+    "Exporting a model setup" => "export_model_setup",
     "Column model" => "1D_column",
 ]
-dev = ["Variants" => "variant"]
+
 differentiable_modelling = ["Forward-mode AD sensitivity" => "forwarddiff_nipizd_ode"]
 
 example_scripts = [
-    filename * ".jl" for (title, filename) in vcat(examples, dev, differentiable_modelling)
+    filename * ".jl" for (title, filename) in vcat(examples, differentiable_modelling)
 ]
 
 function replace_silly_warning(content)
@@ -56,7 +57,6 @@ for example in example_scripts
 end
 
 example_pages = [title => "generated/$(filename).md" for (title, filename) in examples]
-dev_pages = [title => "generated/$(filename).md" for (title, filename) in dev]
 differentiable_modelling_pages = [
     title => "generated/$(filename).md" for (title, filename) in differentiable_modelling
 ]
@@ -80,15 +80,10 @@ makedocs(;
         "Examples" => example_pages,
         "Models" => model_pages,
         "Library" => "library.md",
-        "Implementing new models" => dev_pages,
         "Differentiable modelling" => differentiable_modelling_pages,
         "Contributor guide" => contributor_pages,
         "API reference" => "api.md",
     ],
 )
 
-deploydocs(;
-    repo="github.com/agate-model/Agate.jl.git",
-    devbranch="main",
-    push_preview=true,
-)
+deploydocs(; repo="https://github.com/agate-model/Agate.jl.git")

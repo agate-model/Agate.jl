@@ -4,7 +4,7 @@
 
 At a high level, Agate is organized into four broad layers:
 
- 1. **Model constructors** in `Models/`, such as [`NiPiZD`](@ref NiPiZD) and [`DARWIN`](@ref DARWIN), which provide the user-facing constructors and define model-specific variants.
+ 1. **Model constructors** in `Models/`, such as [`NiPiZD`](@ref NiPiZD) and [`DARWIN`](@ref DARWIN), which provide the user-facing constructors for built-in model families.
 
  2. **Reusable model building blocks** in `Library/`, which provide shared components for processes such as photosynthesis, predation, remineralization, light limitation, mortality, and allometry.
 
@@ -53,7 +53,7 @@ At the repository level, the main directories are:
 ```text
 src/
 ∟ Agate.jl                # top-level module wiring
-∟ Models/                 # user-facing constructors and model variants
+∟ Models/                 # user-facing constructors
 ∟ Factories/              # shared defaults and parameter metadata
 ∟ Configuration/          # community parsing and interaction handling
 ∟ Construction/           # shared model assembly pipeline
