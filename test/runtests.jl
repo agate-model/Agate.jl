@@ -14,6 +14,6 @@ include("test_parameter_directory.jl")
 include("test_mass_balance.jl")
 
 include("test_introspection.jl")
-include("test_construction_manifest.jl")
+include("test_model_setup_manifest.jl")
 
 include("test_biogeochemistry.jl")

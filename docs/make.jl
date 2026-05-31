@@ -86,8 +86,4 @@ makedocs(;
     ],
 )
 
-deploydocs(;
-    repo="github.com/agate-model/Agate.jl.git",
-    devbranch="main",
-    push_preview=true,
-)
+deploydocs(; repo="https://github.com/agate-model/Agate.jl.git")

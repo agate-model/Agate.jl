@@ -679,21 +679,11 @@ function _construct_factory(
     bgc = on_architecture(arch, bgc)
 
     manifest_data = build_manifest_data ? (
-        tracers=Any[string(name) for name in tracer_names],
-        auxiliary_fields=Any[string(name) for name in auxiliary_fields],
-        parameters=Serialization.parameter_manifest(factory, resolved_parameters, required),
         parameter_values=Serialization.parameter_values(resolved_parameters, required),
-        plankton_diameters=Any[Serialization.manifest_value(d) for d in plankton_diameter_metadata],
         plankton_diameters_by_group=Serialization.plankton_diameter_groups(community_context),
         scalar_type=string(T),
-        architecture=string(typeof(arch)),
-        has_sinking_velocities=!isnothing(sinking_tracers),
-        sinking=Dict{String,Any}(
-            "enabled" => !isnothing(sinking_tracers),
-            "tracers" => Serialization.manifest_value(sinking_tracers),
-            "open_bottom" => open_bottom,
-        ),
-        sinking_tracers_recipe=Serialization.manifest_ordered_pairs(sinking_tracers),
+        sinking_tracers=Serialization.manifest_ordered_pairs(sinking_tracers),
+        open_bottom=open_bottom,
     ) : nothing
 
     return bgc, manifest_data
