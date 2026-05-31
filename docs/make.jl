@@ -25,7 +25,7 @@ examples = [
     "Construction manifest box model" => "construction_manifest_box_model",
     "Column model" => "1D_column",
 ]
-dev = ["Variants" => "variant"]
+dev = []
 differentiable_modelling = ["Forward-mode AD sensitivity" => "forwarddiff_nipizd_ode"]
 
 example_scripts = [
@@ -81,7 +81,6 @@ makedocs(;
         "Examples" => example_pages,
         "Models" => model_pages,
         "Library" => "library.md",
-        "Implementing new models" => dev_pages,
         "Differentiable modelling" => differentiable_modelling_pages,
         "Contributor guide" => contributor_pages,
         "API reference" => "api.md",

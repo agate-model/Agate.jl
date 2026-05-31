@@ -37,10 +37,10 @@ end
     construct_from_manifest(manifest; grid=nothing, arch=nothing) -> bgc
     construct_from_manifest(path::AbstractString; grid=nothing, arch=nothing) -> bgc
 
-Reconstruct an Agate biogeochemistry object from a model-level construction manifest.
+Reconstruct an Agate biogeochemistry object from a construction manifest.
 
 This uses the manifest's `recipe` section to resolve an allowed model family.
-The manifest must therefore contain a top-level `"recipe"` entry,
+Construction manifests are replayable and must contain a top-level `"recipe"` entry,
 which is currently produced by model-level `construct_with_manifest` methods such as
 `Agate.Models.DARWIN.construct_with_manifest` and
 `Agate.Models.NiPiZD.construct_with_manifest`.
@@ -80,19 +80,11 @@ function _validated_manifest_recipe(manifest::AbstractDict)
         ),
     )
 
-    if !haskey(manifest, "recipe")
-        replayable = get(manifest, "replayable", nothing)
-        replayable === false && throw(
-            ArgumentError(
-                "Manifest is descriptive only and is not replayable; use a model-level construct_with_manifest method to export a replay recipe."
-            ),
-        )
-        throw(
-            ArgumentError(
-                "Manifest does not contain a top-level \"recipe\" section required for reconstruction."
-            ),
-        )
-    end
+    haskey(manifest, "recipe") || throw(
+        ArgumentError(
+            "Manifest does not contain a top-level \"recipe\" section required for reconstruction."
+        ),
+    )
 
     recipe = manifest["recipe"]
     recipe isa AbstractDict || throw(
@@ -317,12 +309,10 @@ function finalize_construction_manifest(context)
         ),
     )
 
-    replayable = hasproperty(context, :recipe) && !isnothing(context.recipe)
-    manifest["replayable"] = replayable
-
-    if replayable
-        manifest["recipe"] = context.recipe
-    end
+    isnothing(context.recipe) && throw(
+        ArgumentError("Construction manifest context is missing a replay recipe.")
+    )
+    manifest["recipe"] = context.recipe
 
     return manifest
 end

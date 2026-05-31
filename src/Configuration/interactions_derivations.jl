@@ -201,7 +201,7 @@ using ..Library.Allometry:
         ArgumentError(
             "expected trait vector :$name to have eltype $(T); got eltype $(eltype(v)) (type: $(typeof(v))). " *
             "Traits must be provided as Vector{$(T)} (the construction scalar type). " *
-            "No implicit casting is performed; define traits in a Variant/Factory default.",
+            "No implicit casting is performed; define traits in a Factory default.",
         ),
     )
 end
