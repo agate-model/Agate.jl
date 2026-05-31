@@ -1,7 +1,7 @@
 """Phytoplankton tendency configured by growth and nutrient limitation choices."""
 function phytoplankton_tendency(
-    config::TendencyConfig{Formulation,Zooplankton,Limitation}; plankton_idx::Int
-) where {Formulation,Zooplankton,Limitation}
+    config::TendencyConfig{Growth,OrganicCycling,Zooplankton,Limitation}; plankton_idx::Int
+) where {Growth,OrganicCycling,Zooplankton,Limitation}
     nutrients = config.nutrients
 
     f = function (bgc, x, y, z, t, args...)
@@ -14,7 +14,7 @@ function phytoplankton_tendency(
 
         P = plankton(plankton_idx)
         growth = plankton_growth(
-            Val(Formulation),
+            Val(Growth),
             Val(Limitation),
             resources,
             P,

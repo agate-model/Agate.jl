@@ -1,11 +1,11 @@
 """Organic matter tendency from plankton losses and linear remineralization."""
 function organic_matter_tendency(
-    config::TendencyConfig{:geider_dom_pom,Zooplankton,Limitation};
+    config::TendencyConfig{Growth,:dom_pom,Zooplankton,Limitation};
     target::Symbol,
     remineralization::Symbol,
     fraction::Symbol,
     stoichiometry::Symbol=:one,
-) where {Zooplankton,Limitation}
+) where {Growth,Zooplankton,Limitation}
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
 

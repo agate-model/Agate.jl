@@ -159,7 +159,7 @@ end
 
 """Smith growth summed over all plankton classes."""
 function growth_sum(
-    ::Val{:smith_detritus},
+    ::Val{:smith},
     ::Val{:liebig},
     plankton,
     resources::Tuple,
@@ -180,7 +180,7 @@ end
 
 """Geider growth summed over all plankton classes."""
 function growth_sum(
-    ::Val{:geider_dom_pom},
+    ::Val{:geider},
     ::Val{:liebig},
     plankton,
     resources::Tuple,

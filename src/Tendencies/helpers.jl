@@ -37,16 +37,16 @@ end
     return acc
 end
 
-@inline function growth_parameters(::Val{:smith_detritus}, parameters)
+@inline function growth_parameters(::Val{:smith}, parameters)
     return (parameters.alpha,)
 end
 
-@inline function growth_parameters(::Val{:geider_dom_pom}, parameters)
+@inline function growth_parameters(::Val{:geider}, parameters)
     return (parameters.photosynthetic_slope, parameters.chlorophyll_to_carbon_ratio)
 end
 
 @inline function plankton_growth(
-    ::Val{:smith_detritus},
+    ::Val{:smith},
     ::Val{:liebig},
     resources::Tuple,
     P,
@@ -61,7 +61,7 @@ end
 end
 
 @inline function plankton_growth(
-    ::Val{:geider_dom_pom},
+    ::Val{:geider},
     ::Val{:liebig},
     resources::Tuple,
     P,

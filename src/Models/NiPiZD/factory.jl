@@ -19,7 +19,8 @@ using ...Tendencies:
 struct NiPiZDFactory <: AbstractBGCFactory end
 
 const NIPIZD_TENDENCIES = TendencyConfig(;
-    formulation=:smith_detritus,
+    growth=:smith,
+    organic_cycling=:simple_detritus,
     zooplankton=:preferential_grazing,
     nutrient_limitation=:liebig,
     nutrients=(

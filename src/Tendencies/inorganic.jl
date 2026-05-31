@@ -1,11 +1,11 @@
-"""Inorganic pool tendency for Smith-detritus nutrient cycling."""
+"""Inorganic pool tendency with simple-detritus nutrient cycling."""
 function inorganic_tendency(
-    config::TendencyConfig{:smith_detritus,Zooplankton,Limitation};
+    config::TendencyConfig{Growth,:simple_detritus,Zooplankton,Limitation};
     target::Symbol,
     remineralization=nothing,
     stoichiometry=nothing,
     export_fraction::Symbol=:mortality_export_fraction,
-) where {Zooplankton,Limitation}
+) where {Growth,Zooplankton,Limitation}
     nutrients = config.nutrients
     target_nutrient = target in map(tracer_name, nutrients) ? target_coupling(nutrients, target) : nothing
     sources = remineralization === nothing ? remineralization_sources(target_nutrient) : remineralization
@@ -17,14 +17,14 @@ function inorganic_tendency(
         resources = nutrient_resources(tracer_values, nutrients)
         half_saturations = half_saturation_parameters(parameters, nutrients)
         uptake = growth_sum(
-            Val(:smith_detritus),
+            Val(Growth),
             Val(Limitation),
             tracer_values.plankton,
             resources,
             tracer_values.PAR,
             parameters.maximum_growth_rate,
             half_saturations,
-            growth_parameters(Val(:smith_detritus), parameters)...,
+            growth_parameters(Val(Growth), parameters)...,
         )
 
         mortality = mortality_loss_sum(
@@ -44,13 +44,13 @@ function inorganic_tendency(
     return CompiledEquation(f)
 end
 
-"""Inorganic pool tendency for Geider DOM/POM nutrient cycling."""
+"""Inorganic pool tendency with DOM/POM nutrient cycling."""
 function inorganic_tendency(
-    config::TendencyConfig{:geider_dom_pom,Zooplankton,Limitation};
+    config::TendencyConfig{Growth,:dom_pom,Zooplankton,Limitation};
     target::Symbol,
     remineralization=nothing,
     stoichiometry=nothing,
-) where {Zooplankton,Limitation}
+) where {Growth,Zooplankton,Limitation}
     nutrients = config.nutrients
     target_nutrient = target in map(tracer_name, nutrients) ? target_coupling(nutrients, target) : nothing
     sources = remineralization === nothing ? remineralization_sources(target_nutrient) : remineralization
@@ -62,14 +62,14 @@ function inorganic_tendency(
         resources = nutrient_resources(tracer_values, nutrients)
         half_saturations = half_saturation_parameters(parameters, nutrients)
         uptake = growth_sum(
-            Val(:geider_dom_pom),
+            Val(Growth),
             Val(Limitation),
             tracer_values.plankton,
             resources,
             tracer_values.PAR,
             parameters.maximum_growth_rate,
             half_saturations,
-            growth_parameters(Val(:geider_dom_pom), parameters)...,
+            growth_parameters(Val(Growth), parameters)...,
         )
 
         remin = remineralization_sum(tracer_values, parameters, sources)
