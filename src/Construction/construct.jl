@@ -28,6 +28,8 @@ using ..Configuration:
 
 using ..Runtime: build_tracer_index
 
+using ..Manifests: Serialization
+
 using ..Equations: CompiledEquation
 
 using ..Library.Allometry: AllometricParam, resolve_diameter_indexed_vector
@@ -460,94 +462,6 @@ function validate_auxiliary_fields(auxiliary_fields::Tuple, tracer_names::Tuple)
 end
 
 
-function manifest_axis(axis)
-    axis === nothing && return nothing
-    axis isa Symbol && return string(axis)
-    axis isa Tuple && return Any[string(a) for a in axis]
-    return string(axis)
-end
-
-function manifest_parameter_value(x, name=nothing)
-    if x === nothing || x isa Bool || x isa Integer || x isa AbstractString
-        return x
-    elseif x isa AbstractFloat
-        return isfinite(x) ? x : string(x)
-    elseif x isa Symbol
-        return string(x)
-    elseif x isa NamedTuple
-        return Dict{String,Any}(
-            string(k) => manifest_parameter_value(v, k) for (k, v) in pairs(x)
-        )
-    elseif x isa AbstractDict
-        return Dict{String,Any}(
-            string(k) => manifest_parameter_value(v, k) for (k, v) in pairs(x)
-        )
-    elseif x isa AbstractMatrix
-        return Any[
-            Any[manifest_parameter_value(x[i, j], name) for j in axes(x, 2)]
-            for i in axes(x, 1)
-        ]
-    elseif x isa AbstractVector || x isa Tuple
-        return Any[manifest_parameter_value(v, name) for v in x]
-    else
-        label = isnothing(name) ? "" : " $(repr(name))"
-        throw(
-            ArgumentError(
-                "Cannot serialize manifest parameter$(label) of type $(typeof(x))."
-            )
-        )
-    end
-end
-
-
-function manifest_ordered_pairs(x)
-    x === nothing && return nothing
-    if x isa NamedTuple || x isa AbstractDict
-        return Any[
-            Dict{String,Any}("name" => string(k), "value" => manifest_parameter_value(v, k))
-            for (k, v) in pairs(x)
-        ]
-    else
-        return manifest_parameter_value(x)
-    end
-end
-
-function parameter_record_manifest(spec, value)
-    return Dict{String,Any}(
-        "shape" => string(spec.shape),
-        "axes" => manifest_axis(spec.axes),
-        "doc" => spec.doc,
-        "value" => manifest_parameter_value(value),
-    )
-end
-
-function parameter_manifest(factory::AbstractBGCFactory, params::NamedTuple, required::Tuple)
-    records = Dict{String,Any}()
-    for key in required
-        spec = parameter_spec(factory, key)
-        spec === nothing && throw(
-            ArgumentError(
-                "Factory $(typeof(factory)) is missing a ParameterSpec for parameter :$key."
-            ),
-        )
-        records[string(key)] = parameter_record_manifest(spec, getproperty(params, key))
-    end
-    return records
-end
-
-function parameter_value_manifest(params::NamedTuple, required::Tuple)
-    return Dict{String,Any}(
-        string(key) => manifest_parameter_value(getproperty(params, key)) for key in required
-    )
-end
-
-function plankton_diameter_group_manifest(context)
-    return Dict{String,Any}(
-        string(group) => Any[manifest_parameter_value(context.diameters[i]) for i in indices]
-        for (group, indices) in context.group_indices
-    )
-end
-
 """
     construct_factory(factory::AbstractBGCFactory; kwargs...) -> bgc
 
@@ -604,15 +518,15 @@ function resolve_construction_scalar_type(grid, scalar_type)
 end
 
 function construct_factory(factory::AbstractBGCFactory; kwargs...)
-    bgc, _ = _construct_factory_with_context(factory; build_context=false, kwargs...)
+    bgc, _ = _construct_factory(factory; build_manifest_data=false, kwargs...)
     return bgc
 end
 
-function construct_factory_with_context(factory::AbstractBGCFactory; kwargs...)
-    return _construct_factory_with_context(factory; build_context=true, kwargs...)
+function construct_factory_with_manifest_data(factory::AbstractBGCFactory; kwargs...)
+    return _construct_factory(factory; build_manifest_data=true, kwargs...)
 end
 
-function _construct_factory_with_context(
+function _construct_factory(
     factory::AbstractBGCFactory;
     plankton_dynamics=default_plankton_dynamics(factory),
     biogeochem_dynamics=default_biogeochem_dynamics(factory),
@@ -627,7 +541,7 @@ function _construct_factory_with_context(
     grid=nothing,
     scalar_type=nothing,
     open_bottom::Bool=true,
-    build_context::Bool=true,
+    build_manifest_data::Bool=true,
 )
     if isnothing(grid) && !isnothing(sinking_tracers)
         grid = BoxModelGrid()
@@ -764,23 +678,23 @@ function _construct_factory_with_context(
     end
     bgc = on_architecture(arch, bgc)
 
-    construction_context = build_context ? (
+    manifest_data = build_manifest_data ? (
         tracers=Any[string(name) for name in tracer_names],
         auxiliary_fields=Any[string(name) for name in auxiliary_fields],
-        parameters=parameter_manifest(factory, resolved_parameters, required),
-        parameter_values=parameter_value_manifest(resolved_parameters, required),
-        plankton_diameters=Any[manifest_parameter_value(d) for d in plankton_diameter_metadata],
-        plankton_diameters_by_group=plankton_diameter_group_manifest(community_context),
+        parameters=Serialization.parameter_manifest(factory, resolved_parameters, required),
+        parameter_values=Serialization.parameter_values(resolved_parameters, required),
+        plankton_diameters=Any[Serialization.manifest_value(d) for d in plankton_diameter_metadata],
+        plankton_diameters_by_group=Serialization.plankton_diameter_groups(community_context),
         scalar_type=string(T),
         architecture=string(typeof(arch)),
         has_sinking_velocities=!isnothing(sinking_tracers),
         sinking=Dict{String,Any}(
             "enabled" => !isnothing(sinking_tracers),
-            "tracers" => manifest_parameter_value(sinking_tracers),
+            "tracers" => Serialization.manifest_value(sinking_tracers),
             "open_bottom" => open_bottom,
         ),
-        sinking_tracers_recipe=manifest_ordered_pairs(sinking_tracers),
+        sinking_tracers_recipe=Serialization.manifest_ordered_pairs(sinking_tracers),
     ) : nothing
 
-    return bgc, construction_context
+    return bgc, manifest_data
 end

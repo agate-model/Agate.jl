@@ -4,7 +4,7 @@ import ...Configuration
 import ...Construction
 import ...Factories
 
-using ...Models: default_model_manifest_context, default_model_recipe, finalize_construction_manifest
+using ...Manifests: default_model_manifest
 
 export construct, construct_with_manifest
 
@@ -128,13 +128,9 @@ Construct a model instance and return it with a JSON-compatible construction man
 """
 function construct_with_manifest(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
-    bgc, resolved = Construction.construct_factory_with_context(
+    bgc, manifest_data = Construction.construct_factory_with_manifest_data(
         inputs.factory; inputs.kwargs...
     )
-    manifest = finalize_construction_manifest(
-        default_model_manifest_context(
-            :NiPiZD, resolved; recipe=default_model_recipe(:NiPiZD, resolved)
-        )
-    )
+    manifest = default_model_manifest(:NiPiZD, manifest_data)
     return bgc, manifest
 end

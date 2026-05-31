@@ -14,7 +14,7 @@
 
 using Agate
 using Agate.Library.Light
-using Agate.Models: export_manifest, construct_from_manifest
+using Agate.Manifests: export_manifest, construct_from_manifest
 using Agate.Models: DARWIN
 using OceanBioME
 using OceanBioME: Biogeochemistry

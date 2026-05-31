@@ -86,22 +86,22 @@ end
     @test !haskey(nipizd_manifest["recipe"], "constructor")
     @test haskey(nipizd_manifest["recipe"]["kwargs"], "parameters")
 
-    replayed_darwin = Agate.Models.construct_from_manifest(darwin_manifest; grid=dummy_grid(Float32))
+    replayed_darwin = Agate.Manifests.construct_from_manifest(darwin_manifest; grid=dummy_grid(Float32))
     @test typeof(replayed_darwin) == typeof(darwin_bgc)
     @test required_biogeochemical_tracers(replayed_darwin) == required_biogeochemical_tracers(darwin_bgc)
 
-    replayed_nipizd = Agate.Models.construct_from_manifest(nipizd_manifest; grid=dummy_grid(Float32))
+    replayed_nipizd = Agate.Manifests.construct_from_manifest(nipizd_manifest; grid=dummy_grid(Float32))
     @test typeof(replayed_nipizd) == typeof(nipizd_bgc)
 
     @test required_biogeochemical_tracers(replayed_nipizd) == required_biogeochemical_tracers(nipizd_bgc)
 
-    replayed_sinking_nipizd = Agate.Models.construct_from_manifest(sinking_manifest; grid=BoxModelGrid())
+    replayed_sinking_nipizd = Agate.Manifests.construct_from_manifest(sinking_manifest; grid=BoxModelGrid())
     @test typeof(replayed_sinking_nipizd) == typeof(Agate.Models.NiPiZD.construct(; grid=BoxModelGrid(), sinking_tracers=(P1=0.2551 / day, D=2.7489 / day), open_bottom=false))
 
     path = tempname() * ".json"
-    @test Agate.Models.export_manifest(path, darwin_manifest) == path
-    @test_throws ArgumentError Agate.Models.export_manifest(path, (; schema="x"))
-    replayed_from_path = Agate.Models.construct_from_manifest(path; grid=dummy_grid(Float32))
+    @test Agate.Manifests.export_manifest(path, darwin_manifest) == path
+    @test_throws ArgumentError Agate.Manifests.export_manifest(path, (; schema="x"))
+    replayed_from_path = Agate.Manifests.construct_from_manifest(path; grid=dummy_grid(Float32))
     @test typeof(replayed_from_path) == typeof(darwin_bgc)
 
     roundtrip_matrix = Float32[0.8 0.2; 0.3 0.7]
@@ -115,7 +115,7 @@ end
         open_bottom=false,
     )
     roundtrip_path = tempname() * ".json"
-    @test Agate.Models.export_manifest(roundtrip_path, roundtrip_manifest) == roundtrip_path
+    @test Agate.Manifests.export_manifest(roundtrip_path, roundtrip_manifest) == roundtrip_path
 
     roundtrip_json = JSON.parsefile(roundtrip_path)
     @test roundtrip_json["recipe"]["kwargs"]["scalar_type"] == "Float32"
@@ -128,7 +128,7 @@ end
     decoded_matrix = [matrix_rows[i][j] for i in eachindex(matrix_rows), j in eachindex(matrix_rows[1])]
     @test decoded_matrix ≈ roundtrip_matrix
 
-    replayed_roundtrip = Agate.Models.construct_from_manifest(
+    replayed_roundtrip = Agate.Manifests.construct_from_manifest(
         roundtrip_path; grid=BoxModelGrid()
     )
     @test typeof(replayed_roundtrip) == typeof(roundtrip_bgc)
@@ -139,34 +139,34 @@ end
     @test hasproperty(replayed_roundtrip.sinking_velocities, :D)
     @test replayed_roundtrip.parameters.palatability_matrix ≈ roundtrip_matrix
 
-    @test_throws ArgumentError Agate.Models.construct_from_manifest(Dict{String,Any}())
-    @test_throws ArgumentError Agate.Models.construct_from_manifest(Dict{String,Any}("schema" => "agate.construction_manifest.v2"))
-    @test_throws ArgumentError Agate.Models.construct_from_manifest(Dict{String,Any}("schema" => "agate.construction_manifest.v1"))
+    @test_throws ArgumentError Agate.Manifests.construct_from_manifest(Dict{String,Any}())
+    @test_throws ArgumentError Agate.Manifests.construct_from_manifest(Dict{String,Any}("schema" => "agate.construction_manifest.v2"))
+    @test_throws ArgumentError Agate.Manifests.construct_from_manifest(Dict{String,Any}("schema" => "agate.construction_manifest.v1"))
 
     missing_type_manifest = deepcopy(darwin_manifest)
     delete!(missing_type_manifest["recipe"], "type")
-    @test_throws ArgumentError Agate.Models.construct_from_manifest(missing_type_manifest; grid=dummy_grid(Float32))
+    @test_throws ArgumentError Agate.Manifests.construct_from_manifest(missing_type_manifest; grid=dummy_grid(Float32))
 
     unsupported_type_manifest = deepcopy(darwin_manifest)
     unsupported_type_manifest["recipe"]["type"] = "factory_graph"
-    @test_throws ArgumentError Agate.Models.construct_from_manifest(unsupported_type_manifest; grid=dummy_grid(Float32))
+    @test_throws ArgumentError Agate.Manifests.construct_from_manifest(unsupported_type_manifest; grid=dummy_grid(Float32))
 
     missing_family_manifest = deepcopy(darwin_manifest)
     delete!(missing_family_manifest["recipe"], "family")
-    @test_throws ArgumentError Agate.Models.construct_from_manifest(
+    @test_throws ArgumentError Agate.Manifests.construct_from_manifest(
         missing_family_manifest; grid=dummy_grid(Float32)
     )
 
     unsupported_family_manifest = deepcopy(darwin_manifest)
     unsupported_family_manifest["recipe"]["family"] = "NPZD"
-    @test_throws ArgumentError Agate.Models.construct_from_manifest(
+    @test_throws ArgumentError Agate.Manifests.construct_from_manifest(
         unsupported_family_manifest; grid=dummy_grid(Float32)
     )
 
     constructor_only_manifest = deepcopy(darwin_manifest)
     delete!(constructor_only_manifest["recipe"], "family")
     constructor_only_manifest["recipe"]["constructor"] = "Agate.Models.DARWIN.construct"
-    @test_throws ArgumentError Agate.Models.construct_from_manifest(
+    @test_throws ArgumentError Agate.Manifests.construct_from_manifest(
         constructor_only_manifest; grid=dummy_grid(Float32)
     )
 end
