@@ -1,3 +1,25 @@
+function inorganic_target_coupling(config, target::Symbol, remineralization, stoichiometry)
+    nutrients = config.nutrients
+    target_is_nutrient = target in map(tracer_name, nutrients)
+    target_nutrient = target_is_nutrient ? target_coupling(nutrients, target) : nothing
+
+    if !target_is_nutrient
+        remineralization === nothing &&
+            error(
+                "Inorganic target $target is not configured as a nutrient; " *
+                "pass explicit remineralization sources."
+            )
+        @warn "Inorganic target is not configured as a nutrient; using explicit inorganic-pool coupling." target=target remineralization=remineralization stoichiometry=stoichiometry
+    end
+
+    sources = remineralization === nothing ? remineralization_sources(target_nutrient) : remineralization
+    ratio_name = stoichiometry === nothing && target_nutrient !== nothing ?
+        stoichiometry_name(target_nutrient) :
+        something(stoichiometry, :one)
+
+    return sources, ratio_name
+end
+
 """Inorganic pool tendency with simple-detritus nutrient cycling."""
 function inorganic_tendency(
     config::TendencyConfig{Growth,:simple_detritus,Zooplankton,Limitation};
@@ -7,9 +29,9 @@ function inorganic_tendency(
     export_fraction::Symbol=:mortality_export_fraction,
 ) where {Growth,Zooplankton,Limitation}
     nutrients = config.nutrients
-    target_nutrient = target in map(tracer_name, nutrients) ? target_coupling(nutrients, target) : nothing
-    sources = remineralization === nothing ? remineralization_sources(target_nutrient) : remineralization
-    ratio_name = stoichiometry === nothing && target_nutrient !== nothing ? stoichiometry_name(target_nutrient) : something(stoichiometry, :one)
+    sources, ratio_name = inorganic_target_coupling(
+        config, target, remineralization, stoichiometry
+    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
@@ -52,9 +74,9 @@ function inorganic_tendency(
     stoichiometry=nothing,
 ) where {Growth,Zooplankton,Limitation}
     nutrients = config.nutrients
-    target_nutrient = target in map(tracer_name, nutrients) ? target_coupling(nutrients, target) : nothing
-    sources = remineralization === nothing ? remineralization_sources(target_nutrient) : remineralization
-    ratio_name = stoichiometry === nothing && target_nutrient !== nothing ? stoichiometry_name(target_nutrient) : something(stoichiometry, :one)
+    sources, ratio_name = inorganic_target_coupling(
+        config, target, remineralization, stoichiometry
+    )
 
     f = function (bgc, x, y, z, t, args...)
         parameters, tracer_values = tendency_inputs(bgc, args)
