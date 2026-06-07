@@ -1,27 +1,28 @@
-"""Photosynthesis and light-uptake functors."""
+"""Photosynthesis, light limitation, and phytoplankton growth kernels."""
 
 module Photosynthesis
 
-using ..Nutrients: MonodLimitation, LiebigMinimum
+using ..Nutrients: MonodLimitation
 
 export smith_light_limitation,
     geider_light_limitation,
-    smith_single_nutrient_growth,
-    geider_single_nutrient_growth,
-    geider_two_nutrient_growth
+    smith_growth,
+    geider_growth
 
 """
     SmithLightLimitation(alpha, maximum_growth_0C)
 
-Smith (1936) light limitation factor as a function of PAR.
+Callable Smith (1936) light-limitation factor as a function of PAR.
 
 !!! formulation
-    α * PAR / √(μ₀² + α² * PAR²)
+    ```math
+    L_S(I) = \\frac{\\alpha I}{\\sqrt{\\mu_0^2 + (\\alpha I)^2}}
+    ```
 
-    where:
-    - PAR = photosynthetically active radiation
-    - α = initial photosynthetic slope
-    - μ₀ = maximum growth rate at 0 °C
+    where ``I`` is photosynthetically active radiation, ``\\alpha`` is the
+    initial photosynthetic slope, and ``\\mu_0`` is the maximum growth rate at
+    0 °C. The returned factor is dimensionless and is multiplied by ``\\mu_0``
+    in `smith_growth`.
 """
 struct SmithLightLimitation{T}
     alpha::T
@@ -40,18 +41,17 @@ end
 """
     GeiderLightLimitation(alpha, maximum_growth_rate, chlorophyll_to_carbon_ratio)
 
-Geider-style light limitation factor as a function of PAR.
-
-This formulation follows Geider et al. (1998), equation (4).
+Callable Geider-style light-dependent carbon fixation rate.
 
 !!! formulation
-    Pᶜₘₐₓ[1-exp((-αᶜʰˡθᶜPAR)/Pᶜₘₐₓ)]
+    ```math
+    L_G(I) = P^C_{max} \\left[1 - \\exp\\left(-\\frac{\\alpha^{chl}\\theta^C I}{P^C_{max}}\\right)\\right]
+    ```
 
-    where:
-    - Pᶜₘₐₓ = maximum growth rate
-    - αᶜʰˡ = photosynthetic slope
-    - PAR = photosynthetically active radiation
-    - θᶜ = chlorophyll to carbon ratio
+    where ``I`` is photosynthetically active radiation, ``P^C_{max}`` is the
+    maximum carbon-specific growth rate, ``\\alpha^{chl}`` is the chlorophyll-
+    specific initial slope, and ``\\theta^C`` is the chlorophyll-to-carbon ratio.
+    This follows the Geider et al. light response used by DARWIN-style growth.
 """
 struct GeiderLightLimitation{T}
     alpha::T
@@ -69,118 +69,6 @@ end
     return Pᶜₘₐₓ * (one(Pᶜₘₐₓ) - exp((-α * θᶜ * PAR) / Pᶜₘₐₓ))
 end
 
-"""
-    SingleNutrientGrowthSmith(maximum_growth_0C, nutrient_half_saturation, alpha)
-
-Photosynthetic growth with single-nutrient Monod limitation and Smith light limitation.
-
-!!! formulation
-    μ₀ * γᴿ * γᴾᴬᴿ * P
-
-    where:
-    - μ₀ = maximum growth rate at 0 °C
-    - γᴿ = `MonodLimitation(kᵣ)(R)`
-    - R = nutrient concentration
-    - kᵣ = nutrient half-saturation
-    - γᴾᴬᴿ = `SmithLightLimitation(α, μ₀)(PAR)`
-    - PAR = photosynthetically active radiation
-    - α = initial photosynthetic slope
-    - P = plankton concentration
-"""
-struct SingleNutrientGrowthSmith{T}
-    maximum_growth_0C::T
-    nutrient_half_saturation::T
-    alpha::T
-end
-
-@inline function (g::SingleNutrientGrowthSmith)(R, P, PAR)
-    μ₀ = g.maximum_growth_0C
-    return μ₀ *
-           MonodLimitation(g.nutrient_half_saturation)(R) *
-           SmithLightLimitation(g.alpha, μ₀)(PAR) *
-           P
-end
-
-"""
-    SingleNutrientGrowthGeider(maximum_growth_rate, nutrient_half_saturation, alpha, chlorophyll_to_carbon_ratio)
-
-Photosynthetic growth with single-nutrient Monod limitation and Geider light limitation.
-
-!!! formulation
-    γᴿ * γᴾᴬᴿ * P
-
-    where:
-    - γᴿ = `MonodLimitation(kᵣ)(R)`
-    - R = nutrient concentration
-    - kᵣ = nutrient half-saturation
-    - γᴾᴬᴿ = `GeiderLightLimitation(α, Pᶜₘₐₓ, θᶜ)(PAR)`
-    - PAR = photosynthetically active radiation
-    - Pᶜₘₐₓ = maximum growth rate
-    - θᶜ = chlorophyll to carbon ratio
-    - α = photosynthetic slope
-    - P = plankton concentration
-"""
-struct SingleNutrientGrowthGeider{T}
-    maximum_growth_rate::T
-    nutrient_half_saturation::T
-    alpha::T
-    chlorophyll_to_carbon_ratio::T
-end
-
-@inline function (g::SingleNutrientGrowthGeider)(R, P, PAR)
-    return MonodLimitation(g.nutrient_half_saturation)(R) *
-           GeiderLightLimitation(
-               g.alpha, g.maximum_growth_rate, g.chlorophyll_to_carbon_ratio
-           )(
-               PAR
-           ) *
-           P
-end
-
-"""
-    TwoNutrientGrowthGeider(maximum_growth_rate, half_saturation_1, half_saturation_2, alpha, chlorophyll_to_carbon_ratio)
-
-Photosynthetic growth with two-nutrient Liebig limitation and Geider light limitation.
-
-!!! formulation
-    Pᶜₘ * γᴾᴬᴿ * P
-
-    where:
-    - Pᶜₘ = `LiebigMinimum()(γ¹, γ²)` * Pᶜₘₐₓ
-    - γᴾᴬᴿ = `GeiderLightLimitation(α, Pᶜₘ, θᶜ)(PAR)`
-    - γ¹ = `MonodLimitation(K₁)(R₁)`
-    - γ² = `MonodLimitation(K₂)(R₂)`
-    - R₁, R₂ = nutrient concentrations
-    - K₁, K₂ = nutrient half-saturation constants
-    - Pᶜₘₐₓ = maximum growth rate
-    - θᶜ = chlorophyll to carbon ratio
-    - α = photosynthetic slope
-    - P = plankton concentration
-
-!!! info
-    Unlike the MITgcm-DARWIN formulation, this growth function does not include light inhibition.
-"""
-struct TwoNutrientGrowthGeider{T}
-    maximum_growth_rate::T
-    half_saturation_1::T
-    half_saturation_2::T
-    alpha::T
-    chlorophyll_to_carbon_ratio::T
-end
-
-@inline function (g::TwoNutrientGrowthGeider)(R1, R2, P, PAR)
-    γ = LiebigMinimum()(
-        MonodLimitation(g.half_saturation_1)(R1), MonodLimitation(g.half_saturation_2)(R2)
-    )
-    return γ *
-           GeiderLightLimitation(
-               g.alpha, g.maximum_growth_rate, g.chlorophyll_to_carbon_ratio
-           )(
-               PAR
-           ) *
-           P
-end
-
 # -----------------------------------------------------------------------------
 # Explicit function aliases (preferred developer UX).
 # -----------------------------------------------------------------------------
@@ -188,15 +76,17 @@ end
 """
     smith_light_limitation(PAR, alpha, maximum_growth_0C)
 
-Smith (1936) formulation of light limitation.
+Evaluate the Smith (1936) light-limitation factor.
 
 !!! formulation
-    α * PAR / √(μ₀² + α² * PAR²)
+    ```math
+    L_S(I) = \\frac{\\alpha I}{\\sqrt{\\mu_0^2 + (\\alpha I)^2}}
+    ```
 
 # Arguments
-- `PAR`: photosynthetically active radiation
-- `alpha`: initial photosynthetic slope α
-- `maximum_growth_0C`: maximum growth rate μ₀ at T = 0 °C
+- `PAR`: photosynthetically active radiation ``I``.
+- `alpha`: initial photosynthetic slope ``\\alpha``.
+- `maximum_growth_0C`: maximum growth rate ``\\mu_0`` at 0 °C.
 """
 @inline smith_light_limitation(PAR, alpha, maximum_growth_0C) = SmithLightLimitation(
     alpha, maximum_growth_0C
@@ -207,16 +97,18 @@ Smith (1936) formulation of light limitation.
 """
     geider_light_limitation(PAR, alpha, maximum_growth_rate, chlorophyll_to_carbon_ratio)
 
-Geider-style light limitation.
+Evaluate the Geider-style light-dependent growth rate.
 
 !!! formulation
-    Pᶜₘₐₓ[1-exp((-αᶜʰˡθᶜPAR)/Pᶜₘₐₓ)]
+    ```math
+    L_G(I) = P^C_{max} \\left[1 - \\exp\\left(-\\frac{\\alpha^{chl}\\theta^C I}{P^C_{max}}\\right)\\right]
+    ```
 
 # Arguments
-- `PAR`: photosynthetically active radiation
-- `alpha`: photosynthetic slope αᶜʰˡ
-- `maximum_growth_rate`: maximum growth rate Pᶜₘₐₓ
-- `chlorophyll_to_carbon_ratio`: chlorophyll-to-carbon ratio θᶜ
+- `PAR`: photosynthetically active radiation ``I``.
+- `alpha`: chlorophyll-specific initial slope ``\\alpha^{chl}``.
+- `maximum_growth_rate`: maximum carbon-specific growth rate ``P^C_{max}``.
+- `chlorophyll_to_carbon_ratio`: chlorophyll-to-carbon ratio ``\\theta^C``.
 """
 @inline geider_light_limitation(PAR, alpha, maximum_growth_rate, chlorophyll_to_carbon_ratio) = GeiderLightLimitation(
     alpha, maximum_growth_rate, chlorophyll_to_carbon_ratio
@@ -225,80 +117,111 @@ Geider-style light limitation.
 )
 
 """
-    smith_single_nutrient_growth(R, P, PAR, maximum_growth_0C, nutrient_half_saturation, alpha)
+    liebig_nutrient_limitation(resources, half_saturations, reference)
 
-Single-nutrient photosynthetic growth with Monod nutrient limitation and Smith light limitation.
+Compute a Liebig minimum over Monod limitation factors for any number of nutrient
+resources.
 
 !!! formulation
-    μ₀ * γᴿ * γᴾᴬᴿ * P
+    ```math
+    \\gamma = \\min_i \\frac{R_i}{K_i + R_i}
+    ```
+
+    where ``R_i`` is the concentration of nutrient resource `i` and ``K_i`` is
+    its half-saturation parameter. `reference` supplies the scalar type and the
+    initial value `one(reference)`.
 
 # Arguments
-- `R`: nutrient concentration
-- `P`: plankton concentration
-- `PAR`: photosynthetically active radiation
-- `maximum_growth_0C`: maximum growth rate μ₀ at T = 0 °C
-- `nutrient_half_saturation`: nutrient half-saturation kᵣ
-- `alpha`: initial photosynthetic slope α
+- `resources`: tuple of nutrient concentrations ``R_i``.
+- `half_saturations`: tuple of half-saturation constants ``K_i``.
+- `reference`: numeric value used to initialize the limitation factor with the
+  appropriate scalar type.
 """
-@inline smith_single_nutrient_growth(R, P, PAR, maximum_growth_0C, nutrient_half_saturation, alpha) = SingleNutrientGrowthSmith(
-    maximum_growth_0C, nutrient_half_saturation, alpha
-)(
-    R, P, PAR
+@inline function liebig_nutrient_limitation(resources::Tuple, half_saturations::Tuple, reference)
+    γ = one(reference)
+    @inbounds for i in eachindex(resources)
+        γ = min(γ, MonodLimitation(half_saturations[i])(resources[i]))
+    end
+    return γ
+end
+
+"""
+    smith_growth(resources, P, PAR, maximum_growth_0C, half_saturations, alpha)
+
+Compute Smith-style phytoplankton biomass growth with Liebig nutrient limitation.
+
+!!! formulation
+    ```math
+    G_S = \\mu_0\\,\\gamma\\,L_S(I)\\,P,
+    \\qquad
+    \\gamma = \\min_i \\frac{R_i}{K_i + R_i}
+    ```
+
+    where ``P`` is phytoplankton biomass, ``I`` is PAR, ``L_S`` is the Smith
+    light-limitation factor, and ``\\gamma`` is the minimum Monod nutrient
+    limitation across the supplied resources. A single nutrient is represented
+    by a tuple of length one.
+
+# Arguments
+- `resources`: tuple of nutrient concentrations ``R_i``.
+- `P`: phytoplankton biomass.
+- `PAR`: photosynthetically active radiation ``I``.
+- `maximum_growth_0C`: maximum growth rate ``\\mu_0`` at 0 °C.
+- `half_saturations`: tuple of nutrient half-saturation constants ``K_i``.
+- `alpha`: initial photosynthetic slope ``\\alpha``.
+"""
+@inline function smith_growth(
+    resources::Tuple,
+    P,
+    PAR,
+    maximum_growth_0C,
+    half_saturations::Tuple,
+    alpha,
 )
+    γ = liebig_nutrient_limitation(resources, half_saturations, maximum_growth_0C)
+    return maximum_growth_0C * γ * SmithLightLimitation(alpha, maximum_growth_0C)(PAR) * P
+end
 
 """
-    geider_single_nutrient_growth(R, P, PAR, maximum_growth_rate, nutrient_half_saturation, alpha, chlorophyll_to_carbon_ratio)
+    geider_growth(resources, P, PAR, maximum_growth_rate, half_saturations, alpha,
+                  chlorophyll_to_carbon_ratio)
 
-Single-nutrient photosynthetic growth with Monod nutrient limitation and Geider light limitation.
+Compute Geider-style phytoplankton biomass growth with Liebig nutrient limitation.
 
 !!! formulation
-    γᴿ * γᴾᴬᴿ * P
+    ```math
+    G_G = \\gamma\\,L_G(I)\\,P,
+    \\qquad
+    \\gamma = \\min_i \\frac{R_i}{K_i + R_i}
+    ```
+
+    where ``P`` is phytoplankton biomass, ``I`` is PAR, ``L_G`` is the Geider
+    light-dependent growth rate, and ``\\gamma`` is the minimum Monod nutrient
+    limitation across the supplied resources. A single nutrient is represented
+    by a tuple of length one.
 
 # Arguments
-- `R`: nutrient concentration
-- `P`: plankton concentration
-- `PAR`: photosynthetically active radiation
-- `maximum_growth_rate`: maximum growth rate Pᶜₘₐₓ
-- `nutrient_half_saturation`: nutrient half-saturation kᵣ
-- `alpha`: photosynthetic slope α
-- `chlorophyll_to_carbon_ratio`: chlorophyll-to-carbon ratio θᶜ
+- `resources`: tuple of nutrient concentrations ``R_i``.
+- `P`: phytoplankton biomass.
+- `PAR`: photosynthetically active radiation ``I``.
+- `maximum_growth_rate`: maximum carbon-specific growth rate ``P^C_{max}``.
+- `half_saturations`: tuple of nutrient half-saturation constants ``K_i``.
+- `alpha`: chlorophyll-specific initial slope ``\\alpha^{chl}``.
+- `chlorophyll_to_carbon_ratio`: chlorophyll-to-carbon ratio ``\\theta^C``.
 """
-@inline geider_single_nutrient_growth(R, P, PAR, maximum_growth_rate, nutrient_half_saturation, alpha, chlorophyll_to_carbon_ratio) = SingleNutrientGrowthGeider(
-    maximum_growth_rate, nutrient_half_saturation, alpha, chlorophyll_to_carbon_ratio
-)(
-    R, P, PAR
-)
-
-"""
-    geider_two_nutrient_growth(R1, R2, P, PAR, maximum_growth_rate, half_saturation_1, half_saturation_2, alpha, chlorophyll_to_carbon_ratio)
-
-Two-nutrient photosynthetic growth with Liebig limitation and Geider light limitation.
-
-!!! formulation
-    Pᶜₘ * γᴾᴬᴿ * P
-
-# Arguments
-- `R1`: first nutrient concentration
-- `R2`: second nutrient concentration
-- `P`: plankton concentration
-- `PAR`: photosynthetically active radiation
-- `maximum_growth_rate`: maximum growth rate Pᶜₘₐₓ
-- `half_saturation_1`: half-saturation K₁
-- `half_saturation_2`: half-saturation K₂
-- `alpha`: photosynthetic slope α
-- `chlorophyll_to_carbon_ratio`: chlorophyll-to-carbon ratio θᶜ
-
-!!! info
-    Unlike the MITgcm-DARWIN formulation, this growth function does not include light inhibition.
-"""
-@inline geider_two_nutrient_growth(R1, R2, P, PAR, maximum_growth_rate, half_saturation_1, half_saturation_2, alpha, chlorophyll_to_carbon_ratio) = TwoNutrientGrowthGeider(
+@inline function geider_growth(
+    resources::Tuple,
+    P,
+    PAR,
     maximum_growth_rate,
-    half_saturation_1,
-    half_saturation_2,
+    half_saturations::Tuple,
     alpha,
     chlorophyll_to_carbon_ratio,
-)(
-    R1, R2, P, PAR
 )
+    γ = liebig_nutrient_limitation(resources, half_saturations, maximum_growth_rate)
+    return γ *
+           GeiderLightLimitation(alpha, maximum_growth_rate, chlorophyll_to_carbon_ratio)(PAR) *
+           P
+end
 
 end # module

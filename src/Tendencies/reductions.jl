@@ -4,10 +4,10 @@ This module centralizes small, kernel-friendly reductions that are reused
 across model tracer kernels (e.g. NiPiZD and DARWIN).
 
 """
-module Sums
+module Reductions
 
 using ...Library.Mortality: linear_loss, quadratic_loss
-using ...Library.Photosynthesis: smith_single_nutrient_growth, geider_two_nutrient_growth
+using ...Library.Photosynthesis: smith_growth, geider_growth
 using ...Library.Predation:
     preferential_predation_loss,
     preferential_predation_gain,
@@ -154,33 +154,39 @@ function mortality_loss_sum(plankton, linear_mortality, quadratic_mortality)
 end
 
 # -----------------------------------------------------------------------------
-# Uptake reductions (growth summed over plankton classes)
+# Growth reductions (summed over plankton classes)
 # -----------------------------------------------------------------------------
 
-"""Smith-style single-nutrient uptake summed over all plankton classes."""
-function smith_uptake_sum(
-    plankton, N, PAR, maximum_growth_rate, nutrient_half_saturation, alpha
+"""Smith growth summed over all plankton classes."""
+function growth_sum(
+    ::Val{:smith},
+    ::Val{:liebig},
+    plankton,
+    resources::Tuple,
+    PAR,
+    maximum_growth_rate,
+    half_saturation_parameters::Tuple,
+    alpha,
 )
     n_plankton = length(maximum_growth_rate)
     T = eltype(maximum_growth_rate)
 
     @inbounds sum_over(n_plankton, T) do i
         P = plankton(i)
-        smith_single_nutrient_growth(
-            N, P, PAR, maximum_growth_rate[i], nutrient_half_saturation[i], alpha[i]
-        )
+        half_saturations = map(K -> K[i], half_saturation_parameters)
+        smith_growth(resources, P, PAR, maximum_growth_rate[i], half_saturations, alpha[i])
     end
 end
 
-"""Geider-style two-nutrient uptake summed over all plankton classes."""
-function geider_two_nutrient_uptake_sum(
+"""Geider growth summed over all plankton classes."""
+function growth_sum(
+    ::Val{:geider},
+    ::Val{:liebig},
     plankton,
-    DIN,
-    PO4,
+    resources::Tuple,
     PAR,
     maximum_growth_rate,
-    half_saturation_DIN,
-    half_saturation_PO4,
+    half_saturation_parameters::Tuple,
     photosynthetic_slope,
     chlorophyll_to_carbon_ratio,
 )
@@ -189,18 +195,17 @@ function geider_two_nutrient_uptake_sum(
 
     @inbounds sum_over(n_plankton, T) do i
         P = plankton(i)
-        geider_two_nutrient_growth(
-            DIN,
-            PO4,
+        half_saturations = map(K -> K[i], half_saturation_parameters)
+        geider_growth(
+            resources,
             P,
             PAR,
             maximum_growth_rate[i],
-            half_saturation_DIN[i],
-            half_saturation_PO4[i],
+            half_saturations,
             photosynthetic_slope[i],
             chlorophyll_to_carbon_ratio[i],
         )
     end
 end
 
-end # module Sums
+end # module Reductions

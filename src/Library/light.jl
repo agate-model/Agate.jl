@@ -15,6 +15,27 @@ const year = years = 365day
 
 export CyclicalPAR, FunctionFieldPAR
 
+"""
+    cyclical_par_at_depth(z, t)
+
+Evaluate the idealized seasonal photosynthetically active radiation (PAR) field
+at depth `z` and time `t`.
+
+!!! formulation
+    ```math
+    I_0(t) = 60\\left[1 - \\cos\\left(\\frac{2\\pi(t + 15\\,days)}{year}\\right)\\right]
+             \\left[1 + 0.2\\exp\\left(-\\left(\\frac{mod(t, year)-200\\,days}{50\\,days}\\right)^2\\right)\\right]^{-1} + 2
+    ```
+
+    with vertical attenuation
+
+    ```math
+    I(z,t) = I_0(t)\\exp(0.2z).
+    ```
+
+    In Oceananigans coordinates, negative `z` is below the surface, so
+    `exp(0.2z)` attenuates light with depth.
+"""
 @inline function cyclical_par_at_depth(z, t)
     PAR⁰ =
         60 *
@@ -58,8 +79,11 @@ end
 
 Light module wrapping an `Oceananigans.FunctionField` that represents PAR.
 
+The wrapped field is updated from the model clock by
+`update_biogeochemical_state!` and exposed as the auxiliary field `PAR`.
+
 # Fields
-- `field`: `Oceananigans.Fields.FunctionField`
+- `field`: `Oceananigans.Fields.FunctionField` containing PAR values.
 """
 struct FunctionFieldPAR{F}
     field::F
