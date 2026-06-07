@@ -19,12 +19,17 @@ using CairoMakie
 const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
+const BUILD_COLUMN_EXAMPLE = lowercase(get(ENV, "AGATE_DOCS_BUILD_COLUMN", get(ENV, "CI", "false") == "true" ? "false" : "true")) in ("1", "true", "yes")
+
 examples = [
     "Size structure" => "size_structure",
     "Predator-prey palatability" => "predator_prey_palatability",
     "Exporting a model setup" => "export_model_setup",
-    "Column model" => "1D_column",
 ]
+
+if BUILD_COLUMN_EXAMPLE
+    push!(examples, "Column model" => "1D_column")
+end
 
 differentiable_modelling = ["Forward-mode AD sensitivity" => "forwarddiff_nipizd_ode"]
 
