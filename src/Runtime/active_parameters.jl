@@ -62,9 +62,13 @@ end
     return bgc_p.parameters, tracer_values
 end
 
-@inline function (bgc_p::ParameterizedBGC)(::Val{tracer}, args...) where {tracer}
-    f = getfield(bgc_p.bgc.tracer_functions, tracer)
-    return f(bgc_p, args...)
+@inline function evaluate_tendency(bgc, parameters, ::Val{tracer}, args...) where {tracer}
+    f = getfield(bgc.tracer_functions, tracer)
+    return f(ParameterizedBGC(bgc, parameters), args...)
+end
+
+@inline function (bgc_p::ParameterizedBGC)(val_name::Val, args...)
+    return evaluate_tendency(bgc_p.bgc, bgc_p.parameters, val_name, args...)
 end
 
 """Return a BGC wrapper whose selected parameters are read from `p`.

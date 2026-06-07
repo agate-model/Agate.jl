@@ -2,7 +2,7 @@
 using Adapt
 
 using ..Equations: CompiledEquation
-using ..Runtime: Tracers, TracerIndex, build_tracer_index, ParameterizedBGC
+using ..Runtime: Tracers, TracerIndex, build_tracer_index, ParameterizedBGC, evaluate_tendency
 import ..Runtime: with_parameters
 
 using OceanBioME
@@ -79,9 +79,8 @@ end
     return auxiliary_fields_from_tracers(TR)
 end
 
-@inline function (bgc::AgateBGC)(::Val{tracer}, args...) where {tracer}
-    f = getfield(bgc.tracer_functions, tracer)
-    return f(bgc, args...)
+@inline function (bgc::AgateBGC)(val_name::Val, args...)
+    return evaluate_tendency(bgc, bgc.parameters, val_name, args...)
 end
 
 @inline function biogeochemical_drift_velocity(bgc::ParameterizedBGC, val_name::Val)
