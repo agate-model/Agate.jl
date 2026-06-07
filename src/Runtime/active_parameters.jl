@@ -87,7 +87,7 @@ function parameterized(bgc, p; active_parameters=(;))
 end
 
 function active_parameter_map(bgc, selectors::NamedTuple)
-    entries = Pair{Symbol,Any}[]
+    entries = Pair{Symbol, Any}[]
     for (parameter_name, selector) in pairs(selectors)
         push!(entries, parameter_name => active_parameter_slots(bgc, selector))
     end
@@ -95,7 +95,7 @@ function active_parameter_map(bgc, selectors::NamedTuple)
 end
 
 function active_parameter_slots(bgc, selector::NamedTuple)
-    entries = Any[]
+    entries = []
     for (tracer, active_index) in pairs(selector)
         push!(entries, (; parameter_index=plankton_parameter_index(bgc, tracer),
                          active_index=Int(active_index)))
