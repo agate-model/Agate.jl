@@ -1,5 +1,6 @@
 using Agate
 using Test
+using Adapt
 
 using Oceananigans.Biogeochemistry:
     biogeochemical_drift_velocity,
@@ -43,6 +44,9 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
     @test required_biogeochemical_tracers(fast_bgc) == required_biogeochemical_tracers(base_bgc)
     @test required_biogeochemical_auxiliary_fields(fast_bgc) == required_biogeochemical_auxiliary_fields(base_bgc)
     @test biogeochemical_drift_velocity(fast_bgc, Val(:P1)) == biogeochemical_drift_velocity(base_bgc, Val(:P1))
+
+    adapted_bgc = Adapt.adapt(identity, fast_bgc)
+    @test adapted_bgc(Val(:P1), args...) ≈ fast_tendency
 end
 
 

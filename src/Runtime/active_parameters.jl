@@ -1,3 +1,5 @@
+import Adapt
+
 """Internal vector view for one parameter array."""
 struct ActiveParameterVector{B,P,S}
     base::B
@@ -61,6 +63,16 @@ end
     tracer_values = TracerValues(bgc_p.bgc.tracers, args)
     return bgc_p.parameters, tracer_values
 end
+
+@inline Adapt.adapt_structure(to, v::ActiveParameterVector) =
+    ActiveParameterVector(Adapt.adapt(to, v.base), Adapt.adapt(to, v.p), Adapt.adapt(to, v.slots))
+
+@inline Adapt.adapt_structure(to, ap::ActiveParameters) =
+    ActiveParameters(Adapt.adapt(to, ap.base), Adapt.adapt(to, ap.p), Adapt.adapt(to, ap.map))
+
+@inline Adapt.adapt_structure(to, bgc_p::ParameterizedBGC) =
+    ParameterizedBGC(Adapt.adapt(to, bgc_p.bgc), Adapt.adapt(to, bgc_p.parameters))
+
 
 @inline function evaluate_tendency(bgc, parameters, ::Val{tracer}, args...) where {tracer}
     f = getfield(bgc.tracer_functions, tracer)
