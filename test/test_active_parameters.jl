@@ -44,3 +44,40 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
     @test required_biogeochemical_auxiliary_fields(fast_bgc) == required_biogeochemical_auxiliary_fields(base_bgc)
     @test biogeochemical_drift_velocity(fast_bgc, Val(:P1)) == biogeochemical_drift_velocity(base_bgc, Val(:P1))
 end
+
+
+@testset "ODE problem active parameters" begin
+    mu0 = 0.7 / day
+    base_bgc = ActiveParameterNiPiZD.construct(;
+        parameters=(; maximum_growth_rate=(P1=mu0, P2=mu0)),
+    )
+
+    u0 = [7.0, 1.0, 0.05, 0.05, 0.01, 0.01]
+    p = [mu0]
+
+    problem = Agate.Runtime.ode_problem(
+        base_bgc,
+        u0,
+        (0.0, day);
+        p,
+        active_parameters=(; maximum_growth_rate=(; P1=1)),
+        auxiliary=(; PAR=100.0),
+    )
+
+    du = similar(u0)
+    problem.f(du, u0, p, 0.0)
+
+    expected = Agate.Runtime.parameterized(
+        base_bgc,
+        p;
+        active_parameters=(; maximum_growth_rate=(; P1=1)),
+    )(Val(:P1), 0, 0, 0, 0.0, u0..., 100.0)
+
+    @test du[5] ≈ expected
+
+    p_fast = [2mu0]
+    du_fast = similar(u0)
+    problem.f(du_fast, u0, p_fast, 0.0)
+
+    @test du_fast[5] != du[5]
+end
