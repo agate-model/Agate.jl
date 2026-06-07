@@ -91,9 +91,10 @@ function active_parameter_map(bgc, selectors::NamedTuple)
 end
 
 function active_parameter_slots(bgc, selector::NamedTuple)
-    entries = map(pairs(selector)) do pair
-        tracer, active_index = pair
-        (; parameter_index=plankton_parameter_index(bgc, tracer), active_index=Int(active_index))
+    entries = Any[]
+    for (tracer, active_index) in pairs(selector)
+        push!(entries, (; parameter_index=plankton_parameter_index(bgc, tracer),
+                         active_index=Int(active_index)))
     end
     return Tuple(entries)
 end
