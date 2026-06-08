@@ -13,8 +13,8 @@ const EnzymeNiPiZD = Agate.Models.NiPiZD
     )
 
     args = (0, 0, 0, 0, 7.0, 1.0, 0.05, 0.05, 0.01, 0.01, 100.0)
-    active_parameters = (; maximum_growth_rate=(; P1=1))
-    active_map = Agate.Runtime.active_parameter_map(base_bgc, active_parameters)
+    active = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P1,))
+    active_map = Agate.Runtime.active_parameter_map(base_bgc, active.layout)
 
     function p1_tendency(p)
         parameters = Agate.Runtime.ActiveParameters(base_bgc.parameters, p, active_map)

@@ -30,7 +30,7 @@ const BGC = NiPiZD.construct()
 required_biogeochemical_tracers(BGC) == TRACERS ||
     error("Unexpected NiPiZD tracer order: $(required_biogeochemical_tracers(BGC))")
 
-const ACTIVE_PARAMETERS = (; maximum_growth_rate = (; P1 = 1))
+const ACTIVE = Agate.Runtime.active_parameters(BGC; maximum_growth_rate = (:P1,))
 nothing #hide
 
 # Here `p[1]` is the maximum growth rate of `P1`.
@@ -57,7 +57,7 @@ function nipizd_problem(theta; saveat=range(0.0, 365day; length=366))
         u0,
         (first(saveat), last(saveat));
         p = theta,
-        active_parameters = ACTIVE_PARAMETERS,
+        active_parameters = ACTIVE,
         auxiliary = (; PAR = constant_PAR(T)),
     )
 end

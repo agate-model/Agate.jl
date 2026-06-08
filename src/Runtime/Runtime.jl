@@ -8,6 +8,7 @@ export TracerValues
 export tendency_inputs
 export parameterized
 export ode_problem
+export active_parameters
 
 include("tendency_context.jl")
 include("active_parameters.jl")

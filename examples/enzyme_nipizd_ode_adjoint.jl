@@ -30,7 +30,7 @@ const BGC = NiPiZD.construct()
 required_biogeochemical_tracers(BGC) == TRACERS ||
     error("Unexpected NiPiZD tracer order: $(required_biogeochemical_tracers(BGC))")
 
-const ACTIVE_PARAMETERS = (; maximum_growth_rate = (; P1 = 1))
+const ACTIVE = Agate.Runtime.active_parameters(BGC; maximum_growth_rate = (:P1,))
 const SAVEAT = collect(range(0.0, 365day; length=366))
 const TSPAN = (first(SAVEAT), last(SAVEAT))
 nothing #hide
@@ -49,7 +49,7 @@ function nipizd_problem(theta)
         initial_conditions(T),
         TSPAN;
         p = theta,
-        active_parameters = ACTIVE_PARAMETERS,
+        active_parameters = ACTIVE,
         auxiliary = (; PAR = constant_PAR(T)),
     )
 end
@@ -94,7 +94,9 @@ baseline_objective = p1_final_objective(θ₀)
 # ## Enzyme gradient and finite-difference check
 
 # We call Enzyme directly on the scalar objective. The objective closure and its
-# captured static model are marked constant; only `theta` is active.
+# captured static model are marked constant; only `theta` is active. The finite-
+# difference check uses the primal solve without `sensealg`, so it does not run
+# adjoint machinery just to estimate the reference slope.
 
 function enzyme_gradient(theta)
     gradient = zeros(eltype(theta), length(theta))
