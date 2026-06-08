@@ -160,7 +160,7 @@ end
 """Smith growth summed over all plankton classes."""
 function growth_sum(
     ::Val{:smith},
-    ::Val{:liebig},
+    limitation::Union{Val{:liebig},Val{:smooth_liebig}},
     plankton,
     resources::Tuple,
     PAR,
@@ -174,14 +174,14 @@ function growth_sum(
     @inbounds sum_over(n_plankton, T) do i
         P = plankton(i)
         half_saturations = map(K -> K[i], half_saturation_parameters)
-        smith_growth(resources, P, PAR, maximum_growth_rate[i], half_saturations, alpha[i])
+        smith_growth(limitation, resources, P, PAR, maximum_growth_rate[i], half_saturations, alpha[i])
     end
 end
 
 """Geider growth summed over all plankton classes."""
 function growth_sum(
     ::Val{:geider},
-    ::Val{:liebig},
+    limitation::Union{Val{:liebig},Val{:smooth_liebig}},
     plankton,
     resources::Tuple,
     PAR,
@@ -197,6 +197,7 @@ function growth_sum(
         P = plankton(i)
         half_saturations = map(K -> K[i], half_saturation_parameters)
         geider_growth(
+            limitation,
             resources,
             P,
             PAR,
