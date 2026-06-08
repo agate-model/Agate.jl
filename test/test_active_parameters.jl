@@ -161,3 +161,37 @@ end
     @test du_matrix[5] ≈ expected_matrix
     @test du_matrix[5] != du[5]
 end
+
+@testset "active parameter selector validation" begin
+    base_bgc = ActiveParameterNiPiZD.construct()
+
+    @test_throws ArgumentError Agate.Runtime.parameterized(
+        base_bgc,
+        [1.0];
+        active_parameters=(; specificity=(; Z1=1)),
+    )
+
+    @test_throws ArgumentError Agate.Runtime.parameterized(
+        base_bgc,
+        [1.0];
+        active_parameters=(; optimum_predator_prey_ratio=(; Z1=1)),
+    )
+
+    @test_throws ArgumentError Agate.Runtime.parameterized(
+        base_bgc,
+        [1.0];
+        active_parameters=(; palatability_matrix=1),
+    )
+
+    @test_throws ArgumentError Agate.Runtime.parameterized(
+        base_bgc,
+        [1.0];
+        active_parameters=(; maximum_growth_rate=(; P1=0)),
+    )
+
+    @test_throws ArgumentError Agate.Runtime.parameterized(
+        base_bgc,
+        [1.0];
+        active_parameters=(; not_a_parameter=1),
+    )
+end

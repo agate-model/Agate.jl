@@ -158,9 +158,46 @@ function active_parameter_map(bgc, selectors::NamedTuple)
     return (; entries...)
 end
 
-active_parameter_slots(bgc, parameter_name::Symbol, selector::Integer) = Int(selector)
+const CONSTRUCTOR_DERIVED_ACTIVE_PARAMETERS = (
+    :specificity,
+    :protection,
+    :optimum_predator_prey_ratio,
+    :assimilation_efficiency,
+)
+
+function validate_runtime_active_parameter(bgc, parameter_name::Symbol)
+    if parameter_name in CONSTRUCTOR_DERIVED_ACTIVE_PARAMETERS
+        throw(ArgumentError(
+            "Active parameter :$parameter_name is not currently supported because it is used to derive " *
+            "runtime interaction matrices during model construction. Select entries of :palatability_matrix " *
+            "or :assimilation_matrix as active parameters instead."
+        ))
+    end
+
+    hasproperty(bgc.parameters, parameter_name) || throw(ArgumentError("Unknown active parameter :$parameter_name."))
+    return nothing
+end
+
+function active_parameter_index(active_index)
+    active_index isa Integer || throw(ArgumentError("Active parameter indices must be integers."))
+    index = Int(active_index)
+    index > 0 || throw(ArgumentError("Active parameter indices must be positive."))
+    return index
+end
+
+function active_parameter_slots(bgc, parameter_name::Symbol, selector::Integer)
+    validate_runtime_active_parameter(bgc, parameter_name)
+    value = getproperty(bgc.parameters, parameter_name)
+    value isa Number || throw(ArgumentError(
+        "Scalar active selector for :$parameter_name is not supported because the stored parameter is not scalar. " *
+        "Use a NamedTuple selector for vector parameters, or nested NamedTuples for supported interaction matrices."
+    ))
+    return active_parameter_index(selector)
+end
 
 function active_parameter_slots(bgc, parameter_name::Symbol, selector::NamedTuple)
+    validate_runtime_active_parameter(bgc, parameter_name)
+
     values_tuple = values(selector)
     isempty(values_tuple) && return ()
 
@@ -171,13 +208,23 @@ function active_parameter_slots(bgc, parameter_name::Symbol, selector::NamedTupl
         end
     end
 
-    return nested ? matrix_active_parameter_slots(bgc, parameter_name, selector) : vector_active_parameter_slots(bgc, selector)
+    return nested ? matrix_active_parameter_slots(bgc, parameter_name, selector) : vector_active_parameter_slots(bgc, parameter_name, selector)
 end
 
-function vector_active_parameter_slots(bgc, selector::NamedTuple)
+function vector_active_parameter_slots(bgc, parameter_name::Symbol, selector::NamedTuple)
+    is_interaction_matrix_parameter(parameter_name) && throw(ArgumentError(
+        "Vector active selector for :$parameter_name is not supported. " *
+        "Use nested NamedTuples, for example (; Z1 = (; P1 = 1))."
+    ))
+
+    value = getproperty(bgc.parameters, parameter_name)
+    value isa AbstractVector || throw(ArgumentError(
+        "Vector active selector for :$parameter_name is not supported because the stored parameter is not a vector."
+    ))
+
     entries = []
     for (tracer, active_index) in pairs(selector)
-        push!(entries, (; indices=(plankton_parameter_index(bgc, tracer),), active_index=Int(active_index)))
+        push!(entries, (; indices=(plankton_parameter_index(bgc, tracer),), active_index=active_parameter_index(active_index)))
     end
     return Tuple(entries)
 end
@@ -194,7 +241,7 @@ function matrix_active_parameter_slots(bgc, parameter_name::Symbol, selector::Na
     for (consumer, prey_selector) in pairs(selector)
         prey_selector isa NamedTuple || throw(ArgumentError("Matrix selector for :$parameter_name requires nested NamedTuples."))
         for (prey, active_index) in pairs(prey_selector)
-            push!(entries, (; indices=interaction_parameter_indices(bgc, consumer, prey), active_index=Int(active_index)))
+            push!(entries, (; indices=interaction_parameter_indices(bgc, consumer, prey), active_index=active_parameter_index(active_index)))
         end
     end
     return Tuple(entries)
