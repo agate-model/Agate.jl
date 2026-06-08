@@ -41,7 +41,9 @@ end
     map = getfield(ap, :map)
 
     if hasproperty(map, name)
-        return ActiveParameterVector(getproperty(base, name), getfield(ap, :p), getproperty(map, name))
+        selector = getproperty(map, name)
+        selector isa Integer && return getfield(ap, :p)[selector]
+        return ActiveParameterVector(getproperty(base, name), getfield(ap, :p), selector)
     end
 
     return getproperty(base, name)
@@ -105,6 +107,8 @@ function active_parameter_map(bgc, selectors::NamedTuple)
     end
     return (; entries...)
 end
+
+active_parameter_slots(bgc, selector::Integer) = Int(selector)
 
 function active_parameter_slots(bgc, selector::NamedTuple)
     entries = []

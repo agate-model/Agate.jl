@@ -31,6 +31,17 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
     @test bgc_p.parameters.maximum_growth_rate[3] == p[1]
     @test bgc_p.parameters.maximum_growth_rate[4] == base_bgc.parameters.maximum_growth_rate[4]
 
+    p_scalar = [mu0, 2base_bgc.parameters.detritus_remineralization]
+    bgc_scalar = Agate.Runtime.parameterized(
+        base_bgc,
+        p_scalar;
+        active_parameters=(; maximum_growth_rate=(; P1=1), detritus_remineralization=2),
+    )
+
+    @test bgc_scalar.parameters.maximum_growth_rate[3] == p_scalar[1]
+    @test bgc_scalar.parameters.detritus_remineralization == p_scalar[2]
+    @test bgc_scalar.parameters.maximum_growth_rate[4] == base_bgc.parameters.maximum_growth_rate[4]
+
     p_fast = [2mu0]
     fast_bgc = Agate.Runtime.parameterized(
         base_bgc,
@@ -84,4 +95,25 @@ end
     problem.f(du_fast, u0, p_fast, 0.0)
 
     @test du_fast[5] != du[5]
+
+    p_scalar = [mu0, 2base_bgc.parameters.detritus_remineralization]
+    problem_scalar = Agate.Runtime.ode_problem(
+        base_bgc,
+        u0,
+        (0.0, day);
+        p=p_scalar,
+        active_parameters=(; maximum_growth_rate=(; P1=1), detritus_remineralization=2),
+        auxiliary=(; PAR=100.0),
+    )
+
+    du_scalar = similar(u0)
+    problem_scalar.f(du_scalar, u0, p_scalar, 0.0)
+
+    expected_scalar = Agate.Runtime.parameterized(
+        base_bgc,
+        p_scalar;
+        active_parameters=(; maximum_growth_rate=(; P1=1), detritus_remineralization=2),
+    )(Val(:N), 0, 0, 0, 0.0, u0..., 100.0)
+
+    @test du_scalar[1] ≈ expected_scalar
 end
