@@ -42,6 +42,28 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
     @test bgc_scalar.parameters.detritus_remineralization == p_scalar[2]
     @test bgc_scalar.parameters.maximum_growth_rate[4] == base_bgc.parameters.maximum_growth_rate[4]
 
+
+    p_matrix = [mu0, 3base_bgc.parameters.interactions.palatability[1, 1], 0.8]
+    bgc_matrix = Agate.Runtime.parameterized(
+        base_bgc,
+        p_matrix;
+        active_parameters=(;
+            maximum_growth_rate=(; P1=1),
+            palatability_matrix=(; Z1=(; P1=2)),
+            assimilation_matrix=(; Z1=(; P1=3)),
+        ),
+    )
+
+    @test bgc_matrix.parameters.maximum_growth_rate[3] == p_matrix[1]
+    @test bgc_matrix.parameters.palatability_matrix[1, 1] == p_matrix[2]
+    @test bgc_matrix.parameters.assimilation_matrix[1, 1] == p_matrix[3]
+    @test bgc_matrix.parameters.interactions.palatability[1, 1] == p_matrix[2]
+    @test bgc_matrix.parameters.interactions.assimilation[1, 1] == p_matrix[3]
+    @test bgc_matrix.parameters.interactions.palatability[1, 2] == base_bgc.parameters.interactions.palatability[1, 2]
+
+    matrix_tendency = bgc_matrix(Val(:P1), args...)
+    @test matrix_tendency != base_tendency
+
     p_fast = [2mu0]
     fast_bgc = Agate.Runtime.parameterized(
         base_bgc,
@@ -116,4 +138,26 @@ end
     )(Val(:N), 0, 0, 0, 0.0, u0..., 100.0)
 
     @test du_scalar[1] ≈ expected_scalar
+
+    p_matrix = [mu0, 3base_bgc.parameters.interactions.palatability[1, 1]]
+    problem_matrix = Agate.Runtime.ode_problem(
+        base_bgc,
+        u0,
+        (0.0, day);
+        p=p_matrix,
+        active_parameters=(; maximum_growth_rate=(; P1=1), palatability_matrix=(; Z1=(; P1=2))),
+        auxiliary=(; PAR=100.0),
+    )
+
+    du_matrix = similar(u0)
+    problem_matrix.f(du_matrix, u0, p_matrix, 0.0)
+
+    expected_matrix = Agate.Runtime.parameterized(
+        base_bgc,
+        p_matrix;
+        active_parameters=(; maximum_growth_rate=(; P1=1), palatability_matrix=(; Z1=(; P1=2))),
+    )(Val(:P1), 0, 0, 0, 0.0, u0..., 100.0)
+
+    @test du_matrix[5] ≈ expected_matrix
+    @test du_matrix[5] != du[5]
 end

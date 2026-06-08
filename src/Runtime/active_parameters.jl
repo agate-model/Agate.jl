@@ -1,26 +1,57 @@
 import Adapt
 
-"""Internal vector view for one parameter array."""
-struct ActiveParameterVector{B,P,S}
+"""Internal array view for one active parameter leaf.
+
+`base` is the stored parameter value and `p` is the external active parameter
+vector. `slots` maps indices in `base` to entries in `p`.
+"""
+struct ActiveParameterArray{B,P,S}
     base::B
     p::P
     slots::S
 end
 
-@inline Base.length(v::ActiveParameterVector) = length(v.base)
-@inline Base.axes(v::ActiveParameterVector) = axes(v.base)
-@inline Base.eachindex(v::ActiveParameterVector) = eachindex(v.base)
-@inline Base.IndexStyle(::Type{<:ActiveParameterVector}) = IndexLinear()
+@inline Base.length(a::ActiveParameterArray) = length(a.base)
+@inline Base.size(a::ActiveParameterArray) = size(a.base)
+@inline Base.axes(a::ActiveParameterArray) = axes(a.base)
+@inline Base.eachindex(a::ActiveParameterArray) = eachindex(a.base)
+@inline Base.IndexStyle(::Type{<:ActiveParameterArray}) = IndexLinear()
 
-@inline function Base.eltype(::Type{<:ActiveParameterVector{B,P}}) where {B,P}
+@inline function Base.eltype(::Type{<:ActiveParameterArray{B,P}}) where {B,P}
     return promote_type(eltype(B), eltype(P))
 end
 
-@inline function Base.getindex(v::ActiveParameterVector, i::Int)
-    @inbounds for slot in v.slots
-        slot.parameter_index == i && return v.p[slot.active_index]
+@inline function Base.getindex(a::ActiveParameterArray, indices::Vararg{Int,N}) where {N}
+    @inbounds for slot in a.slots
+        slot.indices == indices && return a.p[slot.active_index]
     end
-    return v.base[i]
+    return a.base[indices...]
+end
+
+"""Internal active view of the runtime interaction matrices."""
+struct ActiveInteractions{B,P,M}
+    base::B
+    p::P
+    map::M
+end
+
+@inline Base.propertynames(ai::ActiveInteractions) = propertynames(ai.base)
+
+@inline function Base.getproperty(ai::ActiveInteractions, name::Symbol)
+    name === :base && return getfield(ai, :base)
+    name === :p && return getfield(ai, :p)
+    name === :map && return getfield(ai, :map)
+
+    base = getfield(ai, :base)
+    map = getfield(ai, :map)
+
+    if name === :palatability && hasproperty(map, :palatability_matrix)
+        return ActiveParameterArray(base.palatability, getfield(ai, :p), map.palatability_matrix)
+    elseif name === :assimilation && hasproperty(map, :assimilation_matrix)
+        return ActiveParameterArray(base.assimilation, getfield(ai, :p), map.assimilation_matrix)
+    end
+
+    return getproperty(base, name)
 end
 
 """Internal parameter container that overrides selected parameter fields from `p`."""
@@ -38,12 +69,21 @@ end
     name === :map && return getfield(ap, :map)
 
     base = getfield(ap, :base)
+    p = getfield(ap, :p)
     map = getfield(ap, :map)
+
+    if name === :interactions
+        interactions = getproperty(base, :interactions)
+        if hasproperty(map, :palatability_matrix) || hasproperty(map, :assimilation_matrix)
+            return ActiveInteractions(interactions, p, map)
+        end
+        return interactions
+    end
 
     if hasproperty(map, name)
         selector = getproperty(map, name)
-        selector isa Integer && return getfield(ap, :p)[selector]
-        return ActiveParameterVector(getproperty(base, name), getfield(ap, :p), selector)
+        selector isa Integer && return p[selector]
+        return ActiveParameterArray(getproperty(base, name), p, selector)
     end
 
     return getproperty(base, name)
@@ -66,8 +106,11 @@ end
     return bgc_p.parameters, tracer_values
 end
 
-@inline Adapt.adapt_structure(to, v::ActiveParameterVector) =
-    ActiveParameterVector(Adapt.adapt(to, v.base), Adapt.adapt(to, v.p), Adapt.adapt(to, v.slots))
+@inline Adapt.adapt_structure(to, a::ActiveParameterArray) =
+    ActiveParameterArray(Adapt.adapt(to, a.base), Adapt.adapt(to, a.p), Adapt.adapt(to, a.slots))
+
+@inline Adapt.adapt_structure(to, ai::ActiveInteractions) =
+    ActiveInteractions(Adapt.adapt(to, ai.base), Adapt.adapt(to, ai.p), Adapt.adapt(to, ai.map))
 
 @inline Adapt.adapt_structure(to, ap::ActiveParameters) =
     ActiveParameters(Adapt.adapt(to, ap.base), Adapt.adapt(to, ap.p), Adapt.adapt(to, ap.map))
@@ -87,11 +130,18 @@ end
 
 """Return a BGC wrapper whose selected parameters are read from `p`.
 
-`active_parameters` maps parameter names to tracer names and active-vector
-indices. For example:
+`active_parameters` maps parameter names to active-vector indices. Supported
+selectors are:
 
 ```julia
+# scalar parameter
+parameterized(bgc, p; active_parameters = (; detritus_remineralization = 1))
+
+# plankton-axis vector parameter
 parameterized(bgc, p; active_parameters = (; maximum_growth_rate = (; P1 = 1)))
+
+# consumer-by-prey matrix parameter
+parameterized(bgc, p; active_parameters = (; palatability_matrix = (; Z1 = (; P1 = 1))))
 ```
 """
 function parameterized(bgc, p; active_parameters=(;))
@@ -103,21 +153,55 @@ end
 function active_parameter_map(bgc, selectors::NamedTuple)
     entries = Pair{Symbol, Any}[]
     for (parameter_name, selector) in pairs(selectors)
-        push!(entries, parameter_name => active_parameter_slots(bgc, selector))
+        push!(entries, parameter_name => active_parameter_slots(bgc, parameter_name, selector))
     end
     return (; entries...)
 end
 
-active_parameter_slots(bgc, selector::Integer) = Int(selector)
+active_parameter_slots(bgc, parameter_name::Symbol, selector::Integer) = Int(selector)
 
-function active_parameter_slots(bgc, selector::NamedTuple)
+function active_parameter_slots(bgc, parameter_name::Symbol, selector::NamedTuple)
+    values_tuple = values(selector)
+    isempty(values_tuple) && return ()
+
+    nested = first(values_tuple) isa NamedTuple
+    for value in values_tuple
+        if nested != (value isa NamedTuple)
+            throw(ArgumentError("Active selector for :$parameter_name mixes vector and matrix syntax."))
+        end
+    end
+
+    return nested ? matrix_active_parameter_slots(bgc, parameter_name, selector) : vector_active_parameter_slots(bgc, selector)
+end
+
+function vector_active_parameter_slots(bgc, selector::NamedTuple)
     entries = []
     for (tracer, active_index) in pairs(selector)
-        push!(entries, (; parameter_index=plankton_parameter_index(bgc, tracer),
-                         active_index=Int(active_index)))
+        push!(entries, (; indices=(plankton_parameter_index(bgc, tracer),), active_index=Int(active_index)))
     end
     return Tuple(entries)
 end
+
+function matrix_active_parameter_slots(bgc, parameter_name::Symbol, selector::NamedTuple)
+    is_interaction_matrix_parameter(parameter_name) || throw(
+        ArgumentError(
+            "Matrix active selector for :$parameter_name is not supported. " *
+            "Currently supported matrix parameters are :palatability_matrix and :assimilation_matrix."
+        )
+    )
+
+    entries = []
+    for (consumer, prey_selector) in pairs(selector)
+        prey_selector isa NamedTuple || throw(ArgumentError("Matrix selector for :$parameter_name requires nested NamedTuples."))
+        for (prey, active_index) in pairs(prey_selector)
+            push!(entries, (; indices=interaction_parameter_indices(bgc, consumer, prey), active_index=Int(active_index)))
+        end
+    end
+    return Tuple(entries)
+end
+
+@inline is_interaction_matrix_parameter(parameter_name::Symbol) =
+    parameter_name === :palatability_matrix || parameter_name === :assimilation_matrix
 
 function plankton_parameter_index(bgc, tracer::Symbol)
     tracer_names = Tuple(keys(bgc.tracer_functions))
@@ -130,6 +214,22 @@ function plankton_parameter_index(bgc, tracer::Symbol)
     parameter_index = pos - plankton_base + 1
     parameter_index >= 1 || throw(ArgumentError("Tracer :$tracer is not a plankton tracer."))
     return parameter_index
+end
+
+function interaction_parameter_indices(bgc, consumer::Symbol, prey::Symbol)
+    hasproperty(bgc.parameters, :interactions) || throw(ArgumentError("Model has no interaction matrix axes."))
+
+    interactions = bgc.parameters.interactions
+    consumer_global = plankton_parameter_index(bgc, consumer)
+    prey_global = plankton_parameter_index(bgc, prey)
+
+    consumer_index = interactions.global_to_consumer[consumer_global]
+    prey_index = interactions.global_to_prey[prey_global]
+
+    consumer_index > 0 || throw(ArgumentError("Tracer :$consumer is not on the consumer axis."))
+    prey_index > 0 || throw(ArgumentError("Tracer :$prey is not on the prey axis."))
+
+    return (consumer_index, prey_index)
 end
 
 function with_parameters end
