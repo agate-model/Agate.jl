@@ -10,28 +10,24 @@ function ode_problem(
     auxiliary=(;),
     coordinates=(0, 0, 0),
 )
+    if !isempty(active_parameters) && p === nothing
+        throw(ArgumentError("`p` must be provided when `active_parameters` is non-empty."))
+    end
+
     aux_names = required_biogeochemical_auxiliary_fields(bgc)
+    tracer_names = required_biogeochemical_tracers(bgc)
+    active_map = isempty(active_parameters) ? nothing : active_parameter_map(bgc, active_parameters)
 
     function rhs!(du, u, parameters_vector, t)
-        bgc_t = if isempty(active_parameters)
-            bgc
-        else
-            parameterized(bgc, parameters_vector; active_parameters)
-        end
-
+        parameters = active_map === nothing ? bgc.parameters : ActiveParameters(bgc.parameters, parameters_vector, active_map)
         aux_values = ode_auxiliary_values(aux_names, auxiliary, t)
         x, y, z = coordinates
-        tracer_names = required_biogeochemical_tracers(bgc)
 
         for (n, tracer) in enumerate(tracer_names)
-            du[n] = bgc_t(Val(tracer), x, y, z, t, u..., aux_values...)
+            du[n] = evaluate_tendency(bgc, parameters, Val(tracer), x, y, z, t, u..., aux_values...)
         end
 
         return nothing
-    end
-
-    if !isempty(active_parameters) && p === nothing
-        throw(ArgumentError("`p` must be provided when `active_parameters` is non-empty."))
     end
 
     return p === nothing ? ODEProblem(rhs!, u0, tspan) : ODEProblem(rhs!, u0, tspan, p)
