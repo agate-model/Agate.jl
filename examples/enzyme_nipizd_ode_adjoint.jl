@@ -68,16 +68,26 @@ const SENSEALG = SciMLSensitivity.GaussAdjoint(
     autojacvec = SciMLSensitivity.EnzymeVJP(),
 )
 
-function p1_final_objective(theta)
+function p1_final_objective(theta; sensealg = nothing)
     problem = remake(PROBLEM; p = theta)
-    sol = solve(problem, Tsit5();
-                saveat = SAVEAT,
-                abstol = 1e-10,
-                reltol = 1e-10,
-                sensealg = SENSEALG)
+
+    if isnothing(sensealg)
+        sol = solve(problem, Tsit5();
+                    saveat = SAVEAT,
+                    abstol = 1e-10,
+                    reltol = 1e-10)
+    else
+        sol = solve(problem, Tsit5();
+                    saveat = SAVEAT,
+                    abstol = 1e-10,
+                    reltol = 1e-10,
+                    sensealg)
+    end
 
     return sol[5, end]
 end
+
+p1_final_objective_adjoint(theta) = p1_final_objective(theta; sensealg = SENSEALG)
 
 baseline_objective = p1_final_objective(θ₀)
 
@@ -90,7 +100,7 @@ function enzyme_gradient(theta)
     gradient = zeros(eltype(theta), length(theta))
 
     Enzyme.autodiff(Enzyme.set_runtime_activity(Enzyme.Reverse),
-                    Enzyme.Const(p1_final_objective),
+                    Enzyme.Const(p1_final_objective_adjoint),
                     Enzyme.Active,
                     Enzyme.Duplicated(theta, gradient))
 
@@ -102,17 +112,38 @@ function finite_difference_gradient(theta, delta)
     minus = copy(theta)
     plus[1] += delta
     minus[1] -= delta
-    return [(p1_final_objective(plus) - p1_final_objective(minus)) / (2delta)]
+
+    objective_plus = p1_final_objective(plus)
+    objective_minus = p1_final_objective(minus)
+
+    return [(objective_plus - objective_minus) / (2delta)], objective_plus, objective_minus
 end
 
-δ = μ₀ * 1e-6
+function finite_difference_scan(theta; relative_steps = (1e-3, 3e-4, 1e-4, 3e-5, 1e-5))
+    results = map(relative_steps) do relative_step
+        delta = abs(theta[1]) * relative_step
+        gradient, objective_plus, objective_minus = finite_difference_gradient(theta, delta)
+        return (; relative_step, delta, gradient = gradient[1], objective_plus, objective_minus)
+    end
+
+    selected = first(filter(result -> isfinite(result.gradient) &&
+                                      isfinite(result.objective_plus) &&
+                                      isfinite(result.objective_minus),
+                            results))
+
+    return selected, results
+end
+
+finite_difference_sensitivity, finite_difference_results = finite_difference_scan(θ₀)
 enzyme_sensitivity = enzyme_gradient(copy(θ₀))
-finite_difference_sensitivity = finite_difference_gradient(θ₀, δ)
 
 @printf("Final P1 objective: %.8e\n", baseline_objective)
 @printf("d final P1 / dμ₁, Enzyme adjoint:     %.8e\n", enzyme_sensitivity[1])
-@printf("d final P1 / dμ₁, finite difference: %.8e\n", finite_difference_sensitivity[1])
-@printf("Absolute sensitivity difference: %.8e\n", abs(enzyme_sensitivity[1] - finite_difference_sensitivity[1]))
+@printf("d final P1 / dμ₁, finite difference: %.8e  (relative step %.1e)\n",
+        finite_difference_sensitivity.gradient,
+        finite_difference_sensitivity.relative_step)
+@printf("Absolute sensitivity difference: %.8e\n",
+        abs(enzyme_sensitivity[1] - finite_difference_sensitivity.gradient))
 
 # ## Plotting the trajectory
 
