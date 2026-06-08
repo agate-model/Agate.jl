@@ -128,15 +128,15 @@ end
     return evaluate_tendency(bgc_p.bgc, bgc_p.parameters, val_name, args...)
 end
 
-"""Active parameter layout, labels, and reference values for a BGC.
+"""Selected active parameters for a BGC.
 
-Returned by [`active_parameters`](@ref). `layout` is the internal map from
-structured parameter names to positions in a flat vector, `labels` names those
+Returned by [`active_parameters`](@ref). `map` is the internal slot map used by
+[`parameterized`](@ref) and [`ode_problem`](@ref), `labels` names the flat-vector
 entries, and `values` stores the corresponding values from the BGC used to
 create the set.
 """
-struct ActiveParameterSet{L,V}
-    layout::L
+struct ActiveParameterSet{M,V}
+    map::M
     labels::Tuple{Vararg{String}}
     values::V
 end
@@ -144,8 +144,6 @@ end
 Base.length(active::ActiveParameterSet) = length(active.values)
 Base.isempty(active::ActiveParameterSet) = isempty(active.values)
 
-active_parameter_layout(active::ActiveParameterSet) = active.layout
-active_parameter_layout(::Nothing) = (;)
 
 """Return selected BGC parameters as a labelled flat-vector parameter set.
 
@@ -167,23 +165,22 @@ parameterized(bgc, θ; active_parameters = active)
 """
 function active_parameters(bgc; kwargs...)
     active_index = Ref(1)
-    layout_entries = Pair{Symbol, Any}[]
+    map_entries = Pair{Symbol, Any}[]
     labels = String[]
     values = Any[]
 
     for (parameter_name, selection) in pairs((; kwargs...))
-        selector = active_parameter_entry!(labels, values, bgc, parameter_name, selection, active_index)
-        push!(layout_entries, parameter_name => selector)
+        slots = active_parameter_entry!(labels, values, bgc, parameter_name, selection, active_index)
+        push!(map_entries, parameter_name => slots)
     end
 
     active_values = isempty(values) ? Float64[] : collect(promote(values...))
-    return ActiveParameterSet((; layout_entries...), Tuple(labels), active_values)
+    return ActiveParameterSet((; map_entries...), Tuple(labels), active_values)
 end
 
 """Return a BGC wrapper whose selected parameters are read from `p`."""
 function parameterized(bgc, p; active_parameters=nothing)
-    layout = active_parameter_layout(active_parameters)
-    map = active_parameter_map(bgc, layout)
+    map = active_parameters === nothing ? (;) : active_parameters.map
     parameters = ActiveParameters(bgc.parameters, p, map)
     return ParameterizedBGC(bgc, parameters)
 end
@@ -198,13 +195,14 @@ function active_parameter_entry!(labels, values, bgc, parameter_name::Symbol, se
         "Use tracer symbols for vector parameters, or consumer-prey pairs for supported interaction matrices."
     ))
 
+    index = next_active_index!(active_index)
     push!(labels, String(parameter_name))
     push!(values, parameter_value)
-    return next_active_index!(active_index)
+    return index
 end
 
 function active_parameter_entry!(labels, values, bgc, parameter_name::Symbol, selection::Tuple, active_index)
-    isempty(selection) && return (;)
+    isempty(selection) && return ()
 
     if all(item -> item isa Symbol, selection)
         return vector_active_parameter_entry!(labels, values, bgc, parameter_name, selection, active_index)
@@ -238,37 +236,31 @@ function vector_active_parameter_entry!(labels, values, bgc, parameter_name::Sym
         "Vector active selector for :$parameter_name is not supported because the stored parameter is not a vector."
     ))
 
-    entries = Pair{Symbol, Int}[]
+    entries = []
     for tracer in selection
         index = next_active_index!(active_index)
-        push!(entries, tracer => index)
+        parameter_index = plankton_parameter_index(bgc, tracer)
+        push!(entries, (; indices=(parameter_index,), active_index=index))
         push!(labels, "$(parameter_name).$(tracer)")
-        push!(values, parameter_value[plankton_parameter_index(bgc, tracer)])
+        push!(values, parameter_value[parameter_index])
     end
 
-    return (; entries...)
+    return Tuple(entries)
 end
 
 function matrix_active_parameter_entry!(labels, values, bgc, parameter_name::Symbol, selection::Tuple, active_index)
     matrix = active_matrix_parameter_value(bgc, parameter_name)
-    consumers = Symbol[]
-    consumer_entries = Pair{Symbol, Vector{Pair{Symbol, Int}}}[]
+    entries = []
 
     for (consumer, prey) in selection
         index = next_active_index!(active_index)
-        pos = findfirst(==(consumer), consumers)
-        if pos === nothing
-            push!(consumers, consumer)
-            push!(consumer_entries, consumer => Pair{Symbol, Int}[])
-            pos = length(consumer_entries)
-        end
-
-        push!(consumer_entries[pos].second, prey => index)
+        indices = interaction_parameter_indices(bgc, consumer, prey)
+        push!(entries, (; indices, active_index=index))
         push!(labels, "$(parameter_name)[$consumer, $prey]")
-        push!(values, matrix[interaction_parameter_indices(bgc, consumer, prey)...])
+        push!(values, matrix[indices...])
     end
 
-    return (; (consumer => (; prey_entries...) for (consumer, prey_entries) in consumer_entries)...)
+    return Tuple(entries)
 end
 
 function active_matrix_parameter_value(bgc, parameter_name::Symbol)
@@ -278,14 +270,6 @@ function active_matrix_parameter_value(bgc, parameter_name::Symbol)
         "Matrix active selector for :$parameter_name is not supported. " *
         "Currently supported matrix parameters are :palatability_matrix and :assimilation_matrix."
     ))
-end
-
-function active_parameter_map(bgc, selectors::NamedTuple)
-    entries = Pair{Symbol, Any}[]
-    for (parameter_name, selector) in pairs(selectors)
-        push!(entries, parameter_name => active_parameter_slots(bgc, parameter_name, selector))
-    end
-    return (; entries...)
 end
 
 const CONSTRUCTOR_DERIVED_ACTIVE_PARAMETERS = (
@@ -306,75 +290,6 @@ function validate_runtime_active_parameter(bgc, parameter_name::Symbol)
 
     hasproperty(bgc.parameters, parameter_name) || throw(ArgumentError("Unknown active parameter :$parameter_name."))
     return nothing
-end
-
-function active_parameter_index(active_index)
-    active_index isa Integer || throw(ArgumentError("Active parameter indices must be integers."))
-    index = Int(active_index)
-    index > 0 || throw(ArgumentError("Active parameter indices must be positive."))
-    return index
-end
-
-function active_parameter_slots(bgc, parameter_name::Symbol, selector::Integer)
-    validate_runtime_active_parameter(bgc, parameter_name)
-    value = getproperty(bgc.parameters, parameter_name)
-    value isa Number || throw(ArgumentError(
-        "Scalar active selector for :$parameter_name is not supported because the stored parameter is not scalar. " *
-        "Use a NamedTuple selector for vector parameters, or nested NamedTuples for supported interaction matrices."
-    ))
-    return active_parameter_index(selector)
-end
-
-function active_parameter_slots(bgc, parameter_name::Symbol, selector::NamedTuple)
-    validate_runtime_active_parameter(bgc, parameter_name)
-
-    values_tuple = values(selector)
-    isempty(values_tuple) && return ()
-
-    nested = first(values_tuple) isa NamedTuple
-    for value in values_tuple
-        if nested != (value isa NamedTuple)
-            throw(ArgumentError("Active selector for :$parameter_name mixes vector and matrix syntax."))
-        end
-    end
-
-    return nested ? matrix_active_parameter_slots(bgc, parameter_name, selector) : vector_active_parameter_slots(bgc, parameter_name, selector)
-end
-
-function vector_active_parameter_slots(bgc, parameter_name::Symbol, selector::NamedTuple)
-    is_interaction_matrix_parameter(parameter_name) && throw(ArgumentError(
-        "Vector active selector for :$parameter_name is not supported. " *
-        "Use nested NamedTuples, for example (; Z1 = (; P1 = 1))."
-    ))
-
-    value = getproperty(bgc.parameters, parameter_name)
-    value isa AbstractVector || throw(ArgumentError(
-        "Vector active selector for :$parameter_name is not supported because the stored parameter is not a vector."
-    ))
-
-    entries = []
-    for (tracer, active_index) in pairs(selector)
-        push!(entries, (; indices=(plankton_parameter_index(bgc, tracer),), active_index=active_parameter_index(active_index)))
-    end
-    return Tuple(entries)
-end
-
-function matrix_active_parameter_slots(bgc, parameter_name::Symbol, selector::NamedTuple)
-    is_interaction_matrix_parameter(parameter_name) || throw(
-        ArgumentError(
-            "Matrix active selector for :$parameter_name is not supported. " *
-            "Currently supported matrix parameters are :palatability_matrix and :assimilation_matrix."
-        )
-    )
-
-    entries = []
-    for (consumer, prey_selector) in pairs(selector)
-        prey_selector isa NamedTuple || throw(ArgumentError("Matrix selector for :$parameter_name requires nested NamedTuples."))
-        for (prey, active_index) in pairs(prey_selector)
-            push!(entries, (; indices=interaction_parameter_indices(bgc, consumer, prey), active_index=active_parameter_index(active_index)))
-        end
-    end
-    return Tuple(entries)
 end
 
 @inline is_interaction_matrix_parameter(parameter_name::Symbol) =

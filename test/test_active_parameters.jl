@@ -199,11 +199,11 @@ end
         assimilation_matrix = ((:Z1, :P1),),
     )
 
-    @test active.layout == (;
-        maximum_growth_rate = (; P1 = 1, P2 = 2),
+    @test active.map == (;
+        maximum_growth_rate = ((; indices=(3,), active_index=1), (; indices=(4,), active_index=2)),
         detritus_remineralization = 3,
-        palatability_matrix = (; Z1 = (; P1 = 4, P2 = 5), Z2 = (; P1 = 6)),
-        assimilation_matrix = (; Z1 = (; P1 = 7)),
+        palatability_matrix = ((; indices=(1, 1), active_index=4), (; indices=(1, 2), active_index=5), (; indices=(2, 1), active_index=6)),
+        assimilation_matrix = ((; indices=(1, 1), active_index=7),),
     )
 
     @test active.labels == (

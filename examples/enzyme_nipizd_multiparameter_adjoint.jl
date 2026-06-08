@@ -41,8 +41,8 @@ const BGC = NiPiZD.construct()
 required_biogeochemical_tracers(BGC) == TRACERS ||
     error("Unexpected NiPiZD tracer order: $(required_biogeochemical_tracers(BGC))")
 
-# `ACTIVE` names the active leaves, stores their vector layout, and carries the
-# corresponding reference values from the default BGC.
+# `ACTIVE` names the active leaves and carries the corresponding reference
+# values from the default BGC.
 const ACTIVE = Agate.Runtime.active_parameters(BGC;
     maximum_growth_rate = (:P1, :P2),
     detritus_remineralization = true,

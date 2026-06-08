@@ -10,17 +10,16 @@ function ode_problem(
     auxiliary=(;),
     coordinates=(0, 0, 0),
 )
-    layout = active_parameter_layout(active_parameters)
-    if !isempty(layout) && p === nothing
+    active_map = active_parameters === nothing ? (;) : active_parameters.map
+    if !isempty(active_map) && p === nothing
         throw(ArgumentError("`p` must be provided when `active_parameters` is non-empty."))
     end
 
     aux_names = required_biogeochemical_auxiliary_fields(bgc)
     tracer_names = required_biogeochemical_tracers(bgc)
-    active_map = isempty(layout) ? nothing : active_parameter_map(bgc, layout)
 
     function rhs!(du, u, parameters_vector, t)
-        parameters = active_map === nothing ? bgc.parameters : ActiveParameters(bgc.parameters, parameters_vector, active_map)
+        parameters = isempty(active_map) ? bgc.parameters : ActiveParameters(bgc.parameters, parameters_vector, active_map)
         aux_values = ode_auxiliary_values(aux_names, auxiliary, t)
         x, y, z = coordinates
 
