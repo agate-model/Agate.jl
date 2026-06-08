@@ -78,7 +78,7 @@ end
     return m
 end
 
-"""
+raw"""
     SmoothLiebigMinimum(sharpness)
 
 Smooth approximation to Liebig's law of the minimum.
