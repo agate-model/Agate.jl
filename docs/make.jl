@@ -33,7 +33,7 @@ end
 
 differentiable_modelling = [
     "Forward-mode AD sensitivity" => "forwarddiff_nipizd_ode",
-    "Multi-parameter bloom sensitivity with Enzyme" => "enzyme_nipizd_bloom_sensitivity",
+    "Parameter sensitivity with reverse-mode AD" => "ad_nipizd_parameter_sensitivity",
 ]
 
 

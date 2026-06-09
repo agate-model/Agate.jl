@@ -1,6 +1,6 @@
-# # [Multi-parameter bloom sensitivity with Enzyme] (@id enzyme_nipizd_bloom_sensitivity_example)
+# # [Parameter sensitivity with reverse-mode AD] (@id ad_nipizd_parameter_sensitivity_example)
 
-# This example differentiates a bloom-scale diagnostic with respect to several
+# This example differentiates a simple endpoint diagnostic with respect to several
 # active NiPiZD parameters at once. The active parameter vector includes a scalar
 # parameter, plankton-axis vector parameters, and predator-by-prey interaction
 # matrix entries. DifferentiationInterface calls Enzyme as the automatic
@@ -84,12 +84,12 @@ end
 const PROBLEM = nipizd_problem(θ_REFERENCE)
 nothing #hide
 
-# ## Bloom-scale objective
+# ## Endpoint objective
 
-# The objective is total phytoplankton biomass at the end of a short bloom
-# window. Its gradient answers a local ecological question: near the reference
-# parameterization, which selected rates and interaction strengths most affect
-# bloom biomass?
+# The objective is total phytoplankton biomass at the end of a short
+# integration window. Its gradient answers a local ecological question: near
+# the reference parameterization, which selected rates and interaction strengths
+# most affect the endpoint total phytoplankton?
 
 const SENSEALG = SciMLSensitivity.GaussAdjoint(
     autojacvec = SciMLSensitivity.EnzymeVJP(),
@@ -170,7 +170,7 @@ enzyme_gradient(theta) = DifferentiationInterface.gradient(final_total_phytoplan
 function print_parameter_table(objective, theta, gradient, scaled_sensitivities, order)
     total = sum(scaled_sensitivities)
 
-    @printf("Bloom sensitivity at θ_REFERENCE:\n")
+    @printf("Parameter sensitivity at θ_REFERENCE:\n")
     @printf("  objective final(total phytoplankton): %.8e\n", objective)
     @printf("  gradient norm:          %.8e\n", norm(gradient))
     @printf("\n  %-34s %14s %14s %14s\n", "parameter", "θ", "∂J/∂θ", "|θ ∂J/∂θ|")
@@ -209,8 +209,8 @@ function save_diagnostic_plots(reference_values, scaled_sensitivities, order)
     days = SAVEAT ./ day
     output_directory = @__DIR__
 
-    trajectory_path = joinpath(output_directory, "enzyme_nipizd_bloom_trajectory.png")
-    sensitivity_path = joinpath(output_directory, "enzyme_nipizd_bloom_scaled_sensitivities.png")
+    trajectory_path = joinpath(output_directory, "ad_nipizd_parameter_sensitivity_trajectory.png")
+    sensitivity_path = joinpath(output_directory, "ad_nipizd_parameter_sensitivity_scaled_sensitivities.png")
 
     trajectories = aggregated_trajectories(reference_values)
     panels = (("Nutrient", trajectories.N),
@@ -239,7 +239,7 @@ function save_diagnostic_plots(reference_values, scaled_sensitivities, order)
 
     sensitivity_fig = Figure(size = (1000, 520), fontsize = 14)
     ax = Axis(sensitivity_fig[1, 1],
-              title = "Scaled bloom sensitivities",
+              title = "Scaled parameter sensitivities",
               xlabel = "|θᵢ ∂J/∂θᵢ|",
               xscale = log10,
               yticks = (1:length(labels), labels))
