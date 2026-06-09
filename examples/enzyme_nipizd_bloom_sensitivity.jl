@@ -3,12 +3,15 @@
 # This example differentiates a bloom-scale diagnostic with respect to several
 # active NiPiZD parameters at once. The active parameter vector includes a scalar
 # parameter, plankton-axis vector parameters, and predator-by-prey interaction
-# matrix entries. Enzyme computes the gradient at a reference parameter vector;
+# matrix entries. DifferentiationInterface calls Enzyme as the automatic
+# differentiation backend to compute the gradient at a reference parameter vector;
 # no finite perturbation is needed to define the sensitivity ranking.
 
 using Agate
 using Agate.Library.Light: CyclicalPAR
+using ADTypes: AutoEnzyme
 using CairoMakie
+import DifferentiationInterface
 using Enzyme
 using LinearAlgebra: norm
 using OrdinaryDiffEq: Tsit5, solve
@@ -146,23 +149,23 @@ end
 
 final_total_phytoplankton_adjoint(theta) = final_total_phytoplankton(theta; sensealg = SENSEALG)
 
-# ## Enzyme gradient
+# ## Enzyme gradient through DifferentiationInterface
 
+# DifferentiationInterface provides a common gradient API for several Julia AD
+# backends. This example uses `AutoEnzyme`, so Enzyme is still the reverse-mode
+# backend, while the Agate objective remains an ordinary `theta -> scalar`
+# function.
+#
 # The scaled ranking `|θᵢ ∂J/∂θᵢ|` puts parameters with different units on a more
 # comparable local-relative scale. It is a local sensitivity at `θ_REFERENCE`,
 # not a finite-perturbation experiment. The differentiated solve only saves the
 # final state; the denser trajectory below is for plotting the reference run.
 
-function enzyme_gradient(theta)
-    gradient = zeros(eltype(theta), length(theta))
+const AD_BACKEND = AutoEnzyme(; mode = Enzyme.set_runtime_activity(Enzyme.Reverse))
 
-    Enzyme.autodiff(Enzyme.set_runtime_activity(Enzyme.Reverse),
-                    Enzyme.Const(final_total_phytoplankton_adjoint),
-                    Enzyme.Active,
-                    Enzyme.Duplicated(theta, gradient))
-
-    return gradient
-end
+enzyme_gradient(theta) = DifferentiationInterface.gradient(final_total_phytoplankton_adjoint,
+                                                           AD_BACKEND,
+                                                           theta)
 
 function print_parameter_table(objective, theta, gradient, scaled_sensitivities, order)
     total = sum(scaled_sensitivities)
