@@ -279,12 +279,18 @@ const CONSTRUCTOR_DERIVED_ACTIVE_PARAMETERS = (
     :assimilation_efficiency,
 )
 
+@inline function derived_runtime_matrix(parameter_name::Symbol)
+    parameter_name === :assimilation_efficiency && return :assimilation_matrix
+    return :palatability_matrix
+end
+
 function validate_runtime_active_parameter(bgc, parameter_name::Symbol)
     if parameter_name in CONSTRUCTOR_DERIVED_ACTIVE_PARAMETERS
+        runtime_matrix = derived_runtime_matrix(parameter_name)
         throw(ArgumentError(
             "Active parameter :$parameter_name is not currently supported because it is used to derive " *
-            "runtime interaction matrices during model construction. Select entries of :palatability_matrix " *
-            "or :assimilation_matrix as active parameters instead."
+            "the runtime matrix :$runtime_matrix during model construction. Select entries of " *
+            ":$runtime_matrix as active parameters instead."
         ))
     end
 
