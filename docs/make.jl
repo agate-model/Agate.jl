@@ -31,7 +31,10 @@ if BUILD_COLUMN_EXAMPLE
     push!(examples, "Column model" => "1D_column")
 end
 
-differentiable_modelling = ["Forward-mode AD sensitivity" => "forwarddiff_nipizd_ode"]
+differentiable_modelling = [
+    "Forward-mode AD sensitivity" => "forwarddiff_nipizd_ode",
+    "Multi-parameter bloom sensitivity with Enzyme" => "enzyme_nipizd_bloom_sensitivity",
+]
 
 
 example_scripts = [
