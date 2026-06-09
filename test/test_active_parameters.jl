@@ -180,8 +180,38 @@ end
 @testset "active parameter selector validation" begin
     base_bgc = ActiveParameterNiPiZD.construct()
 
-    @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; specificity = (:Z1,))
-    @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; optimum_predator_prey_ratio = (:Z1,))
+    err = try
+        Agate.Runtime.active_parameters(base_bgc; specificity = (:Z1,))
+    catch err
+        err
+    end
+    @test err isa ArgumentError
+    @test occursin(":palatability_matrix", sprint(showerror, err))
+
+    err = try
+        Agate.Runtime.active_parameters(base_bgc; protection = (:P1,))
+    catch err
+        err
+    end
+    @test err isa ArgumentError
+    @test occursin(":palatability_matrix", sprint(showerror, err))
+
+    err = try
+        Agate.Runtime.active_parameters(base_bgc; optimum_predator_prey_ratio = (:Z1,))
+    catch err
+        err
+    end
+    @test err isa ArgumentError
+    @test occursin(":palatability_matrix", sprint(showerror, err))
+
+    err = try
+        Agate.Runtime.active_parameters(base_bgc; assimilation_efficiency = (:Z1,))
+    catch err
+        err
+    end
+    @test err isa ArgumentError
+    @test occursin(":assimilation_matrix", sprint(showerror, err))
+
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; palatability_matrix = true)
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = ((:P1, :P2, :extra),))
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; detritus_remineralization = false)
