@@ -3,9 +3,7 @@
 # This example differentiates a simple endpoint diagnostic with respect to several
 # active NiPiZD parameters at once. The active parameter vector includes a scalar
 # parameter, plankton-axis vector parameters, and predator-by-prey interaction
-# matrix entries. DifferentiationInterface calls Enzyme as the automatic
-# differentiation backend to compute the gradient at a reference parameter vector;
-# no finite perturbation is needed to define the sensitivity ranking.
+# matrix entries. 
 
 using Agate
 using Agate.Library.Light: CyclicalPAR
@@ -152,14 +150,11 @@ final_total_phytoplankton_adjoint(theta) = final_total_phytoplankton(theta; sens
 # ## Enzyme gradient through DifferentiationInterface
 
 # DifferentiationInterface provides a common gradient API for several Julia AD
-# backends. This example uses `AutoEnzyme`, so Enzyme is still the reverse-mode
-# backend, while the Agate objective remains an ordinary `theta -> scalar`
-# function.
+# backends. This example uses `AutoEnzyme`, which uses Enzyme.jl as the reverse-mode
+# backend.
 #
 # The scaled ranking `|θᵢ ∂J/∂θᵢ|` puts parameters with different units on a more
-# comparable local-relative scale. It is a local sensitivity at `θ_REFERENCE`,
-# not a finite-perturbation experiment. The differentiated solve only saves the
-# final state; the denser trajectory below is for plotting the reference run.
+# comparable local-relative scale.
 
 const AD_BACKEND = AutoEnzyme(; mode = Enzyme.set_runtime_activity(Enzyme.Reverse))
 
