@@ -1,4 +1,4 @@
-# # [Parameter sensitivity with reverse-mode AD] (@id ad_nipizd_parameter_sensitivity_example)
+# # [Reverse-mode AD sensitivity] (@id reverse_mode_ad_nipizd_sensitivity_example)
 
 # This example differentiates the final total phytoplankton biomass in the
 # default NiPiZD model with respect to several active parameters at once. The
@@ -167,8 +167,8 @@ function save_diagnostic_plots(reference_values, scaled_sensitivities, order)
     days = SAVEAT ./ day
     output_directory = @__DIR__
 
-    trajectory_path = joinpath(output_directory, "ad_nipizd_parameter_sensitivity_trajectory.png")
-    sensitivity_path = joinpath(output_directory, "ad_nipizd_parameter_sensitivity_scaled_sensitivities.png")
+    trajectory_path = joinpath(output_directory, "reverse_mode_ad_nipizd_sensitivity_trajectory.png")
+    sensitivity_path = joinpath(output_directory, "reverse_mode_ad_nipizd_sensitivity_scaled_sensitivities.png")
 
     trajectory_fig = Figure()
     ax = Axis(trajectory_fig[1, 1],

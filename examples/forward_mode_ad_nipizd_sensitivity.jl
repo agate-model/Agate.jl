@@ -1,4 +1,4 @@
-# # [Forward-mode AD sensitivity] (@id forwarddiff_nipizd_ode_example)
+# # [Forward-mode AD sensitivity] (@id forward_mode_ad_nipizd_sensitivity_example)
 
 # In this example we use ForwardDiff.jl to compute the sensitivity of phytoplankton 1 (P1) in an N2P2ZD model to P1's maximum growth rate parameter.
 
@@ -135,7 +135,7 @@ lines!(
 )
 axislegend(ax2; position=:rb)
 
-output_path = joinpath(@__DIR__, "forwarddiff_nipizd_ode_sensitivity.png")
+output_path = joinpath(@__DIR__, "forward_mode_ad_nipizd_sensitivity.png")
 save(output_path, fig)
 
 fig
