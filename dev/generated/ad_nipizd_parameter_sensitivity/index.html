@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Parameter sensitivity with reverse-mode AD · Agate.jl</title><meta name="title" content="Parameter sensitivity with reverse-mode AD · Agate.jl"/><meta property="og:title" content="Parameter sensitivity with reverse-mode AD · Agate.jl"/><meta property="twitter:title" content="Parameter sensitivity with reverse-mode AD · Agate.jl"/><meta name="description" content="Documentation for Agate.jl."/><meta property="og:description" content="Documentation for Agate.jl."/><meta property="twitter:description" content="Documentation for Agate.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Agate.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Agate.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../quick_start/">Quick start</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../size_structure/">Size structure</a></li><li><a class="tocitem" href="../predator_prey_palatability/">Predator-prey palatability</a></li><li><a class="tocitem" href="../export_model_setup/">Exporting a model setup</a></li></ul></li><li><span class="tocitem">Models</span><ul><li><a class="tocitem" href="../../nipizd/">NiPiZD</a></li><li><a class="tocitem" href="../../darwin/">DARWIN</a></li></ul></li><li><a class="tocitem" href="../../library/">Library</a></li><li><span class="tocitem">Differentiable modelling</span><ul><li><a class="tocitem" href="../forwarddiff_nipizd_ode/">Forward-mode AD sensitivity</a></li><li class="is-active"><a class="tocitem" href>Parameter sensitivity with reverse-mode AD</a><ul class="internal"><li><a class="tocitem" href="#Static-model-and-active-parameter-map"><span>Static model and active parameter map</span></a></li><li><a class="tocitem" href="#Endpoint-objective"><span>Endpoint objective</span></a></li><li><a class="tocitem" href="#Enzyme-gradient-through-DifferentiationInterface"><span>Enzyme gradient through DifferentiationInterface</span></a></li></ul></li></ul></li><li><span class="tocitem">Contributor guide</span><ul><li><a class="tocitem" href="../../architecture_overview/">Architecture</a></li></ul></li><li><a class="tocitem" href="../../api/">API reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Differentiable modelling</a></li><li class="is-active"><a href>Parameter sensitivity with reverse-mode AD</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Parameter sensitivity with reverse-mode AD</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/agate-model/Agate.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/agate-model/Agate.jl/blob/main/examples/ad_nipizd_parameter_sensitivity.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="ad_nipizd_parameter_sensitivity_example"><a class="docs-heading-anchor" href="#ad_nipizd_parameter_sensitivity_example">Parameter sensitivity with reverse-mode AD</a><a id="ad_nipizd_parameter_sensitivity_example-1"></a><a class="docs-heading-anchor-permalink" href="#ad_nipizd_parameter_sensitivity_example" title="Permalink"></a></h1><p>This example differentiates the final total phytoplankton biomass in the default NiPiZD model with respect to several active parameters at once. The active parameter vector includes a scalar parameter, plankton-axis vector parameters, and predator-by-prey interaction matrix entries.</p><pre><code class="language-julia hljs">using Agate
+using Agate.Library.Light: CyclicalPAR
+using ADTypes: AutoEnzyme
+using CairoMakie
+import DifferentiationInterface
+using Enzyme
+using LinearAlgebra: norm
+using OrdinaryDiffEq: Tsit5, solve
+using Printf
+using SciMLBase: remake
+using SciMLSensitivity
+
+using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
+using Oceananigans.Units: day
+
+const NiPiZD = Agate.Models.NiPiZD</code></pre><h2 id="Static-model-and-active-parameter-map"><a class="docs-heading-anchor" href="#Static-model-and-active-parameter-map">Static model and active parameter map</a><a id="Static-model-and-active-parameter-map-1"></a><a class="docs-heading-anchor-permalink" href="#Static-model-and-active-parameter-map" title="Permalink"></a></h2><p>To run a model sensitivity analysis, we first choose the parameters that we want to vary: the active parameters.</p><p>Here we vary parameters controlling phytoplankton growth, detritus recycling, grazing preferences, and grazing efficiency. We then measure how changes in each parameter affect the final total phytoplankton biomass.</p><pre><code class="language-julia hljs">const BGC = NiPiZD.construct()
+const TRACER_NAMES = Tuple(required_biogeochemical_tracers(BGC))
+const PLANKTON_GROUPS = Agate.Introspection.plankton_groups(BGC)
+
+function tracer_index(tracer::Symbol)
+    index = findfirst(==(tracer), TRACER_NAMES)
+    isnothing(index) &amp;&amp; error(&quot;Tracer $tracer not found in $TRACER_NAMES&quot;)
+    return index
+end
+
+const PHYTOPLANKTON = PLANKTON_GROUPS.P
+const PHYTOPLANKTON_INDICES = tracer_index.(PHYTOPLANKTON)
+
+const ACTIVE = Agate.Runtime.active_parameters(BGC;
+    maximum_growth_rate = (:P1, :P2),
+    detritus_remineralization = true,
+    interactions = (;
+        palatability = ((:Z1, :P1), (:Z1, :P2), (:Z2, :P1)),
+        assimilation = ((:Z1, :P1),),
+    ),
+)
+const PARAMETER_LABELS = ACTIVE.labels
+
+const θ_REFERENCE = copy(ACTIVE.values)
+
+const SAVEAT = collect(range(0.0, 30day; length = 31))
+const TSPAN = (first(SAVEAT), last(SAVEAT))
+const PAR = CyclicalPAR(-10)
+
+const INITIAL_CONCENTRATIONS = (; N = 7.0, D = 0.01,
+                                 Z1 = 0.01, Z2 = 0.01,
+                                 P1 = 0.01, P2 = 0.1)
+
+function initial_conditions(::Type{T}) where {T}
+    return T[getproperty(INITIAL_CONCENTRATIONS, tracer) for tracer in TRACER_NAMES]
+end
+
+function nipizd_problem(theta)
+    T = eltype(theta)
+
+    return Agate.Runtime.ode_problem(
+        BGC,
+        initial_conditions(T),
+        TSPAN;
+        p = theta,
+        active_parameters = ACTIVE,
+        auxiliary = (; PAR = t -&gt; PAR(T(t))),
+    )
+end
+
+const PROBLEM = nipizd_problem(θ_REFERENCE)</code></pre><h2 id="Endpoint-objective"><a class="docs-heading-anchor" href="#Endpoint-objective">Endpoint objective</a><a id="Endpoint-objective-1"></a><a class="docs-heading-anchor-permalink" href="#Endpoint-objective" title="Permalink"></a></h2><p>We measure sensitivity using the final total phytoplankton biomass after a short model run. The gradient tells us how strongly each active parameter affects that final biomass near the reference parameter values.</p><pre><code class="language-julia hljs">const SENSEALG = SciMLSensitivity.GaussAdjoint(
+    autojacvec = SciMLSensitivity.EnzymeVJP(),
+)
+
+function solve_values(theta; sensealg = nothing, saveat = SAVEAT,
+                      save_start = true, save_end = true, save_everystep = false)
+    problem = remake(PROBLEM; p = theta)
+    kwargs = (; abstol = 1e-8, reltol = 1e-8, verbose = false,
+              saveat, save_start, save_end, save_everystep)
+
+    sol = isnothing(sensealg) ? solve(problem, Tsit5(); kwargs...) :
+                                solve(problem, Tsit5(); kwargs..., sensealg)
+
+    return Array(sol)
+end
+
+function solve_final_values(theta; sensealg = nothing)
+    values = solve_values(theta;
+                          sensealg,
+                          saveat = TSPAN[end],
+                          save_start = false,
+                          save_end = true,
+                          save_everystep = false)
+
+    return values[:, end]
+end
+
+function final_total_phytoplankton(theta; sensealg = nothing)
+    final_values = solve_final_values(theta; sensealg)
+    total = zero(eltype(final_values))
+
+    for i in PHYTOPLANKTON_INDICES
+        total += final_values[i]
+    end
+
+    return total
+end
+
+final_total_phytoplankton_adjoint(theta) = final_total_phytoplankton(theta; sensealg = SENSEALG)</code></pre><pre><code class="nohighlight hljs">final_total_phytoplankton_adjoint (generic function with 1 method)</code></pre><h2 id="Enzyme-gradient-through-DifferentiationInterface"><a class="docs-heading-anchor" href="#Enzyme-gradient-through-DifferentiationInterface">Enzyme gradient through DifferentiationInterface</a><a id="Enzyme-gradient-through-DifferentiationInterface-1"></a><a class="docs-heading-anchor-permalink" href="#Enzyme-gradient-through-DifferentiationInterface" title="Permalink"></a></h2><p>DifferentiationInterface provides a common gradient API for several Julia AD backends. This example uses <code>AutoEnzyme</code>, which uses Enzyme.jl as the reverse-mode backend.</p><p>Parameters can have different units and magnitudes, so raw gradients are not always easy to compare. We rank sensitivities by <code>|θᵢ ∂J/∂θᵢ|</code>, which estimates how much each parameter contributes relative to its reference value.</p><pre><code class="language-julia hljs">const AD_BACKEND = AutoEnzyme(; mode = Enzyme.set_runtime_activity(Enzyme.Reverse))
+
+enzyme_gradient(theta) = DifferentiationInterface.gradient(final_total_phytoplankton_adjoint,
+                                                           AD_BACKEND,
+                                                           theta)
+
+function print_parameter_table(objective, theta, gradient, scaled_sensitivities, order)
+    total = sum(scaled_sensitivities)
+
+    @printf(&quot;Parameter sensitivity at θ_REFERENCE:\n&quot;)
+    @printf(&quot;  objective final(total phytoplankton): %.8e\n&quot;, objective)
+    @printf(&quot;  gradient norm:          %.8e\n&quot;, norm(gradient))
+    @printf(&quot;\n  %-34s %14s %14s %14s\n&quot;, &quot;parameter&quot;, &quot;θ&quot;, &quot;∂J/∂θ&quot;, &quot;|θ ∂J/∂θ|&quot;)
+
+    for n in order
+        share = iszero(total) ? 0.0 : 100 * scaled_sensitivities[n] / total
+        @printf(&quot;  %-34s %.8e % .8e %.8e  (%5.1f%%)\n&quot;,
+                PARAMETER_LABELS[n], theta[n], gradient[n], scaled_sensitivities[n], share)
+    end
+end
+
+function save_diagnostic_plots(reference_values, scaled_sensitivities, order)
+    days = SAVEAT ./ day
+    output_directory = @__DIR__
+
+    trajectory_path = joinpath(output_directory, &quot;ad_nipizd_parameter_sensitivity_trajectory.png&quot;)
+    sensitivity_path = joinpath(output_directory, &quot;ad_nipizd_parameter_sensitivity_scaled_sensitivities.png&quot;)
+
+    trajectory_fig = Figure()
+    ax = Axis(trajectory_fig[1, 1],
+              xlabel = &quot;Time (days)&quot;,
+              ylabel = &quot;Total phytoplankton&quot;)
+    phytoplankton = vec(sum(reference_values[PHYTOPLANKTON_INDICES, :]; dims = 1))
+    lines!(ax, days, phytoplankton)
+    save(trajectory_path, trajectory_fig)
+
+    plot_order = reverse(order)
+
+    sensitivity_fig = Figure(size = (800, 400))
+    ax = Axis(sensitivity_fig[1, 1],
+              xlabel = &quot;|θᵢ ∂J/∂θᵢ|&quot;,
+              yticks = (1:length(plot_order), collect(PARAMETER_LABELS)[plot_order]))
+    barplot!(ax, scaled_sensitivities[plot_order]; direction = :x)
+    save(sensitivity_path, sensitivity_fig)
+
+    return trajectory_path, sensitivity_path
+end
+
+reference_values = solve_values(θ_REFERENCE)
+reference_objective = final_total_phytoplankton(θ_REFERENCE)
+gradient = enzyme_gradient(copy(θ_REFERENCE))
+scaled_sensitivities = abs.(θ_REFERENCE .* gradient)
+sensitivity_order = sortperm(scaled_sensitivities; rev = true)
+
+print_parameter_table(reference_objective, θ_REFERENCE, gradient, scaled_sensitivities, sensitivity_order)
+save_diagnostic_plots(reference_values, scaled_sensitivities, sensitivity_order)</code></pre><pre><code class="nohighlight hljs">(&quot;/home/runner/work/Agate.jl/Agate.jl/docs/src/generated/ad_nipizd_parameter_sensitivity_trajectory.png&quot;, &quot;/home/runner/work/Agate.jl/Agate.jl/docs/src/generated/ad_nipizd_parameter_sensitivity_scaled_sensitivities.png&quot;)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../forwarddiff_nipizd_ode/">« Forward-mode AD sensitivity</a><a class="docs-footer-nextpage" href="../../architecture_overview/">Architecture »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Wednesday 10 June 2026 11:13">Wednesday 10 June 2026</span>. Using Julia version 1.10.11.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
