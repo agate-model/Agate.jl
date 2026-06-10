@@ -1,6 +1,6 @@
 name = "Agate"
 uuid = "41889b7c-c35c-4f16-abd7-94b299d9fd29"
-version = "0.7.0"
+version = "0.7.1"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -13,11 +13,13 @@ KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 OceanBioME = "a49af516-9db8-4be4-be45-1dad61c5a376"
 Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
+SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]
+Enzyme = "0.13, 0.14"
 JSON = "1"
 Adapt = "3, 4"
 Atomix = "1.0"
@@ -28,10 +30,12 @@ JLD2 = "0.4, 0.5, 0.6"
 KernelAbstractions = "0.9"
 OceanBioME = "0.16"
 Oceananigans = "0.101.1, 0.102"
+SciMLBase = "2"
 OffsetArrays = "1.14"
 julia = "1.10"
 
 [extras]
+Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 DataDeps = "124859b0-ceae-595e-8997-d05f6a7a8dfe"
@@ -48,4 +52,4 @@ StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "ForwardDiff"]
+test = ["Test", "ForwardDiff", "Enzyme"]

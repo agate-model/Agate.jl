@@ -2,7 +2,8 @@
 using Adapt
 
 using ..Equations: CompiledEquation
-using ..Runtime: Tracers, TracerIndex, build_tracer_index
+using ..Runtime: Tracers, TracerIndex, build_tracer_index, ParameterizedBGC, evaluate_tendency
+import ..Runtime: with_parameters
 
 using OceanBioME
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
@@ -38,7 +39,20 @@ AgateBGC(parameters, tracer_functions, tracers, sinking_velocities) =
 
 Adapt.@adapt_structure AgateBGC
 
+@inline function with_parameters(bgc::AgateBGC, parameters)
+    return AgateBGC(
+        parameters,
+        bgc.tracer_functions,
+        bgc.tracers,
+        bgc.sinking_velocities,
+        bgc.plankton_diameters,
+    )
+end
+
 @inline required_biogeochemical_tracers(bgc::AgateBGC) = keys(bgc.tracer_functions)
+
+@inline required_biogeochemical_tracers(bgc::ParameterizedBGC) =
+    required_biogeochemical_tracers(bgc.bgc)
 
 @inline function required_biogeochemical_tracers(
     ::Type{<:AgateBGC{PT,TF}}
@@ -56,15 +70,21 @@ end
     typeof(bgc.tracers)
 )
 
+@inline required_biogeochemical_auxiliary_fields(bgc::ParameterizedBGC) =
+    required_biogeochemical_auxiliary_fields(bgc.bgc)
+
 @inline function required_biogeochemical_auxiliary_fields(
     ::Type{<:AgateBGC{PT,TF,TR}}
 ) where {PT,TF,TR}
     return auxiliary_fields_from_tracers(TR)
 end
 
-@inline function (bgc::AgateBGC)(::Val{tracer}, args...) where {tracer}
-    f = getfield(bgc.tracer_functions, tracer)
-    return f(bgc, args...)
+@inline function (bgc::AgateBGC)(val_name::Val, args...)
+    return evaluate_tendency(bgc, bgc.parameters, val_name, args...)
+end
+
+@inline function biogeochemical_drift_velocity(bgc::ParameterizedBGC, val_name::Val)
+    return biogeochemical_drift_velocity(bgc.bgc, val_name)
 end
 
 @inline function biogeochemical_drift_velocity(bgc::AgateBGC, ::Val{tracer}) where {tracer}

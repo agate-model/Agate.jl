@@ -1,7 +1,7 @@
 const SUPPORTED_GROWTH_FORMULATIONS = (:smith, :geider)
 const SUPPORTED_ORGANIC_CYCLING_FORMULATIONS = (:simple_detritus, :dom_pom)
 const SUPPORTED_ZOOPLANKTON_FORMULATIONS = (:preferential_grazing,)
-const SUPPORTED_NUTRIENT_LIMITATIONS = (:liebig,)
+const SUPPORTED_NUTRIENT_LIMITATIONS = (:liebig, :smooth_liebig)
 
 struct TendencyConfig{Growth,OrganicCycling,Zooplankton,NutrientLimitation,Nutrients}
     nutrients::Nutrients

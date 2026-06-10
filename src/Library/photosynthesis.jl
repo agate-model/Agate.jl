@@ -2,10 +2,13 @@
 
 module Photosynthesis
 
-using ..Nutrients: MonodLimitation
+using ..Nutrients: MonodLimitation, LiebigMinimum, SmoothLiebigMinimum
 
 export smith_light_limitation,
     geider_light_limitation,
+    liebig_nutrient_limitation,
+    smooth_liebig_nutrient_limitation,
+    nutrient_limitation,
     smith_growth,
     geider_growth
 
@@ -137,12 +140,31 @@ resources.
 - `reference`: numeric value used to initialize the limitation factor with the
   appropriate scalar type.
 """
-@inline function liebig_nutrient_limitation(resources::Tuple, half_saturations::Tuple, reference)
-    γ = one(reference)
-    @inbounds for i in eachindex(resources)
-        γ = min(γ, MonodLimitation(half_saturations[i])(resources[i]))
+@inline function monod_limitations(resources::Tuple, half_saturations::Tuple)
+    return ntuple(length(resources)) do i
+        MonodLimitation(half_saturations[i])(resources[i])
     end
-    return γ
+end
+
+@inline nutrient_limitation(::Val{:liebig}, limitations::Tuple, reference) = LiebigMinimum()((one(reference), limitations...))
+
+@inline nutrient_limitation(::Val{:smooth_liebig}, limitations::Tuple, reference) = SmoothLiebigMinimum()((one(reference), limitations...))
+
+@inline function liebig_nutrient_limitation(resources::Tuple, half_saturations::Tuple, reference)
+    return nutrient_limitation(Val(:liebig), monod_limitations(resources, half_saturations), reference)
+end
+
+@inline function smooth_liebig_nutrient_limitation(resources::Tuple, half_saturations::Tuple, reference)
+    return nutrient_limitation(Val(:smooth_liebig), monod_limitations(resources, half_saturations), reference)
+end
+
+@inline function nutrient_limitation(
+    limitation::Val,
+    resources::Tuple,
+    half_saturations::Tuple,
+    reference,
+)
+    return nutrient_limitation(limitation, monod_limitations(resources, half_saturations), reference)
 end
 
 """
@@ -178,7 +200,19 @@ Compute Smith-style phytoplankton biomass growth with Liebig nutrient limitation
     half_saturations::Tuple,
     alpha,
 )
-    γ = liebig_nutrient_limitation(resources, half_saturations, maximum_growth_0C)
+    return smith_growth(Val(:liebig), resources, P, PAR, maximum_growth_0C, half_saturations, alpha)
+end
+
+@inline function smith_growth(
+    limitation::Val,
+    resources::Tuple,
+    P,
+    PAR,
+    maximum_growth_0C,
+    half_saturations::Tuple,
+    alpha,
+)
+    γ = nutrient_limitation(limitation, resources, half_saturations, maximum_growth_0C)
     return maximum_growth_0C * γ * SmithLightLimitation(alpha, maximum_growth_0C)(PAR) * P
 end
 
@@ -218,7 +252,29 @@ Compute Geider-style phytoplankton biomass growth with Liebig nutrient limitatio
     alpha,
     chlorophyll_to_carbon_ratio,
 )
-    γ = liebig_nutrient_limitation(resources, half_saturations, maximum_growth_rate)
+    return geider_growth(
+        Val(:liebig),
+        resources,
+        P,
+        PAR,
+        maximum_growth_rate,
+        half_saturations,
+        alpha,
+        chlorophyll_to_carbon_ratio,
+    )
+end
+
+@inline function geider_growth(
+    limitation::Val,
+    resources::Tuple,
+    P,
+    PAR,
+    maximum_growth_rate,
+    half_saturations::Tuple,
+    alpha,
+    chlorophyll_to_carbon_ratio,
+)
+    γ = nutrient_limitation(limitation, resources, half_saturations, maximum_growth_rate)
     return γ *
            GeiderLightLimitation(alpha, maximum_growth_rate, chlorophyll_to_carbon_ratio)(PAR) *
            P

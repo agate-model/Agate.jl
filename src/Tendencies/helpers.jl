@@ -47,7 +47,7 @@ end
 
 @inline function plankton_growth(
     ::Val{:smith},
-    ::Val{:liebig},
+    limitation::Union{Val{:liebig},Val{:smooth_liebig}},
     resources::Tuple,
     P,
     PAR,
@@ -57,12 +57,12 @@ end
 )
     μmax = @inbounds parameters.maximum_growth_rate[plankton_idx]
     α = @inbounds parameters.alpha[plankton_idx]
-    return smith_growth(resources, P, PAR, μmax, half_saturations, α)
+    return smith_growth(limitation, resources, P, PAR, μmax, half_saturations, α)
 end
 
 @inline function plankton_growth(
     ::Val{:geider},
-    ::Val{:liebig},
+    limitation::Union{Val{:liebig},Val{:smooth_liebig}},
     resources::Tuple,
     P,
     PAR,
@@ -73,5 +73,5 @@ end
     μmax = @inbounds parameters.maximum_growth_rate[plankton_idx]
     α = @inbounds parameters.photosynthetic_slope[plankton_idx]
     θc = @inbounds parameters.chlorophyll_to_carbon_ratio[plankton_idx]
-    return geider_growth(resources, P, PAR, μmax, half_saturations, α, θc)
+    return geider_growth(limitation, resources, P, PAR, μmax, half_saturations, α, θc)
 end
