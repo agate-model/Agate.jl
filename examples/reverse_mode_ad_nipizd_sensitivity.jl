@@ -187,7 +187,7 @@ function save_diagnostic_plots(reference_values, scaled_sensitivities, order)
     barplot!(ax, scaled_sensitivities[plot_order]; direction = :x)
     save(sensitivity_path, sensitivity_fig)
 
-    return trajectory_path, sensitivity_path
+    return (; trajectory = trajectory_fig, scaled_sensitivities = sensitivity_fig)
 end
 
 reference_values = solve_values(θ_REFERENCE)
@@ -197,4 +197,7 @@ scaled_sensitivities = abs.(θ_REFERENCE .* gradient)
 sensitivity_order = sortperm(scaled_sensitivities; rev = true)
 
 print_parameter_table(reference_objective, θ_REFERENCE, gradient, scaled_sensitivities, sensitivity_order)
-save_diagnostic_plots(reference_values, scaled_sensitivities, sensitivity_order)
+plots = save_diagnostic_plots(reference_values, scaled_sensitivities, sensitivity_order)
+
+plots.trajectory
+plots.scaled_sensitivities
