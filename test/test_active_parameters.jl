@@ -2,6 +2,10 @@ using Agate
 using Test
 using Adapt
 
+using Agate.Library.Light: FunctionFieldPAR
+using OceanBioME: Biogeochemistry, BoxModelGrid
+using Oceananigans: BoxModel
+
 using Oceananigans.Biogeochemistry:
     biogeochemical_drift_velocity,
     required_biogeochemical_auxiliary_fields,
@@ -86,6 +90,28 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
 
     adapted_bgc = Adapt.adapt(identity, fast_bgc)
     @test adapted_bgc(Val(:P1), args...) ≈ fast_tendency
+end
+
+@testset "parameterized BGC OceanBioME compatibility" begin
+    grid = BoxModelGrid()
+    mu0 = 0.7 / day
+    base_bgc = ActiveParameterNiPiZD.construct(;
+        grid,
+        parameters=(; maximum_growth_rate=(P1=mu0, P2=mu0)),
+    )
+
+    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P1,))
+    p = copy(active_growth.values)
+    bgc_p = Agate.Runtime.parameterized(base_bgc, p; active_parameters=active_growth)
+
+    light_attenuation = FunctionFieldPAR(; grid)
+    bgc_model = Biogeochemistry(bgc_p; light_attenuation)
+
+    box_model = BoxModel(; biogeochemistry=bgc_model)
+
+    @test required_biogeochemical_tracers(bgc_p) == required_biogeochemical_tracers(base_bgc)
+    @test required_biogeochemical_auxiliary_fields(bgc_p) == required_biogeochemical_auxiliary_fields(base_bgc)
+    @test !isnothing(box_model)
 end
 
 
