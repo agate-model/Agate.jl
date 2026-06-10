@@ -1,9 +1,9 @@
 # # [Parameter sensitivity with reverse-mode AD] (@id ad_nipizd_parameter_sensitivity_example)
 
-# This example differentiates a simple endpoint diagnostic with respect to several
-# active NiPiZD parameters at once. The active parameter vector includes a scalar
-# parameter, plankton-axis vector parameters, and predator-by-prey interaction
-# matrix entries. 
+# This example differentiates the final total phytoplankton biomass in the
+# default NiPiZD model with respect to several active parameters at once. The
+# active parameter vector includes a scalar parameter, plankton-axis vector
+# parameters, and predator-by-prey interaction matrix entries.
 
 using Agate
 using Agate.Library.Light: CyclicalPAR
@@ -25,9 +25,12 @@ nothing #hide
 
 # ## Static model and active parameter map
 
-# The active parameter vector selects growth, remineralization, grazing, and
-# assimilation entries that have direct ecological interpretations in the simple
-# NiPiZD food web.
+# To run a model sensitivity analysis, we first choose the parameters that we
+# want to vary: the active parameters.
+#
+# Here we vary parameters controlling phytoplankton growth, detritus recycling,
+# grazing preferences, and grazing efficiency. We then measure how changes in
+# each parameter affect the final total phytoplankton biomass.
 
 const BGC = NiPiZD.construct()
 const TRACER_NAMES = Tuple(required_biogeochemical_tracers(BGC))
@@ -56,8 +59,6 @@ const TSPAN = (first(SAVEAT), last(SAVEAT))
 const PAR = CyclicalPAR(-10)
 nothing #hide
 
-# These are the quick-start box-model initial concentrations. They are expanded
-# into the constructed BGC tracer order.
 const INITIAL_CONCENTRATIONS = (; N = 7.0, D = 0.01,
                                  Z1 = 0.01, Z2 = 0.01,
                                  P1 = 0.01, P2 = 0.1)
@@ -84,10 +85,9 @@ nothing #hide
 
 # ## Endpoint objective
 
-# The objective is total phytoplankton biomass at the end of a short
-# integration window. Its gradient answers a local ecological question: near
-# the reference parameterization, which selected rates and interaction strengths
-# most affect the endpoint total phytoplankton?
+# We measure sensitivity using the final total phytoplankton biomass after a
+# short model run. The gradient tells us how strongly each active parameter
+# affects that final biomass near the reference parameter values.
 
 const SENSEALG = SciMLSensitivity.GaussAdjoint(
     autojacvec = SciMLSensitivity.EnzymeVJP(),
@@ -153,8 +153,9 @@ final_total_phytoplankton_adjoint(theta) = final_total_phytoplankton(theta; sens
 # backends. This example uses `AutoEnzyme`, which uses Enzyme.jl as the reverse-mode
 # backend.
 #
-# The scaled ranking `|θᵢ ∂J/∂θᵢ|` puts parameters with different units on a more
-# comparable local-relative scale.
+# Parameters can have different units and magnitudes, so raw gradients are not
+# always easy to compare. We rank sensitivities by `|θᵢ ∂J/∂θᵢ|`, which estimates
+# how much each parameter contributes relative to its reference value.
 
 const AD_BACKEND = AutoEnzyme(; mode = Enzyme.set_runtime_activity(Enzyme.Reverse))
 
