@@ -8,7 +8,7 @@
 
 using Agate
 using ForwardDiff
-using OrdinaryDiffEq: ODEProblem, Tsit5, solve
+using OrdinaryDiffEq: Tsit5, solve
 using CairoMakie
 using Printf
 
@@ -19,28 +19,22 @@ const NiPiZD = Agate.Models.NiPiZD
 const TRACERS = (:N, :D, :Z1, :Z2, :P1, :P2)
 nothing #hide
 
-# ## Constructing an ForwardDiff.jl compatible model
+# ## Static model and active parameter
 
-# Agate.jl uses an explicit constructor-boundary scalar type contract.
-# For ordinary Oceananigans.jl simulations this scalar type comes from the grid, or defaults to `Float64`.
-# For ForwardDiff.jl, we pass the active scalar type explicitly with `scalar_type = typeof(mu)`.
+# We construct the model once and let `Agate.Runtime.ode_problem` read P1's
+# maximum growth rate from the ODE parameter vector. During ForwardDiff.jl
+# calls only this active entry becomes a dual number; the stored model parameters
+# remain ordinary floating-point values.
 
-function nipizd_model_with_p1_growth_rate(mu)
-    T = typeof(mu)
+const BGC = NiPiZD.construct()
+const ACTIVE = Agate.Runtime.active_parameters(BGC; maximum_growth_rate=(:P1,))
 
-    return NiPiZD.construct(;
-        scalar_type=T,
-        parameters=(; maximum_growth_rate=(P1=mu, P2=T(0.7 / day))),
-    )
-end
-nothing #hide
-
-# Here `mu` is the maximum growth rate of `P1`.
-# The `P2` growth rate is held fixed, and omitted zooplankton entries are filled from defaults.
+# Here `theta[1]` is the maximum growth rate of `P1`. The `P2` growth rate and
+# omitted zooplankton entries are held fixed at the model defaults.
 
 # ## Standalone ODE problem
 
-# We define a small standalone ODE that calls Agate.jl's generated biological tendency functions directly.
+# We define a small standalone ODE through Agate.jl's SciML problem helper.
 
 function initial_conditions(::Type{T}) where {T}
     return T[7.0, 1.0, 0.05, 0.05, 0.01, 0.01]
@@ -48,23 +42,21 @@ end
 
 constant_PAR(::Type{T}) where {T} = T(100.0)
 
-function solve_nipizd(mu; saveat=range(0.0, 365day; length=366))
-    T = typeof(mu)
-    bgc = nipizd_model_with_p1_growth_rate(mu)
+function solve_nipizd(theta; saveat=range(0.0, 365day; length=366))
+    T = eltype(theta)
 
-    required_biogeochemical_tracers(bgc) == TRACERS ||
-        error("Unexpected NiPiZD tracer order: $(required_biogeochemical_tracers(bgc))")
+    required_biogeochemical_tracers(BGC) == TRACERS ||
+        error("Unexpected NiPiZD tracer order: $(required_biogeochemical_tracers(BGC))")
 
-    function rhs!(du, u, _, t)
-        PAR = constant_PAR(T)
-        for (i, tracer) in enumerate(TRACERS)
-            du[i] = bgc(Val(tracer), 0, 0, 0, t, u..., PAR)
-        end
-        return nothing
-    end
+    problem = Agate.Runtime.ode_problem(
+        BGC,
+        initial_conditions(T),
+        (first(saveat), last(saveat));
+        p=theta,
+        active_parameters=ACTIVE,
+        auxiliary=(; PAR=t -> constant_PAR(T)),
+    )
 
-    u0 = initial_conditions(T)
-    problem = ODEProblem(rhs!, u0, (first(saveat), last(saveat)))
     return solve(problem, Tsit5(); saveat=saveat, abstol=1e-10, reltol=1e-10)
 end
 nothing #hide
@@ -73,13 +65,13 @@ nothing #hide
 # This is the function that ForwardDiff.jl differentiates.
 
 function p1_trajectory(theta; saveat=range(0.0, 365day; length=366))
-    sol = solve_nipizd(theta[1]; saveat=saveat)
+    sol = solve_nipizd(theta; saveat=saveat)
     values = reduce(hcat, sol.u)
     return vec(values[5, :])
 end
 
 function p1_solution(mu; saveat=range(0.0, 365day; length=366))
-    sol = solve_nipizd(mu; saveat=saveat)
+    sol = solve_nipizd([mu]; saveat=saveat)
     values = reduce(hcat, sol.u)
     return vec(values[5, :])
 end
