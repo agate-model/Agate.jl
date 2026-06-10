@@ -35,6 +35,7 @@ end
 
 function ode_auxiliary_values(aux_names, auxiliary::NamedTuple, t)
     return map(aux_names) do name
+        hasproperty(auxiliary, name) || throw(ArgumentError("Missing auxiliary value :$name."))
         value = getproperty(auxiliary, name)
         return value isa Function ? value(t) : value
     end
