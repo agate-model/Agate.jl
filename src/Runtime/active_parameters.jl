@@ -95,10 +95,8 @@ end
 
 """Selected active parameters for a BGC.
 
-Returned by [`active_parameters`](@ref). `map` is the internal slot map used by
-[`parameterized`](@ref) and [`ode_problem`](@ref), `labels` names the flat-vector
-entries, and `values` stores the corresponding values from the BGC used to
-create the set.
+Returned by [`active_parameters`](@ref). `labels` names the flat-vector entries,
+and `values` stores the corresponding values from the BGC used to create the set.
 """
 struct ActiveParameterSet{M,V}
     map::M
