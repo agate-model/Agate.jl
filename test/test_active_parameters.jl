@@ -3,8 +3,8 @@ using Test
 using Adapt
 
 using Agate.Library.Light: FunctionFieldPAR
+using OceanBioME
 using OceanBioME: Biogeochemistry, BoxModelGrid
-using Oceananigans: BoxModel
 
 using Oceananigans.Biogeochemistry:
     biogeochemical_drift_velocity,
