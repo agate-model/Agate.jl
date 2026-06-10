@@ -119,15 +119,18 @@ function solve_final_values(theta; sensealg = nothing)
     return values[:, end]
 end
 
-function final_total_phytoplankton(theta; sensealg = nothing)
-    final_values = solve_final_values(theta; sensealg)
-    total = zero(eltype(final_values))
+function total_phytoplankton(values)
+    total = zero(eltype(values))
 
     for i in PHYTOPLANKTON_INDICES
-        total += final_values[i]
+        total += values[i]
     end
 
     return total
+end
+
+function final_total_phytoplankton(theta; sensealg = nothing)
+    return total_phytoplankton(solve_final_values(theta; sensealg))
 end
 
 final_total_phytoplankton_adjoint(theta) = final_total_phytoplankton(theta; sensealg = SENSEALG)
@@ -163,12 +166,8 @@ function print_parameter_table(objective, theta, gradient, scaled_sensitivities,
     end
 end
 
-function save_diagnostic_plots(reference_values, scaled_sensitivities, order)
+function diagnostic_plots(reference_values, scaled_sensitivities, order)
     days = SAVEAT ./ day
-    output_directory = @__DIR__
-
-    trajectory_path = joinpath(output_directory, "reverse_mode_ad_nipizd_sensitivity_trajectory.png")
-    sensitivity_path = joinpath(output_directory, "reverse_mode_ad_nipizd_sensitivity_scaled_sensitivities.png")
 
     trajectory_fig = Figure()
     ax = Axis(trajectory_fig[1, 1],
@@ -176,7 +175,6 @@ function save_diagnostic_plots(reference_values, scaled_sensitivities, order)
               ylabel = "Total phytoplankton")
     phytoplankton = vec(sum(reference_values[PHYTOPLANKTON_INDICES, :]; dims = 1))
     lines!(ax, days, phytoplankton)
-    save(trajectory_path, trajectory_fig)
 
     plot_order = reverse(order)
 
@@ -185,19 +183,18 @@ function save_diagnostic_plots(reference_values, scaled_sensitivities, order)
               xlabel = "|θᵢ ∂J/∂θᵢ|",
               yticks = (1:length(plot_order), collect(PARAMETER_LABELS)[plot_order]))
     barplot!(ax, scaled_sensitivities[plot_order]; direction = :x)
-    save(sensitivity_path, sensitivity_fig)
 
     return (; trajectory = trajectory_fig, scaled_sensitivities = sensitivity_fig)
 end
 
 reference_values = solve_values(θ_REFERENCE)
-reference_objective = final_total_phytoplankton(θ_REFERENCE)
+reference_objective = total_phytoplankton(reference_values[:, end])
 gradient = enzyme_gradient(copy(θ_REFERENCE))
 scaled_sensitivities = abs.(θ_REFERENCE .* gradient)
 sensitivity_order = sortperm(scaled_sensitivities; rev = true)
 
 print_parameter_table(reference_objective, θ_REFERENCE, gradient, scaled_sensitivities, sensitivity_order)
-plots = save_diagnostic_plots(reference_values, scaled_sensitivities, sensitivity_order)
+plots = diagnostic_plots(reference_values, scaled_sensitivities, sensitivity_order)
 
 plots.trajectory
 plots.scaled_sensitivities
