@@ -28,7 +28,7 @@ nothing #hide
 # To run a model sensitivity analysis, we first choose the parameters that we
 # want to vary: the active parameters.
 #
-# Here we vary parameters controlling phytoplankton growth, detritus remineralization,
+# Here we vary parameters controlling phytoplankton growth, detritus recycling,
 # grazing preferences, and grazing efficiency. We then measure how changes in
 # each parameter affect the final total phytoplankton biomass.
 
@@ -48,8 +48,10 @@ const PHYTOPLANKTON_INDICES = tracer_index.(PHYTOPLANKTON)
 const ACTIVE = Agate.Runtime.active_parameters(BGC;
     maximum_growth_rate = (:P1, :P2),
     detritus_remineralization = true,
-    palatability_matrix = ((:Z1, :P1), (:Z1, :P2), (:Z2, :P1)),
-    assimilation_matrix = ((:Z1, :P1),),
+    interactions = (;
+        palatability = ((:Z1, :P1), (:Z1, :P2), (:Z2, :P1)),
+        assimilation = ((:Z1, :P1),),
+    ),
 )
 const PARAMETER_LABELS = ACTIVE.labels
 

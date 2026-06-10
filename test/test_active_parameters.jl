@@ -50,8 +50,10 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
 
     active_matrix = Agate.Runtime.active_parameters(base_bgc;
         maximum_growth_rate = (:P1,),
-        palatability_matrix = ((:Z1, :P1),),
-        assimilation_matrix = ((:Z1, :P1),),
+        interactions = (;
+            palatability = ((:Z1, :P1),),
+            assimilation = ((:Z1, :P1),),
+        ),
     )
     p_matrix = [mu0, 3base_bgc.parameters.interactions.palatability[1, 1], 0.8]
     bgc_matrix = Agate.Runtime.parameterized(
@@ -61,8 +63,6 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
     )
 
     @test bgc_matrix.parameters.maximum_growth_rate[3] == p_matrix[1]
-    @test bgc_matrix.parameters.palatability_matrix[1, 1] == p_matrix[2]
-    @test bgc_matrix.parameters.assimilation_matrix[1, 1] == p_matrix[3]
     @test bgc_matrix.parameters.interactions.palatability[1, 1] == p_matrix[2]
     @test bgc_matrix.parameters.interactions.assimilation[1, 1] == p_matrix[3]
     @test bgc_matrix.parameters.interactions.palatability[1, 2] == base_bgc.parameters.interactions.palatability[1, 2]
@@ -152,7 +152,7 @@ end
 
     active_matrix = Agate.Runtime.active_parameters(base_bgc;
         maximum_growth_rate = (:P1,),
-        palatability_matrix = ((:Z1, :P1),),
+        interactions = (; palatability = ((:Z1, :P1),)),
     )
     p_matrix = [mu0, 3base_bgc.parameters.interactions.palatability[1, 1]]
     problem_matrix = Agate.Runtime.ode_problem(
@@ -186,7 +186,7 @@ end
         err
     end
     @test err isa ArgumentError
-    @test occursin(":palatability_matrix", sprint(showerror, err))
+    @test occursin(":interactions.palatability", sprint(showerror, err))
 
     err = try
         Agate.Runtime.active_parameters(base_bgc; protection = (:P1,))
@@ -194,7 +194,7 @@ end
         err
     end
     @test err isa ArgumentError
-    @test occursin(":palatability_matrix", sprint(showerror, err))
+    @test occursin(":interactions.palatability", sprint(showerror, err))
 
     err = try
         Agate.Runtime.active_parameters(base_bgc; optimum_predator_prey_ratio = (:Z1,))
@@ -202,7 +202,7 @@ end
         err
     end
     @test err isa ArgumentError
-    @test occursin(":palatability_matrix", sprint(showerror, err))
+    @test occursin(":interactions.palatability", sprint(showerror, err))
 
     err = try
         Agate.Runtime.active_parameters(base_bgc; assimilation_efficiency = (:Z1,))
@@ -210,7 +210,7 @@ end
         err
     end
     @test err isa ArgumentError
-    @test occursin(":assimilation_matrix", sprint(showerror, err))
+    @test occursin(":interactions.assimilation", sprint(showerror, err))
 
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; palatability_matrix = true)
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = ((:P1, :P2, :extra),))
@@ -225,25 +225,29 @@ end
     active = Agate.Runtime.active_parameters(base_bgc;
         maximum_growth_rate = (:P1, :P2),
         detritus_remineralization = true,
-        palatability_matrix = ((:Z1, :P1), (:Z1, :P2), (:Z2, :P1)),
-        assimilation_matrix = ((:Z1, :P1),),
+        interactions = (;
+            palatability = ((:Z1, :P1), (:Z1, :P2), (:Z2, :P1)),
+            assimilation = ((:Z1, :P1),),
+        ),
     )
 
     @test active.map == (;
         maximum_growth_rate = ((; indices=(3,), active_index=1), (; indices=(4,), active_index=2)),
         detritus_remineralization = 3,
-        palatability_matrix = ((; indices=(1, 1), active_index=4), (; indices=(1, 2), active_index=5), (; indices=(2, 1), active_index=6)),
-        assimilation_matrix = ((; indices=(1, 1), active_index=7),),
+        interactions = (;
+            palatability = ((; indices=(1, 1), active_index=4), (; indices=(1, 2), active_index=5), (; indices=(2, 1), active_index=6)),
+            assimilation = ((; indices=(1, 1), active_index=7),),
+        ),
     )
 
     @test active.labels == (
         "maximum_growth_rate.P1",
         "maximum_growth_rate.P2",
         "detritus_remineralization",
-        "palatability_matrix[Z1, P1]",
-        "palatability_matrix[Z1, P2]",
-        "palatability_matrix[Z2, P1]",
-        "assimilation_matrix[Z1, P1]",
+        "interactions.palatability[Z1, P1]",
+        "interactions.palatability[Z1, P2]",
+        "interactions.palatability[Z2, P1]",
+        "interactions.assimilation[Z1, P1]",
     )
 
     @test length(active) == 7

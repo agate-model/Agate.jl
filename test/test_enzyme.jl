@@ -15,8 +15,10 @@ const EnzymeNiPiZD = Agate.Models.NiPiZD
     active = Agate.Runtime.active_parameters(base_bgc;
         maximum_growth_rate = (:P1,),
         detritus_remineralization = true,
-        palatability_matrix = ((:Z1, :P1),),
-        assimilation_matrix = ((:Z1, :P1),),
+        interactions = (;
+            palatability = ((:Z1, :P1),),
+            assimilation = ((:Z1, :P1),),
+        ),
     )
 
     args = (0, 0, 0, 0, 7.0, 1.0, 0.05, 0.05, 0.01, 0.01, 100.0)
