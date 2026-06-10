@@ -32,8 +32,8 @@ if BUILD_COLUMN_EXAMPLE
 end
 
 differentiable_modelling = [
-    "Forward-mode AD sensitivity" => "forwarddiff_nipizd_ode",
-    "Parameter sensitivity with reverse-mode AD" => "ad_nipizd_parameter_sensitivity",
+    "Forward-mode AD sensitivity" => "forward_mode_ad_nipizd_sensitivity",
+    "Reverse-mode AD sensitivity" => "reverse_mode_ad_nipizd_sensitivity",
 ]
 
 
