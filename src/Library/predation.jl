@@ -51,9 +51,9 @@ Idealized loss rate of prey `P` to a predator `Z` using a squared Holling term.
     - K = prey half-saturation
     - Z = predator concentration
 """
-struct IdealizedPredationLoss{T}
-    maximum_grazing_rate::T
-    half_saturation::T
+struct IdealizedPredationLoss{T1,T2}
+    maximum_grazing_rate::T1
+    half_saturation::T2
 end
 
 @inline function (f::IdealizedPredationLoss)(P, Z)
@@ -78,10 +78,10 @@ Assimilated gain rate to predator `Z` from prey `P`.
     - β = assimilation efficiency
     - g = `IdealizedPredationLoss(gₘₐₓ, K)(P, Z)`
 """
-struct IdealizedPredationGain{T}
-    assimilation_efficiency::T
-    maximum_grazing_rate::T
-    half_saturation::T
+struct IdealizedPredationGain{T1,T2,T3}
+    assimilation_efficiency::T1
+    maximum_grazing_rate::T2
+    half_saturation::T3
 end
 
 @inline function (f::IdealizedPredationGain)(P, Z)
@@ -104,10 +104,10 @@ Unassimilated fraction of idealized predation loss ("sloppy feeding").
 !!! note
     This represents transfer of biomass from prey to the environment rather than to the predator.
 """
-struct IdealizedPredationAssimilationLoss{T}
-    assimilation_efficiency::T
-    maximum_grazing_rate::T
-    half_saturation::T
+struct IdealizedPredationAssimilationLoss{T1,T2,T3}
+    assimilation_efficiency::T1
+    maximum_grazing_rate::T2
+    half_saturation::T3
 end
 
 @inline function (f::IdealizedPredationAssimilationLoss)(P, Z)
@@ -131,10 +131,10 @@ Preferential predation loss from prey `P` to predator `Z`.
     - K = prey half-saturation
     - Z = predator concentration
 """
-struct PreferentialPredationLoss{T}
-    maximum_grazing_rate::T
-    half_saturation::T
-    palatability::T
+struct PreferentialPredationLoss{T1,T2,T3}
+    maximum_grazing_rate::T1
+    half_saturation::T2
+    palatability::T3
 end
 
 @inline function (f::PreferentialPredationLoss)(P, Z)
@@ -153,11 +153,11 @@ Assimilated preferential predation gain.
     - β = assimilation efficiency
     - g = `PreferentialPredationLoss(gₘₐₓ, K, η)(P, Z)`
 """
-struct PreferentialPredationGain{T}
-    assimilation_efficiency::T
-    maximum_grazing_rate::T
-    half_saturation::T
-    palatability::T
+struct PreferentialPredationGain{T1,T2,T3,T4}
+    assimilation_efficiency::T1
+    maximum_grazing_rate::T2
+    half_saturation::T3
+    palatability::T4
 end
 
 @inline function (f::PreferentialPredationGain)(P, Z)
@@ -184,11 +184,11 @@ Unassimilated fraction of preferential predation loss ("sloppy feeding").
 !!! info
     This represents transfer of biomass from prey to the environment rather than to the predator.
 """
-struct PreferentialPredationAssimilationLoss{T}
-    assimilation_efficiency::T
-    maximum_grazing_rate::T
-    half_saturation::T
-    palatability::T
+struct PreferentialPredationAssimilationLoss{T1,T2,T3,T4}
+    assimilation_efficiency::T1
+    maximum_grazing_rate::T2
+    half_saturation::T3
+    palatability::T4
 end
 
 @inline function (f::PreferentialPredationAssimilationLoss)(P, Z)

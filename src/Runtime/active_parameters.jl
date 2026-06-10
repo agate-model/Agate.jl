@@ -84,13 +84,17 @@ end
     ParameterizedBGC(Adapt.adapt(to, bgc_p.bgc), Adapt.adapt(to, bgc_p.parameters))
 
 
-@inline function evaluate_tendency(bgc, parameters, ::Val{tracer}, args...) where {tracer}
-    f = getfield(bgc.tracer_functions, tracer)
-    return f(ParameterizedBGC(bgc, parameters), args...)
+@inline function evaluate_tendency(bgc_p::ParameterizedBGC, ::Val{tracer}, args...) where {tracer}
+    f = getfield(bgc_p.bgc.tracer_functions, tracer)
+    return f(bgc_p, args...)
+end
+
+@inline function evaluate_tendency(bgc, parameters, val_name::Val, args...)
+    return evaluate_tendency(ParameterizedBGC(bgc, parameters), val_name, args...)
 end
 
 @inline function (bgc_p::ParameterizedBGC)(val_name::Val, args...)
-    return evaluate_tendency(bgc_p.bgc, bgc_p.parameters, val_name, args...)
+    return evaluate_tendency(bgc_p, val_name, args...)
 end
 
 """Selected active parameters for a BGC.

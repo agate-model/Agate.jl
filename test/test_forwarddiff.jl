@@ -44,6 +44,42 @@ using Oceananigans.Units: day
     @test isapprox(dP1_dmu, fd; rtol=1e-4, atol=1e-10)
 end
 
+@testset "ForwardDiff NiPiZD ode_problem active parameter smoke test" begin
+    mu0 = 0.7 / day
+    base_bgc = ForwardDiffNiPiZD.construct(;
+        parameters=(; maximum_growth_rate=(P1=mu0, P2=mu0)),
+    )
+
+    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate=(:P1,))
+    u0 = [7.0, 1.0, 0.05, 0.05, 0.01, 0.01]
+    problem = Agate.Runtime.ode_problem(
+        base_bgc,
+        u0,
+        (0.0, day);
+        p=copy(active_growth.values),
+        active_parameters=active_growth,
+        auxiliary=(; PAR=100.0),
+    )
+
+    function p1_tendency_with_active_growth_rate(mu)
+        T = typeof(mu)
+        u = T.(u0)
+        du = similar(u)
+        problem.f(du, u, [mu], zero(T))
+        return du[5]
+    end
+
+    dP1_dmu = ForwardDiff.derivative(p1_tendency_with_active_growth_rate, mu0)
+    @test isfinite(dP1_dmu)
+
+    δ = mu0 * 1e-6
+    fd = (
+        p1_tendency_with_active_growth_rate(mu0 + δ) -
+        p1_tendency_with_active_growth_rate(mu0 - δ)
+    ) / (2δ)
+    @test isapprox(dP1_dmu, fd; rtol=1e-4, atol=1e-10)
+end
+
 @testset "ForwardDiff DARWIN tendency smoke tests" begin
     function p1_tendency_with_growth_rate(mu)
         T = typeof(mu)

@@ -73,10 +73,10 @@ end
 range of equivalent spherical diameters. `splitting` selects the spacing method,
 for example `:log_splitting` or `:linear_splitting`.
 """
-struct DiameterRangeSpecification{I<:Integer,T} <: AbstractDiameterSpecification
+struct DiameterRangeSpecification{I<:Integer,T1,T2} <: AbstractDiameterSpecification
     n::I
-    min_diameter::T
-    max_diameter::T
+    min_diameter::T1
+    max_diameter::T2
     splitting::Symbol
 end
 
