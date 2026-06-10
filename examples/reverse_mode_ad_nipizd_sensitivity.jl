@@ -11,9 +11,7 @@ using ADTypes: AutoEnzyme
 using CairoMakie
 import DifferentiationInterface
 using Enzyme
-using LinearAlgebra: norm
 using OrdinaryDiffEq: Tsit5, solve
-using Printf
 using SciMLBase: remake
 using SciMLSensitivity
 
@@ -135,6 +133,8 @@ end
 
 final_total_phytoplankton_adjoint(theta) = final_total_phytoplankton(theta; sensealg = SENSEALG)
 
+nothing #hide
+
 # ## Enzyme gradient through DifferentiationInterface
 
 # DifferentiationInterface provides a common gradient API for several Julia AD
@@ -142,29 +142,15 @@ final_total_phytoplankton_adjoint(theta) = final_total_phytoplankton(theta; sens
 # backend.
 #
 # Parameters can have different units and magnitudes, so raw gradients are not
-# always easy to compare. We rank sensitivities by `|θᵢ ∂J/∂θᵢ|`, which estimates
-# how much each parameter contributes relative to its reference value.
+# always easy to compare. We rank sensitivities visually by `|θᵢ ∂J/∂θᵢ|`,
+# which estimates how much each parameter contributes relative to its reference
+# value.
 
 const AD_BACKEND = AutoEnzyme(; mode = Enzyme.set_runtime_activity(Enzyme.Reverse))
 
 enzyme_gradient(theta) = DifferentiationInterface.gradient(final_total_phytoplankton_adjoint,
                                                            AD_BACKEND,
                                                            theta)
-
-function print_parameter_table(objective, theta, gradient, scaled_sensitivities, order)
-    total = sum(scaled_sensitivities)
-
-    @printf("Parameter sensitivity at θ_REFERENCE:\n")
-    @printf("  objective final(total phytoplankton): %.8e\n", objective)
-    @printf("  gradient norm:          %.8e\n", norm(gradient))
-    @printf("\n  %-34s %14s %14s %14s\n", "parameter", "θ", "∂J/∂θ", "|θ ∂J/∂θ|")
-
-    for n in order
-        share = iszero(total) ? 0.0 : 100 * scaled_sensitivities[n] / total
-        @printf("  %-34s %.8e % .8e %.8e  (%5.1f%%)\n",
-                PARAMETER_LABELS[n], theta[n], gradient[n], scaled_sensitivities[n], share)
-    end
-end
 
 function diagnostic_plots(reference_values, scaled_sensitivities, order)
     days = SAVEAT ./ day
@@ -188,13 +174,17 @@ function diagnostic_plots(reference_values, scaled_sensitivities, order)
 end
 
 reference_values = solve_values(θ_REFERENCE)
-reference_objective = total_phytoplankton(reference_values[:, end])
 gradient = enzyme_gradient(copy(θ_REFERENCE))
 scaled_sensitivities = abs.(θ_REFERENCE .* gradient)
 sensitivity_order = sortperm(scaled_sensitivities; rev = true)
 
-print_parameter_table(reference_objective, θ_REFERENCE, gradient, scaled_sensitivities, sensitivity_order)
 plots = diagnostic_plots(reference_values, scaled_sensitivities, sensitivity_order)
 
+# The reference trajectory shows the simulated total phytoplankton biomass used
+# for the endpoint sensitivity calculation.
+
 plots.trajectory
+
+# The scaled sensitivities rank active parameters by `|θᵢ ∂J/∂θᵢ|`.
+
 plots.scaled_sensitivities
