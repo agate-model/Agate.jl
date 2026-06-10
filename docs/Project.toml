@@ -9,7 +9,7 @@ OceanBioME = "a49af516-9db8-4be4-be45-1dad61c5a376"
 OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
 Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
 
-ADTypes = "47edcb42-4c32-4d10-b0c6-1c3bc2f4ae92"
+ADTypes = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
 DifferentiationInterface = "a0c0ee7d-e4b9-4e03-894e-1c5f64a51d63"
 Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
