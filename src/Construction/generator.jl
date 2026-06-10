@@ -3,8 +3,6 @@ using Adapt
 
 using ..Equations: CompiledEquation
 using ..Runtime: Tracers, TracerIndex, build_tracer_index, ParameterizedBGC, evaluate_tendency
-import ..Runtime: with_parameters
-
 using OceanBioME
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 using Oceananigans.Fields: ZeroField
