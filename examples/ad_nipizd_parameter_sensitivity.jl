@@ -28,7 +28,7 @@ nothing #hide
 # To run a model sensitivity analysis, we first choose the parameters that we
 # want to vary: the active parameters.
 #
-# Here we vary parameters controlling phytoplankton growth, detritus recycling,
+# Here we vary parameters controlling phytoplankton growth, detritus remineralization,
 # grazing preferences, and grazing efficiency. We then measure how changes in
 # each parameter affect the final total phytoplankton biomass.
 
@@ -42,7 +42,8 @@ function tracer_index(tracer::Symbol)
     return index
 end
 
-const PHYTOPLANKTON_INDICES = Tuple(tracer_index.(PLANKTON_GROUPS.P))
+const PHYTOPLANKTON = PLANKTON_GROUPS.P
+const PHYTOPLANKTON_INDICES = tracer_index.(PHYTOPLANKTON)
 
 const ACTIVE = Agate.Runtime.active_parameters(BGC;
     maximum_growth_rate = (:P1, :P2),
@@ -160,29 +161,6 @@ function print_parameter_table(objective, theta, gradient, scaled_sensitivities,
     end
 end
 
-function tracer_series(values, tracer::Symbol)
-    return values[tracer_index(tracer), :]
-end
-
-function summed_series(values, tracers)
-    total = copy(tracer_series(values, first(tracers)))
-
-    for tracer in Iterators.drop(tracers, 1)
-        total .+= tracer_series(values, tracer)
-    end
-
-    return total
-end
-
-function aggregated_trajectories(values)
-    return (
-        N = tracer_series(values, :N),
-        D = tracer_series(values, :D),
-        Z = summed_series(values, PLANKTON_GROUPS.Z),
-        P = summed_series(values, PLANKTON_GROUPS.P),
-    )
-end
-
 function save_diagnostic_plots(reference_values, scaled_sensitivities, order)
     days = SAVEAT ./ day
     output_directory = @__DIR__
@@ -190,43 +168,22 @@ function save_diagnostic_plots(reference_values, scaled_sensitivities, order)
     trajectory_path = joinpath(output_directory, "ad_nipizd_parameter_sensitivity_trajectory.png")
     sensitivity_path = joinpath(output_directory, "ad_nipizd_parameter_sensitivity_scaled_sensitivities.png")
 
-    trajectories = aggregated_trajectories(reference_values)
-    panels = (("Nutrient", trajectories.N),
-              ("Detritus", trajectories.D),
-              ("Total zooplankton", trajectories.Z),
-              ("Total phytoplankton", trajectories.P))
-
-    trajectory_fig = Figure(size = (1000, 720), fontsize = 14)
-    for (n, (label, trajectory)) in enumerate(panels)
-        row = fld(n - 1, 2) + 1
-        col = mod(n - 1, 2) + 1
-        ax = Axis(trajectory_fig[row, col],
-                  ylabel = label,
-                  xlabel = row == 2 ? "Time (days)" : "",
-                  title = label)
-        lines!(ax, days, trajectory, linewidth = 3)
-    end
+    trajectory_fig = Figure()
+    ax = Axis(trajectory_fig[1, 1],
+              xlabel = "Time (days)",
+              ylabel = "Total phytoplankton")
+    phytoplankton = vec(sum(reference_values[PHYTOPLANKTON_INDICES, :]; dims = 1))
+    lines!(ax, days, phytoplankton)
     save(trajectory_path, trajectory_fig)
 
     plot_order = reverse(order)
-    labels = collect(PARAMETER_LABELS)[plot_order]
-    scores = scaled_sensitivities[plot_order]
-    positive_scores = filter(!iszero, scores)
-    plot_floor = isempty(positive_scores) ? 1.0 : minimum(positive_scores) / 10
-    plot_scores = max.(scores, plot_floor)
 
-    sensitivity_fig = Figure(size = (1000, 520), fontsize = 14)
+    sensitivity_fig = Figure(size = (800, 400))
     ax = Axis(sensitivity_fig[1, 1],
-              title = "Scaled parameter sensitivities",
               xlabel = "|θᵢ ∂J/∂θᵢ|",
-              xscale = log10,
-              yticks = (1:length(labels), labels))
-    barplot!(ax, plot_scores; direction = :x)
+              yticks = (1:length(plot_order), collect(PARAMETER_LABELS)[plot_order]))
+    barplot!(ax, scaled_sensitivities[plot_order]; direction = :x)
     save(sensitivity_path, sensitivity_fig)
-
-    @printf("\nSaved diagnostic plots:\n")
-    @printf("  %s\n", trajectory_path)
-    @printf("  %s\n", sensitivity_path)
 
     return trajectory_path, sensitivity_path
 end
