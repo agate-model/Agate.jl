@@ -57,7 +57,7 @@ end
     return getproperty(base, name)
 end
 
-"""Internal wrapper for evaluating a static BGC with an alternate parameter object."""
+"""Oceananigans/OceanBioME-compatible BGC wrapper with external active parameters."""
 struct ParameterizedBGC{B,P} <: AbstractContinuousFormBiogeochemistry
     bgc::B
     parameters::P
@@ -139,7 +139,17 @@ function active_parameters(bgc; kwargs...)
     return ActiveParameterSet(map, Tuple(labels), active_values)
 end
 
-"""Return a BGC wrapper whose selected parameters are read from `p`."""
+"""
+    parameterized(bgc, p; active_parameters=nothing)
+
+Return an Oceananigans/OceanBioME-compatible BGC wrapper whose selected
+runtime parameters are read from the flat vector `p`.
+
+This keeps the BGC structure fixed while allowing AD backends and external
+solvers to differentiate with respect to `p`. When `active_parameters` is
+provided, it should be the [`ActiveParameterSet`](@ref) returned by
+[`active_parameters`](@ref).
+"""
 function parameterized(bgc, p; active_parameters=nothing)
     map = active_parameters === nothing ? (;) : active_parameters.map
     parameters = ActiveParameters(bgc.parameters, p, map)
