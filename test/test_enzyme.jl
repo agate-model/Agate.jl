@@ -24,10 +24,10 @@ const EnzymeNiPiZD = Agate.Models.NiPiZD
     args = (0, 0, 0, 0, 7.0, 1.0, 0.05, 0.05, 0.01, 0.01, 100.0)
 
     function diagnostic(p)
-        parameters = Agate.Runtime.ActiveParameters(base_bgc.parameters, p, active.map)
-        p1 = Agate.Runtime.evaluate_tendency(base_bgc, parameters, Val(:P1), args...)
-        z1 = Agate.Runtime.evaluate_tendency(base_bgc, parameters, Val(:Z1), args...)
-        d = Agate.Runtime.evaluate_tendency(base_bgc, parameters, Val(:D), args...)
+        bgc_p = Agate.Runtime.parameterized(base_bgc, p; active_parameters=active)
+        p1 = bgc_p(Val(:P1), args...)
+        z1 = bgc_p(Val(:Z1), args...)
+        d = bgc_p(Val(:D), args...)
         return p1 + 0.5z1 + 0.25d
     end
 

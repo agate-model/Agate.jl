@@ -203,40 +203,35 @@ end
     @test du_matrix[5] != du[5]
 end
 
+function argument_error_message(f)
+    err = try
+        f()
+        nothing
+    catch err
+        err
+    end
+
+    @test err isa ArgumentError
+    return sprint(showerror, err)
+end
+
 @testset "active parameter selector validation" begin
     base_bgc = ActiveParameterNiPiZD.construct()
 
-    err = try
-        Agate.Runtime.active_parameters(base_bgc; specificity = (:Z1,))
-    catch err
-        err
-    end
-    @test err isa ArgumentError
-    @test occursin(":interactions.palatability", sprint(showerror, err))
+    palatability_selectors = (
+        () -> Agate.Runtime.active_parameters(base_bgc; specificity = (:Z1,)),
+        () -> Agate.Runtime.active_parameters(base_bgc; protection = (:P1,)),
+        () -> Agate.Runtime.active_parameters(base_bgc; optimum_predator_prey_ratio = (:Z1,)),
+    )
 
-    err = try
-        Agate.Runtime.active_parameters(base_bgc; protection = (:P1,))
-    catch err
-        err
+    for selector in palatability_selectors
+        @test occursin(":interactions.palatability", argument_error_message(selector))
     end
-    @test err isa ArgumentError
-    @test occursin(":interactions.palatability", sprint(showerror, err))
 
-    err = try
-        Agate.Runtime.active_parameters(base_bgc; optimum_predator_prey_ratio = (:Z1,))
-    catch err
-        err
-    end
-    @test err isa ArgumentError
-    @test occursin(":interactions.palatability", sprint(showerror, err))
-
-    err = try
+    assimilation_message = argument_error_message(() ->
         Agate.Runtime.active_parameters(base_bgc; assimilation_efficiency = (:Z1,))
-    catch err
-        err
-    end
-    @test err isa ArgumentError
-    @test occursin(":interactions.assimilation", sprint(showerror, err))
+    )
+    @test occursin(":interactions.assimilation", assimilation_message)
 
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; palatability_matrix = true)
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = ((:P1, :P2, :extra),))
@@ -254,15 +249,6 @@ end
         interactions = (;
             palatability = ((:Z1, :P1), (:Z1, :P2), (:Z2, :P1)),
             assimilation = ((:Z1, :P1),),
-        ),
-    )
-
-    @test active.map == (;
-        maximum_growth_rate = ((; indices=(3,), active_index=1), (; indices=(4,), active_index=2)),
-        detritus_remineralization = 3,
-        interactions = (;
-            palatability = ((; indices=(1, 1), active_index=4), (; indices=(1, 2), active_index=5), (; indices=(2, 1), active_index=6)),
-            assimilation = ((; indices=(1, 1), active_index=7),),
         ),
     )
 
@@ -287,6 +273,19 @@ end
 
     p = copy(active.values)
     p[1] *= 2
+    p[3] *= 2
+    p[4] *= 3
+    p[7] = 0.8
+
     bgc_p = Agate.Runtime.parameterized(base_bgc, p; active_parameters = active)
+
     @test bgc_p.parameters.maximum_growth_rate[3] == p[1]
+    @test bgc_p.parameters.maximum_growth_rate[4] == p[2]
+    @test bgc_p.parameters.detritus_remineralization == p[3]
+    @test bgc_p.parameters.interactions.palatability[1, 1] == p[4]
+    @test bgc_p.parameters.interactions.palatability[1, 2] == p[5]
+    @test bgc_p.parameters.interactions.palatability[2, 1] == p[6]
+    @test bgc_p.parameters.interactions.assimilation[1, 1] == p[7]
+
+    @test bgc_p.parameters.interactions.palatability[2, 2] == base_bgc.parameters.interactions.palatability[2, 2]
 end
