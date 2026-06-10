@@ -22,13 +22,13 @@ The inverse maps support fast lookup of axis-local indices from global indices:
 - `global_to_prey[g]` returns `ip` or `0` if `g` is not a prey
 
 """
-struct InteractionMatrices{PM,AM,VI,MI}
+struct InteractionMatrices{PM,AM,VI1,VI2,MI1,MI2}
     palatability::PM
     assimilation::AM
-    consumer_global::VI
-    prey_global::VI
-    global_to_consumer::MI
-    global_to_prey::MI
+    consumer_global::VI1
+    prey_global::VI2
+    global_to_consumer::MI1
+    global_to_prey::MI2
 end
 Adapt.@adapt_structure InteractionMatrices
 

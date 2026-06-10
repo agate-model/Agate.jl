@@ -27,9 +27,9 @@ Callable Smith (1936) light-limitation factor as a function of PAR.
     0 °C. The returned factor is dimensionless and is multiplied by ``\\mu_0``
     in `smith_growth`.
 """
-struct SmithLightLimitation{T}
-    alpha::T
-    maximum_growth_0C::T
+struct SmithLightLimitation{T1,T2}
+    alpha::T1
+    maximum_growth_0C::T2
 end
 
 @inline function (f::SmithLightLimitation)(PAR)
@@ -56,10 +56,10 @@ Callable Geider-style light-dependent carbon fixation rate.
     specific initial slope, and ``\\theta^C`` is the chlorophyll-to-carbon ratio.
     This follows the Geider et al. light response used by DARWIN-style growth.
 """
-struct GeiderLightLimitation{T}
-    alpha::T
-    maximum_growth_rate::T
-    chlorophyll_to_carbon_ratio::T
+struct GeiderLightLimitation{T1,T2,T3}
+    alpha::T1
+    maximum_growth_rate::T2
+    chlorophyll_to_carbon_ratio::T3
 end
 
 @inline function (f::GeiderLightLimitation)(PAR)

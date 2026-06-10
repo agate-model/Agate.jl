@@ -13,9 +13,9 @@ Prey traits used by allometric palatability kernels.
   protection and `1` means complete protection in the protected palatability
   kernel.
 """
-struct PalatabilityPreyParameters{T<:Real}
-    diameter::T
-    protection::T
+struct PalatabilityPreyParameters{T1<:Real,T2<:Real}
+    diameter::T1
+    protection::T2
 end
 
 """
@@ -28,10 +28,10 @@ Predator traits used by allometric palatability kernels.
 - `optimum_predator_prey_ratio`: preferred predator:prey diameter ratio.
 - `specificity`: sharpness of the unimodal prey-size preference.
 """
-struct PalatabilityPredatorParameters{T<:Real}
-    diameter::T
-    optimum_predator_prey_ratio::T
-    specificity::T
+struct PalatabilityPredatorParameters{T1<:Real,T2<:Real,T3<:Real}
+    diameter::T1
+    optimum_predator_prey_ratio::T2
+    specificity::T3
 end
 
 """
@@ -54,9 +54,9 @@ Evaluate a power-law allometric scaling against spherical cell volume.
 - `b`: exponent parameter.
 - `diameter`: cell equivalent spherical diameter.
 """
-@inline function allometric_scaling_power(a::T, b::T, diameter::T) where {T<:Real}
-    r = diameter / T(2)
-    volume = (T(4) / T(3)) * T(π) * r^T(3)
+@inline function allometric_scaling_power(a::Real, b::Real, diameter::Real)
+    r = diameter / 2
+    volume = (4 / 3) * π * r^3
     return a * volume^b
 end
 
@@ -79,11 +79,11 @@ Compute unimodal allometric palatability from predator and prey diameters.
 - `predator`: `PalatabilityPredatorParameters(diameter, optimum_predator_prey_ratio, specificity)`.
 """
 @inline function allometric_palatability_unimodal(
-    prey::PalatabilityPreyParameters{T}, predator::PalatabilityPredatorParameters{T}
-) where {T<:Real}
+    prey::PalatabilityPreyParameters, predator::PalatabilityPredatorParameters
+)
     ratio = predator.diameter / prey.diameter
-    width = one(T) + (ratio - predator.optimum_predator_prey_ratio)^T(2)
-    return one(T) / width^predator.specificity
+    width = one(ratio) + (ratio - predator.optimum_predator_prey_ratio)^2
+    return one(width) / width^predator.specificity
 end
 
 """
@@ -100,10 +100,10 @@ Compute unimodal allometric palatability with multiplicative prey protection.
     palatability unchanged, while larger values reduce palatability.
 """
 function allometric_palatability_unimodal_protection(
-    prey::PalatabilityPreyParameters{T}, predator::PalatabilityPredatorParameters{T}
-) where {T<:Real}
+    prey::PalatabilityPreyParameters, predator::PalatabilityPredatorParameters
+)
     base = allometric_palatability_unimodal(prey, predator)
-    return base * (one(T) - prey.protection)
+    return base * (one(prey.protection) - prey.protection)
 end
 
 """
@@ -148,11 +148,11 @@ function palatability_matrix_allometric_axes(
     M = zeros(T, nr, nc)
 
     @inbounds for (ii, pred) in pairs(consumer_indices)
-        predator = PalatabilityPredatorParameters{T}(
+        predator = PalatabilityPredatorParameters(
             diameters[pred], optimum_predator_prey_ratio[pred], specificity[pred]
         )
         for (jj, prey) in pairs(prey_indices)
-            prey_params = PalatabilityPreyParameters{T}(diameters[prey], protection[prey])
+            prey_params = PalatabilityPreyParameters(diameters[prey], protection[prey])
             M[ii, jj] = palatability_fn(prey_params, predator)
         end
     end
