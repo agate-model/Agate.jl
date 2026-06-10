@@ -14,7 +14,7 @@ using Enzyme
 using LinearAlgebra: norm
 using OrdinaryDiffEq: Tsit5, solve
 using Printf
-using SciMLBase: remake, successful_retcode
+using SciMLBase: remake
 using SciMLSensitivity
 
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
@@ -93,45 +93,27 @@ const SENSEALG = SciMLSensitivity.GaussAdjoint(
     autojacvec = SciMLSensitivity.EnzymeVJP(),
 )
 
-function solve_primal(theta; sensealg = nothing, saveat = SAVEAT,
+function solve_values(theta; sensealg = nothing, saveat = SAVEAT,
                       save_start = true, save_end = true, save_everystep = false)
     problem = remake(PROBLEM; p = theta)
-    common_kwargs = (; abstol = 1e-8, reltol = 1e-8, verbose = false,
-                     save_start, save_end, save_everystep)
-    kwargs = isnothing(saveat) ? common_kwargs : (; common_kwargs..., saveat)
+    kwargs = (; abstol = 1e-8, reltol = 1e-8, verbose = false,
+              saveat, save_start, save_end, save_everystep)
 
-    return isnothing(sensealg) ? solve(problem, Tsit5(); kwargs...) :
-                                 solve(problem, Tsit5(); kwargs..., sensealg)
-end
+    sol = isnothing(sensealg) ? solve(problem, Tsit5(); kwargs...) :
+                                solve(problem, Tsit5(); kwargs..., sensealg)
 
-function checked_solution(theta; sensealg = nothing, saveat = SAVEAT,
-                          save_start = true, save_end = true, save_everystep = false)
-    sol = solve_primal(theta; sensealg, saveat, save_start, save_end, save_everystep)
-    successful_retcode(sol) || error("ODE solve failed with retcode $(sol.retcode)")
-    return sol
-end
-
-function solve_values(theta)
-    sol = checked_solution(theta; saveat = SAVEAT)
-    length(sol.t) == length(SAVEAT) || error("ODE solve returned $(length(sol.t)) saved times; expected $(length(SAVEAT))")
     return Array(sol)
 end
 
 function solve_final_values(theta; sensealg = nothing)
-    sol = checked_solution(theta; sensealg, saveat = nothing,
-                           save_start = false, save_end = true, save_everystep = false)
-    return sol.u[end]
-end
+    values = solve_values(theta;
+                          sensealg,
+                          saveat = TSPAN[end],
+                          save_start = false,
+                          save_end = true,
+                          save_everystep = false)
 
-function final_total_phytoplankton_values(values)
-    final_index = last(axes(values, 2))
-    total = zero(eltype(values))
-
-    for i in PHYTOPLANKTON_INDICES
-        total += values[i, final_index]
-    end
-
-    return total
+    return values[:, end]
 end
 
 function final_total_phytoplankton(theta; sensealg = nothing)
@@ -250,7 +232,7 @@ function save_diagnostic_plots(reference_values, scaled_sensitivities, order)
 end
 
 reference_values = solve_values(θ_REFERENCE)
-reference_objective = final_total_phytoplankton_values(reference_values)
+reference_objective = final_total_phytoplankton(θ_REFERENCE)
 gradient = enzyme_gradient(copy(θ_REFERENCE))
 scaled_sensitivities = abs.(θ_REFERENCE .* gradient)
 sensitivity_order = sortperm(scaled_sensitivities; rev = true)
