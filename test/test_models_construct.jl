@@ -53,6 +53,88 @@ using Oceananigans.Biogeochemistry:
         @test isfinite(bgc(Val(:Z1), 0, 0, 0, 0, ordered..., PAR))
     end
 
+    @testset "NiPiZD named size structure" begin
+        phyto_diameters = [2.0, 10.0]
+        zoo_diameters = [20.0, 100.0]
+
+        default_groups = NiPiZD.construct(;
+            phyto_size_structure=phyto_diameters,
+            zoo_size_structure=zoo_diameters,
+            grid=dummy_grid(Float32),
+        )
+        named_equivalent = NiPiZD.construct(;
+            size_structure=(;
+                phytoplankton=(P=phyto_diameters,),
+                zooplankton=(Z=zoo_diameters,),
+            ),
+            grid=dummy_grid(Float32),
+        )
+
+        @test required_biogeochemical_tracers(named_equivalent) ==
+            required_biogeochemical_tracers(default_groups)
+        @test named_equivalent.parameters.maximum_growth_rate ==
+            default_groups.parameters.maximum_growth_rate
+        @test named_equivalent.parameters.maximum_predation_rate ==
+            default_groups.parameters.maximum_predation_rate
+        @test named_equivalent.parameters.interactions.palatability ==
+            default_groups.parameters.interactions.palatability
+        @test named_equivalent.parameters.interactions.assimilation ==
+            default_groups.parameters.interactions.assimilation
+
+        named = NiPiZD.construct(;
+            size_structure=(;
+                phytoplankton=(diat=[2.0, 5.0, 10.0], dino=[8.0, 20.0]),
+                zooplankton=(microzoo=[30.0, 60.0], mesozoo=[100.0]),
+            ),
+            grid=dummy_grid(Float32),
+        )
+        tracers = required_biogeochemical_tracers(named)
+        @test tracers[1:2] == (:N, :D)
+        @test length(tracers) == 10
+        @test size(named.parameters.interactions.palatability) == (3, 5)
+        @test size(named.parameters.interactions.assimilation) == (3, 5)
+        @test count(x -> x != 0, named.parameters.maximum_growth_rate) == 5
+        @test count(x -> x != 0, named.parameters.maximum_predation_rate) == 3
+
+        explicit_nothing = NiPiZD.construct(;
+            phyto_size_structure=nothing,
+            zoo_size_structure=nothing,
+            grid=dummy_grid(Float32),
+        )
+        default_model = NiPiZD.construct(; grid=dummy_grid(Float32))
+        @test required_biogeochemical_tracers(explicit_nothing) ==
+            required_biogeochemical_tracers(default_model)
+
+        @test_throws ArgumentError NiPiZD.construct(;
+            size_structure=(;
+                phytoplankton=(diat=[2.0],),
+                zooplankton=(microzoo=[30.0],),
+            ),
+            phyto_size_structure=[2.0],
+        )
+        @test_throws ArgumentError NiPiZD.construct(;
+            size_structure=(; phytoplankton=(diat=[2.0],))
+        )
+        @test_throws ArgumentError NiPiZD.construct(;
+            size_structure=(;
+                phytoplankton=(;),
+                zooplankton=(microzoo=[30.0],),
+            )
+        )
+        @test_throws ArgumentError NiPiZD.construct(;
+            size_structure=(;
+                phytoplankton=(shared=[2.0],),
+                zooplankton=(shared=[30.0],),
+            )
+        )
+        @test_throws ArgumentError NiPiZD.construct(;
+            size_structure=(;
+                phytoplankton=(diat=Float64[],),
+                zooplankton=(microzoo=[30.0],),
+            )
+        )
+    end
+
     @testset "NiPiZD interaction overrides" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
         ints0 = bgc.parameters.interactions
