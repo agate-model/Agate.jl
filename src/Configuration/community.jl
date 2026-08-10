@@ -150,12 +150,6 @@ normalize_diameters(spec::DiameterRangeSpecification) = (; n=spec.n, specificati
 
 normalize_diameters(spec) = throw(ArgumentError("invalid `diameters` specification"))
 
-_tracer_names_issue(names, group, n) =
-    !(names isa Tuple || names isa AbstractVector) ? "group $group: `tracer_names` must be a Tuple or AbstractVector" :
-    !all(name -> name isa Symbol, names) ? "group $group: `tracer_names` entries must be Symbols" :
-    !isnothing(n) && length(names) != n ? "group $group: `tracer_names` must have length $n" :
-    nothing
-
 """Validate `plankton_dynamics` and `community` inputs.
 
 Throws a single `ArgumentError` listing all issues.
@@ -236,13 +230,6 @@ function validate_community_inputs(plankton_dynamics, community)
             ok = pft isa PFTSpecification || pft isa NamedTuple
             ok || push!(issues, "group $(k): `pft` must be PFTSpecification or NamedTuple")
         end
-
-        if hasproperty(spec, :tracer_names)
-            names = getproperty(spec, :tracer_names)
-            n = hasproperty(spec, :n) ? getproperty(spec, :n) : nothing
-            issue = _tracer_names_issue(names, k, n)
-            isnothing(issue) || push!(issues, issue)
-        end
     end
 
     if !isempty(issues)
@@ -322,14 +309,7 @@ function parse_community(
         pft_raw = getproperty(spec, :pft)
         pft = pft_raw isa PFTSpecification ? pft_raw : PFTSpecification(pft_raw)
 
-        class_symbols = if hasproperty(spec, :tracer_names)
-            names = getproperty(spec, :tracer_names)
-            issue = _tracer_names_issue(names, g, n)
-            isnothing(issue) || throw(ArgumentError(issue))
-            Symbol[names...]
-        else
-            Symbol[Symbol(string(g), "_", i) for i in 1:n]
-        end
+        class_symbols = Symbol[Symbol(string(g), "_", i) for i in 1:n]
 
         for i in 1:n
             push!(plankton_symbols, class_symbols[i])
