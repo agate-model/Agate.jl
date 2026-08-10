@@ -93,7 +93,7 @@ Fields
 - `n_total`: total number of plankton classes.
 - `diameters`: flattened diameter vector in global plankton order.
 - `pfts`: per-class PFT specifications.
-- `plankton_symbols`: flattened class symbols such as `:P1`, `:P2`.
+- `plankton_symbols`: flattened class symbols such as `:P1`, `:P2`, or `:diat_1`.
 - `group_symbols`: group symbol for each flattened class.
 - `group_local_index`: within-group class index for each flattened class.
 - `group_indices`: mapping from group symbol to flattened class indices.
@@ -230,6 +230,20 @@ function validate_community_inputs(plankton_dynamics, community)
             ok = pft isa PFTSpecification || pft isa NamedTuple
             ok || push!(issues, "group $(k): `pft` must be PFTSpecification or NamedTuple")
         end
+
+        if hasproperty(spec, :tracer_names)
+            names = getproperty(spec, :tracer_names)
+            if !(names isa Tuple || names isa AbstractVector)
+                push!(issues, "group $(k): `tracer_names` must be a Tuple or AbstractVector")
+            elseif !all(name -> name isa Symbol, names)
+                push!(issues, "group $(k): `tracer_names` entries must be Symbols")
+            elseif hasproperty(spec, :n) && length(names) != getproperty(spec, :n)
+                push!(
+                    issues,
+                    "group $(k): `tracer_names` must have length $(getproperty(spec, :n))",
+                )
+            end
+        end
     end
 
     if !isempty(issues)
@@ -309,14 +323,35 @@ function parse_community(
         pft_raw = getproperty(spec, :pft)
         pft = pft_raw isa PFTSpecification ? pft_raw : PFTSpecification(pft_raw)
 
+        class_symbols = if hasproperty(spec, :tracer_names)
+            names = getproperty(spec, :tracer_names)
+            length(names) == n || throw(
+                ArgumentError("group $g: `tracer_names` must have length $n")
+            )
+            Symbol[names...]
+        else
+            Symbol[Symbol(string(g), i) for i in 1:n]
+        end
+
         for i in 1:n
-            push!(plankton_symbols, Symbol(string(g), i))
+            push!(plankton_symbols, class_symbols[i])
             push!(group_of, g)
             push!(local_idx, i)
             push!(pfts, pft)
             push!(diameters, ds[i])
         end
     end
+
+    length(unique(plankton_symbols)) == length(plankton_symbols) ||
+        throw(ArgumentError("plankton tracer names must be unique"))
+
+    biogeochem_symbols = Set(keys(biogeochem_dynamics))
+    conflicting_symbols = [symbol for symbol in plankton_symbols if symbol in biogeochem_symbols]
+    isempty(conflicting_symbols) || throw(
+        ArgumentError(
+            "plankton tracer names conflict with non-plankton tracers: $(unique(conflicting_symbols))"
+        ),
+    )
 
     n_total = length(plankton_symbols)
 

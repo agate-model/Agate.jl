@@ -65,7 +65,14 @@ function _named_community_inputs(size_structure)
         return (; diameters, pft=empty_pft)
     end
     community_base = NamedTuple{group_order}(community_base_values)
-    community = Configuration.build_plankton_community(community_base)
+    sized_community = Configuration.build_plankton_community(community_base)
+    community_values = ntuple(length(group_order)) do i
+        group = group_order[i]
+        spec = getproperty(sized_community, group)
+        tracer_names = ntuple(j -> Symbol(string(group), "_", j), spec.n)
+        return (; spec..., tracer_names)
+    end
+    community = NamedTuple{group_order}(community_values)
 
     dynamics_values = ntuple(length(group_order)) do i
         group = group_order[i]
@@ -162,6 +169,8 @@ Each group size structure may be a NamedTuple range, for example
 `(n=3, min_esd=1, max_esd=10, splitting=:log_splitting)`, or an explicit
 diameter vector such as `[1.0, 3.2, 10.0]`. Named groups are supplied as
 `size_structure=(phytoplankton=(...), zooplankton=(...))`.
+Classes in named groups use `<group>_<index>` tracer names, such as `diat_1`.
+The default `P` and `Z` groups use `P1`, `P2`, `Z1`, `Z2`, and so on.
 
 Keywords
 --------

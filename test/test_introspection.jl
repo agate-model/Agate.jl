@@ -78,6 +78,49 @@ using Test
         @test plankton_tracers(sized_bgc) == [:Z1, :Z2, :P1, :P2, :P3]
         @test plankton_diameters(sized_bgc) ≈ [zoo_diameters; phyto_diameters]
 
+        named_bgc = Agate.Models.NiPiZD.construct(;
+            size_structure=(;
+                phytoplankton=(diat=[2.0, 5.0, 10.0], dino=[8.0, 20.0]),
+                zooplankton=(microzoo=[30.0, 60.0], mesozoo=[100.0]),
+            ),
+            grid=dummy_grid(Float32),
+        )
+        @test tracer_names(named_bgc) == [
+            :N,
+            :D,
+            :microzoo_1,
+            :microzoo_2,
+            :mesozoo_1,
+            :diat_1,
+            :diat_2,
+            :diat_3,
+            :dino_1,
+            :dino_2,
+        ]
+
+        named_groups = plankton_groups(named_bgc)
+        @test keys(named_groups) == (:microzoo, :mesozoo, :diat, :dino)
+        @test named_groups.microzoo == [:microzoo_1, :microzoo_2]
+        @test named_groups.mesozoo == [:mesozoo_1]
+        @test named_groups.diat == [:diat_1, :diat_2, :diat_3]
+        @test named_groups.dino == [:dino_1, :dino_2]
+        @test plankton_tracers(named_bgc) == [
+            :microzoo_1,
+            :microzoo_2,
+            :mesozoo_1,
+            :diat_1,
+            :diat_2,
+            :diat_3,
+            :dino_1,
+            :dino_2,
+        ]
+        @test plankton_diameters(named_bgc) ≈
+            [30.0, 60.0, 100.0, 2.0, 5.0, 10.0, 8.0, 20.0]
+
+        named_pal = interaction_matrix(named_bgc, :palatability)
+        @test named_pal.rows == [:microzoo_1, :microzoo_2, :mesozoo_1]
+        @test named_pal.columns == [:diat_1, :diat_2, :diat_3, :dino_1, :dino_2]
+
         darwin_bgc = Agate.Models.DARWIN.construct(; grid=dummy_grid(Float32))
         @test length(plankton_diameters(darwin_bgc)) == length(plankton_tracers(darwin_bgc))
         @test plankton_diameters(darwin_bgc) == collect(darwin_bgc.plankton_diameters)

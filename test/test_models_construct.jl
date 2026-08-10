@@ -70,8 +70,10 @@ using Oceananigans.Biogeochemistry:
             grid=dummy_grid(Float32),
         )
 
+        @test required_biogeochemical_tracers(default_groups) ==
+            (:N, :D, :Z1, :Z2, :P1, :P2)
         @test required_biogeochemical_tracers(named_equivalent) ==
-            required_biogeochemical_tracers(default_groups)
+            (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
         @test named_equivalent.parameters.maximum_growth_rate ==
             default_groups.parameters.maximum_growth_rate
         @test named_equivalent.parameters.maximum_predation_rate ==
@@ -89,8 +91,18 @@ using Oceananigans.Biogeochemistry:
             grid=dummy_grid(Float32),
         )
         tracers = required_biogeochemical_tracers(named)
-        @test tracers[1:2] == (:N, :D)
-        @test length(tracers) == 10
+        @test tracers == (
+            :N,
+            :D,
+            :microzoo_1,
+            :microzoo_2,
+            :mesozoo_1,
+            :diat_1,
+            :diat_2,
+            :diat_3,
+            :dino_1,
+            :dino_2,
+        )
         @test size(named.parameters.interactions.palatability) == (3, 5)
         @test size(named.parameters.interactions.assimilation) == (3, 5)
         @test count(x -> x != 0, named.parameters.maximum_growth_rate) == 5
