@@ -9,9 +9,9 @@ using CairoMakie</code></pre><h3 id="Model-setup"><a class="docs-heading-anchor"
 using Agate.Introspection: tracer_names
 
 # Inspect the required tracer names.
-println(tracer_names(bgc))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[:N, :D, :Z1, :Z2, :P1, :P2]</code></pre><p>Next, we define a light function, here we use a default seasonal PAR curve:</p><pre><code class="language-julia hljs">light_attenuation = FunctionFieldPAR(; grid=BoxModelGrid())</code></pre><p>These two models are then combined using OceanBioME.jl</p><pre><code class="language-julia hljs">bgc_model = Biogeochemistry(bgc; light_attenuation=light_attenuation)
+println(tracer_names(bgc))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[:N, :D, :Z_1, :Z_2, :P_1, :P_2]</code></pre><p>Next, we define a light function, here we use a default seasonal PAR curve:</p><pre><code class="language-julia hljs">light_attenuation = FunctionFieldPAR(; grid=BoxModelGrid())</code></pre><p>These two models are then combined using OceanBioME.jl</p><pre><code class="language-julia hljs">bgc_model = Biogeochemistry(bgc; light_attenuation=light_attenuation)
 
-full_model = BoxModel(; biogeochemistry=bgc_model)</code></pre><p>And finally simulated using Oceananigans.jl</p><pre><code class="language-julia hljs">set!(full_model; N=7.0, P1=0.01, Z1=0.01, P2=0.1, Z2=0.01, D=0.01)
+full_model = BoxModel(; biogeochemistry=bgc_model)</code></pre><p>And finally simulated using Oceananigans.jl</p><pre><code class="language-julia hljs">set!(full_model; N=7.0, P_1=0.01, Z_1=0.01, P_2=0.1, Z_2=0.01, D=0.01)
 
 simulation = Simulation(full_model; Δt=240minutes, stop_time=1095days)
 
@@ -26,10 +26,10 @@ simulation.output_writers[:fields] = JLD2Writer(
 )
 
 run!(simulation)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Initializing simulation...
-[ Info:     ... simulation initialization complete (265.962 ms)
+[ Info:     ... simulation initialization complete (233.959 ms)
 [ Info: Executing initial time step...
-[ Info:     ... initial time step complete (342.647 μs).
-[ Info: Simulation is stopping after running for 4.312 seconds.
+[ Info:     ... initial time step complete (265.111 μs).
+[ Info: Simulation is stopping after running for 4.737 seconds.
 [ Info: Simulation time 1095 days equals or exceeds stop time 1095 days.</code></pre><h3 id="Plotting"><a class="docs-heading-anchor" href="#Plotting">Plotting</a><a id="Plotting-1"></a><a class="docs-heading-anchor-permalink" href="#Plotting" title="Permalink"></a></h3><pre><code class="language-julia hljs">tracer_syms = tracer_names(bgc)
 
 # Extract data for plotting
@@ -54,4 +54,4 @@ for (idx, sym) in enumerate(tracer_syms)
     lines!(ax, times / day, getproperty(timeseries, sym); linewidth=3)
 end
 
-fig</code></pre><img src="476e2d41.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../generated/size_structure/">Size structure »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 10 August 2026 17:48">Monday 10 August 2026</span>. Using Julia version 1.10.11.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+fig</code></pre><img src="ec53eaa8.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../generated/size_structure/">Size structure »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 10 August 2026 20:35">Monday 10 August 2026</span>. Using Julia version 1.10.11.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
