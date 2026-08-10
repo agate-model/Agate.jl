@@ -147,6 +147,81 @@ using Oceananigans.Biogeochemistry:
         )
     end
 
+    @testset "NiPiZD named parameter semantics" begin
+        phyto_diameters = [2.0, 5.0, 10.0]
+        zoo_diameters = [30.0, 60.0, 100.0]
+        named_size_structure = (;
+            phytoplankton=(diat=phyto_diameters[1:2], dino=phyto_diameters[3:3]),
+            zooplankton=(microzoo=zoo_diameters[1:2], mesozoo=zoo_diameters[3:3]),
+        )
+
+        function same_parameter_values(a, b)
+            keys(a) == keys(b) || return false
+            values_match = all(
+                key -> key === :interactions || getproperty(a, key) == getproperty(b, key),
+                keys(a),
+            )
+            interactions_match =
+                a.interactions.palatability == b.interactions.palatability &&
+                a.interactions.assimilation == b.interactions.assimilation
+            return values_match && interactions_match
+        end
+
+        flat = NiPiZD.construct(;
+            phyto_size_structure=phyto_diameters,
+            zoo_size_structure=zoo_diameters,
+            grid=dummy_grid(Float32),
+        )
+        named = NiPiZD.construct(;
+            size_structure=named_size_structure, grid=dummy_grid(Float32)
+        )
+        @test same_parameter_values(named.parameters, flat.parameters)
+
+        growth = copy(named.parameters.maximum_growth_rate)
+        predation = copy(named.parameters.maximum_predation_rate)
+        specificity = copy(named.parameters.specificity)
+        growth[4] = Float32(1.2 / day)
+        predation[2] = Float32(0.7 / day)
+        specificity[1] = 2.0f0
+
+        named_overrides = NiPiZD.construct(;
+            size_structure=named_size_structure,
+            grid=dummy_grid(Float32),
+            parameters=(;
+                maximum_growth_rate=(diat_1=1.2 / day,),
+                maximum_predation_rate=(microzoo_2=0.7 / day,),
+                specificity=(microzoo_1=2.0,),
+            ),
+        )
+        positional_overrides = NiPiZD.construct(;
+            size_structure=named_size_structure,
+            grid=dummy_grid(Float32),
+            parameters=(;
+                maximum_growth_rate=growth,
+                maximum_predation_rate=predation,
+                specificity=specificity,
+            ),
+        )
+        @test same_parameter_values(named_overrides.parameters, positional_overrides.parameters)
+
+        palatability = reshape(Float32.(1:9), 3, 3)
+        assimilation = reshape(Float32.(11:19), 3, 3)
+        explicit_interactions = NiPiZD.construct(;
+            size_structure=named_size_structure,
+            grid=dummy_grid(Float32),
+            palatability_matrix=palatability,
+            assimilation_matrix=assimilation,
+        )
+        @test explicit_interactions.parameters.interactions.palatability == palatability
+        @test explicit_interactions.parameters.interactions.assimilation == assimilation
+
+        @test_throws ArgumentError NiPiZD.construct(;
+            size_structure=named_size_structure,
+            grid=dummy_grid(Float32),
+            palatability_matrix=zeros(Float32, 4, 4),
+        )
+    end
+
     @testset "NiPiZD interaction overrides" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
         ints0 = bgc.parameters.interactions
