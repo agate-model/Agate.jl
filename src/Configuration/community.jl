@@ -150,6 +150,12 @@ normalize_diameters(spec::DiameterRangeSpecification) = (; n=spec.n, specificati
 
 normalize_diameters(spec) = throw(ArgumentError("invalid `diameters` specification"))
 
+_tracer_names_issue(names, group, n) =
+    !(names isa Tuple || names isa AbstractVector) ? "group $group: `tracer_names` must be a Tuple or AbstractVector" :
+    !all(name -> name isa Symbol, names) ? "group $group: `tracer_names` entries must be Symbols" :
+    !isnothing(n) && length(names) != n ? "group $group: `tracer_names` must have length $n" :
+    nothing
+
 """Validate `plankton_dynamics` and `community` inputs.
 
 Throws a single `ArgumentError` listing all issues.
@@ -233,16 +239,9 @@ function validate_community_inputs(plankton_dynamics, community)
 
         if hasproperty(spec, :tracer_names)
             names = getproperty(spec, :tracer_names)
-            if !(names isa Tuple || names isa AbstractVector)
-                push!(issues, "group $(k): `tracer_names` must be a Tuple or AbstractVector")
-            elseif !all(name -> name isa Symbol, names)
-                push!(issues, "group $(k): `tracer_names` entries must be Symbols")
-            elseif hasproperty(spec, :n) && length(names) != getproperty(spec, :n)
-                push!(
-                    issues,
-                    "group $(k): `tracer_names` must have length $(getproperty(spec, :n))",
-                )
-            end
+            n = hasproperty(spec, :n) ? getproperty(spec, :n) : nothing
+            issue = _tracer_names_issue(names, k, n)
+            isnothing(issue) || push!(issues, issue)
         end
     end
 
@@ -325,9 +324,8 @@ function parse_community(
 
         class_symbols = if hasproperty(spec, :tracer_names)
             names = getproperty(spec, :tracer_names)
-            length(names) == n || throw(
-                ArgumentError("group $g: `tracer_names` must have length $n")
-            )
+            issue = _tracer_names_issue(names, g, n)
+            isnothing(issue) || throw(ArgumentError(issue))
             Symbol[names...]
         else
             Symbol[Symbol(string(g), i) for i in 1:n]
