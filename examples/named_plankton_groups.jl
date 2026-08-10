@@ -3,7 +3,7 @@
 # Plankton are highly diverse, and representing some of this diversity can be
 # important in ecosystem models. One important axis of variation is adaptation to
 # the light environment, which can differ both between and within species.
-# High- and low-light-adapted *Prochlorococcus* ecotypes provide a well-known 
+# High- and low-light-adapted *Prochlorococcus* ecotypes provide a well-known
 # example of this ecological differentiation.
 #
 # Here, we use this idea to construct two idealized phytoplankton functional types
@@ -13,8 +13,8 @@
 #
 # The `low_light` type has a lower maximum growth rate but a steeper initial light-response
 # slope than `high_light`. We place the same community in two otherwise identical box models,
-# differing only in photosynthetically active radiation (PAR), and compare which type is more competitive
-# in each light environment.
+# differing only in photosynthetically active radiation (PAR), and compare which type is more
+# competitive in each light environment.
 
 # ## Loading dependencies
 # The example uses Agate.jl, Oceananigans.jl, and OceanBioME.jl for the ecosystem simulations.
@@ -62,7 +62,7 @@ println(tracer_names(bgc))
 
 # ## Light treatments
 
-# We compare a low-light treatment at PAR = 5 with a high-light treatment at PAR = 20.
+# We compare a low-light treatment at PAR = 5 with a high-light treatment at PAR = 100.
 # Every other part of the ecosystem setup is shared between the two simulations.
 
 low_PAR = 5.0
