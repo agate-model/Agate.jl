@@ -24,6 +24,7 @@ const BUILD_COLUMN_EXAMPLE = lowercase(get(ENV, "AGATE_DOCS_BUILD_COLUMN", get(E
 examples = [
     "Size structure" => "size_structure",
     "Predator-prey palatability" => "predator_prey_palatability",
+    "Comparing phytoplankton light strategies" => "named_plankton_groups",
     "Exporting a model setup" => "export_model_setup",
 ]
 

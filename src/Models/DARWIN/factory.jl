@@ -55,7 +55,7 @@ end
 
 Returns a `NamedTuple` mapping group prefix => group specification.
 
-Ordering is significant; the default keeps the historical `Z`-then-`P` ordering.
+Ordering is significant; the default uses `Z`-then-`P` ordering.
 """
 function default_community(::DarwinFactory)
     # Structural defaults only (sizes/diameters). No parameter defaults.

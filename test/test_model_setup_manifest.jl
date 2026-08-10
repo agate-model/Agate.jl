@@ -39,6 +39,37 @@ end
     @test reconstructed_D ≈ -sinking_tracers.D
 end
 
+@testset "NiPiZD named model setup round trip" begin
+    size_structure = (;
+        phytoplankton=(diat=[2.0, 5.0], dino=[10.0]),
+        zooplankton=(microzoo=[30.0, 60.0], mesozoo=[100.0]),
+    )
+    bgc, setup = Agate.Models.NiPiZD.construct_with_manifest(;
+        size_structure,
+        parameters=(;
+            maximum_growth_rate=(diat_2=1.25 / day,),
+            specificity=(microzoo_1=2.0,),
+        ),
+    )
+
+    path = tempname() * ".json"
+    export_manifest(path, setup)
+    reconstructed = construct_from_manifest(path)
+    test_reconstructed_model(reconstructed, bgc)
+
+    @test Agate.Introspection.plankton_groups(reconstructed) ==
+          Agate.Introspection.plankton_groups(bgc)
+    @test Agate.Introspection.plankton_diameters(reconstructed) ==
+          Agate.Introspection.plankton_diameters(bgc)
+
+    active(model) = Agate.Runtime.active_parameters(model;
+        maximum_growth_rate=(:diat_2,),
+        interactions=(; palatability=((:microzoo_1, :diat_1),)),
+    )
+    @test active(reconstructed).labels == active(bgc).labels
+    @test active(reconstructed).values == active(bgc).values
+end
+
 @testset "DARWIN model setup import" begin
     grid = dummy_grid(Float32)
 

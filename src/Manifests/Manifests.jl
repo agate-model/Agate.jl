@@ -52,8 +52,43 @@ end
 construct_from_manifest(path::AbstractString; grid=nothing, arch=nothing) =
     construct_from_manifest(JSON.parsefile(path); grid, arch)
 
-function default_model_manifest(family::Symbol, data)
+function manifest_group_entries(groups, diameters_by_group)
+    return Any[
+        Dict{String,Any}(
+            "name" => string(group),
+            "diameters" => diameters_by_group[string(group)],
+        ) for group in groups
+    ]
+end
+
+function manifest_size_structure(group_roles, diameters_by_group)
+    return Dict{String,Any}(
+        "phytoplankton" => manifest_group_entries(
+            group_roles.phytoplankton, diameters_by_group
+        ),
+        "zooplankton" => manifest_group_entries(
+            group_roles.zooplankton, diameters_by_group
+        ),
+    )
+end
+
+function default_model_manifest(family::Symbol, data; group_roles=nothing)
     family_name = string(family)
+    kwargs = Dict{String,Any}(
+        "parameters" => data.parameter_values,
+        "sinking_tracers" => data.sinking_tracers,
+        "open_bottom" => data.open_bottom,
+        "scalar_type" => data.scalar_type,
+    )
+
+    if isnothing(group_roles)
+        kwargs["phyto_size_structure"] = data.plankton_diameters_by_group["P"]
+        kwargs["zoo_size_structure"] = data.plankton_diameters_by_group["Z"]
+    else
+        kwargs["size_structure"] =
+            manifest_size_structure(group_roles, data.plankton_diameters_by_group)
+    end
+
     return Dict{String,Any}(
         "schema" => MODEL_SETUP_SCHEMA,
         "created_at" => string(now(UTC)),
@@ -62,14 +97,7 @@ function default_model_manifest(family::Symbol, data)
             "julia_version" => string(VERSION),
         ),
         "model" => Dict{String,Any}("family" => family_name),
-        "kwargs" => Dict{String,Any}(
-            "phyto_size_structure" => data.plankton_diameters_by_group["P"],
-            "zoo_size_structure" => data.plankton_diameters_by_group["Z"],
-            "parameters" => data.parameter_values,
-            "sinking_tracers" => data.sinking_tracers,
-            "open_bottom" => data.open_bottom,
-            "scalar_type" => data.scalar_type,
-        ),
+        "kwargs" => kwargs,
     )
 end
 
@@ -92,13 +120,18 @@ function constructor_kwargs(setup::AbstractDict; grid=nothing, arch=nothing)
 
     pairs = Pair{Symbol,Any}[]
 
+    haskey(kwargs, "size_structure") &&
+        push!(pairs, :size_structure => named_size_structure_kwargs(kwargs["size_structure"]))
     for key in ("phyto_size_structure", "zoo_size_structure", "open_bottom")
         haskey(kwargs, key) && push!(pairs, Symbol(key) => setup_value(kwargs[key]))
     end
 
-    haskey(kwargs, "parameters") && push!(pairs, :parameters => parameter_kwargs(kwargs["parameters"]))
-    haskey(kwargs, "sinking_tracers") && push!(pairs, :sinking_tracers => sinking_tracers_kwargs(kwargs["sinking_tracers"]))
-    haskey(kwargs, "scalar_type") && push!(pairs, :scalar_type => decode_scalar_type(kwargs["scalar_type"]))
+    haskey(kwargs, "parameters") &&
+        push!(pairs, :parameters => parameter_kwargs(kwargs["parameters"]))
+    haskey(kwargs, "sinking_tracers") &&
+        push!(pairs, :sinking_tracers => sinking_tracers_kwargs(kwargs["sinking_tracers"]))
+    haskey(kwargs, "scalar_type") &&
+        push!(pairs, :scalar_type => decode_scalar_type(kwargs["scalar_type"]))
 
     !isnothing(grid) && push!(pairs, :grid => grid)
     !isnothing(arch) && push!(pairs, :arch => arch)
@@ -108,6 +141,26 @@ end
 
 function parameter_kwargs(parameters::AbstractDict)
     return (; (Symbol(k) => parameter_value(v) for (k, v) in pairs(parameters))...)
+end
+
+function named_size_structure_kwargs(size_structure::AbstractDict)
+    return (;
+        phytoplankton=named_role_size_structure(size_structure, "phytoplankton"),
+        zooplankton=named_role_size_structure(size_structure, "zooplankton"),
+    )
+end
+
+function named_size_structure_kwargs(size_structure)
+    throw(ArgumentError("Model setup size_structure must be an object."))
+end
+
+function named_role_size_structure(size_structure::AbstractDict, role::AbstractString)
+    groups = get(size_structure, role, nothing)
+    groups isa AbstractVector ||
+        throw(ArgumentError("Model setup size_structure.$role must be an array."))
+    return (;
+        (Symbol(group["name"]) => setup_value(group["diameters"]) for group in groups)...
+    )
 end
 
 function sinking_tracers_kwargs(sinking)
