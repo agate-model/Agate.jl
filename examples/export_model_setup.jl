@@ -27,8 +27,10 @@ grid = BoxModelGrid()
 
 bgc, manifest = NiPiZD.construct_with_manifest(;
     grid,
-    phyto_size_structure=(n=3, min_esd=1.0, max_esd=10.0, splitting=:log_splitting),
-    zoo_size_structure=(n=2, min_esd=20.0, max_esd=100.0, splitting=:linear_splitting),
+    size_structure=(;
+        phytoplankton=(P=(n=3, min_esd=1.0, max_esd=10.0, splitting=:log_splitting),),
+        zooplankton=(Z=(n=2, min_esd=20.0, max_esd=100.0, splitting=:linear_splitting),),
+    ),
 )
 
 nothing #hide

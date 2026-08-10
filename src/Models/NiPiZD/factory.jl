@@ -18,6 +18,11 @@ using ...Tendencies:
 """Factory for the size-structured NiPiZD model."""
 struct NiPiZDFactory <: AbstractBGCFactory end
 
+const DEFAULT_SIZE_STRUCTURE = (
+    phytoplankton=(P=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting),),
+    zooplankton=(Z=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),),
+)
+
 const NIPIZD_TENDENCIES = TendencyConfig(;
     growth=:smith,
     organic_cycling=:simple_detritus,
@@ -58,13 +63,8 @@ function default_community(::NiPiZDFactory)
     # Structural defaults only (sizes/diameters). No parameter defaults.
     empty_pft = PFTSpecification()
     return (
-        Z=(;
-            diameters=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),
-            pft=empty_pft,
-        ),
-        P=(;
-            diameters=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting), pft=empty_pft
-        ),
+        Z=(; diameters=DEFAULT_SIZE_STRUCTURE.zooplankton.Z, pft=empty_pft),
+        P=(; diameters=DEFAULT_SIZE_STRUCTURE.phytoplankton.P, pft=empty_pft),
     )
 end
 

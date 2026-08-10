@@ -73,7 +73,9 @@ using Test
         phyto_diameters = [2.0, sqrt(20.0), 10.0]
         zoo_diameters = [20.0, 100.0]
         sized_bgc = Agate.Models.NiPiZD.construct(;
-            phyto_size_structure=phyto_diameters, zoo_size_structure=zoo_diameters
+            size_structure=(;
+                phytoplankton=(P=phyto_diameters,), zooplankton=(Z=zoo_diameters,)
+            )
         )
         @test plankton_tracers(sized_bgc) == [:Z_1, :Z_2, :P_1, :P_2, :P_3]
         @test plankton_diameters(sized_bgc) ≈ [zoo_diameters; phyto_diameters]

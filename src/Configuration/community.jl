@@ -320,9 +320,6 @@ function parse_community(
         end
     end
 
-    length(unique(plankton_symbols)) == length(plankton_symbols) ||
-        throw(ArgumentError("plankton tracer names must be unique"))
-
     biogeochem_symbols = Set(keys(biogeochem_dynamics))
     conflicting_symbols = [symbol for symbol in plankton_symbols if symbol in biogeochem_symbols]
     isempty(conflicting_symbols) || throw(

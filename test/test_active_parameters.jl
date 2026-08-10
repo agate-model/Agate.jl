@@ -298,8 +298,9 @@ end
         ),
     )
     flat_bgc = ActiveParameterNiPiZD.construct(;
-        phyto_size_structure=[2.0, 10.0],
-        zoo_size_structure=[20.0, 100.0],
+        size_structure=(;
+            phytoplankton=(P=[2.0, 10.0],), zooplankton=(Z=[20.0, 100.0],)
+        )
     )
 
     function runtime_active(bgc, producers, consumers)

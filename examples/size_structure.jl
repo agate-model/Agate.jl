@@ -26,19 +26,19 @@ nothing #hide
 # The plankton size structure is configured separately for phytoplankton and
 # zooplankton. Here, phytoplankton are split into three classes spanning 1 to
 # 10 μm equivalent spherical diameter (ESD), using logarithmic spacing.
-
 phyto_size_structure = (n=3, min_esd=1, max_esd=10, splitting=:log_splitting)
 nothing #hide
 
 # Alternatively, an explicit array can be used.
 # This zooplankton size structure also defines three classes, specifying the ESD of each class directly.
-
 zoo_size_structure = [10.0, 32.0, 100.0]
 
-# The model is constructed following the default model setup but with the custom size structures. 
-# This creates three phytoplankton tracers and three zooplankton tracers.
+size_structure = (;
+    phytoplankton=(P=phyto_size_structure,),
+    zooplankton=(Z=zoo_size_structure,),
+)
 
-bgc = Agate.Models.NiPiZD.construct(; phyto_size_structure, zoo_size_structure)
+bgc = Agate.Models.NiPiZD.construct(; size_structure)
 nothing #hide
 
 # We can inspect the tracer names required by the model.
