@@ -124,27 +124,22 @@ using Oceananigans.Biogeochemistry:
             ),
             phyto_size_structure=[2.0],
         )
-        @test_throws ArgumentError NiPiZD.construct(;
-            size_structure=(; phytoplankton=(diat=[2.0],))
-        )
-        @test_throws ArgumentError NiPiZD.construct(;
-            size_structure=(;
-                phytoplankton=(;),
+        invalid_size_structures = (
+            1,
+            (; phytoplankton=(diat=[2.0],)),
+            (;
+                phytoplankton=(diat=[2.0],),
                 zooplankton=(microzoo=[30.0],),
-            )
+                detritus=(small=[1.0],),
+            ),
+            (; phytoplankton=[2.0], zooplankton=(microzoo=[30.0],)),
+            (; phytoplankton=(;), zooplankton=(microzoo=[30.0],)),
+            (; phytoplankton=(shared=[2.0],), zooplankton=(shared=[30.0],)),
+            (; phytoplankton=(diat=Float64[],), zooplankton=(microzoo=[30.0],)),
         )
-        @test_throws ArgumentError NiPiZD.construct(;
-            size_structure=(;
-                phytoplankton=(shared=[2.0],),
-                zooplankton=(shared=[30.0],),
-            )
-        )
-        @test_throws ArgumentError NiPiZD.construct(;
-            size_structure=(;
-                phytoplankton=(diat=Float64[],),
-                zooplankton=(microzoo=[30.0],),
-            )
-        )
+        for size_structure in invalid_size_structures
+            @test_throws ArgumentError NiPiZD.construct(; size_structure)
+        end
     end
 
     @testset "NiPiZD named parameter semantics" begin
