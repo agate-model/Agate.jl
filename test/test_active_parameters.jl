@@ -289,3 +289,73 @@ end
 
     @test bgc_p.parameters.interactions.palatability[2, 2] == base_bgc.parameters.interactions.palatability[2, 2]
 end
+
+@testset "named-group runtime active parameters" begin
+    named_bgc = ActiveParameterNiPiZD.construct(;
+        size_structure=(;
+            phytoplankton=(diat=[2.0], dino=[10.0]),
+            zooplankton=(microzoo=[20.0], mesozoo=[100.0]),
+        ),
+    )
+    flat_bgc = ActiveParameterNiPiZD.construct(;
+        phyto_size_structure=[2.0, 10.0],
+        zoo_size_structure=[20.0, 100.0],
+    )
+
+    function runtime_active(bgc, producers, consumers)
+        p1, p2 = producers
+        z1, z2 = consumers
+        return Agate.Runtime.active_parameters(bgc;
+            maximum_growth_rate=(p1, p2),
+            interactions=(;
+                palatability=((z1, p1),),
+                assimilation=((z2, p2),),
+            ),
+        )
+    end
+
+    named_active = runtime_active(
+        named_bgc, (:diat_1, :dino_1), (:microzoo_1, :mesozoo_1)
+    )
+    flat_active = runtime_active(flat_bgc, (:P1, :P2), (:Z1, :Z2))
+
+    @test named_active.labels == (
+        "maximum_growth_rate.diat_1",
+        "maximum_growth_rate.dino_1",
+        "interactions.palatability[microzoo_1, diat_1]",
+        "interactions.assimilation[mesozoo_1, dino_1]",
+    )
+    @test named_active.values == flat_active.values
+
+    p = copy(named_active.values)
+    p[1] *= 1.2
+    p[3] *= 0.8
+    p[4] *= 0.9
+
+    args = (0, 0, 0, 0, 7.0, 1.0, 0.05, 0.05, 0.01, 0.01, 100.0)
+    named_parameterized = Agate.Runtime.parameterized(
+        named_bgc, p; active_parameters=named_active
+    )
+    flat_parameterized = Agate.Runtime.parameterized(
+        flat_bgc, p; active_parameters=flat_active
+    )
+    @test named_parameterized(Val(:diat_1), args...) ≈
+          flat_parameterized(Val(:P1), args...)
+
+    u0 = [7.0, 1.0, 0.05, 0.05, 0.01, 0.01]
+    function rhs(bgc, active)
+        problem = Agate.Runtime.ode_problem(
+            bgc,
+            u0,
+            (0.0, day);
+            p,
+            active_parameters=active,
+            auxiliary=(; PAR=100.0),
+        )
+        du = similar(u0)
+        problem.f(du, u0, p, 0.0)
+        return du
+    end
+
+    @test rhs(named_bgc, named_active) ≈ rhs(flat_bgc, flat_active)
+end
