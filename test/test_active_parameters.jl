@@ -17,10 +17,10 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
 @testset "parameterized BGC" begin
     mu0 = 0.7 / day
     base_bgc = ActiveParameterNiPiZD.construct(;
-        parameters=(; maximum_growth_rate=(P1=mu0, P2=mu0)),
+        parameters=(; maximum_growth_rate=(P_1=mu0, P_2=mu0)),
     )
 
-    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P1,))
+    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P_1,))
     p = [mu0]
     bgc_p = Agate.Runtime.parameterized(
         base_bgc,
@@ -29,15 +29,15 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
     )
 
     args = (0, 0, 0, 0, 7.0, 1.0, 0.05, 0.05, 0.01, 0.01, 100.0)
-    base_tendency = base_bgc(Val(:P1), args...)
-    active_tendency = bgc_p(Val(:P1), args...)
+    base_tendency = base_bgc(Val(:P_1), args...)
+    active_tendency = bgc_p(Val(:P_1), args...)
 
     @test active_tendency ≈ base_tendency
     @test bgc_p.parameters.maximum_growth_rate[3] == p[1]
     @test bgc_p.parameters.maximum_growth_rate[4] == base_bgc.parameters.maximum_growth_rate[4]
 
     active_scalar = Agate.Runtime.active_parameters(base_bgc;
-        maximum_growth_rate = (:P1,),
+        maximum_growth_rate = (:P_1,),
         detritus_remineralization = true,
     )
     p_scalar = [mu0, 2base_bgc.parameters.detritus_remineralization]
@@ -53,10 +53,10 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
 
 
     active_matrix = Agate.Runtime.active_parameters(base_bgc;
-        maximum_growth_rate = (:P1,),
+        maximum_growth_rate = (:P_1,),
         interactions = (;
-            palatability = ((:Z1, :P1),),
-            assimilation = ((:Z1, :P1),),
+            palatability = ((:Z_1, :P_1),),
+            assimilation = ((:Z_1, :P_1),),
         ),
     )
     p_matrix = [mu0, 3base_bgc.parameters.interactions.palatability[1, 1], 0.8]
@@ -71,7 +71,7 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
     @test bgc_matrix.parameters.interactions.assimilation[1, 1] == p_matrix[3]
     @test bgc_matrix.parameters.interactions.palatability[1, 2] == base_bgc.parameters.interactions.palatability[1, 2]
 
-    matrix_tendency = bgc_matrix(Val(:P1), args...)
+    matrix_tendency = bgc_matrix(Val(:P_1), args...)
     @test matrix_tendency != base_tendency
 
     p_fast = [2mu0]
@@ -80,16 +80,16 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
         p_fast;
         active_parameters=active_growth,
     )
-    fast_tendency = fast_bgc(Val(:P1), args...)
+    fast_tendency = fast_bgc(Val(:P_1), args...)
 
     @test fast_tendency != base_tendency
     @test fast_bgc.bgc === base_bgc
     @test required_biogeochemical_tracers(fast_bgc) == required_biogeochemical_tracers(base_bgc)
     @test required_biogeochemical_auxiliary_fields(fast_bgc) == required_biogeochemical_auxiliary_fields(base_bgc)
-    @test biogeochemical_drift_velocity(fast_bgc, Val(:P1)) == biogeochemical_drift_velocity(base_bgc, Val(:P1))
+    @test biogeochemical_drift_velocity(fast_bgc, Val(:P_1)) == biogeochemical_drift_velocity(base_bgc, Val(:P_1))
 
     adapted_bgc = Adapt.adapt(identity, fast_bgc)
-    @test adapted_bgc(Val(:P1), args...) ≈ fast_tendency
+    @test adapted_bgc(Val(:P_1), args...) ≈ fast_tendency
 end
 
 @testset "parameterized BGC OceanBioME compatibility" begin
@@ -97,10 +97,10 @@ end
     mu0 = 0.7 / day
     base_bgc = ActiveParameterNiPiZD.construct(;
         grid,
-        parameters=(; maximum_growth_rate=(P1=mu0, P2=mu0)),
+        parameters=(; maximum_growth_rate=(P_1=mu0, P_2=mu0)),
     )
 
-    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P1,))
+    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P_1,))
     p = copy(active_growth.values)
     bgc_p = Agate.Runtime.parameterized(base_bgc, p; active_parameters=active_growth)
 
@@ -118,11 +118,11 @@ end
 @testset "ODE problem active parameters" begin
     mu0 = 0.7 / day
     base_bgc = ActiveParameterNiPiZD.construct(;
-        parameters=(; maximum_growth_rate=(P1=mu0, P2=mu0)),
+        parameters=(; maximum_growth_rate=(P_1=mu0, P_2=mu0)),
     )
 
     u0 = [7.0, 1.0, 0.05, 0.05, 0.01, 0.01]
-    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P1,))
+    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P_1,))
     p = [mu0]
 
     problem = Agate.Runtime.ode_problem(
@@ -141,7 +141,7 @@ end
         base_bgc,
         p;
         active_parameters=active_growth,
-    )(Val(:P1), 0, 0, 0, 0.0, u0..., 100.0)
+    )(Val(:P_1), 0, 0, 0, 0.0, u0..., 100.0)
 
     @test du[5] ≈ expected
 
@@ -153,7 +153,7 @@ end
 
     p_scalar = [mu0, 2base_bgc.parameters.detritus_remineralization]
     active_scalar = Agate.Runtime.active_parameters(base_bgc;
-        maximum_growth_rate = (:P1,),
+        maximum_growth_rate = (:P_1,),
         detritus_remineralization = true,
     )
     problem_scalar = Agate.Runtime.ode_problem(
@@ -177,8 +177,8 @@ end
     @test du_scalar[1] ≈ expected_scalar
 
     active_matrix = Agate.Runtime.active_parameters(base_bgc;
-        maximum_growth_rate = (:P1,),
-        interactions = (; palatability = ((:Z1, :P1),)),
+        maximum_growth_rate = (:P_1,),
+        interactions = (; palatability = ((:Z_1, :P_1),)),
     )
     p_matrix = [mu0, 3base_bgc.parameters.interactions.palatability[1, 1]]
     problem_matrix = Agate.Runtime.ode_problem(
@@ -197,7 +197,7 @@ end
         base_bgc,
         p_matrix;
         active_parameters=active_matrix,
-    )(Val(:P1), 0, 0, 0, 0.0, u0..., 100.0)
+    )(Val(:P_1), 0, 0, 0, 0.0, u0..., 100.0)
 
     @test du_matrix[5] ≈ expected_matrix
     @test du_matrix[5] != du[5]
@@ -219,9 +219,9 @@ end
     base_bgc = ActiveParameterNiPiZD.construct()
 
     palatability_selectors = (
-        () -> Agate.Runtime.active_parameters(base_bgc; specificity = (:Z1,)),
-        () -> Agate.Runtime.active_parameters(base_bgc; protection = (:P1,)),
-        () -> Agate.Runtime.active_parameters(base_bgc; optimum_predator_prey_ratio = (:Z1,)),
+        () -> Agate.Runtime.active_parameters(base_bgc; specificity = (:Z_1,)),
+        () -> Agate.Runtime.active_parameters(base_bgc; protection = (:P_1,)),
+        () -> Agate.Runtime.active_parameters(base_bgc; optimum_predator_prey_ratio = (:Z_1,)),
     )
 
     for selector in palatability_selectors
@@ -229,12 +229,12 @@ end
     end
 
     assimilation_message = argument_error_message(() ->
-        Agate.Runtime.active_parameters(base_bgc; assimilation_efficiency = (:Z1,))
+        Agate.Runtime.active_parameters(base_bgc; assimilation_efficiency = (:Z_1,))
     )
     @test occursin(":interactions.assimilation", assimilation_message)
 
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; palatability_matrix = true)
-    @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = ((:P1, :P2, :extra),))
+    @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = ((:P_1, :P_2, :extra),))
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; detritus_remineralization = false)
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; not_a_parameter = true)
 end
@@ -244,22 +244,22 @@ end
     base_bgc = ActiveParameterNiPiZD.construct()
 
     active = Agate.Runtime.active_parameters(base_bgc;
-        maximum_growth_rate = (:P1, :P2),
+        maximum_growth_rate = (:P_1, :P_2),
         detritus_remineralization = true,
         interactions = (;
-            palatability = ((:Z1, :P1), (:Z1, :P2), (:Z2, :P1)),
-            assimilation = ((:Z1, :P1),),
+            palatability = ((:Z_1, :P_1), (:Z_1, :P_2), (:Z_2, :P_1)),
+            assimilation = ((:Z_1, :P_1),),
         ),
     )
 
     @test active.labels == (
-        "maximum_growth_rate.P1",
-        "maximum_growth_rate.P2",
+        "maximum_growth_rate.P_1",
+        "maximum_growth_rate.P_2",
         "detritus_remineralization",
-        "interactions.palatability[Z1, P1]",
-        "interactions.palatability[Z1, P2]",
-        "interactions.palatability[Z2, P1]",
-        "interactions.assimilation[Z1, P1]",
+        "interactions.palatability[Z_1, P_1]",
+        "interactions.palatability[Z_1, P_2]",
+        "interactions.palatability[Z_2, P_1]",
+        "interactions.assimilation[Z_1, P_1]",
     )
 
     @test length(active) == 7
@@ -303,13 +303,13 @@ end
     )
 
     function runtime_active(bgc, producers, consumers)
-        p1, p2 = producers
-        z1, z2 = consumers
+        producer_1, producer_2 = producers
+        consumer_1, consumer_2 = consumers
         return Agate.Runtime.active_parameters(bgc;
-            maximum_growth_rate=(p1, p2),
+            maximum_growth_rate=(producer_1, producer_2),
             interactions=(;
-                palatability=((z1, p1),),
-                assimilation=((z2, p2),),
+                palatability=((consumer_1, producer_1),),
+                assimilation=((consumer_2, producer_2),),
             ),
         )
     end
@@ -317,7 +317,7 @@ end
     named_active = runtime_active(
         named_bgc, (:diat_1, :dino_1), (:microzoo_1, :mesozoo_1)
     )
-    flat_active = runtime_active(flat_bgc, (:P1, :P2), (:Z1, :Z2))
+    flat_active = runtime_active(flat_bgc, (:P_1, :P_2), (:Z_1, :Z_2))
 
     @test named_active.labels == (
         "maximum_growth_rate.diat_1",
@@ -340,7 +340,7 @@ end
         flat_bgc, p; active_parameters=flat_active
     )
     @test named_parameterized(Val(:diat_1), args...) ≈
-          flat_parameterized(Val(:P1), args...)
+          flat_parameterized(Val(:P_1), args...)
 
     u0 = [7.0, 1.0, 0.05, 0.05, 0.01, 0.01]
     function rhs(bgc, active)

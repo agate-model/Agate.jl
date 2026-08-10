@@ -21,9 +21,9 @@ using Oceananigans
     @testset "NiPiZD box model" begin
         bgc_instance = NiPiZD.construct()
         box_model = build_box_model(bgc_instance)
-        set!(box_model; N=7, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, D=0.0)
+        set!(box_model; N=7, P_1=0.01, P_2=0.01, Z_1=0.05, Z_2=0.05, D=0.0)
 
-        budgets = (total=[:N => 1, :P1 => 1, :P2 => 1, :Z1 => 1, :Z2 => 1, :D => 1],)
+        budgets = (total=[:N => 1, :P_1 => 1, :P_2 => 1, :Z_1 => 1, :Z_2 => 1, :D => 1],)
 
         result = box_model_mass_balance(box_model, budgets; dt=0.1, nsteps=1000)
         @test isapprox(result.initial.total, result.final.total; rtol=1e-12, atol=0.0)
@@ -36,10 +36,10 @@ using Oceananigans
             box_model;
             DIN=7,
             PO4=3,
-            P1=0.01,
-            P2=0.01,
-            Z1=0.05,
-            Z2=0.05,
+            P_1=0.01,
+            P_2=0.01,
+            Z_1=0.05,
+            Z_2=0.05,
             DOC=0.0,
             POC=0.0,
             DON=0.0,
@@ -53,23 +53,23 @@ using Oceananigans
 
         budgets = (
             carbon=[
-                :DIC => 1, :P1 => 1, :P2 => 1, :Z1 => 1, :Z2 => 1, :POC => 1, :DOC => 1
+                :DIC => 1, :P_1 => 1, :P_2 => 1, :Z_1 => 1, :Z_2 => 1, :POC => 1, :DOC => 1
             ],
             nitrogen=[
                 :DIN => 1,
-                :P1 => n2c,
-                :P2 => n2c,
-                :Z1 => n2c,
-                :Z2 => n2c,
+                :P_1 => n2c,
+                :P_2 => n2c,
+                :Z_1 => n2c,
+                :Z_2 => n2c,
                 :PON => 1,
                 :DON => 1,
             ],
             phosphorus=[
                 :PO4 => 1,
-                :P1 => p2c,
-                :P2 => p2c,
-                :Z1 => p2c,
-                :Z2 => p2c,
+                :P_1 => p2c,
+                :P_2 => p2c,
+                :Z_1 => p2c,
+                :Z_2 => p2c,
                 :POP => 1,
                 :DOP => 1,
             ],

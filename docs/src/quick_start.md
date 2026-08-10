@@ -55,7 +55,7 @@ And finally simulated using Oceananigans.jl
 
 ```@example quickstart
 
-set!(full_model; N=7.0, P1=0.01, Z1=0.01, P2=0.1, Z2=0.01, D=0.01)
+set!(full_model; N=7.0, P_1=0.01, Z_1=0.01, P_2=0.1, Z_2=0.01, D=0.01)
 
 simulation = Simulation(full_model; Δt=240minutes, stop_time=1095days)
 nothing #hide

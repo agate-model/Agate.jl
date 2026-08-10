@@ -4,8 +4,8 @@
 Compute a weighted sum of tracer values in `box_model` at the given grid `location`.
 
 `terms` may be either:
-- an `AbstractVector` of pairs `tracer_symbol => weight`, e.g. `[:N => 1, :P1 => 1]`, or
-- a `NamedTuple` of weights, e.g. `(N=1, P1=1)`.
+- an `AbstractVector` of pairs `tracer_symbol => weight`, e.g. `[:N => 1, :P_1 => 1]`, or
+- a `NamedTuple` of weights, e.g. `(N=1, P_1=1)`.
 
 The function assumes tracer fields are accessible as `box_model.fields.<tracer>` and store
 their data in `.data`.

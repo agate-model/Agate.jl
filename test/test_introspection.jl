@@ -14,13 +14,13 @@ using Test
     @testset "Model-constructed instance" begin
         bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
 
-        @test tracer_names(bgc) == [:N, :D, :Z1, :Z2, :P1, :P2]
+        @test tracer_names(bgc) == [:N, :D, :Z_1, :Z_2, :P_1, :P_2]
 
         groups = tracer_groups(bgc)
         @test groups.all == tracer_names(bgc)
-        @test groups.by_group.Z == [:Z1, :Z2]
-        @test groups.by_group.P == [:P1, :P2]
-        @test groups.plankton == [:Z1, :Z2, :P1, :P2]
+        @test groups.by_group.Z == [:Z_1, :Z_2]
+        @test groups.by_group.P == [:P_1, :P_2]
+        @test groups.plankton == [:Z_1, :Z_2, :P_1, :P_2]
         @test groups.nonplankton == [:N, :D]
         @test plankton_groups(bgc) == groups.by_group
         @test plankton_tracers(bgc) == groups.plankton
@@ -38,8 +38,8 @@ using Test
 
         @test pal.kind == :palatability
         @test assim.kind == :assimilation
-        @test pal.rows == [:Z1, :Z2]
-        @test pal.columns == [:P1, :P2]
+        @test pal.rows == [:Z_1, :Z_2]
+        @test pal.columns == [:P_1, :P_2]
         @test assim.rows == pal.rows
         @test assim.columns == pal.columns
         @test pal.row_axis == :consumer
@@ -75,7 +75,7 @@ using Test
         sized_bgc = Agate.Models.NiPiZD.construct(;
             phyto_size_structure=phyto_diameters, zoo_size_structure=zoo_diameters
         )
-        @test plankton_tracers(sized_bgc) == [:Z1, :Z2, :P1, :P2, :P3]
+        @test plankton_tracers(sized_bgc) == [:Z_1, :Z_2, :P_1, :P_2, :P_3]
         @test plankton_diameters(sized_bgc) ≈ [zoo_diameters; phyto_diameters]
 
         named_bgc = Agate.Models.NiPiZD.construct(;

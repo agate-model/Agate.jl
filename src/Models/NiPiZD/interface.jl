@@ -65,14 +65,7 @@ function _named_community_inputs(size_structure)
         return (; diameters, pft=empty_pft)
     end
     community_base = NamedTuple{group_order}(community_base_values)
-    sized_community = Configuration.build_plankton_community(community_base)
-    community_values = ntuple(length(group_order)) do i
-        group = group_order[i]
-        spec = getproperty(sized_community, group)
-        tracer_names = ntuple(j -> Symbol(string(group), "_", j), spec.n)
-        return (; spec..., tracer_names)
-    end
-    community = NamedTuple{group_order}(community_values)
+    community = Configuration.build_plankton_community(community_base)
 
     dynamics_values = ntuple(length(group_order)) do i
         group = group_order[i]
@@ -175,7 +168,7 @@ Each group size structure may be a NamedTuple range, for example
 diameter vector such as `[1.0, 3.2, 10.0]`. Named groups are supplied as
 `size_structure=(phytoplankton=(...), zooplankton=(...))`.
 Classes in named groups use `<group>_<index>` tracer names, such as `diat_1`.
-The default `P` and `Z` groups use `P1`, `P2`, `Z1`, `Z2`, and so on.
+The default `P` and `Z` groups use `P_1`, `P_2`, `Z_1`, `Z_2`, and so on.
 
 Keywords
 --------
@@ -192,7 +185,7 @@ Keywords
 - `grid=BoxModelGrid()`: grid used for architecture inference and default scalar-type selection
 - `scalar_type=nothing`: explicit runtime scalar type. When omitted, construction uses `eltype(grid)` or `Float64` if no grid is supplied
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
-- `sinking_tracers=nothing`: sinking speed overrides, e.g. `(D = 2/day, P1 = 0.1/day, ...)`
+- `sinking_tracers=nothing`: sinking speed overrides, e.g. `(D = 2/day, P_1 = 0.1/day, ...)`
 - `open_bottom=true`: whether sinking tracers leave the domain
 
 Returns

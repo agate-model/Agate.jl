@@ -59,11 +59,11 @@ end
 @inline function (f::IdealizedPredationLoss)(P, Z)
     gmax = f.maximum_grazing_rate
     K = f.half_saturation
-    P2 = P * P
-    if K == zero(K) && P2 == zero(P2)
+    P_squared = P * P
+    if K == zero(K) && P_squared == zero(P_squared)
         return zero(P * Z)
     end
-    return gmax * (P2 / (K * K + P2)) * Z
+    return gmax * (P_squared / (K * K + P_squared)) * Z
 end
 
 """

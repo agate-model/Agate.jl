@@ -67,7 +67,7 @@ nothing #hide
 
 # ## Initial conditions
 
-set!(full_model; N=8.0, P1=0.01, P2=0.05, P3=0.1, Z1=0.01, Z2=0.01, Z3=0.01, D=0.01)
+set!(full_model; N=8.0, P_1=0.01, P_2=0.05, P_3=0.1, Z_1=0.01, Z_2=0.01, Z_3=0.01, D=0.01)
 
 # ## Simulation
 

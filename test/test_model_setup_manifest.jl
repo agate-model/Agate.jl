@@ -11,7 +11,7 @@ end
 @testset "NiPiZD model setup export and import" begin
     grid = BoxModelGrid()
     palatability_matrix = Float32[0.8 0.2; 0.3 0.7]
-    sinking_tracers = (P1=0.125f0 / day, D=1.5f0 / day)
+    sinking_tracers = (P_1=0.125f0 / day, D=1.5f0 / day)
 
     bgc, setup = Agate.Models.NiPiZD.construct_with_manifest(
         ;
@@ -30,12 +30,12 @@ end
     @test reconstructed.parameters.palatability_matrix ≈ palatability_matrix
     @test !isnothing(reconstructed.sinking_velocities)
 
-    reconstructed_P1 = biogeochemical_drift_velocity(reconstructed, Val(:P1)).w.data[1, 1, 1]
+    reconstructed_P_1 = biogeochemical_drift_velocity(reconstructed, Val(:P_1)).w.data[1, 1, 1]
     reconstructed_D = biogeochemical_drift_velocity(reconstructed, Val(:D)).w.data[1, 1, 1]
 
-    @test reconstructed_P1 ≈ biogeochemical_drift_velocity(bgc, Val(:P1)).w.data[1, 1, 1]
+    @test reconstructed_P_1 ≈ biogeochemical_drift_velocity(bgc, Val(:P_1)).w.data[1, 1, 1]
     @test reconstructed_D ≈ biogeochemical_drift_velocity(bgc, Val(:D)).w.data[1, 1, 1]
-    @test reconstructed_P1 ≈ -sinking_tracers.P1
+    @test reconstructed_P_1 ≈ -sinking_tracers.P_1
     @test reconstructed_D ≈ -sinking_tracers.D
 end
 

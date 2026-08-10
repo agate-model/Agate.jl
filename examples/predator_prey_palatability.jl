@@ -42,7 +42,7 @@ nothing #hide
 # filled from the model defaults.
 
 vopt_bgc = Agate.Models.NiPiZD.construct(;
-    parameters=(; optimum_predator_prey_ratio=(Z1=5.0, Z2=5.0))
+    parameters=(; optimum_predator_prey_ratio=(Z_1=5.0, Z_2=5.0))
 )
 vopt_pal = interaction_matrix(vopt_bgc, :palatability)
 nothing #hide
@@ -119,7 +119,7 @@ function run_box_model(bgc, filename)
     bgc_model = Biogeochemistry(bgc; light_attenuation)
     full_model = BoxModel(; biogeochemistry=bgc_model)
 
-    set!(full_model; N=7.0, P1=0.01, Z1=0.01, P2=0.1, Z2=0.01, D=0.01)
+    set!(full_model; N=7.0, P_1=0.01, Z_1=0.01, P_2=0.1, Z_2=0.01, D=0.01)
 
     simulation = Simulation(full_model; Δt=240minutes, stop_time=1095days)
 
