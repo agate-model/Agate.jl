@@ -93,7 +93,7 @@ Fields
 - `n_total`: total number of plankton classes.
 - `diameters`: flattened diameter vector in global plankton order.
 - `pfts`: per-class PFT specifications.
-- `plankton_symbols`: flattened class symbols such as `:P1`, `:P2`, or `:diat_1`.
+- `plankton_symbols`: flattened class symbols such as `:P_1`, `:P_2`, or `:diat_1`.
 - `group_symbols`: group symbol for each flattened class.
 - `group_local_index`: within-group class index for each flattened class.
 - `group_indices`: mapping from group symbol to flattened class indices.
@@ -149,12 +149,6 @@ end
 normalize_diameters(spec::DiameterRangeSpecification) = (; n=spec.n, specification=spec)
 
 normalize_diameters(spec) = throw(ArgumentError("invalid `diameters` specification"))
-
-_tracer_names_issue(names, group, n) =
-    !(names isa Tuple || names isa AbstractVector) ? "group $group: `tracer_names` must be a Tuple or AbstractVector" :
-    !all(name -> name isa Symbol, names) ? "group $group: `tracer_names` entries must be Symbols" :
-    !isnothing(n) && length(names) != n ? "group $group: `tracer_names` must have length $n" :
-    nothing
 
 """Validate `plankton_dynamics` and `community` inputs.
 
@@ -236,13 +230,6 @@ function validate_community_inputs(plankton_dynamics, community)
             ok = pft isa PFTSpecification || pft isa NamedTuple
             ok || push!(issues, "group $(k): `pft` must be PFTSpecification or NamedTuple")
         end
-
-        if hasproperty(spec, :tracer_names)
-            names = getproperty(spec, :tracer_names)
-            n = hasproperty(spec, :n) ? getproperty(spec, :n) : nothing
-            issue = _tracer_names_issue(names, k, n)
-            isnothing(issue) || push!(issues, issue)
-        end
     end
 
     if !isempty(issues)
@@ -322,14 +309,7 @@ function parse_community(
         pft_raw = getproperty(spec, :pft)
         pft = pft_raw isa PFTSpecification ? pft_raw : PFTSpecification(pft_raw)
 
-        class_symbols = if hasproperty(spec, :tracer_names)
-            names = getproperty(spec, :tracer_names)
-            issue = _tracer_names_issue(names, g, n)
-            isnothing(issue) || throw(ArgumentError(issue))
-            Symbol[names...]
-        else
-            Symbol[Symbol(string(g), i) for i in 1:n]
-        end
+        class_symbols = Symbol[Symbol(string(g), "_", i) for i in 1:n]
 
         for i in 1:n
             push!(plankton_symbols, class_symbols[i])
@@ -339,9 +319,6 @@ function parse_community(
             push!(diameters, ds[i])
         end
     end
-
-    length(unique(plankton_symbols)) == length(plankton_symbols) ||
-        throw(ArgumentError("plankton tracer names must be unique"))
 
     biogeochem_symbols = Set(keys(biogeochem_dynamics))
     conflicting_symbols = [symbol for symbol in plankton_symbols if symbol in biogeochem_symbols]

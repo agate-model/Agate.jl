@@ -103,7 +103,7 @@ nothing #hide
 
 # ## Initial conditions
 
-set!(full_model; N=7.0, P1=0.01, P2=0.01, Z1=0.05, Z2=0.05, D=0.0) # mmol N / m³
+set!(full_model; N=7.0, P_1=0.01, P_2=0.01, Z_1=0.05, Z_2=0.05, D=0.0) # mmol N / m³
 
 # ## Simulation
 filename = "N2P2ZD_column.jld2"

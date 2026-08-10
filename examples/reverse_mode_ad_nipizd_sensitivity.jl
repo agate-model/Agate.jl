@@ -44,11 +44,11 @@ const PHYTOPLANKTON = PLANKTON_GROUPS.P
 const PHYTOPLANKTON_INDICES = tracer_index.(PHYTOPLANKTON)
 
 const ACTIVE = Agate.Runtime.active_parameters(BGC;
-    maximum_growth_rate = (:P1, :P2),
+    maximum_growth_rate = (:P_1, :P_2),
     detritus_remineralization = true,
     interactions = (;
-        palatability = ((:Z1, :P1), (:Z1, :P2), (:Z2, :P1)),
-        assimilation = ((:Z1, :P1),),
+        palatability = ((:Z_1, :P_1), (:Z_1, :P_2), (:Z_2, :P_1)),
+        assimilation = ((:Z_1, :P_1),),
     ),
 )
 const PARAMETER_LABELS = ACTIVE.labels
@@ -61,8 +61,8 @@ const PAR = CyclicalPAR(-10)
 nothing #hide
 
 const INITIAL_CONCENTRATIONS = (; N = 7.0, D = 0.01,
-                                 Z1 = 0.01, Z2 = 0.01,
-                                 P1 = 0.01, P2 = 0.1)
+                                 Z_1 = 0.01, Z_2 = 0.01,
+                                 P_1 = 0.01, P_2 = 0.1)
 
 function initial_conditions(::Type{T}) where {T}
     return T[getproperty(INITIAL_CONCENTRATIONS, tracer) for tracer in TRACER_NAMES]

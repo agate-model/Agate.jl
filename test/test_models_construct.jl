@@ -20,25 +20,25 @@ using Oceananigans.Biogeochemistry:
         # Guardrail for GPU compilation: tracer callables must be concretely typed.
         @test !any(t -> t === Any, fieldtypes(typeof(bgc.tracer_functions)))
 
-        @test required_biogeochemical_tracers(bgc) == (:N, :D, :Z1, :Z2, :P1, :P2)
+        @test required_biogeochemical_tracers(bgc) == (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
 
-        P1 = 0.01f0
-        P2 = 0.01f0
-        Z1 = 0.05f0
-        Z2 = 0.05f0
+        P_1 = 0.01f0
+        P_2 = 0.01f0
+        Z_1 = 0.05f0
+        Z_2 = 0.05f0
         N = 7.0f0
         D = 1.0f0
         PAR = 100.0f0
 
         tracer_vals(sym) =
-            if sym === :P1
-                P1
-            elseif sym === :P2
-                P2
-            elseif sym === :Z1
-                Z1
-            elseif sym === :Z2
-                Z2
+            if sym === :P_1
+                P_1
+            elseif sym === :P_2
+                P_2
+            elseif sym === :Z_1
+                Z_1
+            elseif sym === :Z_2
+                Z_2
             elseif sym === :N
                 N
             else
@@ -49,39 +49,23 @@ using Oceananigans.Biogeochemistry:
 
         @test isfinite(bgc(Val(:N), 0, 0, 0, 0, ordered..., PAR))
         @test isfinite(bgc(Val(:D), 0, 0, 0, 0, ordered..., PAR))
-        @test isfinite(bgc(Val(:P1), 0, 0, 0, 0, ordered..., PAR))
-        @test isfinite(bgc(Val(:Z1), 0, 0, 0, 0, ordered..., PAR))
+        @test isfinite(bgc(Val(:P_1), 0, 0, 0, 0, ordered..., PAR))
+        @test isfinite(bgc(Val(:Z_1), 0, 0, 0, 0, ordered..., PAR))
     end
 
-    @testset "NiPiZD named size structure" begin
+    @testset "NiPiZD size structure" begin
         phyto_diameters = [2.0, 10.0]
         zoo_diameters = [20.0, 100.0]
 
         default_groups = NiPiZD.construct(;
-            phyto_size_structure=phyto_diameters,
-            zoo_size_structure=zoo_diameters,
-            grid=dummy_grid(Float32),
-        )
-        named_equivalent = NiPiZD.construct(;
             size_structure=(;
                 phytoplankton=(P=phyto_diameters,),
                 zooplankton=(Z=zoo_diameters,),
             ),
             grid=dummy_grid(Float32),
         )
-
         @test required_biogeochemical_tracers(default_groups) ==
-            (:N, :D, :Z1, :Z2, :P1, :P2)
-        @test required_biogeochemical_tracers(named_equivalent) ==
             (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
-        @test named_equivalent.parameters.maximum_growth_rate ==
-            default_groups.parameters.maximum_growth_rate
-        @test named_equivalent.parameters.maximum_predation_rate ==
-            default_groups.parameters.maximum_predation_rate
-        @test named_equivalent.parameters.interactions.palatability ==
-            default_groups.parameters.interactions.palatability
-        @test named_equivalent.parameters.interactions.assimilation ==
-            default_groups.parameters.interactions.assimilation
 
         named = NiPiZD.construct(;
             size_structure=(;
@@ -108,22 +92,6 @@ using Oceananigans.Biogeochemistry:
         @test count(x -> x != 0, named.parameters.maximum_growth_rate) == 5
         @test count(x -> x != 0, named.parameters.maximum_predation_rate) == 3
 
-        explicit_nothing = NiPiZD.construct(;
-            phyto_size_structure=nothing,
-            zoo_size_structure=nothing,
-            grid=dummy_grid(Float32),
-        )
-        default_model = NiPiZD.construct(; grid=dummy_grid(Float32))
-        @test required_biogeochemical_tracers(explicit_nothing) ==
-            required_biogeochemical_tracers(default_model)
-
-        @test_throws ArgumentError NiPiZD.construct(;
-            size_structure=(;
-                phytoplankton=(diat=[2.0],),
-                zooplankton=(microzoo=[30.0],),
-            ),
-            phyto_size_structure=[2.0],
-        )
         invalid_size_structures = (
             1,
             (; phytoplankton=(diat=[2.0],)),
@@ -142,7 +110,7 @@ using Oceananigans.Biogeochemistry:
         end
     end
 
-    @testset "NiPiZD named parameter semantics" begin
+    @testset "NiPiZD grouped parameter semantics" begin
         phyto_diameters = [2.0, 5.0, 10.0]
         zoo_diameters = [30.0, 60.0, 100.0]
         named_size_structure = (;
@@ -163,8 +131,10 @@ using Oceananigans.Biogeochemistry:
         end
 
         flat = NiPiZD.construct(;
-            phyto_size_structure=phyto_diameters,
-            zoo_size_structure=zoo_diameters,
+            size_structure=(;
+                phytoplankton=(P=phyto_diameters,),
+                zooplankton=(Z=zoo_diameters,),
+            ),
             grid=dummy_grid(Float32),
         )
         named = NiPiZD.construct(;
@@ -323,8 +293,8 @@ using Oceananigans.Biogeochemistry:
         bgc_named = NiPiZD.construct(;
             grid=dummy_grid(Float32),
             parameters=(;
-                optimum_predator_prey_ratio=(Z1=5.0, Z2=5.0),
-                maximum_growth_rate=(P1=1.2 / day,),
+                optimum_predator_prey_ratio=(Z_1=5.0, Z_2=5.0),
+                maximum_growth_rate=(P_1=1.2 / day,),
             ),
         )
         bgc_positional = NiPiZD.construct(;
@@ -350,7 +320,7 @@ using Oceananigans.Biogeochemistry:
 
         dar_named = DARWIN.construct(;
             grid=dummy_grid(Float32),
-            parameters=(; specificity=(Z1=2.0, Z2=2.5), half_saturation_DIN=(P2=0.3,)),
+            parameters=(; specificity=(Z_1=2.0, Z_2=2.5), half_saturation_DIN=(P_2=0.3,)),
         )
         dar_positional = DARWIN.construct(;
             grid=dummy_grid(Float32),
@@ -365,27 +335,30 @@ using Oceananigans.Biogeochemistry:
         err = try
             NiPiZD.construct(;
                 grid=dummy_grid(Float32),
-                parameters=(; optimum_predator_prey_ratio=(Z3=5.0,)),
+                parameters=(; optimum_predator_prey_ratio=(Z_3=5.0,)),
             )
             nothing
         catch e
             e
         end
         @test err isa ArgumentError
-        @test occursin("Unknown key `Z3`", sprint(showerror, err))
-        @test occursin("Z1, Z2, P1, P2", sprint(showerror, err))
+        @test occursin("Unknown key `Z_3`", sprint(showerror, err))
+        @test occursin("Z_1, Z_2, P_1, P_2", sprint(showerror, err))
 
         @test_throws ArgumentError NiPiZD.construct(;
-            grid=dummy_grid(Float32), parameters=(; detritus_remineralization=(Z1=1.0,))
+            grid=dummy_grid(Float32), parameters=(; detritus_remineralization=(Z_1=1.0,))
         )
         @test_throws ArgumentError NiPiZD.construct(;
-            grid=dummy_grid(Float32), parameters=(; palatability_matrix=(Z1=(P1=1.0,),))
+            grid=dummy_grid(Float32), parameters=(; palatability_matrix=(Z_1=(P_1=1.0,),))
         )
     end
 
     @testset "Allometric parameter overrides" begin
         phyto_diameters = [2.0, 8.0]
         zoo_diameters = [20.0, 100.0]
+        size_structure = (;
+            phytoplankton=(P=phyto_diameters,), zooplankton=(Z=zoo_diameters,)
+        )
 
         powerlaw_value(T, prefactor, exponent, diameter) = begin
             d = T(diameter)
@@ -399,8 +372,7 @@ using Oceananigans.Biogeochemistry:
         predation_exponent = -0.16
 
         bgc = NiPiZD.construct(;
-            phyto_size_structure=phyto_diameters,
-            zoo_size_structure=zoo_diameters,
+            size_structure,
             grid=dummy_grid(Float32),
             parameters=(;
                 maximum_growth_rate=AllometricParam(
@@ -431,16 +403,14 @@ using Oceananigans.Biogeochemistry:
         @test eltype(bgc.parameters.maximum_predation_rate) === Float32
 
         bgc_full_vector = NiPiZD.construct(;
-            phyto_size_structure=phyto_diameters,
-            zoo_size_structure=zoo_diameters,
+            size_structure,
             grid=dummy_grid(Float32),
             parameters=(; maximum_growth_rate=expected_growth),
         )
         bgc_named = NiPiZD.construct(;
-            phyto_size_structure=phyto_diameters,
-            zoo_size_structure=zoo_diameters,
+            size_structure,
             grid=dummy_grid(Float32),
-            parameters=(; maximum_growth_rate=(P1=1.2 / day,)),
+            parameters=(; maximum_growth_rate=(P_1=1.2 / day,)),
         )
 
         @test bgc_full_vector.parameters.maximum_growth_rate == expected_growth
@@ -466,18 +436,23 @@ using Oceananigans.Biogeochemistry:
 
 
     @testset "NiPiZD community structure overrides" begin
-        bgc = NiPiZD.construct(; phyto_size_structure=[3.0], grid=dummy_grid(Float32))
-        @test required_biogeochemical_tracers(bgc) == (:N, :D, :Z1, :Z2, :P1)
+        bgc = NiPiZD.construct(;
+            size_structure=(;
+                phytoplankton=(P=[3.0],), zooplankton=(Z=[20.0, 100.0],)
+            ),
+            grid=dummy_grid(Float32),
+        )
+        @test required_biogeochemical_tracers(bgc) == (:N, :D, :Z_1, :Z_2, :P_1)
     end
 
     @testset "NiPiZD sinking" begin
         bgc = NiPiZD.construct(;
-            sinking_tracers=(P1=0.2551 / day, P2=0.2551 / day, D=2.7489 / day)
+            sinking_tracers=(P_1=0.2551 / day, P_2=0.2551 / day, D=2.7489 / day)
         )
 
-        @test biogeochemical_drift_velocity(bgc, Val(:P1)).w.data[1, 1, 1] == -0.2551 / day
+        @test biogeochemical_drift_velocity(bgc, Val(:P_1)).w.data[1, 1, 1] == -0.2551 / day
         @test biogeochemical_drift_velocity(bgc, Val(:D)).w.data[1, 1, 1] == -2.7489 / day
-        @test biogeochemical_drift_velocity(bgc, Val(:Z1)).w == ZeroField()
+        @test biogeochemical_drift_velocity(bgc, Val(:Z_1)).w == ZeroField()
     end
 
     @testset "DARWIN defaults" begin
@@ -518,10 +493,16 @@ using Oceananigans.Biogeochemistry:
 
     @testset "Input validation" begin
         @test_throws ArgumentError NiPiZD.construct(;
-            phyto_size_structure=(n=0, min_esd=2, max_esd=10, splitting=:log_splitting)
+            size_structure=(;
+                phytoplankton=(P=(n=0, min_esd=2, max_esd=10, splitting=:log_splitting),),
+                zooplankton=(Z=[20.0, 100.0],),
+            )
         )
         @test_throws ArgumentError NiPiZD.construct(;
-            zoo_size_structure=(n=0, min_esd=20, max_esd=100, splitting=:linear_splitting)
+            size_structure=(;
+                phytoplankton=(P=[2.0, 10.0],),
+                zooplankton=(Z=(n=0, min_esd=20, max_esd=100, splitting=:linear_splitting),),
+            )
         )
 
         # Grid determines precision unless an explicit scalar type is supplied.
