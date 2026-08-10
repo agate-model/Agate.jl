@@ -81,7 +81,10 @@ function _named_community_inputs(size_structure)
     plankton_dynamics = NamedTuple{group_order}(dynamics_values)
     interaction_roles = (consumers=named.consumer_groups, prey=named.producer_groups)
 
-    return (; community, plankton_dynamics, interaction_roles)
+    group_roles = (;
+        phytoplankton=named.producer_groups, zooplankton=named.consumer_groups
+    )
+    return (; community, plankton_dynamics, interaction_roles, group_roles)
 end
 
 function _construction_inputs(;
@@ -112,6 +115,7 @@ function _construction_inputs(;
             community,
             plankton_dynamics=Factories.default_plankton_dynamics(factory),
             interaction_roles=(consumers=(:Z,), prey=(:P,)),
+            group_roles=nothing,
         )
     else
         (isnothing(phyto_size_structure) && isnothing(zoo_size_structure)) || throw(
@@ -132,6 +136,7 @@ function _construction_inputs(;
 
     return (
         factory=factory,
+        manifest_group_roles=community_inputs.group_roles,
         kwargs=(;
             plankton_dynamics=community_inputs.plankton_dynamics,
             community=community_inputs.community,
@@ -253,12 +258,15 @@ end
     construct_with_manifest(; kw...) -> bgc, manifest
 
 Construct a model instance and return it with a JSON-compatible model setup manifest.
+Named groups are recorded in role/group order with their resolved class diameters.
 """
 function construct_with_manifest(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
     bgc, manifest_data = Construction.construct_factory_with_manifest_data(
         inputs.factory; inputs.kwargs...
     )
-    manifest = default_model_manifest(:NiPiZD, manifest_data)
+    manifest = default_model_manifest(
+        :NiPiZD, manifest_data; group_roles=inputs.manifest_group_roles
+    )
     return bgc, manifest
 end
