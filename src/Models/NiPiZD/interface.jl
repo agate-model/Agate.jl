@@ -207,33 +207,6 @@ using Agate.Models: NiPiZD
 bgc = NiPiZD.construct()
 ```
 
-Named groups may be defined within the two ecological roles:
-
-```julia
-bgc = NiPiZD.construct(;
-    size_structure=(;
-        phytoplankton=(diat=[2.0, 5.0, 10.0], dino=[8.0, 20.0]),
-        zooplankton=(microzoo=[30.0, 60.0], mesozoo=[100.0]),
-    ),
-)
-```
-
-Resolved tracer names can be used for partial parameter overrides. Interaction matrices
-use the realized zooplankton classes as rows and phytoplankton classes as columns:
-
-```julia
-using Oceananigans.Units: day
-
-bgc = NiPiZD.construct(;
-    size_structure=(;
-        phytoplankton=(diat=[2.0, 5.0],),
-        zooplankton=(microzoo=[30.0, 60.0],),
-    ),
-    parameters=(; maximum_growth_rate=(diat_1=1.2 / day,)),
-    palatability_matrix=[0.9 0.7; 0.8 0.6],
-)
-```
-
 Trait-style allometric parameter overrides may be supplied during construction:
 
 ```julia
