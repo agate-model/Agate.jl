@@ -181,9 +181,9 @@ Keywords
   omitted, uses `(n=2, min_esd=2, max_esd=10, splitting=:log_splitting)`.
 - `zoo_size_structure=nothing`: zooplankton size structure for the default `Z` group. When
   omitted, uses `(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting)`.
-- `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set). Vector parameters may be supplied positionally, as partial NamedTuple overrides keyed by plankton class name, or as allometric definitions for diameter-indexed plankton vectors.
-- `palatability_matrix=nothing`: optional palatability matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)`.
-- `assimilation_matrix=nothing`: optional assimilation matrix override. Must be an explicit rectangular matrix sized to the canonical interaction axes `(n_consumer, n_prey)`.
+- `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set). Vector parameters may be supplied positionally, as partial NamedTuple overrides keyed by realized plankton tracer name (for example `diat_1` or `microzoo_1` for named groups), or as allometric definitions for diameter-indexed plankton vectors.
+- `palatability_matrix=nothing`: optional palatability matrix override. Must be an explicit rectangular matrix with rows ordered by realized zooplankton classes and columns ordered by realized phytoplankton classes.
+- `assimilation_matrix=nothing`: optional assimilation matrix override with the same consumer-by-prey class ordering as `palatability_matrix`.
 - `grid=BoxModelGrid()`: grid used for architecture inference and default scalar-type selection
 - `scalar_type=nothing`: explicit runtime scalar type. When omitted, construction uses `eltype(grid)` or `Float64` if no grid is supplied
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
@@ -210,6 +210,22 @@ bgc = NiPiZD.construct(;
         phytoplankton=(diat=[2.0, 5.0, 10.0], dino=[8.0, 20.0]),
         zooplankton=(microzoo=[30.0, 60.0], mesozoo=[100.0]),
     ),
+)
+```
+
+Resolved tracer names can be used for partial parameter overrides. Interaction matrices
+use the realized zooplankton classes as rows and phytoplankton classes as columns:
+
+```julia
+using Oceananigans.Units: day
+
+bgc = NiPiZD.construct(;
+    size_structure=(;
+        phytoplankton=(diat=[2.0, 5.0],),
+        zooplankton=(microzoo=[30.0, 60.0],),
+    ),
+    parameters=(; maximum_growth_rate=(diat_1=1.2 / day,)),
+    palatability_matrix=[0.9 0.7; 0.8 0.6],
 )
 ```
 
