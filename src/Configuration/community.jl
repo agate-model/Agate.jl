@@ -93,7 +93,7 @@ Fields
 - `n_total`: total number of plankton classes.
 - `diameters`: flattened diameter vector in global plankton order.
 - `pfts`: per-class PFT specifications.
-- `plankton_symbols`: flattened class symbols such as `:P1`, `:P2`, or `:diat_1`.
+- `plankton_symbols`: flattened class symbols such as `:P_1`, `:P_2`, or `:diat_1`.
 - `group_symbols`: group symbol for each flattened class.
 - `group_local_index`: within-group class index for each flattened class.
 - `group_indices`: mapping from group symbol to flattened class indices.
@@ -328,7 +328,7 @@ function parse_community(
             isnothing(issue) || throw(ArgumentError(issue))
             Symbol[names...]
         else
-            Symbol[Symbol(string(g), i) for i in 1:n]
+            Symbol[Symbol(string(g), "_", i) for i in 1:n]
         end
 
         for i in 1:n

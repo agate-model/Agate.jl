@@ -76,10 +76,10 @@ set!(
     PON=0.0,
     DOP=0.0,
     POP=0.0,
-    P1=0.01,
-    P2=0.01,
-    Z1=0.05,
-    Z2=0.05,
+    P_1=0.01,
+    P_2=0.01,
+    Z_1=0.05,
+    Z_2=0.05,
 )
 
 simulation = Simulation(model; Δt=3minutes, stop_time=365days)

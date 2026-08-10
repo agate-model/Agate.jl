@@ -121,10 +121,10 @@ matrix parameters with row-column tracer pairs.
 ```julia
 active = active_parameters(
     bgc;
-    maximum_growth_rate = (:P1, :P2),
+    maximum_growth_rate = (:P_1, :P_2),
     detritus_remineralization = true,
     interactions = (;
-        palatability = ((:Z1, :P1), (:Z1, :P2)),
+        palatability = ((:Z_1, :P_1), (:Z_1, :P_2)),
     ),
 )
 
@@ -196,8 +196,8 @@ function active_parameter_entry!(labels, values, bgc, path::Tuple, value, select
     end
 
     throw(ArgumentError(
-        "Active parameter tuple selections must contain tracer symbols, such as (:P1, :P2), " *
-        "or row-column tracer pairs, such as ((:Z1, :P1), (:Z1, :P2))."
+        "Active parameter tuple selections must contain tracer symbols, such as (:P_1, :P_2), " *
+        "or row-column tracer pairs, such as ((:Z_1, :P_1), (:Z_1, :P_2))."
     ))
 end
 

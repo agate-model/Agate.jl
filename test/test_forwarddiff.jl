@@ -8,7 +8,7 @@ const ForwardDiffDARWIN = Agate.Models.DARWIN
 using Oceananigans.Units: day
 
 @testset "ForwardDiff NiPiZD tendency smoke tests" begin
-    function p1_tendency_with_growth_rate(mu)
+    function p_1_tendency_with_growth_rate(mu)
         T = typeof(mu)
         bgc = ForwardDiffNiPiZD.construct(;
             scalar_type=T,
@@ -17,13 +17,13 @@ using Oceananigans.Units: day
 
         N = T(7.0)
         D = T(1.0)
-        Z1 = T(0.05)
-        Z2 = T(0.05)
-        P1 = T(0.01)
-        P2 = T(0.01)
+        Z_1 = T(0.05)
+        Z_2 = T(0.05)
+        P_1 = T(0.01)
+        P_2 = T(0.01)
         PAR = T(100.0)
 
-        return bgc(Val(:P1), 0, 0, 0, 0, N, D, Z1, Z2, P1, P2, PAR)
+        return bgc(Val(:P_1), 0, 0, 0, 0, N, D, Z_1, Z_2, P_1, P_2, PAR)
     end
 
     mu0 = 0.7 / day
@@ -34,23 +34,23 @@ using Oceananigans.Units: day
     )
     @test eltype(bgc0.parameters.maximum_growth_rate) === T0
 
-    dP1_dmu = ForwardDiff.derivative(p1_tendency_with_growth_rate, mu0)
-    @test isfinite(dP1_dmu)
+    dP_1_dmu = ForwardDiff.derivative(p_1_tendency_with_growth_rate, mu0)
+    @test isfinite(dP_1_dmu)
 
     δ = mu0 * 1e-6
     fd =
-        (p1_tendency_with_growth_rate(mu0 + δ) - p1_tendency_with_growth_rate(mu0 - δ)) /
+        (p_1_tendency_with_growth_rate(mu0 + δ) - p_1_tendency_with_growth_rate(mu0 - δ)) /
         (2δ)
-    @test isapprox(dP1_dmu, fd; rtol=1e-4, atol=1e-10)
+    @test isapprox(dP_1_dmu, fd; rtol=1e-4, atol=1e-10)
 end
 
 @testset "ForwardDiff NiPiZD ode_problem active parameter smoke test" begin
     mu0 = 0.7 / day
     base_bgc = ForwardDiffNiPiZD.construct(;
-        parameters=(; maximum_growth_rate=(P1=mu0, P2=mu0)),
+        parameters=(; maximum_growth_rate=(P_1=mu0, P_2=mu0)),
     )
 
-    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate=(:P1,))
+    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate=(:P_1,))
     u0 = [7.0, 1.0, 0.05, 0.05, 0.01, 0.01]
     problem = Agate.Runtime.ode_problem(
         base_bgc,
@@ -61,7 +61,7 @@ end
         auxiliary=(; PAR=100.0),
     )
 
-    function p1_tendency_with_active_growth_rate(mu)
+    function p_1_tendency_with_active_growth_rate(mu)
         T = typeof(mu)
         u = T.(u0)
         du = similar(u)
@@ -69,19 +69,19 @@ end
         return du[5]
     end
 
-    dP1_dmu = ForwardDiff.derivative(p1_tendency_with_active_growth_rate, mu0)
-    @test isfinite(dP1_dmu)
+    dP_1_dmu = ForwardDiff.derivative(p_1_tendency_with_active_growth_rate, mu0)
+    @test isfinite(dP_1_dmu)
 
     δ = mu0 * 1e-6
     fd = (
-        p1_tendency_with_active_growth_rate(mu0 + δ) -
-        p1_tendency_with_active_growth_rate(mu0 - δ)
+        p_1_tendency_with_active_growth_rate(mu0 + δ) -
+        p_1_tendency_with_active_growth_rate(mu0 - δ)
     ) / (2δ)
-    @test isapprox(dP1_dmu, fd; rtol=1e-4, atol=1e-10)
+    @test isapprox(dP_1_dmu, fd; rtol=1e-4, atol=1e-10)
 end
 
 @testset "ForwardDiff DARWIN tendency smoke tests" begin
-    function p1_tendency_with_growth_rate(mu)
+    function p_1_tendency_with_growth_rate(mu)
         T = typeof(mu)
         bgc = ForwardDiffDARWIN.construct(;
             scalar_type=T,
@@ -97,14 +97,14 @@ end
         PON = T(0.01)
         DOP = T(0.001)
         POP = T(0.001)
-        Z1 = T(0.02)
-        Z2 = T(0.02)
-        P1 = T(0.01)
-        P2 = T(0.01)
+        Z_1 = T(0.02)
+        Z_2 = T(0.02)
+        P_1 = T(0.01)
+        P_2 = T(0.01)
         PAR = T(100.0)
 
         return bgc(
-            Val(:P1),
+            Val(:P_1),
             0,
             0,
             0,
@@ -118,10 +118,10 @@ end
             PON,
             DOP,
             POP,
-            Z1,
-            Z2,
-            P1,
-            P2,
+            Z_1,
+            Z_2,
+            P_1,
+            P_2,
             PAR,
         )
     end
@@ -134,12 +134,12 @@ end
     )
     @test eltype(bgc0.parameters.maximum_growth_rate) === T0
 
-    dP1_dmu = ForwardDiff.derivative(p1_tendency_with_growth_rate, mu0)
-    @test isfinite(dP1_dmu)
+    dP_1_dmu = ForwardDiff.derivative(p_1_tendency_with_growth_rate, mu0)
+    @test isfinite(dP_1_dmu)
 
     δ = mu0 * 1e-6
     fd =
-        (p1_tendency_with_growth_rate(mu0 + δ) - p1_tendency_with_growth_rate(mu0 - δ)) /
+        (p_1_tendency_with_growth_rate(mu0 + δ) - p_1_tendency_with_growth_rate(mu0 - δ)) /
         (2δ)
-    @test isapprox(dP1_dmu, fd; rtol=1e-4, atol=1e-10)
+    @test isapprox(dP_1_dmu, fd; rtol=1e-4, atol=1e-10)
 end

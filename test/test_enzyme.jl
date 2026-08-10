@@ -9,15 +9,15 @@ const EnzymeNiPiZD = Agate.Models.NiPiZD
 @testset "Enzyme parameterized tendency gradients" begin
     mu0 = 0.7 / day
     base_bgc = EnzymeNiPiZD.construct(;
-        parameters=(; maximum_growth_rate=(P1=mu0, P2=mu0)),
+        parameters=(; maximum_growth_rate=(P_1=mu0, P_2=mu0)),
     )
 
     active = Agate.Runtime.active_parameters(base_bgc;
-        maximum_growth_rate = (:P1,),
+        maximum_growth_rate = (:P_1,),
         detritus_remineralization = true,
         interactions = (;
-            palatability = ((:Z1, :P1),),
-            assimilation = ((:Z1, :P1),),
+            palatability = ((:Z_1, :P_1),),
+            assimilation = ((:Z_1, :P_1),),
         ),
     )
 
@@ -25,10 +25,10 @@ const EnzymeNiPiZD = Agate.Models.NiPiZD
 
     function diagnostic(p)
         bgc_p = Agate.Runtime.parameterized(base_bgc, p; active_parameters=active)
-        p1 = bgc_p(Val(:P1), args...)
-        z1 = bgc_p(Val(:Z1), args...)
+        p_1 = bgc_p(Val(:P_1), args...)
+        z_1 = bgc_p(Val(:Z_1), args...)
         d = bgc_p(Val(:D), args...)
-        return p1 + 0.5z1 + 0.25d
+        return p_1 + 0.5z_1 + 0.25d
     end
 
     p0 = copy(active.values)
