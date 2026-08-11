@@ -47,3 +47,25 @@ jobs:
 
           Agate.Models.NiPiZD.construct(grid=nothing)
           Agate.Models.DARWIN.construct(grid=nothing)
+
+  compatibility-112:
+    name: Julia 1.12 - compatibility smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: '1.12'
+          arch: x64
+      - uses: julia-actions/cache@v1
+      - name: Instantiate, precompile, load, and construct models
+        shell: julia --project=. --color=yes {0}
+        run: |
+          using Pkg
+          Pkg.instantiate()
+          Pkg.precompile()
+
+          using Agate
+
+          Agate.Models.NiPiZD.construct(grid=nothing)
+          Agate.Models.DARWIN.construct(grid=nothing)

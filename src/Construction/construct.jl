@@ -580,10 +580,10 @@ function _construct_factory(
     tracer_names = (keys(biogeochem_dynamics)..., Tuple(plankton_syms)...)
     tracer_defs = ()
 
-    for (_, f) in pairs(biogeochem_dynamics)
+    for (k, f) in pairs(biogeochem_dynamics)
         tr = f()
         (tr isa CompiledEquation) || throw(
-            ArgumentError("biogeochem dynamics $(nameof(f)) must return CompiledEquation"),
+            ArgumentError("biogeochem dynamics :$k must return CompiledEquation"),
         )
         tracer_defs = (tracer_defs..., tr)
     end
@@ -593,7 +593,7 @@ function _construct_factory(
         f = getfield(plankton_dynamics, g)
         tr = f(idx)
         (tr isa CompiledEquation) || throw(
-            ArgumentError("plankton dynamics $(nameof(f)) must return CompiledEquation")
+            ArgumentError("plankton dynamics :$g must return CompiledEquation")
         )
         tracer_defs = (tracer_defs..., tr)
     end
