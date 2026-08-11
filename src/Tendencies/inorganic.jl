@@ -5,9 +5,11 @@ function inorganic_target_coupling(config, target::Symbol, remineralization, sto
 
     if !target_is_nutrient
         remineralization === nothing &&
-            error(
-                "Inorganic target $target is not configured as a nutrient; " *
-                "pass explicit remineralization sources."
+            throw(
+                ArgumentError(
+                    "Inorganic target $target is not configured as a nutrient; " *
+                    "pass explicit remineralization sources."
+                )
             )
         @warn "Inorganic target is not configured as a nutrient; using explicit inorganic-pool coupling." target=target remineralization=remineralization stoichiometry=stoichiometry
     end

@@ -29,13 +29,13 @@ function TendencyConfig(;
     nutrients::Tuple=(),
 )
     growth in SUPPORTED_GROWTH_FORMULATIONS ||
-        error("Unsupported growth formulation: $growth")
+        throw(ArgumentError("Unsupported growth formulation: $growth"))
     organic_cycling in SUPPORTED_ORGANIC_CYCLING_FORMULATIONS ||
-        error("Unsupported organic cycling formulation: $organic_cycling")
+        throw(ArgumentError("Unsupported organic cycling formulation: $organic_cycling"))
     zooplankton in SUPPORTED_ZOOPLANKTON_FORMULATIONS ||
-        error("Unsupported zooplankton formulation: $zooplankton")
+        throw(ArgumentError("Unsupported zooplankton formulation: $zooplankton"))
     nutrient_limitation in SUPPORTED_NUTRIENT_LIMITATIONS ||
-        error("Unsupported nutrient limitation rule: $nutrient_limitation")
+        throw(ArgumentError("Unsupported nutrient limitation rule: $nutrient_limitation"))
 
     return TendencyConfig{
         growth,
