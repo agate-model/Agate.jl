@@ -15,13 +15,21 @@ This is intended as a small helper for mass/budget diagnostics and tests.
 function box_model_budget(box_model, terms; location::NTuple{3,Int}=(1, 1, 1))
     i, j, k = location
     pairs_iter = terms isa NamedTuple ? pairs(terms) : terms
+    first_term = iterate(pairs_iter)
+    first_term === nothing && return 0.0
 
-    s = 0.0
-    for (tracer, weight) in pairs_iter
+    ((tracer, weight), state) = first_term
+    fld = getproperty(box_model.fields, tracer)
+    budget = weight * fld.data[i, j, k]
+
+    while true
+        next_term = iterate(pairs_iter, state)
+        next_term === nothing && return budget
+
+        ((tracer, weight), state) = next_term
         fld = getproperty(box_model.fields, tracer)
-        s += float(weight) * float(fld.data[i, j, k])
+        budget += weight * fld.data[i, j, k]
     end
-    return s
 end
 
 """
