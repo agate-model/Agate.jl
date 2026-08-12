@@ -96,7 +96,7 @@ struct SmoothLiebigMinimum{S}
     sharpness::S
 end
 
-@inline SmoothLiebigMinimum() = SmoothLiebigMinimum(50.0)
+@inline SmoothLiebigMinimum() = SmoothLiebigMinimum(50)
 
 @inline function (l::SmoothLiebigMinimum)(a, b)
     s = l.sharpness
@@ -145,16 +145,16 @@ This is an explicit alias around `LiebigMinimum()` for clearer model code.
 @inline liebig_minimum(values::Tuple{Vararg{Any,N}}) where N = LiebigMinimum()(values)
 
 """
-    smooth_liebig_minimum(a, b, rest...; sharpness = 50.0)
-    smooth_liebig_minimum(values::NTuple; sharpness = 50.0)
+    smooth_liebig_minimum(a, b, rest...; sharpness = 50)
+    smooth_liebig_minimum(values::NTuple; sharpness = 50)
 
 Return a smooth approximation to the minimum value among the given limitation
 factors. Larger `sharpness` values approach `liebig_minimum`.
 """
-@inline smooth_liebig_minimum(a, b; sharpness=50.0) = SmoothLiebigMinimum(sharpness)(a, b)
+@inline smooth_liebig_minimum(a, b; sharpness=50) = SmoothLiebigMinimum(sharpness)(a, b)
 
-@inline smooth_liebig_minimum(a, b, c, rest...; sharpness=50.0) = SmoothLiebigMinimum(sharpness)(a, b, c, rest...)
+@inline smooth_liebig_minimum(a, b, c, rest...; sharpness=50) = SmoothLiebigMinimum(sharpness)(a, b, c, rest...)
 
-@inline smooth_liebig_minimum(values::Tuple{Vararg{Any,N}}; sharpness=50.0) where N = SmoothLiebigMinimum(sharpness)(values)
+@inline smooth_liebig_minimum(values::Tuple{Vararg{Any,N}}; sharpness=50) where N = SmoothLiebigMinimum(sharpness)(values)
 
 end # module
