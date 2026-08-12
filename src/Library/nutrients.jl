@@ -64,7 +64,14 @@ Liebig's law of the minimum: return the minimum of nutrient limitation factors.
 """
 struct LiebigMinimum end
 
-@inline (l::LiebigMinimum)(a, b) = ifelse(a < b, a, b)
+@inline function (l::LiebigMinimum)(a, b)
+    if isnan(a)
+        return a
+    elseif isnan(b)
+        return b
+    end
+    return ifelse(a < b, a, b)
+end
 
 @inline function (l::LiebigMinimum)(a, b, c, rest...)
     return l(l(a, b), c, rest...)
