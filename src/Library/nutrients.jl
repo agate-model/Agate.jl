@@ -106,12 +106,23 @@ factors in ``[0, 1]``.
 
 Finite `sharpness` provides a smooth transition through nutrient co-limitation
 for automatic differentiation; `LiebigMinimum` remains the exact hard minimum.
+The default `sharpness = 50` keeps the transition localized while retaining a
+smooth derivative crossover. Finite sharpness can underestimate the hard minimum
+when several small limitation factors are similar; increasing `sharpness` reduces
+that discrepancy while narrowing the smooth transition.
+
+!!! warning "Domain"
+    `FrankMinimum` is defined for normalized limitation factors in ``[0, 1]``.
+    Inputs outside this interval can violate the minimum-like bounds or produce
+    non-finite values.
 """
 struct FrankMinimum{S}
     sharpness::S
 end
 
-@inline FrankMinimum() = FrankMinimum(50)
+const DEFAULT_FRANK_SHARPNESS = 50
+
+@inline FrankMinimum() = FrankMinimum(DEFAULT_FRANK_SHARPNESS)
 
 @inline function (f::FrankMinimum)(a, b)
     s = oftype(one(a + b), f.sharpness)
@@ -164,13 +175,19 @@ This is an explicit alias around `LiebigMinimum()` for clearer model code.
     frank_minimum(a, b, rest...; sharpness = 50)
     frank_minimum(values::NTuple; sharpness = 50)
 
-Return the differentiable Frank-family minimum of the supplied limitation
-factors. Positive `sharpness` values increasingly approximate `liebig_minimum`.
+Return the differentiable Frank-family minimum of normalized limitation
+factors in `[0, 1]`. Positive `sharpness` values increasingly approximate
+`liebig_minimum`. Finite sharpness smooths co-limitation but can underestimate
+the hard minimum when several small limitation factors are similar.
 """
-@inline frank_minimum(a, b; sharpness=50) = FrankMinimum(sharpness)(a, b)
+@inline frank_minimum(a, b; sharpness=DEFAULT_FRANK_SHARPNESS) =
+    FrankMinimum(sharpness)(a, b)
 
-@inline frank_minimum(a, b, c, rest...; sharpness=50) = FrankMinimum(sharpness)(a, b, c, rest...)
+@inline frank_minimum(a, b, c, rest...; sharpness=DEFAULT_FRANK_SHARPNESS) =
+    FrankMinimum(sharpness)(a, b, c, rest...)
 
-@inline frank_minimum(values::Tuple{Vararg{Any,N}}; sharpness=50) where N = FrankMinimum(sharpness)(values)
+@inline frank_minimum(
+    values::Tuple{Vararg{Any,N}}; sharpness=DEFAULT_FRANK_SHARPNESS
+) where N = FrankMinimum(sharpness)(values)
 
 end # module
