@@ -175,7 +175,7 @@ end
 """
     construct_with_manifest(; kw...) -> bgc, manifest
 
-Construct a model instance and return it with a JSON-compatible model setup manifest.
+Construct a model instance and return it with a JSON-compatible manifest of the resolved model setup.
 """
 function construct_with_manifest(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
