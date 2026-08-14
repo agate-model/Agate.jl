@@ -3,7 +3,8 @@ module Manifests
 
 using Dates
 using JSON
-using TOML
+
+import OceanBioME, Oceananigans
 
 include("serialization.jl")
 
@@ -26,13 +27,7 @@ function required(x::AbstractDict, key, path)
     return x[key]
 end
 
-agate_project_root() = dirname(dirname(@__DIR__))
-agate_project_toml() = joinpath(agate_project_root(), "Project.toml")
-
-function agate_version()
-    project = TOML.parsefile(agate_project_toml())
-    return string(project["version"])
-end
+package_version(mod) = string(something(Base.pkgversion(mod), "unknown"))
 
 """
     export_manifest(path, setup) -> path
@@ -108,8 +103,10 @@ function default_model_manifest(family::Symbol, data; group_roles=nothing)
         "schema" => MODEL_SETUP_SCHEMA,
         "created_at" => string(now(UTC)),
         "agate" => Dict{String,Any}(
-            "version" => agate_version(),
+            "version" => package_version(parentmodule(@__MODULE__)),
             "julia_version" => string(VERSION),
+            "oceananigans_version" => package_version(Oceananigans),
+            "oceanbiome_version" => package_version(OceanBioME),
         ),
         "model" => Dict{String,Any}("family" => family_name),
         "kwargs" => kwargs,
