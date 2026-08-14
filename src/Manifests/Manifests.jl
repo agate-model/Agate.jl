@@ -178,6 +178,12 @@ function parameter_value(value)
 end
 
 setup_value(x) = x
+function setup_value(x::AbstractString)
+    x == "NaN" && return NaN
+    x == "Inf" && return Inf
+    x == "-Inf" && return -Inf
+    return x
+end
 setup_value(x::AbstractVector) = Any[setup_value(v) for v in x]
 setup_value(x::AbstractDict) = (; (Symbol(k) => setup_value(v) for (k, v) in pairs(x))...)
 
