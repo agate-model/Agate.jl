@@ -7,7 +7,7 @@ across model tracer kernels (e.g. NiPiZD and DARWIN).
 module Reductions
 
 using ...Library.Mortality: linear_loss, quadratic_loss
-using ...Library.Nutrients: LiebigMinimum, FrankMinimum
+using ...Library.Nutrients: LiebigMinimum, FrankTNorm
 using ...Library.Photosynthesis: smith_growth, geider_growth
 using ...Library.Predation:
     preferential_predation_loss,
@@ -160,7 +160,7 @@ end
 """Smith growth summed over all plankton classes."""
 function growth_sum(
     ::Val{:smith},
-    limitation::Union{LiebigMinimum,FrankMinimum},
+    limitation::Union{LiebigMinimum,FrankTNorm},
     plankton,
     resources::Tuple,
     PAR,
@@ -181,7 +181,7 @@ end
 """Geider growth summed over all plankton classes."""
 function growth_sum(
     ::Val{:geider},
-    limitation::Union{LiebigMinimum,FrankMinimum},
+    limitation::Union{LiebigMinimum,FrankTNorm},
     plankton,
     resources::Tuple,
     PAR,

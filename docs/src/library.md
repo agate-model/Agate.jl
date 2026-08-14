@@ -15,14 +15,9 @@ Private = false
 
 ## Nutrients
 
-```@docs
-Agate.Library.Nutrients.LiebigMinimum
-Agate.Library.Nutrients.FrankMinimum
-```
-
 ```@autodocs
 Modules=[Agate.Library.Nutrients]
-Private = false        
+Private = false
 ```
 
 ## Photosynthesis

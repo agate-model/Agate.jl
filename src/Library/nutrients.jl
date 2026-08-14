@@ -2,7 +2,7 @@
 
 module Nutrients
 
-export monod_limitation, liebig_minimum, frank_minimum
+export monod_limitation, liebig_minimum, frank_tnorm
 
 """
     MonodLimitation(K)
@@ -81,28 +81,29 @@ end
     return m
 end
 
-raw"""
-    FrankMinimum()
-    FrankMinimum(sharpness)
+"""
+    FrankTNorm()
+    FrankTNorm(sharpness)
 
-Differentiable Frank-family approximation to Liebig's minimum on limitation
-factors in ``[0, 1]``.
+Differentiable Frank t-norm approximation to Liebig's minimum on limitation
+factors in `[0, 1]`.
 
 !!! formulation
-    For two limitation factors ``a`` and ``b``, let ``q = \exp(-s)`` where
-    ``s`` is `sharpness`. The Frank minimum is
+    For two limitation factors `a` and `b`, let `q = exp(-s)`, where `s` is
+    `sharpness`. The Frank t-norm is
 
-    ```math
-    F_s(a, b) = \log_q\left(1 + \frac{(q^a - 1)(q^b - 1)}{q - 1}\right).
+    ```text
+    q = exp(-s)
+    F(a, b) = log(1 + ((q^a - 1) * (q^b - 1)) / (q - 1)) / log(q)
     ```
 
     Positive `sharpness` values give the minimum-like branch of the Frank
     family, with larger values approaching `min(a, b)`. The implementation uses
     an equivalent shifted form for numerical stability.
 
-    ``1`` is the neutral element, so ``F_s(a, 1) = a``. ``0`` is absorbing, so
-    ``F_s(a, 0) = 0``. For more than two factors the associative binary operator
-    is applied successively.
+    `1` is the neutral element, so `F(a, 1) = a`. `0` is absorbing, so
+    `F(a, 0) = 0`. For more than two factors the associative binary operator is
+    applied successively.
 
 Finite `sharpness` provides a smooth transition through nutrient co-limitation
 for automatic differentiation; `LiebigMinimum` remains the exact hard minimum.
@@ -112,19 +113,19 @@ when several small limitation factors are similar; increasing `sharpness` reduce
 that discrepancy while narrowing the smooth transition.
 
 !!! warning "Domain"
-    `FrankMinimum` is defined for normalized limitation factors in ``[0, 1]``.
+    `FrankTNorm` is defined for normalized limitation factors in `[0, 1]`.
     Inputs outside this interval can violate the minimum-like bounds or produce
     non-finite values.
 """
-struct FrankMinimum{S}
+struct FrankTNorm{S}
     sharpness::S
 end
 
 const DEFAULT_FRANK_SHARPNESS = 50
 
-@inline FrankMinimum() = FrankMinimum(DEFAULT_FRANK_SHARPNESS)
+@inline FrankTNorm() = FrankTNorm(DEFAULT_FRANK_SHARPNESS)
 
-@inline function (f::FrankMinimum)(a, b)
+@inline function (f::FrankTNorm)(a, b)
     s = oftype(one(a + b), f.sharpness)
     a_is_min = a < b
     m = ifelse(a_is_min, a, b)
@@ -138,11 +139,11 @@ const DEFAULT_FRANK_SHARPNESS = 50
     return ifelse(isnan(a) | isnan(b), a + b, result)
 end
 
-@inline function (f::FrankMinimum)(a, b, c, rest...)
+@inline function (f::FrankTNorm)(a, b, c, rest...)
     return f((a, b, c, rest...))
 end
 
-@inline function (f::FrankMinimum)(values::Tuple{Vararg{Any,N}}) where N
+@inline function (f::FrankTNorm)(values::Tuple{Vararg{Any,N}}) where N
     result = values[1]
     @inbounds for i in 2:N
         result = f(result, values[i])
@@ -172,22 +173,48 @@ This is an explicit alias around `LiebigMinimum()` for clearer model code.
 @inline liebig_minimum(values::Tuple{Vararg{Any,N}}) where N = LiebigMinimum()(values)
 
 """
-    frank_minimum(a, b, rest...; sharpness = 50)
-    frank_minimum(values::NTuple; sharpness = 50)
+    frank_tnorm(a, b, rest...; sharpness = 50)
+    frank_tnorm(values::NTuple; sharpness = 50)
 
-Return the differentiable Frank-family minimum of normalized limitation
-factors in `[0, 1]`. Positive `sharpness` values increasingly approximate
-`liebig_minimum`. Finite sharpness smooths co-limitation but can underestimate
-the hard minimum when several small limitation factors are similar.
+Return the differentiable Frank t-norm approximation to Liebig's minimum for
+normalized limitation factors in `[0, 1]`.
+
+For two limitation factors `a` and `b`, let `q = exp(-s)`, where `s` is
+`sharpness`. The Frank t-norm is
+
+```text
+q = exp(-s)
+F(a, b) = log(1 + ((q^a - 1) * (q^b - 1)) / (q - 1)) / log(q)
+```
+
+Positive `sharpness` values give the minimum-like branch of the Frank family,
+with larger values approaching `liebig_minimum(a, b)`. The implementation uses
+an equivalent shifted form for numerical stability. For more than two factors,
+the associative binary operator is applied successively.
+
+`1` is the neutral element and `0` is absorbing. Finite sharpness provides a
+smooth derivative transition through nutrient co-limitation for automatic
+differentiation. The default `sharpness = 50` keeps that transition localized
+while retaining a smooth crossover. Finite sharpness can underestimate the hard
+minimum when several small limitation factors are similar; increasing
+`sharpness` reduces that discrepancy while narrowing the smooth transition.
+
+!!! warning "Domain"
+    The Frank t-norm is defined for normalized limitation factors in `[0, 1]`.
+    Inputs outside this interval can violate the minimum-like bounds or produce
+    non-finite values.
+
+The callable `FrankTNorm(sharpness)` functor provides the same operation for
+lower-level tendency configuration.
 """
-@inline frank_minimum(a, b; sharpness=DEFAULT_FRANK_SHARPNESS) =
-    FrankMinimum(sharpness)(a, b)
+@inline frank_tnorm(a, b; sharpness=DEFAULT_FRANK_SHARPNESS) =
+    FrankTNorm(sharpness)(a, b)
 
-@inline frank_minimum(a, b, c, rest...; sharpness=DEFAULT_FRANK_SHARPNESS) =
-    FrankMinimum(sharpness)(a, b, c, rest...)
+@inline frank_tnorm(a, b, c, rest...; sharpness=DEFAULT_FRANK_SHARPNESS) =
+    FrankTNorm(sharpness)(a, b, c, rest...)
 
-@inline frank_minimum(
+@inline frank_tnorm(
     values::Tuple{Vararg{Any,N}}; sharpness=DEFAULT_FRANK_SHARPNESS
-) where N = FrankMinimum(sharpness)(values)
+) where N = FrankTNorm(sharpness)(values)
 
 end # module

@@ -13,7 +13,7 @@ function nutrient_limitation_operator(limitation::Symbol)
     return LiebigMinimum()
 end
 
-nutrient_limitation_operator(limitation::Union{LiebigMinimum,FrankMinimum}) = limitation
+nutrient_limitation_operator(limitation::Union{LiebigMinimum,FrankTNorm}) = limitation
 
 function nutrient_limitation_operator(limitation)
     throw(
@@ -34,7 +34,7 @@ Small configuration object used by reusable tendency builders.
 through organic matter. Supported values are `:simple_detritus` and `:dom_pom`.
 `zooplankton` remains a separate selector because grazing formulations can vary
 independently of growth and organic-matter cycling. `nutrient_limitation` accepts
-`:liebig` or a limitation operator such as `FrankMinimum(sharpness)`.
+`:liebig` or a limitation operator such as `FrankTNorm(sharpness)`.
 """
 function TendencyConfig(;
     growth::Symbol,

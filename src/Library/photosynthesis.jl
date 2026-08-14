@@ -2,7 +2,7 @@
 
 module Photosynthesis
 
-using ..Nutrients: MonodLimitation, LiebigMinimum, FrankMinimum, DEFAULT_FRANK_SHARPNESS
+using ..Nutrients: MonodLimitation, LiebigMinimum, FrankTNorm, DEFAULT_FRANK_SHARPNESS
 
 export smith_light_limitation,
     geider_light_limitation,
@@ -147,7 +147,7 @@ resources.
 end
 
 @inline function nutrient_limitation(
-    limitation::Union{LiebigMinimum,FrankMinimum}, limitations::Tuple, reference
+    limitation::Union{LiebigMinimum,FrankTNorm}, limitations::Tuple, reference
 )
     return limitation((one(reference), limitations...))
 end
@@ -161,21 +161,21 @@ end
 """
     frank_nutrient_limitation(resources, half_saturations, reference; sharpness=50)
 
-Compute a differentiable Frank minimum over Monod limitation factors. `sharpness`
+Compute a differentiable Frank t-norm over Monod limitation factors. `sharpness`
 controls the transition through co-limitation; larger values approach the exact
-Liebig minimum. The prepended `one(reference)` is the Frank neutral element.
+Liebig minimum. The prepended `one(reference)` is the Frank t-norm neutral element.
 The resulting Monod limitation factors must lie in `[0, 1]`.
 """
 @inline function frank_nutrient_limitation(
     resources::Tuple, half_saturations::Tuple, reference; sharpness=DEFAULT_FRANK_SHARPNESS
 )
     return nutrient_limitation(
-        FrankMinimum(sharpness), monod_limitations(resources, half_saturations), reference
+        FrankTNorm(sharpness), monod_limitations(resources, half_saturations), reference
     )
 end
 
 @inline function nutrient_limitation(
-    limitation::Union{LiebigMinimum,FrankMinimum},
+    limitation::Union{LiebigMinimum,FrankTNorm},
     resources::Tuple,
     half_saturations::Tuple,
     reference,
@@ -222,7 +222,7 @@ Compute Smith-style phytoplankton biomass growth with Liebig nutrient limitation
 end
 
 @inline function smith_growth(
-    limitation::Union{LiebigMinimum,FrankMinimum},
+    limitation::Union{LiebigMinimum,FrankTNorm},
     resources::Tuple,
     P,
     PAR,
@@ -283,7 +283,7 @@ Compute Geider-style phytoplankton biomass growth with Liebig nutrient limitatio
 end
 
 @inline function geider_growth(
-    limitation::Union{LiebigMinimum,FrankMinimum},
+    limitation::Union{LiebigMinimum,FrankTNorm},
     resources::Tuple,
     P,
     PAR,

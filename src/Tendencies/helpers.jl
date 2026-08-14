@@ -47,7 +47,7 @@ end
 
 @inline function plankton_growth(
     ::Val{:smith},
-    limitation::Union{LiebigMinimum,FrankMinimum},
+    limitation::Union{LiebigMinimum,FrankTNorm},
     resources::Tuple,
     P,
     PAR,
@@ -62,7 +62,7 @@ end
 
 @inline function plankton_growth(
     ::Val{:geider},
-    limitation::Union{LiebigMinimum,FrankMinimum},
+    limitation::Union{LiebigMinimum,FrankTNorm},
     resources::Tuple,
     P,
     PAR,
