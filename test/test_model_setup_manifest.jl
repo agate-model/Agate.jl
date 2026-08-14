@@ -21,7 +21,7 @@ function test_manifest_argument_error(edit, setup, message)
     err isa ArgumentError && @test occursin(message, sprint(showerror, err))
 end
 
-@testset "NiPiZD model setup export and import" begin
+@testset "NiPiZD Float32 model setup round trip" begin
     grid = BoxModelGrid()
     palatability_matrix = Float32[0.8 0.2; 0.3 0.7]
     sinking_tracers = (P_1=0.125f0 / day, D=1.5f0 / day)
@@ -40,16 +40,17 @@ end
     reconstructed = construct_from_manifest(path; grid)
     test_reconstructed_model(reconstructed, bgc)
 
-    @test reconstructed.parameters.palatability_matrix ≈ palatability_matrix
+    @test typeof(reconstructed.parameters) == typeof(bgc.parameters)
+    @test reconstructed.parameters == bgc.parameters
     @test !isnothing(reconstructed.sinking_velocities)
 
     reconstructed_P_1 = biogeochemical_drift_velocity(reconstructed, Val(:P_1)).w.data[1, 1, 1]
     reconstructed_D = biogeochemical_drift_velocity(reconstructed, Val(:D)).w.data[1, 1, 1]
 
-    @test reconstructed_P_1 ≈ biogeochemical_drift_velocity(bgc, Val(:P_1)).w.data[1, 1, 1]
-    @test reconstructed_D ≈ biogeochemical_drift_velocity(bgc, Val(:D)).w.data[1, 1, 1]
-    @test reconstructed_P_1 ≈ -sinking_tracers.P_1
-    @test reconstructed_D ≈ -sinking_tracers.D
+    @test reconstructed_P_1 == biogeochemical_drift_velocity(bgc, Val(:P_1)).w.data[1, 1, 1]
+    @test reconstructed_D == biogeochemical_drift_velocity(bgc, Val(:D)).w.data[1, 1, 1]
+    @test reconstructed_P_1 == -sinking_tracers.P_1
+    @test reconstructed_D == -sinking_tracers.D
 end
 
 @testset "NiPiZD non-finite model setup round trip" begin
@@ -99,12 +100,8 @@ end
     @test Agate.Introspection.plankton_diameters(reconstructed) ==
           Agate.Introspection.plankton_diameters(bgc)
 
-    active(model) = Agate.Runtime.active_parameters(model;
-        maximum_growth_rate=(:diat_2,),
-        interactions=(; palatability=((:microzoo_1, :diat_1),)),
-    )
-    @test active(reconstructed).labels == active(bgc).labels
-    @test active(reconstructed).values == active(bgc).values
+    @test typeof(reconstructed.parameters) == typeof(bgc.parameters)
+    @test reconstructed.parameters == bgc.parameters
 end
 
 @testset "DARWIN model setup import" begin
@@ -119,6 +116,10 @@ end
 
     reconstructed = construct_from_manifest(setup; grid)
     test_reconstructed_model(reconstructed, bgc)
+    @test typeof(reconstructed.parameters) == typeof(bgc.parameters)
+    @test reconstructed.parameters == bgc.parameters
+    @test Agate.Introspection.plankton_diameters(reconstructed) ==
+          Agate.Introspection.plankton_diameters(bgc)
 end
 
 @testset "Model setup reader validation" begin
