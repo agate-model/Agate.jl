@@ -2,7 +2,7 @@
 
 module Nutrients
 
-export monod_limitation, liebig_minimum, smooth_liebig_minimum
+export monod_limitation, liebig_minimum, frank_minimum
 
 """
     MonodLimitation(K)
@@ -82,48 +82,61 @@ end
 end
 
 raw"""
-    SmoothLiebigMinimum(sharpness)
+    FrankMinimum()
+    FrankMinimum(sharpness)
 
-Smooth approximation to Liebig's law of the minimum.
+Differentiable Frank-family approximation to Liebig's minimum on limitation
+factors in ``[0, 1]``.
 
 !!! formulation
+    For two limitation factors ``a`` and ``b``, let ``q = \exp(-s)`` where
+    ``s`` is `sharpness`. The Frank minimum is
+
     ```math
-    -\frac{1}{s}\log\sum_i \exp(-s x_i)
+    F_s(a, b) = \log_q\left(1 + \frac{(q^a - 1)(q^b - 1)}{q - 1}\right).
     ```
 
-    where ``s`` is `sharpness`. Larger `sharpness` values more closely
-    approximate the hard minimum. The implementation uses a shifted log-sum-exp
-    form for numerical stability.
+    Positive `sharpness` values give the minimum-like branch of the Frank
+    family, with larger values approaching `min(a, b)`. The implementation uses
+    an equivalent shifted form for numerical stability.
+
+    ``1`` is the neutral element, so ``F_s(a, 1) = a``. ``0`` is absorbing, so
+    ``F_s(a, 0) = 0``. For more than two factors the associative binary operator
+    is applied successively.
+
+Finite `sharpness` provides a smooth transition through nutrient co-limitation
+for automatic differentiation; `LiebigMinimum` remains the exact hard minimum.
 """
-struct SmoothLiebigMinimum{S}
+struct FrankMinimum{S}
     sharpness::S
 end
 
-@inline SmoothLiebigMinimum() = SmoothLiebigMinimum(50)
+@inline FrankMinimum() = FrankMinimum(50)
 
-@inline function (l::SmoothLiebigMinimum)(a, b)
-    s = l.sharpness
-    m = ifelse(a < b, a, b)
-    return m - log(exp(-s * (a - m)) + exp(-s * (b - m))) / s
+@inline function (f::FrankMinimum)(a, b)
+    s = oftype(one(a + b), f.sharpness)
+    a_is_min = a < b
+    m = ifelse(a_is_min, a, b)
+    M = ifelse(a_is_min, b, a)
+    one_m = one(m)
+
+    numerator = one_m + exp(-s * (M - m)) - exp(-s * M) - exp(-s * (one_m - m))
+    denominator = one_m - exp(-s)
+    result = m - log(numerator / denominator) / s
+
+    return ifelse(isnan(a) | isnan(b), a + b, result)
 end
 
-@inline function (l::SmoothLiebigMinimum)(a, b, c, rest...)
-    return l((a, b, c, rest...))
+@inline function (f::FrankMinimum)(a, b, c, rest...)
+    return f((a, b, c, rest...))
 end
 
-@inline function (l::SmoothLiebigMinimum)(values::Tuple{Vararg{Any,N}}) where N
-    s = l.sharpness
-    m = values[1]
+@inline function (f::FrankMinimum)(values::Tuple{Vararg{Any,N}}) where N
+    result = values[1]
     @inbounds for i in 2:N
-        m = ifelse(values[i] < m, values[i], m)
+        result = f(result, values[i])
     end
-
-    total = zero(m)
-    @inbounds for i in 1:N
-        total += exp(-s * (values[i] - m))
-    end
-
-    return m - log(total) / s
+    return result
 end
 
 """
@@ -148,16 +161,16 @@ This is an explicit alias around `LiebigMinimum()` for clearer model code.
 @inline liebig_minimum(values::Tuple{Vararg{Any,N}}) where N = LiebigMinimum()(values)
 
 """
-    smooth_liebig_minimum(a, b, rest...; sharpness = 50)
-    smooth_liebig_minimum(values::NTuple; sharpness = 50)
+    frank_minimum(a, b, rest...; sharpness = 50)
+    frank_minimum(values::NTuple; sharpness = 50)
 
-Return a smooth approximation to the minimum value among the given limitation
-factors. Larger `sharpness` values approach `liebig_minimum`.
+Return the differentiable Frank-family minimum of the supplied limitation
+factors. Positive `sharpness` values increasingly approximate `liebig_minimum`.
 """
-@inline smooth_liebig_minimum(a, b; sharpness=50) = SmoothLiebigMinimum(sharpness)(a, b)
+@inline frank_minimum(a, b; sharpness=50) = FrankMinimum(sharpness)(a, b)
 
-@inline smooth_liebig_minimum(a, b, c, rest...; sharpness=50) = SmoothLiebigMinimum(sharpness)(a, b, c, rest...)
+@inline frank_minimum(a, b, c, rest...; sharpness=50) = FrankMinimum(sharpness)(a, b, c, rest...)
 
-@inline smooth_liebig_minimum(values::Tuple{Vararg{Any,N}}; sharpness=50) where N = SmoothLiebigMinimum(sharpness)(values)
+@inline frank_minimum(values::Tuple{Vararg{Any,N}}; sharpness=50) where N = FrankMinimum(sharpness)(values)
 
 end # module

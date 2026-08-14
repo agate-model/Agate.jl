@@ -2,12 +2,12 @@
 
 module Photosynthesis
 
-using ..Nutrients: MonodLimitation, LiebigMinimum, SmoothLiebigMinimum
+using ..Nutrients: MonodLimitation, LiebigMinimum, FrankMinimum
 
 export smith_light_limitation,
     geider_light_limitation,
     liebig_nutrient_limitation,
-    smooth_liebig_nutrient_limitation,
+    frank_nutrient_limitation,
     nutrient_limitation,
     smith_growth,
     geider_growth
@@ -146,20 +146,36 @@ resources.
     end
 end
 
-@inline nutrient_limitation(::Val{:liebig}, limitations::Tuple, reference) = LiebigMinimum()((one(reference), limitations...))
-
-@inline nutrient_limitation(::Val{:smooth_liebig}, limitations::Tuple, reference) = SmoothLiebigMinimum()((one(reference), limitations...))
-
-@inline function liebig_nutrient_limitation(resources::Tuple, half_saturations::Tuple, reference)
-    return nutrient_limitation(Val(:liebig), monod_limitations(resources, half_saturations), reference)
+@inline function nutrient_limitation(
+    limitation::Union{LiebigMinimum,FrankMinimum}, limitations::Tuple, reference
+)
+    return limitation((one(reference), limitations...))
 end
 
-@inline function smooth_liebig_nutrient_limitation(resources::Tuple, half_saturations::Tuple, reference)
-    return nutrient_limitation(Val(:smooth_liebig), monod_limitations(resources, half_saturations), reference)
+@inline function liebig_nutrient_limitation(resources::Tuple, half_saturations::Tuple, reference)
+    return nutrient_limitation(
+        LiebigMinimum(), monod_limitations(resources, half_saturations), reference
+    )
+end
+
+"""
+    frank_nutrient_limitation(resources, half_saturations, reference; sharpness=50)
+
+Compute a differentiable Frank minimum over Monod limitation factors. `sharpness`
+controls the transition through co-limitation; larger values approach the exact
+Liebig minimum. The prepended `one(reference)` is the Frank neutral element for
+limitation factors in `[0, 1]`.
+"""
+@inline function frank_nutrient_limitation(
+    resources::Tuple, half_saturations::Tuple, reference; sharpness=50
+)
+    return nutrient_limitation(
+        FrankMinimum(sharpness), monod_limitations(resources, half_saturations), reference
+    )
 end
 
 @inline function nutrient_limitation(
-    limitation::Val,
+    limitation::Union{LiebigMinimum,FrankMinimum},
     resources::Tuple,
     half_saturations::Tuple,
     reference,
@@ -200,11 +216,13 @@ Compute Smith-style phytoplankton biomass growth with Liebig nutrient limitation
     half_saturations::Tuple,
     alpha,
 )
-    return smith_growth(Val(:liebig), resources, P, PAR, maximum_growth_0C, half_saturations, alpha)
+    return smith_growth(
+        LiebigMinimum(), resources, P, PAR, maximum_growth_0C, half_saturations, alpha
+    )
 end
 
 @inline function smith_growth(
-    limitation::Val,
+    limitation::Union{LiebigMinimum,FrankMinimum},
     resources::Tuple,
     P,
     PAR,
@@ -253,7 +271,7 @@ Compute Geider-style phytoplankton biomass growth with Liebig nutrient limitatio
     chlorophyll_to_carbon_ratio,
 )
     return geider_growth(
-        Val(:liebig),
+        LiebigMinimum(),
         resources,
         P,
         PAR,
@@ -265,7 +283,7 @@ Compute Geider-style phytoplankton biomass growth with Liebig nutrient limitatio
 end
 
 @inline function geider_growth(
-    limitation::Val,
+    limitation::Union{LiebigMinimum,FrankMinimum},
     resources::Tuple,
     P,
     PAR,

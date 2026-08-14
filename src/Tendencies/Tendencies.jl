@@ -3,6 +3,7 @@ module Tendencies
 
 using ..Equations: CompiledEquation
 using ..Library.Mortality: linear_loss, quadratic_loss
+using ..Library.Nutrients: LiebigMinimum, FrankMinimum
 using ..Library.Photosynthesis: smith_growth, geider_growth
 using ..Library.Remineralization: linear_remineralization
 using ..Runtime: tendency_inputs
