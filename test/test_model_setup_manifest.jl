@@ -1,3 +1,5 @@
+import OceanBioME, Oceananigans
+
 using Oceananigans.Units: day
 using OceanBioME: BoxModelGrid
 using Oceananigans.Biogeochemistry: biogeochemical_drift_velocity, required_biogeochemical_tracers
@@ -48,6 +50,8 @@ end
         palatability_matrix,
         sinking_tracers,
     )
+
+    @test setup["agate"]["version"] == string(Base.pkgversion(Agate))
 
     path = tempname() * ".json"
     @test export_manifest(path, setup) == path
