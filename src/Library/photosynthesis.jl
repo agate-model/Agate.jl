@@ -2,7 +2,7 @@
 
 module Photosynthesis
 
-using ..Nutrients: MonodLimitation, LiebigMinimum, FrankMinimum
+using ..Nutrients: MonodLimitation, LiebigMinimum, FrankMinimum, DEFAULT_FRANK_SHARPNESS
 
 export smith_light_limitation,
     geider_light_limitation,
@@ -163,11 +163,11 @@ end
 
 Compute a differentiable Frank minimum over Monod limitation factors. `sharpness`
 controls the transition through co-limitation; larger values approach the exact
-Liebig minimum. The prepended `one(reference)` is the Frank neutral element for
-limitation factors in `[0, 1]`.
+Liebig minimum. The prepended `one(reference)` is the Frank neutral element.
+The resulting Monod limitation factors must lie in `[0, 1]`.
 """
 @inline function frank_nutrient_limitation(
-    resources::Tuple, half_saturations::Tuple, reference; sharpness=50
+    resources::Tuple, half_saturations::Tuple, reference; sharpness=DEFAULT_FRANK_SHARPNESS
 )
     return nutrient_limitation(
         FrankMinimum(sharpness), monod_limitations(resources, half_saturations), reference
