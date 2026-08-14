@@ -39,6 +39,30 @@ end
     @test reconstructed_D ≈ -sinking_tracers.D
 end
 
+@testset "NiPiZD non-finite model setup round trip" begin
+    bgc, setup = Agate.Models.NiPiZD.construct_with_manifest(
+        ;
+        scalar_type=Float32,
+        parameters=(;
+            detritus_remineralization=Float32(NaN),
+            linear_mortality=Float32[Inf, -Inf, 0, 0],
+        ),
+        palatability_matrix=Float32[NaN Inf; -Inf 0.5],
+    )
+
+    path = tempname() * ".json"
+    export_manifest(path, setup)
+    reconstructed = construct_from_manifest(path)
+    test_reconstructed_model(reconstructed, bgc)
+
+    for key in (:detritus_remineralization, :linear_mortality, :palatability_matrix)
+        actual = getproperty(reconstructed.parameters, key)
+        expected = getproperty(bgc.parameters, key)
+        @test typeof(actual) == typeof(expected)
+        @test isequal(actual, expected)
+    end
+end
+
 @testset "NiPiZD named model setup round trip" begin
     size_structure = (;
         phytoplankton=(diat=[2.0, 5.0], dino=[10.0]),
