@@ -8,6 +8,21 @@ function test_reconstructed_model(reconstructed, expected)
     @test required_biogeochemical_tracers(reconstructed) == required_biogeochemical_tracers(expected)
 end
 
+function test_exact_parameters(actual, expected)
+    @test typeof(actual) == typeof(expected)
+    for key in keys(expected)
+        actual_value = getproperty(actual, key)
+        expected_value = getproperty(expected, key)
+        if key === :interactions
+            for field in fieldnames(typeof(expected_value))
+                @test getfield(actual_value, field) == getfield(expected_value, field)
+            end
+        else
+            @test actual_value == expected_value
+        end
+    end
+end
+
 function test_manifest_argument_error(edit, setup, message)
     invalid = deepcopy(setup)
     edit(invalid)
@@ -40,8 +55,7 @@ end
     reconstructed = construct_from_manifest(path; grid)
     test_reconstructed_model(reconstructed, bgc)
 
-    @test typeof(reconstructed.parameters) == typeof(bgc.parameters)
-    @test reconstructed.parameters == bgc.parameters
+    test_exact_parameters(reconstructed.parameters, bgc.parameters)
     @test !isnothing(reconstructed.sinking_velocities)
 
     reconstructed_P_1 = biogeochemical_drift_velocity(reconstructed, Val(:P_1)).w.data[1, 1, 1]
@@ -100,8 +114,7 @@ end
     @test Agate.Introspection.plankton_diameters(reconstructed) ==
           Agate.Introspection.plankton_diameters(bgc)
 
-    @test typeof(reconstructed.parameters) == typeof(bgc.parameters)
-    @test reconstructed.parameters == bgc.parameters
+    test_exact_parameters(reconstructed.parameters, bgc.parameters)
 end
 
 @testset "DARWIN model setup import" begin
@@ -116,8 +129,7 @@ end
 
     reconstructed = construct_from_manifest(setup; grid)
     test_reconstructed_model(reconstructed, bgc)
-    @test typeof(reconstructed.parameters) == typeof(bgc.parameters)
-    @test reconstructed.parameters == bgc.parameters
+    test_exact_parameters(reconstructed.parameters, bgc.parameters)
     @test Agate.Introspection.plankton_diameters(reconstructed) ==
           Agate.Introspection.plankton_diameters(bgc)
 end
