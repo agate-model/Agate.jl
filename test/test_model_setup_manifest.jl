@@ -1,5 +1,3 @@
-import OceanBioME, Oceananigans
-
 using Oceananigans.Units: day
 using OceanBioME: BoxModelGrid
 using Oceananigans.Biogeochemistry: biogeochemical_drift_velocity, required_biogeochemical_tracers

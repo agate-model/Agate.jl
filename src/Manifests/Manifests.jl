@@ -4,8 +4,6 @@ module Manifests
 using Dates
 using JSON
 
-import OceanBioME, Oceananigans
-
 include("serialization.jl")
 
 export export_manifest, construct_from_manifest
@@ -27,7 +25,7 @@ function required(x::AbstractDict, key, path)
     return x[key]
 end
 
-package_version(mod) = string(something(Base.pkgversion(mod), "unknown"))
+agate_version() = string(something(Base.pkgversion(parentmodule(@__MODULE__)), "unknown"))
 
 """
     export_manifest(path, setup) -> path
@@ -103,10 +101,8 @@ function default_model_manifest(family::Symbol, data; group_roles=nothing)
         "schema" => MODEL_SETUP_SCHEMA,
         "created_at" => string(now(UTC)),
         "agate" => Dict{String,Any}(
-            "version" => package_version(parentmodule(@__MODULE__)),
+            "version" => agate_version(),
             "julia_version" => string(VERSION),
-            "oceananigans_version" => package_version(Oceananigans),
-            "oceanbiome_version" => package_version(OceanBioME),
         ),
         "model" => Dict{String,Any}("family" => family_name),
         "kwargs" => kwargs,
