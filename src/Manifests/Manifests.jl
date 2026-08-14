@@ -10,6 +10,21 @@ include("serialization.jl")
 export export_manifest, construct_from_manifest
 
 const MODEL_SETUP_SCHEMA = "agate.model_setup.v1"
+const MODEL_SETUP_KEYS = ("schema", "created_at", "agate", "model", "kwargs")
+const MODEL_KEYS = ("family",)
+
+function check_keys(x, allowed, path)
+    x isa AbstractDict || throw(ArgumentError("$path must be an object."))
+    for key in keys(x)
+        key in allowed || throw(ArgumentError("$path has unsupported field $(repr(key))."))
+    end
+    return x
+end
+
+function required(x::AbstractDict, key, path)
+    haskey(x, key) || throw(ArgumentError("$path is missing required field $(repr(key))."))
+    return x[key]
+end
 
 agate_project_root() = dirname(dirname(@__DIR__))
 agate_project_toml() = joinpath(agate_project_root(), "Project.toml")
@@ -44,7 +59,7 @@ Reconstruct an Agate biogeochemistry object from an exported model setup.
 """
 function construct_from_manifest(setup::AbstractDict; grid=nothing, arch=nothing)
     family = model_family(setup)
-    kwargs = constructor_kwargs(setup; grid, arch)
+    kwargs = constructor_kwargs(setup, family; grid, arch)
     models = getfield(parentmodule(@__MODULE__), :Models)
     return getfield(models, Symbol(family)).construct(; kwargs...)
 end
@@ -102,36 +117,49 @@ function default_model_manifest(family::Symbol, data; group_roles=nothing)
 end
 
 function model_family(setup::AbstractDict)
-    get(setup, "schema", nothing) == MODEL_SETUP_SCHEMA ||
-        throw(ArgumentError("Unsupported Agate model setup schema."))
+    check_keys(setup, MODEL_SETUP_KEYS, "Model setup")
+    schema = required(setup, "schema", "Model setup")
+    schema == MODEL_SETUP_SCHEMA || throw(
+        ArgumentError(
+            "Unsupported Agate model setup schema $(repr(schema)); expected $(repr(MODEL_SETUP_SCHEMA))."
+        ),
+    )
 
-    model = get(setup, "model", nothing)
-    model isa AbstractDict || throw(ArgumentError("Model setup is missing a model section."))
-
-    family = get(model, "family", nothing)
+    model = check_keys(required(setup, "model", "Model setup"), MODEL_KEYS, "Model setup model")
+    family = required(model, "family", "Model setup model")
     family in ("DARWIN", "NiPiZD") && return family
 
     throw(ArgumentError("Unsupported model family $(repr(family))."))
 end
 
-function constructor_kwargs(setup::AbstractDict; grid=nothing, arch=nothing)
-    kwargs = get(setup, "kwargs", nothing)
-    kwargs isa AbstractDict || throw(ArgumentError("Model setup is missing constructor kwargs."))
-
-    pairs = Pair{Symbol,Any}[]
-
-    haskey(kwargs, "size_structure") &&
-        push!(pairs, :size_structure => named_size_structure_kwargs(kwargs["size_structure"]))
-    for key in ("phyto_size_structure", "zoo_size_structure", "open_bottom")
-        haskey(kwargs, key) && push!(pairs, Symbol(key) => setup_value(kwargs[key]))
+function constructor_kwargs(setup::AbstractDict, family; grid=nothing, arch=nothing)
+    common = ("parameters", "sinking_tracers", "open_bottom", "scalar_type")
+    allowed = family == "NiPiZD" ? (common..., "size_structure") :
+        (common..., "phyto_size_structure", "zoo_size_structure")
+    kwargs = check_keys(required(setup, "kwargs", "Model setup"), allowed, "Model setup kwargs")
+    for key in allowed
+        required(kwargs, key, "Model setup kwargs")
     end
 
-    haskey(kwargs, "parameters") &&
-        push!(pairs, :parameters => parameter_kwargs(kwargs["parameters"]))
-    haskey(kwargs, "sinking_tracers") &&
-        push!(pairs, :sinking_tracers => sinking_tracers_kwargs(kwargs["sinking_tracers"]))
-    haskey(kwargs, "scalar_type") &&
-        push!(pairs, :scalar_type => decode_scalar_type(kwargs["scalar_type"]))
+    pairs = Pair{Symbol,Any}[]
+    if family == "NiPiZD"
+        push!(pairs, :size_structure => named_size_structure_kwargs(kwargs["size_structure"]))
+    else
+        for key in ("phyto_size_structure", "zoo_size_structure")
+            value = kwargs[key]
+            value isa AbstractVector ||
+                throw(ArgumentError("Model setup kwargs.$key must be an array."))
+            push!(pairs, Symbol(key) => setup_value(value))
+        end
+    end
+
+    open_bottom = kwargs["open_bottom"]
+    open_bottom isa Bool ||
+        throw(ArgumentError("Model setup kwargs.open_bottom must be a boolean."))
+    push!(pairs, :open_bottom => open_bottom)
+    push!(pairs, :parameters => parameter_kwargs(kwargs["parameters"]))
+    push!(pairs, :sinking_tracers => sinking_tracers_kwargs(kwargs["sinking_tracers"]))
+    push!(pairs, :scalar_type => decode_scalar_type(kwargs["scalar_type"]))
 
     !isnothing(grid) && push!(pairs, :grid => grid)
     !isnothing(arch) && push!(pairs, :arch => arch)
@@ -139,39 +167,64 @@ function constructor_kwargs(setup::AbstractDict; grid=nothing, arch=nothing)
     return (; pairs...)
 end
 
-function parameter_kwargs(parameters::AbstractDict)
-    return (; (Symbol(k) => parameter_value(v) for (k, v) in pairs(parameters))...)
+function parameter_kwargs(parameters)
+    parameters isa AbstractDict ||
+        throw(ArgumentError("Model setup kwargs.parameters must be an object."))
+    return (; (Symbol(k) => parameter_value(v, k) for (k, v) in pairs(parameters))...)
 end
 
-function named_size_structure_kwargs(size_structure::AbstractDict)
+function named_size_structure_kwargs(size_structure)
+    path = "Model setup kwargs.size_structure"
+    check_keys(size_structure, ("phytoplankton", "zooplankton"), path)
     return (;
         phytoplankton=named_role_size_structure(size_structure, "phytoplankton"),
         zooplankton=named_role_size_structure(size_structure, "zooplankton"),
     )
 end
 
-function named_size_structure_kwargs(size_structure)
-    throw(ArgumentError("Model setup size_structure must be an object."))
-end
-
 function named_role_size_structure(size_structure::AbstractDict, role::AbstractString)
-    groups = get(size_structure, role, nothing)
-    groups isa AbstractVector ||
-        throw(ArgumentError("Model setup size_structure.$role must be an array."))
-    return (;
-        (Symbol(group["name"]) => setup_value(group["diameters"]) for group in groups)...
-    )
+    path = "Model setup kwargs.size_structure.$role"
+    groups = required(size_structure, role, "Model setup kwargs.size_structure")
+    groups isa AbstractVector || throw(ArgumentError("$path must be an array."))
+
+    entries = Pair{Symbol,Any}[]
+    for (i, group) in pairs(groups)
+        group_path = "$path[$i]"
+        group = check_keys(group, ("name", "diameters"), group_path)
+        name = required(group, "name", group_path)
+        name isa AbstractString || throw(ArgumentError("$group_path.name must be a string."))
+        diameters = required(group, "diameters", group_path)
+        diameters isa AbstractVector ||
+            throw(ArgumentError("$group_path.diameters must be an array."))
+        push!(entries, Symbol(name) => setup_value(diameters))
+    end
+    return (; entries...)
 end
 
 function sinking_tracers_kwargs(sinking)
     isnothing(sinking) && return nothing
-    return (; (Symbol(item["name"]) => setup_value(item["value"]) for item in sinking)...)
+    path = "Model setup kwargs.sinking_tracers"
+    sinking isa AbstractVector || throw(ArgumentError("$path must be an array or null."))
+
+    entries = Pair{Symbol,Any}[]
+    for (i, item) in pairs(sinking)
+        item_path = "$path[$i]"
+        item = check_keys(item, ("name", "value"), item_path)
+        name = required(item, "name", item_path)
+        name isa AbstractString || throw(ArgumentError("$item_path.name must be a string."))
+        push!(entries, Symbol(name) => setup_value(required(item, "value", item_path)))
+    end
+    return (; entries...)
 end
 
-function parameter_value(value)
+function parameter_value(value, name)
     if value isa AbstractVector && all(row -> row isa AbstractVector, value)
         rows = Any[row for row in value]
         isempty(rows) && return Matrix{Any}(undef, 0, 0)
+        ncols = length(rows[1])
+        all(row -> length(row) == ncols, rows) || throw(
+            ArgumentError("Model setup parameter $(repr(name)) matrix must be rectangular."),
+        )
         return [setup_value(rows[i][j]) for i in eachindex(rows), j in eachindex(rows[1])]
     end
     return setup_value(value)

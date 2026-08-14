@@ -8,6 +8,19 @@ function test_reconstructed_model(reconstructed, expected)
     @test required_biogeochemical_tracers(reconstructed) == required_biogeochemical_tracers(expected)
 end
 
+function test_manifest_argument_error(edit, setup, message)
+    invalid = deepcopy(setup)
+    edit(invalid)
+    err = try
+        construct_from_manifest(invalid)
+        nothing
+    catch err
+        err
+    end
+    @test err isa ArgumentError
+    err isa ArgumentError && @test occursin(message, sprint(showerror, err))
+end
+
 @testset "NiPiZD model setup export and import" begin
     grid = BoxModelGrid()
     palatability_matrix = Float32[0.8 0.2; 0.3 0.7]
@@ -106,4 +119,35 @@ end
 
     reconstructed = construct_from_manifest(setup; grid)
     test_reconstructed_model(reconstructed, bgc)
+end
+
+@testset "Model setup reader validation" begin
+    _, setup = Agate.Models.NiPiZD.construct_with_manifest(;
+        palatability_matrix=[0.8 0.2; 0.3 0.7]
+    )
+
+    test_manifest_argument_error(setup, "Model setup has unsupported field") do invalid
+        invalid["unexpected"] = true
+    end
+    test_manifest_argument_error(setup, "agate.model_setup.v2") do invalid
+        invalid["schema"] = "agate.model_setup.v2"
+    end
+    test_manifest_argument_error(setup, "Model setup kwargs has unsupported field") do invalid
+        invalid["kwargs"]["unexpected"] = true
+    end
+    test_manifest_argument_error(setup, "scalar_type") do invalid
+        delete!(invalid["kwargs"], "scalar_type")
+    end
+    test_manifest_argument_error(setup, "parameters must be an object") do invalid
+        invalid["kwargs"]["parameters"] = Any[]
+    end
+    test_manifest_argument_error(setup, "size_structure.phytoplankton[1]") do invalid
+        invalid["kwargs"]["size_structure"]["phytoplankton"][1]["unexpected"] = true
+    end
+    test_manifest_argument_error(setup, "sinking_tracers[1]") do invalid
+        invalid["kwargs"]["sinking_tracers"] = [Dict("name" => "D")]
+    end
+    test_manifest_argument_error(setup, "matrix must be rectangular") do invalid
+        invalid["kwargs"]["parameters"]["palatability_matrix"] = [[1.0, 2.0], [3.0]]
+    end
 end
