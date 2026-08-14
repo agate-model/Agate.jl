@@ -9,6 +9,8 @@ include("serialization.jl")
 export export_manifest, construct_from_manifest
 
 const MODEL_SETUP_SCHEMA = "agate.model_setup.v1"
+# schema/model/kwargs and family kwargs are required for replay; created_at and agate
+# are optional provenance when reading existing v1 files.
 const MODEL_SETUP_KEYS = ("schema", "created_at", "agate", "model", "kwargs")
 const MODEL_KEYS = ("family",)
 
@@ -134,30 +136,36 @@ function constructor_kwargs(setup::AbstractDict, family; grid=nothing, arch=noth
         required(kwargs, key, "Model setup kwargs")
     end
 
-    pairs = Pair{Symbol,Any}[]
+    kwarg_pairs = Pair{Symbol,Any}[]
     if family == "NiPiZD"
-        push!(pairs, :size_structure => named_size_structure_kwargs(kwargs["size_structure"]))
+        push!(
+            kwarg_pairs,
+            :size_structure => named_size_structure_kwargs(kwargs["size_structure"]),
+        )
     else
         for key in ("phyto_size_structure", "zoo_size_structure")
             value = kwargs[key]
             value isa AbstractVector ||
                 throw(ArgumentError("Model setup kwargs.$key must be an array."))
-            push!(pairs, Symbol(key) => setup_value(value))
+            push!(kwarg_pairs, Symbol(key) => setup_value(value))
         end
     end
 
     open_bottom = kwargs["open_bottom"]
     open_bottom isa Bool ||
         throw(ArgumentError("Model setup kwargs.open_bottom must be a boolean."))
-    push!(pairs, :open_bottom => open_bottom)
-    push!(pairs, :parameters => parameter_kwargs(kwargs["parameters"]))
-    push!(pairs, :sinking_tracers => sinking_tracers_kwargs(kwargs["sinking_tracers"]))
-    push!(pairs, :scalar_type => decode_scalar_type(kwargs["scalar_type"]))
+    push!(kwarg_pairs, :open_bottom => open_bottom)
+    push!(kwarg_pairs, :parameters => parameter_kwargs(kwargs["parameters"]))
+    push!(
+        kwarg_pairs,
+        :sinking_tracers => sinking_tracers_kwargs(kwargs["sinking_tracers"]),
+    )
+    push!(kwarg_pairs, :scalar_type => decode_scalar_type(kwargs["scalar_type"]))
 
-    !isnothing(grid) && push!(pairs, :grid => grid)
-    !isnothing(arch) && push!(pairs, :arch => arch)
+    !isnothing(grid) && push!(kwarg_pairs, :grid => grid)
+    !isnothing(arch) && push!(kwarg_pairs, :arch => arch)
 
-    return (; pairs...)
+    return (; kwarg_pairs...)
 end
 
 function parameter_kwargs(parameters)
@@ -211,16 +219,18 @@ function sinking_tracers_kwargs(sinking)
 end
 
 function parameter_value(value, name)
-    if value isa AbstractVector && all(row -> row isa AbstractVector, value)
-        rows = Any[row for row in value]
-        isempty(rows) && return Matrix{Any}(undef, 0, 0)
-        ncols = length(rows[1])
-        all(row -> length(row) == ncols, rows) || throw(
-            ArgumentError("Model setup parameter $(repr(name)) matrix must be rectangular."),
-        )
-        return [setup_value(rows[i][j]) for i in eachindex(rows), j in eachindex(rows[1])]
-    end
-    return setup_value(value)
+    (value isa AbstractVector && all(row -> row isa AbstractVector, value)) ||
+        return setup_value(value)
+    isempty(value) && throw(
+        ArgumentError(
+            "Model setup parameter $(repr(name)) is an ambiguous empty array in schema v1."
+        ),
+    )
+    ncols = length(first(value))
+    all(row -> length(row) == ncols, value) || throw(
+        ArgumentError("Model setup parameter $(repr(name)) matrix must be rectangular."),
+    )
+    return [setup_value(value[i][j]) for i in eachindex(value), j in 1:ncols]
 end
 
 setup_value(x) = x
