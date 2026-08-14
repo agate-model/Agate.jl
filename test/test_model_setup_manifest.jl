@@ -15,10 +15,12 @@ function test_exact_parameters(actual, expected)
         expected_value = getproperty(expected, key)
         if key === :interactions
             for field in fieldnames(typeof(expected_value))
-                @test getfield(actual_value, field) == getfield(expected_value, field)
+                @test isequal(
+                    getfield(actual_value, field), getfield(expected_value, field)
+                )
             end
         else
-            @test actual_value == expected_value
+            @test isequal(actual_value, expected_value)
         end
     end
 end
@@ -85,12 +87,7 @@ end
     reconstructed = construct_from_manifest(path)
     test_reconstructed_model(reconstructed, bgc)
 
-    for key in (:detritus_remineralization, :linear_mortality, :palatability_matrix)
-        actual = getproperty(reconstructed.parameters, key)
-        expected = getproperty(bgc.parameters, key)
-        @test typeof(actual) == typeof(expected)
-        @test isequal(actual, expected)
-    end
+    test_exact_parameters(reconstructed.parameters, bgc.parameters)
 end
 
 @testset "NiPiZD named model setup round trip" begin
@@ -136,6 +133,10 @@ end
           Agate.Introspection.plankton_diameters(bgc)
 end
 
+@testset "Model setup serialization validation" begin
+    @test_throws ArgumentError Agate.Manifests.Serialization.manifest_value(:unsupported)
+end
+
 @testset "Model setup reader validation" begin
     _, setup = Agate.Models.NiPiZD.construct_with_manifest(;
         palatability_matrix=[0.8 0.2; 0.3 0.7]
@@ -150,7 +151,7 @@ end
     test_manifest_argument_error(setup, "Model setup kwargs has unsupported field") do invalid
         invalid["kwargs"]["unexpected"] = true
     end
-    test_manifest_argument_error(setup, "scalar_type") do invalid
+    test_manifest_argument_error(setup, "missing required field \"scalar_type\"") do invalid
         delete!(invalid["kwargs"], "scalar_type")
     end
     test_manifest_argument_error(setup, "parameters must be an object") do invalid
@@ -161,6 +162,9 @@ end
     end
     test_manifest_argument_error(setup, "sinking_tracers[1]") do invalid
         invalid["kwargs"]["sinking_tracers"] = [Dict("name" => "D")]
+    end
+    test_manifest_argument_error(setup, "ambiguous empty array") do invalid
+        invalid["kwargs"]["parameters"]["palatability_matrix"] = Any[]
     end
     test_manifest_argument_error(setup, "matrix must be rectangular") do invalid
         invalid["kwargs"]["parameters"]["palatability_matrix"] = [[1.0, 2.0], [3.0]]
