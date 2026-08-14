@@ -186,7 +186,7 @@ end
 """
     construct_with_manifest(; kw...) -> bgc, manifest
 
-Construct a model instance and return it with a JSON-compatible model setup manifest.
+Construct a model instance and return it with a JSON-compatible manifest of the resolved model setup.
 Groups are recorded in role/group order with their resolved class diameters.
 """
 function construct_with_manifest(; kwargs...)

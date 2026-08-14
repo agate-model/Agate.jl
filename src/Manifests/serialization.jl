@@ -5,8 +5,6 @@ function manifest_value(x, name=nothing)
         return x
     elseif x isa AbstractFloat
         return isfinite(x) ? x : string(x)
-    elseif x isa Symbol
-        return string(x)
     elseif x isa NamedTuple
         return Dict{String,Any}(string(k) => manifest_value(v, k) for (k, v) in pairs(x))
     elseif x isa AbstractDict

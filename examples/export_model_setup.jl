@@ -1,8 +1,8 @@
 # # [Exporting a model setup] (@id export_model_setup_example)
 
-# This example shows how to save the inputs used to construct an Agate model.
+# This example shows how to save a resolved Agate model setup.
 # Saving the setup makes it easier to recreate the same model later, or to share
-# the model configuration with someone else.
+# the resolved model configuration with someone else.
 
 # ## Loading dependencies
 # The example uses Agate.jl to construct the model and OceanBioME.jl to provide a
@@ -20,8 +20,8 @@ nothing #hide
 
 # `NiPiZD.construct_with_manifest` accepts the same keywords as `NiPiZD.construct`.
 # In addition to the biogeochemistry object, it returns a setup record describing
-# the model recipe and constructor inputs. Agate stores this setup as a manifest,
-# which is a JSON-compatible dictionary.
+# the resolved biological configuration, including parameters and size structure.
+# Agate stores this setup as a JSON-compatible manifest.
 
 grid = BoxModelGrid()
 
