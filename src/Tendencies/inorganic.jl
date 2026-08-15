@@ -30,6 +30,7 @@ function inorganic_tendency(
     stoichiometry=nothing,
     export_fraction::Symbol=:mortality_export_fraction,
 ) where {Growth,Zooplankton,Limitation}
+    limitation = config.nutrient_limitation
     nutrients = config.nutrients
     sources, ratio_name = inorganic_target_coupling(
         config, target, remineralization, stoichiometry
@@ -42,7 +43,7 @@ function inorganic_tendency(
         half_saturations = half_saturation_parameters(parameters, nutrients)
         uptake = growth_sum(
             Val(Growth),
-            Val(Limitation),
+            limitation,
             tracer_values.plankton,
             resources,
             tracer_values.PAR,
@@ -75,6 +76,7 @@ function inorganic_tendency(
     remineralization=nothing,
     stoichiometry=nothing,
 ) where {Growth,Zooplankton,Limitation}
+    limitation = config.nutrient_limitation
     nutrients = config.nutrients
     sources, ratio_name = inorganic_target_coupling(
         config, target, remineralization, stoichiometry
@@ -87,7 +89,7 @@ function inorganic_tendency(
         half_saturations = half_saturation_parameters(parameters, nutrients)
         uptake = growth_sum(
             Val(Growth),
-            Val(Limitation),
+            limitation,
             tracer_values.plankton,
             resources,
             tracer_values.PAR,

@@ -1,10 +1,26 @@
 const SUPPORTED_GROWTH_FORMULATIONS = (:smith, :geider)
 const SUPPORTED_ORGANIC_CYCLING_FORMULATIONS = (:simple_detritus, :dom_pom)
 const SUPPORTED_ZOOPLANKTON_FORMULATIONS = (:preferential_grazing,)
-const SUPPORTED_NUTRIENT_LIMITATIONS = (:liebig, :smooth_liebig)
 
 struct TendencyConfig{Growth,OrganicCycling,Zooplankton,NutrientLimitation,Nutrients}
+    nutrient_limitation::NutrientLimitation
     nutrients::Nutrients
+end
+
+function nutrient_limitation_operator(limitation::Symbol)
+    limitation === :liebig ||
+        throw(ArgumentError("Unsupported nutrient limitation formulation: $limitation"))
+    return LiebigMinimum()
+end
+
+nutrient_limitation_operator(limitation::Union{LiebigMinimum,FrankTNorm}) = limitation
+
+function nutrient_limitation_operator(limitation)
+    throw(
+        ArgumentError(
+            "Unsupported nutrient limitation operator: $(typeof(limitation))"
+        )
+    )
 end
 
 """
@@ -17,15 +33,14 @@ Small configuration object used by reusable tendency builders.
 `:smith` and `:geider`. `organic_cycling` selects how plankton losses are routed
 through organic matter. Supported values are `:simple_detritus` and `:dom_pom`.
 `zooplankton` remains a separate selector because grazing formulations can vary
-independently of growth and organic-matter cycling. `nutrient_limitation` selects
-how nutrient limitation terms are aggregated by nutrient-coupled growth
-formulations.
+independently of growth and organic-matter cycling. `nutrient_limitation` accepts
+`:liebig` or a limitation operator such as `FrankTNorm(sharpness)`.
 """
 function TendencyConfig(;
     growth::Symbol,
     organic_cycling::Symbol,
     zooplankton::Symbol=:preferential_grazing,
-    nutrient_limitation::Symbol=:liebig,
+    nutrient_limitation=:liebig,
     nutrients::Tuple=(),
 )
     growth in SUPPORTED_GROWTH_FORMULATIONS ||
@@ -34,14 +49,14 @@ function TendencyConfig(;
         throw(ArgumentError("Unsupported organic cycling formulation: $organic_cycling"))
     zooplankton in SUPPORTED_ZOOPLANKTON_FORMULATIONS ||
         throw(ArgumentError("Unsupported zooplankton formulation: $zooplankton"))
-    nutrient_limitation in SUPPORTED_NUTRIENT_LIMITATIONS ||
-        throw(ArgumentError("Unsupported nutrient limitation rule: $nutrient_limitation"))
+
+    limitation = nutrient_limitation_operator(nutrient_limitation)
 
     return TendencyConfig{
         growth,
         organic_cycling,
         zooplankton,
-        nutrient_limitation,
+        typeof(limitation),
         typeof(nutrients),
-    }(nutrients)
+    }(limitation, nutrients)
 end

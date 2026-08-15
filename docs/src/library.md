@@ -17,7 +17,7 @@ Private = false
 
 ```@autodocs
 Modules=[Agate.Library.Nutrients]
-Private = false        
+Private = false
 ```
 
 ## Photosynthesis
