@@ -41,6 +41,8 @@ size_structure = (;
     phytoplankton=(P=[0.8, 2.0, 6.0, 20.0, 60.0],),
     zooplankton=(Z=[100.0],),
 )
+nothing #hide
+
 
 # NiPiZD already uses Agate's built-in `PowerLaw` for `maximum_growth_rate`. A power law
 # has the form `prefactor × V^exponent`, where `V` is spherical cell volume calculated
@@ -55,6 +57,7 @@ default_growth = AllometricParam(
     prefactor=2 / day,
     exponent=-0.15,
 )
+nothing #hide
 
 # Pass the relationship through `parameters` when constructing NiPiZD. Agate then
 # calculates the corresponding `maximum_growth_rate` for each plankton size.
@@ -73,6 +76,7 @@ phytoplankton_tracers = plankton_groups(default_bgc).P
 phytoplankton_diameters = size_structure.phytoplankton.P
 phytoplankton_indices = findall(in(phytoplankton_tracers), plankton_tracers(default_bgc))
 default_growth_rates = default_bgc.parameters.maximum_growth_rate[phytoplankton_indices]
+nothing #hide
 
 # ## Change the built-in size relationship
 
@@ -92,6 +96,7 @@ shallower_bgc = NiPiZD.construct(;
 )
 nothing #hide
 shallower_growth_rates = shallower_bgc.parameters.maximum_growth_rate[phytoplankton_indices]
+nothing #hide
 
 # ### Compare the resulting growth rates
 
@@ -314,6 +319,7 @@ ward_bgc = NiPiZD.construct(;
 )
 
 ward_growth_rates = ward_bgc.parameters.maximum_growth_rate[phytoplankton_indices]
+nothing #hide
 
 # ### Compare the Ward relationship with the default
 
