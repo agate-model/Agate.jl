@@ -1,9 +1,7 @@
 # # [Allometric parameters] (@id allometric_relationships_example)
 
-# Many plankton traits depend on organism size. An allometric relationship describes that
-# dependence once, and Agate uses it to calculate the parameter value for each plankton
-# size in the model. This makes it easy to keep the same size-based assumption when the
-# number or sizes of plankton classes change.
+# Many plankton traits depend on organism size (allometry). Agate uses this to calculate the parameter 
+# values of relevant parameters for each plankton size in the model. 
 #
 # We will first look at the  default [Agate.jl-NiPiZD](@ref NiPiZD) relationship for maximum growth rate. We change
 # only its exponent, compare the growth rates that Agate assigns to each phytoplankton
@@ -139,6 +137,11 @@ slope_fig
 # initial zooplankton. This keeps the comparison focused on the change in maximum growth
 # rate with size.
 
+# #### Run the simulations
+
+# First, set up and run a short box model for each constructed Agate model. The helper
+# below saves the model fields every hour so we can inspect them afterwards.
+
 function run_growth_experiment(bgc, phytoplankton_tracers, filename)
     grid = BoxModelGrid()
     constant_PAR = t -> 100.0
@@ -168,7 +171,24 @@ function run_growth_experiment(bgc, phytoplankton_tracers, filename)
     return filename
 end
 
-function read_phytoplankton_timeseries(filename, phytoplankton_tracers)
+default_filename = run_growth_experiment(
+    default_bgc,
+    phytoplankton_tracers,
+    "allometry_default_growth.jld2",
+)
+shallower_filename = run_growth_experiment(
+    shallower_bgc,
+    phytoplankton_tracers,
+    "allometry_shallower_growth.jld2",
+)
+
+nothing #hide
+
+# #### Load the results
+
+# Next, load the saved phytoplankton biomass through time for each simulation.
+
+function load_growth_experiment(filename, phytoplankton_tracers)
     series = (;
         (tracer => FieldTimeSeries(filename, string(tracer))[1, 1, 1, :] for tracer in phytoplankton_tracers)...
     )
@@ -176,7 +196,17 @@ function read_phytoplankton_timeseries(filename, phytoplankton_tracers)
     return times, series
 end
 
-function box_comparison_figure(
+times, default_series = load_growth_experiment(default_filename, phytoplankton_tracers)
+_, shallower_series = load_growth_experiment(shallower_filename, phytoplankton_tracers)
+
+nothing #hide
+
+# #### Plot the comparison
+
+# Finally, plot each phytoplankton size class so the effect of the changed allometric
+# slope can be compared through time.
+
+function plot_growth_comparison(
     times,
     reference_series,
     treatment_series,
@@ -221,27 +251,7 @@ function box_comparison_figure(
     return fig
 end
 
-nothing #hide
-
-default_filename = run_growth_experiment(
-    default_bgc,
-    phytoplankton_tracers,
-    "allometry_default_growth.jld2",
-)
-shallower_filename = run_growth_experiment(
-    shallower_bgc,
-    phytoplankton_tracers,
-    "allometry_shallower_growth.jld2",
-)
-
-nothing #hide
-
-times, default_series = read_phytoplankton_timeseries(default_filename, phytoplankton_tracers)
-_, shallower_series = read_phytoplankton_timeseries(shallower_filename, phytoplankton_tracers)
-
-nothing #hide
-
-slope_box_fig = box_comparison_figure(
+slope_box_fig = plot_growth_comparison(
     times,
     default_series,
     shallower_series,
@@ -356,9 +366,11 @@ ward_fig
 
 # ### See the effect in a box model
 
-# Finally, run the Ward relationship in the same box model. Everything else is kept the
-# same, so differences between the simulations come from the relationship used for
-# `maximum_growth_rate`.
+# Finally, put the Ward relationship through the same run, load, and plot workflow. The
+# environmental conditions and starting values are unchanged, so differences come from
+# the relationship used for `maximum_growth_rate`.
+
+# #### Run the simulation
 
 ward_filename = run_growth_experiment(
     ward_bgc,
@@ -368,11 +380,15 @@ ward_filename = run_growth_experiment(
 
 nothing #hide
 
-_, ward_series = read_phytoplankton_timeseries(ward_filename, phytoplankton_tracers)
+# #### Load the results
+
+_, ward_series = load_growth_experiment(ward_filename, phytoplankton_tracers)
 
 nothing #hide
 
-ward_box_fig = box_comparison_figure(
+# #### Plot the comparison
+
+ward_box_fig = plot_growth_comparison(
     times,
     default_series,
     ward_series,
