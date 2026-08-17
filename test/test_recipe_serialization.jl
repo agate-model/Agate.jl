@@ -76,7 +76,7 @@ encoded_named_value(encoded, name) = encoded_named_entry(encoded, name)["value"]
     @test all(value -> value isa Float64, Iterators.flatten(encoded_matrix))
     @test Set(keys(encoded)) == Set(("schema", "model", "recipe"))
     @test all(
-        !haskey(definition["spec"], "doc")
+        !haskey(definition, "doc")
         for definition in encoded["recipe"]["parameter_definitions"]
     )
     decoded = decode_recipe(encoded)
@@ -125,7 +125,7 @@ encoded_named_value(encoded, name) = encoded_named_entry(encoded, name)["value"]
     invalid = deepcopy(encoded)
     encoded_named_value(
         invalid["recipe"]["parameter_overrides"], :linear_mortality
-    )["relationship"] = "unknown"
+    )["law"] = "unknown"
     @test_throws ArgumentError decode_recipe(invalid)
 
     invalid = deepcopy(encoded)

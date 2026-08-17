@@ -205,13 +205,12 @@ function _encode_value(x::DiameterRangeSpecification)
 end
 
 function _encode_value(x::ConstantParam)
-    return Dict{String,Any}("type" => "constant_param", "value" => _encode_value(x.value))
+    return Dict{String,Any}("law" => "constant", "value" => _encode_value(x.value))
 end
 
 function _encode_value(x::AllometricParam)
     return Dict{String,Any}(
-        "type" => "allometric_param",
-        "relationship" => _identifier_string(
+        "law" => _identifier_string(
             x.model, allometric_relationship_identifier, "allometric_relationship_identifier"
         ),
         "coefficients" => _encode_value(x.coeffs),
@@ -236,6 +235,21 @@ function _decode_value(x, path)
         return _decoded_array(x, path)
     end
     x isa AbstractDict || throw(ArgumentError("$path has unsupported JSON value of type $(typeof(x))."))
+
+    if haskey(x, "law")
+        law = _symbol(_required(x, "law", path), "$path.law")
+        if law === :constant
+            _check_keys(x, ("law", "value"), path)
+            return ConstantParam(_decode_value(_required(x, "value", path), "$path.value"))
+        end
+        _check_keys(x, ("law", "coefficients"), path)
+        model = _decode_identifier(
+            law, allometric_relationship_from_identifier, "$path.law", "allometric relationship"
+        )
+        coeffs = _decode_value(_required(x, "coefficients", path), "$path.coefficients")
+        coeffs isa NamedTuple || throw(ArgumentError("$path.coefficients must decode to a NamedTuple."))
+        return AllometricParam(model, coeffs)
+    end
 
     type_name = _string(_required(x, "type", path), "$path.type")
     if type_name == "symbol"
@@ -269,21 +283,6 @@ function _decode_value(x, path)
             _decode_value(_required(x, "max_diameter", path), "$path.max_diameter"),
             splitting,
         )
-    elseif type_name == "constant_param"
-        _check_keys(x, ("type", "value"), path)
-        return ConstantParam(_decode_value(_required(x, "value", path), "$path.value"))
-    elseif type_name == "allometric_param"
-        _check_keys(x, ("type", "relationship", "coefficients"), path)
-        relationship = _symbol(_required(x, "relationship", path), "$path.relationship")
-        model = _decode_identifier(
-            relationship,
-            allometric_relationship_from_identifier,
-            "$path.relationship",
-            "allometric relationship",
-        )
-        coeffs = _decode_value(_required(x, "coefficients", path), "$path.coefficients")
-        coeffs isa NamedTuple || throw(ArgumentError("$path.coefficients must decode to a NamedTuple."))
-        return AllometricParam(model, coeffs)
     end
 
     throw(ArgumentError("$path has unsupported semantic type $(repr(type_name))."))
@@ -304,104 +303,73 @@ function _decode_named_tuple(entries, path)
     return NamedTuple{Tuple(names)}(Tuple(values))
 end
 
-function _encode_parameter_spec(spec::ParameterSpec)
-    axes = if spec.axes === nothing
-        nothing
-    elseif spec.axes isa Symbol
-        String(spec.axes)
-    else
-        String[String(axis) for axis in spec.axes]
-    end
-    materialization = isnothing(spec.materialization) ? nothing : Dict{String,Any}(
-        "type" => "diameter_indexed",
-        "role" => isnothing(spec.materialization.role) ? nothing : String(spec.materialization.role),
-        "fill_value" => _encode_value(spec.materialization.fill_value),
+_encode_axes(::Nothing) = nothing
+_encode_axes(axis::Symbol) = String(axis)
+_encode_axes(axes::Tuple) = String[String(axis) for axis in axes]
+
+function _decode_axes(x, path)
+    x === nothing && return nothing
+    x isa AbstractString && return Symbol(x)
+    x isa AbstractVector && length(x) == 2 || throw(
+        ArgumentError("$path must be null, a string, or a two-element array.")
     )
+    return (_symbol(x[1], "$path[1]"), _symbol(x[2], "$path[2]"))
+end
+
+_encode_materialization(::Nothing) = nothing
+function _encode_materialization(materialization::DiameterIndexedMaterialization)
     return Dict{String,Any}(
-        "name" => String(spec.name),
-        "shape" => String(spec.shape),
-        "axes" => axes,
-        "materialization" => materialization,
+        "role" => isnothing(materialization.role) ? nothing : String(materialization.role),
+        "fill_value" => _encode_value(materialization.fill_value),
     )
 end
 
-function _decode_parameter_spec(x, path)
-    x = _check_keys(x, ("name", "shape", "axes", "materialization"), path)
-    name = _symbol(_required(x, "name", path), "$path.name")
-    shape = _symbol(_required(x, "shape", path), "$path.shape")
-    shape in (:scalar, :vector, :matrix) || throw(ArgumentError("$path.shape has unsupported shape $(repr(shape))."))
-    axes_value = _required(x, "axes", path)
-    axes = if axes_value === nothing
-        nothing
-    elseif axes_value isa AbstractString
-        Symbol(axes_value)
-    elseif axes_value isa AbstractVector
-        length(axes_value) == 2 || throw(ArgumentError("$path.axes must contain exactly two axis names."))
-        (_symbol(axes_value[1], "$path.axes[1]"), _symbol(axes_value[2], "$path.axes[2]"))
-    else
-        throw(ArgumentError("$path.axes must be null, a string, or a two-element array."))
-    end
-    materialization_value = _required(x, "materialization", path)
-    materialization = if materialization_value === nothing
-        nothing
-    else
-        materialization_path = "$path.materialization"
-        materialization_value = _check_keys(
-            materialization_value, ("type", "role", "fill_value"), materialization_path
-        )
-        type_name = _string(_required(materialization_value, "type", materialization_path), "$materialization_path.type")
-        type_name == "diameter_indexed" || throw(ArgumentError("$materialization_path.type has unsupported materialization $(repr(type_name))."))
-        role_value = _required(materialization_value, "role", materialization_path)
-        role = isnothing(role_value) ? nothing : _symbol(role_value, "$materialization_path.role")
-        fill_value = _decode_value(_required(materialization_value, "fill_value", materialization_path), "$materialization_path.fill_value")
-        DiameterIndexedMaterialization(role; fill_value)
-    end
-    return ParameterSpec(name, shape; axes, materialization)
+function _decode_materialization(x, path)
+    x === nothing && return nothing
+    x = _check_keys(x, ("role", "fill_value"), path)
+    role = _required(x, "role", path)
+    return DiameterIndexedMaterialization(
+        isnothing(role) ? nothing : _symbol(role, "$path.role");
+        fill_value=_decode_value(_required(x, "fill_value", path), "$path.fill_value"),
+    )
 end
 
-function _encode_default(provider::ConstDefault)
-    return Dict{String,Any}("type" => "const", "value" => _encode_value(provider.value))
-end
-_encode_default(::NoDefault) = Dict{String,Any}("type" => "none")
-function _encode_default(provider::FillDefault)
-    return Dict{String,Any}("type" => "fill", "value" => _encode_value(provider.value))
+_encode_default(::NoDefault) = nothing
+function _encode_default(provider::Union{ConstDefault,FillDefault})
+    return Dict{String,Any}("value" => _encode_value(provider.value))
 end
 function _encode_default(provider::DiameterIndexedVectorDefault)
     return Dict{String,Any}(
-        "type" => "diameter_indexed_vector",
         "value" => _encode_value(provider.value),
         "role" => String(provider.role),
         "fill_value" => _encode_value(provider.default),
     )
 end
 
-function _decode_default(x, path)
-    x isa AbstractDict || throw(ArgumentError("$path must be an object."))
-    type_name = _string(_required(x, "type", path), "$path.type")
-    if type_name == "const"
-        _check_keys(x, ("type", "value"), path)
-        return ConstDefault(_decode_value(_required(x, "value", path), "$path.value"))
-    elseif type_name == "none"
-        _check_keys(x, ("type",), path)
-        return NoDefault()
-    elseif type_name == "fill"
-        _check_keys(x, ("type", "value"), path)
-        return FillDefault(_decode_value(_required(x, "value", path), "$path.value"))
-    elseif type_name == "diameter_indexed_vector"
-        _check_keys(x, ("type", "value", "role", "fill_value"), path)
+function _decode_default(x, shape::Symbol, path)
+    x === nothing && return NoDefault()
+    x isa AbstractDict || throw(ArgumentError("$path must be an object or null."))
+    if haskey(x, "role")
+        _check_keys(x, ("value", "role", "fill_value"), path)
+        shape === :vector || throw(ArgumentError("$path diameter-indexed defaults require vector shape."))
         return DiameterIndexedVectorDefault(
             _decode_value(_required(x, "value", path), "$path.value"),
             _symbol(_required(x, "role", path), "$path.role");
             default=_decode_value(_required(x, "fill_value", path), "$path.fill_value"),
         )
     end
-    throw(ArgumentError("$path.type has unsupported default provider $(repr(type_name))."))
+    _check_keys(x, ("value",), path)
+    value = _decode_value(_required(x, "value", path), "$path.value")
+    return shape === :scalar ? ConstDefault(value) : FillDefault(value)
 end
 
 function _encode_parameter_definitions(definitions)
     return Any[
         Dict{String,Any}(
-            "spec" => _encode_parameter_spec(definition.spec),
+            "name" => String(definition.spec.name),
+            "shape" => String(definition.spec.shape),
+            "axes" => _encode_axes(definition.spec.axes),
+            "materialization" => _encode_materialization(definition.spec.materialization),
             "default" => _encode_default(definition.default),
         ) for definition in definitions
     ]
@@ -409,16 +377,27 @@ end
 
 function _decode_parameter_definitions(x, path)
     x isa AbstractVector || throw(ArgumentError("$path must be an array."))
-    return Tuple(
-        begin
-            item_path = "$path[$i]"
-            item = _check_keys(value, ("spec", "default"), item_path)
-            ParameterDefinition(
-                _decode_parameter_spec(_required(item, "spec", item_path), "$item_path.spec"),
-                _decode_default(_required(item, "default", item_path), "$item_path.default"),
-            )
-        end for (i, value) in pairs(x)
-    )
+    return Tuple(begin
+        item_path = "$path[$i]"
+        item = _check_keys(
+            value, ("name", "shape", "axes", "materialization", "default"), item_path
+        )
+        shape = _symbol(_required(item, "shape", item_path), "$item_path.shape")
+        shape in (:scalar, :vector, :matrix) || throw(
+            ArgumentError("$item_path.shape has unsupported shape $(repr(shape)).")
+        )
+        spec = ParameterSpec(
+            _symbol(_required(item, "name", item_path), "$item_path.name"),
+            shape;
+            axes=_decode_axes(_required(item, "axes", item_path), "$item_path.axes"),
+            materialization=_decode_materialization(
+                _required(item, "materialization", item_path), "$item_path.materialization"
+            ),
+        )
+        ParameterDefinition(
+            spec, _decode_default(_required(item, "default", item_path), shape, "$item_path.default")
+        )
+    end for (i, value) in pairs(x))
 end
 
 function _encode_interaction_definitions(definitions::NamedTuple)
