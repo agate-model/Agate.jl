@@ -734,7 +734,7 @@ end
                   Agate.Introspection.plankton_diameters(legacy)
         end
 
-        grid = dummy_grid(Float32)
+        grid = BoxModelGrid()
         parameters = (;
             maximum_growth_rate=AllometricParam(
                 PowerLaw(); prefactor=1.75f0 / day, exponent=-0.12f0
@@ -746,6 +746,7 @@ end
 
         legacy, recipe, realization = DARWIN.construct_with_realization(;
             grid,
+            scalar_type=Float32,
             phyto_size_structure=Float32[1.5, 5, 20],
             zoo_size_structure=(;
                 n=2, min_esd=20.0f0, max_esd=100.0f0, splitting=:log_splitting
