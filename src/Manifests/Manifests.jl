@@ -6,7 +6,7 @@ using JSON
 
 include("serialization.jl")
 
-export export_manifest, construct_from_manifest
+export export_manifest, construct_from_manifest, model_manifest
 
 const MODEL_SETUP_SCHEMA = "agate.model_setup.v1"
 # schema/model/kwargs and family kwargs are required for replay; created_at and agate
@@ -86,21 +86,16 @@ function manifest_size_structure(group_roles, diameters_by_group)
     )
 end
 
-function default_model_manifest(family::Symbol, data; group_roles=nothing)
-    family_name = string(family)
+"""Build a resolved schema-v1 model manifest from shared data and family-specific kwargs."""
+function model_manifest(family::Symbol, data, model_kwargs::AbstractDict)
     kwargs = Dict{String,Any}(
         "parameters" => data.parameter_values,
         "sinking_tracers" => data.sinking_tracers,
         "open_bottom" => data.open_bottom,
         "scalar_type" => data.scalar_type,
     )
-
-    if isnothing(group_roles)
-        kwargs["phyto_size_structure"] = data.plankton_diameters_by_group["P"]
-        kwargs["zoo_size_structure"] = data.plankton_diameters_by_group["Z"]
-    else
-        kwargs["size_structure"] =
-            manifest_size_structure(group_roles, data.plankton_diameters_by_group)
+    for (key, value) in pairs(model_kwargs)
+        kwargs[string(key)] = value
     end
 
     return Dict{String,Any}(
@@ -110,9 +105,17 @@ function default_model_manifest(family::Symbol, data; group_roles=nothing)
             "version" => agate_version(),
             "julia_version" => string(VERSION),
         ),
-        "model" => Dict{String,Any}("family" => family_name),
+        "model" => Dict{String,Any}("family" => string(family)),
         "kwargs" => kwargs,
     )
+end
+
+function default_model_manifest(family::Symbol, data; group_roles)
+    model_kwargs = Dict{String,Any}(
+        "size_structure" =>
+            manifest_size_structure(group_roles, data.plankton_diameters_by_group),
+    )
+    return model_manifest(family, data, model_kwargs)
 end
 
 function model_family(setup::AbstractDict)

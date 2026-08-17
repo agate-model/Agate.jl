@@ -5,7 +5,7 @@ using ForwardDiff
 using Agate.Library.Nutrients: FrankTNorm, frank_tnorm, liebig_minimum
 using Agate.Library.Photosynthesis: frank_nutrient_limitation, liebig_nutrient_limitation
 using Agate.Library.Predation: holling_type_ii, idealized_predation_loss
-using Agate.Tendencies: TendencyConfig, nutrient_coupling, phytoplankton_tendency
+using Agate.Tendencies: TendencyConfig
 
 @testset "Library" begin
     @test holling_type_ii(1.0, 1.0) == 0.5
@@ -66,58 +66,4 @@ end
     )
     @test frank_config.nutrient_limitation isa FrankTNorm
     @test frank_config.nutrient_limitation.sharpness == 25
-end
-
-@testset "Frank t-norm tendency plumbing" begin
-    config = TendencyConfig(;
-        growth=:geider,
-        organic_cycling=:dom_pom,
-        nutrient_limitation=FrankTNorm(50),
-        nutrients=(
-            nutrient_coupling(
-                :DIN,
-                :half_saturation_DIN;
-                stoichiometry=:nitrogen_to_carbon,
-                remineralization=(
-                    (:DON, :DON_remineralization), (:PON, :PON_remineralization)
-                ),
-            ),
-            nutrient_coupling(
-                :PO4,
-                :half_saturation_PO4;
-                stoichiometry=:phosphorus_to_carbon,
-                remineralization=(
-                    (:DOP, :DOP_remineralization), (:POP, :POP_remineralization)
-                ),
-            ),
-        ),
-    )
-
-    bgc = Agate.Models.DARWIN.construct()
-    frank_tendency = phytoplankton_tendency(config; plankton_idx=3)
-
-    DIN = bgc.parameters.half_saturation_DIN[3]
-    PO4 = bgc.parameters.half_saturation_PO4[3]
-    args = (
-        10.0,
-        DIN,
-        PO4,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.01,
-        0.01,
-        100.0,
-    )
-
-    frank = frank_tendency(bgc, 0, 0, 0, 0, args...)
-    liebig = bgc(Val(:P_1), 0, 0, 0, 0, args...)
-
-    @test isfinite(frank)
-    @test frank < liebig
 end

@@ -4,7 +4,7 @@
 
 At a high level, Agate is organized into four broad layers:
 
- 1. **Model constructors** in `Models/`, such as [`NiPiZD`](@ref NiPiZD) and [`DARWIN`](@ref DARWIN), which provide the user-facing constructors for built-in model families.
+ 1. **Model constructors** in `Models/`, such as [`NiPiZD`](@ref NiPiZD), which provide user-facing constructors for model families distributed with Agate. External packages can define additional model families using the same generic construction and recipe interfaces.
 
  2. **Reusable model building blocks** in `Library/`, which provide shared components for processes such as photosynthesis, predation, remineralization, light limitation, mortality, and allometry.
 
@@ -17,7 +17,7 @@ At a high level, Agate is organized into four broad layers:
 A typical model build in Agate has seven components.
 
  1. **Model entry point** (`Models/`).
-    Each model is defined using a user-facing constructor such as `Agate.Models.<Model>.construct(...)`. The `Models/` layer defines the public entry points for the built-in model families.
+    Models distributed with Agate use user-facing constructors such as `Agate.Models.<Model>.construct(...)`. External model packages may provide their own entry points while reusing Agate's generic factories, recipes, realization, and runtime machinery.
 
  2. **Model defaults and community selection** (`Models/` and `Factories/`).
     For each model constructor, Agate selects the factory, parameter definitions, and default community information needed for the build. `Models/` provides model-family-specific definitions, while `Factories/` provides shared defaults and construction metadata.
@@ -39,7 +39,7 @@ A typical model build in Agate has seven components.
 
 ## Source tree
 
-  - `Models/` defines the user-facing entry points for built-in model families.
+  - `Models/` defines the user-facing entry points for model families distributed with Agate.
   - `Factories/` defines shared defaults, parameter metadata, and related construction settings.
   - `Configuration/` parses communities, trophic roles, and interaction structure into a normalized internal form.
   - `Construction/` assembles the concrete model object from validated inputs, defaults, and derived quantities.

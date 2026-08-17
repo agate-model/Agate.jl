@@ -3,7 +3,6 @@ using Test
 using ForwardDiff
 
 const ForwardDiffNiPiZD = Agate.Models.NiPiZD
-const ForwardDiffDARWIN = Agate.Models.DARWIN
 
 using Oceananigans.Units: day
 
@@ -77,69 +76,5 @@ end
         p_1_tendency_with_active_growth_rate(mu0 + δ) -
         p_1_tendency_with_active_growth_rate(mu0 - δ)
     ) / (2δ)
-    @test isapprox(dP_1_dmu, fd; rtol=1e-4, atol=1e-10)
-end
-
-@testset "ForwardDiff DARWIN tendency smoke tests" begin
-    function p_1_tendency_with_growth_rate(mu)
-        T = typeof(mu)
-        bgc = ForwardDiffDARWIN.construct(;
-            scalar_type=T,
-            parameters=(; maximum_growth_rate=T[zero(T), zero(T), mu, T(2.0 / day)]),
-        )
-
-        DIC = T(10.0)
-        DIN = T(3.0)
-        PO4 = T(0.2)
-        DOC = T(0.1)
-        POC = T(0.1)
-        DON = T(0.01)
-        PON = T(0.01)
-        DOP = T(0.001)
-        POP = T(0.001)
-        Z_1 = T(0.02)
-        Z_2 = T(0.02)
-        P_1 = T(0.01)
-        P_2 = T(0.01)
-        PAR = T(100.0)
-
-        return bgc(
-            Val(:P_1),
-            0,
-            0,
-            0,
-            0,
-            DIC,
-            DIN,
-            PO4,
-            DOC,
-            POC,
-            DON,
-            PON,
-            DOP,
-            POP,
-            Z_1,
-            Z_2,
-            P_1,
-            P_2,
-            PAR,
-        )
-    end
-
-    mu0 = 2.0 / day
-    T0 = typeof(mu0)
-    bgc0 = ForwardDiffDARWIN.construct(;
-        scalar_type=T0,
-        parameters=(; maximum_growth_rate=T0[zero(T0), zero(T0), mu0, T0(2.0 / day)]),
-    )
-    @test eltype(bgc0.parameters.maximum_growth_rate) === T0
-
-    dP_1_dmu = ForwardDiff.derivative(p_1_tendency_with_growth_rate, mu0)
-    @test isfinite(dP_1_dmu)
-
-    δ = mu0 * 1e-6
-    fd =
-        (p_1_tendency_with_growth_rate(mu0 + δ) - p_1_tendency_with_growth_rate(mu0 - δ)) /
-        (2δ)
     @test isapprox(dP_1_dmu, fd; rtol=1e-4, atol=1e-10)
 end

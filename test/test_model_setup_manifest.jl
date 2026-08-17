@@ -118,22 +118,6 @@ end
     test_exact_parameters(reconstructed.parameters, bgc.parameters)
 end
 
-@testset "DARWIN model setup import" begin
-    grid = dummy_grid(Float32)
-
-    bgc, setup = Agate.Models.DARWIN.construct_with_manifest(
-        ;
-        grid,
-        phyto_size_structure=(n=3, min_esd=1.5, max_esd=20.0, splitting=:log_splitting),
-        zoo_size_structure=(n=2, min_esd=20.0, max_esd=100.0, splitting=:log_splitting),
-    )
-
-    reconstructed = construct_from_manifest(setup; grid)
-    test_reconstructed_model(reconstructed, bgc)
-    test_exact_parameters(reconstructed.parameters, bgc.parameters)
-    @test Agate.Introspection.plankton_diameters(reconstructed) ==
-          Agate.Introspection.plankton_diameters(bgc)
-end
 
 @testset "Model setup family dispatch" begin
     setup = Dict{String,Any}(

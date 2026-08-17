@@ -5,14 +5,12 @@ module Models
 # -----------------------------------------------------------------------------
 
 include("NiPiZD/NiPiZD.jl")
-include("DARWIN/DARWIN.jl")
 
-export NiPiZD, DARWIN
+export NiPiZD
 
 
 # The factory types remain available for internal/advanced usage via fully-qualified
 # names (e.g. `Agate.Models.NiPiZD.NiPiZDFactory`).
 using .NiPiZD: NiPiZDFactory
-using .DARWIN: DarwinFactory
 
 end # module

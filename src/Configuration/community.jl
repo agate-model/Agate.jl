@@ -23,7 +23,7 @@ Examples
 --------
 ```julia
 community = build_plankton_community(base;
-    diameters=(Z=zoo_size_structure, P=phyto_size_structure),
+    diameters=(grazers=grazer_sizes, microbes=microbe_sizes),
 )
 ```
 """

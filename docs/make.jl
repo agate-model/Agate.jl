@@ -73,7 +73,7 @@ differentiable_modelling_pages = [
 ]
 
 contributor_pages = ["Architecture" => "architecture_overview.md"]
-model_pages = ["NiPiZD" => "nipizd.md", "DARWIN" => "darwin.md"]
+model_pages = ["NiPiZD" => "nipizd.md"]
 
 makedocs(;
     sitename="Agate.jl",

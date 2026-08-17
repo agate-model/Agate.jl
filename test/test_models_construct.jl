@@ -1,11 +1,8 @@
 using Agate
 
 const NiPiZD = Agate.Models.NiPiZD
-const DARWIN = Agate.Models.DARWIN
 
 using Test
-
-using OceanBioME: BoxModelGrid
 
 using Oceananigans.Units
 using Agate.Library.Allometry: AllometricParam, ConstantParam, PowerLaw
@@ -55,15 +52,6 @@ end
         @test isempty(intersect(recipe_fields, environment_fields))
         @test union(recipe_fields, environment_fields) ==
               Set(fieldnames(NiPiZD.NiPiZDConstructionOptions))
-    end
-
-    @testset "DARWIN construction input classification" begin
-        recipe_fields = Set(DARWIN.RECIPE_INPUT_FIELDS)
-        environment_fields = Set(DARWIN.ENVIRONMENT_INPUT_FIELDS)
-
-        @test isempty(intersect(recipe_fields, environment_fields))
-        @test union(recipe_fields, environment_fields) ==
-              Set(fieldnames(DARWIN.DARWINConstructionOptions))
     end
 
     @testset "NiPiZD defaults" begin
@@ -495,18 +483,8 @@ end
             palatability_matrix=rect,
         )
         @test all(bgc2.parameters.interactions.palatability .== rect)
-
-        dar0 = DARWIN.construct(; grid=dummy_grid(Float32))
-        dar_pal0 = dar0.parameters.interactions.palatability
-        dar_n_total = length(dar0.parameters.interactions.global_to_prey)
-        dar_spec = zeros(Float32, dar_n_total)
-        dar_spec[dar0.parameters.interactions.consumer_global] .= 2.0f0
-        dar1 = DARWIN.construct(;
-            grid=dummy_grid(Float32), parameters=(; specificity=dar_spec)
-        )
-        dar_pal1 = dar1.parameters.interactions.palatability
-        @test any(dar_pal1 .!= dar_pal0)
     end
+
 
 
     @testset "Named parameter vector overrides" begin
@@ -538,26 +516,6 @@ end
         @test bgc_named.parameters.interactions.palatability ==
             bgc_positional.parameters.interactions.palatability
 
-        dar_default = DARWIN.construct(; grid=dummy_grid(Float32))
-        dar_spec = copy(dar_default.parameters.specificity)
-        dar_spec[1] = 2.0f0
-        dar_spec[2] = 2.5f0
-        dar_din = copy(dar_default.parameters.half_saturation_DIN)
-        dar_din[4] = 0.3f0
-
-        dar_named = DARWIN.construct(;
-            grid=dummy_grid(Float32),
-            parameters=(; specificity=(Z_1=2.0, Z_2=2.5), half_saturation_DIN=(P_2=0.3,)),
-        )
-        dar_positional = DARWIN.construct(;
-            grid=dummy_grid(Float32),
-            parameters=(; specificity=dar_spec, half_saturation_DIN=dar_din),
-        )
-
-        @test dar_named.parameters.specificity == dar_spec
-        @test dar_named.parameters.half_saturation_DIN == dar_din
-        @test dar_named.parameters.interactions.palatability ==
-            dar_positional.parameters.interactions.palatability
 
         err = try
             NiPiZD.construct(;
@@ -720,69 +678,6 @@ end
         @test biogeochemical_drift_velocity(bgc, Val(:Z_1)).w == ZeroField()
     end
 
-    @testset "DARWIN exact in-memory migration replay" begin
-        for T in (Float64, Float32)
-            grid = dummy_grid(T)
-            legacy, recipe, realization = DARWIN.construct_with_realization(; grid, scalar_type=T)
-            replayed, replayed_realization = DARWIN.construct_with_realization(recipe; grid)
-
-            @test replayed_realization == realization
-            @test replayed.parameters == legacy.parameters
-            @test required_biogeochemical_tracers(replayed) ==
-                  required_biogeochemical_tracers(legacy)
-            @test Agate.Introspection.plankton_diameters(replayed) ==
-                  Agate.Introspection.plankton_diameters(legacy)
-        end
-
-        grid = BoxModelGrid()
-        parameters = (;
-            maximum_growth_rate=AllometricParam(
-                PowerLaw(); prefactor=1.75f0 / day, exponent=-0.12f0
-            ),
-            specificity=(Z_1=1.5f0,),
-        )
-        palatability = Float32[0.8 0.2 0.1; 0.3 0.7 0.4]
-        sinking_tracers = (POC=2.5f0 / day,)
-
-        legacy, recipe, realization = DARWIN.construct_with_realization(;
-            grid,
-            scalar_type=Float32,
-            phyto_size_structure=Float32[1.5, 5, 20],
-            zoo_size_structure=(;
-                n=2, min_esd=20.0f0, max_esd=100.0f0, splitting=:log_splitting
-            ),
-            parameters,
-            palatability_matrix=palatability,
-            sinking_tracers,
-            open_bottom=false,
-        )
-        replayed, replayed_realization = DARWIN.construct_with_realization(recipe; grid)
-
-        @test replayed_realization == realization
-        @test replayed.parameters == legacy.parameters
-        @test realization.interaction_matrix_sources == (
-            palatability_matrix=:explicit, assimilation_matrix=:derived
-        )
-        @test realization.tracer_order == (
-            :DIC, :DIN, :PO4, :DOC, :POC, :DON, :PON, :DOP, :POP,
-            :Z_1, :Z_2, :P_1, :P_2, :P_3,
-        )
-        @test biogeochemical_drift_velocity(replayed, Val(:POC)).w.data[1, 1, 1] ==
-              biogeochemical_drift_velocity(legacy, Val(:POC)).w.data[1, 1, 1]
-    end
-
-    @testset "DARWIN defaults" begin
-        bgc = DARWIN.construct(; grid=dummy_grid(Float32))
-
-        @test !any(t -> t === Any, fieldtypes(typeof(bgc.tracer_functions)))
-
-        @test required_biogeochemical_tracers(bgc)[1:9] ==
-            (:DIC, :DIN, :PO4, :DOC, :POC, :DON, :PON, :DOP, :POP)
-
-        bgc_explicit = DARWIN.construct(; scalar_type=Float32)
-        @test bgc_explicit.parameters.DOC_remineralization isa Float32
-        @test eltype(bgc_explicit.parameters.maximum_growth_rate) === Float32
-    end
 
     @testset "GPU smoke test" begin
         # NOTE: Loading CUDA can crash Julia in misconfigured environments (e.g. mixed system/toolkit libs).
