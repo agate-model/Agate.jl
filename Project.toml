@@ -3,7 +3,6 @@ uuid = "41889b7c-c35c-4f16-abd7-94b299d9fd29"
 version = "0.10.0"
 
 [deps]
-Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 OceanBioME = "a49af516-9db8-4be4-be45-1dad61c5a376"
