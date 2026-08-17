@@ -1,6 +1,6 @@
 using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe
 using Agate.Library.Allometry: AllometricParam, ConstantParam, PowerLaw
-using Agate.Models: NiPiZD
+using Agate.Models: NiPiZD, DARWIN
 using Oceananigans.Units: day
 using Test
 
@@ -68,4 +68,22 @@ end
     invalid = deepcopy(encoded)
     encoded_named_value(invalid["recipe"]["parameter_overrides"], :linear_mortality)["relationship"] = "unknown"
     @test_throws ArgumentError decode_recipe(invalid)
+end
+
+@testset "DARWIN recipe serialization" begin
+    _, recipe, realization = DARWIN.construct_with_realization(;
+        scalar_type=Float32,
+        parameters=(;
+            maximum_growth_rate=AllometricParam(
+                PowerLaw(); prefactor=1.75f0 / day, exponent=-0.12f0
+            ),
+        ),
+        palatability_matrix=Float32[0.8 0.2; 0.3 0.7],
+    )
+
+    decoded = decode_recipe(encode_recipe(recipe))
+    _, decoded_realization = DARWIN.construct_with_realization(decoded)
+
+    @test decoded == recipe
+    @test decoded_realization == realization
 end

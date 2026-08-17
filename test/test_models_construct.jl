@@ -57,6 +57,15 @@ end
               Set(fieldnames(NiPiZD.NiPiZDConstructionOptions))
     end
 
+    @testset "DARWIN construction input classification" begin
+        recipe_fields = Set(DARWIN.RECIPE_INPUT_FIELDS)
+        environment_fields = Set(DARWIN.ENVIRONMENT_INPUT_FIELDS)
+
+        @test isempty(intersect(recipe_fields, environment_fields))
+        @test union(recipe_fields, environment_fields) ==
+              Set(fieldnames(DARWIN.DARWINConstructionOptions))
+    end
+
     @testset "NiPiZD defaults" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
 
@@ -709,6 +718,56 @@ end
         @test biogeochemical_drift_velocity(bgc, Val(:P_1)).w.data[1, 1, 1] == -0.2551 / day
         @test biogeochemical_drift_velocity(bgc, Val(:D)).w.data[1, 1, 1] == -2.7489 / day
         @test biogeochemical_drift_velocity(bgc, Val(:Z_1)).w == ZeroField()
+    end
+
+    @testset "DARWIN exact in-memory migration replay" begin
+        for T in (Float64, Float32)
+            grid = dummy_grid(T)
+            legacy, recipe, realization = DARWIN.construct_with_realization(; grid, scalar_type=T)
+            replayed, replayed_realization = DARWIN.construct_with_realization(recipe; grid)
+
+            @test replayed_realization == realization
+            @test replayed.parameters == legacy.parameters
+            @test required_biogeochemical_tracers(replayed) ==
+                  required_biogeochemical_tracers(legacy)
+            @test Agate.Introspection.plankton_diameters(replayed) ==
+                  Agate.Introspection.plankton_diameters(legacy)
+        end
+
+        grid = dummy_grid(Float32)
+        parameters = (;
+            maximum_growth_rate=AllometricParam(
+                PowerLaw(); prefactor=1.75f0 / day, exponent=-0.12f0
+            ),
+            specificity=(Z_1=1.5f0,),
+        )
+        palatability = Float32[0.8 0.2 0.1; 0.3 0.7 0.4]
+        sinking_tracers = (POC=2.5f0 / day,)
+
+        legacy, recipe, realization = DARWIN.construct_with_realization(;
+            grid,
+            phyto_size_structure=Float32[1.5, 5, 20],
+            zoo_size_structure=(;
+                n=2, min_esd=20.0f0, max_esd=100.0f0, splitting=:log_splitting
+            ),
+            parameters,
+            palatability_matrix=palatability,
+            sinking_tracers,
+            open_bottom=false,
+        )
+        replayed, replayed_realization = DARWIN.construct_with_realization(recipe; grid)
+
+        @test replayed_realization == realization
+        @test replayed.parameters == legacy.parameters
+        @test realization.interaction_matrix_sources == (
+            palatability_matrix=:explicit, assimilation_matrix=:derived
+        )
+        @test realization.tracer_order == (
+            :DIC, :DIN, :PO4, :DOC, :POC, :DON, :PON, :DOP, :POP,
+            :Z_1, :Z_2, :P_1, :P_2, :P_3,
+        )
+        @test biogeochemical_drift_velocity(replayed, Val(:POC)).w.data[1, 1, 1] ==
+              biogeochemical_drift_velocity(legacy, Val(:POC)).w.data[1, 1, 1]
     end
 
     @testset "DARWIN defaults" begin

@@ -8,26 +8,77 @@ import ...Manifests
 import ...Manifests: construct_from_manifest
 using ...Manifests: default_model_manifest
 
-export construct, construct_with_manifest
+export construct, construct_with_recipe, construct_with_realization, construct_with_manifest
 
-function _construction_inputs(;
-    phyto_size_structure=(n=2, min_esd=1.5, max_esd=20.0, splitting=:log_splitting),
-    zoo_size_structure=(n=2, min_esd=20.0, max_esd=100.0, splitting=:log_splitting),
-    parameters::NamedTuple=(;),
-    scalar_type=nothing,
-    palatability_matrix=nothing,
-    assimilation_matrix=nothing,
-    grid=BoxModelGrid(),
-    arch=nothing,
-    sinking_tracers=nothing,
-    open_bottom::Bool=true,
-)
+function _community_inputs(phyto_size_structure, zoo_size_structure)
     factory = DarwinFactory()
-
     base = Factories.default_community(factory)
     community = Configuration.build_plankton_community(
         base; diameters=(Z=zoo_size_structure, P=phyto_size_structure)
     )
+
+    group_order = keys(community)
+    recipe_values = ntuple(length(group_order)) do i
+        group = group_order[i]
+        spec = getproperty(community, group)
+        diameter_specification =
+            Configuration.normalize_diameters(spec.diameters).specification
+        return (; spec..., diameters=diameter_specification)
+    end
+    recipe_community = Configuration.build_plankton_community(
+        NamedTuple{group_order}(recipe_values)
+    )
+
+    ecological_roles = (phytoplankton=(:P,), zooplankton=(:Z,))
+    interaction_roles = (consumers=(:Z,), prey=(:P,))
+    parameter_roles = (producers=(:P,), consumers=(:Z,))
+
+    return (; community, recipe_community, ecological_roles, interaction_roles, parameter_roles)
+end
+
+Base.@kwdef struct DARWINConstructionOptions
+    phyto_size_structure = (n=2, min_esd=1.5, max_esd=20.0, splitting=:log_splitting)
+    zoo_size_structure = (n=2, min_esd=20.0, max_esd=100.0, splitting=:log_splitting)
+    parameters::NamedTuple = (;)
+    scalar_type = nothing
+    palatability_matrix = nothing
+    assimilation_matrix = nothing
+    grid = BoxModelGrid()
+    arch = nothing
+    sinking_tracers = nothing
+    open_bottom::Bool = true
+end
+
+const RECIPE_INPUT_FIELDS = (
+    :phyto_size_structure,
+    :zoo_size_structure,
+    :parameters,
+    :scalar_type,
+    :palatability_matrix,
+    :assimilation_matrix,
+    :sinking_tracers,
+    :open_bottom,
+)
+const ENVIRONMENT_INPUT_FIELDS = (:grid, :arch)
+
+_construction_inputs(; kwargs...) = _construction_inputs(DARWINConstructionOptions(; kwargs...))
+
+function _construction_inputs(options::DARWINConstructionOptions)
+    (;
+        phyto_size_structure,
+        zoo_size_structure,
+        parameters,
+        scalar_type,
+        palatability_matrix,
+        assimilation_matrix,
+        grid,
+        arch,
+        sinking_tracers,
+        open_bottom,
+    ) = options
+
+    factory = DarwinFactory()
+    community_inputs = _community_inputs(phyto_size_structure, zoo_size_structure)
 
     pairs = Pair{Symbol,Any}[]
     palatability_matrix !== nothing &&
@@ -36,21 +87,40 @@ function _construction_inputs(;
         push!(pairs, :assimilation_matrix => assimilation_matrix)
 
     interaction_overrides = isempty(pairs) ? nothing : (; pairs...)
-    interaction_roles = (consumers=(:Z,), prey=(:P,))
+    resolved_scalar_type = Construction.resolve_construction_scalar_type(grid, scalar_type)
+    auxiliary_fields = (:PAR,)
+
+    recipe_kwargs = (;
+        community=community_inputs.recipe_community,
+        parameter_overrides=parameters,
+        interaction_overrides,
+        ecological_roles=community_inputs.ecological_roles,
+        interaction_roles=community_inputs.interaction_roles,
+        parameter_roles=community_inputs.parameter_roles,
+        auxiliary_fields,
+        sinking_tracers,
+        open_bottom,
+        scalar_type=resolved_scalar_type,
+    )
 
     return (
         factory=factory,
+        recipe_kwargs,
         kwargs=(;
-            community=community,
+            plankton_dynamics=default_plankton_dynamics(factory),
+            biogeochem_dynamics=default_biogeochem_dynamics(factory),
+            community=community_inputs.community,
             parameters=parameters,
-            interaction_roles=interaction_roles,
-            auxiliary_fields=(:PAR,),
-            interaction_overrides=interaction_overrides,
-            arch=arch,
-            sinking_tracers=sinking_tracers,
-            grid=grid,
-            scalar_type=scalar_type,
-            open_bottom=open_bottom,
+            ecological_roles=community_inputs.ecological_roles,
+            interaction_roles=community_inputs.interaction_roles,
+            parameter_roles=community_inputs.parameter_roles,
+            auxiliary_fields,
+            interaction_overrides,
+            arch,
+            sinking_tracers,
+            grid,
+            scalar_type,
+            open_bottom,
         ),
     )
 end
@@ -184,6 +254,76 @@ function construct_from_manifest(
     phyto_size_structure = Manifests.size_structure_vector(kwargs, "phyto_size_structure")
     zoo_size_structure = Manifests.size_structure_vector(kwargs, "zoo_size_structure")
     return construct(; phyto_size_structure, zoo_size_structure, common...)
+end
+
+function _recipe_construction_inputs(
+    recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing
+)
+    recipe.factory isa DarwinFactory || throw(
+        ArgumentError(
+            "DARWIN.construct(recipe) requires a DARWIN recipe; got $(typeof(recipe.factory))"
+        ),
+    )
+
+    factory = Construction.replay_factory(recipe)
+    kwargs = (;
+        plankton_dynamics=default_plankton_dynamics(recipe.factory),
+        biogeochem_dynamics=default_biogeochem_dynamics(recipe.factory),
+        community=recipe.community,
+        parameters=recipe.parameter_overrides,
+        interaction_overrides=recipe.interaction_overrides,
+        ecological_roles=recipe.ecological_roles,
+        interaction_roles=recipe.interaction_roles,
+        parameter_roles=recipe.parameter_roles,
+        auxiliary_fields=recipe.auxiliary_fields,
+        arch,
+        sinking_tracers=recipe.sinking_tracers,
+        grid,
+        scalar_type=recipe.scalar_type,
+        open_bottom=recipe.open_bottom,
+    )
+    return (; factory, kwargs)
+end
+
+"""Replay a DARWIN recipe in the supplied runtime environment."""
+function construct(recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing)
+    inputs = _recipe_construction_inputs(recipe; grid, arch)
+    return Construction.construct_factory(inputs.factory; inputs.kwargs...)
+end
+
+"""Construct DARWIN and return the model with its pre-materialization scientific recipe."""
+function construct_with_recipe(; kwargs...)
+    inputs = _construction_inputs(; kwargs...)
+    recipe = Construction.capture_model_recipe(inputs.factory; inputs.recipe_kwargs...)
+    bgc = Construction.construct_factory(inputs.factory; inputs.kwargs...)
+    return bgc, recipe
+end
+
+"""
+    construct_with_realization(; kw...) -> bgc, recipe, realization
+    construct_with_realization(recipe; grid=BoxModelGrid(), arch=nothing) -> bgc, realization
+
+Construct DARWIN together with the authored recipe and deterministic realization used for
+exact migration comparison. Passing a recipe replays its captured parameter defaults and
+interaction derivations in the supplied runtime environment.
+"""
+function construct_with_realization(; kwargs...)
+    inputs = _construction_inputs(; kwargs...)
+    recipe = Construction.capture_model_recipe(inputs.factory; inputs.recipe_kwargs...)
+    bgc, realization = Construction.construct_factory_with_realization(
+        inputs.factory; inputs.kwargs...
+    )
+    return bgc, recipe, realization
+end
+
+function construct_with_realization(
+    recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing
+)
+    inputs = _recipe_construction_inputs(recipe; grid, arch)
+    bgc, realization = Construction.construct_factory_with_realization(
+        inputs.factory; inputs.kwargs...
+    )
+    return bgc, realization
 end
 
 """

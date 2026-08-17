@@ -6,6 +6,8 @@ using ...Configuration: PFTSpecification
 import ...Factories:
     default_plankton_dynamics, default_community, default_biogeochem_dynamics
 
+import ...Construction: recipe_family, recipe_factory
+
 using ...Tendencies:
     TendencyConfig,
     nutrient_coupling,
@@ -16,6 +18,9 @@ using ...Tendencies:
 
 """Factory for the simplified DARWIN-like elemental cycling model."""
 struct DarwinFactory <: AbstractBGCFactory end
+
+recipe_family(::DarwinFactory) = :DARWIN
+recipe_factory(::Val{:DARWIN}) = DarwinFactory()
 
 const DARWIN_TENDENCIES = TendencyConfig(;
     growth=:geider,

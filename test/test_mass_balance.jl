@@ -49,7 +49,8 @@ using Oceananigans.Units: day, minutes
 
     @testset "DARWIN model" begin
         grid = BoxModelGrid()
-        bgc_instance = DARWIN.construct(; grid)
+        _, recipe = DARWIN.construct_with_recipe(; grid)
+        bgc_instance = DARWIN.construct(recipe; grid)
         box_model = build_box_model(bgc_instance, grid)
         set!(
             box_model;
