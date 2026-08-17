@@ -1,7 +1,5 @@
 using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe
-using Agate.Library.Allometry: AllometricParam, ConstantParam, PowerLaw
 using Agate.Models: NiPiZD
-using Oceananigans.Units: day
 using Test
 
 function encoded_named_value(encoded, name)
@@ -19,27 +17,8 @@ end
     _, default_recipe = NiPiZD.construct_with_recipe()
     @test decode_recipe(encode_recipe(default_recipe)) == default_recipe
 
-    size_structure = (;
-        phytoplankton=(diat=Float32[2, 8],),
-        zooplankton=(;
-            microzoo=(n=2, min_esd=30.0f0, max_esd=90.0f0, splitting=:log_splitting),
-        ),
-    )
-    parameters = (;
-        maximum_growth_rate=(diat_2=1.25f0 / day,),
-        linear_mortality=AllometricParam(
-            PowerLaw(); prefactor=0.05f0 / day, exponent=-0.1f0
-        ),
-        alpha=ConstantParam(0.2f0 / day),
-    )
-
     _, recipe, manifest = NiPiZD.construct_with_manifest(;
-        size_structure,
-        scalar_type=Float32,
-        parameters,
-        palatability_matrix=Float32[0.1 0.9; 0.3 0.7],
-        sinking_tracers=(D=2.5f0 / day,),
-        open_bottom=false,
+        authored_nipizd_inputs(Float32)...
     )
 
     encoded = encode_recipe(recipe)

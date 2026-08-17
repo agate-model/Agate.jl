@@ -109,44 +109,20 @@ end
         @test !hasproperty(recipe, :arch)
     end
 
-    @testset "NiPiZD authored recipe inputs" begin
-        phyto_diameters = [2.0, 8.0]
-        size_structure = (;
-            phytoplankton=(diat=phyto_diameters,),
-            zooplankton=(;
-                microzoo=(n=2, min_esd=30.0, max_esd=90.0, splitting=:log_splitting),
-            ),
-        )
-        growth_override = (diat_2=1.25 / day,)
-        mortality_law = AllometricParam(
-            PowerLaw(); prefactor=0.05 / day, exponent=-0.1
-        )
-        alpha_definition = ConstantParam(0.2 / day)
-        parameters = (;
-            maximum_growth_rate=growth_override,
-            linear_mortality=mortality_law,
-            alpha=alpha_definition,
-        )
-        palatability = [0.8 0.2; 0.3 0.7]
-        sinking_tracers = (D=2.5 / day,)
-
-        _, recipe = NiPiZD.construct_with_recipe(;
-            size_structure,
-            scalar_type=Float32,
-            parameters,
-            palatability_matrix=palatability,
-            sinking_tracers,
-            open_bottom=false,
-        )
+    @testset "NiPiZD authored recipe and replay" begin
+        inputs = authored_nipizd_inputs(Float32)
+        phyto_diameters = inputs.size_structure.phytoplankton.diat
+        palatability = inputs.palatability_matrix
+        _, recipe, manifest = NiPiZD.construct_with_manifest(; inputs...)
 
         @test recipe.scalar_type === Float32
-        @test recipe.sinking_tracers == sinking_tracers
+        @test recipe.sinking_tracers == inputs.sinking_tracers
         @test recipe.open_bottom === false
         @test recipe.community.diat.diameters isa Agate.Configuration.DiameterListSpecification
         @test recipe.community.microzoo.diameters isa
               Agate.Configuration.DiameterRangeSpecification
         @test recipe.community.microzoo.diameters.splitting === :log_splitting
-        @test recipe.parameter_overrides == parameters
+        @test recipe.parameter_overrides == inputs.parameters
         @test keys(recipe.interaction_overrides) == (:palatability_matrix,)
         @test recipe.interaction_overrides.palatability_matrix == palatability
 
@@ -154,9 +130,15 @@ end
         palatability[1, 1] = 999.0
         @test recipe.community.diat.diameters.diameters[1] == 2.0
         @test recipe.interaction_overrides.palatability_matrix[1, 1] == 0.8
+
+        _, replayed_manifest = NiPiZD.construct_with_manifest(recipe)
+        @test replayed_manifest == manifest
+        @test manifest.interaction_matrix_sources == (
+            palatability_matrix=:explicit, assimilation_matrix=:derived
+        )
     end
 
-    @testset "NiPiZD exact in-memory replay" begin
+    @testset "NiPiZD default in-memory replay" begin
         _, recipe, manifest = NiPiZD.construct_with_manifest()
         _, replayed_manifest = NiPiZD.construct_with_manifest(recipe)
 
@@ -170,34 +152,6 @@ end
             (Z=(:Z_1, :Z_2), P=(:P_1, :P_2)),
             (:N, :D, :Z_1, :Z_2, :P_1, :P_2),
             (palatability_matrix=:derived, assimilation_matrix=:derived),
-        )
-
-        size_structure = (;
-            phytoplankton=(diat=[2.0, 8.0],),
-            zooplankton=(;
-                microzoo=(n=2, min_esd=30.0, max_esd=90.0, splitting=:log_splitting),
-            ),
-        )
-        parameters = (;
-            maximum_growth_rate=(diat_2=1.25 / day,),
-            linear_mortality=AllometricParam(
-                PowerLaw(); prefactor=0.05 / day, exponent=-0.1
-            ),
-        )
-
-        _, authored_recipe, authored_manifest = NiPiZD.construct_with_manifest(;
-            size_structure,
-            scalar_type=Float32,
-            parameters,
-            palatability_matrix=Float32[0.8 0.2; 0.3 0.7],
-            sinking_tracers=(D=2.5f0 / day,),
-            open_bottom=false,
-        )
-        _, replayed_authored_manifest = NiPiZD.construct_with_manifest(authored_recipe)
-
-        @test replayed_authored_manifest == authored_manifest
-        @test authored_manifest.interaction_matrix_sources == (
-            palatability_matrix=:explicit, assimilation_matrix=:derived
         )
     end
 

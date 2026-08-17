@@ -8,6 +8,9 @@ use a minimal grid object that exposes `eltype(::grid)` and
 
 import Oceananigans.Architectures: architecture, CPU
 
+using Agate.Library.Allometry: AllometricParam, ConstantParam, PowerLaw
+using Oceananigans.Units: day
+
 """A minimal grid stand-in for testing constructor precision/architecture inference.
 
 `Oceananigans` determines the active architecture from the grid. For CPU architectures,
@@ -25,6 +28,29 @@ architecture(g::DummyGrid) = g.arch
 
 """Construct a `DummyGrid` that behaves like an Oceananigans grid."""
 dummy_grid(::Type{T}; arch=CPU()) where {T<:AbstractFloat} = DummyGrid{T,typeof(arch)}(arch)
+
+
+function authored_nipizd_inputs(::Type{T}=Float32) where {T<:AbstractFloat}
+    return (;
+        size_structure=(;
+            phytoplankton=(diat=T[2, 8],),
+            zooplankton=(;
+                microzoo=(n=2, min_esd=T(30), max_esd=T(90), splitting=:log_splitting),
+            ),
+        ),
+        scalar_type=T,
+        parameters=(;
+            maximum_growth_rate=(diat_2=T(1.25 / day),),
+            linear_mortality=AllometricParam(
+                PowerLaw(); prefactor=T(0.05 / day), exponent=T(-0.1)
+            ),
+            alpha=ConstantParam(T(0.2 / day)),
+        ),
+        palatability_matrix=T[0.8 0.2; 0.3 0.7],
+        sinking_tracers=(D=T(2.5 / day),),
+        open_bottom=false,
+    )
+end
 
 const MULTI_NUTRIENT_COUPLINGS = (
     Agate.Tendencies.nutrient_coupling(
