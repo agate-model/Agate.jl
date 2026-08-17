@@ -83,8 +83,6 @@ construction scalar type. No implicit casting is performed.
 """
 matrix_definitions(::AbstractBGCFactory) = (;)
 
-_matrix_derivation_factory(factory::AbstractBGCFactory) = factory
-
 """Validate the shape and element type of a derived matrix result."""
 function validate_derived_matrix_result(
     factory::AbstractBGCFactory, context::CommunityContext, key::Symbol, value
@@ -178,9 +176,7 @@ function resolve_derived_matrices(
         needs_recompute = !isempty(spec.deps) && any(d -> d in override_set, spec.deps)
 
         if needs_compute || needs_recompute
-            value = derive_matrix(
-                spec.deriver, _matrix_derivation_factory(factory), context, resolved
-            )
+            value = derive_matrix(spec.deriver, factory, context, resolved)
             validate_derived_matrix_result(factory, context, key, value)
             resolved = merge(resolved, NamedTuple{(key,)}((value,)))
         end
@@ -215,26 +211,6 @@ struct PalatabilityAllometric <: AbstractMatrixDeriver end
 
 """Derive `assimilation_matrix[consumer, prey]` from binary efficiency traits."""
 struct AssimilationBinary <: AbstractMatrixDeriver end
-
-"""Return the stable recipe identifier for a serializable matrix deriver."""
-function matrix_deriver_identifier(deriver::AbstractMatrixDeriver)
-    throw(
-        ArgumentError(
-            "No identifier is defined for interaction-matrix deriver $(typeof(deriver))."
-        ),
-    )
-end
-
-matrix_deriver_identifier(::PalatabilityAllometric) = :palatability_allometric
-matrix_deriver_identifier(::AssimilationBinary) = :assimilation_binary
-
-"""Construct a matrix deriver from its stable recipe identifier."""
-function matrix_deriver_from_identifier(::Val{id}) where {id}
-    throw(ArgumentError("Unsupported interaction-matrix deriver identifier $(repr(id))."))
-end
-
-matrix_deriver_from_identifier(::Val{:palatability_allometric}) = PalatabilityAllometric()
-matrix_deriver_from_identifier(::Val{:assimilation_binary}) = AssimilationBinary()
 
 # Dependency keys are the trait vectors used by each derivation.
 function derivation_deps(::PalatabilityAllometric)

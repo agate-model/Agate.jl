@@ -1,6 +1,5 @@
-using ..Factories: AbstractBGCFactory
-import ..Factories: parameter_definitions, parameter_directory
-import ..Configuration: matrix_definitions, normalize_diameters, _matrix_derivation_factory
+using ..Factories: AbstractBGCFactory, parameter_directory
+using ..Configuration: matrix_definitions, normalize_diameters
 
 """Return the stable recipe-family identifier for a model factory."""
 function recipe_family(factory::AbstractBGCFactory)
@@ -14,19 +13,15 @@ end
 
 """Authored scientific definition captured before model-state materialization.
 
-`ModelRecipe` stores a stable model-family identifier and the deterministic
-construction inputs needed to describe a model independently of runtime
-environment objects such as grids and architectures. Parameter definitions/defaults
-and user overrides are retained
-separately so partial overrides and parameter laws remain semantic inputs rather
-than being replaced by resolved vectors.
+`ModelRecipe` stores a stable model-family identifier and the authored scientific
+inputs needed to describe a model independently of runtime environment objects
+such as grids and architectures. Model-family code supplies parameter defaults,
+interaction derivations, and tracer equations when the recipe is replayed.
 """
-struct ModelRecipe{C,PD,PO,ID,IO,ER,IR,PR,A,S,T<:Real}
+struct ModelRecipe{C,PO,IO,ER,IR,PR,A,S,T<:Real}
     family::Symbol
     community::C
-    parameter_definitions::PD
     parameter_overrides::PO
-    interaction_definitions::ID
     interaction_overrides::IO
     ecological_roles::ER
     interaction_roles::IR
@@ -157,9 +152,7 @@ function capture_model_recipe(
     return ModelRecipe(
         family,
         deepcopy(_normalize_recipe_community(community)),
-        deepcopy(parameter_definitions(factory)),
         deepcopy(parameter_overrides),
-        deepcopy(matrix_definitions(factory)),
         deepcopy(interaction_overrides),
         deepcopy(ecological_roles),
         deepcopy(interaction_roles),
@@ -171,23 +164,8 @@ function capture_model_recipe(
     )
 end
 
-"""Internal factory view that reuses the parameter and matrix definitions captured for replay."""
-struct ReplayFactory{F,PD,ID} <: AbstractBGCFactory
-    factory::F
-    parameter_definitions::PD
-    interaction_definitions::ID
-end
-
-parameter_definitions(factory::ReplayFactory) = factory.parameter_definitions
-matrix_definitions(factory::ReplayFactory) = factory.interaction_definitions
-_matrix_derivation_factory(factory::ReplayFactory) = factory.factory
-
-"""Return a factory view that reuses the definitions captured in `recipe`."""
-replay_factory(recipe::ModelRecipe) = ReplayFactory(
-    recipe_factory(Val(recipe.family)),
-    recipe.parameter_definitions,
-    recipe.interaction_definitions,
-)
+"""Return the model-family factory used to replay `recipe`."""
+replay_factory(recipe::ModelRecipe) = recipe_factory(Val(recipe.family))
 
 """Capture the resolved deterministic state of a constructed model."""
 function capture_model_manifest(

@@ -75,8 +75,6 @@ Agate.Configuration.MatrixDefinition
 Agate.Configuration.matrix_definitions
 Agate.Configuration.derive_matrix
 Agate.Configuration.derivation_deps
-Agate.Configuration.matrix_deriver_identifier
-Agate.Configuration.matrix_deriver_from_identifier
 ```
 
 ### Plankton communities and interactions

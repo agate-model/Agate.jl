@@ -27,6 +27,8 @@ end
 
     @test encoded["schema"] == "agate.model_recipe.v1"
     @test Set(keys(encoded)) == Set(("schema", "model", "recipe"))
+    @test !haskey(encoded["recipe"], "parameter_definitions")
+    @test !haskey(encoded["recipe"], "interaction_definitions")
     @test decoded == recipe
     @test decoded_manifest == manifest
     @test decoded_manifest.sinking_tracers.D isa Float32
@@ -51,7 +53,6 @@ end
         modified(encoded, x -> (
             encoded_named_value(x["recipe"]["parameter_overrides"], :linear_mortality)["law"] = "unknown"
         )),
-        modified(encoded, x -> (x["recipe"]["interaction_definitions"][1]["deriver"] = "unknown")),
         modified(encoded, x -> (
             encoded_named_value(x["recipe"]["interaction_overrides"], :palatability_matrix)[2] = [0.3]
         )),

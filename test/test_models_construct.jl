@@ -91,8 +91,6 @@ end
         @test recipe.parameter_roles == (producers=(:P,), consumers=(:Z,))
         @test isempty(recipe.parameter_overrides)
         @test isempty(recipe.interaction_overrides)
-        @test keys(recipe.interaction_definitions) ==
-              (:palatability_matrix, :assimilation_matrix)
         @test isnothing(recipe.sinking_tracers)
         @test recipe.open_bottom
         @test recipe.scalar_type === Float64

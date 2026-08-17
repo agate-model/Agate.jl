@@ -240,7 +240,7 @@ function _recipe_construction_inputs(
     factory = Construction.replay_factory(recipe)
     kwargs = (;
         plankton_dynamics=_recipe_plankton_dynamics(recipe),
-        biogeochem_dynamics=default_biogeochem_dynamics(NiPiZDFactory()),
+        biogeochem_dynamics=default_biogeochem_dynamics(factory),
         community=recipe.community,
         parameters=recipe.parameter_overrides,
         interaction_overrides=recipe.interaction_overrides,
@@ -270,11 +270,12 @@ end
     construct_with_recipe(; kw...) -> bgc, recipe
 
 Construct NiPiZD and return the model together with its pre-materialization
-scientific recipe. The recipe records semantic size specifications, model
-parameter definitions/defaults, authored parameter and interaction overrides,
-role selections, sinking configuration, open-bottom state, and resolved scalar
-type. Runtime grid and architecture objects remain construction environment
-inputs and are not stored in the recipe.
+scientific recipe. The recipe records semantic size specifications, authored
+parameter and interaction overrides, role selections, sinking configuration,
+open-bottom state, and resolved scalar type. Model-family code supplies defaults,
+derivations, and equations when the recipe is replayed. Runtime grid and
+architecture objects remain construction environment inputs and are not stored
+in the recipe.
 """
 function construct_with_recipe(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
@@ -288,8 +289,8 @@ end
     construct_with_manifest(recipe; grid=BoxModelGrid(), arch=nothing) -> bgc, manifest
 
 Construct NiPiZD together with the authored recipe and complete resolved
-manifest. Passing a recipe replays that definition using its captured defaults
-and interaction derivations and returns the replayed model and manifest.
+manifest. Passing a recipe replays those authored inputs against the loaded
+NiPiZD model-family implementation and returns the replayed model and manifest.
 """
 function construct_with_manifest(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
