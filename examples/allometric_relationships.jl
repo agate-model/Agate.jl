@@ -294,13 +294,11 @@ slope_box_fig
 # cancel in equation (3), so the result is a growth rate. In the code below, rates given
 # per day are divided by `day` so they use the same time units as the rest of the model.
 #
-# To use these equations with `AllometricParam`, define `WardMaximumGrowth` and specify
-# what it should return for a given diameter. The calculation follows the equations above
-# directly.
+# A custom relationship is a function of `(coeffs, diameter)`, in that order. Agate
+# supplies each plankton diameter, while the keyword arguments passed to `AllometricParam`
+# below are available inside the function through `coeffs`.
 
-struct WardMaximumGrowth end
-
-function (::WardMaximumGrowth)(coeffs, diameter)
+function ward_maximum_growth(coeffs, diameter)
     volume = (4 / 3) * pi * (diameter / 2)^3
 
     rho_max = coeffs.rho_prefactor * volume^coeffs.rho_exponent
@@ -310,11 +308,10 @@ function (::WardMaximumGrowth)(coeffs, diameter)
     return mu_infinity * rho_max / (mu_infinity * q_min + rho_max)
 end
 
-# Now pair the Ward relationship with the coefficients from the paper. From this point
-# onward, it is passed to `NiPiZD.construct` in exactly the same way as the built-in law.
+# Pair the Ward relationship with the coefficients from the paper.
 
 ward_growth = AllometricParam(
-    WardMaximumGrowth();
+    ward_maximum_growth;
     rho_prefactor=0.024 / day,
     rho_exponent=1.10,
     q_min_prefactor=0.032,
