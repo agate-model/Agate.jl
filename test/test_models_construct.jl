@@ -87,6 +87,80 @@ end
         @test isfinite(bgc(Val(:Z_1), 0, 0, 0, 0, ordered..., PAR))
     end
 
+    @testset "NiPiZD semantic recipe" begin
+        phyto_diameters = [2.0, 8.0]
+        size_structure = (;
+            phytoplankton=(diat=phyto_diameters,),
+            zooplankton=(;
+                microzoo=(n=2, min_esd=30.0, max_esd=90.0, splitting=:log_splitting),
+            ),
+        )
+        growth_override = (diat_2=1.25 / day,)
+        mortality_law = AllometricParam(
+            PowerLaw(); prefactor=0.05 / day, exponent=-0.1
+        )
+        alpha_definition = ConstantParam(0.2 / day)
+        palatability = [0.8 0.2; 0.3 0.7]
+        mortality_vector = Float64[1, 2, 3, 4] ./ day
+        sinking_tracers = (D=2.5 / day,)
+
+        _, recipe = NiPiZD.construct_with_recipe(;
+            size_structure,
+            grid=dummy_grid(Float32),
+            arch=CPU(),
+            parameters=(;
+                maximum_growth_rate=growth_override,
+                linear_mortality=mortality_law,
+                alpha=alpha_definition,
+                quadratic_mortality=mortality_vector,
+            ),
+            palatability_matrix=palatability,
+            sinking_tracers,
+            open_bottom=false,
+        )
+
+        @test recipe.scalar_type === Float32
+        @test recipe.group_roles == (phytoplankton=(:diat,), zooplankton=(:microzoo,))
+        @test recipe.interaction_roles == (consumers=(:microzoo,), prey=(:diat,))
+        @test recipe.default_parameter_roles ==
+              (producers=(:diat,), consumers=(:microzoo,))
+        @test recipe.sinking_tracers == sinking_tracers
+        @test recipe.open_bottom === false
+        @test !hasproperty(recipe, :grid)
+        @test !hasproperty(recipe, :arch)
+
+        @test recipe.community.diat.diameters isa Agate.Configuration.DiameterListSpecification
+        @test recipe.community.microzoo.diameters isa
+              Agate.Configuration.DiameterRangeSpecification
+        @test recipe.community.diat.diameters.diameters == phyto_diameters
+        @test recipe.community.microzoo.diameters.splitting === :log_splitting
+
+        @test recipe.parameter_overrides.maximum_growth_rate == growth_override
+        @test recipe.parameter_overrides.linear_mortality.model isa PowerLaw
+        @test recipe.parameter_overrides.linear_mortality.coeffs == mortality_law.coeffs
+        @test recipe.parameter_overrides.alpha.value == alpha_definition.value
+        @test recipe.parameter_overrides.quadratic_mortality == mortality_vector
+        growth_definition = only(
+            definition for definition in recipe.parameter_definitions if
+            definition.spec.name === :maximum_growth_rate
+        )
+        @test growth_definition.default isa Agate.Factories.DiameterIndexedVectorDefault
+
+        @test keys(recipe.interaction_definitions) ==
+              (:palatability_matrix, :assimilation_matrix)
+        @test keys(recipe.interaction_overrides) == (:palatability_matrix,)
+        @test recipe.interaction_overrides.palatability_matrix == palatability
+
+        phyto_diameters[1] = 999.0
+        palatability[1, 1] = 999.0
+        mortality_vector[1] = 999.0
+        @test (
+            recipe.community.diat.diameters.diameters[1],
+            recipe.interaction_overrides.palatability_matrix[1, 1],
+            recipe.parameter_overrides.quadratic_mortality[1],
+        ) == (2.0, 0.8, 1 / day)
+    end
+
     @testset "NiPiZD size structure" begin
         phyto_diameters = [2.0, 10.0]
         zoo_diameters = [20.0, 100.0]
@@ -587,9 +661,8 @@ end
     end
 
     @testset "NiPiZD sinking" begin
-        bgc = NiPiZD.construct(;
-            sinking_tracers=(P_1=0.2551 / day, P_2=0.2551 / day, D=2.7489 / day)
-        )
+        sinking_tracers = (P_1=0.2551 / day, P_2=0.2551 / day, D=2.7489 / day)
+        bgc = NiPiZD.construct(; sinking_tracers)
 
         @test biogeochemical_drift_velocity(bgc, Val(:P_1)).w.data[1, 1, 1] == -0.2551 / day
         @test biogeochemical_drift_velocity(bgc, Val(:D)).w.data[1, 1, 1] == -2.7489 / day
