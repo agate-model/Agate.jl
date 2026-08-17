@@ -48,7 +48,7 @@ using Oceananigans.Units: day, minutes
 
     @testset "Generic multi-nutrient conservation" begin
         grid = BoxModelGrid()
-        bgc_instance = multi_nutrient_test_model(; grid)
+        bgc_instance = multi_nutrient_test_model()
         box_model = build_box_model(bgc_instance, grid)
         set!(
             box_model;
@@ -61,20 +61,15 @@ using Oceananigans.Units: day, minutes
             PON=0.0,
             DOP=0.0,
             POP=0.0,
-            Z_1=0.05,
             P_1=0.01,
         )
 
         n2c = bgc_instance.parameters.nitrogen_to_carbon
         p2c = bgc_instance.parameters.phosphorus_to_carbon
         budgets = (
-            carbon=[:DIC => 1, :P_1 => 1, :Z_1 => 1, :POC => 1, :DOC => 1],
-            nitrogen=[
-                :DIN => 1, :P_1 => n2c, :Z_1 => n2c, :PON => 1, :DON => 1,
-            ],
-            phosphorus=[
-                :PO4 => 1, :P_1 => p2c, :Z_1 => p2c, :POP => 1, :DOP => 1,
-            ],
+            carbon=[:DIC => 1, :P_1 => 1, :POC => 1, :DOC => 1],
+            nitrogen=[:DIN => 1, :P_1 => n2c, :PON => 1, :DON => 1],
+            phosphorus=[:PO4 => 1, :P_1 => p2c, :POP => 1, :DOP => 1],
         )
 
         result = box_model_mass_balance(box_model, budgets; dt, nsteps)
