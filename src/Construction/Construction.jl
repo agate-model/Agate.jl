@@ -5,7 +5,8 @@ import Oceananigans
 using ..Configuration: PFTSpecification
 
 export construct_factory
-export ModelRecipe
+export construct_factory_with_realization
+export ModelRecipe, ModelRealization
 export PFTSpecification
 
 include("recipe.jl")

@@ -14,6 +14,7 @@ using ..Factories:
     FillDefault,
     DiameterIndexedVectorDefault,
     DiameterIndexedMaterialization,
+    parameter_directory,
     parameter_spec,
     default_plankton_dynamics,
     default_biogeochem_dynamics,
@@ -22,6 +23,7 @@ using ..Factories:
 using ..Configuration:
     axis_indices,
     normalize_interaction_overrides,
+    matrix_definitions,
     resolve_derived_matrices,
     finalize_interaction_parameters,
     parse_community,
@@ -524,12 +526,24 @@ function resolve_construction_scalar_type(grid, scalar_type)
 end
 
 function construct_factory(factory::AbstractBGCFactory; kwargs...)
-    bgc, _ = _construct_factory(factory; build_manifest_data=false, kwargs...)
+    bgc, _, _ = _construct_factory(
+        factory; build_manifest_data=false, build_realization_data=false, kwargs...
+    )
     return bgc
 end
 
 function construct_factory_with_manifest_data(factory::AbstractBGCFactory; kwargs...)
-    return _construct_factory(factory; build_manifest_data=true, kwargs...)
+    bgc, manifest_data, _ = _construct_factory(
+        factory; build_manifest_data=true, build_realization_data=false, kwargs...
+    )
+    return bgc, manifest_data
+end
+
+function construct_factory_with_realization(factory::AbstractBGCFactory; kwargs...)
+    bgc, _, realization = _construct_factory(
+        factory; build_manifest_data=false, build_realization_data=true, kwargs...
+    )
+    return bgc, realization
 end
 
 function _construct_factory(
@@ -548,6 +562,7 @@ function _construct_factory(
     scalar_type=nothing,
     open_bottom::Bool=true,
     build_manifest_data::Bool=true,
+    build_realization_data::Bool=false,
 )
     if isnothing(grid) && !isnothing(sinking_tracers)
         grid = BoxModelGrid()
@@ -657,6 +672,19 @@ function _construct_factory(
 
     plankton_diameter_metadata = Tuple(community_context.diameters)
 
+    interaction_names = Tuple(
+        spec.name for spec in parameter_directory(factory) if
+        spec.shape === :matrix && spec.axes == (:consumer, :prey)
+    )
+    derived_interaction_names = keys(matrix_definitions(factory))
+    interaction_sources = NamedTuple{interaction_names}(
+        Tuple(
+            name in explicit_override_keys ? :explicit :
+            name in derived_interaction_names ? :derived : :default
+            for name in interaction_names
+        ),
+    )
+
     if isnothing(sinking_tracers)
         bgc_factory = define_tracer_functions(
             resolved_parameters,
@@ -682,6 +710,21 @@ function _construct_factory(
             plankton_diameters=plankton_diameter_metadata,
         )
     end
+    realization = if build_realization_data
+        capture_model_realization(
+            resolved_parameters,
+            community_context;
+            tracer_order=tracer_names,
+            auxiliary_fields,
+            interaction_sources,
+            sinking_tracers,
+            open_bottom,
+            scalar_type=T,
+        )
+    else
+        nothing
+    end
+
     bgc = on_architecture(arch, bgc)
 
     manifest_data = build_manifest_data ? (
@@ -692,5 +735,5 @@ function _construct_factory(
         open_bottom=open_bottom,
     ) : nothing
 
-    return bgc, manifest_data
+    return bgc, manifest_data, realization
 end

@@ -151,6 +151,56 @@ end
         @test recipe.interaction_overrides.palatability_matrix[1, 1] == 0.8
     end
 
+    @testset "NiPiZD exact in-memory replay" begin
+        _, recipe, realization = NiPiZD.construct_with_realization()
+        _, replayed_recipe, replayed_realization =
+            NiPiZD.construct_with_realization(recipe)
+
+        @test replayed_recipe == recipe
+        @test replayed_realization == realization
+        @test realization.group_tracers == (Z=(:Z_1, :Z_2), P=(:P_1, :P_2))
+        @test realization.tracer_order == (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
+        @test realization.interaction_sources == (
+            palatability_matrix=:derived, assimilation_matrix=:derived
+        )
+
+        size_structure = (;
+            phytoplankton=(diat=[2.0, 8.0],),
+            zooplankton=(;
+                microzoo=(n=2, min_esd=30.0, max_esd=90.0, splitting=:log_splitting),
+            ),
+        )
+        parameters = (;
+            maximum_growth_rate=(diat_2=1.25 / day,),
+            linear_mortality=AllometricParam(
+                PowerLaw(); prefactor=0.05 / day, exponent=-0.1
+            ),
+        )
+        palatability = Float32[0.8 0.2; 0.3 0.7]
+        sinking_tracers = (D=2.5f0 / day,)
+
+        _, authored_recipe, authored_realization = NiPiZD.construct_with_realization(;
+            size_structure,
+            scalar_type=Float32,
+            parameters,
+            palatability_matrix=palatability,
+            sinking_tracers,
+            open_bottom=false,
+        )
+        replayed_bgc, replayed_authored_recipe, replayed_authored_realization =
+            NiPiZD.construct_with_realization(authored_recipe)
+
+        @test replayed_authored_recipe == authored_recipe
+        @test replayed_authored_realization == authored_realization
+        @test authored_realization.interaction_sources == (
+            palatability_matrix=:explicit, assimilation_matrix=:derived
+        )
+        @test authored_realization.sinking_tracers == sinking_tracers
+        @test authored_realization.open_bottom === false
+        @test authored_realization.scalar_type === Float32
+        @test replayed_bgc.parameters == authored_realization.parameters
+    end
+
     @testset "NiPiZD size structure" begin
         phyto_diameters = [2.0, 10.0]
         zoo_diameters = [20.0, 100.0]

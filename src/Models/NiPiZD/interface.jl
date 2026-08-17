@@ -4,7 +4,7 @@ import ...Configuration
 import ...Construction
 using ...Manifests: default_model_manifest
 
-export construct, construct_with_recipe, construct_with_manifest
+export construct, construct_with_recipe, construct_with_realization, construct_with_manifest
 
 function _validated_size_structure(size_structure)
     size_structure isa NamedTuple ||
@@ -219,6 +219,78 @@ function construct(; kwargs...)
     return Construction.construct_factory(inputs.factory; inputs.kwargs...)
 end
 
+function _recipe_plankton_dynamics(recipe::Construction.ModelRecipe)
+    groups = keys(recipe.community)
+    phytoplankton = recipe.group_roles.phytoplankton
+    zooplankton = recipe.group_roles.zooplankton
+
+    values = ntuple(length(groups)) do i
+        group = groups[i]
+        if group in phytoplankton
+            phytoplankton_nipizd
+        elseif group in zooplankton
+            zooplankton_nipizd
+        else
+            throw(ArgumentError("recipe group :$group has no NiPiZD ecological role"))
+        end
+    end
+    return NamedTuple{groups}(values)
+end
+
+function _recipe_construction_inputs(
+    recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing
+)
+    recipe.factory isa NiPiZDFactory || throw(
+        ArgumentError(
+            "NiPiZD.construct(recipe) requires a NiPiZD recipe; got $(typeof(recipe.factory))"
+        ),
+    )
+
+    factory = Construction.recipe_factory(recipe)
+    kwargs = (;
+        plankton_dynamics=_recipe_plankton_dynamics(recipe),
+        biogeochem_dynamics=default_biogeochem_dynamics(recipe.factory),
+        community=recipe.community,
+        parameters=recipe.parameter_overrides,
+        interaction_overrides=recipe.interaction_overrides,
+        interaction_roles=recipe.interaction_roles,
+        default_parameter_roles=recipe.default_parameter_roles,
+        auxiliary_fields=recipe.auxiliary_fields,
+        arch,
+        sinking_tracers=recipe.sinking_tracers,
+        grid,
+        scalar_type=recipe.scalar_type,
+        open_bottom=recipe.open_bottom,
+    )
+    return (; factory, kwargs)
+end
+
+function _recapture_recipe(recipe::Construction.ModelRecipe)
+    return Construction.capture_model_recipe(
+        recipe.factory;
+        community=recipe.community,
+        parameter_definitions_snapshot=recipe.parameter_definitions,
+        interaction_definitions_snapshot=recipe.interaction_definitions,
+        parameter_overrides=recipe.parameter_overrides,
+        interaction_overrides=recipe.interaction_overrides,
+        group_roles=recipe.group_roles,
+        interaction_roles=recipe.interaction_roles,
+        default_parameter_roles=recipe.default_parameter_roles,
+        auxiliary_fields=recipe.auxiliary_fields,
+        sinking_tracers=recipe.sinking_tracers,
+        open_bottom=recipe.open_bottom,
+        scalar_type=recipe.scalar_type,
+    )
+end
+
+"""Replay a NiPiZD recipe in the supplied runtime environment."""
+function construct(
+    recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing
+)
+    inputs = _recipe_construction_inputs(recipe; grid, arch)
+    return Construction.construct_factory(inputs.factory; inputs.kwargs...)
+end
+
 
 """
     construct_with_recipe(; kw...) -> bgc, recipe
@@ -235,6 +307,34 @@ function construct_with_recipe(; kwargs...)
     recipe = Construction.capture_model_recipe(inputs.factory; inputs.recipe_kwargs...)
     bgc = Construction.construct_factory(inputs.factory; inputs.kwargs...)
     return bgc, recipe
+end
+
+"""
+    construct_with_realization(; kw...) -> bgc, recipe, realization
+    construct_with_realization(recipe; grid=BoxModelGrid(), arch=nothing) -> bgc, recipe, realization
+
+Construct NiPiZD together with the authored recipe and the complete deterministic
+realization used for exact replay comparison. Passing a recipe replays that
+definition using its captured defaults and interaction derivations.
+"""
+function construct_with_realization(; kwargs...)
+    inputs = _construction_inputs(; kwargs...)
+    recipe = Construction.capture_model_recipe(inputs.factory; inputs.recipe_kwargs...)
+    bgc, realization = Construction.construct_factory_with_realization(
+        inputs.factory; inputs.kwargs...
+    )
+    return bgc, recipe, realization
+end
+
+function construct_with_realization(
+    recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing
+)
+    inputs = _recipe_construction_inputs(recipe; grid, arch)
+    replayed_recipe = _recapture_recipe(recipe)
+    bgc, realization = Construction.construct_factory_with_realization(
+        inputs.factory; inputs.kwargs...
+    )
+    return bgc, replayed_recipe, realization
 end
 
 """
