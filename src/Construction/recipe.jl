@@ -2,6 +2,16 @@ using ..Factories: AbstractBGCFactory
 import ..Factories: parameter_definitions
 import ..Configuration: matrix_definitions
 
+"""Return the stable serialization identifier for a model factory."""
+function recipe_family(factory::AbstractBGCFactory)
+    throw(ArgumentError("Recipe serialization is not implemented for $(typeof(factory))."))
+end
+
+"""Construct the model factory identified by a decoded recipe family."""
+function recipe_factory(::Val{family}) where {family}
+    throw(ArgumentError("Unsupported recipe model family $(repr(String(family)))."))
+end
+
 """Authored scientific definition captured before model-state materialization.
 
 `ModelRecipe` stores the deterministic construction inputs needed to describe a
@@ -69,8 +79,22 @@ function _structural_isequal(a, b)
     return isequal(a, b)
 end
 
+function _recipe_factory_isequal(a, b)
+    _structural_isequal(a, b) && return true
+    try
+        return recipe_family(a) == recipe_family(b)
+    catch err
+        err isa ArgumentError || rethrow()
+        return false
+    end
+end
+
 function Base.:(==)(a::ModelRecipe, b::ModelRecipe)
-    return _structural_isequal(a, b)
+    _recipe_factory_isequal(a.factory, b.factory) || return false
+    return all(
+        _structural_isequal(getfield(a, i), getfield(b, i))
+        for i in 2:fieldcount(typeof(a))
+    )
 end
 
 function Base.:(==)(a::ModelRealization, b::ModelRealization)

@@ -43,16 +43,6 @@ const _RECIPE_KEYS = (
 )
 const _SUPPORTED_SPLITTING = (:linear_splitting, :log_splitting)
 
-"""Return the stable recipe identifier for a model factory."""
-function recipe_family(factory::AbstractBGCFactory)
-    throw(ArgumentError("Recipe serialization is not implemented for $(typeof(factory))."))
-end
-
-"""Construct the model factory identified by a decoded recipe family."""
-function recipe_factory(::Val{family}) where {family}
-    throw(ArgumentError("Unsupported recipe model family $(repr(String(family)))."))
-end
-
 function _check_keys(x, allowed, path)
     x isa AbstractDict || throw(ArgumentError("$path must be an object."))
     for key in keys(x)
