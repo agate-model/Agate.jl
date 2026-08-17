@@ -458,6 +458,13 @@ function resolve_construction_scalar_type(grid, scalar_type)
     return Float64
 end
 
+convert_sinking_tracers(::Type{T}, ::Nothing) where {T<:Real} = nothing
+function convert_sinking_tracers(::Type{T}, sinking_tracers::NamedTuple) where {T<:Real}
+    return NamedTuple{keys(sinking_tracers)}(
+        Tuple(convert(T, velocity) for velocity in values(sinking_tracers))
+    )
+end
+
 """
     construct_factory(factory::AbstractBGCFactory; kwargs...) -> bgc
 
@@ -523,6 +530,7 @@ function _construct_factory(
         grid = BoxModelGrid()
     end
     T = resolve_construction_scalar_type(grid, scalar_type)
+    sinking_tracers = convert_sinking_tracers(T, sinking_tracers)
 
     if !isnothing(grid)
         arch_grid = architecture(grid)
