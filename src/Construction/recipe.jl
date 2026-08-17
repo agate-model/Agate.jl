@@ -35,7 +35,7 @@ struct ModelRealization{P,G,TR,A,D,I,S,T<:Real}
     tracer_order::TR
     auxiliary_fields::A
     plankton_diameters::D
-    interaction_sources::I
+    interaction_matrix_sources::I
     sinking_tracers::S
     open_bottom::Bool
     scalar_type::Type{T}
@@ -78,8 +78,6 @@ end
 function capture_model_recipe(
     factory::AbstractBGCFactory;
     community,
-    parameter_definitions_snapshot=parameter_definitions(factory),
-    interaction_definitions_snapshot=matrix_definitions(factory),
     parameter_overrides::NamedTuple=(;),
     interaction_overrides::Union{Nothing,NamedTuple}=nothing,
     group_roles,
@@ -93,9 +91,9 @@ function capture_model_recipe(
     return ModelRecipe(
         factory,
         deepcopy(community),
-        deepcopy(parameter_definitions_snapshot),
+        deepcopy(parameter_definitions(factory)),
         deepcopy(parameter_overrides),
-        deepcopy(interaction_definitions_snapshot),
+        deepcopy(matrix_definitions(factory)),
         deepcopy(interaction_overrides),
         deepcopy(group_roles),
         deepcopy(interaction_roles),
@@ -107,17 +105,17 @@ function capture_model_recipe(
     )
 end
 
-"""Internal factory view that reuses the parameter and matrix definitions captured in a recipe."""
-struct RecipeFactory{F,PD,ID} <: AbstractBGCFactory
+"""Internal factory view that reuses the parameter and matrix definitions captured for replay."""
+struct ReplayFactory{F,PD,ID} <: AbstractBGCFactory
     factory::F
     parameter_definitions::PD
     interaction_definitions::ID
 end
 
-parameter_definitions(factory::RecipeFactory) = factory.parameter_definitions
-matrix_definitions(factory::RecipeFactory) = factory.interaction_definitions
+parameter_definitions(factory::ReplayFactory) = factory.parameter_definitions
+matrix_definitions(factory::ReplayFactory) = factory.interaction_definitions
 
-recipe_factory(recipe::ModelRecipe) = RecipeFactory(
+replay_factory(recipe::ModelRecipe) = ReplayFactory(
     recipe.factory, recipe.parameter_definitions, recipe.interaction_definitions
 )
 
@@ -126,7 +124,7 @@ function capture_model_realization(
     community_context;
     tracer_order::Tuple,
     auxiliary_fields::Tuple,
-    interaction_sources,
+    interaction_matrix_sources,
     sinking_tracers,
     open_bottom::Bool,
     scalar_type::Type{T},
@@ -145,7 +143,7 @@ function capture_model_realization(
         tracer_order,
         auxiliary_fields,
         Tuple(community_context.diameters),
-        deepcopy(interaction_sources),
+        deepcopy(interaction_matrix_sources),
         deepcopy(sinking_tracers),
         open_bottom,
         scalar_type,

@@ -246,7 +246,7 @@ function _recipe_construction_inputs(
         ),
     )
 
-    factory = Construction.recipe_factory(recipe)
+    factory = Construction.replay_factory(recipe)
     kwargs = (;
         plankton_dynamics=_recipe_plankton_dynamics(recipe),
         biogeochem_dynamics=default_biogeochem_dynamics(recipe.factory),
@@ -263,24 +263,6 @@ function _recipe_construction_inputs(
         open_bottom=recipe.open_bottom,
     )
     return (; factory, kwargs)
-end
-
-function _recapture_recipe(recipe::Construction.ModelRecipe)
-    return Construction.capture_model_recipe(
-        recipe.factory;
-        community=recipe.community,
-        parameter_definitions_snapshot=recipe.parameter_definitions,
-        interaction_definitions_snapshot=recipe.interaction_definitions,
-        parameter_overrides=recipe.parameter_overrides,
-        interaction_overrides=recipe.interaction_overrides,
-        group_roles=recipe.group_roles,
-        interaction_roles=recipe.interaction_roles,
-        default_parameter_roles=recipe.default_parameter_roles,
-        auxiliary_fields=recipe.auxiliary_fields,
-        sinking_tracers=recipe.sinking_tracers,
-        open_bottom=recipe.open_bottom,
-        scalar_type=recipe.scalar_type,
-    )
 end
 
 """Replay a NiPiZD recipe in the supplied runtime environment."""
@@ -311,11 +293,12 @@ end
 
 """
     construct_with_realization(; kw...) -> bgc, recipe, realization
-    construct_with_realization(recipe; grid=BoxModelGrid(), arch=nothing) -> bgc, recipe, realization
+    construct_with_realization(recipe; grid=BoxModelGrid(), arch=nothing) -> bgc, realization
 
-Construct NiPiZD together with the authored recipe and the complete deterministic
+Construct NiPiZD together with the authored recipe and complete deterministic
 realization used for exact replay comparison. Passing a recipe replays that
-definition using its captured defaults and interaction derivations.
+definition using its captured defaults and interaction derivations and returns
+the replayed model and realization.
 """
 function construct_with_realization(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
@@ -330,11 +313,10 @@ function construct_with_realization(
     recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing
 )
     inputs = _recipe_construction_inputs(recipe; grid, arch)
-    replayed_recipe = _recapture_recipe(recipe)
     bgc, realization = Construction.construct_factory_with_realization(
         inputs.factory; inputs.kwargs...
     )
-    return bgc, replayed_recipe, realization
+    return bgc, realization
 end
 
 """

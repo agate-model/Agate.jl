@@ -677,7 +677,7 @@ function _construct_factory(
         spec.shape === :matrix && spec.axes == (:consumer, :prey)
     )
     derived_interaction_names = keys(matrix_definitions(factory))
-    interaction_sources = NamedTuple{interaction_names}(
+    interaction_matrix_sources = NamedTuple{interaction_names}(
         Tuple(
             name in explicit_override_keys ? :explicit :
             name in derived_interaction_names ? :derived : :default
@@ -716,7 +716,7 @@ function _construct_factory(
             community_context;
             tracer_order=tracer_names,
             auxiliary_fields,
-            interaction_sources,
+            interaction_matrix_sources,
             sinking_tracers,
             open_bottom,
             scalar_type=T,
