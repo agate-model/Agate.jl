@@ -11,11 +11,14 @@ using OceanBioME: BoxModelGrid
 
 nothing #hide
 
-# ## Construct a model and recipe
+# ## Construct a model, recipe, and manifest
+
+# `ModelRecipe` stores the scientific inputs used to construct the model. `ModelManifest`
+# records the resolved scientific state produced from those inputs.
 
 grid = BoxModelGrid()
 
-bgc, recipe = NiPiZD.construct_with_recipe(;
+bgc, recipe, manifest = NiPiZD.construct_with_manifest(;
     grid,
     size_structure=(;
         phytoplankton=(P=(n=3, min_esd=1.0, max_esd=10.0, splitting=:log_splitting),),
@@ -27,6 +30,9 @@ nothing #hide
 
 # ## Export the recipe
 
+# Recipes are the durable model definition. The resolved manifest stays in memory and can
+# be used to check that replay produces the same scientific state.
+
 recipe_path = tempname() * ".json"
 export_recipe(recipe_path, recipe)
 
@@ -36,10 +42,14 @@ nothing #hide
 
 # ## Reload and replay
 
-loaded = import_recipe(recipe_path)
-replayed = NiPiZD.construct(loaded; grid)
+# The grid is supplied again when replaying because runtime environment choices are not
+# stored in the recipe.
 
-println(typeof(bgc))
+loaded = import_recipe(recipe_path)
+replayed, replayed_manifest = NiPiZD.construct_with_manifest(loaded; grid)
+
+println("Recipe preserved: ", loaded == recipe)
+println("Manifest preserved: ", replayed_manifest == manifest)
 println(typeof(replayed))
 
 nothing #hide
