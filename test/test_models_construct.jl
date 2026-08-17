@@ -129,7 +129,7 @@ end
         phyto_diameters[1] = 999.0
         palatability[1, 1] = 999.0
         @test recipe.community.diat.diameters.diameters[1] == 2.0
-        @test recipe.interaction_overrides.palatability_matrix[1, 1] == 0.8
+        @test recipe.interaction_overrides.palatability_matrix[1, 1] == Float32(0.8)
 
         _, replayed_manifest = NiPiZD.construct_with_manifest(recipe)
         @test replayed_manifest == manifest
