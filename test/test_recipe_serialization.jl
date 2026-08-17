@@ -29,6 +29,7 @@ end
     @test Set(keys(encoded)) == Set(("schema", "model", "recipe"))
     @test decoded == recipe
     @test decoded_manifest == manifest
+    @test decoded_manifest.sinking_tracers.D isa Float32
 
     mktemp() do path, io
         close(io)
