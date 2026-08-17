@@ -3,6 +3,7 @@ using Agate
 using Test
 
 include("test_helpers.jl")
+include(joinpath("NPZD", "tracers.jl"))
 
 include("test_tracer_functions.jl")
 include("test_classrefs_and_tracer_accessors.jl")

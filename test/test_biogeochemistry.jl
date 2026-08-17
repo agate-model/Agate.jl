@@ -56,8 +56,6 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "helper functions and tracer sinking" begin
-        include(joinpath("NPZD", "tracers.jl"))
-
         model = AgateNPZD(parameters)
 
         Z = 0.05

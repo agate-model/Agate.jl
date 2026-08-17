@@ -140,8 +140,6 @@ using Test
     end
 
     @testset "Generated model (define_tracer_functions)" begin
-        include(joinpath(@__DIR__, "NPZD", "tracers.jl"))
-
         model = AgateNPZD(parameters)
         @test tracer_names(model) == [:N, :D, :P, :Z]
         @test plankton_groups(model) == NamedTuple()
