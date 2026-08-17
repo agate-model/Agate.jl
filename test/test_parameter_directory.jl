@@ -25,8 +25,10 @@ import Agate.Factories: FillDefault, parameter_definitions, parameter_directory
         @test specmap[:maximum_growth_rate].shape == :vector
         @test specmap[:maximum_growth_rate].axes == :plankton
         @test !isnothing(specmap[:maximum_growth_rate].materialization)
+        @test specmap[:maximum_growth_rate].materialization.role === :producers
         @test specmap[:maximum_growth_rate].materialization.fill_value == 0
         @test !isnothing(specmap[:linear_mortality].materialization)
+        @test isnothing(specmap[:linear_mortality].materialization.role)
         @test specmap[:linear_mortality].materialization.fill_value == 0
         @test specmap[:palatability_matrix].shape == :matrix
         @test specmap[:palatability_matrix].axes == (:consumer, :prey)

@@ -11,7 +11,7 @@ separately so partial overrides and parameter laws remain semantic inputs rather
 than being replaced by resolved vectors.
 """
 struct ModelRecipe{
-    F,C,PD,PO,ID,IO,GR,IR,DPR,A,S,T<:Real
+    F,C,PD,PO,ID,IO,ER,IR,PR,A,S,T<:Real
 }
     factory::F
     community::C
@@ -19,9 +19,9 @@ struct ModelRecipe{
     parameter_overrides::PO
     interaction_definitions::ID
     interaction_overrides::IO
-    group_roles::GR
+    ecological_roles::ER
     interaction_roles::IR
-    default_parameter_roles::DPR
+    parameter_roles::PR
     auxiliary_fields::A
     sinking_tracers::S
     open_bottom::Bool
@@ -29,12 +29,15 @@ struct ModelRecipe{
 end
 
 """Resolved deterministic model state used for exact construction replay checks."""
-struct ModelRealization{P,G,TR,A,D,I,S,T<:Real}
+struct ModelRealization{P,G,TR,A,D,ER,IR,PRI,I,S,T<:Real}
     parameters::P
     group_tracers::G
     tracer_order::TR
     auxiliary_fields::A
     plankton_diameters::D
+    ecological_roles::ER
+    interaction_role_indices::IR
+    parameter_role_indices::PRI
     interaction_matrix_sources::I
     sinking_tracers::S
     open_bottom::Bool
@@ -80,9 +83,9 @@ function capture_model_recipe(
     community,
     parameter_overrides::NamedTuple=(;),
     interaction_overrides::Union{Nothing,NamedTuple}=nothing,
-    group_roles,
+    ecological_roles,
     interaction_roles,
-    default_parameter_roles,
+    parameter_roles,
     auxiliary_fields::Tuple,
     sinking_tracers=nothing,
     open_bottom::Bool=true,
@@ -95,9 +98,9 @@ function capture_model_recipe(
         deepcopy(parameter_overrides),
         deepcopy(matrix_definitions(factory)),
         deepcopy(interaction_overrides),
-        deepcopy(group_roles),
+        deepcopy(ecological_roles),
         deepcopy(interaction_roles),
-        deepcopy(default_parameter_roles),
+        deepcopy(parameter_roles),
         deepcopy(auxiliary_fields),
         deepcopy(sinking_tracers),
         open_bottom,
@@ -124,6 +127,7 @@ function capture_model_realization(
     community_context;
     tracer_order::Tuple,
     auxiliary_fields::Tuple,
+    ecological_roles::NamedTuple=(;),
     interaction_matrix_sources,
     sinking_tracers,
     open_bottom::Bool,
@@ -137,12 +141,26 @@ function capture_model_realization(
     end
     group_tracers = NamedTuple{group_order}(group_values)
 
+    interaction_role_indices = (
+        consumers=Tuple(community_context.consumer_indices),
+        prey=Tuple(community_context.prey_indices),
+    )
+    parameter_role_names = keys(community_context.parameter_role_indices)
+    parameter_role_values = ntuple(length(parameter_role_names)) do i
+        role = parameter_role_names[i]
+        Tuple(getproperty(community_context.parameter_role_indices, role))
+    end
+    parameter_role_indices = NamedTuple{parameter_role_names}(parameter_role_values)
+
     return ModelRealization(
         deepcopy(parameters),
         group_tracers,
         tracer_order,
         auxiliary_fields,
         Tuple(community_context.diameters),
+        deepcopy(ecological_roles),
+        interaction_role_indices,
+        parameter_role_indices,
         deepcopy(interaction_matrix_sources),
         deepcopy(sinking_tracers),
         open_bottom,

@@ -7,6 +7,77 @@ using Agate.Runtime: class, resolve_class, class_count, build_tracer_index, Trac
 using Agate.Factories:
     default_plankton_dynamics, default_biogeochem_dynamics, default_community
 
+
+struct GenericRoleFixtureFactory <: Agate.Factories.AbstractBGCFactory end
+
+Agate.Factories.parameter_definitions(::GenericRoleFixtureFactory) = ()
+Agate.Configuration.matrix_definitions(::GenericRoleFixtureFactory) = (;)
+
+@testset "Independent community roles" begin
+    pft = Agate.Configuration.PFTSpecification()
+    group = (; diameters=[1.0], pft)
+    community = (P=group, B=group, M=group, Z=group)
+    plankton_dynamics = (P=identity, B=identity, M=identity, Z=identity)
+    ecological_roles = (
+        phytoplankton=(:P,),
+        bacterioplankton=(:B,),
+        mixotrophs=(:M,),
+        zooplankton=(:Z,),
+    )
+    interaction_roles = (consumers=(:Z, :M), prey=(:P, :B, :M))
+    parameter_roles = (
+        producers=(:P, :M), consumers=(:Z, :M), bacterioplankton=(:B,)
+    )
+
+    factory = GenericRoleFixtureFactory()
+    context = parse_community(
+        factory,
+        Float64,
+        community;
+        plankton_dynamics,
+        interaction_roles,
+        parameter_roles,
+    )
+
+    @test (
+        context.parameter_role_indices,
+        context.consumer_indices,
+        context.prey_indices,
+    ) == (
+        (producers=[1, 3], consumers=[3, 4], bacterioplankton=[2]),
+        [3, 4],
+        [1, 2, 3],
+    )
+
+    recipe = Agate.Construction.capture_model_recipe(
+        factory;
+        community,
+        ecological_roles,
+        interaction_roles,
+        parameter_roles,
+        auxiliary_fields=(),
+        scalar_type=Float64,
+    )
+    realization = Agate.Construction.capture_model_realization(
+        (;),
+        context;
+        tracer_order=Tuple(context.plankton_symbols),
+        auxiliary_fields=(),
+        ecological_roles,
+        interaction_matrix_sources=(;),
+        sinking_tracers=nothing,
+        open_bottom=true,
+        scalar_type=Float64,
+    )
+
+    @test (recipe.ecological_roles, recipe.interaction_roles, recipe.parameter_roles) ==
+          (ecological_roles, interaction_roles, parameter_roles)
+    @test realization.ecological_roles == ecological_roles
+    @test realization.interaction_role_indices == (consumers=(3, 4), prey=(1, 2, 3))
+    @test realization.parameter_role_indices ==
+          (producers=(1, 3), consumers=(3, 4), bacterioplankton=(2,))
+end
+
 @testset "ClassRef + Tracers accessors" begin
     factory = Agate.Models.NiPiZD.NiPiZDFactory()
     community = default_community(factory)

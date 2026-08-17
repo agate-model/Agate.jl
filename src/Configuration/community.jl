@@ -99,8 +99,7 @@ Fields
 - `group_indices`: mapping from group symbol to flattened class indices.
 - `consumer_indices`: flattened indices used for the consumer axis.
 - `prey_indices`: flattened indices used for the prey axis.
-- `default_producer_indices`: flattened indices used when building producer defaults.
-- `default_consumer_indices`: flattened indices used when building consumer defaults.
+- `parameter_role_indices`: resolved class indices for named parameter-applicability roles.
 - `plankton_dynamics`: group-level plankton dynamics builders.
 - `biogeochem_dynamics`: non-plankton tracer dynamics builders.
 """
@@ -115,8 +114,7 @@ struct CommunityContext{T<:Real,VT<:AbstractVector{T}}
     group_indices::Dict{Symbol,Vector{Int}}
     consumer_indices::Vector{Int}
     prey_indices::Vector{Int}
-    default_producer_indices::Vector{Int}
-    default_consumer_indices::Vector{Int}
+    parameter_role_indices::NamedTuple
 
     plankton_dynamics::NamedTuple
     biogeochem_dynamics::NamedTuple
@@ -248,12 +246,12 @@ Keyword arguments
 - `interaction_roles`: optional `NamedTuple` with fields `consumers` and
   `prey`. Each field may be `nothing`, a collection of group symbols, an index
   vector, or a boolean mask.
-- `default_parameter_roles`: optional `NamedTuple` with fields `producers` and
-  `consumers` used only when generating default parameter vectors.
+- `parameter_roles`: optional `NamedTuple` mapping semantic parameter-applicability
+  roles to group selections, index vectors, or boolean masks.
 
 When `interaction_roles` is omitted, both interaction axes include all classes.
-When `default_parameter_roles` is omitted, producer membership defaults to the
-prey axis and consumer membership defaults to the consumer axis.
+When `parameter_roles` is omitted, `producers` defaults to the prey axis and
+`consumers` defaults to the consumer axis.
 """
 function parse_community(
     factory::AbstractBGCFactory,
@@ -262,7 +260,7 @@ function parse_community(
     plankton_dynamics::NamedTuple=NamedTuple(),
     biogeochem_dynamics::NamedTuple=NamedTuple(),
     interaction_roles=nothing,
-    default_parameter_roles=nothing,
+    parameter_roles=nothing,
 ) where {T<:Real}
     if !isnothing(interaction_roles)
         (
@@ -275,16 +273,11 @@ function parse_community(
         )
     end
 
-    if !isnothing(default_parameter_roles)
-        (
-            hasproperty(default_parameter_roles, :producers) &&
-            hasproperty(default_parameter_roles, :consumers)
-        ) || throw(
-            ArgumentError(
-                "default_parameter_roles must have fields :producers and :consumers (each may be `nothing`, group Symbols, indices, or boolean masks).",
-            ),
-        )
-    end
+    !isnothing(parameter_roles) && !(parameter_roles isa NamedTuple) && throw(
+        ArgumentError(
+            "parameter_roles must be a NamedTuple mapping role names to group Symbols, indices, or boolean masks."
+        ),
+    )
     group_order = keys(community)
     plankton_symbols = Symbol[]
     group_of = Symbol[]
@@ -341,18 +334,6 @@ function parse_community(
         throw(ArgumentError("interaction_roles must define :consumers"))
     hasproperty(interaction_roles_resolved, :prey) ||
         throw(ArgumentError("interaction_roles must define :prey"))
-    default_parameter_roles_resolved = if isnothing(default_parameter_roles)
-        (
-            producers=getproperty(interaction_roles_resolved, :prey),
-            consumers=getproperty(interaction_roles_resolved, :consumers),
-        )
-    else
-        default_parameter_roles
-    end
-    hasproperty(default_parameter_roles_resolved, :producers) ||
-        throw(ArgumentError("default_parameter_roles must define :producers"))
-    hasproperty(default_parameter_roles_resolved, :consumers) ||
-        throw(ArgumentError("default_parameter_roles must define :consumers"))
 
     function indices_for_role(role, role_name::Symbol)
         if role === nothing
@@ -393,12 +374,20 @@ function parse_community(
     )
     prey_indices = indices_for_role(getproperty(interaction_roles_resolved, :prey), :prey)
 
-    default_producer_indices = indices_for_role(
-        getproperty(default_parameter_roles_resolved, :producers), :default_producers
-    )
-    default_consumer_indices = indices_for_role(
-        getproperty(default_parameter_roles_resolved, :consumers), :default_consumers
-    )
+    parameter_roles_resolved = if isnothing(parameter_roles)
+        (
+            producers=getproperty(interaction_roles_resolved, :prey),
+            consumers=getproperty(interaction_roles_resolved, :consumers),
+        )
+    else
+        parameter_roles
+    end
+    parameter_role_names = keys(parameter_roles_resolved)
+    parameter_role_values = ntuple(length(parameter_role_names)) do i
+        role_name = parameter_role_names[i]
+        indices_for_role(getproperty(parameter_roles_resolved, role_name), role_name)
+    end
+    parameter_role_indices = NamedTuple{parameter_role_names}(parameter_role_values)
 
     community_context = CommunityContext{T,typeof(diameters)}(
         T,
@@ -411,13 +400,21 @@ function parse_community(
         group_indices,
         consumer_indices,
         prey_indices,
-        default_producer_indices,
-        default_consumer_indices,
+        parameter_role_indices,
         plankton_dynamics,
         biogeochem_dynamics,
     )
 
     return community_context
+end
+
+function parameter_role_indices(context::CommunityContext, role::Symbol)
+    hasproperty(context.parameter_role_indices, role) || throw(
+        ArgumentError(
+            "Unknown parameter role :$role. Available roles: $(collect(keys(context.parameter_role_indices)))."
+        ),
+    )
+    return getproperty(context.parameter_role_indices, role)
 end
 
 @inline function param_check_length(name::Symbol, expected::Int, got::Int)

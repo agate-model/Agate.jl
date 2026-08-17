@@ -75,11 +75,11 @@ function _community_inputs(size_structure)
     end
     plankton_dynamics = NamedTuple{group_order}(dynamics_values)
     interaction_roles = (consumers=structure.consumer_groups, prey=structure.producer_groups)
-    default_parameter_roles = (;
+    parameter_roles = (;
         producers=structure.producer_groups, consumers=structure.consumer_groups
     )
 
-    group_roles = (;
+    ecological_roles = (;
         phytoplankton=structure.producer_groups, zooplankton=structure.consumer_groups
     )
     return (;
@@ -87,22 +87,49 @@ function _community_inputs(size_structure)
         recipe_community,
         plankton_dynamics,
         interaction_roles,
-        default_parameter_roles,
-        group_roles,
+        parameter_roles,
+        ecological_roles,
     )
 end
 
-function _construction_inputs(;
-    size_structure=DEFAULT_SIZE_STRUCTURE,
-    parameters::NamedTuple=(;),
-    palatability_matrix=nothing,
-    assimilation_matrix=nothing,
-    grid=BoxModelGrid(),
-    scalar_type=nothing,
-    arch=nothing,
-    sinking_tracers=nothing,
-    open_bottom::Bool=true,
+Base.@kwdef struct NiPiZDConstructionOptions
+    size_structure = DEFAULT_SIZE_STRUCTURE
+    parameters::NamedTuple = (;)
+    palatability_matrix = nothing
+    assimilation_matrix = nothing
+    grid = BoxModelGrid()
+    scalar_type = nothing
+    arch = nothing
+    sinking_tracers = nothing
+    open_bottom::Bool = true
+end
+
+const RECIPE_INPUT_FIELDS = (
+    :size_structure,
+    :parameters,
+    :palatability_matrix,
+    :assimilation_matrix,
+    :scalar_type,
+    :sinking_tracers,
+    :open_bottom,
 )
+const ENVIRONMENT_INPUT_FIELDS = (:grid, :arch)
+
+_construction_inputs(; kwargs...) = _construction_inputs(NiPiZDConstructionOptions(; kwargs...))
+
+function _construction_inputs(options::NiPiZDConstructionOptions)
+    (;
+        size_structure,
+        parameters,
+        palatability_matrix,
+        assimilation_matrix,
+        grid,
+        scalar_type,
+        arch,
+        sinking_tracers,
+        open_bottom,
+    ) = options
+
     factory = NiPiZDFactory()
     community_inputs = _community_inputs(size_structure)
 
@@ -120,9 +147,9 @@ function _construction_inputs(;
         community=community_inputs.recipe_community,
         parameter_overrides=parameters,
         interaction_overrides,
-        group_roles=community_inputs.group_roles,
+        ecological_roles=community_inputs.ecological_roles,
         interaction_roles=community_inputs.interaction_roles,
-        default_parameter_roles=community_inputs.default_parameter_roles,
+        parameter_roles=community_inputs.parameter_roles,
         auxiliary_fields,
         sinking_tracers,
         open_bottom,
@@ -132,13 +159,14 @@ function _construction_inputs(;
     return (
         factory=factory,
         recipe_kwargs,
-        manifest_group_roles=community_inputs.group_roles,
+        manifest_group_roles=community_inputs.ecological_roles,
         kwargs=(;
             plankton_dynamics=community_inputs.plankton_dynamics,
             community=community_inputs.community,
             parameters=parameters,
+            ecological_roles=community_inputs.ecological_roles,
             interaction_roles=community_inputs.interaction_roles,
-            default_parameter_roles=community_inputs.default_parameter_roles,
+            parameter_roles=community_inputs.parameter_roles,
             auxiliary_fields,
             interaction_overrides=interaction_overrides,
             arch=arch,
@@ -221,8 +249,8 @@ end
 
 function _recipe_plankton_dynamics(recipe::Construction.ModelRecipe)
     groups = keys(recipe.community)
-    phytoplankton = recipe.group_roles.phytoplankton
-    zooplankton = recipe.group_roles.zooplankton
+    phytoplankton = recipe.ecological_roles.phytoplankton
+    zooplankton = recipe.ecological_roles.zooplankton
 
     values = ntuple(length(groups)) do i
         group = groups[i]
@@ -253,8 +281,9 @@ function _recipe_construction_inputs(
         community=recipe.community,
         parameters=recipe.parameter_overrides,
         interaction_overrides=recipe.interaction_overrides,
+        ecological_roles=recipe.ecological_roles,
         interaction_roles=recipe.interaction_roles,
-        default_parameter_roles=recipe.default_parameter_roles,
+        parameter_roles=recipe.parameter_roles,
         auxiliary_fields=recipe.auxiliary_fields,
         arch,
         sinking_tracers=recipe.sinking_tracers,

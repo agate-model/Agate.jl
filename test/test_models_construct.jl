@@ -48,6 +48,15 @@ function Agate.Factories.parameter_definitions(::ThreeInteractionMatrixFactory)
 end
 
 @testset "Public model constructors" begin
+    @testset "NiPiZD construction input classification" begin
+        recipe_fields = Set(NiPiZD.RECIPE_INPUT_FIELDS)
+        environment_fields = Set(NiPiZD.ENVIRONMENT_INPUT_FIELDS)
+
+        @test isempty(intersect(recipe_fields, environment_fields))
+        @test union(recipe_fields, environment_fields) ==
+              Set(fieldnames(NiPiZD.NiPiZDConstructionOptions))
+    end
+
     @testset "NiPiZD defaults" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
 
@@ -90,9 +99,9 @@ end
     @testset "NiPiZD default recipe" begin
         _, recipe = NiPiZD.construct_with_recipe()
 
-        @test recipe.group_roles == (phytoplankton=(:P,), zooplankton=(:Z,))
+        @test recipe.ecological_roles == (phytoplankton=(:P,), zooplankton=(:Z,))
         @test recipe.interaction_roles == (consumers=(:Z,), prey=(:P,))
-        @test recipe.default_parameter_roles == (producers=(:P,), consumers=(:Z,))
+        @test recipe.parameter_roles == (producers=(:P,), consumers=(:Z,))
         @test isempty(recipe.parameter_overrides)
         @test isnothing(recipe.interaction_overrides)
         @test keys(recipe.interaction_definitions) ==
@@ -429,8 +438,7 @@ end
             Dict(:consumer => [1], :prey => [2, 3]),
             [1],
             [2, 3],
-            [2, 3],
-            [1],
+            (producers=[2, 3], consumers=[1]),
             (;),
             (;),
         )

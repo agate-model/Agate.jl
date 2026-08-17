@@ -31,9 +31,9 @@ function parameter_definitions(::DarwinFactory)
     detritus_remin = 0.1213 / 86400
     all_plankton_materialization = DiameterIndexedMaterialization(; fill_value=0)
     producer_materialization =
-        DiameterIndexedMaterialization(:default_producer_indices; fill_value=0)
+        DiameterIndexedMaterialization(:producers; fill_value=0)
     consumer_materialization =
-        DiameterIndexedMaterialization(:default_consumer_indices; fill_value=0)
+        DiameterIndexedMaterialization(:consumers; fill_value=0)
 
     return (
         ParameterDefinition(
@@ -100,7 +100,7 @@ function parameter_definitions(::DarwinFactory)
                 materialization=consumer_materialization,
                 doc="Quadratic mortality coefficient per plankton class.",
             ),
-            DiameterIndexedVectorDefault(1e-6, :default_consumer_indices; default=0),
+            DiameterIndexedVectorDefault(1e-6, :consumers; default=0),
         ),
         ParameterDefinition(
             ParameterSpec(
@@ -112,7 +112,7 @@ function parameter_definitions(::DarwinFactory)
             ),
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=2 / 86400, exponent=-0.15),
-                :default_producer_indices;
+                :producers;
                 default=0,
             ),
         ),
@@ -126,7 +126,7 @@ function parameter_definitions(::DarwinFactory)
             ),
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27),
-                :default_producer_indices;
+                :producers;
                 default=0,
             ),
         ),
@@ -140,7 +140,7 @@ function parameter_definitions(::DarwinFactory)
             ),
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27),
-                :default_producer_indices;
+                :producers;
                 default=0,
             ),
         ),
@@ -152,7 +152,7 @@ function parameter_definitions(::DarwinFactory)
                 materialization=producer_materialization,
                 doc="Initial slope of the P-I curve per plankton class.",
             ),
-            DiameterIndexedVectorDefault(0.1 / 86400, :default_producer_indices; default=0),
+            DiameterIndexedVectorDefault(0.1 / 86400, :producers; default=0),
         ),
         ParameterDefinition(
             ParameterSpec(
@@ -162,7 +162,7 @@ function parameter_definitions(::DarwinFactory)
                 materialization=producer_materialization,
                 doc="Chlorophyll-to-carbon ratio per plankton class.",
             ),
-            DiameterIndexedVectorDefault(0.02, :default_producer_indices; default=0),
+            DiameterIndexedVectorDefault(0.02, :producers; default=0),
         ),
         ParameterDefinition(
             ParameterSpec(
@@ -174,7 +174,7 @@ function parameter_definitions(::DarwinFactory)
             ),
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=30.84 / 86400, exponent=-0.16),
-                :default_consumer_indices;
+                :consumers;
                 default=0,
             ),
         ),
@@ -188,7 +188,7 @@ function parameter_definitions(::DarwinFactory)
             ),
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=1.0, exponent=-0.23),
-                :default_consumer_indices;
+                :consumers;
                 default=0,
             ),
         ),
@@ -218,7 +218,7 @@ function parameter_definitions(::DarwinFactory)
                 materialization=consumer_materialization,
                 doc="Preferred predator:prey diameter ratio per consumer (used to derive palatability_matrix).",
             ),
-            DiameterIndexedVectorDefault(10.0, :default_consumer_indices; default=0),
+            DiameterIndexedVectorDefault(10.0, :consumers; default=0),
         ),
         ParameterDefinition(
             ParameterSpec(
@@ -228,7 +228,7 @@ function parameter_definitions(::DarwinFactory)
                 materialization=consumer_materialization,
                 doc="Unimodal palatability specificity per consumer (used to derive palatability_matrix).",
             ),
-            DiameterIndexedVectorDefault(0.3, :default_consumer_indices; default=0),
+            DiameterIndexedVectorDefault(0.3, :consumers; default=0),
         ),
         ParameterDefinition(
             ParameterSpec(
@@ -247,7 +247,7 @@ function parameter_definitions(::DarwinFactory)
                 materialization=consumer_materialization,
                 doc="Assimilation efficiency per consumer (used to derive assimilation_matrix).",
             ),
-            DiameterIndexedVectorDefault(0.32, :default_consumer_indices; default=0),
+            DiameterIndexedVectorDefault(0.32, :consumers; default=0),
         ),
     )
 end

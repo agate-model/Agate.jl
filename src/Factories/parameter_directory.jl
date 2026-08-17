@@ -11,19 +11,17 @@ export parameter_spec
 
 """Materialize a parameter law over selected diameter-indexed classes.
 
-`indices_field` names the `CommunityContext` field containing the selected class
-indices. When it is `nothing`, the law applies to every plankton class. `fill_value`
-is assigned outside the selected indices.
+`role` names a declared parameter-applicability role in the parsed community.
+When it is `nothing`, the law applies to every plankton class. `fill_value` is
+assigned outside the selected role.
 """
 struct DiameterIndexedMaterialization{T}
-    indices_field::Union{Nothing,Symbol}
+    role::Union{Nothing,Symbol}
     fill_value::T
 end
 
-function DiameterIndexedMaterialization(
-    indices_field::Union{Nothing,Symbol}=nothing; fill_value
-)
-    return DiameterIndexedMaterialization(indices_field, fill_value)
+function DiameterIndexedMaterialization(role::Union{Nothing,Symbol}=nothing; fill_value)
+    return DiameterIndexedMaterialization(role, fill_value)
 end
 
 """Describe a configurable model parameter.
@@ -96,18 +94,17 @@ end
 """Default provider for vectors defined over a subset of diameter-indexed classes.
 
 The provider fills a full-length vector (length `community_context.n_total`) with
-`default`, then overwrites the indices stored in `indices_field` (a field of
-`CommunityContext`, e.g. `:default_producer_indices`) using
-`resolve_diameter_indexed_vector`.
+`default`, then overwrites the classes selected by the declared parameter role
+using `resolve_diameter_indexed_vector`.
 """
 struct DiameterIndexedVectorDefault{V,T} <: DefaultProvider
     value::V
-    indices_field::Symbol
+    role::Symbol
     default::T
 end
 
-function DiameterIndexedVectorDefault(value, indices_field::Symbol; default)
-    return DiameterIndexedVectorDefault(value, indices_field, default)
+function DiameterIndexedVectorDefault(value, role::Symbol; default)
+    return DiameterIndexedVectorDefault(value, role, default)
 end
 
 """Return a tuple of `ParameterDefinition` entries for `factory`.

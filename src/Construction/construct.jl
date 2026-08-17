@@ -27,6 +27,7 @@ using ..Configuration:
     resolve_derived_matrices,
     finalize_interaction_parameters,
     parse_community,
+    parameter_role_indices,
     validate_community_inputs
 
 using ..Runtime: build_tracer_index
@@ -148,7 +149,7 @@ end
         ),
     )
 
-    indices = getproperty(community_context, provider.indices_field)
+    indices = parameter_role_indices(community_context, provider.role)
     default = T(provider.default)
     return resolve_diameter_indexed_vector(
         T, community_context.diameters, indices, provider.value; default=default
@@ -332,10 +333,10 @@ function materialize_parameter_law_override(
         ),
     )
 
-    indices = if isnothing(materialization.indices_field)
+    indices = if isnothing(materialization.role)
         eachindex(context.diameters)
     else
-        getproperty(context, materialization.indices_field)
+        parameter_role_indices(context, materialization.role)
     end
     fill_value = T(materialization.fill_value)
     return resolve_diameter_indexed_vector(
@@ -491,10 +492,10 @@ Keyword arguments
 - `parameters`: `NamedTuple` of parameter overrides.
 - `interaction_overrides`: `NamedTuple` of explicit interaction-matrix
   overrides.
+- `ecological_roles`: optional model-defined ecological group identities retained in realization state.
 - `interaction_roles`: optional `NamedTuple` with `consumers` and `prey`
   membership for interaction axes.
-- `default_parameter_roles`: optional `NamedTuple` with `producers` and
-  `consumers` membership used only when generating default parameter vectors.
+- `parameter_roles`: optional `NamedTuple` of named parameter-applicability roles.
 - `auxiliary_fields`: auxiliary values appended to the tracer argument list.
 - `grid`, `arch`: optional grid and architecture inputs.
 - `scalar_type`: explicit runtime scalar type; when omitted, construction uses `eltype(grid)` or `Float64` if no grid is supplied.
@@ -553,8 +554,9 @@ function _construct_factory(
     community=default_community(factory),
     parameters::NamedTuple=(;),
     interaction_overrides::Union{Nothing,NamedTuple}=nothing,
+    ecological_roles::NamedTuple=(;),
     interaction_roles=nothing,
-    default_parameter_roles=nothing,
+    parameter_roles=nothing,
     auxiliary_fields::Tuple=(:PAR,),
     arch=nothing,
     sinking_tracers=nothing,
@@ -594,7 +596,7 @@ function _construct_factory(
         plankton_dynamics=plankton_dynamics,
         biogeochem_dynamics=biogeochem_dynamics,
         interaction_roles=interaction_roles,
-        default_parameter_roles=default_parameter_roles,
+        parameter_roles=parameter_roles,
     )
 
     plankton_syms = community_context.plankton_symbols
@@ -716,6 +718,7 @@ function _construct_factory(
             community_context;
             tracer_order=tracer_names,
             auxiliary_fields,
+            ecological_roles,
             interaction_matrix_sources,
             sinking_tracers,
             open_bottom,
