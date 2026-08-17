@@ -10,6 +10,7 @@ using Agate.Factories:
 
 struct GenericRoleFixtureFactory <: Agate.Factories.AbstractBGCFactory end
 
+Agate.Construction.recipe_family(::GenericRoleFixtureFactory) = :GenericRoleFixture
 Agate.Factories.parameter_definitions(::GenericRoleFixtureFactory) = ()
 Agate.Configuration.matrix_definitions(::GenericRoleFixtureFactory) = (;)
 
