@@ -5,8 +5,10 @@ import Oceananigans
 using ..Configuration: PFTSpecification
 
 export construct_factory
+export ModelRecipe
 export PFTSpecification
 
+include("recipe.jl")
 include("generator.jl")
 include("construct.jl")
 

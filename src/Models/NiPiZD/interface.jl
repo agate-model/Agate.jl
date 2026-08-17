@@ -4,7 +4,7 @@ import ...Configuration
 import ...Construction
 using ...Manifests: default_model_manifest
 
-export construct, construct_with_manifest
+export construct, construct_with_recipe, construct_with_manifest
 
 function _validated_size_structure(size_structure)
     size_structure isa NamedTuple ||
@@ -60,17 +60,36 @@ function _community_inputs(size_structure)
     community_base = NamedTuple{group_order}(community_base_values)
     community = Configuration.build_plankton_community(community_base)
 
+    recipe_community_values = map(community_base_values) do spec
+        diameter_specification =
+            Configuration.normalize_diameters(spec.diameters).specification
+        return (; spec..., diameters=diameter_specification)
+    end
+    recipe_community = Configuration.build_plankton_community(
+        NamedTuple{group_order}(recipe_community_values)
+    )
+
     dynamics_values = ntuple(length(group_order)) do i
         group = group_order[i]
         return group in structure.consumer_groups ? zooplankton_nipizd : phytoplankton_nipizd
     end
     plankton_dynamics = NamedTuple{group_order}(dynamics_values)
     interaction_roles = (consumers=structure.consumer_groups, prey=structure.producer_groups)
+    default_parameter_roles = (;
+        producers=structure.producer_groups, consumers=structure.consumer_groups
+    )
 
     group_roles = (;
         phytoplankton=structure.producer_groups, zooplankton=structure.consumer_groups
     )
-    return (; community, plankton_dynamics, interaction_roles, group_roles)
+    return (;
+        community,
+        recipe_community,
+        plankton_dynamics,
+        interaction_roles,
+        default_parameter_roles,
+        group_roles,
+    )
 end
 
 function _construction_inputs(;
@@ -94,16 +113,33 @@ function _construction_inputs(;
         push!(pairs, :assimilation_matrix => assimilation_matrix)
 
     interaction_overrides = isempty(pairs) ? nothing : (; pairs...)
+    resolved_scalar_type = Construction.resolve_construction_scalar_type(grid, scalar_type)
+    auxiliary_fields = (:PAR,)
+
+    recipe_kwargs = (;
+        community=community_inputs.recipe_community,
+        parameter_overrides=parameters,
+        interaction_overrides,
+        group_roles=community_inputs.group_roles,
+        interaction_roles=community_inputs.interaction_roles,
+        default_parameter_roles=community_inputs.default_parameter_roles,
+        auxiliary_fields,
+        sinking_tracers,
+        open_bottom,
+        scalar_type=resolved_scalar_type,
+    )
 
     return (
         factory=factory,
+        recipe_kwargs,
         manifest_group_roles=community_inputs.group_roles,
         kwargs=(;
             plankton_dynamics=community_inputs.plankton_dynamics,
             community=community_inputs.community,
             parameters=parameters,
             interaction_roles=community_inputs.interaction_roles,
-            auxiliary_fields=(:PAR,),
+            default_parameter_roles=community_inputs.default_parameter_roles,
+            auxiliary_fields,
             interaction_overrides=interaction_overrides,
             arch=arch,
             sinking_tracers=sinking_tracers,
@@ -181,6 +217,24 @@ bgc = NiPiZD.construct(;
 function construct(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
     return Construction.construct_factory(inputs.factory; inputs.kwargs...)
+end
+
+
+"""
+    construct_with_recipe(; kw...) -> bgc, recipe
+
+Construct NiPiZD and return the model together with its pre-materialization
+scientific recipe. The recipe records semantic size specifications, model
+parameter definitions/defaults, authored parameter and interaction overrides,
+role selections, sinking configuration, open-bottom state, and resolved scalar
+type. Runtime grid and architecture objects remain construction environment
+inputs and are not stored in the recipe.
+"""
+function construct_with_recipe(; kwargs...)
+    inputs = _construction_inputs(; kwargs...)
+    recipe = Construction.capture_model_recipe(inputs.factory; inputs.recipe_kwargs...)
+    bgc = Construction.construct_factory(inputs.factory; inputs.kwargs...)
+    return bgc, recipe
 end
 
 """
