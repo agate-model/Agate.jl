@@ -19,7 +19,6 @@ function Agate.Factories.parameter_definitions(::ThreeInteractionMatrixFactory)
                 :encounter_matrix,
                 :matrix;
                 axes=(:consumer, :prey),
-                doc="Test encounter interaction.",
             ),
             Agate.Factories.NoDefault(),
         ),
@@ -28,7 +27,6 @@ function Agate.Factories.parameter_definitions(::ThreeInteractionMatrixFactory)
                 :capture_efficiency_matrix,
                 :matrix;
                 axes=(:consumer, :prey),
-                doc="Test capture-efficiency interaction.",
             ),
             Agate.Factories.NoDefault(),
         ),
@@ -37,7 +35,6 @@ function Agate.Factories.parameter_definitions(::ThreeInteractionMatrixFactory)
                 :handling_time_matrix,
                 :matrix;
                 axes=(:consumer, :prey),
-                doc="Test handling-time interaction.",
             ),
             Agate.Factories.NoDefault(),
         ),
@@ -97,11 +94,12 @@ end
     @testset "NiPiZD default recipe" begin
         _, recipe = NiPiZD.construct_with_recipe()
 
+        @test recipe.family === :NiPiZD
         @test recipe.ecological_roles == (phytoplankton=(:P,), zooplankton=(:Z,))
         @test recipe.interaction_roles == (consumers=(:Z,), prey=(:P,))
         @test recipe.parameter_roles == (producers=(:P,), consumers=(:Z,))
         @test isempty(recipe.parameter_overrides)
-        @test isnothing(recipe.interaction_overrides)
+        @test isempty(recipe.interaction_overrides)
         @test keys(recipe.interaction_definitions) ==
               (:palatability_matrix, :assimilation_matrix)
         @test isnothing(recipe.sinking_tracers)

@@ -388,13 +388,12 @@ function _encode_parameter_spec(spec::ParameterSpec)
         "name" => String(spec.name),
         "shape" => String(spec.shape),
         "axes" => axes,
-        "doc" => spec.doc,
         "materialization" => materialization,
     )
 end
 
 function _decode_parameter_spec(x, path)
-    x = _check_keys(x, ("name", "shape", "axes", "doc", "materialization"), path)
+    x = _check_keys(x, ("name", "shape", "axes", "materialization"), path)
     name = _symbol(_required(x, "name", path), "$path.name")
     shape = _symbol(_required(x, "shape", path), "$path.shape")
     shape in (:scalar, :vector, :matrix) || throw(ArgumentError("$path.shape has unsupported shape $(repr(shape))."))
@@ -409,7 +408,6 @@ function _decode_parameter_spec(x, path)
     else
         throw(ArgumentError("$path.axes must be null, a string, or a two-element array."))
     end
-    doc = _string(_required(x, "doc", path), "$path.doc")
     materialization_value = _required(x, "materialization", path)
     materialization = if materialization_value === nothing
         nothing
@@ -425,7 +423,7 @@ function _decode_parameter_spec(x, path)
         fill_value = _decode_value(_required(materialization_value, "fill_value", materialization_path), "$materialization_path.fill_value")
         DiameterIndexedMaterialization(role; fill_value)
     end
-    return ParameterSpec(name, shape; axes, doc, materialization)
+    return ParameterSpec(name, shape; axes, materialization)
 end
 
 function _encode_default(provider::ConstDefault)
@@ -546,15 +544,12 @@ end
 
 """Encode a `ModelRecipe` as a JSON-compatible typed recipe document."""
 function encode_recipe(recipe::ModelRecipe)
-    family = recipe_family(recipe.factory)
-    family isa Symbol || throw(ArgumentError("recipe_family must return a Symbol; got $(typeof(family))."))
-
     data = Dict{String,Any}(
         "community" => _encode_community(recipe.community),
         "parameter_definitions" => _encode_parameter_definitions(recipe.parameter_definitions),
         "parameter_overrides" => _encode_value(recipe.parameter_overrides),
         "interaction_definitions" => _encode_interaction_definitions(recipe.interaction_definitions),
-        "interaction_overrides" => isnothing(recipe.interaction_overrides) ? nothing : _encode_value(recipe.interaction_overrides),
+        "interaction_overrides" => _encode_value(recipe.interaction_overrides),
         "ecological_roles" => _encode_value(recipe.ecological_roles),
         "interaction_roles" => _encode_value(recipe.interaction_roles),
         "parameter_roles" => _encode_value(recipe.parameter_roles),
@@ -566,7 +561,7 @@ function encode_recipe(recipe::ModelRecipe)
 
     return Dict{String,Any}(
         "schema" => MODEL_RECIPE_SCHEMA,
-        "model" => Dict{String,Any}("family" => String(family)),
+        "model" => Dict{String,Any}("family" => String(recipe.family)),
         "recipe" => data,
     )
 end
@@ -581,7 +576,7 @@ function decode_recipe(document::AbstractDict)
 
     model = _check_keys(_required(document, "model", "Recipe document"), _RECIPE_MODEL_KEYS, "Recipe document.model")
     family = _symbol(_required(model, "family", "Recipe document.model"), "Recipe document.model.family")
-    factory = recipe_factory(Val(family))
+    recipe_factory(Val(family))
 
     recipe = _check_keys(_required(document, "recipe", "Recipe document"), _RECIPE_KEYS, "Recipe document.recipe")
     for key in _RECIPE_KEYS
@@ -593,8 +588,8 @@ function decode_recipe(document::AbstractDict)
     parameter_overrides = _decode_value(recipe["parameter_overrides"], "Recipe document.recipe.parameter_overrides")
     parameter_overrides isa NamedTuple || throw(ArgumentError("Recipe document.recipe.parameter_overrides must decode to a NamedTuple."))
     interaction_definitions = _decode_interaction_definitions(recipe["interaction_definitions"], "Recipe document.recipe.interaction_definitions")
-    interaction_overrides = isnothing(recipe["interaction_overrides"]) ? nothing : _decode_value(recipe["interaction_overrides"], "Recipe document.recipe.interaction_overrides")
-    !isnothing(interaction_overrides) && !(interaction_overrides isa NamedTuple) && throw(ArgumentError("Recipe document.recipe.interaction_overrides must decode to a NamedTuple or null."))
+    interaction_overrides = _decode_value(recipe["interaction_overrides"], "Recipe document.recipe.interaction_overrides")
+    interaction_overrides isa NamedTuple || throw(ArgumentError("Recipe document.recipe.interaction_overrides must decode to a NamedTuple."))
     ecological_roles = _decode_value(recipe["ecological_roles"], "Recipe document.recipe.ecological_roles")
     interaction_roles = _decode_value(recipe["interaction_roles"], "Recipe document.recipe.interaction_roles")
     parameter_roles = _decode_value(recipe["parameter_roles"], "Recipe document.recipe.parameter_roles")
@@ -608,7 +603,7 @@ function decode_recipe(document::AbstractDict)
     !isnothing(sinking_tracers) && !(sinking_tracers isa NamedTuple) && throw(ArgumentError("Recipe document.recipe.sinking_tracers must decode to a NamedTuple or null."))
 
     return ModelRecipe(
-        factory,
+        family,
         community,
         parameter_definitions,
         parameter_overrides,

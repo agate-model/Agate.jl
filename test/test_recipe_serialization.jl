@@ -13,7 +13,7 @@ end
 
 function recipe_with_interaction_definitions(recipe, interaction_definitions)
     return Agate.Construction.ModelRecipe(
-        recipe.factory,
+        recipe.family,
         recipe.community,
         recipe.parameter_definitions,
         recipe.parameter_overrides,
@@ -36,7 +36,11 @@ end
 
 @testset "NiPiZD recipe serialization" begin
     _, default_recipe = NiPiZD.construct_with_recipe()
-    @test decode_recipe(encode_recipe(default_recipe)) == default_recipe
+    default_encoded = encode_recipe(default_recipe)
+    @test default_recipe.family === :NiPiZD
+    @test default_encoded["recipe"]["interaction_overrides"] ==
+          Dict{String,Any}("type" => "named_tuple", "entries" => Any[])
+    @test decode_recipe(default_encoded) == default_recipe
 
     size_structure = (;
         phytoplankton=(diat=Float32[2, 8],),
@@ -64,6 +68,10 @@ end
     encoded = encode_recipe(recipe)
     @test encoded["schema"] == "agate.model_recipe.v1"
     @test Set(keys(encoded)) == Set(("schema", "model", "recipe"))
+    @test all(
+        !haskey(definition["spec"], "doc")
+        for definition in encoded["recipe"]["parameter_definitions"]
+    )
     decoded = decode_recipe(encoded)
     _, decoded_manifest = NiPiZD.construct_with_manifest(decoded)
     @test decoded == recipe

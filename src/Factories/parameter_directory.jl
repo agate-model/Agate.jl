@@ -32,33 +32,23 @@ Fields
 - `name`: parameter key.
 - `shape`: one of `:scalar`, `:vector`, or `:matrix`.
 - `axes`: optional vector axis name or matrix-axis names.
-- `doc`: human-readable description.
 - `materialization`: optional constructor-time parameter-law materialization semantics.
 """
 struct ParameterSpec
     name::Symbol
     shape::Symbol
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}
-    doc::String
     materialization::Union{Nothing,DiameterIndexedMaterialization}
 end
-
-ParameterSpec(
-    name::Symbol,
-    shape::Symbol,
-    axes::Union{Nothing,Symbol,NTuple{2,Symbol}},
-    doc::AbstractString,
-) = ParameterSpec(name, shape, axes, String(doc), nothing)
 
 """Convenience constructor for `ParameterSpec`."""
 function ParameterSpec(
     name::Symbol,
     shape::Symbol;
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
-    doc::AbstractString="",
     materialization::Union{Nothing,DiameterIndexedMaterialization}=nothing,
 )
-    ParameterSpec(name, shape, axes, String(doc), materialization)
+    ParameterSpec(name, shape, axes, materialization)
 end
 
 """Abstract supertype for constructor-time default providers.

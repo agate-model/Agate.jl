@@ -540,7 +540,7 @@ function _construct_factory(
     biogeochem_dynamics=default_biogeochem_dynamics(factory),
     community=default_community(factory),
     parameters::NamedTuple=(;),
-    interaction_overrides::Union{Nothing,NamedTuple}=nothing,
+    interaction_overrides::NamedTuple=(;),
     ecological_roles::NamedTuple=(;),
     interaction_roles=nothing,
     parameter_roles=nothing,

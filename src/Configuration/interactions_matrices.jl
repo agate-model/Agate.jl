@@ -165,10 +165,8 @@ end
 
 """Normalize `interaction_overrides` into a `NamedTuple` of parameter overrides.
 
-`interaction_overrides` may be:
-
-- `nothing` (no overrides)
-- a `NamedTuple` of updates
+`interaction_overrides` is a `NamedTuple` of updates. Use an empty named tuple
+when there are no explicit interaction overrides.
 
 Interaction overrides are **data-only**. Values must be explicit, canonical
 axis-sized rectangular matrices.
@@ -184,10 +182,8 @@ construction.
 function normalize_interaction_overrides(
     factory::AbstractBGCFactory,
     community_context::CommunityContext{T},
-    interaction_overrides::Union{Nothing,NamedTuple},
+    interaction_overrides::NamedTuple,
 ) where {T}
-    interaction_overrides === nothing && return (;)
-
     resolved = ()
     for (key, value) in pairs(interaction_overrides)
         spec = parameter_spec(factory, key)

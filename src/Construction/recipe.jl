@@ -2,28 +2,27 @@ using ..Factories: AbstractBGCFactory
 import ..Factories: parameter_definitions
 import ..Configuration: matrix_definitions
 
-"""Return the stable serialization identifier for a model factory."""
+"""Return the stable recipe-family identifier for a model factory."""
 function recipe_family(factory::AbstractBGCFactory)
-    throw(ArgumentError("Recipe serialization is not implemented for $(typeof(factory))."))
+    throw(ArgumentError("Recipe support is not implemented for $(typeof(factory))."))
 end
 
-"""Construct the model factory identified by a decoded recipe family."""
+"""Construct the model factory identified by a recipe family."""
 function recipe_factory(::Val{family}) where {family}
     throw(ArgumentError("Unsupported recipe model family $(repr(String(family)))."))
 end
 
 """Authored scientific definition captured before model-state materialization.
 
-`ModelRecipe` stores the deterministic construction inputs needed to describe a
-model independently of runtime environment objects such as grids and
-architectures. Parameter definitions/defaults and user overrides are retained
+`ModelRecipe` stores a stable model-family identifier and the deterministic
+construction inputs needed to describe a model independently of runtime
+environment objects such as grids and architectures. Parameter definitions/defaults
+and user overrides are retained
 separately so partial overrides and parameter laws remain semantic inputs rather
 than being replaced by resolved vectors.
 """
-struct ModelRecipe{
-    F,C,PD,PO,ID,IO,ER,IR,PR,A,S,T<:Real
-}
-    factory::F
+struct ModelRecipe{C,PD,PO,ID,IO,ER,IR,PR,A,S,T<:Real}
+    family::Symbol
     community::C
     parameter_definitions::PD
     parameter_overrides::PO
@@ -85,21 +84,10 @@ function _structural_isequal(a, b)
     return isequal(a, b)
 end
 
-function _recipe_factory_isequal(a, b)
-    _structural_isequal(a, b) && return true
-    try
-        return recipe_family(a) == recipe_family(b)
-    catch err
-        err isa ArgumentError || rethrow()
-        return false
-    end
-end
-
 function Base.:(==)(a::ModelRecipe, b::ModelRecipe)
-    _recipe_factory_isequal(a.factory, b.factory) || return false
     return all(
         _structural_isequal(getfield(a, i), getfield(b, i))
-        for i in 2:fieldcount(typeof(a))
+        for i in 1:fieldcount(typeof(a))
     )
 end
 
@@ -112,7 +100,7 @@ function capture_model_recipe(
     factory::AbstractBGCFactory;
     community,
     parameter_overrides::NamedTuple=(;),
-    interaction_overrides::Union{Nothing,NamedTuple}=nothing,
+    interaction_overrides::NamedTuple=(;),
     ecological_roles,
     interaction_roles,
     parameter_roles,
@@ -121,8 +109,13 @@ function capture_model_recipe(
     open_bottom::Bool=true,
     scalar_type::Type{T},
 ) where {T<:Real}
+    family = recipe_family(factory)
+    family isa Symbol || throw(
+        ArgumentError("recipe_family must return a Symbol; got $(typeof(family)).")
+    )
+
     return ModelRecipe(
-        factory,
+        family,
         deepcopy(community),
         deepcopy(parameter_definitions(factory)),
         deepcopy(parameter_overrides),
@@ -150,7 +143,9 @@ matrix_definitions(factory::ReplayFactory) = factory.interaction_definitions
 
 """Return a factory view that reuses the definitions captured in `recipe`."""
 replay_factory(recipe::ModelRecipe) = ReplayFactory(
-    recipe.factory, recipe.parameter_definitions, recipe.interaction_definitions
+    recipe_factory(Val(recipe.family)),
+    recipe.parameter_definitions,
+    recipe.interaction_definitions,
 )
 
 """Capture the resolved deterministic state of a constructed model."""

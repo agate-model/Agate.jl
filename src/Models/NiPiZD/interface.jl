@@ -138,7 +138,7 @@ function _construction_inputs(options::NiPiZDConstructionOptions)
     assimilation_matrix !== nothing &&
         push!(pairs, :assimilation_matrix => assimilation_matrix)
 
-    interaction_overrides = isempty(pairs) ? nothing : (; pairs...)
+    interaction_overrides = (; pairs...)
     resolved_scalar_type = Construction.resolve_construction_scalar_type(grid, scalar_type)
     auxiliary_fields = (:PAR,)
 
@@ -266,7 +266,7 @@ end
 function _recipe_construction_inputs(
     recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing
 )
-    family = Construction.recipe_family(recipe.factory)
+    family = recipe.family
     family == :NiPiZD || throw(
         ArgumentError(
             "NiPiZD.construct(recipe) requires a NiPiZD recipe; got family $family"
@@ -276,7 +276,7 @@ function _recipe_construction_inputs(
     factory = Construction.replay_factory(recipe)
     kwargs = (;
         plankton_dynamics=_recipe_plankton_dynamics(recipe),
-        biogeochem_dynamics=default_biogeochem_dynamics(recipe.factory),
+        biogeochem_dynamics=default_biogeochem_dynamics(NiPiZDFactory()),
         community=recipe.community,
         parameters=recipe.parameter_overrides,
         interaction_overrides=recipe.interaction_overrides,
