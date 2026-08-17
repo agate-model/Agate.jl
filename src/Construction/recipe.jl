@@ -84,9 +84,39 @@ function _structural_isequal(a, b)
     return isequal(a, b)
 end
 
+function _recipe_isequal(a, b)
+    a === b && return true
+
+    if a isa Bool || b isa Bool
+        return a isa Bool && b isa Bool && isequal(a, b)
+    elseif a isa Number || b isa Number
+        return a isa Number && b isa Number && isequal(a, b)
+    elseif a isa AbstractArray || b isa AbstractArray
+        a isa AbstractArray && b isa AbstractArray || return false
+        axes(a) == axes(b) || return false
+        return all(_recipe_isequal(a[i], b[i]) for i in eachindex(a, b))
+    elseif a isa NamedTuple || b isa NamedTuple
+        a isa NamedTuple && b isa NamedTuple || return false
+        keys(a) == keys(b) || return false
+        return all(_recipe_isequal(getproperty(a, k), getproperty(b, k)) for k in keys(a))
+    elseif a isa Tuple || b isa Tuple
+        a isa Tuple && b isa Tuple || return false
+        length(a) == length(b) || return false
+        return all(_recipe_isequal(a[i], b[i]) for i in eachindex(a))
+    end
+
+    Ta, Tb = typeof(a), typeof(b)
+    if isstructtype(Ta) && isstructtype(Tb) && fieldcount(Ta) > 0 &&
+       Base.typename(Ta) === Base.typename(Tb) && fieldcount(Ta) == fieldcount(Tb)
+        return all(_recipe_isequal(getfield(a, i), getfield(b, i)) for i in 1:fieldcount(Ta))
+    end
+
+    return Ta === Tb && isequal(a, b)
+end
+
 function Base.:(==)(a::ModelRecipe, b::ModelRecipe)
     return all(
-        _structural_isequal(getfield(a, i), getfield(b, i))
+        _recipe_isequal(getfield(a, i), getfield(b, i))
         for i in 1:fieldcount(typeof(a))
     )
 end

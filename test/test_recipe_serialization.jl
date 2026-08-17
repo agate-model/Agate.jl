@@ -29,10 +29,11 @@ function recipe_with_interaction_definitions(recipe, interaction_definitions)
     )
 end
 
-function encoded_named_value(encoded, name)
-    entry = only(filter(item -> item["name"] == String(name), encoded["entries"]))
-    return entry["value"]
+function encoded_named_entry(encoded, name)
+    return only(filter(item -> item["name"] == String(name), encoded["entries"]))
 end
+
+encoded_named_value(encoded, name) = encoded_named_entry(encoded, name)["value"]
 
 @testset "NiPiZD recipe serialization" begin
     _, default_recipe = NiPiZD.construct_with_recipe()
@@ -60,13 +61,19 @@ end
         size_structure,
         scalar_type=Float32,
         parameters,
-        palatability_matrix=Float32[NaN Inf; -Inf 0.7],
+        palatability_matrix=Float32[0.1 0.9; 0.3 0.7],
         sinking_tracers=(D=2.5f0 / day,),
         open_bottom=false,
     )
 
     encoded = encode_recipe(recipe)
     @test encoded["schema"] == "agate.model_recipe.v1"
+    encoded_matrix = encoded_named_value(
+        encoded["recipe"]["interaction_overrides"], :palatability_matrix
+    )
+    @test encoded_matrix isa Vector
+    @test all(row -> row isa Vector, encoded_matrix)
+    @test all(value -> value isa Float64, Iterators.flatten(encoded_matrix))
     @test Set(keys(encoded)) == Set(("schema", "model", "recipe"))
     @test all(
         !haskey(definition["spec"], "doc")
@@ -76,6 +83,11 @@ end
     _, decoded_manifest = NiPiZD.construct_with_manifest(decoded)
     @test decoded == recipe
     @test decoded_manifest == manifest
+
+    _, nonfinite_recipe = NiPiZD.construct_with_recipe(;
+        scalar_type=Float32, palatability_matrix=Float32[NaN 0.9; 0.3 0.7]
+    )
+    @test_throws ArgumentError encode_recipe(nonfinite_recipe)
 
     definition = only(
         filter(d -> d.spec.name == :maximum_growth_rate, decoded.parameter_definitions)
@@ -117,21 +129,21 @@ end
     @test_throws ArgumentError decode_recipe(invalid)
 
     invalid = deepcopy(encoded)
-    encoded_named_value(
+    encoded_named_entry(
         invalid["recipe"]["interaction_overrides"], :palatability_matrix
-    )["rows"] = 1
+    )["value"] = 1
     @test_throws ArgumentError decode_recipe(invalid)
 
     invalid = deepcopy(encoded)
-    encoded_named_value(
+    encoded_named_entry(
         invalid["recipe"]["interaction_overrides"], :palatability_matrix
-    )["rows"] = [1, 2]
+    )["value"] = [1, 2]
     @test_throws ArgumentError decode_recipe(invalid)
 
     invalid = deepcopy(encoded)
-    encoded_named_value(
+    encoded_named_entry(
         invalid["recipe"]["interaction_overrides"], :palatability_matrix
-    )["rows"] = [[0.8, 0.2], [0.3]]
+    )["value"] = [[0.8, 0.2], [0.3]]
     @test_throws ArgumentError decode_recipe(invalid)
 
     invalid = deepcopy(encoded)

@@ -88,60 +88,49 @@ function _decode_float_type(x, path)
     throw(ArgumentError("$path has unsupported floating-point type $(repr(name))."))
 end
 
-function _float_payload(x::AbstractFloat)
-    isnan(x) && return "NaN"
-    x == Inf && return "Inf"
-    x == -Inf && return "-Inf"
-    return x
+function _finite_float(x::AbstractFloat)
+    isfinite(x) || throw(
+        ArgumentError("Recipe serialization supports finite floating-point values; got $x.")
+    )
+    return Float64(x)
 end
 
-function _decode_float_payload(x, ::Type{T}, path) where {T<:AbstractFloat}
-    if x isa Number && !(x isa Bool)
-        return T(x)
-    elseif x isa AbstractString
-        x == "NaN" && return T(NaN)
-        x == "Inf" && return T(Inf)
-        x == "-Inf" && return T(-Inf)
-    end
-    throw(ArgumentError("$path must be a finite number or one of \"NaN\", \"Inf\", \"-Inf\"."))
-end
-
-function _element_type_id(T::Type)
-    T === Float32 && return "Float32"
-    T === Float64 && return "Float64"
-    T === Int && return "Int"
-    T === Bool && return "Bool"
-    T === Symbol && return "Symbol"
-    throw(ArgumentError("Recipe serialization does not support array element type $T."))
-end
-
-function _decode_element_type(x, path)
-    name = _string(x, path)
-    name == "Float32" && return Float32
-    name == "Float64" && return Float64
-    name == "Int" && return Int
-    name == "Bool" && return Bool
-    name == "Symbol" && return Symbol
-    throw(ArgumentError("$path has unsupported array element type $(repr(name))."))
-end
-
-_encode_array_item(x::AbstractFloat) = _float_payload(x)
-_encode_array_item(x::Symbol) = String(x)
 _encode_array_item(x) = _encode_value(x)
 
-function _decode_array_item(x, ::Type{T}, path) where {T<:AbstractFloat}
-    return _decode_float_payload(x, T, path)
+function _decoded_array(values, path)
+    decoded = Any[_decode_value(v, "$path[$i]") for (i, v) in pairs(values)]
+    isempty(decoded) && return Float64[]
+
+    T = promote_type(map(typeof, decoded)...)
+    T in (Float64, Int, Bool, Symbol) || throw(
+        ArgumentError("$path has unsupported array element types.")
+    )
+    return T[decoded...]
 end
-function _decode_array_item(x, ::Type{Int}, path)
-    x isa Integer && !(x isa Bool) || throw(ArgumentError("$path must be an integer."))
-    return Int(x)
+
+function _decode_matrix(rows, path)
+    rows isa AbstractVector || throw(ArgumentError("$path must be an array."))
+    isempty(rows) && return Matrix{Float64}(undef, 0, 0)
+    all(row -> row isa AbstractVector, rows) || throw(
+        ArgumentError("$path must contain arrays.")
+    )
+
+    ncols = length(first(rows))
+    all(row -> length(row) == ncols, rows) || throw(
+        ArgumentError("$path must be rectangular.")
+    )
+    decoded_rows = [_decoded_array(row, "$path[$i]") for (i, row) in pairs(rows)]
+    T = promote_type(map(eltype, decoded_rows)...)
+    T in (Float64, Int, Bool, Symbol) || throw(
+        ArgumentError("$path has unsupported matrix element types.")
+    )
+    out = Matrix{T}(undef, length(rows), ncols)
+    for i in eachindex(decoded_rows), j in 1:ncols
+        out[i, j] = decoded_rows[i][j]
+    end
+    return out
 end
-function _decode_array_item(x, ::Type{Bool}, path)
-    return _boolean(x, path)
-end
-function _decode_array_item(x, ::Type{Symbol}, path)
-    return _symbol(x, path)
-end
+
 function _identifier_string(value, identifier_function, function_name)
     identifier = identifier_function(value)
     identifier isa Symbol || throw(
@@ -167,13 +156,7 @@ function _encode_value(x::Integer)
 end
 _encode_value(x::AbstractString) = String(x)
 _encode_value(x::Symbol) = Dict{String,Any}("type" => "symbol", "value" => String(x))
-function _encode_value(x::AbstractFloat)
-    return Dict{String,Any}(
-        "type" => "float",
-        "format" => _float_type_id(typeof(x)),
-        "value" => _float_payload(x),
-    )
-end
+_encode_value(x::AbstractFloat) = _finite_float(x)
 
 function _encode_value(x::NamedTuple)
     entries = Any[
@@ -191,23 +174,14 @@ end
 
 function _encode_value(x::AbstractVector)
     x isa Vector || throw(ArgumentError("Recipe serialization supports Vector inputs; got $(typeof(x))."))
-    return Dict{String,Any}(
-        "type" => "vector",
-        "element_type" => _element_type_id(eltype(x)),
-        "values" => Any[_encode_array_item(v) for v in x],
-    )
+    return Any[_encode_array_item(v) for v in x]
 end
 
 function _encode_value(x::AbstractMatrix)
     x isa Matrix || throw(ArgumentError("Recipe serialization supports Matrix inputs; got $(typeof(x))."))
-    rows = Any[
+    return Any[
         Any[_encode_array_item(x[i, j]) for j in axes(x, 2)] for i in axes(x, 1)
     ]
-    return Dict{String,Any}(
-        "type" => "matrix",
-        "element_type" => _element_type_id(eltype(x)),
-        "rows" => rows,
-    )
 end
 
 function _encode_value(x::PFTSpecification)
@@ -252,17 +226,21 @@ function _decode_value(x, path)
     x === nothing && return nothing
     x isa Bool && return x
     x isa Int && return x
+    x isa AbstractFloat && return _finite_float(x)
     x isa AbstractString && return String(x)
+    if x isa AbstractVector
+        isempty(x) && return Float64[]
+        rows = map(v -> v isa AbstractVector, x)
+        all(rows) && return _decode_matrix(x, path)
+        any(rows) && throw(ArgumentError("$path cannot mix scalar values and array rows."))
+        return _decoded_array(x, path)
+    end
     x isa AbstractDict || throw(ArgumentError("$path has unsupported JSON value of type $(typeof(x))."))
 
     type_name = _string(_required(x, "type", path), "$path.type")
     if type_name == "symbol"
         _check_keys(x, ("type", "value"), path)
         return _symbol(_required(x, "value", path), "$path.value")
-    elseif type_name == "float"
-        _check_keys(x, ("type", "format", "value"), path)
-        T = _decode_float_type(_required(x, "format", path), "$path.format")
-        return _decode_float_payload(_required(x, "value", path), T, "$path.value")
     elseif type_name == "named_tuple"
         _check_keys(x, ("type", "entries"), path)
         return _decode_named_tuple(_required(x, "entries", path), "$path.entries")
@@ -271,26 +249,6 @@ function _decode_value(x, path)
         items = _required(x, "items", path)
         items isa AbstractVector || throw(ArgumentError("$path.items must be an array."))
         return Tuple(_decode_value(v, "$path.items[$i]") for (i, v) in pairs(items))
-    elseif type_name == "vector"
-        _check_keys(x, ("type", "element_type", "values"), path)
-        T = _decode_element_type(_required(x, "element_type", path), "$path.element_type")
-        values = _required(x, "values", path)
-        values isa AbstractVector || throw(ArgumentError("$path.values must be an array."))
-        return T[_decode_array_item(v, T, "$path.values[$i]") for (i, v) in pairs(values)]
-    elseif type_name == "matrix"
-        _check_keys(x, ("type", "element_type", "rows"), path)
-        T = _decode_element_type(_required(x, "element_type", path), "$path.element_type")
-        rows = _required(x, "rows", path)
-        rows isa AbstractVector || throw(ArgumentError("$path.rows must be an array."))
-        isempty(rows) && return Matrix{T}(undef, 0, 0)
-        all(row -> row isa AbstractVector, rows) || throw(ArgumentError("$path.rows must contain arrays."))
-        ncols = length(first(rows))
-        all(row -> length(row) == ncols, rows) || throw(ArgumentError("$path.rows must be rectangular."))
-        out = Matrix{T}(undef, length(rows), ncols)
-        for i in eachindex(rows), j in 1:ncols
-            out[i, j] = _decode_array_item(rows[i][j], T, "$path.rows[$i][$j]")
-        end
-        return out
     elseif type_name == "pft_specification"
         _check_keys(x, ("type", "data"), path)
         return PFTSpecification(_decode_value(_required(x, "data", path), "$path.data"))
@@ -524,7 +482,7 @@ function _decode_community(x, path)
     return NamedTuple{Tuple(names)}(Tuple(specs))
 end
 
-"""Encode a `ModelRecipe` as a JSON-compatible typed recipe document."""
+"""Encode a `ModelRecipe` as a JSON-compatible recipe document."""
 function encode_recipe(recipe::ModelRecipe)
     data = Dict{String,Any}(
         "community" => _encode_community(recipe.community),
@@ -548,7 +506,7 @@ function encode_recipe(recipe::ModelRecipe)
     )
 end
 
-"""Decode a typed recipe document into a `ModelRecipe`."""
+"""Decode a recipe document into a `ModelRecipe`."""
 function decode_recipe(document::AbstractDict)
     document = _check_keys(document, _RECIPE_DOCUMENT_KEYS, "Recipe document")
     schema = _string(_required(document, "schema", "Recipe document"), "Recipe document.schema")
@@ -572,6 +530,9 @@ function decode_recipe(document::AbstractDict)
     interaction_definitions = _decode_interaction_definitions(recipe["interaction_definitions"], "Recipe document.recipe.interaction_definitions")
     interaction_overrides = _decode_value(recipe["interaction_overrides"], "Recipe document.recipe.interaction_overrides")
     interaction_overrides isa NamedTuple || throw(ArgumentError("Recipe document.recipe.interaction_overrides must decode to a NamedTuple."))
+    all(value -> value isa AbstractMatrix, values(interaction_overrides)) || throw(
+        ArgumentError("Recipe document.recipe.interaction_overrides values must be matrices.")
+    )
     ecological_roles = _decode_value(recipe["ecological_roles"], "Recipe document.recipe.ecological_roles")
     interaction_roles = _decode_value(recipe["interaction_roles"], "Recipe document.recipe.interaction_roles")
     parameter_roles = _decode_value(recipe["parameter_roles"], "Recipe document.recipe.parameter_roles")
@@ -605,7 +566,7 @@ function decode_recipe(document)
     throw(ArgumentError("Expected an Agate recipe dictionary, got $(typeof(document))."))
 end
 
-"""Write a typed recipe document to `path` as pretty-printed JSON."""
+"""Write a recipe document to `path` as pretty-printed JSON."""
 function export_recipe(path::AbstractString, recipe::ModelRecipe)
     document = encode_recipe(recipe)
     open(path, "w") do io
@@ -615,5 +576,5 @@ function export_recipe(path::AbstractString, recipe::ModelRecipe)
     return path
 end
 
-"""Read and decode a typed recipe document from `path`."""
+"""Read and decode a recipe document from `path`."""
 import_recipe(path::AbstractString) = decode_recipe(JSON.parsefile(path))
