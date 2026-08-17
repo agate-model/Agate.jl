@@ -576,11 +576,9 @@ function _construct_factory(
     biogeochem_dynamics isa NamedTuple ||
         throw(ArgumentError("biogeochem_dynamics must be a NamedTuple"))
     community_context = parse_community(
-        factory,
         T,
         community;
-        plankton_dynamics=plankton_dynamics,
-        biogeochem_dynamics=biogeochem_dynamics,
+        biogeochem_tracers=keys(biogeochem_dynamics),
         interaction_roles=interaction_roles,
         parameter_roles=parameter_roles,
     )
@@ -660,19 +658,6 @@ function _construct_factory(
 
     plankton_diameter_metadata = Tuple(community_context.diameters)
 
-    interaction_names = Tuple(
-        spec.name for spec in parameter_directory(factory) if
-        spec.shape === :matrix && spec.axes == (:consumer, :prey)
-    )
-    derived_interaction_names = keys(matrix_definitions(factory))
-    interaction_matrix_sources = NamedTuple{interaction_names}(
-        Tuple(
-            name in explicit_override_keys ? :explicit :
-            name in derived_interaction_names ? :derived : :default
-            for name in interaction_names
-        ),
-    )
-
     if isnothing(sinking_tracers)
         bgc_factory = define_tracer_functions(
             resolved_parameters,
@@ -700,12 +685,13 @@ function _construct_factory(
     end
     manifest = if build_manifest
         capture_model_manifest(
+            factory,
             resolved_parameters,
             community_context;
             tracer_order=tracer_names,
             auxiliary_fields,
             ecological_roles,
-            interaction_matrix_sources,
+            explicit_override_keys,
             sinking_tracers,
             open_bottom,
             scalar_type=T,

@@ -82,8 +82,8 @@ end
 
 """Construction-time representation of a parsed plankton community.
 
-`CommunityContext` stores the flattened plankton layout, class metadata, role
-axes, and dynamics needed while resolving parameters and interaction matrices.
+`CommunityContext` stores the flattened plankton layout, class metadata, and role
+axes needed while resolving parameters and interaction matrices.
 It is distinct from `TendencyContext`, which is used inside tracer-tendency
 kernels.
 
@@ -95,13 +95,10 @@ Fields
 - `pfts`: per-class PFT specifications.
 - `plankton_symbols`: flattened class symbols such as `:P_1`, `:P_2`, or `:diat_1`.
 - `group_symbols`: group symbol for each flattened class.
-- `group_local_index`: within-group class index for each flattened class.
 - `group_indices`: mapping from group symbol to flattened class indices.
 - `consumer_indices`: flattened indices used for the consumer axis.
 - `prey_indices`: flattened indices used for the prey axis.
 - `parameter_role_indices`: resolved class indices for named parameter-applicability roles.
-- `plankton_dynamics`: group-level plankton dynamics builders.
-- `biogeochem_dynamics`: non-plankton tracer dynamics builders.
 """
 struct CommunityContext{T<:Real,VT<:AbstractVector{T}}
     scalar_type::Type{T}
@@ -110,14 +107,10 @@ struct CommunityContext{T<:Real,VT<:AbstractVector{T}}
     pfts::Vector{PFTSpecification}
     plankton_symbols::Vector{Symbol}
     group_symbols::Vector{Symbol}
-    group_local_index::Vector{Int}
     group_indices::Dict{Symbol,Vector{Int}}
     consumer_indices::Vector{Int}
     prey_indices::Vector{Int}
     parameter_role_indices::NamedTuple
-
-    plankton_dynamics::NamedTuple
-    biogeochem_dynamics::NamedTuple
 end
 
 """Return normalized diameter input and any size-class count it defines."""
@@ -241,8 +234,7 @@ end
 
 Keyword arguments
 -----------------
-- `plankton_dynamics`: group-level plankton dynamics builders.
-- `biogeochem_dynamics`: non-plankton tracer dynamics builders.
+- `biogeochem_tracers`: non-plankton tracer names used to reject class-name collisions.
 - `interaction_roles`: optional `NamedTuple` with fields `consumers` and
   `prey`. Each field may be `nothing`, a collection of group symbols, an index
   vector, or a boolean mask.
@@ -254,11 +246,9 @@ When `parameter_roles` is omitted, `producers` defaults to the prey axis and
 `consumers` defaults to the consumer axis.
 """
 function parse_community(
-    factory::AbstractBGCFactory,
     ::Type{T},
     community::NamedTuple;
-    plankton_dynamics::NamedTuple=NamedTuple(),
-    biogeochem_dynamics::NamedTuple=NamedTuple(),
+    biogeochem_tracers::Tuple=(),
     interaction_roles=nothing,
     parameter_roles=nothing,
 ) where {T<:Real}
@@ -281,7 +271,6 @@ function parse_community(
     group_order = keys(community)
     plankton_symbols = Symbol[]
     group_of = Symbol[]
-    local_idx = Int[]
     pfts = PFTSpecification[]
     diameters = T[]
 
@@ -307,13 +296,12 @@ function parse_community(
         for i in 1:n
             push!(plankton_symbols, class_symbols[i])
             push!(group_of, g)
-            push!(local_idx, i)
             push!(pfts, pft)
             push!(diameters, ds[i])
         end
     end
 
-    biogeochem_symbols = Set(keys(biogeochem_dynamics))
+    biogeochem_symbols = Set(biogeochem_tracers)
     conflicting_symbols = [symbol for symbol in plankton_symbols if symbol in biogeochem_symbols]
     isempty(conflicting_symbols) || throw(
         ArgumentError(
@@ -396,13 +384,10 @@ function parse_community(
         pfts,
         plankton_symbols,
         group_of,
-        local_idx,
         group_indices,
         consumer_indices,
         prey_indices,
         parameter_role_indices,
-        plankton_dynamics,
-        biogeochem_dynamics,
     )
 
     return community_context

@@ -4,8 +4,7 @@ using Test
 using Agate.Configuration:
     build_plankton_community, parse_community, DiameterRangeSpecification
 using Agate.Runtime: class, resolve_class, class_count, build_tracer_index, Tracers
-using Agate.Factories:
-    default_plankton_dynamics, default_biogeochem_dynamics, default_community
+using Agate.Factories: default_biogeochem_dynamics, default_community
 
 
 struct GenericRoleFixtureFactory <: Agate.Factories.AbstractBGCFactory end
@@ -18,7 +17,6 @@ Agate.Configuration.matrix_definitions(::GenericRoleFixtureFactory) = (;)
     pft = Agate.Configuration.PFTSpecification()
     group = (; diameters=[1.0], pft)
     community = (P=group, B=group, M=group, Z=group)
-    plankton_dynamics = (P=identity, B=identity, M=identity, Z=identity)
     ecological_roles = (
         phytoplankton=(:P,),
         bacterioplankton=(:B,),
@@ -32,10 +30,8 @@ Agate.Configuration.matrix_definitions(::GenericRoleFixtureFactory) = (;)
 
     factory = GenericRoleFixtureFactory()
     context = parse_community(
-        factory,
         Float64,
         community;
-        plankton_dynamics,
         interaction_roles,
         parameter_roles,
     )
@@ -60,12 +56,13 @@ Agate.Configuration.matrix_definitions(::GenericRoleFixtureFactory) = (;)
         scalar_type=Float64,
     )
     manifest = Agate.Construction.capture_model_manifest(
+        factory,
         (;),
         context;
         tracer_order=Tuple(context.plankton_symbols),
         auxiliary_fields=(),
         ecological_roles,
-        interaction_matrix_sources=(;),
+        explicit_override_keys=(),
         sinking_tracers=nothing,
         open_bottom=true,
         scalar_type=Float64,
@@ -82,14 +79,9 @@ end
 @testset "ClassRef + Tracers accessors" begin
     factory = Agate.Models.NiPiZD.NiPiZDFactory()
     community = default_community(factory)
-    plankton_dyn = default_plankton_dynamics(factory)
     biogeochem_dyn = default_biogeochem_dynamics(factory)
     ctx = parse_community(
-        factory,
-        Float64,
-        community;
-        plankton_dynamics=plankton_dyn,
-        biogeochem_dynamics=biogeochem_dyn,
+        Float64, community; biogeochem_tracers=keys(biogeochem_dyn)
     )
 
     @test class_count(ctx, :Z) == 2
@@ -124,7 +116,6 @@ end
 @testset "Diameter input normalization" begin
     factory = Agate.Models.NiPiZD.NiPiZDFactory()
     base = default_community(factory)
-    plankton_dyn = default_plankton_dynamics(factory)
     biogeochem_dyn = default_biogeochem_dynamics(factory)
 
     community = build_plankton_community(
@@ -136,11 +127,7 @@ end
     )
 
     ctx = parse_community(
-        factory,
-        Float64,
-        community;
-        plankton_dynamics=plankton_dyn,
-        biogeochem_dynamics=biogeochem_dyn,
+        Float64, community; biogeochem_tracers=keys(biogeochem_dyn)
     )
 
     @test class_count(ctx, :Z) == 2

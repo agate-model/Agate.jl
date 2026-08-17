@@ -431,13 +431,10 @@ end
             [Agate.Configuration.PFTSpecification() for _ in 1:3],
             [:consumer_1, :prey_1, :prey_2],
             [:consumer, :prey, :prey],
-            [1, 1, 2],
             Dict(:consumer => [1], :prey => [2, 3]),
             [1],
             [2, 3],
             (producers=[2, 3], consumers=[1]),
-            (;),
-            (;),
         )
         params = (;
             encounter_matrix=Float32[1 2],

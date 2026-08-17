@@ -59,15 +59,6 @@ function _community_inputs(size_structure)
     community_base = NamedTuple{group_order}(community_base_values)
     community = Configuration.build_plankton_community(community_base)
 
-    recipe_community_values = map(community_base_values) do spec
-        diameter_specification =
-            Configuration.normalize_diameters(spec.diameters).specification
-        return (; spec..., diameters=diameter_specification)
-    end
-    recipe_community = Configuration.build_plankton_community(
-        NamedTuple{group_order}(recipe_community_values)
-    )
-
     dynamics_values = ntuple(length(group_order)) do i
         group = group_order[i]
         return group in structure.consumer_groups ? zooplankton_nipizd : phytoplankton_nipizd
@@ -83,7 +74,6 @@ function _community_inputs(size_structure)
     )
     return (;
         community,
-        recipe_community,
         plankton_dynamics,
         interaction_roles,
         parameter_roles,
@@ -143,7 +133,7 @@ function _construction_inputs(options::NiPiZDConstructionOptions)
     auxiliary_fields = (:PAR,)
 
     recipe_kwargs = (;
-        community=community_inputs.recipe_community,
+        community=community_inputs.community,
         parameter_overrides=parameters,
         interaction_overrides,
         ecological_roles=community_inputs.ecological_roles,

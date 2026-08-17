@@ -1,6 +1,6 @@
 using ..Factories: AbstractBGCFactory
-import ..Factories: parameter_definitions
-import ..Configuration: matrix_definitions
+import ..Factories: parameter_definitions, parameter_directory
+import ..Configuration: matrix_definitions, normalize_diameters
 
 """Return the stable recipe-family identifier for a model factory."""
 function recipe_family(factory::AbstractBGCFactory)
@@ -95,6 +95,16 @@ function Base.:(==)(a::ModelManifest, b::ModelManifest)
     return _structural_isequal(a, b)
 end
 
+function _normalize_recipe_community(community::NamedTuple)
+    groups = keys(community)
+    values = ntuple(length(groups)) do i
+        spec = getproperty(community, groups[i])
+        diameter_specification = normalize_diameters(spec.diameters).specification
+        return (; spec..., diameters=diameter_specification)
+    end
+    return NamedTuple{groups}(values)
+end
+
 """Capture a construction recipe from semantic inputs before materialization."""
 function capture_model_recipe(
     factory::AbstractBGCFactory;
@@ -116,7 +126,7 @@ function capture_model_recipe(
 
     return ModelRecipe(
         family,
-        deepcopy(community),
+        deepcopy(_normalize_recipe_community(community)),
         deepcopy(parameter_definitions(factory)),
         deepcopy(parameter_overrides),
         deepcopy(matrix_definitions(factory)),
@@ -150,17 +160,18 @@ replay_factory(recipe::ModelRecipe) = ReplayFactory(
 
 """Capture the resolved deterministic state of a constructed model."""
 function capture_model_manifest(
+    factory::AbstractBGCFactory,
     parameters,
     community_context;
     tracer_order::Tuple,
     auxiliary_fields::Tuple,
     ecological_roles::NamedTuple=(;),
-    interaction_matrix_sources,
+    explicit_override_keys::Tuple,
     sinking_tracers,
     open_bottom::Bool,
     scalar_type::Type{T},
 ) where {T<:Real}
-    group_order = keys(community_context.plankton_dynamics)
+    group_order = Tuple(unique(community_context.group_symbols))
     group_values = ntuple(length(group_order)) do i
         group = group_order[i]
         indices = community_context.group_indices[group]
@@ -178,6 +189,19 @@ function capture_model_manifest(
         Tuple(getproperty(community_context.parameter_role_indices, role))
     end
     parameter_role_indices = NamedTuple{parameter_role_names}(parameter_role_values)
+
+    interaction_names = Tuple(
+        spec.name for spec in parameter_directory(factory) if
+        spec.shape === :matrix && spec.axes == (:consumer, :prey)
+    )
+    derived_interaction_names = keys(matrix_definitions(factory))
+    interaction_matrix_sources = NamedTuple{interaction_names}(
+        Tuple(
+            name in explicit_override_keys ? :explicit :
+            name in derived_interaction_names ? :derived : :default
+            for name in interaction_names
+        ),
+    )
 
     return ModelManifest(
         deepcopy(parameters),
