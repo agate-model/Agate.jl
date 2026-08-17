@@ -159,14 +159,15 @@ end
     end
 
     @testset "NiPiZD exact in-memory replay" begin
-        _, recipe, realization = NiPiZD.construct_with_realization()
-        _, replayed_realization = NiPiZD.construct_with_realization(recipe)
+        _, recipe, manifest = NiPiZD.construct_with_manifest()
+        _, replayed_manifest = NiPiZD.construct_with_manifest(recipe)
 
-        @test replayed_realization == realization
+        @test manifest isa Agate.Construction.ModelManifest
+        @test replayed_manifest == manifest
         @test (
-            realization.group_tracers,
-            realization.tracer_order,
-            realization.interaction_matrix_sources,
+            manifest.group_tracers,
+            manifest.tracer_order,
+            manifest.interaction_matrix_sources,
         ) == (
             (Z=(:Z_1, :Z_2), P=(:P_1, :P_2)),
             (:N, :D, :Z_1, :Z_2, :P_1, :P_2),
@@ -186,7 +187,7 @@ end
             ),
         )
 
-        _, authored_recipe, authored_realization = NiPiZD.construct_with_realization(;
+        _, authored_recipe, authored_manifest = NiPiZD.construct_with_manifest(;
             size_structure,
             scalar_type=Float32,
             parameters,
@@ -194,10 +195,10 @@ end
             sinking_tracers=(D=2.5f0 / day,),
             open_bottom=false,
         )
-        _, replayed_authored_realization = NiPiZD.construct_with_realization(authored_recipe)
+        _, replayed_authored_manifest = NiPiZD.construct_with_manifest(authored_recipe)
 
-        @test replayed_authored_realization == authored_realization
-        @test authored_realization.interaction_matrix_sources == (
+        @test replayed_authored_manifest == authored_manifest
+        @test authored_manifest.interaction_matrix_sources == (
             palatability_matrix=:explicit, assimilation_matrix=:derived
         )
     end

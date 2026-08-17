@@ -38,8 +38,14 @@ struct ModelRecipe{
     scalar_type::Type{T}
 end
 
-"""Resolved deterministic model state used for exact construction replay checks."""
-struct ModelRealization{P,G,TR,A,D,ER,IR,PRI,I,S,T<:Real}
+"""Resolved deterministic scientific state produced by model construction.
+
+`ModelManifest` records the fully materialized parameters, expanded groups and
+tracer ordering, resolved role indices, interaction sources, sinking
+configuration, and scalar type. It is an in-memory record of the constructed
+model state; durable replay is defined by `ModelRecipe`.
+"""
+struct ModelManifest{P,G,TR,A,D,ER,IR,PRI,I,S,T<:Real}
     parameters::P
     group_tracers::G
     tracer_order::TR
@@ -97,7 +103,7 @@ function Base.:(==)(a::ModelRecipe, b::ModelRecipe)
     )
 end
 
-function Base.:(==)(a::ModelRealization, b::ModelRealization)
+function Base.:(==)(a::ModelManifest, b::ModelManifest)
     return _structural_isequal(a, b)
 end
 
@@ -146,7 +152,8 @@ replay_factory(recipe::ModelRecipe) = ReplayFactory(
     recipe.factory, recipe.parameter_definitions, recipe.interaction_definitions
 )
 
-function capture_model_realization(
+"""Capture the resolved deterministic state of a constructed model."""
+function capture_model_manifest(
     parameters,
     community_context;
     tracer_order::Tuple,
@@ -176,7 +183,7 @@ function capture_model_realization(
     end
     parameter_role_indices = NamedTuple{parameter_role_names}(parameter_role_values)
 
-    return ModelRealization(
+    return ModelManifest(
         deepcopy(parameters),
         group_tracers,
         tracer_order,

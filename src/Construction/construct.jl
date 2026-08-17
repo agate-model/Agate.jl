@@ -490,7 +490,7 @@ Keyword arguments
 - `parameters`: `NamedTuple` of parameter overrides.
 - `interaction_overrides`: `NamedTuple` of explicit interaction-matrix
   overrides.
-- `ecological_roles`: optional model-defined ecological group identities retained in realization state.
+- `ecological_roles`: optional model-defined ecological group identities retained in manifest state.
 - `interaction_roles`: optional `NamedTuple` with `consumers` and `prey`
   membership for interaction axes.
 - `parameter_roles`: optional `NamedTuple` of named parameter-applicability roles.
@@ -525,12 +525,12 @@ function resolve_construction_scalar_type(grid, scalar_type)
 end
 
 function construct_factory(factory::AbstractBGCFactory; kwargs...)
-    bgc, _ = _construct_factory(factory; build_realization_data=false, kwargs...)
+    bgc, _ = _construct_factory(factory; build_manifest_data=false, kwargs...)
     return bgc
 end
 
-function construct_factory_with_realization(factory::AbstractBGCFactory; kwargs...)
-    return _construct_factory(factory; build_realization_data=true, kwargs...)
+function construct_factory_with_manifest(factory::AbstractBGCFactory; kwargs...)
+    return _construct_factory(factory; build_manifest_data=true, kwargs...)
 end
 
 function _construct_factory(
@@ -549,7 +549,7 @@ function _construct_factory(
     grid=nothing,
     scalar_type=nothing,
     open_bottom::Bool=true,
-    build_realization_data::Bool=false,
+    build_manifest_data::Bool=false,
 )
     if isnothing(grid) && !isnothing(sinking_tracers)
         grid = BoxModelGrid()
@@ -697,8 +697,8 @@ function _construct_factory(
             plankton_diameters=plankton_diameter_metadata,
         )
     end
-    realization = if build_realization_data
-        capture_model_realization(
+    manifest = if build_manifest_data
+        capture_model_manifest(
             resolved_parameters,
             community_context;
             tracer_order=tracer_names,
@@ -715,5 +715,5 @@ function _construct_factory(
 
     bgc = on_architecture(arch, bgc)
 
-    return bgc, realization
+    return bgc, manifest
 end

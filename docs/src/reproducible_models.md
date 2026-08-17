@@ -3,20 +3,20 @@
 Agate separates a scientific model definition from its runtime environment.
 
 - A [`ModelRecipe`](@ref Agate.Construction.ModelRecipe) captures authored scientific construction inputs before parameter and interaction materialization.
-- A [`ModelRealization`](@ref Agate.Construction.ModelRealization) records the resolved deterministic model state used for exact replay checks.
+- A [`ModelManifest`](@ref Agate.Construction.ModelManifest) records the complete resolved deterministic scientific state produced by construction.
 - Runtime objects such as the grid and architecture remain explicit environment inputs and are not stored in a recipe.
 
 ## Capture and replay
 
-For the built-in NiPiZD family, `construct_with_realization` returns the model, its recipe, and its resolved realization:
+For the built-in NiPiZD family, `construct_with_manifest` returns the model, its recipe, and its resolved manifest:
 
 ```julia
 using Agate.Models: NiPiZD
 
-bgc, recipe, realization = NiPiZD.construct_with_realization()
-replayed, replayed_realization = NiPiZD.construct_with_realization(recipe)
+bgc, recipe, manifest = NiPiZD.construct_with_manifest()
+replayed, replayed_manifest = NiPiZD.construct_with_manifest(recipe)
 
-replayed_realization == realization
+replayed_manifest == manifest
 ```
 
 Recipes preserve semantic size specifications, parameter definitions and authored overrides, interaction definitions and overrides, ecological and interaction roles, sinking choices, open-bottom behavior, and scalar precision. Partial parameter overrides and parameter laws therefore remain authored inputs rather than being replaced by resolved vectors.
@@ -40,4 +40,4 @@ The reader rejects unsupported schemas, unknown fields, unsupported model-family
 
 ## External model families
 
-External packages can extend Agate's model-family dispatch and provide their own constructors while reusing the generic recipe, realization, parameter-law, interaction, and runtime machinery. The package defining a model family must be loaded before Agate can decode that family's recipe identifier.
+External packages can extend Agate's model-family dispatch and provide their own constructors while reusing the generic recipe, manifest, parameter-law, interaction, and runtime machinery. The package defining a model family must be loaded before Agate can decode that family's recipe identifier.

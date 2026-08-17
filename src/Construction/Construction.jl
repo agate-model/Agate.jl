@@ -5,7 +5,7 @@ import Oceananigans
 using ..Configuration: PFTSpecification
 
 export construct_factory
-export ModelRecipe, ModelRealization
+export ModelRecipe, ModelManifest
 export encode_recipe, decode_recipe, export_recipe, import_recipe
 export PFTSpecification
 

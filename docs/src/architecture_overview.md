@@ -17,7 +17,7 @@ At a high level, Agate is organized into four broad layers:
 A typical model build in Agate has seven components.
 
  1. **Model entry point** (`Models/`).
-    Models distributed with Agate use user-facing constructors such as `Agate.Models.<Model>.construct(...)`. External model packages may provide their own entry points while reusing Agate's generic factories, recipes, realization, and runtime machinery.
+    Models distributed with Agate use user-facing constructors such as `Agate.Models.<Model>.construct(...)`. External model packages may provide their own entry points while reusing Agate's generic factories, recipes, manifest, and runtime machinery.
 
  2. **Model defaults and community selection** (`Models/` and `Factories/`).
     For each model constructor, Agate selects the factory, parameter definitions, and default community information needed for the build. `Models/` provides model-family-specific definitions, while `Factories/` provides shared defaults and construction metadata.

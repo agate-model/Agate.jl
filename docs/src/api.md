@@ -32,11 +32,11 @@ pal.matrix   # consumer-by-prey matrix
 
 ## Construction API
 
-### Recipes and realizations
+### Recipes and manifests
 
 ```@docs
 Agate.Construction.ModelRecipe
-Agate.Construction.ModelRealization
+Agate.Construction.ModelManifest
 Agate.Construction.encode_recipe
 Agate.Construction.decode_recipe
 Agate.Construction.export_recipe

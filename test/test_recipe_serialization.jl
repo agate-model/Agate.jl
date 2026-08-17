@@ -27,7 +27,7 @@ end
         alpha=ConstantParam(0.2f0 / day),
     )
 
-    _, recipe, realization = NiPiZD.construct_with_realization(;
+    _, recipe, manifest = NiPiZD.construct_with_manifest(;
         size_structure,
         scalar_type=Float32,
         parameters,
@@ -40,9 +40,9 @@ end
     @test encoded["schema"] == "agate.model_recipe.v1"
     @test Set(keys(encoded)) == Set(("schema", "model", "recipe"))
     decoded = decode_recipe(encoded)
-    _, decoded_realization = NiPiZD.construct_with_realization(decoded)
+    _, decoded_manifest = NiPiZD.construct_with_manifest(decoded)
     @test decoded == recipe
-    @test decoded_realization == realization
+    @test decoded_manifest == manifest
 
     mktemp() do path, io
         close(io)

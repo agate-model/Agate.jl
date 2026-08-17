@@ -58,7 +58,7 @@ Agate.Configuration.matrix_definitions(::GenericRoleFixtureFactory) = (;)
         auxiliary_fields=(),
         scalar_type=Float64,
     )
-    realization = Agate.Construction.capture_model_realization(
+    manifest = Agate.Construction.capture_model_manifest(
         (;),
         context;
         tracer_order=Tuple(context.plankton_symbols),
@@ -72,9 +72,9 @@ Agate.Configuration.matrix_definitions(::GenericRoleFixtureFactory) = (;)
 
     @test (recipe.ecological_roles, recipe.interaction_roles, recipe.parameter_roles) ==
           (ecological_roles, interaction_roles, parameter_roles)
-    @test realization.ecological_roles == ecological_roles
-    @test realization.interaction_role_indices == (consumers=(3, 4), prey=(1, 2, 3))
-    @test realization.parameter_role_indices ==
+    @test manifest.ecological_roles == ecological_roles
+    @test manifest.interaction_role_indices == (consumers=(3, 4), prey=(1, 2, 3))
+    @test manifest.parameter_role_indices ==
           (producers=(1, 3), consumers=(3, 4), bacterioplankton=(2,))
 end
 

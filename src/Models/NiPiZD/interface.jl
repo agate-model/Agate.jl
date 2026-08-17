@@ -3,7 +3,7 @@ using OceanBioME: BoxModelGrid
 import ...Configuration
 import ...Construction
 
-export construct, construct_with_recipe, construct_with_realization
+export construct, construct_with_recipe, construct_with_manifest
 
 function _validated_size_structure(size_structure)
     size_structure isa NamedTuple ||
@@ -319,29 +319,28 @@ function construct_with_recipe(; kwargs...)
 end
 
 """
-    construct_with_realization(; kw...) -> bgc, recipe, realization
-    construct_with_realization(recipe; grid=BoxModelGrid(), arch=nothing) -> bgc, realization
+    construct_with_manifest(; kw...) -> bgc, recipe, manifest
+    construct_with_manifest(recipe; grid=BoxModelGrid(), arch=nothing) -> bgc, manifest
 
-Construct NiPiZD together with the authored recipe and complete deterministic
-realization used for exact replay comparison. Passing a recipe replays that
-definition using its captured defaults and interaction derivations and returns
-the replayed model and realization.
+Construct NiPiZD together with the authored recipe and complete resolved
+manifest. Passing a recipe replays that definition using its captured defaults
+and interaction derivations and returns the replayed model and manifest.
 """
-function construct_with_realization(; kwargs...)
+function construct_with_manifest(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
     recipe = Construction.capture_model_recipe(inputs.factory; inputs.recipe_kwargs...)
-    bgc, realization = Construction.construct_factory_with_realization(
+    bgc, manifest = Construction.construct_factory_with_manifest(
         inputs.factory; inputs.kwargs...
     )
-    return bgc, recipe, realization
+    return bgc, recipe, manifest
 end
 
-function construct_with_realization(
+function construct_with_manifest(
     recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing
 )
     inputs = _recipe_construction_inputs(recipe; grid, arch)
-    bgc, realization = Construction.construct_factory_with_realization(
+    bgc, manifest = Construction.construct_factory_with_manifest(
         inputs.factory; inputs.kwargs...
     )
-    return bgc, realization
+    return bgc, manifest
 end
