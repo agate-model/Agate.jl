@@ -266,9 +266,10 @@ end
 function _recipe_construction_inputs(
     recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing
 )
-    recipe.factory isa NiPiZDFactory || throw(
+    family = Construction.recipe_family(recipe.factory)
+    family == :NiPiZD || throw(
         ArgumentError(
-            "NiPiZD.construct(recipe) requires a NiPiZD recipe; got $(typeof(recipe.factory))"
+            "NiPiZD.construct(recipe) requires a NiPiZD recipe; got family $family"
         ),
     )
 

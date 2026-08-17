@@ -469,6 +469,28 @@ function validate_auxiliary_fields(auxiliary_fields::Tuple, tracer_names::Tuple)
 end
 
 
+"""Resolve the scalar type from an explicit choice, the grid, or `Float64`."""
+function resolve_construction_scalar_type(grid, scalar_type)
+    if scalar_type !== nothing
+        scalar_type isa Type || throw(
+            ArgumentError(
+                "scalar_type must be a concrete subtype of Real; got $(scalar_type)"
+            ),
+        )
+        scalar_type <: Real || throw(
+            ArgumentError(
+                "scalar_type must be a concrete subtype of Real; got $(scalar_type)"
+            ),
+        )
+        isconcretetype(scalar_type) ||
+            throw(ArgumentError("scalar_type must be concrete; got $(scalar_type)"))
+        return scalar_type
+    end
+
+    grid !== nothing && return eltype(grid)
+    return Float64
+end
+
 """
     construct_factory(factory::AbstractBGCFactory; kwargs...) -> bgc
 
@@ -502,35 +524,14 @@ Keyword arguments
 The returned object stores the fully resolved parameter set in
 `bgc.parameters`.
 """
-
-function resolve_construction_scalar_type(grid, scalar_type)
-    if scalar_type !== nothing
-        scalar_type isa Type || throw(
-            ArgumentError(
-                "scalar_type must be a concrete subtype of Real; got $(scalar_type)"
-            ),
-        )
-        scalar_type <: Real || throw(
-            ArgumentError(
-                "scalar_type must be a concrete subtype of Real; got $(scalar_type)"
-            ),
-        )
-        isconcretetype(scalar_type) ||
-            throw(ArgumentError("scalar_type must be concrete; got $(scalar_type)"))
-        return scalar_type
-    end
-
-    grid !== nothing && return eltype(grid)
-    return Float64
-end
-
 function construct_factory(factory::AbstractBGCFactory; kwargs...)
-    bgc, _ = _construct_factory(factory; build_manifest_data=false, kwargs...)
+    bgc, _ = _construct_factory(factory; build_manifest=false, kwargs...)
     return bgc
 end
 
+"""Construct a factory-defined model and return it with its resolved `ModelManifest`."""
 function construct_factory_with_manifest(factory::AbstractBGCFactory; kwargs...)
-    return _construct_factory(factory; build_manifest_data=true, kwargs...)
+    return _construct_factory(factory; build_manifest=true, kwargs...)
 end
 
 function _construct_factory(
@@ -549,7 +550,7 @@ function _construct_factory(
     grid=nothing,
     scalar_type=nothing,
     open_bottom::Bool=true,
-    build_manifest_data::Bool=false,
+    build_manifest::Bool=false,
 )
     if isnothing(grid) && !isnothing(sinking_tracers)
         grid = BoxModelGrid()
@@ -697,7 +698,7 @@ function _construct_factory(
             plankton_diameters=plankton_diameter_metadata,
         )
     end
-    manifest = if build_manifest_data
+    manifest = if build_manifest
         capture_model_manifest(
             resolved_parameters,
             community_context;

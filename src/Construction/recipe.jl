@@ -148,6 +148,7 @@ end
 parameter_definitions(factory::ReplayFactory) = factory.parameter_definitions
 matrix_definitions(factory::ReplayFactory) = factory.interaction_definitions
 
+"""Return a factory view that reuses the definitions captured in `recipe`."""
 replay_factory(recipe::ModelRecipe) = ReplayFactory(
     recipe.factory, recipe.parameter_definitions, recipe.interaction_definitions
 )

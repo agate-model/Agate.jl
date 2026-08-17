@@ -212,6 +212,7 @@ struct PalatabilityAllometric <: AbstractMatrixDeriver end
 """Derive `assimilation_matrix[consumer, prey]` from binary efficiency traits."""
 struct AssimilationBinary <: AbstractMatrixDeriver end
 
+"""Return the stable recipe identifier for a serializable matrix deriver."""
 function matrix_deriver_identifier(deriver::AbstractMatrixDeriver)
     throw(
         ArgumentError(
@@ -223,6 +224,7 @@ end
 matrix_deriver_identifier(::PalatabilityAllometric) = :palatability_allometric
 matrix_deriver_identifier(::AssimilationBinary) = :assimilation_binary
 
+"""Construct a matrix deriver from its stable recipe identifier."""
 function matrix_deriver_from_identifier(::Val{id}) where {id}
     throw(ArgumentError("Unsupported interaction-matrix deriver identifier $(repr(id))."))
 end

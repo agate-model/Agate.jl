@@ -5,11 +5,14 @@ import Adapt
 
 export PFTSpecification
 
-export build_plankton_community
+export build_plankton_community, normalize_diameters
 
 export AbstractMatrixDeriver
 export MatrixDefinition
 export matrix_definitions
+export derive_matrix, derivation_deps
+export matrix_deriver_identifier, matrix_deriver_from_identifier
+export PalatabilityAllometric, AssimilationBinary
 
 include("specifications.jl")
 include("community.jl")

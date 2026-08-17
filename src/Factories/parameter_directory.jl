@@ -6,6 +6,7 @@ export ConstDefault
 export NoDefault
 export FillDefault
 export DiameterIndexedVectorDefault
+export DiameterIndexedMaterialization
 export parameter_directory
 export parameter_spec
 
