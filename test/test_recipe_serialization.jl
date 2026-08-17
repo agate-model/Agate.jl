@@ -4,6 +4,31 @@ using Agate.Models: NiPiZD
 using Oceananigans.Units: day
 using Test
 
+struct InvalidIdentifierDeriver <: Agate.Configuration.AbstractMatrixDeriver end
+Agate.Configuration.matrix_deriver_identifier(::InvalidIdentifierDeriver) = "invalid"
+
+struct StructuralEqualityFixture
+    values::Vector{Int}
+end
+
+function recipe_with_interaction_definitions(recipe, interaction_definitions)
+    return Agate.Construction.ModelRecipe(
+        recipe.factory,
+        recipe.community,
+        recipe.parameter_definitions,
+        recipe.parameter_overrides,
+        interaction_definitions,
+        recipe.interaction_overrides,
+        recipe.ecological_roles,
+        recipe.interaction_roles,
+        recipe.parameter_roles,
+        recipe.auxiliary_fields,
+        recipe.sinking_tracers,
+        recipe.open_bottom,
+        recipe.scalar_type,
+    )
+end
+
 function encoded_named_value(encoded, name)
     entry = only(filter(item -> item["name"] == String(name), encoded["entries"]))
     return entry["value"]
@@ -44,6 +69,12 @@ end
     @test decoded == recipe
     @test decoded_manifest == manifest
 
+    definition = only(
+        filter(d -> d.spec.name == :maximum_growth_rate, decoded.parameter_definitions)
+    )
+    @test definition.spec.materialization.role === :producers
+    @test definition.spec.materialization.fill_value == 0
+
     mktemp() do path, io
         close(io)
         @test export_recipe(path, recipe) == path
@@ -72,6 +103,69 @@ end
     @test_throws ArgumentError decode_recipe(invalid)
 
     invalid = deepcopy(encoded)
-    encoded_named_value(invalid["recipe"]["parameter_overrides"], :linear_mortality)["relationship"] = "unknown"
+    encoded_named_value(
+        invalid["recipe"]["parameter_overrides"], :linear_mortality
+    )["relationship"] = "unknown"
     @test_throws ArgumentError decode_recipe(invalid)
+
+    invalid = deepcopy(encoded)
+    encoded_named_value(
+        invalid["recipe"]["interaction_overrides"], :palatability_matrix
+    )["rows"] = 1
+    @test_throws ArgumentError decode_recipe(invalid)
+
+    invalid = deepcopy(encoded)
+    encoded_named_value(
+        invalid["recipe"]["interaction_overrides"], :palatability_matrix
+    )["rows"] = [1, 2]
+    @test_throws ArgumentError decode_recipe(invalid)
+
+    invalid = deepcopy(encoded)
+    encoded_named_value(
+        invalid["recipe"]["interaction_overrides"], :palatability_matrix
+    )["rows"] = [[0.8, 0.2], [0.3]]
+    @test_throws ArgumentError decode_recipe(invalid)
+
+    invalid = deepcopy(encoded)
+    invalid["recipe"]["interaction_definitions"][1]["deriver"] = "unknown"
+    @test_throws ArgumentError decode_recipe(invalid)
+
+    invalid_identifier_recipe = recipe_with_interaction_definitions(
+        default_recipe,
+        (invalid=Agate.Configuration.MatrixDefinition(InvalidIdentifierDeriver()),),
+    )
+    @test_throws ArgumentError encode_recipe(invalid_identifier_recipe)
+
+    manifest_a = Agate.Construction.ModelManifest(
+        (fixture=StructuralEqualityFixture([1, 2]),),
+        (;),
+        (),
+        (),
+        (),
+        (;),
+        (consumers=(), prey=()),
+        (;),
+        (;),
+        nothing,
+        true,
+        Float64,
+    )
+    manifest_b = Agate.Construction.ModelManifest(
+        (fixture=StructuralEqualityFixture([1, 2]),),
+        (;),
+        (),
+        (),
+        (),
+        (;),
+        (consumers=(), prey=()),
+        (;),
+        (;),
+        nothing,
+        true,
+        Float64,
+    )
+    @test manifest_a == manifest_b
+    manifest_b.parameters.fixture.values[2] = 3
+    @test manifest_a != manifest_b
+    @test_throws ArgumentError decode_recipe("not a recipe document")
 end

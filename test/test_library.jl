@@ -66,4 +66,20 @@ end
     )
     @test frank_config.nutrient_limitation isa FrankTNorm
     @test frank_config.nutrient_limitation.sharpness == 25
+
+    bgc = multi_nutrient_test_model()
+    frank_tendency = Agate.Tendencies.phytoplankton_tendency(
+        MULTI_NUTRIENT_FRANK; plankton_idx=2
+    )
+    DIN = bgc.parameters.half_saturation_DIN[2]
+    PO4 = bgc.parameters.half_saturation_PO4[2]
+    args = (
+        10.0, DIN, PO4, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0, 0.01, 100.0,
+    )
+
+    frank = frank_tendency(bgc, 0, 0, 0, 0, args...)
+    liebig = bgc(Val(:P_1), 0, 0, 0, 0, args...)
+    @test isfinite(frank)
+    @test frank < liebig
 end
