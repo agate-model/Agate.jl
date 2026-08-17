@@ -7,6 +7,8 @@ using ...Configuration: PFTSpecification
 import ...Factories:
     default_plankton_dynamics, default_community, default_biogeochem_dynamics
 
+import ...Construction: recipe_family, recipe_factory
+
 using ...Tendencies:
     TendencyConfig,
     nutrient_coupling,
@@ -17,6 +19,9 @@ using ...Tendencies:
 
 """Factory for the size-structured NiPiZD model."""
 struct NiPiZDFactory <: AbstractBGCFactory end
+
+recipe_family(::NiPiZDFactory) = :NiPiZD
+recipe_factory(::Val{:NiPiZD}) = NiPiZDFactory()
 
 const DEFAULT_SIZE_STRUCTURE = (
     phytoplankton=(P=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting),),

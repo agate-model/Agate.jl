@@ -69,6 +69,22 @@ Callable allometric power-law model using spherical cell volume.
 """
 struct PowerLaw end
 
+function allometric_relationship_identifier(model)
+    throw(
+        ArgumentError(
+            "No identifier is defined for allometric relationship $(typeof(model))."
+        ),
+    )
+end
+
+allometric_relationship_identifier(::PowerLaw) = :power_law
+
+function allometric_relationship_from_identifier(::Val{id}) where {id}
+    throw(ArgumentError("Unsupported allometric relationship identifier $(repr(id))."))
+end
+
+allometric_relationship_from_identifier(::Val{:power_law}) = PowerLaw()
+
 """
     PowerLaw()(coeffs, diameter)
 

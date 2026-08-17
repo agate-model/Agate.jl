@@ -212,6 +212,24 @@ struct PalatabilityAllometric <: AbstractMatrixDeriver end
 """Derive `assimilation_matrix[consumer, prey]` from binary efficiency traits."""
 struct AssimilationBinary <: AbstractMatrixDeriver end
 
+function matrix_deriver_identifier(deriver::AbstractMatrixDeriver)
+    throw(
+        ArgumentError(
+            "No identifier is defined for interaction-matrix deriver $(typeof(deriver))."
+        ),
+    )
+end
+
+matrix_deriver_identifier(::PalatabilityAllometric) = :palatability_allometric
+matrix_deriver_identifier(::AssimilationBinary) = :assimilation_binary
+
+function matrix_deriver_from_identifier(::Val{id}) where {id}
+    throw(ArgumentError("Unsupported interaction-matrix deriver identifier $(repr(id))."))
+end
+
+matrix_deriver_from_identifier(::Val{:palatability_allometric}) = PalatabilityAllometric()
+matrix_deriver_from_identifier(::Val{:assimilation_binary}) = AssimilationBinary()
+
 # Dependency keys are the trait vectors used by each derivation.
 function derivation_deps(::PalatabilityAllometric)
     return (:optimum_predator_prey_ratio, :specificity, :protection)
