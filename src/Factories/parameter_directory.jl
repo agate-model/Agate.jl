@@ -9,6 +9,23 @@ export DiameterIndexedVectorDefault
 export parameter_directory
 export parameter_spec
 
+"""Materialize a parameter law over selected diameter-indexed classes.
+
+`indices_field` names the `CommunityContext` field containing the selected class
+indices. When it is `nothing`, the law applies to every plankton class. `fill_value`
+is assigned outside the selected indices.
+"""
+struct DiameterIndexedMaterialization{T}
+    indices_field::Union{Nothing,Symbol}
+    fill_value::T
+end
+
+function DiameterIndexedMaterialization(
+    indices_field::Union{Nothing,Symbol}=nothing; fill_value
+)
+    return DiameterIndexedMaterialization(indices_field, fill_value)
+end
+
 """Describe a configurable model parameter.
 
 Fields
@@ -17,13 +34,22 @@ Fields
 - `shape`: one of `:scalar`, `:vector`, or `:matrix`.
 - `axes`: optional vector axis name or matrix-axis names.
 - `doc`: human-readable description.
+- `materialization`: optional constructor-time parameter-law materialization semantics.
 """
 struct ParameterSpec
     name::Symbol
     shape::Symbol
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}
     doc::String
+    materialization::Union{Nothing,DiameterIndexedMaterialization}
 end
+
+ParameterSpec(
+    name::Symbol,
+    shape::Symbol,
+    axes::Union{Nothing,Symbol,NTuple{2,Symbol}},
+    doc::AbstractString,
+) = ParameterSpec(name, shape, axes, String(doc), nothing)
 
 """Convenience constructor for `ParameterSpec`."""
 function ParameterSpec(
@@ -31,8 +57,9 @@ function ParameterSpec(
     shape::Symbol;
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
     doc::AbstractString="",
+    materialization::Union{Nothing,DiameterIndexedMaterialization}=nothing,
 )
-    ParameterSpec(name, shape, axes, String(doc))
+    ParameterSpec(name, shape, axes, String(doc), materialization)
 end
 
 """Abstract supertype for constructor-time default providers.

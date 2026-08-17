@@ -13,6 +13,7 @@ using ..Factories:
     NoDefault,
     FillDefault,
     DiameterIndexedVectorDefault,
+    DiameterIndexedMaterialization,
     parameter_spec,
     default_plankton_dynamics,
     default_biogeochem_dynamics,
@@ -32,7 +33,7 @@ using ..Manifests: Serialization
 
 using ..Equations: CompiledEquation
 
-using ..Library.Allometry: AllometricParam, resolve_diameter_indexed_vector
+using ..Library.Allometry: AbstractParamDef, resolve_diameter_indexed_vector
 
 """A factory-supplied callable that builds a non-plankton tracer equation.
 
@@ -225,6 +226,14 @@ function validate_parameter_directory(factory::AbstractBGCFactory)
                 ),
             )
         end
+
+        if spec.materialization isa DiameterIndexedMaterialization
+            spec.shape === :vector || throw(
+                ArgumentError(
+                    "parameter :$(spec.name) declares diameter-indexed materialization but is not vector-shaped."
+                ),
+            )
+        end
     end
 
     return Tuple(keys_)
@@ -309,29 +318,26 @@ function expand_named_vector_override(
     return expanded
 end
 
-function parameter_definition(factory::AbstractBGCFactory, key::Symbol)
-    for def in parameter_definitions(factory)
-        def.spec.name === key && return def
-    end
-    return nothing
-end
-
-function materialize_allometric_parameter_override(
-    factory::AbstractBGCFactory, context, key::Symbol, value::AllometricParam, ::Type{T}
+function materialize_parameter_law_override(
+    factory::AbstractBGCFactory, context, key::Symbol, value::AbstractParamDef, ::Type{T}
 ) where {T<:Real}
-    def = parameter_definition(factory, key)
-    provider = def === nothing ? nothing : def.default
+    spec = parameter_spec(factory, key)
+    materialization = spec === nothing ? nothing : spec.materialization
 
-    provider isa DiameterIndexedVectorDefault || throw(
+    materialization isa DiameterIndexedMaterialization || throw(
         ArgumentError(
-            "parameter :$key only supports AllometricParam overrides for diameter-indexed vector parameters."
+            "parameter :$key only supports parameter-law overrides for parameters with declared diameter-indexed vector materialization."
         ),
     )
 
-    indices = getproperty(context, provider.indices_field)
-    default = T(provider.default)
+    indices = if isnothing(materialization.indices_field)
+        eachindex(context.diameters)
+    else
+        getproperty(context, materialization.indices_field)
+    end
+    fill_value = T(materialization.fill_value)
     return resolve_diameter_indexed_vector(
-        T, context.diameters, indices, value; default=default
+        T, context.diameters, indices, value; default=fill_value
     )
 end
 
@@ -372,10 +378,10 @@ function materialize_parameter_overrides(
             continue
         end
 
-        if value isa AllometricParam
+        if value isa AbstractParamDef
             push!(
                 entries,
-                key => materialize_allometric_parameter_override(
+                key => materialize_parameter_law_override(
                     factory, context, key, value, T
                 ),
             )
