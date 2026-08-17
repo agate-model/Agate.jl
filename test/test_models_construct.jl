@@ -402,6 +402,20 @@ using Oceananigans.Biogeochemistry:
         @test eltype(bgc.parameters.maximum_growth_rate) === Float32
         @test eltype(bgc.parameters.maximum_predation_rate) === Float32
 
+        bad_relationship = (coeffs, diameter, extra) -> 0.0
+
+        @test_throws ArgumentError(
+            "AllometricParam relationship must be callable as relationship(coeffs, diameter)"
+        ) NiPiZD.construct(;
+            size_structure,
+            grid=dummy_grid(Float32),
+            parameters=(;
+                maximum_growth_rate=AllometricParam(
+                    bad_relationship; prefactor=growth_prefactor
+                ),
+            ),
+        )
+
         bgc_full_vector = NiPiZD.construct(;
             size_structure,
             grid=dummy_grid(Float32),

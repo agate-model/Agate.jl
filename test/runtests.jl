@@ -1,3 +1,4 @@
+# to build docs from terminal: julia --project=. -e 'using Pkg; Pkg.test()'
 using Agate
 using Test
 

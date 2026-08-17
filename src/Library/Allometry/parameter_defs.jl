@@ -130,7 +130,15 @@ Resolve a scalar, boolean, or explicit parameter definition at one diameter.
     # Coefficients often come from literal numbers (Float64). Convert them to the construction scalar type so we
     # never mix Float32/Float64 in the underlying allometric calls.
     coeffs = map(v -> v isa Number ? T(v) : v, p.coeffs)
-    return T(p.model(coeffs, T(diameter)))
+    d = T(diameter)
+
+    applicable(p.model, coeffs, d) || throw(
+        ArgumentError(
+            "AllometricParam relationship must be callable as relationship(coeffs, diameter)"
+        ),
+    )
+
+    return T(p.model(coeffs, d))
 end
 
 """
