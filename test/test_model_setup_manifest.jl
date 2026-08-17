@@ -3,6 +3,12 @@ using OceanBioME: BoxModelGrid
 using Oceananigans.Biogeochemistry: biogeochemical_drift_velocity, required_biogeochemical_tracers
 using Agate.Manifests: construct_from_manifest, export_manifest
 
+function Agate.Manifests.construct_from_manifest(
+    ::Val{:TestModelSetup}, setup::AbstractDict; grid=nothing, arch=nothing
+)
+    return (; value=setup["kwargs"]["value"], grid, arch)
+end
+
 function test_reconstructed_model(reconstructed, expected)
     @test typeof(reconstructed) == typeof(expected)
     @test required_biogeochemical_tracers(reconstructed) == required_biogeochemical_tracers(expected)
@@ -127,6 +133,20 @@ end
     test_exact_parameters(reconstructed.parameters, bgc.parameters)
     @test Agate.Introspection.plankton_diameters(reconstructed) ==
           Agate.Introspection.plankton_diameters(bgc)
+end
+
+@testset "Model setup family dispatch" begin
+    setup = Dict{String,Any}(
+        "schema" => "agate.model_setup.v1",
+        "model" => Dict{String,Any}("family" => "TestModelSetup"),
+        "kwargs" => Dict{String,Any}("value" => 3),
+    )
+
+    @test construct_from_manifest(setup; grid=:grid, arch=:arch) ==
+          (value=3, grid=:grid, arch=:arch)
+
+    setup["model"]["family"] = "UnknownModel"
+    @test_throws ArgumentError construct_from_manifest(setup)
 end
 
 @testset "Model setup serialization validation" begin

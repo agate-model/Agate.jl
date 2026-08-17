@@ -54,9 +54,13 @@ Reconstruct an Agate biogeochemistry object from an exported model setup.
 """
 function construct_from_manifest(setup::AbstractDict; grid=nothing, arch=nothing)
     family = model_family(setup)
-    kwargs = constructor_kwargs(setup, family; grid, arch)
-    models = getfield(parentmodule(@__MODULE__), :Models)
-    return getfield(models, Symbol(family)).construct(; kwargs...)
+    return construct_from_manifest(Val(family), setup; grid, arch)
+end
+
+function construct_from_manifest(
+    ::Val{family}, ::AbstractDict; grid=nothing, arch=nothing
+) where {family}
+    throw(ArgumentError("Unsupported model family $(repr(String(family)))."))
 end
 
 construct_from_manifest(path::AbstractString; grid=nothing, arch=nothing) =
@@ -122,50 +126,45 @@ function model_family(setup::AbstractDict)
 
     model = check_keys(required(setup, "model", "Model setup"), MODEL_KEYS, "Model setup model")
     family = required(model, "family", "Model setup model")
-    family in ("DARWIN", "NiPiZD") && return family
-
-    throw(ArgumentError("Unsupported model family $(repr(family))."))
+    family isa AbstractString ||
+        throw(ArgumentError("Model setup model.family must be a string."))
+    return Symbol(family)
 end
 
-function constructor_kwargs(setup::AbstractDict, family; grid=nothing, arch=nothing)
-    common = ("parameters", "sinking_tracers", "open_bottom", "scalar_type")
-    allowed = family == "NiPiZD" ? (common..., "size_structure") :
-        (common..., "phyto_size_structure", "zoo_size_structure")
+const COMMON_CONSTRUCTOR_KEYS = (
+    "parameters", "sinking_tracers", "open_bottom", "scalar_type"
+)
+
+function manifest_kwargs(setup::AbstractDict, model_keys::Tuple)
+    allowed = (COMMON_CONSTRUCTOR_KEYS..., model_keys...)
     kwargs = check_keys(required(setup, "kwargs", "Model setup"), allowed, "Model setup kwargs")
     for key in allowed
         required(kwargs, key, "Model setup kwargs")
     end
+    return kwargs
+end
 
-    kwarg_pairs = Pair{Symbol,Any}[]
-    if family == "NiPiZD"
-        push!(
-            kwarg_pairs,
-            :size_structure => named_size_structure_kwargs(kwargs["size_structure"]),
-        )
-    else
-        for key in ("phyto_size_structure", "zoo_size_structure")
-            value = kwargs[key]
-            value isa AbstractVector ||
-                throw(ArgumentError("Model setup kwargs.$key must be an array."))
-            push!(kwarg_pairs, Symbol(key) => setup_value(value))
-        end
-    end
-
+function common_constructor_kwargs(kwargs::AbstractDict; grid=nothing, arch=nothing)
     open_bottom = kwargs["open_bottom"]
     open_bottom isa Bool ||
         throw(ArgumentError("Model setup kwargs.open_bottom must be a boolean."))
-    push!(kwarg_pairs, :open_bottom => open_bottom)
-    push!(kwarg_pairs, :parameters => parameter_kwargs(kwargs["parameters"]))
-    push!(
-        kwarg_pairs,
-        :sinking_tracers => sinking_tracers_kwargs(kwargs["sinking_tracers"]),
-    )
-    push!(kwarg_pairs, :scalar_type => decode_scalar_type(kwargs["scalar_type"]))
 
+    kwarg_pairs = Pair{Symbol,Any}[
+        :open_bottom => open_bottom,
+        :parameters => parameter_kwargs(kwargs["parameters"]),
+        :sinking_tracers => sinking_tracers_kwargs(kwargs["sinking_tracers"]),
+        :scalar_type => decode_scalar_type(kwargs["scalar_type"]),
+    ]
     !isnothing(grid) && push!(kwarg_pairs, :grid => grid)
     !isnothing(arch) && push!(kwarg_pairs, :arch => arch)
-
     return (; kwarg_pairs...)
+end
+
+function size_structure_vector(kwargs::AbstractDict, key::AbstractString)
+    value = kwargs[key]
+    value isa AbstractVector ||
+        throw(ArgumentError("Model setup kwargs.$key must be an array."))
+    return setup_value(value)
 end
 
 function parameter_kwargs(parameters)

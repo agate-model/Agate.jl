@@ -4,6 +4,8 @@ import ...Configuration
 import ...Construction
 import ...Factories
 
+import ...Manifests
+import ...Manifests: construct_from_manifest
 using ...Manifests: default_model_manifest
 
 export construct, construct_with_manifest
@@ -170,6 +172,18 @@ bgc = DARWIN.construct(;
 function construct(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
     return Construction.construct_factory(inputs.factory; inputs.kwargs...)
+end
+
+function construct_from_manifest(
+    ::Val{:DARWIN}, setup::AbstractDict; grid=nothing, arch=nothing
+)
+    kwargs = Manifests.manifest_kwargs(
+        setup, ("phyto_size_structure", "zoo_size_structure")
+    )
+    common = Manifests.common_constructor_kwargs(kwargs; grid, arch)
+    phyto_size_structure = Manifests.size_structure_vector(kwargs, "phyto_size_structure")
+    zoo_size_structure = Manifests.size_structure_vector(kwargs, "zoo_size_structure")
+    return construct(; phyto_size_structure, zoo_size_structure, common...)
 end
 
 """

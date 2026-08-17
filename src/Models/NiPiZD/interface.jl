@@ -2,6 +2,8 @@ using OceanBioME: BoxModelGrid
 
 import ...Configuration
 import ...Construction
+import ...Manifests
+import ...Manifests: construct_from_manifest
 using ...Manifests: default_model_manifest
 
 export construct, construct_with_recipe, construct_with_realization, construct_with_manifest
@@ -245,6 +247,15 @@ bgc = NiPiZD.construct(;
 function construct(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
     return Construction.construct_factory(inputs.factory; inputs.kwargs...)
+end
+
+function construct_from_manifest(
+    ::Val{:NiPiZD}, setup::AbstractDict; grid=nothing, arch=nothing
+)
+    kwargs = Manifests.manifest_kwargs(setup, ("size_structure",))
+    common = Manifests.common_constructor_kwargs(kwargs; grid, arch)
+    size_structure = Manifests.named_size_structure_kwargs(kwargs["size_structure"])
+    return construct(; size_structure, common...)
 end
 
 function _recipe_plankton_dynamics(recipe::Construction.ModelRecipe)
