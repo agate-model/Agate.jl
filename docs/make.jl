@@ -27,6 +27,7 @@ examples = [
     "Comparing phytoplankton light strategies" => "named_plankton_groups",
     "Allometric parameters" => "allometric_relationships",
     "Exporting a model recipe" => "export_model_recipe",
+    "External model family" => "external_model_family",
 ]
 
 if BUILD_COLUMN_EXAMPLE
@@ -88,7 +89,6 @@ makedocs(;
     pages=[
         "Home" => "index.md",
         "Quick start" => "quick_start.md",
-        "Reproducible models" => "reproducible_models.md",
         "Examples" => example_pages,
         "Models" => model_pages,
         "Library" => "library.md",
