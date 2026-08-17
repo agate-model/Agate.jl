@@ -14,11 +14,7 @@ function test_exact_parameters(actual, expected)
         actual_value = getproperty(actual, key)
         expected_value = getproperty(expected, key)
         if key === :interactions
-            for field in fieldnames(typeof(expected_value))
-                @test isequal(
-                    getfield(actual_value, field), getfield(expected_value, field)
-                )
-            end
+            @test actual_value == expected_value
         else
             @test isequal(actual_value, expected_value)
         end

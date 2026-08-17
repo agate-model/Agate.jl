@@ -1,6 +1,6 @@
 module Configuration
 
-using ..Factories: AbstractBGCFactory, ParameterSpec, parameter_spec
+using ..Factories: AbstractBGCFactory, ParameterSpec, parameter_directory, parameter_spec
 import Adapt
 
 export PFTSpecification

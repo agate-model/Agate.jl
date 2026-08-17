@@ -13,6 +13,40 @@ using Oceananigans.Fields: ZeroField
 using Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers, biogeochemical_drift_velocity
 
+struct ThreeInteractionMatrixFactory <: Agate.Factories.AbstractBGCFactory end
+
+function Agate.Factories.parameter_definitions(::ThreeInteractionMatrixFactory)
+    return (
+        Agate.Factories.ParameterDefinition(
+            Agate.Factories.ParameterSpec(
+                :encounter_matrix,
+                :matrix;
+                axes=(:consumer, :prey),
+                doc="Test encounter interaction.",
+            ),
+            Agate.Factories.NoDefault(),
+        ),
+        Agate.Factories.ParameterDefinition(
+            Agate.Factories.ParameterSpec(
+                :capture_efficiency_matrix,
+                :matrix;
+                axes=(:consumer, :prey),
+                doc="Test capture-efficiency interaction.",
+            ),
+            Agate.Factories.NoDefault(),
+        ),
+        Agate.Factories.ParameterDefinition(
+            Agate.Factories.ParameterSpec(
+                :handling_time_matrix,
+                :matrix;
+                axes=(:consumer, :prey),
+                doc="Test handling-time interaction.",
+            ),
+            Agate.Factories.NoDefault(),
+        ),
+    )
+end
+
 @testset "Public model constructors" begin
     @testset "NiPiZD defaults" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
@@ -120,14 +154,7 @@ using Oceananigans.Biogeochemistry:
 
         function same_parameter_values(a, b)
             keys(a) == keys(b) || return false
-            values_match = all(
-                key -> key === :interactions || getproperty(a, key) == getproperty(b, key),
-                keys(a),
-            )
-            interactions_match =
-                a.interactions.palatability == b.interactions.palatability &&
-                a.interactions.assimilation == b.interactions.assimilation
-            return values_match && interactions_match
+            return all(key -> getproperty(a, key) == getproperty(b, key), keys(a))
         end
 
         flat = NiPiZD.construct(;
@@ -241,6 +268,81 @@ using Oceananigans.Biogeochemistry:
         end
         @test err isa ArgumentError
         @test occursin("providers are not supported", sprint(showerror, err))
+    end
+
+    @testset "InteractionMatrices structural equality" begin
+        interactions = NiPiZD.construct(; grid=dummy_grid(Float32)).parameters.interactions
+
+        matrix_names = keys(interactions.matrices)
+        copied_matrices = NamedTuple{matrix_names}(
+            Tuple(copy(getproperty(interactions.matrices, name)) for name in matrix_names)
+        )
+        copied = typeof(interactions)(
+            copied_matrices,
+            copy(interactions.consumer_global),
+            copy(interactions.prey_global),
+            copy(interactions.global_to_consumer),
+            copy(interactions.global_to_prey),
+        )
+        @test copied == interactions
+
+        function replace_field(interactions, field::Symbol, value)
+            names = fieldnames(typeof(interactions))
+            values = ntuple(
+                i -> names[i] === field ? value : getfield(interactions, i), length(names)
+            )
+            return typeof(interactions)(values...)
+        end
+
+        for field in fieldnames(typeof(interactions))
+            changed = if field === :matrices
+                name = first(keys(interactions.matrices))
+                matrix = copy(getproperty(interactions.matrices, name))
+                matrix[1, 1] += one(eltype(matrix))
+                merge(interactions.matrices, NamedTuple{(name,)}((matrix,)))
+            else
+                value = copy(getproperty(interactions, field))
+                value[1] = value[1] == 0 ? 1 : 0
+                value
+            end
+            @test replace_field(interactions, field, changed) != interactions
+        end
+    end
+
+    @testset "Generic interaction matrix collection" begin
+        context = Agate.Configuration.CommunityContext(
+            Float32,
+            3,
+            Float32[10, 2, 5],
+            [Agate.Configuration.PFTSpecification() for _ in 1:3],
+            [:consumer_1, :prey_1, :prey_2],
+            [:consumer, :prey, :prey],
+            [1, 1, 2],
+            Dict(:consumer => [1], :prey => [2, 3]),
+            [1],
+            [2, 3],
+            [2, 3],
+            [1],
+            (;),
+            (;),
+        )
+        params = (;
+            encounter_matrix=Float32[1 2],
+            capture_efficiency_matrix=Float32[0.5 0.75],
+            handling_time_matrix=Float32[3 4],
+        )
+
+        finalized = Agate.Configuration.finalize_interaction_parameters(
+            ThreeInteractionMatrixFactory(), context, params
+        )
+        interactions = finalized.interactions
+
+        @test keys(interactions.matrices) == (:encounter, :capture_efficiency, :handling_time)
+        @test interactions.encounter === finalized.encounter_matrix
+        @test interactions.capture_efficiency === finalized.capture_efficiency_matrix
+        @test interactions.handling_time === finalized.handling_time_matrix
+        @test interactions.consumer_global == [1]
+        @test interactions.prey_global == [2, 3]
     end
 
     @testset "Derived interaction matrices" begin
