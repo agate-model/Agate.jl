@@ -45,6 +45,7 @@ function Agate.Factories.parameter_definitions(::ThreeInteractionMatrixFactory)
 end
 
 @testset "Public model constructors" begin
+
     @testset "NiPiZD construction input classification" begin
         recipe_fields = Set(NiPiZD.RECIPE_INPUT_FIELDS)
         environment_fields = Set(NiPiZD.ENVIRONMENT_INPUT_FIELDS)

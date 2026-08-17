@@ -32,8 +32,6 @@ using ..Configuration:
 
 using ..Runtime: build_tracer_index
 
-using ..Manifests: Serialization
-
 using ..Equations: CompiledEquation
 
 using ..Library.Allometry: AbstractParamDef, resolve_diameter_indexed_vector
@@ -527,24 +525,12 @@ function resolve_construction_scalar_type(grid, scalar_type)
 end
 
 function construct_factory(factory::AbstractBGCFactory; kwargs...)
-    bgc, _, _ = _construct_factory(
-        factory; build_manifest_data=false, build_realization_data=false, kwargs...
-    )
+    bgc, _ = _construct_factory(factory; build_realization_data=false, kwargs...)
     return bgc
 end
 
-function construct_factory_with_manifest_data(factory::AbstractBGCFactory; kwargs...)
-    bgc, manifest_data, _ = _construct_factory(
-        factory; build_manifest_data=true, build_realization_data=false, kwargs...
-    )
-    return bgc, manifest_data
-end
-
 function construct_factory_with_realization(factory::AbstractBGCFactory; kwargs...)
-    bgc, _, realization = _construct_factory(
-        factory; build_manifest_data=false, build_realization_data=true, kwargs...
-    )
-    return bgc, realization
+    return _construct_factory(factory; build_realization_data=true, kwargs...)
 end
 
 function _construct_factory(
@@ -563,7 +549,6 @@ function _construct_factory(
     grid=nothing,
     scalar_type=nothing,
     open_bottom::Bool=true,
-    build_manifest_data::Bool=true,
     build_realization_data::Bool=false,
 )
     if isnothing(grid) && !isnothing(sinking_tracers)
@@ -730,13 +715,5 @@ function _construct_factory(
 
     bgc = on_architecture(arch, bgc)
 
-    manifest_data = build_manifest_data ? (
-        parameter_values=Serialization.parameter_values(resolved_parameters, required),
-        plankton_diameters_by_group=Serialization.plankton_diameter_groups(community_context),
-        scalar_type=string(T),
-        sinking_tracers=Serialization.manifest_ordered_pairs(sinking_tracers),
-        open_bottom=open_bottom,
-    ) : nothing
-
-    return bgc, manifest_data, realization
+    return bgc, realization
 end

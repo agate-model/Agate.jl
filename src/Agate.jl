@@ -6,7 +6,6 @@ include("Library/Library.jl")
 include("Configuration/Configuration.jl")
 include("Runtime/Runtime.jl")
 include("Diagnostics/Diagnostics.jl")
-include("Manifests/Manifests.jl")
 include("Construction/Construction.jl")
 include("Tendencies/Tendencies.jl")
 include("Models/Models.jl")
@@ -18,7 +17,6 @@ export Factories
 export Configuration
 export Runtime
 export Diagnostics
-export Manifests
 export Equations
 export Construction
 export Tendencies

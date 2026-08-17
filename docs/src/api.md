@@ -32,13 +32,15 @@ pal.matrix   # consumer-by-prey matrix
 
 ## Construction API
 
+### Recipes and realizations
+
 ```@docs
-Agate.Manifests.export_manifest
-Agate.Manifests.construct_from_manifest
-Agate.Construction.PFTSpecification
-Agate.Factories.AbstractBGCFactory
-Agate.Equations.CompiledEquation
-Agate.Construction.define_tracer_functions
+Agate.Construction.ModelRecipe
+Agate.Construction.ModelRealization
+Agate.Construction.encode_recipe
+Agate.Construction.decode_recipe
+Agate.Construction.export_recipe
+Agate.Construction.import_recipe
 ```
 
 ## Plankton communities and size structure

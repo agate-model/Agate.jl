@@ -37,6 +37,8 @@ end
     )
 
     encoded = encode_recipe(recipe)
+    @test encoded["schema"] == "agate.model_recipe.v1"
+    @test Set(keys(encoded)) == Set(("schema", "model", "recipe"))
     decoded = decode_recipe(encoded)
     _, decoded_realization = NiPiZD.construct_with_realization(decoded)
     @test decoded == recipe
@@ -54,6 +56,10 @@ end
 
     invalid = deepcopy(encoded)
     invalid["schema"] = "agate.model_recipe.v2"
+    @test_throws ArgumentError decode_recipe(invalid)
+
+    invalid = deepcopy(encoded)
+    invalid["model"]["family"] = "UnknownModel"
     @test_throws ArgumentError decode_recipe(invalid)
 
     invalid = deepcopy(encoded)

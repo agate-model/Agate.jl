@@ -2,5 +2,6 @@
 
 ```@docs
 Agate.Models.NiPiZD.construct
-Agate.Models.NiPiZD.construct_with_manifest
+Agate.Models.NiPiZD.construct_with_recipe
+Agate.Models.NiPiZD.construct_with_realization
 ```

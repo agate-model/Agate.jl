@@ -2,11 +2,8 @@ using OceanBioME: BoxModelGrid
 
 import ...Configuration
 import ...Construction
-import ...Manifests
-import ...Manifests: construct_from_manifest
-using ...Manifests: default_model_manifest
 
-export construct, construct_with_recipe, construct_with_realization, construct_with_manifest
+export construct, construct_with_recipe, construct_with_realization
 
 function _validated_size_structure(size_structure)
     size_structure isa NamedTuple ||
@@ -161,7 +158,6 @@ function _construction_inputs(options::NiPiZDConstructionOptions)
     return (
         factory=factory,
         recipe_kwargs,
-        manifest_group_roles=community_inputs.ecological_roles,
         kwargs=(;
             plankton_dynamics=community_inputs.plankton_dynamics,
             community=community_inputs.community,
@@ -247,15 +243,6 @@ bgc = NiPiZD.construct(;
 function construct(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
     return Construction.construct_factory(inputs.factory; inputs.kwargs...)
-end
-
-function construct_from_manifest(
-    ::Val{:NiPiZD}, setup::AbstractDict; grid=nothing, arch=nothing
-)
-    kwargs = Manifests.manifest_kwargs(setup, ("size_structure",))
-    common = Manifests.common_constructor_kwargs(kwargs; grid, arch)
-    size_structure = Manifests.named_size_structure_kwargs(kwargs["size_structure"])
-    return construct(; size_structure, common...)
 end
 
 function _recipe_plankton_dynamics(recipe::Construction.ModelRecipe)
@@ -357,21 +344,4 @@ function construct_with_realization(
         inputs.factory; inputs.kwargs...
     )
     return bgc, realization
-end
-
-"""
-    construct_with_manifest(; kw...) -> bgc, manifest
-
-Construct a model instance and return it with a JSON-compatible manifest of the resolved model setup.
-Groups are recorded in role/group order with their resolved class diameters.
-"""
-function construct_with_manifest(; kwargs...)
-    inputs = _construction_inputs(; kwargs...)
-    bgc, manifest_data = Construction.construct_factory_with_manifest_data(
-        inputs.factory; inputs.kwargs...
-    )
-    manifest = default_model_manifest(
-        :NiPiZD, manifest_data; group_roles=inputs.manifest_group_roles
-    )
-    return bgc, manifest
 end

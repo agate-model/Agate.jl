@@ -54,7 +54,7 @@ Callable Geider-style light-dependent carbon fixation rate.
     where ``I`` is photosynthetically active radiation, ``P^C_{max}`` is the
     maximum carbon-specific growth rate, ``\\alpha^{chl}`` is the chlorophyll-
     specific initial slope, and ``\\theta^C`` is the chlorophyll-to-carbon ratio.
-    This follows the Geider et al. light response used by DARWIN-style growth.
+    This follows the Geider et al. light response used by size-structured phytoplankton growth formulations.
 """
 struct GeiderLightLimitation{T1,T2,T3}
     alpha::T1
