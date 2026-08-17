@@ -37,14 +37,52 @@ pal.matrix   # consumer-by-prey matrix
 ```@docs
 Agate.Construction.ModelRecipe
 Agate.Construction.ModelManifest
+Agate.Construction.capture_model_recipe
+Agate.Construction.replay_factory
+Agate.Construction.construct_factory
+Agate.Construction.construct_factory_with_manifest
+Agate.Construction.resolve_construction_scalar_type
+Agate.Construction.recipe_family
+Agate.Construction.recipe_factory
 Agate.Construction.encode_recipe
 Agate.Construction.decode_recipe
 Agate.Construction.export_recipe
 Agate.Construction.import_recipe
 ```
 
-## Plankton communities and size structure
+### External model-family factories
 
 ```@docs
+Agate.Factories.AbstractBGCFactory
+Agate.Factories.parameter_definitions
+Agate.Factories.parameter_directory
+Agate.Factories.parameter_spec
+Agate.Factories.ParameterSpec
+Agate.Factories.ParameterDefinition
+Agate.Factories.DefaultProvider
+Agate.Factories.ConstDefault
+Agate.Factories.NoDefault
+Agate.Factories.FillDefault
+Agate.Factories.DiameterIndexedVectorDefault
+Agate.Factories.DiameterIndexedMaterialization
+Agate.Factories.default_community
+Agate.Factories.default_plankton_dynamics
+Agate.Factories.default_biogeochem_dynamics
+```
+
+### Plankton communities and interactions
+
+```@docs
+Agate.Configuration.PFTSpecification
 Agate.Configuration.build_plankton_community
+Agate.Configuration.normalize_diameters
+Agate.Configuration.AbstractMatrixDeriver
+Agate.Configuration.MatrixDefinition
+Agate.Configuration.matrix_definitions
+Agate.Configuration.derive_matrix
+Agate.Configuration.derivation_deps
+Agate.Configuration.matrix_deriver_identifier
+Agate.Configuration.matrix_deriver_from_identifier
+Agate.Configuration.PalatabilityAllometric
+Agate.Configuration.AssimilationBinary
 ```
