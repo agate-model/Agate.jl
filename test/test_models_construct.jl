@@ -8,7 +8,7 @@ using Test
 using OceanBioME: BoxModelGrid
 
 using Oceananigans.Units
-using Agate.Library.Allometry: AllometricParam, PowerLaw
+using Agate.Library.Allometry: AllometricParam, ConstantParam, PowerLaw
 using Oceananigans.Fields: ZeroField
 using Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers, biogeochemical_drift_velocity
@@ -353,7 +353,7 @@ using Oceananigans.Biogeochemistry:
         )
     end
 
-    @testset "Allometric parameter overrides" begin
+    @testset "Parameter-law overrides" begin
         phyto_diameters = [2.0, 8.0]
         zoo_diameters = [20.0, 100.0]
         size_structure = (;
@@ -401,6 +401,31 @@ using Oceananigans.Biogeochemistry:
         @test bgc.parameters.maximum_predation_rate ≈ expected_predation
         @test eltype(bgc.parameters.maximum_growth_rate) === Float32
         @test eltype(bgc.parameters.maximum_predation_rate) === Float32
+
+        mortality_prefactor = 0.5 / day
+        mortality_exponent = -0.1
+        bgc_laws = NiPiZD.construct(;
+            size_structure,
+            grid=dummy_grid(Float32),
+            parameters=(;
+                linear_mortality=AllometricParam(
+                    PowerLaw();
+                    prefactor=mortality_prefactor,
+                    exponent=mortality_exponent,
+                ),
+                maximum_growth_rate=ConstantParam(1.5 / day),
+            ),
+        )
+
+        all_diameters = [zoo_diameters; phyto_diameters]
+        expected_mortality = Float32[
+            powerlaw_value(Float32, mortality_prefactor, mortality_exponent, diameter) for
+            diameter in all_diameters
+        ]
+        expected_constant_growth = Float32[0, 0, 1.5 / day, 1.5 / day]
+
+        @test bgc_laws.parameters.linear_mortality ≈ expected_mortality
+        @test bgc_laws.parameters.maximum_growth_rate == expected_constant_growth
 
         bad_relationship = (coeffs, diameter, extra) -> 0.0
 
