@@ -75,7 +75,6 @@ Agate.Factories.default_biogeochem_dynamics
 ```@docs
 Agate.Configuration.PFTSpecification
 Agate.Configuration.build_plankton_community
-Agate.Configuration.normalize_diameters
 Agate.Configuration.AbstractMatrixDeriver
 Agate.Configuration.MatrixDefinition
 Agate.Configuration.matrix_definitions

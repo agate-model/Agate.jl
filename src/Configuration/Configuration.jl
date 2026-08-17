@@ -5,7 +5,7 @@ import Adapt
 
 export PFTSpecification
 
-export build_plankton_community, normalize_diameters
+export build_plankton_community
 
 export AbstractMatrixDeriver
 export MatrixDefinition

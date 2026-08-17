@@ -36,32 +36,6 @@ using ..Equations: CompiledEquation
 
 using ..Library.Allometry: AbstractParamDef, resolve_diameter_indexed_vector
 
-"""A factory-supplied callable that builds a non-plankton tracer equation.
-
-Biogeochemical dynamics builders are stored in `biogeochem_dynamics` and are called
-once per tracer symbol during construction.
-
-Expected signature
-------------------
-`builder() -> CompiledEquation`.
-"""
-const BiogeochemDynamicsBuilder = Function
-
-"""A factory-supplied callable that builds a plankton tracer equation.
-
-Plankton dynamics builders are stored in `plankton_dynamics` under their group
-symbol (e.g. `P`, `Z`) and are called once per plankton class.
-
-Expected signature
-------------------
-`builder(global_index::Int) -> CompiledEquation`
-
-Arguments
----------
-- `global_index`: global plankton class index (ordered as in `community_context.plankton_symbols`)
-"""
-const PlanktonDynamicsBuilder = Function
-
 """Evaluate `parameter_definitions(factory)` to produce baseline parameter defaults.
 
 Defaults are evaluated on the host during model construction. The returned
@@ -75,13 +49,6 @@ function build_parameter_defaults(
 ) where {T<:Real}
     defs = parameter_definitions(factory)
     isempty(defs) && return (;)
-
-    keys_ = map(d -> d.spec.name, defs)
-    length(unique(keys_)) == length(keys_) || throw(
-        ArgumentError(
-            "parameter_definitions(::$(typeof(factory))) contains duplicate keys."
-        ),
-    )
 
     pairs = Pair{Symbol,Any}[]
     for def in defs

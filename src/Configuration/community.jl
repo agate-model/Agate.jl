@@ -168,9 +168,6 @@ function validate_community_inputs(plankton_dynamics, community)
     !isempty(extra) && push!(issues, "community has extra groups: $(extra)")
 
     for k in arg_keys
-        if !haskey(community, k)
-            continue
-        end
         spec = getfield(community, k)
 
         if !hasproperty(spec, :diameters)
@@ -318,10 +315,6 @@ function parse_community(
 
     interaction_roles_resolved =
         isnothing(interaction_roles) ? (consumers=nothing, prey=nothing) : interaction_roles
-    hasproperty(interaction_roles_resolved, :consumers) ||
-        throw(ArgumentError("interaction_roles must define :consumers"))
-    hasproperty(interaction_roles_resolved, :prey) ||
-        throw(ArgumentError("interaction_roles must define :prey"))
 
     function indices_for_role(role, role_name::Symbol)
         if role === nothing

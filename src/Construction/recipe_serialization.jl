@@ -1,7 +1,6 @@
 using JSON
 
 using ..Factories:
-    AbstractBGCFactory,
     ParameterDefinition,
     ParameterSpec,
     ConstDefault,
@@ -76,27 +75,17 @@ function _symbol(x, path)
     return Symbol(_string(x, path))
 end
 
-_scalar_type_id(::Type{Float32}) = "Float32"
-_scalar_type_id(::Type{Float64}) = "Float64"
-function _scalar_type_id(T::Type{<:Real})
-    throw(ArgumentError("Recipe serialization supports scalar types Float32 and Float64; got $T."))
+_float_type_id(::Type{Float32}) = "Float32"
+_float_type_id(::Type{Float64}) = "Float64"
+function _float_type_id(T::Type{<:Real})
+    throw(ArgumentError("Recipe serialization supports Float32 and Float64; got $T."))
 end
 
-function _decode_scalar_type(x, path)
+function _decode_float_type(x, path)
     name = _string(x, path)
     name == "Float32" && return Float32
     name == "Float64" && return Float64
-    throw(ArgumentError("$path has unsupported scalar type $(repr(name))."))
-end
-
-function _float_format(::Type{Float32})
-    return "Float32"
-end
-function _float_format(::Type{Float64})
-    return "Float64"
-end
-function _float_format(T::Type{<:AbstractFloat})
-    throw(ArgumentError("Recipe serialization supports Float32 and Float64 values; got $T."))
+    throw(ArgumentError("$path has unsupported floating-point type $(repr(name))."))
 end
 
 function _float_payload(x::AbstractFloat)
@@ -153,41 +142,20 @@ end
 function _decode_array_item(x, ::Type{Symbol}, path)
     return _symbol(x, path)
 end
-function _relationship_id(model)
-    identifier = allometric_relationship_identifier(model)
+function _identifier_string(value, identifier_function, function_name)
+    identifier = identifier_function(value)
     identifier isa Symbol || throw(
-        ArgumentError(
-            "allometric_relationship_identifier must return a Symbol; got $(typeof(identifier))."
-        ),
+        ArgumentError("$function_name must return a Symbol; got $(typeof(identifier)).")
     )
     return String(identifier)
 end
 
-function _decode_relationship(identifier::Symbol, path)
+function _decode_identifier(identifier::Symbol, decoder, path, kind)
     try
-        return allometric_relationship_from_identifier(Val(identifier))
+        return decoder(Val(identifier))
     catch err
         err isa ArgumentError || rethrow()
-        throw(ArgumentError("$path has unsupported allometric relationship $(repr(identifier))."))
-    end
-end
-
-function _deriver_id(deriver)
-    identifier = matrix_deriver_identifier(deriver)
-    identifier isa Symbol || throw(
-        ArgumentError(
-            "matrix_deriver_identifier must return a Symbol; got $(typeof(identifier))."
-        ),
-    )
-    return String(identifier)
-end
-
-function _decode_deriver(identifier::Symbol, path)
-    try
-        return matrix_deriver_from_identifier(Val(identifier))
-    catch err
-        err isa ArgumentError || rethrow()
-        throw(ArgumentError("$path has unsupported interaction-matrix deriver $(repr(identifier))."))
+        throw(ArgumentError("$path has unsupported $kind $(repr(identifier))."))
     end
 end
 
@@ -202,7 +170,7 @@ _encode_value(x::Symbol) = Dict{String,Any}("type" => "symbol", "value" => Strin
 function _encode_value(x::AbstractFloat)
     return Dict{String,Any}(
         "type" => "float",
-        "format" => _float_format(typeof(x)),
+        "format" => _float_type_id(typeof(x)),
         "value" => _float_payload(x),
     )
 end
@@ -269,7 +237,9 @@ end
 function _encode_value(x::AllometricParam)
     return Dict{String,Any}(
         "type" => "allometric_param",
-        "relationship" => _relationship_id(x.model),
+        "relationship" => _identifier_string(
+            x.model, allometric_relationship_identifier, "allometric_relationship_identifier"
+        ),
         "coefficients" => _encode_value(x.coeffs),
     )
 end
@@ -291,7 +261,7 @@ function _decode_value(x, path)
         return _symbol(_required(x, "value", path), "$path.value")
     elseif type_name == "float"
         _check_keys(x, ("type", "format", "value"), path)
-        T = _decode_scalar_type(_required(x, "format", path), "$path.format")
+        T = _decode_float_type(_required(x, "format", path), "$path.format")
         return _decode_float_payload(_required(x, "value", path), T, "$path.value")
     elseif type_name == "named_tuple"
         _check_keys(x, ("type", "entries"), path)
@@ -347,7 +317,12 @@ function _decode_value(x, path)
     elseif type_name == "allometric_param"
         _check_keys(x, ("type", "relationship", "coefficients"), path)
         relationship = _symbol(_required(x, "relationship", path), "$path.relationship")
-        model = _decode_relationship(relationship, "$path.relationship")
+        model = _decode_identifier(
+            relationship,
+            allometric_relationship_from_identifier,
+            "$path.relationship",
+            "allometric relationship",
+        )
         coeffs = _decode_value(_required(x, "coefficients", path), "$path.coefficients")
         coeffs isa NamedTuple || throw(ArgumentError("$path.coefficients must decode to a NamedTuple."))
         return AllometricParam(model, coeffs)
@@ -492,7 +467,9 @@ function _encode_interaction_definitions(definitions::NamedTuple)
     return Any[
         Dict{String,Any}(
             "name" => String(name),
-            "deriver" => _deriver_id(definition.deriver),
+            "deriver" => _identifier_string(
+                definition.deriver, matrix_deriver_identifier, "matrix_deriver_identifier"
+            ),
             "deps" => String[String(dep) for dep in definition.deps],
         ) for (name, definition) in pairs(definitions)
     ]
@@ -508,7 +485,12 @@ function _decode_interaction_definitions(x, path)
         name = _symbol(_required(item, "name", item_path), "$item_path.name")
         name in names && throw(ArgumentError("$path contains duplicate name $(repr(name))."))
         deriver_name = _symbol(_required(item, "deriver", item_path), "$item_path.deriver")
-        deriver = _decode_deriver(deriver_name, "$item_path.deriver")
+        deriver = _decode_identifier(
+            deriver_name,
+            matrix_deriver_from_identifier,
+            "$item_path.deriver",
+            "interaction-matrix deriver",
+        )
         deps_value = _required(item, "deps", item_path)
         deps_value isa AbstractVector || throw(ArgumentError("$item_path.deps must be an array."))
         deps = Tuple(_symbol(dep, "$item_path.deps[$j]") for (j, dep) in pairs(deps_value))
@@ -556,7 +538,7 @@ function encode_recipe(recipe::ModelRecipe)
         "auxiliary_fields" => _encode_value(recipe.auxiliary_fields),
         "sinking_tracers" => isnothing(recipe.sinking_tracers) ? nothing : _encode_value(recipe.sinking_tracers),
         "open_bottom" => recipe.open_bottom,
-        "scalar_type" => _scalar_type_id(recipe.scalar_type),
+        "scalar_type" => _float_type_id(recipe.scalar_type),
     )
 
     return Dict{String,Any}(
@@ -615,7 +597,7 @@ function decode_recipe(document::AbstractDict)
         auxiliary_fields,
         sinking_tracers,
         _boolean(recipe["open_bottom"], "Recipe document.recipe.open_bottom"),
-        _decode_scalar_type(recipe["scalar_type"], "Recipe document.recipe.scalar_type"),
+        _decode_float_type(recipe["scalar_type"], "Recipe document.recipe.scalar_type"),
     )
 end
 
