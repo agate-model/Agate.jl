@@ -43,15 +43,6 @@ end
 
 @testset "Public model constructors" begin
 
-    @testset "NiPiZD construction input classification" begin
-        recipe_fields = Set(NiPiZD.RECIPE_INPUT_FIELDS)
-        environment_fields = Set(NiPiZD.ENVIRONMENT_INPUT_FIELDS)
-
-        @test isempty(intersect(recipe_fields, environment_fields))
-        @test union(recipe_fields, environment_fields) ==
-              Set(fieldnames(NiPiZD.NiPiZDConstructionOptions))
-    end
-
     @testset "NiPiZD defaults" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
 

@@ -95,7 +95,6 @@ function _finite_float(x::AbstractFloat)
     return Float64(x)
 end
 
-_encode_array_item(x) = _encode_value(x)
 
 function _decoded_array(values, path)
     decoded = Any[_decode_value(v, "$path[$i]") for (i, v) in pairs(values)]
@@ -174,13 +173,13 @@ end
 
 function _encode_value(x::AbstractVector)
     x isa Vector || throw(ArgumentError("Recipe serialization supports Vector inputs; got $(typeof(x))."))
-    return Any[_encode_array_item(v) for v in x]
+    return Any[_encode_value(v) for v in x]
 end
 
 function _encode_value(x::AbstractMatrix)
     x isa Matrix || throw(ArgumentError("Recipe serialization supports Matrix inputs; got $(typeof(x))."))
     return Any[
-        Any[_encode_array_item(x[i, j]) for j in axes(x, 2)] for i in axes(x, 1)
+        Any[_encode_value(x[i, j]) for j in axes(x, 2)] for i in axes(x, 1)
     ]
 end
 

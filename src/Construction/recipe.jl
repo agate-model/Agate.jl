@@ -1,6 +1,6 @@
 using ..Factories: AbstractBGCFactory
 import ..Factories: parameter_definitions, parameter_directory
-import ..Configuration: matrix_definitions, normalize_diameters
+import ..Configuration: matrix_definitions, normalize_diameters, _matrix_derivation_factory
 
 """Return the stable recipe-family identifier for a model factory."""
 function recipe_family(factory::AbstractBGCFactory)
@@ -180,6 +180,7 @@ end
 
 parameter_definitions(factory::ReplayFactory) = factory.parameter_definitions
 matrix_definitions(factory::ReplayFactory) = factory.interaction_definitions
+_matrix_derivation_factory(factory::ReplayFactory) = factory.factory
 
 """Return a factory view that reuses the definitions captured in `recipe`."""
 replay_factory(recipe::ModelRecipe) = ReplayFactory(

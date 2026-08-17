@@ -83,6 +83,8 @@ construction scalar type. No implicit casting is performed.
 """
 matrix_definitions(::AbstractBGCFactory) = (;)
 
+_matrix_derivation_factory(factory::AbstractBGCFactory) = factory
+
 """Validate the shape and element type of a derived matrix result."""
 function validate_derived_matrix_result(
     factory::AbstractBGCFactory, context::CommunityContext, key::Symbol, value
@@ -176,7 +178,9 @@ function resolve_derived_matrices(
         needs_recompute = !isempty(spec.deps) && any(d -> d in override_set, spec.deps)
 
         if needs_compute || needs_recompute
-            value = derive_matrix(spec.deriver, factory, context, resolved)
+            value = derive_matrix(
+                spec.deriver, _matrix_derivation_factory(factory), context, resolved
+            )
             validate_derived_matrix_result(factory, context, key, value)
             resolved = merge(resolved, NamedTuple{(key,)}((value,)))
         end

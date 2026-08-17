@@ -81,43 +81,17 @@ function _community_inputs(size_structure)
     )
 end
 
-Base.@kwdef struct NiPiZDConstructionOptions
-    size_structure = DEFAULT_SIZE_STRUCTURE
-    parameters::NamedTuple = (;)
-    palatability_matrix = nothing
-    assimilation_matrix = nothing
-    grid = BoxModelGrid()
-    scalar_type = nothing
-    arch = nothing
-    sinking_tracers = nothing
-    open_bottom::Bool = true
-end
-
-const RECIPE_INPUT_FIELDS = (
-    :size_structure,
-    :parameters,
-    :palatability_matrix,
-    :assimilation_matrix,
-    :scalar_type,
-    :sinking_tracers,
-    :open_bottom,
+function _construction_inputs(;
+    size_structure=DEFAULT_SIZE_STRUCTURE,
+    parameters::NamedTuple=(;),
+    palatability_matrix=nothing,
+    assimilation_matrix=nothing,
+    grid=BoxModelGrid(),
+    scalar_type=nothing,
+    arch=nothing,
+    sinking_tracers=nothing,
+    open_bottom::Bool=true,
 )
-const ENVIRONMENT_INPUT_FIELDS = (:grid, :arch)
-
-_construction_inputs(; kwargs...) = _construction_inputs(NiPiZDConstructionOptions(; kwargs...))
-
-function _construction_inputs(options::NiPiZDConstructionOptions)
-    (;
-        size_structure,
-        parameters,
-        palatability_matrix,
-        assimilation_matrix,
-        grid,
-        scalar_type,
-        arch,
-        sinking_tracers,
-        open_bottom,
-    ) = options
 
     factory = NiPiZDFactory()
     community_inputs = _community_inputs(size_structure)
