@@ -26,8 +26,8 @@ function _git_implementation_is_clean(root)
     end
 end
 
-function _package_provenance(module::Module)
-    root = Base.moduleroot(module)
+function _package_provenance(mod::Module)
+    root = Base.moduleroot(mod)
     record = Dict{String,Any}("package" => String(nameof(root)))
     version = Base.pkgversion(root)
     isnothing(version) || (record["version"] = string(version))
