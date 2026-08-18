@@ -29,5 +29,5 @@ function target_coupling(nutrients::Tuple, target::Symbol)
     @inbounds for nutrient in nutrients
         tracer_name(nutrient) === target && return nutrient
     end
-    error("No nutrient coupling found for target tracer: $target")
+    throw(ArgumentError("No nutrient coupling for target $target"))
 end

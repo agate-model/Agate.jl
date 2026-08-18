@@ -1,23 +1,12 @@
 function inorganic_target_coupling(config, target::Symbol, remineralization, stoichiometry)
-    nutrients = config.nutrients
-    target_is_nutrient = target in map(tracer_name, nutrients)
-    target_nutrient = target_is_nutrient ? target_coupling(nutrients, target) : nothing
-
-    if !target_is_nutrient
-        remineralization === nothing &&
-            throw(
-                ArgumentError(
-                    "Inorganic target $target is not configured as a nutrient; " *
-                    "pass explicit remineralization sources."
-                )
-            )
-        @warn "Inorganic target is not configured as a nutrient; using explicit inorganic-pool coupling." target=target remineralization=remineralization stoichiometry=stoichiometry
+    if remineralization !== nothing
+        return remineralization, something(stoichiometry, :one)
     end
 
-    sources = remineralization === nothing ? remineralization_sources(target_nutrient) : remineralization
-    ratio_name = stoichiometry === nothing && target_nutrient !== nothing ?
-        stoichiometry_name(target_nutrient) :
-        something(stoichiometry, :one)
+    nutrients = config.nutrients
+    target_nutrient = target_coupling(nutrients, target)
+    sources = remineralization_sources(target_nutrient)
+    ratio_name = something(stoichiometry, stoichiometry_name(target_nutrient))
 
     return sources, ratio_name
 end
