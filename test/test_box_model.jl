@@ -2,6 +2,7 @@ using Agate
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
+using Oceananigans
 using Oceananigans.Units
 
 const year = years = 365day
