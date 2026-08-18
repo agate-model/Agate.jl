@@ -28,17 +28,20 @@ struct DecayFactory <: AbstractBGCFactory end
 
 recipe_family(::DecayFactory) = :Decay
 recipe_factory(::Val{:Decay}) = DecayFactory()
+nothing #hide
 
 # The model has one scalar parameter, with a default decay rate of 0.1 day⁻¹.
 
 parameter_definitions(::DecayFactory) = (
     ParameterDefinition(ParameterSpec(:decay_rate, :scalar), ConstDefault(0.1 / day)),
 )
+nothing #hide
 
 # There are no plankton groups in this model.
 
 default_community(::DecayFactory) = (;)
 default_plankton_dynamics(::DecayFactory) = (;)
+nothing #hide
 
 # The single tracer follows ``dX/dt = -kX``.
 
