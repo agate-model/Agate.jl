@@ -1,14 +1,16 @@
-# # [Exporting a model recipe] (@id export_model_recipe_example)
+# # [Exporting a model definition] (@id export_model_recipe_example)
 
-# Recipes store the authored scientific model definition so it can be exported and replayed.
+# Recipes allow model definitions be exported and replayed.
 
 using Agate.Construction: export_recipe, import_recipe
 using Agate.Models: NiPiZD
 using OceanBioME: BoxModelGrid
-
+    
 nothing #hide
 
 # ## Construct and save
+# Instead of using `construct()` by using `construct_plus_recipe()`, we can generate a recipe alongside the model. 
+# The recipe can then be exported to JSON and later reloaded to reconstruct the model.
 
 grid = BoxModelGrid()
 
