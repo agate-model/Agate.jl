@@ -29,7 +29,7 @@ end
     @test !haskey(encoded["recipe"], "parameter_definitions")
     @test !haskey(encoded["recipe"], "interaction_definitions")
     @test encoded["provenance"]["agate"]["package"] == "Agate"
-    @test encoded["provenance"]["agate"]["version"] == "0.10.0"
+    @test encoded["provenance"]["agate"]["version"] == "0.10.1"
     @test startswith(encoded["recipe_hash"], "sha256:")
     @test length(encoded["recipe_hash"]) == 71
     @test encode_recipe(recipe)["recipe_hash"] == encoded["recipe_hash"]
