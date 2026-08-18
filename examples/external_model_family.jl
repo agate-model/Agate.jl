@@ -1,4 +1,4 @@
-# # [External model family] (@id external_model_family_example)
+# # [Defining your own model] (@id external_model_family_example)
 
 # Agate provides the [Agate.jl-NiPiZD](@ref NiPiZD) model, but it is also designed so that you can define your
 # own model families. Here we define a simple one-tracer model in which a tracer decays

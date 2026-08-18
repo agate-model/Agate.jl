@@ -26,8 +26,7 @@ examples = [
     "Predator-prey palatability" => "predator_prey_palatability",
     "Comparing phytoplankton light strategies" => "named_plankton_groups",
     "Allometric parameters" => "allometric_relationships",
-    "Exporting a model recipe" => "export_model_recipe",
-    "External model family" => "external_model_family",
+    "Exporting a model definition" => "export_model_recipe",
 ]
 
 if BUILD_COLUMN_EXAMPLE
@@ -74,7 +73,10 @@ differentiable_modelling_pages = [
 ]
 
 contributor_pages = ["Architecture" => "architecture_overview.md"]
-model_pages = ["NiPiZD" => "nipizd.md"]
+model_pages = [
+    "NiPiZD" => "nipizd.md",
+    "Defining your own model" => "external_model_family",
+]
 
 makedocs(;
     sitename="Agate.jl",
