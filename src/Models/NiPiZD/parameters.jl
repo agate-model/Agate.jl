@@ -18,7 +18,8 @@ import ...Factories:
     ConstDefault,
     NoDefault,
     FillDefault,
-    DiameterIndexedVectorDefault
+    DiameterIndexedVectorDefault,
+    DiameterIndexedMaterialization
 
 import ...Configuration: matrix_definitions
 
@@ -28,20 +29,19 @@ using ...Configuration: MatrixDefinition, PalatabilityAllometric, AssimilationBi
 
 function parameter_definitions(::NiPiZDFactory)
     detritus_remin = 0.1213 / 86400
+    all_plankton_materialization = DiameterIndexedMaterialization(; fill_value=0)
+    producer_materialization =
+        DiameterIndexedMaterialization(:producers; fill_value=0)
+    consumer_materialization =
+        DiameterIndexedMaterialization(:consumers; fill_value=0)
 
     return (
         ParameterDefinition(
-            ParameterSpec(
-                :detritus_remineralization, :scalar; doc="Detritus remineralization rate."
-            ),
+            ParameterSpec(:detritus_remineralization, :scalar),
             ConstDefault(detritus_remin),
         ),
         ParameterDefinition(
-            ParameterSpec(
-                :mortality_export_fraction,
-                :scalar;
-                doc="Fraction of mortality routed to detritus export.",
-            ),
+            ParameterSpec(:mortality_export_fraction, :scalar),
             ConstDefault(0.2),
         ),
         ParameterDefinition(
@@ -49,7 +49,7 @@ function parameter_definitions(::NiPiZDFactory)
                 :linear_mortality,
                 :vector;
                 axes=:plankton,
-                doc="Linear mortality coefficient per plankton class.",
+                materialization=all_plankton_materialization,
             ),
             FillDefault(8e-7),
         ),
@@ -58,20 +58,20 @@ function parameter_definitions(::NiPiZDFactory)
                 :quadratic_mortality,
                 :vector;
                 axes=:plankton,
-                doc="Quadratic mortality coefficient per plankton class.",
+                materialization=consumer_materialization,
             ),
-            DiameterIndexedVectorDefault(1e-6, :default_consumer_indices; default=0),
+            DiameterIndexedVectorDefault(1e-6, :consumers; default=0),
         ),
         ParameterDefinition(
             ParameterSpec(
                 :maximum_growth_rate,
                 :vector;
                 axes=:plankton,
-                doc="Maximum phytoplankton growth rate per plankton class.",
+                materialization=producer_materialization,
             ),
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=2 / 86400, exponent=-0.15),
-                :default_producer_indices;
+                :producers;
                 default=0,
             ),
         ),
@@ -80,20 +80,23 @@ function parameter_definitions(::NiPiZDFactory)
                 :nutrient_half_saturation,
                 :vector;
                 axes=:plankton,
-                doc="Nutrient half-saturation constant per plankton class.",
+                materialization=producer_materialization,
             ),
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27),
-                :default_producer_indices;
+                :producers;
                 default=0,
             ),
         ),
         ParameterDefinition(
             ParameterSpec(
-                :alpha, :vector; axes=:plankton, doc="Initial slope of the P-I curve per plankton class."
+                :alpha,
+                :vector;
+                axes=:plankton,
+                materialization=producer_materialization,
             ),
             DiameterIndexedVectorDefault(
-                0.1953 / 86400, :default_producer_indices; default=0
+                0.1953 / 86400, :producers; default=0
             ),
         ),
         ParameterDefinition(
@@ -101,11 +104,11 @@ function parameter_definitions(::NiPiZDFactory)
                 :maximum_predation_rate,
                 :vector;
                 axes=:plankton,
-                doc="Maximum zooplankton grazing rate per plankton class.",
+                materialization=consumer_materialization,
             ),
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=30.84 / 86400, exponent=-0.16),
-                :default_consumer_indices;
+                :consumers;
                 default=0,
             ),
         ),
@@ -114,16 +117,15 @@ function parameter_definitions(::NiPiZDFactory)
                 :holling_half_saturation,
                 :vector;
                 axes=:plankton,
-                doc="Holling type II half-saturation constant per plankton class.",
+                materialization=consumer_materialization,
             ),
-            DiameterIndexedVectorDefault(5.0, :default_consumer_indices; default=0),
+            DiameterIndexedVectorDefault(5.0, :consumers; default=0),
         ),
         ParameterDefinition(
             ParameterSpec(
                 :palatability_matrix,
                 :matrix;
                 axes=(:consumer, :prey),
-                doc="Preference of each consumer for each prey class.",
             ),
             NoDefault(),
         ),
@@ -132,7 +134,6 @@ function parameter_definitions(::NiPiZDFactory)
                 :assimilation_matrix,
                 :matrix;
                 axes=(:consumer, :prey),
-                doc="Assimilation efficiency of each consumer on each prey class.",
             ),
             NoDefault(),
         ),
@@ -141,36 +142,36 @@ function parameter_definitions(::NiPiZDFactory)
                 :optimum_predator_prey_ratio,
                 :vector;
                 axes=:plankton,
-                doc="Preferred predator:prey diameter ratio per consumer (used to derive palatability_matrix).",
+                materialization=consumer_materialization,
             ),
-            DiameterIndexedVectorDefault(10.0, :default_consumer_indices; default=0),
+            DiameterIndexedVectorDefault(10.0, :consumers; default=0),
         ),
         ParameterDefinition(
             ParameterSpec(
                 :specificity,
                 :vector;
                 axes=:plankton,
-                doc="Unimodal palatability specificity per consumer (used to derive palatability_matrix).",
+                materialization=consumer_materialization,
             ),
-            DiameterIndexedVectorDefault(0.3, :default_consumer_indices; default=0),
+            DiameterIndexedVectorDefault(0.3, :consumers; default=0),
         ),
         ParameterDefinition(
             ParameterSpec(
                 :protection,
                 :vector;
                 axes=:plankton,
-                doc="Prey protection factor (used to derive palatability_matrix).",
+                materialization=consumer_materialization,
             ),
-            DiameterIndexedVectorDefault(1.0, :default_consumer_indices; default=0),
+            DiameterIndexedVectorDefault(1.0, :consumers; default=0),
         ),
         ParameterDefinition(
             ParameterSpec(
                 :assimilation_efficiency,
                 :vector;
                 axes=:plankton,
-                doc="Assimilation efficiency per consumer (used to derive assimilation_matrix).",
+                materialization=consumer_materialization,
             ),
-            DiameterIndexedVectorDefault(0.32, :default_consumer_indices; default=0),
+            DiameterIndexedVectorDefault(0.32, :consumers; default=0),
         ),
     )
 end

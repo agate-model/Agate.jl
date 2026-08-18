@@ -32,17 +32,61 @@ pal.matrix   # consumer-by-prey matrix
 
 ## Construction API
 
+### Recipes and low-level construction records
+
+Model users normally work through the model-family constructors (`construct`,
+`construct_plus_recipe`, and `construct_from_recipe`). The manifest API below is a
+lower-level resolved-state record used for diagnostics, model-family development, and
+exact replay tests.
+
 ```@docs
-Agate.Manifests.export_manifest
-Agate.Manifests.construct_from_manifest
-Agate.Construction.PFTSpecification
-Agate.Factories.AbstractBGCFactory
-Agate.Equations.CompiledEquation
-Agate.Construction.define_tracer_functions
+Agate.Construction.ModelRecipe
+Agate.Construction.ModelManifest
+Agate.Construction.construct_factory
+Agate.Construction.construct_factory_plus_manifest
+Agate.Construction.encode_recipe
+Agate.Construction.decode_recipe
+Agate.Construction.export_recipe
+Agate.Construction.import_recipe
 ```
 
-## Plankton communities and size structure
+### External model-family API
+
+Extension hooks are imported explicitly by packages that define model families.
 
 ```@docs
+Agate.Construction.capture_model_recipe
+Agate.Construction.replay_factory
+Agate.Construction.resolve_construction_scalar_type
+Agate.Construction.recipe_family
+Agate.Construction.recipe_factory
+Agate.Factories.AbstractBGCFactory
+Agate.Factories.parameter_definitions
+Agate.Factories.parameter_directory
+Agate.Factories.parameter_spec
+Agate.Factories.ParameterSpec
+Agate.Factories.ParameterDefinition
+Agate.Factories.DefaultProvider
+Agate.Factories.ConstDefault
+Agate.Factories.NoDefault
+Agate.Factories.FillDefault
+Agate.Factories.DiameterIndexedVectorDefault
+Agate.Factories.DiameterIndexedMaterialization
+Agate.Factories.default_community
+Agate.Factories.default_plankton_dynamics
+Agate.Factories.default_biogeochem_dynamics
+Agate.Configuration.AbstractMatrixDeriver
+Agate.Configuration.MatrixDefinition
+Agate.Configuration.matrix_definitions
+Agate.Configuration.derive_matrix
+Agate.Configuration.derivation_deps
+```
+
+### Plankton communities and interactions
+
+```@docs
+Agate.Configuration.PFTSpecification
 Agate.Configuration.build_plankton_community
+Agate.Configuration.PalatabilityAllometric
+Agate.Configuration.AssimilationBinary
 ```

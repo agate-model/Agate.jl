@@ -6,8 +6,24 @@ export ConstDefault
 export NoDefault
 export FillDefault
 export DiameterIndexedVectorDefault
+export DiameterIndexedMaterialization
 export parameter_directory
 export parameter_spec
+
+"""Materialize a parameter law over selected diameter-indexed classes.
+
+`role` names a declared parameter-applicability role in the parsed community.
+When it is `nothing`, the law applies to every plankton class. `fill_value` is
+assigned outside the selected role.
+"""
+struct DiameterIndexedMaterialization{T}
+    role::Union{Nothing,Symbol}
+    fill_value::T
+end
+
+function DiameterIndexedMaterialization(role::Union{Nothing,Symbol}=nothing; fill_value)
+    return DiameterIndexedMaterialization(role, fill_value)
+end
 
 """Describe a configurable model parameter.
 
@@ -16,13 +32,13 @@ Fields
 - `name`: parameter key.
 - `shape`: one of `:scalar`, `:vector`, or `:matrix`.
 - `axes`: optional vector axis name or matrix-axis names.
-- `doc`: human-readable description.
+- `materialization`: optional constructor-time parameter-law materialization semantics.
 """
 struct ParameterSpec
     name::Symbol
     shape::Symbol
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}
-    doc::String
+    materialization::Union{Nothing,DiameterIndexedMaterialization}
 end
 
 """Convenience constructor for `ParameterSpec`."""
@@ -30,9 +46,9 @@ function ParameterSpec(
     name::Symbol,
     shape::Symbol;
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
-    doc::AbstractString="",
+    materialization::Union{Nothing,DiameterIndexedMaterialization}=nothing,
 )
-    ParameterSpec(name, shape, axes, String(doc))
+    ParameterSpec(name, shape, axes, materialization)
 end
 
 """Abstract supertype for constructor-time default providers.
@@ -69,18 +85,17 @@ end
 """Default provider for vectors defined over a subset of diameter-indexed classes.
 
 The provider fills a full-length vector (length `community_context.n_total`) with
-`default`, then overwrites the indices stored in `indices_field` (a field of
-`CommunityContext`, e.g. `:default_producer_indices`) using
-`resolve_diameter_indexed_vector`.
+`default`, then overwrites the classes selected by the declared parameter role
+using `resolve_diameter_indexed_vector`.
 """
 struct DiameterIndexedVectorDefault{V,T} <: DefaultProvider
     value::V
-    indices_field::Symbol
+    role::Symbol
     default::T
 end
 
-function DiameterIndexedVectorDefault(value, indices_field::Symbol; default)
-    return DiameterIndexedVectorDefault(value, indices_field, default)
+function DiameterIndexedVectorDefault(value, role::Symbol; default)
+    return DiameterIndexedVectorDefault(value, role, default)
 end
 
 """Return a tuple of `ParameterDefinition` entries for `factory`.

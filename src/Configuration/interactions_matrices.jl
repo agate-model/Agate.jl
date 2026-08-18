@@ -3,7 +3,9 @@ import Adapt
 """Rectangular consumer-by-prey interaction matrices and axis mappings.
 
 `InteractionMatrices` is the canonical runtime representation for role-aware
-interaction matrices.
+interaction matrices. Arbitrary consumer-by-prey matrices are stored in the
+concrete `NamedTuple` field `matrices`; the remaining fields describe the
+shared consumer and prey axes.
 
 Interaction data is stored in rectangular matrices sized `(n_consumer, n_prey)`
 where:
@@ -21,16 +23,50 @@ The inverse maps support fast lookup of axis-local indices from global indices:
 - `global_to_consumer[g]` returns `ic` or `0` if `g` is not a consumer
 - `global_to_prey[g]` returns `ip` or `0` if `g` is not a prey
 
+Matrix keys are derived from the corresponding parameter names. A conventional
+`_matrix` suffix is omitted at runtime, so `:encounter_matrix` is available
+as `interactions.encounter`. This rule applies uniformly to any declared
+consumer-by-prey matrix.
 """
-struct InteractionMatrices{PM,AM,VI1,VI2,MI1,MI2}
-    palatability::PM
-    assimilation::AM
+struct InteractionMatrices{M,VI1,VI2,MI1,MI2}
+    matrices::M
     consumer_global::VI1
     prey_global::VI2
     global_to_consumer::MI1
     global_to_prey::MI2
 end
 Adapt.@adapt_structure InteractionMatrices
+
+@inline function Base.getproperty(interactions::InteractionMatrices, name::Symbol)
+    if name === :matrices ||
+       name === :consumer_global ||
+       name === :prey_global ||
+       name === :global_to_consumer ||
+       name === :global_to_prey
+        return getfield(interactions, name)
+    end
+
+    matrices = getfield(interactions, :matrices)
+    hasproperty(matrices, name) && return getproperty(matrices, name)
+    return getfield(interactions, name)
+end
+
+@inline function Base.propertynames(interactions::InteractionMatrices, private::Bool=false)
+    structural = fieldnames(typeof(interactions))
+    matrix_names = propertynames(getfield(interactions, :matrices), private)
+    return (structural..., matrix_names...)
+end
+
+"""Compare resolved interaction state structurally for deterministic replay.
+
+Every stored field participates in equality. `isequal` preserves exact
+comparison for matching non-finite values and for arbitrary named interaction
+matrices.
+"""
+function Base.:(==)(a::InteractionMatrices, b::InteractionMatrices)
+    fieldcount(typeof(a)) == fieldcount(typeof(b)) || return false
+    return all(i -> isequal(getfield(a, i), getfield(b, i)), 1:fieldcount(typeof(a)))
+end
 
 @inline function inverse_axis_map(axis_indices::AbstractVector{Int}, n_total::Int)
     m = zeros(Int, n_total)
@@ -71,68 +107,66 @@ end
     end
 end
 
+@inline function interaction_runtime_name(parameter_name::Symbol)
+    text = String(parameter_name)
+    suffix = "_matrix"
+    return endswith(text, suffix) ? Symbol(text[1:(end - length(suffix))]) : parameter_name
+end
+
+function interaction_parameter_names(factory::AbstractBGCFactory)
+    return Tuple(
+        spec.name for spec in parameter_directory(factory) if
+        spec.shape === :matrix && spec.axes == (:consumer, :prey)
+    )
+end
+
 function finalize_interaction_parameters(
     factory::AbstractBGCFactory, community_context::CommunityContext, params::NamedTuple
 )
-    spec_pal = parameter_spec(factory, :palatability_matrix)
-    spec_assim = parameter_spec(factory, :assimilation_matrix)
+    parameter_names = interaction_parameter_names(factory)
+    isempty(parameter_names) && return params
+    all(name -> haskey(params, name), parameter_names) || return params
 
-    if spec_pal === nothing || spec_assim === nothing
-        return params
-    end
-    if spec_pal.axes != (:consumer, :prey) || spec_assim.axes != (:consumer, :prey)
-        return params
-    end
-    if !haskey(params, :palatability_matrix) || !haskey(params, :assimilation_matrix)
-        return params
-    end
+    runtime_names = Tuple(interaction_runtime_name(name) for name in parameter_names)
+    length(unique(runtime_names)) == length(runtime_names) || throw(
+        ArgumentError(
+            "consumer-by-prey interaction parameter names map to duplicate runtime names: $(runtime_names)",
+        ),
+    )
 
     consumer_indices = community_context.consumer_indices
     prey_indices = community_context.prey_indices
 
-    pal_rect = rect_value_for_axes(
-        community_context,
-        params.palatability_matrix,
-        consumer_indices,
-        prey_indices,
-        :palatability_matrix,
+    rectangular_values = Tuple(
+        rect_value_for_axes(
+            community_context,
+            getproperty(params, name),
+            consumer_indices,
+            prey_indices,
+            name,
+        ) for name in parameter_names
     )
-    assim_rect = rect_value_for_axes(
-        community_context,
-        params.assimilation_matrix,
-        consumer_indices,
-        prey_indices,
-        :assimilation_matrix,
-    )
+    rectangular_parameters = NamedTuple{parameter_names}(rectangular_values)
+    matrices = NamedTuple{runtime_names}(rectangular_values)
 
     global_to_consumer = inverse_axis_map(consumer_indices, community_context.n_total)
     global_to_prey = inverse_axis_map(prey_indices, community_context.n_total)
 
     interactions = InteractionMatrices(
-        pal_rect,
-        assim_rect,
+        matrices,
         consumer_indices,
         prey_indices,
         global_to_consumer,
         global_to_prey,
     )
 
-    return merge(
-        params,
-        (
-            palatability_matrix=pal_rect,
-            assimilation_matrix=assim_rect,
-            interactions=interactions,
-        ),
-    )
+    return merge(params, rectangular_parameters, (; interactions))
 end
 
 """Normalize `interaction_overrides` into a `NamedTuple` of parameter overrides.
 
-`interaction_overrides` may be:
-
-- `nothing` (no overrides)
-- a `NamedTuple` of updates
+`interaction_overrides` is a `NamedTuple` of updates. Use an empty named tuple
+when there are no explicit interaction overrides.
 
 Interaction overrides are **data-only**. Values must be explicit, canonical
 axis-sized rectangular matrices.
@@ -148,10 +182,8 @@ construction.
 function normalize_interaction_overrides(
     factory::AbstractBGCFactory,
     community_context::CommunityContext{T},
-    interaction_overrides::Union{Nothing,NamedTuple},
+    interaction_overrides::NamedTuple,
 ) where {T}
-    interaction_overrides === nothing && return (;)
-
     resolved = ()
     for (key, value) in pairs(interaction_overrides)
         spec = parameter_spec(factory, key)

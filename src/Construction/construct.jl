@@ -13,6 +13,8 @@ using ..Factories:
     NoDefault,
     FillDefault,
     DiameterIndexedVectorDefault,
+    DiameterIndexedMaterialization,
+    parameter_directory,
     parameter_spec,
     default_plankton_dynamics,
     default_biogeochem_dynamics,
@@ -21,44 +23,18 @@ using ..Factories:
 using ..Configuration:
     axis_indices,
     normalize_interaction_overrides,
+    matrix_definitions,
     resolve_derived_matrices,
     finalize_interaction_parameters,
     parse_community,
+    parameter_role_indices,
     validate_community_inputs
 
 using ..Runtime: build_tracer_index
 
-using ..Manifests: Serialization
-
 using ..Equations: CompiledEquation
 
-using ..Library.Allometry: AllometricParam, resolve_diameter_indexed_vector
-
-"""A factory-supplied callable that builds a non-plankton tracer equation.
-
-Biogeochemical dynamics builders are stored in `biogeochem_dynamics` and are called
-once per tracer symbol during construction.
-
-Expected signature
-------------------
-`builder() -> CompiledEquation`.
-"""
-const BiogeochemDynamicsBuilder = Function
-
-"""A factory-supplied callable that builds a plankton tracer equation.
-
-Plankton dynamics builders are stored in `plankton_dynamics` under their group
-symbol (e.g. `P`, `Z`) and are called once per plankton class.
-
-Expected signature
-------------------
-`builder(global_index::Int) -> CompiledEquation`
-
-Arguments
----------
-- `global_index`: global plankton class index (ordered as in `community_context.plankton_symbols`)
-"""
-const PlanktonDynamicsBuilder = Function
+using ..Library.Allometry: AbstractParamDef, resolve_diameter_indexed_vector
 
 """Evaluate `parameter_definitions(factory)` to produce baseline parameter defaults.
 
@@ -73,13 +49,6 @@ function build_parameter_defaults(
 ) where {T<:Real}
     defs = parameter_definitions(factory)
     isempty(defs) && return (;)
-
-    keys_ = map(d -> d.spec.name, defs)
-    length(unique(keys_)) == length(keys_) || throw(
-        ArgumentError(
-            "parameter_definitions(::$(typeof(factory))) contains duplicate keys."
-        ),
-    )
 
     pairs = Pair{Symbol,Any}[]
     for def in defs
@@ -145,7 +114,7 @@ end
         ),
     )
 
-    indices = getproperty(community_context, provider.indices_field)
+    indices = parameter_role_indices(community_context, provider.role)
     default = T(provider.default)
     return resolve_diameter_indexed_vector(
         T, community_context.diameters, indices, provider.value; default=default
@@ -222,6 +191,14 @@ function validate_parameter_directory(factory::AbstractBGCFactory)
             spec.axes === nothing || throw(
                 ArgumentError(
                     "parameter :$(spec.name) has axes=$(spec.axes) but is not vector or matrix."
+                ),
+            )
+        end
+
+        if spec.materialization isa DiameterIndexedMaterialization
+            spec.shape === :vector || throw(
+                ArgumentError(
+                    "parameter :$(spec.name) declares diameter-indexed materialization but is not vector-shaped."
                 ),
             )
         end
@@ -309,29 +286,26 @@ function expand_named_vector_override(
     return expanded
 end
 
-function parameter_definition(factory::AbstractBGCFactory, key::Symbol)
-    for def in parameter_definitions(factory)
-        def.spec.name === key && return def
-    end
-    return nothing
-end
-
-function materialize_allometric_parameter_override(
-    factory::AbstractBGCFactory, context, key::Symbol, value::AllometricParam, ::Type{T}
+function materialize_parameter_law_override(
+    factory::AbstractBGCFactory, context, key::Symbol, value::AbstractParamDef, ::Type{T}
 ) where {T<:Real}
-    def = parameter_definition(factory, key)
-    provider = def === nothing ? nothing : def.default
+    spec = parameter_spec(factory, key)
+    materialization = spec === nothing ? nothing : spec.materialization
 
-    provider isa DiameterIndexedVectorDefault || throw(
+    materialization isa DiameterIndexedMaterialization || throw(
         ArgumentError(
-            "parameter :$key only supports AllometricParam overrides for diameter-indexed vector parameters."
+            "parameter :$key only supports parameter-law overrides for parameters with declared diameter-indexed vector materialization."
         ),
     )
 
-    indices = getproperty(context, provider.indices_field)
-    default = T(provider.default)
+    indices = if isnothing(materialization.role)
+        eachindex(context.diameters)
+    else
+        parameter_role_indices(context, materialization.role)
+    end
+    fill_value = T(materialization.fill_value)
     return resolve_diameter_indexed_vector(
-        T, context.diameters, indices, value; default=default
+        T, context.diameters, indices, value; default=fill_value
     )
 end
 
@@ -372,10 +346,10 @@ function materialize_parameter_overrides(
             continue
         end
 
-        if value isa AllometricParam
+        if value isa AbstractParamDef
             push!(
                 entries,
-                key => materialize_allometric_parameter_override(
+                key => materialize_parameter_law_override(
                     factory, context, key, value, T
                 ),
             )
@@ -462,40 +436,7 @@ function validate_auxiliary_fields(auxiliary_fields::Tuple, tracer_names::Tuple)
 end
 
 
-"""
-    construct_factory(factory::AbstractBGCFactory; kwargs...) -> bgc
-
-Construct a concrete biogeochemistry model from `factory` and optional
-configuration overrides.
-
-Construction proceeds in four stages:
-
-1. Parse the community into a `CommunityContext`.
-2. Evaluate `parameter_definitions(factory)` into concrete defaults.
-3. Apply user overrides and resolve any derived interaction matrices.
-4. Finalize interaction parameters, compile tracer functions, and adapt the
-   result to the requested architecture.
-
-Keyword arguments
------------------
-- `plankton_dynamics`, `biogeochem_dynamics`: dynamics builders.
-- `community`: plankton community specification.
-- `parameters`: `NamedTuple` of parameter overrides.
-- `interaction_overrides`: `NamedTuple` of explicit interaction-matrix
-  overrides.
-- `interaction_roles`: optional `NamedTuple` with `consumers` and `prey`
-  membership for interaction axes.
-- `default_parameter_roles`: optional `NamedTuple` with `producers` and
-  `consumers` membership used only when generating default parameter vectors.
-- `auxiliary_fields`: auxiliary values appended to the tracer argument list.
-- `grid`, `arch`: optional grid and architecture inputs.
-- `scalar_type`: explicit runtime scalar type; when omitted, construction uses `eltype(grid)` or `Float64` if no grid is supplied.
-- `sinking_tracers`, `open_bottom`: sinking-velocity configuration.
-
-The returned object stores the fully resolved parameter set in
-`bgc.parameters`.
-"""
-
+"""Resolve the scalar type from an explicit choice, the grid, or `Float64`."""
 function resolve_construction_scalar_type(grid, scalar_type)
     if scalar_type !== nothing
         scalar_type isa Type || throw(
@@ -517,13 +458,54 @@ function resolve_construction_scalar_type(grid, scalar_type)
     return Float64
 end
 
+convert_sinking_tracers(::Type{T}, ::Nothing) where {T<:Real} = nothing
+function convert_sinking_tracers(::Type{T}, sinking_tracers::NamedTuple) where {T<:Real}
+    return NamedTuple{keys(sinking_tracers)}(
+        Tuple(convert(T, velocity) for velocity in values(sinking_tracers))
+    )
+end
+
+"""
+    construct_factory(factory::AbstractBGCFactory; kwargs...) -> bgc
+
+Construct a concrete biogeochemistry model from `factory` and optional
+configuration overrides.
+
+Construction proceeds in four stages:
+
+1. Parse the community into a `CommunityContext`.
+2. Evaluate `parameter_definitions(factory)` into concrete defaults.
+3. Apply user overrides and resolve any derived interaction matrices.
+4. Finalize interaction parameters, compile tracer functions, and adapt the
+   result to the requested architecture.
+
+Keyword arguments
+-----------------
+- `plankton_dynamics`, `biogeochem_dynamics`: dynamics builders.
+- `community`: plankton community specification.
+- `parameters`: `NamedTuple` of parameter overrides.
+- `interaction_overrides`: `NamedTuple` of explicit interaction-matrix
+  overrides.
+- `ecological_roles`: optional model-defined ecological group identities retained in manifest state.
+- `interaction_roles`: optional `NamedTuple` with `consumers` and `prey`
+  membership for interaction axes.
+- `parameter_roles`: optional `NamedTuple` of named parameter-applicability roles.
+- `auxiliary_fields`: auxiliary values appended to the tracer argument list.
+- `grid`, `arch`: optional grid and architecture inputs.
+- `scalar_type`: explicit runtime scalar type; when omitted, construction uses `eltype(grid)` or `Float64` if no grid is supplied.
+- `sinking_tracers`, `open_bottom`: sinking-velocity configuration.
+
+The returned object stores the fully resolved parameter set in
+`bgc.parameters`.
+"""
 function construct_factory(factory::AbstractBGCFactory; kwargs...)
-    bgc, _ = _construct_factory(factory; build_manifest_data=false, kwargs...)
+    bgc, _ = _construct_factory(factory; build_manifest=false, kwargs...)
     return bgc
 end
 
-function construct_factory_with_manifest_data(factory::AbstractBGCFactory; kwargs...)
-    return _construct_factory(factory; build_manifest_data=true, kwargs...)
+"""Construct a factory-defined model and return it with its resolved `ModelManifest`."""
+function construct_factory_plus_manifest(factory::AbstractBGCFactory; kwargs...)
+    return _construct_factory(factory; build_manifest=true, kwargs...)
 end
 
 function _construct_factory(
@@ -532,21 +514,23 @@ function _construct_factory(
     biogeochem_dynamics=default_biogeochem_dynamics(factory),
     community=default_community(factory),
     parameters::NamedTuple=(;),
-    interaction_overrides::Union{Nothing,NamedTuple}=nothing,
+    interaction_overrides::NamedTuple=(;),
+    ecological_roles::NamedTuple=(;),
     interaction_roles=nothing,
-    default_parameter_roles=nothing,
+    parameter_roles=nothing,
     auxiliary_fields::Tuple=(:PAR,),
     arch=nothing,
     sinking_tracers=nothing,
     grid=nothing,
     scalar_type=nothing,
     open_bottom::Bool=true,
-    build_manifest_data::Bool=true,
+    build_manifest::Bool=false,
 )
     if isnothing(grid) && !isnothing(sinking_tracers)
         grid = BoxModelGrid()
     end
     T = resolve_construction_scalar_type(grid, scalar_type)
+    sinking_tracers = convert_sinking_tracers(T, sinking_tracers)
 
     if !isnothing(grid)
         arch_grid = architecture(grid)
@@ -567,13 +551,11 @@ function _construct_factory(
     biogeochem_dynamics isa NamedTuple ||
         throw(ArgumentError("biogeochem_dynamics must be a NamedTuple"))
     community_context = parse_community(
-        factory,
         T,
         community;
-        plankton_dynamics=plankton_dynamics,
-        biogeochem_dynamics=biogeochem_dynamics,
+        biogeochem_tracers=keys(biogeochem_dynamics),
         interaction_roles=interaction_roles,
-        default_parameter_roles=default_parameter_roles,
+        parameter_roles=parameter_roles,
     )
 
     plankton_syms = community_context.plankton_symbols
@@ -676,15 +658,24 @@ function _construct_factory(
             plankton_diameters=plankton_diameter_metadata,
         )
     end
+    manifest = if build_manifest
+        capture_model_manifest(
+            factory,
+            resolved_parameters,
+            community_context;
+            tracer_order=tracer_names,
+            auxiliary_fields,
+            ecological_roles,
+            explicit_override_keys,
+            sinking_tracers,
+            open_bottom,
+            scalar_type=T,
+        )
+    else
+        nothing
+    end
+
     bgc = on_architecture(arch, bgc)
 
-    manifest_data = build_manifest_data ? (
-        parameter_values=Serialization.parameter_values(resolved_parameters, required),
-        plankton_diameters_by_group=Serialization.plankton_diameter_groups(community_context),
-        scalar_type=string(T),
-        sinking_tracers=Serialization.manifest_ordered_pairs(sinking_tracers),
-        open_bottom=open_bottom,
-    ) : nothing
-
-    return bgc, manifest_data
+    return bgc, manifest
 end

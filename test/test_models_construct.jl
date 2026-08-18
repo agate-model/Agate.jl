@@ -1,19 +1,48 @@
 using Agate
 
 const NiPiZD = Agate.Models.NiPiZD
-const DARWIN = Agate.Models.DARWIN
 
 using Test
 
-using OceanBioME: BoxModelGrid
-
 using Oceananigans.Units
-using Agate.Library.Allometry: AllometricParam, PowerLaw
+using Agate.Library.Allometry: AllometricParam, ConstantParam, PowerLaw
 using Oceananigans.Fields: ZeroField
 using Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers, biogeochemical_drift_velocity
 
+struct ThreeInteractionMatrixFactory <: Agate.Factories.AbstractBGCFactory end
+
+function Agate.Factories.parameter_definitions(::ThreeInteractionMatrixFactory)
+    return (
+        Agate.Factories.ParameterDefinition(
+            Agate.Factories.ParameterSpec(
+                :encounter_matrix,
+                :matrix;
+                axes=(:consumer, :prey),
+            ),
+            Agate.Factories.NoDefault(),
+        ),
+        Agate.Factories.ParameterDefinition(
+            Agate.Factories.ParameterSpec(
+                :capture_efficiency_matrix,
+                :matrix;
+                axes=(:consumer, :prey),
+            ),
+            Agate.Factories.NoDefault(),
+        ),
+        Agate.Factories.ParameterDefinition(
+            Agate.Factories.ParameterSpec(
+                :handling_time_matrix,
+                :matrix;
+                axes=(:consumer, :prey),
+            ),
+            Agate.Factories.NoDefault(),
+        ),
+    )
+end
+
 @testset "Public model constructors" begin
+
     @testset "NiPiZD defaults" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
 
@@ -51,6 +80,77 @@ using Oceananigans.Biogeochemistry:
         @test isfinite(bgc(Val(:D), 0, 0, 0, 0, ordered..., PAR))
         @test isfinite(bgc(Val(:P_1), 0, 0, 0, 0, ordered..., PAR))
         @test isfinite(bgc(Val(:Z_1), 0, 0, 0, 0, ordered..., PAR))
+    end
+
+    @testset "NiPiZD default recipe" begin
+        _, recipe = NiPiZD.construct_plus_recipe()
+
+        @test recipe.family === :NiPiZD
+        @test recipe.ecological_roles == (phytoplankton=(:P,), zooplankton=(:Z,))
+        @test recipe.interaction_roles == (consumers=(:Z,), prey=(:P,))
+        @test recipe.parameter_roles == (producers=(:P,), consumers=(:Z,))
+        @test isempty(recipe.parameter_overrides)
+        @test isempty(recipe.interaction_overrides)
+        @test isnothing(recipe.sinking_tracers)
+        @test recipe.open_bottom
+        @test recipe.scalar_type === Float64
+        @test !hasproperty(recipe, :grid)
+        @test !hasproperty(recipe, :arch)
+    end
+
+    @testset "NiPiZD authored recipe and replay" begin
+        inputs = authored_nipizd_inputs(Float32)
+        phyto_diameters = inputs.size_structure.phytoplankton.diat
+        palatability = inputs.palatability_matrix
+        bgc, recipe = NiPiZD.construct_plus_recipe(; inputs...)
+        reference_recipe, manifest = nipizd_recipe_manifest(; inputs...)
+        replayed_manifest = nipizd_manifest(recipe)
+
+        @test reference_recipe == recipe
+        @test replayed_manifest == manifest
+
+        @test recipe.scalar_type === Float32
+        @test recipe.sinking_tracers == inputs.sinking_tracers
+        @test recipe.open_bottom === false
+        @test recipe.community.diat.diameters isa Agate.Configuration.DiameterListSpecification
+        @test recipe.community.microzoo.diameters isa
+              Agate.Configuration.DiameterRangeSpecification
+        @test recipe.community.microzoo.diameters.splitting === :log_splitting
+        @test recipe.parameter_overrides == inputs.parameters
+        @test keys(recipe.interaction_overrides) == (:palatability_matrix,)
+        @test recipe.interaction_overrides.palatability_matrix == palatability
+
+        phyto_diameters[1] = 999.0
+        palatability[1, 1] = 999.0
+        @test recipe.community.diat.diameters.diameters[1] == 2.0
+        @test recipe.interaction_overrides.palatability_matrix[1, 1] == Float32(0.8)
+
+        replayed = NiPiZD.construct_from_recipe(recipe)
+        @test replayed.parameters == manifest.parameters
+        @test manifest.interaction_matrix_sources == (
+            palatability_matrix=:explicit, assimilation_matrix=:derived
+        )
+    end
+
+    @testset "NiPiZD default in-memory replay" begin
+        bgc, recipe = NiPiZD.construct_plus_recipe()
+        replayed = NiPiZD.construct_from_recipe(recipe)
+        reference_recipe, manifest = nipizd_recipe_manifest()
+        replayed_manifest = nipizd_manifest(recipe)
+
+        @test reference_recipe == recipe
+        @test manifest isa Agate.Construction.ModelManifest
+        @test replayed_manifest == manifest
+        @test replayed.parameters == bgc.parameters
+        @test (
+            manifest.group_tracers,
+            manifest.tracer_order,
+            manifest.interaction_matrix_sources,
+        ) == (
+            (Z=(:Z_1, :Z_2), P=(:P_1, :P_2)),
+            (:N, :D, :Z_1, :Z_2, :P_1, :P_2),
+            (palatability_matrix=:derived, assimilation_matrix=:derived),
+        )
     end
 
     @testset "NiPiZD size structure" begin
@@ -120,14 +220,7 @@ using Oceananigans.Biogeochemistry:
 
         function same_parameter_values(a, b)
             keys(a) == keys(b) || return false
-            values_match = all(
-                key -> key === :interactions || getproperty(a, key) == getproperty(b, key),
-                keys(a),
-            )
-            interactions_match =
-                a.interactions.palatability == b.interactions.palatability &&
-                a.interactions.assimilation == b.interactions.assimilation
-            return values_match && interactions_match
+            return all(key -> getproperty(a, key) == getproperty(b, key), keys(a))
         end
 
         flat = NiPiZD.construct(;
@@ -243,6 +336,77 @@ using Oceananigans.Biogeochemistry:
         @test occursin("providers are not supported", sprint(showerror, err))
     end
 
+    @testset "InteractionMatrices structural equality" begin
+        interactions = NiPiZD.construct(; grid=dummy_grid(Float32)).parameters.interactions
+
+        matrix_names = keys(interactions.matrices)
+        copied_matrices = NamedTuple{matrix_names}(
+            Tuple(copy(getproperty(interactions.matrices, name)) for name in matrix_names)
+        )
+        copied = typeof(interactions)(
+            copied_matrices,
+            copy(interactions.consumer_global),
+            copy(interactions.prey_global),
+            copy(interactions.global_to_consumer),
+            copy(interactions.global_to_prey),
+        )
+        @test copied == interactions
+
+        function replace_field(interactions, field::Symbol, value)
+            names = fieldnames(typeof(interactions))
+            values = ntuple(
+                i -> names[i] === field ? value : getfield(interactions, i), length(names)
+            )
+            return typeof(interactions)(values...)
+        end
+
+        for field in fieldnames(typeof(interactions))
+            changed = if field === :matrices
+                name = first(keys(interactions.matrices))
+                matrix = copy(getproperty(interactions.matrices, name))
+                matrix[1, 1] += one(eltype(matrix))
+                merge(interactions.matrices, NamedTuple{(name,)}((matrix,)))
+            else
+                value = copy(getproperty(interactions, field))
+                value[1] = value[1] == 0 ? 1 : 0
+                value
+            end
+            @test replace_field(interactions, field, changed) != interactions
+        end
+    end
+
+    @testset "Generic interaction matrix collection" begin
+        context = Agate.Configuration.CommunityContext(
+            Float32,
+            3,
+            Float32[10, 2, 5],
+            [Agate.Configuration.PFTSpecification() for _ in 1:3],
+            [:consumer_1, :prey_1, :prey_2],
+            [:consumer, :prey, :prey],
+            Dict(:consumer => [1], :prey => [2, 3]),
+            [1],
+            [2, 3],
+            (producers=[2, 3], consumers=[1]),
+        )
+        params = (;
+            encounter_matrix=Float32[1 2],
+            capture_efficiency_matrix=Float32[0.5 0.75],
+            handling_time_matrix=Float32[3 4],
+        )
+
+        finalized = Agate.Configuration.finalize_interaction_parameters(
+            ThreeInteractionMatrixFactory(), context, params
+        )
+        interactions = finalized.interactions
+
+        @test keys(interactions.matrices) == (:encounter, :capture_efficiency, :handling_time)
+        @test interactions.encounter === finalized.encounter_matrix
+        @test interactions.capture_efficiency === finalized.capture_efficiency_matrix
+        @test interactions.handling_time === finalized.handling_time_matrix
+        @test interactions.consumer_global == [1]
+        @test interactions.prey_global == [2, 3]
+    end
+
     @testset "Derived interaction matrices" begin
         # If a model exposes interaction traits, overriding one of those traits
         # should regenerate the derived matrices (unless the matrix itself is
@@ -268,18 +432,8 @@ using Oceananigans.Biogeochemistry:
             palatability_matrix=rect,
         )
         @test all(bgc2.parameters.interactions.palatability .== rect)
-
-        dar0 = DARWIN.construct(; grid=dummy_grid(Float32))
-        dar_pal0 = dar0.parameters.interactions.palatability
-        dar_n_total = length(dar0.parameters.interactions.global_to_prey)
-        dar_spec = zeros(Float32, dar_n_total)
-        dar_spec[dar0.parameters.interactions.consumer_global] .= 2.0f0
-        dar1 = DARWIN.construct(;
-            grid=dummy_grid(Float32), parameters=(; specificity=dar_spec)
-        )
-        dar_pal1 = dar1.parameters.interactions.palatability
-        @test any(dar_pal1 .!= dar_pal0)
     end
+
 
 
     @testset "Named parameter vector overrides" begin
@@ -311,26 +465,6 @@ using Oceananigans.Biogeochemistry:
         @test bgc_named.parameters.interactions.palatability ==
             bgc_positional.parameters.interactions.palatability
 
-        dar_default = DARWIN.construct(; grid=dummy_grid(Float32))
-        dar_spec = copy(dar_default.parameters.specificity)
-        dar_spec[1] = 2.0f0
-        dar_spec[2] = 2.5f0
-        dar_din = copy(dar_default.parameters.half_saturation_DIN)
-        dar_din[4] = 0.3f0
-
-        dar_named = DARWIN.construct(;
-            grid=dummy_grid(Float32),
-            parameters=(; specificity=(Z_1=2.0, Z_2=2.5), half_saturation_DIN=(P_2=0.3,)),
-        )
-        dar_positional = DARWIN.construct(;
-            grid=dummy_grid(Float32),
-            parameters=(; specificity=dar_spec, half_saturation_DIN=dar_din),
-        )
-
-        @test dar_named.parameters.specificity == dar_spec
-        @test dar_named.parameters.half_saturation_DIN == dar_din
-        @test dar_named.parameters.interactions.palatability ==
-            dar_positional.parameters.interactions.palatability
 
         err = try
             NiPiZD.construct(;
@@ -353,7 +487,7 @@ using Oceananigans.Biogeochemistry:
         )
     end
 
-    @testset "Allometric parameter overrides" begin
+    @testset "Parameter-law overrides" begin
         phyto_diameters = [2.0, 8.0]
         zoo_diameters = [20.0, 100.0]
         size_structure = (;
@@ -401,6 +535,31 @@ using Oceananigans.Biogeochemistry:
         @test bgc.parameters.maximum_predation_rate ≈ expected_predation
         @test eltype(bgc.parameters.maximum_growth_rate) === Float32
         @test eltype(bgc.parameters.maximum_predation_rate) === Float32
+
+        mortality_prefactor = 0.5 / day
+        mortality_exponent = -0.1
+        bgc_laws = NiPiZD.construct(;
+            size_structure,
+            grid=dummy_grid(Float32),
+            parameters=(;
+                linear_mortality=AllometricParam(
+                    PowerLaw();
+                    prefactor=mortality_prefactor,
+                    exponent=mortality_exponent,
+                ),
+                maximum_growth_rate=ConstantParam(1.5 / day),
+            ),
+        )
+
+        all_diameters = [zoo_diameters; phyto_diameters]
+        expected_mortality = Float32[
+            powerlaw_value(Float32, mortality_prefactor, mortality_exponent, diameter) for
+            diameter in all_diameters
+        ]
+        expected_constant_growth = Float32[0, 0, 1.5 / day, 1.5 / day]
+
+        @test bgc_laws.parameters.linear_mortality ≈ expected_mortality
+        @test bgc_laws.parameters.maximum_growth_rate == expected_constant_growth
 
         bad_relationship = (coeffs, diameter, extra) -> 0.0
 
@@ -460,27 +619,14 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "NiPiZD sinking" begin
-        bgc = NiPiZD.construct(;
-            sinking_tracers=(P_1=0.2551 / day, P_2=0.2551 / day, D=2.7489 / day)
-        )
+        sinking_tracers = (P_1=0.2551 / day, P_2=0.2551 / day, D=2.7489 / day)
+        bgc = NiPiZD.construct(; sinking_tracers)
 
         @test biogeochemical_drift_velocity(bgc, Val(:P_1)).w.data[1, 1, 1] == -0.2551 / day
         @test biogeochemical_drift_velocity(bgc, Val(:D)).w.data[1, 1, 1] == -2.7489 / day
         @test biogeochemical_drift_velocity(bgc, Val(:Z_1)).w == ZeroField()
     end
 
-    @testset "DARWIN defaults" begin
-        bgc = DARWIN.construct(; grid=dummy_grid(Float32))
-
-        @test !any(t -> t === Any, fieldtypes(typeof(bgc.tracer_functions)))
-
-        @test required_biogeochemical_tracers(bgc)[1:9] ==
-            (:DIC, :DIN, :PO4, :DOC, :POC, :DON, :PON, :DOP, :POP)
-
-        bgc_explicit = DARWIN.construct(; scalar_type=Float32)
-        @test bgc_explicit.parameters.DOC_remineralization isa Float32
-        @test eltype(bgc_explicit.parameters.maximum_growth_rate) === Float32
-    end
 
     @testset "GPU smoke test" begin
         # NOTE: Loading CUDA can crash Julia in misconfigured environments (e.g. mixed system/toolkit libs).

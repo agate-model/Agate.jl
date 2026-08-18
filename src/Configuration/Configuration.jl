@@ -1,6 +1,6 @@
 module Configuration
 
-using ..Factories: AbstractBGCFactory, ParameterSpec, parameter_spec
+using ..Factories: AbstractBGCFactory, ParameterSpec, parameter_directory, parameter_spec
 import Adapt
 
 export PFTSpecification
@@ -10,6 +10,7 @@ export build_plankton_community
 export AbstractMatrixDeriver
 export MatrixDefinition
 export matrix_definitions
+export PalatabilityAllometric, AssimilationBinary
 
 include("specifications.jl")
 include("community.jl")

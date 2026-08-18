@@ -26,12 +26,16 @@ examples = [
     "Predator-prey palatability" => "predator_prey_palatability",
     "Comparing phytoplankton light strategies" => "named_plankton_groups",
     "Allometric parameters" => "allometric_relationships",
-    "Exporting a model setup" => "export_model_setup",
+    "Exporting a model definition" => "export_model_recipe",
 ]
 
 if BUILD_COLUMN_EXAMPLE
     push!(examples, "Column model" => "1D_column")
 end
+
+model_examples = [
+    "Defining your own model" => "external_model_family",
+]
 
 differentiable_modelling = [
     "Forward-mode AD sensitivity" => "forward_mode_ad_nipizd_sensitivity",
@@ -40,7 +44,7 @@ differentiable_modelling = [
 
 
 example_scripts = [
-    filename * ".jl" for (title, filename) in vcat(examples, differentiable_modelling)
+    filename * ".jl" for (title, filename) in vcat(examples, model_examples, differentiable_modelling)
 ]
 
 function replace_silly_warning(content)
@@ -73,7 +77,10 @@ differentiable_modelling_pages = [
 ]
 
 contributor_pages = ["Architecture" => "architecture_overview.md"]
-model_pages = ["NiPiZD" => "nipizd.md", "DARWIN" => "darwin.md"]
+model_pages = [
+    "NiPiZD" => "nipizd.md",
+    "Defining your own model" => "generated/external_model_family.md",
+]
 
 makedocs(;
     sitename="Agate.jl",

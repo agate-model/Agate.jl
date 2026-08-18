@@ -2,9 +2,8 @@ using OceanBioME: BoxModelGrid
 
 import ...Configuration
 import ...Construction
-using ...Manifests: default_model_manifest
 
-export construct, construct_with_manifest
+export construct, construct_plus_recipe, construct_from_recipe
 
 function _validated_size_structure(size_structure)
     size_structure isa NamedTuple ||
@@ -66,11 +65,20 @@ function _community_inputs(size_structure)
     end
     plankton_dynamics = NamedTuple{group_order}(dynamics_values)
     interaction_roles = (consumers=structure.consumer_groups, prey=structure.producer_groups)
+    parameter_roles = (;
+        producers=structure.producer_groups, consumers=structure.consumer_groups
+    )
 
-    group_roles = (;
+    ecological_roles = (;
         phytoplankton=structure.producer_groups, zooplankton=structure.consumer_groups
     )
-    return (; community, plankton_dynamics, interaction_roles, group_roles)
+    return (;
+        community,
+        plankton_dynamics,
+        interaction_roles,
+        parameter_roles,
+        ecological_roles,
+    )
 end
 
 function _construction_inputs(;
@@ -84,6 +92,7 @@ function _construction_inputs(;
     sinking_tracers=nothing,
     open_bottom::Bool=true,
 )
+
     factory = NiPiZDFactory()
     community_inputs = _community_inputs(size_structure)
 
@@ -93,17 +102,34 @@ function _construction_inputs(;
     assimilation_matrix !== nothing &&
         push!(pairs, :assimilation_matrix => assimilation_matrix)
 
-    interaction_overrides = isempty(pairs) ? nothing : (; pairs...)
+    interaction_overrides = (; pairs...)
+    resolved_scalar_type = Construction.resolve_construction_scalar_type(grid, scalar_type)
+    auxiliary_fields = (:PAR,)
+
+    recipe_kwargs = (;
+        community=community_inputs.community,
+        parameter_overrides=parameters,
+        interaction_overrides,
+        ecological_roles=community_inputs.ecological_roles,
+        interaction_roles=community_inputs.interaction_roles,
+        parameter_roles=community_inputs.parameter_roles,
+        auxiliary_fields,
+        sinking_tracers,
+        open_bottom,
+        scalar_type=resolved_scalar_type,
+    )
 
     return (
         factory=factory,
-        manifest_group_roles=community_inputs.group_roles,
+        recipe_kwargs,
         kwargs=(;
             plankton_dynamics=community_inputs.plankton_dynamics,
             community=community_inputs.community,
             parameters=parameters,
+            ecological_roles=community_inputs.ecological_roles,
             interaction_roles=community_inputs.interaction_roles,
-            auxiliary_fields=(:PAR,),
+            parameter_roles=community_inputs.parameter_roles,
+            auxiliary_fields,
             interaction_overrides=interaction_overrides,
             arch=arch,
             sinking_tracers=sinking_tracers,
@@ -183,19 +209,80 @@ function construct(; kwargs...)
     return Construction.construct_factory(inputs.factory; inputs.kwargs...)
 end
 
-"""
-    construct_with_manifest(; kw...) -> bgc, manifest
+function _recipe_plankton_dynamics(recipe::Construction.ModelRecipe)
+    groups = keys(recipe.community)
+    phytoplankton = recipe.ecological_roles.phytoplankton
+    zooplankton = recipe.ecological_roles.zooplankton
 
-Construct a model instance and return it with a JSON-compatible manifest of the resolved model setup.
-Groups are recorded in role/group order with their resolved class diameters.
+    values = ntuple(length(groups)) do i
+        group = groups[i]
+        if group in phytoplankton
+            phytoplankton_nipizd
+        elseif group in zooplankton
+            zooplankton_nipizd
+        else
+            throw(ArgumentError("recipe group :$group has no NiPiZD ecological role"))
+        end
+    end
+    return NamedTuple{groups}(values)
+end
+
+function _recipe_construction_inputs(
+    recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing
+)
+    family = recipe.family
+    family == :NiPiZD || throw(
+        ArgumentError(
+            "NiPiZD.construct_from_recipe requires a NiPiZD recipe; got family $family"
+        ),
+    )
+
+    factory = Construction.replay_factory(recipe)
+    kwargs = (;
+        plankton_dynamics=_recipe_plankton_dynamics(recipe),
+        biogeochem_dynamics=default_biogeochem_dynamics(factory),
+        community=recipe.community,
+        parameters=recipe.parameter_overrides,
+        interaction_overrides=recipe.interaction_overrides,
+        ecological_roles=recipe.ecological_roles,
+        interaction_roles=recipe.interaction_roles,
+        parameter_roles=recipe.parameter_roles,
+        auxiliary_fields=recipe.auxiliary_fields,
+        arch,
+        sinking_tracers=recipe.sinking_tracers,
+        grid,
+        scalar_type=recipe.scalar_type,
+        open_bottom=recipe.open_bottom,
+    )
+    return (; factory, kwargs)
+end
+
 """
-function construct_with_manifest(; kwargs...)
+    construct_from_recipe(recipe; grid=BoxModelGrid(), arch=nothing) -> bgc
+
+Replay a NiPiZD recipe in the supplied runtime environment.
+"""
+function construct_from_recipe(
+    recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing
+)
+    inputs = _recipe_construction_inputs(recipe; grid, arch)
+    return Construction.construct_factory(inputs.factory; inputs.kwargs...)
+end
+
+
+"""
+    construct_plus_recipe(; kw...) -> bgc, recipe
+
+Construct NiPiZD and return the model together with its authored scientific recipe.
+The recipe records semantic size specifications, authored parameter and interaction
+overrides, role selections, sinking configuration, open-bottom state, and resolved
+scalar type. Model-family code supplies defaults, derivations, and equations when the
+recipe is replayed. Runtime grid and architecture objects remain construction
+environment inputs and are not stored in the recipe.
+"""
+function construct_plus_recipe(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
-    bgc, manifest_data = Construction.construct_factory_with_manifest_data(
-        inputs.factory; inputs.kwargs...
-    )
-    manifest = default_model_manifest(
-        :NiPiZD, manifest_data; group_roles=inputs.manifest_group_roles
-    )
-    return bgc, manifest
+    recipe = Construction.capture_model_recipe(inputs.factory; inputs.recipe_kwargs...)
+    bgc = Construction.construct_factory(inputs.factory; inputs.kwargs...)
+    return bgc, recipe
 end

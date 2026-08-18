@@ -46,7 +46,6 @@ jobs:
           using Agate
 
           Agate.Models.NiPiZD.construct(grid=nothing)
-          Agate.Models.DARWIN.construct(grid=nothing)
 
   compatibility-112:
     name: Julia 1.12 - compatibility smoke
@@ -68,4 +67,3 @@ jobs:
           using Agate
 
           Agate.Models.NiPiZD.construct(grid=nothing)
-          Agate.Models.DARWIN.construct(grid=nothing)

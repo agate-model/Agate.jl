@@ -23,7 +23,7 @@ Examples
 --------
 ```julia
 community = build_plankton_community(base;
-    diameters=(Z=zoo_size_structure, P=phyto_size_structure),
+    diameters=(grazers=grazer_sizes, microbes=microbe_sizes),
 )
 ```
 """
@@ -82,8 +82,8 @@ end
 
 """Construction-time representation of a parsed plankton community.
 
-`CommunityContext` stores the flattened plankton layout, class metadata, role
-axes, and dynamics needed while resolving parameters and interaction matrices.
+`CommunityContext` stores the flattened plankton layout, class metadata, and role
+axes needed while resolving parameters and interaction matrices.
 It is distinct from `TendencyContext`, which is used inside tracer-tendency
 kernels.
 
@@ -95,14 +95,10 @@ Fields
 - `pfts`: per-class PFT specifications.
 - `plankton_symbols`: flattened class symbols such as `:P_1`, `:P_2`, or `:diat_1`.
 - `group_symbols`: group symbol for each flattened class.
-- `group_local_index`: within-group class index for each flattened class.
 - `group_indices`: mapping from group symbol to flattened class indices.
 - `consumer_indices`: flattened indices used for the consumer axis.
 - `prey_indices`: flattened indices used for the prey axis.
-- `default_producer_indices`: flattened indices used when building producer defaults.
-- `default_consumer_indices`: flattened indices used when building consumer defaults.
-- `plankton_dynamics`: group-level plankton dynamics builders.
-- `biogeochem_dynamics`: non-plankton tracer dynamics builders.
+- `parameter_role_indices`: resolved class indices for named parameter-applicability roles.
 """
 struct CommunityContext{T<:Real,VT<:AbstractVector{T}}
     scalar_type::Type{T}
@@ -111,15 +107,10 @@ struct CommunityContext{T<:Real,VT<:AbstractVector{T}}
     pfts::Vector{PFTSpecification}
     plankton_symbols::Vector{Symbol}
     group_symbols::Vector{Symbol}
-    group_local_index::Vector{Int}
     group_indices::Dict{Symbol,Vector{Int}}
     consumer_indices::Vector{Int}
     prey_indices::Vector{Int}
-    default_producer_indices::Vector{Int}
-    default_consumer_indices::Vector{Int}
-
-    plankton_dynamics::NamedTuple
-    biogeochem_dynamics::NamedTuple
+    parameter_role_indices::NamedTuple
 end
 
 """Return normalized diameter input and any size-class count it defines."""
@@ -177,9 +168,6 @@ function validate_community_inputs(plankton_dynamics, community)
     !isempty(extra) && push!(issues, "community has extra groups: $(extra)")
 
     for k in arg_keys
-        if !haskey(community, k)
-            continue
-        end
         spec = getfield(community, k)
 
         if !hasproperty(spec, :diameters)
@@ -243,26 +231,23 @@ end
 
 Keyword arguments
 -----------------
-- `plankton_dynamics`: group-level plankton dynamics builders.
-- `biogeochem_dynamics`: non-plankton tracer dynamics builders.
+- `biogeochem_tracers`: non-plankton tracer names used to reject class-name collisions.
 - `interaction_roles`: optional `NamedTuple` with fields `consumers` and
   `prey`. Each field may be `nothing`, a collection of group symbols, an index
   vector, or a boolean mask.
-- `default_parameter_roles`: optional `NamedTuple` with fields `producers` and
-  `consumers` used only when generating default parameter vectors.
+- `parameter_roles`: optional `NamedTuple` mapping semantic parameter-applicability
+  roles to group selections, index vectors, or boolean masks.
 
 When `interaction_roles` is omitted, both interaction axes include all classes.
-When `default_parameter_roles` is omitted, producer membership defaults to the
-prey axis and consumer membership defaults to the consumer axis.
+When `parameter_roles` is omitted, `producers` defaults to the prey axis and
+`consumers` defaults to the consumer axis.
 """
 function parse_community(
-    factory::AbstractBGCFactory,
     ::Type{T},
     community::NamedTuple;
-    plankton_dynamics::NamedTuple=NamedTuple(),
-    biogeochem_dynamics::NamedTuple=NamedTuple(),
+    biogeochem_tracers::Tuple=(),
     interaction_roles=nothing,
-    default_parameter_roles=nothing,
+    parameter_roles=nothing,
 ) where {T<:Real}
     if !isnothing(interaction_roles)
         (
@@ -275,20 +260,14 @@ function parse_community(
         )
     end
 
-    if !isnothing(default_parameter_roles)
-        (
-            hasproperty(default_parameter_roles, :producers) &&
-            hasproperty(default_parameter_roles, :consumers)
-        ) || throw(
-            ArgumentError(
-                "default_parameter_roles must have fields :producers and :consumers (each may be `nothing`, group Symbols, indices, or boolean masks).",
-            ),
-        )
-    end
+    !isnothing(parameter_roles) && !(parameter_roles isa NamedTuple) && throw(
+        ArgumentError(
+            "parameter_roles must be a NamedTuple mapping role names to group Symbols, indices, or boolean masks."
+        ),
+    )
     group_order = keys(community)
     plankton_symbols = Symbol[]
     group_of = Symbol[]
-    local_idx = Int[]
     pfts = PFTSpecification[]
     diameters = T[]
 
@@ -314,13 +293,12 @@ function parse_community(
         for i in 1:n
             push!(plankton_symbols, class_symbols[i])
             push!(group_of, g)
-            push!(local_idx, i)
             push!(pfts, pft)
             push!(diameters, ds[i])
         end
     end
 
-    biogeochem_symbols = Set(keys(biogeochem_dynamics))
+    biogeochem_symbols = Set(biogeochem_tracers)
     conflicting_symbols = [symbol for symbol in plankton_symbols if symbol in biogeochem_symbols]
     isempty(conflicting_symbols) || throw(
         ArgumentError(
@@ -337,22 +315,6 @@ function parse_community(
 
     interaction_roles_resolved =
         isnothing(interaction_roles) ? (consumers=nothing, prey=nothing) : interaction_roles
-    hasproperty(interaction_roles_resolved, :consumers) ||
-        throw(ArgumentError("interaction_roles must define :consumers"))
-    hasproperty(interaction_roles_resolved, :prey) ||
-        throw(ArgumentError("interaction_roles must define :prey"))
-    default_parameter_roles_resolved = if isnothing(default_parameter_roles)
-        (
-            producers=getproperty(interaction_roles_resolved, :prey),
-            consumers=getproperty(interaction_roles_resolved, :consumers),
-        )
-    else
-        default_parameter_roles
-    end
-    hasproperty(default_parameter_roles_resolved, :producers) ||
-        throw(ArgumentError("default_parameter_roles must define :producers"))
-    hasproperty(default_parameter_roles_resolved, :consumers) ||
-        throw(ArgumentError("default_parameter_roles must define :consumers"))
 
     function indices_for_role(role, role_name::Symbol)
         if role === nothing
@@ -393,12 +355,20 @@ function parse_community(
     )
     prey_indices = indices_for_role(getproperty(interaction_roles_resolved, :prey), :prey)
 
-    default_producer_indices = indices_for_role(
-        getproperty(default_parameter_roles_resolved, :producers), :default_producers
-    )
-    default_consumer_indices = indices_for_role(
-        getproperty(default_parameter_roles_resolved, :consumers), :default_consumers
-    )
+    parameter_roles_resolved = if isnothing(parameter_roles)
+        (
+            producers=getproperty(interaction_roles_resolved, :prey),
+            consumers=getproperty(interaction_roles_resolved, :consumers),
+        )
+    else
+        parameter_roles
+    end
+    parameter_role_names = keys(parameter_roles_resolved)
+    parameter_role_values = ntuple(length(parameter_role_names)) do i
+        role_name = parameter_role_names[i]
+        indices_for_role(getproperty(parameter_roles_resolved, role_name), role_name)
+    end
+    parameter_role_indices = NamedTuple{parameter_role_names}(parameter_role_values)
 
     community_context = CommunityContext{T,typeof(diameters)}(
         T,
@@ -407,17 +377,22 @@ function parse_community(
         pfts,
         plankton_symbols,
         group_of,
-        local_idx,
         group_indices,
         consumer_indices,
         prey_indices,
-        default_producer_indices,
-        default_consumer_indices,
-        plankton_dynamics,
-        biogeochem_dynamics,
+        parameter_role_indices,
     )
 
     return community_context
+end
+
+function parameter_role_indices(context::CommunityContext, role::Symbol)
+    hasproperty(context.parameter_role_indices, role) || throw(
+        ArgumentError(
+            "Unknown parameter role :$role. Available roles: $(collect(keys(context.parameter_role_indices)))."
+        ),
+    )
+    return getproperty(context.parameter_role_indices, role)
 end
 
 @inline function param_check_length(name::Symbol, expected::Int, got::Int)

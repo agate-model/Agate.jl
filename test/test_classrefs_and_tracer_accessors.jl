@@ -4,20 +4,84 @@ using Test
 using Agate.Configuration:
     build_plankton_community, parse_community, DiameterRangeSpecification
 using Agate.Runtime: class, resolve_class, class_count, build_tracer_index, Tracers
-using Agate.Factories:
-    default_plankton_dynamics, default_biogeochem_dynamics, default_community
+using Agate.Factories: default_biogeochem_dynamics, default_community
+
+
+struct GenericRoleFixtureFactory <: Agate.Factories.AbstractBGCFactory end
+
+Agate.Construction.recipe_family(::GenericRoleFixtureFactory) = :GenericRoleFixture
+Agate.Factories.parameter_definitions(::GenericRoleFixtureFactory) = ()
+Agate.Configuration.matrix_definitions(::GenericRoleFixtureFactory) = (;)
+
+@testset "Independent community roles" begin
+    pft = Agate.Configuration.PFTSpecification()
+    group = (; diameters=[1.0], pft)
+    community = (P=group, B=group, M=group, Z=group)
+    ecological_roles = (
+        phytoplankton=(:P,),
+        bacterioplankton=(:B,),
+        mixotrophs=(:M,),
+        zooplankton=(:Z,),
+    )
+    interaction_roles = (consumers=(:Z, :M), prey=(:P, :B, :M))
+    parameter_roles = (
+        producers=(:P, :M), consumers=(:Z, :M), bacterioplankton=(:B,)
+    )
+
+    factory = GenericRoleFixtureFactory()
+    context = parse_community(
+        Float64,
+        community;
+        interaction_roles,
+        parameter_roles,
+    )
+
+    @test (
+        context.parameter_role_indices,
+        context.consumer_indices,
+        context.prey_indices,
+    ) == (
+        (producers=[1, 3], consumers=[3, 4], bacterioplankton=[2]),
+        [3, 4],
+        [1, 2, 3],
+    )
+
+    recipe = Agate.Construction.capture_model_recipe(
+        factory;
+        community,
+        ecological_roles,
+        interaction_roles,
+        parameter_roles,
+        auxiliary_fields=(),
+        scalar_type=Float64,
+    )
+    manifest = Agate.Construction.capture_model_manifest(
+        factory,
+        (;),
+        context;
+        tracer_order=Tuple(context.plankton_symbols),
+        auxiliary_fields=(),
+        ecological_roles,
+        explicit_override_keys=(),
+        sinking_tracers=nothing,
+        open_bottom=true,
+        scalar_type=Float64,
+    )
+
+    @test (recipe.ecological_roles, recipe.interaction_roles, recipe.parameter_roles) ==
+          (ecological_roles, interaction_roles, parameter_roles)
+    @test manifest.ecological_roles == ecological_roles
+    @test manifest.interaction_role_indices == (consumers=(3, 4), prey=(1, 2, 3))
+    @test manifest.parameter_role_indices ==
+          (producers=(1, 3), consumers=(3, 4), bacterioplankton=(2,))
+end
 
 @testset "ClassRef + Tracers accessors" begin
     factory = Agate.Models.NiPiZD.NiPiZDFactory()
     community = default_community(factory)
-    plankton_dyn = default_plankton_dynamics(factory)
     biogeochem_dyn = default_biogeochem_dynamics(factory)
     ctx = parse_community(
-        factory,
-        Float64,
-        community;
-        plankton_dynamics=plankton_dyn,
-        biogeochem_dynamics=biogeochem_dyn,
+        Float64, community; biogeochem_tracers=keys(biogeochem_dyn)
     )
 
     @test class_count(ctx, :Z) == 2
@@ -52,7 +116,6 @@ end
 @testset "Diameter input normalization" begin
     factory = Agate.Models.NiPiZD.NiPiZDFactory()
     base = default_community(factory)
-    plankton_dyn = default_plankton_dynamics(factory)
     biogeochem_dyn = default_biogeochem_dynamics(factory)
 
     community = build_plankton_community(
@@ -64,11 +127,7 @@ end
     )
 
     ctx = parse_community(
-        factory,
-        Float64,
-        community;
-        plankton_dynamics=plankton_dyn,
-        biogeochem_dynamics=biogeochem_dyn,
+        Float64, community; biogeochem_tracers=keys(biogeochem_dyn)
     )
 
     @test class_count(ctx, :Z) == 2

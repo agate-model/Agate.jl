@@ -1,7 +1,7 @@
 """Shared reduction helpers.
 
 This module centralizes small, kernel-friendly reductions that are reused
-across model tracer kernels (e.g. NiPiZD and DARWIN).
+across size-structured model tracer kernels.
 
 """
 module Reductions

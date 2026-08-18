@@ -123,10 +123,6 @@ using Test
         @test named_pal.rows == [:microzoo_1, :microzoo_2, :mesozoo_1]
         @test named_pal.columns == [:diat_1, :diat_2, :diat_3, :dino_1, :dino_2]
 
-        darwin_bgc = Agate.Models.DARWIN.construct(; grid=dummy_grid(Float32))
-        @test length(plankton_diameters(darwin_bgc)) == length(plankton_tracers(darwin_bgc))
-        @test plankton_diameters(darwin_bgc) == collect(darwin_bgc.plankton_diameters)
-
         params = bgc.parameters
         interactions = params.interactions
         interaction_names = propertynames(interactions)
@@ -140,8 +136,6 @@ using Test
     end
 
     @testset "Generated model (define_tracer_functions)" begin
-        include(joinpath(@__DIR__, "NPZD", "tracers.jl"))
-
         model = AgateNPZD(parameters)
         @test tracer_names(model) == [:N, :D, :P, :Z]
         @test plankton_groups(model) == NamedTuple()
