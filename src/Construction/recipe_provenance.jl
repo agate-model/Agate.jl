@@ -5,7 +5,7 @@ const _PACKAGE_PROVENANCE_KEYS = ("package", "version", "repository", "commit")
 
 function _git_output(cmd::Cmd)
     try
-        value = strip(read(pipeline(cmd, stderr=devnull), String))
+        value = strip(read(pipeline(cmd; stderr=devnull), String))
         return isempty(value) ? nothing : value
     catch
         return nothing
@@ -16,9 +16,10 @@ function _git_implementation_is_clean(root)
     try
         status = read(
             pipeline(
-                `git -C $root status --porcelain --untracked-files=all -- .`,
+                `git -C $root status --porcelain --untracked-files=all -- .`;
                 stderr=devnull,
-            ), String
+            ),
+            String,
         )
         return isempty(strip(status))
     catch
@@ -26,8 +27,8 @@ function _git_implementation_is_clean(root)
     end
 end
 
-function _package_provenance(module::Module)
-    root = Base.moduleroot(module)
+function _package_provenance(mod::Module)
+    root = Base.moduleroot(mod)
     record = Dict{String,Any}("package" => String(nameof(root)))
     version = Base.pkgversion(root)
     isnothing(version) || (record["version"] = string(version))
@@ -35,8 +36,11 @@ function _package_provenance(module::Module)
     package_root = Base.pkgdir(root)
     isnothing(package_root) && return record
     repository = _git_output(`git -C $package_root config --get remote.origin.url`)
-    commit = _git_implementation_is_clean(package_root) ?
-             _git_output(`git -C $package_root rev-parse HEAD`) : nothing
+    commit = if _git_implementation_is_clean(package_root)
+        _git_output(`git -C $package_root rev-parse HEAD`)
+    else
+        nothing
+    end
     isnothing(repository) || (record["repository"] = repository)
     isnothing(commit) || (record["commit"] = commit)
     return record
@@ -91,7 +95,11 @@ function _check_recipe_provenance(recipe::ModelRecipe, recorded)
         for field in ("package", "version", "commit")
             haskey(recorded[key], field) && haskey(current[key], field) || continue
             recorded[key][field] == current[key][field] && continue
-            @warn "$label $field differs from recipe provenance." recorded=recorded[key][field] loaded=current[key][field]
+            @warn(
+                "$label $field differs from recipe provenance.",
+                recorded=recorded[key][field],
+                loaded=current[key][field],
+            )
         end
     end
     return nothing
