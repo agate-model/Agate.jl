@@ -14,16 +14,15 @@ function modified(document, mutation)
 end
 
 @testset "NiPiZD recipe serialization" begin
-    _, default_recipe = NiPiZD.construct_with_recipe()
+    _, default_recipe = NiPiZD.construct_plus_recipe()
     @test decode_recipe(encode_recipe(default_recipe)) == default_recipe
 
-    _, recipe, manifest = NiPiZD.construct_with_manifest(;
-        authored_nipizd_inputs(Float32)...
-    )
+    _, recipe = NiPiZD.construct_plus_recipe(; authored_nipizd_inputs(Float32)...)
+    manifest = nipizd_manifest(recipe)
 
     encoded = encode_recipe(recipe)
     decoded = decode_recipe(encoded)
-    _, decoded_manifest = NiPiZD.construct_with_manifest(decoded)
+    decoded_manifest = nipizd_manifest(decoded)
 
     @test encoded["schema"] == "agate.model_recipe.v1"
     @test Set(keys(encoded)) == Set(("schema", "model", "provenance", "recipe", "recipe_hash"))
@@ -44,7 +43,7 @@ end
         @test import_recipe(path) == recipe
     end
 
-    _, nonfinite_recipe = NiPiZD.construct_with_recipe(;
+    _, nonfinite_recipe = NiPiZD.construct_plus_recipe(;
         scalar_type=Float32, palatability_matrix=Float32[NaN 0.9; 0.3 0.7]
     )
     @test_throws ArgumentError encode_recipe(nonfinite_recipe)

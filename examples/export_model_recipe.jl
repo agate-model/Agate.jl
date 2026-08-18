@@ -1,7 +1,6 @@
 # # [Exporting a model recipe] (@id export_model_recipe_example)
 
-# Recipes store the authored scientific model definition. A manifest records the resolved
-# state produced when that recipe is constructed.
+# Recipes store the authored scientific model definition so it can be exported and replayed.
 
 using Agate.Construction: export_recipe, import_recipe
 using Agate.Models: NiPiZD
@@ -13,7 +12,7 @@ nothing #hide
 
 grid = BoxModelGrid()
 
-_, recipe, manifest = NiPiZD.construct_with_manifest(;
+bgc, recipe = NiPiZD.construct_plus_recipe(;
     grid,
     size_structure=(;
         phytoplankton=(P=(n=3, min_esd=1.0, max_esd=10.0, splitting=:log_splitting),),
@@ -36,9 +35,9 @@ nothing #hide
 # Runtime choices such as the grid are supplied again when the recipe is replayed.
 
 loaded = import_recipe(recipe_path)
-_, replayed_manifest = NiPiZD.construct_with_manifest(loaded; grid)
+replayed = NiPiZD.construct_from_recipe(loaded; grid)
 
 println("Recipe preserved: ", loaded == recipe)
-println("Manifest preserved: ", replayed_manifest == manifest)
+println("Parameters preserved: ", replayed.parameters == bgc.parameters)
 
 nothing #hide

@@ -4,6 +4,6 @@ include("factory.jl")
 include("parameters.jl")
 include("interface.jl")
 
-export construct, construct_with_recipe, construct_with_manifest
+export construct, construct_plus_recipe, construct_from_recipe
 
 end # module

@@ -32,13 +32,18 @@ pal.matrix   # consumer-by-prey matrix
 
 ## Construction API
 
-### Recipes and manifests
+### Recipes and low-level construction records
+
+Model users normally work through the model-family constructors (`construct`,
+`construct_plus_recipe`, and `construct_from_recipe`). The manifest API below is a
+lower-level resolved-state record used for diagnostics, model-family development, and
+exact replay tests.
 
 ```@docs
 Agate.Construction.ModelRecipe
 Agate.Construction.ModelManifest
 Agate.Construction.construct_factory
-Agate.Construction.construct_factory_with_manifest
+Agate.Construction.construct_factory_plus_manifest
 Agate.Construction.encode_recipe
 Agate.Construction.decode_recipe
 Agate.Construction.export_recipe

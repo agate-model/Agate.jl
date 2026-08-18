@@ -504,7 +504,7 @@ function construct_factory(factory::AbstractBGCFactory; kwargs...)
 end
 
 """Construct a factory-defined model and return it with its resolved `ModelManifest`."""
-function construct_factory_with_manifest(factory::AbstractBGCFactory; kwargs...)
+function construct_factory_plus_manifest(factory::AbstractBGCFactory; kwargs...)
     return _construct_factory(factory; build_manifest=true, kwargs...)
 end
 

@@ -3,7 +3,7 @@ using OceanBioME: BoxModelGrid
 import ...Configuration
 import ...Construction
 
-export construct, construct_with_recipe, construct_with_manifest
+export construct, construct_plus_recipe, construct_from_recipe
 
 function _validated_size_structure(size_structure)
     size_structure isa NamedTuple ||
@@ -233,7 +233,7 @@ function _recipe_construction_inputs(
     family = recipe.family
     family == :NiPiZD || throw(
         ArgumentError(
-            "NiPiZD.construct(recipe) requires a NiPiZD recipe; got family $family"
+            "NiPiZD.construct_from_recipe requires a NiPiZD recipe; got family $family"
         ),
     )
 
@@ -257,8 +257,12 @@ function _recipe_construction_inputs(
     return (; factory, kwargs)
 end
 
-"""Replay a NiPiZD recipe in the supplied runtime environment."""
-function construct(
+"""
+    construct_from_recipe(recipe; grid=BoxModelGrid(), arch=nothing) -> bgc
+
+Replay a NiPiZD recipe in the supplied runtime environment.
+"""
+function construct_from_recipe(
     recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing
 )
     inputs = _recipe_construction_inputs(recipe; grid, arch)
@@ -267,46 +271,18 @@ end
 
 
 """
-    construct_with_recipe(; kw...) -> bgc, recipe
+    construct_plus_recipe(; kw...) -> bgc, recipe
 
-Construct NiPiZD and return the model together with its pre-materialization
-scientific recipe. The recipe records semantic size specifications, authored
-parameter and interaction overrides, role selections, sinking configuration,
-open-bottom state, and resolved scalar type. Model-family code supplies defaults,
-derivations, and equations when the recipe is replayed. Runtime grid and
-architecture objects remain construction environment inputs and are not stored
-in the recipe.
+Construct NiPiZD and return the model together with its authored scientific recipe.
+The recipe records semantic size specifications, authored parameter and interaction
+overrides, role selections, sinking configuration, open-bottom state, and resolved
+scalar type. Model-family code supplies defaults, derivations, and equations when the
+recipe is replayed. Runtime grid and architecture objects remain construction
+environment inputs and are not stored in the recipe.
 """
-function construct_with_recipe(; kwargs...)
+function construct_plus_recipe(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
     recipe = Construction.capture_model_recipe(inputs.factory; inputs.recipe_kwargs...)
     bgc = Construction.construct_factory(inputs.factory; inputs.kwargs...)
     return bgc, recipe
-end
-
-"""
-    construct_with_manifest(; kw...) -> bgc, recipe, manifest
-    construct_with_manifest(recipe; grid=BoxModelGrid(), arch=nothing) -> bgc, manifest
-
-Construct NiPiZD together with the authored recipe and complete resolved
-manifest. Passing a recipe replays those authored inputs against the loaded
-NiPiZD model-family implementation and returns the replayed model and manifest.
-"""
-function construct_with_manifest(; kwargs...)
-    inputs = _construction_inputs(; kwargs...)
-    recipe = Construction.capture_model_recipe(inputs.factory; inputs.recipe_kwargs...)
-    bgc, manifest = Construction.construct_factory_with_manifest(
-        inputs.factory; inputs.kwargs...
-    )
-    return bgc, recipe, manifest
-end
-
-function construct_with_manifest(
-    recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing
-)
-    inputs = _recipe_construction_inputs(recipe; grid, arch)
-    bgc, manifest = Construction.construct_factory_with_manifest(
-        inputs.factory; inputs.kwargs...
-    )
-    return bgc, manifest
 end

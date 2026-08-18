@@ -6,6 +6,7 @@ use a minimal grid object that exposes `eltype(::grid)` and
 `Oceananigans.Architectures.architecture(::grid)`.
 """
 
+import OceanBioME
 import Oceananigans.Architectures: architecture, CPU
 
 using Agate.Library.Allometry: AllometricParam, ConstantParam, PowerLaw
@@ -50,6 +51,27 @@ function authored_nipizd_inputs(::Type{T}=Float32) where {T<:AbstractFloat}
         sinking_tracers=(D=T(2.5 / day),),
         open_bottom=false,
     )
+end
+
+function nipizd_recipe_manifest(; kwargs...)
+    inputs = Agate.Models.NiPiZD._construction_inputs(; kwargs...)
+    recipe = Agate.Construction.capture_model_recipe(
+        inputs.factory; inputs.recipe_kwargs...
+    )
+    _, manifest = Agate.Construction.construct_factory_plus_manifest(
+        inputs.factory; inputs.kwargs...
+    )
+    return recipe, manifest
+end
+
+function nipizd_manifest(
+    recipe::Agate.Construction.ModelRecipe; grid=OceanBioME.BoxModelGrid(), arch=nothing
+)
+    inputs = Agate.Models.NiPiZD._recipe_construction_inputs(recipe; grid, arch)
+    _, manifest = Agate.Construction.construct_factory_plus_manifest(
+        inputs.factory; inputs.kwargs...
+    )
+    return manifest
 end
 
 const MULTI_NUTRIENT_COUPLINGS = (

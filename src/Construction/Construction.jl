@@ -4,7 +4,7 @@ module Construction
 import Oceananigans
 using ..Configuration: PFTSpecification
 
-export construct_factory, construct_factory_with_manifest
+export construct_factory, construct_factory_plus_manifest
 export ModelRecipe, ModelManifest
 export encode_recipe, decode_recipe, export_recipe, import_recipe
 export PFTSpecification

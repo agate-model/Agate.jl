@@ -83,7 +83,7 @@ end
     end
 
     @testset "NiPiZD default recipe" begin
-        _, recipe = NiPiZD.construct_with_recipe()
+        _, recipe = NiPiZD.construct_plus_recipe()
 
         @test recipe.family === :NiPiZD
         @test recipe.ecological_roles == (phytoplankton=(:P,), zooplankton=(:Z,))
@@ -102,7 +102,12 @@ end
         inputs = authored_nipizd_inputs(Float32)
         phyto_diameters = inputs.size_structure.phytoplankton.diat
         palatability = inputs.palatability_matrix
-        _, recipe, manifest = NiPiZD.construct_with_manifest(; inputs...)
+        bgc, recipe = NiPiZD.construct_plus_recipe(; inputs...)
+        reference_recipe, manifest = nipizd_recipe_manifest(; inputs...)
+        replayed_manifest = nipizd_manifest(recipe)
+
+        @test reference_recipe == recipe
+        @test replayed_manifest == manifest
 
         @test recipe.scalar_type === Float32
         @test recipe.sinking_tracers == inputs.sinking_tracers
@@ -120,19 +125,23 @@ end
         @test recipe.community.diat.diameters.diameters[1] == 2.0
         @test recipe.interaction_overrides.palatability_matrix[1, 1] == Float32(0.8)
 
-        _, replayed_manifest = NiPiZD.construct_with_manifest(recipe)
-        @test replayed_manifest == manifest
+        replayed = NiPiZD.construct_from_recipe(recipe)
+        @test replayed.parameters == bgc.parameters
         @test manifest.interaction_matrix_sources == (
             palatability_matrix=:explicit, assimilation_matrix=:derived
         )
     end
 
     @testset "NiPiZD default in-memory replay" begin
-        _, recipe, manifest = NiPiZD.construct_with_manifest()
-        _, replayed_manifest = NiPiZD.construct_with_manifest(recipe)
+        bgc, recipe = NiPiZD.construct_plus_recipe()
+        replayed = NiPiZD.construct_from_recipe(recipe)
+        reference_recipe, manifest = nipizd_recipe_manifest()
+        replayed_manifest = nipizd_manifest(recipe)
 
+        @test reference_recipe == recipe
         @test manifest isa Agate.Construction.ModelManifest
         @test replayed_manifest == manifest
+        @test replayed.parameters == bgc.parameters
         @test (
             manifest.group_tracers,
             manifest.tracer_order,
