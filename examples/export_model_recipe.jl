@@ -1,4 +1,4 @@
-# # [Exporting a model definition] (@id export_model_recipe_example)
+# # [Exporting a model definition] (@id export_model_recipe)
 
 # Recipes allow model definitions be exported and replayed.
 
