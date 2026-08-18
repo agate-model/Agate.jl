@@ -126,7 +126,7 @@ end
         @test recipe.interaction_overrides.palatability_matrix[1, 1] == Float32(0.8)
 
         replayed = NiPiZD.construct_from_recipe(recipe)
-        @test replayed.parameters == bgc.parameters
+        @test replayed.parameters == manifest.parameters
         @test manifest.interaction_matrix_sources == (
             palatability_matrix=:explicit, assimilation_matrix=:derived
         )
