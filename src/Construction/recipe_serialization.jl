@@ -10,7 +10,7 @@ using ..Library.Allometry:
     allometric_relationship_from_identifier
 
 const MODEL_RECIPE_SCHEMA = "agate.model_recipe.v1"
-const _RECIPE_DOCUMENT_KEYS = ("schema", "model", "recipe")
+const _RECIPE_DOCUMENT_KEYS = ("schema", "model", "provenance", "recipe", "recipe_hash")
 const _RECIPE_MODEL_KEYS = ("family",)
 const _RECIPE_KEYS = (
     "community",
@@ -310,9 +310,8 @@ function _decode_community(x, path)
     return NamedTuple{Tuple(names)}(Tuple(specs))
 end
 
-"""Encode a `ModelRecipe` as a JSON-compatible recipe document."""
-function encode_recipe(recipe::ModelRecipe)
-    data = Dict{String,Any}(
+function _encode_recipe_data(recipe::ModelRecipe)
+    return Dict{String,Any}(
         "community" => _encode_community(recipe.community),
         "parameter_overrides" => _encode_value(recipe.parameter_overrides),
         "interaction_overrides" => _encode_value(recipe.interaction_overrides),
@@ -324,15 +323,21 @@ function encode_recipe(recipe::ModelRecipe)
         "open_bottom" => recipe.open_bottom,
         "scalar_type" => _float_type_id(recipe.scalar_type),
     )
+end
 
+"""Encode a recipe with its scientific hash and available package provenance."""
+function encode_recipe(recipe::ModelRecipe)
+    data = _encode_recipe_data(recipe)
     return Dict{String,Any}(
         "schema" => MODEL_RECIPE_SCHEMA,
         "model" => Dict{String,Any}("family" => String(recipe.family)),
+        "provenance" => _recipe_provenance(recipe),
         "recipe" => data,
+        "recipe_hash" => _recipe_hash(recipe, data),
     )
 end
 
-"""Decode a recipe document into a `ModelRecipe`."""
+"""Decode a recipe document, verifying its hash and checking package provenance."""
 function decode_recipe(document::AbstractDict)
     document = _check_keys(document, _RECIPE_DOCUMENT_KEYS, "Recipe document")
     schema = _string(_required(document, "schema", "Recipe document"), "Recipe document.schema")
@@ -343,6 +348,12 @@ function decode_recipe(document::AbstractDict)
     model = _check_keys(_required(document, "model", "Recipe document"), _RECIPE_MODEL_KEYS, "Recipe document.model")
     family = _symbol(_required(model, "family", "Recipe document.model"), "Recipe document.model.family")
     recipe_factory(Val(family))
+    provenance = _decode_provenance(
+        _required(document, "provenance", "Recipe document"), "Recipe document.provenance"
+    )
+    recorded_hash = _string(
+        _required(document, "recipe_hash", "Recipe document"), "Recipe document.recipe_hash"
+    )
 
     recipe = _check_keys(_required(document, "recipe", "Recipe document"), _RECIPE_KEYS, "Recipe document.recipe")
     for key in _RECIPE_KEYS
@@ -369,7 +380,7 @@ function decode_recipe(document::AbstractDict)
     auxiliary_fields isa Tuple || throw(ArgumentError("Recipe document.recipe.auxiliary_fields must decode to a Tuple."))
     !isnothing(sinking_tracers) && !(sinking_tracers isa NamedTuple) && throw(ArgumentError("Recipe document.recipe.sinking_tracers must decode to a NamedTuple or null."))
 
-    return ModelRecipe(
+    decoded = ModelRecipe(
         family,
         community,
         parameter_overrides,
@@ -382,6 +393,13 @@ function decode_recipe(document::AbstractDict)
         _boolean(recipe["open_bottom"], "Recipe document.recipe.open_bottom"),
         _decode_float_type(recipe["scalar_type"], "Recipe document.recipe.scalar_type"),
     )
+
+    expected_hash = _recipe_hash(decoded, _encode_recipe_data(decoded))
+    recorded_hash == expected_hash || throw(
+        ArgumentError("Recipe document.recipe_hash does not match the decoded recipe.")
+    )
+    _check_recipe_provenance(decoded, provenance)
+    return decoded
 end
 
 function decode_recipe(document)

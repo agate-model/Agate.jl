@@ -24,6 +24,9 @@ _, recipe, manifest = NiPiZD.construct_with_manifest(;
 recipe_path = tempname() * ".json"
 export_recipe(recipe_path, recipe)
 
+# The JSON also records a SHA-256 recipe fingerprint and package provenance. Git
+# repository and commit information are included when the implementation matches a checkout.
+
 println("Wrote model recipe to ", recipe_path)
 
 nothing #hide

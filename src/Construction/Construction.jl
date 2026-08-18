@@ -11,6 +11,7 @@ export PFTSpecification
 
 include("recipe.jl")
 include("recipe_serialization.jl")
+include("recipe_provenance.jl")
 include("generator.jl")
 include("construct.jl")
 
