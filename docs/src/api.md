@@ -40,8 +40,10 @@ lower-level resolved-state record used for diagnostics, model-family development
 semantic replay tests across explicit execution environments.
 
 `ModelRecipe` uses the `agate.model_recipe.v2` schema and records scientific construction
-semantics only. Scalar precision is resolved from the replay execution environment (or an
-explicit `scalar_type` override) and is recorded on `ModelManifest`, not on the recipe.
+semantics only. Fresh model inputs canonicalize to a recipe, and loaded recipes enter the
+same `construct_factory(recipe; ...)` realization path. Scalar precision is resolved from
+the execution environment (or an explicit `scalar_type` override) and is recorded on
+`ModelManifest`, not on the recipe.
 
 ```@docs
 Agate.Construction.ModelRecipe
