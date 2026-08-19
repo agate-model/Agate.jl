@@ -72,3 +72,9 @@ end
         palatability,
     )
 end
+
+"""Evaluate one linear source remineralization rate."""
+@inline process_rate(::LinearRemineralization, source, coefficient) =
+    linear_remineralization(source, coefficient)
+@inline process_rate(process::Remineralization{LinearRemineralization}, source, coefficient) =
+    process_rate(process.formulation, source, coefficient)
