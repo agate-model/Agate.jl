@@ -629,12 +629,11 @@ end
 
 
     @testset "GPU smoke test" begin
-        # NOTE: Loading CUDA can crash Julia in misconfigured environments (e.g. mixed system/toolkit libs).
-        # To keep the default test suite robust, this test only runs when explicitly enabled.
         if lowercase(get(ENV, "AGATE_TEST_CUDA", "0")) in ("1", "true", "yes")
             @eval using CUDA
             @eval using Oceananigans.Architectures: GPU, array_type
 
+            @test CUDA.functional()
             if CUDA.functional()
                 bgc_cpu = NiPiZD.construct(; grid=dummy_grid(Float32))
                 bgc_gpu = NiPiZD.construct(; grid=dummy_grid(Float32; arch=GPU()))
@@ -643,11 +642,9 @@ end
                     required_biogeochemical_tracers(bgc_cpu)
                 @test bgc_gpu.parameters.interactions.palatability isa array_type(GPU())
                 @test bgc_gpu.parameters.maximum_predation_rate isa array_type(GPU())
-            else
-                @test true
             end
         else
-            @test true
+            @test_skip false
         end
     end
 
