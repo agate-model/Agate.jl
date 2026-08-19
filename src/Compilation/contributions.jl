@@ -132,3 +132,31 @@ end
 
 """Compile every grouped target contribution into a concrete tracer equation."""
 compile_tendencies(grouped::NamedTuple) = map(compile_tendency, grouped)
+
+"""Derive all typed process contributions for a normalized model."""
+function model_contributions(
+    definition::NormalizedModelDefinition,
+    layout::ComponentLayout,
+    context::CommunityContext,
+)
+    contributions = ()
+    for named in values(definition.processes)
+        contributions = (
+            contributions...,
+            process_contributions(named, definition, layout, context)...,
+        )
+    end
+    return contributions
+end
+
+"""Compile a normalized model into one static equation per requested concrete tracer."""
+function compile_model_tendencies(
+    definition::NormalizedModelDefinition,
+    layout::ComponentLayout,
+    context::CommunityContext;
+    target_order::Tuple,
+)
+    contributions = model_contributions(definition, layout, context)
+    grouped = group_contributions(contributions; target_order)
+    return compile_tendencies(grouped)
+end
