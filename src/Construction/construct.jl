@@ -503,9 +503,45 @@ function construct_factory(factory::AbstractBGCFactory; kwargs...)
     return bgc
 end
 
+function _recipe_realization_inputs(factory::AbstractBGCFactory, recipe::ModelRecipe)
+    return (;
+        plankton_dynamics=default_plankton_dynamics(
+            factory, recipe.community, recipe.ecological_roles
+        ),
+        biogeochem_dynamics=default_biogeochem_dynamics(factory),
+        community=recipe.community,
+        parameters=recipe.parameter_overrides,
+        interaction_overrides=recipe.interaction_overrides,
+        ecological_roles=recipe.ecological_roles,
+        interaction_roles=recipe.interaction_roles,
+        parameter_roles=recipe.parameter_roles,
+        auxiliary_fields=recipe.auxiliary_fields,
+        sinking_tracers=recipe.sinking_tracers,
+        open_bottom=recipe.open_bottom,
+    )
+end
+
+"""Realize a canonical `ModelRecipe` in the supplied execution environment."""
+function construct_factory(
+    recipe::ModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
+)
+    factory = replay_factory(recipe)
+    inputs = _recipe_realization_inputs(factory, recipe)
+    return construct_factory(factory; inputs..., grid, arch, scalar_type)
+end
+
 """Construct a factory-defined model and return it with its resolved `ModelManifest`."""
 function construct_factory_plus_manifest(factory::AbstractBGCFactory; kwargs...)
     return _construct_factory(factory; build_manifest=true, kwargs...)
+end
+
+"""Realize a canonical `ModelRecipe` and return its resolved `ModelManifest`."""
+function construct_factory_plus_manifest(
+    recipe::ModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
+)
+    factory = replay_factory(recipe)
+    inputs = _recipe_realization_inputs(factory, recipe)
+    return construct_factory_plus_manifest(factory; inputs..., grid, arch, scalar_type)
 end
 
 function _construct_factory(
