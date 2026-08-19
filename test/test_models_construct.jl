@@ -628,6 +628,8 @@ end
     end
 
 
+    # Loading CUDA can fail hard in misconfigured environments, so GPU execution is
+    # an explicit opt-in test via AGATE_TEST_CUDA=1 rather than part of the default suite.
     if lowercase(get(ENV, "AGATE_TEST_CUDA", "0")) in ("1", "true", "yes")
         @testset "GPU smoke test" begin
             @eval using CUDA
@@ -637,8 +639,9 @@ end
             @eval using Oceananigans.Architectures: GPU, array_type
             @eval using Oceananigans.Grids: Periodic, Flat, Bounded
 
-            @test CUDA.functional()
-            if CUDA.functional()
+            cuda_functional = CUDA.functional()
+            @test cuda_functional
+            if cuda_functional
                 bgc_cpu = NiPiZD.construct(; grid=dummy_grid(Float32))
                 bgc_gpu = NiPiZD.construct(; grid=dummy_grid(Float32; arch=GPU()))
 
@@ -654,14 +657,14 @@ end
                     x=(0f0, 4f0),
                     z=(-4f0, 0f0),
                 )
-                sinking_rate = 2.5f0 / day
+                sinking_rate = 2.5f0 / 86400f0
                 bgc_sinking = NiPiZD.construct(;
                     grid, sinking_tracers=(D=sinking_rate,)
                 )
                 drift = biogeochemical_drift_velocity(bgc_sinking, Val(:D)).w
 
                 @test parent(drift.data) isa array_type(GPU())
-                @test any(==(-sinking_rate), Array(drift.data))
+                @test any(==(-sinking_rate), Array(parent(drift.data)))
                 @test biogeochemical_drift_velocity(bgc_sinking, Val(:Z_1)).w == ZeroField()
 
                 light_attenuation = FunctionFieldPAR(; grid, PAR_f=CyclicalPAR())
