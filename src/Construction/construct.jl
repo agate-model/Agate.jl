@@ -492,7 +492,9 @@ Keyword arguments
 - `parameter_roles`: optional `NamedTuple` of named parameter-applicability roles.
 - `auxiliary_fields`: auxiliary values appended to the tracer argument list.
 - `grid`, `arch`: optional grid and architecture inputs.
-- `scalar_type`: explicit runtime scalar type; when omitted, construction uses `eltype(grid)` or `Float64` if no grid is supplied.
+- `scalar_type`: explicit runtime scalar type; when provided it takes precedence over
+  `eltype(grid)`. When omitted, construction uses `eltype(grid)` or `Float64` if no
+  grid is supplied.
 - `sinking_tracers`, `open_bottom`: sinking-velocity configuration.
 
 The returned object stores the fully resolved parameter set in
@@ -504,20 +506,21 @@ function construct_factory(factory::AbstractBGCFactory; kwargs...)
 end
 
 function _recipe_realization_inputs(factory::AbstractBGCFactory, recipe::ModelRecipe)
+    realization = deepcopy(recipe)
     return (;
         plankton_dynamics=default_plankton_dynamics(
-            factory, recipe.community, recipe.ecological_roles
+            factory, realization.community, realization.ecological_roles
         ),
         biogeochem_dynamics=default_biogeochem_dynamics(factory),
-        community=recipe.community,
-        parameters=recipe.parameter_overrides,
-        interaction_overrides=recipe.interaction_overrides,
-        ecological_roles=recipe.ecological_roles,
-        interaction_roles=recipe.interaction_roles,
-        parameter_roles=recipe.parameter_roles,
-        auxiliary_fields=recipe.auxiliary_fields,
-        sinking_tracers=recipe.sinking_tracers,
-        open_bottom=recipe.open_bottom,
+        community=realization.community,
+        parameters=realization.parameter_overrides,
+        interaction_overrides=realization.interaction_overrides,
+        ecological_roles=realization.ecological_roles,
+        interaction_roles=realization.interaction_roles,
+        parameter_roles=realization.parameter_roles,
+        auxiliary_fields=realization.auxiliary_fields,
+        sinking_tracers=realization.sinking_tracers,
+        open_bottom=realization.open_bottom,
     )
 end
 
