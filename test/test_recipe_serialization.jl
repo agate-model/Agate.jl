@@ -18,10 +18,14 @@ end
     _, default_recipe = NiPiZD.construct_plus_recipe()
     @test decode_recipe(encode_recipe(default_recipe)) == default_recipe
 
-    _, recipe = NiPiZD.construct_plus_recipe(; authored_nipizd_inputs(Float32)...)
+    bgc, recipe = NiPiZD.construct_plus_recipe(; authored_nipizd_inputs(Float32)...)
     manifest = nipizd_manifest(recipe; scalar_type=Float32)
 
     encoded = encode_recipe(recipe)
+    recipe_hash = encoded["recipe_hash"]
+    bgc.parameters.palatability_matrix[1, 1] = 0f0
+    @test recipe.interaction_overrides.palatability_matrix[1, 1] == 0.8f0
+    @test encode_recipe(recipe)["recipe_hash"] == recipe_hash
     decoded = decode_recipe(encoded)
     decoded_manifest = nipizd_manifest(decoded; scalar_type=Float32)
 
@@ -86,6 +90,9 @@ end
     @test v1_error isa ArgumentError
     @test occursin("Unsupported Agate recipe schema", sprint(showerror, v1_error))
     @test occursin("agate.model_recipe.v2", sprint(showerror, v1_error))
+    @test occursin("Agate v0.10.x", sprint(showerror, v1_error))
+    @test occursin("scalar_type", sprint(showerror, v1_error))
+    @test occursin("recipe hash", sprint(showerror, v1_error))
 
     invalid_documents = (
         modified(encoded, x -> (x["extra"] = true)),
