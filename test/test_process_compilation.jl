@@ -102,9 +102,11 @@ end
     for target in NIPIZD_TRACER_ORDER
         generated = generated_bgc(Val(target), args...)
         legacy = bgc(Val(target), args...)
-        @test generated ≈ legacy
+        @test process_compiler_isapprox(generated, legacy)
     end
-    @test (@inferred compiled.P_1(bgc, args...)) ≈ bgc(Val(:P_1), args...)
+    @test process_compiler_isapprox(
+        @inferred(compiled.P_1(bgc, args...)), bgc(Val(:P_1), args...)
+    )
 end
 
 @testset "Mortality compiler ForwardDiff" begin
@@ -125,7 +127,7 @@ end
 
     rate = 0.9e-6
     derivative = ForwardDiff.derivative(p_1_mortality, rate)
-    @test derivative ≈ -biomass
+    @test process_compiler_isapprox(derivative, -biomass)
 end
 
 @testset "Mortality compiler Enzyme" begin
