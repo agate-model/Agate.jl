@@ -1,30 +1,3 @@
-"""Concrete context for tracer tendency helper functions.
-
-Oceananigans supplies biogeochemistry tracers as a positional `args...` tuple.
-Tendency helper functions commonly need three associated values together:
-
-- model parameters (`bgc.parameters`)
-- a `Tracers` accessor that maps tracer names to integer indices
-- the positional runtime argument tuple (`args`)
-
-`TendencyContext` bundles these values into a concrete, GPU-safe struct so
-helper functions can accept a single argument while preserving full type
-inference.
-
-Fields
-------
-- `parameters`: model parameters
-- `tracers`: tracer accessor
-- `args`: positional tracer and auxiliary values passed at runtime
-"""
-struct TendencyContext{P,TR,ARGS}
-    parameters::P
-    tracers::TR
-    args::ARGS
-end
-
-@inline TendencyContext(bgc, args) = TendencyContext(bgc.parameters, bgc.tracers, args)
-
 """A value-oriented view of tracer arguments.
 
 `TracerValues` bundles a `Tracers` accessor with the positional runtime state
@@ -83,7 +56,6 @@ The returned `tracer_values` object provides named access to the positional
 tracer arguments, including `tracer_values.plankton(i)` for plankton tracers.
 """
 @inline function tendency_inputs(bgc, args)
-    context = TendencyContext(bgc, args)
-    tracer_values = TracerValues(context.tracers, context.args)
-    return context.parameters, tracer_values
+    tracer_values = TracerValues(bgc.tracers, args)
+    return bgc.parameters, tracer_values
 end
