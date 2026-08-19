@@ -11,6 +11,40 @@ MortalityParameterBinding(
     rate::Symbol; routing_fraction::Union{Nothing,Symbol}=nothing
 ) = MortalityParameterBinding(rate, routing_fraction)
 
+function _mortality_requirement(named::NamedProcess, path::Tuple, slot::Symbol)
+    matches = filter(
+        requirement ->
+            requirement.identity.path == path && requirement.identity.slot === slot,
+        parameter_requirements(named),
+    )
+    length(matches) == 1 || throw(
+        ArgumentError(
+            "process :$(process_id(named)) must declare exactly one $path/$slot parameter requirement",
+        ),
+    )
+    return only(matches)
+end
+
+"""Resolve mortality parameter names from normalized semantic requirement bindings."""
+function MortalityParameterBinding(
+    definition::NormalizedModelDefinition, id::Symbol
+)
+    hasproperty(definition.processes, id) || throw(
+        ArgumentError("normalized model has no process :$id"),
+    )
+    named = getproperty(definition.processes, id)
+    named.process isa Mortality || throw(
+        ArgumentError("process :$id is not a Mortality process"),
+    )
+
+    rate = parameter_name(definition, _mortality_requirement(named, (), :rate))
+    isnothing(named.process.routing) && return MortalityParameterBinding(rate)
+    routing_fraction = parameter_name(
+        definition, _mortality_requirement(named, (:routing,), :export_fraction)
+    )
+    return MortalityParameterBinding(rate; routing_fraction)
+end
+
 """Realized mortality topology over concrete population classes and routing targets."""
 struct MortalityTopology{TR,IX,R,E}
     population_tracers::TR
