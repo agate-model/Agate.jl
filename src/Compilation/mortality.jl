@@ -1,6 +1,3 @@
-"""Setup-time description of one process effect on one concrete tracer."""
-abstract type AbstractProcessContribution end
-
 """Resolved parameter names needed to compile one mortality process instance."""
 struct MortalityParameterBinding
     rate::Symbol
@@ -10,20 +7,6 @@ end
 MortalityParameterBinding(
     rate::Symbol; routing_fraction::Union{Nothing,Symbol}=nothing
 ) = MortalityParameterBinding(rate, routing_fraction)
-
-function _mortality_requirement(named::NamedProcess, path::Tuple, slot::Symbol)
-    matches = filter(
-        requirement ->
-            requirement.identity.path == path && requirement.identity.slot === slot,
-        parameter_requirements(named),
-    )
-    length(matches) == 1 || throw(
-        ArgumentError(
-            "process :$(process_id(named)) must declare exactly one $path/$slot parameter requirement",
-        ),
-    )
-    return only(matches)
-end
 
 """Resolve mortality parameter names from normalized semantic requirement bindings."""
 function MortalityParameterBinding(
@@ -37,10 +20,10 @@ function MortalityParameterBinding(
         ArgumentError("process :$id is not a Mortality process"),
     )
 
-    rate = parameter_name(definition, _mortality_requirement(named, (), :rate))
+    rate = parameter_name(definition, _parameter_requirement(named, (), :rate))
     isnothing(named.process.routing) && return MortalityParameterBinding(rate)
     routing_fraction = parameter_name(
-        definition, _mortality_requirement(named, (:routing,), :export_fraction)
+        definition, _parameter_requirement(named, (:routing,), :export_fraction)
     )
     return MortalityParameterBinding(rate; routing_fraction)
 end
@@ -75,19 +58,6 @@ struct MortalityRoutingContribution{F<:AbstractFormulation} <: AbstractProcessCo
     formulation::F
 end
 
-@inline contribution_target(contribution::AbstractProcessContribution) = contribution.target
-
-function _scalar_component_target(layout::ComponentLayout, component::Symbol)
-    hasproperty(layout.component_tracers, component) || throw(
-        ArgumentError("unknown routing component :$component"),
-    )
-    tracers = getproperty(layout.component_tracers, component)
-    length(tracers) == 1 || throw(
-        ArgumentError("routing component :$component must realize to one tracer"),
-    )
-    return only(tracers)
-end
-
 """Resolve a named mortality process onto the current concrete class layout.
 
 The `ComponentLayout` supplies logical-component tracer identities while the current
@@ -98,29 +68,9 @@ function realize_process_topology(
     named::NamedProcess{P}, layout::ComponentLayout, context::CommunityContext
 ) where {P<:Mortality}
     process = named.process
-    tracer_values = ()
-    index_values = ()
-
-    for population in process.populations
-        hasproperty(layout.component_tracers, population) || throw(
-            ArgumentError("process :$(named.id) references unrealized population :$population"),
-        )
-        tracers = getproperty(layout.component_tracers, population)
-        indices = get(context.group_indices, population, nothing)
-        isnothing(indices) && throw(
-            ArgumentError(
-                "process :$(named.id) population :$population is absent from the current runtime community",
-            ),
-        )
-        runtime_tracers = Tuple(context.plankton_symbols[indices])
-        tracers == runtime_tracers || throw(
-            ArgumentError(
-                "process :$(named.id) population :$population realizes as $tracers but the current runtime community realizes it as $runtime_tracers",
-            ),
-        )
-        tracer_values = (tracer_values..., tracers...)
-        index_values = (index_values..., Tuple(indices)...)
-    end
+    tracer_values, index_values = _realize_population_classes(
+        named, process.populations, layout, context
+    )
 
     routing = process.routing
     if isnothing(routing)
@@ -192,43 +142,6 @@ function process_contributions(
     return contributions
 end
 
-function _target_order(contributions::Tuple)
-    targets = Symbol[]
-    for contribution in contributions
-        target = contribution_target(contribution)
-        target in targets || push!(targets, target)
-    end
-    return Tuple(targets)
-end
-
-function _validate_target_order(contributions::Tuple, target_order::Tuple)
-    length(unique(target_order)) == length(target_order) || throw(
-        ArgumentError("target_order contains duplicate tracer identities"),
-    )
-    actual = Set(_target_order(contributions))
-    requested = Set(target_order)
-    actual == requested || throw(
-        ArgumentError("target_order must contain exactly the contribution targets"),
-    )
-    return nothing
-end
-
-"""Group a flat contribution tuple by concrete target tracer.
-
-An explicit `target_order` can be supplied to match an established runtime tracer order.
-"""
-function group_contributions(contributions::Tuple; target_order=nothing)
-    isempty(contributions) && throw(ArgumentError("cannot group an empty contribution tuple"))
-    targets = isnothing(target_order) ? _target_order(contributions) : Tuple(target_order)
-    _validate_target_order(contributions, targets)
-
-    grouped = ntuple(length(targets)) do i
-        target = targets[i]
-        Tuple(contribution for contribution in contributions if contribution_target(contribution) === target)
-    end
-    return NamedTuple{targets}(grouped)
-end
-
 struct MortalityLossTerm{F,I,R}
     formulation::F
 end
@@ -269,35 +182,3 @@ function _lower_contribution(contribution::MortalityRoutingContribution{F}) wher
         contribution.route,
     }(contribution.formulation)
 end
-
-struct StaticContributionEquation{T}
-    terms::T
-end
-
-@inline function _sum_contributions(terms::Tuple{T}, bgc, args) where {T}
-    return first(terms)(bgc, args)
-end
-
-@inline function _sum_contributions(
-    terms::Tuple{T,S,Vararg{Any,N}}, bgc, args
-) where {T,S,N}
-    return first(terms)(bgc, args) + _sum_contributions(Base.tail(terms), bgc, args)
-end
-
-@inline function (equation::StaticContributionEquation)(bgc, x, y, z, t, args...)
-    return _sum_contributions(equation.terms, bgc, args)
-end
-
-"""Statically lower one target's contribution tuple to a `CompiledEquation`."""
-function compile_tendency(contributions::Tuple)
-    isempty(contributions) && throw(ArgumentError("cannot compile an empty contribution tuple"))
-    target = contribution_target(first(contributions))
-    all(contribution -> contribution_target(contribution) === target, contributions) || throw(
-        ArgumentError("compile_tendency requires contributions for one target tracer"),
-    )
-    terms = map(_lower_contribution, contributions)
-    return CompiledEquation(StaticContributionEquation(terms))
-end
-
-"""Compile every grouped target contribution into a concrete tracer equation."""
-compile_tendencies(grouped::NamedTuple) = map(compile_tendency, grouped)
