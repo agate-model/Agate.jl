@@ -327,7 +327,13 @@ function decode_recipe(document::AbstractDict)
     document = _check_keys(document, _RECIPE_DOCUMENT_KEYS, "Recipe document")
     schema = _string(_required(document, "schema", "Recipe document"), "Recipe document.schema")
     schema == MODEL_RECIPE_SCHEMA || throw(
-        ArgumentError("Unsupported Agate recipe schema $(repr(schema)); expected $(repr(MODEL_RECIPE_SCHEMA)).")
+        ArgumentError(
+            "Unsupported Agate recipe schema $(repr(schema)); expected $(repr(MODEL_RECIPE_SCHEMA)). " *
+            "Agate v0.11 supports v2 recipes only. For v1 recipes, use Agate v0.10.x to " *
+            "recover the scientific inputs, then recreate and export a v2 recipe with v0.11; " *
+            "removing `scalar_type` alone is not sufficient because it was included in the v1 " *
+            "recipe hash."
+        )
     )
 
     model = _check_keys(_required(document, "model", "Recipe document"), _RECIPE_MODEL_KEYS, "Recipe document.model")
