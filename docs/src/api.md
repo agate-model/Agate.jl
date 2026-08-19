@@ -71,6 +71,7 @@ Agate.Factories.parameter_definitions
 Agate.Factories.parameter_directory
 Agate.Factories.parameter_spec
 Agate.Factories.ParameterSpec
+Agate.Factories.ParameterProvision
 Agate.Factories.ParameterDefinition
 Agate.Factories.DefaultProvider
 Agate.Factories.ConstDefault
@@ -117,7 +118,14 @@ Agate.Processes.ModelDefinition
 Agate.Processes.NamedProcess
 Agate.Processes.NormalizedModelDefinition
 Agate.Processes.ParameterRequirementIdentity
+Agate.Processes.ParameterRequirement
+Agate.Processes.ParameterBinding
+Agate.Processes.ParameterApplicability
 Agate.Processes.driver_identities
+Agate.Processes.parameter_requirements
+Agate.Processes.parameter_bindings
+Agate.Processes.parameter_name
+Agate.Processes.resolve_parameter_applicability
 Agate.Processes.normalize_model
 Agate.Processes.process_rate
 ```
