@@ -15,6 +15,7 @@ import ...Factories:
     parameter_definitions,
     ParameterDefinition,
     ParameterSpec,
+    ParameterProvision,
     ConstDefault,
     NoDefault,
     FillDefault,
@@ -27,6 +28,9 @@ using ...Library.Allometry: AllometricParam, PowerLaw
 
 using ...Configuration: MatrixDefinition, PalatabilityAllometric, AssimilationBinary
 
+provision(process, path, formulation, slot; qualifier=NamedTuple()) =
+    ParameterProvision(process, path, formulation, slot; qualifier)
+
 function parameter_definitions(::NiPiZDFactory)
     detritus_remin = 0.1213 / 86400
     all_plankton_materialization = DiameterIndexedMaterialization(; fill_value=0)
@@ -37,11 +41,35 @@ function parameter_definitions(::NiPiZDFactory)
 
     return (
         ParameterDefinition(
-            ParameterSpec(:detritus_remineralization, :scalar),
+            ParameterSpec(
+                :detritus_remineralization,
+                :scalar;
+                provides=provision(
+                    :remineralization_D,
+                    (),
+                    :linear,
+                    :rate;
+                    qualifier=(source=:D,),
+                ),
+            ),
             ConstDefault(detritus_remin),
         ),
         ParameterDefinition(
-            ParameterSpec(:mortality_export_fraction, :scalar),
+            ParameterSpec(
+                :mortality_export_fraction,
+                :scalar;
+                provides=(
+                    provision(
+                        :linear_mortality_P, (:routing,), :partition, :export_fraction
+                    ),
+                    provision(
+                        :linear_mortality_Z, (:routing,), :partition, :export_fraction
+                    ),
+                    provision(
+                        :quadratic_mortality_Z, (:routing,), :partition, :export_fraction
+                    ),
+                ),
+            ),
             ConstDefault(0.2),
         ),
         ParameterDefinition(
@@ -50,6 +78,22 @@ function parameter_definitions(::NiPiZDFactory)
                 :vector;
                 axes=:plankton,
                 materialization=all_plankton_materialization,
+                provides=(
+                    provision(
+                        :linear_mortality_P,
+                        (),
+                        :linear,
+                        :rate;
+                        qualifier=(population=:P,),
+                    ),
+                    provision(
+                        :linear_mortality_Z,
+                        (),
+                        :linear,
+                        :rate;
+                        qualifier=(population=:Z,),
+                    ),
+                ),
             ),
             FillDefault(8e-7),
         ),
@@ -59,6 +103,13 @@ function parameter_definitions(::NiPiZDFactory)
                 :vector;
                 axes=:plankton,
                 materialization=consumer_materialization,
+                provides=provision(
+                    :quadratic_mortality_Z,
+                    (),
+                    :quadratic,
+                    :rate;
+                    qualifier=(population=:Z,),
+                ),
             ),
             DiameterIndexedVectorDefault(1e-6, :consumers; default=0),
         ),
@@ -68,6 +119,7 @@ function parameter_definitions(::NiPiZDFactory)
                 :vector;
                 axes=:plankton,
                 materialization=producer_materialization,
+                provides=provision(:growth_P, (), :smith, :maximum_rate),
             ),
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=2 / 86400, exponent=-0.15),
@@ -81,6 +133,13 @@ function parameter_definitions(::NiPiZDFactory)
                 :vector;
                 axes=:plankton,
                 materialization=producer_materialization,
+                provides=provision(
+                    :growth_P,
+                    (:limitation,),
+                    :monod,
+                    :K;
+                    qualifier=(resource=:N,),
+                ),
             ),
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27),
@@ -94,6 +153,7 @@ function parameter_definitions(::NiPiZDFactory)
                 :vector;
                 axes=:plankton,
                 materialization=producer_materialization,
+                provides=provision(:growth_P, (), :smith, :alpha),
             ),
             DiameterIndexedVectorDefault(
                 0.1953 / 86400, :producers; default=0
@@ -105,6 +165,9 @@ function parameter_definitions(::NiPiZDFactory)
                 :vector;
                 axes=:plankton,
                 materialization=consumer_materialization,
+                provides=provision(
+                    :grazing_Z_on_P, (), :preferential, :maximum_rate
+                ),
             ),
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=30.84 / 86400, exponent=-0.16),
@@ -118,6 +181,9 @@ function parameter_definitions(::NiPiZDFactory)
                 :vector;
                 axes=:plankton,
                 materialization=consumer_materialization,
+                provides=provision(
+                    :grazing_Z_on_P, (), :preferential, :half_saturation
+                ),
             ),
             DiameterIndexedVectorDefault(5.0, :consumers; default=0),
         ),
@@ -126,6 +192,9 @@ function parameter_definitions(::NiPiZDFactory)
                 :palatability_matrix,
                 :matrix;
                 axes=(:consumer, :prey),
+                provides=provision(
+                    :grazing_Z_on_P, (), :preferential, :palatability
+                ),
             ),
             NoDefault(),
         ),
@@ -134,6 +203,9 @@ function parameter_definitions(::NiPiZDFactory)
                 :assimilation_matrix,
                 :matrix;
                 axes=(:consumer, :prey),
+                provides=provision(
+                    :grazing_Z_on_P, (), :preferential, :assimilation
+                ),
             ),
             NoDefault(),
         ),
@@ -143,6 +215,12 @@ function parameter_definitions(::NiPiZDFactory)
                 :vector;
                 axes=:plankton,
                 materialization=consumer_materialization,
+                provides=provision(
+                    :grazing_Z_on_P,
+                    (:palatability, :default),
+                    :allometric,
+                    :optimum_predator_prey_ratio,
+                ),
             ),
             DiameterIndexedVectorDefault(10.0, :consumers; default=0),
         ),
@@ -152,6 +230,9 @@ function parameter_definitions(::NiPiZDFactory)
                 :vector;
                 axes=:plankton,
                 materialization=consumer_materialization,
+                provides=provision(
+                    :grazing_Z_on_P, (:palatability, :default), :allometric, :specificity
+                ),
             ),
             DiameterIndexedVectorDefault(0.3, :consumers; default=0),
         ),
@@ -161,6 +242,9 @@ function parameter_definitions(::NiPiZDFactory)
                 :vector;
                 axes=:plankton,
                 materialization=consumer_materialization,
+                provides=provision(
+                    :grazing_Z_on_P, (:palatability, :default), :allometric, :protection
+                ),
             ),
             DiameterIndexedVectorDefault(1.0, :consumers; default=0),
         ),
@@ -170,6 +254,12 @@ function parameter_definitions(::NiPiZDFactory)
                 :vector;
                 axes=:plankton,
                 materialization=consumer_materialization,
+                provides=provision(
+                    :grazing_Z_on_P,
+                    (:assimilation, :default),
+                    :binary,
+                    :assimilation_efficiency,
+                ),
             ),
             DiameterIndexedVectorDefault(0.32, :consumers; default=0),
         ),
