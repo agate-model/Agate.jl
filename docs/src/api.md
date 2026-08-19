@@ -119,6 +119,7 @@ Agate.Processes.NormalizedModelDefinition
 Agate.Processes.ParameterRequirementIdentity
 Agate.Processes.driver_identities
 Agate.Processes.normalize_model
+Agate.Processes.process_rate
 ```
 
 ### Plankton communities and interactions
