@@ -593,12 +593,14 @@ end
 function materialize_process_parameter_law_override(
     context, definition, layout, spec, value::AbstractParamDef, ::Type{T}
 ) where {T<:Real}
-    spec.shape === :vector || throw(
-        ArgumentError("parameter :$(spec.name) only supports parameter-law overrides for vector storage")
-    )
     materialization = spec.materialization
     materialization isa DiameterIndexedMaterialization || throw(
-        ArgumentError("parameter :$(spec.name) does not declare diameter-indexed materialization")
+        ArgumentError(
+            "parameter :$(spec.name) only supports parameter-law overrides for parameters with declared diameter-indexed vector materialization."
+        ),
+    )
+    spec.shape === :vector || throw(
+        ArgumentError("parameter :$(spec.name) diameter-indexed materialization requires vector storage")
     )
     indices = _process_parameter_indices(definition, layout, context, spec.name)
     return resolve_diameter_indexed_vector(
