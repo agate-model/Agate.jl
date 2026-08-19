@@ -13,6 +13,7 @@ include("test_processes.jl")
 include("test_process_compilation.jl")
 include("test_growth_compilation.jl")
 include("test_grazing_compilation.jl")
+include("test_nipizd_process_compilation.jl")
 include("test_inorganic_coupling.jl")
 include("test_box_model.jl")
 
