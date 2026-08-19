@@ -66,7 +66,7 @@ function nipizd_recipe_manifest(; kwargs...)
 end
 
 function nipizd_manifest(
-    recipe::Agate.Construction.ModelRecipe;
+    recipe::Agate.Construction.ProcessModelRecipe;
     grid=OceanBioME.BoxModelGrid(),
     arch=nothing,
     scalar_type=nothing,

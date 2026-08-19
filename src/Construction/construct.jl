@@ -28,9 +28,17 @@ using ..Configuration:
     finalize_interaction_parameters,
     parse_community,
     parameter_role_indices,
-    validate_community_inputs
+    validate_community_inputs,
+    Pool,
+    realize_component_groups
 
 using ..Runtime: build_tracer_index
+
+using ..Processes:
+    ModelDefinition, normalize_model, driver_identities, participants, process_kind,
+    resolve_parameter_applicability
+
+using ..Compilation: compile_model_tendencies
 
 using ..Equations: CompiledEquation
 
@@ -465,6 +473,175 @@ function convert_sinking_tracers(::Type{T}, sinking_tracers::NamedTuple) where {
     )
 end
 
+
+function _groups_for_components(population_groups::NamedTuple, components::Tuple)
+    groups = Symbol[]
+    for component in components
+        hasproperty(population_groups, component) || continue
+        for group in getproperty(population_groups, component)
+            group in groups || push!(groups, group)
+        end
+    end
+    return Tuple(groups)
+end
+
+function _process_interaction_roles(definition, population_groups::NamedTuple)
+    consumer_components = Symbol[]
+    resource_components = Symbol[]
+    for named in values(definition.processes)
+        process_participants = participants(named)
+        hasproperty(process_participants, :consumer) &&
+            append!(consumer_components, process_participants.consumer)
+        hasproperty(process_participants, :resource) &&
+            append!(resource_components, process_participants.resource)
+    end
+    consumers = _groups_for_components(population_groups, Tuple(unique(consumer_components)))
+    resources = _groups_for_components(population_groups, Tuple(unique(resource_components)))
+    isempty(consumers) && isempty(resources) && return nothing
+    return (consumers=consumers, prey=resources)
+end
+
+function _process_manifest_roles(definition, population_groups::NamedTuple)
+    growth_components = Symbol[]
+    consumer_components = Symbol[]
+    for named in values(definition.processes)
+        kind = process_kind(named)
+        process_participants = participants(named)
+        if kind === :growth && hasproperty(process_participants, :population)
+            append!(growth_components, process_participants.population)
+        elseif kind === :grazing && hasproperty(process_participants, :consumer)
+            append!(consumer_components, process_participants.consumer)
+        end
+    end
+    return (
+        phytoplankton=_groups_for_components(population_groups, Tuple(unique(growth_components))),
+        zooplankton=_groups_for_components(population_groups, Tuple(unique(consumer_components))),
+    )
+end
+
+function _process_parameter_indices(definition, layout, context, parameter::Symbol)
+    selected = Set{Symbol}()
+    for applicability in resolve_parameter_applicability(definition, layout)
+        applicability.binding.parameter === parameter || continue
+        for axis in applicability.axis_tracers, tracer in axis
+            tracer in context.plankton_symbols && push!(selected, tracer)
+        end
+    end
+    return [i for (i, tracer) in pairs(context.plankton_symbols) if tracer in selected]
+end
+
+function evaluate_process_default(
+    provider::ConstDefault, spec, ::AbstractBGCFactory, definition, layout, context, ::Type{T}
+) where {T<:Real}
+    spec.shape === :scalar || throw(
+        ArgumentError("ConstDefault can only be used for scalar parameters (:$(spec.name)).")
+    )
+    value = provider.value
+    return value isa Bool ? value : T(value)
+end
+
+function evaluate_process_default(
+    provider::FillDefault, spec, factory::AbstractBGCFactory, definition, layout, context, ::Type{T}
+) where {T<:Real}
+    value = provider.value
+    value = value isa Bool ? value : T(value)
+    if spec.shape === :vector
+        result = fill(zero(value), context.n_total)
+        indices = _process_parameter_indices(definition, layout, context, spec.name)
+        isempty(indices) && (indices = collect(eachindex(result)))
+        result[indices] .= value
+        return result
+    elseif spec.shape === :matrix
+        return evaluate_default(provider, spec, factory, context, T)
+    end
+    throw(ArgumentError("FillDefault requires vector or matrix parameter storage."))
+end
+
+function evaluate_process_default(
+    provider::DiameterIndexedVectorDefault,
+    spec,
+    ::AbstractBGCFactory,
+    definition,
+    layout,
+    context,
+    ::Type{T},
+) where {T<:Real}
+    spec.shape === :vector || throw(
+        ArgumentError("DiameterIndexedVectorDefault requires vector parameter storage.")
+    )
+    indices = _process_parameter_indices(definition, layout, context, spec.name)
+    default = T(provider.default)
+    return resolve_diameter_indexed_vector(
+        T, context.diameters, indices, provider.value; default
+    )
+end
+
+function build_process_parameter_defaults(
+    factory::AbstractBGCFactory, definition, layout, context, ::Type{T}
+) where {T<:Real}
+    entries = Pair{Symbol,Any}[]
+    for parameter_definition in parameter_definitions(factory)
+        provider = parameter_definition.default
+        provider isa NoDefault && continue
+        spec = parameter_definition.spec
+        value = evaluate_process_default(provider, spec, factory, definition, layout, context, T)
+        push!(entries, spec.name => value)
+    end
+    return (; entries...)
+end
+
+function materialize_process_parameter_law_override(
+    context, definition, layout, spec, value::AbstractParamDef, ::Type{T}
+) where {T<:Real}
+    spec.shape === :vector || throw(
+        ArgumentError("parameter :$(spec.name) only supports parameter-law overrides for vector storage")
+    )
+    materialization = spec.materialization
+    materialization isa DiameterIndexedMaterialization || throw(
+        ArgumentError("parameter :$(spec.name) does not declare diameter-indexed materialization")
+    )
+    indices = _process_parameter_indices(definition, layout, context, spec.name)
+    return resolve_diameter_indexed_vector(
+        T, context.diameters, indices, value; default=T(materialization.fill_value)
+    )
+end
+
+function materialize_process_parameter_overrides(
+    factory::AbstractBGCFactory,
+    context,
+    definition,
+    layout,
+    defaults::NamedTuple,
+    overrides::NamedTuple,
+    ::Type{T},
+) where {T<:Real}
+    isempty(overrides) && return overrides
+    entries = Pair{Symbol,Any}[]
+    for (key, value) in Base.pairs(overrides)
+        spec = parameter_spec(factory, key)
+        if spec === nothing
+            push!(entries, key => value)
+        elseif value isa AbstractParamDef
+            push!(entries, key => materialize_process_parameter_law_override(
+                context, definition, layout, spec, value, T
+            ))
+        elseif value isa NamedTuple
+            spec.shape === :vector || throw(
+                ArgumentError("parameter :$key does not support NamedTuple overrides because it is $(spec.shape)-shaped.")
+            )
+            hasproperty(defaults, key) || throw(
+                ArgumentError("parameter :$key has no direct default for partial overrides.")
+            )
+            push!(entries, key => expand_named_vector_override(
+                spec, getproperty(defaults, key), value, context, T
+            ))
+        else
+            push!(entries, key => materialize_parameter_value(spec, value, T))
+        end
+    end
+    return (; entries...)
+end
+
 """
     construct_factory(factory::AbstractBGCFactory; kwargs...) -> bgc
 
@@ -531,6 +708,184 @@ function construct_factory(
     factory = replay_factory(recipe)
     inputs = _recipe_realization_inputs(factory, recipe)
     return construct_factory(factory; inputs..., grid, arch, scalar_type)
+end
+
+
+function _construct_process_factory(
+    factory::AbstractBGCFactory,
+    recipe::ProcessModelRecipe;
+    grid=nothing,
+    arch=nothing,
+    scalar_type=nothing,
+    build_manifest::Bool=false,
+)
+    if isnothing(grid) && !isnothing(recipe.sinking_tracers)
+        grid = BoxModelGrid()
+    end
+    T = resolve_construction_scalar_type(grid, scalar_type)
+    sinking_tracers = convert_sinking_tracers(T, recipe.sinking_tracers)
+
+    if !isnothing(grid)
+        arch_grid = architecture(grid)
+        if isnothing(arch)
+            arch = arch_grid
+        elseif typeof(arch) !== typeof(arch_grid)
+            throw(ArgumentError(
+                "arch=$arch does not match architecture(grid)=$arch_grid. Architecture is determined by the grid."
+            ))
+        end
+    else
+        isnothing(arch) && (arch = CPU())
+    end
+
+    definition = normalize_model(ModelDefinition(;
+        components=recipe.components,
+        processes=recipe.processes,
+        parameters=parameter_definitions(factory),
+    ))
+    placeholder_dynamics = NamedTuple{keys(recipe.community)}(
+        ntuple(_ -> identity, length(recipe.community))
+    )
+    validate_community_inputs(placeholder_dynamics, recipe.community)
+    interaction_roles = _process_interaction_roles(definition, recipe.population_groups)
+    pool_names = Tuple(
+        name for name in keys(recipe.components) if getproperty(recipe.components, name) isa Pool
+    )
+    community_context = parse_community(
+        T,
+        recipe.community;
+        biogeochem_tracers=pool_names,
+        interaction_roles,
+        parameter_roles=NamedTuple(),
+    )
+    layout = realize_component_groups(
+        recipe.components, recipe.population_groups, community_context
+    )
+    tracer_names = layout.tracer_order
+    auxiliary_fields = driver_identities(definition)
+
+    required = validate_parameter_directory(factory)
+    interaction_parameter_overrides = normalize_interaction_overrides(
+        factory, community_context, recipe.interaction_overrides
+    )
+    validate_override_keys("parameters", recipe.parameter_overrides, required, factory)
+    validate_override_keys(
+        "interaction_overrides", interaction_parameter_overrides, required, factory
+    )
+
+    parameter_defaults = build_process_parameter_defaults(
+        factory, definition, layout, community_context, T
+    )
+    parameter_overrides = materialize_process_parameter_overrides(
+        factory,
+        community_context,
+        definition,
+        layout,
+        parameter_defaults,
+        recipe.parameter_overrides,
+        T,
+    )
+    merged_parameters = merge(
+        parameter_defaults, parameter_overrides, interaction_parameter_overrides
+    )
+    explicit_override_keys = (
+        keys(recipe.parameter_overrides)..., keys(interaction_parameter_overrides)...
+    )
+    merged_parameters = resolve_derived_matrices(
+        factory, community_context, merged_parameters, explicit_override_keys
+    )
+    missing = Symbol[k for k in required if !hasproperty(merged_parameters, k)]
+    isempty(missing) || throw(
+        ArgumentError("missing required parameters: $(join(string.(missing), ", "))")
+    )
+    merged_parameters = finalize_interaction_parameters(
+        factory, community_context, merged_parameters
+    )
+    internal = hasproperty(merged_parameters, :interactions) ? (:interactions,) : ()
+    all_keys = (required..., internal...)
+    resolved_parameters = NamedTuple{all_keys}(
+        Tuple(getproperty(merged_parameters, key) for key in all_keys)
+    )
+    reject_missing_values(resolved_parameters)
+    validate_parameter_shapes(factory, community_context, resolved_parameters, required)
+    validate_auxiliary_fields(auxiliary_fields, tracer_names)
+
+    tracers = compile_model_tendencies(
+        definition, layout, community_context; target_order=tracer_names
+    )
+    tracer_index = build_tracer_index(
+        community_context,
+        tracer_names,
+        auxiliary_fields;
+        n_biogeochem_tracers=length(pool_names),
+    )
+    plankton_diameter_metadata = Tuple(community_context.diameters)
+
+    bgc = if isnothing(sinking_tracers)
+        bgc_factory = define_tracer_functions(
+            resolved_parameters,
+            tracers;
+            auxiliary_fields,
+            tracer_index,
+        )
+        bgc_factory(resolved_parameters; plankton_diameters=plankton_diameter_metadata)
+    else
+        sinking_velocities = setup_velocity_fields(
+            sinking_tracers, grid, recipe.open_bottom
+        )
+        bgc_factory = define_tracer_functions(
+            resolved_parameters,
+            tracers;
+            auxiliary_fields,
+            tracer_index,
+            sinking_velocities,
+        )
+        bgc_factory(
+            resolved_parameters,
+            sinking_velocities;
+            plankton_diameters=plankton_diameter_metadata,
+        )
+    end
+
+    manifest = if build_manifest
+        capture_model_manifest(
+            factory,
+            resolved_parameters,
+            community_context;
+            tracer_order=tracer_names,
+            auxiliary_fields,
+            ecological_roles=_process_manifest_roles(definition, recipe.population_groups),
+            explicit_override_keys,
+            sinking_tracers,
+            open_bottom=recipe.open_bottom,
+            scalar_type=T,
+        )
+    else
+        nothing
+    end
+
+    return on_architecture(arch, bgc), manifest
+end
+
+"""Realize a v3 component/process recipe in the supplied execution environment."""
+function construct_factory(
+    recipe::ProcessModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
+)
+    factory = replay_factory(recipe)
+    bgc, _ = _construct_process_factory(
+        factory, recipe; grid, arch, scalar_type, build_manifest=false
+    )
+    return bgc
+end
+
+"""Realize a v3 component/process recipe and return its resolved manifest."""
+function construct_factory_plus_manifest(
+    recipe::ProcessModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
+)
+    factory = replay_factory(recipe)
+    return _construct_process_factory(
+        factory, recipe; grid, arch, scalar_type, build_manifest=true
+    )
 end
 
 """Construct a factory-defined model and return it with its resolved `ModelManifest`."""

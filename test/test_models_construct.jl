@@ -85,10 +85,18 @@ end
     @testset "NiPiZD default recipe" begin
         _, recipe = NiPiZD.construct_plus_recipe()
 
+        @test recipe isa Agate.Construction.ProcessModelRecipe
         @test recipe.family === :NiPiZD
-        @test recipe.ecological_roles == (phytoplankton=(:P,), zooplankton=(:Z,))
-        @test recipe.interaction_roles == (consumers=(:Z,), prey=(:P,))
-        @test recipe.parameter_roles == (producers=(:P,), consumers=(:Z,))
+        @test keys(recipe.components) == (:P, :Z, :N, :D)
+        @test Set(keys(recipe.processes)) == Set((
+            :growth_P,
+            :grazing_Z_on_P,
+            :linear_mortality_P,
+            :linear_mortality_Z,
+            :quadratic_mortality_Z,
+            :remineralization_D,
+        ))
+        @test recipe.population_groups == (P=(:P,), Z=(:Z,))
         @test isempty(recipe.parameter_overrides)
         @test isempty(recipe.interaction_overrides)
         @test isnothing(recipe.sinking_tracers)

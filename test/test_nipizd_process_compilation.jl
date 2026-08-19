@@ -111,14 +111,14 @@ end
         target -> generated_bgc(Val(target), NIPIZD_PROCESS_ARGS...),
         NIPIZD_PROCESS_TRACER_ORDER,
     )
-    legacy = map(
+    constructed = map(
         target -> bgc(Val(target), NIPIZD_PROCESS_ARGS...),
         NIPIZD_PROCESS_TRACER_ORDER,
     )
-    @test all(process_compiler_isapprox.(generated, legacy))
+    @test all(process_compiler_isapprox.(generated, constructed))
     @test isapprox(sum(generated), 0; atol=10 * eps(sum(abs, generated)))
     @test process_compiler_isapprox(
-        @inferred(compiled.P_1(bgc, NIPIZD_PROCESS_ARGS...)), legacy[5]
+        @inferred(compiled.P_1(bgc, NIPIZD_PROCESS_ARGS...)), constructed[5]
     )
 end
 
@@ -129,11 +129,11 @@ end
 
     args(P) = (0.0, 0.0, 0.0, 0.0, 7.0, 1.0, 0.05, 0.08, P, 0.02, 100.0)
     generated_tendency(P) = compiled.P_1(bgc, args(P)...)
-    legacy_tendency(P) = bgc(Val(:P_1), args(P)...)
+    constructed_tendency(P) = bgc(Val(:P_1), args(P)...)
 
     generated_derivative = ForwardDiff.derivative(generated_tendency, biomass)
-    legacy_derivative = ForwardDiff.derivative(legacy_tendency, biomass)
-    @test process_compiler_isapprox(generated_derivative, legacy_derivative)
+    constructed_derivative = ForwardDiff.derivative(constructed_tendency, biomass)
+    @test process_compiler_isapprox(generated_derivative, constructed_derivative)
 end
 
 @testset "Complete NiPiZD compiler Enzyme" begin

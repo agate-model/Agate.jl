@@ -31,7 +31,8 @@ load_cycle01_reference(name) = JSON.parsefile(joinpath(CYCLE01_REFERENCE_DIR, na
     @test !any(type -> type === Any, fieldtypes(typeof(bgc.tracer_functions)))
 
     _, recipe = Agate.Models.NiPiZD.construct_plus_recipe()
-    @test encode_recipe(recipe)["schema"] == baseline["runtime"]["recipe_schema"]
+    @test baseline["runtime"]["recipe_schema"] == "agate.model_recipe.v2"
+    @test encode_recipe(recipe)["schema"] == "agate.model_recipe.v3"
 end
 
 @testset "v0.12 normalization contracts" begin

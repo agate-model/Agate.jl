@@ -101,8 +101,8 @@ end
 
     for target in NIPIZD_TRACER_ORDER
         generated = generated_bgc(Val(target), args...)
-        legacy = bgc(Val(target), args...)
-        @test process_compiler_isapprox(generated, legacy)
+        constructed = bgc(Val(target), args...)
+        @test process_compiler_isapprox(generated, constructed)
     end
     @test process_compiler_isapprox(
         @inferred(compiled.P_1(bgc, args...)), bgc(Val(:P_1), args...)

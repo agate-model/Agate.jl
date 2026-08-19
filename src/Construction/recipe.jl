@@ -1,4 +1,4 @@
-using ..Factories: AbstractBGCFactory, parameter_directory
+using ..Factories: AbstractBGCFactory, parameter_directory, default_components, default_processes
 using ..Configuration: matrix_definitions, normalize_diameters
 
 """Return the stable recipe-family identifier for a model factory."""
@@ -31,12 +31,30 @@ struct ModelRecipe{C,PO,IO,ER,IR,PR,A,S}
     open_bottom::Bool
 end
 
+"""Canonical component/process recipe captured before runtime realization.
+
+`ProcessModelRecipe` stores the scientific component/process definition together with
+subgroup realization and authored overrides. Runtime precision, architecture, host fields,
+parameter materialization, topology maps, and compiled equations are derived on replay.
+"""
+struct ProcessModelRecipe{C,P,G,CM,PO,IO,S}
+    family::Symbol
+    components::C
+    processes::P
+    population_groups::G
+    community::CM
+    parameter_overrides::PO
+    interaction_overrides::IO
+    sinking_tracers::S
+    open_bottom::Bool
+end
+
 """Resolved deterministic scientific state produced by model construction.
 
 `ModelManifest` records the fully materialized parameters, expanded groups and
 tracer ordering, resolved role indices, interaction sources, sinking
 configuration, and scalar type. It is an in-memory record of the constructed
-model state; durable replay is defined by `ModelRecipe`.
+model state; durable replay is defined by the corresponding recipe representation.
 """
 struct ModelManifest{P,G,TR,A,D,ER,IR,PRI,I,S,T<:Real}
     parameters::P
@@ -115,6 +133,13 @@ function Base.:(==)(a::ModelRecipe, b::ModelRecipe)
     )
 end
 
+function Base.:(==)(a::ProcessModelRecipe, b::ProcessModelRecipe)
+    return all(
+        _recipe_isequal(getfield(a, i), getfield(b, i))
+        for i in 1:fieldcount(typeof(a))
+    )
+end
+
 function Base.:(==)(a::ModelManifest, b::ModelManifest)
     return _structural_isequal(a, b)
 end
@@ -161,8 +186,35 @@ function capture_model_recipe(
     )
 end
 
+"""Capture a v3 component/process recipe before runtime realization."""
+function capture_process_model_recipe(
+    factory::AbstractBGCFactory;
+    population_groups::NamedTuple,
+    community::NamedTuple,
+    parameter_overrides::NamedTuple=(;),
+    interaction_overrides::NamedTuple=(;),
+    sinking_tracers=nothing,
+    open_bottom::Bool=true,
+)
+    family = recipe_family(factory)
+    family isa Symbol || throw(
+        ArgumentError("recipe_family must return a Symbol; got $(typeof(family)).")
+    )
+    return ProcessModelRecipe(
+        family,
+        deepcopy(default_components(factory)),
+        deepcopy(default_processes(factory)),
+        deepcopy(population_groups),
+        deepcopy(_normalize_recipe_community(community)),
+        deepcopy(parameter_overrides),
+        deepcopy(interaction_overrides),
+        deepcopy(sinking_tracers),
+        open_bottom,
+    )
+end
+
 """Return the model-family factory used to replay `recipe`."""
-replay_factory(recipe::ModelRecipe) = recipe_factory(Val(recipe.family))
+replay_factory(recipe::Union{ModelRecipe,ProcessModelRecipe}) = recipe_factory(Val(recipe.family))
 
 """Capture the resolved deterministic state of a constructed model."""
 function capture_model_manifest(

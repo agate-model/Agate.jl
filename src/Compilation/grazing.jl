@@ -196,8 +196,14 @@ function process_contributions(
     return process_contributions(named, topology, binding)
 end
 
-struct GrazingTerm{F,CI,CA,RI,RA,M,K,P,A,Effect}
+struct GrazingTerm{F,CI,CA,RI,RA,M,K,PR,AR,Effect}
     formulation::F
+end
+
+function _interaction_runtime_parameter_name(name::Symbol)
+    text = String(name)
+    suffix = "_matrix"
+    return endswith(text, suffix) ? Symbol(text[1:(end - length(suffix))]) : name
 end
 
 @inline _grazing_partition_effect(::Val{:consumer_gain}, rate, assimilation) =
@@ -205,14 +211,15 @@ end
 @inline _grazing_partition_effect(::Val{:unassimilated}, rate, assimilation) =
     (one(assimilation) - assimilation) * rate
 
-@inline function (term::GrazingTerm{F,CI,CA,RI,RA,M,K,P,A,Effect})(
+@inline function (term::GrazingTerm{F,CI,CA,RI,RA,M,K,PR,AR,Effect})(
     bgc, args
-) where {F,CI,CA,RI,RA,M,K,P,A,Effect}
+) where {F,CI,CA,RI,RA,M,K,PR,AR,Effect}
     consumer = bgc.tracers.plankton(args, CI)
     resource = bgc.tracers.plankton(args, RI)
     maximum_rate = @inbounds getproperty(bgc.parameters, M)[CI]
     half_saturation = @inbounds getproperty(bgc.parameters, K)[CI]
-    palatability = @inbounds getproperty(bgc.parameters, P)[CA, RA]
+    interactions = bgc.parameters.interactions
+    palatability = @inbounds getproperty(interactions, PR)[CA, RA]
     rate = process_rate(
         term.formulation,
         resource,
@@ -222,12 +229,18 @@ end
         palatability,
     )
     Effect === :resource_loss && return -rate
-    assimilation = @inbounds getproperty(bgc.parameters, A)[CA, RA]
+    assimilation = @inbounds getproperty(interactions, AR)[CA, RA]
     return _grazing_partition_effect(Val(Effect), rate, assimilation)
 end
 
 function _grazing_term(contribution, ::Val{Effect}) where {Effect}
     F = typeof(contribution.formulation)
+    palatability_runtime = _interaction_runtime_parameter_name(
+        contribution.palatability_parameter
+    )
+    assimilation_runtime = _interaction_runtime_parameter_name(
+        contribution.assimilation_parameter
+    )
     return GrazingTerm{
         F,
         contribution.consumer_index,
@@ -236,8 +249,8 @@ function _grazing_term(contribution, ::Val{Effect}) where {Effect}
         contribution.resource_axis,
         contribution.maximum_rate_parameter,
         contribution.half_saturation_parameter,
-        contribution.palatability_parameter,
-        contribution.assimilation_parameter,
+        palatability_runtime,
+        assimilation_runtime,
         Effect,
     }(contribution.formulation)
 end

@@ -107,14 +107,14 @@ end
         target -> generated_bgc(Val(target), NIPIZD_GRAZING_ARGS...),
         NIPIZD_GRAZING_TARGET_ORDER,
     )
-    legacy = map(
+    constructed = map(
         target -> bgc(Val(target), NIPIZD_GRAZING_ARGS...),
         NIPIZD_GRAZING_TARGET_ORDER,
     )
-    @test all(process_compiler_isapprox.(generated, legacy))
+    @test all(process_compiler_isapprox.(generated, constructed))
     @test isapprox(sum(generated), 0; atol=10 * eps(sum(abs, generated)))
     @test process_compiler_isapprox(
-        @inferred(compiled.P_1(bgc, NIPIZD_GRAZING_ARGS...)), legacy[4]
+        @inferred(compiled.P_1(bgc, NIPIZD_GRAZING_ARGS...)), constructed[4]
     )
 end
 
@@ -125,11 +125,11 @@ end
 
     args(P) = (0.0, 0.0, 0.0, 0.0, 7.0, 1.0, 0.05, 0.08, P, 0.02, 100.0)
     generated_loss(P) = compiled.P_1(bgc, args(P)...)
-    legacy_loss(P) = bgc(Val(:P_1), args(P)...)
+    constructed_loss(P) = bgc(Val(:P_1), args(P)...)
 
     generated_derivative = ForwardDiff.derivative(generated_loss, biomass)
-    legacy_derivative = ForwardDiff.derivative(legacy_loss, biomass)
-    @test process_compiler_isapprox(generated_derivative, legacy_derivative)
+    constructed_derivative = ForwardDiff.derivative(constructed_loss, biomass)
+    @test process_compiler_isapprox(generated_derivative, constructed_derivative)
     @test generated_derivative < 0
 end
 

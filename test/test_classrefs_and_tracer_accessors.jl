@@ -4,9 +4,15 @@ using Test
 using Agate.Configuration:
     build_plankton_community, parse_community, DiameterRangeSpecification
 using Agate.Runtime: class, resolve_class, class_count, build_tracer_index, Tracers
-using Agate.Factories: default_biogeochem_dynamics, default_community
+using Agate.Factories: default_biogeochem_dynamics, default_community, default_components
 using Agate.Equations: CompiledEquation
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
+
+
+pool_component_names(factory) = Tuple(
+    name for (name, component) in pairs(default_components(factory)) if
+    component isa Agate.Configuration.Pool
+)
 
 
 struct GenericRoleFixtureFactory <: Agate.Factories.AbstractBGCFactory end
@@ -95,9 +101,8 @@ end
 @testset "ClassRef + Tracers accessors" begin
     factory = Agate.Models.NiPiZD.NiPiZDFactory()
     community = default_community(factory)
-    biogeochem_dyn = default_biogeochem_dynamics(factory)
     ctx = parse_community(
-        Float64, community; biogeochem_tracers=keys(biogeochem_dyn)
+        Float64, community; biogeochem_tracers=pool_component_names(factory)
     )
 
     @test class_count(ctx, :Z) == 2
@@ -132,7 +137,6 @@ end
 @testset "Diameter input normalization" begin
     factory = Agate.Models.NiPiZD.NiPiZDFactory()
     base = default_community(factory)
-    biogeochem_dyn = default_biogeochem_dynamics(factory)
 
     community = build_plankton_community(
         base;
@@ -143,7 +147,7 @@ end
     )
 
     ctx = parse_community(
-        Float64, community; biogeochem_tracers=keys(biogeochem_dyn)
+        Float64, community; biogeochem_tracers=pool_component_names(factory)
     )
 
     @test class_count(ctx, :Z) == 2

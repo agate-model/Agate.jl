@@ -88,14 +88,14 @@ end
         target -> generated_bgc(Val(target), NIPIZD_GROWTH_ARGS...),
         NIPIZD_GROWTH_TARGET_ORDER,
     )
-    legacy = map(
+    constructed = map(
         target -> bgc(Val(target), NIPIZD_GROWTH_ARGS...),
         NIPIZD_GROWTH_TARGET_ORDER,
     )
-    @test all(process_compiler_isapprox.(generated, legacy))
+    @test all(process_compiler_isapprox.(generated, constructed))
     @test isapprox(sum(generated), 0; atol=10 * eps(sum(abs, generated)))
     @test process_compiler_isapprox(
-        @inferred(compiled.P_1(bgc, NIPIZD_GROWTH_ARGS...)), legacy[2]
+        @inferred(compiled.P_1(bgc, NIPIZD_GROWTH_ARGS...)), constructed[2]
     )
 end
 

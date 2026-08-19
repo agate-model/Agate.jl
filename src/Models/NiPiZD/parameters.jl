@@ -241,12 +241,12 @@ function parameter_definitions(::NiPiZDFactory)
                 :protection,
                 :vector;
                 axes=:plankton,
-                materialization=consumer_materialization,
+                materialization=producer_materialization,
                 provides=provision(
                     :grazing_Z_on_P, (:palatability, :default), :allometric, :protection
                 ),
             ),
-            DiameterIndexedVectorDefault(1.0, :consumers; default=0),
+            DiameterIndexedVectorDefault(0.0, :producers; default=1.0),
         ),
         ParameterDefinition(
             ParameterSpec(

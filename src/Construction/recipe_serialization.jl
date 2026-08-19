@@ -1,7 +1,14 @@
 using JSON
 
 using ..Configuration:
-    PFTSpecification, DiameterListSpecification, DiameterRangeSpecification
+    PFTSpecification, DiameterListSpecification, DiameterRangeSpecification, Population, Pool,
+    currency, sinking, normalize_diameters
+
+using ..Factories: parameter_definitions, default_components, default_processes
+
+using ..Processes:
+    ModelDefinition, normalize_model, parameter_bindings, process_kind, formulation,
+    formulation_tag, participants, drivers, rate_axes, Growth, Mortality
 
 using ..Library.Allometry:
     ConstantParam,
@@ -10,6 +17,7 @@ using ..Library.Allometry:
     allometric_relationship_from_identifier
 
 const MODEL_RECIPE_SCHEMA = "agate.model_recipe.v2"
+const PROCESS_MODEL_RECIPE_SCHEMA = "agate.model_recipe.v3"
 const _RECIPE_DOCUMENT_KEYS = ("schema", "model", "provenance", "recipe", "recipe_hash")
 const _RECIPE_MODEL_KEYS = ("family",)
 const _RECIPE_KEYS = (
@@ -310,6 +318,145 @@ function _encode_recipe_data(recipe::ModelRecipe)
     )
 end
 
+
+_size_structure_data(spec::DiameterListSpecification) = Dict{String,Any}(
+    "diameters" => [_finite_float(float(value)) for value in spec.diameters]
+)
+_size_structure_data(spec::DiameterRangeSpecification) = Dict{String,Any}(
+    "n" => spec.n,
+    "min_esd" => _finite_float(float(spec.min_diameter)),
+    "max_esd" => _finite_float(float(spec.max_diameter)),
+    "splitting" => String(spec.splitting),
+)
+_size_structure_data(spec) = _size_structure_data(normalize_diameters(spec).specification)
+
+function _component_v3_data(name::Symbol, component::Population, recipe::ProcessModelRecipe)
+    groups = getproperty(recipe.population_groups, name)
+    data = Dict{String,Any}(
+        "kind" => "population",
+        "currency" => String(currency(component)),
+        "size_structure" => nothing,
+        "sinking" => isnothing(sinking(component)) ? nothing : _encode_value(sinking(component)),
+    )
+    if length(groups) == 1 && only(groups) === name
+        data["size_structure"] = _size_structure_data(getproperty(recipe.community, name).diameters)
+    else
+        data["subgroups"] = Dict{String,Any}(
+            String(group) => _size_structure_data(getproperty(recipe.community, group).diameters)
+            for group in groups
+        )
+    end
+    return data
+end
+
+function _component_v3_data(::Symbol, component::Pool, ::ProcessModelRecipe)
+    return Dict{String,Any}(
+        "kind" => "pool",
+        "currency" => String(currency(component)),
+        "size_structure" => nothing,
+        "sinking" => isnothing(sinking(component)) ? nothing : _encode_value(sinking(component)),
+    )
+end
+
+function _participants_v3_data(named)
+    return Dict{String,Any}(
+        String(role) => (length(values) == 1 ? String(only(values)) : String.(collect(values)))
+        for (role, values) in pairs(participants(named))
+    )
+end
+
+function _process_v3_data(named)
+    process = named.process
+    data = Dict{String,Any}(
+        "kind" => String(process_kind(named)),
+        "formulation" => String(formulation_tag(formulation(named))),
+        "participants" => _participants_v3_data(named),
+        "rate_axes" => String.(collect(rate_axes(named))),
+    )
+    process_drivers = drivers(named)
+    isempty(process_drivers) || (data["drivers"] = Dict(
+        String(slot) => String(identity) for (slot, identity) in pairs(process_drivers)
+    ))
+
+    if process isa Growth && !isnothing(process.limitation)
+        response = process.limitation
+        data["subformulations"] = Dict{String,Any}(
+            "limitation" => Dict{String,Any}(
+                "kind" => "nutrient_response",
+                "formulation" => String(formulation_tag(formulation(response))),
+                "participants" => Dict("resource" => String(response.resource)),
+            ),
+        )
+    elseif process isa Mortality && !isnothing(process.routing)
+        routing = process.routing
+        data["routing"] = Dict{String,Any}(
+            "kind" => "product_routing",
+            "formulation" => String(formulation_tag(formulation(routing))),
+            "retained" => String(routing.retained),
+            "exported" => String(routing.exported),
+        )
+    end
+    return data
+end
+
+function _parameter_bindings_v3_data(recipe::ProcessModelRecipe)
+    factory = recipe_factory(Val(recipe.family))
+    normalized = normalize_model(ModelDefinition(;
+        components=recipe.components,
+        processes=recipe.processes,
+        parameters=parameter_definitions(factory),
+    ))
+    result = Dict{String,Any}()
+    for definition in parameter_definitions(factory)
+        provides = Any[]
+        for binding in parameter_bindings(normalized)
+            binding.parameter === definition.spec.name || continue
+            requirement = binding.requirement
+            identity = requirement.identity
+            push!(provides, Dict{String,Any}(
+                "process" => String(identity.process),
+                "path" => String.(collect(identity.path)),
+                "formulation" => String(identity.formulation),
+                "slot" => String(identity.slot),
+                "qualifier" => Dict(String(k) => String(v) for (k, v) in pairs(identity.qualifier)),
+                "axes" => String.(collect(requirement.axes)),
+            ))
+        end
+        isempty(provides) || (result[String(definition.spec.name)] = Dict("provides" => provides))
+    end
+    return result
+end
+
+function _encode_process_recipe_data(recipe::ProcessModelRecipe)
+    components = Dict{String,Any}(
+        String(name) => _component_v3_data(name, getproperty(recipe.components, name), recipe)
+        for name in keys(recipe.components)
+    )
+    normalized = normalize_model(ModelDefinition(;
+        components=recipe.components,
+        processes=recipe.processes,
+        parameters=parameter_definitions(recipe_factory(Val(recipe.family))),
+    ))
+    processes = Dict{String,Any}(
+        String(name) => _process_v3_data(getproperty(normalized.processes, name))
+        for name in keys(normalized.processes)
+    )
+    realization = Dict{String,Any}(
+        "community" => _encode_community(recipe.community),
+        "population_groups" => _encode_value(recipe.population_groups),
+        "parameter_overrides" => _encode_value(recipe.parameter_overrides),
+        "interaction_overrides" => _encode_value(recipe.interaction_overrides),
+        "sinking_tracers" => isnothing(recipe.sinking_tracers) ? nothing : _encode_value(recipe.sinking_tracers),
+        "open_bottom" => recipe.open_bottom,
+    )
+    return Dict{String,Any}(
+        "components" => components,
+        "processes" => processes,
+        "parameter_bindings" => _parameter_bindings_v3_data(recipe),
+        "realization" => realization,
+    )
+end
+
 """Encode a recipe with its scientific hash and available package provenance."""
 function encode_recipe(recipe::ModelRecipe)
     data = _encode_recipe_data(recipe)
@@ -322,17 +469,124 @@ function encode_recipe(recipe::ModelRecipe)
     )
 end
 
+function encode_recipe(recipe::ProcessModelRecipe)
+    data = _encode_process_recipe_data(recipe)
+    return Dict{String,Any}(
+        "schema" => PROCESS_MODEL_RECIPE_SCHEMA,
+        "model" => Dict{String,Any}("family" => String(recipe.family)),
+        "provenance" => _recipe_provenance(recipe),
+        "recipe" => data,
+        "recipe_hash" => _recipe_hash(recipe, data),
+    )
+end
+
+
 """Decode a recipe document, verifying its hash and checking package provenance."""
+
+
+const _PROCESS_RECIPE_KEYS = ("components", "processes", "parameter_bindings", "realization")
+const _PROCESS_REALIZATION_KEYS = (
+    "community",
+    "population_groups",
+    "parameter_overrides",
+    "interaction_overrides",
+    "sinking_tracers",
+    "open_bottom",
+)
+
+function _decode_process_model_recipe(document::AbstractDict)
+    model = _check_keys(
+        _required(document, "model", "Recipe document"), _RECIPE_MODEL_KEYS, "Recipe document.model"
+    )
+    family = _symbol(_required(model, "family", "Recipe document.model"), "Recipe document.model.family")
+    factory = recipe_factory(Val(family))
+    provenance = _decode_provenance(
+        _required(document, "provenance", "Recipe document"), "Recipe document.provenance"
+    )
+    recorded_hash = _string(
+        _required(document, "recipe_hash", "Recipe document"), "Recipe document.recipe_hash"
+    )
+    recipe_data = _check_keys(
+        _required(document, "recipe", "Recipe document"), _PROCESS_RECIPE_KEYS, "Recipe document.recipe"
+    )
+    for key in _PROCESS_RECIPE_KEYS
+        _required(recipe_data, key, "Recipe document.recipe")
+    end
+
+    realization = _check_keys(
+        recipe_data["realization"], _PROCESS_REALIZATION_KEYS, "Recipe document.recipe.realization"
+    )
+    for key in _PROCESS_REALIZATION_KEYS
+        _required(realization, key, "Recipe document.recipe.realization")
+    end
+    community = _decode_community(realization["community"], "Recipe document.recipe.realization.community")
+    population_groups = _decode_value(
+        realization["population_groups"], "Recipe document.recipe.realization.population_groups"
+    )
+    population_groups isa NamedTuple || throw(
+        ArgumentError("Recipe document.recipe.realization.population_groups must decode to a NamedTuple.")
+    )
+    all(groups -> groups isa Tuple && all(group -> group isa Symbol, groups), values(population_groups)) || throw(
+        ArgumentError("Recipe population_groups values must be tuples of Symbols.")
+    )
+    parameter_overrides = _decode_value(
+        realization["parameter_overrides"], "Recipe document.recipe.realization.parameter_overrides"
+    )
+    parameter_overrides isa NamedTuple || throw(
+        ArgumentError("Recipe parameter_overrides must decode to a NamedTuple.")
+    )
+    interaction_overrides = _decode_value(
+        realization["interaction_overrides"], "Recipe document.recipe.realization.interaction_overrides"
+    )
+    interaction_overrides isa NamedTuple || throw(
+        ArgumentError("Recipe interaction_overrides must decode to a NamedTuple.")
+    )
+    all(value -> value isa AbstractMatrix, values(interaction_overrides)) || throw(
+        ArgumentError("Recipe interaction_overrides values must be matrices.")
+    )
+    sinking_tracers = isnothing(realization["sinking_tracers"]) ? nothing : _decode_value(
+        realization["sinking_tracers"], "Recipe document.recipe.realization.sinking_tracers"
+    )
+    !isnothing(sinking_tracers) && !(sinking_tracers isa NamedTuple) && throw(
+        ArgumentError("Recipe sinking_tracers must decode to a NamedTuple or null.")
+    )
+
+    decoded = ProcessModelRecipe(
+        family,
+        deepcopy(default_components(factory)),
+        deepcopy(default_processes(factory)),
+        population_groups,
+        community,
+        parameter_overrides,
+        interaction_overrides,
+        sinking_tracers,
+        _boolean(realization["open_bottom"], "Recipe document.recipe.realization.open_bottom"),
+    )
+
+    expected_science = _encode_process_recipe_data(decoded)
+    for key in ("components", "processes", "parameter_bindings")
+        recipe_data[key] == expected_science[key] || throw(
+            ArgumentError("Recipe document.recipe.$key does not match the loaded model family contract.")
+        )
+    end
+    expected_hash = _recipe_hash(decoded, _encode_process_recipe_data(decoded))
+    recorded_hash == expected_hash || throw(
+        ArgumentError("Recipe document.recipe_hash does not match the decoded recipe.")
+    )
+    _check_recipe_provenance(decoded, provenance)
+    return decoded
+end
+
 function decode_recipe(document::AbstractDict)
     document = _check_keys(document, _RECIPE_DOCUMENT_KEYS, "Recipe document")
     schema = _string(_required(document, "schema", "Recipe document"), "Recipe document.schema")
+    schema == PROCESS_MODEL_RECIPE_SCHEMA && return _decode_process_model_recipe(document)
     schema == MODEL_RECIPE_SCHEMA || throw(
         ArgumentError(
-            "Unsupported Agate recipe schema $(repr(schema)); expected $(repr(MODEL_RECIPE_SCHEMA)). " *
-            "Agate v0.11 supports v2 recipes only. For v1 recipes, use Agate v0.10.x to " *
-            "recover the scientific inputs, then recreate and export a v2 recipe with v0.11; " *
-            "removing `scalar_type` alone is not sufficient because it was included in the v1 " *
-            "recipe hash."
+            "Unsupported Agate recipe schema $(repr(schema)); supported schemas are " *
+            "$(repr(MODEL_RECIPE_SCHEMA)) and $(repr(PROCESS_MODEL_RECIPE_SCHEMA)). " *
+            "For v1 recipes, use Agate v0.10.x to recover the scientific inputs before " *
+            "recreating the model with a supported recipe schema."
         )
     )
 
@@ -397,7 +651,7 @@ function decode_recipe(document)
 end
 
 """Write a recipe document to `path` as pretty-printed JSON."""
-function export_recipe(path::AbstractString, recipe::ModelRecipe)
+function export_recipe(path::AbstractString, recipe::Union{ModelRecipe,ProcessModelRecipe})
     document = encode_recipe(recipe)
     open(path, "w") do io
         JSON.print(io, document, 4)

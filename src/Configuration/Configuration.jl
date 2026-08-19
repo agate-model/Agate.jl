@@ -5,7 +5,7 @@ import Adapt
 
 export Population, Pool
 export currency, size_structure, sinking
-export ComponentLayout, realize_components
+export ComponentLayout, realize_components, realize_component_groups
 
 export PFTSpecification
 
