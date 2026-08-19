@@ -111,9 +111,11 @@ end
         target -> bgc(Val(target), NIPIZD_GRAZING_ARGS...),
         NIPIZD_GRAZING_TARGET_ORDER,
     )
-    @test all(isapprox.(generated, legacy))
+    @test all(process_compiler_isapprox.(generated, legacy))
     @test isapprox(sum(generated), 0; atol=10 * eps(sum(abs, generated)))
-    @test (@inferred compiled.P_1(bgc, NIPIZD_GRAZING_ARGS...)) ≈ legacy[4]
+    @test process_compiler_isapprox(
+        @inferred(compiled.P_1(bgc, NIPIZD_GRAZING_ARGS...)), legacy[4]
+    )
 end
 
 @testset "Preferential grazing compiler ForwardDiff" begin
@@ -127,7 +129,7 @@ end
 
     generated_derivative = ForwardDiff.derivative(generated_loss, biomass)
     legacy_derivative = ForwardDiff.derivative(legacy_loss, biomass)
-    @test generated_derivative ≈ legacy_derivative
+    @test process_compiler_isapprox(generated_derivative, legacy_derivative)
     @test generated_derivative < 0
 end
 
