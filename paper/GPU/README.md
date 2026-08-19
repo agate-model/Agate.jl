@@ -22,6 +22,24 @@ podman run --rm --device=nvidia.com/gpu=all \
   agate-gpu julia --project=/opt/julia_env paper/GPU/column_N2P2ZD_agate.jl
 ```
 
+## Run the GPU test suite
+
+The default package tests do not load CUDA. To run the full suite including the
+GPU biological-execution and nonzero-sinking checks, set `AGATE_TEST_CUDA=1`:
+
+```bash
+AGATE_TEST_CUDA=1 julia --project=. -e 'using Pkg; Pkg.test()'
+```
+
+When using the Podman image, mount the repository and run its project directly:
+
+```bash
+podman run --rm --device=nvidia.com/gpu=all \
+  -v "$(pwd)":/scripts -w /scripts \
+  agate-gpu env AGATE_TEST_CUDA=1 \
+  julia --project=/scripts -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
+```
+
 ## Cleanup
 
 ```bash
