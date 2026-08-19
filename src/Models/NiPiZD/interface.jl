@@ -103,7 +103,6 @@ function _construction_inputs(;
         push!(pairs, :assimilation_matrix => assimilation_matrix)
 
     interaction_overrides = (; pairs...)
-    resolved_scalar_type = Construction.resolve_construction_scalar_type(grid, scalar_type)
     auxiliary_fields = (:PAR,)
 
     recipe_kwargs = (;
@@ -116,7 +115,6 @@ function _construction_inputs(;
         auxiliary_fields,
         sinking_tracers,
         open_bottom,
-        scalar_type=resolved_scalar_type,
     )
 
     return (
@@ -228,7 +226,7 @@ function _recipe_plankton_dynamics(recipe::Construction.ModelRecipe)
 end
 
 function _recipe_construction_inputs(
-    recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing
+    recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing, scalar_type=nothing
 )
     family = recipe.family
     family == :NiPiZD || throw(
@@ -251,21 +249,21 @@ function _recipe_construction_inputs(
         arch,
         sinking_tracers=recipe.sinking_tracers,
         grid,
-        scalar_type=recipe.scalar_type,
+        scalar_type,
         open_bottom=recipe.open_bottom,
     )
     return (; factory, kwargs)
 end
 
 """
-    construct_from_recipe(recipe; grid=BoxModelGrid(), arch=nothing) -> bgc
+    construct_from_recipe(recipe; grid=BoxModelGrid(), arch=nothing, scalar_type=nothing) -> bgc
 
 Replay a NiPiZD recipe in the supplied runtime environment.
 """
 function construct_from_recipe(
-    recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing
+    recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing, scalar_type=nothing
 )
-    inputs = _recipe_construction_inputs(recipe; grid, arch)
+    inputs = _recipe_construction_inputs(recipe; grid, arch, scalar_type)
     return Construction.construct_factory(inputs.factory; inputs.kwargs...)
 end
 
@@ -275,10 +273,10 @@ end
 
 Construct NiPiZD and return the model together with its authored scientific recipe.
 The recipe records semantic size specifications, authored parameter and interaction
-overrides, role selections, sinking configuration, open-bottom state, and resolved
-scalar type. Model-family code supplies defaults, derivations, and equations when the
-recipe is replayed. Runtime grid and architecture objects remain construction
-environment inputs and are not stored in the recipe.
+overrides, role selections, sinking configuration, and open-bottom state. Model-family
+code supplies defaults, derivations, and equations when the recipe is replayed. Runtime
+grid, architecture, and scalar precision remain execution-environment inputs and are not
+stored in the recipe.
 """
 function construct_plus_recipe(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
