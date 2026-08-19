@@ -1,11 +1,11 @@
 using ...Factories: AbstractBGCFactory
-using ...Configuration: PFTSpecification
+using ...Configuration: PFTSpecification, Population, Pool
 
 # NOTE: Numeric parameter defaults are declared alongside parameter metadata in
 # `parameter_definitions(::NiPiZDFactory)` (see `Models/NiPiZD/parameters.jl`).
 
 import ...Factories:
-    default_plankton_dynamics, default_community, default_biogeochem_dynamics
+    default_components, default_plankton_dynamics, default_community, default_biogeochem_dynamics
 
 import ...Construction: recipe_family, recipe_factory
 
@@ -27,6 +27,20 @@ const DEFAULT_SIZE_STRUCTURE = (
     phytoplankton=(P=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting),),
     zooplankton=(Z=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),),
 )
+
+const NIPIZD_COMPONENTS = (
+    P=Population(;
+        currency=:nitrogen, size_structure=DEFAULT_SIZE_STRUCTURE.phytoplankton.P
+    ),
+    Z=Population(;
+        currency=:nitrogen, size_structure=DEFAULT_SIZE_STRUCTURE.zooplankton.Z
+    ),
+    N=Pool(:nitrogen),
+    D=Pool(:nitrogen),
+)
+
+"""Canonical logical components for NiPiZD."""
+default_components(::NiPiZDFactory) = NIPIZD_COMPONENTS
 
 const NIPIZD_TENDENCIES = TendencyConfig(;
     growth=:smith,
