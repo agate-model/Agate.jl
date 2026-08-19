@@ -7,8 +7,11 @@ using ..Processes:
     AbstractFormulation,
     Mortality,
     NamedProcess,
+    NormalizedModelDefinition,
     PartitionRouting,
     formulation,
+    parameter_name,
+    parameter_requirements,
     process_id,
     process_rate
 
