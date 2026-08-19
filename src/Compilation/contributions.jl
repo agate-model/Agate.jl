@@ -42,20 +42,14 @@ function _realize_population_classes(
             ArgumentError("process :$(named.id) references unrealized population :$population"),
         )
         tracers = getproperty(layout.component_tracers, population)
-        indices = get(context.group_indices, population, nothing)
-        isnothing(indices) && throw(
+        indices = Tuple(findfirst(==(tracer), context.plankton_symbols) for tracer in tracers)
+        any(isnothing, indices) && throw(
             ArgumentError(
-                "process :$(named.id) population :$population is absent from the current runtime community",
-            ),
-        )
-        runtime_tracers = Tuple(context.plankton_symbols[indices])
-        tracers == runtime_tracers || throw(
-            ArgumentError(
-                "process :$(named.id) population :$population realizes as $tracers but the current runtime community realizes it as $runtime_tracers",
+                "process :$(named.id) population :$population realizes tracers absent from the current runtime community",
             ),
         )
         tracer_values = (tracer_values..., tracers...)
-        index_values = (index_values..., Tuple(indices)...)
+        index_values = (index_values..., Int.(indices)...)
     end
 
     return tracer_values, index_values
