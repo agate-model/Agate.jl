@@ -152,6 +152,11 @@ end
     ).axis_tracers == ((:P_1, :P_2),)
     @test application(:palatability_matrix, :grazing_Z_on_P, :palatability).axis_tracers ==
         ((:Z_1, :Z_2), (:P_1, :P_2))
+    remineralization_rate = application(
+        :detritus_remineralization, :remineralization_D, :rate
+    )
+    @test remineralization_rate.binding.requirement.shape === :scalar
+    @test remineralization_rate.axis_tracers == ((:D,),)
     @test isempty(
         application(
             :mortality_export_fraction,
