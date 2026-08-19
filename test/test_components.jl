@@ -24,7 +24,7 @@ using Agate.Factories: default_components
     @test layout.tracer_order == (:P_1, :P_2, :P_3, :D)
     @test layout.component_tracers == (P=(:P_1, :P_2, :P_3), D=(:D,))
     @test layout.component_indices == (P=(1, 2, 3), D=(4,))
-    @test layout.component_diameters.P == (1.0f0, 10.0f0, 100.0f0)
+    @test collect(layout.component_diameters.P) ≈ Float32[1, 10, 100]
     @test isnothing(layout.component_diameters.D)
 
     scalar_population = realize_components((B=Population(; currency=:carbon),))
@@ -52,8 +52,8 @@ end
     @test layout.component_tracers == (
         P=(:P_1, :P_2), Z=(:Z_1, :Z_2), N=(:N,), D=(:D,)
     )
-    @test layout.component_diameters.P == (2.0, 10.0)
-    @test layout.component_diameters.Z == (20.0, 100.0)
+    @test collect(layout.component_diameters.P) ≈ [2.0, 10.0]
+    @test collect(layout.component_diameters.Z) ≈ [20.0, 100.0]
 
     bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
     runtime_tracers = required_biogeochemical_tracers(bgc)
