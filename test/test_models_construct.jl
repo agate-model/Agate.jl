@@ -93,7 +93,7 @@ end
         @test isempty(recipe.interaction_overrides)
         @test isnothing(recipe.sinking_tracers)
         @test recipe.open_bottom
-        @test recipe.scalar_type === Float64
+        @test !hasproperty(recipe, :scalar_type)
         @test !hasproperty(recipe, :grid)
         @test !hasproperty(recipe, :arch)
     end
@@ -104,12 +104,12 @@ end
         palatability = inputs.palatability_matrix
         bgc, recipe = NiPiZD.construct_plus_recipe(; inputs...)
         reference_recipe, manifest = nipizd_recipe_manifest(; inputs...)
-        replayed_manifest = nipizd_manifest(recipe)
+        replayed_manifest = nipizd_manifest(recipe; scalar_type=Float32)
 
         @test reference_recipe == recipe
         @test replayed_manifest == manifest
 
-        @test recipe.scalar_type === Float32
+        @test !hasproperty(recipe, :scalar_type)
         @test recipe.sinking_tracers == inputs.sinking_tracers
         @test recipe.open_bottom === false
         @test recipe.community.diat.diameters isa Agate.Configuration.DiameterListSpecification
@@ -125,7 +125,7 @@ end
         @test recipe.community.diat.diameters.diameters[1] == 2.0
         @test recipe.interaction_overrides.palatability_matrix[1, 1] == Float32(0.8)
 
-        replayed = NiPiZD.construct_from_recipe(recipe)
+        replayed = NiPiZD.construct_from_recipe(recipe; scalar_type=Float32)
         @test replayed.parameters == manifest.parameters
         @test manifest.interaction_matrix_sources == (
             palatability_matrix=:explicit, assimilation_matrix=:derived
