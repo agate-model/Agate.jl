@@ -30,22 +30,13 @@ function nipizd_mortality_compilation(::Type{T}=Float64) where {T<:Real}
     context = Agate.Configuration.parse_community(
         T, default_community(factory); biogeochem_tracers=(:N, :D)
     )
-    mortality_binding(rate) = MortalityParameterBinding(
-        rate; routing_fraction=:mortality_export_fraction
-    )
-    bindings = (
-        linear_mortality_P=mortality_binding(:linear_mortality),
-        linear_mortality_Z=mortality_binding(:linear_mortality),
-        quadratic_mortality_Z=mortality_binding(:quadratic_mortality),
-    )
-
     contributions = ()
     for id in NIPIZD_MORTALITY_IDS
         process = getproperty(normalized.processes, id)
         topology = realize_process_topology(process, layout, context)
+        binding = MortalityParameterBinding(normalized, id)
         contributions = (
-            contributions...,
-            process_contributions(process, topology, getproperty(bindings, id))...,
+            contributions..., process_contributions(process, topology, binding)...
         )
     end
     grouped = group_contributions(contributions; target_order=NIPIZD_TRACER_ORDER)
@@ -57,6 +48,17 @@ end
     contributions = compilation.contributions
     grouped = compilation.grouped
     compiled = compilation.compiled
+
+    normalized = normalize_model(
+        ModelDefinition(Agate.Models.NiPiZD.NiPiZDFactory())
+    )
+    @test MortalityParameterBinding(normalized, :linear_mortality_P).rate ===
+        :linear_mortality
+    @test MortalityParameterBinding(normalized, :quadratic_mortality_Z).rate ===
+        :quadratic_mortality
+    @test MortalityParameterBinding(
+        normalized, :linear_mortality_Z
+    ).routing_fraction === :mortality_export_fraction
 
     @test length(contributions) == 18
     @test count(contribution -> contribution isa MortalityLossContribution, contributions) == 6
