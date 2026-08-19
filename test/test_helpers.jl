@@ -12,6 +12,10 @@ import Oceananigans.Architectures: architecture, CPU
 using Agate.Library.Allometry: AllometricParam, ConstantParam, PowerLaw
 using Oceananigans.Units: day
 
+const PROCESS_COMPILER_RTOL = 1e-12
+process_compiler_isapprox(x, y) =
+    isapprox(x, y; rtol=PROCESS_COMPILER_RTOL, atol=10eps(max(abs(x), abs(y))))
+
 """A minimal grid stand-in for testing constructor precision/architecture inference.
 
 `Oceananigans` determines the active architecture from the grid. For CPU architectures,
