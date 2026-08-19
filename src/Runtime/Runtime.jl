@@ -3,7 +3,6 @@ module Runtime
 
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry, required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
 
-export TendencyContext
 export TracerValues
 export tendency_inputs
 export parameterized
