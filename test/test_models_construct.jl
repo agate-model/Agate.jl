@@ -93,7 +93,7 @@ end
         @test isempty(recipe.interaction_overrides)
         @test isnothing(recipe.sinking_tracers)
         @test recipe.open_bottom
-        @test recipe.scalar_type === Float64
+        @test !hasproperty(recipe, :scalar_type)
         @test !hasproperty(recipe, :grid)
         @test !hasproperty(recipe, :arch)
     end
@@ -104,12 +104,12 @@ end
         palatability = inputs.palatability_matrix
         bgc, recipe = NiPiZD.construct_plus_recipe(; inputs...)
         reference_recipe, manifest = nipizd_recipe_manifest(; inputs...)
-        replayed_manifest = nipizd_manifest(recipe)
+        replayed_manifest = nipizd_manifest(recipe; scalar_type=Float32)
 
         @test reference_recipe == recipe
         @test replayed_manifest == manifest
 
-        @test recipe.scalar_type === Float32
+        @test !hasproperty(recipe, :scalar_type)
         @test recipe.sinking_tracers == inputs.sinking_tracers
         @test recipe.open_bottom === false
         @test recipe.community.diat.diameters isa Agate.Configuration.DiameterListSpecification
@@ -125,7 +125,7 @@ end
         @test recipe.community.diat.diameters.diameters[1] == 2.0
         @test recipe.interaction_overrides.palatability_matrix[1, 1] == Float32(0.8)
 
-        replayed = NiPiZD.construct_from_recipe(recipe)
+        replayed = NiPiZD.construct_from_recipe(recipe; scalar_type=Float32)
         @test replayed.parameters == manifest.parameters
         @test manifest.interaction_matrix_sources == (
             palatability_matrix=:explicit, assimilation_matrix=:derived
@@ -628,14 +628,20 @@ end
     end
 
 
-    @testset "GPU smoke test" begin
-        # NOTE: Loading CUDA can crash Julia in misconfigured environments (e.g. mixed system/toolkit libs).
-        # To keep the default test suite robust, this test only runs when explicitly enabled.
-        if lowercase(get(ENV, "AGATE_TEST_CUDA", "0")) in ("1", "true", "yes")
+    # Loading CUDA can fail hard in misconfigured environments, so GPU execution is
+    # an explicit opt-in test via AGATE_TEST_CUDA=1 rather than part of the default suite.
+    if lowercase(get(ENV, "AGATE_TEST_CUDA", "0")) in ("1", "true", "yes")
+        @testset "GPU smoke test" begin
             @eval using CUDA
+            @eval using Agate.Library.Light: CyclicalPAR, FunctionFieldPAR
+            @eval using OceanBioME: Biogeochemistry
+            @eval using Oceananigans: RectilinearGrid, NonhydrostaticModel, set!, time_step!
             @eval using Oceananigans.Architectures: GPU, array_type
+            @eval using Oceananigans.Grids: Periodic, Flat, Bounded
 
-            if CUDA.functional()
+            cuda_functional = CUDA.functional()
+            @test cuda_functional
+            if cuda_functional
                 bgc_cpu = NiPiZD.construct(; grid=dummy_grid(Float32))
                 bgc_gpu = NiPiZD.construct(; grid=dummy_grid(Float32; arch=GPU()))
 
@@ -643,11 +649,39 @@ end
                     required_biogeochemical_tracers(bgc_cpu)
                 @test bgc_gpu.parameters.interactions.palatability isa array_type(GPU())
                 @test bgc_gpu.parameters.maximum_predation_rate isa array_type(GPU())
-            else
-                @test true
+
+                grid = RectilinearGrid(
+                    GPU(), Float32;
+                    topology=(Periodic, Flat, Bounded),
+                    size=(4, 4),
+                    x=(0f0, 4f0),
+                    z=(-4f0, 0f0),
+                )
+                sinking_rate = 2.5f0 / 86400f0
+                bgc_sinking = NiPiZD.construct(;
+                    grid, sinking_tracers=(D=sinking_rate,)
+                )
+                drift = biogeochemical_drift_velocity(bgc_sinking, Val(:D)).w
+
+                @test parent(drift.data) isa array_type(GPU())
+                @test any(==(-sinking_rate), Array(parent(drift.data)))
+                @test biogeochemical_drift_velocity(bgc_sinking, Val(:Z_1)).w == ZeroField()
+
+                light_attenuation = FunctionFieldPAR(; grid, PAR_f=CyclicalPAR())
+                bgc_model = Biogeochemistry(bgc_sinking; light_attenuation)
+                model = NonhydrostaticModel(; grid, biogeochemistry=bgc_model)
+                set!(
+                    model;
+                    N=7f0,
+                    D=0.01f0,
+                    P_1=0.01f0,
+                    P_2=0.01f0,
+                    Z_1=0.05f0,
+                    Z_2=0.05f0,
+                )
+                time_step!(model, 60f0)
+                @test model.clock.iteration == 1
             end
-        else
-            @test true
         end
     end
 

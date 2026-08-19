@@ -37,7 +37,13 @@ pal.matrix   # consumer-by-prey matrix
 Model users normally work through the model-family constructors (`construct`,
 `construct_plus_recipe`, and `construct_from_recipe`). The manifest API below is a
 lower-level resolved-state record used for diagnostics, model-family development, and
-exact replay tests.
+semantic replay tests across explicit execution environments.
+
+`ModelRecipe` uses the `agate.model_recipe.v2` schema and records scientific construction
+semantics only. Fresh model inputs canonicalize to a recipe, and loaded recipes enter the
+same `construct_factory(recipe; ...)` realization path. Scalar precision is resolved from
+the execution environment (or an explicit `scalar_type` override) and is recorded on
+`ModelManifest`, not on the recipe.
 
 ```@docs
 Agate.Construction.ModelRecipe

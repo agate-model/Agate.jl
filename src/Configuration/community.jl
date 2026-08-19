@@ -83,9 +83,8 @@ end
 """Construction-time representation of a parsed plankton community.
 
 `CommunityContext` stores the flattened plankton layout, class metadata, and role
-axes needed while resolving parameters and interaction matrices.
-It is distinct from `TendencyContext`, which is used inside tracer-tendency
-kernels.
+axes needed while resolving parameters and interaction matrices. It is setup-time
+semantic state and is not passed into tracer-tendency kernels.
 
 Fields
 ------

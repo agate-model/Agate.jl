@@ -14,11 +14,11 @@ end
 """Authored scientific definition captured before model-state materialization.
 
 `ModelRecipe` stores a stable model-family identifier and the authored scientific
-inputs needed to describe a model independently of runtime environment objects
-such as grids and architectures. Model-family code supplies parameter defaults,
-interaction derivations, and tracer equations when the recipe is replayed.
+inputs needed to describe a model independently of runtime execution choices such
+as grids, architectures, and scalar precision. Model-family code supplies parameter
+defaults, interaction derivations, and tracer equations when the recipe is replayed.
 """
-struct ModelRecipe{C,PO,IO,ER,IR,PR,A,S,T<:Real}
+struct ModelRecipe{C,PO,IO,ER,IR,PR,A,S}
     family::Symbol
     community::C
     parameter_overrides::PO
@@ -29,7 +29,6 @@ struct ModelRecipe{C,PO,IO,ER,IR,PR,A,S,T<:Real}
     auxiliary_fields::A
     sinking_tracers::S
     open_bottom::Bool
-    scalar_type::Type{T}
 end
 
 """Resolved deterministic scientific state produced by model construction.
@@ -142,8 +141,7 @@ function capture_model_recipe(
     auxiliary_fields::Tuple,
     sinking_tracers=nothing,
     open_bottom::Bool=true,
-    scalar_type::Type{T},
-) where {T<:Real}
+)
     family = recipe_family(factory)
     family isa Symbol || throw(
         ArgumentError("recipe_family must return a Symbol; got $(typeof(family)).")
@@ -160,7 +158,6 @@ function capture_model_recipe(
         deepcopy(auxiliary_fields),
         deepcopy(sinking_tracers),
         open_bottom,
-        scalar_type,
     )
 end
 

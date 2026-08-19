@@ -55,21 +55,20 @@ end
 
 function nipizd_recipe_manifest(; kwargs...)
     inputs = Agate.Models.NiPiZD._construction_inputs(; kwargs...)
-    recipe = Agate.Construction.capture_model_recipe(
-        inputs.factory; inputs.recipe_kwargs...
-    )
     _, manifest = Agate.Construction.construct_factory_plus_manifest(
-        inputs.factory; inputs.kwargs...
+        inputs.recipe; inputs.execution...
     )
-    return recipe, manifest
+    return inputs.recipe, manifest
 end
 
 function nipizd_manifest(
-    recipe::Agate.Construction.ModelRecipe; grid=OceanBioME.BoxModelGrid(), arch=nothing
+    recipe::Agate.Construction.ModelRecipe;
+    grid=OceanBioME.BoxModelGrid(),
+    arch=nothing,
+    scalar_type=nothing,
 )
-    inputs = Agate.Models.NiPiZD._recipe_construction_inputs(recipe; grid, arch)
     _, manifest = Agate.Construction.construct_factory_plus_manifest(
-        inputs.factory; inputs.kwargs...
+        recipe; grid, arch, scalar_type
     )
     return manifest
 end
