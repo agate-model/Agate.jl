@@ -76,10 +76,20 @@ end
     warned = @test_logs (:warn, r"Agate version differs") decode_recipe(version_mismatch)
     @test warned == recipe
 
+    v1_document = modified(encoded, x -> (x["schema"] = "agate.model_recipe.v1"))
+    v1_error = try
+        decode_recipe(v1_document)
+        nothing
+    catch err
+        err
+    end
+    @test v1_error isa ArgumentError
+    @test occursin("Unsupported Agate recipe schema", sprint(showerror, v1_error))
+    @test occursin("agate.model_recipe.v2", sprint(showerror, v1_error))
+
     invalid_documents = (
         modified(encoded, x -> (x["extra"] = true)),
         modified(encoded, x -> delete!(x["recipe"], "open_bottom")),
-        modified(encoded, x -> (x["schema"] = "agate.model_recipe.v1")),
         modified(encoded, x -> (x["model"]["family"] = "UnknownModel")),
         modified(encoded, x -> (x["recipe"]["scalar_type"] = "Float32")),
         modified(encoded, x -> (x["recipe"]["open_bottom"] = !x["recipe"]["open_bottom"])),
