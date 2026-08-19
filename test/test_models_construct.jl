@@ -628,8 +628,8 @@ end
     end
 
 
-    @testset "GPU smoke test" begin
-        if lowercase(get(ENV, "AGATE_TEST_CUDA", "0")) in ("1", "true", "yes")
+    if lowercase(get(ENV, "AGATE_TEST_CUDA", "0")) in ("1", "true", "yes")
+        @testset "GPU smoke test" begin
             @eval using CUDA
             @eval using Oceananigans.Architectures: GPU, array_type
 
@@ -643,8 +643,6 @@ end
                 @test bgc_gpu.parameters.interactions.palatability isa array_type(GPU())
                 @test bgc_gpu.parameters.maximum_predation_rate isa array_type(GPU())
             end
-        else
-            @test_skip false
         end
     end
 
