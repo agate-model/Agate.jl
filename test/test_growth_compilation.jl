@@ -93,7 +93,7 @@ end
         NIPIZD_GROWTH_TARGET_ORDER,
     )
     @test all(isapprox.(generated, legacy))
-    @test sum(generated) ≈ 0
+    @test isapprox(sum(generated), 0; atol=10 * eps(sum(abs, generated)))
     @test (@inferred compiled.P_1(bgc, NIPIZD_GROWTH_ARGS...)) ≈ legacy[2]
 end
 
