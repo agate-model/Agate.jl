@@ -40,3 +40,35 @@ end
         alpha,
     )
 end
+
+"""Evaluate one preferential consumer-by-resource grazing rate."""
+@inline function process_rate(
+    ::PreferentialGrazing,
+    resource,
+    consumer,
+    maximum_rate,
+    half_saturation,
+    palatability,
+)
+    return preferential_predation_loss(
+        resource, consumer, maximum_rate, half_saturation, palatability
+    )
+end
+
+@inline function process_rate(
+    process::Grazing{PreferentialGrazing},
+    resource,
+    consumer,
+    maximum_rate,
+    half_saturation,
+    palatability,
+)
+    return process_rate(
+        process.formulation,
+        resource,
+        consumer,
+        maximum_rate,
+        half_saturation,
+        palatability,
+    )
+end
