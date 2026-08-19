@@ -11,6 +11,7 @@ include("test_library.jl")
 include("test_components.jl")
 include("test_processes.jl")
 include("test_process_compilation.jl")
+include("test_growth_compilation.jl")
 include("test_inorganic_coupling.jl")
 include("test_box_model.jl")
 
