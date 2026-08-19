@@ -1,0 +1,333 @@
+{
+  "schema": "agate.model_recipe.v3",
+  "model": {
+    "family": "NiPiZD"
+  },
+  "recipe": {
+    "components": {
+      "P": {
+        "kind": "population",
+        "currency": "nitrogen",
+        "size_structure": {
+          "n": 2,
+          "min_esd": 2.0,
+          "max_esd": 10.0,
+          "splitting": "log_splitting"
+        },
+        "sinking": null
+      },
+      "Z": {
+        "kind": "population",
+        "currency": "nitrogen",
+        "size_structure": {
+          "n": 2,
+          "min_esd": 20.0,
+          "max_esd": 100.0,
+          "splitting": "linear_splitting"
+        },
+        "sinking": null
+      },
+      "N": {
+        "kind": "pool",
+        "currency": "nitrogen",
+        "size_structure": null,
+        "sinking": null
+      },
+      "D": {
+        "kind": "pool",
+        "currency": "nitrogen",
+        "size_structure": null,
+        "sinking": null
+      }
+    },
+    "processes": {
+      "growth_P": {
+        "kind": "growth",
+        "formulation": "smith",
+        "participants": {
+          "population": "P"
+        },
+        "drivers": {
+          "light": "PAR"
+        },
+        "rate_axes": ["population"],
+        "subformulations": {
+          "limitation": {
+            "kind": "nutrient_response",
+            "formulation": "monod",
+            "participants": {
+              "resource": "N"
+            }
+          }
+        }
+      },
+      "grazing_Z_on_P": {
+        "kind": "grazing",
+        "formulation": "preferential",
+        "participants": {
+          "consumer": "Z",
+          "resource": "P",
+          "unassimilated_destination": "D"
+        },
+        "rate_axes": ["consumer", "resource"]
+      },
+      "linear_mortality_P": {
+        "kind": "mortality",
+        "formulation": "linear",
+        "participants": {
+          "population": "P"
+        },
+        "rate_axes": ["population"],
+        "routing": {
+          "kind": "product_routing",
+          "formulation": "partition",
+          "retained": "D",
+          "exported": "N"
+        }
+      },
+      "linear_mortality_Z": {
+        "kind": "mortality",
+        "formulation": "linear",
+        "participants": {
+          "population": "Z"
+        },
+        "rate_axes": ["population"],
+        "routing": {
+          "kind": "product_routing",
+          "formulation": "partition",
+          "retained": "D",
+          "exported": "N"
+        }
+      },
+      "quadratic_mortality_Z": {
+        "kind": "mortality",
+        "formulation": "quadratic",
+        "participants": {
+          "population": "Z"
+        },
+        "rate_axes": ["population"],
+        "routing": {
+          "kind": "product_routing",
+          "formulation": "partition",
+          "retained": "D",
+          "exported": "N"
+        }
+      },
+      "remineralization_D": {
+        "kind": "remineralization",
+        "formulation": "linear",
+        "participants": {
+          "source": "D",
+          "destination": "N"
+        },
+        "rate_axes": ["source"]
+      }
+    },
+    "parameter_bindings": {
+      "detritus_remineralization": {
+        "provides": [
+          {
+            "process": "remineralization_D",
+            "path": [],
+            "formulation": "linear",
+            "slot": "rate",
+            "qualifier": {"source": "D"},
+            "axes": ["source"]
+          }
+        ]
+      },
+      "mortality_export_fraction": {
+        "provides": [
+          {
+            "process": "linear_mortality_P",
+            "path": ["routing"],
+            "formulation": "partition",
+            "slot": "export_fraction",
+            "qualifier": {},
+            "axes": []
+          },
+          {
+            "process": "linear_mortality_Z",
+            "path": ["routing"],
+            "formulation": "partition",
+            "slot": "export_fraction",
+            "qualifier": {},
+            "axes": []
+          },
+          {
+            "process": "quadratic_mortality_Z",
+            "path": ["routing"],
+            "formulation": "partition",
+            "slot": "export_fraction",
+            "qualifier": {},
+            "axes": []
+          }
+        ]
+      },
+      "linear_mortality": {
+        "provides": [
+          {
+            "process": "linear_mortality_P",
+            "path": [],
+            "formulation": "linear",
+            "slot": "rate",
+            "qualifier": {"population": "P"},
+            "axes": ["population"]
+          },
+          {
+            "process": "linear_mortality_Z",
+            "path": [],
+            "formulation": "linear",
+            "slot": "rate",
+            "qualifier": {"population": "Z"},
+            "axes": ["population"]
+          }
+        ]
+      },
+      "quadratic_mortality": {
+        "provides": [
+          {
+            "process": "quadratic_mortality_Z",
+            "path": [],
+            "formulation": "quadratic",
+            "slot": "rate",
+            "qualifier": {"population": "Z"},
+            "axes": ["population"]
+          }
+        ]
+      },
+      "maximum_growth_rate": {
+        "provides": [
+          {
+            "process": "growth_P",
+            "path": [],
+            "formulation": "smith",
+            "slot": "maximum_rate",
+            "qualifier": {},
+            "axes": ["population"]
+          }
+        ]
+      },
+      "nutrient_half_saturation": {
+        "provides": [
+          {
+            "process": "growth_P",
+            "path": ["limitation"],
+            "formulation": "monod",
+            "slot": "K",
+            "qualifier": {"resource": "N"},
+            "axes": ["population"]
+          }
+        ]
+      },
+      "alpha": {
+        "provides": [
+          {
+            "process": "growth_P",
+            "path": [],
+            "formulation": "smith",
+            "slot": "alpha",
+            "qualifier": {},
+            "axes": ["population"]
+          }
+        ]
+      },
+      "maximum_predation_rate": {
+        "provides": [
+          {
+            "process": "grazing_Z_on_P",
+            "path": [],
+            "formulation": "preferential",
+            "slot": "maximum_rate",
+            "qualifier": {},
+            "axes": ["consumer"]
+          }
+        ]
+      },
+      "holling_half_saturation": {
+        "provides": [
+          {
+            "process": "grazing_Z_on_P",
+            "path": [],
+            "formulation": "preferential",
+            "slot": "half_saturation",
+            "qualifier": {},
+            "axes": ["consumer"]
+          }
+        ]
+      },
+      "palatability_matrix": {
+        "provides": [
+          {
+            "process": "grazing_Z_on_P",
+            "path": [],
+            "formulation": "preferential",
+            "slot": "palatability",
+            "qualifier": {},
+            "axes": ["consumer", "resource"]
+          }
+        ]
+      },
+      "assimilation_matrix": {
+        "provides": [
+          {
+            "process": "grazing_Z_on_P",
+            "path": [],
+            "formulation": "preferential",
+            "slot": "assimilation",
+            "qualifier": {},
+            "axes": ["consumer", "resource"]
+          }
+        ]
+      },
+      "optimum_predator_prey_ratio": {
+        "provides": [
+          {
+            "process": "grazing_Z_on_P",
+            "path": ["palatability", "default"],
+            "formulation": "allometric",
+            "slot": "optimum_predator_prey_ratio",
+            "qualifier": {},
+            "axes": ["consumer"]
+          }
+        ]
+      },
+      "specificity": {
+        "provides": [
+          {
+            "process": "grazing_Z_on_P",
+            "path": ["palatability", "default"],
+            "formulation": "allometric",
+            "slot": "specificity",
+            "qualifier": {},
+            "axes": ["consumer"]
+          }
+        ]
+      },
+      "protection": {
+        "provides": [
+          {
+            "process": "grazing_Z_on_P",
+            "path": ["palatability", "default"],
+            "formulation": "allometric",
+            "slot": "protection",
+            "qualifier": {},
+            "axes": ["resource"]
+          }
+        ]
+      },
+      "assimilation_efficiency": {
+        "provides": [
+          {
+            "process": "grazing_Z_on_P",
+            "path": ["assimilation", "default"],
+            "formulation": "binary",
+            "slot": "assimilation_efficiency",
+            "qualifier": {},
+            "axes": ["consumer"]
+          }
+        ]
+      }
+    }
+  }
+}

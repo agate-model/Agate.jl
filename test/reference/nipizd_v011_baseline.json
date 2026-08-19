@@ -1,0 +1,48 @@
+{
+  "package": {
+    "name": "Agate",
+    "version": "0.11.0"
+  },
+  "model": "NiPiZD",
+  "runtime": {
+    "recipe_schema": "agate.model_recipe.v2",
+    "tracer_order": [
+      "N",
+      "D",
+      "Z_1",
+      "Z_2",
+      "P_1",
+      "P_2"
+    ],
+    "tracer_functions_concrete": true
+  },
+  "numerical": {
+    "mass_balance": {
+      "duration_days": 10,
+      "step_minutes": 10,
+      "rtol_float64": 1e-12,
+      "rtol_float32": 1e-05
+    },
+    "historical_npzd_trajectory": {
+      "file": "nipizd_box_model.csv",
+      "sha256": "d6fdc75d37ea85d7bad1dbb7809d78c22e8cd012cb502f3e6df148d4773185d0",
+      "samples": 100,
+      "rtol": 1e-12,
+      "atol": 0.0
+    }
+  },
+  "automatic_differentiation": {
+    "forwarddiff": {
+      "finite_difference_rtol": 0.0001,
+      "finite_difference_atol": 1e-10
+    },
+    "enzyme": {
+      "finite_difference_rtol": 0.0001,
+      "finite_difference_atol": 1e-10
+    }
+  },
+  "gpu": {
+    "opt_in_environment_variable": "AGATE_TEST_CUDA",
+    "enabled_value": "1"
+  }
+}

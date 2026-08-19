@@ -22,3 +22,5 @@ include("test_introspection.jl")
 include("test_recipe_serialization.jl")
 
 include("test_biogeochemistry.jl")
+
+include("test_cycle01_contracts.jl")

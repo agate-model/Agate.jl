@@ -1,0 +1,49 @@
+{
+  "schema": "agate.normalization_contract.v1",
+  "components": {
+    "identity_levels": [
+      "logical_component",
+      "subgroup",
+      "realized_class"
+    ],
+    "process_participation_level": "logical_component",
+    "subgroups_inherit_process_semantics": true,
+    "structured_component_capability": "size_structure"
+  },
+  "processes": {
+    "identity_source": "named_process_key",
+    "identity_is_order_independent": true,
+    "rate_topology_is_explicit": true,
+    "participant_cardinality": "arbitrary"
+  },
+  "parameters": {
+    "requirement_identity_fields": [
+      "process",
+      "path",
+      "formulation",
+      "slot",
+      "qualifier"
+    ],
+    "applicability_source": "process_participation"
+  },
+  "stoichiometry": {
+    "canonical_rate_currency_is_explicit": true,
+    "ratio_orientation": [
+      "from",
+      "to"
+    ]
+  },
+  "drivers": {
+    "binding_level": "process_instance",
+    "shared_identity_is_deduplicated": true,
+    "canonical_order": "deterministic_identity_order"
+  },
+  "recipe": {
+    "schema": "agate.model_recipe.v3",
+    "stable_representation": "schema_tags_and_data"
+  },
+  "runtime": {
+    "process_topology_resolution": "setup_time",
+    "tendency_execution": "compiled_equation_per_tracer"
+  }
+}
