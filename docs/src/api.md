@@ -130,6 +130,16 @@ Agate.Processes.normalize_model
 Agate.Processes.process_rate
 ```
 
+### Process contribution compilation
+
+```@docs
+Agate.Compilation.model_contributions
+Agate.Compilation.group_contributions
+Agate.Compilation.compile_tendency
+Agate.Compilation.compile_tendencies
+Agate.Compilation.compile_model_tendencies
+```
+
 ### Plankton communities and interactions
 
 ```@docs
