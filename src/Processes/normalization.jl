@@ -30,15 +30,230 @@ participants(process::NamedProcess) = participants(process.process)
 drivers(process::NamedProcess) = drivers(process.process)
 rate_axes(process::NamedProcess) = rate_axes(process.process)
 
+function _canonical_qualifier(qualifier::NamedTuple)
+    names = sort!(collect(keys(qualifier)); by=String)
+    names_tuple = Tuple(names)
+    values = Tuple(getproperty(qualifier, name) for name in names)
+    return NamedTuple{names_tuple}(values)
+end
+
+"""Stable identity of one semantic formulation parameter requirement.
+
+The identity is scoped by the owning named process, nested sub-formulation path,
+formulation tag, slot, and participant qualifier. Applicability axes are resolved from
+process participation during setup.
+"""
+struct ParameterRequirementIdentity{P,Q}
+    process::Symbol
+    path::P
+    formulation::Symbol
+    slot::Symbol
+    qualifier::Q
+end
+
+Base.:(==)(a::ParameterRequirementIdentity, b::ParameterRequirementIdentity) =
+    a.process == b.process &&
+    a.path == b.path &&
+    a.formulation == b.formulation &&
+    a.slot == b.slot &&
+    a.qualifier == b.qualifier
+
+Base.hash(requirement::ParameterRequirementIdentity, h::UInt) = hash(
+    (
+        requirement.process,
+        requirement.path,
+        requirement.formulation,
+        requirement.slot,
+        requirement.qualifier,
+    ),
+    h,
+)
+
+function ParameterRequirementIdentity(
+    process::Symbol,
+    path::Tuple,
+    formulation_value,
+    slot::Symbol;
+    qualifier::NamedTuple=NamedTuple(),
+)
+    all(item -> item isa Symbol, path) || throw(
+        ArgumentError("parameter requirement path must contain only Symbols"),
+    )
+    formulation_name = formulation_value isa Symbol ?
+                       formulation_value : formulation_tag(formulation_value)
+    return ParameterRequirementIdentity(
+        process, path, formulation_name, slot, _canonical_qualifier(qualifier)
+    )
+end
+
+"""One formulation-declared semantic parameter requirement and its process-local axes."""
+struct ParameterRequirement{I,A<:Tuple}
+    identity::I
+    axes::A
+end
+
+function ParameterRequirement(
+    process::Symbol,
+    path::Tuple,
+    formulation_value,
+    slot::Symbol,
+    axes::Tuple;
+    qualifier::NamedTuple=NamedTuple(),
+)
+    length(axes) <= 2 || throw(
+        ArgumentError("parameter requirement axes currently support at most two dimensions"),
+    )
+    all(axis -> axis isa Symbol, axes) || throw(
+        ArgumentError("parameter requirement axes must contain only Symbols"),
+    )
+    identity = ParameterRequirementIdentity(
+        process, path, formulation_value, slot; qualifier
+    )
+    return ParameterRequirement(identity, axes)
+end
+
+"""Resolved mapping from one semantic requirement to a model parameter name."""
+struct ParameterBinding{R<:ParameterRequirement}
+    requirement::R
+    parameter::Symbol
+end
+
+"""Concrete participant applicability of one bound parameter requirement."""
+struct ParameterApplicability{B,C,T}
+    binding::B
+    axis_components::C
+    axis_tracers::T
+end
+
+function _requirement(named::NamedProcess, path, formulation_value, slot, axes; qualifier=NamedTuple())
+    return ParameterRequirement(
+        process_id(named), path, formulation_value, slot, axes; qualifier
+    )
+end
+
+"""Return semantic parameter requirements declared by a named process formulation."""
+function parameter_requirements(named::NamedProcess{P}) where {P<:Growth}
+    process = named.process
+    process.formulation isa Smith || throw(
+        ArgumentError("unsupported growth formulation $(typeof(process.formulation))"),
+    )
+    requirements = (
+        _requirement(named, (), process.formulation, :maximum_rate, (:population,)),
+        _requirement(named, (), process.formulation, :alpha, (:population,)),
+    )
+
+    limitation = process.limitation
+    isnothing(limitation) && return requirements
+    limitation.formulation isa Monod || throw(
+        ArgumentError("unsupported nutrient-response formulation $(typeof(limitation.formulation))"),
+    )
+    K = _requirement(
+        named,
+        (:limitation,),
+        limitation.formulation,
+        :K,
+        (:population,);
+        qualifier=(resource=limitation.resource,),
+    )
+    return (requirements..., K)
+end
+
+function parameter_requirements(named::NamedProcess{P}) where {P<:Grazing}
+    process = named.process
+    process.formulation isa PreferentialGrazing || throw(
+        ArgumentError("unsupported grazing formulation $(typeof(process.formulation))"),
+    )
+    return (
+        _requirement(named, (), process.formulation, :maximum_rate, (:consumer,)),
+        _requirement(named, (), process.formulation, :half_saturation, (:consumer,)),
+        _requirement(named, (), process.formulation, :palatability, (:consumer, :resource)),
+        _requirement(named, (), process.formulation, :assimilation, (:consumer, :resource)),
+        _requirement(
+            named,
+            (:palatability, :default),
+            :allometric,
+            :optimum_predator_prey_ratio,
+            (:consumer,),
+        ),
+        _requirement(
+            named, (:palatability, :default), :allometric, :specificity, (:consumer,)
+        ),
+        _requirement(
+            named, (:palatability, :default), :allometric, :protection, (:resource,)
+        ),
+        _requirement(
+            named,
+            (:assimilation, :default),
+            :binary,
+            :assimilation_efficiency,
+            (:consumer,),
+        ),
+    )
+end
+
+function parameter_requirements(named::NamedProcess{P}) where {P<:Mortality}
+    process = named.process
+    qualifier = length(process.populations) == 1 ?
+                (population=only(process.populations),) : NamedTuple()
+    requirements = (
+        _requirement(
+            named, (), process.formulation, :rate, (:population,); qualifier
+        ),
+    )
+    routing = process.routing
+    isnothing(routing) && return requirements
+    routing.formulation isa PartitionRouting || throw(
+        ArgumentError("unsupported product-routing formulation $(typeof(routing.formulation))"),
+    )
+    return (
+        requirements...,
+        _requirement(named, (:routing,), routing.formulation, :export_fraction, ()),
+    )
+end
+
+function parameter_requirements(named::NamedProcess{P}) where {P<:Remineralization}
+    process = named.process
+    process.formulation isa LinearRemineralization || throw(
+        ArgumentError("unsupported remineralization formulation $(typeof(process.formulation))"),
+    )
+    qualifier = length(process.sources) == 1 ?
+                (source=only(process.sources),) : NamedTuple()
+    return (
+        _requirement(named, (), process.formulation, :rate, (:source,); qualifier),
+    )
+end
+
 """Setup-time normalized scientific model definition."""
-struct NormalizedModelDefinition{C,P,A,D}
+struct NormalizedModelDefinition{C,P,A,D,R,B}
     components::C
     processes::P
     parameters::A
     driver_identities::D
+    parameter_requirements::R
+    parameter_bindings::B
 end
 
 driver_identities(definition::NormalizedModelDefinition) = definition.driver_identities
+
+"""Return formulation-declared semantic parameter requirements for a normalized model."""
+parameter_requirements(definition::NormalizedModelDefinition) = definition.parameter_requirements
+
+"""Return resolved semantic requirement-to-model-parameter bindings."""
+parameter_bindings(definition::NormalizedModelDefinition) = definition.parameter_bindings
+
+"""Return the model parameter name that supplies `requirement`."""
+function parameter_name(definition::NormalizedModelDefinition, requirement::ParameterRequirement)
+    return parameter_name(definition, requirement.identity)
+end
+
+function parameter_name(
+    definition::NormalizedModelDefinition, identity::ParameterRequirementIdentity
+)
+    for binding in definition.parameter_bindings
+        binding.requirement.identity == identity && return binding.parameter
+    end
+    throw(ArgumentError("no model parameter is bound to requirement $identity"))
+end
 
 function _process_component_references(process::Growth)
     limitation = process.limitation
@@ -93,11 +308,89 @@ function _canonical_driver_identities(processes::NamedTuple)
     return Tuple(identities)
 end
 
-"""Normalize process identity and validate model-level references at setup time.
+function _declared_parameter_requirements(processes::NamedTuple)
+    requirements = ()
+    for process in values(processes)
+        requirements = (requirements..., parameter_requirements(process)...)
+    end
+    identities = map(requirement -> requirement.identity, requirements)
+    length(unique(identities)) == length(identities) || throw(
+        ArgumentError("normalized processes declare duplicate parameter requirement identities"),
+    )
+    return requirements
+end
+
+function _provision_identity(provision::ParameterProvision)
+    return ParameterRequirementIdentity(
+        provision.process,
+        provision.path,
+        provision.formulation,
+        provision.slot;
+        qualifier=provision.qualifier,
+    )
+end
+
+function _requirement_shape(requirement::ParameterRequirement)
+    n_axes = length(requirement.axes)
+    n_axes == 0 && return :scalar
+    n_axes == 1 && return :vector
+    n_axes == 2 && return :matrix
+    throw(ArgumentError("unsupported parameter requirement axes $(requirement.axes)"))
+end
+
+function _normalize_parameter_bindings(requirements::Tuple, definitions)
+    isnothing(definitions) && return ()
+    definitions isa Tuple || throw(
+        ArgumentError("model parameters must be a tuple of ParameterDefinition values"),
+    )
+    all(definition -> definition isa ParameterDefinition, definitions) || throw(
+        ArgumentError("model parameters must contain only ParameterDefinition values"),
+    )
+
+    requirement_map = Dict(requirement.identity => requirement for requirement in requirements)
+    provided = Dict{ParameterRequirementIdentity,Symbol}()
+
+    for definition in definitions
+        spec = definition.spec
+        for provision in spec.provides
+            identity = _provision_identity(provision)
+            requirement = get(requirement_map, identity, nothing)
+            isnothing(requirement) && throw(
+                ArgumentError(
+                    "parameter :$(spec.name) provides undeclared requirement $identity",
+                ),
+            )
+            expected_shape = _requirement_shape(requirement)
+            spec.shape === expected_shape || throw(
+                ArgumentError(
+                    "parameter :$(spec.name) provides $(requirement.identity) with axes $(requirement.axes) and must be $expected_shape-shaped, not $(spec.shape)-shaped",
+                ),
+            )
+            haskey(provided, identity) && throw(
+                ArgumentError(
+                    "parameter requirement $identity is provided by both :$(provided[identity]) and :$(spec.name)",
+                ),
+            )
+            provided[identity] = spec.name
+        end
+    end
+
+    missing = filter(requirement -> !haskey(provided, requirement.identity), requirements)
+    isempty(missing) || throw(
+        ArgumentError(
+            "model parameter definitions do not provide requirements $(map(r -> r.identity, missing))",
+        ),
+    )
+    return Tuple(ParameterBinding(requirement, provided[requirement.identity]) for requirement in requirements)
+end
+
+"""Normalize process identity, semantic parameter requirements, and model bindings.
 
 Process instances are canonicalized by stable process ID, so declaration order does
 not change normalized scientific identity. Component ordering is preserved because it
-still participates in concrete tracer realization.
+still participates in concrete tracer realization. Parameter requirements come from the
+normalized formulations; model parameter definitions bind their stable names to those
+requirements before runtime construction.
 """
 function normalize_model(definition::ModelDefinition)
     all(component -> component isa Union{Population,Pool}, values(definition.components)) ||
@@ -105,66 +398,52 @@ function normalize_model(definition::ModelDefinition)
     normalized_processes = _canonical_processes(
         definition.processes, definition.components
     )
+    requirements = _declared_parameter_requirements(normalized_processes)
+    bindings = _normalize_parameter_bindings(requirements, definition.parameters)
     return NormalizedModelDefinition(
         definition.components,
         normalized_processes,
         definition.parameters,
         _canonical_driver_identities(normalized_processes),
+        requirements,
+        bindings,
     )
 end
 
-function _canonical_qualifier(qualifier::NamedTuple)
-    names = sort!(collect(keys(qualifier)); by=String)
-    names_tuple = Tuple(names)
-    values = Tuple(getproperty(qualifier, name) for name in names)
-    return NamedTuple{names_tuple}(values)
+function _axis_components(process::NamedProcess, axis::Symbol)
+    process_participants = participants(process)
+    hasproperty(process_participants, axis) || throw(
+        ArgumentError(
+            "parameter applicability axis :$axis is not a participant role of process :$(process_id(process))",
+        ),
+    )
+    return getproperty(process_participants, axis)
 end
 
-"""Stable identity of one semantic formulation parameter requirement.
+function _axis_tracers(layout::ComponentLayout, components::Tuple)
+    tracers = ()
+    for component in components
+        hasproperty(layout.component_tracers, component) || throw(
+            ArgumentError("parameter applicability references unrealized component :$component"),
+        )
+        tracers = (tracers..., getproperty(layout.component_tracers, component)...)
+    end
+    return tracers
+end
 
-The identity is scoped by the owning named process, nested sub-formulation path,
-formulation tag, slot, and participant qualifier. Applicability axes are resolved in
-a later construction stage from process participation.
+"""Resolve each semantic parameter axis onto concrete component tracer identities.
+
+The result is setup-time applicability metadata. It derives vector/matrix axes from the
+participants of the owning named process rather than from global producer/consumer roles.
 """
-struct ParameterRequirementIdentity{P,Q}
-    process::Symbol
-    path::P
-    formulation::Symbol
-    slot::Symbol
-    qualifier::Q
-end
-
-Base.:(==)(a::ParameterRequirementIdentity, b::ParameterRequirementIdentity) =
-    a.process == b.process &&
-    a.path == b.path &&
-    a.formulation == b.formulation &&
-    a.slot == b.slot &&
-    a.qualifier == b.qualifier
-
-Base.hash(requirement::ParameterRequirementIdentity, h::UInt) = hash(
-    (
-        requirement.process,
-        requirement.path,
-        requirement.formulation,
-        requirement.slot,
-        requirement.qualifier,
-    ),
-    h,
+function resolve_parameter_applicability(
+    definition::NormalizedModelDefinition, layout::ComponentLayout
 )
-
-function ParameterRequirementIdentity(
-    process::Symbol,
-    path::Tuple,
-    formulation_value,
-    slot::Symbol;
-    qualifier::NamedTuple=NamedTuple(),
-)
-    all(item -> item isa Symbol, path) || throw(
-        ArgumentError("parameter requirement path must contain only Symbols"),
-    )
-    formulation_name = formulation_value isa Symbol ?
-                       formulation_value : formulation_tag(formulation_value)
-    return ParameterRequirementIdentity(
-        process, path, formulation_name, slot, _canonical_qualifier(qualifier)
-    )
+    return map(definition.parameter_bindings) do binding
+        requirement = binding.requirement
+        process = getproperty(definition.processes, requirement.identity.process)
+        axis_components = map(axis -> _axis_components(process, axis), requirement.axes)
+        axis_tracers = map(components -> _axis_tracers(layout, components), axis_components)
+        ParameterApplicability(binding, axis_components, axis_tracers)
+    end
 end
