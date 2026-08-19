@@ -39,14 +39,17 @@ Model users normally work through the model-family constructors (`construct`,
 lower-level resolved-state record used for diagnostics, model-family development, and
 semantic replay tests across explicit execution environments.
 
-`ModelRecipe` uses the `agate.model_recipe.v2` schema and records scientific construction
-semantics only. Fresh model inputs canonicalize to a recipe, and loaded recipes enter the
-same `construct_factory(recipe; ...)` realization path. Scalar precision is resolved from
-the execution environment (or an explicit `scalar_type` override) and is recorded on
-`ModelManifest`, not on the recipe.
+`ProcessModelRecipe` uses the `agate.model_recipe.v3` schema for component/process model
+families. It records canonical components, named processes, semantic parameter bindings,
+subgroup realization, and authored overrides; runtime precision, host fields, parameter
+materialization, topology maps, and compiled equations are derived during realization.
+`ModelRecipe` remains the `agate.model_recipe.v2` representation used by model families
+that still realize through the existing factory dynamics path. `ModelManifest` records
+the resolved execution state for either construction path.
 
 ```@docs
 Agate.Construction.ModelRecipe
+Agate.Construction.ProcessModelRecipe
 Agate.Construction.ModelManifest
 Agate.Construction.construct_factory
 Agate.Construction.construct_factory_plus_manifest
@@ -62,6 +65,7 @@ Extension hooks are imported explicitly by packages that define model families.
 
 ```@docs
 Agate.Construction.capture_model_recipe
+Agate.Construction.capture_process_model_recipe
 Agate.Construction.replay_factory
 Agate.Construction.resolve_construction_scalar_type
 Agate.Construction.recipe_family
@@ -101,6 +105,7 @@ Agate.Configuration.size_structure
 Agate.Configuration.sinking
 Agate.Configuration.ComponentLayout
 Agate.Configuration.realize_components
+Agate.Configuration.realize_component_groups
 ```
 
 ### Processes and model definitions
