@@ -27,7 +27,7 @@ load_cycle01_reference(name) = JSON.parsefile(joinpath(CYCLE01_REFERENCE_DIR, na
 
     bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float64))
     tracers = required_biogeochemical_tracers(bgc)
-    @test String.(tracers) == baseline["runtime"]["tracer_order"]
+    @test collect(String.(tracers)) == baseline["runtime"]["tracer_order"]
     @test !any(type -> type === Any, fieldtypes(typeof(bgc.tracer_functions)))
 
     _, recipe = Agate.Models.NiPiZD.construct_plus_recipe()
