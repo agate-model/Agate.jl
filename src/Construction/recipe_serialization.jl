@@ -9,7 +9,7 @@ using ..Library.Allometry:
     allometric_relationship_identifier,
     allometric_relationship_from_identifier
 
-const MODEL_RECIPE_SCHEMA = "agate.model_recipe.v1"
+const MODEL_RECIPE_SCHEMA = "agate.model_recipe.v2"
 const _RECIPE_DOCUMENT_KEYS = ("schema", "model", "provenance", "recipe", "recipe_hash")
 const _RECIPE_MODEL_KEYS = ("family",)
 const _RECIPE_KEYS = (
@@ -22,7 +22,6 @@ const _RECIPE_KEYS = (
     "auxiliary_fields",
     "sinking_tracers",
     "open_bottom",
-    "scalar_type",
 )
 const _SUPPORTED_SPLITTING = (:linear_splitting, :log_splitting)
 
@@ -57,19 +56,6 @@ end
 
 function _symbol(x, path)
     return Symbol(_string(x, path))
-end
-
-_float_type_id(::Type{Float32}) = "Float32"
-_float_type_id(::Type{Float64}) = "Float64"
-function _float_type_id(T::Type{<:Real})
-    throw(ArgumentError("Recipe serialization supports Float32 and Float64; got $T."))
-end
-
-function _decode_float_type(x, path)
-    name = _string(x, path)
-    name == "Float32" && return Float32
-    name == "Float64" && return Float64
-    throw(ArgumentError("$path has unsupported floating-point type $(repr(name))."))
 end
 
 function _finite_float(x::AbstractFloat)
@@ -321,7 +307,6 @@ function _encode_recipe_data(recipe::ModelRecipe)
         "auxiliary_fields" => _encode_value(recipe.auxiliary_fields),
         "sinking_tracers" => isnothing(recipe.sinking_tracers) ? nothing : _encode_value(recipe.sinking_tracers),
         "open_bottom" => recipe.open_bottom,
-        "scalar_type" => _float_type_id(recipe.scalar_type),
     )
 end
 
@@ -391,7 +376,6 @@ function decode_recipe(document::AbstractDict)
         auxiliary_fields,
         sinking_tracers,
         _boolean(recipe["open_bottom"], "Recipe document.recipe.open_bottom"),
-        _decode_float_type(recipe["scalar_type"], "Recipe document.recipe.scalar_type"),
     )
 
     expected_hash = _recipe_hash(decoded, _encode_recipe_data(decoded))
