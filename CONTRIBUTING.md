@@ -60,6 +60,18 @@ We follow the contributing guidelines developed by [The Turing Way](https://gith
   - You can test to make sure Agate works by typing in `] test`. Doing so will run all
     the tests (and this can take a while).
 
+### GPU tests
+
+CUDA execution is opt-in because loading CUDA can fail hard on machines with an
+incomplete or incompatible GPU/toolkit setup. On a CUDA-capable machine, run the
+full suite including the GPU biological-execution and sinking checks with:
+
+```bash
+AGATE_TEST_CUDA=1 julia --project=. -e 'using Pkg; Pkg.test()'
+```
+
+The default test suite does not load CUDA.
+
 We follow the [Blue](https://github.com/JuliaDiff/BlueStyle) style guide for Julia. To automatically format all Julia files in the project you can use the JuliaFormatter. Once you have installed it (`add JuliaFormatter`) run:
 
 ```Julia
