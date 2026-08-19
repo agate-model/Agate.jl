@@ -10,6 +10,7 @@ using ..Factories:
     default_processes,
     parameter_definitions
 using ..Library.Mortality: linear_loss, quadratic_loss
+using ..Library.Photosynthesis: smith_growth
 
 export AbstractProcess, AbstractFormulation
 export Smith, Monod, PreferentialGrazing
