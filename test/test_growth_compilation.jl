@@ -92,9 +92,11 @@ end
         target -> bgc(Val(target), NIPIZD_GROWTH_ARGS...),
         NIPIZD_GROWTH_TARGET_ORDER,
     )
-    @test all(isapprox.(generated, legacy))
+    @test all(process_compiler_isapprox.(generated, legacy))
     @test isapprox(sum(generated), 0; atol=10 * eps(sum(abs, generated)))
-    @test (@inferred compiled.P_1(bgc, NIPIZD_GROWTH_ARGS...)) ≈ legacy[2]
+    @test process_compiler_isapprox(
+        @inferred(compiled.P_1(bgc, NIPIZD_GROWTH_ARGS...)), legacy[2]
+    )
 end
 
 @testset "Smith/Monod growth compiler ForwardDiff" begin
@@ -111,5 +113,5 @@ end
 
     rate = p_1_growth(biomass)
     derivative = ForwardDiff.derivative(p_1_growth, biomass)
-    @test derivative ≈ rate / biomass
+    @test process_compiler_isapprox(derivative, rate / biomass)
 end
