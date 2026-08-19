@@ -6,9 +6,11 @@ using ..Equations: CompiledEquation
 using ..Processes:
     AbstractFormulation,
     Growth,
+    Grazing,
     Mortality,
     Monod,
     NamedProcess,
+    PreferentialGrazing,
     NormalizedModelDefinition,
     NutrientResponse,
     PartitionRouting,
@@ -22,6 +24,9 @@ using ..Processes:
 export AbstractProcessContribution
 export GrowthParameterBinding, GrowthTopology
 export GrowthBiomassContribution, GrowthResourceLossContribution
+export GrazingParameterBinding, GrazingTopology
+export GrazingResourceLossContribution, GrazingConsumerGainContribution
+export GrazingUnassimilatedContribution
 export MortalityParameterBinding, MortalityTopology
 export MortalityLossContribution, MortalityRoutingContribution
 export realize_process_topology, process_contributions
@@ -31,5 +36,6 @@ export compile_tendency, compile_tendencies
 include("contributions.jl")
 include("mortality.jl")
 include("growth.jl")
+include("grazing.jl")
 
 end # module Compilation
