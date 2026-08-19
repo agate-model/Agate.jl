@@ -58,6 +58,26 @@ function default_plankton_dynamics(::NiPiZDFactory)
     (Z=zooplankton_nipizd, P=phytoplankton_nipizd)
 end
 
+function default_plankton_dynamics(
+    ::NiPiZDFactory, community::NamedTuple, ecological_roles::NamedTuple
+)
+    groups = keys(community)
+    phytoplankton = ecological_roles.phytoplankton
+    zooplankton = ecological_roles.zooplankton
+
+    values = ntuple(length(groups)) do i
+        group = groups[i]
+        if group in phytoplankton
+            phytoplankton_nipizd
+        elseif group in zooplankton
+            zooplankton_nipizd
+        else
+            throw(ArgumentError("recipe group :$group has no NiPiZD ecological role"))
+        end
+    end
+    return NamedTuple{groups}(values)
+end
+
 """Default plankton arguments for NiPiZD.
 
 Returns a `NamedTuple` mapping group prefix => group specification.
