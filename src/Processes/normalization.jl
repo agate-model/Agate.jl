@@ -86,10 +86,23 @@ function ParameterRequirementIdentity(
     )
 end
 
-"""One formulation-declared semantic parameter requirement and its process-local axes."""
+function _default_requirement_shape(axes::Tuple)
+    n_axes = length(axes)
+    n_axes == 0 && return :scalar
+    n_axes == 1 && return :vector
+    n_axes == 2 && return :matrix
+    throw(ArgumentError("parameter requirement axes currently support at most two dimensions"))
+end
+
+"""One formulation-declared semantic parameter requirement.
+
+`axes` describe process-local applicability. `shape` describes model-parameter storage,
+so a scalar parameter may be shared across an indexed process family.
+"""
 struct ParameterRequirement{I,A<:Tuple}
     identity::I
     axes::A
+    shape::Symbol
 end
 
 function ParameterRequirement(
@@ -99,6 +112,7 @@ function ParameterRequirement(
     slot::Symbol,
     axes::Tuple;
     qualifier::NamedTuple=NamedTuple(),
+    shape::Symbol=_default_requirement_shape(axes),
 )
     length(axes) <= 2 || throw(
         ArgumentError("parameter requirement axes currently support at most two dimensions"),
@@ -106,10 +120,13 @@ function ParameterRequirement(
     all(axis -> axis isa Symbol, axes) || throw(
         ArgumentError("parameter requirement axes must contain only Symbols"),
     )
+    shape in (:scalar, :vector, :matrix) || throw(
+        ArgumentError("parameter requirement shape must be :scalar, :vector, or :matrix"),
+    )
     identity = ParameterRequirementIdentity(
         process, path, formulation_value, slot; qualifier
     )
-    return ParameterRequirement(identity, axes)
+    return ParameterRequirement(identity, axes, shape)
 end
 
 """Resolved mapping from one semantic requirement to a model parameter name."""
@@ -125,9 +142,17 @@ struct ParameterApplicability{B,C,T}
     axis_tracers::T
 end
 
-function _requirement(named::NamedProcess, path, formulation_value, slot, axes; qualifier=NamedTuple())
+function _requirement(
+    named::NamedProcess,
+    path,
+    formulation_value,
+    slot,
+    axes;
+    qualifier=NamedTuple(),
+    shape=_default_requirement_shape(axes),
+)
     return ParameterRequirement(
-        process_id(named), path, formulation_value, slot, axes; qualifier
+        process_id(named), path, formulation_value, slot, axes; qualifier, shape
     )
 end
 
@@ -219,7 +244,9 @@ function parameter_requirements(named::NamedProcess{P}) where {P<:Remineralizati
     qualifier = length(process.sources) == 1 ?
                 (source=only(process.sources),) : NamedTuple()
     return (
-        _requirement(named, (), process.formulation, :rate, (:source,); qualifier),
+        _requirement(
+            named, (), process.formulation, :rate, (:source,); qualifier, shape=:scalar
+        ),
     )
 end
 
@@ -330,14 +357,6 @@ function _provision_identity(provision::ParameterProvision)
     )
 end
 
-function _requirement_shape(requirement::ParameterRequirement)
-    n_axes = length(requirement.axes)
-    n_axes == 0 && return :scalar
-    n_axes == 1 && return :vector
-    n_axes == 2 && return :matrix
-    throw(ArgumentError("unsupported parameter requirement axes $(requirement.axes)"))
-end
-
 function _normalize_parameter_bindings(requirements::Tuple, definitions)
     isnothing(definitions) && return ()
     definitions isa Tuple || throw(
@@ -360,10 +379,9 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
                     "parameter :$(spec.name) provides undeclared requirement $identity",
                 ),
             )
-            expected_shape = _requirement_shape(requirement)
-            spec.shape === expected_shape || throw(
+            spec.shape === requirement.shape || throw(
                 ArgumentError(
-                    "parameter :$(spec.name) provides $(requirement.identity) with axes $(requirement.axes) and must be $expected_shape-shaped, not $(spec.shape)-shaped",
+                    "parameter :$(spec.name) provides $(requirement.identity) with required shape $(requirement.shape), not $(spec.shape)",
                 ),
             )
             haskey(provided, identity) && throw(
