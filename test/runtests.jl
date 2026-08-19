@@ -9,6 +9,7 @@ include("test_tracer_functions.jl")
 include("test_classrefs_and_tracer_accessors.jl")
 include("test_library.jl")
 include("test_components.jl")
+include("test_processes.jl")
 include("test_inorganic_coupling.jl")
 include("test_box_model.jl")
 
