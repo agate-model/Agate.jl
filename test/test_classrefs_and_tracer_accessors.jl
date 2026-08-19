@@ -5,13 +5,27 @@ using Agate.Configuration:
     build_plankton_community, parse_community, DiameterRangeSpecification
 using Agate.Runtime: class, resolve_class, class_count, build_tracer_index, Tracers
 using Agate.Factories: default_biogeochem_dynamics, default_community
+using Agate.Equations: CompiledEquation
+using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 
 
 struct GenericRoleFixtureFactory <: Agate.Factories.AbstractBGCFactory end
 
 Agate.Construction.recipe_family(::GenericRoleFixtureFactory) = :GenericRoleFixture
+Agate.Construction.recipe_factory(::Val{:GenericRoleFixture}) = GenericRoleFixtureFactory()
 Agate.Factories.parameter_definitions(::GenericRoleFixtureFactory) = ()
 Agate.Configuration.matrix_definitions(::GenericRoleFixtureFactory) = (;)
+
+zero_plankton_tendency(::Int) = CompiledEquation(
+    (bgc, x, y, z, t, args...) -> zero(first(args))
+)
+Agate.Factories.default_plankton_dynamics(::GenericRoleFixtureFactory) = (
+    P=zero_plankton_tendency,
+    B=zero_plankton_tendency,
+    M=zero_plankton_tendency,
+    Z=zero_plankton_tendency,
+)
+Agate.Factories.default_biogeochem_dynamics(::GenericRoleFixtureFactory) = (;)
 
 @testset "Independent community roles" begin
     pft = Agate.Configuration.PFTSpecification()
@@ -73,6 +87,9 @@ Agate.Configuration.matrix_definitions(::GenericRoleFixtureFactory) = (;)
     @test manifest.interaction_role_indices == (consumers=(3, 4), prey=(1, 2, 3))
     @test manifest.parameter_role_indices ==
           (producers=(1, 3), consumers=(3, 4), bacterioplankton=(2,))
+
+    replayed = Agate.Construction.construct_factory(recipe; scalar_type=Float64)
+    @test required_biogeochemical_tracers(replayed) == (:P_1, :B_1, :M_1, :Z_1)
 end
 
 @testset "ClassRef + Tracers accessors" begin
