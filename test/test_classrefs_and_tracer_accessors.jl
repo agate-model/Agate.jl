@@ -53,7 +53,6 @@ Agate.Configuration.matrix_definitions(::GenericRoleFixtureFactory) = (;)
         interaction_roles,
         parameter_roles,
         auxiliary_fields=(),
-        scalar_type=Float64,
     )
     manifest = Agate.Construction.capture_model_manifest(
         factory,
