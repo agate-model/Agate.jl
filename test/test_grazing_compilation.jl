@@ -112,7 +112,7 @@ end
         NIPIZD_GRAZING_TARGET_ORDER,
     )
     @test all(isapprox.(generated, legacy))
-    @test sum(generated) ≈ 0
+    @test isapprox(sum(generated), 0; atol=10 * eps(sum(abs, generated)))
     @test (@inferred compiled.P_1(bgc, NIPIZD_GRAZING_ARGS...)) ≈ legacy[4]
 end
 
