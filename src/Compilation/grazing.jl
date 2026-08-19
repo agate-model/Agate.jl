@@ -185,6 +185,17 @@ function process_contributions(
     return contributions
 end
 
+function process_contributions(
+    named::NamedProcess{P},
+    definition::NormalizedModelDefinition,
+    layout::ComponentLayout,
+    context::CommunityContext,
+) where {P<:Grazing}
+    topology = realize_process_topology(named, layout, context)
+    binding = GrazingParameterBinding(definition, process_id(named))
+    return process_contributions(named, topology, binding)
+end
+
 struct GrazingTerm{F,CI,CA,RI,RA,M,K,P,A,Effect}
     formulation::F
 end
