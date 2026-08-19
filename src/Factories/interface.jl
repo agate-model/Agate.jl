@@ -1,6 +1,20 @@
+export default_components
 export default_plankton_dynamics
 export default_community
 export default_biogeochem_dynamics
+
+"""Canonical logical components for a model factory.
+
+Returns a named collection whose keys are stable model component identities and
+whose values describe intrinsic component structure.
+"""
+function default_components(::AbstractBGCFactory)
+    throw(
+        ArgumentError(
+            "No method `default_components(factory)` is defined for this factory."
+        ),
+    )
+end
 
 """Default plankton dynamics for a factory.
 
