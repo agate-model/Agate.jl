@@ -240,15 +240,14 @@ struct StaticContributionEquation{T}
     terms::T
 end
 
-@generated function _sum_contributions(terms::T, bgc, args) where {T<:Tuple}
-    n = fieldcount(T)
-    n == 0 && return :(throw(ArgumentError("compiled contribution equation has no terms")))
+@inline function _sum_contributions(terms::Tuple{T}, bgc, args) where {T}
+    return first(terms)(bgc, args)
+end
 
-    expression = :(getfield(terms, 1)(bgc, args))
-    for i in 2:n
-        expression = :($expression + getfield(terms, $i)(bgc, args))
-    end
-    return expression
+@inline function _sum_contributions(
+    terms::Tuple{T,S,Vararg{Any,N}}, bgc, args
+) where {T,S,N}
+    return first(terms)(bgc, args) + _sum_contributions(Base.tail(terms), bgc, args)
 end
 
 @inline function (equation::StaticContributionEquation)(bgc, x, y, z, t, args...)
