@@ -12,6 +12,7 @@ using ..Factories:
 using ..Library.Mortality: linear_loss, quadratic_loss
 using ..Library.Predation: preferential_predation_loss
 using ..Library.Photosynthesis: smith_growth
+using ..Library.Remineralization: linear_remineralization
 
 export AbstractProcess, AbstractFormulation
 export Smith, Monod, PreferentialGrazing
