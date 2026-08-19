@@ -1,11 +1,17 @@
 using ...Factories: AbstractBGCFactory
 using ...Configuration: PFTSpecification, Population, Pool
+using ...Processes:
+    Growth, NutrientResponse, Grazing, Mortality, ProductRouting, Remineralization
 
 # NOTE: Numeric parameter defaults are declared alongside parameter metadata in
 # `parameter_definitions(::NiPiZDFactory)` (see `Models/NiPiZD/parameters.jl`).
 
 import ...Factories:
-    default_components, default_plankton_dynamics, default_community, default_biogeochem_dynamics
+    default_components,
+    default_processes,
+    default_plankton_dynamics,
+    default_community,
+    default_biogeochem_dynamics
 
 import ...Construction: recipe_family, recipe_factory
 
@@ -41,6 +47,37 @@ const NIPIZD_COMPONENTS = (
 
 """Canonical logical components for NiPiZD."""
 default_components(::NiPiZDFactory) = NIPIZD_COMPONENTS
+
+const NIPIZD_PROCESSES = (
+    growth_P=Growth(
+        :smith;
+        population=:P,
+        light=:PAR,
+        limitation=NutrientResponse(:monod; resource=:N),
+    ),
+    grazing_Z_on_P=Grazing(
+        :preferential; consumer=:Z, resource=:P, unassimilated_destination=:D
+    ),
+    linear_mortality_P=Mortality(
+        :linear;
+        population=:P,
+        routing=ProductRouting(:partition; retained=:D, exported=:N),
+    ),
+    linear_mortality_Z=Mortality(
+        :linear;
+        population=:Z,
+        routing=ProductRouting(:partition; retained=:D, exported=:N),
+    ),
+    quadratic_mortality_Z=Mortality(
+        :quadratic;
+        population=:Z,
+        routing=ProductRouting(:partition; retained=:D, exported=:N),
+    ),
+    remineralization_D=Remineralization(:linear; source=:D, destination=:N),
+)
+
+"""Canonical named scientific processes for NiPiZD."""
+default_processes(::NiPiZDFactory) = NIPIZD_PROCESSES
 
 const NIPIZD_TENDENCIES = TendencyConfig(;
     growth=:smith,
