@@ -21,6 +21,9 @@ import Agate.Factories: FillDefault, parameter_definitions, parameter_directory
         specmap = Dict(spec.name => spec for spec in dir)
         definitions = Dict(def.spec.name => def for def in parameter_definitions(factory))
         @test definitions[:linear_mortality].default isa FillDefault
+        @test all(!isempty(spec.provides) for spec in values(specmap))
+        @test length(specmap[:linear_mortality].provides) == 2
+        @test length(specmap[:mortality_export_fraction].provides) == 3
         @test specmap[:detritus_remineralization].shape == :scalar
         @test specmap[:maximum_growth_rate].shape == :vector
         @test specmap[:maximum_growth_rate].axes == :plankton
