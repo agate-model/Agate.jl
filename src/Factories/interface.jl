@@ -15,6 +15,18 @@ function default_plankton_dynamics(::AbstractBGCFactory)
     )
 end
 
+"""Resolve plankton dynamics for a realized recipe community.
+
+Factories with fixed group identities can rely on `default_plankton_dynamics(factory)`.
+Factories whose authored community uses dynamic group names may specialize this method
+using canonical community and ecological-role data.
+"""
+function default_plankton_dynamics(
+    factory::AbstractBGCFactory, community::NamedTuple, ecological_roles::NamedTuple
+)
+    return default_plankton_dynamics(factory)
+end
+
 """Default plankton community structure for a factory.
 
 Returns a `NamedTuple` mapping group symbols to group specifications.
