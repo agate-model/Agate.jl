@@ -1,4 +1,5 @@
 export ParameterSpec
+export ParameterProvision
 export DefaultProvider
 export ParameterDefinition
 export parameter_definitions
@@ -25,21 +26,70 @@ function DiameterIndexedMaterialization(role::Union{Nothing,Symbol}=nothing; fil
     return DiameterIndexedMaterialization(role, fill_value)
 end
 
+"""Declare that a model parameter supplies one semantic formulation requirement.
+
+`process` is the stable named process identity, `path` locates an optional nested
+sub-formulation, and `slot` is the formulation-local semantic parameter name.
+`qualifier` distinguishes repeated instances of the same slot, such as Monod `K`
+for different resources.
+"""
+struct ParameterProvision{P<:Tuple,Q<:NamedTuple}
+    process::Symbol
+    path::P
+    formulation::Symbol
+    slot::Symbol
+    qualifier::Q
+end
+
+function ParameterProvision(
+    process::Symbol,
+    path::Tuple,
+    formulation::Symbol,
+    slot::Symbol;
+    qualifier::NamedTuple=NamedTuple(),
+)
+    all(item -> item isa Symbol, path) || throw(
+        ArgumentError("parameter provision path must contain only Symbols"),
+    )
+    return ParameterProvision(process, path, formulation, slot, qualifier)
+end
+
+function _parameter_provisions(provides)
+    isnothing(provides) && return ()
+    provides isa ParameterProvision && return (provides,)
+    provides isa Tuple || throw(
+        ArgumentError("`provides` must be a ParameterProvision or tuple of provisions"),
+    )
+    all(provision -> provision isa ParameterProvision, provides) || throw(
+        ArgumentError("`provides` must contain only ParameterProvision values"),
+    )
+    return provides
+end
+
 """Describe a configurable model parameter.
 
 Fields
 ------
 - `name`: parameter key.
 - `shape`: one of `:scalar`, `:vector`, or `:matrix`.
-- `axes`: optional vector axis name or matrix-axis names.
+- `axes`: optional legacy runtime vector axis name or matrix-axis names.
 - `materialization`: optional constructor-time parameter-law materialization semantics.
+- `provides`: semantic process/formulation requirements supplied by this parameter.
 """
-struct ParameterSpec
+struct ParameterSpec{P<:Tuple}
     name::Symbol
     shape::Symbol
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}
     materialization::Union{Nothing,DiameterIndexedMaterialization}
+    provides::P
 end
+
+ParameterSpec(
+    name::Symbol,
+    shape::Symbol,
+    axes::Union{Nothing,Symbol,NTuple{2,Symbol}},
+    materialization::Union{Nothing,DiameterIndexedMaterialization},
+) = ParameterSpec(name, shape, axes, materialization, ())
 
 """Convenience constructor for `ParameterSpec`."""
 function ParameterSpec(
@@ -47,8 +97,10 @@ function ParameterSpec(
     shape::Symbol;
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
     materialization::Union{Nothing,DiameterIndexedMaterialization}=nothing,
+    provides=(),
 )
-    ParameterSpec(name, shape, axes, materialization)
+    provisions = _parameter_provisions(provides)
+    return ParameterSpec(name, shape, axes, materialization, provisions)
 end
 
 """Abstract supertype for constructor-time default providers.
