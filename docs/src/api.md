@@ -79,6 +79,7 @@ Agate.Factories.FillDefault
 Agate.Factories.DiameterIndexedVectorDefault
 Agate.Factories.DiameterIndexedMaterialization
 Agate.Factories.default_components
+Agate.Factories.default_processes
 Agate.Factories.default_community
 Agate.Factories.default_plankton_dynamics
 Agate.Factories.default_biogeochem_dynamics
@@ -99,6 +100,25 @@ Agate.Configuration.size_structure
 Agate.Configuration.sinking
 Agate.Configuration.ComponentLayout
 Agate.Configuration.realize_components
+```
+
+### Processes and model definitions
+
+```@docs
+Agate.Processes.AbstractProcess
+Agate.Processes.AbstractFormulation
+Agate.Processes.Growth
+Agate.Processes.NutrientResponse
+Agate.Processes.Grazing
+Agate.Processes.Mortality
+Agate.Processes.ProductRouting
+Agate.Processes.Remineralization
+Agate.Processes.ModelDefinition
+Agate.Processes.NamedProcess
+Agate.Processes.NormalizedModelDefinition
+Agate.Processes.ParameterRequirementIdentity
+Agate.Processes.driver_identities
+Agate.Processes.normalize_model
 ```
 
 ### Plankton communities and interactions
