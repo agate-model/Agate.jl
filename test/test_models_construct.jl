@@ -631,7 +631,11 @@ end
     if lowercase(get(ENV, "AGATE_TEST_CUDA", "0")) in ("1", "true", "yes")
         @testset "GPU smoke test" begin
             @eval using CUDA
+            @eval using Agate.Library.Light: CyclicalPAR, FunctionFieldPAR
+            @eval using OceanBioME: Biogeochemistry
+            @eval using Oceananigans: RectilinearGrid, NonhydrostaticModel, set!, time_step!
             @eval using Oceananigans.Architectures: GPU, array_type
+            @eval using Oceananigans.Grids: Periodic, Flat, Bounded
 
             @test CUDA.functional()
             if CUDA.functional()
@@ -642,6 +646,38 @@ end
                     required_biogeochemical_tracers(bgc_cpu)
                 @test bgc_gpu.parameters.interactions.palatability isa array_type(GPU())
                 @test bgc_gpu.parameters.maximum_predation_rate isa array_type(GPU())
+
+                grid = RectilinearGrid(
+                    GPU(), Float32;
+                    topology=(Periodic, Flat, Bounded),
+                    size=(4, 4),
+                    x=(0f0, 4f0),
+                    z=(-4f0, 0f0),
+                )
+                sinking_rate = 2.5f0 / day
+                bgc_sinking = NiPiZD.construct(;
+                    grid, sinking_tracers=(D=sinking_rate,)
+                )
+                drift = biogeochemical_drift_velocity(bgc_sinking, Val(:D)).w
+
+                @test parent(drift.data) isa array_type(GPU())
+                @test any(==(-sinking_rate), Array(drift.data))
+                @test biogeochemical_drift_velocity(bgc_sinking, Val(:Z_1)).w == ZeroField()
+
+                light_attenuation = FunctionFieldPAR(; grid, PAR_f=CyclicalPAR())
+                bgc_model = Biogeochemistry(bgc_sinking; light_attenuation)
+                model = NonhydrostaticModel(; grid, biogeochemistry=bgc_model)
+                set!(
+                    model;
+                    N=7f0,
+                    D=0.01f0,
+                    P_1=0.01f0,
+                    P_2=0.01f0,
+                    Z_1=0.05f0,
+                    Z_2=0.05f0,
+                )
+                time_step!(model, 60f0)
+                @test model.clock.iteration == 1
             end
         end
     end
