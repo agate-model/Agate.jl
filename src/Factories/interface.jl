@@ -1,4 +1,5 @@
 export default_components
+export default_processes
 export default_plankton_dynamics
 export default_community
 export default_biogeochem_dynamics
@@ -12,6 +13,19 @@ function default_components(::AbstractBGCFactory)
     throw(
         ArgumentError(
             "No method `default_components(factory)` is defined for this factory."
+        ),
+    )
+end
+
+"""Canonical named scientific processes for a model factory.
+
+The keys are stable process-instance identities. Process declarations describe
+scientific topology and are normalized before runtime realization.
+"""
+function default_processes(::AbstractBGCFactory)
+    throw(
+        ArgumentError(
+            "No method `default_processes(factory)` is defined for this factory."
         ),
     )
 end
