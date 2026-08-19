@@ -78,6 +78,7 @@ Agate.Factories.NoDefault
 Agate.Factories.FillDefault
 Agate.Factories.DiameterIndexedVectorDefault
 Agate.Factories.DiameterIndexedMaterialization
+Agate.Factories.default_components
 Agate.Factories.default_community
 Agate.Factories.default_plankton_dynamics
 Agate.Factories.default_biogeochem_dynamics
@@ -86,6 +87,18 @@ Agate.Configuration.MatrixDefinition
 Agate.Configuration.matrix_definitions
 Agate.Configuration.derive_matrix
 Agate.Configuration.derivation_deps
+```
+
+### Components and configuration
+
+```@docs
+Agate.Configuration.Population
+Agate.Configuration.Pool
+Agate.Configuration.currency
+Agate.Configuration.size_structure
+Agate.Configuration.sinking
+Agate.Configuration.ComponentLayout
+Agate.Configuration.realize_components
 ```
 
 ### Plankton communities and interactions
