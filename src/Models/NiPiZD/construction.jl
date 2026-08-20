@@ -104,7 +104,7 @@ Construct a size-structured NiPiZD ecosystem model.
 The NiPiZD model contains phytoplankton and zooplankton roles. `size_structure` defines
 the groups within each role; the defaults are `P` and `Z`.
 
-In addition to plankton, the default NiPiZD factory includes idealized nutrient (`N`) and
+In addition to plankton, the NiPiZD definition includes idealized nutrient (`N`) and
 detritus (`D`) cycling. The returned biogeochemistry instance includes a photosynthetically
 active radiation (PAR) auxiliary field.
 

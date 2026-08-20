@@ -394,7 +394,6 @@ end
             Dict(:consumer => [1], :prey => [2, 3]),
             [1],
             [2, 3],
-            (producers=[2, 3], consumers=[1]),
         )
         params = (;
             encounter_matrix=Float32[1 2],

@@ -12,7 +12,7 @@ using Agate.Compilation:
 using Agate.Configuration: realize_components
 using Agate.Construction: define_tracer_functions
 using Agate.Equations: CompiledEquation
-using Agate.Factories: default_components, default_community
+using Agate.Factories: default_components
 using Agate.Processes: ModelDefinition, normalize_model
 
 const NIPIZD_MORTALITY_IDS = (
@@ -28,7 +28,7 @@ function nipizd_mortality_compilation(::Type{T}=Float64) where {T<:Real}
     normalized = normalize_model(ModelDefinition(factory))
     layout = realize_components(default_components(factory); scalar_type=T)
     context = Agate.Configuration.parse_community(
-        T, default_community(factory); biogeochem_tracers=(:N, :D)
+        T, default_nipizd_community(); biogeochem_tracers=(:N, :D)
     )
     contributions = ()
     for id in NIPIZD_MORTALITY_IDS

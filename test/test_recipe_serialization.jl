@@ -156,18 +156,19 @@ explicit_json_value(::Any) = false
     warned = @test_logs (:warn, r"Agate version differs") decode_recipe(version_mismatch)
     @test warned == recipe
 
-    v1_document = modified(encoded, x -> (x["schema"] = "agate.model_recipe.v1"))
-    v1_error = try
-        decode_recipe(v1_document)
-        nothing
-    catch err
-        err
+    for schema in ("agate.model_recipe.v1", "agate.model_recipe.v2")
+        unsupported = modified(encoded, x -> (x["schema"] = schema))
+        err = try
+            decode_recipe(unsupported)
+            nothing
+        catch exception
+            exception
+        end
+        @test err isa ArgumentError
+        message = sprint(showerror, err)
+        @test occursin("Unsupported Agate recipe schema", message)
+        @test occursin("agate.model_recipe.v3", message)
     end
-    @test v1_error isa ArgumentError
-    message = sprint(showerror, v1_error)
-    @test occursin("Unsupported Agate recipe schema", message)
-    @test occursin("agate.model_recipe.v2", message)
-    @test occursin("agate.model_recipe.v3", message)
 
     invalid_documents = (
         modified(encoded, x -> (x["extra"] = true)),
@@ -195,20 +196,4 @@ explicit_json_value(::Any) = false
         @test_throws ArgumentError decode_recipe(document)
     end
     @test_throws ArgumentError decode_recipe("not a recipe document")
-end
-
-@testset "Legacy v2 recipe round-trip" begin
-    factory = Agate.Models.NiPiZD.NiPiZDFactory()
-    recipe = Agate.Construction.capture_model_recipe(
-        factory;
-        community=Agate.Factories.default_community(factory),
-        ecological_roles=(phytoplankton=(:P,), zooplankton=(:Z,)),
-        interaction_roles=(consumers=(:Z,), prey=(:P,)),
-        parameter_roles=(producers=(:P,), consumers=(:Z,)),
-        auxiliary_fields=(:PAR,),
-    )
-    encoded = encode_recipe(recipe)
-
-    @test encoded["schema"] == "agate.model_recipe.v2"
-    @test decode_recipe(encoded) == recipe
 end

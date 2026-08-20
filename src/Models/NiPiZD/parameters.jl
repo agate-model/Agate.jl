@@ -33,9 +33,9 @@ function parameter_definitions(::NiPiZDFactory)
     detritus_remin = 0.1213 / 86400
     all_plankton_materialization = DiameterIndexedMaterialization(; fill_value=0)
     producer_materialization =
-        DiameterIndexedMaterialization(:producers; fill_value=0)
+        DiameterIndexedMaterialization(; fill_value=0)
     consumer_materialization =
-        DiameterIndexedMaterialization(:consumers; fill_value=0)
+        DiameterIndexedMaterialization(; fill_value=0)
 
     return (
         ParameterDefinition(
@@ -109,7 +109,7 @@ function parameter_definitions(::NiPiZDFactory)
                     qualifier=(population=:Z,),
                 ),
             ),
-            DiameterIndexedVectorDefault(1e-6, :consumers; default=0),
+            DiameterIndexedVectorDefault(1e-6; default=0),
         ),
         ParameterDefinition(
             ParameterSpec(
@@ -120,8 +120,7 @@ function parameter_definitions(::NiPiZDFactory)
                 provides=provision(:growth_P, (:factors, :light), :smith, :maximum_rate),
             ),
             DiameterIndexedVectorDefault(
-                AllometricParam(PowerLaw(); prefactor=2 / 86400, exponent=-0.15),
-                :producers;
+                AllometricParam(PowerLaw(); prefactor=2 / 86400, exponent=-0.15);
                 default=0,
             ),
         ),
@@ -140,8 +139,7 @@ function parameter_definitions(::NiPiZDFactory)
                 ),
             ),
             DiameterIndexedVectorDefault(
-                AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27),
-                :producers;
+                AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27);
                 default=0,
             ),
         ),
@@ -154,7 +152,7 @@ function parameter_definitions(::NiPiZDFactory)
                 provides=provision(:growth_P, (:factors, :light), :smith, :alpha),
             ),
             DiameterIndexedVectorDefault(
-                0.1953 / 86400, :producers; default=0
+                0.1953 / 86400; default=0
             ),
         ),
         ParameterDefinition(
@@ -168,8 +166,7 @@ function parameter_definitions(::NiPiZDFactory)
                 ),
             ),
             DiameterIndexedVectorDefault(
-                AllometricParam(PowerLaw(); prefactor=30.84 / 86400, exponent=-0.16),
-                :consumers;
+                AllometricParam(PowerLaw(); prefactor=30.84 / 86400, exponent=-0.16);
                 default=0,
             ),
         ),
@@ -183,7 +180,7 @@ function parameter_definitions(::NiPiZDFactory)
                     :grazing_Z_on_P, (), :preferential, :half_saturation
                 ),
             ),
-            DiameterIndexedVectorDefault(5.0, :consumers; default=0),
+            DiameterIndexedVectorDefault(5.0; default=0),
         ),
         ParameterDefinition(
             ParameterSpec(
@@ -229,7 +226,7 @@ function parameter_definitions(::NiPiZDFactory)
                     :optimum_predator_prey_ratio,
                 ),
             ),
-            DiameterIndexedVectorDefault(10.0, :consumers; default=0),
+            DiameterIndexedVectorDefault(10.0; default=0),
         ),
         ParameterDefinition(
             ParameterSpec(
@@ -241,7 +238,7 @@ function parameter_definitions(::NiPiZDFactory)
                     :grazing_Z_on_P, (:palatability, :default), :allometric, :specificity
                 ),
             ),
-            DiameterIndexedVectorDefault(0.3, :consumers; default=0),
+            DiameterIndexedVectorDefault(0.3; default=0),
         ),
         ParameterDefinition(
             ParameterSpec(
@@ -253,7 +250,7 @@ function parameter_definitions(::NiPiZDFactory)
                     :grazing_Z_on_P, (:palatability, :default), :allometric, :protection
                 ),
             ),
-            DiameterIndexedVectorDefault(0.0, :producers; default=1.0),
+            DiameterIndexedVectorDefault(0.0; default=1.0),
         ),
         ParameterDefinition(
             ParameterSpec(
@@ -268,7 +265,7 @@ function parameter_definitions(::NiPiZDFactory)
                     :assimilation_efficiency,
                 ),
             ),
-            DiameterIndexedVectorDefault(0.32, :consumers; default=0),
+            DiameterIndexedVectorDefault(0.32; default=0),
         ),
     )
 end

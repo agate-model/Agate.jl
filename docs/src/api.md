@@ -107,15 +107,8 @@ Agate.Factories.parameter_directory
 Agate.Factories.parameter_spec
 Agate.Factories.default_components
 Agate.Factories.default_processes
-Agate.Factories.default_community
 Agate.Configuration.PFTSpecification
 Agate.Configuration.build_plankton_community
-```
-
-`ModelRecipe` represents the v2 recipe format; component/process models use `ProcessModelRecipe` v3.
-
-```@docs
-Agate.Construction.ModelRecipe
 ```
 
 ## Introspection

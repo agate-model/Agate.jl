@@ -6,10 +6,10 @@ across size-structured model tracer kernels.
 """
 module Reductions
 
-using ...Library.Mortality: linear_loss, quadratic_loss
-using ...Library.Nutrients: LiebigMinimum, FrankTNorm
-using ...Library.Photosynthesis: smith_growth, geider_growth
-using ...Library.Predation:
+using Agate.Library.Mortality: linear_loss, quadratic_loss
+using Agate.Library.Nutrients: LiebigMinimum, FrankTNorm
+using Agate.Library.Photosynthesis: smith_growth, geider_growth
+using Agate.Library.Predation:
     preferential_predation_loss,
     preferential_predation_gain,
     preferential_predation_unassimilated_loss

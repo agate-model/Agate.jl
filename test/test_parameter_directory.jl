@@ -72,10 +72,8 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
         @test specmap[:maximum_growth_rate].shape == :vector
         @test specmap[:maximum_growth_rate].axes == :plankton
         @test !isnothing(specmap[:maximum_growth_rate].materialization)
-        @test specmap[:maximum_growth_rate].materialization.role === :producers
         @test specmap[:maximum_growth_rate].materialization.fill_value == 0
         @test !isnothing(specmap[:linear_mortality].materialization)
-        @test isnothing(specmap[:linear_mortality].materialization.role)
         @test specmap[:linear_mortality].materialization.fill_value == 0
         @test specmap[:palatability_matrix].shape == :matrix
         @test specmap[:palatability_matrix].axes == (:consumer, :prey)
@@ -87,7 +85,9 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
         context = (; scalar_type=Float64)
         @test Agate.Construction.validate_parameter_directory(factory) == (:base, :top, :middle)
 
-        defaults = Agate.Construction.build_parameter_defaults(factory, context, Float64)
+        defaults = Agate.Construction.build_process_parameter_defaults(
+            factory, nothing, nothing, context, Float64
+        )
         @test defaults == (base=2.0,)
 
         resolve(overrides=(;)) = Agate.Construction.resolve_parameter_defaults(

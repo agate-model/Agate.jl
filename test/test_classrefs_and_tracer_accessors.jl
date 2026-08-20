@@ -5,102 +5,30 @@ using Agate.Configuration:
     build_plankton_community, parse_community, DiameterRangeSpecification, Population, Pool,
     realize_components
 using Agate.Runtime: class, resolve_class, class_count, build_tracer_index, Tracers
-using Agate.Factories: default_biogeochem_dynamics, default_community, default_components
-using Agate.Equations: CompiledEquation
-using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
-
+using Agate.Factories: default_components
 
 pool_component_names(factory) = Tuple(
     name for (name, component) in pairs(default_components(factory)) if
     component isa Agate.Configuration.Pool
 )
 
-
-struct GenericRoleFixtureFactory <: Agate.Factories.AbstractBGCFactory end
-
-Agate.Construction.recipe_family(::GenericRoleFixtureFactory) = :GenericRoleFixture
-Agate.Construction.recipe_factory(::Val{:GenericRoleFixture}) = GenericRoleFixtureFactory()
-Agate.Factories.parameter_definitions(::GenericRoleFixtureFactory) = ()
-
-zero_plankton_tendency(::Int) = CompiledEquation(
-    (bgc, x, y, z, t, args...) -> zero(first(args))
-)
-Agate.Factories.default_plankton_dynamics(::GenericRoleFixtureFactory) = (
-    P=zero_plankton_tendency,
-    B=zero_plankton_tendency,
-    M=zero_plankton_tendency,
-    Z=zero_plankton_tendency,
-)
-Agate.Factories.default_biogeochem_dynamics(::GenericRoleFixtureFactory) = (;)
-
-@testset "Independent community roles" begin
+@testset "Independent interaction roles" begin
     pft = Agate.Configuration.PFTSpecification()
     group = (; diameters=[1.0], pft)
     community = (P=group, B=group, M=group, Z=group)
-    ecological_roles = (
-        phytoplankton=(:P,),
-        bacterioplankton=(:B,),
-        mixotrophs=(:M,),
-        zooplankton=(:Z,),
-    )
-    interaction_roles = (consumers=(:Z, :M), prey=(:P, :B, :M))
-    parameter_roles = (
-        producers=(:P, :M), consumers=(:Z, :M), bacterioplankton=(:B,)
-    )
-
-    factory = GenericRoleFixtureFactory()
     context = parse_community(
         Float64,
         community;
-        interaction_roles,
-        parameter_roles,
+        interaction_roles=(consumers=(:Z, :M), prey=(:P, :B, :M)),
     )
 
-    @test (
-        context.parameter_role_indices,
-        context.consumer_indices,
-        context.prey_indices,
-    ) == (
-        (producers=[1, 3], consumers=[3, 4], bacterioplankton=[2]),
-        [3, 4],
-        [1, 2, 3],
-    )
-
-    recipe = Agate.Construction.capture_model_recipe(
-        factory;
-        community,
-        ecological_roles,
-        interaction_roles,
-        parameter_roles,
-        auxiliary_fields=(),
-    )
-    manifest = Agate.Construction.capture_model_manifest(
-        factory,
-        (;),
-        context;
-        tracer_order=Tuple(context.plankton_symbols),
-        auxiliary_fields=(),
-        ecological_roles,
-        explicit_override_keys=(),
-        sinking_tracers=nothing,
-        open_bottom=true,
-        scalar_type=Float64,
-    )
-
-    @test (recipe.ecological_roles, recipe.interaction_roles, recipe.parameter_roles) ==
-          (ecological_roles, interaction_roles, parameter_roles)
-    @test manifest.ecological_roles == ecological_roles
-    @test manifest.interaction_role_indices == (consumers=(3, 4), prey=(1, 2, 3))
-    @test manifest.parameter_role_indices ==
-          (producers=(1, 3), consumers=(3, 4), bacterioplankton=(2,))
-
-    replayed = Agate.Construction.construct_factory(recipe; scalar_type=Float64)
-    @test required_biogeochemical_tracers(replayed) == (:P_1, :B_1, :M_1, :Z_1)
+    @test context.consumer_indices == [3, 4]
+    @test context.prey_indices == [1, 2, 3]
 end
 
 @testset "ClassRef + Tracers accessors" begin
     factory = Agate.Models.NiPiZD.NiPiZDFactory()
-    community = default_community(factory)
+    community = default_nipizd_community()
     ctx = parse_community(
         Float64, community; biogeochem_tracers=pool_component_names(factory)
     )
@@ -151,7 +79,7 @@ end
 
 @testset "Diameter input normalization" begin
     factory = Agate.Models.NiPiZD.NiPiZDFactory()
-    base = default_community(factory)
+    base = default_nipizd_community()
 
     community = build_plankton_community(
         base;

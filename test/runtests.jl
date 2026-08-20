@@ -2,6 +2,7 @@
 using Agate
 using Test
 
+include(joinpath("LegacyTendencies", "Tendencies.jl"))
 include("test_helpers.jl")
 include(joinpath("NPZD", "tracers.jl"))
 
@@ -17,7 +18,7 @@ include("test_nipizd_process_compilation.jl")
 include("test_extensibility_compilation.jl")
 include("test_direct_model_definition_construction.jl")
 include("test_nipizd_canonical_process_path.jl")
-include("test_inorganic_coupling.jl")
+include("test_legacy_architecture_cleanup.jl")
 include("test_box_model.jl")
 
 include("test_models_construct.jl")

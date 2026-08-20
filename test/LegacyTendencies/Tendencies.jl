@@ -1,12 +1,12 @@
-"""Reusable tracer tendency builders."""
-module Tendencies
+"""Legacy tracer equations retained as a test-only compiler parity oracle."""
+module LegacyTendencies
 
-using ..Equations: CompiledEquation
-using ..Library.Mortality: linear_loss, quadratic_loss
-using ..Library.Nutrients: LiebigMinimum, FrankTNorm
-using ..Library.Photosynthesis: smith_growth, geider_growth
-using ..Library.Remineralization: linear_remineralization
-using ..Runtime: tendency_inputs
+using Agate.Equations: CompiledEquation
+using Agate.Library.Mortality: linear_loss, quadratic_loss
+using Agate.Library.Nutrients: LiebigMinimum, FrankTNorm
+using Agate.Library.Photosynthesis: smith_growth, geider_growth
+using Agate.Library.Remineralization: linear_remineralization
+using Agate.Runtime: tendency_inputs
 
 include("config.jl")
 include("coupling.jl")
@@ -35,4 +35,4 @@ export TendencyConfig,
     organic_matter_tendency,
     detritus_tendency
 
-end # module Tendencies
+end # module LegacyTendencies

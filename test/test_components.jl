@@ -61,7 +61,7 @@ end
         base_components,
         (POM=Pool(:nitrogen; size_structure=[0.5, 5.0, 50.0], sinking=:pom_sinking),),
     )
-    community = Agate.Factories.default_community(factory)
+    community = default_nipizd_community()
     context = parse_community(
         Float32, community; biogeochem_tracers=(:N, :D, :POM_1, :POM_2, :POM_3)
     )

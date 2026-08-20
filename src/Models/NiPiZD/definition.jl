@@ -1,9 +1,9 @@
 using ...Factories: AbstractBGCFactory
-using ...Configuration: PFTSpecification, Population, Pool
+using ...Configuration: Population, Pool
 using ...Processes:
     Growth, Light, NutrientResponse, Grazing, Mortality, ProductRouting, Remineralization
 
-import ...Factories: default_components, default_processes, default_community
+import ...Factories: default_components, default_processes
 import ...Construction: recipe_family, recipe_factory
 
 """Factory for the size-structured NiPiZD model."""
@@ -62,12 +62,3 @@ const NIPIZD_PROCESSES = (
 
 """Canonical named scientific processes for NiPiZD."""
 default_processes(::NiPiZDFactory) = NIPIZD_PROCESSES
-
-"""Default population realization for NiPiZD."""
-function default_community(::NiPiZDFactory)
-    empty_pft = PFTSpecification()
-    return (
-        Z=(; diameters=DEFAULT_SIZE_STRUCTURE.zooplankton.Z, pft=empty_pft),
-        P=(; diameters=DEFAULT_SIZE_STRUCTURE.phytoplankton.P, pft=empty_pft),
-    )
-end

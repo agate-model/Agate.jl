@@ -17,21 +17,9 @@ using ..Library.Allometry:
     allometric_relationship_identifier,
     allometric_relationship_from_identifier
 
-const MODEL_RECIPE_SCHEMA = "agate.model_recipe.v2"
 const PROCESS_MODEL_RECIPE_SCHEMA = "agate.model_recipe.v3"
 const _RECIPE_DOCUMENT_KEYS = ("schema", "model", "provenance", "recipe", "recipe_hash")
 const _RECIPE_MODEL_KEYS = ("family",)
-const _RECIPE_KEYS = (
-    "community",
-    "parameter_overrides",
-    "interaction_overrides",
-    "ecological_roles",
-    "interaction_roles",
-    "parameter_roles",
-    "auxiliary_fields",
-    "sinking_tracers",
-    "open_bottom",
-)
 const _SUPPORTED_SPLITTING = (:linear_splitting, :log_splitting)
 
 function _check_keys(x, allowed, path)
@@ -326,21 +314,6 @@ function _decode_community(x, path)
     return NamedTuple{Tuple(names)}(Tuple(specs))
 end
 
-function _encode_recipe_data(recipe::ModelRecipe)
-    return Dict{String,Any}(
-        "community" => _encode_community(recipe.community),
-        "parameter_overrides" => _encode_value(recipe.parameter_overrides),
-        "interaction_overrides" => _encode_value(recipe.interaction_overrides),
-        "ecological_roles" => _encode_value(recipe.ecological_roles),
-        "interaction_roles" => _encode_value(recipe.interaction_roles),
-        "parameter_roles" => _encode_value(recipe.parameter_roles),
-        "auxiliary_fields" => _encode_value(recipe.auxiliary_fields),
-        "sinking_tracers" => isnothing(recipe.sinking_tracers) ? nothing : _encode_value(recipe.sinking_tracers),
-        "open_bottom" => recipe.open_bottom,
-    )
-end
-
-
 _size_structure_data(spec::DiameterListSpecification) = Dict{String,Any}(
     "diameters" => [_finite_float(float(value)) for value in spec.diameters]
 )
@@ -550,17 +523,6 @@ function _encode_process_recipe_data(recipe::ProcessModelRecipe)
 end
 
 """Encode a recipe with its scientific hash and available package provenance."""
-function encode_recipe(recipe::ModelRecipe)
-    data = _encode_recipe_data(recipe)
-    return Dict{String,Any}(
-        "schema" => MODEL_RECIPE_SCHEMA,
-        "model" => Dict{String,Any}("family" => String(recipe.family)),
-        "provenance" => _recipe_provenance(recipe),
-        "recipe" => data,
-        "recipe_hash" => _recipe_hash(recipe, data),
-    )
-end
-
 function encode_recipe(recipe::ProcessModelRecipe)
     data = _encode_process_recipe_data(recipe)
     return _json_value(Dict{String,Any}(
@@ -732,78 +694,21 @@ end
 function decode_recipe(document::AbstractDict)
     document = _check_keys(document, _RECIPE_DOCUMENT_KEYS, "Recipe document")
     schema = _string(_required(document, "schema", "Recipe document"), "Recipe document.schema")
-    schema == PROCESS_MODEL_RECIPE_SCHEMA && return _decode_process_model_recipe(document)
-    schema == MODEL_RECIPE_SCHEMA || throw(
+    schema == PROCESS_MODEL_RECIPE_SCHEMA || throw(
         ArgumentError(
-            "Unsupported Agate recipe schema $(repr(schema)); supported schemas are " *
-            "$(repr(MODEL_RECIPE_SCHEMA)) and $(repr(PROCESS_MODEL_RECIPE_SCHEMA)). " *
-            "For v1 recipes, use Agate v0.10.x to recover the scientific inputs before " *
-            "recreating the model with a supported recipe schema."
+            "Unsupported Agate recipe schema $(repr(schema)); supported schema is " *
+            "$(repr(PROCESS_MODEL_RECIPE_SCHEMA)). Recreate v1/v2 recipes with a " *
+            "compatible pre-v0.12 Agate release before migrating them to v3."
         )
     )
-
-    model = _check_keys(_required(document, "model", "Recipe document"), _RECIPE_MODEL_KEYS, "Recipe document.model")
-    family = _symbol(_required(model, "family", "Recipe document.model"), "Recipe document.model.family")
-    recipe_factory(Val(family))
-    provenance = _decode_provenance(
-        _required(document, "provenance", "Recipe document"), "Recipe document.provenance"
-    )
-    recorded_hash = _string(
-        _required(document, "recipe_hash", "Recipe document"), "Recipe document.recipe_hash"
-    )
-
-    recipe = _check_keys(_required(document, "recipe", "Recipe document"), _RECIPE_KEYS, "Recipe document.recipe")
-    for key in _RECIPE_KEYS
-        _required(recipe, key, "Recipe document.recipe")
-    end
-
-    community = _decode_community(recipe["community"], "Recipe document.recipe.community")
-    parameter_overrides = _decode_value(recipe["parameter_overrides"], "Recipe document.recipe.parameter_overrides")
-    parameter_overrides isa NamedTuple || throw(ArgumentError("Recipe document.recipe.parameter_overrides must decode to a NamedTuple."))
-    interaction_overrides = _decode_value(recipe["interaction_overrides"], "Recipe document.recipe.interaction_overrides")
-    interaction_overrides isa NamedTuple || throw(ArgumentError("Recipe document.recipe.interaction_overrides must decode to a NamedTuple."))
-    all(value -> value isa AbstractMatrix, values(interaction_overrides)) || throw(
-        ArgumentError("Recipe document.recipe.interaction_overrides values must be matrices.")
-    )
-    ecological_roles = _decode_value(recipe["ecological_roles"], "Recipe document.recipe.ecological_roles")
-    interaction_roles = _decode_value(recipe["interaction_roles"], "Recipe document.recipe.interaction_roles")
-    parameter_roles = _decode_value(recipe["parameter_roles"], "Recipe document.recipe.parameter_roles")
-    auxiliary_fields = _decode_value(recipe["auxiliary_fields"], "Recipe document.recipe.auxiliary_fields")
-    sinking_tracers = isnothing(recipe["sinking_tracers"]) ? nothing : _decode_value(recipe["sinking_tracers"], "Recipe document.recipe.sinking_tracers")
-
-    ecological_roles isa NamedTuple || throw(ArgumentError("Recipe document.recipe.ecological_roles must decode to a NamedTuple."))
-    interaction_roles isa NamedTuple || throw(ArgumentError("Recipe document.recipe.interaction_roles must decode to a NamedTuple."))
-    parameter_roles isa NamedTuple || throw(ArgumentError("Recipe document.recipe.parameter_roles must decode to a NamedTuple."))
-    auxiliary_fields isa Tuple || throw(ArgumentError("Recipe document.recipe.auxiliary_fields must decode to a Tuple."))
-    !isnothing(sinking_tracers) && !(sinking_tracers isa NamedTuple) && throw(ArgumentError("Recipe document.recipe.sinking_tracers must decode to a NamedTuple or null."))
-
-    decoded = ModelRecipe(
-        family,
-        community,
-        parameter_overrides,
-        interaction_overrides,
-        ecological_roles,
-        interaction_roles,
-        parameter_roles,
-        auxiliary_fields,
-        sinking_tracers,
-        _boolean(recipe["open_bottom"], "Recipe document.recipe.open_bottom"),
-    )
-
-    expected_hash = _recipe_hash(decoded, _encode_recipe_data(decoded))
-    recorded_hash == expected_hash || throw(
-        ArgumentError("Recipe document.recipe_hash does not match the decoded recipe.")
-    )
-    _check_recipe_provenance(decoded, provenance)
-    return decoded
+    return _decode_process_model_recipe(document)
 end
-
 function decode_recipe(document)
     throw(ArgumentError("Expected an Agate recipe dictionary, got $(typeof(document))."))
 end
 
 """Write a recipe document to `path` as pretty-printed JSON."""
-function export_recipe(path::AbstractString, recipe::Union{ModelRecipe,ProcessModelRecipe})
+function export_recipe(path::AbstractString, recipe::ProcessModelRecipe)
     document = encode_recipe(recipe)
     open(path, "w") do io
         JSON.json(io, document; pretty=4, omit_empty=false)

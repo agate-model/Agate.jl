@@ -16,10 +16,7 @@ using ..Factories:
     DiameterIndexedMaterialization,
     derive_default,
     parameter_directory,
-    parameter_spec,
-    default_plankton_dynamics,
-    default_biogeochem_dynamics,
-    default_community
+    parameter_spec
 
 import ..Factories: parameter_definitions
 
@@ -28,8 +25,7 @@ using ..Configuration:
     normalize_interaction_overrides,
     finalize_interaction_parameters,
     parse_community,
-    parameter_role_indices,
-    validate_community_inputs,
+    validate_community,
     Population,
     Pool,
     size_structure,
@@ -45,8 +41,6 @@ using ..Processes:
 
 using ..Compilation: compile_model_tendencies
 
-using ..Equations: CompiledEquation
-
 using ..Library.Allometry: AbstractParamDef, resolve_diameter_indexed_vector
 
 struct _DefinitionParameterSource{P} <: AbstractBGCFactory
@@ -54,91 +48,6 @@ struct _DefinitionParameterSource{P} <: AbstractBGCFactory
 end
 
 parameter_definitions(source::_DefinitionParameterSource) = source.definitions
-
-"""Evaluate `parameter_definitions(factory)` to produce baseline parameter defaults.
-
-Defaults are evaluated on the host during model construction. The returned
-`NamedTuple` maps parameter keys to concrete values (scalars, vectors, matrices).
-
-Parameters declared with `NoDefault()` or `DerivedDefault(...)` are omitted from
-this first pass. Derived defaults are resolved after user overrides are materialized.
-"""
-function build_parameter_defaults(
-    factory::AbstractBGCFactory, community_context, ::Type{T}
-) where {T<:Real}
-    defs = parameter_definitions(factory)
-    isempty(defs) && return (;)
-
-    pairs = Pair{Symbol,Any}[]
-    for def in defs
-        spec = def.spec
-        provider = def.default
-        (provider isa NoDefault || provider isa DerivedDefault) && continue
-        value = evaluate_default(provider, spec, factory, community_context, T)
-        push!(pairs, spec.name => value)
-    end
-
-    return (; pairs...)
-end
-
-@inline function evaluate_default(
-    provider::ConstDefault, spec, ::AbstractBGCFactory, ::Any, ::Type{T}
-) where {T<:Real}
-    spec.shape === :scalar || throw(
-        ArgumentError(
-            "ConstDefault can only be used for scalar parameters (:$((spec.name)))."
-        ),
-    )
-    v = provider.value
-    return v isa Bool ? v : T(v)
-end
-
-@inline function evaluate_default(
-    provider::FillDefault, spec, ::AbstractBGCFactory, community_context, ::Type{T}
-) where {T<:Real}
-    spec.shape in (:vector, :matrix) || throw(
-        ArgumentError(
-            "FillDefault can only be used for vector or matrix parameters (:$((spec.name))).",
-        ),
-    )
-
-    v = provider.value
-    v = v isa Bool ? v : T(v)
-
-    if spec.shape === :vector
-        return fill(v, community_context.n_total)
-    end
-
-    if spec.axes === nothing
-        n = community_context.n_total
-        return fill(v, n, n)
-    end
-
-    row_axis, col_axis = spec.axes
-    nr = length(axis_indices(community_context, row_axis))
-    nc = length(axis_indices(community_context, col_axis))
-    return fill(v, nr, nc)
-end
-
-@inline function evaluate_default(
-    provider::DiameterIndexedVectorDefault,
-    spec,
-    ::AbstractBGCFactory,
-    community_context,
-    ::Type{T},
-) where {T<:Real}
-    spec.shape === :vector || throw(
-        ArgumentError(
-            "DiameterIndexedVectorDefault can only be used for vector parameters (:$((spec.name))).",
-        ),
-    )
-
-    indices = parameter_role_indices(community_context, provider.role)
-    default = T(provider.default)
-    return resolve_diameter_indexed_vector(
-        T, community_context.diameters, indices, provider.value; default=default
-    )
-end
 
 """Move `x` to the requested Oceananigans architecture."""
 function on_architecture(arch, x)
@@ -468,29 +377,6 @@ function expand_named_vector_override(
     return expanded
 end
 
-function materialize_parameter_law_override(
-    factory::AbstractBGCFactory, context, key::Symbol, value::AbstractParamDef, ::Type{T}
-) where {T<:Real}
-    spec = parameter_spec(factory, key)
-    materialization = spec === nothing ? nothing : spec.materialization
-
-    materialization isa DiameterIndexedMaterialization || throw(
-        ArgumentError(
-            "parameter :$key only supports parameter-law overrides for parameters with declared diameter-indexed vector materialization."
-        ),
-    )
-
-    indices = if isnothing(materialization.role)
-        eachindex(context.diameters)
-    else
-        parameter_role_indices(context, materialization.role)
-    end
-    fill_value = T(materialization.fill_value)
-    return resolve_diameter_indexed_vector(
-        T, context.diameters, indices, value; default=fill_value
-    )
-end
-
 function materialize_parameter_value(spec, value, ::Type{T}) where {T<:Real}
     if spec.shape === :scalar
         return value isa Bool ? value : T(value)
@@ -509,55 +395,6 @@ function materialize_parameter_value(spec, value, ::Type{T}) where {T<:Real}
     end
 
     return value
-end
-
-function materialize_parameter_overrides(
-    factory::AbstractBGCFactory,
-    context,
-    defaults::NamedTuple,
-    overrides::NamedTuple,
-    ::Type{T},
-) where {T<:Real}
-    isempty(overrides) && return overrides
-
-    entries = Pair{Symbol,Any}[]
-    for (key, value) in Base.pairs(overrides)
-        spec = parameter_spec(factory, key)
-        spec === nothing && begin
-            push!(entries, key => value)
-            continue
-        end
-
-        if value isa AbstractParamDef
-            push!(
-                entries,
-                key => materialize_parameter_law_override(
-                    factory, context, key, value, T
-                ),
-            )
-        elseif value isa NamedTuple
-            spec.shape === :vector || throw(
-                ArgumentError(
-                    "parameter :$key does not support NamedTuple overrides because it is $(spec.shape)-shaped."
-                ),
-            )
-            hasproperty(defaults, key) || throw(
-                ArgumentError(
-                    "parameter :$key does not support partial NamedTuple overrides because it has no direct default value."
-                ),
-            )
-            push!(
-                entries,
-                key => expand_named_vector_override(
-                    spec, getproperty(defaults, key), value, context, T
-                ),
-            )
-        else
-            push!(entries, key => materialize_parameter_value(spec, value, T))
-        end
-    end
-
-    return (; entries...)
 end
 
 function validate_override_keys(
@@ -716,7 +553,7 @@ function evaluate_process_default(
 end
 
 function evaluate_process_default(
-    provider::FillDefault, spec, factory::AbstractBGCFactory, definition, layout, context, ::Type{T}
+    provider::FillDefault, spec, ::AbstractBGCFactory, definition, layout, context, ::Type{T}
 ) where {T<:Real}
     value = provider.value
     value = value isa Bool ? value : T(value)
@@ -727,7 +564,15 @@ function evaluate_process_default(
         result[indices] .= value
         return result
     elseif spec.shape === :matrix
-        return evaluate_default(provider, spec, factory, context, T)
+        if spec.axes === nothing
+            return fill(value, context.n_total, context.n_total)
+        end
+        row_axis, col_axis = spec.axes
+        return fill(
+            value,
+            length(axis_indices(context, row_axis)),
+            length(axis_indices(context, col_axis)),
+        )
     end
     throw(ArgumentError("FillDefault requires vector or matrix parameter storage."))
 end
@@ -819,75 +664,6 @@ function materialize_process_parameter_overrides(
     return (; entries...)
 end
 
-"""
-    construct_factory(factory::AbstractBGCFactory; kwargs...) -> bgc
-
-Construct a concrete biogeochemistry model from `factory` and optional
-configuration overrides.
-
-Construction proceeds in four stages:
-
-1. Parse the community into a `CommunityContext`.
-2. Evaluate `parameter_definitions(factory)` into concrete defaults.
-3. Apply user overrides and resolve derived parameter defaults.
-4. Finalize interaction parameters, compile tracer functions, and adapt the
-   result to the requested architecture.
-
-Keyword arguments
------------------
-- `plankton_dynamics`, `biogeochem_dynamics`: dynamics builders.
-- `community`: plankton community specification.
-- `parameters`: `NamedTuple` of parameter overrides.
-- `interaction_overrides`: `NamedTuple` of explicit interaction-matrix
-  overrides.
-- `ecological_roles`: optional model-defined ecological group identities retained in manifest state.
-- `interaction_roles`: optional `NamedTuple` with `consumers` and `prey`
-  membership for interaction axes.
-- `parameter_roles`: optional `NamedTuple` of named parameter-applicability roles.
-- `auxiliary_fields`: auxiliary values appended to the tracer argument list.
-- `grid`, `arch`: optional grid and architecture inputs.
-- `scalar_type`: explicit runtime scalar type; when provided it takes precedence over
-  `eltype(grid)`. When omitted, construction uses `eltype(grid)` or `Float64` if no
-  grid is supplied.
-- `sinking_tracers`, `open_bottom`: sinking-velocity configuration.
-
-The returned object stores the fully resolved parameter set in
-`bgc.parameters`.
-"""
-function construct_factory(factory::AbstractBGCFactory; kwargs...)
-    bgc, _ = _construct_factory(factory; build_manifest=false, kwargs...)
-    return bgc
-end
-
-function _recipe_realization_inputs(factory::AbstractBGCFactory, recipe::ModelRecipe)
-    realization = deepcopy(recipe)
-    return (;
-        plankton_dynamics=default_plankton_dynamics(
-            factory, realization.community, realization.ecological_roles
-        ),
-        biogeochem_dynamics=default_biogeochem_dynamics(factory),
-        community=realization.community,
-        parameters=realization.parameter_overrides,
-        interaction_overrides=realization.interaction_overrides,
-        ecological_roles=realization.ecological_roles,
-        interaction_roles=realization.interaction_roles,
-        parameter_roles=realization.parameter_roles,
-        auxiliary_fields=realization.auxiliary_fields,
-        sinking_tracers=realization.sinking_tracers,
-        open_bottom=realization.open_bottom,
-    )
-end
-
-"""Realize a canonical `ModelRecipe` in the supplied execution environment."""
-function construct_factory(
-    recipe::ModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
-)
-    factory = replay_factory(recipe)
-    inputs = _recipe_realization_inputs(factory, recipe)
-    return construct_factory(factory; inputs..., grid, arch, scalar_type)
-end
-
-
 function _intrinsic_population_groups(components::NamedTuple)
     names = Tuple(
         name for name in keys(components) if getproperty(components, name) isa Population
@@ -927,10 +703,7 @@ function _realize_process_definition(
     community_input = intrinsic ?
         _intrinsic_population_community(definition.components, groups, T) : community
 
-    placeholder_dynamics = NamedTuple{keys(community_input)}(
-        ntuple(_ -> identity, length(community_input))
-    )
-    validate_community_inputs(placeholder_dynamics, community_input)
+    validate_community(community_input)
     interaction_roles = _process_interaction_roles(definition, groups)
     pool_names = Tuple(
         name for name in keys(definition.components) if
@@ -945,7 +718,6 @@ function _realize_process_definition(
         community_input;
         biogeochem_tracers=pool_layout.tracer_order,
         interaction_roles,
-        parameter_roles=NamedTuple(),
     )
 
     layout = if intrinsic
@@ -1223,190 +995,4 @@ function construct_factory_plus_manifest(
     return _construct_process_factory(
         factory, recipe; grid, arch, scalar_type, build_manifest=true
     )
-end
-
-"""Construct a factory-defined model and return it with its resolved `ModelManifest`."""
-function construct_factory_plus_manifest(factory::AbstractBGCFactory; kwargs...)
-    return _construct_factory(factory; build_manifest=true, kwargs...)
-end
-
-"""Realize a canonical `ModelRecipe` and return its resolved `ModelManifest`."""
-function construct_factory_plus_manifest(
-    recipe::ModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
-)
-    factory = replay_factory(recipe)
-    inputs = _recipe_realization_inputs(factory, recipe)
-    return construct_factory_plus_manifest(factory; inputs..., grid, arch, scalar_type)
-end
-
-function _construct_factory(
-    factory::AbstractBGCFactory;
-    plankton_dynamics=default_plankton_dynamics(factory),
-    biogeochem_dynamics=default_biogeochem_dynamics(factory),
-    community=default_community(factory),
-    parameters::NamedTuple=(;),
-    interaction_overrides::NamedTuple=(;),
-    ecological_roles::NamedTuple=(;),
-    interaction_roles=nothing,
-    parameter_roles=nothing,
-    auxiliary_fields::Tuple=(:PAR,),
-    arch=nothing,
-    sinking_tracers=nothing,
-    grid=nothing,
-    scalar_type=nothing,
-    open_bottom::Bool=true,
-    build_manifest::Bool=false,
-)
-    if isnothing(grid) && !isnothing(sinking_tracers)
-        grid = BoxModelGrid()
-    end
-    T = resolve_construction_scalar_type(grid, scalar_type)
-    sinking_tracers = convert_sinking_tracers(T, sinking_tracers)
-
-    if !isnothing(grid)
-        arch_grid = architecture(grid)
-        if isnothing(arch)
-            arch = arch_grid
-        elseif typeof(arch) !== typeof(arch_grid)
-            throw(
-                ArgumentError(
-                    "arch=$arch does not match architecture(grid)=$arch_grid. Architecture is determined by the grid; either omit arch or construct a grid for $arch.",
-                ),
-            )
-        end
-    else
-        isnothing(arch) && (arch = CPU())
-    end
-
-    validate_community_inputs(plankton_dynamics, community)
-    biogeochem_dynamics isa NamedTuple ||
-        throw(ArgumentError("biogeochem_dynamics must be a NamedTuple"))
-    community_context = parse_community(
-        T,
-        community;
-        biogeochem_tracers=keys(biogeochem_dynamics),
-        interaction_roles=interaction_roles,
-        parameter_roles=parameter_roles,
-    )
-
-    plankton_syms = community_context.plankton_symbols
-    tracer_names = (keys(biogeochem_dynamics)..., Tuple(plankton_syms)...)
-    tracer_defs = ()
-
-    for (k, f) in pairs(biogeochem_dynamics)
-        tr = f()
-        (tr isa CompiledEquation) || throw(
-            ArgumentError("biogeochem dynamics :$k must return CompiledEquation"),
-        )
-        tracer_defs = (tracer_defs..., tr)
-    end
-
-    for idx in eachindex(plankton_syms)
-        g = community_context.group_symbols[idx]
-        f = getfield(plankton_dynamics, g)
-        tr = f(idx)
-        (tr isa CompiledEquation) || throw(
-            ArgumentError("plankton dynamics :$g must return CompiledEquation")
-        )
-        tracer_defs = (tracer_defs..., tr)
-    end
-
-    tracers = NamedTuple{tracer_names}(tracer_defs)
-
-    required = validate_parameter_directory(factory)
-
-    interaction_parameter_overrides = normalize_interaction_overrides(
-        factory, community_context, interaction_overrides
-    )
-
-    validate_override_keys("parameters", parameters, required, factory)
-    validate_override_keys(
-        "interaction_overrides", interaction_parameter_overrides, required, factory
-    )
-
-    parameter_defaults = build_parameter_defaults(factory, community_context, T)
-    parameter_overrides = materialize_parameter_overrides(
-        factory, community_context, parameter_defaults, parameters, T
-    )
-
-    merged_parameters = merge(
-        parameter_defaults, parameter_overrides, interaction_parameter_overrides
-    )
-    explicit_override_keys = (keys(parameters)..., keys(interaction_parameter_overrides)...)
-    merged_parameters = resolve_parameter_defaults(
-        factory, community_context, merged_parameters, explicit_override_keys
-    )
-    missing = Symbol[]
-    for k in required
-        hasproperty(merged_parameters, k) || push!(missing, k)
-    end
-    isempty(missing) ||
-        throw(ArgumentError("missing required parameters: $(join(string.(missing), ", "))"))
-    merged_parameters = finalize_interaction_parameters(
-        factory, community_context, merged_parameters
-    )
-    internal = hasproperty(merged_parameters, :interactions) ? (:interactions,) : ()
-    all_keys = (required..., internal...)
-    resolved_parameters = NamedTuple{all_keys}(
-        Tuple(getproperty(merged_parameters, k) for k in all_keys)
-    )
-
-    reject_missing_values(resolved_parameters)
-
-    validate_parameter_shapes(factory, community_context, resolved_parameters, required)
-    validate_auxiliary_fields(auxiliary_fields, tracer_names)
-    tracer_index = build_tracer_index(
-        community_context,
-        tracer_names,
-        auxiliary_fields;
-        n_biogeochem_tracers=length(keys(biogeochem_dynamics)),
-    )
-
-    plankton_diameter_metadata = Tuple(community_context.diameters)
-
-    if isnothing(sinking_tracers)
-        bgc_factory = define_tracer_functions(
-            resolved_parameters,
-            tracers;
-            auxiliary_fields=auxiliary_fields,
-            tracer_index=tracer_index,
-        )
-        bgc = bgc_factory(
-            resolved_parameters; plankton_diameters=plankton_diameter_metadata
-        )
-    else
-        sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
-        bgc_factory = define_tracer_functions(
-            resolved_parameters,
-            tracers;
-            auxiliary_fields=auxiliary_fields,
-            tracer_index=tracer_index,
-            sinking_velocities=sinking_velocities,
-        )
-        bgc = bgc_factory(
-            resolved_parameters,
-            sinking_velocities;
-            plankton_diameters=plankton_diameter_metadata,
-        )
-    end
-    manifest = if build_manifest
-        capture_model_manifest(
-            factory,
-            resolved_parameters,
-            community_context;
-            tracer_order=tracer_names,
-            auxiliary_fields,
-            ecological_roles,
-            explicit_override_keys,
-            sinking_tracers,
-            open_bottom,
-            scalar_type=T,
-        )
-    else
-        nothing
-    end
-
-    bgc = on_architecture(arch, bgc)
-
-    return bgc, manifest
 end

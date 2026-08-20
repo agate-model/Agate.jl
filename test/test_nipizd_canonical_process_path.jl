@@ -2,15 +2,13 @@ using Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
 using Test
 
-struct LegacyNiPiZDRegressionFactory <: Agate.Factories.AbstractBGCFactory end
-
-const LEGACY_NIPIZD_TENDENCIES = Agate.Tendencies.TendencyConfig(;
+const LEGACY_NIPIZD_TENDENCIES = LegacyTendencies.TendencyConfig(;
     growth=:smith,
     organic_cycling=:simple_detritus,
     zooplankton=:preferential_grazing,
     nutrient_limitation=:liebig,
     nutrients=(
-        Agate.Tendencies.nutrient_coupling(
+        LegacyTendencies.nutrient_coupling(
             :N,
             :nutrient_half_saturation;
             remineralization=((:D, :detritus_remineralization),),
@@ -18,27 +16,37 @@ const LEGACY_NIPIZD_TENDENCIES = Agate.Tendencies.TendencyConfig(;
     ),
 )
 
-Agate.Factories.parameter_definitions(::LegacyNiPiZDRegressionFactory) =
-    Agate.Factories.parameter_definitions(Agate.Models.NiPiZD.NiPiZDFactory())
-Agate.Factories.default_community(::LegacyNiPiZDRegressionFactory) =
-    Agate.Factories.default_community(Agate.Models.NiPiZD.NiPiZDFactory())
-Agate.Factories.default_plankton_dynamics(::LegacyNiPiZDRegressionFactory) = (
-    Z=idx -> Agate.Tendencies.zooplankton_tendency(LEGACY_NIPIZD_TENDENCIES; plankton_idx=idx),
-    P=idx -> Agate.Tendencies.phytoplankton_tendency(LEGACY_NIPIZD_TENDENCIES; plankton_idx=idx),
-)
-Agate.Factories.default_biogeochem_dynamics(::LegacyNiPiZDRegressionFactory) = (
-    N=() -> Agate.Tendencies.inorganic_tendency(LEGACY_NIPIZD_TENDENCIES; target=:N),
-    D=() -> Agate.Tendencies.detritus_tendency(LEGACY_NIPIZD_TENDENCIES),
-)
-
-function legacy_nipizd_regression_bgc()
-    return Agate.Construction.construct_factory(
-        LegacyNiPiZDRegressionFactory();
+function legacy_nipizd_regression_bgc(parameters)
+    context = Agate.Configuration.parse_community(
+        Float64,
+        default_nipizd_community();
+        biogeochem_tracers=(:N, :D),
         interaction_roles=(consumers=(:Z,), prey=(:P,)),
-        parameter_roles=(producers=(:P,), consumers=(:Z,)),
-        auxiliary_fields=(:PAR,),
-        grid=dummy_grid(Float64),
     )
+    tracer_order = (:N, :D, Tuple(context.plankton_symbols)...)
+    tracers = (
+        N=LegacyTendencies.inorganic_tendency(LEGACY_NIPIZD_TENDENCIES; target=:N),
+        D=LegacyTendencies.detritus_tendency(LEGACY_NIPIZD_TENDENCIES),
+        Z_1=LegacyTendencies.zooplankton_tendency(
+            LEGACY_NIPIZD_TENDENCIES; plankton_idx=1
+        ),
+        Z_2=LegacyTendencies.zooplankton_tendency(
+            LEGACY_NIPIZD_TENDENCIES; plankton_idx=2
+        ),
+        P_1=LegacyTendencies.phytoplankton_tendency(
+            LEGACY_NIPIZD_TENDENCIES; plankton_idx=3
+        ),
+        P_2=LegacyTendencies.phytoplankton_tendency(
+            LEGACY_NIPIZD_TENDENCIES; plankton_idx=4
+        ),
+    )
+    tracer_index = Agate.Runtime.build_tracer_index(
+        context, tracer_order, (:PAR,); n_biogeochem_tracers=2
+    )
+    factory = Agate.Construction.define_tracer_functions(
+        parameters, tracers; auxiliary_fields=(:PAR,), tracer_index
+    )
+    return factory(parameters; plankton_diameters=Tuple(context.diameters))
 end
 
 @testset "NiPiZD canonical process construction" begin
@@ -58,7 +66,6 @@ end
     _, manifest = Agate.Construction.construct_factory_plus_manifest(
         recipe; grid=dummy_grid(Float64)
     )
-    @test isempty(manifest.parameter_role_indices)
     @test manifest.ecological_roles == (phytoplankton=(:P,), zooplankton=(:Z,))
 
     @test count(x -> !iszero(x), bgc.parameters.maximum_growth_rate) == 2
@@ -66,11 +73,10 @@ end
     @test bgc.parameters.protection == [1.0, 1.0, 0.0, 0.0]
 end
 
-@testset "NiPiZD canonical path matches v0.11 construction" begin
+@testset "NiPiZD process compiler matches legacy equations" begin
     canonical = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float64))
-    reference = legacy_nipizd_regression_bgc()
+    reference = legacy_nipizd_regression_bgc(canonical.parameters)
 
-    @test canonical.parameters == reference.parameters
     for tracer in NIPIZD_PROCESS_TRACER_ORDER
         @test process_compiler_isapprox(
             canonical(Val(tracer), NIPIZD_PROCESS_ARGS...),

@@ -118,7 +118,6 @@ function extensibility_compilation(::Type{T}=Float64) where {T<:Real}
         community;
         biogeochem_tracers=(:N, :D, :POM_1, :POM_2),
         interaction_roles=(consumers=(:M, :Z), prey=(:P, :B)),
-        parameter_roles=NamedTuple(),
     )
     layout = realize_components(components; scalar_type=T)
     target_order = layout.tracer_order

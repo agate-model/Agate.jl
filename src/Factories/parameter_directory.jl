@@ -13,20 +13,16 @@ export derive_default
 export parameter_directory
 export parameter_spec
 
-"""Materialize a parameter law over selected diameter-indexed classes.
+"""Materialize a diameter-indexed parameter law during construction.
 
-`role` names a declared parameter-applicability role in the parsed community.
-When it is `nothing`, the law applies to every plankton class. `fill_value` is
-assigned outside the selected role.
+Process participation determines which concrete classes the parameter applies to;
+`fill_value` is assigned outside that applicability set.
 """
 struct DiameterIndexedMaterialization{T}
-    role::Union{Nothing,Symbol}
     fill_value::T
 end
 
-function DiameterIndexedMaterialization(role::Union{Nothing,Symbol}=nothing; fill_value)
-    return DiameterIndexedMaterialization(role, fill_value)
-end
+DiameterIndexedMaterialization(; fill_value) = DiameterIndexedMaterialization(fill_value)
 
 """Declare that a model parameter supplies one semantic formulation requirement.
 
@@ -74,7 +70,7 @@ Fields
 ------
 - `name`: parameter key.
 - `shape`: one of `:scalar`, `:vector`, or `:matrix`.
-- `axes`: optional legacy runtime vector axis name or matrix-axis names.
+- `axes`: optional runtime vector axis name or matrix-axis names.
 - `materialization`: optional constructor-time parameter-law materialization semantics.
 - `provides`: semantic process/formulation requirements supplied by this parameter.
 """
@@ -168,21 +164,17 @@ struct FillDefault{T} <: DefaultProvider
     value::T
 end
 
-"""Default provider for vectors defined over a subset of diameter-indexed classes.
+"""Default provider for a diameter-indexed vector parameter.
 
-The provider fills a full-length vector (length `community_context.n_total`) with
-`default`, then overwrites the classes selected by the declared parameter role
-using `resolve_diameter_indexed_vector`.
+The provider fills the complete runtime vector with `default`, then materializes
+`value` over the classes selected from process-derived parameter applicability.
 """
 struct DiameterIndexedVectorDefault{V,T} <: DefaultProvider
     value::V
-    role::Symbol
     default::T
 end
 
-function DiameterIndexedVectorDefault(value, role::Symbol; default)
-    return DiameterIndexedVectorDefault(value, role, default)
-end
+DiameterIndexedVectorDefault(value; default) = DiameterIndexedVectorDefault(value, default)
 
 """Return a tuple of `ParameterDefinition` entries for `factory`.
 
