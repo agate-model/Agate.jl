@@ -1,15 +1,10 @@
 """Realized mortality topology over concrete population classes and routing targets."""
-struct MortalityTopology{TR,IX,R,E}
+struct MortalityTopology{TR,IX,R,E,D}
     population_tracers::TR
     population_indices::IX
     retained_target::R
     exported_target::E
-end
-
-struct DOMPOMMortalityTopology{TR,IX,R}
-    population_tracers::TR
-    population_indices::IX
-    routing::R
+    routed_targets::D
 end
 
 function realize_process_topology(
@@ -22,16 +17,15 @@ function realize_process_topology(
 
     routing = process.routing
     if isnothing(routing)
-        return MortalityTopology(tracer_values, index_values, nothing, nothing)
+        return MortalityTopology(tracer_values, index_values, nothing, nothing, nothing)
     end
     if routing.formulation isa PartitionRouting
         retained = _scalar_component_target(layout, routing.retained)
         exported = _scalar_component_target(layout, routing.exported)
-        return MortalityTopology(tracer_values, index_values, retained, exported)
+        return MortalityTopology(tracer_values, index_values, retained, exported, nothing)
     elseif routing.formulation isa DOMPOMRouting
-        return DOMPOMMortalityTopology(
-            tracer_values, index_values, _realize_dom_pom_routing(routing, layout)
-        )
+        targets = _realize_dom_pom_routing(routing, layout)
+        return MortalityTopology(tracer_values, index_values, nothing, nothing, targets)
     end
     throw(ArgumentError("unsupported mortality product routing $(typeof(routing.formulation))"))
 end
@@ -57,14 +51,14 @@ end
 function _mortality_routed_fluxes(
     named::NamedProcess,
     definition::NormalizedModelDefinition,
-    topology::DOMPOMMortalityTopology,
+    routed_targets::NamedTuple,
     rate::RateElement,
 )
     routing = named.process.routing
     fraction = _routing_fraction_binding(definition, named, routing)
     fluxes = ()
     for route in (:DOM, :POM)
-        targets = getproperty(topology.routing, route)
+        targets = getproperty(routed_targets, route)
         for currency in keys(targets)
             target = getproperty(targets, currency)
             ratio = _routing_ratio_binding(definition, named, routing, currency)
@@ -91,8 +85,11 @@ function process_fluxes(
     slots = _mortality_slots(definition, named)
     form = formulation(named.process)
     routing = named.process.routing
-    fraction = isnothing(routing) ? nothing :
-               _routing_fraction_binding(definition, named, routing)
+    fraction = if isnothing(routing) || !isnothing(topology.routed_targets)
+        nothing
+    else
+        _routing_fraction_binding(definition, named, routing)
+    end
     fluxes = ()
 
     for i in eachindex(topology.population_tracers)
@@ -100,7 +97,12 @@ function process_fluxes(
         rate = _mortality_rate(form, slots.rate, topology.population_indices[i])
         fluxes = (fluxes..., FluxSpec(process_id(named), tracer, rate, Weight{-1}()))
 
-        if !isnothing(topology.retained_target)
+        if !isnothing(topology.routed_targets)
+            routed = _mortality_routed_fluxes(
+                named, definition, topology.routed_targets, rate
+            )
+            fluxes = (fluxes..., routed...)
+        elseif !isnothing(topology.retained_target)
             retained = FluxSpec(
                 process_id(named),
                 topology.retained_target,
@@ -115,31 +117,6 @@ function process_fluxes(
             )
             fluxes = (fluxes..., retained, exported)
         end
-    end
-    return fluxes
-end
-
-function process_fluxes(
-    named::NamedProcess{P},
-    topology::DOMPOMMortalityTopology,
-    definition::NormalizedModelDefinition,
-) where {P<:Mortality}
-    length(topology.population_tracers) == length(topology.population_indices) || throw(
-        ArgumentError("mortality topology tracer and index counts must match"),
-    )
-    slots = _mortality_slots(definition, named)
-    fluxes = ()
-    for i in eachindex(topology.population_tracers)
-        tracer = topology.population_tracers[i]
-        rate = _mortality_rate(
-            formulation(named.process), slots.rate, topology.population_indices[i]
-        )
-        routed = _mortality_routed_fluxes(named, definition, topology, rate)
-        fluxes = (
-            fluxes...,
-            FluxSpec(process_id(named), tracer, rate, Weight{-1}()),
-            routed...,
-        )
     end
     return fluxes
 end

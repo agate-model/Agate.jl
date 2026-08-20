@@ -113,9 +113,6 @@ function interaction_parameter_specs(source)
     )
 end
 
-interaction_parameter_names(source) =
-    Tuple(spec.name for spec in interaction_parameter_specs(source))
-
 function interaction_runtime_name(spec::ParameterSpec)
     path = spec.runtime_path
     length(path) == 2 && first(path) === :interactions || throw(

@@ -1,10 +1,3 @@
-"""Concrete tracer targets for DOM/POM routing, keyed by product currency."""
-struct DOMPOMRoutingTopology{D,P}
-    DOM::D
-    POM::P
-    reference::Symbol
-end
-
 function _realize_routing_targets(pool::NamedTuple, layout::ComponentLayout)
     names = keys(pool)
     values = Tuple(_scalar_component_target(layout, getproperty(pool, name)) for name in names)
@@ -15,10 +8,9 @@ function _realize_dom_pom_routing(routing::ProductRouting, layout::ComponentLayo
     routing.formulation isa DOMPOMRouting || throw(
         ArgumentError("routing is not a DOM/POM routing formulation"),
     )
-    return DOMPOMRoutingTopology(
-        _realize_routing_targets(routing.pools.DOM, layout),
-        _realize_routing_targets(routing.pools.POM, layout),
-        routing.stoichiometry.reference,
+    return (
+        DOM=_realize_routing_targets(routing.pools.DOM, layout),
+        POM=_realize_routing_targets(routing.pools.POM, layout),
     )
 end
 
