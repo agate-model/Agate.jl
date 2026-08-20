@@ -346,8 +346,8 @@ function resolve_parameter_defaults(
     ordered = derived_default_order(factory)
     isempty(ordered) && return params
 
-    override_set = Set(explicit_override_keys)
-    changed = Set(explicit_override_keys)
+    override_set = Set{Symbol}(explicit_override_keys)
+    changed = Set{Symbol}(explicit_override_keys)
     resolved = params
 
     for definition in ordered
