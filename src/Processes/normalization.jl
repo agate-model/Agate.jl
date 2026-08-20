@@ -256,36 +256,21 @@ end
 _parameter_node(path::Tuple, node; context=NamedTuple(), formulation_value=node) =
     (; path, node, context, formulation_value)
 
-_factor_parameter_nodes(name::Symbol, factor::Light) =
-    (_parameter_node((:factors, name), factor.formulation),)
-
-_factor_parameter_nodes(name::Symbol, factor::NutrientResponse) = (
-    _parameter_node(
-        (:factors, name), factor.formulation; context=(resource=factor.resource,)
-    ),
-)
-
-function _factor_parameter_nodes(name::Symbol, factor::Nutrients)
-    nodes = (_parameter_node((:factors, name), factor.formulation),)
-    for (response_name, response) in pairs(factor.responses)
+function _factor_parameter_nodes(path::Tuple, factor::AbstractFactor)
+    nodes = (_parameter_node(
+        path, formulation(factor); context=factor_parameter_context(factor)
+    ),)
+    for (name, child) in pairs(factor_children(factor))
         nodes = (
             nodes...,
-            _parameter_node(
-                (:factors, name, :responses, response_name),
-                response.formulation;
-                context=(resource=response.resource,),
-            ),
+            _factor_parameter_nodes(factor_child_path(path, factor, name), child)...,
         )
     end
     return nodes
 end
 
-_factor_parameter_nodes(name::Symbol, factor::Temperature) =
-    (_parameter_node((:factors, name), factor.formulation),)
-
-function _factor_parameter_nodes(name::Symbol, factor::AbstractFactor)
-    throw(ArgumentError("unsupported process factor :$name of type $(typeof(factor))"))
-end
+_factor_parameter_nodes(name::Symbol, factor::AbstractFactor) =
+    _factor_parameter_nodes((:factors, name), factor)
 
 function _routing_parameter_nodes(routing::ProductRouting)
     nodes = (_parameter_node((:routing,), routing.formulation),)
@@ -468,13 +453,12 @@ parameter_name(
     definition::NormalizedModelDefinition, identity::ParameterRequirementIdentity
 ) = parameter_binding(definition, identity).parameter
 
-_factor_component_references(::Light) = ()
-_factor_component_references(::Temperature) = ()
-_factor_component_references(factor::NutrientResponse) = (factor.resource,)
-function _factor_component_references(factor::Nutrients)
-    references = ()
-    for response in values(factor.responses)
-        references = (references..., _factor_component_references(response)...)
+function _factor_component_references(factor::AbstractFactor)
+    references = Tuple(
+        input.component for input in factor_inputs(factor) if input isa FactorComponent
+    )
+    for child in values(factor_children(factor))
+        references = (references..., _factor_component_references(child)...)
     end
     return references
 end
@@ -510,7 +494,11 @@ end
 function _process_component_references(process::Consumption)
     destination = process.unassimilated_destination
     destination_refs = isnothing(destination) ? () : (destination,)
-    return (process.consumers..., process.resources..., destination_refs...)
+    references = (process.consumers..., process.resources..., destination_refs...)
+    for factor in values(process.factors)
+        references = (references..., _factor_component_references(factor)...)
+    end
+    return references
 end
 
 function _process_component_references(process::Mortality)

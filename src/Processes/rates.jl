@@ -7,54 +7,25 @@
 @inline factor_value(::Smith, light, maximum_rate, alpha) =
     smith_light_limitation(light, alpha, maximum_rate)
 
+@inline function factor_value(
+    ::Geider, light, maximum_rate, alpha, chlorophyll_to_carbon_ratio
+)
+    maximum_rate == zero(maximum_rate) && return zero(maximum_rate)
+    return one(maximum_rate) -
+           exp((-alpha * chlorophyll_to_carbon_ratio * light) / maximum_rate)
+end
+
 @inline factor_value(::Monod, resource, half_saturation) =
     monod_limitation(resource, half_saturation)
+
+@inline factor_value(::Liebig, limitations::Tuple) = liebig_minimum(limitations)
 
 @inline factor_value(::Q10, temperature, q10, reference_temperature) =
     q10 ^ ((temperature - reference_temperature) / 10)
 
-@inline function process_rate(formulations::Tuple{L,N}, args...) where {L,N}
-    return process_rate(first(formulations), last(formulations), args...)
-end
-
-"""Evaluate growth by multiplying its Smith light and Monod nutrient factors."""
-@inline function process_rate(
-    light_formulation::Smith,
-    nutrient_formulation::Monod,
-    biomass,
-    resource,
-    light,
-    maximum_rate,
-    half_saturation,
-    alpha,
-)
-    nutrient = factor_value(nutrient_formulation, resource, half_saturation)
-    irradiance = factor_value(light_formulation, light, maximum_rate, alpha)
-    return maximum_rate * nutrient * irradiance * biomass
-end
-
-"""Evaluate Geider growth with Liebig composition of Monod nutrient responses."""
-@inline function process_rate(
-    ::Geider,
-    ::Liebig,
-    biomass,
-    resources::Tuple,
-    light,
-    maximum_rate,
-    half_saturations::Tuple,
-    alpha,
-    chlorophyll_to_carbon_ratio,
-)
-    return geider_growth(
-        resources,
-        biomass,
-        light,
-        maximum_rate,
-        half_saturations,
-        alpha,
-        chlorophyll_to_carbon_ratio,
-    )
-end
+"""Evaluate the unmodified population-growth scale before sibling factors."""
+@inline process_rate(::MultiplicativeFactors, biomass, maximum_rate) =
+    maximum_rate * biomass
 
 """Evaluate one heterotrophic consumer-by-resource uptake rate."""
 @inline function process_rate(

@@ -1,9 +1,10 @@
 """Realized consumer-by-resource topology for heterotrophic consumption."""
-struct ConsumptionTopology{CT,CI,RT,D}
+struct ConsumptionTopology{CT,CI,RT,D,L}
     consumer_tracers::CT
     consumer_indices::CI
     resource_tracers::RT
     unassimilated_target::D
+    layout::L
 end
 
 function _consumption_resource_tracers(
@@ -34,7 +35,7 @@ function realize_process_topology(
     resources = _consumption_resource_tracers(named, process.resources, layout)
     destination = isnothing(process.unassimilated_destination) ? nothing :
                   _scalar_component_target(layout, process.unassimilated_destination)
-    return ConsumptionTopology(consumer_tracers, consumer_indices, resources, destination)
+    return ConsumptionTopology(consumer_tracers, consumer_indices, resources, destination, layout)
 end
 
 function _consumption_rate(
@@ -42,6 +43,7 @@ function _consumption_rate(
     slots,
     definition::NormalizedModelDefinition,
     named::NamedProcess,
+    topology::ConsumptionTopology,
     consumer_index::Int,
     consumer_axis::Int,
     resource::Symbol,
@@ -53,7 +55,9 @@ function _consumption_rate(
         parameter_operand(slots.maximum_rate, consumer_axis),
         parameter_operand(slots.half_saturation, resource_axis),
     )
-    return RateElement(formulation, operands; factors=_rate_factors(definition, named))
+    axis_indices = (consumer=consumer_axis, resource=resource_axis)
+    rate_factors = _factor_elements(definition, named, topology.layout, axis_indices)
+    return RateElement(formulation, operands; factors=rate_factors)
 end
 
 function process_fluxes(
@@ -73,6 +77,7 @@ function process_fluxes(
                 slots,
                 definition,
                 named,
+                topology,
                 consumer_index,
                 consumer_axis,
                 resource,

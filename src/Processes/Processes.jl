@@ -11,8 +11,8 @@ using ..Factories:
     parameter_definitions
 using ..Library.Mortality: linear_loss, quadratic_loss
 using ..Library.Predation: preferential_predation_loss
-using ..Library.Photosynthesis: smith_light_limitation, geider_growth
-using ..Library.Nutrients: monod_limitation
+using ..Library.Photosynthesis: smith_light_limitation
+using ..Library.Nutrients: liebig_minimum, monod_limitation
 using ..Library.Remineralization: linear_remineralization
 
 export AbstractProcess, AbstractFormulation, AbstractFactor, AbstractStoichiometry

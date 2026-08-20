@@ -4,7 +4,11 @@ using Agate.Configuration: Population, Pool, realize_components
 using Agate.Factories: default_components, default_processes
 using Agate.Processes:
     Smith,
+    Geider,
     Monod,
+    Liebig,
+    Q10,
+    MultiplicativeFactors,
     Growth,
     Light,
     Nutrients,
@@ -25,10 +29,12 @@ using Agate.Processes:
     formulation,
     formulation_tag,
     factors,
+    factor_value,
     normalize_model,
     participants,
     process_id,
     process_kind,
+    process_rate,
     rate_axes
 
 @testset "Process authoring and normalization" begin
@@ -127,6 +133,40 @@ using Agate.Processes:
         ),),
     )
     @test_throws ArgumentError normalize_model(wrong_currency)
+end
+
+@testset "Compositional factor mathematics" begin
+    biomass = 0.4
+    maximum_rate = 2e-5
+    light = 100.0
+    alpha = 2e-6
+
+    base = process_rate(MultiplicativeFactors(), biomass, maximum_rate)
+    smith = factor_value(Smith(), light, maximum_rate, alpha)
+    monod = factor_value(Monod(), 0.5, 0.2)
+    @test isapprox(
+        base * smith * monod,
+        maximum_rate * biomass *
+        (alpha * light / sqrt(maximum_rate^2 + (alpha * light)^2)) *
+        (0.5 / 0.7);
+        rtol=1e-14,
+    )
+
+    chlorophyll_to_carbon = 0.02
+    geider = factor_value(
+        Geider(), light, maximum_rate, alpha, chlorophyll_to_carbon
+    )
+    @test factor_value(Geider(), light, 0.0, alpha, chlorophyll_to_carbon) == 0.0
+    limitations = (factor_value(Monod(), 3.0, 0.5), factor_value(Monod(), 0.2, 0.5))
+    liebig = factor_value(Liebig(), limitations)
+    temperature = factor_value(Q10(), 30.0, 2.0, 20.0)
+    expected_liebig = min(3.0 / 3.5, 0.2 / 0.7)
+    expected_geider = 1 - exp(-alpha * chlorophyll_to_carbon * light / maximum_rate)
+    @test isapprox(
+        base * geider * liebig * temperature,
+        maximum_rate * biomass * expected_geider * expected_liebig * 2;
+        rtol=1e-14,
+    )
 end
 
 @testset "NiPiZD normalized process contract" begin

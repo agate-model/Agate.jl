@@ -11,7 +11,8 @@ using Agate.Compilation:
     weight_sign
 using Agate.Configuration: realize_components
 using Agate.Factories: default_components
-using Agate.Processes: ModelDefinition, Smith, Monod, normalize_model
+using Agate.Processes:
+    ModelDefinition, MultiplicativeFactors, Smith, Monod, normalize_model
 
 @testset "Process compilation" begin
     factory = Agate.Models.NiPiZD.NiPiZDFactory()
@@ -30,17 +31,22 @@ using Agate.Processes: ModelDefinition, Smith, Monod, normalize_model
         @test topology.population_tracers == (:P_1, :P_2)
         @test topology.population_indices == (3, 4)
         @test topology.resource_target === :N
-        @test topology.light_driver === :PAR
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) ==
             ((:P_1, 1), (:N, -1), (:P_2, 1), (:N, -1))
-        @test typeof.(fluxes[1].rate.formulation) == (Smith, Monod)
-        @test fluxes[1].rate.operands == (
-            ClassOp{3}(),
-            TracerOp{:N}(),
+
+        rate = fluxes[1].rate
+        @test rate.formulation isa MultiplicativeFactors
+        @test rate.operands == (
+            ClassOp{3}(), VecParamOp{:maximum_growth_rate,3}()
+        )
+        @test Tuple(typeof(factor.formulation) for factor in rate.factors) == (Smith, Monod)
+        @test rate.factors[1].operands == (
             TracerOp{:PAR}(),
             VecParamOp{:maximum_growth_rate,3}(),
-            VecParamOp{:nutrient_half_saturation,3}(),
             VecParamOp{:alpha,3}(),
+        )
+        @test rate.factors[2].operands == (
+            TracerOp{:N}(), VecParamOp{:nutrient_half_saturation,3}()
         )
         @test map(length, grouped) == (N=2, P_1=1, P_2=1)
     end

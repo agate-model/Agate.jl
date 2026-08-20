@@ -11,7 +11,8 @@ using Agate.Factories:
     ParameterSpec, ParameterProvision, ParameterDefinition, NoDefault
 using Agate.Processes:
     ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, Grazing,
-    normalize_model, resolve_parameter_applicability, participants, factors, driver_identities
+    Smith, Monod, Q10, normalize_model, resolve_parameter_applicability, participants, factors,
+    driver_identities
 
 _provision(process, path, formulation, slot; qualifier=NamedTuple()) =
     ParameterProvision(process, path, formulation, slot; qualifier)
@@ -220,11 +221,21 @@ end
     assimilation = MatParamOp{:bacterial_assimilation,1,1}()
     @test fluxes[2].weight.operands == (assimilation,)
     @test fluxes[3].weight.operands == (ComplementOp(assimilation),)
-    @test only(fluxes[1].rate.factors).operands == (
+    consumption_factor = only(fluxes[1].rate.factors)
+    @test consumption_factor.formulation isa Q10
+    @test consumption_factor.operands == (
         TracerOp{:temperature}(),
         ScalarParamOp{:temperature_q10}(),
         ScalarParamOp{:reference_temperature}(),
     )
+
+    growth_fluxes = process_fluxes(
+        normalized.processes.growth_autotrophs, normalized, layout, compilation.context
+    )
+    growth_rate = first(growth_fluxes).rate
+    @test Tuple(typeof(factor.formulation) for factor in growth_rate.factors) ==
+          (Smith, Monod, Q10)
+    @test growth_rate.factors[3].operands == consumption_factor.operands
 
     @test length(compilation.fluxes) == 22
     grouped = group_fluxes(compilation.fluxes; target_order=compilation.target_order)
@@ -244,9 +255,6 @@ end
 
     consumption_grouped = group_fluxes(fluxes)
     consumption_compiled = compile_tendencies(consumption_grouped)
-    growth_fluxes = process_fluxes(
-        normalized.processes.growth_autotrophs, normalized, layout, compilation.context
-    )
     growth_compiled = compile_tendencies(group_fluxes(growth_fluxes))
     args20 = food_web_args(Float64, 20)
     args30 = food_web_args(Float64, 30)

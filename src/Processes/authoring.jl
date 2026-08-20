@@ -162,6 +162,32 @@ function Nutrients(formulation::AbstractFormulation; responses::NamedTuple)
     throw(ArgumentError("$(typeof(formulation)) is not a nutrient-combination formulation"))
 end
 
+abstract type AbstractFactorInput end
+
+"""External driver read required by one scientific factor."""
+struct FactorDriver <: AbstractFactorInput
+    identity::Symbol
+end
+
+"""Scalar model-component read required by one scientific factor."""
+struct FactorComponent <: AbstractFactorInput
+    component::Symbol
+end
+
+factor_inputs(::AbstractFactor) = ()
+factor_inputs(factor::Light) = (FactorDriver(factor.driver),)
+factor_inputs(factor::Temperature) = (FactorDriver(factor.driver),)
+factor_inputs(factor::NutrientResponse) = (FactorComponent(factor.resource),)
+
+factor_children(::AbstractFactor) = NamedTuple()
+factor_children(factor::Nutrients) = factor.responses
+
+factor_parameter_context(::AbstractFactor) = NamedTuple()
+factor_parameter_context(factor::NutrientResponse) = (resource=factor.resource,)
+
+factor_child_path(path::Tuple, ::AbstractFactor, name::Symbol) = (path..., name)
+factor_child_path(path::Tuple, ::Nutrients, name::Symbol) = (path..., :responses, name)
+
 """Product-routing sub-formulation for coupled process effects."""
 struct ProductRouting{F<:AbstractFormulation,R,E,P,S}
     formulation::F
@@ -397,10 +423,24 @@ participants(process::Mortality) = (population=process.populations,)
 participants(process::Remineralization) =
     (source=process.sources, destination=process.destinations)
 
-factor_drivers(factor::Light) = (driver=factor.driver,)
-factor_drivers(factor::Temperature) = (driver=factor.driver,)
-factor_drivers(::NutrientResponse) = NamedTuple()
-factor_drivers(::Nutrients) = NamedTuple()
+function _factor_driver_identities(factor::AbstractFactor)
+    identities = Tuple(
+        input.identity for input in factor_inputs(factor) if input isa FactorDriver
+    )
+    for child in values(factor_children(factor))
+        identities = (identities..., _factor_driver_identities(child)...)
+    end
+    return identities
+end
+
+function factor_drivers(factor::AbstractFactor)
+    identities = unique(_factor_driver_identities(factor))
+    isempty(identities) && return NamedTuple()
+    length(identities) == 1 || throw(ArgumentError(
+        "one named process factor cannot require multiple external drivers",
+    ))
+    return (driver=only(identities),)
+end
 
 function _factor_drivers(process)
     names = Symbol[]
@@ -408,12 +448,6 @@ function _factor_drivers(process)
     for (name, factor) in pairs(factors(process))
         factor_bindings = factor_drivers(factor)
         isempty(factor_bindings) && continue
-        length(factor_bindings) == 1 || throw(
-            ArgumentError(
-                "process factor :$name declares multiple drivers; " *
-                "nested driver paths are not implemented"
-            ),
-        )
         push!(names, name)
         push!(identities, only(values(factor_bindings)))
     end

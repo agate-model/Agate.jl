@@ -1,47 +1,33 @@
-function _growth_light_factor(process::Growth)
-    matches = ()
-    for pair in pairs(process.factors)
-        last(pair) isa Light && (matches = (matches..., pair))
-    end
-    length(matches) == 1 || throw(
-        ArgumentError("growth process must declare exactly one light factor"),
+function _growth_resource_factor(process::Growth)
+    matches = Tuple(
+        pair for pair in pairs(process.factors)
+        if last(pair) isa Union{NutrientResponse,Nutrients}
     )
-    pair = only(matches)
-    return first(pair), last(pair)
+    length(matches) == 1 || throw(ArgumentError(
+        "growth process must declare exactly one nutrient factor for resource routing",
+    ))
+    return only(matches)
 end
 
-function _growth_nutrient_factor(process::Growth)
-    matches = ()
-    for pair in pairs(process.factors)
-        last(pair) isa Union{NutrientResponse,Nutrients} && (matches = (matches..., pair))
-    end
-    length(matches) == 1 || throw(
-        ArgumentError("growth process must declare exactly one nutrient factor"),
+_growth_resource_target(factor::NutrientResponse, layout::ComponentLayout) =
+    _scalar_component_target(layout, factor.resource)
+
+function _growth_resource_target(factor::Nutrients, layout::ComponentLayout)
+    names = keys(factor.responses)
+    targets = Tuple(
+        _scalar_component_target(layout, response.resource)
+        for response in values(factor.responses)
     )
-    pair = only(matches)
-    return first(pair), last(pair)
+    return NamedTuple{names}(targets)
 end
 
 """Realized factorized growth topology over concrete population classes."""
-struct GrowthTopology{TR,IX,R,S,D}
+struct GrowthTopology{TR,IX,R,S,L}
     population_tracers::TR
     population_indices::IX
     resource_target::R
     source_target::S
-    light_driver::D
-end
-
-function _growth_resources(nutrients::NutrientResponse{Monod}, layout::ComponentLayout)
-    return _scalar_component_target(layout, nutrients.resource)
-end
-
-function _growth_resources(nutrients::Nutrients{Liebig}, layout::ComponentLayout)
-    names = keys(nutrients.responses)
-    values = Tuple(
-        _scalar_component_target(layout, getproperty(nutrients.responses, name).resource)
-        for name in names
-    )
-    return NamedTuple{names}(values)
+    layout::L
 end
 
 """Resolve a named factorized growth process onto the current concrete class layout."""
@@ -49,17 +35,31 @@ function realize_process_topology(
     named::NamedProcess{P}, layout::ComponentLayout, context::CommunityContext
 ) where {P<:Growth}
     process = named.process
-    _, light = _growth_light_factor(process)
-    _, nutrients = _growth_nutrient_factor(process)
-
+    _, nutrient_factor = _growth_resource_factor(process)
     population_tracers, population_indices = _realize_population_classes(
         named, process.populations, layout, context
     )
-    resources = _growth_resources(nutrients, layout)
+    resources = _growth_resource_target(nutrient_factor, layout)
     source = isnothing(process.source) ? nothing : _scalar_component_target(layout, process.source)
-    return GrowthTopology(
-        population_tracers, population_indices, resources, source, light.driver
-    )
+    return GrowthTopology(population_tracers, population_indices, resources, source, layout)
+end
+
+function _growth_scale_binding(
+    definition::NormalizedModelDefinition, named::NamedProcess
+)
+    matches = ()
+    for (name, factor) in pairs(factors(named))
+        any(slot -> slot.name === :maximum_rate, parameter_slots(formulation(factor))) ||
+            continue
+        slots = parameter_slot_bindings(
+            definition, named, (:factors, name), formulation(factor)
+        )
+        matches = (matches..., slots.maximum_rate)
+    end
+    length(matches) == 1 || throw(ArgumentError(
+        "growth process :$(process_id(named)) must declare exactly one factor-owned maximum_rate slot",
+    ))
+    return only(matches)
 end
 
 function _growth_rate(
@@ -67,65 +67,15 @@ function _growth_rate(
     definition::NormalizedModelDefinition,
     topology::GrowthTopology,
     population_index::Int,
+    scale_binding::ParameterBinding,
 )
-    process = named.process
-    light_name, light = _growth_light_factor(process)
-    nutrient_name, nutrients = _growth_nutrient_factor(process)
-    formulations = (formulation(light), formulation(nutrients))
-    light_slots = parameter_slot_bindings(
-        definition, named, (:factors, light_name), light.formulation
+    axis_indices = (population=population_index,)
+    rate_factors = _factor_elements(definition, named, topology.layout, axis_indices)
+    operands = (
+        ClassOp{population_index}(),
+        parameter_operand(scale_binding, population_index),
     )
-    rate_factors = _rate_factors(definition, named)
-
-    if light isa Light{Smith} && nutrients isa NutrientResponse{Monod}
-        nutrient_slots = parameter_slot_bindings(
-            definition,
-            named,
-            (:factors, nutrient_name),
-            nutrients.formulation;
-            context=(resource=nutrients.resource,),
-        )
-        operands = (
-            ClassOp{population_index}(),
-            TracerOp{topology.resource_target}(),
-            TracerOp{topology.light_driver}(),
-            parameter_operand(light_slots.maximum_rate, population_index),
-            parameter_operand(nutrient_slots.K, population_index),
-            parameter_operand(light_slots.alpha, population_index),
-        )
-        return RateElement(formulations, operands; factors=rate_factors)
-    end
-
-    if light isa Light{Geider} && nutrients isa Nutrients{Liebig}
-        resource_ops = Tuple(TracerOp{target}() for target in values(topology.resource_target))
-        half_saturation_ops = Tuple(
-            parameter_operand(
-                parameter_slot_bindings(
-                    definition,
-                    named,
-                    (:factors, nutrient_name, :responses, response_name),
-                    response.formulation;
-                    context=(resource=response.resource,),
-                ).K,
-                population_index,
-            )
-            for (response_name, response) in pairs(nutrients.responses)
-        )
-        operands = (
-            ClassOp{population_index}(),
-            TupleOp(resource_ops),
-            TracerOp{topology.light_driver}(),
-            parameter_operand(light_slots.maximum_rate, population_index),
-            TupleOp(half_saturation_ops),
-            parameter_operand(light_slots.alpha, population_index),
-            parameter_operand(light_slots.chlorophyll_to_carbon_ratio, population_index),
-        )
-        return RateElement(formulations, operands; factors=rate_factors)
-    end
-
-    throw(ArgumentError(
-        "unsupported growth factor combination $(typeof(light)) × $(typeof(nutrients))",
-    ))
+    return RateElement(formulation(named.process), operands; factors=rate_factors)
 end
 
 function _growth_resource_fluxes(
@@ -133,7 +83,7 @@ function _growth_resource_fluxes(
     definition::NormalizedModelDefinition,
     topology::GrowthTopology,
     rate::RateElement,
-    nutrients::NutrientResponse{Monod},
+    nutrients::NutrientResponse,
 )
     return (FluxSpec(process_id(named), topology.resource_target, rate, Weight{-1}()),)
 end
@@ -143,15 +93,16 @@ function _growth_resource_fluxes(
     definition::NormalizedModelDefinition,
     topology::GrowthTopology,
     rate::RateElement,
-    nutrients::Nutrients{Liebig},
+    nutrients::Nutrients,
 )
-    isnothing(topology.source_target) && throw(
-        ArgumentError("Geider/Liebig growth requires a canonical source component"),
-    )
-    fluxes = (
-        FluxSpec(process_id(named), topology.source_target, rate, Weight{-1}()),
-    )
+    isnothing(topology.source_target) && throw(ArgumentError(
+        "multi-resource growth requires a canonical source component",
+    ))
+    fluxes = (FluxSpec(process_id(named), topology.source_target, rate, Weight{-1}()),)
     stoichiometry = named.process.stoichiometry
+    isnothing(stoichiometry) && throw(ArgumentError(
+        "multi-resource growth requires stoichiometry for resource routing",
+    ))
     for currency in keys(topology.resource_target)
         target = getproperty(topology.resource_target, currency)
         ratio = parameter_slot_bindings(
@@ -183,12 +134,15 @@ function process_fluxes(
     length(topology.population_tracers) == length(topology.population_indices) || throw(
         ArgumentError("growth topology tracer and index counts must match"),
     )
-    _, nutrients = _growth_nutrient_factor(named.process)
+    _, nutrients = _growth_resource_factor(named.process)
+    scale_binding = _growth_scale_binding(definition, named)
     fluxes = ()
 
     for i in eachindex(topology.population_tracers)
         tracer = topology.population_tracers[i]
-        rate = _growth_rate(named, definition, topology, topology.population_indices[i])
+        rate = _growth_rate(
+            named, definition, topology, topology.population_indices[i], scale_binding
+        )
         biomass = FluxSpec(process_id(named), tracer, rate, Weight{1}())
         resources = _growth_resource_fluxes(named, definition, topology, rate, nutrients)
         fluxes = (fluxes..., biomass, resources...)

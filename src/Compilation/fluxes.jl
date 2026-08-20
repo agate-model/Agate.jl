@@ -57,6 +57,9 @@ end
     return factor_value(factor.formulation, values...)
 end
 
+@inline operand_value(factor::FactorElement, bgc, args) =
+    factor_element_value(factor, bgc, args)
+
 @inline apply_rate_factors(::Tuple{}, bgc, args, rate) = rate
 @inline function apply_rate_factors(factors::Tuple, bgc, args, rate)
     value = factor_element_value(first(factors), bgc, args)
