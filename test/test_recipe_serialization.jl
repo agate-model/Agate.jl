@@ -76,8 +76,16 @@ end
     mktemp() do path, io
         close(io)
         @test export_recipe(path, recipe) == path
+        exported = JSON.parsefile(path)
+        provides = exported["recipe"]["parameter_bindings"]["alpha"]["provides"]
+        @test provides[1]["path"] isa AbstractVector
         @test import_recipe(path) == recipe
     end
+
+    empty_object_path = modified(encoded, x ->
+        (x["recipe"]["parameter_bindings"]["alpha"]["provides"][1]["path"] = Dict{String,Any}())
+    )
+    @test decode_recipe(empty_object_path) == recipe
 
     _, nonfinite_recipe = NiPiZD.construct_plus_recipe(;
         scalar_type=Float32, palatability_matrix=Float32[NaN 0.9; 0.3 0.7]

@@ -485,6 +485,8 @@ end
 
 
 const _PROCESS_RECIPE_KEYS = ("components", "processes", "parameter_bindings", "realization")
+const _PARAMETER_BINDING_KEYS = ("provides",)
+const _PARAMETER_PROVISION_KEYS = ("process", "path", "formulation", "slot", "qualifier", "axes")
 const _PROCESS_REALIZATION_KEYS = (
     "community",
     "population_groups",
@@ -493,6 +495,59 @@ const _PROCESS_REALIZATION_KEYS = (
     "sinking_tracers",
     "open_bottom",
 )
+
+function _string_tuple(x, path)
+    x isa AbstractDict && isempty(x) && return ()
+    x isa AbstractVector || throw(ArgumentError("$path must be an array."))
+    return Tuple(_string(value, "$path[$i]") for (i, value) in pairs(x))
+end
+
+function _canonical_parameter_provision(x, path)
+    x = _check_keys(x, _PARAMETER_PROVISION_KEYS, path)
+    for key in _PARAMETER_PROVISION_KEYS
+        _required(x, key, path)
+    end
+    qualifier_data = x["qualifier"]
+    qualifier_data isa AbstractDict || throw(ArgumentError("$path.qualifier must be an object."))
+    qualifier = Tuple(sort!(
+        [(String(key), _string(value, "$path.qualifier.$key")) for (key, value) in pairs(qualifier_data)];
+        by=first,
+    ))
+    return (
+        process=_string(x["process"], "$path.process"),
+        path=_string_tuple(x["path"], "$path.path"),
+        formulation=_string(x["formulation"], "$path.formulation"),
+        slot=_string(x["slot"], "$path.slot"),
+        qualifier=qualifier,
+        axes=_string_tuple(x["axes"], "$path.axes"),
+    )
+end
+
+_parameter_provision_sort_key(provision) = (
+    provision.process,
+    provision.path,
+    provision.formulation,
+    provision.slot,
+    provision.qualifier,
+    provision.axes,
+)
+
+function _canonical_parameter_bindings(x, path)
+    x isa AbstractDict || throw(ArgumentError("$path must be an object."))
+    parameters = sort!(String[String(key) for key in keys(x)])
+    return Tuple(map(parameters) do parameter
+        binding_path = "$path.$parameter"
+        binding = _check_keys(x[parameter], _PARAMETER_BINDING_KEYS, binding_path)
+        provides = _required(binding, "provides", binding_path)
+        provides isa AbstractVector || throw(ArgumentError("$binding_path.provides must be an array."))
+        provisions = [
+            _canonical_parameter_provision(value, "$binding_path.provides[$i]")
+            for (i, value) in pairs(provides)
+        ]
+        sort!(provisions; by=_parameter_provision_sort_key)
+        return (parameter=parameter, provides=Tuple(provisions))
+    end)
+end
 
 function _decode_process_model_recipe(document::AbstractDict)
     model = _check_keys(
@@ -564,11 +619,16 @@ function _decode_process_model_recipe(document::AbstractDict)
     )
 
     expected_science = _encode_process_recipe_data(decoded)
-    for key in ("components", "processes", "parameter_bindings")
+    for key in ("components", "processes")
         _canonical_json(recipe_data[key]) == _canonical_json(expected_science[key]) || throw(
             ArgumentError("Recipe document.recipe.$key does not match the loaded model family contract.")
         )
     end
+    binding_path = "Recipe document.recipe.parameter_bindings"
+    _canonical_parameter_bindings(recipe_data["parameter_bindings"], binding_path) ==
+        _canonical_parameter_bindings(expected_science["parameter_bindings"], binding_path) || throw(
+            ArgumentError("$binding_path does not match the loaded model family contract.")
+        )
     expected_hash = _recipe_hash(decoded, _encode_process_recipe_data(decoded))
     recorded_hash == expected_hash || throw(
         ArgumentError("Recipe document.recipe_hash does not match the decoded recipe.")
@@ -654,7 +714,7 @@ end
 function export_recipe(path::AbstractString, recipe::Union{ModelRecipe,ProcessModelRecipe})
     document = encode_recipe(recipe)
     open(path, "w") do io
-        JSON.print(io, document, 4)
+        JSON.json(io, document; pretty=4, omit_empty=false)
         println(io)
     end
     return path
