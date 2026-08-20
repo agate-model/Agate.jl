@@ -8,7 +8,6 @@ using Oceananigans.Architectures: architecture, CPU, GPU
 
 using ..Factories:
     AbstractBGCFactory,
-    parameter_definitions,
     ConstDefault,
     DerivedDefault,
     NoDefault,
@@ -22,6 +21,8 @@ using ..Factories:
     default_biogeochem_dynamics,
     default_community
 
+import ..Factories: parameter_definitions
+
 using ..Configuration:
     axis_indices,
     normalize_interaction_overrides,
@@ -29,7 +30,9 @@ using ..Configuration:
     parse_community,
     parameter_role_indices,
     validate_community_inputs,
+    Population,
     Pool,
+    size_structure,
     realize_components,
     component_tracers,
     realize_component_groups
@@ -45,6 +48,12 @@ using ..Compilation: compile_model_tendencies
 using ..Equations: CompiledEquation
 
 using ..Library.Allometry: AbstractParamDef, resolve_diameter_indexed_vector
+
+struct _DefinitionParameterSource{P} <: AbstractBGCFactory
+    definitions::P
+end
+
+parameter_definitions(source::_DefinitionParameterSource) = source.definitions
 
 """Evaluate `parameter_definitions(factory)` to produce baseline parameter defaults.
 
@@ -341,7 +350,8 @@ function resolve_parameter_defaults(
     factory::AbstractBGCFactory,
     context,
     params::NamedTuple,
-    explicit_override_keys::Tuple{Vararg{Symbol}},
+    explicit_override_keys::Tuple{Vararg{Symbol}};
+    derivation_owner=factory,
 )
     ordered = derived_default_order(factory)
     isempty(ordered) && return params
@@ -369,7 +379,7 @@ function resolve_parameter_defaults(
         needs_compute = !hasproperty(resolved, key)
         needs_recompute = any(dep -> dep in changed, provider.deps)
         if needs_compute || needs_recompute
-            value = derive_default(provider.deriver, factory, context, resolved)
+            value = derive_default(provider.deriver, derivation_owner, context, resolved)
             validate_derived_parameter_result(definition.spec, context, value)
             resolved = merge(resolved, NamedTuple{(key,)}((value,)))
             push!(changed, key)
@@ -878,19 +888,105 @@ function construct_factory(
 end
 
 
-function _construct_process_factory(
-    factory::AbstractBGCFactory,
-    recipe::ProcessModelRecipe;
+function _intrinsic_population_groups(components::NamedTuple)
+    names = Tuple(
+        name for name in keys(components) if getproperty(components, name) isa Population
+    )
+    return NamedTuple{names}(Tuple((name,) for name in names))
+end
+
+@inline _unspecified_diameter(::Type{T}) where {T<:AbstractFloat} = T(NaN)
+@inline _unspecified_diameter(::Type{T}) where {T<:Real} = zero(T)
+
+function _intrinsic_population_community(
+    components::NamedTuple, population_groups::NamedTuple, ::Type{T}
+) where {T<:Real}
+    names = keys(population_groups)
+    specs = ntuple(length(names)) do i
+        name = names[i]
+        component = getproperty(components, name)
+        structure = size_structure(component)
+        diameters = isnothing(structure) ? T[_unspecified_diameter(T)] : structure
+        return (; diameters, pft=PFTSpecification())
+    end
+    return NamedTuple{names}(specs)
+end
+
+function _realize_process_definition(
+    definition,
+    ::Type{T};
+    population_groups=nothing,
+    community=nothing,
+) where {T<:Real}
+    intrinsic = isnothing(population_groups) && isnothing(community)
+    xor(isnothing(population_groups), isnothing(community)) && throw(
+        ArgumentError("population_groups and community must be supplied together."),
+    )
+
+    groups = intrinsic ? _intrinsic_population_groups(definition.components) : population_groups
+    community_input = intrinsic ?
+        _intrinsic_population_community(definition.components, groups, T) : community
+
+    placeholder_dynamics = NamedTuple{keys(community_input)}(
+        ntuple(_ -> identity, length(community_input))
+    )
+    validate_community_inputs(placeholder_dynamics, community_input)
+    interaction_roles = _process_interaction_roles(definition, groups)
+    pool_names = Tuple(
+        name for name in keys(definition.components) if
+        getproperty(definition.components, name) isa Pool
+    )
+    pool_components = NamedTuple{pool_names}(
+        Tuple(getproperty(definition.components, name) for name in pool_names)
+    )
+    pool_layout = realize_components(pool_components; scalar_type=T)
+    context = parse_community(
+        T,
+        community_input;
+        biogeochem_tracers=pool_layout.tracer_order,
+        interaction_roles,
+        parameter_roles=NamedTuple(),
+    )
+
+    layout = if intrinsic
+        population_names = keys(groups)
+        realization_names = (pool_names..., population_names...)
+        realization_components = NamedTuple{realization_names}(
+            Tuple(getproperty(definition.components, name) for name in realization_names)
+        )
+        intrinsic_layout = realize_components(realization_components; scalar_type=T)
+        population_tracers = Tuple(
+            tracer for name in population_names for
+            tracer in component_tracers(intrinsic_layout, name)
+        )
+        context.plankton_symbols .= population_tracers
+        intrinsic_layout
+    else
+        realize_component_groups(definition.components, groups, context)
+    end
+    return (; layout, context, population_groups=groups, pool_names)
+end
+
+function _construct_process_definition(
+    definition::ModelDefinition;
+    population_groups=nothing,
+    community=nothing,
+    parameter_overrides::NamedTuple=(;),
+    interaction_overrides::NamedTuple=(;),
+    sinking_tracers=nothing,
+    open_bottom::Bool=true,
     grid=nothing,
     arch=nothing,
     scalar_type=nothing,
     build_manifest::Bool=false,
+    derivation_owner=nothing,
+    manifest_factory=nothing,
 )
-    if isnothing(grid) && !isnothing(recipe.sinking_tracers)
+    if isnothing(grid) && !isnothing(sinking_tracers)
         grid = BoxModelGrid()
     end
     T = resolve_construction_scalar_type(grid, scalar_type)
-    sinking_tracers = convert_sinking_tracers(T, recipe.sinking_tracers)
+    sinking_tracers = convert_sinking_tracers(T, sinking_tracers)
 
     if !isnothing(grid)
         arch_grid = architecture(grid)
@@ -905,72 +1001,68 @@ function _construct_process_factory(
         isnothing(arch) && (arch = CPU())
     end
 
-    definition = normalize_model(ModelDefinition(;
-        components=recipe.components,
-        processes=recipe.processes,
-        parameters=parameter_definitions(factory),
-    ))
-    placeholder_dynamics = NamedTuple{keys(recipe.community)}(
-        ntuple(_ -> identity, length(recipe.community))
+    normalized = normalize_model(definition)
+    definitions = isnothing(definition.parameters) ? () : definition.parameters
+    parameter_source = _DefinitionParameterSource(definitions)
+    isnothing(derivation_owner) && (derivation_owner = definition)
+    isnothing(definition.parameters) && !isempty(normalized.parameter_requirements) && throw(
+        ArgumentError(
+            "construct(definition) requires ModelDefinition.parameters to provide the process parameter requirements."
+        ),
     )
-    validate_community_inputs(placeholder_dynamics, recipe.community)
-    interaction_roles = _process_interaction_roles(definition, recipe.population_groups)
-    pool_names = Tuple(
-        name for name in keys(recipe.components) if getproperty(recipe.components, name) isa Pool
+    realization = _realize_process_definition(
+        normalized, T; population_groups, community
     )
-    pool_components = NamedTuple{pool_names}(
-        Tuple(getproperty(recipe.components, name) for name in pool_names)
-    )
-    pool_layout = realize_components(pool_components; scalar_type=T)
-    community_context = parse_community(
-        T,
-        recipe.community;
-        biogeochem_tracers=pool_layout.tracer_order,
-        interaction_roles,
-        parameter_roles=NamedTuple(),
-    )
-    layout = realize_component_groups(
-        recipe.components, recipe.population_groups, community_context
-    )
+    layout = realization.layout
+    community_context = realization.context
     tracer_names = layout.tracer_order
-    auxiliary_fields = driver_identities(definition)
+    auxiliary_fields = driver_identities(normalized)
 
-    required = validate_parameter_directory(factory)
+    required = validate_parameter_directory(parameter_source)
     interaction_parameter_overrides = normalize_interaction_overrides(
-        factory, community_context, deepcopy(recipe.interaction_overrides)
+        parameter_source, community_context, deepcopy(interaction_overrides)
     )
-    validate_override_keys("parameters", recipe.parameter_overrides, required, factory)
     validate_override_keys(
-        "interaction_overrides", interaction_parameter_overrides, required, factory
+        "parameters", parameter_overrides, required, parameter_source
+    )
+    validate_override_keys(
+        "interaction_overrides",
+        interaction_parameter_overrides,
+        required,
+        parameter_source,
     )
 
     parameter_defaults = build_process_parameter_defaults(
-        factory, definition, layout, community_context, T
+        parameter_source, normalized, layout, community_context, T
     )
-    parameter_overrides = materialize_process_parameter_overrides(
-        factory,
+    materialized_overrides = materialize_process_parameter_overrides(
+        parameter_source,
         community_context,
-        definition,
+        normalized,
         layout,
         parameter_defaults,
-        recipe.parameter_overrides,
+        parameter_overrides,
         T,
     )
     merged_parameters = merge(
-        parameter_defaults, parameter_overrides, interaction_parameter_overrides
+        parameter_defaults, materialized_overrides, interaction_parameter_overrides
     )
     explicit_override_keys = (
-        keys(recipe.parameter_overrides)..., keys(interaction_parameter_overrides)...
+        keys(parameter_overrides)..., keys(interaction_parameter_overrides)...
     )
     merged_parameters = resolve_parameter_defaults(
-        factory, community_context, merged_parameters, explicit_override_keys
+        parameter_source,
+        community_context,
+        merged_parameters,
+        explicit_override_keys;
+        derivation_owner,
     )
     missing = Symbol[k for k in required if !hasproperty(merged_parameters, k)]
     isempty(missing) || throw(
         ArgumentError("missing required parameters: $(join(string.(missing), ", "))")
     )
     merged_parameters = finalize_interaction_parameters(
-        factory, community_context, merged_parameters
+        parameter_source, community_context, merged_parameters
     )
     internal = hasproperty(merged_parameters, :interactions) ? (:interactions,) : ()
     all_keys = (required..., internal...)
@@ -978,18 +1070,20 @@ function _construct_process_factory(
         Tuple(getproperty(merged_parameters, key) for key in all_keys)
     )
     reject_missing_values(resolved_parameters)
-    validate_parameter_shapes(factory, community_context, resolved_parameters, required)
+    validate_parameter_shapes(
+        parameter_source, community_context, resolved_parameters, required
+    )
     validate_auxiliary_fields(auxiliary_fields, tracer_names)
 
     tracers = compile_model_tendencies(
-        definition, layout, community_context; target_order=tracer_names
+        normalized, layout, community_context; target_order=tracer_names
     )
     tracer_index = build_tracer_index(
         community_context,
         tracer_names,
         auxiliary_fields;
         n_biogeochem_tracers=sum(
-            length(component_tracers(layout, name)) for name in pool_names
+            length(component_tracers(layout, name)) for name in realization.pool_names
         ),
     )
     plankton_diameter_metadata = Tuple(community_context.diameters)
@@ -1003,9 +1097,7 @@ function _construct_process_factory(
         )
         bgc_factory(resolved_parameters; plankton_diameters=plankton_diameter_metadata)
     else
-        sinking_velocities = setup_velocity_fields(
-            sinking_tracers, grid, recipe.open_bottom
-        )
+        sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
         bgc_factory = define_tracer_functions(
             resolved_parameters,
             tracers;
@@ -1021,16 +1113,21 @@ function _construct_process_factory(
     end
 
     manifest = if build_manifest
+        isnothing(manifest_factory) && throw(
+            ArgumentError("a registered model family is required to capture a replay manifest")
+        )
         capture_model_manifest(
-            factory,
+            manifest_factory,
             resolved_parameters,
             community_context;
             tracer_order=tracer_names,
             auxiliary_fields,
-            ecological_roles=_process_manifest_roles(definition, recipe.population_groups),
+            ecological_roles=_process_manifest_roles(
+                normalized, realization.population_groups
+            ),
             explicit_override_keys,
             sinking_tracers,
-            open_bottom=recipe.open_bottom,
+            open_bottom,
             scalar_type=T,
         )
     else
@@ -1039,6 +1136,73 @@ function _construct_process_factory(
 
     return on_architecture(arch, bgc), manifest
 end
+
+function _construct_process_factory(
+    factory::AbstractBGCFactory,
+    recipe::ProcessModelRecipe;
+    grid=nothing,
+    arch=nothing,
+    scalar_type=nothing,
+    build_manifest::Bool=false,
+)
+    definition = ModelDefinition(;
+        components=recipe.components,
+        processes=recipe.processes,
+        parameters=parameter_definitions(factory),
+    )
+    return _construct_process_definition(
+        definition;
+        population_groups=recipe.population_groups,
+        community=recipe.community,
+        parameter_overrides=recipe.parameter_overrides,
+        interaction_overrides=recipe.interaction_overrides,
+        sinking_tracers=recipe.sinking_tracers,
+        open_bottom=recipe.open_bottom,
+        grid,
+        arch,
+        scalar_type,
+        build_manifest,
+        derivation_owner=factory,
+        manifest_factory=factory,
+    )
+end
+
+"""
+    construct(definition::ModelDefinition; kwargs...) -> bgc
+
+Construct a model directly from authored components, named processes, and parameter
+definitions. Population and pool size structures are realized from the definition,
+process participation determines interaction axes and required auxiliary drivers, and
+runtime tracer equations are compiled during setup.
+
+`parameter_overrides` supplies concrete parameter values over the defaults declared in
+`definition.parameters`. `interaction_overrides` accepts explicit axis-sized interaction
+matrices. Runtime grid, architecture, and scalar precision remain execution choices rather
+than part of the scientific definition.
+"""
+function construct(
+    definition::ModelDefinition;
+    parameter_overrides::NamedTuple=(;),
+    interaction_overrides::NamedTuple=(;),
+    sinking_tracers=nothing,
+    open_bottom::Bool=true,
+    grid=nothing,
+    arch=nothing,
+    scalar_type=nothing,
+)
+    bgc, _ = _construct_process_definition(
+        definition;
+        parameter_overrides,
+        interaction_overrides,
+        sinking_tracers,
+        open_bottom,
+        grid,
+        arch,
+        scalar_type,
+    )
+    return bgc
+end
+
 
 """Realize a v3 component/process recipe in the supplied execution environment."""
 function construct_factory(

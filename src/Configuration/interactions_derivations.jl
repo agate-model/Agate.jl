@@ -24,7 +24,7 @@ struct AssimilationBinary end
 
 @inline function derive_default(
     ::PalatabilityAllometric,
-    ::AbstractBGCFactory,
+    ::Any,
     context::CommunityContext,
     params::NamedTuple,
 )
@@ -44,7 +44,7 @@ end
 
 @inline function derive_default(
     ::AssimilationBinary,
-    ::AbstractBGCFactory,
+    ::Any,
     context::CommunityContext,
     params::NamedTuple,
 )

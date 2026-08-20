@@ -148,10 +148,12 @@ end
 
 """Compute a value for a [`DerivedDefault`](@ref) provider.
 
-Concrete derivers receive the owning factory, construction context, and all parameter
-values resolved so far. Derivation runs on the host during model construction.
+Concrete derivers receive the owning model source, construction context, and all
+parameter values resolved so far. The owner is a registered factory for named model
+families and the authored `ModelDefinition` for direct construction. Derivation runs on
+the host during model construction.
 """
-function derive_default(deriver, ::AbstractBGCFactory, context, params::NamedTuple)
+function derive_default(deriver, owner, context, params::NamedTuple)
     throw(ArgumentError("derive_default is not implemented for $(typeof(deriver))."))
 end
 
