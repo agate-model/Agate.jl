@@ -60,6 +60,25 @@ explicit_json_value(::Any) = false
         "sinking_tracers",
         "open_bottom",
     ))
+    growth_data = encoded["recipe"]["processes"]["growth_P"]
+    @test growth_data["factors"] == Dict(
+        "light" => Dict(
+            "kind" => "light",
+            "formulation" => "smith",
+            "drivers" => Dict("driver" => "PAR"),
+        ),
+        "nutrients" => Dict(
+            "kind" => "nutrient_response",
+            "formulation" => "monod",
+            "participants" => Dict("resource" => "N"),
+        ),
+    )
+    @test encoded["recipe"]["processes"]["linear_mortality_P"]["routing"] == Dict(
+        "kind" => "product_routing",
+        "formulation" => "partition",
+        "retained" => "D",
+        "exported" => "N",
+    )
     @test encoded["provenance"]["agate"]["package"] == "Agate"
     @test encoded["provenance"]["agate"]["version"] == string(Base.pkgversion(Agate))
     @test startswith(recipe_hash, "sha256:")
@@ -133,14 +152,6 @@ explicit_json_value(::Any) = false
         @test import_recipe(path) == recipe
     end
 
-    for field in ("path", "axes")
-        empty_object = modified(encoded, document -> begin
-            bindings = document["recipe"]["parameter_bindings"]
-            first_empty_provision(bindings, field)[field] = Dict{String,Any}()
-        end)
-        @test decode_recipe(empty_object) == recipe
-    end
-
     _, nonfinite_recipe = NiPiZD.construct_plus_recipe(;
         scalar_type=Float32, palatability_matrix=Float32[NaN 0.9; 0.3 0.7]
     )
@@ -160,6 +171,9 @@ explicit_json_value(::Any) = false
         modified(encoded, x -> delete!(x["recipe"]["realization"], "open_bottom")),
         modified(encoded, x -> (x["model"]["family"] = "UnknownModel")),
         modified(encoded, x -> (x["recipe"]["realization"]["scalar_type"] = "Float32")),
+        modified(encoded, x -> (
+            first_empty_provision(x["recipe"]["parameter_bindings"], "path")["path"] = Dict{String,Any}()
+        )),
         modified(encoded, x -> (x["recipe"]["realization"]["open_bottom"] =
             !x["recipe"]["realization"]["open_bottom"])),
         modified(encoded, x -> (
