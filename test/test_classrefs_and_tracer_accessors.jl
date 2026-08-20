@@ -2,7 +2,8 @@ using Agate
 using Test
 
 using Agate.Configuration:
-    build_plankton_community, parse_community, DiameterRangeSpecification
+    build_plankton_community, parse_community, DiameterRangeSpecification, Population, Pool,
+    realize_components
 using Agate.Runtime: class, resolve_class, class_count, build_tracer_index, Tracers
 using Agate.Factories: default_biogeochem_dynamics, default_community, default_components
 using Agate.Equations: CompiledEquation
@@ -132,6 +133,21 @@ end
     @test tracers.PAR(args) == 42.0
 
     @test @inferred(tracers.P(args, 2)) == 4.0
+end
+
+
+@testset "Generic component ClassRef" begin
+    layout = realize_components((
+        B=Population(; currency=:carbon),
+        POM=Pool(:carbon; size_structure=[0.5, 5.0, 50.0]),
+    ))
+
+    @test class_count(layout, :B) == 1
+    @test class_count(layout, :POM) == 3
+    @test resolve_class(layout, class(:B, 1)) == 1
+    @test resolve_class(layout, class(:POM, 1)) == 2
+    @test resolve_class(layout, class(:POM, 3)) == 4
+    @test_throws ArgumentError resolve_class(layout, class(:POM, 4))
 end
 
 @testset "Diameter input normalization" begin

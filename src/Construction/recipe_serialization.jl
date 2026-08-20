@@ -2,7 +2,7 @@ using JSON
 
 using ..Configuration:
     PFTSpecification, DiameterListSpecification, DiameterRangeSpecification, Population, Pool,
-    currency, sinking, normalize_diameters
+    currency, size_structure, sinking, normalize_diameters
 
 using ..Factories: parameter_definitions, default_components, default_processes
 
@@ -372,10 +372,11 @@ function _component_v3_data(name::Symbol, component::Population, recipe::Process
 end
 
 function _component_v3_data(::Symbol, component::Pool, ::ProcessModelRecipe)
+    structure = size_structure(component)
     return Dict{String,Any}(
         "kind" => "pool",
         "currency" => String(currency(component)),
-        "size_structure" => nothing,
+        "size_structure" => isnothing(structure) ? nothing : _size_structure_data(structure),
         "sinking" => isnothing(sinking(component)) ? nothing : _encode_value(sinking(component)),
     )
 end

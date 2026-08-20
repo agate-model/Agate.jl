@@ -30,6 +30,8 @@ using ..Configuration:
     parameter_role_indices,
     validate_community_inputs,
     Pool,
+    realize_components,
+    component_tracers,
     realize_component_groups
 
 using ..Runtime: build_tracer_index
@@ -753,10 +755,14 @@ function _construct_process_factory(
     pool_names = Tuple(
         name for name in keys(recipe.components) if getproperty(recipe.components, name) isa Pool
     )
+    pool_components = NamedTuple{pool_names}(
+        Tuple(getproperty(recipe.components, name) for name in pool_names)
+    )
+    pool_layout = realize_components(pool_components; scalar_type=T)
     community_context = parse_community(
         T,
         recipe.community;
-        biogeochem_tracers=pool_names,
+        biogeochem_tracers=pool_layout.tracer_order,
         interaction_roles,
         parameter_roles=NamedTuple(),
     )
@@ -819,7 +825,9 @@ function _construct_process_factory(
         community_context,
         tracer_names,
         auxiliary_fields;
-        n_biogeochem_tracers=length(pool_names),
+        n_biogeochem_tracers=sum(
+            length(component_tracers(layout, name)) for name in pool_names
+        ),
     )
     plankton_diameter_metadata = Tuple(community_context.diameters)
 

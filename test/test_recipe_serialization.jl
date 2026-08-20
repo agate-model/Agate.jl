@@ -1,5 +1,6 @@
 using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe
 using Agate.Models: NiPiZD
+using Agate.Configuration: Pool
 using Agate.Processes: Growth, Light, NutrientResponse
 using JSON
 using OceanBioME: BoxModelGrid
@@ -91,6 +92,21 @@ explicit_json_value(::Any) = false
         recipe.open_bottom,
     )
     @test encode_recipe(reordered_recipe)["recipe_hash"] == recipe_hash
+
+    structured_pool_recipe = Agate.Construction.ProcessModelRecipe(
+        recipe.family,
+        merge(recipe.components, (POM=Pool(:nitrogen; size_structure=[0.5, 5.0, 50.0]),)),
+        recipe.processes,
+        recipe.population_groups,
+        recipe.community,
+        recipe.parameter_overrides,
+        recipe.interaction_overrides,
+        recipe.sinking_tracers,
+        recipe.open_bottom,
+    )
+    structured_pool = encode_recipe(structured_pool_recipe)["recipe"]["components"]["POM"]
+    @test structured_pool["kind"] == "pool"
+    @test structured_pool["size_structure"]["diameters"] == [0.5, 5.0, 50.0]
 
     sinking = (D=2.5 / 86400,)
     _, recipe_f32 = NiPiZD.construct_plus_recipe(;
