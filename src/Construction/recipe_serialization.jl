@@ -565,7 +565,7 @@ function _decode_process_model_recipe(document::AbstractDict)
 
     expected_science = _encode_process_recipe_data(decoded)
     for key in ("components", "processes", "parameter_bindings")
-        recipe_data[key] == expected_science[key] || throw(
+        _canonical_json(recipe_data[key]) == _canonical_json(expected_science[key]) || throw(
             ArgumentError("Recipe document.recipe.$key does not match the loaded model family contract.")
         )
     end

@@ -768,7 +768,7 @@ function _construct_process_factory(
 
     required = validate_parameter_directory(factory)
     interaction_parameter_overrides = normalize_interaction_overrides(
-        factory, community_context, recipe.interaction_overrides
+        factory, community_context, deepcopy(recipe.interaction_overrides)
     )
     validate_override_keys("parameters", recipe.parameter_overrides, required, factory)
     validate_override_keys(
