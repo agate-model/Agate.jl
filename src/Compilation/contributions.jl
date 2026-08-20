@@ -4,16 +4,17 @@ abstract type AbstractProcessContribution end
 @inline contribution_target(contribution::AbstractProcessContribution) = contribution.target
 
 function _parameter_requirement(
-    named::NamedProcess, path::Tuple, slot::Symbol; qualifier::NamedTuple=NamedTuple()
+    named::NamedProcess, path::Tuple, slot::Symbol; qualifier::Union{Nothing,NamedTuple}=nothing
 )
-    matches = filter(
-        requirement ->
-            requirement.identity.path == path && requirement.identity.slot === slot &&
-            requirement.identity.qualifier == qualifier,
-        parameter_requirements(named),
-    )
+    matches = filter(parameter_requirements(named)) do requirement
+        requirement.identity.path == path &&
+        requirement.identity.slot === slot &&
+        (isnothing(qualifier) || requirement.identity.qualifier == qualifier)
+    end
     length(matches) == 1 || throw(
         ArgumentError(
+            isnothing(qualifier) ?
+            "process :$(process_id(named)) must declare exactly one $path/$slot parameter requirement" :
             "process :$(process_id(named)) must declare exactly one $path/$slot parameter requirement with qualifier $qualifier",
         ),
     )
