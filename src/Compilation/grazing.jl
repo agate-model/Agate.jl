@@ -1,51 +1,3 @@
-"""Resolved parameter names needed to compile one preferential-grazing process."""
-struct GrazingParameterBinding{R}
-    maximum_rate::Symbol
-    half_saturation::Symbol
-    palatability::Symbol
-    assimilation::Symbol
-    routing::R
-end
-
-function GrazingParameterBinding(definition::NormalizedModelDefinition, id::Symbol)
-    hasproperty(definition.processes, id) || throw(
-        ArgumentError("normalized model has no process :$id"),
-    )
-    named = getproperty(definition.processes, id)
-    process = named.process
-    process isa Grazing || throw(ArgumentError("process :$id is not a Grazing process"))
-    process.formulation isa PreferentialGrazing || throw(
-        ArgumentError("unsupported grazing formulation $(typeof(process.formulation))"),
-    )
-
-    maximum_rate = parameter_name(
-        definition, _parameter_requirement(named, (), :maximum_rate)
-    )
-    half_saturation = parameter_name(
-        definition, _parameter_requirement(named, (), :half_saturation)
-    )
-    palatability = parameter_name(
-        definition, _parameter_requirement(named, (), :palatability)
-    )
-    assimilation = parameter_name(
-        definition, _parameter_requirement(named, (), :assimilation)
-    )
-    routing = if isnothing(process.routing)
-        nothing
-    elseif process.routing.formulation isa DOMPOMRouting
-        _dom_pom_routing_binding(definition, named, process.routing)
-    else
-        throw(
-            ArgumentError(
-                "unsupported grazing product routing $(typeof(process.routing.formulation))"
-            ),
-        )
-    end
-    return GrazingParameterBinding(
-        maximum_rate, half_saturation, palatability, assimilation, routing
-    )
-end
-
 """Realized preferential-grazing topology over process-local interaction axes."""
 struct GrazingTopology{CT,CI,RT,RI,D,R}
     consumer_tracers::CT
@@ -96,51 +48,42 @@ function realize_process_topology(
     )
 end
 
-function _interaction_runtime_parameter_name(name::Symbol)
-    text = String(name)
-    suffix = "_matrix"
-    return endswith(text, suffix) ? Symbol(text[1:(end - length(suffix))]) : name
-end
-
 function _grazing_rate(
     formulation,
-    binding::GrazingParameterBinding,
+    slots,
     consumer_index::Int,
     consumer_axis::Int,
     resource_index::Int,
     resource_axis::Int,
 )
-    palatability = _interaction_runtime_parameter_name(binding.palatability)
     operands = (
         ClassOp{resource_index}(),
         ClassOp{consumer_index}(),
-        VecParamOp{binding.maximum_rate,consumer_index}(),
-        VecParamOp{binding.half_saturation,consumer_index}(),
-        InteractionParamOp{palatability,consumer_axis,resource_axis}(),
+        parameter_operand(slots.maximum_rate, consumer_index),
+        parameter_operand(slots.half_saturation, consumer_index),
+        parameter_operand(slots.palatability, consumer_axis, resource_axis),
     )
     return RateElement(formulation, operands)
 end
 
 function _grazing_routed_fluxes(
     named::NamedProcess,
+    definition::NormalizedModelDefinition,
     topology::GrazingTopology,
-    binding::GrazingParameterBinding,
     rate::RateElement,
     assimilation,
 )
-    isnothing(topology.routing) && return ()
-    routing_binding = binding.routing
-    isnothing(routing_binding) && throw(
-        ArgumentError("routed grazing requires a routing parameter binding"),
-    )
+    routing = named.process.routing
+    isnothing(routing) && return ()
+    fraction = _routing_fraction_binding(definition, named, routing)
     fluxes = ()
     for route in (:DOM, :POM)
         targets = getproperty(topology.routing, route)
         for currency in keys(targets)
             target = getproperty(targets, currency)
-            ratio = _routing_ratio_parameter(topology.routing, routing_binding, currency)
+            ratio = _routing_ratio_binding(definition, named, routing, currency)
             weight = _routing_weight(
-                routing_binding.fraction,
+                fraction,
                 route;
                 ratio,
                 suffix=(ComplementOp(assimilation),),
@@ -152,7 +95,9 @@ function _grazing_routed_fluxes(
 end
 
 function process_fluxes(
-    named::NamedProcess{P}, topology::GrazingTopology, binding::GrazingParameterBinding
+    named::NamedProcess{P},
+    topology::GrazingTopology,
+    definition::NormalizedModelDefinition,
 ) where {P<:Grazing}
     length(topology.consumer_tracers) == length(topology.consumer_indices) || throw(
         ArgumentError("grazing topology consumer tracer and index counts must match"),
@@ -161,7 +106,7 @@ function process_fluxes(
         ArgumentError("grazing topology resource tracer and index counts must match"),
     )
 
-    assimilation_name = _interaction_runtime_parameter_name(binding.assimilation)
+    slots = parameter_slot_bindings(definition, named, (), formulation(named.process))
     fluxes = ()
     for consumer_axis in eachindex(topology.consumer_tracers)
         consumer = topology.consumer_tracers[consumer_axis]
@@ -171,15 +116,15 @@ function process_fluxes(
             resource_index = topology.resource_indices[resource_axis]
             rate = _grazing_rate(
                 formulation(named.process),
-                binding,
+                slots,
                 consumer_index,
                 consumer_axis,
                 resource_index,
                 resource_axis,
             )
-            assimilation = InteractionParamOp{
-                assimilation_name,consumer_axis,resource_axis
-            }()
+            assimilation = parameter_operand(
+                slots.assimilation, consumer_axis, resource_axis
+            )
             loss = FluxSpec(process_id(named), resource, rate, Weight{-1}())
             gain = FluxSpec(process_id(named), consumer, rate, Weight{1}((assimilation,)))
             fluxes = (fluxes..., loss, gain)
@@ -193,7 +138,9 @@ function process_fluxes(
                 )
                 fluxes = (fluxes..., unassimilated)
             end
-            routed = _grazing_routed_fluxes(named, topology, binding, rate, assimilation)
+            routed = _grazing_routed_fluxes(
+                named, definition, topology, rate, assimilation
+            )
             fluxes = (fluxes..., routed...)
         end
     end
@@ -207,6 +154,5 @@ function process_fluxes(
     context::CommunityContext,
 ) where {P<:Grazing}
     topology = realize_process_topology(named, layout, context)
-    binding = GrazingParameterBinding(definition, process_id(named))
-    return process_fluxes(named, topology, binding)
+    return process_fluxes(named, topology, definition)
 end

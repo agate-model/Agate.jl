@@ -1,34 +1,3 @@
-"""Resolved scalar parameters for one DOM/POM product-routing rule."""
-struct DOMPOMRoutingBinding{R}
-    fraction::Symbol
-    ratios::R
-end
-
-function _dom_pom_routing_binding(
-    definition::NormalizedModelDefinition, named::NamedProcess, routing::ProductRouting
-)
-    routing.formulation isa DOMPOMRouting || throw(
-        ArgumentError("routing is not a DOM/POM routing formulation"),
-    )
-    fraction = parameter_name(
-        definition, _parameter_requirement(named, (:routing,), :POM_fraction)
-    )
-    reference = routing.stoichiometry.reference
-    currencies = Tuple(currency for currency in keys(routing.pools.DOM) if currency !== reference)
-    ratio_values = Tuple(
-        parameter_name(
-            definition,
-            _parameter_requirement(
-                named,
-                (:routing, :stoichiometry),
-                :ratio;
-                qualifier=(currency=currency,),
-            ),
-        ) for currency in currencies
-    )
-    return DOMPOMRoutingBinding(fraction, NamedTuple{currencies}(ratio_values))
-end
-
 """Concrete tracer targets for DOM/POM routing, keyed by product currency."""
 struct DOMPOMRoutingTopology{D,P}
     DOM::D
@@ -53,29 +22,45 @@ function _realize_dom_pom_routing(routing::ProductRouting, layout::ComponentLayo
     )
 end
 
-function _routing_ratio_parameter(
-    routing::DOMPOMRoutingTopology,
-    binding::DOMPOMRoutingBinding,
-    currency::Symbol,
+function _routing_fraction_binding(
+    definition::NormalizedModelDefinition, named::NamedProcess, routing::ProductRouting
 )
-    currency === routing.reference && return nothing
-    return getproperty(binding.ratios, currency)
+    slots = parameter_slot_bindings(definition, named, (:routing,), routing.formulation)
+    routing.formulation isa PartitionRouting && return slots.export_fraction
+    routing.formulation isa DOMPOMRouting && return slots.POM_fraction
+    throw(ArgumentError("unsupported routing formulation $(typeof(routing.formulation))"))
 end
 
-function _fraction_operand(fraction::Symbol, route::Symbol)
-    operand = ScalarParamOp{fraction}()
+function _routing_ratio_binding(
+    definition::NormalizedModelDefinition,
+    named::NamedProcess,
+    routing::ProductRouting,
+    currency::Symbol,
+)
+    currency === routing.stoichiometry.reference && return nothing
+    return parameter_slot_bindings(
+        definition,
+        named,
+        (:routing, :stoichiometry),
+        routing.stoichiometry;
+        context=(currency=currency,),
+    ).ratio
+end
+
+function _fraction_operand(binding::ParameterBinding, route::Symbol)
+    operand = parameter_operand(binding)
     route in (:retained, :DOM) && return ComplementOp(operand)
     route in (:exported, :POM) && return operand
     throw(ArgumentError("unsupported routing partition :$route"))
 end
 
 _ratio_operands(::Nothing) = ()
-_ratio_operands(ratio::Symbol) = (ScalarParamOp{ratio}(),)
+_ratio_operands(binding::ParameterBinding) = (parameter_operand(binding),)
 
 function _routing_weight(
-    fraction::Symbol,
+    fraction::ParameterBinding,
     route::Symbol;
-    ratio::Union{Nothing,Symbol}=nothing,
+    ratio::Union{Nothing,ParameterBinding}=nothing,
     suffix::Tuple=(),
 )
     operands = (_fraction_operand(fraction, route), _ratio_operands(ratio)..., suffix...)

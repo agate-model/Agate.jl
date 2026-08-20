@@ -1,29 +1,3 @@
-"""Resolved parameter names for one heterotrophic consumption process."""
-struct ConsumptionParameterBinding{T}
-    maximum_rate::Symbol
-    half_saturation::Symbol
-    assimilation::Symbol
-    temperature::T
-end
-
-function ConsumptionParameterBinding(definition::NormalizedModelDefinition, id::Symbol)
-    hasproperty(definition.processes, id) || throw(
-        ArgumentError("normalized model has no process :$id"),
-    )
-    named = getproperty(definition.processes, id)
-    process = named.process
-    process isa Consumption || throw(ArgumentError("process :$id is not a Consumption process"))
-    process.formulation isa HeterotrophicConsumption || throw(
-        ArgumentError("unsupported consumption formulation $(typeof(process.formulation))"),
-    )
-    return ConsumptionParameterBinding(
-        parameter_name(definition, _parameter_requirement(named, (), :maximum_rate)),
-        parameter_name(definition, _parameter_requirement(named, (), :half_saturation)),
-        parameter_name(definition, _parameter_requirement(named, (), :assimilation)),
-        _temperature_factor_binding(definition, named),
-    )
-end
-
 """Realized consumer-by-resource topology for heterotrophic consumption."""
 struct ConsumptionTopology{CT,CI,RT,D}
     consumer_tracers::CT
@@ -65,7 +39,9 @@ end
 
 function _consumption_rate(
     formulation,
-    binding::ConsumptionParameterBinding,
+    slots,
+    definition::NormalizedModelDefinition,
+    named::NamedProcess,
     consumer_index::Int,
     consumer_axis::Int,
     resource::Symbol,
@@ -74,17 +50,18 @@ function _consumption_rate(
     operands = (
         TracerOp{resource}(),
         ClassOp{consumer_index}(),
-        VecParamOp{binding.maximum_rate,consumer_axis}(),
-        VecParamOp{binding.half_saturation,resource_axis}(),
+        parameter_operand(slots.maximum_rate, consumer_axis),
+        parameter_operand(slots.half_saturation, resource_axis),
     )
-    return RateElement(formulation, operands; factors=_rate_factors(binding.temperature))
+    return RateElement(formulation, operands; factors=_rate_factors(definition, named))
 end
 
 function process_fluxes(
     named::NamedProcess{P},
     topology::ConsumptionTopology,
-    binding::ConsumptionParameterBinding,
+    definition::NormalizedModelDefinition,
 ) where {P<:Consumption}
+    slots = parameter_slot_bindings(definition, named, (), formulation(named.process))
     fluxes = ()
     for consumer_axis in eachindex(topology.consumer_tracers)
         consumer = topology.consumer_tracers[consumer_axis]
@@ -93,13 +70,17 @@ function process_fluxes(
             resource = topology.resource_tracers[resource_axis]
             rate = _consumption_rate(
                 formulation(named.process),
-                binding,
+                slots,
+                definition,
+                named,
                 consumer_index,
                 consumer_axis,
                 resource,
                 resource_axis,
             )
-            assimilation = MatParamOp{binding.assimilation,consumer_axis,resource_axis}()
+            assimilation = parameter_operand(
+                slots.assimilation, consumer_axis, resource_axis
+            )
             loss = FluxSpec(process_id(named), resource, rate, Weight{-1}())
             gain = FluxSpec(process_id(named), consumer, rate, Weight{1}((assimilation,)))
             fluxes = (fluxes..., loss, gain)
@@ -124,6 +105,5 @@ function process_fluxes(
     context::CommunityContext,
 ) where {P<:Consumption}
     topology = realize_process_topology(named, layout, context)
-    binding = ConsumptionParameterBinding(definition, process_id(named))
-    return process_fluxes(named, topology, binding)
+    return process_fluxes(named, topology, definition)
 end

@@ -1,7 +1,7 @@
 using ForwardDiff
 
 using Agate.Compilation:
-    ConsumptionParameterBinding, TracerOp, ClassOp, VecParamOp, MatParamOp,
+    TracerOp, ClassOp, VecParamOp, MatParamOp,
     ScalarParamOp, ComplementOp, process_fluxes, model_fluxes, group_fluxes,
     compile_tendencies, compile_model_tendencies, weight_sign
 using Agate.Configuration:
@@ -17,8 +17,9 @@ _provision(process, path, formulation, slot; qualifier=NamedTuple()) =
     ParameterProvision(process, path, formulation, slot; qualifier)
 
 function food_web_parameters()
-    definition(name, shape, provides) =
-        ParameterDefinition(ParameterSpec(name, shape; provides), NoDefault())
+    definition(name, shape, provides; runtime_path=(name,)) = ParameterDefinition(
+        ParameterSpec(name, shape; runtime_path, provides), NoDefault()
+    )
     return (
         definition(:maximum_growth_rate, :vector,
             _provision(:growth_autotrophs, (:factors, :light), :smith, :maximum_rate)),
@@ -49,10 +50,18 @@ function food_web_parameters()
             _provision(:grazing_living, (), :preferential, :maximum_rate)),
         definition(:holling_half_saturation, :vector,
             _provision(:grazing_living, (), :preferential, :half_saturation)),
-        definition(:living_palatability_matrix, :matrix,
-            _provision(:grazing_living, (), :preferential, :palatability)),
-        definition(:living_assimilation_matrix, :matrix,
-            _provision(:grazing_living, (), :preferential, :assimilation)),
+        definition(
+            :living_palatability_matrix,
+            :matrix,
+            _provision(:grazing_living, (), :preferential, :palatability);
+            runtime_path=(:interactions, :living_palatability),
+        ),
+        definition(
+            :living_assimilation_matrix,
+            :matrix,
+            _provision(:grazing_living, (), :preferential, :assimilation);
+            runtime_path=(:interactions, :living_assimilation),
+        ),
         definition(:optimum_predator_prey_ratio, :vector,
             _provision(
                 :grazing_living, (:palatability, :default), :allometric,
@@ -194,12 +203,9 @@ end
     @test bacterial_assimilation.axis_tracers == ((:B_1,), (:POM_1, :POM_2))
 
     consumption = normalized.processes.consume_POM
-    binding = ConsumptionParameterBinding(normalized, :consume_POM)
     fluxes = process_fluxes(
         consumption, normalized, layout, compilation.context
     )
-    @test binding.temperature.q10 === :temperature_q10
-    @test binding.temperature.reference_temperature === :reference_temperature
     @test length(fluxes) == 6
     @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) == (
         (:POM_1, -1), (:B_1, 1), (:D, 1),

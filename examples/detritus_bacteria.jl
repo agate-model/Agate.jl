@@ -19,8 +19,10 @@ nothing #hide
 provision(process, path, formulation, slot; qualifier=NamedTuple()) =
     ParameterProvision(process, path, formulation, slot; qualifier)
 
-function parameter(name, shape, provider, provides; axes=nothing)
-    return ParameterDefinition(ParameterSpec(name, shape; axes, provides), provider)
+function parameter(name, shape, provider, provides; axes=nothing, runtime_path=(name,))
+    return ParameterDefinition(
+        ParameterSpec(name, shape; axes, runtime_path, provides), provider
+    )
 end
 
 scalar_parameter(name, value, provides) =
@@ -153,6 +155,7 @@ parameters = (
         ),
         provision(:graze_bacteria, (), :preferential, :palatability);
         axes=(:consumer, :prey),
+        runtime_path=(:interactions, :living_palatability),
     ),
     parameter(
         :living_assimilation,
@@ -160,6 +163,7 @@ parameters = (
         DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,)),
         provision(:graze_bacteria, (), :preferential, :assimilation);
         axes=(:consumer, :prey),
+        runtime_path=(:interactions, :living_assimilation),
     ),
 )
 

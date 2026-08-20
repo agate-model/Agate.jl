@@ -19,6 +19,7 @@ function Agate.Factories.parameter_definitions(::ThreeInteractionMatrixFactory)
                 :encounter_matrix,
                 :matrix;
                 axes=(:consumer, :prey),
+                runtime_path=(:interactions, :encounter),
             ),
             Agate.Factories.NoDefault(),
         ),
@@ -27,6 +28,7 @@ function Agate.Factories.parameter_definitions(::ThreeInteractionMatrixFactory)
                 :capture_efficiency_matrix,
                 :matrix;
                 axes=(:consumer, :prey),
+                runtime_path=(:interactions, :capture_efficiency),
             ),
             Agate.Factories.NoDefault(),
         ),
@@ -35,6 +37,7 @@ function Agate.Factories.parameter_definitions(::ThreeInteractionMatrixFactory)
                 :handling_time_matrix,
                 :matrix;
                 axes=(:consumer, :prey),
+                runtime_path=(:interactions, :handling_time),
             ),
             Agate.Factories.NoDefault(),
         ),

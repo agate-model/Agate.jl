@@ -30,17 +30,15 @@ using ..Processes:
     formulation,
     factors,
     factor_value,
-    parameter_name,
-    parameter_requirements,
+    ParameterBinding,
+    parameter_slot_bindings,
     process_id,
     process_rate
 
 export FluxSpec, RateElement, Weight
-export GrowthParameterBinding, GrowthTopology
-export GrazingParameterBinding, GrazingTopology
-export ConsumptionParameterBinding, ConsumptionTopology
-export MortalityParameterBinding, MortalityTopology
-export RemineralizationParameterBinding, RemineralizationTopology
+export GrowthTopology, GrazingTopology, ConsumptionTopology
+export MortalityTopology, RemineralizationTopology
+export parameter_operand
 export realize_process_topology, process_fluxes
 export flux_target, group_fluxes
 export model_fluxes, compile_tendency, compile_tendencies, compile_model_tendencies

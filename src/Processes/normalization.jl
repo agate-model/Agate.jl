@@ -95,6 +95,74 @@ function _default_requirement_shape(axes::Tuple)
     throw(ArgumentError("parameter requirement axes currently support at most two dimensions"))
 end
 
+"""Formulation-local declaration of one semantic parameter slot."""
+struct ParameterSlot{A<:Tuple}
+    name::Symbol
+    axes::A
+    qualify::Union{Nothing,Symbol}
+    shape::Symbol
+end
+
+function ParameterSlot(
+    name::Symbol,
+    axes::Tuple=();
+    qualify::Union{Nothing,Symbol}=nothing,
+    shape::Symbol=_default_requirement_shape(axes),
+)
+    length(axes) <= 2 || throw(
+        ArgumentError("parameter slot axes currently support at most two dimensions"),
+    )
+    all(axis -> axis isa Symbol, axes) || throw(
+        ArgumentError("parameter slot axes must contain only Symbols"),
+    )
+    shape in (:scalar, :vector, :matrix) || throw(
+        ArgumentError("parameter slot shape must be :scalar, :vector, or :matrix"),
+    )
+    return ParameterSlot(name, axes, qualify, shape)
+end
+
+parameter_slots(::AbstractFormulation) = ()
+parameter_slots(::Smith) = (
+    ParameterSlot(:maximum_rate, (:population,)),
+    ParameterSlot(:alpha, (:population,)),
+)
+parameter_slots(::Geider) = (
+    ParameterSlot(:maximum_rate, (:population,)),
+    ParameterSlot(:alpha, (:population,)),
+    ParameterSlot(:chlorophyll_to_carbon_ratio, (:population,)),
+)
+parameter_slots(::Monod) = (ParameterSlot(:K, (:population,); qualify=:resource),)
+parameter_slots(::Liebig) = ()
+parameter_slots(::Q10) = (
+    ParameterSlot(:q10),
+    ParameterSlot(:reference_temperature),
+)
+parameter_slots(::PreferentialGrazing) = (
+    ParameterSlot(:maximum_rate, (:consumer,)),
+    ParameterSlot(:half_saturation, (:consumer,)),
+    ParameterSlot(:palatability, (:consumer, :resource)),
+    ParameterSlot(:assimilation, (:consumer, :resource)),
+)
+parameter_slots(::HeterotrophicConsumption) = (
+    ParameterSlot(:maximum_rate, (:consumer,)),
+    ParameterSlot(:half_saturation, (:resource,)),
+    ParameterSlot(:assimilation, (:consumer, :resource)),
+)
+parameter_slots(::LinearMortality) = (ParameterSlot(:rate, (:population,); qualify=:population),)
+parameter_slots(::QuadraticMortality) = (ParameterSlot(:rate, (:population,); qualify=:population),)
+parameter_slots(::LinearRemineralization) = (
+    ParameterSlot(:rate, (:source,); qualify=:source, shape=:scalar),
+)
+parameter_slots(::PartitionRouting) = (ParameterSlot(:export_fraction),)
+parameter_slots(::DOMPOMRouting) = (ParameterSlot(:POM_fraction),)
+parameter_slots(::FixedStoichiometry) = (ParameterSlot(:ratio; qualify=:currency),)
+parameter_slots(::Val{:allometric}) = (
+    ParameterSlot(:optimum_predator_prey_ratio, (:consumer,)),
+    ParameterSlot(:specificity, (:consumer,)),
+    ParameterSlot(:protection, (:resource,)),
+)
+parameter_slots(::Val{:binary}) = (ParameterSlot(:assimilation_efficiency, (:consumer,)),)
+
 """One formulation-declared semantic parameter requirement.
 
 `axes` describe process-local applicability. `shape` describes model-parameter storage,
@@ -130,10 +198,11 @@ function ParameterRequirement(
     return ParameterRequirement(identity, axes, shape)
 end
 
-"""Resolved mapping from one semantic requirement to a model parameter name."""
-struct ParameterBinding{R<:ParameterRequirement}
+"""Resolved mapping from one semantic requirement to concrete runtime parameter storage."""
+struct ParameterBinding{R<:ParameterRequirement,P<:Tuple}
     requirement::R
     parameter::Symbol
+    runtime_path::P
 end
 
 """Concrete participant applicability of one bound parameter requirement."""
@@ -143,251 +212,195 @@ struct ParameterApplicability{B,C,T}
     axis_tracers::T
 end
 
-function _requirement(
+function _slot_qualifier(slot::ParameterSlot, context::NamedTuple)
+    isnothing(slot.qualify) && return NamedTuple()
+    hasproperty(context, slot.qualify) || return NamedTuple()
+    value = getproperty(context, slot.qualify)
+    value isa Symbol || throw(
+        ArgumentError("parameter slot qualifier :$(slot.qualify) must identify one Symbol"),
+    )
+    return NamedTuple{(slot.qualify,)}((value,))
+end
+
+function _slot_requirement(
     named::NamedProcess,
-    path,
+    path::Tuple,
     formulation_value,
-    slot,
-    axes;
-    qualifier=NamedTuple(),
-    shape=_default_requirement_shape(axes),
+    slot::ParameterSlot,
+    context::NamedTuple,
 )
     return ParameterRequirement(
-        process_id(named), path, formulation_value, slot, axes; qualifier, shape
+        process_id(named),
+        path,
+        formulation_value,
+        slot.name,
+        slot.axes;
+        qualifier=_slot_qualifier(slot, context),
+        shape=slot.shape,
     )
 end
 
-function _factor_parameter_requirements(named::NamedProcess, name::Symbol, factor::Light{Smith})
-    path = (:factors, name)
-    return (
-        _requirement(named, path, factor.formulation, :maximum_rate, (:population,)),
-        _requirement(named, path, factor.formulation, :alpha, (:population,)),
-    )
-end
-
-function _factor_parameter_requirements(named::NamedProcess, name::Symbol, factor::Light{Geider})
-    path = (:factors, name)
-    return (
-        _requirement(named, path, factor.formulation, :maximum_rate, (:population,)),
-        _requirement(named, path, factor.formulation, :alpha, (:population,)),
-        _requirement(
-            named,
-            path,
-            factor.formulation,
-            :chlorophyll_to_carbon_ratio,
-            (:population,),
-        ),
-    )
-end
-
-function _factor_parameter_requirements(
-    named::NamedProcess, name::Symbol, factor::NutrientResponse{Monod}
+function _slot_requirements(
+    named::NamedProcess,
+    path::Tuple,
+    node;
+    context::NamedTuple=NamedTuple(),
+    formulation_value=node,
 )
-    return (
-        _requirement(
-            named,
-            (:factors, name),
-            factor.formulation,
-            :K,
-            (:population,);
-            qualifier=(resource=factor.resource,),
-        ),
+    return Tuple(
+        _slot_requirement(named, path, formulation_value, slot, context)
+        for slot in parameter_slots(node)
     )
 end
 
+_parameter_node(path::Tuple, node; context=NamedTuple(), formulation_value=node) =
+    (; path, node, context, formulation_value)
 
-function _nutrient_response_requirements(
-    named::NamedProcess, path::Tuple, response::NutrientResponse{Monod}
+_factor_parameter_nodes(name::Symbol, factor::Light) =
+    (_parameter_node((:factors, name), factor.formulation),)
+
+_factor_parameter_nodes(name::Symbol, factor::NutrientResponse) = (
+    _parameter_node(
+        (:factors, name), factor.formulation; context=(resource=factor.resource,)
+    ),
 )
-    return (
-        _requirement(
-            named,
-            path,
-            response.formulation,
-            :K,
-            (:population,);
-            qualifier=(resource=response.resource,),
-        ),
-    )
-end
 
-
-function _factor_parameter_requirements(
-    named::NamedProcess, name::Symbol, factor::Nutrients{Liebig}
-)
-    requirements = ()
+function _factor_parameter_nodes(name::Symbol, factor::Nutrients)
+    nodes = (_parameter_node((:factors, name), factor.formulation),)
     for (response_name, response) in pairs(factor.responses)
-        requirements = (
-            requirements...,
-            _nutrient_response_requirements(
-                named, (:factors, name, :responses, response_name), response
-            )...,
+        nodes = (
+            nodes...,
+            _parameter_node(
+                (:factors, name, :responses, response_name),
+                response.formulation;
+                context=(resource=response.resource,),
+            ),
         )
     end
-    return requirements
+    return nodes
 end
 
-function _factor_parameter_requirements(named::NamedProcess, name::Symbol, factor::Temperature{Q10})
-    path = (:factors, name)
-    return (
-        _requirement(named, path, factor.formulation, :q10, (); shape=:scalar),
-        _requirement(
-            named, path, factor.formulation, :reference_temperature, (); shape=:scalar
-        ),
-    )
-end
+_factor_parameter_nodes(name::Symbol, factor::Temperature) =
+    (_parameter_node((:factors, name), factor.formulation),)
 
-function _factor_parameter_requirements(named::NamedProcess, name::Symbol, factor::AbstractFactor)
+function _factor_parameter_nodes(name::Symbol, factor::AbstractFactor)
     throw(ArgumentError("unsupported process factor :$name of type $(typeof(factor))"))
 end
 
-"""Return semantic parameter requirements declared by a named process formulation."""
-function parameter_requirements(named::NamedProcess{P}) where {P<:Growth}
-    requirements = ()
-    for (name, factor) in pairs(named.process.factors)
-        requirements = (requirements..., _factor_parameter_requirements(named, name, factor)...)
-    end
-    stoichiometry = named.process.stoichiometry
-    if stoichiometry isa FixedStoichiometry
-        nutrient_factors = Tuple(
-            factor for factor in values(named.process.factors) if factor isa Nutrients
-        )
-        length(nutrient_factors) == 1 || throw(
-            ArgumentError(
-                "fixed-stoichiometry growth requires exactly one multi-resource Nutrients factor"
+function _routing_parameter_nodes(routing::ProductRouting)
+    nodes = (_parameter_node((:routing,), routing.formulation),)
+    routing.formulation isa DOMPOMRouting || return nodes
+
+    reference = routing.stoichiometry.reference
+    for currency in keys(routing.pools.DOM)
+        currency === reference && continue
+        nodes = (
+            nodes...,
+            _parameter_node(
+                (:routing, :stoichiometry),
+                routing.stoichiometry;
+                context=(currency=currency,),
             ),
         )
-        nutrients = only(nutrient_factors)
-        for currency in keys(nutrients.responses)
-            requirements = (
-                requirements...,
-                _requirement(
-                    named,
-                    (:stoichiometry,),
-                    stoichiometry,
-                    :ratio,
-                    ();
-                    qualifier=(currency=currency,),
-                    shape=:scalar,
-                ),
-            )
-        end
     end
-    return requirements
+    return nodes
 end
 
-
-function _routing_parameter_requirements(named::NamedProcess, routing::ProductRouting)
-    if routing.formulation isa PartitionRouting
-        return (
-            _requirement(named, (:routing,), routing.formulation, :export_fraction, ()),
-        )
-    elseif routing.formulation isa DOMPOMRouting
-        requirements = (
-            _requirement(named, (:routing,), routing.formulation, :POM_fraction, ()),
-        )
-        reference = routing.stoichiometry.reference
-        for currency in keys(routing.pools.DOM)
-            currency === reference && continue
-            requirements = (
-                requirements...,
-                _requirement(
-                    named,
-                    (:routing, :stoichiometry),
-                    routing.stoichiometry,
-                    :ratio,
-                    ();
-                    qualifier=(currency=currency,),
-                    shape=:scalar,
-                ),
-            )
-        end
-        return requirements
+function _parameter_nodes(named::NamedProcess{P}) where {P<:Growth}
+    process = named.process
+    nodes = ()
+    for (name, factor) in pairs(process.factors)
+        nodes = (nodes..., _factor_parameter_nodes(name, factor)...)
     end
-    throw(ArgumentError("unsupported product-routing formulation $(typeof(routing.formulation))"))
+
+    stoichiometry = process.stoichiometry
+    isnothing(stoichiometry) && return nodes
+    stoichiometry isa FixedStoichiometry || throw(
+        ArgumentError("unsupported growth stoichiometry $(typeof(stoichiometry))"),
+    )
+    nutrient_factors = Tuple(factor for factor in values(process.factors) if factor isa Nutrients)
+    length(nutrient_factors) == 1 || throw(
+        ArgumentError(
+            "fixed-stoichiometry growth requires exactly one multi-resource Nutrients factor"
+        ),
+    )
+    for currency in keys(only(nutrient_factors).responses)
+        nodes = (
+            nodes...,
+            _parameter_node(
+                (:stoichiometry,), stoichiometry; context=(currency=currency,)
+            ),
+        )
+    end
+    return nodes
 end
 
-function parameter_requirements(named::NamedProcess{P}) where {P<:Grazing}
+function _parameter_nodes(named::NamedProcess{P}) where {P<:Grazing}
     process = named.process
     process.formulation isa PreferentialGrazing || throw(
         ArgumentError("unsupported grazing formulation $(typeof(process.formulation))"),
     )
-    requirements = (
-        _requirement(named, (), process.formulation, :maximum_rate, (:consumer,)),
-        _requirement(named, (), process.formulation, :half_saturation, (:consumer,)),
-        _requirement(named, (), process.formulation, :palatability, (:consumer, :resource)),
-        _requirement(named, (), process.formulation, :assimilation, (:consumer, :resource)),
-        _requirement(
-            named,
-            (:palatability, :default),
-            :allometric,
-            :optimum_predator_prey_ratio,
-            (:consumer,),
+    nodes = (
+        _parameter_node((), process.formulation),
+        _parameter_node(
+            (:palatability, :default), Val(:allometric); formulation_value=:allometric
         ),
-        _requirement(
-            named, (:palatability, :default), :allometric, :specificity, (:consumer,)
-        ),
-        _requirement(
-            named, (:palatability, :default), :allometric, :protection, (:resource,)
-        ),
-        _requirement(
-            named,
-            (:assimilation, :default),
-            :binary,
-            :assimilation_efficiency,
-            (:consumer,),
+        _parameter_node(
+            (:assimilation, :default), Val(:binary); formulation_value=:binary
         ),
     )
-    isnothing(process.routing) && return requirements
-    return (requirements..., _routing_parameter_requirements(named, process.routing)...)
+    isnothing(process.routing) && return nodes
+    return (nodes..., _routing_parameter_nodes(process.routing)...)
 end
 
-function parameter_requirements(named::NamedProcess{P}) where {P<:Consumption}
+function _parameter_nodes(named::NamedProcess{P}) where {P<:Consumption}
     process = named.process
     process.formulation isa HeterotrophicConsumption || throw(
         ArgumentError("unsupported consumption formulation $(typeof(process.formulation))"),
     )
-    requirements = (
-        _requirement(named, (), process.formulation, :maximum_rate, (:consumer,)),
-        _requirement(named, (), process.formulation, :half_saturation, (:resource,)),
-        _requirement(named, (), process.formulation, :assimilation, (:consumer, :resource)),
-    )
+    nodes = (_parameter_node((), process.formulation),)
     for (name, factor) in pairs(process.factors)
-        requirements = (requirements..., _factor_parameter_requirements(named, name, factor)...)
+        nodes = (nodes..., _factor_parameter_nodes(name, factor)...)
     end
-    return requirements
+    return nodes
 end
 
-function parameter_requirements(named::NamedProcess{P}) where {P<:Mortality}
+function _parameter_nodes(named::NamedProcess{P}) where {P<:Mortality}
     process = named.process
-    qualifier = length(process.populations) == 1 ?
-                (population=only(process.populations),) : NamedTuple()
-    requirements = (
-        _requirement(
-            named, (), process.formulation, :rate, (:population,); qualifier
-        ),
-    )
-    routing = process.routing
-    isnothing(routing) && return requirements
-    return (requirements..., _routing_parameter_requirements(named, routing)...)
+    context = length(process.populations) == 1 ?
+              (population=only(process.populations),) : NamedTuple()
+    nodes = (_parameter_node((), process.formulation; context),)
+    isnothing(process.routing) && return nodes
+    return (nodes..., _routing_parameter_nodes(process.routing)...)
 end
 
-function parameter_requirements(named::NamedProcess{P}) where {P<:Remineralization}
+function _parameter_nodes(named::NamedProcess{P}) where {P<:Remineralization}
     process = named.process
     process.formulation isa LinearRemineralization || throw(
         ArgumentError("unsupported remineralization formulation $(typeof(process.formulation))"),
     )
     return Tuple(
-        _requirement(
-            named,
-            (),
-            process.formulation,
-            :rate,
-            (:source,);
-            qualifier=(source=source,),
-            shape=:scalar,
-        ) for source in process.sources
+        _parameter_node((), process.formulation; context=(source=source,))
+        for source in process.sources
     )
+end
+
+"""Return semantic parameter requirements from the named process scientific tree."""
+function parameter_requirements(named::NamedProcess)
+    requirements = ()
+    for node in _parameter_nodes(named)
+        requirements = (
+            requirements...,
+            _slot_requirements(
+                named,
+                node.path,
+                node.node;
+                context=node.context,
+                formulation_value=node.formulation_value,
+            )...,
+        )
+    end
+    return requirements
 end
 
 """Setup-time normalized scientific model definition."""
@@ -409,19 +422,51 @@ parameter_requirements(definition::NormalizedModelDefinition) = definition.param
 """Return resolved semantic requirement-to-model-parameter bindings."""
 parameter_bindings(definition::NormalizedModelDefinition) = definition.parameter_bindings
 
-"""Return the model parameter name that supplies `requirement`."""
-function parameter_name(definition::NormalizedModelDefinition, requirement::ParameterRequirement)
-    return parameter_name(definition, requirement.identity)
-end
-
-function parameter_name(
+"""Return the resolved binding for one semantic parameter requirement identity."""
+function parameter_binding(
     definition::NormalizedModelDefinition, identity::ParameterRequirementIdentity
 )
     for binding in definition.parameter_bindings
-        binding.requirement.identity == identity && return binding.parameter
+        binding.requirement.identity == identity && return binding
     end
     throw(ArgumentError("no model parameter is bound to requirement $identity"))
 end
+
+parameter_binding(definition::NormalizedModelDefinition, requirement::ParameterRequirement) =
+    parameter_binding(definition, requirement.identity)
+
+"""Resolve all slots for one scientific node from its formulation slot schema."""
+function parameter_slot_bindings(
+    definition::NormalizedModelDefinition,
+    named::NamedProcess,
+    path::Tuple,
+    node;
+    context::NamedTuple=NamedTuple(),
+    formulation_value=node,
+)
+    requirements = _slot_requirements(named, path, node; context, formulation_value)
+    names = Tuple(requirement.identity.slot for requirement in requirements)
+    bindings = Tuple(
+        begin
+            binding = parameter_binding(definition, requirement)
+            binding.requirement == requirement || throw(
+                ArgumentError(
+                    "resolved parameter binding does not match slot schema for $(requirement.identity)",
+                ),
+            )
+            binding
+        end for requirement in requirements
+    )
+    return NamedTuple{names}(bindings)
+end
+
+"""Return the model parameter name that supplies `requirement`."""
+parameter_name(definition::NormalizedModelDefinition, requirement::ParameterRequirement) =
+    parameter_binding(definition, requirement).parameter
+
+parameter_name(
+    definition::NormalizedModelDefinition, identity::ParameterRequirementIdentity
+) = parameter_binding(definition, identity).parameter
 
 _factor_component_references(::Light) = ()
 _factor_component_references(::Temperature) = ()
@@ -620,7 +665,7 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
     )
 
     requirement_map = Dict(requirement.identity => requirement for requirement in requirements)
-    provided = Dict{ParameterRequirementIdentity,Symbol}()
+    provided = Dict{ParameterRequirementIdentity,Tuple{Symbol,Tuple}}()
 
     for definition in definitions
         spec = definition.spec
@@ -639,10 +684,10 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
             )
             haskey(provided, identity) && throw(
                 ArgumentError(
-                    "parameter requirement $identity is provided by both :$(provided[identity]) and :$(spec.name)",
+                    "parameter requirement $identity is provided by both :$(first(provided[identity])) and :$(spec.name)",
                 ),
             )
-            provided[identity] = spec.name
+            provided[identity] = (spec.name, spec.runtime_path)
         end
     end
 
@@ -652,7 +697,10 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
             "model parameter definitions do not provide requirements $(map(r -> r.identity, missing))",
         ),
     )
-    return Tuple(ParameterBinding(requirement, provided[requirement.identity]) for requirement in requirements)
+    return Tuple(
+        ParameterBinding(requirement, provided[requirement.identity]...)
+        for requirement in requirements
+    )
 end
 
 """Normalize process identity, semantic parameter requirements, and model bindings.

@@ -38,8 +38,8 @@ nothing #hide
 provision(process, path, formulation, slot; qualifier=NamedTuple()) =
     ParameterProvision(process, path, formulation, slot; qualifier)
 
-function parameter(name, shape, provider, provides; axes=nothing)
-    spec = ParameterSpec(name, shape; axes, provides)
+function parameter(name, shape, provider, provides; axes=nothing, runtime_path=(name,))
+    spec = ParameterSpec(name, shape; axes, runtime_path, provides)
     return ParameterDefinition(spec, provider)
 end
 
@@ -168,6 +168,7 @@ parameters = (
         ),
         provision(:grazing_Z_on_P, (), :preferential, :palatability);
         axes=(:consumer, :prey),
+        runtime_path=(:interactions, :palatability),
     ),
     parameter(
         :assimilation_matrix,
@@ -175,6 +176,7 @@ parameters = (
         DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,)),
         provision(:grazing_Z_on_P, (), :preferential, :assimilation);
         axes=(:consumer, :prey),
+        runtime_path=(:interactions, :assimilation),
     ),
     vector_parameter(
         :phytoplankton_mortality,

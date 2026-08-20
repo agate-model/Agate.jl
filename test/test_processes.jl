@@ -12,9 +12,12 @@ using Agate.Processes:
     FixedStoichiometry,
     Grazing,
     ModelDefinition,
+    ParameterSlot,
     ParameterRequirementIdentity,
     parameter_bindings,
     parameter_requirements,
+    parameter_slots,
+    parameter_slot_bindings,
     parameter_name,
     resolve_parameter_applicability,
     drivers,
@@ -96,6 +99,14 @@ using Agate.Processes:
         factors=(light=Light(:smith; driver=:PAR),),
     )
 
+    @test parameter_slots(Smith()) == (
+        ParameterSlot(:maximum_rate, (:population,)),
+        ParameterSlot(:alpha, (:population,)),
+    )
+    @test parameter_slots(Monod()) == (
+        ParameterSlot(:K, (:population,); qualify=:resource),
+    )
+
     wrong_currency = ModelDefinition(;
         components=(
             P=Population(; currency=:carbon),
@@ -138,6 +149,24 @@ end
         keys(normalized.processes)
     @test length(parameter_requirements(normalized)) == 18
     @test length(parameter_bindings(normalized)) == 18
+
+    growth = normalized.processes.growth_P
+    light_slots = parameter_slot_bindings(
+        normalized, growth, (:factors, :light), growth.process.factors.light.formulation
+    )
+    @test keys(light_slots) == Tuple(slot.name for slot in parameter_slots(Smith()))
+    @test Tuple(binding.requirement.identity.slot for binding in values(light_slots)) ==
+        keys(light_slots)
+    @test Tuple(binding.parameter for binding in values(light_slots)) ==
+        (:maximum_growth_rate, :alpha)
+
+    grazing = normalized.processes.grazing_Z_on_P
+    grazing_slots = parameter_slot_bindings(
+        normalized, grazing, (), grazing.process.formulation
+    )
+    @test (
+        grazing_slots.palatability.runtime_path, grazing_slots.assimilation.runtime_path
+    ) == ((:interactions, :palatability), (:interactions, :assimilation))
 
     @test participants(normalized.processes.growth_P) == (population=(:P,),)
     @test drivers(normalized.processes.growth_P) == (light=:PAR,)

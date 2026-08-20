@@ -1,14 +1,4 @@
-"""Resolved setup-time binding for one Q10 temperature factor."""
-struct TemperatureFactorBinding{F}
-    formulation::F
-    driver::Symbol
-    q10::Symbol
-    reference_temperature::Symbol
-end
-
-function _temperature_factor_binding(
-    definition::NormalizedModelDefinition, named::NamedProcess
-)
+function _temperature_factor(named::NamedProcess)
     matches = ()
     for pair in pairs(factors(named))
         last(pair) isa Temperature && (matches = (matches..., pair))
@@ -21,20 +11,20 @@ function _temperature_factor_binding(
     factor isa Temperature{Q10} || throw(
         ArgumentError("unsupported temperature factor $(typeof(factor))"),
     )
-    path = (:factors, name)
-    q10 = parameter_name(definition, _parameter_requirement(named, path, :q10))
-    reference = parameter_name(
-        definition, _parameter_requirement(named, path, :reference_temperature)
-    )
-    return TemperatureFactorBinding(factor.formulation, factor.driver, q10, reference)
+    return name => factor
 end
 
-_rate_factors(::Nothing) = ()
-function _rate_factors(binding::TemperatureFactorBinding)
-    operands = (
-        TracerOp{binding.driver}(),
-        ScalarParamOp{binding.q10}(),
-        ScalarParamOp{binding.reference_temperature}(),
+function _rate_factors(definition::NormalizedModelDefinition, named::NamedProcess)
+    match = _temperature_factor(named)
+    isnothing(match) && return ()
+    name, factor = match
+    slots = parameter_slot_bindings(
+        definition, named, (:factors, name), factor.formulation
     )
-    return (FactorElement(binding.formulation, operands),)
+    operands = (
+        TracerOp{factor.driver}(),
+        parameter_operand(slots.q10),
+        parameter_operand(slots.reference_temperature),
+    )
+    return (FactorElement(factor.formulation, operands),)
 end

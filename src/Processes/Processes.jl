@@ -22,11 +22,12 @@ export LinearMortality, QuadraticMortality, LinearRemineralization
 export PartitionRouting, DOMPOMRouting, FixedStoichiometry
 export Growth, NutrientResponse, Grazing, Consumption, Mortality, ProductRouting, Remineralization
 export ModelDefinition, NormalizedModelDefinition, NamedProcess
-export ParameterRequirementIdentity, ParameterRequirement
+export ParameterSlot, ParameterRequirementIdentity, ParameterRequirement
 export ParameterBinding, ParameterApplicability
 export process_id, process_kind, formulation, formulation_tag, factors
 export participants, drivers, rate_axes, driver_identities, normalize_model
-export parameter_requirements, parameter_bindings, parameter_name
+export parameter_slots, parameter_requirements, parameter_bindings, parameter_binding, parameter_name
+export parameter_slot_bindings
 export resolve_parameter_applicability
 export process_rate
 

@@ -187,6 +187,7 @@ function parameter_definitions(::NiPiZDFactory)
                 :palatability_matrix,
                 :matrix;
                 axes=(:consumer, :prey),
+                runtime_path=(:interactions, :palatability),
                 provides=provision(
                     :grazing_Z_on_P, (), :preferential, :palatability
                 ),
@@ -205,6 +206,7 @@ function parameter_definitions(::NiPiZDFactory)
                 :assimilation_matrix,
                 :matrix;
                 axes=(:consumer, :prey),
+                runtime_path=(:interactions, :assimilation),
                 provides=provision(
                     :grazing_Z_on_P, (), :preferential, :assimilation
                 ),

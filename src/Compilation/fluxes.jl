@@ -121,22 +121,33 @@ end
     return apply_weight(term.weight, bgc, args, rate)
 end
 
-function _parameter_requirement(
-    named::NamedProcess, path::Tuple, slot::Symbol; qualifier::Union{Nothing,NamedTuple}=nothing
-)
-    matches = filter(parameter_requirements(named)) do requirement
-        requirement.identity.path == path &&
-        requirement.identity.slot === slot &&
-        (isnothing(qualifier) || requirement.identity.qualifier == qualifier)
+function parameter_operand(binding::ParameterBinding, indices::Int...)
+    shape = binding.requirement.shape
+    path = binding.runtime_path
+
+    if shape === :scalar
+        isempty(indices) || throw(ArgumentError("scalar parameter operands do not take indices"))
+        length(path) == 1 || throw(
+            ArgumentError("scalar runtime parameter paths must have one component; got $path"),
+        )
+        return ScalarParamOp{only(path)}()
+    elseif shape === :vector
+        length(indices) == 1 || throw(ArgumentError("vector parameter operands require one index"))
+        length(path) == 1 || throw(
+            ArgumentError("vector runtime parameter paths must have one component; got $path"),
+        )
+        return VecParamOp{only(path),only(indices)}()
+    elseif shape === :matrix
+        length(indices) == 2 || throw(ArgumentError("matrix parameter operands require two indices"))
+        i, j = indices
+        if length(path) == 1
+            return MatParamOp{only(path),i,j}()
+        elseif length(path) == 2 && first(path) === :interactions
+            return InteractionParamOp{last(path),i,j}()
+        end
+        throw(ArgumentError("unsupported matrix runtime parameter path $path"))
     end
-    length(matches) == 1 || throw(
-        ArgumentError(
-            isnothing(qualifier) ?
-            "process :$(process_id(named)) must declare exactly one $path/$slot parameter requirement" :
-            "process :$(process_id(named)) must declare exactly one $path/$slot parameter requirement with qualifier $qualifier",
-        ),
-    )
-    return only(matches)
+    throw(ArgumentError("unsupported parameter requirement shape $shape"))
 end
 
 function _scalar_component_target(layout::ComponentLayout, component::Symbol)

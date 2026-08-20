@@ -71,13 +71,15 @@ Fields
 - `name`: parameter key.
 - `shape`: one of `:scalar`, `:vector`, or `:matrix`.
 - `axes`: optional runtime vector axis name or matrix-axis names.
+- `runtime_path`: concrete runtime storage path below `bgc.parameters`.
 - `materialization`: optional constructor-time parameter-law materialization semantics.
 - `provides`: semantic process/formulation requirements supplied by this parameter.
 """
-struct ParameterSpec{P<:Tuple}
+struct ParameterSpec{R<:Tuple,P<:Tuple}
     name::Symbol
     shape::Symbol
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}
+    runtime_path::R
     materialization::Union{Nothing,DiameterIndexedMaterialization}
     provides::P
 end
@@ -87,18 +89,23 @@ ParameterSpec(
     shape::Symbol,
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}},
     materialization::Union{Nothing,DiameterIndexedMaterialization},
-) = ParameterSpec(name, shape, axes, materialization, ())
+) = ParameterSpec(name, shape, axes, (name,), materialization, ())
 
 """Convenience constructor for `ParameterSpec`."""
 function ParameterSpec(
     name::Symbol,
     shape::Symbol;
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
+    runtime_path::Tuple=(name,),
     materialization::Union{Nothing,DiameterIndexedMaterialization}=nothing,
     provides=(),
 )
+    isempty(runtime_path) && throw(ArgumentError("runtime_path cannot be empty"))
+    all(item -> item isa Symbol, runtime_path) || throw(
+        ArgumentError("runtime_path must contain only Symbols"),
+    )
     provisions = _parameter_provisions(provides)
-    return ParameterSpec(name, shape, axes, materialization, provisions)
+    return ParameterSpec(name, shape, axes, runtime_path, materialization, provisions)
 end
 
 """Abstract supertype for constructor-time default providers.

@@ -23,10 +23,9 @@ The inverse maps support fast lookup of axis-local indices from global indices:
 - `global_to_consumer[g]` returns `ic` or `0` if `g` is not a consumer
 - `global_to_prey[g]` returns `ip` or `0` if `g` is not a prey
 
-Matrix keys are derived from the corresponding parameter names. A conventional
-`_matrix` suffix is omitted at runtime, so `:encounter_matrix` is available
-as `interactions.encounter`. This rule applies uniformly to any declared
-consumer-by-prey matrix.
+Matrix keys use each parameter spec's explicit runtime path. A consumer-by-prey
+parameter stored at `(:interactions, :encounter)` is available as
+`interactions.encounter`.
 """
 struct InteractionMatrices{M,VI1,VI2,MI1,MI2}
     matrices::M
@@ -107,27 +106,35 @@ end
     end
 end
 
-@inline function interaction_runtime_name(parameter_name::Symbol)
-    text = String(parameter_name)
-    suffix = "_matrix"
-    return endswith(text, suffix) ? Symbol(text[1:(end - length(suffix))]) : parameter_name
-end
-
-function interaction_parameter_names(factory::AbstractBGCFactory)
+function interaction_parameter_specs(factory::AbstractBGCFactory)
     return Tuple(
-        spec.name for spec in parameter_directory(factory) if
+        spec for spec in parameter_directory(factory) if
         spec.shape === :matrix && spec.axes == (:consumer, :prey)
     )
+end
+
+interaction_parameter_names(factory::AbstractBGCFactory) =
+    Tuple(spec.name for spec in interaction_parameter_specs(factory))
+
+function interaction_runtime_name(spec::ParameterSpec)
+    path = spec.runtime_path
+    length(path) == 2 && first(path) === :interactions || throw(
+        ArgumentError(
+            "consumer-by-prey parameter :$(spec.name) must declare runtime_path=(:interactions, :name)",
+        ),
+    )
+    return last(path)
 end
 
 function finalize_interaction_parameters(
     factory::AbstractBGCFactory, community_context::CommunityContext, params::NamedTuple
 )
-    parameter_names = interaction_parameter_names(factory)
-    isempty(parameter_names) && return params
+    specs = interaction_parameter_specs(factory)
+    isempty(specs) && return params
+    parameter_names = Tuple(spec.name for spec in specs)
     all(name -> haskey(params, name), parameter_names) || return params
 
-    runtime_names = Tuple(interaction_runtime_name(name) for name in parameter_names)
+    runtime_names = Tuple(interaction_runtime_name(spec) for spec in specs)
     length(unique(runtime_names)) == length(runtime_names) || throw(
         ArgumentError(
             "consumer-by-prey interaction parameter names map to duplicate runtime names: $(runtime_names)",

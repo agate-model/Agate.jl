@@ -12,9 +12,10 @@ using Agate.Processes:
 function direct_npz_definition()
     provision(process, path, formulation, slot; qualifier=NamedTuple()) =
         ParameterProvision(process, path, formulation, slot; qualifier)
-    definition(name, shape, provider, provides; axes=nothing) = ParameterDefinition(
-        ParameterSpec(name, shape; axes, provides), provider
-    )
+    definition(name, shape, provider, provides; axes=nothing, runtime_path=(name,)) =
+        ParameterDefinition(
+            ParameterSpec(name, shape; axes, runtime_path, provides), provider
+        )
     vector_definition(name, value, provides) =
         definition(name, :vector, FillDefault(value), provides; axes=:plankton)
 
@@ -113,6 +114,7 @@ function direct_npz_definition()
             ),
             provision(:grazing_Z_on_P, (), :preferential, :palatability);
             axes=(:consumer, :prey),
+            runtime_path=(:interactions, :palatability),
         ),
         definition(
             :assimilation_matrix,
@@ -120,6 +122,7 @@ function direct_npz_definition()
             DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,)),
             provision(:grazing_Z_on_P, (), :preferential, :assimilation);
             axes=(:consumer, :prey),
+            runtime_path=(:interactions, :assimilation),
         ),
     )
     return ModelDefinition(; components, processes, parameters)
