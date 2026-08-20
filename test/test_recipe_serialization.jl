@@ -16,6 +16,13 @@ function modified(document, mutation)
     return copy
 end
 
+function first_empty_provision(bindings, field)
+    for binding in values(bindings), provision in binding["provides"]
+        isempty(provision[field]) && return provision
+    end
+    error("No empty parameter-binding $field found")
+end
+
 explicit_json_value(::Nothing) = true
 explicit_json_value(::Union{Bool,Int,AbstractFloat,String}) = true
 explicit_json_value(x::Dict{String,Any}) = all(explicit_json_value, values(x))
@@ -107,18 +114,20 @@ explicit_json_value(::Any) = false
         @test export_recipe(path, recipe) == path
         exported = JSON.parsefile(path)
         bindings = exported["recipe"]["parameter_bindings"]
-        empty_arrays = (
-            bindings["alpha"]["provides"][1]["path"],
-            bindings["mortality_export_fraction"]["provides"][1]["axes"],
-        )
+        empty_arrays = map(("path", "axes")) do field
+            first_empty_provision(bindings, field)[field]
+        end
         @test all(value -> value isa AbstractVector && isempty(value), empty_arrays)
         @test import_recipe(path) == recipe
     end
 
-    empty_object_path = modified(encoded, x ->
-        (x["recipe"]["parameter_bindings"]["alpha"]["provides"][1]["path"] = Dict{String,Any}())
-    )
-    @test decode_recipe(empty_object_path) == recipe
+    for field in ("path", "axes")
+        empty_object = modified(encoded) do document
+            bindings = document["recipe"]["parameter_bindings"]
+            first_empty_provision(bindings, field)[field] = Dict{String,Any}()
+        end
+        @test decode_recipe(empty_object) == recipe
+    end
 
     _, nonfinite_recipe = NiPiZD.construct_plus_recipe(;
         scalar_type=Float32, palatability_matrix=Float32[NaN 0.9; 0.3 0.7]
