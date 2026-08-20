@@ -77,8 +77,12 @@ end
         close(io)
         @test export_recipe(path, recipe) == path
         exported = JSON.parsefile(path)
-        provides = exported["recipe"]["parameter_bindings"]["alpha"]["provides"]
-        @test provides[1]["path"] isa AbstractVector
+        bindings = exported["recipe"]["parameter_bindings"]
+        empty_arrays = (
+            bindings["alpha"]["provides"][1]["path"],
+            bindings["mortality_export_fraction"]["provides"][1]["axes"],
+        )
+        @test all(value -> value isa AbstractVector && isempty(value), empty_arrays)
         @test import_recipe(path) == recipe
     end
 

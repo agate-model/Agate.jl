@@ -358,9 +358,11 @@ function _component_v3_data(::Symbol, component::Pool, ::ProcessModelRecipe)
     )
 end
 
+_string_array(values) = String[String(value) for value in values]
+
 function _participants_v3_data(named)
     return Dict{String,Any}(
-        String(role) => (length(values) == 1 ? String(only(values)) : String.(collect(values)))
+        String(role) => (length(values) == 1 ? String(only(values)) : _string_array(values))
         for (role, values) in pairs(participants(named))
     )
 end
@@ -371,7 +373,7 @@ function _process_v3_data(named)
         "kind" => String(process_kind(named)),
         "formulation" => String(formulation_tag(formulation(named))),
         "participants" => _participants_v3_data(named),
-        "rate_axes" => String.(collect(rate_axes(named))),
+        "rate_axes" => _string_array(rate_axes(named)),
     )
     process_drivers = drivers(named)
     isempty(process_drivers) || (data["drivers"] = Dict(
@@ -415,11 +417,11 @@ function _parameter_bindings_v3_data(recipe::ProcessModelRecipe)
             identity = requirement.identity
             push!(provides, Dict{String,Any}(
                 "process" => String(identity.process),
-                "path" => String.(collect(identity.path)),
+                "path" => _string_array(identity.path),
                 "formulation" => String(identity.formulation),
                 "slot" => String(identity.slot),
                 "qualifier" => Dict(String(k) => String(v) for (k, v) in pairs(identity.qualifier)),
-                "axes" => String.(collect(requirement.axes)),
+                "axes" => _string_array(requirement.axes),
             ))
         end
         isempty(provides) || (result[String(definition.spec.name)] = Dict("provides" => provides))
