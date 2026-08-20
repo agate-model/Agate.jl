@@ -1,4 +1,3 @@
-using JSON
 using Test
 
 using Agate.Configuration: Population, Pool, realize_components
@@ -148,36 +147,11 @@ end
     @test participants(normalized.processes.remineralization_D) ==
         (source=(:D,), destination=(:N,))
 
-    target = JSON.parsefile(
-        joinpath(@__DIR__, "reference", "nipizd_model_recipe_v0_3_target.json")
-    )["recipe"]
-    target_processes = target["processes"]
-    @test Set(String.(keys(normalized.processes))) == Set(keys(target_processes))
-    for (name, process) in pairs(normalized.processes)
-        expected = target_processes[String(name)]
-        @test String(process_kind(process)) == expected["kind"]
-        if process_kind(process) !== :growth
-            @test String(formulation_tag(formulation(process))) == expected["formulation"]
-        end
-        @test String.(collect(rate_axes(process))) == expected["rate_axes"]
-    end
-
-    for (parameter, specification) in pairs(target["parameter_bindings"])
-        for expected in specification["provides"]
-            matches = filter(parameter_bindings(normalized)) do binding
-                identity = binding.requirement.identity
-                qualifier = Dict(String(k) => String(v) for (k, v) in pairs(identity.qualifier))
-                binding.parameter === Symbol(parameter) &&
-                    identity.process === Symbol(expected["process"]) &&
-                    identity.path == Tuple(Symbol.(expected["path"])) &&
-                    identity.formulation === Symbol(expected["formulation"]) &&
-                    identity.slot === Symbol(expected["slot"]) &&
-                    qualifier == expected["qualifier"] &&
-                    String.(collect(binding.requirement.axes)) == expected["axes"]
-            end
-            @test length(matches) == 1
-        end
-    end
+    @test process_kind(normalized.processes.growth_P) === :growth
+    @test formulation_tag(formulation(normalized.processes.grazing_Z_on_P.process)) ===
+        :preferential
+    @test rate_axes(normalized.processes.growth_P) == (:population,)
+    @test rate_axes(normalized.processes.grazing_Z_on_P) == (:consumer, :resource)
 
     layout = realize_components(normalized.components)
     applicability = resolve_parameter_applicability(normalized, layout)

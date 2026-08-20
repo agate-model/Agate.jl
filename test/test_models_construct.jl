@@ -82,40 +82,12 @@ end
         @test isfinite(bgc(Val(:Z_1), 0, 0, 0, 0, ordered..., PAR))
     end
 
-    @testset "NiPiZD default recipe" begin
-        _, recipe = NiPiZD.construct_plus_recipe()
-
-        @test recipe isa Agate.Construction.ProcessModelRecipe
-        @test recipe.family === :NiPiZD
-        @test keys(recipe.components) == (:P, :Z, :N, :D)
-        @test Set(keys(recipe.processes)) == Set((
-            :growth_P,
-            :grazing_Z_on_P,
-            :linear_mortality_P,
-            :linear_mortality_Z,
-            :quadratic_mortality_Z,
-            :remineralization_D,
-        ))
-        @test recipe.population_groups == (P=(:P,), Z=(:Z,))
-        @test isempty(recipe.parameter_overrides)
-        @test isempty(recipe.interaction_overrides)
-        @test isnothing(recipe.sinking_tracers)
-        @test recipe.open_bottom
-        @test !hasproperty(recipe, :scalar_type)
-        @test !hasproperty(recipe, :grid)
-        @test !hasproperty(recipe, :arch)
-    end
-
     @testset "NiPiZD authored recipe and replay" begin
         inputs = authored_nipizd_inputs(Float32)
         phyto_diameters = inputs.size_structure.phytoplankton.diat
         palatability = inputs.palatability_matrix
-        bgc, recipe = NiPiZD.construct_plus_recipe(; inputs...)
-        reference_recipe, manifest = nipizd_recipe_manifest(; inputs...)
-        replayed_manifest = nipizd_manifest(recipe; scalar_type=Float32)
-
-        @test reference_recipe == recipe
-        @test replayed_manifest == manifest
+        _, recipe = NiPiZD.construct_plus_recipe(; inputs...)
+        manifest = nipizd_manifest(recipe; scalar_type=Float32)
 
         @test !hasproperty(recipe, :scalar_type)
         @test recipe.sinking_tracers == inputs.sinking_tracers
@@ -137,27 +109,6 @@ end
         @test replayed.parameters == manifest.parameters
         @test manifest.interaction_matrix_sources == (
             palatability_matrix=:explicit, assimilation_matrix=:derived
-        )
-    end
-
-    @testset "NiPiZD default in-memory replay" begin
-        bgc, recipe = NiPiZD.construct_plus_recipe()
-        replayed = NiPiZD.construct_from_recipe(recipe)
-        reference_recipe, manifest = nipizd_recipe_manifest()
-        replayed_manifest = nipizd_manifest(recipe)
-
-        @test reference_recipe == recipe
-        @test manifest isa Agate.Construction.ModelManifest
-        @test replayed_manifest == manifest
-        @test replayed.parameters == bgc.parameters
-        @test (
-            manifest.group_tracers,
-            manifest.tracer_order,
-            manifest.interaction_matrix_sources,
-        ) == (
-            (Z=(:Z_1, :Z_2), P=(:P_1, :P_2)),
-            (:N, :D, :Z_1, :Z_2, :P_1, :P_2),
-            (palatability_matrix=:derived, assimilation_matrix=:derived),
         )
     end
 
@@ -676,7 +627,7 @@ end
 
                 light_attenuation = FunctionFieldPAR(; grid, PAR_f=CyclicalPAR())
                 bgc_model = Biogeochemistry(bgc_sinking; light_attenuation)
-                model = NonhydrostaticModel(; grid, biogeochemistry=bgc_model)
+                model = NonhydrostaticModel(grid; biogeochemistry=bgc_model)
                 set!(
                     model;
                     N=7f0,

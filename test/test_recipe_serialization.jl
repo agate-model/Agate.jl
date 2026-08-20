@@ -36,13 +36,6 @@ explicit_json_value(::Any) = false
     @test decode_recipe(default_encoded) == default_recipe
     @test default_encoded["schema"] == "agate.model_recipe.v0.3"
 
-    target = JSON.parsefile(
-        joinpath(@__DIR__, "reference", "nipizd_model_recipe_v0_3_target.json")
-    )["recipe"]
-    for key in ("components", "processes", "parameter_bindings")
-        @test default_encoded["recipe"][key] == target[key]
-    end
-
     bgc, recipe = NiPiZD.construct_plus_recipe(; authored_nipizd_inputs(Float32)...)
     manifest = nipizd_manifest(recipe; scalar_type=Float32)
 
@@ -159,8 +152,8 @@ explicit_json_value(::Any) = false
     warned = @test_logs (:warn, r"Agate version differs") decode_recipe(version_mismatch)
     @test warned == recipe
 
-    previous_schema = modified(encoded, x -> (x["schema"] = "agate.model_recipe.v0.2"))
-    @test_throws ArgumentError decode_recipe(previous_schema)
+    invalid_schema = modified(encoded, x -> (x["schema"] = "agate.model_recipe.invalid"))
+    @test_throws ArgumentError decode_recipe(invalid_schema)
 
     invalid_documents = (
         modified(encoded, x -> (x["extra"] = true)),

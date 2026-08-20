@@ -57,14 +57,6 @@ function authored_nipizd_inputs(::Type{T}=Float32) where {T<:AbstractFloat}
     )
 end
 
-function nipizd_recipe_manifest(; kwargs...)
-    inputs = Agate.Models.NiPiZD._construction_inputs(; kwargs...)
-    _, manifest = Agate.Construction.construct_factory_plus_manifest(
-        inputs.recipe; inputs.execution...
-    )
-    return inputs.recipe, manifest
-end
-
 function nipizd_manifest(
     recipe::Agate.Construction.ProcessModelRecipe;
     grid=OceanBioME.BoxModelGrid(),

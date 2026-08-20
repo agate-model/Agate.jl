@@ -10,6 +10,9 @@ using Agate.Introspection:
     interaction_matrix
 using Test
 
+using Agate.Construction: define_tracer_functions
+using Agate.Equations: CompiledEquation
+
 @testset "Public introspection helpers" begin
     @testset "Model-constructed instance" begin
         bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
@@ -135,20 +138,17 @@ using Test
         @test_throws ArgumentError interaction_matrix(broken_bgc, :palatability)
     end
 
-    @testset "Generated model (define_tracer_functions)" begin
-        model = AgateNPZD(parameters)
-        @test tracer_names(model) == [:N, :D, :P, :Z]
-        @test plankton_groups(model) == NamedTuple()
-        @test plankton_tracers(model) == Symbol[]
-        @test isempty(plankton_diameters(model))
-        @test nonplankton_tracers(model) == tracer_names(model)
-
+    @testset "Generated model without groups" begin
+        parameters = (rate=1.0,)
+        tracers = (X=CompiledEquation((bgc, x, y, z, t, X) -> -bgc.parameters.rate * X),)
+        model = define_tracer_functions(parameters, tracers)(parameters)
         groups = tracer_groups(model)
-        @test groups.all == tracer_names(model)
-        @test groups.by_group == NamedTuple()
-        @test groups.plankton == Symbol[]
-        @test groups.nonplankton == tracer_names(model)
-        @test !isempty(parameter_names(model))
+
+        @test tracer_names(model) == [:X]
+        @test groups == (all=[:X], by_group=NamedTuple(), plankton=Symbol[], nonplankton=[:X])
+        @test plankton_groups(model) == NamedTuple()
+        @test isempty(plankton_diameters(model))
+        @test parameter_names(model) == [:rate]
         @test_throws ArgumentError interaction_matrix(model, :palatability)
     end
 end

@@ -53,8 +53,8 @@ clock = Clock(; time=0.0)
 T = FunctionField{Center,Center,Center}(temp, grid; clock)
 S = ConstantField(35)
 
-model = NonhydrostaticModel(;
-    grid,
+model = NonhydrostaticModel(
+    grid;
     clock,
     tracers=tracer_syms,
     timestepper=:QuasiAdamsBashforth2,

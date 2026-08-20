@@ -17,7 +17,7 @@ using Agate.Processes:
 _provision(process, path, formulation, slot; qualifier=NamedTuple()) =
     ParameterProvision(process, path, formulation, slot; qualifier)
 
-function extensibility_parameters()
+function food_web_parameters()
     definition(name, shape, provides) =
         ParameterDefinition(ParameterSpec(name, shape; provides), NoDefault())
     return (
@@ -70,7 +70,7 @@ function extensibility_parameters()
     )
 end
 
-function extensibility_compilation(::Type{T}=Float64) where {T<:Real}
+function food_web_compilation(::Type{T}=Float64) where {T<:Real}
     components = (
         N=Pool(:nitrogen),
         D=Pool(:nitrogen),
@@ -105,7 +105,7 @@ function extensibility_compilation(::Type{T}=Float64) where {T<:Real}
         ),
     )
     normalized = normalize_model(ModelDefinition(;
-        components, processes, parameters=extensibility_parameters()
+        components, processes, parameters=food_web_parameters()
     ))
     community = (
         P=(n=1, diameters=T[1], pft=NamedTuple()),
@@ -126,7 +126,7 @@ function extensibility_compilation(::Type{T}=Float64) where {T<:Real}
     return (; normalized, layout, context, contributions, compiled, target_order)
 end
 
-function extensibility_bgc(compilation)
+function food_web_bgc(compilation)
     T = compilation.context.scalar_type
     parameters = (
         maximum_growth_rate=T[2e-5, 0, 1.4e-5, 0],
@@ -157,7 +157,7 @@ function extensibility_bgc(compilation)
     return factory(parameters)
 end
 
-function extensibility_args(::Type{T}, temperature) where {T}
+function food_web_args(::Type{T}, temperature) where {T}
     return (
         zero(T), zero(T), zero(T), zero(T),
         T(5), T(0.1), T(0.5), T(0.2), T(0.05), T(0.03), T(0.02), T(0.04),
@@ -166,7 +166,7 @@ function extensibility_args(::Type{T}, temperature) where {T}
 end
 
 @testset "Structured POM, bacteria, mixotrophy, and reusable factors" begin
-    compilation = extensibility_compilation()
+    compilation = food_web_compilation()
     normalized = compilation.normalized
     layout = compilation.layout
 
@@ -217,8 +217,8 @@ end
         values(compilation.compiled),
     )
 
-    bgc = extensibility_bgc(compilation)
-    args = extensibility_args(Float64, 25)
+    bgc = food_web_bgc(compilation)
+    args = food_web_args(Float64, 25)
     tendencies = map(target -> bgc(Val(target), args...), compilation.target_order)
     @test isapprox(sum(tendencies), 0; atol=10 * eps(sum(abs, tendencies)))
 
@@ -228,8 +228,8 @@ end
         normalized.processes.growth_autotrophs, normalized, layout, compilation.context
     )
     growth_compiled = compile_tendencies(group_contributions(growth_contributions))
-    args20 = extensibility_args(Float64, 20)
-    args30 = extensibility_args(Float64, 30)
+    args20 = food_web_args(Float64, 20)
+    args30 = food_web_args(Float64, 30)
     @test process_compiler_isapprox(
         consumption_compiled.POM_1(bgc, args30...),
         2 * consumption_compiled.POM_1(bgc, args20...),

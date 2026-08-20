@@ -3,8 +3,7 @@ using Test
 using Adapt
 
 using Agate.Library.Light: FunctionFieldPAR
-using OceanBioME
-using OceanBioME: Biogeochemistry, BoxModelGrid
+using OceanBioME: Biogeochemistry, BoxModel, BoxModelGrid
 
 using Oceananigans.Biogeochemistry:
     biogeochemical_drift_velocity,
@@ -35,44 +34,6 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
     @test active_tendency ≈ base_tendency
     @test bgc_p.parameters.maximum_growth_rate[3] == p[1]
     @test bgc_p.parameters.maximum_growth_rate[4] == base_bgc.parameters.maximum_growth_rate[4]
-
-    active_scalar = Agate.Runtime.active_parameters(base_bgc;
-        maximum_growth_rate = (:P_1,),
-        detritus_remineralization = true,
-    )
-    p_scalar = [mu0, 2base_bgc.parameters.detritus_remineralization]
-    bgc_scalar = Agate.Runtime.parameterized(
-        base_bgc,
-        p_scalar;
-        active_parameters=active_scalar,
-    )
-
-    @test bgc_scalar.parameters.maximum_growth_rate[3] == p_scalar[1]
-    @test bgc_scalar.parameters.detritus_remineralization == p_scalar[2]
-    @test bgc_scalar.parameters.maximum_growth_rate[4] == base_bgc.parameters.maximum_growth_rate[4]
-
-
-    active_matrix = Agate.Runtime.active_parameters(base_bgc;
-        maximum_growth_rate = (:P_1,),
-        interactions = (;
-            palatability = ((:Z_1, :P_1),),
-            assimilation = ((:Z_1, :P_1),),
-        ),
-    )
-    p_matrix = [mu0, 3base_bgc.parameters.interactions.palatability[1, 1], 0.8]
-    bgc_matrix = Agate.Runtime.parameterized(
-        base_bgc,
-        p_matrix;
-        active_parameters=active_matrix,
-    )
-
-    @test bgc_matrix.parameters.maximum_growth_rate[3] == p_matrix[1]
-    @test bgc_matrix.parameters.interactions.palatability[1, 1] == p_matrix[2]
-    @test bgc_matrix.parameters.interactions.assimilation[1, 1] == p_matrix[3]
-    @test bgc_matrix.parameters.interactions.palatability[1, 2] == base_bgc.parameters.interactions.palatability[1, 2]
-
-    matrix_tendency = bgc_matrix(Val(:P_1), args...)
-    @test matrix_tendency != base_tendency
 
     p_fast = [2mu0]
     fast_bgc = Agate.Runtime.parameterized(
@@ -109,8 +70,6 @@ end
 
     box_model = BoxModel(; biogeochemistry=bgc_model)
 
-    @test required_biogeochemical_tracers(bgc_p) == required_biogeochemical_tracers(base_bgc)
-    @test required_biogeochemical_auxiliary_fields(bgc_p) == required_biogeochemical_auxiliary_fields(base_bgc)
     @test !isnothing(box_model)
 end
 

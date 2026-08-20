@@ -37,16 +37,6 @@ AgateBGC(parameters, tracer_functions, tracers, sinking_velocities) =
 
 Adapt.@adapt_structure AgateBGC
 
-@inline function with_parameters(bgc::AgateBGC, parameters)
-    return AgateBGC(
-        parameters,
-        bgc.tracer_functions,
-        bgc.tracers,
-        bgc.sinking_velocities,
-        bgc.plankton_diameters,
-    )
-end
-
 @inline required_biogeochemical_tracers(bgc::AgateBGC) = keys(bgc.tracer_functions)
 
 @inline required_biogeochemical_tracers(bgc::ParameterizedBGC) =
