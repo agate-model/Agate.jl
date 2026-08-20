@@ -1,9 +1,10 @@
 """Resolved parameter names needed to compile one preferential-grazing process."""
-struct GrazingParameterBinding
+struct GrazingParameterBinding{R}
     maximum_rate::Symbol
     half_saturation::Symbol
     palatability::Symbol
     assimilation::Symbol
+    routing::R
 end
 
 """Resolve grazing parameter names from normalized semantic requirement bindings."""
@@ -30,18 +31,30 @@ function GrazingParameterBinding(definition::NormalizedModelDefinition, id::Symb
     assimilation = parameter_name(
         definition, _parameter_requirement(named, (), :assimilation)
     )
+    routing = if isnothing(process.routing)
+        nothing
+    elseif process.routing.formulation isa DOMPOMRouting
+        _dom_pom_routing_binding(definition, named, process.routing)
+    else
+        throw(
+            ArgumentError(
+                "unsupported grazing product routing $(typeof(process.routing.formulation))"
+            ),
+        )
+    end
     return GrazingParameterBinding(
-        maximum_rate, half_saturation, palatability, assimilation
+        maximum_rate, half_saturation, palatability, assimilation, routing
     )
 end
 
 """Realized preferential-grazing topology over process-local interaction axes."""
-struct GrazingTopology{CT,CI,RT,RI,D}
+struct GrazingTopology{CT,CI,RT,RI,D,R}
     consumer_tracers::CT
     consumer_indices::CI
     resource_tracers::RT
     resource_indices::RI
     unassimilated_target::D
+    routing::R
 end
 
 """Resource loss from one consumer-by-resource grazing-rate element."""
@@ -93,6 +106,26 @@ struct GrazingUnassimilatedContribution{F} <: AbstractProcessContribution
     formulation::F
 end
 
+"""DOM/POM product gain from one unassimilated grazing-rate element."""
+struct GrazingRoutedProductContribution{F,Q} <: AbstractProcessContribution
+    process::Symbol
+    target::Symbol
+    consumer::Symbol
+    resource::Symbol
+    consumer_index::Int
+    consumer_axis::Int
+    resource_index::Int
+    resource_axis::Int
+    maximum_rate_parameter::Symbol
+    half_saturation_parameter::Symbol
+    palatability_parameter::Symbol
+    assimilation_parameter::Symbol
+    routing_fraction_parameter::Symbol
+    ratio_parameter::Q
+    route::Symbol
+    formulation::F
+end
+
 """Resolve a preferential-grazing process onto process-owned consumer/resource axes."""
 function realize_process_topology(
     named::NamedProcess{P}, layout::ComponentLayout, context::CommunityContext
@@ -113,12 +146,24 @@ function realize_process_topology(
     else
         _scalar_component_target(layout, process.unassimilated_destination)
     end
+    routing = if isnothing(process.routing)
+        nothing
+    elseif process.routing.formulation isa DOMPOMRouting
+        _realize_dom_pom_routing(process.routing, layout)
+    else
+        throw(
+            ArgumentError(
+                "unsupported grazing product routing $(typeof(process.routing.formulation))"
+            ),
+        )
+    end
     return GrazingTopology(
         consumer_tracers,
         consumer_indices,
         resource_tracers,
         resource_indices,
         destination,
+        routing,
     )
 end
 
@@ -141,6 +186,50 @@ function _grazing_contribution_fields(
         binding.assimilation,
         formulation(named.process),
     )
+end
+
+
+function _grazing_routed_products(
+    named::NamedProcess,
+    topology::GrazingTopology,
+    binding::GrazingParameterBinding,
+    consumer::Symbol,
+    resource::Symbol,
+    fields::Tuple,
+)
+    isnothing(topology.routing) && return ()
+    routing_binding = binding.routing
+    isnothing(routing_binding) && throw(
+        ArgumentError("routed grazing requires a routing parameter binding"),
+    )
+    contributions = ()
+    for route in (:DOM, :POM)
+        targets = getproperty(topology.routing, route)
+        for currency in keys(targets)
+            target = getproperty(targets, currency)
+            ratio = _routing_ratio_parameter(topology.routing, routing_binding, currency)
+            contribution = GrazingRoutedProductContribution(
+                fields[1],
+                target,
+                consumer,
+                resource,
+                fields[2],
+                fields[3],
+                fields[4],
+                fields[5],
+                fields[6],
+                fields[7],
+                fields[8],
+                fields[9],
+                routing_binding.fraction,
+                ratio,
+                route,
+                fields[10],
+            )
+            contributions = (contributions..., contribution)
+        end
+    end
+    return contributions
 end
 
 """Derive coupled resource, consumer, and unassimilated grazing contributions."""
@@ -180,9 +269,18 @@ function process_contributions(
                 )
                 contributions = (contributions..., unassimilated)
             end
+            routed = _grazing_routed_products(
+                named, topology, binding, consumer, resource, fields
+            )
+            contributions = (contributions..., routed...)
         end
     end
     return contributions
+end
+
+
+struct GrazingRoutedProductTerm{F,CI,CA,RI,RA,M,K,PR,AR,Q,S,Route}
+    formulation::F
 end
 
 function process_contributions(
@@ -261,3 +359,50 @@ _lower_contribution(contribution::GrazingConsumerGainContribution) =
     _grazing_term(contribution, Val(:consumer_gain))
 _lower_contribution(contribution::GrazingUnassimilatedContribution) =
     _grazing_term(contribution, Val(:unassimilated))
+
+@inline function (term::GrazingRoutedProductTerm{F,CI,CA,RI,RA,M,K,PR,AR,Q,S,Route})(
+    bgc, args
+) where {F,CI,CA,RI,RA,M,K,PR,AR,Q,S,Route}
+    consumer = bgc.tracers.plankton(args, CI)
+    resource = bgc.tracers.plankton(args, RI)
+    maximum_rate = @inbounds getproperty(bgc.parameters, M)[CI]
+    half_saturation = @inbounds getproperty(bgc.parameters, K)[CI]
+    interactions = bgc.parameters.interactions
+    palatability = @inbounds getproperty(interactions, PR)[CA, RA]
+    assimilation = @inbounds getproperty(interactions, AR)[CA, RA]
+    rate = process_rate(
+        term.formulation,
+        resource,
+        consumer,
+        maximum_rate,
+        half_saturation,
+        palatability,
+    )
+    fraction = getproperty(bgc.parameters, Q)
+    unassimilated = (one(assimilation) - assimilation) * rate
+    return _organic_route_weight(Val(Route), fraction) *
+           _stoichiometric_weight(bgc, Val(S), fraction) * unassimilated
+end
+
+function _lower_contribution(contribution::GrazingRoutedProductContribution{F,Q}) where {F,Q}
+    palatability_runtime = _interaction_runtime_parameter_name(
+        contribution.palatability_parameter
+    )
+    assimilation_runtime = _interaction_runtime_parameter_name(
+        contribution.assimilation_parameter
+    )
+    return GrazingRoutedProductTerm{
+        F,
+        contribution.consumer_index,
+        contribution.consumer_axis,
+        contribution.resource_index,
+        contribution.resource_axis,
+        contribution.maximum_rate_parameter,
+        contribution.half_saturation_parameter,
+        palatability_runtime,
+        assimilation_runtime,
+        contribution.routing_fraction_parameter,
+        contribution.ratio_parameter,
+        contribution.route,
+    }(contribution.formulation)
+end

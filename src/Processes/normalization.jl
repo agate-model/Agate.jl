@@ -165,6 +165,21 @@ function _factor_parameter_requirements(named::NamedProcess, name::Symbol, facto
     )
 end
 
+function _factor_parameter_requirements(named::NamedProcess, name::Symbol, factor::Light{Geider})
+    path = (:factors, name)
+    return (
+        _requirement(named, path, factor.formulation, :maximum_rate, (:population,)),
+        _requirement(named, path, factor.formulation, :alpha, (:population,)),
+        _requirement(
+            named,
+            path,
+            factor.formulation,
+            :chlorophyll_to_carbon_ratio,
+            (:population,),
+        ),
+    )
+end
+
 function _factor_parameter_requirements(
     named::NamedProcess, name::Symbol, factor::NutrientResponse{Monod}
 )
@@ -180,6 +195,38 @@ function _factor_parameter_requirements(
     )
 end
 
+
+function _nutrient_response_requirements(
+    named::NamedProcess, path::Tuple, response::NutrientResponse{Monod}
+)
+    return (
+        _requirement(
+            named,
+            path,
+            response.formulation,
+            :K,
+            (:population,);
+            qualifier=(resource=response.resource,),
+        ),
+    )
+end
+
+
+function _factor_parameter_requirements(
+    named::NamedProcess, name::Symbol, factor::Nutrients{Liebig}
+)
+    requirements = ()
+    for (response_name, response) in pairs(factor.responses)
+        requirements = (
+            requirements...,
+            _nutrient_response_requirements(
+                named, (:factors, name, :responses, response_name), response
+            )...,
+        )
+    end
+    return requirements
+end
+
 function _factor_parameter_requirements(named::NamedProcess, name::Symbol, factor::AbstractFactor)
     throw(ArgumentError("unsupported growth factor :$name of type $(typeof(factor))"))
 end
@@ -190,7 +237,64 @@ function parameter_requirements(named::NamedProcess{P}) where {P<:Growth}
     for (name, factor) in pairs(named.process.factors)
         requirements = (requirements..., _factor_parameter_requirements(named, name, factor)...)
     end
+    stoichiometry = named.process.stoichiometry
+    if stoichiometry isa FixedStoichiometry
+        nutrient_factors = Tuple(
+            factor for factor in values(named.process.factors) if factor isa Nutrients
+        )
+        length(nutrient_factors) == 1 || throw(
+            ArgumentError(
+                "fixed-stoichiometry growth requires exactly one multi-resource Nutrients factor"
+            ),
+        )
+        nutrients = only(nutrient_factors)
+        for currency in keys(nutrients.responses)
+            requirements = (
+                requirements...,
+                _requirement(
+                    named,
+                    (:stoichiometry,),
+                    stoichiometry,
+                    :ratio,
+                    ();
+                    qualifier=(currency=currency,),
+                    shape=:scalar,
+                ),
+            )
+        end
+    end
     return requirements
+end
+
+
+function _routing_parameter_requirements(named::NamedProcess, routing::ProductRouting)
+    if routing.formulation isa PartitionRouting
+        return (
+            _requirement(named, (:routing,), routing.formulation, :export_fraction, ()),
+        )
+    elseif routing.formulation isa DOMPOMRouting
+        requirements = (
+            _requirement(named, (:routing,), routing.formulation, :POM_fraction, ()),
+        )
+        reference = routing.stoichiometry.reference
+        for currency in keys(routing.pools.DOM)
+            currency === reference && continue
+            requirements = (
+                requirements...,
+                _requirement(
+                    named,
+                    (:routing, :stoichiometry),
+                    routing.stoichiometry,
+                    :ratio,
+                    ();
+                    qualifier=(currency=currency,),
+                    shape=:scalar,
+                ),
+            )
+        end
+        return requirements
+    end
+    throw(ArgumentError("unsupported product-routing formulation $(typeof(routing.formulation))"))
 end
 
 function parameter_requirements(named::NamedProcess{P}) where {P<:Grazing}
@@ -198,7 +302,7 @@ function parameter_requirements(named::NamedProcess{P}) where {P<:Grazing}
     process.formulation isa PreferentialGrazing || throw(
         ArgumentError("unsupported grazing formulation $(typeof(process.formulation))"),
     )
-    return (
+    requirements = (
         _requirement(named, (), process.formulation, :maximum_rate, (:consumer,)),
         _requirement(named, (), process.formulation, :half_saturation, (:consumer,)),
         _requirement(named, (), process.formulation, :palatability, (:consumer, :resource)),
@@ -224,6 +328,8 @@ function parameter_requirements(named::NamedProcess{P}) where {P<:Grazing}
             (:consumer,),
         ),
     )
+    isnothing(process.routing) && return requirements
+    return (requirements..., _routing_parameter_requirements(named, process.routing)...)
 end
 
 function parameter_requirements(named::NamedProcess{P}) where {P<:Mortality}
@@ -237,13 +343,7 @@ function parameter_requirements(named::NamedProcess{P}) where {P<:Mortality}
     )
     routing = process.routing
     isnothing(routing) && return requirements
-    routing.formulation isa PartitionRouting || throw(
-        ArgumentError("unsupported product-routing formulation $(typeof(routing.formulation))"),
-    )
-    return (
-        requirements...,
-        _requirement(named, (:routing,), routing.formulation, :export_fraction, ()),
-    )
+    return (requirements..., _routing_parameter_requirements(named, routing)...)
 end
 
 function parameter_requirements(named::NamedProcess{P}) where {P<:Remineralization}
@@ -251,12 +351,16 @@ function parameter_requirements(named::NamedProcess{P}) where {P<:Remineralizati
     process.formulation isa LinearRemineralization || throw(
         ArgumentError("unsupported remineralization formulation $(typeof(process.formulation))"),
     )
-    qualifier = length(process.sources) == 1 ?
-                (source=only(process.sources),) : NamedTuple()
-    return (
+    return Tuple(
         _requirement(
-            named, (), process.formulation, :rate, (:source,); qualifier, shape=:scalar
-        ),
+            named,
+            (),
+            process.formulation,
+            :rate,
+            (:source,);
+            qualifier=(source=source,),
+            shape=:scalar,
+        ) for source in process.sources
     )
 end
 
@@ -294,29 +398,102 @@ end
 
 _factor_component_references(::Light) = ()
 _factor_component_references(factor::NutrientResponse) = (factor.resource,)
+function _factor_component_references(factor::Nutrients)
+    references = ()
+    for response in values(factor.responses)
+        references = (references..., _factor_component_references(response)...)
+    end
+    return references
+end
+
+function _routing_component_references(routing::ProductRouting)
+    routing.formulation isa PartitionRouting && return (routing.retained, routing.exported)
+    routing.formulation isa DOMPOMRouting || throw(
+        ArgumentError("unsupported product-routing formulation $(typeof(routing.formulation))"),
+    )
+    references = ()
+    for pool in values(routing.pools), component in values(pool)
+        references = (references..., component)
+    end
+    return references
+end
 
 function _process_component_references(process::Growth)
     references = process.populations
     for factor in values(process.factors)
         references = (references..., _factor_component_references(factor)...)
     end
+    isnothing(process.source) || (references = (references..., process.source))
     return references
 end
 
 function _process_component_references(process::Grazing)
     destination = process.unassimilated_destination
     destination_refs = isnothing(destination) ? () : (destination,)
-    return (process.consumers..., process.resources..., destination_refs...)
+    routing_refs = isnothing(process.routing) ? () : _routing_component_references(process.routing)
+    return (process.consumers..., process.resources..., destination_refs..., routing_refs...)
 end
 
 function _process_component_references(process::Mortality)
     routing = process.routing
-    routing_refs = isnothing(routing) ? () : (routing.retained, routing.exported)
+    routing_refs = isnothing(routing) ? () : _routing_component_references(routing)
     return (process.populations..., routing_refs...)
 end
 
 _process_component_references(process::Remineralization) =
     (process.sources..., process.destinations...)
+
+function _validate_currency_target(
+    components::NamedTuple, component::Symbol, expected::Symbol, label::String
+)
+    actual = currency(getproperty(components, component))
+    actual === expected || throw(
+        ArgumentError("$label component :$component has currency :$actual, expected :$expected"),
+    )
+    return nothing
+end
+
+function _validate_process_science(process::Growth, components::NamedTuple)
+    stoichiometry = process.stoichiometry
+    stoichiometry isa FixedStoichiometry || return nothing
+    reference = stoichiometry.reference
+    isnothing(process.source) && throw(
+        ArgumentError("fixed-stoichiometry growth requires a reference-currency source component"),
+    )
+    _validate_currency_target(components, process.source, reference, "growth source")
+    for population in process.populations
+        _validate_currency_target(components, population, reference, "growth population")
+    end
+    for factor in values(process.factors)
+        factor isa Nutrients || continue
+        for (target_currency, response) in pairs(factor.responses)
+            _validate_currency_target(
+                components, response.resource, target_currency, "nutrient response"
+            )
+        end
+    end
+    return nothing
+end
+
+function _validate_routing_science(routing::ProductRouting, components::NamedTuple)
+    routing.formulation isa DOMPOMRouting || return nothing
+    for pool in values(routing.pools), (target_currency, component) in pairs(pool)
+        _validate_currency_target(components, component, target_currency, "routing target")
+    end
+    return nothing
+end
+
+function _validate_process_science(process::Grazing, components::NamedTuple)
+    isnothing(process.routing) || _validate_routing_science(process.routing, components)
+    return nothing
+end
+
+function _validate_process_science(process::Mortality, components::NamedTuple)
+    isnothing(process.routing) || _validate_routing_science(process.routing, components)
+    return nothing
+end
+
+_validate_process_science(::Remineralization, ::NamedTuple) = nothing
 
 function _validate_process(id::Symbol, process, components::NamedTuple)
     process isa AbstractProcess || throw(
@@ -329,6 +506,7 @@ function _validate_process(id::Symbol, process, components::NamedTuple)
     isempty(missing) || throw(
         ArgumentError("process :$id references unknown components $missing"),
     )
+    _validate_process_science(process, components)
     return NamedProcess(id, process)
 end
 
@@ -443,7 +621,17 @@ function normalize_model(definition::ModelDefinition)
     )
 end
 
-function _axis_components(process::NamedProcess, axis::Symbol)
+function _axis_components(
+    process::NamedProcess, requirement::ParameterRequirement, axis::Symbol
+)
+    qualifier = requirement.identity.qualifier
+    if hasproperty(qualifier, axis)
+        value = getproperty(qualifier, axis)
+        value isa Symbol || throw(
+            ArgumentError("parameter qualifier :$axis must identify one component Symbol"),
+        )
+        return (value,)
+    end
     process_participants = participants(process)
     hasproperty(process_participants, axis) || throw(
         ArgumentError(
@@ -475,7 +663,9 @@ function resolve_parameter_applicability(
     return map(definition.parameter_bindings) do binding
         requirement = binding.requirement
         process = getproperty(definition.processes, requirement.identity.process)
-        axis_components = map(axis -> _axis_components(process, axis), requirement.axes)
+        axis_components = map(
+            axis -> _axis_components(process, requirement, axis), requirement.axes
+        )
         axis_tracers = map(components -> _axis_tracers(layout, components), axis_components)
         ParameterApplicability(binding, axis_components, axis_tracers)
     end

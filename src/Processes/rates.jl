@@ -26,6 +26,29 @@
     return maximum_rate * nutrient * irradiance * biomass
 end
 
+"""Evaluate Geider growth with Liebig composition of Monod nutrient responses."""
+@inline function process_rate(
+    ::Geider,
+    ::Liebig,
+    biomass,
+    resources::Tuple,
+    light,
+    maximum_rate,
+    half_saturations::Tuple,
+    alpha,
+    chlorophyll_to_carbon_ratio,
+)
+    return geider_growth(
+        resources,
+        biomass,
+        light,
+        maximum_rate,
+        half_saturations,
+        alpha,
+        chlorophyll_to_carbon_ratio,
+    )
+end
+
 """Evaluate one preferential consumer-by-resource grazing rate."""
 @inline function process_rate(
     ::PreferentialGrazing,

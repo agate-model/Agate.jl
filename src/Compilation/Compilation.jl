@@ -5,15 +5,18 @@ using ..Configuration: ComponentLayout, CommunityContext
 using ..Equations: CompiledEquation
 using ..Processes:
     AbstractFormulation,
-    AbstractFactor,
     Growth,
     Light,
+    Nutrients,
     Grazing,
     Mortality,
     Remineralization,
+    Geider,
+    Liebig,
     Monod,
     NamedProcess,
     PreferentialGrazing,
+    DOMPOMRouting,
     NormalizedModelDefinition,
     NutrientResponse,
     PartitionRouting,
@@ -30,9 +33,9 @@ export GrowthParameterBinding, GrowthTopology
 export GrowthBiomassContribution, GrowthResourceLossContribution
 export GrazingParameterBinding, GrazingTopology
 export GrazingResourceLossContribution, GrazingConsumerGainContribution
-export GrazingUnassimilatedContribution
+export GrazingUnassimilatedContribution, GrazingRoutedProductContribution
 export MortalityParameterBinding, MortalityTopology
-export MortalityLossContribution, MortalityRoutingContribution
+export MortalityLossContribution, MortalityRoutingContribution, MortalityRoutedProductContribution
 export RemineralizationParameterBinding, RemineralizationTopology
 export RemineralizationSourceLossContribution, RemineralizationDestinationGainContribution
 export realize_process_topology, process_contributions
@@ -40,6 +43,7 @@ export contribution_target, group_contributions
 export model_contributions, compile_tendency, compile_tendencies, compile_model_tendencies
 
 include("contributions.jl")
+include("routing.jl")
 include("mortality.jl")
 include("growth.jl")
 include("grazing.jl")

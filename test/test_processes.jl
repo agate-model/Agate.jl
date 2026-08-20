@@ -1,14 +1,16 @@
 using JSON
 using Test
 
-using Agate.Configuration: Population, realize_components
+using Agate.Configuration: Population, Pool, realize_components
 using Agate.Factories: default_components, default_processes
 using Agate.Processes:
     Smith,
     Monod,
     Growth,
     Light,
+    Nutrients,
     NutrientResponse,
+    FixedStoichiometry,
     Grazing,
     ModelDefinition,
     ParameterRequirementIdentity,
@@ -94,6 +96,27 @@ using Agate.Processes:
         populations=(:P,),
         factors=(light=Light(:smith; driver=:PAR),),
     )
+
+    wrong_currency = ModelDefinition(;
+        components=(
+            P=Population(; currency=:carbon),
+            DIC=Pool(:carbon),
+            DIN=Pool(:phosphorus),
+        ),
+        processes=(growth=Growth(;
+            population=:P,
+            source=:DIC,
+            factors=(
+                light=Light(:geider; driver=:PAR),
+                nutrients=Nutrients(
+                    :liebig;
+                    responses=(nitrogen=NutrientResponse(:monod; resource=:DIN),),
+                ),
+            ),
+            stoichiometry=FixedStoichiometry(; reference=:carbon),
+        ),),
+    )
+    @test_throws ArgumentError normalize_model(wrong_currency)
 end
 
 @testset "NiPiZD normalized process contract" begin

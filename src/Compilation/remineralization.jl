@@ -1,6 +1,6 @@
 """Resolved parameter name needed to compile one linear remineralization process."""
-struct RemineralizationParameterBinding
-    rate::Symbol
+struct RemineralizationParameterBinding{R}
+    rate::R
 end
 
 """Resolve a remineralization rate parameter from normalized semantic bindings."""
@@ -18,7 +18,16 @@ function RemineralizationParameterBinding(
     process.formulation isa LinearRemineralization || throw(
         ArgumentError("unsupported remineralization formulation $(typeof(process.formulation))"),
     )
-    rate = parameter_name(definition, _parameter_requirement(named, (), :rate))
+    sources = process.sources
+    rates = Tuple(
+        parameter_name(
+            definition,
+            _parameter_requirement(
+                named, (), :rate; qualifier=(source=source,)
+            ),
+        ) for source in sources
+    )
+    rate = length(rates) == 1 ? only(rates) : NamedTuple{sources}(rates)
     return RemineralizationParameterBinding(rate)
 end
 
@@ -73,8 +82,15 @@ function process_contributions(
         ArgumentError("remineralization topology source count must match process sources"),
     )
     contributions = ()
-    for source in topology.source_tracers
-        fields = (process_id(named), source, binding.rate, process.formulation)
+    for i in eachindex(topology.source_tracers)
+        source = topology.source_tracers[i]
+        component = process.sources[i]
+        rate_parameter = if binding.rate isa Symbol
+            binding.rate
+        else
+            getproperty(binding.rate, component)
+        end
+        fields = (process_id(named), source, rate_parameter, process.formulation)
         loss = RemineralizationSourceLossContribution(fields[1], source, fields[2:end]...)
         gain = RemineralizationDestinationGainContribution(
             fields[1], topology.destination_target, fields[2:end]...

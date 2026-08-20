@@ -1,7 +1,7 @@
 """Scientific process authoring and setup-time normalization."""
 module Processes
 
-using ..Configuration: Population, Pool, ComponentLayout
+using ..Configuration: Population, Pool, ComponentLayout, currency
 using ..Factories:
     AbstractBGCFactory,
     ParameterDefinition,
@@ -11,14 +11,15 @@ using ..Factories:
     parameter_definitions
 using ..Library.Mortality: linear_loss, quadratic_loss
 using ..Library.Predation: preferential_predation_loss
-using ..Library.Photosynthesis: smith_light_limitation
+using ..Library.Photosynthesis: smith_light_limitation, geider_growth
 using ..Library.Nutrients: monod_limitation
 using ..Library.Remineralization: linear_remineralization
 
-export AbstractProcess, AbstractFormulation, AbstractFactor
-export Smith, Monod, PreferentialGrazing
-export Light
-export LinearMortality, QuadraticMortality, LinearRemineralization, PartitionRouting
+export AbstractProcess, AbstractFormulation, AbstractFactor, AbstractStoichiometry
+export Smith, Geider, Monod, Liebig, PreferentialGrazing
+export Light, Nutrients
+export LinearMortality, QuadraticMortality, LinearRemineralization
+export PartitionRouting, DOMPOMRouting, FixedStoichiometry
 export Growth, NutrientResponse, Grazing, Mortality, ProductRouting, Remineralization
 export ModelDefinition, NormalizedModelDefinition, NamedProcess
 export ParameterRequirementIdentity, ParameterRequirement
