@@ -79,6 +79,8 @@ Agate.Factories.ParameterProvision
 Agate.Factories.ParameterDefinition
 Agate.Factories.DefaultProvider
 Agate.Factories.ConstDefault
+Agate.Factories.DerivedDefault
+Agate.Factories.derive_default
 Agate.Factories.NoDefault
 Agate.Factories.FillDefault
 Agate.Factories.DiameterIndexedVectorDefault
@@ -88,11 +90,8 @@ Agate.Factories.default_processes
 Agate.Factories.default_community
 Agate.Factories.default_plankton_dynamics
 Agate.Factories.default_biogeochem_dynamics
-Agate.Configuration.AbstractMatrixDeriver
-Agate.Configuration.MatrixDefinition
-Agate.Configuration.matrix_definitions
-Agate.Configuration.derive_matrix
-Agate.Configuration.derivation_deps
+Agate.Configuration.PalatabilityAllometric
+Agate.Configuration.AssimilationBinary
 ```
 
 ### Components and configuration

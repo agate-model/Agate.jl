@@ -20,8 +20,6 @@ const LEGACY_NIPIZD_TENDENCIES = Agate.Tendencies.TendencyConfig(;
 
 Agate.Factories.parameter_definitions(::LegacyNiPiZDRegressionFactory) =
     Agate.Factories.parameter_definitions(Agate.Models.NiPiZD.NiPiZDFactory())
-Agate.Configuration.matrix_definitions(::LegacyNiPiZDRegressionFactory) =
-    Agate.Configuration.matrix_definitions(Agate.Models.NiPiZD.NiPiZDFactory())
 Agate.Factories.default_community(::LegacyNiPiZDRegressionFactory) =
     Agate.Factories.default_community(Agate.Models.NiPiZD.NiPiZDFactory())
 Agate.Factories.default_plankton_dynamics(::LegacyNiPiZDRegressionFactory) = (

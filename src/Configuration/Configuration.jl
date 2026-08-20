@@ -13,9 +13,6 @@ export PFTSpecification
 
 export build_plankton_community
 
-export AbstractMatrixDeriver
-export MatrixDefinition
-export matrix_definitions
 export PalatabilityAllometric, AssimilationBinary
 
 include("specifications.jl")

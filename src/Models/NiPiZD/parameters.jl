@@ -7,8 +7,8 @@ This file defines a single source of truth for:
 Numeric defaults are evaluated on the host during construction and later moved to the
 target architecture with `Adapt`.
 
-Interaction matrices (`palatability_matrix`, `assimilation_matrix`) are derived from
-trait vectors using `matrix_definitions`.
+Interaction matrices (`palatability_matrix`, `assimilation_matrix`) use derived
+defaults whose dependencies are declared beside their `ParameterSpec`s.
 """
 
 import ...Factories:
@@ -17,16 +17,14 @@ import ...Factories:
     ParameterSpec,
     ParameterProvision,
     ConstDefault,
-    NoDefault,
+    DerivedDefault,
     FillDefault,
     DiameterIndexedVectorDefault,
     DiameterIndexedMaterialization
 
-import ...Configuration: matrix_definitions
-
 using ...Library.Allometry: AllometricParam, PowerLaw
 
-using ...Configuration: MatrixDefinition, PalatabilityAllometric, AssimilationBinary
+using ...Configuration: PalatabilityAllometric, AssimilationBinary
 
 provision(process, path, formulation, slot; qualifier=NamedTuple()) =
     ParameterProvision(process, path, formulation, slot; qualifier)
@@ -196,7 +194,14 @@ function parameter_definitions(::NiPiZDFactory)
                     :grazing_Z_on_P, (), :preferential, :palatability
                 ),
             ),
-            NoDefault(),
+            DerivedDefault(
+                PalatabilityAllometric();
+                deps=(
+                    :optimum_predator_prey_ratio,
+                    :specificity,
+                    :protection,
+                ),
+            ),
         ),
         ParameterDefinition(
             ParameterSpec(
@@ -207,7 +212,9 @@ function parameter_definitions(::NiPiZDFactory)
                     :grazing_Z_on_P, (), :preferential, :assimilation
                 ),
             ),
-            NoDefault(),
+            DerivedDefault(
+                AssimilationBinary(); deps=(:assimilation_efficiency,)
+            ),
         ),
         ParameterDefinition(
             ParameterSpec(
@@ -263,12 +270,5 @@ function parameter_definitions(::NiPiZDFactory)
             ),
             DiameterIndexedVectorDefault(0.32, :consumers; default=0),
         ),
-    )
-end
-
-function matrix_definitions(::NiPiZDFactory)
-    return (;
-        palatability_matrix=MatrixDefinition(PalatabilityAllometric()),
-        assimilation_matrix=MatrixDefinition(AssimilationBinary()),
     )
 end

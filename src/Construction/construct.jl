@@ -10,10 +10,12 @@ using ..Factories:
     AbstractBGCFactory,
     parameter_definitions,
     ConstDefault,
+    DerivedDefault,
     NoDefault,
     FillDefault,
     DiameterIndexedVectorDefault,
     DiameterIndexedMaterialization,
+    derive_default,
     parameter_directory,
     parameter_spec,
     default_plankton_dynamics,
@@ -23,8 +25,6 @@ using ..Factories:
 using ..Configuration:
     axis_indices,
     normalize_interaction_overrides,
-    matrix_definitions,
-    resolve_derived_matrices,
     finalize_interaction_parameters,
     parse_community,
     parameter_role_indices,
@@ -51,8 +51,8 @@ using ..Library.Allometry: AbstractParamDef, resolve_diameter_indexed_vector
 Defaults are evaluated on the host during model construction. The returned
 `NamedTuple` maps parameter keys to concrete values (scalars, vectors, matrices).
 
-Parameters declared with `NoDefault()` are omitted; they are expected to be
-provided by user overrides or derived-matrix providers later in construction.
+Parameters declared with `NoDefault()` or `DerivedDefault(...)` are omitted from
+this first pass. Derived defaults are resolved after user overrides are materialized.
 """
 function build_parameter_defaults(
     factory::AbstractBGCFactory, community_context, ::Type{T}
@@ -64,7 +64,7 @@ function build_parameter_defaults(
     for def in defs
         spec = def.spec
         provider = def.default
-        provider isa NoDefault && continue
+        (provider isa NoDefault || provider isa DerivedDefault) && continue
         value = evaluate_default(provider, spec, factory, community_context, T)
         push!(pairs, spec.name => value)
     end
@@ -159,6 +159,7 @@ function validate_parameter_directory(factory::AbstractBGCFactory)
         ),
     )
 
+    key_set = Set(keys_)
     for k in keys_
         (k in RESERVED_PARAMETER_KEYS) && throw(
             ArgumentError(
@@ -212,9 +213,170 @@ function validate_parameter_directory(factory::AbstractBGCFactory)
                 ),
             )
         end
+
+        provider = def.default
+        if provider isa DerivedDefault
+            for dep in provider.deps
+                dep in key_set || throw(
+                    ArgumentError(
+                        "derived default :$(spec.name) depends on undeclared parameter :$dep.",
+                    ),
+                )
+            end
+        end
     end
 
     return Tuple(keys_)
+end
+
+function derived_default_order(factory::AbstractBGCFactory)
+    derived = Any[
+        definition for definition in parameter_definitions(factory) if
+        definition.default isa DerivedDefault
+    ]
+    isempty(derived) && return ()
+
+    derived_keys = Tuple(definition.spec.name for definition in derived)
+    resolved_keys = Set{Symbol}()
+    ordered = Any[]
+    pending = derived
+
+    while !isempty(pending)
+        remaining = Any[]
+        progressed = false
+
+        for definition in pending
+            dependencies = Tuple(
+                dep for dep in definition.default.deps if dep in derived_keys
+            )
+            if all(dep -> dep in resolved_keys, dependencies)
+                push!(ordered, definition)
+                push!(resolved_keys, definition.spec.name)
+                progressed = true
+            else
+                push!(remaining, definition)
+            end
+        end
+
+        progressed || throw(
+            ArgumentError(
+                "derived parameter defaults contain a dependency cycle among: " *
+                join(string.(Tuple(definition.spec.name for definition in remaining)), ", "),
+            ),
+        )
+        pending = remaining
+    end
+
+    return Tuple(ordered)
+end
+
+function validate_derived_parameter_result(spec, context, value)
+    T = context.scalar_type
+
+    if spec.shape === :scalar
+        value isa Bool && return nothing
+        value isa Number || throw(
+            ArgumentError(
+                "derived default :$(spec.name) must be scalar; got $(typeof(value)).",
+            ),
+        )
+        typeof(value) === T || throw(
+            ArgumentError(
+                "derived default :$(spec.name) must have type $(T); got $(typeof(value)). No implicit casting is performed.",
+            ),
+        )
+        return nothing
+    elseif spec.shape === :vector
+        value isa AbstractVector || throw(
+            ArgumentError(
+                "derived default :$(spec.name) must be a vector; got $(typeof(value)).",
+            ),
+        )
+        eltype(value) === T || throw(
+            ArgumentError(
+                "derived default :$(spec.name) must have eltype $(T); got eltype $(eltype(value)). No implicit casting is performed.",
+            ),
+        )
+        length(value) == context.n_total || throw(
+            ArgumentError(
+                "derived default :$(spec.name) must have length $(context.n_total); got $(length(value)).",
+            ),
+        )
+        return nothing
+    end
+
+    value isa AbstractMatrix || throw(
+        ArgumentError(
+            "derived default :$(spec.name) must be a matrix; got $(typeof(value)).",
+        ),
+    )
+    eltype(value) === T || throw(
+        ArgumentError(
+            "derived default :$(spec.name) must have eltype $(T); got eltype $(eltype(value)). No implicit casting is performed.",
+        ),
+    )
+
+    if spec.axes === nothing
+        expected = (context.n_total, context.n_total)
+    else
+        row_axis, col_axis = spec.axes
+        expected = (length(axis_indices(context, row_axis)), length(axis_indices(context, col_axis)))
+    end
+    size(value) == expected || throw(
+        ArgumentError(
+            "derived default :$(spec.name) must have size $expected; got $(size(value)).",
+        ),
+    )
+    return nothing
+end
+
+"""Resolve all `DerivedDefault` parameter definitions in deterministic dependency order.
+
+An explicit override of a derived parameter wins. Otherwise a derived value is computed
+when missing and recomputed whenever a dependency was explicitly overridden or was itself
+recomputed. Dependencies between derived defaults are topologically ordered and cycles are
+rejected during setup.
+"""
+function resolve_parameter_defaults(
+    factory::AbstractBGCFactory,
+    context,
+    params::NamedTuple,
+    explicit_override_keys::Tuple{Vararg{Symbol}},
+)
+    ordered = derived_default_order(factory)
+    isempty(ordered) && return params
+
+    override_set = Set(explicit_override_keys)
+    changed = Set(explicit_override_keys)
+    resolved = params
+
+    for definition in ordered
+        key = definition.spec.name
+        provider = definition.default
+
+        if key in override_set && hasproperty(resolved, key)
+            continue
+        end
+
+        missing_deps = Tuple(dep for dep in provider.deps if !hasproperty(resolved, dep))
+        isempty(missing_deps) || throw(
+            ArgumentError(
+                "derived default :$key is missing dependencies: " *
+                join(string.(missing_deps), ", "),
+            ),
+        )
+
+        needs_compute = !hasproperty(resolved, key)
+        needs_recompute = any(dep -> dep in changed, provider.deps)
+        if needs_compute || needs_recompute
+            value = derive_default(provider.deriver, factory, context, resolved)
+            validate_derived_parameter_result(definition.spec, context, value)
+            resolved = merge(resolved, NamedTuple{(key,)}((value,)))
+            push!(changed, key)
+        end
+    end
+
+    return resolved
 end
 
 function validate_parameter_shapes(
@@ -585,7 +747,7 @@ function build_process_parameter_defaults(
     entries = Pair{Symbol,Any}[]
     for parameter_definition in parameter_definitions(factory)
         provider = parameter_definition.default
-        provider isa NoDefault && continue
+        (provider isa NoDefault || provider isa DerivedDefault) && continue
         spec = parameter_definition.spec
         value = evaluate_process_default(provider, spec, factory, definition, layout, context, T)
         push!(entries, spec.name => value)
@@ -657,7 +819,7 @@ Construction proceeds in four stages:
 
 1. Parse the community into a `CommunityContext`.
 2. Evaluate `parameter_definitions(factory)` into concrete defaults.
-3. Apply user overrides and resolve any derived interaction matrices.
+3. Apply user overrides and resolve derived parameter defaults.
 4. Finalize interaction parameters, compile tracer functions, and adapt the
    result to the requested architecture.
 
@@ -800,7 +962,7 @@ function _construct_process_factory(
     explicit_override_keys = (
         keys(recipe.parameter_overrides)..., keys(interaction_parameter_overrides)...
     )
-    merged_parameters = resolve_derived_matrices(
+    merged_parameters = resolve_parameter_defaults(
         factory, community_context, merged_parameters, explicit_override_keys
     )
     missing = Symbol[k for k in required if !hasproperty(merged_parameters, k)]
@@ -1007,7 +1169,7 @@ function _construct_factory(
         parameter_defaults, parameter_overrides, interaction_parameter_overrides
     )
     explicit_override_keys = (keys(parameters)..., keys(interaction_parameter_overrides)...)
-    merged_parameters = resolve_derived_matrices(
+    merged_parameters = resolve_parameter_defaults(
         factory, community_context, merged_parameters, explicit_override_keys
     )
     missing = Symbol[]

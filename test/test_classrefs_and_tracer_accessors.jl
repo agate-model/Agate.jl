@@ -21,7 +21,6 @@ struct GenericRoleFixtureFactory <: Agate.Factories.AbstractBGCFactory end
 Agate.Construction.recipe_family(::GenericRoleFixtureFactory) = :GenericRoleFixture
 Agate.Construction.recipe_factory(::Val{:GenericRoleFixture}) = GenericRoleFixtureFactory()
 Agate.Factories.parameter_definitions(::GenericRoleFixtureFactory) = ()
-Agate.Configuration.matrix_definitions(::GenericRoleFixtureFactory) = (;)
 
 zero_plankton_tendency(::Int) = CompiledEquation(
     (bgc, x, y, z, t, args...) -> zero(first(args))

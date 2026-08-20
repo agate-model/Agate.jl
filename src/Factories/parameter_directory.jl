@@ -4,10 +4,12 @@ export DefaultProvider
 export ParameterDefinition
 export parameter_definitions
 export ConstDefault
+export DerivedDefault
 export NoDefault
 export FillDefault
 export DiameterIndexedVectorDefault
 export DiameterIndexedMaterialization
+export derive_default
 export parameter_directory
 export parameter_spec
 
@@ -122,10 +124,40 @@ struct ConstDefault{T} <: DefaultProvider
     value::T
 end
 
-"""Indicates that a parameter has no direct default value.
+"""Derive a parameter default from other resolved parameters during construction.
 
-This is useful for parameters that are derived later (for example interaction
-matrices regenerated from trait vectors).
+`deriver` is a setup-time strategy object implementing [`derive_default`](@ref).
+`deps` names the parameter definitions that must be resolved before this default and
+whose explicit overrides trigger recomputation.
+"""
+struct DerivedDefault{D,P<:Tuple} <: DefaultProvider
+    deriver::D
+    deps::P
+end
+
+function DerivedDefault(deriver; deps=())
+    deps isa Tuple || throw(ArgumentError("deps must be a tuple of Symbols."))
+    all(dep -> dep isa Symbol, deps) || throw(
+        ArgumentError("deps must be a tuple of Symbols.")
+    )
+    length(Set(deps)) == length(deps) || throw(
+        ArgumentError("deps must not contain duplicate parameter keys.")
+    )
+    return DerivedDefault{typeof(deriver),typeof(deps)}(deriver, deps)
+end
+
+"""Compute a value for a [`DerivedDefault`](@ref) provider.
+
+Concrete derivers receive the owning factory, construction context, and all parameter
+values resolved so far. Derivation runs on the host during model construction.
+"""
+function derive_default(deriver, ::AbstractBGCFactory, context, params::NamedTuple)
+    throw(ArgumentError("derive_default is not implemented for $(typeof(deriver))."))
+end
+
+"""Indicates that a parameter has no default value.
+
+The parameter must be supplied by an override before construction can complete.
 """
 struct NoDefault <: DefaultProvider end
 

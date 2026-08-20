@@ -1,5 +1,11 @@
-using ..Factories: AbstractBGCFactory, parameter_directory, default_components, default_processes
-using ..Configuration: matrix_definitions, normalize_diameters
+using ..Factories:
+    AbstractBGCFactory,
+    DerivedDefault,
+    parameter_definitions,
+    parameter_directory,
+    default_components,
+    default_processes
+using ..Configuration: normalize_diameters
 
 """Return the stable recipe-family identifier for a model factory."""
 function recipe_family(factory::AbstractBGCFactory)
@@ -16,7 +22,7 @@ end
 `ModelRecipe` stores a stable model-family identifier and the authored scientific
 inputs needed to describe a model independently of runtime execution choices such
 as grids, architectures, and scalar precision. Model-family code supplies parameter
-defaults, interaction derivations, and tracer equations when the recipe is replayed.
+defaults and tracer equations when the recipe is replayed.
 """
 struct ModelRecipe{C,PO,IO,ER,IR,PR,A,S}
     family::Symbol
@@ -252,7 +258,10 @@ function capture_model_manifest(
         spec.name for spec in parameter_directory(factory) if
         spec.shape === :matrix && spec.axes == (:consumer, :prey)
     )
-    derived_interaction_names = keys(matrix_definitions(factory))
+    derived_interaction_names = Tuple(
+        definition.spec.name for definition in parameter_definitions(factory) if
+        definition.default isa DerivedDefault
+    )
     interaction_matrix_sources = NamedTuple{interaction_names}(
         Tuple(
             name in explicit_override_keys ? :explicit :
