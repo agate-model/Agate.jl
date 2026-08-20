@@ -145,7 +145,7 @@ using Agate.Equations: CompiledEquation
         groups = tracer_groups(model)
 
         @test tracer_names(model) == [:X]
-        @test groups == (all=[:X], by_group=NamedTuple(), plankton=Symbol[], nonplankton=[:X])
+        @test groups == (all=[:X], plankton=Symbol[], nonplankton=[:X], by_group=NamedTuple())
         @test plankton_groups(model) == NamedTuple()
         @test isempty(plankton_diameters(model))
         @test parameter_names(model) == [:rate]
