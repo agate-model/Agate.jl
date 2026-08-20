@@ -90,8 +90,7 @@ bgc_model = Biogeochemistry(
 )
 nothing #hide
 
-full_model = NonhydrostaticModel(;
-    grid,
+full_model = NonhydrostaticModel(grid;
     clock=Clock(; time=0.0),
     timestepper=:QuasiAdamsBashforth2,
     closure=ScalarDiffusivity(
