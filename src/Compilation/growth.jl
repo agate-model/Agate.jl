@@ -141,8 +141,8 @@ function process_contributions(
 end
 
 struct GrowthTerm{L,N,I,R,D,M,K,A,Effect}
-    light::L
-    nutrients::N
+    light_formulation::L
+    nutrient_formulation::N
 end
 
 @inline _growth_effect(::Val{:gain}, rate) = rate
@@ -158,8 +158,8 @@ end
     half_saturation = @inbounds getproperty(bgc.parameters, K)[I]
     alpha = @inbounds getproperty(bgc.parameters, A)[I]
     rate = process_rate(
-        term.light,
-        term.nutrients,
+        term.light_formulation,
+        term.nutrient_formulation,
         biomass,
         resource,
         light,
@@ -171,8 +171,10 @@ end
 end
 
 function _growth_term(contribution, ::Val{Effect}) where {Effect}
-    L = typeof(contribution.light)
-    N = typeof(contribution.nutrients)
+    light_formulation = formulation(contribution.light)
+    nutrient_formulation = formulation(contribution.nutrients)
+    L = typeof(light_formulation)
+    N = typeof(nutrient_formulation)
     return GrowthTerm{
         L,
         N,
@@ -183,7 +185,7 @@ function _growth_term(contribution, ::Val{Effect}) where {Effect}
         contribution.half_saturation_parameter,
         contribution.alpha_parameter,
         Effect,
-    }(contribution.light, contribution.nutrients)
+    }(light_formulation, nutrient_formulation)
 end
 
 _lower_contribution(contribution::GrowthBiomassContribution) =

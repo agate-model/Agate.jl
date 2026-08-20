@@ -4,16 +4,16 @@
 @inline process_rate(process::Mortality, biomass, coefficient) =
     process_rate(formulation(process), biomass, coefficient)
 
-@inline factor_value(::Light{Smith}, light, maximum_rate, alpha) =
+@inline factor_value(::Smith, light, maximum_rate, alpha) =
     smith_light_limitation(light, alpha, maximum_rate)
 
-@inline factor_value(::NutrientResponse{Monod}, resource, half_saturation) =
+@inline factor_value(::Monod, resource, half_saturation) =
     monod_limitation(resource, half_saturation)
 
 """Evaluate growth by multiplying its Smith light and Monod nutrient factors."""
 @inline function process_rate(
-    light_factor::Light{Smith},
-    nutrient_factor::NutrientResponse{Monod},
+    light_formulation::Smith,
+    nutrient_formulation::Monod,
     biomass,
     resource,
     light,
@@ -21,8 +21,8 @@
     half_saturation,
     alpha,
 )
-    nutrient = factor_value(nutrient_factor, resource, half_saturation)
-    irradiance = factor_value(light_factor, light, maximum_rate, alpha)
+    nutrient = factor_value(nutrient_formulation, resource, half_saturation)
+    irradiance = factor_value(light_formulation, light, maximum_rate, alpha)
     return maximum_rate * nutrient * irradiance * biomass
 end
 
