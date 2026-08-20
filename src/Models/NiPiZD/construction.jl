@@ -3,7 +3,6 @@ using OceanBioME: BoxModelGrid
 import ...Configuration
 import ...Construction
 
-export construct, construct_plus_recipe, construct_from_recipe
 
 function _validated_size_structure(size_structure)
     size_structure isa NamedTuple ||
