@@ -122,10 +122,10 @@ explicit_json_value(::Any) = false
     end
 
     for field in ("path", "axes")
-        empty_object = modified(encoded) do document
+        empty_object = modified(encoded, document -> begin
             bindings = document["recipe"]["parameter_bindings"]
             first_empty_provision(bindings, field)[field] = Dict{String,Any}()
-        end
+        end)
         @test decode_recipe(empty_object) == recipe
     end
 
