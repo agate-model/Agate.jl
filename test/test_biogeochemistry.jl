@@ -34,7 +34,7 @@ end
     @test required_biogeochemical_auxiliary_fields(model) == (:PAR,)
     @test required_biogeochemical_auxiliary_fields(typeof(model)) == (:PAR,)
     @test model(Val(:R), 0, 0, 0, 0, 10, 2, 0) == 2 / 3 * 10 - 4 / 3 * 10 * 2
-    @test model(Val(:F), 0, 0, 0, 0, 10, 2, 0) == -2 + 20
-    @test modified(Val(:R), 0, 0, 0, 0, 10, 2, 0) == -10
-    @test modified(Val(:F), 0, 0, 0, 0, 10, 2, 0) == 16
+    @test model(Val(:F), 0, 0, 0, 0, 10, 2, 0) == -1 * 2 + 1 * 10 * 2
+    @test modified(Val(:R), 0, 0, 0, 0, 10, 2, 0) == 1 * 10 - 1 * 10 * 2
+    @test modified(Val(:F), 0, 0, 0, 0, 10, 2, 0) == -2 * 2 + 2 * 10 * 2
 end
