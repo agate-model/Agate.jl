@@ -8,7 +8,8 @@ using ..Factories: parameter_definitions, default_components, default_processes
 
 using ..Processes:
     ModelDefinition, normalize_model, parameter_bindings, process_kind, formulation,
-    formulation_tag, participants, drivers, rate_axes, Growth, Light, NutrientResponse, Mortality
+    formulation_tag, participants, drivers, rate_axes, Growth, Light, NutrientResponse, Nutrients,
+    Grazing, Mortality, ProductRouting, PartitionRouting, DOMPOMRouting, FixedStoichiometry
 
 using ..Library.Allometry:
     ConstantParam,
@@ -404,6 +405,47 @@ function _factor_v3_data(factor::NutrientResponse)
     )
 end
 
+function _factor_v3_data(factor::Nutrients)
+    return Dict{String,Any}(
+        "kind" => "nutrients",
+        "formulation" => String(formulation_tag(formulation(factor))),
+        "responses" => Dict{String,Any}(
+            String(name) => _factor_v3_data(response)
+            for (name, response) in pairs(factor.responses)
+        ),
+    )
+end
+
+function _stoichiometry_v3_data(stoichiometry::FixedStoichiometry)
+    return Dict{String,Any}(
+        "kind" => "fixed",
+        "reference" => String(stoichiometry.reference),
+    )
+end
+
+function _routing_v3_data(routing::ProductRouting)
+    data = Dict{String,Any}(
+        "kind" => "product_routing",
+        "formulation" => String(formulation_tag(formulation(routing))),
+    )
+    if routing.formulation isa PartitionRouting
+        data["retained"] = String(routing.retained)
+        data["exported"] = String(routing.exported)
+    elseif routing.formulation isa DOMPOMRouting
+        data["pools"] = Dict{String,Any}(
+            String(pool_name) => Dict{String,Any}(
+                String(currency) => String(component)
+                for (currency, component) in pairs(pool)
+            )
+            for (pool_name, pool) in pairs(routing.pools)
+        )
+        data["stoichiometry"] = _stoichiometry_v3_data(routing.stoichiometry)
+    else
+        throw(ArgumentError("unsupported product-routing formulation $(typeof(routing.formulation))"))
+    end
+    return data
+end
+
 function _process_v3_data(named)
     process = named.process
     data = Dict{String,Any}(
@@ -416,6 +458,8 @@ function _process_v3_data(named)
         data["factors"] = Dict{String,Any}(
             String(name) => _factor_v3_data(factor) for (name, factor) in pairs(process.factors)
         )
+        isnothing(process.stoichiometry) ||
+            (data["stoichiometry"] = _stoichiometry_v3_data(process.stoichiometry))
     else
         data["formulation"] = String(formulation_tag(formulation(named)))
         process_drivers = drivers(named)
@@ -424,14 +468,8 @@ function _process_v3_data(named)
         ))
     end
 
-    if process isa Mortality && !isnothing(process.routing)
-        routing = process.routing
-        data["routing"] = Dict{String,Any}(
-            "kind" => "product_routing",
-            "formulation" => String(formulation_tag(formulation(routing))),
-            "retained" => String(routing.retained),
-            "exported" => String(routing.exported),
-        )
+    if process isa Union{Grazing,Mortality} && !isnothing(process.routing)
+        data["routing"] = _routing_v3_data(process.routing)
     end
     return data
 end
