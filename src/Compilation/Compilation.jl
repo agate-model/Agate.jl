@@ -5,7 +5,9 @@ using ..Configuration: ComponentLayout, CommunityContext
 using ..Equations: CompiledEquation
 using ..Processes:
     AbstractFormulation,
+    AbstractFactor,
     Growth,
+    Light,
     Grazing,
     Mortality,
     Remineralization,

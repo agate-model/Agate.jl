@@ -8,7 +8,7 @@ using ..Factories: parameter_definitions, default_components, default_processes
 
 using ..Processes:
     ModelDefinition, normalize_model, parameter_bindings, process_kind, formulation,
-    formulation_tag, participants, drivers, rate_axes, Growth, Mortality
+    formulation_tag, participants, drivers, rate_axes, Growth, Light, NutrientResponse, Mortality
 
 using ..Library.Allometry:
     ConstantParam,
@@ -388,29 +388,43 @@ function _participants_v3_data(named)
     )
 end
 
+function _factor_v3_data(factor::Light)
+    return Dict{String,Any}(
+        "kind" => "light",
+        "formulation" => String(formulation_tag(formulation(factor))),
+        "drivers" => Dict{String,Any}("driver" => String(factor.driver)),
+    )
+end
+
+function _factor_v3_data(factor::NutrientResponse)
+    return Dict{String,Any}(
+        "kind" => "nutrient_response",
+        "formulation" => String(formulation_tag(formulation(factor))),
+        "participants" => Dict{String,Any}("resource" => String(factor.resource)),
+    )
+end
+
 function _process_v3_data(named)
     process = named.process
     data = Dict{String,Any}(
         "kind" => String(process_kind(named)),
-        "formulation" => String(formulation_tag(formulation(named))),
         "participants" => _participants_v3_data(named),
         "rate_axes" => _string_array(rate_axes(named)),
     )
-    process_drivers = drivers(named)
-    isempty(process_drivers) || (data["drivers"] = Dict(
-        String(slot) => String(identity) for (slot, identity) in pairs(process_drivers)
-    ))
 
-    if process isa Growth && !isnothing(process.limitation)
-        response = process.limitation
-        data["subformulations"] = Dict{String,Any}(
-            "limitation" => Dict{String,Any}(
-                "kind" => "nutrient_response",
-                "formulation" => String(formulation_tag(formulation(response))),
-                "participants" => Dict("resource" => String(response.resource)),
-            ),
+    if process isa Growth
+        data["factors"] = Dict{String,Any}(
+            String(name) => _factor_v3_data(factor) for (name, factor) in pairs(process.factors)
         )
-    elseif process isa Mortality && !isnothing(process.routing)
+    else
+        data["formulation"] = String(formulation_tag(formulation(named)))
+        process_drivers = drivers(named)
+        isempty(process_drivers) || (data["drivers"] = Dict(
+            String(slot) => String(identity) for (slot, identity) in pairs(process_drivers)
+        ))
+    end
+
+    if process isa Mortality && !isnothing(process.routing)
         routing = process.routing
         data["routing"] = Dict{String,Any}(
             "kind" => "product_routing",

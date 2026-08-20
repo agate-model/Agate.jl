@@ -47,6 +47,9 @@ end
     @test contracts["processes"]["identity_source"] == "named_process_key"
     @test contracts["processes"]["identity_is_order_independent"]
     @test contracts["processes"]["rate_topology_is_explicit"]
+    @test contracts["processes"]["factor_identity_source"] == "named_factor_key"
+    @test contracts["processes"]["growth_factor_composition"] == "multiplicative"
+    @test contracts["processes"]["process_contribution_composition"] == "additive"
     @test contracts["parameters"]["applicability_source"] == "process_participation"
     @test contracts["stoichiometry"]["ratio_orientation"] == ["from", "to"]
     @test contracts["runtime"]["tendency_execution"] == "compiled_equation_per_tracer"
@@ -71,9 +74,11 @@ end
     for process in values(processes), participant in values(process["participants"])
         @test participant in component_ids
     end
-    limitation = processes["growth_P"]["subformulations"]["limitation"]
-    @test limitation["participants"]["resource"] in component_ids
-    @test processes["growth_P"]["drivers"] == Dict("light" => "PAR")
+    growth_factors = processes["growth_P"]["factors"]
+    @test Set(keys(growth_factors)) == Set(("light", "nutrients"))
+    @test growth_factors["light"]["formulation"] == "smith"
+    @test growth_factors["light"]["drivers"] == Dict("driver" => "PAR")
+    @test growth_factors["nutrients"]["participants"]["resource"] in component_ids
 
     parameter_names = Set(
         String(spec.name) for spec in parameter_directory(Agate.Models.NiPiZD.NiPiZDFactory())
@@ -92,7 +97,7 @@ end
     @test bindings["nutrient_half_saturation"]["provides"] == [
         Dict(
             "process" => "growth_P",
-            "path" => ["limitation"],
+            "path" => ["factors", "nutrients"],
             "formulation" => "monod",
             "slot" => "K",
             "qualifier" => Dict("resource" => "N"),

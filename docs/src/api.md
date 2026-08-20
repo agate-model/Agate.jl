@@ -113,8 +113,11 @@ Agate.Configuration.realize_component_groups
 ```@docs
 Agate.Processes.AbstractProcess
 Agate.Processes.AbstractFormulation
+Agate.Processes.AbstractFactor
 Agate.Processes.Growth
+Agate.Processes.Light
 Agate.Processes.NutrientResponse
+Agate.Processes.factors
 Agate.Processes.Grazing
 Agate.Processes.Mortality
 Agate.Processes.ProductRouting

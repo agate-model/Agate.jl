@@ -1,7 +1,7 @@
 using ...Factories: AbstractBGCFactory
 using ...Configuration: PFTSpecification, Population, Pool
 using ...Processes:
-    Growth, NutrientResponse, Grazing, Mortality, ProductRouting, Remineralization
+    Growth, Light, NutrientResponse, Grazing, Mortality, ProductRouting, Remineralization
 
 import ...Factories: default_components, default_processes, default_community
 import ...Construction: recipe_family, recipe_factory
@@ -32,11 +32,12 @@ const NIPIZD_COMPONENTS = (
 default_components(::NiPiZDFactory) = NIPIZD_COMPONENTS
 
 const NIPIZD_PROCESSES = (
-    growth_P=Growth(
-        :smith;
+    growth_P=Growth(;
         population=:P,
-        light=:PAR,
-        limitation=NutrientResponse(:monod; resource=:N),
+        factors=(
+            light=Light(:smith; driver=:PAR),
+            nutrients=NutrientResponse(:monod; resource=:N),
+        ),
     ),
     grazing_Z_on_P=Grazing(
         :preferential; consumer=:Z, resource=:P, unassimilated_destination=:D

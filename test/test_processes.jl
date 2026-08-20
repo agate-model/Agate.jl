@@ -7,6 +7,7 @@ using Agate.Processes:
     Smith,
     Monod,
     Growth,
+    Light,
     NutrientResponse,
     Grazing,
     ModelDefinition,
@@ -19,6 +20,7 @@ using Agate.Processes:
     driver_identities,
     formulation,
     formulation_tag,
+    factors,
     normalize_model,
     participants,
     process_id,
@@ -26,19 +28,23 @@ using Agate.Processes:
     rate_axes
 
 @testset "Process authoring and normalization" begin
+    symbolic_light = Light(:smith; driver=:PAR)
+    concrete_light = Light(Smith(); driver=:PAR)
     symbolic_response = NutrientResponse(:monod; resource=:N)
     concrete_response = NutrientResponse(Monod(); resource=:N)
-    symbolic_growth = Growth(
-        :smith; population=:P, light=:PAR, limitation=symbolic_response
+    symbolic_growth = Growth(;
+        population=:P,
+        factors=(light=symbolic_light, nutrients=symbolic_response),
     )
-    concrete_growth = Growth(
-        Smith(); population=:P, light=:PAR, limitation=concrete_response
+    concrete_growth = Growth(;
+        population=:P,
+        factors=(nutrients=concrete_response, light=concrete_light),
     )
 
-    @test typeof(formulation(symbolic_growth)) === Smith
+    @test typeof(formulation(symbolic_light)) === Smith
     @test typeof(formulation(symbolic_response)) === Monod
-    @test formulation_tag(formulation(symbolic_growth)) ==
-        formulation_tag(formulation(concrete_growth))
+    @test factors(symbolic_growth) == factors(concrete_growth)
+    @test keys(factors(symbolic_growth)) == (:light, :nutrients)
     @test participants(symbolic_growth) == participants(concrete_growth) == (population=(:P,),)
     @test drivers(symbolic_growth) == drivers(concrete_growth) == (light=:PAR,)
     @test rate_axes(symbolic_growth) == (:population,)
@@ -53,6 +59,7 @@ using Agate.Processes:
         consumer=(:Z,), resource=(:P, :B), unassimilated_destination=(:D,)
     )
     @test rate_axes(grazing) == (:consumer, :resource)
+    @test isempty(factors(grazing))
 
     shared_driver_model = normalize_model(
         ModelDefinition(;
@@ -60,17 +67,32 @@ using Agate.Processes:
                 P=Population(; currency=:nitrogen), Z=Population(; currency=:nitrogen)
             ),
             processes=(
-                growth_Z=Growth(:smith; population=:Z, light=:PAR),
-                growth_P=Growth(:smith; population=:P, light=:PAR),
+                growth_Z=Growth(;
+                    population=:Z, factors=(light=Light(:smith; driver=:PAR),)
+                ),
+                growth_P=Growth(;
+                    population=:P, factors=(light=Light(:smith; driver=:PAR),)
+                ),
             ),
         ),
     )
     @test driver_identities(shared_driver_model) == (:PAR,)
 
-    @test_throws ArgumentError Growth(:unknown; population=:P, light=:PAR)
-    @test_throws ArgumentError Growth(:smith; population=:P)
-    @test_throws ArgumentError Growth(
-        :smith; population=:P, populations=(:P,), light=:PAR
+    invalid_growth = ModelDefinition(;
+        components=(P=Population(; currency=:nitrogen),),
+        processes=(growth=Growth(;
+            population=:P,
+            factors=(nutrients=NutrientResponse(:monod; resource=:missing),),
+        ),),
+    )
+    @test_throws ArgumentError normalize_model(invalid_growth)
+
+    @test_throws ArgumentError Light(:unknown; driver=:PAR)
+    @test_throws ArgumentError Growth(; population=:P, factors=NamedTuple())
+    @test_throws ArgumentError Growth(;
+        population=:P,
+        populations=(:P,),
+        factors=(light=Light(:smith; driver=:PAR),),
     )
 end
 
@@ -111,7 +133,9 @@ end
     for (name, process) in pairs(normalized.processes)
         expected = target_processes[String(name)]
         @test String(process_kind(process)) == expected["kind"]
-        @test String(formulation_tag(formulation(process))) == expected["formulation"]
+        if process_kind(process) !== :growth
+            @test String(formulation_tag(formulation(process))) == expected["formulation"]
+        end
         @test String.(collect(rate_axes(process))) == expected["rate_axes"]
     end
 
@@ -143,8 +167,9 @@ end
             end,
         )
     end
-    @test application(:maximum_growth_rate, :growth_P, :maximum_rate).axis_tracers ==
-        ((:P_1, :P_2),)
+    @test application(
+        :maximum_growth_rate, :growth_P, :maximum_rate; path=(:factors, :light)
+    ).axis_tracers == ((:P_1, :P_2),)
     @test application(:maximum_predation_rate, :grazing_Z_on_P, :maximum_rate).axis_tracers ==
         ((:Z_1, :Z_2),)
     @test application(
@@ -212,14 +237,14 @@ end
 @testset "Parameter requirement identity" begin
     a = ParameterRequirementIdentity(
         :growth_P,
-        (:limitation,),
+        (:factors, :nutrients),
         Monod(),
         :K;
         qualifier=(resource=:N, population=:P),
     )
     b = ParameterRequirementIdentity(
         :growth_P,
-        (:limitation,),
+        (:factors, :nutrients),
         :monod,
         :K;
         qualifier=(population=:P, resource=:N),
@@ -227,6 +252,6 @@ end
 
     @test a == b
     @test a != ParameterRequirementIdentity(
-        :other_growth, (:limitation,), :monod, :K; qualifier=(resource=:N, population=:P)
+        :other_growth, (:factors, :nutrients), :monod, :K; qualifier=(resource=:N, population=:P)
     )
 end

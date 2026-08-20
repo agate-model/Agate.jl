@@ -119,7 +119,7 @@ function parameter_definitions(::NiPiZDFactory)
                 :vector;
                 axes=:plankton,
                 materialization=producer_materialization,
-                provides=provision(:growth_P, (), :smith, :maximum_rate),
+                provides=provision(:growth_P, (:factors, :light), :smith, :maximum_rate),
             ),
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=2 / 86400, exponent=-0.15),
@@ -135,7 +135,7 @@ function parameter_definitions(::NiPiZDFactory)
                 materialization=producer_materialization,
                 provides=provision(
                     :growth_P,
-                    (:limitation,),
+                    (:factors, :nutrients),
                     :monod,
                     :K;
                     qualifier=(resource=:N,),
@@ -153,7 +153,7 @@ function parameter_definitions(::NiPiZDFactory)
                 :vector;
                 axes=:plankton,
                 materialization=producer_materialization,
-                provides=provision(:growth_P, (), :smith, :alpha),
+                provides=provision(:growth_P, (:factors, :light), :smith, :alpha),
             ),
             DiameterIndexedVectorDefault(
                 0.1953 / 86400, :producers; default=0

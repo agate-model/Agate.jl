@@ -6,6 +6,10 @@ abstract type AbstractFormulation end
 
 struct Smith <: AbstractFormulation end
 struct Monod <: AbstractFormulation end
+struct MultiplicativeFactors <: AbstractFormulation end
+
+"""Abstract supertype for named multiplicative process-rate factors."""
+abstract type AbstractFactor end
 struct PreferentialGrazing <: AbstractFormulation end
 struct LinearMortality <: AbstractFormulation end
 struct QuadraticMortality <: AbstractFormulation end
@@ -14,13 +18,14 @@ struct PartitionRouting <: AbstractFormulation end
 
 formulation_tag(::Smith) = :smith
 formulation_tag(::Monod) = :monod
+formulation_tag(::MultiplicativeFactors) = :multiplicative
 formulation_tag(::PreferentialGrazing) = :preferential
 formulation_tag(::LinearMortality) = :linear
 formulation_tag(::QuadraticMortality) = :quadratic
 formulation_tag(::LinearRemineralization) = :linear
 formulation_tag(::PartitionRouting) = :partition
 
-_resolve_growth(::Val{:smith}) = Smith()
+_resolve_light(::Val{:smith}) = Smith()
 _resolve_response(::Val{:monod}) = Monod()
 _resolve_grazing(::Val{:preferential}) = PreferentialGrazing()
 _resolve_mortality(::Val{:linear}) = LinearMortality()
@@ -32,7 +37,7 @@ function _unknown_formulation(kind::Symbol, formulation::Symbol)
     throw(ArgumentError("unknown $(kind) formulation :$(formulation)"))
 end
 
-_resolve_growth(::Val{F}) where {F} = _unknown_formulation(:growth, F)
+_resolve_light(::Val{F}) where {F} = _unknown_formulation(:light, F)
 _resolve_response(::Val{F}) where {F} = _unknown_formulation(:nutrient_response, F)
 _resolve_grazing(::Val{F}) where {F} = _unknown_formulation(:grazing, F)
 _resolve_mortality(::Val{F}) where {F} = _unknown_formulation(:mortality, F)
@@ -59,8 +64,20 @@ function _optional_reference(name::Symbol, value)
     return value
 end
 
-"""Single-resource response used by a process such as growth."""
-struct NutrientResponse{F<:AbstractFormulation}
+"""Light-dependent multiplicative factor in a process rate."""
+struct Light{F<:AbstractFormulation} <: AbstractFactor
+    formulation::F
+    driver::Symbol
+end
+
+Light(formulation::Symbol; driver::Symbol) = Light(_resolve_light(Val(formulation)); driver)
+Light(formulation::Smith; driver::Symbol) = Light(formulation, driver)
+function Light(formulation::AbstractFormulation; driver::Symbol)
+    throw(ArgumentError("$(typeof(formulation)) is not a light formulation"))
+end
+
+"""Single-resource multiplicative nutrient factor used by processes such as growth."""
+struct NutrientResponse{F<:AbstractFormulation} <: AbstractFactor
     formulation::F
     resource::Symbol
 end
@@ -89,33 +106,31 @@ function ProductRouting(
     throw(ArgumentError("$(typeof(formulation)) is not a product-routing formulation"))
 end
 
-"""Population growth process with optional composable resource response."""
-struct Growth{F<:AbstractFormulation,L} <: AbstractProcess
-    formulation::F
-    populations::Tuple
-    light::Symbol
-    limitation::L
-end
-
-function Growth(
-    formulation::Smith;
-    population=nothing,
-    populations=nothing,
-    light=nothing,
-    limitation=nothing,
-)
-    population_refs = _participant_tuple(:population, population, populations)
-    light_ref = _optional_reference(:light, light)
-    isnothing(light_ref) && throw(ArgumentError("Smith growth requires a `light` driver binding"))
-    isnothing(limitation) || limitation isa NutrientResponse || throw(
-        ArgumentError("growth `limitation` must be a NutrientResponse"),
+function _canonical_factors(factors::NamedTuple)
+    isempty(factors) && throw(ArgumentError("growth `factors` cannot be empty"))
+    all(factor -> factor isa AbstractFactor, values(factors)) || throw(
+        ArgumentError("growth `factors` values must be process factors"),
     )
-    return Growth(formulation, population_refs, light_ref, limitation)
+    names = sort!(collect(keys(factors)); by=String)
+    names_tuple = Tuple(names)
+    return NamedTuple{names_tuple}(Tuple(getproperty(factors, name) for name in names))
 end
 
-Growth(formulation::Symbol; kwargs...) = Growth(_resolve_growth(Val(formulation)); kwargs...)
-function Growth(formulation::AbstractFormulation; kwargs...)
-    throw(ArgumentError("$(typeof(formulation)) is not a growth formulation"))
+"""Population growth process whose named top-level factors multiply."""
+struct Growth{F<:NamedTuple} <: AbstractProcess
+    formulation::MultiplicativeFactors
+    populations::Tuple
+    factors::F
+
+    function Growth(populations::Tuple, factors::NamedTuple)
+        canonical = _canonical_factors(factors)
+        return new{typeof(canonical)}(MultiplicativeFactors(), populations, canonical)
+    end
+end
+
+function Growth(; population=nothing, populations=nothing, factors::NamedTuple)
+    population_refs = _participant_tuple(:population, population, populations)
+    return Growth(population_refs, factors)
 end
 
 """Consumer-resource grazing process."""
@@ -197,8 +212,12 @@ function Remineralization(formulation::AbstractFormulation; kwargs...)
 end
 
 formulation(process::AbstractProcess) = process.formulation
-formulation(response::NutrientResponse) = response.formulation
+formulation(factor::AbstractFactor) = factor.formulation
 formulation(routing::ProductRouting) = routing.formulation
+
+"""Return the named multiplicative factors attached to a process."""
+factors(process::Growth) = process.factors
+factors(::Union{Grazing,Mortality,Remineralization}) = NamedTuple()
 
 process_kind(::Growth) = :growth
 process_kind(::Grazing) = :grazing
@@ -215,8 +234,24 @@ participants(process::Mortality) = (population=process.populations,)
 participants(process::Remineralization) =
     (source=process.sources, destination=process.destinations)
 
+factor_drivers(factor::Light) = (driver=factor.driver,)
+factor_drivers(::NutrientResponse) = NamedTuple()
+
 function drivers(process::Growth)
-    return (light=process.light,)
+    names = Symbol[]
+    identities = Symbol[]
+    for (name, factor) in pairs(process.factors)
+        factor_bindings = factor_drivers(factor)
+        isempty(factor_bindings) && continue
+        length(factor_bindings) == 1 || throw(
+            ArgumentError(
+                "growth factor :$name declares multiple drivers; nested driver paths are not implemented"
+            ),
+        )
+        push!(names, name)
+        push!(identities, only(values(factor_bindings)))
+    end
+    return NamedTuple{Tuple(names)}(Tuple(identities))
 end
 drivers(::Union{Grazing,Mortality,Remineralization}) = NamedTuple()
 

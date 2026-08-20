@@ -1,4 +1,16 @@
-"""Resolved parameter names needed to compile one Smith/Monod growth process."""
+function _growth_factor(process::Growth, ::Type{F}, label::Symbol) where {F<:AbstractFactor}
+    matches = ()
+    for pair in pairs(process.factors)
+        last(pair) isa F && (matches = (matches..., pair))
+    end
+    length(matches) == 1 || throw(
+        ArgumentError("growth process must declare exactly one $label factor"),
+    )
+    pair = only(matches)
+    return first(pair), last(pair)
+end
+
+"""Resolved parameter names needed to compile one Smith/Monod factorized growth process."""
 struct GrowthParameterBinding
     maximum_rate::Symbol
     half_saturation::Symbol
@@ -13,19 +25,17 @@ function GrowthParameterBinding(definition::NormalizedModelDefinition, id::Symbo
     named = getproperty(definition.processes, id)
     process = named.process
     process isa Growth || throw(ArgumentError("process :$id is not a Growth process"))
-    process.formulation isa Smith || throw(
-        ArgumentError("unsupported growth formulation $(typeof(process.formulation))"),
-    )
-    process.limitation isa NutrientResponse{Monod} || throw(
-        ArgumentError("growth compiler currently requires a Monod NutrientResponse"),
-    )
+    light_name, _ = _growth_factor(process, Light{Smith}, :Smith_light)
+    nutrient_name, _ = _growth_factor(process, NutrientResponse{Monod}, :Monod_nutrient)
 
+    light_path = (:factors, light_name)
+    nutrient_path = (:factors, nutrient_name)
     maximum_rate = parameter_name(
-        definition, _parameter_requirement(named, (), :maximum_rate)
+        definition, _parameter_requirement(named, light_path, :maximum_rate)
     )
-    alpha = parameter_name(definition, _parameter_requirement(named, (), :alpha))
+    alpha = parameter_name(definition, _parameter_requirement(named, light_path, :alpha))
     half_saturation = parameter_name(
-        definition, _parameter_requirement(named, (:limitation,), :K)
+        definition, _parameter_requirement(named, nutrient_path, :K)
     )
     return GrowthParameterBinding(maximum_rate, half_saturation, alpha)
 end
@@ -39,7 +49,7 @@ struct GrowthTopology{TR,IX,R,D}
 end
 
 """Positive biomass effect from one realized growth-rate element."""
-struct GrowthBiomassContribution{F,L} <: AbstractProcessContribution
+struct GrowthBiomassContribution{L,N} <: AbstractProcessContribution
     process::Symbol
     target::Symbol
     population_index::Int
@@ -48,12 +58,12 @@ struct GrowthBiomassContribution{F,L} <: AbstractProcessContribution
     maximum_rate_parameter::Symbol
     half_saturation_parameter::Symbol
     alpha_parameter::Symbol
-    formulation::F
-    limitation::L
+    light::L
+    nutrients::N
 end
 
 """Resource loss coupled to one realized growth-rate element."""
-struct GrowthResourceLossContribution{F,L} <: AbstractProcessContribution
+struct GrowthResourceLossContribution{L,N} <: AbstractProcessContribution
     process::Symbol
     target::Symbol
     population::Symbol
@@ -63,8 +73,8 @@ struct GrowthResourceLossContribution{F,L} <: AbstractProcessContribution
     maximum_rate_parameter::Symbol
     half_saturation_parameter::Symbol
     alpha_parameter::Symbol
-    formulation::F
-    limitation::L
+    light::L
+    nutrients::N
 end
 
 """Resolve a named Smith/Monod growth process onto the current concrete class layout."""
@@ -72,20 +82,15 @@ function realize_process_topology(
     named::NamedProcess{P}, layout::ComponentLayout, context::CommunityContext
 ) where {P<:Growth}
     process = named.process
-    process.formulation isa Smith || throw(
-        ArgumentError("unsupported growth formulation $(typeof(process.formulation))"),
-    )
-    limitation = process.limitation
-    limitation isa NutrientResponse{Monod} || throw(
-        ArgumentError("growth compiler currently requires a Monod NutrientResponse"),
-    )
+    _, light = _growth_factor(process, Light{Smith}, :Smith_light)
+    _, nutrients = _growth_factor(process, NutrientResponse{Monod}, :Monod_nutrient)
 
     population_tracers, population_indices = _realize_population_classes(
         named, process.populations, layout, context
     )
-    resource = _scalar_component_target(layout, limitation.resource)
+    resource = _scalar_component_target(layout, nutrients.resource)
     return GrowthTopology(
-        population_tracers, population_indices, resource, process.light
+        population_tracers, population_indices, resource, light.driver
     )
 end
 
@@ -97,7 +102,8 @@ function process_contributions(
         ArgumentError("growth topology tracer and index counts must match"),
     )
     process = named.process
-    limitation = process.limitation
+    _, light = _growth_factor(process, Light{Smith}, :Smith_light)
+    _, nutrients = _growth_factor(process, NutrientResponse{Monod}, :Monod_nutrient)
     contributions = ()
 
     for i in eachindex(topology.population_tracers)
@@ -111,8 +117,8 @@ function process_contributions(
             binding.maximum_rate,
             binding.half_saturation,
             binding.alpha,
-            process.formulation,
-            limitation.formulation,
+            light,
+            nutrients,
         )
         biomass = GrowthBiomassContribution(fields[1], tracer, fields[2:end]...)
         resource = GrowthResourceLossContribution(
@@ -134,17 +140,17 @@ function process_contributions(
     return process_contributions(named, topology, binding)
 end
 
-struct GrowthTerm{F,L,I,R,D,M,K,A,Effect}
-    formulation::F
-    limitation::L
+struct GrowthTerm{L,N,I,R,D,M,K,A,Effect}
+    light::L
+    nutrients::N
 end
 
 @inline _growth_effect(::Val{:gain}, rate) = rate
 @inline _growth_effect(::Val{:loss}, rate) = -rate
 
-@inline function (term::GrowthTerm{F,L,I,R,D,M,K,A,Effect})(
+@inline function (term::GrowthTerm{L,N,I,R,D,M,K,A,Effect})(
     bgc, args
-) where {F,L,I,R,D,M,K,A,Effect}
+) where {L,N,I,R,D,M,K,A,Effect}
     biomass = bgc.tracers.plankton(args, I)
     resource = getproperty(bgc.tracers, R)(args)
     light = getproperty(bgc.tracers, D)(args)
@@ -152,8 +158,8 @@ end
     half_saturation = @inbounds getproperty(bgc.parameters, K)[I]
     alpha = @inbounds getproperty(bgc.parameters, A)[I]
     rate = process_rate(
-        term.formulation,
-        term.limitation,
+        term.light,
+        term.nutrients,
         biomass,
         resource,
         light,
@@ -165,11 +171,11 @@ end
 end
 
 function _growth_term(contribution, ::Val{Effect}) where {Effect}
-    F = typeof(contribution.formulation)
-    L = typeof(contribution.limitation)
+    L = typeof(contribution.light)
+    N = typeof(contribution.nutrients)
     return GrowthTerm{
-        F,
         L,
+        N,
         contribution.population_index,
         contribution.resource,
         contribution.light_driver,
@@ -177,7 +183,7 @@ function _growth_term(contribution, ::Val{Effect}) where {Effect}
         contribution.half_saturation_parameter,
         contribution.alpha_parameter,
         Effect,
-    }(contribution.formulation, contribution.limitation)
+    }(contribution.light, contribution.nutrients)
 end
 
 _lower_contribution(contribution::GrowthBiomassContribution) =

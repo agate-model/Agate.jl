@@ -14,7 +14,10 @@
     "identity_source": "named_process_key",
     "identity_is_order_independent": true,
     "rate_topology_is_explicit": true,
-    "participant_cardinality": "arbitrary"
+    "participant_cardinality": "arbitrary",
+    "factor_identity_source": "named_factor_key",
+    "growth_factor_composition": "multiplicative",
+    "process_contribution_composition": "additive"
   },
   "parameters": {
     "requirement_identity_fields": [

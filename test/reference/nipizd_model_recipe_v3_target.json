@@ -43,16 +43,19 @@
     "processes": {
       "growth_P": {
         "kind": "growth",
-        "formulation": "smith",
         "participants": {
           "population": "P"
         },
-        "drivers": {
-          "light": "PAR"
-        },
         "rate_axes": ["population"],
-        "subformulations": {
-          "limitation": {
+        "factors": {
+          "light": {
+            "kind": "light",
+            "formulation": "smith",
+            "drivers": {
+              "driver": "PAR"
+            }
+          },
+          "nutrients": {
             "kind": "nutrient_response",
             "formulation": "monod",
             "participants": {
@@ -200,7 +203,7 @@
         "provides": [
           {
             "process": "growth_P",
-            "path": [],
+            "path": ["factors", "light"],
             "formulation": "smith",
             "slot": "maximum_rate",
             "qualifier": {},
@@ -212,7 +215,7 @@
         "provides": [
           {
             "process": "growth_P",
-            "path": ["limitation"],
+            "path": ["factors", "nutrients"],
             "formulation": "monod",
             "slot": "K",
             "qualifier": {"resource": "N"},
@@ -224,7 +227,7 @@
         "provides": [
           {
             "process": "growth_P",
-            "path": [],
+            "path": ["factors", "light"],
             "formulation": "smith",
             "slot": "alpha",
             "qualifier": {},

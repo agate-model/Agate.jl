@@ -1,5 +1,6 @@
 using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe
 using Agate.Models: NiPiZD
+using Agate.Processes: Growth, Light, NutrientResponse
 using JSON
 using OceanBioME: BoxModelGrid
 using Test
@@ -62,6 +63,27 @@ explicit_json_value(::Any) = false
     @test decoded == recipe
     @test decoded_manifest == manifest
     @test decoded_manifest.sinking_tracers.D isa Float32
+
+    reordered_growth = Growth(;
+        population=:P,
+        factors=(
+            nutrients=NutrientResponse(:monod; resource=:N),
+            light=Light(:smith; driver=:PAR),
+        ),
+    )
+    reordered_processes = merge(recipe.processes, (growth_P=reordered_growth,))
+    reordered_recipe = Agate.Construction.ProcessModelRecipe(
+        recipe.family,
+        recipe.components,
+        reordered_processes,
+        recipe.population_groups,
+        recipe.community,
+        recipe.parameter_overrides,
+        recipe.interaction_overrides,
+        recipe.sinking_tracers,
+        recipe.open_bottom,
+    )
+    @test encode_recipe(reordered_recipe)["recipe_hash"] == recipe_hash
 
     sinking = (D=2.5 / 86400,)
     _, recipe_f32 = NiPiZD.construct_plus_recipe(;
@@ -129,7 +151,9 @@ explicit_json_value(::Any) = false
         modified(encoded, x -> (x["recipe"]["realization"]["scalar_type"] = "Float32")),
         modified(encoded, x -> (x["recipe"]["realization"]["open_bottom"] =
             !x["recipe"]["realization"]["open_bottom"])),
-        modified(encoded, x -> (x["recipe"]["processes"]["growth_P"]["formulation"] = "unknown")),
+        modified(encoded, x -> (
+            x["recipe"]["processes"]["growth_P"]["factors"]["light"]["formulation"] = "unknown"
+        )),
         modified(encoded, x -> (
             encoded_named_value(
                 x["recipe"]["realization"]["parameter_overrides"], :linear_mortality

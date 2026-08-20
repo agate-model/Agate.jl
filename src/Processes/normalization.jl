@@ -26,6 +26,7 @@ end
 process_id(process::NamedProcess) = process.id
 process_kind(process::NamedProcess) = process_kind(process.process)
 formulation(process::NamedProcess) = formulation(process.process)
+factors(process::NamedProcess) = factors(process.process)
 participants(process::NamedProcess) = participants(process.process)
 drivers(process::NamedProcess) = drivers(process.process)
 rate_axes(process::NamedProcess) = rate_axes(process.process)
@@ -39,7 +40,7 @@ end
 
 """Stable identity of one semantic formulation parameter requirement.
 
-The identity is scoped by the owning named process, nested sub-formulation path,
+The identity is scoped by the owning named process, nested factor/formulation path,
 formulation tag, slot, and participant qualifier. Applicability axes are resolved from
 process participation during setup.
 """
@@ -156,31 +157,40 @@ function _requirement(
     )
 end
 
+function _factor_parameter_requirements(named::NamedProcess, name::Symbol, factor::Light{Smith})
+    path = (:factors, name)
+    return (
+        _requirement(named, path, factor.formulation, :maximum_rate, (:population,)),
+        _requirement(named, path, factor.formulation, :alpha, (:population,)),
+    )
+end
+
+function _factor_parameter_requirements(
+    named::NamedProcess, name::Symbol, factor::NutrientResponse{Monod}
+)
+    return (
+        _requirement(
+            named,
+            (:factors, name),
+            factor.formulation,
+            :K,
+            (:population,);
+            qualifier=(resource=factor.resource,),
+        ),
+    )
+end
+
+function _factor_parameter_requirements(named::NamedProcess, name::Symbol, factor::AbstractFactor)
+    throw(ArgumentError("unsupported growth factor :$name of type $(typeof(factor))"))
+end
+
 """Return semantic parameter requirements declared by a named process formulation."""
 function parameter_requirements(named::NamedProcess{P}) where {P<:Growth}
-    process = named.process
-    process.formulation isa Smith || throw(
-        ArgumentError("unsupported growth formulation $(typeof(process.formulation))"),
-    )
-    requirements = (
-        _requirement(named, (), process.formulation, :maximum_rate, (:population,)),
-        _requirement(named, (), process.formulation, :alpha, (:population,)),
-    )
-
-    limitation = process.limitation
-    isnothing(limitation) && return requirements
-    limitation.formulation isa Monod || throw(
-        ArgumentError("unsupported nutrient-response formulation $(typeof(limitation.formulation))"),
-    )
-    K = _requirement(
-        named,
-        (:limitation,),
-        limitation.formulation,
-        :K,
-        (:population,);
-        qualifier=(resource=limitation.resource,),
-    )
-    return (requirements..., K)
+    requirements = ()
+    for (name, factor) in pairs(named.process.factors)
+        requirements = (requirements..., _factor_parameter_requirements(named, name, factor)...)
+    end
+    return requirements
 end
 
 function parameter_requirements(named::NamedProcess{P}) where {P<:Grazing}
@@ -282,10 +292,15 @@ function parameter_name(
     throw(ArgumentError("no model parameter is bound to requirement $identity"))
 end
 
+_factor_component_references(::Light) = ()
+_factor_component_references(factor::NutrientResponse) = (factor.resource,)
+
 function _process_component_references(process::Growth)
-    limitation = process.limitation
-    limitation_refs = isnothing(limitation) ? () : (limitation.resource,)
-    return (process.populations..., limitation_refs...)
+    references = process.populations
+    for factor in values(process.factors)
+        references = (references..., _factor_component_references(factor)...)
+    end
+    return references
 end
 
 function _process_component_references(process::Grazing)
