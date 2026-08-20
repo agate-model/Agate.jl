@@ -1,19 +1,14 @@
-using ..Factories:
-    AbstractBGCFactory,
-    DerivedDefault,
-    parameter_definitions,
-    parameter_directory,
-    default_components,
-    default_processes
+using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
+using ..Parameters: DerivedDefault, parameter_definitions, parameter_directory
 using ..Configuration: normalize_diameters
 
-"""Return the stable recipe-family identifier for a model factory."""
-function recipe_family(factory::AbstractBGCFactory)
-    throw(ArgumentError("Recipe support is not implemented for $(typeof(factory))."))
+"""Return the stable recipe-family identifier for a model family."""
+function family_id(family::AbstractModelFamily)
+    throw(ArgumentError("Recipe support is not implemented for $(typeof(family))."))
 end
 
-"""Construct the model factory identified by a recipe family."""
-function recipe_factory(::Val{family}) where {family}
+"""Return the registered model-family token identified by `family`."""
+function registered_family(::Val{family}) where {family}
     throw(ArgumentError("Unsupported recipe model family $(repr(String(family)))."))
 end
 
@@ -132,7 +127,7 @@ end
 
 """Capture a component/process recipe before runtime realization."""
 function capture_process_model_recipe(
-    factory::AbstractBGCFactory;
+    family::AbstractModelFamily;
     population_groups::NamedTuple,
     community::NamedTuple,
     parameter_overrides::NamedTuple=(;),
@@ -140,14 +135,14 @@ function capture_process_model_recipe(
     sinking_tracers=nothing,
     open_bottom::Bool=true,
 )
-    family = recipe_family(factory)
-    family isa Symbol || throw(
-        ArgumentError("recipe_family must return a Symbol; got $(typeof(family)).")
+    family_id_value = family_id(family)
+    family_id_value isa Symbol || throw(
+        ArgumentError("family_id must return a Symbol; got $(typeof(family_id_value)).")
     )
     return ProcessModelRecipe(
-        family,
-        deepcopy(default_components(factory)),
-        deepcopy(default_processes(factory)),
+        family_id_value,
+        deepcopy(default_components(family)),
+        deepcopy(default_processes(family)),
         deepcopy(population_groups),
         deepcopy(_normalize_recipe_community(community)),
         deepcopy(parameter_overrides),
@@ -157,12 +152,12 @@ function capture_process_model_recipe(
     )
 end
 
-"""Return the model-family factory used to replay `recipe`."""
-replay_factory(recipe::ProcessModelRecipe) = recipe_factory(Val(recipe.family))
+"""Return the registered model family used to replay `recipe`."""
+replay_family(recipe::ProcessModelRecipe) = registered_family(Val(recipe.family))
 
 """Capture the resolved deterministic state of a constructed model."""
 function capture_model_manifest(
-    factory::AbstractBGCFactory,
+    family::AbstractModelFamily,
     parameters,
     community_context;
     tracer_order::Tuple,
@@ -181,11 +176,11 @@ function capture_model_manifest(
     group_tracers = NamedTuple{group_order}(group_values)
 
     interaction_names = Tuple(
-        spec.name for spec in parameter_directory(factory) if
+        spec.name for spec in parameter_directory(family) if
         spec.shape === :matrix && spec.axes == (:consumer, :prey)
     )
     derived_interaction_names = Tuple(
-        definition.spec.name for definition in parameter_definitions(factory) if
+        definition.spec.name for definition in parameter_definitions(family) if
         definition.default isa DerivedDefault
     )
     interaction_matrix_sources = NamedTuple{interaction_names}(

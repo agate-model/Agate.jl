@@ -73,7 +73,7 @@ function _construction_inputs(;
     sinking_tracers=nothing,
     open_bottom::Bool=true,
 )
-    factory = NiPiZDFactory()
+    family = NiPiZDFamily()
     community_inputs = _community_inputs(size_structure)
 
     pairs = Pair{Symbol,Any}[]
@@ -84,7 +84,7 @@ function _construction_inputs(;
 
     interaction_overrides = (; pairs...)
     recipe = Construction.capture_process_model_recipe(
-        factory;
+        family;
         population_groups=community_inputs.component_groups,
         community=community_inputs.community,
         parameter_overrides=parameters,
@@ -162,7 +162,7 @@ bgc = NiPiZD.construct(;
 """
 function construct(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
-    return Construction.construct_factory(inputs.recipe; inputs.execution...)
+    return Construction.construct(inputs.recipe; inputs.execution...)
 end
 
 """
@@ -178,7 +178,7 @@ function construct_from_recipe(
             "NiPiZD.construct_from_recipe requires a NiPiZD recipe; got family $(recipe.family)"
         ),
     )
-    return Construction.construct_factory(recipe; grid, arch, scalar_type)
+    return Construction.construct(recipe; grid, arch, scalar_type)
 end
 
 
@@ -193,6 +193,6 @@ are derived when the recipe is realized.
 """
 function construct_plus_recipe(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
-    bgc = Construction.construct_factory(inputs.recipe; inputs.execution...)
+    bgc = Construction.construct(inputs.recipe; inputs.execution...)
     return bgc, inputs.recipe
 end

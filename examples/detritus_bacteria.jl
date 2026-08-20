@@ -6,30 +6,12 @@
 
 using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Population, Pool
 using Agate.Construction: construct
-using Agate.Factories:
-    ConstDefault, DerivedDefault, FillDefault,
-    ParameterDefinition, ParameterProvision, ParameterSpec
+using Agate.Parameters:
+    ConstDefault, DerivedDefault, FillDefault, ParameterDefinition, ParameterProvision
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
     Consumption, Grazing, ModelDefinition, Temperature, normalize_model, participants
 using Oceananigans.Units: day
-
-nothing #hide
-
-provision(process, path, formulation, slot; qualifier=NamedTuple()) =
-    ParameterProvision(process, path, formulation, slot; qualifier)
-
-function parameter(name, shape, provider, provides; axes=nothing, runtime_path=(name,))
-    return ParameterDefinition(
-        ParameterSpec(name, shape; axes, runtime_path, provides), provider
-    )
-end
-
-scalar_parameter(name, value, provides) =
-    parameter(name, :scalar, ConstDefault(value), provides)
-
-vector_parameter(name, value, provides) =
-    parameter(name, :vector, FillDefault(value), provides; axes=:plankton)
 
 nothing #hide
 
@@ -54,116 +36,120 @@ processes = (
         factors=(temperature=Temperature(:q10),),
     ),
     graze_bacteria=Grazing(
-        :preferential;
-        consumer=:Z,
-        resource=:B,
-        unassimilated_destination=:N,
+        :preferential; consumer=:Z, resource=:B, unassimilated_destination=:N
     ),
 )
 
 # ## Parameters
 
 parameters = (
-    vector_parameter(
+    ParameterDefinition(
         :maximum_consumption_rate,
-        0.8 / day,
-        provision(:consume_POM, (), :heterotrophic, :maximum_rate),
+        FillDefault(0.8 / day);
+        shape=:vector,
+        axes=:plankton,
+        provides=ParameterProvision(:consume_POM, :heterotrophic, :maximum_rate),
     ),
-    parameter(
+    ParameterDefinition(
         :pom_half_saturation,
-        :vector,
-        FillDefault(0.2),
-        provision(:consume_POM, (), :heterotrophic, :half_saturation),
+        FillDefault(0.2);
+        shape=:vector,
+        provides=ParameterProvision(:consume_POM, :heterotrophic, :half_saturation),
     ),
-    parameter(
+    ParameterDefinition(
         :bacterial_assimilation,
-        :matrix,
-        FillDefault(0.65),
-        provision(:consume_POM, (), :heterotrophic, :assimilation),
+        FillDefault(0.65);
+        shape=:matrix,
+        provides=ParameterProvision(:consume_POM, :heterotrophic, :assimilation),
     ),
-    scalar_parameter(
+    ParameterDefinition(
         :temperature_q10,
-        2.0,
-        provision(:consume_POM, (:factors, :temperature), :q10, :q10),
+        ConstDefault(2.0);
+        provides=ParameterProvision(
+            :consume_POM, :q10, :q10; path=(:factors, :temperature)
+        ),
     ),
-    scalar_parameter(
+    ParameterDefinition(
         :reference_temperature,
-        20.0,
-        provision(
-            :consume_POM,
-            (:factors, :temperature),
-            :q10,
-            :reference_temperature,
+        ConstDefault(20.0);
+        provides=ParameterProvision(
+            :consume_POM, :q10, :reference_temperature; path=(:factors, :temperature)
         ),
     ),
-    vector_parameter(
+    ParameterDefinition(
         :maximum_predation_rate,
-        0.6 / day,
-        provision(:graze_bacteria, (), :preferential, :maximum_rate),
+        FillDefault(0.6 / day);
+        shape=:vector,
+        axes=:plankton,
+        provides=ParameterProvision(:graze_bacteria, :preferential, :maximum_rate),
     ),
-    vector_parameter(
+    ParameterDefinition(
         :holling_half_saturation,
-        0.1,
-        provision(:graze_bacteria, (), :preferential, :half_saturation),
+        FillDefault(0.1);
+        shape=:vector,
+        axes=:plankton,
+        provides=ParameterProvision(:graze_bacteria, :preferential, :half_saturation),
     ),
-    vector_parameter(
+    ParameterDefinition(
         :optimum_predator_prey_ratio,
-        12.5,
-        provision(
+        FillDefault(12.5);
+        shape=:vector,
+        axes=:plankton,
+        provides=ParameterProvision(
             :graze_bacteria,
-            (:palatability, :default),
             :allometric,
-            :optimum_predator_prey_ratio,
+            :optimum_predator_prey_ratio;
+            path=(:palatability, :default),
         ),
     ),
-    vector_parameter(
+    ParameterDefinition(
         :specificity,
-        0.4,
-        provision(
-            :graze_bacteria,
-            (:palatability, :default),
-            :allometric,
-            :specificity,
+        FillDefault(0.4);
+        shape=:vector,
+        axes=:plankton,
+        provides=ParameterProvision(
+            :graze_bacteria, :allometric, :specificity; path=(:palatability, :default)
         ),
     ),
-    vector_parameter(
+    ParameterDefinition(
         :protection,
-        0.0,
-        provision(
-            :graze_bacteria,
-            (:palatability, :default),
-            :allometric,
-            :protection,
+        FillDefault(0.0);
+        shape=:vector,
+        axes=:plankton,
+        provides=ParameterProvision(
+            :graze_bacteria, :allometric, :protection; path=(:palatability, :default)
         ),
     ),
-    vector_parameter(
+    ParameterDefinition(
         :assimilation_efficiency,
-        0.7,
-        provision(
+        FillDefault(0.7);
+        shape=:vector,
+        axes=:plankton,
+        provides=ParameterProvision(
             :graze_bacteria,
-            (:assimilation, :default),
             :binary,
-            :assimilation_efficiency,
+            :assimilation_efficiency;
+            path=(:assimilation, :default),
         ),
     ),
-    parameter(
+    ParameterDefinition(
         :living_palatability,
-        :matrix,
         DerivedDefault(
             PalatabilityAllometric();
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
-        ),
-        provision(:graze_bacteria, (), :preferential, :palatability);
+        );
+        shape=:matrix,
         axes=(:consumer, :prey),
         runtime_path=(:interactions, :living_palatability),
+        provides=ParameterProvision(:graze_bacteria, :preferential, :palatability),
     ),
-    parameter(
+    ParameterDefinition(
         :living_assimilation,
-        :matrix,
-        DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,)),
-        provision(:graze_bacteria, (), :preferential, :assimilation);
+        DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,));
+        shape=:matrix,
         axes=(:consumer, :prey),
         runtime_path=(:interactions, :living_assimilation),
+        provides=ParameterProvision(:graze_bacteria, :preferential, :assimilation),
     ),
 )
 

@@ -41,9 +41,9 @@ end
 
 function ParameterProvision(
     process::Symbol,
-    path::Tuple,
     formulation::Symbol,
     slot::Symbol;
+    path::Tuple=(),
     qualifier::NamedTuple=NamedTuple(),
 )
     all(item -> item isa Symbol, path) || throw(
@@ -84,13 +84,6 @@ struct ParameterSpec{R<:Tuple,P<:Tuple}
     provides::P
 end
 
-ParameterSpec(
-    name::Symbol,
-    shape::Symbol,
-    axes::Union{Nothing,Symbol,NTuple{2,Symbol}},
-    materialization::Union{Nothing,DiameterIndexedMaterialization},
-) = ParameterSpec(name, shape, axes, (name,), materialization, ())
-
 """Convenience constructor for `ParameterSpec`."""
 function ParameterSpec(
     name::Symbol,
@@ -120,6 +113,25 @@ abstract type DefaultProvider end
 struct ParameterDefinition{D<:DefaultProvider}
     spec::ParameterSpec
     default::D
+end
+
+"""Define a model parameter and its constructor-time default.
+
+`shape` is `:scalar`, `:vector`, or `:matrix`; vector and matrix definitions may
+declare runtime `axes`. `provides` links the parameter to one or more scientific
+formulation slots.
+"""
+function ParameterDefinition(
+    name::Symbol,
+    default::D;
+    shape::Symbol=:scalar,
+    axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
+    runtime_path::Tuple=(name,),
+    materialization::Union{Nothing,DiameterIndexedMaterialization}=nothing,
+    provides=(),
+) where {D<:DefaultProvider}
+    spec = ParameterSpec(name, shape; axes, runtime_path, materialization, provides)
+    return ParameterDefinition(spec, default)
 end
 
 """A scalar default that converts a literal value to the construction scalar type."""
@@ -152,8 +164,8 @@ end
 """Compute a value for a [`DerivedDefault`](@ref) provider.
 
 Concrete derivers receive the owning model source, construction context, and all
-parameter values resolved so far. The owner is a registered factory for named model
-families and the authored `ModelDefinition` for direct construction. Derivation runs on
+parameter values resolved so far. The owner is a registered model family for named
+models and the authored `ModelDefinition` for direct construction. Derivation runs on
 the host during model construction.
 """
 function derive_default(deriver, owner, context, params::NamedTuple)
@@ -183,25 +195,15 @@ end
 
 DiameterIndexedVectorDefault(value; default) = DiameterIndexedVectorDefault(value, default)
 
-"""Return a tuple of `ParameterDefinition` entries for `factory`.
+"""Return the parameter definitions owned by a model family or direct definition source."""
+parameter_definitions(source) = ()
 
-Factories should define one entry for every parameter key required by their
-compiled equations.
-"""
-parameter_definitions(::AbstractBGCFactory) = ()
-
-"""Return a tuple of `ParameterSpec` entries for `factory`.
-
-By default the directory is derived from `parameter_definitions(factory)`.
-Factories may still overload `parameter_directory` directly if needed.
-"""
-function parameter_directory(factory::AbstractBGCFactory)
-    map(d -> d.spec, parameter_definitions(factory))
-end
+"""Return the parameter specifications derived from `parameter_definitions(source)`."""
+parameter_directory(source) = map(d -> d.spec, parameter_definitions(source))
 
 """Return the `ParameterSpec` for `key`, or `nothing` if absent."""
-function parameter_spec(factory::AbstractBGCFactory, key::Symbol)
-    for spec in parameter_directory(factory)
+function parameter_spec(source, key::Symbol)
+    for spec in parameter_directory(source)
         spec.name === key && return spec
     end
     return nothing

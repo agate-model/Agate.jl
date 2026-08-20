@@ -34,9 +34,8 @@ if BUILD_COLUMN_EXAMPLE
 end
 
 defining_models_examples = [
-    "Franks et al. (1986) NPZ" => "franks_npz",
-    "Model with bacterioplankton" => "detritus_bacteria",
     "Model with mixotrophy" => "mixotrophy",
+    "Model with bacterioplankton" => "detritus_bacteria",
 ]
 
 differentiable_modelling = [
@@ -99,7 +98,7 @@ makedocs(;
         "Quick start" => "quick_start.md",
         "Examples" => example_pages,
         "Models" => model_pages,
-        "Defining models" => defining_models_pages,
+        "Defining new models" => defining_models_pages,
         "Library" => "library.md",
         "Differentiable modelling" => differentiable_modelling_pages,
         "Contributor guide" => contributor_pages,

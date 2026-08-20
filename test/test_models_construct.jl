@@ -10,36 +10,30 @@ using Oceananigans.Fields: ZeroField
 using Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers, biogeochemical_drift_velocity
 
-struct ThreeInteractionMatrixFactory <: Agate.Factories.AbstractBGCFactory end
+struct ThreeInteractionMatrixSource end
 
-function Agate.Factories.parameter_definitions(::ThreeInteractionMatrixFactory)
+function Agate.Parameters.parameter_definitions(::ThreeInteractionMatrixSource)
     return (
-        Agate.Factories.ParameterDefinition(
-            Agate.Factories.ParameterSpec(
-                :encounter_matrix,
-                :matrix;
-                axes=(:consumer, :prey),
-                runtime_path=(:interactions, :encounter),
-            ),
-            Agate.Factories.NoDefault(),
+        Agate.Parameters.ParameterDefinition(
+            :encounter_matrix,
+            Agate.Parameters.NoDefault();
+            shape=:matrix,
+            axes=(:consumer, :prey),
+            runtime_path=(:interactions, :encounter),
         ),
-        Agate.Factories.ParameterDefinition(
-            Agate.Factories.ParameterSpec(
-                :capture_efficiency_matrix,
-                :matrix;
-                axes=(:consumer, :prey),
-                runtime_path=(:interactions, :capture_efficiency),
-            ),
-            Agate.Factories.NoDefault(),
+        Agate.Parameters.ParameterDefinition(
+            :capture_efficiency_matrix,
+            Agate.Parameters.NoDefault();
+            shape=:matrix,
+            axes=(:consumer, :prey),
+            runtime_path=(:interactions, :capture_efficiency),
         ),
-        Agate.Factories.ParameterDefinition(
-            Agate.Factories.ParameterSpec(
-                :handling_time_matrix,
-                :matrix;
-                axes=(:consumer, :prey),
-                runtime_path=(:interactions, :handling_time),
-            ),
-            Agate.Factories.NoDefault(),
+        Agate.Parameters.ParameterDefinition(
+            :handling_time_matrix,
+            Agate.Parameters.NoDefault();
+            shape=:matrix,
+            axes=(:consumer, :prey),
+            runtime_path=(:interactions, :handling_time),
         ),
     )
 end
@@ -356,7 +350,7 @@ end
         )
 
         finalized = Agate.Configuration.finalize_interaction_parameters(
-            ThreeInteractionMatrixFactory(), context, params
+            ThreeInteractionMatrixSource(), context, params
         )
         interactions = finalized.interactions
 

@@ -1,20 +1,19 @@
 """Parameter definitions for the NiPiZD model.
 
 This file defines a single source of truth for:
-- parameter metadata (`ParameterSpec`)
+- parameter definitions and semantic provisions
 - constructor-time default values (via `DefaultProvider` entries)
 
 Numeric defaults are evaluated on the host during construction and later moved to the
 target architecture with `Adapt`.
 
 Interaction matrices (`palatability_matrix`, `assimilation_matrix`) use derived
-defaults whose dependencies are declared beside their `ParameterSpec`s.
+defaults whose dependencies are declared beside their parameter definitions.
 """
 
-import ...Factories:
+import ...Parameters:
     parameter_definitions,
     ParameterDefinition,
-    ParameterSpec,
     ParameterProvision,
     ConstDefault,
     DerivedDefault,
@@ -26,10 +25,7 @@ using ...Library.Allometry: AllometricParam, PowerLaw
 
 using ...Configuration: PalatabilityAllometric, AssimilationBinary
 
-provision(process, path, formulation, slot; qualifier=NamedTuple()) =
-    ParameterProvision(process, path, formulation, slot; qualifier)
-
-function parameter_definitions(::NiPiZDFactory)
+function parameter_definitions(::NiPiZDFamily)
     detritus_remin = 0.1213 / 86400
     all_plankton_materialization = DiameterIndexedMaterialization(; fill_value=0)
     producer_materialization =
@@ -39,159 +35,91 @@ function parameter_definitions(::NiPiZDFactory)
 
     return (
         ParameterDefinition(
-            ParameterSpec(
-                :detritus_remineralization,
-                :scalar;
-                provides=provision(
-                    :remineralization_D,
-                    (),
-                    :linear,
-                    :rate;
-                    qualifier=(source=:D,),
-                ),
-            ),
-            ConstDefault(detritus_remin),
+            :detritus_remineralization,
+            ConstDefault(detritus_remin);
+            provides=ParameterProvision(:remineralization_D, :linear, :rate; qualifier=(source=:D,),),
         ),
         ParameterDefinition(
-            ParameterSpec(
-                :mortality_export_fraction,
-                :scalar;
-                provides=(
-                    provision(
-                        :linear_mortality_P, (:routing,), :partition, :export_fraction
-                    ),
-                    provision(
-                        :linear_mortality_Z, (:routing,), :partition, :export_fraction
-                    ),
-                    provision(
-                        :quadratic_mortality_Z, (:routing,), :partition, :export_fraction
-                    ),
-                ),
+            :mortality_export_fraction,
+            ConstDefault(0.2);
+            provides=(
+                ParameterProvision(:linear_mortality_P, :partition, :export_fraction; path=(:routing,)),
+                ParameterProvision(:linear_mortality_Z, :partition, :export_fraction; path=(:routing,)),
+                ParameterProvision(:quadratic_mortality_Z, :partition, :export_fraction; path=(:routing,)),
             ),
-            ConstDefault(0.2),
         ),
         ParameterDefinition(
-            ParameterSpec(
-                :linear_mortality,
-                :vector;
-                axes=:plankton,
-                materialization=all_plankton_materialization,
-                provides=(
-                    provision(
-                        :linear_mortality_P,
-                        (),
-                        :linear,
-                        :rate;
-                        qualifier=(population=:P,),
-                    ),
-                    provision(
-                        :linear_mortality_Z,
-                        (),
-                        :linear,
-                        :rate;
-                        qualifier=(population=:Z,),
-                    ),
-                ),
+            :linear_mortality,
+            FillDefault(8e-7);
+            shape=:vector,
+            axes=:plankton,
+            materialization=all_plankton_materialization,
+            provides=(
+                ParameterProvision(:linear_mortality_P, :linear, :rate; qualifier=(population=:P,),),
+                ParameterProvision(:linear_mortality_Z, :linear, :rate; qualifier=(population=:Z,),),
             ),
-            FillDefault(8e-7),
         ),
         ParameterDefinition(
-            ParameterSpec(
-                :quadratic_mortality,
-                :vector;
-                axes=:plankton,
-                materialization=consumer_materialization,
-                provides=provision(
-                    :quadratic_mortality_Z,
-                    (),
-                    :quadratic,
-                    :rate;
-                    qualifier=(population=:Z,),
-                ),
-            ),
-            DiameterIndexedVectorDefault(1e-6; default=0),
+            :quadratic_mortality,
+            DiameterIndexedVectorDefault(1e-6; default=0);
+            shape=:vector,
+            axes=:plankton,
+            materialization=consumer_materialization,
+            provides=ParameterProvision(:quadratic_mortality_Z, :quadratic, :rate; qualifier=(population=:Z,),),
         ),
         ParameterDefinition(
-            ParameterSpec(
-                :maximum_growth_rate,
-                :vector;
-                axes=:plankton,
-                materialization=producer_materialization,
-                provides=provision(:growth_P, (:factors, :light), :smith, :maximum_rate),
-            ),
+            :maximum_growth_rate,
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=2 / 86400, exponent=-0.15);
                 default=0,
-            ),
+            );
+            shape=:vector,
+            axes=:plankton,
+            materialization=producer_materialization,
+            provides=ParameterProvision(:growth_P, :smith, :maximum_rate; path=(:factors, :light)),
         ),
         ParameterDefinition(
-            ParameterSpec(
-                :nutrient_half_saturation,
-                :vector;
-                axes=:plankton,
-                materialization=producer_materialization,
-                provides=provision(
-                    :growth_P,
-                    (:factors, :nutrients),
-                    :monod,
-                    :K;
-                    qualifier=(resource=:N,),
-                ),
-            ),
+            :nutrient_half_saturation,
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27);
                 default=0,
-            ),
+            );
+            shape=:vector,
+            axes=:plankton,
+            materialization=producer_materialization,
+            provides=ParameterProvision(:growth_P, :monod, :K; path=(:factors, :nutrients), qualifier=(resource=:N,),),
         ),
         ParameterDefinition(
-            ParameterSpec(
-                :alpha,
-                :vector;
-                axes=:plankton,
-                materialization=producer_materialization,
-                provides=provision(:growth_P, (:factors, :light), :smith, :alpha),
-            ),
+            :alpha,
             DiameterIndexedVectorDefault(
                 0.1953 / 86400; default=0
-            ),
+            );
+            shape=:vector,
+            axes=:plankton,
+            materialization=producer_materialization,
+            provides=ParameterProvision(:growth_P, :smith, :alpha; path=(:factors, :light)),
         ),
         ParameterDefinition(
-            ParameterSpec(
-                :maximum_predation_rate,
-                :vector;
-                axes=:plankton,
-                materialization=consumer_materialization,
-                provides=provision(
-                    :grazing_Z_on_P, (), :preferential, :maximum_rate
-                ),
-            ),
+            :maximum_predation_rate,
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=30.84 / 86400, exponent=-0.16);
                 default=0,
-            ),
+            );
+            shape=:vector,
+            axes=:plankton,
+            materialization=consumer_materialization,
+            provides=ParameterProvision(:grazing_Z_on_P, :preferential, :maximum_rate),
         ),
         ParameterDefinition(
-            ParameterSpec(
-                :holling_half_saturation,
-                :vector;
-                axes=:plankton,
-                materialization=consumer_materialization,
-                provides=provision(
-                    :grazing_Z_on_P, (), :preferential, :half_saturation
-                ),
-            ),
-            DiameterIndexedVectorDefault(5.0; default=0),
+            :holling_half_saturation,
+            DiameterIndexedVectorDefault(5.0; default=0);
+            shape=:vector,
+            axes=:plankton,
+            materialization=consumer_materialization,
+            provides=ParameterProvision(:grazing_Z_on_P, :preferential, :half_saturation),
         ),
         ParameterDefinition(
-            ParameterSpec(
-                :palatability_matrix,
-                :matrix;
-                axes=(:consumer, :prey),
-                runtime_path=(:interactions, :palatability),
-                provides=provision(
-                    :grazing_Z_on_P, (), :preferential, :palatability
-                ),
-            ),
+            :palatability_matrix,
             DerivedDefault(
                 PalatabilityAllometric();
                 deps=(
@@ -199,75 +127,53 @@ function parameter_definitions(::NiPiZDFactory)
                     :specificity,
                     :protection,
                 ),
-            ),
+            );
+            shape=:matrix,
+            axes=(:consumer, :prey),
+            runtime_path=(:interactions, :palatability),
+            provides=ParameterProvision(:grazing_Z_on_P, :preferential, :palatability),
         ),
         ParameterDefinition(
-            ParameterSpec(
-                :assimilation_matrix,
-                :matrix;
-                axes=(:consumer, :prey),
-                runtime_path=(:interactions, :assimilation),
-                provides=provision(
-                    :grazing_Z_on_P, (), :preferential, :assimilation
-                ),
-            ),
+            :assimilation_matrix,
             DerivedDefault(
                 AssimilationBinary(); deps=(:assimilation_efficiency,)
-            ),
+            );
+            shape=:matrix,
+            axes=(:consumer, :prey),
+            runtime_path=(:interactions, :assimilation),
+            provides=ParameterProvision(:grazing_Z_on_P, :preferential, :assimilation),
         ),
         ParameterDefinition(
-            ParameterSpec(
-                :optimum_predator_prey_ratio,
-                :vector;
-                axes=:plankton,
-                materialization=consumer_materialization,
-                provides=provision(
-                    :grazing_Z_on_P,
-                    (:palatability, :default),
-                    :allometric,
-                    :optimum_predator_prey_ratio,
-                ),
-            ),
-            DiameterIndexedVectorDefault(10.0; default=0),
+            :optimum_predator_prey_ratio,
+            DiameterIndexedVectorDefault(10.0; default=0);
+            shape=:vector,
+            axes=:plankton,
+            materialization=consumer_materialization,
+            provides=ParameterProvision(:grazing_Z_on_P, :allometric, :optimum_predator_prey_ratio; path=(:palatability, :default)),
         ),
         ParameterDefinition(
-            ParameterSpec(
-                :specificity,
-                :vector;
-                axes=:plankton,
-                materialization=consumer_materialization,
-                provides=provision(
-                    :grazing_Z_on_P, (:palatability, :default), :allometric, :specificity
-                ),
-            ),
-            DiameterIndexedVectorDefault(0.3; default=0),
+            :specificity,
+            DiameterIndexedVectorDefault(0.3; default=0);
+            shape=:vector,
+            axes=:plankton,
+            materialization=consumer_materialization,
+            provides=ParameterProvision(:grazing_Z_on_P, :allometric, :specificity; path=(:palatability, :default)),
         ),
         ParameterDefinition(
-            ParameterSpec(
-                :protection,
-                :vector;
-                axes=:plankton,
-                materialization=producer_materialization,
-                provides=provision(
-                    :grazing_Z_on_P, (:palatability, :default), :allometric, :protection
-                ),
-            ),
-            DiameterIndexedVectorDefault(0.0; default=1.0),
+            :protection,
+            DiameterIndexedVectorDefault(0.0; default=1.0);
+            shape=:vector,
+            axes=:plankton,
+            materialization=producer_materialization,
+            provides=ParameterProvision(:grazing_Z_on_P, :allometric, :protection; path=(:palatability, :default)),
         ),
         ParameterDefinition(
-            ParameterSpec(
-                :assimilation_efficiency,
-                :vector;
-                axes=:plankton,
-                materialization=consumer_materialization,
-                provides=provision(
-                    :grazing_Z_on_P,
-                    (:assimilation, :default),
-                    :binary,
-                    :assimilation_efficiency,
-                ),
-            ),
-            DiameterIndexedVectorDefault(0.32; default=0),
+            :assimilation_efficiency,
+            DiameterIndexedVectorDefault(0.32; default=0);
+            shape=:vector,
+            axes=:plankton,
+            materialization=consumer_materialization,
+            provides=ParameterProvision(:grazing_Z_on_P, :binary, :assimilation_efficiency; path=(:assimilation, :default)),
         ),
     )
 end

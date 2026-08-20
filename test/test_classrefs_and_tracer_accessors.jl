@@ -5,10 +5,10 @@ using Agate.Configuration:
     build_plankton_community, parse_community, DiameterRangeSpecification, Population, Pool,
     realize_components
 using Agate.Runtime: class, resolve_class, class_count, build_tracer_index, Tracers
-using Agate.Factories: default_components
+using Agate.ModelFamilies: default_components
 
-pool_component_names(factory) = Tuple(
-    name for (name, component) in pairs(default_components(factory)) if
+pool_component_names(family) = Tuple(
+    name for (name, component) in pairs(default_components(family)) if
     component isa Agate.Configuration.Pool
 )
 
@@ -27,10 +27,10 @@ pool_component_names(factory) = Tuple(
 end
 
 @testset "ClassRef + Tracers accessors" begin
-    factory = Agate.Models.NiPiZD.NiPiZDFactory()
+    family = Agate.Models.NiPiZD.NiPiZDFamily()
     community = default_nipizd_community()
     ctx = parse_community(
-        Float64, community; biogeochem_tracers=pool_component_names(factory)
+        Float64, community; biogeochem_tracers=pool_component_names(family)
     )
 
     @test class_count(ctx, :Z) == 2
@@ -78,7 +78,7 @@ end
 end
 
 @testset "Diameter input normalization" begin
-    factory = Agate.Models.NiPiZD.NiPiZDFactory()
+    family = Agate.Models.NiPiZD.NiPiZDFamily()
     base = default_nipizd_community()
 
     community = build_plankton_community(
@@ -90,7 +90,7 @@ end
     )
 
     ctx = parse_community(
-        Float64, community; biogeochem_tracers=pool_component_names(factory)
+        Float64, community; biogeochem_tracers=pool_component_names(family)
     )
 
     @test class_count(ctx, :Z) == 2

@@ -1,6 +1,6 @@
 module Configuration
 
-using ..Factories: AbstractBGCFactory, ParameterSpec, parameter_directory, parameter_spec
+using ..Parameters: ParameterSpec, parameter_directory, parameter_spec
 import Adapt
 
 export Population, Pool

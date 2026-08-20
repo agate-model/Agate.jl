@@ -106,15 +106,15 @@ end
     end
 end
 
-function interaction_parameter_specs(factory::AbstractBGCFactory)
+function interaction_parameter_specs(source)
     return Tuple(
-        spec for spec in parameter_directory(factory) if
+        spec for spec in parameter_directory(source) if
         spec.shape === :matrix && spec.axes == (:consumer, :prey)
     )
 end
 
-interaction_parameter_names(factory::AbstractBGCFactory) =
-    Tuple(spec.name for spec in interaction_parameter_specs(factory))
+interaction_parameter_names(source) =
+    Tuple(spec.name for spec in interaction_parameter_specs(source))
 
 function interaction_runtime_name(spec::ParameterSpec)
     path = spec.runtime_path
@@ -127,9 +127,9 @@ function interaction_runtime_name(spec::ParameterSpec)
 end
 
 function finalize_interaction_parameters(
-    factory::AbstractBGCFactory, community_context::CommunityContext, params::NamedTuple
+    source, community_context::CommunityContext, params::NamedTuple
 )
-    specs = interaction_parameter_specs(factory)
+    specs = interaction_parameter_specs(source)
     isempty(specs) && return params
     parameter_names = Tuple(spec.name for spec in specs)
     all(name -> haskey(params, name), parameter_names) || return params
@@ -182,21 +182,21 @@ For a matrix parameter with declared `axes` (for example `(:consumer, :prey)`),
 users must pass a rectangular matrix sized to the declared axes (for example
 `(n_consumer, n_prey)`).
 
-If you need to derive matrices from traits or other parameters, define a
-`Variant` / `Factory` default that produces concrete rectangular matrices during
-construction.
+If you need to derive matrices from traits or other parameters, declare a
+`DerivedDefault` in the parameter definition so construction materializes the
+concrete rectangular matrix.
 """
 function normalize_interaction_overrides(
-    factory::AbstractBGCFactory,
+    source,
     community_context::CommunityContext{T},
     interaction_overrides::NamedTuple,
 ) where {T}
     resolved = ()
     for (key, value) in pairs(interaction_overrides)
-        spec = parameter_spec(factory, key)
+        spec = parameter_spec(source, key)
         spec !== nothing || throw(
             ArgumentError(
-                "interaction override '$key' is missing a ParameterSpec in parameter_directory(::$(typeof(factory))).",
+                "interaction override '$key' is missing a ParameterSpec in parameter_directory(::$(typeof(source))).",
             ),
         )
 

@@ -6,8 +6,8 @@ using Agate.Library.Light: FunctionFieldPAR
 using Agate.Diagnostics: box_model_mass_balance
 using Agate.Configuration: Population, Pool
 using Agate.Construction: construct
-using Agate.Factories:
-    ConstDefault, FillDefault, ParameterDefinition, ParameterProvision, ParameterSpec
+using Agate.Parameters:
+    ConstDefault, FillDefault, ParameterDefinition, ParameterProvision
 using Agate.Processes:
     FixedStoichiometry, Growth, Light, ModelDefinition, Nutrients, NutrientResponse
 
@@ -17,14 +17,6 @@ using Oceananigans
 using Oceananigans.Units: day, minutes
 
 function multi_nutrient_test_model(grid)
-    provision(path, formulation, slot; qualifier=NamedTuple()) =
-        ParameterProvision(:growth_P, path, formulation, slot; qualifier)
-    scalar(name, value, provides) =
-        ParameterDefinition(ParameterSpec(name, :scalar; provides), ConstDefault(value))
-    vector(name, value, provides) = ParameterDefinition(
-        ParameterSpec(name, :vector; axes=:plankton, provides), FillDefault(value)
-    )
-
     components = (
         P=Population(; currency=:carbon, size_structure=[1.0]),
         DIC=Pool(:carbon),
@@ -49,50 +41,63 @@ function multi_nutrient_test_model(grid)
         ),
     )
     parameters = (
-        scalar(
+        ParameterDefinition(
             :nitrogen_to_carbon,
-            16 / 106,
-            provision((:stoichiometry,), :fixed, :ratio; qualifier=(currency=:nitrogen,)),
+            ConstDefault(16 / 106);
+            provides=ParameterProvision(
+                :growth_P, :fixed, :ratio;
+                path=(:stoichiometry,), qualifier=(currency=:nitrogen,),
+            ),
         ),
-        scalar(
+        ParameterDefinition(
             :phosphorus_to_carbon,
-            1 / 106,
-            provision((:stoichiometry,), :fixed, :ratio; qualifier=(currency=:phosphorus,)),
+            ConstDefault(1 / 106);
+            provides=ParameterProvision(
+                :growth_P, :fixed, :ratio;
+                path=(:stoichiometry,), qualifier=(currency=:phosphorus,),
+            ),
         ),
-        vector(
+        ParameterDefinition(
             :maximum_growth_rate,
-            2 / 86400,
-            provision((:factors, :light), :geider, :maximum_rate),
+            FillDefault(2 / 86400);
+            shape=:vector, axes=:plankton,
+            provides=ParameterProvision(
+                :growth_P, :geider, :maximum_rate; path=(:factors, :light)
+            ),
         ),
-        vector(
+        ParameterDefinition(
             :half_saturation_DIN,
-            0.5,
-            provision(
-                (:factors, :nutrients, :responses, :nitrogen),
-                :monod,
-                :K;
+            FillDefault(0.5);
+            shape=:vector, axes=:plankton,
+            provides=ParameterProvision(
+                :growth_P, :monod, :K;
+                path=(:factors, :nutrients, :responses, :nitrogen),
                 qualifier=(resource=:DIN,),
             ),
         ),
-        vector(
+        ParameterDefinition(
             :half_saturation_PO4,
-            0.5,
-            provision(
-                (:factors, :nutrients, :responses, :phosphorus),
-                :monod,
-                :K;
+            FillDefault(0.5);
+            shape=:vector, axes=:plankton,
+            provides=ParameterProvision(
+                :growth_P, :monod, :K;
+                path=(:factors, :nutrients, :responses, :phosphorus),
                 qualifier=(resource=:PO4,),
             ),
         ),
-        vector(
+        ParameterDefinition(
             :photosynthetic_slope,
-            0.1 / 86400,
-            provision((:factors, :light), :geider, :alpha),
+            FillDefault(0.1 / 86400);
+            shape=:vector, axes=:plankton,
+            provides=ParameterProvision(:growth_P, :geider, :alpha; path=(:factors, :light)),
         ),
-        vector(
+        ParameterDefinition(
             :chlorophyll_to_carbon_ratio,
-            0.02,
-            provision((:factors, :light), :geider, :chlorophyll_to_carbon_ratio),
+            FillDefault(0.02);
+            shape=:vector, axes=:plankton,
+            provides=ParameterProvision(
+                :growth_P, :geider, :chlorophyll_to_carbon_ratio; path=(:factors, :light)
+            ),
         ),
     )
 

@@ -9,11 +9,11 @@ function ModelDefinition(; components::NamedTuple, processes::NamedTuple, parame
     return ModelDefinition(components, processes, parameters)
 end
 
-function ModelDefinition(factory::AbstractBGCFactory)
+function ModelDefinition(family::AbstractModelFamily)
     return ModelDefinition(;
-        components=default_components(factory),
-        processes=default_processes(factory),
-        parameters=parameter_definitions(factory),
+        components=default_components(family),
+        processes=default_processes(family),
+        parameters=parameter_definitions(family),
     )
 end
 

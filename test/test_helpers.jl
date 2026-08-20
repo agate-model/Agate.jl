@@ -63,7 +63,7 @@ function nipizd_manifest(
     arch=nothing,
     scalar_type=nothing,
 )
-    _, manifest = Agate.Construction.construct_factory_plus_manifest(
+    _, manifest = Agate.Construction.construct_plus_manifest(
         recipe; grid, arch, scalar_type
     )
     return manifest

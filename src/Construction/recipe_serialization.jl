@@ -4,7 +4,8 @@ using ..Configuration:
     PFTSpecification, DiameterListSpecification, DiameterRangeSpecification, Population, Pool,
     currency, size_structure, sinking, normalize_diameters
 
-using ..Factories: parameter_definitions, default_components, default_processes
+using ..ModelFamilies: default_components, default_processes
+using ..Parameters: parameter_definitions
 
 using ..Processes:
     AbstractProcess, AbstractFactor, FactorDriver, FactorComponent,
@@ -480,7 +481,7 @@ function _encode_process_recipe_data(recipe::ProcessModelRecipe)
     normalized = normalize_model(ModelDefinition(;
         components=recipe.components,
         processes=recipe.processes,
-        parameters=parameter_definitions(recipe_factory(Val(recipe.family))),
+        parameters=parameter_definitions(registered_family(Val(recipe.family))),
     ))
     components = Dict{String,Any}(
         String(name) => _component_recipe_data(name, getproperty(recipe.components, name), recipe)
@@ -585,7 +586,7 @@ function _decode_process_model_recipe(document::AbstractDict)
         _required(document, "model", "Recipe document"), _RECIPE_MODEL_KEYS, "Recipe document.model"
     )
     family = _symbol(_required(model, "family", "Recipe document.model"), "Recipe document.model.family")
-    factory = recipe_factory(Val(family))
+    model_family = registered_family(Val(family))
     provenance = _decode_provenance(
         _required(document, "provenance", "Recipe document"), "Recipe document.provenance"
     )
@@ -632,8 +633,8 @@ function _decode_process_model_recipe(document::AbstractDict)
 
     decoded = ProcessModelRecipe(
         family,
-        deepcopy(default_components(factory)),
-        deepcopy(default_processes(factory)),
+        deepcopy(default_components(model_family)),
+        deepcopy(default_processes(model_family)),
         population_groups,
         community,
         parameter_overrides,

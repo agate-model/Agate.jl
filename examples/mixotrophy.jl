@@ -5,28 +5,12 @@
 
 using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Population, Pool
 using Agate.Construction: construct
-using Agate.Factories:
-    DerivedDefault, FillDefault,
-    ParameterDefinition, ParameterProvision, ParameterSpec
+using Agate.Parameters:
+    DerivedDefault, FillDefault, ParameterDefinition, ParameterProvision
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
-    Grazing, Growth, Light, ModelDefinition, NutrientResponse,
-    normalize_model, participants
+    Grazing, Growth, Light, ModelDefinition, NutrientResponse, normalize_model, participants
 using Oceananigans.Units: day
-
-nothing #hide
-
-provision(process, path, formulation, slot; qualifier=NamedTuple()) =
-    ParameterProvision(process, path, formulation, slot; qualifier)
-
-function parameter(name, shape, provider, provides; axes=nothing, runtime_path=(name,))
-    return ParameterDefinition(
-        ParameterSpec(name, shape; axes, runtime_path, provides), provider
-    )
-end
-
-vector_parameter(name, value, provides) =
-    parameter(name, :vector, FillDefault(value), provides; axes=:plankton)
 
 nothing #hide
 
@@ -45,103 +29,120 @@ processes = (
         ),
     ),
     grazing_M=Grazing(
-        :preferential;
-        consumer=:M,
-        resource=:P,
-        unassimilated_destination=:N,
+        :preferential; consumer=:M, resource=:P, unassimilated_destination=:N
     ),
 )
 
+# ## Parameters
+#
+# Parameters name their scientific process slot through `ParameterProvision`.
+# Vector parameters use the realized plankton axis, while derived interaction
+# matrices are stored under `bgc.parameters.interactions`.
+
 parameters = (
-    vector_parameter(
+    ParameterDefinition(
         :maximum_growth_rate,
-        0.8 / day,
-        provision(:growth_M, (:factors, :light), :smith, :maximum_rate),
+        FillDefault(0.8 / day);
+        shape=:vector,
+        axes=:plankton,
+        provides=ParameterProvision(
+            :growth_M, :smith, :maximum_rate; path=(:factors, :light)
+        ),
     ),
-    vector_parameter(
+    ParameterDefinition(
         :alpha,
-        0.08 / day,
-        provision(:growth_M, (:factors, :light), :smith, :alpha),
+        FillDefault(0.08 / day);
+        shape=:vector,
+        axes=:plankton,
+        provides=ParameterProvision(:growth_M, :smith, :alpha; path=(:factors, :light)),
     ),
-    vector_parameter(
+    ParameterDefinition(
         :nutrient_half_saturation,
-        0.2,
-        provision(
+        FillDefault(0.2);
+        shape=:vector,
+        axes=:plankton,
+        provides=ParameterProvision(
             :growth_M,
-            (:factors, :nutrients),
             :monod,
             :K;
+            path=(:factors, :nutrients),
             qualifier=(resource=:N,),
         ),
     ),
-    vector_parameter(
+    ParameterDefinition(
         :maximum_predation_rate,
-        0.4 / day,
-        provision(:grazing_M, (), :preferential, :maximum_rate),
+        FillDefault(0.4 / day);
+        shape=:vector,
+        axes=:plankton,
+        provides=ParameterProvision(:grazing_M, :preferential, :maximum_rate),
     ),
-    vector_parameter(
+    ParameterDefinition(
         :holling_half_saturation,
-        0.15,
-        provision(:grazing_M, (), :preferential, :half_saturation),
+        FillDefault(0.15);
+        shape=:vector,
+        axes=:plankton,
+        provides=ParameterProvision(:grazing_M, :preferential, :half_saturation),
     ),
-    vector_parameter(
+    ParameterDefinition(
         :optimum_predator_prey_ratio,
-        4.0,
-        provision(
+        FillDefault(4.0);
+        shape=:vector,
+        axes=:plankton,
+        provides=ParameterProvision(
             :grazing_M,
-            (:palatability, :default),
             :allometric,
-            :optimum_predator_prey_ratio,
+            :optimum_predator_prey_ratio;
+            path=(:palatability, :default),
         ),
     ),
-    vector_parameter(
+    ParameterDefinition(
         :specificity,
-        0.5,
-        provision(
-            :grazing_M,
-            (:palatability, :default),
-            :allometric,
-            :specificity,
+        FillDefault(0.5);
+        shape=:vector,
+        axes=:plankton,
+        provides=ParameterProvision(
+            :grazing_M, :allometric, :specificity; path=(:palatability, :default)
         ),
     ),
-    vector_parameter(
+    ParameterDefinition(
         :protection,
-        0.0,
-        provision(
-            :grazing_M,
-            (:palatability, :default),
-            :allometric,
-            :protection,
+        FillDefault(0.0);
+        shape=:vector,
+        axes=:plankton,
+        provides=ParameterProvision(
+            :grazing_M, :allometric, :protection; path=(:palatability, :default)
         ),
     ),
-    vector_parameter(
+    ParameterDefinition(
         :assimilation_efficiency,
-        0.65,
-        provision(
+        FillDefault(0.65);
+        shape=:vector,
+        axes=:plankton,
+        provides=ParameterProvision(
             :grazing_M,
-            (:assimilation, :default),
             :binary,
-            :assimilation_efficiency,
+            :assimilation_efficiency;
+            path=(:assimilation, :default),
         ),
     ),
-    parameter(
+    ParameterDefinition(
         :palatability_matrix,
-        :matrix,
         DerivedDefault(
             PalatabilityAllometric();
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
-        ),
-        provision(:grazing_M, (), :preferential, :palatability);
+        );
+        shape=:matrix,
         axes=(:consumer, :prey),
         runtime_path=(:interactions, :palatability),
+        provides=ParameterProvision(:grazing_M, :preferential, :palatability),
     ),
-    parameter(
+    ParameterDefinition(
         :assimilation_matrix,
-        :matrix,
-        DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,)),
-        provision(:grazing_M, (), :preferential, :assimilation);
+        DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,));
+        shape=:matrix,
         axes=(:consumer, :prey),
         runtime_path=(:interactions, :assimilation),
+        provides=ParameterProvision(:grazing_M, :preferential, :assimilation),
     ),
 )
 

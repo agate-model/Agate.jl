@@ -2,13 +2,8 @@
 module Processes
 
 using ..Configuration: Population, Pool, ComponentLayout, currency
-using ..Factories:
-    AbstractBGCFactory,
-    ParameterDefinition,
-    ParameterProvision,
-    default_components,
-    default_processes,
-    parameter_definitions
+using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
+using ..Parameters: ParameterDefinition, ParameterProvision, parameter_definitions
 using ..Library.Mortality: linear_loss, quadratic_loss
 using ..Library.Predation: preferential_predation_loss
 using ..Library.Photosynthesis: smith_light_limitation

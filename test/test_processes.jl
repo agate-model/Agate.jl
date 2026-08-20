@@ -1,7 +1,7 @@
 using Test
 
 using Agate.Configuration: Population, Pool, realize_components
-using Agate.Factories: default_components, default_processes
+using Agate.ModelFamilies: default_components, default_processes
 using Agate.Processes:
     Smith,
     Geider,
@@ -170,11 +170,11 @@ end
 end
 
 @testset "NiPiZD normalized process contract" begin
-    factory = Agate.Models.NiPiZD.NiPiZDFactory()
-    definition = ModelDefinition(factory)
+    family = Agate.Models.NiPiZD.NiPiZDFamily()
+    definition = ModelDefinition(family)
     normalized = normalize_model(definition)
 
-    @test normalized.components == default_components(factory)
+    @test normalized.components == default_components(family)
     @test length(normalized.parameters) == 15
     @test driver_identities(normalized) == (:PAR,)
     @test keys(normalized.processes) == (
@@ -264,12 +264,12 @@ end
     )
     @test parameter_name(normalized, linear_P_rate) === :linear_mortality
 
-    processes = default_processes(factory)
+    processes = default_processes(family)
     reversed_names = reverse(keys(processes))
     reversed_processes = NamedTuple{reversed_names}(reverse(values(processes)))
     reordered = normalize_model(
         ModelDefinition(;
-            components=default_components(factory), processes=reversed_processes
+            components=default_components(family), processes=reversed_processes
         ),
     )
     @test keys(reordered.processes) == keys(normalized.processes)
@@ -279,22 +279,22 @@ end
     )
 
     invalid = ModelDefinition(;
-        components=default_components(factory),
+        components=default_components(family),
         processes=(bad=Grazing(:preferential; consumer=:Z, resource=:missing),),
     )
     @test_throws ArgumentError normalize_model(invalid)
 
     @test_throws ArgumentError normalize_model(
         ModelDefinition(;
-            components=default_components(factory),
-            processes=default_processes(factory),
+            components=default_components(family),
+            processes=default_processes(family),
             parameters=(),
         ),
     )
     @test_throws ArgumentError normalize_model(
         ModelDefinition(;
-            components=default_components(factory),
-            processes=default_processes(factory),
+            components=default_components(family),
+            processes=default_processes(family),
             parameters=(definition.parameters..., first(definition.parameters)),
         ),
     )

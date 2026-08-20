@@ -2,18 +2,16 @@ using Agate
 using Agate.Introspection: parameter_names
 using Test
 
-import Agate.Factories:
-    AbstractBGCFactory,
+import Agate.Parameters:
     ConstDefault,
     DerivedDefault,
     FillDefault,
     ParameterDefinition,
-    ParameterSpec,
     derive_default,
     parameter_definitions,
     parameter_directory
 
-struct DerivedDefaultFixture <: AbstractBGCFactory end
+struct DerivedDefaultFixture end
 struct AddOneDefault end
 struct DoubleDefault end
 
@@ -23,29 +21,21 @@ derive_default(::DoubleDefault, ::DerivedDefaultFixture, ::Any, params::NamedTup
     2 * params.middle
 
 parameter_definitions(::DerivedDefaultFixture) = (
-    ParameterDefinition(ParameterSpec(:base, :scalar), ConstDefault(2.0)),
-    ParameterDefinition(
-        ParameterSpec(:top, :scalar), DerivedDefault(DoubleDefault(); deps=(:middle,))
-    ),
-    ParameterDefinition(
-        ParameterSpec(:middle, :scalar), DerivedDefault(AddOneDefault(); deps=(:base,))
-    ),
+    ParameterDefinition(:base, ConstDefault(2.0)),
+    ParameterDefinition(:top, DerivedDefault(DoubleDefault(); deps=(:middle,))),
+    ParameterDefinition(:middle, DerivedDefault(AddOneDefault(); deps=(:base,))),
 )
 
-struct CyclicDerivedDefaultFixture <: AbstractBGCFactory end
+struct CyclicDerivedDefaultFixture end
 parameter_definitions(::CyclicDerivedDefaultFixture) = (
-    ParameterDefinition(
-        ParameterSpec(:a, :scalar), DerivedDefault(AddOneDefault(); deps=(:b,))
-    ),
-    ParameterDefinition(
-        ParameterSpec(:b, :scalar), DerivedDefault(DoubleDefault(); deps=(:a,))
-    ),
+    ParameterDefinition(:a, DerivedDefault(AddOneDefault(); deps=(:b,))),
+    ParameterDefinition(:b, DerivedDefault(DoubleDefault(); deps=(:a,))),
 )
 
 @testset "Parameter directory" begin
     @testset "NiPiZD" begin
-        factory = Agate.Models.NiPiZD.NiPiZDFactory()
-        dir = parameter_directory(factory)
+        family = Agate.Models.NiPiZD.NiPiZDFamily()
+        dir = parameter_directory(family)
         @test !isempty(dir)
 
         bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
@@ -57,7 +47,7 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
         end
 
         specmap = Dict(spec.name => spec for spec in dir)
-        definitions = Dict(def.spec.name => def for def in parameter_definitions(factory))
+        definitions = Dict(def.spec.name => def for def in parameter_definitions(family))
         @test definitions[:linear_mortality].default isa FillDefault
         @test definitions[:palatability_matrix].default isa DerivedDefault
         @test definitions[:palatability_matrix].default.deps == (
@@ -90,17 +80,17 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
     end
 
     @testset "Derived default dependency resolution" begin
-        factory = DerivedDefaultFixture()
+        source = DerivedDefaultFixture()
         context = (; scalar_type=Float64)
-        @test Agate.Construction.validate_parameter_directory(factory) == (:base, :top, :middle)
+        @test Agate.Construction.validate_parameter_directory(source) == (:base, :top, :middle)
 
         defaults = Agate.Construction.build_process_parameter_defaults(
-            factory, nothing, nothing, context, Float64
+            source, nothing, nothing, context, Float64
         )
         @test defaults == (base=2.0,)
 
         resolve(overrides=(;)) = Agate.Construction.resolve_parameter_defaults(
-            factory, context, merge(defaults, overrides), Tuple(keys(overrides))
+            source, context, merge(defaults, overrides), Tuple(keys(overrides))
         )
 
         resolved = resolve()

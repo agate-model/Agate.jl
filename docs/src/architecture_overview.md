@@ -6,7 +6,7 @@ Agate separates scientific model definition from setup-time compilation and runt
 
 A process-defined model moves through five stages:
 
-1. **Definition** (`Configuration/`, `Processes/`, and `Factories/parameter_directory.jl`).
+1. **Definition** (`Configuration/`, `Processes/`, and `Parameters/`).
    `Population` and `Pool` components describe state identity and structure. Named processes describe scientific transformations, and parameter definitions bind defaults to formulation-owned semantic requirements.
 
 2. **Normalization and realization** (`Processes/` and `Configuration/`).
@@ -60,7 +60,8 @@ src/
 |-- Configuration/         # components, realization, interactions
 |-- Processes/             # process definitions and normalization
 |-- Compilation/           # topology, fluxes, static lowering
-|-- Factories/             # parameter defaults and named-family adapters
+|-- ModelFamilies/         # registered family identity and canonical definitions
+|-- Parameters/            # parameter definitions, defaults, and provisions
 |-- Construction/          # direct construction, recipes, manifests, replay
 |-- Equations/             # compiled equation wrappers
 |-- Library/               # reusable scientific formulations

@@ -6,10 +6,10 @@ export default_processes
 Returns a named collection whose keys are stable model component identities and
 whose values describe intrinsic component structure.
 """
-function default_components(::AbstractBGCFactory)
+function default_components(::AbstractModelFamily)
     throw(
         ArgumentError(
-            "No method `default_components(factory)` is defined for this model family."
+            "No method `default_components(family)` is defined for this model family."
         ),
     )
 end
@@ -19,10 +19,10 @@ end
 The keys are stable process-instance identities. Process declarations describe
 scientific topology and are normalized before runtime realization.
 """
-function default_processes(::AbstractBGCFactory)
+function default_processes(::AbstractModelFamily)
     throw(
         ArgumentError(
-            "No method `default_processes(factory)` is defined for this model family."
+            "No method `default_processes(family)` is defined for this model family."
         ),
     )
 end

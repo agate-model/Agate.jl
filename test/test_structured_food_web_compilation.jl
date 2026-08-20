@@ -7,75 +7,69 @@ using Agate.Compilation:
 using Agate.Configuration:
     Population, Pool, realize_components, component_tracers, parse_community
 using Agate.Construction: define_tracer_functions
-using Agate.Factories:
-    ParameterSpec, ParameterProvision, ParameterDefinition, NoDefault
+using Agate.Parameters:
+    ParameterProvision, ParameterDefinition, NoDefault
 using Agate.Processes:
     ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, Grazing,
     Smith, Monod, Q10, normalize_model, resolve_parameter_applicability, participants, factors,
     driver_identities
 
-_provision(process, path, formulation, slot; qualifier=NamedTuple()) =
-    ParameterProvision(process, path, formulation, slot; qualifier)
-
 function food_web_parameters()
-    definition(name, shape, provides; runtime_path=(name,)) = ParameterDefinition(
-        ParameterSpec(name, shape; runtime_path, provides), NoDefault()
-    )
+    slot(process, formulation, name; path=(), qualifier=NamedTuple()) =
+        ParameterProvision(process, formulation, name; path, qualifier)
+    no_default(name, shape, provides; runtime_path=(name,)) =
+        ParameterDefinition(name, NoDefault(); shape, runtime_path, provides)
+
     return (
-        definition(:maximum_growth_rate, :vector,
-            _provision(:growth_autotrophs, (:factors, :light), :smith, :maximum_rate)),
-        definition(:alpha, :vector,
-            _provision(:growth_autotrophs, (:factors, :light), :smith, :alpha)),
-        definition(:nutrient_half_saturation, :vector,
-            _provision(:growth_autotrophs, (:factors, :nutrients), :monod, :K;
-                qualifier=(resource=:N,))),
-        definition(:temperature_q10, :scalar, (
-            _provision(:growth_autotrophs, (:factors, :temperature), :q10, :q10),
-            _provision(:consume_POM, (:factors, :temperature), :q10, :q10),
+        no_default(:maximum_growth_rate, :vector,
+            slot(:growth_autotrophs, :smith, :maximum_rate; path=(:factors, :light))),
+        no_default(:alpha, :vector,
+            slot(:growth_autotrophs, :smith, :alpha; path=(:factors, :light))),
+        no_default(:nutrient_half_saturation, :vector,
+            slot(:growth_autotrophs, :monod, :K;
+                path=(:factors, :nutrients), qualifier=(resource=:N,))),
+        no_default(:temperature_q10, :scalar, (
+            slot(:growth_autotrophs, :q10, :q10; path=(:factors, :temperature)),
+            slot(:consume_POM, :q10, :q10; path=(:factors, :temperature)),
         )),
-        definition(:reference_temperature, :scalar, (
-            _provision(
-                :growth_autotrophs, (:factors, :temperature), :q10, :reference_temperature
-            ),
-            _provision(
-                :consume_POM, (:factors, :temperature), :q10, :reference_temperature
-            ),
+        no_default(:reference_temperature, :scalar, (
+            slot(:growth_autotrophs, :q10, :reference_temperature;
+                path=(:factors, :temperature)),
+            slot(:consume_POM, :q10, :reference_temperature;
+                path=(:factors, :temperature)),
         )),
-        definition(:maximum_consumption_rate, :vector,
-            _provision(:consume_POM, (), :heterotrophic, :maximum_rate)),
-        definition(:pom_half_saturation, :vector,
-            _provision(:consume_POM, (), :heterotrophic, :half_saturation)),
-        definition(:bacterial_assimilation, :matrix,
-            _provision(:consume_POM, (), :heterotrophic, :assimilation)),
-        definition(:maximum_predation_rate, :vector,
-            _provision(:grazing_living, (), :preferential, :maximum_rate)),
-        definition(:holling_half_saturation, :vector,
-            _provision(:grazing_living, (), :preferential, :half_saturation)),
-        definition(
-            :living_palatability_matrix,
-            :matrix,
-            _provision(:grazing_living, (), :preferential, :palatability);
+        no_default(:maximum_consumption_rate, :vector,
+            slot(:consume_POM, :heterotrophic, :maximum_rate)),
+        no_default(:pom_half_saturation, :vector,
+            slot(:consume_POM, :heterotrophic, :half_saturation)),
+        no_default(:bacterial_assimilation, :matrix,
+            slot(:consume_POM, :heterotrophic, :assimilation)),
+        no_default(:maximum_predation_rate, :vector,
+            slot(:grazing_living, :preferential, :maximum_rate)),
+        no_default(:holling_half_saturation, :vector,
+            slot(:grazing_living, :preferential, :half_saturation)),
+        no_default(
+            :living_palatability_matrix, :matrix,
+            slot(:grazing_living, :preferential, :palatability);
             runtime_path=(:interactions, :living_palatability),
         ),
-        definition(
-            :living_assimilation_matrix,
-            :matrix,
-            _provision(:grazing_living, (), :preferential, :assimilation);
+        no_default(
+            :living_assimilation_matrix, :matrix,
+            slot(:grazing_living, :preferential, :assimilation);
             runtime_path=(:interactions, :living_assimilation),
         ),
-        definition(:optimum_predator_prey_ratio, :vector,
-            _provision(
-                :grazing_living, (:palatability, :default), :allometric,
-                :optimum_predator_prey_ratio
-            )),
-        definition(:specificity, :vector,
-            _provision(:grazing_living, (:palatability, :default), :allometric, :specificity)),
-        definition(:protection, :vector,
-            _provision(:grazing_living, (:palatability, :default), :allometric, :protection)),
-        definition(:assimilation_efficiency, :vector,
-            _provision(
-                :grazing_living, (:assimilation, :default), :binary, :assimilation_efficiency
-            )),
+        no_default(:optimum_predator_prey_ratio, :vector,
+            slot(:grazing_living, :allometric, :optimum_predator_prey_ratio;
+                path=(:palatability, :default))),
+        no_default(:specificity, :vector,
+            slot(:grazing_living, :allometric, :specificity;
+                path=(:palatability, :default))),
+        no_default(:protection, :vector,
+            slot(:grazing_living, :allometric, :protection;
+                path=(:palatability, :default))),
+        no_default(:assimilation_efficiency, :vector,
+            slot(:grazing_living, :binary, :assimilation_efficiency;
+                path=(:assimilation, :default))),
     )
 end
 

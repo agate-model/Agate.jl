@@ -1,6 +1,7 @@
 module Agate
 
-include("Factories/Factories.jl")
+include("ModelFamilies/ModelFamilies.jl")
+include("Parameters/Parameters.jl")
 include("Equations/Equations.jl")
 include("Library/Library.jl")
 include("Configuration/Configuration.jl")
@@ -14,7 +15,8 @@ include("Introspection.jl")
 
 export Library
 export Models
-export Factories
+export ModelFamilies
+export Parameters
 export Configuration
 export Processes
 export Runtime

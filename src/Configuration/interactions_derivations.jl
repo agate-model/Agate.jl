@@ -1,4 +1,4 @@
-import ..Factories: derive_default
+import ..Parameters: derive_default
 
 using ..Library.Allometry:
     palatability_matrix_allometric_axes, assimilation_efficiency_matrix_binary_axes

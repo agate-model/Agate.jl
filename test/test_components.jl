@@ -5,8 +5,8 @@ using Agate.Configuration:
     Population, Pool, currency, size_structure, sinking, realize_components,
     realize_component_groups, component_tracers, component_indices, component_diameters,
     component_class_count, realize_component_sinking, parse_community
-using Agate.Factories:
-    default_components, ParameterSpec, ParameterProvision, ParameterDefinition, ConstDefault
+using Agate.ModelFamilies: default_components
+using Agate.Parameters: ParameterProvision, ParameterDefinition, ConstDefault
 using Agate.Processes:
     ModelDefinition, Remineralization, normalize_model, resolve_parameter_applicability
 
@@ -55,8 +55,8 @@ using Agate.Processes:
 end
 
 @testset "Structured pool class layout and parameter applicability" begin
-    factory = Agate.Models.NiPiZD.NiPiZDFactory()
-    base_components = default_components(factory)
+    family = Agate.Models.NiPiZD.NiPiZDFamily()
+    base_components = default_components(family)
     components = merge(
         base_components,
         (POM=Pool(:nitrogen; size_structure=[0.5, 5.0, 50.0], sinking=:pom_sinking),),
@@ -76,18 +76,9 @@ end
 
     process = Remineralization(:linear; source=:POM, destination=:N)
     parameter = ParameterDefinition(
-        ParameterSpec(
-            :pom_remineralization,
-            :scalar;
-            provides=ParameterProvision(
-                :remineralization_POM,
-                (),
-                :linear,
-                :rate;
-                qualifier=(source=:POM,),
-            ),
-        ),
-        ConstDefault(0.1),
+        :pom_remineralization,
+        ConstDefault(0.1);
+        provides=ParameterProvision(:remineralization_POM, :linear, :rate; qualifier=(source=:POM,),),
     )
     definition = normalize_model(
         ModelDefinition(;
@@ -102,8 +93,8 @@ end
 end
 
 @testset "NiPiZD component declaration" begin
-    factory = Agate.Models.NiPiZD.NiPiZDFactory()
-    components = default_components(factory)
+    family = Agate.Models.NiPiZD.NiPiZDFamily()
+    components = default_components(family)
     layout = realize_components(components)
 
     @test keys(components) == (:P, :Z, :N, :D)

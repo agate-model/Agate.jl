@@ -10,14 +10,14 @@ using Agate.Compilation:
     group_fluxes,
     weight_sign
 using Agate.Configuration: realize_components
-using Agate.Factories: default_components
+using Agate.ModelFamilies: default_components
 using Agate.Processes:
     ModelDefinition, MultiplicativeFactors, Smith, Monod, normalize_model
 
 @testset "Process compilation" begin
-    factory = Agate.Models.NiPiZD.NiPiZDFactory()
-    normalized = normalize_model(ModelDefinition(factory))
-    layout = realize_components(default_components(factory))
+    family = Agate.Models.NiPiZD.NiPiZDFamily()
+    normalized = normalize_model(ModelDefinition(family))
+    layout = realize_components(default_components(family))
     context = Agate.Configuration.parse_community(
         Float64, default_nipizd_community(); biogeochem_tracers=(:N, :D)
     )

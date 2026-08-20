@@ -5,7 +5,7 @@ using Agate.Compilation:
 using Agate.Configuration: realize_components
 using Agate.Construction: define_tracer_functions
 using Agate.Equations: CompiledEquation
-using Agate.Factories: default_components
+using Agate.ModelFamilies: default_components
 using Agate.Processes: ModelDefinition, driver_identities, normalize_model
 
 const NIPIZD_PROCESS_TRACER_ORDER = (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
@@ -14,9 +14,9 @@ const NIPIZD_PROCESS_ARGS = (
 )
 
 function nipizd_process_compilation(::Type{T}=Float64) where {T<:Real}
-    factory = Agate.Models.NiPiZD.NiPiZDFactory()
-    normalized = normalize_model(ModelDefinition(factory))
-    layout = realize_components(default_components(factory); scalar_type=T)
+    family = Agate.Models.NiPiZD.NiPiZDFamily()
+    normalized = normalize_model(ModelDefinition(family))
+    layout = realize_components(default_components(family); scalar_type=T)
     context = Agate.Configuration.parse_community(
         T, default_nipizd_community(); biogeochem_tracers=(:N, :D)
     )

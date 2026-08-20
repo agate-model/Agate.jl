@@ -45,7 +45,7 @@ end
 function _recipe_provenance(recipe::ProcessModelRecipe)
     agate = Base.moduleroot(@__MODULE__)
     provenance = Dict{String,Any}("agate" => _package_provenance(agate))
-    provider = Base.moduleroot(parentmodule(typeof(recipe_factory(Val(recipe.family)))))
+    provider = Base.moduleroot(parentmodule(typeof(registered_family(Val(recipe.family)))))
     provider === agate || (provenance["provider"] = _package_provenance(provider))
     return provenance
 end

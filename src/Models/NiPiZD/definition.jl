@@ -1,16 +1,16 @@
-using ...Factories: AbstractBGCFactory
+using ...ModelFamilies: AbstractModelFamily
 using ...Configuration: Population, Pool
 using ...Processes:
     Growth, Light, NutrientResponse, Grazing, Mortality, ProductRouting, Remineralization
 
-import ...Factories: default_components, default_processes
-import ...Construction: recipe_family, recipe_factory
+import ...ModelFamilies: default_components, default_processes
+import ...Construction: family_id, registered_family
 
-"""Factory for the size-structured NiPiZD model."""
-struct NiPiZDFactory <: AbstractBGCFactory end
+"""Registered family for the size-structured NiPiZD model."""
+struct NiPiZDFamily <: AbstractModelFamily end
 
-recipe_family(::NiPiZDFactory) = :NiPiZD
-recipe_factory(::Val{:NiPiZD}) = NiPiZDFactory()
+family_id(::NiPiZDFamily) = :NiPiZD
+registered_family(::Val{:NiPiZD}) = NiPiZDFamily()
 
 const DEFAULT_SIZE_STRUCTURE = (
     phytoplankton=(P=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting),),
@@ -29,7 +29,7 @@ const NIPIZD_COMPONENTS = (
 )
 
 """Canonical logical components for NiPiZD."""
-default_components(::NiPiZDFactory) = NIPIZD_COMPONENTS
+default_components(::NiPiZDFamily) = NIPIZD_COMPONENTS
 
 const NIPIZD_PROCESSES = (
     growth_P=Growth(;
@@ -61,4 +61,4 @@ const NIPIZD_PROCESSES = (
 )
 
 """Canonical named scientific processes for NiPiZD."""
-default_processes(::NiPiZDFactory) = NIPIZD_PROCESSES
+default_processes(::NiPiZDFamily) = NIPIZD_PROCESSES

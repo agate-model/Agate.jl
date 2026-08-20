@@ -6,8 +6,9 @@ import Oceananigans
 
 using Oceananigans.Architectures: architecture, CPU, GPU
 
-using ..Factories:
-    AbstractBGCFactory,
+using ..ModelFamilies: AbstractModelFamily
+
+using ..Parameters:
     ConstDefault,
     DerivedDefault,
     NoDefault,
@@ -15,10 +16,9 @@ using ..Factories:
     DiameterIndexedVectorDefault,
     DiameterIndexedMaterialization,
     derive_default,
-    parameter_directory,
     parameter_spec
 
-import ..Factories: parameter_definitions
+import ..Parameters: parameter_definitions
 
 using ..Configuration:
     axis_indices,
@@ -43,7 +43,7 @@ using ..Compilation: compile_model_tendencies
 
 using ..Library.Allometry: AbstractParamDef, resolve_diameter_indexed_vector
 
-struct _DefinitionParameterSource{P} <: AbstractBGCFactory
+struct _DefinitionParameterSource{P}
     definitions::P
 end
 
@@ -66,14 +66,14 @@ end
 
 const RESERVED_PARAMETER_KEYS = (:x, :y, :z, :t)
 
-function validate_parameter_directory(factory::AbstractBGCFactory)
-    defs = parameter_definitions(factory)
+function validate_parameter_directory(source)
+    defs = parameter_definitions(source)
     isempty(defs) && return ()
 
     keys_ = map(d -> d.spec.name, defs)
     length(unique(keys_)) == length(keys_) || throw(
         ArgumentError(
-            "parameter_definitions(::$(typeof(factory))) contains duplicate keys."
+            "parameter_definitions(::$(typeof(source))) contains duplicate keys."
         ),
     )
 
@@ -81,7 +81,7 @@ function validate_parameter_directory(factory::AbstractBGCFactory)
     for k in keys_
         (k in RESERVED_PARAMETER_KEYS) && throw(
             ArgumentError(
-                "parameter_definitions(::$(typeof(factory))) declares reserved parameter key :$k.",
+                "parameter_definitions(::$(typeof(source))) declares reserved parameter key :$k.",
             ),
         )
     end
@@ -90,7 +90,7 @@ function validate_parameter_directory(factory::AbstractBGCFactory)
         spec = def.spec
         spec.shape in (:scalar, :vector, :matrix) || throw(
             ArgumentError(
-                "parameter_definitions(::$(typeof(factory))) declares :$(spec.name) with invalid shape $(spec.shape).",
+                "parameter_definitions(::$(typeof(source))) declares :$(spec.name) with invalid shape $(spec.shape).",
             ),
         )
 
@@ -147,9 +147,9 @@ function validate_parameter_directory(factory::AbstractBGCFactory)
     return Tuple(keys_)
 end
 
-function derived_default_order(factory::AbstractBGCFactory)
+function derived_default_order(source)
     derived = Any[
-        definition for definition in parameter_definitions(factory) if
+        definition for definition in parameter_definitions(source) if
         definition.default isa DerivedDefault
     ]
     isempty(derived) && return ()
@@ -256,13 +256,13 @@ recomputed. Dependencies between derived defaults are topologically ordered and 
 rejected during setup.
 """
 function resolve_parameter_defaults(
-    factory::AbstractBGCFactory,
+    source,
     context,
     params::NamedTuple,
     explicit_override_keys::Tuple{Vararg{Symbol}};
-    derivation_owner=factory,
+    derivation_owner=source,
 )
-    ordered = derived_default_order(factory)
+    ordered = derived_default_order(source)
     isempty(ordered) && return params
 
     override_set = Set{Symbol}(explicit_override_keys)
@@ -298,16 +298,14 @@ function resolve_parameter_defaults(
     return resolved
 end
 
-function validate_parameter_shapes(
-    factory::AbstractBGCFactory, context, params::NamedTuple, required::Tuple
-)
+function validate_parameter_shapes(source, context, params::NamedTuple, required::Tuple)
     n = context.n_total
 
     for k in required
-        spec = parameter_spec(factory, k)
+        spec = parameter_spec(source, k)
         spec === nothing && throw(
             ArgumentError(
-                "Factory $(typeof(factory)) is missing a ParameterSpec for parameter :$k.",
+                "Parameter source $(typeof(source)) is missing a ParameterSpec for parameter :$k.",
             ),
         )
 
@@ -397,15 +395,13 @@ function materialize_parameter_value(spec, value, ::Type{T}) where {T<:Real}
     return value
 end
 
-function validate_override_keys(
-    where_, overrides::NamedTuple, required::Tuple, factory::AbstractBGCFactory
-)
+function validate_override_keys(where_, overrides::NamedTuple, required::Tuple, source)
     isempty(overrides) && return nothing
 
     required_set = Set(required)
     for k in keys(overrides)
         k in required_set && continue
-        parameter_spec(factory, k) === nothing &&
+        parameter_spec(source, k) === nothing &&
             throw(ArgumentError("$(where_): unknown parameter key :$k."))
     end
 
@@ -525,7 +521,7 @@ function _process_parameter_indices(definition, layout, context, parameter::Symb
 end
 
 function evaluate_process_default(
-    provider::ConstDefault, spec, ::AbstractBGCFactory, definition, layout, context, ::Type{T}
+    provider::ConstDefault, spec, source, definition, layout, context, ::Type{T}
 ) where {T<:Real}
     spec.shape === :scalar || throw(
         ArgumentError("ConstDefault can only be used for scalar parameters (:$(spec.name)).")
@@ -535,7 +531,7 @@ function evaluate_process_default(
 end
 
 function evaluate_process_default(
-    provider::FillDefault, spec, ::AbstractBGCFactory, definition, layout, context, ::Type{T}
+    provider::FillDefault, spec, source, definition, layout, context, ::Type{T}
 ) where {T<:Real}
     value = provider.value
     value = value isa Bool ? value : T(value)
@@ -562,7 +558,7 @@ end
 function evaluate_process_default(
     provider::DiameterIndexedVectorDefault,
     spec,
-    ::AbstractBGCFactory,
+    source,
     definition,
     layout,
     context,
@@ -578,15 +574,13 @@ function evaluate_process_default(
     )
 end
 
-function build_process_parameter_defaults(
-    factory::AbstractBGCFactory, definition, layout, context, ::Type{T}
-) where {T<:Real}
+function build_process_parameter_defaults(source, definition, layout, context, ::Type{T}) where {T<:Real}
     entries = Pair{Symbol,Any}[]
-    for parameter_definition in parameter_definitions(factory)
+    for parameter_definition in parameter_definitions(source)
         provider = parameter_definition.default
         (provider isa NoDefault || provider isa DerivedDefault) && continue
         spec = parameter_definition.spec
-        value = evaluate_process_default(provider, spec, factory, definition, layout, context, T)
+        value = evaluate_process_default(provider, spec, source, definition, layout, context, T)
         push!(entries, spec.name => value)
     end
     return (; entries...)
@@ -611,7 +605,7 @@ function materialize_process_parameter_law_override(
 end
 
 function materialize_process_parameter_overrides(
-    factory::AbstractBGCFactory,
+    source,
     context,
     definition,
     layout,
@@ -622,7 +616,7 @@ function materialize_process_parameter_overrides(
     isempty(overrides) && return overrides
     entries = Pair{Symbol,Any}[]
     for (key, value) in Base.pairs(overrides)
-        spec = parameter_spec(factory, key)
+        spec = parameter_spec(source, key)
         if spec === nothing
             push!(entries, key => value)
         elseif value isa AbstractParamDef
@@ -734,7 +728,7 @@ function _construct_process_definition(
     scalar_type=nothing,
     build_manifest::Bool=false,
     derivation_owner=nothing,
-    manifest_factory=nothing,
+    manifest_family=nothing,
 )
     if isnothing(grid) && !isnothing(sinking_tracers)
         grid = BoxModelGrid()
@@ -867,11 +861,11 @@ function _construct_process_definition(
     end
 
     manifest = if build_manifest
-        isnothing(manifest_factory) && throw(
+        isnothing(manifest_family) && throw(
             ArgumentError("a registered model family is required to capture a replay manifest")
         )
         capture_model_manifest(
-            manifest_factory,
+            manifest_family,
             resolved_parameters,
             community_context;
             tracer_order=tracer_names,
@@ -888,8 +882,8 @@ function _construct_process_definition(
     return on_architecture(arch, bgc), manifest
 end
 
-function _construct_process_factory(
-    factory::AbstractBGCFactory,
+function _construct_registered_model(
+    family::AbstractModelFamily,
     recipe::ProcessModelRecipe;
     grid=nothing,
     arch=nothing,
@@ -899,7 +893,7 @@ function _construct_process_factory(
     definition = ModelDefinition(;
         components=recipe.components,
         processes=recipe.processes,
-        parameters=parameter_definitions(factory),
+        parameters=parameter_definitions(family),
     )
     return _construct_process_definition(
         definition;
@@ -913,8 +907,8 @@ function _construct_process_factory(
         arch,
         scalar_type,
         build_manifest,
-        derivation_owner=factory,
-        manifest_factory=factory,
+        derivation_owner=family,
+        manifest_family=family,
     )
 end
 
@@ -956,22 +950,22 @@ end
 
 
 """Realize a component/process recipe in the supplied execution environment."""
-function construct_factory(
+function construct(
     recipe::ProcessModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
 )
-    factory = replay_factory(recipe)
-    bgc, _ = _construct_process_factory(
-        factory, recipe; grid, arch, scalar_type, build_manifest=false
+    family = replay_family(recipe)
+    bgc, _ = _construct_registered_model(
+        family, recipe; grid, arch, scalar_type, build_manifest=false
     )
     return bgc
 end
 
 """Realize a component/process recipe and return its resolved manifest."""
-function construct_factory_plus_manifest(
+function construct_plus_manifest(
     recipe::ProcessModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
 )
-    factory = replay_factory(recipe)
-    return _construct_process_factory(
-        factory, recipe; grid, arch, scalar_type, build_manifest=true
+    family = replay_family(recipe)
+    return _construct_registered_model(
+        family, recipe; grid, arch, scalar_type, build_manifest=true
     )
 end
