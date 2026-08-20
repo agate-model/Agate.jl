@@ -34,10 +34,10 @@ explicit_json_value(::Any) = false
     _, default_recipe = NiPiZD.construct_plus_recipe()
     default_encoded = encode_recipe(default_recipe)
     @test decode_recipe(default_encoded) == default_recipe
-    @test default_encoded["schema"] == "agate.model_recipe.v3"
+    @test default_encoded["schema"] == "agate.model_recipe.v0.3"
 
     target = JSON.parsefile(
-        joinpath(@__DIR__, "reference", "nipizd_model_recipe_v3_target.json")
+        joinpath(@__DIR__, "reference", "nipizd_model_recipe_v0_3_target.json")
     )["recipe"]
     for key in ("components", "processes", "parameter_bindings")
         @test default_encoded["recipe"][key] == target[key]
@@ -59,11 +59,14 @@ explicit_json_value(::Any) = false
     @test Set(keys(encoded)) == Set(("schema", "model", "provenance", "recipe", "recipe_hash"))
     @test Set(keys(encoded["recipe"])) ==
         Set(("components", "processes", "parameter_bindings", "realization"))
-    @test !haskey(realization, "ecological_roles")
-    @test !haskey(realization, "interaction_roles")
-    @test !haskey(realization, "parameter_roles")
-    @test !haskey(realization, "auxiliary_fields")
-    @test !haskey(realization, "scalar_type")
+    @test Set(keys(realization)) == Set((
+        "community",
+        "population_groups",
+        "parameter_overrides",
+        "interaction_overrides",
+        "sinking_tracers",
+        "open_bottom",
+    ))
     @test encoded["provenance"]["agate"]["package"] == "Agate"
     @test encoded["provenance"]["agate"]["version"] == string(Base.pkgversion(Agate))
     @test startswith(recipe_hash, "sha256:")
@@ -156,19 +159,8 @@ explicit_json_value(::Any) = false
     warned = @test_logs (:warn, r"Agate version differs") decode_recipe(version_mismatch)
     @test warned == recipe
 
-    for schema in ("agate.model_recipe.v1", "agate.model_recipe.v2")
-        unsupported = modified(encoded, x -> (x["schema"] = schema))
-        err = try
-            decode_recipe(unsupported)
-            nothing
-        catch exception
-            exception
-        end
-        @test err isa ArgumentError
-        message = sprint(showerror, err)
-        @test occursin("Unsupported Agate recipe schema", message)
-        @test occursin("agate.model_recipe.v3", message)
-    end
+    previous_schema = modified(encoded, x -> (x["schema"] = "agate.model_recipe.v0.2"))
+    @test_throws ArgumentError decode_recipe(previous_schema)
 
     invalid_documents = (
         modified(encoded, x -> (x["extra"] = true)),

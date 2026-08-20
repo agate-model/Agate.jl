@@ -31,19 +31,19 @@ load_cycle01_reference(name) = JSON.parsefile(joinpath(CYCLE01_REFERENCE_DIR, na
     @test !any(type -> type === Any, fieldtypes(typeof(bgc.tracer_functions)))
 
     _, recipe = Agate.Models.NiPiZD.construct_plus_recipe()
-    @test baseline["runtime"]["recipe_schema"] == "agate.model_recipe.v2"
-    @test encode_recipe(recipe)["schema"] == "agate.model_recipe.v3"
+    @test baseline["runtime"]["recipe_schema"] == "agate.model_recipe.v0.2"
+    @test encode_recipe(recipe)["schema"] == "agate.model_recipe.v0.3"
 end
 
 @testset "v0.12 normalization contracts" begin
     contracts = load_cycle01_reference("v012_normalization_contracts.json")
-    target = load_cycle01_reference("nipizd_model_recipe_v3_target.json")
+    target = load_cycle01_reference("nipizd_model_recipe_v0_3_target.json")
     recipe = target["recipe"]
     components = recipe["components"]
     processes = recipe["processes"]
     bindings = recipe["parameter_bindings"]
 
-    @test target["schema"] == contracts["recipe"]["schema"] == "agate.model_recipe.v3"
+    @test target["schema"] == contracts["recipe"]["schema"] == "agate.model_recipe.v0.3"
     @test contracts["processes"]["identity_source"] == "named_process_key"
     @test contracts["processes"]["identity_is_order_independent"]
     @test contracts["processes"]["rate_topology_is_explicit"]

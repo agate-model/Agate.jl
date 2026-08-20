@@ -1,5 +1,5 @@
 {
-  "schema": "agate.model_recipe.v3",
+  "schema": "agate.model_recipe.v0.3",
   "model": {
     "family": "NiPiZD"
   },

@@ -513,24 +513,6 @@ function _process_interaction_roles(definition, population_groups::NamedTuple)
     return (consumers=consumers, prey=resources)
 end
 
-function _process_manifest_roles(definition, population_groups::NamedTuple)
-    growth_components = Symbol[]
-    consumer_components = Symbol[]
-    for named in values(definition.processes)
-        kind = process_kind(named)
-        process_participants = participants(named)
-        if kind === :growth && hasproperty(process_participants, :population)
-            append!(growth_components, process_participants.population)
-        elseif kind === :grazing && hasproperty(process_participants, :consumer)
-            append!(consumer_components, process_participants.consumer)
-        end
-    end
-    return (
-        phytoplankton=_groups_for_components(population_groups, Tuple(unique(growth_components))),
-        zooplankton=_groups_for_components(population_groups, Tuple(unique(consumer_components))),
-    )
-end
-
 function _process_parameter_indices(definition, layout, context, parameter::Symbol)
     selected = Set{Symbol}()
     for applicability in resolve_parameter_applicability(definition, layout)
@@ -894,9 +876,6 @@ function _construct_process_definition(
             community_context;
             tracer_order=tracer_names,
             auxiliary_fields,
-            ecological_roles=_process_manifest_roles(
-                normalized, realization.population_groups
-            ),
             explicit_override_keys,
             sinking_tracers,
             open_bottom,
@@ -976,7 +955,7 @@ function construct(
 end
 
 
-"""Realize a v3 component/process recipe in the supplied execution environment."""
+"""Realize a component/process recipe in the supplied execution environment."""
 function construct_factory(
     recipe::ProcessModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
 )
@@ -987,7 +966,7 @@ function construct_factory(
     return bgc
 end
 
-"""Realize a v3 component/process recipe and return its resolved manifest."""
+"""Realize a component/process recipe and return its resolved manifest."""
 function construct_factory_plus_manifest(
     recipe::ProcessModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
 )

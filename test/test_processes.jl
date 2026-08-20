@@ -149,7 +149,7 @@ end
         (source=(:D,), destination=(:N,))
 
     target = JSON.parsefile(
-        joinpath(@__DIR__, "reference", "nipizd_model_recipe_v3_target.json")
+        joinpath(@__DIR__, "reference", "nipizd_model_recipe_v0_3_target.json")
     )["recipe"]
     target_processes = target["processes"]
     @test Set(String.(keys(normalized.processes))) == Set(keys(target_processes))

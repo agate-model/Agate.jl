@@ -17,7 +17,7 @@ using ..Library.Allometry:
     allometric_relationship_identifier,
     allometric_relationship_from_identifier
 
-const PROCESS_MODEL_RECIPE_SCHEMA = "agate.model_recipe.v3"
+const PROCESS_MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.3"
 const _RECIPE_DOCUMENT_KEYS = ("schema", "model", "provenance", "recipe", "recipe_hash")
 const _RECIPE_MODEL_KEYS = ("family",)
 const _SUPPORTED_SPLITTING = (:linear_splitting, :log_splitting)
@@ -325,7 +325,7 @@ _size_structure_data(spec::DiameterRangeSpecification) = Dict{String,Any}(
 )
 _size_structure_data(spec) = _size_structure_data(normalize_diameters(spec).specification)
 
-function _component_v3_data(name::Symbol, component::Population, recipe::ProcessModelRecipe)
+function _component_recipe_data(name::Symbol, component::Population, recipe::ProcessModelRecipe)
     groups = getproperty(recipe.population_groups, name)
     data = Dict{String,Any}(
         "kind" => "population",
@@ -344,7 +344,7 @@ function _component_v3_data(name::Symbol, component::Population, recipe::Process
     return data
 end
 
-function _component_v3_data(::Symbol, component::Pool, ::ProcessModelRecipe)
+function _component_recipe_data(::Symbol, component::Pool, ::ProcessModelRecipe)
     structure = size_structure(component)
     return Dict{String,Any}(
         "kind" => "pool",
@@ -356,14 +356,14 @@ end
 
 _string_array(values) = String[String(value) for value in values]
 
-function _participants_v3_data(named)
+function _participants_recipe_data(named)
     return Dict{String,Any}(
         String(role) => (length(values) == 1 ? String(only(values)) : _string_array(values))
         for (role, values) in pairs(participants(named))
     )
 end
 
-function _factor_v3_data(factor::Light)
+function _factor_recipe_data(factor::Light)
     return Dict{String,Any}(
         "kind" => "light",
         "formulation" => String(formulation_tag(formulation(factor))),
@@ -371,7 +371,7 @@ function _factor_v3_data(factor::Light)
     )
 end
 
-function _factor_v3_data(factor::Temperature)
+function _factor_recipe_data(factor::Temperature)
     return Dict{String,Any}(
         "kind" => "temperature",
         "formulation" => String(formulation_tag(formulation(factor))),
@@ -379,7 +379,7 @@ function _factor_v3_data(factor::Temperature)
     )
 end
 
-function _factor_v3_data(factor::NutrientResponse)
+function _factor_recipe_data(factor::NutrientResponse)
     return Dict{String,Any}(
         "kind" => "nutrient_response",
         "formulation" => String(formulation_tag(formulation(factor))),
@@ -387,25 +387,25 @@ function _factor_v3_data(factor::NutrientResponse)
     )
 end
 
-function _factor_v3_data(factor::Nutrients)
+function _factor_recipe_data(factor::Nutrients)
     return Dict{String,Any}(
         "kind" => "nutrients",
         "formulation" => String(formulation_tag(formulation(factor))),
         "responses" => Dict{String,Any}(
-            String(name) => _factor_v3_data(response)
+            String(name) => _factor_recipe_data(response)
             for (name, response) in pairs(factor.responses)
         ),
     )
 end
 
-function _stoichiometry_v3_data(stoichiometry::FixedStoichiometry)
+function _stoichiometry_recipe_data(stoichiometry::FixedStoichiometry)
     return Dict{String,Any}(
         "kind" => "fixed",
         "reference" => String(stoichiometry.reference),
     )
 end
 
-function _routing_v3_data(routing::ProductRouting)
+function _routing_recipe_data(routing::ProductRouting)
     data = Dict{String,Any}(
         "kind" => "product_routing",
         "formulation" => String(formulation_tag(formulation(routing))),
@@ -421,27 +421,27 @@ function _routing_v3_data(routing::ProductRouting)
             )
             for (pool_name, pool) in pairs(routing.pools)
         )
-        data["stoichiometry"] = _stoichiometry_v3_data(routing.stoichiometry)
+        data["stoichiometry"] = _stoichiometry_recipe_data(routing.stoichiometry)
     else
         throw(ArgumentError("unsupported product-routing formulation $(typeof(routing.formulation))"))
     end
     return data
 end
 
-function _process_v3_data(named)
+function _process_recipe_data(named)
     process = named.process
     data = Dict{String,Any}(
         "kind" => String(process_kind(named)),
-        "participants" => _participants_v3_data(named),
+        "participants" => _participants_recipe_data(named),
         "rate_axes" => _string_array(rate_axes(named)),
     )
 
     if process isa Growth
         data["factors"] = Dict{String,Any}(
-            String(name) => _factor_v3_data(factor) for (name, factor) in pairs(process.factors)
+            String(name) => _factor_recipe_data(factor) for (name, factor) in pairs(process.factors)
         )
         isnothing(process.stoichiometry) ||
-            (data["stoichiometry"] = _stoichiometry_v3_data(process.stoichiometry))
+            (data["stoichiometry"] = _stoichiometry_recipe_data(process.stoichiometry))
     else
         data["formulation"] = String(formulation_tag(formulation(named)))
         if isempty(factors(named))
@@ -454,17 +454,17 @@ function _process_v3_data(named)
 
     if !(process isa Growth) && !isempty(factors(named))
         data["factors"] = Dict{String,Any}(
-            String(name) => _factor_v3_data(factor) for (name, factor) in pairs(factors(named))
+            String(name) => _factor_recipe_data(factor) for (name, factor) in pairs(factors(named))
         )
     end
 
     if process isa Union{Grazing,Mortality} && !isnothing(process.routing)
-        data["routing"] = _routing_v3_data(process.routing)
+        data["routing"] = _routing_recipe_data(process.routing)
     end
     return data
 end
 
-function _parameter_bindings_v3_data(recipe::ProcessModelRecipe)
+function _parameter_bindings_recipe_data(recipe::ProcessModelRecipe)
     factory = recipe_factory(Val(recipe.family))
     normalized = normalize_model(ModelDefinition(;
         components=recipe.components,
@@ -494,7 +494,7 @@ end
 
 function _encode_process_recipe_data(recipe::ProcessModelRecipe)
     components = Dict{String,Any}(
-        String(name) => _component_v3_data(name, getproperty(recipe.components, name), recipe)
+        String(name) => _component_recipe_data(name, getproperty(recipe.components, name), recipe)
         for name in keys(recipe.components)
     )
     normalized = normalize_model(ModelDefinition(;
@@ -503,7 +503,7 @@ function _encode_process_recipe_data(recipe::ProcessModelRecipe)
         parameters=parameter_definitions(recipe_factory(Val(recipe.family))),
     ))
     processes = Dict{String,Any}(
-        String(name) => _process_v3_data(getproperty(normalized.processes, name))
+        String(name) => _process_recipe_data(getproperty(normalized.processes, name))
         for name in keys(normalized.processes)
     )
     realization = Dict{String,Any}(
@@ -517,7 +517,7 @@ function _encode_process_recipe_data(recipe::ProcessModelRecipe)
     return Dict{String,Any}(
         "components" => components,
         "processes" => processes,
-        "parameter_bindings" => _parameter_bindings_v3_data(recipe),
+        "parameter_bindings" => _parameter_bindings_recipe_data(recipe),
         "realization" => realization,
     )
 end
@@ -697,8 +697,7 @@ function decode_recipe(document::AbstractDict)
     schema == PROCESS_MODEL_RECIPE_SCHEMA || throw(
         ArgumentError(
             "Unsupported Agate recipe schema $(repr(schema)); supported schema is " *
-            "$(repr(PROCESS_MODEL_RECIPE_SCHEMA)). Recreate v1/v2 recipes with a " *
-            "compatible pre-v0.12 Agate release before migrating them to v3."
+            "$(repr(PROCESS_MODEL_RECIPE_SCHEMA))."
         )
     )
     return _decode_process_model_recipe(document)

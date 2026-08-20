@@ -66,7 +66,6 @@ end
     _, manifest = Agate.Construction.construct_factory_plus_manifest(
         recipe; grid=dummy_grid(Float64)
     )
-    @test manifest.ecological_roles == (phytoplankton=(:P,), zooplankton=(:Z,))
 
     @test count(x -> !iszero(x), bgc.parameters.maximum_growth_rate) == 2
     @test count(x -> !iszero(x), bgc.parameters.maximum_predation_rate) == 2

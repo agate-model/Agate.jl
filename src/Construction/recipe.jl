@@ -38,18 +38,16 @@ end
 """Resolved deterministic scientific state produced by model construction.
 
 `ModelManifest` records the fully materialized parameters, expanded groups and
-tracer ordering, resolved interaction axes, interaction sources, sinking
-configuration, and scalar type. It is an in-memory record of the constructed
-model state; durable replay is defined by the corresponding recipe representation.
+tracer ordering, interaction sources, sinking configuration, and scalar type. It is
+an in-memory record of the constructed model state; durable replay is defined by the
+corresponding recipe representation.
 """
-struct ModelManifest{P,G,TR,A,D,ER,IR,I,S,T<:Real}
+struct ModelManifest{P,G,TR,A,D,I,S,T<:Real}
     parameters::P
     group_tracers::G
     tracer_order::TR
     auxiliary_fields::A
     plankton_diameters::D
-    ecological_roles::ER
-    interaction_role_indices::IR
     interaction_matrix_sources::I
     sinking_tracers::S
     open_bottom::Bool
@@ -132,7 +130,7 @@ function _normalize_recipe_community(community::NamedTuple)
     return NamedTuple{groups}(values)
 end
 
-"""Capture a v3 component/process recipe before runtime realization."""
+"""Capture a component/process recipe before runtime realization."""
 function capture_process_model_recipe(
     factory::AbstractBGCFactory;
     population_groups::NamedTuple,
@@ -169,7 +167,6 @@ function capture_model_manifest(
     community_context;
     tracer_order::Tuple,
     auxiliary_fields::Tuple,
-    ecological_roles::NamedTuple=(;),
     explicit_override_keys::Tuple,
     sinking_tracers,
     open_bottom::Bool,
@@ -183,10 +180,6 @@ function capture_model_manifest(
     end
     group_tracers = NamedTuple{group_order}(group_values)
 
-    interaction_role_indices = (
-        consumers=Tuple(community_context.consumer_indices),
-        prey=Tuple(community_context.prey_indices),
-    )
     interaction_names = Tuple(
         spec.name for spec in parameter_directory(factory) if
         spec.shape === :matrix && spec.axes == (:consumer, :prey)
@@ -209,8 +202,6 @@ function capture_model_manifest(
         tracer_order,
         auxiliary_fields,
         Tuple(community_context.diameters),
-        deepcopy(ecological_roles),
-        interaction_role_indices,
         deepcopy(interaction_matrix_sources),
         deepcopy(sinking_tracers),
         open_bottom,

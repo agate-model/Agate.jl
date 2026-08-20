@@ -5,7 +5,7 @@
   },
   "model": "NiPiZD",
   "runtime": {
-    "recipe_schema": "agate.model_recipe.v2",
+    "recipe_schema": "agate.model_recipe.v0.2",
     "tracer_order": [
       "N",
       "D",

@@ -42,7 +42,7 @@
     "canonical_order": "deterministic_identity_order"
   },
   "recipe": {
-    "schema": "agate.model_recipe.v3",
+    "schema": "agate.model_recipe.v0.3",
     "stable_representation": "schema_tags_and_data"
   },
   "runtime": {

@@ -208,7 +208,7 @@ Keyword arguments
   `prey`. Each field may be `nothing`, a collection of group symbols, an index
   vector, or a boolean mask.
 When `interaction_roles` is omitted, both interaction axes include all classes.
-Parameter applicability is resolved independently from process participation.
+Parameter applicability is resolved separately from these interaction axes and derives directly from process participation.
 """
 function parse_community(
     ::Type{T},
