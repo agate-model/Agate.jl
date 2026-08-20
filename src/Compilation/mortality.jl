@@ -79,9 +79,6 @@ function process_fluxes(
     topology::MortalityTopology,
     definition::NormalizedModelDefinition,
 ) where {P<:Mortality}
-    length(topology.population_tracers) == length(topology.population_indices) || throw(
-        ArgumentError("mortality topology tracer and index counts must match"),
-    )
     slots = _mortality_slots(definition, named)
     form = formulation(named.process)
     routing = named.process.routing

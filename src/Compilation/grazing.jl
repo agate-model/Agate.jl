@@ -99,13 +99,6 @@ function process_fluxes(
     topology::GrazingTopology,
     definition::NormalizedModelDefinition,
 ) where {P<:Grazing}
-    length(topology.consumer_tracers) == length(topology.consumer_indices) || throw(
-        ArgumentError("grazing topology consumer tracer and index counts must match"),
-    )
-    length(topology.resource_tracers) == length(topology.resource_indices) || throw(
-        ArgumentError("grazing topology resource tracer and index counts must match"),
-    )
-
     slots = parameter_slot_bindings(definition, named, (), formulation(named.process))
     fluxes = ()
     for consumer_axis in eachindex(topology.consumer_tracers)

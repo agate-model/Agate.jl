@@ -300,6 +300,9 @@ function Grazing(
     isnothing(routing) || routing isa ProductRouting || throw(
         ArgumentError("grazing `routing` must be a ProductRouting"),
     )
+    isnothing(routing) || routing.formulation isa DOMPOMRouting || throw(
+        ArgumentError("grazing product routing must use the :dom_pom formulation"),
+    )
     return Grazing(formulation, consumer_refs, resource_refs, destination, routing)
 end
 

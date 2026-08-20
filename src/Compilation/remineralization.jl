@@ -25,9 +25,6 @@ function process_fluxes(
     definition::NormalizedModelDefinition,
 ) where {P<:Remineralization}
     process = named.process
-    length(topology.source_tracers) == length(process.sources) || throw(
-        ArgumentError("remineralization topology source count must match process sources"),
-    )
     fluxes = ()
     for i in eachindex(topology.source_tracers)
         source = topology.source_tracers[i]

@@ -18,6 +18,7 @@ using Agate.Processes:
     ModelDefinition,
     ParameterSlot,
     ParameterRequirementIdentity,
+    ProductRouting,
     parameter_bindings,
     parameter_requirements,
     parameter_slots,
@@ -104,6 +105,26 @@ using Agate.Processes:
         populations=(:P,),
         factors=(light=Light(:smith; driver=:PAR),),
     )
+    @test_throws ArgumentError Grazing(
+        :preferential;
+        consumer=:Z,
+        resource=:P,
+        routing=ProductRouting(:partition; retained=:D, exported=:N),
+    )
+
+    redundant_growth_source = ModelDefinition(;
+        components=(
+            P=Population(; currency=:nitrogen),
+            N=Pool(:nitrogen),
+            D=Pool(:nitrogen),
+        ),
+        processes=(growth=Growth(;
+            population=:P,
+            source=:D,
+            factors=(nutrients=NutrientResponse(:monod; resource=:N),),
+        ),),
+    )
+    @test_throws ArgumentError normalize_model(redundant_growth_source)
 
     @test parameter_slots(Smith()) == (
         ParameterSlot(:maximum_rate, (:population,)),

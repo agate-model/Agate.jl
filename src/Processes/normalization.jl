@@ -521,6 +521,13 @@ function _validate_currency_target(
 end
 
 function _validate_process_science(process::Growth, components::NamedTuple)
+    single_resource = any(factor -> factor isa NutrientResponse, values(process.factors))
+    !single_resource || isnothing(process.source) || throw(
+        ArgumentError(
+            "single-resource growth derives its source from the nutrient response; omit `source`"
+        ),
+    )
+
     stoichiometry = process.stoichiometry
     stoichiometry isa FixedStoichiometry || return nothing
     reference = stoichiometry.reference

@@ -131,9 +131,6 @@ function process_fluxes(
     topology::GrowthTopology,
     definition::NormalizedModelDefinition,
 ) where {P<:Growth}
-    length(topology.population_tracers) == length(topology.population_indices) || throw(
-        ArgumentError("growth topology tracer and index counts must match"),
-    )
     _, nutrients = _growth_resource_factor(named.process)
     scale_binding = _growth_scale_binding(definition, named)
     fluxes = ()

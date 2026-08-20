@@ -1,9 +1,6 @@
 """Evaluate the canonical scientific rate for a mortality formulation."""
 @inline process_rate(::LinearMortality, biomass, coefficient) = linear_loss(biomass, coefficient)
 @inline process_rate(::QuadraticMortality, biomass, coefficient) = quadratic_loss(biomass, coefficient)
-@inline process_rate(process::Mortality, biomass, coefficient) =
-    process_rate(formulation(process), biomass, coefficient)
-
 @inline factor_value(::Smith, light, maximum_rate, alpha) =
     smith_light_limitation(light, alpha, maximum_rate)
 
@@ -48,26 +45,6 @@ end
     )
 end
 
-@inline function process_rate(
-    process::Grazing{PreferentialGrazing},
-    resource,
-    consumer,
-    maximum_rate,
-    half_saturation,
-    palatability,
-)
-    return process_rate(
-        process.formulation,
-        resource,
-        consumer,
-        maximum_rate,
-        half_saturation,
-        palatability,
-    )
-end
-
 """Evaluate one linear source remineralization rate."""
 @inline process_rate(::LinearRemineralization, source, coefficient) =
     linear_remineralization(source, coefficient)
-@inline process_rate(process::Remineralization{LinearRemineralization}, source, coefficient) =
-    process_rate(process.formulation, source, coefficient)
