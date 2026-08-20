@@ -16,11 +16,11 @@ using ..Library.Nutrients: monod_limitation
 using ..Library.Remineralization: linear_remineralization
 
 export AbstractProcess, AbstractFormulation, AbstractFactor, AbstractStoichiometry
-export Smith, Geider, Monod, Liebig, PreferentialGrazing
-export Light, Nutrients
+export Smith, Geider, Monod, Liebig, Q10, PreferentialGrazing, HeterotrophicConsumption
+export Light, Nutrients, Temperature
 export LinearMortality, QuadraticMortality, LinearRemineralization
 export PartitionRouting, DOMPOMRouting, FixedStoichiometry
-export Growth, NutrientResponse, Grazing, Mortality, ProductRouting, Remineralization
+export Growth, NutrientResponse, Grazing, Consumption, Mortality, ProductRouting, Remineralization
 export ModelDefinition, NormalizedModelDefinition, NamedProcess
 export ParameterRequirementIdentity, ParameterRequirement
 export ParameterBinding, ParameterApplicability

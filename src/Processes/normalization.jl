@@ -227,8 +227,18 @@ function _factor_parameter_requirements(
     return requirements
 end
 
+function _factor_parameter_requirements(named::NamedProcess, name::Symbol, factor::Temperature{Q10})
+    path = (:factors, name)
+    return (
+        _requirement(named, path, factor.formulation, :q10, (); shape=:scalar),
+        _requirement(
+            named, path, factor.formulation, :reference_temperature, (); shape=:scalar
+        ),
+    )
+end
+
 function _factor_parameter_requirements(named::NamedProcess, name::Symbol, factor::AbstractFactor)
-    throw(ArgumentError("unsupported growth factor :$name of type $(typeof(factor))"))
+    throw(ArgumentError("unsupported process factor :$name of type $(typeof(factor))"))
 end
 
 """Return semantic parameter requirements declared by a named process formulation."""
@@ -332,6 +342,22 @@ function parameter_requirements(named::NamedProcess{P}) where {P<:Grazing}
     return (requirements..., _routing_parameter_requirements(named, process.routing)...)
 end
 
+function parameter_requirements(named::NamedProcess{P}) where {P<:Consumption}
+    process = named.process
+    process.formulation isa HeterotrophicConsumption || throw(
+        ArgumentError("unsupported consumption formulation $(typeof(process.formulation))"),
+    )
+    requirements = (
+        _requirement(named, (), process.formulation, :maximum_rate, (:consumer,)),
+        _requirement(named, (), process.formulation, :half_saturation, (:resource,)),
+        _requirement(named, (), process.formulation, :assimilation, (:consumer, :resource)),
+    )
+    for (name, factor) in pairs(process.factors)
+        requirements = (requirements..., _factor_parameter_requirements(named, name, factor)...)
+    end
+    return requirements
+end
+
 function parameter_requirements(named::NamedProcess{P}) where {P<:Mortality}
     process = named.process
     qualifier = length(process.populations) == 1 ?
@@ -397,6 +423,7 @@ function parameter_name(
 end
 
 _factor_component_references(::Light) = ()
+_factor_component_references(::Temperature) = ()
 _factor_component_references(factor::NutrientResponse) = (factor.resource,)
 function _factor_component_references(factor::Nutrients)
     references = ()
@@ -432,6 +459,12 @@ function _process_component_references(process::Grazing)
     destination_refs = isnothing(destination) ? () : (destination,)
     routing_refs = isnothing(process.routing) ? () : _routing_component_references(process.routing)
     return (process.consumers..., process.resources..., destination_refs..., routing_refs...)
+end
+
+function _process_component_references(process::Consumption)
+    destination = process.unassimilated_destination
+    destination_refs = isnothing(destination) ? () : (destination,)
+    return (process.consumers..., process.resources..., destination_refs...)
 end
 
 function _process_component_references(process::Mortality)
@@ -485,6 +518,32 @@ end
 
 function _validate_process_science(process::Grazing, components::NamedTuple)
     isnothing(process.routing) || _validate_routing_science(process.routing, components)
+    return nothing
+end
+
+function _validate_process_science(process::Consumption, components::NamedTuple)
+    all(consumer -> getproperty(components, consumer) isa Population, process.consumers) || throw(
+        ArgumentError("consumption consumers must be Population components"),
+    )
+    all(resource -> getproperty(components, resource) isa Pool, process.resources) || throw(
+        ArgumentError("consumption resources must be Pool components"),
+    )
+    if !isnothing(process.unassimilated_destination)
+        getproperty(components, process.unassimilated_destination) isa Pool || throw(
+            ArgumentError("consumption unassimilated destination must be a Pool component"),
+        )
+    end
+
+    reference = currency(getproperty(components, first(process.consumers)))
+    for consumer in process.consumers
+        _validate_currency_target(components, consumer, reference, "consumption consumer")
+    end
+    for resource in process.resources
+        _validate_currency_target(components, resource, reference, "consumption resource")
+    end
+    isnothing(process.unassimilated_destination) || _validate_currency_target(
+        components, process.unassimilated_destination, reference, "consumption destination"
+    )
     return nothing
 end
 

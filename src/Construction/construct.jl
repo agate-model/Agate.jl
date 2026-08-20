@@ -491,6 +491,7 @@ function _process_interaction_roles(definition, population_groups::NamedTuple)
     consumer_components = Symbol[]
     resource_components = Symbol[]
     for named in values(definition.processes)
+        process_kind(named) === :grazing || continue
         process_participants = participants(named)
         hasproperty(process_participants, :consumer) &&
             append!(consumer_components, process_participants.consumer)

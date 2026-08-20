@@ -23,12 +23,13 @@ function _growth_nutrient_factor(process::Growth)
 end
 
 """Resolved parameter names needed to compile one factorized growth process."""
-struct GrowthParameterBinding{K,C,S}
+struct GrowthParameterBinding{K,C,S,T}
     maximum_rate::Symbol
     half_saturation::K
     alpha::Symbol
     chlorophyll_to_carbon_ratio::C
     stoichiometry::S
+    temperature::T
 end
 
 function _growth_stoichiometry_bindings(
@@ -62,6 +63,7 @@ function GrowthParameterBinding(definition::NormalizedModelDefinition, id::Symbo
     process isa Growth || throw(ArgumentError("process :$id is not a Growth process"))
     light_name, light = _growth_light_factor(process)
     nutrient_name, nutrients = _growth_nutrient_factor(process)
+    temperature = _temperature_factor_binding(definition, named)
 
     light_path = (:factors, light_name)
     maximum_rate = parameter_name(
@@ -75,7 +77,7 @@ function GrowthParameterBinding(definition::NormalizedModelDefinition, id::Symbo
                 qualifier=(resource=nutrients.resource,))
         )
         return GrowthParameterBinding(
-            maximum_rate, half_saturation, alpha, nothing, NamedTuple()
+            maximum_rate, half_saturation, alpha, nothing, NamedTuple(), temperature
         )
     end
 
@@ -98,7 +100,7 @@ function GrowthParameterBinding(definition::NormalizedModelDefinition, id::Symbo
         )
         stoichiometry = _growth_stoichiometry_bindings(definition, named, nutrients)
         return GrowthParameterBinding(
-            maximum_rate, half_saturations, alpha, chlorophyll, stoichiometry
+            maximum_rate, half_saturations, alpha, chlorophyll, stoichiometry, temperature
         )
     end
 
@@ -117,7 +119,7 @@ struct GrowthTopology{TR,IX,R,S,D}
 end
 
 """Positive biomass effect from one realized growth-rate element."""
-struct GrowthBiomassContribution{R,K,C,S,L,N} <: AbstractProcessContribution
+struct GrowthBiomassContribution{R,K,C,S,L,N,T} <: AbstractProcessContribution
     process::Symbol
     target::Symbol
     population_index::Int
@@ -130,10 +132,11 @@ struct GrowthBiomassContribution{R,K,C,S,L,N} <: AbstractProcessContribution
     stoichiometry_parameters::S
     light::L
     nutrients::N
+    temperature_factor::T
 end
 
 """Resource loss coupled to one realized growth-rate element."""
-struct GrowthResourceLossContribution{R,K,C,S,L,N,Q} <: AbstractProcessContribution
+struct GrowthResourceLossContribution{R,K,C,S,L,N,T,Q} <: AbstractProcessContribution
     process::Symbol
     target::Symbol
     population::Symbol
@@ -147,6 +150,7 @@ struct GrowthResourceLossContribution{R,K,C,S,L,N,Q} <: AbstractProcessContribut
     stoichiometry_parameters::S
     light::L
     nutrients::N
+    temperature_factor::T
     scale_parameter::Q
 end
 
@@ -202,6 +206,7 @@ function _growth_contribution_fields(
         binding.stoichiometry,
         light,
         nutrients,
+        binding.temperature,
     )
 end
 
@@ -284,14 +289,15 @@ end
 @inline _growth_effect(::Val{:gain}, rate, scale) = rate
 @inline _growth_effect(::Val{:loss}, rate, scale) = -scale * rate
 
-struct SmithMonodGrowthTerm{I,R,D,M,K,A,Q,Effect}
+struct SmithMonodGrowthTerm{I,R,D,M,K,A,Q,Effect,T}
     light_formulation::Smith
     nutrient_formulation::Monod
+    temperature::T
 end
 
-@inline function (term::SmithMonodGrowthTerm{I,R,D,M,K,A,Q,Effect})(
+@inline function (term::SmithMonodGrowthTerm{I,R,D,M,K,A,Q,Effect,T})(
     bgc, args
-) where {I,R,D,M,K,A,Q,Effect}
+) where {I,R,D,M,K,A,Q,Effect,T}
     biomass = bgc.tracers.plankton(args, I)
     resource = getproperty(bgc.tracers, R)(args)
     light = getproperty(bgc.tracers, D)(args)
@@ -308,6 +314,7 @@ end
         half_saturation,
         alpha,
     )
+    rate = _apply_factor(term.temperature, bgc, args, rate)
     return _growth_effect(Val(Effect), rate, _growth_scale(bgc, Val(Q)))
 end
 
@@ -323,14 +330,15 @@ end
     return Expr(:tuple, expressions...)
 end
 
-struct GeiderLiebigGrowthTerm{I,R,D,M,K,A,C,Q,Effect}
+struct GeiderLiebigGrowthTerm{I,R,D,M,K,A,C,Q,Effect,T}
     light_formulation::Geider
     nutrient_formulation::Liebig
+    temperature::T
 end
 
-@inline function (term::GeiderLiebigGrowthTerm{I,R,D,M,K,A,C,Q,Effect})(
+@inline function (term::GeiderLiebigGrowthTerm{I,R,D,M,K,A,C,Q,Effect,T})(
     bgc, args
-) where {I,R,D,M,K,A,C,Q,Effect}
+) where {I,R,D,M,K,A,C,Q,Effect,T}
     biomass = bgc.tracers.plankton(args, I)
     resources = _growth_tracer_values(bgc, args, Val(R))
     light = getproperty(bgc.tracers, D)(args)
@@ -349,6 +357,7 @@ end
         alpha,
         chlorophyll,
     )
+    rate = _apply_factor(term.temperature, bgc, args, rate)
     return _growth_effect(Val(Effect), rate, _growth_scale(bgc, Val(Q)))
 end
 
@@ -356,6 +365,7 @@ function _growth_term(contribution, ::Val{Effect}) where {Effect}
     light = contribution.light
     nutrients = contribution.nutrients
     scale = hasproperty(contribution, :scale_parameter) ? contribution.scale_parameter : nothing
+    temperature = _lower_factor(contribution.temperature_factor)
 
     if light isa Light{Smith} && nutrients isa NutrientResponse{Monod}
         return SmithMonodGrowthTerm{
@@ -367,7 +377,8 @@ function _growth_term(contribution, ::Val{Effect}) where {Effect}
             contribution.alpha_parameter,
             scale,
             Effect,
-        }(formulation(light), formulation(nutrients))
+            typeof(temperature),
+        }(formulation(light), formulation(nutrients), temperature)
     end
 
     if light isa Light{Geider} && nutrients isa Nutrients{Liebig}
@@ -383,7 +394,8 @@ function _growth_term(contribution, ::Val{Effect}) where {Effect}
             contribution.chlorophyll_to_carbon_ratio_parameter,
             scale,
             Effect,
-        }(formulation(light), formulation(nutrients))
+            typeof(temperature),
+        }(formulation(light), formulation(nutrients), temperature)
     end
 
     throw(ArgumentError(

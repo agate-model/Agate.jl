@@ -117,8 +117,10 @@ Agate.Processes.AbstractFactor
 Agate.Processes.Growth
 Agate.Processes.Light
 Agate.Processes.NutrientResponse
+Agate.Processes.Temperature
 Agate.Processes.factors
 Agate.Processes.Grazing
+Agate.Processes.Consumption
 Agate.Processes.Mortality
 Agate.Processes.ProductRouting
 Agate.Processes.Remineralization

@@ -10,6 +10,9 @@
 @inline factor_value(::Monod, resource, half_saturation) =
     monod_limitation(resource, half_saturation)
 
+@inline factor_value(::Q10, temperature, q10, reference_temperature) =
+    q10 ^ ((temperature - reference_temperature) / 10)
+
 """Evaluate growth by multiplying its Smith light and Monod nutrient factors."""
 @inline function process_rate(
     light_formulation::Smith,
@@ -47,6 +50,13 @@ end
         alpha,
         chlorophyll_to_carbon_ratio,
     )
+end
+
+"""Evaluate one heterotrophic consumer-by-resource uptake rate."""
+@inline function process_rate(
+    ::HeterotrophicConsumption, resource, consumer, maximum_rate, half_saturation
+)
+    return maximum_rate * factor_value(Monod(), resource, half_saturation) * consumer
 end
 
 """Evaluate one preferential consumer-by-resource grazing rate."""

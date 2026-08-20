@@ -8,8 +8,8 @@ using ..Factories: parameter_definitions, default_components, default_processes
 
 using ..Processes:
     ModelDefinition, normalize_model, parameter_bindings, process_kind, formulation,
-    formulation_tag, participants, drivers, rate_axes, Growth, Light, NutrientResponse, Nutrients,
-    Grazing, Mortality, ProductRouting, PartitionRouting, DOMPOMRouting, FixedStoichiometry
+    formulation_tag, factors, participants, drivers, rate_axes, Growth, Light, NutrientResponse, Nutrients,
+    Temperature, Grazing, Mortality, ProductRouting, PartitionRouting, DOMPOMRouting, FixedStoichiometry
 
 using ..Library.Allometry:
     ConstantParam,
@@ -398,6 +398,14 @@ function _factor_v3_data(factor::Light)
     )
 end
 
+function _factor_v3_data(factor::Temperature)
+    return Dict{String,Any}(
+        "kind" => "temperature",
+        "formulation" => String(formulation_tag(formulation(factor))),
+        "drivers" => Dict{String,Any}("driver" => String(factor.driver)),
+    )
+end
+
 function _factor_v3_data(factor::NutrientResponse)
     return Dict{String,Any}(
         "kind" => "nutrient_response",
@@ -463,10 +471,18 @@ function _process_v3_data(named)
             (data["stoichiometry"] = _stoichiometry_v3_data(process.stoichiometry))
     else
         data["formulation"] = String(formulation_tag(formulation(named)))
-        process_drivers = drivers(named)
-        isempty(process_drivers) || (data["drivers"] = Dict(
-            String(slot) => String(identity) for (slot, identity) in pairs(process_drivers)
-        ))
+        if isempty(factors(named))
+            process_drivers = drivers(named)
+            isempty(process_drivers) || (data["drivers"] = Dict(
+                String(slot) => String(identity) for (slot, identity) in pairs(process_drivers)
+            ))
+        end
+    end
+
+    if !(process isa Growth) && !isempty(factors(named))
+        data["factors"] = Dict{String,Any}(
+            String(name) => _factor_v3_data(factor) for (name, factor) in pairs(factors(named))
+        )
     end
 
     if process isa Union{Grazing,Mortality} && !isnothing(process.routing)

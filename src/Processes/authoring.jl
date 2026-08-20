@@ -8,11 +8,13 @@ struct Smith <: AbstractFormulation end
 struct Geider <: AbstractFormulation end
 struct Monod <: AbstractFormulation end
 struct Liebig <: AbstractFormulation end
+struct Q10 <: AbstractFormulation end
 struct MultiplicativeFactors <: AbstractFormulation end
 
 """Abstract supertype for named multiplicative process-rate factors."""
 abstract type AbstractFactor end
 struct PreferentialGrazing <: AbstractFormulation end
+struct HeterotrophicConsumption <: AbstractFormulation end
 struct LinearMortality <: AbstractFormulation end
 struct QuadraticMortality <: AbstractFormulation end
 struct LinearRemineralization <: AbstractFormulation end
@@ -35,8 +37,10 @@ formulation_tag(::Smith) = :smith
 formulation_tag(::Geider) = :geider
 formulation_tag(::Monod) = :monod
 formulation_tag(::Liebig) = :liebig
+formulation_tag(::Q10) = :q10
 formulation_tag(::MultiplicativeFactors) = :multiplicative
 formulation_tag(::PreferentialGrazing) = :preferential
+formulation_tag(::HeterotrophicConsumption) = :heterotrophic
 formulation_tag(::LinearMortality) = :linear
 formulation_tag(::QuadraticMortality) = :quadratic
 formulation_tag(::LinearRemineralization) = :linear
@@ -48,7 +52,9 @@ _resolve_light(::Val{:smith}) = Smith()
 _resolve_light(::Val{:geider}) = Geider()
 _resolve_response(::Val{:monod}) = Monod()
 _resolve_nutrients(::Val{:liebig}) = Liebig()
+_resolve_temperature(::Val{:q10}) = Q10()
 _resolve_grazing(::Val{:preferential}) = PreferentialGrazing()
+_resolve_consumption(::Val{:heterotrophic}) = HeterotrophicConsumption()
 _resolve_mortality(::Val{:linear}) = LinearMortality()
 _resolve_mortality(::Val{:quadratic}) = QuadraticMortality()
 _resolve_remineralization(::Val{:linear}) = LinearRemineralization()
@@ -62,7 +68,9 @@ end
 _resolve_light(::Val{F}) where {F} = _unknown_formulation(:light, F)
 _resolve_response(::Val{F}) where {F} = _unknown_formulation(:nutrient_response, F)
 _resolve_nutrients(::Val{F}) where {F} = _unknown_formulation(:nutrients, F)
+_resolve_temperature(::Val{F}) where {F} = _unknown_formulation(:temperature, F)
 _resolve_grazing(::Val{F}) where {F} = _unknown_formulation(:grazing, F)
+_resolve_consumption(::Val{F}) where {F} = _unknown_formulation(:consumption, F)
 _resolve_mortality(::Val{F}) where {F} = _unknown_formulation(:mortality, F)
 _resolve_remineralization(::Val{F}) where {F} = _unknown_formulation(:remineralization, F)
 _resolve_routing(::Val{F}) where {F} = _unknown_formulation(:product_routing, F)
@@ -110,6 +118,19 @@ NutrientResponse(formulation::Symbol; resource::Symbol) =
 NutrientResponse(formulation::Monod; resource::Symbol) = NutrientResponse(formulation, resource)
 function NutrientResponse(formulation::AbstractFormulation; resource::Symbol)
     throw(ArgumentError("$(typeof(formulation)) is not a nutrient-response formulation"))
+end
+
+"""Temperature-dependent multiplicative process-rate factor."""
+struct Temperature{F<:AbstractFormulation} <: AbstractFactor
+    formulation::F
+    driver::Symbol
+end
+
+Temperature(formulation::Symbol; driver::Symbol=:temperature) =
+    Temperature(_resolve_temperature(Val(formulation)); driver)
+Temperature(formulation::Q10; driver::Symbol=:temperature) = Temperature(formulation, driver)
+function Temperature(formulation::AbstractFormulation; driver::Symbol=:temperature)
+    throw(ArgumentError("$(typeof(formulation)) is not a temperature formulation"))
 end
 
 function _canonical_responses(responses::NamedTuple)
@@ -184,10 +205,10 @@ function ProductRouting(formulation::AbstractFormulation; kwargs...)
     throw(ArgumentError("$(typeof(formulation)) is not a product-routing formulation"))
 end
 
-function _canonical_factors(factors::NamedTuple)
-    isempty(factors) && throw(ArgumentError("growth `factors` cannot be empty"))
+function _canonical_factors(factors::NamedTuple; allow_empty::Bool=false)
+    isempty(factors) && !allow_empty && throw(ArgumentError("process `factors` cannot be empty"))
     all(factor -> factor isa AbstractFactor, values(factors)) || throw(
-        ArgumentError("growth `factors` values must be process factors"),
+        ArgumentError("process `factors` values must be process factors"),
     )
     names = sort!(collect(keys(factors)); by=String)
     names_tuple = Tuple(names)
@@ -261,6 +282,37 @@ function Grazing(formulation::AbstractFormulation; kwargs...)
     throw(ArgumentError("$(typeof(formulation)) is not a grazing formulation"))
 end
 
+"""Consumer-resource heterotrophic consumption with optional multiplicative factors."""
+struct Consumption{F<:AbstractFormulation,A<:NamedTuple} <: AbstractProcess
+    formulation::F
+    consumers::Tuple
+    resources::Tuple
+    unassimilated_destination::Union{Nothing,Symbol}
+    factors::A
+end
+
+function Consumption(
+    formulation::HeterotrophicConsumption;
+    consumer=nothing,
+    consumers=nothing,
+    resource=nothing,
+    resources=nothing,
+    unassimilated_destination=nothing,
+    factors::NamedTuple=NamedTuple(),
+)
+    consumer_refs = _participant_tuple(:consumer, consumer, consumers)
+    resource_refs = _participant_tuple(:resource, resource, resources)
+    destination = _optional_reference(:unassimilated_destination, unassimilated_destination)
+    canonical = _canonical_factors(factors; allow_empty=true)
+    return Consumption(formulation, consumer_refs, resource_refs, destination, canonical)
+end
+
+Consumption(formulation::Symbol; kwargs...) =
+    Consumption(_resolve_consumption(Val(formulation)); kwargs...)
+function Consumption(formulation::AbstractFormulation; kwargs...)
+    throw(ArgumentError("$(typeof(formulation)) is not a consumption formulation"))
+end
+
 """Population mortality process with optional product routing."""
 struct Mortality{F<:AbstractFormulation,R} <: AbstractProcess
     formulation::F
@@ -317,11 +369,12 @@ formulation(factor::AbstractFactor) = factor.formulation
 formulation(routing::ProductRouting) = routing.formulation
 
 """Return the named multiplicative factors attached to a process."""
-factors(process::Growth) = process.factors
+factors(process::Union{Growth,Consumption}) = process.factors
 factors(::Union{Grazing,Mortality,Remineralization}) = NamedTuple()
 
 process_kind(::Growth) = :growth
 process_kind(::Grazing) = :grazing
+process_kind(::Consumption) = :consumption
 process_kind(::Mortality) = :mortality
 process_kind(::Remineralization) = :remineralization
 
@@ -335,23 +388,29 @@ function participants(process::Grazing)
     isnothing(process.unassimilated_destination) && return base
     return merge(base, (unassimilated_destination=(process.unassimilated_destination,),))
 end
+function participants(process::Consumption)
+    base = (consumer=process.consumers, resource=process.resources)
+    isnothing(process.unassimilated_destination) && return base
+    return merge(base, (unassimilated_destination=(process.unassimilated_destination,),))
+end
 participants(process::Mortality) = (population=process.populations,)
 participants(process::Remineralization) =
     (source=process.sources, destination=process.destinations)
 
 factor_drivers(factor::Light) = (driver=factor.driver,)
+factor_drivers(factor::Temperature) = (driver=factor.driver,)
 factor_drivers(::NutrientResponse) = NamedTuple()
 factor_drivers(::Nutrients) = NamedTuple()
 
-function drivers(process::Growth)
+function _factor_drivers(process)
     names = Symbol[]
     identities = Symbol[]
-    for (name, factor) in pairs(process.factors)
+    for (name, factor) in pairs(factors(process))
         factor_bindings = factor_drivers(factor)
         isempty(factor_bindings) && continue
         length(factor_bindings) == 1 || throw(
             ArgumentError(
-                "growth factor :$name declares multiple drivers; " *
+                "process factor :$name declares multiple drivers; " *
                 "nested driver paths are not implemented"
             ),
         )
@@ -360,9 +419,12 @@ function drivers(process::Growth)
     end
     return NamedTuple{Tuple(names)}(Tuple(identities))
 end
+
+drivers(process::Union{Growth,Consumption}) = _factor_drivers(process)
 drivers(::Union{Grazing,Mortality,Remineralization}) = NamedTuple()
 
 rate_axes(::Growth) = (:population,)
 rate_axes(::Grazing) = (:consumer, :resource)
+rate_axes(::Consumption) = (:consumer, :resource)
 rate_axes(::Mortality) = (:population,)
 rate_axes(::Remineralization) = (:source,)
