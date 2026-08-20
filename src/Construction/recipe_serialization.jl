@@ -691,6 +691,7 @@ function _decode_process_model_recipe(document::AbstractDict)
     return decoded
 end
 
+"""Decode and validate an Agate recipe document for the current recipe schema."""
 function decode_recipe(document::AbstractDict)
     document = _check_keys(document, _RECIPE_DOCUMENT_KEYS, "Recipe document")
     schema = _string(_required(document, "schema", "Recipe document"), "Recipe document.schema")

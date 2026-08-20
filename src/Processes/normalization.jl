@@ -400,6 +400,7 @@ struct NormalizedModelDefinition{C,P,A,D,R,B}
     parameter_bindings::B
 end
 
+"""Return the canonical external-driver identities required by a normalized model."""
 driver_identities(definition::NormalizedModelDefinition) = definition.driver_identities
 
 """Return formulation-declared semantic parameter requirements for a normalized model."""

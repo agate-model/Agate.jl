@@ -7,7 +7,7 @@ Agate separates scientific model definition from setup-time compilation and runt
 A process-defined model moves through five stages:
 
 1. **Definition** (`Configuration/`, `Processes/`, and `Factories/parameter_directory.jl`).
-   [`Population`](@ref) and [`Pool`](@ref) components describe state identity and structure. Named processes describe scientific transformations, and parameter definitions bind defaults to formulation-owned semantic requirements.
+   `Population` and `Pool` components describe state identity and structure. Named processes describe scientific transformations, and parameter definitions bind defaults to formulation-owned semantic requirements.
 
 2. **Normalization and realization** (`Processes/` and `Configuration/`).
    Agate canonicalizes process identity and factor order, realizes structured components into concrete tracer classes, discovers process drivers, and resolves process-local participant axes.
@@ -16,7 +16,7 @@ A process-defined model moves through five stages:
    Each named process produces typed contributions to the concrete tracers it affects. Contributions are grouped by target tracer and lowered during setup into static compiled equations.
 
 4. **Construction and replay** (`Construction/`).
-   Direct [`ModelDefinition`](@ref) construction resolves defaults and overrides from the model definition. Named model families such as NiPiZD and DARWIN use the same definition-driven core while adding durable recipe/replay identity.
+   Direct `ModelDefinition` construction resolves defaults and overrides from the model definition. Named model families such as NiPiZD and DARWIN use the same definition-driven core while adding durable recipe/replay identity.
 
 5. **Runtime and inspection** (`Runtime/`, `Diagnostics/`, and `Introspection.jl`).
    Runtime kernels evaluate lean compiled terms with resolved tracer and parameter indices. Diagnostics and introspection expose the realized model without reinterpreting the model definition.
@@ -49,7 +49,7 @@ lean runtime
 
 ## Scientific boundaries
 
-Components describe structure rather than ecological role. A mixotroph is an ordinary population participating in both growth and grazing. Bacterioplankton are ordinary populations that may consume POM through [`Consumption`](@ref) and be consumed as living prey through [`Grazing`](@ref). Structured material pools use the same component-layout machinery as structured populations.
+Components describe structure rather than ecological role. A mixotroph is an ordinary population participating in both growth and grazing. Bacterioplankton are ordinary populations that may consume POM through `Consumption` and be consumed as living prey through `Grazing`. Structured material pools use the same component-layout machinery as structured populations.
 
 Named factors are multiplicative within a process, while independent named processes add through their contributions to a tracer equation. Routing and stoichiometry map process rates into affected material and currency pools.
 
