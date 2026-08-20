@@ -15,6 +15,12 @@ function modified(document, mutation)
     return copy
 end
 
+explicit_json_value(::Nothing) = true
+explicit_json_value(::Union{Bool,Int,AbstractFloat,String}) = true
+explicit_json_value(x::Dict{String,Any}) = all(explicit_json_value, values(x))
+explicit_json_value(x::Vector{Any}) = all(explicit_json_value, x)
+explicit_json_value(::Any) = false
+
 @testset "NiPiZD recipe serialization" begin
     _, default_recipe = NiPiZD.construct_plus_recipe()
     default_encoded = encode_recipe(default_recipe)
@@ -34,6 +40,7 @@ end
     encoded = encode_recipe(recipe)
     realization = encoded["recipe"]["realization"]
     recipe_hash = encoded["recipe_hash"]
+    @test explicit_json_value(encoded)
     bgc.parameters.palatability_matrix[1, 1] = 0f0
     @test recipe.interaction_overrides.palatability_matrix[1, 1] == 0.8f0
     @test encode_recipe(recipe)["recipe_hash"] == recipe_hash

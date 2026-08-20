@@ -135,6 +135,27 @@ _encode_value(x::AbstractString) = String(x)
 _encode_value(x::Symbol) = Dict{String,Any}("type" => "symbol", "value" => String(x))
 _encode_value(x::AbstractFloat) = _finite_float(x)
 
+_json_value(x::Nothing) = nothing
+_json_value(x::Bool) = x
+_json_value(x::Int) = x
+_json_value(x::AbstractFloat) = _finite_float(x)
+_json_value(x::AbstractString) = String(x)
+
+function _json_value(x::AbstractDict)
+    all(key -> key isa AbstractString, keys(x)) || throw(
+        ArgumentError("Recipe JSON objects must use string keys.")
+    )
+    return Dict{String,Any}(String(key) => _json_value(value) for (key, value) in pairs(x))
+end
+
+function _json_value(x::AbstractVector)
+    return Any[_json_value(value) for value in x]
+end
+
+function _json_value(x)
+    throw(ArgumentError("Recipe JSON data has unsupported value of type $(typeof(x))."))
+end
+
 function _encode_value(x::NamedTuple)
     entries = Any[
         Dict{String,Any}("name" => String(k), "value" => _encode_value(v))
@@ -473,13 +494,13 @@ end
 
 function encode_recipe(recipe::ProcessModelRecipe)
     data = _encode_process_recipe_data(recipe)
-    return Dict{String,Any}(
+    return _json_value(Dict{String,Any}(
         "schema" => PROCESS_MODEL_RECIPE_SCHEMA,
         "model" => Dict{String,Any}("family" => String(recipe.family)),
         "provenance" => _recipe_provenance(recipe),
         "recipe" => data,
         "recipe_hash" => _recipe_hash(recipe, data),
-    )
+    ))
 end
 
 
