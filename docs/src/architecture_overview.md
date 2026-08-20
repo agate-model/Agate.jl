@@ -12,8 +12,8 @@ A process-defined model moves through five stages:
 2. **Normalization and realization** (`Processes/` and `Configuration/`).
    Agate canonicalizes process identity and factor order, realizes structured components into concrete tracer classes, discovers process drivers, and resolves process-local participant axes.
 
-3. **Contribution compilation** (`Compilation/`).
-   Each named process produces typed contributions to the concrete tracers it affects. Contributions are grouped by target tracer and lowered during setup into static compiled equations.
+3. **Flux compilation** (`Compilation/`).
+   Each named process produces generic target + rate + weight flux specifications. Fluxes are grouped by target tracer and lowered during setup into static compiled equations with no target symbols or process metadata in runtime terms.
 
 4. **Construction and replay** (`Construction/`).
    Direct `ModelDefinition` construction resolves defaults and overrides from the model definition. Named model families such as NiPiZD and DARWIN use the same definition-driven core while adding durable recipe/replay identity.
@@ -35,7 +35,7 @@ normalization
 process-local topology + parameter bindings
         |
         v
-typed process contributions
+generic target + rate + weight fluxes
         |
         v
 setup-time grouping / static lowering
@@ -51,7 +51,7 @@ lean runtime
 
 Components describe structure rather than ecological role. A mixotroph is an ordinary population participating in both growth and grazing. Bacterioplankton are ordinary populations that may consume POM through `Consumption` and be consumed as living prey through `Grazing`. Structured material pools use the same component-layout machinery as structured populations.
 
-Named factors are multiplicative within a process, while independent named processes add through their contributions to a tracer equation. Routing and stoichiometry map process rates into affected material and currency pools.
+Named factors are multiplicative within a process, while independent named processes add through their fluxes to a tracer equation. Routing and stoichiometry map process rates into affected material and currency pools.
 
 ## Source tree
 
@@ -59,7 +59,7 @@ Named factors are multiplicative within a process, while independent named proce
 src/
 |-- Configuration/         # components, realization, interactions
 |-- Processes/             # process definitions and normalization
-|-- Compilation/           # topology, contributions, static lowering
+|-- Compilation/           # topology, fluxes, static lowering
 |-- Factories/             # parameter defaults and named-family adapters
 |-- Construction/          # direct construction, recipes, manifests, replay
 |-- Equations/             # compiled equation wrappers

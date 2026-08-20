@@ -76,8 +76,8 @@ Agate.Processes.parameter_name
 Agate.Processes.resolve_parameter_applicability
 Agate.Processes.normalize_model
 Agate.Processes.process_rate
-Agate.Compilation.model_contributions
-Agate.Compilation.group_contributions
+Agate.Compilation.model_fluxes
+Agate.Compilation.group_fluxes
 Agate.Compilation.compile_tendency
 Agate.Compilation.compile_tendencies
 Agate.Compilation.compile_model_tendencies

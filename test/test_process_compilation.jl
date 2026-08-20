@@ -1,23 +1,21 @@
 using Agate.Compilation:
+    TracerOp,
+    ClassOp,
+    ScalarParamOp,
+    VecParamOp,
+    InteractionParamOp,
+    ComplementOp,
     GrowthParameterBinding,
-    GrowthBiomassContribution,
-    GrowthResourceLossContribution,
     GrazingParameterBinding,
-    GrazingResourceLossContribution,
-    GrazingConsumerGainContribution,
-    GrazingUnassimilatedContribution,
     MortalityParameterBinding,
-    MortalityLossContribution,
-    MortalityRoutingContribution,
     RemineralizationParameterBinding,
-    RemineralizationSourceLossContribution,
-    RemineralizationDestinationGainContribution,
     realize_process_topology,
-    process_contributions,
-    group_contributions
+    process_fluxes,
+    group_fluxes,
+    weight_sign
 using Agate.Configuration: realize_components
 using Agate.Factories: default_components
-using Agate.Processes: ModelDefinition, normalize_model
+using Agate.Processes: ModelDefinition, Smith, Monod, normalize_model
 
 @testset "Process compilation" begin
     factory = Agate.Models.NiPiZD.NiPiZDFactory()
@@ -31,8 +29,8 @@ using Agate.Processes: ModelDefinition, normalize_model
         process = normalized.processes.growth_P
         topology = realize_process_topology(process, layout, context)
         binding = GrowthParameterBinding(normalized, :growth_P)
-        contributions = process_contributions(process, topology, binding)
-        grouped = group_contributions(contributions; target_order=(:N, :P_1, :P_2))
+        fluxes = process_fluxes(process, topology, binding)
+        grouped = group_fluxes(fluxes; target_order=(:N, :P_1, :P_2))
 
         @test (binding.maximum_rate, binding.half_saturation, binding.alpha) ==
             (:maximum_growth_rate, :nutrient_half_saturation, :alpha)
@@ -40,8 +38,17 @@ using Agate.Processes: ModelDefinition, normalize_model
         @test topology.population_indices == (3, 4)
         @test topology.resource_target === :N
         @test topology.light_driver === :PAR
-        @test count(c -> c isa GrowthBiomassContribution, contributions) == 2
-        @test count(c -> c isa GrowthResourceLossContribution, contributions) == 2
+        @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) ==
+            ((:P_1, 1), (:N, -1), (:P_2, 1), (:N, -1))
+        @test typeof.(fluxes[1].rate.formulation) == (Smith, Monod)
+        @test fluxes[1].rate.operands == (
+            ClassOp{3}(),
+            TracerOp{:N}(),
+            TracerOp{:PAR}(),
+            VecParamOp{:maximum_growth_rate,3}(),
+            VecParamOp{:nutrient_half_saturation,3}(),
+            VecParamOp{:alpha,3}(),
+        )
         @test map(length, grouped) == (N=2, P_1=1, P_2=1)
     end
 
@@ -49,10 +56,8 @@ using Agate.Processes: ModelDefinition, normalize_model
         process = normalized.processes.grazing_Z_on_P
         topology = realize_process_topology(process, layout, context)
         binding = GrazingParameterBinding(normalized, :grazing_Z_on_P)
-        contributions = process_contributions(process, topology, binding)
-        grouped = group_contributions(
-            contributions; target_order=(:D, :Z_1, :Z_2, :P_1, :P_2)
-        )
+        fluxes = process_fluxes(process, topology, binding)
+        grouped = group_fluxes(fluxes; target_order=(:D, :Z_1, :Z_2, :P_1, :P_2))
 
         @test (
             binding.maximum_rate,
@@ -70,28 +75,38 @@ using Agate.Processes: ModelDefinition, normalize_model
         @test topology.resource_tracers == (:P_1, :P_2)
         @test topology.resource_indices == (3, 4)
         @test topology.unassimilated_target === :D
-        @test count(c -> c isa GrazingResourceLossContribution, contributions) == 4
-        @test count(c -> c isa GrazingConsumerGainContribution, contributions) == 4
-        @test count(c -> c isa GrazingUnassimilatedContribution, contributions) == 4
-        @test Tuple(
-            (c.consumer_axis, c.resource_axis) for c in contributions if
-            c isa GrazingResourceLossContribution
-        ) == ((1, 1), (1, 2), (2, 1), (2, 2))
+        @test length(fluxes) == 12
+        @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes[1:3]) ==
+            ((:P_1, -1), (:Z_1, 1), (:D, 1))
+        @test fluxes[1].rate.operands == (
+            ClassOp{3}(),
+            ClassOp{1}(),
+            VecParamOp{:maximum_predation_rate,1}(),
+            VecParamOp{:holling_half_saturation,1}(),
+            InteractionParamOp{:palatability,1,1}(),
+        )
+        assimilation = InteractionParamOp{:assimilation,1,1}()
+        @test fluxes[2].weight.operands == (assimilation,)
+        @test fluxes[3].weight.operands == (ComplementOp(assimilation),)
+        @test Tuple(flux.rate.operands[5] for flux in fluxes[1:3:end]) == (
+            InteractionParamOp{:palatability,1,1}(),
+            InteractionParamOp{:palatability,1,2}(),
+            InteractionParamOp{:palatability,2,1}(),
+            InteractionParamOp{:palatability,2,2}(),
+        )
         @test map(length, grouped) == (D=4, Z_1=2, Z_2=2, P_1=2, P_2=2)
     end
 
     @testset "Mortality" begin
-        contributions = ()
+        fluxes = ()
         for id in (:linear_mortality_P, :linear_mortality_Z, :quadratic_mortality_Z)
             process = getproperty(normalized.processes, id)
             topology = realize_process_topology(process, layout, context)
             binding = MortalityParameterBinding(normalized, id)
-            contributions = (
-                contributions..., process_contributions(process, topology, binding)...
-            )
+            fluxes = (fluxes..., process_fluxes(process, topology, binding)...)
         end
-        grouped = group_contributions(
-            contributions; target_order=(:N, :D, :Z_1, :Z_2, :P_1, :P_2)
+        grouped = group_fluxes(
+            fluxes; target_order=(:N, :D, :Z_1, :Z_2, :P_1, :P_2)
         )
 
         @test MortalityParameterBinding(normalized, :linear_mortality_P).rate ===
@@ -100,12 +115,14 @@ using Agate.Processes: ModelDefinition, normalize_model
             :quadratic_mortality
         @test MortalityParameterBinding(normalized, :linear_mortality_Z).routing_fraction ===
             :mortality_export_fraction
-        @test count(c -> c isa MortalityLossContribution, contributions) == 6
-        @test count(c -> c isa MortalityRoutingContribution, contributions) == 12
+        @test length(fluxes) == 18
         @test Tuple(
-            c.population_index for c in contributions if
-            c isa MortalityLossContribution && c.process === :linear_mortality_P
-        ) == (3, 4)
+            flux.rate.operands[1] for flux in fluxes if
+            flux.process === :linear_mortality_P && weight_sign(flux.weight) == -1
+        ) == (ClassOp{3}(), ClassOp{4}())
+        fraction = ScalarParamOp{:mortality_export_fraction}()
+        @test fluxes[2].weight.operands == (ComplementOp(fraction),)
+        @test fluxes[3].weight.operands == (fraction,)
         @test map(length, grouped) == (N=6, D=6, Z_1=2, Z_2=2, P_1=1, P_2=1)
     end
 
@@ -113,13 +130,14 @@ using Agate.Processes: ModelDefinition, normalize_model
         process = normalized.processes.remineralization_D
         topology = realize_process_topology(process, layout, context)
         binding = RemineralizationParameterBinding(normalized, :remineralization_D)
-        contributions = process_contributions(process, topology, binding)
+        fluxes = process_fluxes(process, topology, binding)
 
         @test binding.rate === :detritus_remineralization
         @test topology.source_tracers == (:D,)
         @test topology.destination_target === :N
-        @test contributions[1] isa RemineralizationSourceLossContribution
-        @test contributions[2] isa RemineralizationDestinationGainContribution
-        @test (contributions[1].target, contributions[2].target) == (:D, :N)
+        @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) ==
+            ((:D, -1), (:N, 1))
+        @test fluxes[1].rate.operands ==
+            (TracerOp{:D}(), ScalarParamOp{:detritus_remineralization}())
     end
 end

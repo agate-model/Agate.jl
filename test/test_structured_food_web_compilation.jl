@@ -1,10 +1,9 @@
 using ForwardDiff
 
 using Agate.Compilation:
-    ConsumptionParameterBinding, ConsumptionResourceLossContribution,
-    ConsumptionConsumerGainContribution, ConsumptionUnassimilatedContribution,
-    model_contributions, process_contributions, group_contributions,
-    compile_tendencies, compile_model_tendencies
+    ConsumptionParameterBinding, TracerOp, ClassOp, VecParamOp, MatParamOp,
+    ScalarParamOp, ComplementOp, process_fluxes, model_fluxes, group_fluxes,
+    compile_tendencies, compile_model_tendencies, weight_sign
 using Agate.Configuration:
     Population, Pool, realize_components, component_tracers, parse_community
 using Agate.Construction: define_tracer_functions
@@ -121,9 +120,9 @@ function food_web_compilation(::Type{T}=Float64) where {T<:Real}
     )
     layout = realize_components(components; scalar_type=T)
     target_order = layout.tracer_order
-    contributions = model_contributions(normalized, layout, context)
+    fluxes = model_fluxes(normalized, layout, context)
     compiled = compile_model_tendencies(normalized, layout, context; target_order)
-    return (; normalized, layout, context, contributions, compiled, target_order)
+    return (; normalized, layout, context, fluxes, compiled, target_order)
 end
 
 function food_web_bgc(compilation)
@@ -196,18 +195,33 @@ end
 
     consumption = normalized.processes.consume_POM
     binding = ConsumptionParameterBinding(normalized, :consume_POM)
-    contributions = process_contributions(
+    fluxes = process_fluxes(
         consumption, normalized, layout, compilation.context
     )
     @test binding.temperature.q10 === :temperature_q10
     @test binding.temperature.reference_temperature === :reference_temperature
-    @test length(contributions) == 6
-    @test count(c -> c isa ConsumptionResourceLossContribution, contributions) == 2
-    @test count(c -> c isa ConsumptionConsumerGainContribution, contributions) == 2
-    @test count(c -> c isa ConsumptionUnassimilatedContribution, contributions) == 2
+    @test length(fluxes) == 6
+    @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) == (
+        (:POM_1, -1), (:B_1, 1), (:D, 1),
+        (:POM_2, -1), (:B_1, 1), (:D, 1),
+    )
+    @test fluxes[1].rate.operands == (
+        TracerOp{:POM_1}(),
+        ClassOp{2}(),
+        VecParamOp{:maximum_consumption_rate,1}(),
+        VecParamOp{:pom_half_saturation,1}(),
+    )
+    assimilation = MatParamOp{:bacterial_assimilation,1,1}()
+    @test fluxes[2].weight.operands == (assimilation,)
+    @test fluxes[3].weight.operands == (ComplementOp(assimilation),)
+    @test only(fluxes[1].rate.factors).operands == (
+        TracerOp{:temperature}(),
+        ScalarParamOp{:temperature_q10}(),
+        ScalarParamOp{:reference_temperature}(),
+    )
 
-    @test length(compilation.contributions) == 22
-    grouped = group_contributions(compilation.contributions; target_order=compilation.target_order)
+    @test length(compilation.fluxes) == 22
+    grouped = group_fluxes(compilation.fluxes; target_order=compilation.target_order)
     @test map(length, grouped) == (
         N=2, D=6, POM_1=1, POM_2=1, P_1=3, B_1=4, M_1=3, Z_1=2
     )
@@ -222,12 +236,12 @@ end
     tendencies = map(target -> bgc(Val(target), args...), compilation.target_order)
     @test isapprox(sum(tendencies), 0; atol=10 * eps(sum(abs, tendencies)))
 
-    consumption_grouped = group_contributions(contributions)
+    consumption_grouped = group_fluxes(fluxes)
     consumption_compiled = compile_tendencies(consumption_grouped)
-    growth_contributions = process_contributions(
+    growth_fluxes = process_fluxes(
         normalized.processes.growth_autotrophs, normalized, layout, compilation.context
     )
-    growth_compiled = compile_tendencies(group_contributions(growth_contributions))
+    growth_compiled = compile_tendencies(group_fluxes(growth_fluxes))
     args20 = food_web_args(Float64, 20)
     args30 = food_web_args(Float64, 30)
     @test process_compiler_isapprox(

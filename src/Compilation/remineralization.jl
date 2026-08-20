@@ -3,7 +3,6 @@ struct RemineralizationParameterBinding{R}
     rate::R
 end
 
-"""Resolve a remineralization rate parameter from normalized semantic bindings."""
 function RemineralizationParameterBinding(
     definition::NormalizedModelDefinition, id::Symbol
 )
@@ -22,9 +21,7 @@ function RemineralizationParameterBinding(
     rates = Tuple(
         parameter_name(
             definition,
-            _parameter_requirement(
-                named, (), :rate; qualifier=(source=source,)
-            ),
+            _parameter_requirement(named, (), :rate; qualifier=(source=source,)),
         ) for source in sources
     )
     rate = length(rates) == 1 ? only(rates) : NamedTuple{sources}(rates)
@@ -37,25 +34,6 @@ struct RemineralizationTopology{S,D}
     destination_target::D
 end
 
-"""Loss from one realized remineralization source."""
-struct RemineralizationSourceLossContribution{F} <: AbstractProcessContribution
-    process::Symbol
-    target::Symbol
-    source::Symbol
-    rate_parameter::Symbol
-    formulation::F
-end
-
-"""Destination gain coupled to one realized remineralization source rate."""
-struct RemineralizationDestinationGainContribution{F} <: AbstractProcessContribution
-    process::Symbol
-    target::Symbol
-    source::Symbol
-    rate_parameter::Symbol
-    formulation::F
-end
-
-"""Resolve linear remineralization onto scalar source tracers and one destination."""
 function realize_process_topology(
     named::NamedProcess{P}, layout::ComponentLayout, context::CommunityContext
 ) where {P<:Remineralization}
@@ -71,8 +49,7 @@ function realize_process_topology(
     return RemineralizationTopology(sources, destination)
 end
 
-"""Derive coupled source-loss and destination-gain remineralization contributions."""
-function process_contributions(
+function process_fluxes(
     named::NamedProcess{P},
     topology::RemineralizationTopology,
     binding::RemineralizationParameterBinding,
@@ -81,26 +58,23 @@ function process_contributions(
     length(topology.source_tracers) == length(process.sources) || throw(
         ArgumentError("remineralization topology source count must match process sources"),
     )
-    contributions = ()
+    fluxes = ()
     for i in eachindex(topology.source_tracers)
         source = topology.source_tracers[i]
         component = process.sources[i]
-        rate_parameter = if binding.rate isa Symbol
-            binding.rate
-        else
-            getproperty(binding.rate, component)
-        end
-        fields = (process_id(named), source, rate_parameter, process.formulation)
-        loss = RemineralizationSourceLossContribution(fields[1], source, fields[2:end]...)
-        gain = RemineralizationDestinationGainContribution(
-            fields[1], topology.destination_target, fields[2:end]...
+        rate_parameter = binding.rate isa Symbol ? binding.rate : getproperty(binding.rate, component)
+        rate = RateElement(
+            process.formulation,
+            (TracerOp{source}(), ScalarParamOp{rate_parameter}()),
         )
-        contributions = (contributions..., loss, gain)
+        loss = FluxSpec(process_id(named), source, rate, Weight{-1}())
+        gain = FluxSpec(process_id(named), topology.destination_target, rate, Weight{1}())
+        fluxes = (fluxes..., loss, gain)
     end
-    return contributions
+    return fluxes
 end
 
-function process_contributions(
+function process_fluxes(
     named::NamedProcess{P},
     definition::NormalizedModelDefinition,
     layout::ComponentLayout,
@@ -108,31 +82,5 @@ function process_contributions(
 ) where {P<:Remineralization}
     topology = realize_process_topology(named, layout, context)
     binding = RemineralizationParameterBinding(definition, process_id(named))
-    return process_contributions(named, topology, binding)
+    return process_fluxes(named, topology, binding)
 end
-
-struct RemineralizationTerm{F,S,R,Effect}
-    formulation::F
-end
-
-@inline _remineralization_effect(::Val{:source_loss}, rate) = -rate
-@inline _remineralization_effect(::Val{:destination_gain}, rate) = rate
-
-@inline function (term::RemineralizationTerm{F,S,R,Effect})(bgc, args) where {F,S,R,Effect}
-    source = getproperty(bgc.tracers, S)(args)
-    coefficient = getproperty(bgc.parameters, R)
-    rate = process_rate(term.formulation, source, coefficient)
-    return _remineralization_effect(Val(Effect), rate)
-end
-
-function _remineralization_term(contribution, ::Val{Effect}) where {Effect}
-    F = typeof(contribution.formulation)
-    return RemineralizationTerm{
-        F, contribution.source, contribution.rate_parameter, Effect
-    }(contribution.formulation)
-end
-
-_lower_contribution(contribution::RemineralizationSourceLossContribution) =
-    _remineralization_term(contribution, Val(:source_loss))
-_lower_contribution(contribution::RemineralizationDestinationGainContribution) =
-    _remineralization_term(contribution, Val(:destination_gain))

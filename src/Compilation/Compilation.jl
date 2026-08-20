@@ -1,4 +1,4 @@
-"""Setup-time process contribution realization and static tendency compilation."""
+"""Setup-time process-flux realization and static tendency compilation."""
 module Compilation
 
 using ..Configuration: ComponentLayout, CommunityContext
@@ -35,24 +35,17 @@ using ..Processes:
     process_id,
     process_rate
 
-export AbstractProcessContribution
+export FluxSpec, RateElement, Weight
 export GrowthParameterBinding, GrowthTopology
-export GrowthBiomassContribution, GrowthResourceLossContribution
 export GrazingParameterBinding, GrazingTopology
 export ConsumptionParameterBinding, ConsumptionTopology
-export GrazingResourceLossContribution, GrazingConsumerGainContribution
-export GrazingUnassimilatedContribution, GrazingRoutedProductContribution
-export ConsumptionResourceLossContribution, ConsumptionConsumerGainContribution
-export ConsumptionUnassimilatedContribution
 export MortalityParameterBinding, MortalityTopology
-export MortalityLossContribution, MortalityRoutingContribution, MortalityRoutedProductContribution
 export RemineralizationParameterBinding, RemineralizationTopology
-export RemineralizationSourceLossContribution, RemineralizationDestinationGainContribution
-export realize_process_topology, process_contributions
-export contribution_target, group_contributions
-export model_contributions, compile_tendency, compile_tendencies, compile_model_tendencies
+export realize_process_topology, process_fluxes
+export flux_target, group_fluxes
+export model_fluxes, compile_tendency, compile_tendencies, compile_model_tendencies
 
-include("contributions.jl")
+include("fluxes.jl")
 include("factors.jl")
 include("routing.jl")
 include("mortality.jl")

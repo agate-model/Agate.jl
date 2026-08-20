@@ -13,6 +13,10 @@
 @inline factor_value(::Q10, temperature, q10, reference_temperature) =
     q10 ^ ((temperature - reference_temperature) / 10)
 
+@inline function process_rate(formulations::Tuple{L,N}, args...) where {L,N}
+    return process_rate(first(formulations), last(formulations), args...)
+end
+
 """Evaluate growth by multiplying its Smith light and Monod nutrient factors."""
 @inline function process_rate(
     light_formulation::Smith,

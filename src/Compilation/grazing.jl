@@ -7,7 +7,6 @@ struct GrazingParameterBinding{R}
     routing::R
 end
 
-"""Resolve grazing parameter names from normalized semantic requirement bindings."""
 function GrazingParameterBinding(definition::NormalizedModelDefinition, id::Symbol)
     hasproperty(definition.processes, id) || throw(
         ArgumentError("normalized model has no process :$id"),
@@ -57,76 +56,6 @@ struct GrazingTopology{CT,CI,RT,RI,D,R}
     routing::R
 end
 
-"""Resource loss from one consumer-by-resource grazing-rate element."""
-struct GrazingResourceLossContribution{F} <: AbstractProcessContribution
-    process::Symbol
-    target::Symbol
-    consumer::Symbol
-    consumer_index::Int
-    consumer_axis::Int
-    resource_index::Int
-    resource_axis::Int
-    maximum_rate_parameter::Symbol
-    half_saturation_parameter::Symbol
-    palatability_parameter::Symbol
-    assimilation_parameter::Symbol
-    formulation::F
-end
-
-"""Assimilated consumer gain from one consumer-by-resource grazing-rate element."""
-struct GrazingConsumerGainContribution{F} <: AbstractProcessContribution
-    process::Symbol
-    target::Symbol
-    resource::Symbol
-    consumer_index::Int
-    consumer_axis::Int
-    resource_index::Int
-    resource_axis::Int
-    maximum_rate_parameter::Symbol
-    half_saturation_parameter::Symbol
-    palatability_parameter::Symbol
-    assimilation_parameter::Symbol
-    formulation::F
-end
-
-"""Unassimilated product gain from one consumer-by-resource grazing-rate element."""
-struct GrazingUnassimilatedContribution{F} <: AbstractProcessContribution
-    process::Symbol
-    target::Symbol
-    consumer::Symbol
-    resource::Symbol
-    consumer_index::Int
-    consumer_axis::Int
-    resource_index::Int
-    resource_axis::Int
-    maximum_rate_parameter::Symbol
-    half_saturation_parameter::Symbol
-    palatability_parameter::Symbol
-    assimilation_parameter::Symbol
-    formulation::F
-end
-
-"""DOM/POM product gain from one unassimilated grazing-rate element."""
-struct GrazingRoutedProductContribution{F,Q} <: AbstractProcessContribution
-    process::Symbol
-    target::Symbol
-    consumer::Symbol
-    resource::Symbol
-    consumer_index::Int
-    consumer_axis::Int
-    resource_index::Int
-    resource_axis::Int
-    maximum_rate_parameter::Symbol
-    half_saturation_parameter::Symbol
-    palatability_parameter::Symbol
-    assimilation_parameter::Symbol
-    routing_fraction_parameter::Symbol
-    ratio_parameter::Q
-    route::Symbol
-    formulation::F
-end
-
-"""Resolve a preferential-grazing process onto process-owned consumer/resource axes."""
 function realize_process_topology(
     named::NamedProcess{P}, layout::ComponentLayout, context::CommunityContext
 ) where {P<:Grazing}
@@ -167,73 +96,62 @@ function realize_process_topology(
     )
 end
 
-function _grazing_contribution_fields(
-    named::NamedProcess,
-    topology::GrazingTopology,
-    binding::GrazingParameterBinding,
-    consumer_axis::Int,
-    resource_axis::Int,
-)
-    return (
-        process_id(named),
-        topology.consumer_indices[consumer_axis],
-        consumer_axis,
-        topology.resource_indices[resource_axis],
-        resource_axis,
-        binding.maximum_rate,
-        binding.half_saturation,
-        binding.palatability,
-        binding.assimilation,
-        formulation(named.process),
-    )
+function _interaction_runtime_parameter_name(name::Symbol)
+    text = String(name)
+    suffix = "_matrix"
+    return endswith(text, suffix) ? Symbol(text[1:(end - length(suffix))]) : name
 end
 
+function _grazing_rate(
+    formulation,
+    binding::GrazingParameterBinding,
+    consumer_index::Int,
+    consumer_axis::Int,
+    resource_index::Int,
+    resource_axis::Int,
+)
+    palatability = _interaction_runtime_parameter_name(binding.palatability)
+    operands = (
+        ClassOp{resource_index}(),
+        ClassOp{consumer_index}(),
+        VecParamOp{binding.maximum_rate,consumer_index}(),
+        VecParamOp{binding.half_saturation,consumer_index}(),
+        InteractionParamOp{palatability,consumer_axis,resource_axis}(),
+    )
+    return RateElement(formulation, operands)
+end
 
-function _grazing_routed_products(
+function _grazing_routed_fluxes(
     named::NamedProcess,
     topology::GrazingTopology,
     binding::GrazingParameterBinding,
-    consumer::Symbol,
-    resource::Symbol,
-    fields::Tuple,
+    rate::RateElement,
+    assimilation,
 )
     isnothing(topology.routing) && return ()
     routing_binding = binding.routing
     isnothing(routing_binding) && throw(
         ArgumentError("routed grazing requires a routing parameter binding"),
     )
-    contributions = ()
+    fluxes = ()
     for route in (:DOM, :POM)
         targets = getproperty(topology.routing, route)
         for currency in keys(targets)
             target = getproperty(targets, currency)
             ratio = _routing_ratio_parameter(topology.routing, routing_binding, currency)
-            contribution = GrazingRoutedProductContribution(
-                fields[1],
-                target,
-                consumer,
-                resource,
-                fields[2],
-                fields[3],
-                fields[4],
-                fields[5],
-                fields[6],
-                fields[7],
-                fields[8],
-                fields[9],
+            weight = _routing_weight(
                 routing_binding.fraction,
+                route;
                 ratio,
-                route,
-                fields[10],
+                suffix=(ComplementOp(assimilation),),
             )
-            contributions = (contributions..., contribution)
+            fluxes = (fluxes..., FluxSpec(process_id(named), target, rate, weight))
         end
     end
-    return contributions
+    return fluxes
 end
 
-"""Derive coupled resource, consumer, and unassimilated grazing contributions."""
-function process_contributions(
+function process_fluxes(
     named::NamedProcess{P}, topology::GrazingTopology, binding::GrazingParameterBinding
 ) where {P<:Grazing}
     length(topology.consumer_tracers) == length(topology.consumer_indices) || throw(
@@ -243,47 +161,46 @@ function process_contributions(
         ArgumentError("grazing topology resource tracer and index counts must match"),
     )
 
-    contributions = ()
+    assimilation_name = _interaction_runtime_parameter_name(binding.assimilation)
+    fluxes = ()
     for consumer_axis in eachindex(topology.consumer_tracers)
         consumer = topology.consumer_tracers[consumer_axis]
+        consumer_index = topology.consumer_indices[consumer_axis]
         for resource_axis in eachindex(topology.resource_tracers)
             resource = topology.resource_tracers[resource_axis]
-            fields = _grazing_contribution_fields(
-                named, topology, binding, consumer_axis, resource_axis
+            resource_index = topology.resource_indices[resource_axis]
+            rate = _grazing_rate(
+                formulation(named.process),
+                binding,
+                consumer_index,
+                consumer_axis,
+                resource_index,
+                resource_axis,
             )
-            loss = GrazingResourceLossContribution(
-                fields[1], resource, consumer, fields[2:end]...
-            )
-            gain = GrazingConsumerGainContribution(
-                fields[1], consumer, resource, fields[2:end]...
-            )
-            contributions = (contributions..., loss, gain)
+            assimilation = InteractionParamOp{
+                assimilation_name,consumer_axis,resource_axis
+            }()
+            loss = FluxSpec(process_id(named), resource, rate, Weight{-1}())
+            gain = FluxSpec(process_id(named), consumer, rate, Weight{1}((assimilation,)))
+            fluxes = (fluxes..., loss, gain)
 
             if !isnothing(topology.unassimilated_target)
-                unassimilated = GrazingUnassimilatedContribution(
-                    fields[1],
+                unassimilated = FluxSpec(
+                    process_id(named),
                     topology.unassimilated_target,
-                    consumer,
-                    resource,
-                    fields[2:end]...,
+                    rate,
+                    Weight{1}((ComplementOp(assimilation),)),
                 )
-                contributions = (contributions..., unassimilated)
+                fluxes = (fluxes..., unassimilated)
             end
-            routed = _grazing_routed_products(
-                named, topology, binding, consumer, resource, fields
-            )
-            contributions = (contributions..., routed...)
+            routed = _grazing_routed_fluxes(named, topology, binding, rate, assimilation)
+            fluxes = (fluxes..., routed...)
         end
     end
-    return contributions
+    return fluxes
 end
 
-
-struct GrazingRoutedProductTerm{F,CI,CA,RI,RA,M,K,PR,AR,Q,S,Route}
-    formulation::F
-end
-
-function process_contributions(
+function process_fluxes(
     named::NamedProcess{P},
     definition::NormalizedModelDefinition,
     layout::ComponentLayout,
@@ -291,118 +208,5 @@ function process_contributions(
 ) where {P<:Grazing}
     topology = realize_process_topology(named, layout, context)
     binding = GrazingParameterBinding(definition, process_id(named))
-    return process_contributions(named, topology, binding)
-end
-
-struct GrazingTerm{F,CI,CA,RI,RA,M,K,PR,AR,Effect}
-    formulation::F
-end
-
-function _interaction_runtime_parameter_name(name::Symbol)
-    text = String(name)
-    suffix = "_matrix"
-    return endswith(text, suffix) ? Symbol(text[1:(end - length(suffix))]) : name
-end
-
-@inline _grazing_partition_effect(::Val{:consumer_gain}, rate, assimilation) =
-    assimilation * rate
-@inline _grazing_partition_effect(::Val{:unassimilated}, rate, assimilation) =
-    (one(assimilation) - assimilation) * rate
-
-@inline function (term::GrazingTerm{F,CI,CA,RI,RA,M,K,PR,AR,Effect})(
-    bgc, args
-) where {F,CI,CA,RI,RA,M,K,PR,AR,Effect}
-    consumer = bgc.tracers.plankton(args, CI)
-    resource = bgc.tracers.plankton(args, RI)
-    maximum_rate = @inbounds getproperty(bgc.parameters, M)[CI]
-    half_saturation = @inbounds getproperty(bgc.parameters, K)[CI]
-    interactions = bgc.parameters.interactions
-    palatability = @inbounds getproperty(interactions, PR)[CA, RA]
-    rate = process_rate(
-        term.formulation,
-        resource,
-        consumer,
-        maximum_rate,
-        half_saturation,
-        palatability,
-    )
-    Effect === :resource_loss && return -rate
-    assimilation = @inbounds getproperty(interactions, AR)[CA, RA]
-    return _grazing_partition_effect(Val(Effect), rate, assimilation)
-end
-
-function _grazing_term(contribution, ::Val{Effect}) where {Effect}
-    F = typeof(contribution.formulation)
-    palatability_runtime = _interaction_runtime_parameter_name(
-        contribution.palatability_parameter
-    )
-    assimilation_runtime = _interaction_runtime_parameter_name(
-        contribution.assimilation_parameter
-    )
-    return GrazingTerm{
-        F,
-        contribution.consumer_index,
-        contribution.consumer_axis,
-        contribution.resource_index,
-        contribution.resource_axis,
-        contribution.maximum_rate_parameter,
-        contribution.half_saturation_parameter,
-        palatability_runtime,
-        assimilation_runtime,
-        Effect,
-    }(contribution.formulation)
-end
-
-_lower_contribution(contribution::GrazingResourceLossContribution) =
-    _grazing_term(contribution, Val(:resource_loss))
-_lower_contribution(contribution::GrazingConsumerGainContribution) =
-    _grazing_term(contribution, Val(:consumer_gain))
-_lower_contribution(contribution::GrazingUnassimilatedContribution) =
-    _grazing_term(contribution, Val(:unassimilated))
-
-@inline function (term::GrazingRoutedProductTerm{F,CI,CA,RI,RA,M,K,PR,AR,Q,S,Route})(
-    bgc, args
-) where {F,CI,CA,RI,RA,M,K,PR,AR,Q,S,Route}
-    consumer = bgc.tracers.plankton(args, CI)
-    resource = bgc.tracers.plankton(args, RI)
-    maximum_rate = @inbounds getproperty(bgc.parameters, M)[CI]
-    half_saturation = @inbounds getproperty(bgc.parameters, K)[CI]
-    interactions = bgc.parameters.interactions
-    palatability = @inbounds getproperty(interactions, PR)[CA, RA]
-    assimilation = @inbounds getproperty(interactions, AR)[CA, RA]
-    rate = process_rate(
-        term.formulation,
-        resource,
-        consumer,
-        maximum_rate,
-        half_saturation,
-        palatability,
-    )
-    fraction = getproperty(bgc.parameters, Q)
-    unassimilated = (one(assimilation) - assimilation) * rate
-    return _organic_route_weight(Val(Route), fraction) *
-           _stoichiometric_weight(bgc, Val(S), fraction) * unassimilated
-end
-
-function _lower_contribution(contribution::GrazingRoutedProductContribution{F,Q}) where {F,Q}
-    palatability_runtime = _interaction_runtime_parameter_name(
-        contribution.palatability_parameter
-    )
-    assimilation_runtime = _interaction_runtime_parameter_name(
-        contribution.assimilation_parameter
-    )
-    return GrazingRoutedProductTerm{
-        F,
-        contribution.consumer_index,
-        contribution.consumer_axis,
-        contribution.resource_index,
-        contribution.resource_axis,
-        contribution.maximum_rate_parameter,
-        contribution.half_saturation_parameter,
-        palatability_runtime,
-        assimilation_runtime,
-        contribution.routing_fraction_parameter,
-        contribution.ratio_parameter,
-        contribution.route,
-    }(contribution.formulation)
+    return process_fluxes(named, topology, binding)
 end

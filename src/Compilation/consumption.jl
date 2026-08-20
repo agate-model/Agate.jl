@@ -32,48 +32,6 @@ struct ConsumptionTopology{CT,CI,RT,D}
     unassimilated_target::D
 end
 
-struct ConsumptionResourceLossContribution{F,T} <: AbstractProcessContribution
-    process::Symbol
-    target::Symbol
-    consumer_index::Int
-    consumer_axis::Int
-    resource::Symbol
-    resource_axis::Int
-    maximum_rate_parameter::Symbol
-    half_saturation_parameter::Symbol
-    assimilation_parameter::Symbol
-    formulation::F
-    temperature_factor::T
-end
-
-struct ConsumptionConsumerGainContribution{F,T} <: AbstractProcessContribution
-    process::Symbol
-    target::Symbol
-    consumer_index::Int
-    consumer_axis::Int
-    resource::Symbol
-    resource_axis::Int
-    maximum_rate_parameter::Symbol
-    half_saturation_parameter::Symbol
-    assimilation_parameter::Symbol
-    formulation::F
-    temperature_factor::T
-end
-
-struct ConsumptionUnassimilatedContribution{F,T} <: AbstractProcessContribution
-    process::Symbol
-    target::Symbol
-    consumer_index::Int
-    consumer_axis::Int
-    resource::Symbol
-    resource_axis::Int
-    maximum_rate_parameter::Symbol
-    half_saturation_parameter::Symbol
-    assimilation_parameter::Symbol
-    formulation::F
-    temperature_factor::T
-end
-
 function _consumption_resource_tracers(
     named::NamedProcess, resources::Tuple, layout::ComponentLayout
 )
@@ -105,59 +63,61 @@ function realize_process_topology(
     return ConsumptionTopology(consumer_tracers, consumer_indices, resources, destination)
 end
 
-function _consumption_contribution_fields(
-    named::NamedProcess,
-    topology::ConsumptionTopology,
+function _consumption_rate(
+    formulation,
     binding::ConsumptionParameterBinding,
+    consumer_index::Int,
     consumer_axis::Int,
+    resource::Symbol,
     resource_axis::Int,
 )
-    return (
-        process_id(named),
-        topology.consumer_indices[consumer_axis],
-        consumer_axis,
-        topology.resource_tracers[resource_axis],
-        resource_axis,
-        binding.maximum_rate,
-        binding.half_saturation,
-        binding.assimilation,
-        formulation(named.process),
-        binding.temperature,
+    operands = (
+        TracerOp{resource}(),
+        ClassOp{consumer_index}(),
+        VecParamOp{binding.maximum_rate,consumer_axis}(),
+        VecParamOp{binding.half_saturation,resource_axis}(),
     )
+    return RateElement(formulation, operands; factors=_rate_factors(binding.temperature))
 end
 
-function process_contributions(
+function process_fluxes(
     named::NamedProcess{P},
     topology::ConsumptionTopology,
     binding::ConsumptionParameterBinding,
 ) where {P<:Consumption}
-    contributions = ()
+    fluxes = ()
     for consumer_axis in eachindex(topology.consumer_tracers)
         consumer = topology.consumer_tracers[consumer_axis]
+        consumer_index = topology.consumer_indices[consumer_axis]
         for resource_axis in eachindex(topology.resource_tracers)
             resource = topology.resource_tracers[resource_axis]
-            fields = _consumption_contribution_fields(
-                named, topology, binding, consumer_axis, resource_axis
+            rate = _consumption_rate(
+                formulation(named.process),
+                binding,
+                consumer_index,
+                consumer_axis,
+                resource,
+                resource_axis,
             )
-            loss = ConsumptionResourceLossContribution(
-                fields[1], resource, fields[2:end]...
-            )
-            gain = ConsumptionConsumerGainContribution(
-                fields[1], consumer, fields[2:end]...
-            )
-            contributions = (contributions..., loss, gain)
+            assimilation = MatParamOp{binding.assimilation,consumer_axis,resource_axis}()
+            loss = FluxSpec(process_id(named), resource, rate, Weight{-1}())
+            gain = FluxSpec(process_id(named), consumer, rate, Weight{1}((assimilation,)))
+            fluxes = (fluxes..., loss, gain)
             if !isnothing(topology.unassimilated_target)
-                routed = ConsumptionUnassimilatedContribution(
-                    fields[1], topology.unassimilated_target, fields[2:end]...
+                unassimilated = FluxSpec(
+                    process_id(named),
+                    topology.unassimilated_target,
+                    rate,
+                    Weight{1}((ComplementOp(assimilation),)),
                 )
-                contributions = (contributions..., routed)
+                fluxes = (fluxes..., unassimilated)
             end
         end
     end
-    return contributions
+    return fluxes
 end
 
-function process_contributions(
+function process_fluxes(
     named::NamedProcess{P},
     definition::NormalizedModelDefinition,
     layout::ComponentLayout,
@@ -165,51 +125,5 @@ function process_contributions(
 ) where {P<:Consumption}
     topology = realize_process_topology(named, layout, context)
     binding = ConsumptionParameterBinding(definition, process_id(named))
-    return process_contributions(named, topology, binding)
+    return process_fluxes(named, topology, binding)
 end
-
-struct ConsumptionTerm{F,CI,CA,R,RA,M,K,A,Effect,T}
-    formulation::F
-    temperature::T
-end
-
-@inline _consumption_effect(::Val{:resource_loss}, rate, assimilation) = -rate
-@inline _consumption_effect(::Val{:consumer_gain}, rate, assimilation) = assimilation * rate
-@inline _consumption_effect(::Val{:unassimilated}, rate, assimilation) =
-    (one(assimilation) - assimilation) * rate
-
-@inline function (term::ConsumptionTerm{F,CI,CA,R,RA,M,K,A,Effect,T})(
-    bgc, args
-) where {F,CI,CA,R,RA,M,K,A,Effect,T}
-    consumer = bgc.tracers.plankton(args, CI)
-    resource = getproperty(bgc.tracers, R)(args)
-    maximum_rate = @inbounds getproperty(bgc.parameters, M)[CA]
-    half_saturation = @inbounds getproperty(bgc.parameters, K)[RA]
-    assimilation = @inbounds getproperty(bgc.parameters, A)[CA, RA]
-    rate = process_rate(term.formulation, resource, consumer, maximum_rate, half_saturation)
-    rate = _apply_factor(term.temperature, bgc, args, rate)
-    return _consumption_effect(Val(Effect), rate, assimilation)
-end
-
-function _consumption_term(contribution, ::Val{Effect}) where {Effect}
-    temperature = _lower_factor(contribution.temperature_factor)
-    return ConsumptionTerm{
-        typeof(contribution.formulation),
-        contribution.consumer_index,
-        contribution.consumer_axis,
-        contribution.resource,
-        contribution.resource_axis,
-        contribution.maximum_rate_parameter,
-        contribution.half_saturation_parameter,
-        contribution.assimilation_parameter,
-        Effect,
-        typeof(temperature),
-    }(contribution.formulation, temperature)
-end
-
-_lower_contribution(contribution::ConsumptionResourceLossContribution) =
-    _consumption_term(contribution, Val(:resource_loss))
-_lower_contribution(contribution::ConsumptionConsumerGainContribution) =
-    _consumption_term(contribution, Val(:consumer_gain))
-_lower_contribution(contribution::ConsumptionUnassimilatedContribution) =
-    _consumption_term(contribution, Val(:unassimilated))

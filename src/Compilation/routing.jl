@@ -53,12 +53,6 @@ function _realize_dom_pom_routing(routing::ProductRouting, layout::ComponentLayo
     )
 end
 
-@inline _organic_route_weight(::Val{:DOM}, fraction) = one(fraction) - fraction
-@inline _organic_route_weight(::Val{:POM}, fraction) = fraction
-@inline _stoichiometric_weight(bgc, ::Val{nothing}, fraction) = one(fraction)
-@inline _stoichiometric_weight(bgc, ::Val{R}, fraction) where {R} =
-    getproperty(bgc.parameters, R)
-
 function _routing_ratio_parameter(
     routing::DOMPOMRoutingTopology,
     binding::DOMPOMRoutingBinding,
@@ -66,4 +60,24 @@ function _routing_ratio_parameter(
 )
     currency === routing.reference && return nothing
     return getproperty(binding.ratios, currency)
+end
+
+function _fraction_operand(fraction::Symbol, route::Symbol)
+    operand = ScalarParamOp{fraction}()
+    route in (:retained, :DOM) && return ComplementOp(operand)
+    route in (:exported, :POM) && return operand
+    throw(ArgumentError("unsupported routing partition :$route"))
+end
+
+_ratio_operands(::Nothing) = ()
+_ratio_operands(ratio::Symbol) = (ScalarParamOp{ratio}(),)
+
+function _routing_weight(
+    fraction::Symbol,
+    route::Symbol;
+    ratio::Union{Nothing,Symbol}=nothing,
+    suffix::Tuple=(),
+)
+    operands = (_fraction_operand(fraction, route), _ratio_operands(ratio)..., suffix...)
+    return Weight{1}(operands)
 end
