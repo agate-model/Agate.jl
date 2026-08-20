@@ -16,6 +16,7 @@ using ..Processes:
     Monod,
     NamedProcess,
     PreferentialGrazing,
+    ProductRouting,
     DOMPOMRouting,
     NormalizedModelDefinition,
     NutrientResponse,
