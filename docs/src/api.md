@@ -2,7 +2,7 @@
 
 ## Direct model construction
 
-[`ModelDefinition`](@ref) is the author-facing scientific model container. Direct construction realizes intrinsic component size structure, resolves process-owned parameter requirements and required drivers, and compiles runtime tracer equations during setup.
+[`ModelDefinition`](@ref) is the scientific model-definition container. Direct construction realizes intrinsic component size structure, resolves process-owned parameter requirements and required drivers, and compiles runtime tracer equations during setup.
 
 ```@docs
 Agate.Construction.construct
@@ -42,7 +42,7 @@ Agate.Processes.FixedStoichiometry
 Agate.Processes.Remineralization
 ```
 
-### Parameter authoring
+### Parameter definitions
 
 ```@docs
 Agate.Factories.ParameterSpec

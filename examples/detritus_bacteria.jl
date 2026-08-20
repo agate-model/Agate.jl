@@ -1,4 +1,4 @@
-# # [Detritus and bacterioplankton] (@id detritus_bacteria)
+# # [Model with bacterioplankton] (@id detritus_bacteria)
 #
 # Material pools and living prey are separate concepts. Here a structured POM
 # pool is consumed by heterotrophic bacterioplankton `B`, while zooplankton `Z`

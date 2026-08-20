@@ -33,10 +33,10 @@ if BUILD_COLUMN_EXAMPLE
     push!(examples, "Column model" => "1D_column")
 end
 
-model_authoring_examples = [
-    "Franks et al. (1986) NPZ structure" => "franks_npz",
-    "Detritus and bacterioplankton" => "detritus_bacteria",
-    "Mixotrophy" => "mixotrophy",
+defining_models_examples = [
+    "Franks et al. (1986) NPZ" => "franks_npz",
+    "Model with bacterioplankton" => "detritus_bacteria",
+    "Model with mixotrophy" => "mixotrophy",
 ]
 
 differentiable_modelling = [
@@ -46,7 +46,7 @@ differentiable_modelling = [
 
 example_scripts = [
     filename * ".jl" for (title, filename) in
-    vcat(examples, model_authoring_examples, differentiable_modelling)
+    vcat(examples, defining_models_examples, differentiable_modelling)
 ]
 
 function replace_silly_warning(content)
@@ -74,9 +74,8 @@ for example in example_scripts
 end
 
 example_pages = [title => "generated/$(filename).md" for (title, filename) in examples]
-model_authoring_pages = [
-    "Overview" => "model_authoring.md",
-    [title => "generated/$(filename).md" for (title, filename) in model_authoring_examples]...,
+defining_models_pages = [
+    title => "generated/$(filename).md" for (title, filename) in defining_models_examples
 ]
 differentiable_modelling_pages = [
     title => "generated/$(filename).md" for (title, filename) in differentiable_modelling
@@ -100,7 +99,7 @@ makedocs(;
         "Quick start" => "quick_start.md",
         "Examples" => example_pages,
         "Models" => model_pages,
-        "Model authoring" => model_authoring_pages,
+        "Defining models" => defining_models_pages,
         "Library" => "library.md",
         "Differentiable modelling" => differentiable_modelling_pages,
         "Contributor guide" => contributor_pages,

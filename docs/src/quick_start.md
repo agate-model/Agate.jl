@@ -33,7 +33,7 @@ println(tracer_names(bgc))
 nothing #hide
 ```
 
-The bundled NiPiZD family is assembled from the same component/process compiler used by direct [`ModelDefinition`](@ref) construction. See [Model authoring](@ref) to define a model directly from your own components, named processes, and parameter definitions.
+The bundled NiPiZD family is assembled from the same component/process compiler used by direct [`ModelDefinition`](@ref) construction. The [Franks et al. (1986) NPZ](@ref franks_npz) tutorial introduces direct model definition from components, named processes, and parameter definitions.
 
 Next, we define a light function, here we use a default seasonal PAR curve:
 

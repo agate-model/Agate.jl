@@ -1,12 +1,12 @@
 # Architecture
 
-Agate separates scientific model authoring from setup-time compilation and runtime execution.
+Agate separates scientific model definition from setup-time compilation and runtime execution.
 
 ## Model workflow
 
 A process-defined model moves through five stages:
 
-1. **Authoring** (`Configuration/`, `Processes/`, and `Factories/parameter_directory.jl`).
+1. **Definition** (`Configuration/`, `Processes/`, and `Factories/parameter_directory.jl`).
    [`Population`](@ref) and [`Pool`](@ref) components describe state identity and structure. Named processes describe scientific transformations, and parameter definitions bind defaults to formulation-owned semantic requirements.
 
 2. **Normalization and realization** (`Processes/` and `Configuration/`).
@@ -16,10 +16,10 @@ A process-defined model moves through five stages:
    Each named process produces typed contributions to the concrete tracers it affects. Contributions are grouped by target tracer and lowered during setup into static compiled equations.
 
 4. **Construction and replay** (`Construction/`).
-   Direct [`ModelDefinition`](@ref) construction resolves defaults and overrides from the authored definition. Named model families such as NiPiZD and DARWIN use the same definition-driven core while adding durable recipe/replay identity.
+   Direct [`ModelDefinition`](@ref) construction resolves defaults and overrides from the model definition. Named model families such as NiPiZD and DARWIN use the same definition-driven core while adding durable recipe/replay identity.
 
 5. **Runtime and inspection** (`Runtime/`, `Diagnostics/`, and `Introspection.jl`).
-   Runtime kernels evaluate lean compiled terms with resolved tracer and parameter indices. Diagnostics and introspection expose the realized model without reinterpreting the authoring graph.
+   Runtime kernels evaluate lean compiled terms with resolved tracer and parameter indices. Diagnostics and introspection expose the realized model without reinterpreting the model definition.
 
 The central data flow is:
 
@@ -58,7 +58,7 @@ Named factors are multiplicative within a process, while independent named proce
 ```text
 src/
 |-- Configuration/         # components, realization, interactions
-|-- Processes/             # authoring objects and normalization
+|-- Processes/             # process definitions and normalization
 |-- Compilation/           # topology, contributions, static lowering
 |-- Factories/             # parameter defaults and named-family adapters
 |-- Construction/          # direct construction, recipes, manifests, replay

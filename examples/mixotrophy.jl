@@ -1,4 +1,4 @@
-# # [Mixotrophy from process participation] (@id mixotrophy)
+# # [Model with mixotrophy] (@id mixotrophy)
 #
 # A mixotroph does not need a special component type. `M` is an ordinary
 # `Population` that participates in both growth and grazing.

@@ -1,4 +1,10 @@
-# # [Franks et al. (1986) NPZ structure] (@id franks_npz)
+# # [Franks et al. (1986) NPZ] (@id franks_npz)
+#
+# Agate models are defined from structured components, named biological processes,
+# and parameter definitions. These pieces form a `ModelDefinition`; `construct`
+# realizes concrete tracers, resolves parameters and drivers, and compiles the
+# runtime equations. This NPZ example is the smallest complete introduction to
+# that pattern.
 #
 # A compact `ModelDefinition` is enough to describe a nutrient--phytoplankton--
 # zooplankton ecosystem. The classic model of
