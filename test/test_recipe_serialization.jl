@@ -73,12 +73,6 @@ explicit_json_value(::Any) = false
             "participants" => Dict("resource" => "N"),
         ),
     )
-    @test encoded["recipe"]["processes"]["linear_mortality_P"]["routing"] == Dict(
-        "kind" => "product_routing",
-        "formulation" => "partition",
-        "retained" => "D",
-        "exported" => "N",
-    )
     @test encoded["provenance"]["agate"]["package"] == "Agate"
     @test encoded["provenance"]["agate"]["version"] == string(Base.pkgversion(Agate))
     @test startswith(recipe_hash, "sha256:")
@@ -145,10 +139,13 @@ explicit_json_value(::Any) = false
         @test export_recipe(path, recipe) == path
         exported = JSON.parsefile(path)
         bindings = exported["recipe"]["parameter_bindings"]
-        empty_arrays = map(("path", "axes")) do field
-            first_empty_provision(bindings, field)[field]
-        end
-        @test all(value -> value isa AbstractVector && isempty(value), empty_arrays)
+        provisions = [
+            provision for binding in values(bindings) for provision in binding["provides"]
+        ]
+        @test !isempty(provisions)
+        @test all(provision -> provision["path"] isa AbstractVector, provisions)
+        @test all(provision -> provision["axes"] isa AbstractVector, provisions)
+        @test isempty(first_empty_provision(bindings, "path")["path"])
         @test import_recipe(path) == recipe
     end
 

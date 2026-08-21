@@ -19,7 +19,10 @@ function realize_process_topology(
     if isnothing(routing)
         return MortalityTopology(tracer_values, index_values, nothing, nothing, nothing)
     end
-    if routing.formulation isa PartitionRouting
+    if routing.formulation isa DirectRouting
+        destination = _scalar_component_target(layout, routing.retained)
+        return MortalityTopology(tracer_values, index_values, destination, nothing, nothing)
+    elseif routing.formulation isa PartitionRouting
         retained = _scalar_component_target(layout, routing.retained)
         exported = _scalar_component_target(layout, routing.exported)
         return MortalityTopology(tracer_values, index_values, retained, exported, nothing)
@@ -82,7 +85,8 @@ function process_fluxes(
     slots = _mortality_slots(definition, named)
     form = formulation(named.process)
     routing = named.process.routing
-    fraction = if isnothing(routing) || !isnothing(topology.routed_targets)
+    fraction = if isnothing(routing) || routing.formulation isa DirectRouting ||
+                  !isnothing(topology.routed_targets)
         nothing
     else
         _routing_fraction_binding(definition, named, routing)
@@ -94,7 +98,12 @@ function process_fluxes(
         rate = _mortality_rate(form, slots.rate, topology.population_indices[i])
         fluxes = (fluxes..., FluxSpec(process_id(named), tracer, rate, Weight{-1}()))
 
-        if !isnothing(topology.routed_targets)
+        if !isnothing(routing) && routing.formulation isa DirectRouting
+            routed = FluxSpec(
+                process_id(named), topology.retained_target, rate, Weight{1}()
+            )
+            fluxes = (fluxes..., routed)
+        elseif !isnothing(topology.routed_targets)
             routed = _mortality_routed_fluxes(
                 named, definition, topology.routed_targets, rate
             )

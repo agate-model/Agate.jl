@@ -4,10 +4,11 @@ using ForwardDiff
 
 using Agate.Library.Nutrients: FrankTNorm, frank_tnorm, liebig_minimum
 using Agate.Library.Photosynthesis: frank_nutrient_limitation, liebig_nutrient_limitation
-using Agate.Library.Predation: holling_type_ii, preferential_predation_loss
+using Agate.Library.Predation: holling_type_ii, idealized_predation_loss, preferential_predation_loss
 
 @testset "Library" begin
     @test holling_type_ii(1.0, 1.0) == 0.5
+    @test idealized_predation_loss(2.0, 0.5, 0.1, 1.0) ≈ 0.04
 
     @test preferential_predation_loss(1.0, 0.5, 0.1, 0.2, 0.8) ≈ 1 / 30
 end

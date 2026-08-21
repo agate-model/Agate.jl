@@ -2,7 +2,7 @@
 
 module Predation
 
-export holling_type_ii, preferential_predation_loss
+export holling_type_ii, idealized_predation_loss, preferential_predation_loss
 
 """
     HollingTypeII(K)
@@ -59,6 +59,18 @@ end
 # -----------------------------------------------------------------------------
 # Explicit function aliases (preferred developer UX).
 # -----------------------------------------------------------------------------
+
+"""
+    idealized_predation_loss(P, Z, maximum_grazing_rate, half_saturation)
+
+Idealized NPZD grazing loss with a squared Holling response.
+"""
+@inline function idealized_predation_loss(P, Z, maximum_grazing_rate, half_saturation)
+    P_squared = P * P
+    K_squared = half_saturation * half_saturation
+    K_squared == zero(K_squared) && P_squared == zero(P_squared) && return zero(P * Z)
+    return maximum_grazing_rate * (P_squared / (K_squared + P_squared)) * Z
+end
 
 """
     holling_type_ii(P, K)

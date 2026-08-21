@@ -12,7 +12,7 @@ using ..Processes:
     ModelDefinition, normalize_model, parameter_bindings, process_kind, formulation,
     formulation_tag, factors, factor_inputs, factor_children, participants, drivers, rate_axes,
     Growth, Light, NutrientResponse, Nutrients, Temperature, Grazing, Mortality, ProductRouting,
-    PartitionRouting, DOMPOMRouting, FixedStoichiometry
+    DirectRouting, PartitionRouting, DOMPOMRouting, FixedStoichiometry
 
 using ..Library.Allometry:
     ConstantParam,
@@ -409,6 +409,11 @@ _recipe_science_value(stoichiometry::FixedStoichiometry) = _recipe_science_value
     kind=formulation_tag(stoichiometry), reference=stoichiometry.reference,
 ))
 
+_routing_recipe_fields(routing::ProductRouting{<:DirectRouting}) = (
+    kind=:product_routing,
+    formulation=formulation_tag(formulation(routing)),
+    destination=routing.retained,
+)
 _routing_recipe_fields(routing::ProductRouting{<:PartitionRouting}) = (
     kind=:product_routing,
     formulation=formulation_tag(formulation(routing)),

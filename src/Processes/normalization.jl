@@ -137,6 +137,12 @@ parameter_slots(::Q10) = (
     ParameterSlot(:q10),
     ParameterSlot(:reference_temperature),
 )
+parameter_slots(::IdealizedGrazing) = (
+    ParameterSlot(:maximum_rate, (:consumer,)),
+    ParameterSlot(:half_saturation, (:consumer,)),
+    ParameterSlot(:palatability, (:consumer, :resource)),
+    ParameterSlot(:assimilation, (:consumer, :resource)),
+)
 parameter_slots(::PreferentialGrazing) = (
     ParameterSlot(:maximum_rate, (:consumer,)),
     ParameterSlot(:half_saturation, (:consumer,)),
@@ -153,6 +159,7 @@ parameter_slots(::QuadraticMortality) = (ParameterSlot(:rate, (:population,); qu
 parameter_slots(::LinearRemineralization) = (
     ParameterSlot(:rate, (:source,); qualify=:source, shape=:scalar),
 )
+parameter_slots(::DirectRouting) = ()
 parameter_slots(::PartitionRouting) = (ParameterSlot(:export_fraction),)
 parameter_slots(::DOMPOMRouting) = (ParameterSlot(:POM_fraction),)
 parameter_slots(::FixedStoichiometry) = (ParameterSlot(:ratio; qualify=:currency),)
@@ -322,7 +329,7 @@ end
 
 function _parameter_nodes(named::NamedProcess{P}) where {P<:Grazing}
     process = named.process
-    process.formulation isa PreferentialGrazing || throw(
+    process.formulation isa Union{IdealizedGrazing,PreferentialGrazing} || throw(
         ArgumentError("unsupported grazing formulation $(typeof(process.formulation))"),
     )
     nodes = (
@@ -464,6 +471,7 @@ function _factor_component_references(factor::AbstractFactor)
 end
 
 function _routing_component_references(routing::ProductRouting)
+    routing.formulation isa DirectRouting && return (routing.retained,)
     routing.formulation isa PartitionRouting && return (routing.retained, routing.exported)
     routing.formulation isa DOMPOMRouting || throw(
         ArgumentError("unsupported product-routing formulation $(typeof(routing.formulation))"),

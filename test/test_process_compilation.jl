@@ -86,7 +86,12 @@ using Agate.Processes:
 
     @testset "Mortality" begin
         fluxes = ()
-        for id in (:linear_mortality_P, :linear_mortality_Z, :quadratic_mortality_Z)
+        for id in (
+            :linear_mortality_P_to_N,
+            :linear_mortality_P_to_D,
+            :linear_mortality_Z_to_N,
+            :quadratic_mortality_Z_to_D,
+        )
             process = getproperty(normalized.processes, id)
             topology = realize_process_topology(process, layout, context)
             fluxes = (fluxes..., process_fluxes(process, topology, normalized)...)
@@ -95,15 +100,14 @@ using Agate.Processes:
             fluxes; target_order=(:N, :D, :Z_1, :Z_2, :P_1, :P_2)
         )
 
-        @test length(fluxes) == 18
+        @test length(fluxes) == 16
         @test Tuple(
             flux.rate.operands[1] for flux in fluxes if
-            flux.process === :linear_mortality_P && weight_sign(flux.weight) == -1
+            flux.process === :linear_mortality_P_to_N && weight_sign(flux.weight) == -1
         ) == (ClassOp{3}(), ClassOp{4}())
-        fraction = ScalarParamOp{:mortality_export_fraction}()
-        @test fluxes[2].weight.operands == (ComplementOp(fraction),)
-        @test fluxes[3].weight.operands == (fraction,)
-        @test map(length, grouped) == (N=6, D=6, Z_1=2, Z_2=2, P_1=1, P_2=1)
+        @test fluxes[2].target === :N
+        @test isempty(fluxes[2].weight.operands)
+        @test map(length, grouped) == (N=4, D=4, Z_1=2, Z_2=2, P_1=2, P_2=2)
     end
 
     @testset "Remineralization" begin

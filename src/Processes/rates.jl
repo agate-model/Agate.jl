@@ -31,6 +31,20 @@ end
     return maximum_rate * factor_value(Monod(), resource, half_saturation) * consumer
 end
 
+"""Evaluate one idealized consumer-by-resource grazing rate."""
+@inline function process_rate(
+    ::IdealizedGrazing,
+    resource,
+    consumer,
+    maximum_rate,
+    half_saturation,
+    palatability,
+)
+    return palatability * idealized_predation_loss(
+        resource, consumer, maximum_rate, half_saturation
+    )
+end
+
 """Evaluate one preferential consumer-by-resource grazing rate."""
 @inline function process_rate(
     ::PreferentialGrazing,

@@ -40,22 +40,27 @@ const NIPIZD_PROCESSES = (
         ),
     ),
     grazing_Z_on_P=Grazing(
-        :preferential; consumer=:Z, resource=:P, unassimilated_destination=:D
+        :idealized; consumer=:Z, resource=:P, unassimilated_destination=:D
     ),
-    linear_mortality_P=Mortality(
+    linear_mortality_P_to_N=Mortality(
         :linear;
         population=:P,
-        routing=ProductRouting(:partition; retained=:D, exported=:N),
+        routing=ProductRouting(:direct; destination=:N),
     ),
-    linear_mortality_Z=Mortality(
+    linear_mortality_P_to_D=Mortality(
+        :linear;
+        population=:P,
+        routing=ProductRouting(:direct; destination=:D),
+    ),
+    linear_mortality_Z_to_N=Mortality(
         :linear;
         population=:Z,
-        routing=ProductRouting(:partition; retained=:D, exported=:N),
+        routing=ProductRouting(:direct; destination=:N),
     ),
-    quadratic_mortality_Z=Mortality(
+    quadratic_mortality_Z_to_D=Mortality(
         :quadratic;
         population=:Z,
-        routing=ProductRouting(:partition; retained=:D, exported=:N),
+        routing=ProductRouting(:direct; destination=:D),
     ),
     remineralization_D=Remineralization(:linear; source=:D, destination=:N),
 )

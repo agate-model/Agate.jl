@@ -28,7 +28,6 @@ using Agate.Processes:
     drivers,
     driver_identities,
     formulation,
-    formulation_tag,
     factors,
     factor_value,
     normalize_model,
@@ -201,15 +200,16 @@ end
     @test keys(normalized.processes) == (
         :grazing_Z_on_P,
         :growth_P,
-        :linear_mortality_P,
-        :linear_mortality_Z,
-        :quadratic_mortality_Z,
+        :linear_mortality_P_to_D,
+        :linear_mortality_P_to_N,
+        :linear_mortality_Z_to_N,
+        :quadratic_mortality_Z_to_D,
         :remineralization_D,
     )
     @test Tuple(process_id(process) for process in values(normalized.processes)) ==
         keys(normalized.processes)
-    @test length(parameter_requirements(normalized)) == 18
-    @test length(parameter_bindings(normalized)) == 18
+    @test length(parameter_requirements(normalized)) == 16
+    @test length(parameter_bindings(normalized)) == 16
 
     growth = normalized.processes.growth_P
     light_slots = parameter_slot_bindings(
@@ -238,8 +238,6 @@ end
         (source=(:D,), destination=(:N,))
 
     @test process_kind(normalized.processes.growth_P) === :growth
-    @test formulation_tag(formulation(normalized.processes.grazing_Z_on_P.process)) ===
-        :preferential
     @test rate_axes(normalized.processes.growth_P) == (:population,)
     @test rate_axes(normalized.processes.grazing_Z_on_P) == (:consumer, :resource)
 
@@ -269,21 +267,18 @@ end
     )
     @test remineralization_rate.binding.requirement.shape === :scalar
     @test remineralization_rate.axis_tracers == ((:D,),)
-    @test isempty(
-        application(
-            :mortality_export_fraction,
-            :linear_mortality_P,
-            :export_fraction;
-            path=(:routing,),
-        ).axis_tracers,
-    )
-
-    linear_P_rate = only(
-        filter(parameter_requirements(normalized.processes.linear_mortality_P)) do requirement
+    linear_P_to_N_rate = only(
+        filter(parameter_requirements(normalized.processes.linear_mortality_P_to_N)) do requirement
             requirement.identity.slot === :rate
         end,
     )
-    @test parameter_name(normalized, linear_P_rate) === :linear_mortality
+    linear_P_to_D_rate = only(
+        filter(parameter_requirements(normalized.processes.linear_mortality_P_to_D)) do requirement
+            requirement.identity.slot === :rate
+        end,
+    )
+    @test parameter_name(normalized, linear_P_to_N_rate) === :linear_mortality
+    @test parameter_name(normalized, linear_P_to_D_rate) === :linear_detrital_mortality
 
     processes = default_processes(family)
     reversed_names = reverse(keys(processes))

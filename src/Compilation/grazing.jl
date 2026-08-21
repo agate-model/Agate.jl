@@ -12,7 +12,7 @@ function realize_process_topology(
     named::NamedProcess{P}, layout::ComponentLayout, context::CommunityContext
 ) where {P<:Grazing}
     process = named.process
-    process.formulation isa PreferentialGrazing || throw(
+    process.formulation isa Union{IdealizedGrazing,PreferentialGrazing} || throw(
         ArgumentError("unsupported grazing formulation $(typeof(process.formulation))"),
     )
 

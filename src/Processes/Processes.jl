@@ -5,16 +5,16 @@ using ..Configuration: Population, Pool, ComponentLayout, currency
 using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
 using ..Parameters: ParameterDefinition, ParameterProvision, parameter_definitions
 using ..Library.Mortality: linear_loss, quadratic_loss
-using ..Library.Predation: preferential_predation_loss
+using ..Library.Predation: idealized_predation_loss, preferential_predation_loss
 using ..Library.Photosynthesis: smith_light_limitation
 using ..Library.Nutrients: liebig_minimum, monod_limitation
 using ..Library.Remineralization: linear_remineralization
 
 export AbstractProcess, AbstractFormulation, AbstractFactor, AbstractStoichiometry
-export Smith, Geider, Monod, Liebig, Q10, PreferentialGrazing, HeterotrophicConsumption
+export Smith, Geider, Monod, Liebig, Q10, IdealizedGrazing, PreferentialGrazing, HeterotrophicConsumption
 export Light, Nutrients, Temperature
 export LinearMortality, QuadraticMortality, LinearRemineralization
-export PartitionRouting, DOMPOMRouting, FixedStoichiometry
+export DirectRouting, PartitionRouting, DOMPOMRouting, FixedStoichiometry
 export Growth, NutrientResponse, Grazing, Consumption, Mortality, ProductRouting, Remineralization
 export ModelDefinition, NormalizedModelDefinition, NamedProcess
 export ParameterSlot, ParameterRequirementIdentity, ParameterRequirement

@@ -13,11 +13,13 @@ struct MultiplicativeFactors <: AbstractFormulation end
 
 """Abstract supertype for named multiplicative process-rate factors."""
 abstract type AbstractFactor end
+struct IdealizedGrazing <: AbstractFormulation end
 struct PreferentialGrazing <: AbstractFormulation end
 struct HeterotrophicConsumption <: AbstractFormulation end
 struct LinearMortality <: AbstractFormulation end
 struct QuadraticMortality <: AbstractFormulation end
 struct LinearRemineralization <: AbstractFormulation end
+struct DirectRouting <: AbstractFormulation end
 struct PartitionRouting <: AbstractFormulation end
 struct DOMPOMRouting <: AbstractFormulation end
 
@@ -39,11 +41,13 @@ formulation_tag(::Monod) = :monod
 formulation_tag(::Liebig) = :liebig
 formulation_tag(::Q10) = :q10
 formulation_tag(::MultiplicativeFactors) = :multiplicative
+formulation_tag(::IdealizedGrazing) = :idealized
 formulation_tag(::PreferentialGrazing) = :preferential
 formulation_tag(::HeterotrophicConsumption) = :heterotrophic
 formulation_tag(::LinearMortality) = :linear
 formulation_tag(::QuadraticMortality) = :quadratic
 formulation_tag(::LinearRemineralization) = :linear
+formulation_tag(::DirectRouting) = :direct
 formulation_tag(::PartitionRouting) = :partition
 formulation_tag(::DOMPOMRouting) = :dom_pom
 formulation_tag(::FixedStoichiometry) = :fixed
@@ -53,11 +57,13 @@ _resolve_light(::Val{:geider}) = Geider()
 _resolve_response(::Val{:monod}) = Monod()
 _resolve_nutrients(::Val{:liebig}) = Liebig()
 _resolve_temperature(::Val{:q10}) = Q10()
+_resolve_grazing(::Val{:idealized}) = IdealizedGrazing()
 _resolve_grazing(::Val{:preferential}) = PreferentialGrazing()
 _resolve_consumption(::Val{:heterotrophic}) = HeterotrophicConsumption()
 _resolve_mortality(::Val{:linear}) = LinearMortality()
 _resolve_mortality(::Val{:quadratic}) = QuadraticMortality()
 _resolve_remineralization(::Val{:linear}) = LinearRemineralization()
+_resolve_routing(::Val{:direct}) = DirectRouting()
 _resolve_routing(::Val{:partition}) = PartitionRouting()
 _resolve_routing(::Val{:dom_pom}) = DOMPOMRouting()
 
@@ -199,6 +205,8 @@ end
 
 ProductRouting(formulation::Symbol; kwargs...) =
     ProductRouting(_resolve_routing(Val(formulation)); kwargs...)
+ProductRouting(formulation::DirectRouting; destination::Symbol) =
+    ProductRouting(formulation, destination, nothing, nothing, nothing)
 ProductRouting(formulation::PartitionRouting; retained::Symbol, exported::Symbol) =
     ProductRouting(formulation, retained, exported, nothing, nothing)
 function ProductRouting(
@@ -283,7 +291,7 @@ struct Grazing{F<:AbstractFormulation,R} <: AbstractProcess
 end
 
 function Grazing(
-    formulation::PreferentialGrazing;
+    formulation::Union{IdealizedGrazing,PreferentialGrazing};
     consumer=nothing,
     consumers=nothing,
     resource=nothing,

@@ -35,8 +35,8 @@ function full_process_bgc()
     return Agate.Models.NiPiZD.construct(;
         parameters=(
             detritus_remineralization=1.4e-6,
-            mortality_export_fraction=0.23,
             linear_mortality=(Z_1=1.1e-6, Z_2=1.3e-6, P_1=0.7e-6, P_2=0.9e-6),
+            linear_detrital_mortality=(P_1=0.2e-6, P_2=0.3e-6),
             quadratic_mortality=(Z_1=1.7e-6, Z_2=2.1e-6),
             maximum_growth_rate=(P_1=2.2e-5, P_2=1.7e-5),
             nutrient_half_saturation=(P_1=0.21, P_2=0.34),
@@ -56,8 +56,8 @@ end
     compiled = compilation.compiled
 
     @test compilation.drivers == (:PAR,)
-    @test length(fluxes) == 36
-    @test map(length, grouped) == (N=9, D=11, Z_1=4, Z_2=4, P_1=4, P_2=4)
+    @test length(fluxes) == 34
+    @test map(length, grouped) == (N=7, D=9, Z_1=4, Z_2=4, P_1=5, P_2=5)
     @test keys(compiled) == NIPIZD_PROCESS_TRACER_ORDER
     @test all(equation -> equation isa CompiledEquation, values(compiled))
     @test all(equation -> isbitstype(typeof(equation.f)), values(compiled))

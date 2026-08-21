@@ -57,7 +57,7 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
         @test definitions[:assimilation_matrix].default.deps == (:assimilation_efficiency,)
         @test all(!isempty(spec.provides) for spec in values(specmap))
         @test length(specmap[:linear_mortality].provides) == 2
-        @test length(specmap[:mortality_export_fraction].provides) == 3
+        @test length(specmap[:linear_detrital_mortality].provides) == 1
         @test specmap[:detritus_remineralization].shape == :scalar
         @test specmap[:maximum_growth_rate].shape == :vector
         @test specmap[:maximum_growth_rate].axes == :plankton
@@ -65,6 +65,8 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
         @test specmap[:maximum_growth_rate].materialization.fill_value == 0
         @test !isnothing(specmap[:linear_mortality].materialization)
         @test specmap[:linear_mortality].materialization.fill_value == 0
+        @test specmap[:linear_detrital_mortality].axes == :plankton
+        @test specmap[:linear_detrital_mortality].materialization.fill_value == 0
         @test specmap[:palatability_matrix].shape == :matrix
         @test specmap[:palatability_matrix].axes == (:consumer, :prey)
         @test specmap[:assimilation_matrix].axes == (:consumer, :prey)
