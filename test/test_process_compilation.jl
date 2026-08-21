@@ -18,7 +18,10 @@ using Agate.Processes:
     normalized = normalize_model(ModelDefinition(family))
     layout = realize_components(default_components(family))
     context = Agate.Configuration.parse_community(
-        Float64, default_nipizd_community(); biogeochem_tracers=(:N, :D)
+        Float64,
+        default_nipizd_community();
+        biogeochem_tracers=(:N, :D),
+        interaction_roles=(consumers=(:Z,), prey=(:P,)),
     )
 
     @testset "Growth" begin

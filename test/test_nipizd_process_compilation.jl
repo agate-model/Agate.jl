@@ -18,7 +18,10 @@ function nipizd_process_compilation(::Type{T}=Float64) where {T<:Real}
     normalized = normalize_model(ModelDefinition(family))
     layout = realize_components(default_components(family); scalar_type=T)
     context = Agate.Configuration.parse_community(
-        T, default_nipizd_community(); biogeochem_tracers=(:N, :D)
+        T,
+        default_nipizd_community();
+        biogeochem_tracers=(:N, :D),
+        interaction_roles=(consumers=(:Z,), prey=(:P,)),
     )
     fluxes = model_fluxes(normalized, layout, context)
     grouped = group_fluxes(
