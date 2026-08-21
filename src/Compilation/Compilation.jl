@@ -38,10 +38,8 @@ using ..Processes:
     process_rate
 
 export FluxSpec, RateElement, Weight
-export GrowthTopology, GrazingTopology, ConsumptionTopology
-export MortalityTopology, RemineralizationTopology
 export parameter_operand
-export realize_process_topology, process_fluxes
+export process_fluxes
 export flux_target, group_fluxes
 export model_fluxes, compile_tendency, compile_tendencies, compile_model_tendencies
 

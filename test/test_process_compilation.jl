@@ -5,7 +5,6 @@ using Agate.Compilation:
     VecParamOp,
     InteractionParamOp,
     ComplementOp,
-    realize_process_topology,
     process_fluxes,
     group_fluxes,
     weight_sign
@@ -24,13 +23,9 @@ using Agate.Processes:
 
     @testset "Growth" begin
         process = normalized.processes.growth_P
-        topology = realize_process_topology(process, layout, context)
-        fluxes = process_fluxes(process, topology, normalized)
+        fluxes = process_fluxes(process, normalized, layout, context)
         grouped = group_fluxes(fluxes; target_order=(:N, :P_1, :P_2))
 
-        @test topology.population_tracers == (:P_1, :P_2)
-        @test topology.population_indices == (3, 4)
-        @test topology.resource_target === :N
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) ==
             ((:P_1, 1), (:N, -1), (:P_2, 1), (:N, -1))
 
@@ -53,15 +48,9 @@ using Agate.Processes:
 
     @testset "Grazing" begin
         process = normalized.processes.grazing_Z_on_P
-        topology = realize_process_topology(process, layout, context)
-        fluxes = process_fluxes(process, topology, normalized)
+        fluxes = process_fluxes(process, normalized, layout, context)
         grouped = group_fluxes(fluxes; target_order=(:D, :Z_1, :Z_2, :P_1, :P_2))
 
-        @test topology.consumer_tracers == (:Z_1, :Z_2)
-        @test topology.consumer_indices == (1, 2)
-        @test topology.resource_tracers == (:P_1, :P_2)
-        @test topology.resource_indices == (3, 4)
-        @test topology.unassimilated_target === :D
         @test length(fluxes) == 12
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes[1:3]) ==
             ((:P_1, -1), (:Z_1, 1), (:D, 1))
@@ -93,8 +82,7 @@ using Agate.Processes:
             :quadratic_mortality_Z_to_D,
         )
             process = getproperty(normalized.processes, id)
-            topology = realize_process_topology(process, layout, context)
-            fluxes = (fluxes..., process_fluxes(process, topology, normalized)...)
+            fluxes = (fluxes..., process_fluxes(process, normalized, layout, context)...)
         end
         grouped = group_fluxes(
             fluxes; target_order=(:N, :D, :Z_1, :Z_2, :P_1, :P_2)
@@ -112,10 +100,7 @@ using Agate.Processes:
 
     @testset "Remineralization" begin
         process = normalized.processes.remineralization_D
-        topology = realize_process_topology(process, layout, context)
-        fluxes = process_fluxes(process, topology, normalized)
-        @test topology.source_tracers == (:D,)
-        @test topology.destination_target === :N
+        fluxes = process_fluxes(process, normalized, layout, context)
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) ==
             ((:D, -1), (:N, 1))
         @test fluxes[1].rate.operands ==
