@@ -153,13 +153,13 @@ function parameter_operand(binding::ParameterBinding, indices::Int...)
     throw(ArgumentError("unsupported parameter requirement shape $shape"))
 end
 
-@inline _axis_position(local::Int, plankton::Union{Nothing,Int}=nothing) =
-    (; local, plankton)
+@inline _axis_position(local_index::Int, plankton_index::Union{Nothing,Int}=nothing) =
+    (; local_index, plankton_index)
 
 function _explicit_storage_index(
     storage_axis::Symbol, position, context::CommunityContext, parameter::Symbol
 )
-    plankton_index = position.plankton
+    plankton_index = position.plankton_index
     isnothing(plankton_index) && throw(
         ArgumentError(
             "parameter :$parameter uses explicit storage axis :$storage_axis for a non-plankton process axis",
@@ -198,7 +198,7 @@ function parameter_operand(
 
     storage_axes = binding.storage_axes
     if storage_axes === nothing
-        return parameter_operand(binding, Tuple(position.local for position in positions)...)
+        return parameter_operand(binding, Tuple(position.local_index for position in positions)...)
     elseif shape === :vector
         storage_axes isa Symbol || throw(
             ArgumentError(
