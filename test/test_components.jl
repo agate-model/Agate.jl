@@ -78,7 +78,7 @@ end
     parameter = ParameterDefinition(
         :pom_remineralization,
         ConstDefault(0.1);
-        provides=ParameterProvision(:remineralization_POM, :linear, :rate; qualifier=(source=:POM,),),
+        provides=ParameterProvision(:remineralization_POM, :rate),
     )
     definition = normalize_model(
         ModelDefinition(;

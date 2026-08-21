@@ -2,6 +2,7 @@ using Test
 
 using Agate.Configuration: Population, Pool, realize_components
 using Agate.ModelFamilies: default_components, default_processes
+using Agate.Parameters: NoDefault, ParameterDefinition, ParameterProvision
 using Agate.Processes:
     Smith,
     Geider,
@@ -335,5 +336,47 @@ end
     @test a == b
     @test a != ParameterRequirementIdentity(
         :other_growth, (:factors, :nutrients), :monod, :K; qualifier=(resource=:N, population=:P)
+    )
+end
+
+@testset "Parameter provision inference" begin
+    components = (P=Population(; currency=:nitrogen, size_structure=[1.0]),)
+    processes = (
+        growth=Growth(;
+            population=:P,
+            factors=(
+                light_a=Light(:smith; driver=:PAR),
+                light_b=Light(:smith; driver=:PAR),
+            ),
+        ),
+    )
+    parameter(name, slot, path) = ParameterDefinition(
+        name, NoDefault();
+        shape=:vector,
+        provides=ParameterProvision(:growth, slot; path),
+    )
+    parameters(max_a) = (
+        ParameterDefinition(:max_a, NoDefault(); shape=:vector, provides=max_a),
+        parameter(:alpha_a, :alpha, (:factors, :light_a)),
+        parameter(:max_b, :maximum_rate, (:factors, :light_b)),
+        parameter(:alpha_b, :alpha, (:factors, :light_b)),
+    )
+    definition(parameters) = ModelDefinition(; components, processes, parameters)
+
+    normalized = normalize_model(definition(parameters(
+        ParameterProvision(:growth, :maximum_rate; path=(:factors, :light_a))
+    )))
+    max_a_requirement = only(filter(parameter_requirements(normalized)) do requirement
+        identity = requirement.identity
+        identity.path == (:factors, :light_a) && identity.slot === :maximum_rate
+    end)
+    @test max_a_requirement.identity.formulation === :smith
+    @test parameter_name(normalized, max_a_requirement) === :max_a
+
+    @test_throws ArgumentError normalize_model(
+        definition(parameters(ParameterProvision(:growth, :maximum_rate)))
+    )
+    @test_throws ArgumentError normalize_model(
+        definition(parameters(ParameterProvision(:growth, :missing)))
     )
 end

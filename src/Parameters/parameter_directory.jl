@@ -24,32 +24,31 @@ end
 
 DiameterIndexedMaterialization(; fill_value) = DiameterIndexedMaterialization(fill_value)
 
-"""Declare that a model parameter supplies one semantic formulation requirement.
+"""Declare that a model parameter supplies one semantic process parameter slot.
 
-`process` is the stable named process identity, `path` locates an optional nested
-sub-formulation, and `slot` is the formulation-local semantic parameter name.
-`qualifier` distinguishes repeated instances of the same slot, such as Monod `K`
-for different resources.
+`process` is the stable named process identity and `slot` is the scientific parameter
+name. `qualifier` narrows repeated slots, such as Monod `K` for a specific resource.
+`path` is an optional disambiguator for models that contain more than one matching
+slot within the same process. Formulation and resolved path are otherwise derived
+from the normalized process definition.
 """
-struct ParameterProvision{P<:Tuple,Q<:NamedTuple}
+struct ParameterProvision{P<:Union{Nothing,Tuple},Q<:NamedTuple}
     process::Symbol
-    path::P
-    formulation::Symbol
     slot::Symbol
+    path::P
     qualifier::Q
 end
 
 function ParameterProvision(
     process::Symbol,
-    formulation::Symbol,
     slot::Symbol;
-    path::Tuple=(),
+    path::Union{Nothing,Tuple}=nothing,
     qualifier::NamedTuple=NamedTuple(),
 )
-    all(item -> item isa Symbol, path) || throw(
+    isnothing(path) || all(item -> item isa Symbol, path) || throw(
         ArgumentError("parameter provision path must contain only Symbols"),
     )
-    return ParameterProvision(process, path, formulation, slot, qualifier)
+    return ParameterProvision(process, slot, path, qualifier)
 end
 
 function _parameter_provisions(provides)
@@ -73,7 +72,7 @@ Fields
 - `axes`: optional runtime vector axis name or matrix-axis names.
 - `runtime_path`: concrete runtime storage path below `bgc.parameters`.
 - `materialization`: optional constructor-time parameter-law materialization semantics.
-- `provides`: semantic process/formulation requirements supplied by this parameter.
+- `provides`: semantic process parameter slots supplied by this parameter.
 """
 struct ParameterSpec{R<:Tuple,P<:Tuple}
     name::Symbol
@@ -119,7 +118,7 @@ end
 
 `shape` is `:scalar`, `:vector`, or `:matrix`; vector and matrix definitions may
 declare runtime `axes`. `provides` links the parameter to one or more scientific
-formulation slots.
+process parameter slots.
 """
 function ParameterDefinition(
     name::Symbol,

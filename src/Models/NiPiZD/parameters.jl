@@ -37,7 +37,7 @@ function parameter_definitions(::NiPiZDFamily)
         ParameterDefinition(
             :detritus_remineralization,
             ConstDefault(detritus_remin);
-            provides=ParameterProvision(:remineralization_D, :linear, :rate; qualifier=(source=:D,),),
+            provides=ParameterProvision(:remineralization_D, :rate),
         ),
         ParameterDefinition(
             :linear_detrital_mortality,
@@ -45,9 +45,7 @@ function parameter_definitions(::NiPiZDFamily)
             shape=:vector,
             axes=:plankton,
             materialization=producer_materialization,
-            provides=ParameterProvision(
-                :linear_mortality_P_to_D, :linear, :rate; qualifier=(population=:P,),
-            ),
+            provides=ParameterProvision(:linear_mortality_P_to_D, :rate),
         ),
         ParameterDefinition(
             :linear_mortality,
@@ -56,8 +54,8 @@ function parameter_definitions(::NiPiZDFamily)
             axes=:plankton,
             materialization=all_plankton_materialization,
             provides=(
-                ParameterProvision(:linear_mortality_P_to_N, :linear, :rate; qualifier=(population=:P,),),
-                ParameterProvision(:linear_mortality_Z_to_N, :linear, :rate; qualifier=(population=:Z,),),
+                ParameterProvision(:linear_mortality_P_to_N, :rate),
+                ParameterProvision(:linear_mortality_Z_to_N, :rate),
             ),
         ),
         ParameterDefinition(
@@ -66,7 +64,7 @@ function parameter_definitions(::NiPiZDFamily)
             shape=:vector,
             axes=:plankton,
             materialization=consumer_materialization,
-            provides=ParameterProvision(:quadratic_mortality_Z_to_D, :quadratic, :rate; qualifier=(population=:Z,),),
+            provides=ParameterProvision(:quadratic_mortality_Z_to_D, :rate),
         ),
         ParameterDefinition(
             :maximum_growth_rate,
@@ -77,7 +75,7 @@ function parameter_definitions(::NiPiZDFamily)
             shape=:vector,
             axes=:plankton,
             materialization=producer_materialization,
-            provides=ParameterProvision(:growth_P, :smith, :maximum_rate; path=(:factors, :light)),
+            provides=ParameterProvision(:growth_P, :maximum_rate),
         ),
         ParameterDefinition(
             :nutrient_half_saturation,
@@ -88,7 +86,7 @@ function parameter_definitions(::NiPiZDFamily)
             shape=:vector,
             axes=:plankton,
             materialization=producer_materialization,
-            provides=ParameterProvision(:growth_P, :monod, :K; path=(:factors, :nutrients), qualifier=(resource=:N,),),
+            provides=ParameterProvision(:growth_P, :K),
         ),
         ParameterDefinition(
             :alpha,
@@ -98,7 +96,7 @@ function parameter_definitions(::NiPiZDFamily)
             shape=:vector,
             axes=:plankton,
             materialization=producer_materialization,
-            provides=ParameterProvision(:growth_P, :smith, :alpha; path=(:factors, :light)),
+            provides=ParameterProvision(:growth_P, :alpha),
         ),
         ParameterDefinition(
             :maximum_predation_rate,
@@ -109,7 +107,7 @@ function parameter_definitions(::NiPiZDFamily)
             shape=:vector,
             axes=:plankton,
             materialization=consumer_materialization,
-            provides=ParameterProvision(:grazing_Z_on_P, :idealized, :maximum_rate),
+            provides=ParameterProvision(:grazing_Z_on_P, :maximum_rate),
         ),
         ParameterDefinition(
             :holling_half_saturation,
@@ -117,7 +115,7 @@ function parameter_definitions(::NiPiZDFamily)
             shape=:vector,
             axes=:plankton,
             materialization=consumer_materialization,
-            provides=ParameterProvision(:grazing_Z_on_P, :idealized, :half_saturation),
+            provides=ParameterProvision(:grazing_Z_on_P, :half_saturation),
         ),
         ParameterDefinition(
             :palatability_matrix,
@@ -132,7 +130,7 @@ function parameter_definitions(::NiPiZDFamily)
             shape=:matrix,
             axes=(:consumer, :prey),
             runtime_path=(:interactions, :palatability),
-            provides=ParameterProvision(:grazing_Z_on_P, :idealized, :palatability),
+            provides=ParameterProvision(:grazing_Z_on_P, :palatability),
         ),
         ParameterDefinition(
             :assimilation_matrix,
@@ -142,7 +140,7 @@ function parameter_definitions(::NiPiZDFamily)
             shape=:matrix,
             axes=(:consumer, :prey),
             runtime_path=(:interactions, :assimilation),
-            provides=ParameterProvision(:grazing_Z_on_P, :idealized, :assimilation),
+            provides=ParameterProvision(:grazing_Z_on_P, :assimilation),
         ),
         ParameterDefinition(
             :optimum_predator_prey_ratio,
@@ -150,7 +148,7 @@ function parameter_definitions(::NiPiZDFamily)
             shape=:vector,
             axes=:plankton,
             materialization=consumer_materialization,
-            provides=ParameterProvision(:grazing_Z_on_P, :allometric, :optimum_predator_prey_ratio; path=(:palatability, :default)),
+            provides=ParameterProvision(:grazing_Z_on_P, :optimum_predator_prey_ratio),
         ),
         ParameterDefinition(
             :specificity,
@@ -158,7 +156,7 @@ function parameter_definitions(::NiPiZDFamily)
             shape=:vector,
             axes=:plankton,
             materialization=consumer_materialization,
-            provides=ParameterProvision(:grazing_Z_on_P, :allometric, :specificity; path=(:palatability, :default)),
+            provides=ParameterProvision(:grazing_Z_on_P, :specificity),
         ),
         ParameterDefinition(
             :protection,
@@ -166,7 +164,7 @@ function parameter_definitions(::NiPiZDFamily)
             shape=:vector,
             axes=:plankton,
             materialization=producer_materialization,
-            provides=ParameterProvision(:grazing_Z_on_P, :allometric, :protection; path=(:palatability, :default)),
+            provides=ParameterProvision(:grazing_Z_on_P, :protection),
         ),
         ParameterDefinition(
             :assimilation_efficiency,
@@ -174,7 +172,7 @@ function parameter_definitions(::NiPiZDFamily)
             shape=:vector,
             axes=:plankton,
             materialization=consumer_materialization,
-            provides=ParameterProvision(:grazing_Z_on_P, :binary, :assimilation_efficiency; path=(:assimilation, :default)),
+            provides=ParameterProvision(:grazing_Z_on_P, :assimilation_efficiency),
         ),
     )
 end

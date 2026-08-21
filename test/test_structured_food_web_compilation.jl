@@ -15,61 +15,53 @@ using Agate.Processes:
     driver_identities
 
 function food_web_parameters()
-    slot(process, formulation, name; path=(), qualifier=NamedTuple()) =
-        ParameterProvision(process, formulation, name; path, qualifier)
+    slot(process, name) = ParameterProvision(process, name)
     no_default(name, shape, provides; runtime_path=(name,)) =
         ParameterDefinition(name, NoDefault(); shape, runtime_path, provides)
 
     return (
         no_default(:maximum_growth_rate, :vector,
-            slot(:growth_autotrophs, :smith, :maximum_rate; path=(:factors, :light))),
+            slot(:growth_autotrophs, :maximum_rate)),
         no_default(:alpha, :vector,
-            slot(:growth_autotrophs, :smith, :alpha; path=(:factors, :light))),
+            slot(:growth_autotrophs, :alpha)),
         no_default(:nutrient_half_saturation, :vector,
-            slot(:growth_autotrophs, :monod, :K;
-                path=(:factors, :nutrients), qualifier=(resource=:N,))),
+            slot(:growth_autotrophs, :K)),
         no_default(:temperature_q10, :scalar, (
-            slot(:growth_autotrophs, :q10, :q10; path=(:factors, :temperature)),
-            slot(:consume_POM, :q10, :q10; path=(:factors, :temperature)),
+            slot(:growth_autotrophs, :q10),
+            slot(:consume_POM, :q10),
         )),
         no_default(:reference_temperature, :scalar, (
-            slot(:growth_autotrophs, :q10, :reference_temperature;
-                path=(:factors, :temperature)),
-            slot(:consume_POM, :q10, :reference_temperature;
-                path=(:factors, :temperature)),
+            slot(:growth_autotrophs, :reference_temperature),
+            slot(:consume_POM, :reference_temperature),
         )),
         no_default(:maximum_consumption_rate, :vector,
-            slot(:consume_POM, :heterotrophic, :maximum_rate)),
+            slot(:consume_POM, :maximum_rate)),
         no_default(:pom_half_saturation, :vector,
-            slot(:consume_POM, :heterotrophic, :half_saturation)),
+            slot(:consume_POM, :half_saturation)),
         no_default(:bacterial_assimilation, :matrix,
-            slot(:consume_POM, :heterotrophic, :assimilation)),
+            slot(:consume_POM, :assimilation)),
         no_default(:maximum_predation_rate, :vector,
-            slot(:grazing_living, :preferential, :maximum_rate)),
+            slot(:grazing_living, :maximum_rate)),
         no_default(:holling_half_saturation, :vector,
-            slot(:grazing_living, :preferential, :half_saturation)),
+            slot(:grazing_living, :half_saturation)),
         no_default(
             :living_palatability_matrix, :matrix,
-            slot(:grazing_living, :preferential, :palatability);
+            slot(:grazing_living, :palatability);
             runtime_path=(:interactions, :living_palatability),
         ),
         no_default(
             :living_assimilation_matrix, :matrix,
-            slot(:grazing_living, :preferential, :assimilation);
+            slot(:grazing_living, :assimilation);
             runtime_path=(:interactions, :living_assimilation),
         ),
         no_default(:optimum_predator_prey_ratio, :vector,
-            slot(:grazing_living, :allometric, :optimum_predator_prey_ratio;
-                path=(:palatability, :default))),
+            slot(:grazing_living, :optimum_predator_prey_ratio)),
         no_default(:specificity, :vector,
-            slot(:grazing_living, :allometric, :specificity;
-                path=(:palatability, :default))),
+            slot(:grazing_living, :specificity)),
         no_default(:protection, :vector,
-            slot(:grazing_living, :allometric, :protection;
-                path=(:palatability, :default))),
+            slot(:grazing_living, :protection)),
         no_default(:assimilation_efficiency, :vector,
-            slot(:grazing_living, :binary, :assimilation_efficiency;
-                path=(:assimilation, :default))),
+            slot(:grazing_living, :assimilation_efficiency)),
     )
 end
 

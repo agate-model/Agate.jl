@@ -648,14 +648,43 @@ function _declared_parameter_requirements(processes::NamedTuple)
     return requirements
 end
 
-function _provision_identity(provision::ParameterProvision)
-    return ParameterRequirementIdentity(
-        provision.process,
-        provision.path,
-        provision.formulation,
-        provision.slot;
-        qualifier=provision.qualifier,
+function _matches_parameter_provision(
+    requirement::ParameterRequirement, provision::ParameterProvision
+)
+    identity = requirement.identity
+    identity.process === provision.process || return false
+    identity.slot === provision.slot || return false
+    isnothing(provision.path) || identity.path == provision.path || return false
+    return all(keys(provision.qualifier)) do name
+        hasproperty(identity.qualifier, name) &&
+            getproperty(identity.qualifier, name) == getproperty(provision.qualifier, name)
+    end
+end
+
+function _resolve_parameter_requirement(
+    provision::ParameterProvision, requirements::Tuple, parameter::Symbol
+)
+    matches = filter(
+        requirement -> _matches_parameter_provision(requirement, provision), requirements
     )
+    description = (
+        process=provision.process,
+        slot=provision.slot,
+        qualifier=provision.qualifier,
+        path=provision.path,
+    )
+    isempty(matches) && throw(
+        ArgumentError(
+            "parameter :$parameter provision $description matches no declared requirement"
+        ),
+    )
+    length(matches) == 1 || throw(
+        ArgumentError(
+            "parameter :$parameter provision $description is ambiguous; " *
+            "matches $(map(r -> r.identity, matches)). Add a qualifier or path.",
+        ),
+    )
+    return only(matches)
 end
 
 function _normalize_parameter_bindings(requirements::Tuple, definitions)
@@ -667,22 +696,17 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
         ArgumentError("model parameters must contain only ParameterDefinition values"),
     )
 
-    requirement_map = Dict(requirement.identity => requirement for requirement in requirements)
     provided = Dict{ParameterRequirementIdentity,Tuple{Symbol,Tuple}}()
 
     for definition in definitions
         spec = definition.spec
         for provision in spec.provides
-            identity = _provision_identity(provision)
-            requirement = get(requirement_map, identity, nothing)
-            isnothing(requirement) && throw(
-                ArgumentError(
-                    "parameter :$(spec.name) provides undeclared requirement $identity",
-                ),
-            )
+            requirement = _resolve_parameter_requirement(provision, requirements, spec.name)
+            identity = requirement.identity
             spec.shape === requirement.shape || throw(
                 ArgumentError(
-                    "parameter :$(spec.name) provides $(requirement.identity) with required shape $(requirement.shape), not $(spec.shape)",
+                    "parameter :$(spec.name) provides $identity with required shape " *
+                    "$(requirement.shape), not $(spec.shape)",
                 ),
             )
             haskey(provided, identity) && throw(
