@@ -273,8 +273,8 @@ function _validate_target_order(fluxes::Tuple, target_order::Tuple)
     length(unique(target_order)) == length(target_order) || throw(
         ArgumentError("target_order contains duplicate tracer identities"),
     )
-    Set(_target_order(fluxes)) == Set(target_order) || throw(
-        ArgumentError("target_order must contain exactly the flux targets"),
+    issubset(Set(_target_order(fluxes)), Set(target_order)) || throw(
+        ArgumentError("target_order must contain every flux target"),
     )
     return nothing
 end
@@ -295,6 +295,10 @@ struct StaticFluxEquation{T}
     terms::T
 end
 
+struct StaticZeroEquation end
+
+@inline (::StaticZeroEquation)(bgc, x, y, z, t, args...) = zero(first(args))
+
 @inline function _sum_fluxes(terms::Tuple{T}, bgc, args) where {T}
     return first(terms)(bgc, args)
 end
@@ -309,7 +313,7 @@ end
 
 """Lower one target's setup-time flux tuple to a concrete compiled equation."""
 function compile_tendency(fluxes::Tuple)
-    isempty(fluxes) && throw(ArgumentError("cannot compile an empty flux tuple"))
+    isempty(fluxes) && return CompiledEquation(StaticZeroEquation())
     target = flux_target(first(fluxes))
     all(flux -> flux_target(flux) === target, fluxes) || throw(
         ArgumentError("compile_tendency requires fluxes for one target tracer"),
