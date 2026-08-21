@@ -37,11 +37,7 @@ using ..Processes:
     process_id,
     process_rate
 
-export FluxSpec, RateElement, Weight
-export parameter_operand
-export process_fluxes
-export flux_target, group_fluxes
-export model_fluxes, compile_tendency, compile_tendencies, compile_model_tendencies
+export compile_model_tendencies
 
 include("fluxes.jl")
 include("factors.jl")

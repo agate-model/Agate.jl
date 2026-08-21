@@ -24,7 +24,6 @@ export participants, drivers, rate_axes, driver_identities, normalize_model
 export parameter_slots, parameter_requirements, parameter_bindings, parameter_binding, parameter_name
 export parameter_slot_bindings
 export resolve_parameter_applicability
-export process_rate
 
 include("authoring.jl")
 include("rates.jl")

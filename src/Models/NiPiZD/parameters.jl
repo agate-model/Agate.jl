@@ -27,11 +27,7 @@ using ...Configuration: PalatabilityAllometric, AssimilationBinary
 
 function parameter_definitions(::NiPiZDFamily)
     detritus_remin = 0.1213 / 86400
-    all_plankton_materialization = DiameterIndexedMaterialization(; fill_value=0)
-    producer_materialization =
-        DiameterIndexedMaterialization(; fill_value=0)
-    consumer_materialization =
-        DiameterIndexedMaterialization(; fill_value=0)
+    plankton_materialization = DiameterIndexedMaterialization(; fill_value=0)
 
     return (
         ParameterDefinition(
@@ -44,7 +40,7 @@ function parameter_definitions(::NiPiZDFamily)
             DiameterIndexedVectorDefault(0.0101 / 86400; default=0);
             shape=:vector,
             axes=:plankton,
-            materialization=producer_materialization,
+            materialization=plankton_materialization,
             provides=ParameterProvision(:linear_mortality_P_to_D, :rate),
         ),
         ParameterDefinition(
@@ -52,7 +48,7 @@ function parameter_definitions(::NiPiZDFamily)
             FillDefault(8e-7);
             shape=:vector,
             axes=:plankton,
-            materialization=all_plankton_materialization,
+            materialization=plankton_materialization,
             provides=(
                 ParameterProvision(:linear_mortality_P_to_N, :rate),
                 ParameterProvision(:linear_mortality_Z_to_N, :rate),
@@ -63,7 +59,7 @@ function parameter_definitions(::NiPiZDFamily)
             DiameterIndexedVectorDefault(1e-6; default=0);
             shape=:vector,
             axes=:plankton,
-            materialization=consumer_materialization,
+            materialization=plankton_materialization,
             provides=ParameterProvision(:quadratic_mortality_Z_to_D, :rate),
         ),
         ParameterDefinition(
@@ -74,7 +70,7 @@ function parameter_definitions(::NiPiZDFamily)
             );
             shape=:vector,
             axes=:plankton,
-            materialization=producer_materialization,
+            materialization=plankton_materialization,
             provides=ParameterProvision(:growth_P, :maximum_rate),
         ),
         ParameterDefinition(
@@ -85,7 +81,7 @@ function parameter_definitions(::NiPiZDFamily)
             );
             shape=:vector,
             axes=:plankton,
-            materialization=producer_materialization,
+            materialization=plankton_materialization,
             provides=ParameterProvision(:growth_P, :K),
         ),
         ParameterDefinition(
@@ -95,7 +91,7 @@ function parameter_definitions(::NiPiZDFamily)
             );
             shape=:vector,
             axes=:plankton,
-            materialization=producer_materialization,
+            materialization=plankton_materialization,
             provides=ParameterProvision(:growth_P, :alpha),
         ),
         ParameterDefinition(
@@ -106,7 +102,7 @@ function parameter_definitions(::NiPiZDFamily)
             );
             shape=:vector,
             axes=:plankton,
-            materialization=consumer_materialization,
+            materialization=plankton_materialization,
             provides=ParameterProvision(:grazing_Z_on_P, :maximum_rate),
         ),
         ParameterDefinition(
@@ -114,7 +110,7 @@ function parameter_definitions(::NiPiZDFamily)
             DiameterIndexedVectorDefault(5.0; default=0);
             shape=:vector,
             axes=:plankton,
-            materialization=consumer_materialization,
+            materialization=plankton_materialization,
             provides=ParameterProvision(:grazing_Z_on_P, :half_saturation),
         ),
         ParameterDefinition(
@@ -147,7 +143,7 @@ function parameter_definitions(::NiPiZDFamily)
             DiameterIndexedVectorDefault(10.0; default=0);
             shape=:vector,
             axes=:plankton,
-            materialization=consumer_materialization,
+            materialization=plankton_materialization,
             provides=ParameterProvision(:grazing_Z_on_P, :optimum_predator_prey_ratio),
         ),
         ParameterDefinition(
@@ -155,7 +151,7 @@ function parameter_definitions(::NiPiZDFamily)
             DiameterIndexedVectorDefault(0.3; default=0);
             shape=:vector,
             axes=:plankton,
-            materialization=consumer_materialization,
+            materialization=plankton_materialization,
             provides=ParameterProvision(:grazing_Z_on_P, :specificity),
         ),
         ParameterDefinition(
@@ -163,7 +159,7 @@ function parameter_definitions(::NiPiZDFamily)
             DiameterIndexedVectorDefault(0.0; default=1.0);
             shape=:vector,
             axes=:plankton,
-            materialization=producer_materialization,
+            materialization=plankton_materialization,
             provides=ParameterProvision(:grazing_Z_on_P, :protection),
         ),
         ParameterDefinition(
@@ -171,7 +167,7 @@ function parameter_definitions(::NiPiZDFamily)
             DiameterIndexedVectorDefault(0.32; default=0);
             shape=:vector,
             axes=:plankton,
-            materialization=consumer_materialization,
+            materialization=plankton_materialization,
             provides=ParameterProvision(:grazing_Z_on_P, :assimilation_efficiency),
         ),
     )
