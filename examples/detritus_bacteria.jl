@@ -41,6 +41,10 @@ processes = (
 )
 
 # ## Parameters
+#
+# Living-class parameters use the explicit global `:plankton` storage axis.
+# POM half-saturation and bacterial assimilation omit `axes`, so their storage
+# follows the process-local POM and B-by-POM applicability directly.
 
 parameters = (
     ParameterDefinition(

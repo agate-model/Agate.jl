@@ -188,7 +188,58 @@ function derived_default_order(source)
     return Tuple(ordered)
 end
 
-function validate_derived_parameter_result(spec, context, value)
+function _local_parameter_axis_tracers(definition, layout, parameter::Symbol, shape::Symbol)
+    matches = Tuple(
+        applicability.axis_tracers
+        for applicability in resolve_parameter_applicability(definition, layout)
+        if applicability.binding.parameter === parameter
+    )
+    isempty(matches) && throw(
+        ArgumentError(
+            "parameter :$parameter has local storage but no resolved process applicability",
+        ),
+    )
+
+    expected_axes = shape === :vector ? 1 : shape === :matrix ? 2 : 0
+    all(axes -> length(axes) == expected_axes, matches) || throw(
+        ArgumentError(
+            "parameter :$parameter local storage does not match its declared $shape shape",
+        ),
+    )
+    first_axes = first(matches)
+    all(==(first_axes), matches) || throw(
+        ArgumentError(
+            "parameter :$parameter supplies incompatible process-local axes; declare explicit storage axes",
+        ),
+    )
+    return first_axes
+end
+
+function _parameter_storage_shape(definition, layout, context, spec)
+    spec.shape === :scalar && return ()
+
+    if spec.axes === nothing
+        (definition === nothing || layout === nothing) && throw(
+            ArgumentError(
+                "parameter :$(spec.name) local storage requires a normalized model definition and component layout",
+            ),
+        )
+        local_axes = _local_parameter_axis_tracers(
+            definition, layout, spec.name, spec.shape
+        )
+        return Tuple(length(axis) for axis in local_axes)
+    elseif spec.shape === :vector
+        n = spec.axes === :plankton ? context.n_total : length(axis_indices(context, spec.axes))
+        return (n,)
+    end
+
+    row_axis, col_axis = spec.axes
+    return (length(axis_indices(context, row_axis)), length(axis_indices(context, col_axis)))
+end
+
+function validate_derived_parameter_result(
+    spec, context, value; definition=nothing, layout=nothing
+)
     T = context.scalar_type
 
     if spec.shape === :scalar
@@ -215,9 +266,10 @@ function validate_derived_parameter_result(spec, context, value)
                 "derived default :$(spec.name) must have eltype $(T); got eltype $(eltype(value)). No implicit casting is performed.",
             ),
         )
-        length(value) == context.n_total || throw(
+        expected = only(_parameter_storage_shape(definition, layout, context, spec))
+        length(value) == expected || throw(
             ArgumentError(
-                "derived default :$(spec.name) must have length $(context.n_total); got $(length(value)).",
+                "derived default :$(spec.name) must have length $expected; got $(length(value)).",
             ),
         )
         return nothing
@@ -234,12 +286,7 @@ function validate_derived_parameter_result(spec, context, value)
         ),
     )
 
-    if spec.axes === nothing
-        expected = (context.n_total, context.n_total)
-    else
-        row_axis, col_axis = spec.axes
-        expected = (length(axis_indices(context, row_axis)), length(axis_indices(context, col_axis)))
-    end
+    expected = _parameter_storage_shape(definition, layout, context, spec)
     size(value) == expected || throw(
         ArgumentError(
             "derived default :$(spec.name) must have size $expected; got $(size(value)).",
@@ -261,6 +308,8 @@ function resolve_parameter_defaults(
     params::NamedTuple,
     explicit_override_keys::Tuple{Vararg{Symbol}};
     derivation_owner=source,
+    normalized_definition=nothing,
+    layout=nothing,
 )
     ordered = derived_default_order(source)
     isempty(ordered) && return params
@@ -289,7 +338,13 @@ function resolve_parameter_defaults(
         needs_recompute = any(dep -> dep in changed, provider.deps)
         if needs_compute || needs_recompute
             value = derive_default(provider.deriver, derivation_owner, context, resolved)
-            validate_derived_parameter_result(definition.spec, context, value)
+            validate_derived_parameter_result(
+                definition.spec,
+                context,
+                value;
+                definition=normalized_definition,
+                layout=layout,
+            )
             resolved = merge(resolved, NamedTuple{(key,)}((value,)))
             push!(changed, key)
         end
@@ -298,9 +353,9 @@ function resolve_parameter_defaults(
     return resolved
 end
 
-function validate_parameter_shapes(source, context, params::NamedTuple, required::Tuple)
-    n = context.n_total
-
+function validate_parameter_shapes(
+    source, definition, layout, context, params::NamedTuple, required::Tuple
+)
     for k in required
         spec = parameter_spec(source, k)
         spec === nothing && throw(
@@ -309,28 +364,21 @@ function validate_parameter_shapes(source, context, params::NamedTuple, required
             ),
         )
 
+        expected = _parameter_storage_shape(definition, layout, context, spec)
         if spec.shape === :vector
             v = getproperty(params, k)
-            length(v) == n || throw(
-                ArgumentError("parameter :$k must have length $n (got $(length(v))).")
+            length(v) == only(expected) || throw(
+                ArgumentError(
+                    "parameter :$k must have length $(only(expected)) (got $(length(v))).",
+                ),
             )
         elseif spec.shape === :matrix
             m = getproperty(params, k)
-
-            if spec.axes === nothing
-                (size(m, 1) == n && size(m, 2) == n) || throw(
-                    ArgumentError("parameter :$k must have size ($n,$n) (got $(size(m)))."),
-                )
-            else
-                row_axis, col_axis = spec.axes
-                nr = length(axis_indices(context, row_axis))
-                nc = length(axis_indices(context, col_axis))
-                (size(m, 1) == nr && size(m, 2) == nc) || throw(
-                    ArgumentError(
-                        "parameter :$k must have size ($nr,$nc) for axes $(spec.axes) (got $(size(m))).",
-                    ),
-                )
-            end
+            size(m) == expected || throw(
+                ArgumentError(
+                    "parameter :$k must have size $expected (got $(size(m))).",
+                ),
+            )
         end
     end
 
@@ -535,22 +583,19 @@ function evaluate_process_default(
 ) where {T<:Real}
     value = provider.value
     value = value isa Bool ? value : T(value)
+    expected = _parameter_storage_shape(definition, layout, context, spec)
+
     if spec.shape === :vector
-        result = fill(zero(value), context.n_total)
-        indices = _process_parameter_indices(definition, layout, context, spec.name)
-        isempty(indices) && (indices = collect(eachindex(result)))
-        result[indices] .= value
-        return result
-    elseif spec.shape === :matrix
-        if spec.axes === nothing
-            return fill(value, context.n_total, context.n_total)
+        if spec.axes === :plankton
+            result = fill(zero(value), only(expected))
+            indices = _process_parameter_indices(definition, layout, context, spec.name)
+            isempty(indices) && (indices = collect(eachindex(result)))
+            result[indices] .= value
+            return result
         end
-        row_axis, col_axis = spec.axes
-        return fill(
-            value,
-            length(axis_indices(context, row_axis)),
-            length(axis_indices(context, col_axis)),
-        )
+        return fill(value, only(expected))
+    elseif spec.shape === :matrix
+        return fill(value, expected...)
     end
     throw(ArgumentError("FillDefault requires vector or matrix parameter storage."))
 end
@@ -804,6 +849,8 @@ function _construct_process_definition(
         merged_parameters,
         explicit_override_keys;
         derivation_owner,
+        normalized_definition=normalized,
+        layout,
     )
     missing = Symbol[k for k in required if !hasproperty(merged_parameters, k)]
     isempty(missing) || throw(
@@ -819,7 +866,7 @@ function _construct_process_definition(
     )
     reject_missing_values(resolved_parameters)
     validate_parameter_shapes(
-        parameter_source, community_context, resolved_parameters, required
+        parameter_source, normalized, layout, community_context, resolved_parameters, required
     )
     validate_auxiliary_fields(auxiliary_fields, tracer_names)
 

@@ -205,11 +205,16 @@ function ParameterRequirement(
     return ParameterRequirement(identity, axes, shape)
 end
 
-"""Resolved mapping from one semantic requirement to concrete runtime parameter storage."""
-struct ParameterBinding{R<:ParameterRequirement,P<:Tuple}
+"""Resolved mapping from one semantic requirement to concrete runtime parameter storage.
+
+`storage_axes=nothing` means requirement-local storage; explicit axes identify the
+global runtime storage coordinate system used by the bound parameter.
+"""
+struct ParameterBinding{R<:ParameterRequirement,P<:Tuple,A}
     requirement::R
     parameter::Symbol
     runtime_path::P
+    storage_axes::A
 end
 
 """Concrete participant applicability of one bound parameter requirement."""
@@ -696,7 +701,7 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
         ArgumentError("model parameters must contain only ParameterDefinition values"),
     )
 
-    provided = Dict{ParameterRequirementIdentity,Tuple{Symbol,Tuple}}()
+    provided = Dict{ParameterRequirementIdentity,Tuple{Symbol,Tuple,Union{Nothing,Symbol,NTuple{2,Symbol}}}}()
 
     for definition in definitions
         spec = definition.spec
@@ -714,7 +719,7 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
                     "parameter requirement $identity is provided by both :$(first(provided[identity])) and :$(spec.name)",
                 ),
             )
-            provided[identity] = (spec.name, spec.runtime_path)
+            provided[identity] = (spec.name, spec.runtime_path, spec.axes)
         end
     end
 

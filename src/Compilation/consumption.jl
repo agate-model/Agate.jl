@@ -23,15 +23,19 @@ function _consumption_rate(
     consumer_axis::Int,
     resource::Symbol,
     resource_axis::Int,
+    context::CommunityContext,
 )
+    axis_positions = (
+        consumer=_axis_position(consumer_axis, consumer_index),
+        resource=_axis_position(resource_axis),
+    )
     operands = (
         TracerOp{resource}(),
         ClassOp{consumer_index}(),
-        parameter_operand(slots.maximum_rate, consumer_axis),
-        parameter_operand(slots.half_saturation, resource_axis),
+        parameter_operand(slots.maximum_rate, context, axis_positions),
+        parameter_operand(slots.half_saturation, context, axis_positions),
     )
-    axis_indices = (consumer=consumer_axis, resource=resource_axis)
-    rate_factors = _factor_elements(definition, named, layout, axis_indices)
+    rate_factors = _factor_elements(definition, named, layout, context, axis_positions)
     return RateElement(formulation, operands; factors=rate_factors)
 end
 
@@ -69,10 +73,13 @@ function process_fluxes(
                 consumer_axis,
                 resource,
                 resource_axis,
+                context,
             )
-            assimilation = parameter_operand(
-                slots.assimilation, consumer_axis, resource_axis
+            axis_positions = (
+                consumer=_axis_position(consumer_axis, consumer_index),
+                resource=_axis_position(resource_axis),
             )
+            assimilation = parameter_operand(slots.assimilation, context, axis_positions)
             fluxes = (
                 fluxes...,
                 FluxSpec(process_id(named), resource, rate, Weight{-1}()),

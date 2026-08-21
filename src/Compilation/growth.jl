@@ -43,14 +43,16 @@ function _growth_rate(
     named::NamedProcess,
     definition::NormalizedModelDefinition,
     layout::ComponentLayout,
+    context::CommunityContext,
+    population_axis::Int,
     population_index::Int,
     scale_binding::ParameterBinding,
 )
-    axis_indices = (population=population_index,)
-    rate_factors = _factor_elements(definition, named, layout, axis_indices)
+    axis_positions = (population=_axis_position(population_axis, population_index),)
+    rate_factors = _factor_elements(definition, named, layout, context, axis_positions)
     operands = (
         ClassOp{population_index}(),
-        parameter_operand(scale_binding, population_index),
+        parameter_operand(scale_binding, context, axis_positions),
     )
     return RateElement(formulation(named.process), operands; factors=rate_factors)
 end
@@ -121,11 +123,20 @@ function process_fluxes(
     scale_binding = _growth_scale_binding(definition, named)
     fluxes = ()
 
-    for i in eachindex(population_tracers)
+    for population_axis in eachindex(population_tracers)
+        population_index = population_indices[population_axis]
         rate = _growth_rate(
-            named, definition, layout, population_indices[i], scale_binding
+            named,
+            definition,
+            layout,
+            context,
+            population_axis,
+            population_index,
+            scale_binding,
         )
-        biomass = FluxSpec(process_id(named), population_tracers[i], rate, Weight{1}())
+        biomass = FluxSpec(
+            process_id(named), population_tracers[population_axis], rate, Weight{1}()
+        )
         resources = _growth_resource_fluxes(
             named, definition, resource_target, source_target, rate, nutrients
         )

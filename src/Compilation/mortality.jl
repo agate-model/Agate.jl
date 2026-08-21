@@ -8,10 +8,17 @@ function _mortality_slots(
     )
 end
 
-function _mortality_rate(formulation, rate_binding::ParameterBinding, population_index::Int)
+function _mortality_rate(
+    formulation,
+    rate_binding::ParameterBinding,
+    context::CommunityContext,
+    population_axis::Int,
+    population_index::Int,
+)
+    axis_positions = (population=_axis_position(population_axis, population_index),)
     operands = (
         ClassOp{population_index}(),
-        parameter_operand(rate_binding, population_index),
+        parameter_operand(rate_binding, context, axis_positions),
     )
     return RateElement(formulation, operands)
 end
@@ -29,11 +36,16 @@ function process_fluxes(
     slots = _mortality_slots(definition, named)
     fluxes = ()
 
-    for i in eachindex(population_tracers)
-        rate = _mortality_rate(formulation(process), slots.rate, population_indices[i])
+    for population_axis in eachindex(population_tracers)
+        population_index = population_indices[population_axis]
+        rate = _mortality_rate(
+            formulation(process), slots.rate, context, population_axis, population_index
+        )
         fluxes = (
             fluxes...,
-            FluxSpec(process_id(named), population_tracers[i], rate, Weight{-1}()),
+            FluxSpec(
+                process_id(named), population_tracers[population_axis], rate, Weight{-1}()
+            ),
         )
         if !isnothing(process.routing)
             fluxes = (

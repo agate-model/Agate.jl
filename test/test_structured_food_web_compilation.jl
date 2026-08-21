@@ -6,7 +6,7 @@ using Agate.Compilation:
     compile_tendencies, compile_model_tendencies, weight_sign
 using Agate.Configuration:
     Population, Pool, realize_components, component_tracers, parse_community
-using Agate.Construction: define_tracer_functions
+using Agate.Construction: construct, define_tracer_functions
 using Agate.Parameters:
     ParameterProvision, ParameterDefinition, NoDefault
 using Agate.Processes:
@@ -16,8 +16,10 @@ using Agate.Processes:
 
 function food_web_parameters()
     slot(process, name) = ParameterProvision(process, name)
-    no_default(name, shape, provides; runtime_path=(name,)) =
-        ParameterDefinition(name, NoDefault(); shape, runtime_path, provides)
+    no_default(
+        name, shape, provides; runtime_path=(name,),
+        axes=shape === :vector ? :plankton : nothing,
+    ) = ParameterDefinition(name, NoDefault(); shape, axes, runtime_path, provides)
 
     return (
         no_default(:maximum_growth_rate, :vector,
@@ -36,8 +38,9 @@ function food_web_parameters()
         )),
         no_default(:maximum_consumption_rate, :vector,
             slot(:consume_POM, :maximum_rate)),
-        no_default(:pom_half_saturation, :vector,
-            slot(:consume_POM, :half_saturation)),
+        no_default(
+            :pom_half_saturation, :vector, slot(:consume_POM, :half_saturation); axes=nothing
+        ),
         no_default(:bacterial_assimilation, :matrix,
             slot(:consume_POM, :assimilation)),
         no_default(:maximum_predation_rate, :vector,
@@ -48,11 +51,13 @@ function food_web_parameters()
             :living_palatability_matrix, :matrix,
             slot(:grazing_living, :palatability);
             runtime_path=(:interactions, :living_palatability),
+            axes=(:consumer, :prey),
         ),
         no_default(
             :living_assimilation_matrix, :matrix,
             slot(:grazing_living, :assimilation);
             runtime_path=(:interactions, :living_assimilation),
+            axes=(:consumer, :prey),
         ),
         no_default(:optimum_predator_prey_ratio, :vector,
             slot(:grazing_living, :optimum_predator_prey_ratio)),
@@ -129,7 +134,7 @@ function food_web_bgc(compilation)
         nutrient_half_saturation=T[0.2, 0, 0.3, 0],
         temperature_q10=T(2),
         reference_temperature=T(20),
-        maximum_consumption_rate=T[1.5e-5],
+        maximum_consumption_rate=T[0, 1.5e-5, 0, 0],
         pom_half_saturation=T[0.15, 0.4],
         bacterial_assimilation=reshape(T[0.65, 0.75], 1, 2),
         maximum_predation_rate=T[0, 0, 6e-5, 9e-5],
@@ -201,7 +206,7 @@ end
     @test fluxes[1].rate.operands == (
         TracerOp{:POM_1}(),
         ClassOp{2}(),
-        VecParamOp{:maximum_consumption_rate,1}(),
+        VecParamOp{:maximum_consumption_rate,2}(),
         VecParamOp{:pom_half_saturation,1}(),
     )
     assimilation = MatParamOp{:bacterial_assimilation,1,1}()
@@ -261,4 +266,66 @@ end
     end
     @test isfinite(derivative)
     @test derivative < 0
+end
+
+
+@testset "Constructed consumer-resource storage axes" begin
+    components = (
+        N=Pool(:nitrogen),
+        POM=Pool(:nitrogen; size_structure=[0.5, 1.0, 2.0]),
+        X=Population(; currency=:nitrogen, size_structure=[0.4]),
+        B=Population(; currency=:nitrogen, size_structure=[0.8]),
+    )
+    processes = (
+        consume_POM=Consumption(
+            :heterotrophic;
+            consumer=:B,
+            resource=:POM,
+            unassimilated_destination=:N,
+        ),
+    )
+    parameters = (
+        ParameterDefinition(
+            :maximum_consumption_rate,
+            NoDefault();
+            shape=:vector,
+            axes=:plankton,
+            provides=ParameterProvision(:consume_POM, :maximum_rate),
+        ),
+        ParameterDefinition(
+            :pom_half_saturation,
+            NoDefault();
+            shape=:vector,
+            provides=ParameterProvision(:consume_POM, :half_saturation),
+        ),
+        ParameterDefinition(
+            :bacterial_assimilation,
+            NoDefault();
+            shape=:matrix,
+            provides=ParameterProvision(:consume_POM, :assimilation),
+        ),
+    )
+    definition = ModelDefinition(; components, processes, parameters)
+    bgc = construct(
+        definition;
+        parameter_overrides=(
+            maximum_consumption_rate=[100.0, 2.0],
+            pom_half_saturation=[1.0, 3.0, 7.0],
+            bacterial_assimilation=reshape([0.2, 0.4, 0.8], 1, 3),
+        ),
+    )
+
+    @test bgc.parameters.maximum_consumption_rate == [100.0, 2.0]
+    @test bgc.parameters.pom_half_saturation == [1.0, 3.0, 7.0]
+    @test bgc.parameters.bacterial_assimilation == reshape([0.2, 0.4, 0.8], 1, 3)
+
+    names = Agate.Introspection.tracer_names(bgc)
+    state = (N=0.0, POM_1=1.0, POM_2=1.0, POM_3=1.0, X_1=5.0, B_1=1.0)
+    args = (0.0, 0.0, 0.0, 0.0, Tuple(getproperty(state, name) for name in names)...)
+    expected = (POM_1=-1.0, POM_2=-0.5, POM_3=-0.25, B_1=0.6, N=1.15, X_1=0.0)
+
+    for (name, value) in pairs(expected)
+        @test bgc(Val(name), args...) ≈ value
+    end
+    @test isapprox(sum(bgc(Val(name), args...) for name in names), 0.0; atol=1e-14)
 end

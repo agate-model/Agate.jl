@@ -153,6 +153,75 @@ function parameter_operand(binding::ParameterBinding, indices::Int...)
     throw(ArgumentError("unsupported parameter requirement shape $shape"))
 end
 
+@inline _axis_position(local::Int, plankton::Union{Nothing,Int}=nothing) =
+    (; local, plankton)
+
+function _explicit_storage_index(
+    storage_axis::Symbol, position, context::CommunityContext, parameter::Symbol
+)
+    plankton_index = position.plankton
+    isnothing(plankton_index) && throw(
+        ArgumentError(
+            "parameter :$parameter uses explicit storage axis :$storage_axis for a non-plankton process axis",
+        ),
+    )
+    storage_axis === :plankton && return plankton_index
+
+    storage_indices = axis_indices(context, storage_axis)
+    storage_index = findfirst(==(plankton_index), storage_indices)
+    isnothing(storage_index) && throw(
+        ArgumentError(
+            "parameter :$parameter process class index $plankton_index is not present on storage axis :$storage_axis",
+        ),
+    )
+    return storage_index
+end
+
+"""Resolve process-local/global axis positions onto one parameter's runtime storage."""
+function parameter_operand(
+    binding::ParameterBinding, context::CommunityContext, axis_positions::NamedTuple
+)
+    requirement = binding.requirement
+    shape = requirement.shape
+    shape === :scalar && return parameter_operand(binding)
+
+    positions = Tuple(
+        begin
+            hasproperty(axis_positions, axis) || throw(
+                ArgumentError(
+                    "parameter :$(binding.parameter) axis :$axis has no realized runtime position",
+                ),
+            )
+            getproperty(axis_positions, axis)
+        end for axis in requirement.axes
+    )
+
+    storage_axes = binding.storage_axes
+    if storage_axes === nothing
+        return parameter_operand(binding, Tuple(position.local for position in positions)...)
+    elseif shape === :vector
+        storage_axes isa Symbol || throw(
+            ArgumentError(
+                "vector parameter :$(binding.parameter) must have one Symbol storage axis",
+            ),
+        )
+        index = _explicit_storage_index(storage_axes, only(positions), context, binding.parameter)
+        return parameter_operand(binding, index)
+    elseif shape === :matrix
+        storage_axes isa Tuple && length(storage_axes) == 2 || throw(
+            ArgumentError(
+                "matrix parameter :$(binding.parameter) must have two storage axes",
+            ),
+        )
+        indices = ntuple(2) do i
+            _explicit_storage_index(storage_axes[i], positions[i], context, binding.parameter)
+        end
+        return parameter_operand(binding, indices...)
+    end
+
+    throw(ArgumentError("unsupported parameter requirement shape $shape"))
+end
+
 function _scalar_component_target(layout::ComponentLayout, component::Symbol)
     hasproperty(layout.component_tracers, component) || throw(
         ArgumentError("unknown scalar component :$component"),

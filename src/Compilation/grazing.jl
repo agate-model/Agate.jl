@@ -5,13 +5,18 @@ function _grazing_rate(
     consumer_axis::Int,
     resource_index::Int,
     resource_axis::Int,
+    context::CommunityContext,
 )
+    axis_positions = (
+        consumer=_axis_position(consumer_axis, consumer_index),
+        resource=_axis_position(resource_axis, resource_index),
+    )
     operands = (
         ClassOp{resource_index}(),
         ClassOp{consumer_index}(),
-        parameter_operand(slots.maximum_rate, consumer_index),
-        parameter_operand(slots.half_saturation, consumer_index),
-        parameter_operand(slots.palatability, consumer_axis, resource_axis),
+        parameter_operand(slots.maximum_rate, context, axis_positions),
+        parameter_operand(slots.half_saturation, context, axis_positions),
+        parameter_operand(slots.palatability, context, axis_positions),
     )
     return RateElement(formulation, operands)
 end
@@ -54,10 +59,13 @@ function process_fluxes(
                 consumer_axis,
                 resource_indices[resource_axis],
                 resource_axis,
+                context,
             )
-            assimilation = parameter_operand(
-                slots.assimilation, consumer_axis, resource_axis
+            axis_positions = (
+                consumer=_axis_position(consumer_axis, consumer_index),
+                resource=_axis_position(resource_axis, resource_indices[resource_axis]),
             )
+            assimilation = parameter_operand(slots.assimilation, context, axis_positions)
             fluxes = (
                 fluxes...,
                 FluxSpec(process_id(named), resource, rate, Weight{-1}()),

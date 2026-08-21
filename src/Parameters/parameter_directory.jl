@@ -69,7 +69,10 @@ Fields
 ------
 - `name`: parameter key.
 - `shape`: one of `:scalar`, `:vector`, or `:matrix`.
-- `axes`: optional runtime vector axis name or matrix-axis names.
+- `axes`: optional explicit runtime storage axis/axes. With `axes=nothing`,
+  vector/matrix storage is process-local and follows the resolved provision applicability.
+  `axes=:plankton` selects the full living-class axis; matrix axes such as
+  `(:consumer, :prey)` select the corresponding global role axes.
 - `runtime_path`: concrete runtime storage path below `bgc.parameters`.
 - `materialization`: optional constructor-time parameter-law materialization semantics.
 - `provides`: semantic process parameter slots supplied by this parameter.
