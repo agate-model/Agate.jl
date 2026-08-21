@@ -2,16 +2,16 @@ using JSON
 
 using ..Configuration:
     PFTSpecification, DiameterListSpecification, DiameterRangeSpecification, Population, Pool,
-    currency, size_structure, sinking, normalize_diameters
+    currency, size_structure, normalize_diameters
 
 using ..ModelFamilies: default_components, default_processes
 using ..Parameters: parameter_definitions
 
 using ..Processes:
-    AbstractProcess, AbstractFactor, FactorDriver, FactorComponent,
+    AbstractProcess, AbstractFormulation, AbstractFactor, FactorDriver, FactorComponent,
     ModelDefinition, normalize_model, parameter_bindings, process_kind, formulation,
     formulation_tag, factors, factor_inputs, factor_children, participants, drivers, rate_axes,
-    Growth, Light, NutrientResponse, Nutrients, Temperature, Grazing, Mortality, ProductRouting,
+    Growth, Light, NutrientResponse, Nutrients, Temperature, Frank, Grazing, Mortality, ProductRouting,
     DirectRouting, PartitionRouting, DOMPOMRouting, FixedStoichiometry
 
 using ..Library.Allometry:
@@ -342,7 +342,6 @@ function _component_recipe_data(name::Symbol, component::Population, recipe::Pro
         "kind" => "population",
         "currency" => String(currency(component)),
         "size_structure" => nothing,
-        "sinking" => isnothing(sinking(component)) ? nothing : _encode_value(sinking(component)),
     )
     if length(groups) == 1 && only(groups) === name
         data["size_structure"] = _size_structure_data(getproperty(recipe.community, name).diameters)
@@ -361,7 +360,6 @@ function _component_recipe_data(::Symbol, component::Pool, ::ProcessModelRecipe)
         "kind" => "pool",
         "currency" => String(currency(component)),
         "size_structure" => isnothing(structure) ? nothing : _size_structure_data(structure),
-        "sinking" => isnothing(sinking(component)) ? nothing : _encode_value(sinking(component)),
     )
 end
 
@@ -392,8 +390,15 @@ _factor_input_fields(input::FactorComponent) = (participants=(resource=input.com
 _factor_children_key(::AbstractFactor) = :factors
 _factor_children_key(::Nutrients) = :responses
 
+_factor_formulation_recipe_fields(::AbstractFormulation) = NamedTuple()
+_factor_formulation_recipe_fields(formulation::Frank) = (sharpness=formulation.sharpness,)
+
 function _factor_recipe_fields(factor::AbstractFactor)
-    fields = (kind=_factor_kind(factor), formulation=formulation_tag(formulation(factor)))
+    factor_formulation = formulation(factor)
+    fields = merge(
+        (kind=_factor_kind(factor), formulation=formulation_tag(factor_formulation)),
+        _factor_formulation_recipe_fields(factor_formulation),
+    )
     for input in factor_inputs(factor)
         fields = merge(fields, _factor_input_fields(input))
     end

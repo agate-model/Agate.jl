@@ -1,4 +1,5 @@
 using Test
+using ForwardDiff
 
 using Agate.Configuration: Population, Pool, realize_components
 using Agate.ModelFamilies: default_components, default_processes
@@ -8,6 +9,7 @@ using Agate.Processes:
     Geider,
     Monod,
     Liebig,
+    Frank,
     Q10,
     MultiplicativeFactors,
     Growth,
@@ -29,6 +31,7 @@ using Agate.Processes:
     drivers,
     driver_identities,
     formulation,
+    formulation_tag,
     factors,
     factor_value,
     normalize_model,
@@ -54,6 +57,13 @@ using Agate.Processes:
 
     @test typeof(formulation(symbolic_light)) === Smith
     @test typeof(formulation(symbolic_response)) === Monod
+    frank_nutrients = Nutrients(
+        :frank;
+        responses=(nitrogen=NutrientResponse(:monod; resource=:N),),
+        sharpness=25,
+    )
+    @test formulation_tag(formulation(frank_nutrients)) === :frank
+    @test formulation(frank_nutrients).sharpness == 25
     @test factors(symbolic_growth) == factors(concrete_growth)
     @test keys(factors(symbolic_growth)) == (:light, :nutrients)
     @test participants(symbolic_growth) == participants(concrete_growth) == (population=(:P,),)
@@ -99,6 +109,11 @@ using Agate.Processes:
     @test_throws ArgumentError normalize_model(invalid_growth)
 
     @test_throws ArgumentError Light(:unknown; driver=:PAR)
+    @test_throws ArgumentError Nutrients(
+        :liebig;
+        responses=(nitrogen=NutrientResponse(:monod; resource=:N),),
+        sharpness=25,
+    )
     @test_throws ArgumentError Growth(; population=:P, factors=NamedTuple())
     @test_throws ArgumentError Growth(;
         population=:P,
@@ -177,10 +192,20 @@ end
     geider = factor_value(
         Geider(), light, maximum_rate, alpha, chlorophyll_to_carbon
     )
+    @test geider == Agate.Library.Photosynthesis.geider_light_response(
+        light, alpha, maximum_rate, chlorophyll_to_carbon
+    )
     @test factor_value(Geider(), light, 0.0, alpha, chlorophyll_to_carbon) == 0.0
     limitations = (factor_value(Monod(), 3.0, 0.5), factor_value(Monod(), 0.2, 0.5))
     liebig = factor_value(Liebig(), limitations)
+    frank = factor_value(Frank(25), limitations)
+    @test frank ≈ Agate.Library.Nutrients.FrankTNorm(25)(limitations)
+    frank_gradient = ForwardDiff.gradient(
+        x -> factor_value(Frank(25), (x[1], x[2])), collect(limitations)
+    )
+    @test all(isfinite, frank_gradient)
     temperature = factor_value(Q10(), 30.0, 2.0, 20.0)
+    @test temperature == Agate.Library.Temperature.q10_temperature_factor(30.0, 2.0, 20.0)
     expected_liebig = min(3.0 / 3.5, 0.2 / 0.7)
     expected_geider = 1 - exp(-alpha * chlorophyll_to_carbon * light / maximum_rate)
     @test isapprox(

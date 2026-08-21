@@ -4,10 +4,9 @@ using ..Parameters: ParameterSpec, parameter_directory, parameter_spec
 import Adapt
 
 export Population, Pool
-export currency, size_structure, sinking
+export currency, size_structure
 export ComponentLayout, realize_components, realize_component_groups
 export component_tracers, component_indices, component_diameters, component_class_count
-export realize_component_sinking
 
 export PFTSpecification
 

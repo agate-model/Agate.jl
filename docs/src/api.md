@@ -16,7 +16,6 @@ Agate.Configuration.Population
 Agate.Configuration.Pool
 Agate.Configuration.currency
 Agate.Configuration.size_structure
-Agate.Configuration.sinking
 Agate.Configuration.ComponentLayout
 Agate.Configuration.realize_components
 Agate.Configuration.realize_component_groups

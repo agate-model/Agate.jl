@@ -6,12 +6,13 @@ using ..ModelFamilies: AbstractModelFamily, default_components, default_processe
 using ..Parameters: ParameterDefinition, ParameterProvision, parameter_definitions
 using ..Library.Mortality: linear_loss, quadratic_loss
 using ..Library.Predation: idealized_predation_loss, preferential_predation_loss
-using ..Library.Photosynthesis: smith_light_limitation
-using ..Library.Nutrients: liebig_minimum, monod_limitation
+using ..Library.Photosynthesis: geider_light_response, smith_light_limitation
+using ..Library.Nutrients: DEFAULT_FRANK_SHARPNESS, FrankTNorm, liebig_minimum, monod_limitation
+using ..Library.Temperature: q10_temperature_factor
 using ..Library.Remineralization: linear_remineralization
 
 export AbstractProcess, AbstractFormulation, AbstractFactor, AbstractStoichiometry
-export Smith, Geider, Monod, Liebig, Q10, IdealizedGrazing, PreferentialGrazing, HeterotrophicConsumption
+export Smith, Geider, Monod, Liebig, Frank, Q10, IdealizedGrazing, PreferentialGrazing, HeterotrophicConsumption
 export Light, Nutrients, Temperature
 export LinearMortality, QuadraticMortality, LinearRemineralization
 export DirectRouting, PartitionRouting, DOMPOMRouting, FixedStoichiometry

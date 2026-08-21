@@ -5,6 +5,7 @@ module Photosynthesis
 using ..Nutrients: MonodLimitation, LiebigMinimum, FrankTNorm, DEFAULT_FRANK_SHARPNESS
 
 export smith_light_limitation,
+    geider_light_response,
     geider_light_limitation,
     liebig_nutrient_limitation,
     frank_nutrient_limitation,
@@ -63,18 +64,30 @@ struct GeiderLightLimitation{T1,T2,T3}
 end
 
 @inline function (f::GeiderLightLimitation)(PAR)
-    α = f.alpha
-    Pᶜₘₐₓ = f.maximum_growth_rate
-    θᶜ = f.chlorophyll_to_carbon_ratio
-    if Pᶜₘₐₓ == zero(Pᶜₘₐₓ)
-        return zero(Pᶜₘₐₓ)
-    end
-    return Pᶜₘₐₓ * (one(Pᶜₘₐₓ) - exp((-α * θᶜ * PAR) / Pᶜₘₐₓ))
+    return f.maximum_growth_rate * geider_light_response(
+        PAR, f.alpha, f.maximum_growth_rate, f.chlorophyll_to_carbon_ratio
+    )
 end
 
 # -----------------------------------------------------------------------------
 # Explicit function aliases (preferred developer UX).
 # -----------------------------------------------------------------------------
+
+
+"""
+    geider_light_response(PAR, alpha, maximum_growth_rate, chlorophyll_to_carbon_ratio)
+
+Evaluate the dimensionless Geider light-response factor. Multiplying this factor
+by `maximum_growth_rate` gives `geider_light_limitation`.
+"""
+@inline function geider_light_response(
+    PAR, alpha, maximum_growth_rate, chlorophyll_to_carbon_ratio
+)
+    maximum_growth_rate == zero(maximum_growth_rate) && return zero(maximum_growth_rate)
+    return one(maximum_growth_rate) - exp(
+        (-alpha * chlorophyll_to_carbon_ratio * PAR) / maximum_growth_rate
+    )
+end
 
 """
     smith_light_limitation(PAR, alpha, maximum_growth_0C)

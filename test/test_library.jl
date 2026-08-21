@@ -3,7 +3,9 @@ using Test
 using ForwardDiff
 
 using Agate.Library.Nutrients: FrankTNorm, frank_tnorm, liebig_minimum
-using Agate.Library.Photosynthesis: frank_nutrient_limitation, liebig_nutrient_limitation
+using Agate.Library.Photosynthesis:
+    frank_nutrient_limitation, geider_light_limitation, geider_light_response,
+    liebig_nutrient_limitation
 using Agate.Library.Predation: holling_type_ii, idealized_predation_loss, preferential_predation_loss
 
 @testset "Library" begin
@@ -28,6 +30,10 @@ end
     @test Agate.Library.Predation.holling_type_ii(T(1), T(0.5)) isa T
     @test Agate.Library.Remineralization.linear_remineralization(T(1), T(0.1)) isa T
     @test Agate.Library.Temperature.q10_temperature_factor(T(10), T(2)) isa T
+    @test Agate.Library.Temperature.q10_temperature_factor(T(30), T(2), T(20)) == T(2)
+    geider_response = geider_light_response(T(100), T(2e-6), T(2e-5), T(0.02))
+    @test geider_response isa T
+    @test geider_light_limitation(T(100), T(2e-6), T(2e-5), T(0.02)) == T(2e-5) * geider_response
 end
 
 @testset "Frank t-norm" begin

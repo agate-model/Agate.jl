@@ -8,6 +8,13 @@ struct Smith <: AbstractFormulation end
 struct Geider <: AbstractFormulation end
 struct Monod <: AbstractFormulation end
 struct Liebig <: AbstractFormulation end
+
+"""Differentiable Frank t-norm nutrient combination with configurable sharpness."""
+struct Frank{S} <: AbstractFormulation
+    sharpness::S
+end
+Frank() = Frank(DEFAULT_FRANK_SHARPNESS)
+
 struct Q10 <: AbstractFormulation end
 struct MultiplicativeFactors <: AbstractFormulation end
 
@@ -39,6 +46,7 @@ formulation_tag(::Smith) = :smith
 formulation_tag(::Geider) = :geider
 formulation_tag(::Monod) = :monod
 formulation_tag(::Liebig) = :liebig
+formulation_tag(::Frank) = :frank
 formulation_tag(::Q10) = :q10
 formulation_tag(::MultiplicativeFactors) = :multiplicative
 formulation_tag(::IdealizedGrazing) = :idealized
@@ -56,6 +64,7 @@ _resolve_light(::Val{:smith}) = Smith()
 _resolve_light(::Val{:geider}) = Geider()
 _resolve_response(::Val{:monod}) = Monod()
 _resolve_nutrients(::Val{:liebig}) = Liebig()
+_resolve_nutrients(::Val{:frank}) = Frank()
 _resolve_temperature(::Val{:q10}) = Q10()
 _resolve_grazing(::Val{:idealized}) = IdealizedGrazing()
 _resolve_grazing(::Val{:preferential}) = PreferentialGrazing()
@@ -158,12 +167,23 @@ struct Nutrients{F<:AbstractFormulation,R<:NamedTuple} <: AbstractFactor
     responses::R
 end
 
-function Nutrients(formulation::Liebig; responses::NamedTuple)
+function Nutrients(formulation::Union{Liebig,Frank}; responses::NamedTuple)
     return Nutrients(formulation, _canonical_responses(responses))
 end
 
-Nutrients(formulation::Symbol; responses::NamedTuple) =
-    Nutrients(_resolve_nutrients(Val(formulation)); responses)
+function Nutrients(
+    formulation::Symbol;
+    responses::NamedTuple,
+    sharpness=nothing,
+)
+    if formulation === :frank && !isnothing(sharpness)
+        return Nutrients(Frank(sharpness); responses)
+    end
+    isnothing(sharpness) || throw(
+        ArgumentError("`sharpness` is only valid for the :frank nutrient formulation"),
+    )
+    return Nutrients(_resolve_nutrients(Val(formulation)); responses)
+end
 function Nutrients(formulation::AbstractFormulation; responses::NamedTuple)
     throw(ArgumentError("$(typeof(formulation)) is not a nutrient-combination formulation"))
 end

@@ -16,7 +16,7 @@ using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans.Units: day, minutes
 
-function multi_nutrient_test_model(grid)
+function multi_nutrient_test_model(grid; nutrient_formulation=:liebig, sharpness=nothing)
     components = (
         P=Population(; currency=:carbon, size_structure=[1.0]),
         DIC=Pool(:carbon),
@@ -30,7 +30,8 @@ function multi_nutrient_test_model(grid)
             factors=(
                 light=Light(:geider; driver=:PAR),
                 nutrients=Nutrients(
-                    :liebig;
+                    nutrient_formulation;
+                    sharpness,
                     responses=(
                         nitrogen=NutrientResponse(:monod; resource=:DIN),
                         phosphorus=NutrientResponse(:monod; resource=:PO4),
@@ -123,23 +124,29 @@ end
     end
 
     @testset "Generic multi-nutrient conservation" begin
-        grid = BoxModelGrid()
-        bgc_instance = multi_nutrient_test_model(grid)
-        box_model = build_box_model(bgc_instance, grid)
-        set!(box_model; DIC=2.0, DIN=7.0, PO4=3.0, P_1=0.01)
+        for (nutrient_formulation, sharpness) in ((:liebig, nothing), (:frank, 25))
+            @testset "$nutrient_formulation" begin
+                grid = BoxModelGrid()
+                bgc_instance = multi_nutrient_test_model(
+                    grid; nutrient_formulation, sharpness
+                )
+                box_model = build_box_model(bgc_instance, grid)
+                set!(box_model; DIC=2.0, DIN=7.0, PO4=3.0, P_1=0.01)
 
-        n2c = bgc_instance.parameters.nitrogen_to_carbon
-        p2c = bgc_instance.parameters.phosphorus_to_carbon
-        budgets = (
-            carbon=[:DIC => 1, :P_1 => 1],
-            nitrogen=[:DIN => 1, :P_1 => n2c],
-            phosphorus=[:PO4 => 1, :P_1 => p2c],
-        )
+                n2c = bgc_instance.parameters.nitrogen_to_carbon
+                p2c = bgc_instance.parameters.phosphorus_to_carbon
+                budgets = (
+                    carbon=[:DIC => 1, :P_1 => 1],
+                    nitrogen=[:DIN => 1, :P_1 => n2c],
+                    phosphorus=[:PO4 => 1, :P_1 => p2c],
+                )
 
-        result = box_model_mass_balance(box_model, budgets; dt, nsteps)
-        @test isapprox(result.initial.carbon, result.final.carbon; rtol=1e-6)
-        @test isapprox(result.initial.nitrogen, result.final.nitrogen; rtol=1e-6)
-        @test isapprox(result.initial.phosphorus, result.final.phosphorus; rtol=1e-6)
+                result = box_model_mass_balance(box_model, budgets; dt, nsteps)
+                @test isapprox(result.initial.carbon, result.final.carbon; rtol=1e-6)
+                @test isapprox(result.initial.nitrogen, result.final.nitrogen; rtol=1e-6)
+                @test isapprox(result.initial.phosphorus, result.final.phosphorus; rtol=1e-6)
+            end
+        end
     end
 
 end

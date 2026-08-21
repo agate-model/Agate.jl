@@ -4,21 +4,19 @@
 @inline factor_value(::Smith, light, maximum_rate, alpha) =
     smith_light_limitation(light, alpha, maximum_rate)
 
-@inline function factor_value(
+@inline factor_value(
     ::Geider, light, maximum_rate, alpha, chlorophyll_to_carbon_ratio
-)
-    maximum_rate == zero(maximum_rate) && return zero(maximum_rate)
-    return one(maximum_rate) -
-           exp((-alpha * chlorophyll_to_carbon_ratio * light) / maximum_rate)
-end
+) = geider_light_response(light, alpha, maximum_rate, chlorophyll_to_carbon_ratio)
 
 @inline factor_value(::Monod, resource, half_saturation) =
     monod_limitation(resource, half_saturation)
 
 @inline factor_value(::Liebig, limitations::Tuple) = liebig_minimum(limitations)
+@inline factor_value(formulation::Frank, limitations::Tuple) =
+    FrankTNorm(formulation.sharpness)(limitations)
 
 @inline factor_value(::Q10, temperature, q10, reference_temperature) =
-    q10 ^ ((temperature - reference_temperature) / 10)
+    q10_temperature_factor(temperature, q10, reference_temperature)
 
 """Evaluate the unmodified population-growth scale before sibling factors."""
 @inline process_rate(::MultiplicativeFactors, biomass, maximum_rate) =

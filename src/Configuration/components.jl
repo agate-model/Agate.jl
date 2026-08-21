@@ -1,43 +1,37 @@
 """Population state described by intrinsic component properties.
 
 Ecological function is supplied by process participation. `currency` identifies
-what conserved material the state represents, while `size_structure` and
-`sinking` describe intrinsic realization properties.
+what conserved material the state represents, while `size_structure` describes
+its intrinsic realization.
 """
-struct Population{C,S,V}
+struct Population{C,S}
     currency::C
     size_structure::S
-    sinking::V
 end
 
-function Population(; currency, size_structure=nothing, sinking=nothing)
+function Population(; currency, size_structure=nothing)
     isnothing(currency) && throw(ArgumentError("Population currency must be specified."))
-    return Population(currency, size_structure, sinking)
+    return Population(currency, size_structure)
 end
 
 """Material-pool state described by intrinsic component properties."""
-struct Pool{C,S,V}
+struct Pool{C,S}
     currency::C
     size_structure::S
-    sinking::V
 end
 
-function Pool(currency; size_structure=nothing, sinking=nothing)
+function Pool(currency; size_structure=nothing)
     isnothing(currency) && throw(ArgumentError("Pool currency must be specified."))
-    return Pool(currency, size_structure, sinking)
+    return Pool(currency, size_structure)
 end
 
-Pool(; currency, size_structure=nothing, sinking=nothing) =
-    Pool(currency; size_structure, sinking)
+Pool(; currency, size_structure=nothing) = Pool(currency; size_structure)
 
 """Return the conserved-material currency represented by `component`."""
 @inline currency(component::Union{Population,Pool}) = component.currency
 
 """Return the intrinsic size-structure specification for `component`."""
 @inline size_structure(component::Union{Population,Pool}) = component.size_structure
-
-"""Return the intrinsic sinking configuration for `component`."""
-@inline sinking(component::Union{Population,Pool}) = component.sinking
 
 """Setup-time realization of logical components into concrete tracer identities.
 
@@ -91,33 +85,6 @@ component_diameters(layout::ComponentLayout, component::Symbol) =
 """Return the number of concrete classes realized by one logical component."""
 component_class_count(layout::ComponentLayout, component::Symbol) =
     length(component_tracers(layout, component))
-
-"""Resolve intrinsic component sinking metadata onto concrete tracer classes.
-
-A tuple supplies one value per realized class. Any other non-`nothing` value is
-broadcast to every class of the component. The returned `NamedTuple` is keyed by
-concrete tracer identity and remains setup-time structural metadata.
-"""
-function realize_component_sinking(components::NamedTuple, layout::ComponentLayout)
-    entries = Pair{Symbol,Any}[]
-    for (name, component) in pairs(components)
-        value = sinking(component)
-        isnothing(value) && continue
-        tracers = component_tracers(layout, name)
-        values = if value isa Tuple
-            length(value) == length(tracers) || throw(
-                ArgumentError(
-                    "component :$name sinking tuple must have one value per realized class"
-                ),
-            )
-            value
-        else
-            ntuple(_ -> value, length(tracers))
-        end
-        append!(entries, Pair.(tracers, values))
-    end
-    return (; entries...)
-end
 
 """Realize a named component collection into a deterministic tracer layout.
 

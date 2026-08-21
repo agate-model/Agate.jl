@@ -2,9 +2,9 @@ using Test
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 
 using Agate.Configuration:
-    Population, Pool, currency, size_structure, sinking, realize_components,
+    Population, Pool, currency, size_structure, realize_components,
     realize_component_groups, component_tracers, component_indices, component_diameters,
-    component_class_count, realize_component_sinking, parse_community
+    component_class_count, parse_community
 using Agate.ModelFamilies: default_components
 using Agate.Parameters: ParameterProvision, ParameterDefinition, ConstDefault
 using Agate.Processes:
@@ -14,16 +14,13 @@ using Agate.Processes:
     population = Population(;
         currency=:nitrogen,
         size_structure=(n=3, min_esd=1.0, max_esd=100.0, splitting=:log_splitting),
-        sinking=:population_sinking,
     )
-    pool = Pool(:carbon; sinking=:pool_sinking)
+    pool = Pool(:carbon)
 
     @test currency(population) === :nitrogen
     @test size_structure(population).n == 3
-    @test sinking(population) === :population_sinking
     @test currency(pool) === :carbon
     @test isnothing(size_structure(pool))
-    @test sinking(pool) === :pool_sinking
 
     layout = realize_components((P=population, D=pool); scalar_type=Float32)
     @test layout.tracer_order == (:P_1, :P_2, :P_3, :D)
@@ -36,19 +33,13 @@ using Agate.Processes:
     @test scalar_population.tracer_order == (:B,)
     @test isnothing(scalar_population.component_diameters.B)
 
-    structured_pool = Pool(:carbon; size_structure=[1.0, 10.0, 100.0], sinking=:pom_sinking)
+    structured_pool = Pool(:carbon; size_structure=[1.0, 10.0, 100.0])
     generic = realize_components((P=population, POM=structured_pool); scalar_type=Float32)
     @test generic.tracer_order == (:P_1, :P_2, :P_3, :POM_1, :POM_2, :POM_3)
     @test component_tracers(generic, :POM) == (:POM_1, :POM_2, :POM_3)
     @test component_indices(generic, :POM) == (4, 5, 6)
     @test component_diameters(generic, :POM) == (1.0f0, 10.0f0, 100.0f0)
     @test component_class_count(generic, :POM) == 3
-    sinking_layout = realize_component_sinking(
-        (P=population, POM=Pool(:carbon; size_structure=[1, 10, 100], sinking=(1, 2, 3))),
-        generic,
-    )
-    @test sinking_layout == (P_1=:population_sinking, P_2=:population_sinking, P_3=:population_sinking, POM_1=1, POM_2=2, POM_3=3)
-
     @test_throws ArgumentError Population(; currency=nothing)
     @test_throws ArgumentError Pool(nothing)
     @test_throws ArgumentError realize_components((P=population, P_1=Pool(:nitrogen)))
@@ -59,7 +50,7 @@ end
     base_components = default_components(family)
     components = merge(
         base_components,
-        (POM=Pool(:nitrogen; size_structure=[0.5, 5.0, 50.0], sinking=:pom_sinking),),
+        (POM=Pool(:nitrogen; size_structure=[0.5, 5.0, 50.0]),),
     )
     community = default_nipizd_community()
     context = parse_community(
