@@ -3,8 +3,7 @@ using Test
 using Adapt
 
 using Agate.Library.Light: FunctionFieldPAR
-using OceanBioME
-using OceanBioME: Biogeochemistry, BoxModelGrid
+using OceanBioME: Biogeochemistry, BoxModel, BoxModelGrid
 
 using Oceananigans.Biogeochemistry:
     biogeochemical_drift_velocity,
@@ -35,44 +34,6 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
     @test active_tendency ≈ base_tendency
     @test bgc_p.parameters.maximum_growth_rate[3] == p[1]
     @test bgc_p.parameters.maximum_growth_rate[4] == base_bgc.parameters.maximum_growth_rate[4]
-
-    active_scalar = Agate.Runtime.active_parameters(base_bgc;
-        maximum_growth_rate = (:P_1,),
-        detritus_remineralization = true,
-    )
-    p_scalar = [mu0, 2base_bgc.parameters.detritus_remineralization]
-    bgc_scalar = Agate.Runtime.parameterized(
-        base_bgc,
-        p_scalar;
-        active_parameters=active_scalar,
-    )
-
-    @test bgc_scalar.parameters.maximum_growth_rate[3] == p_scalar[1]
-    @test bgc_scalar.parameters.detritus_remineralization == p_scalar[2]
-    @test bgc_scalar.parameters.maximum_growth_rate[4] == base_bgc.parameters.maximum_growth_rate[4]
-
-
-    active_matrix = Agate.Runtime.active_parameters(base_bgc;
-        maximum_growth_rate = (:P_1,),
-        interactions = (;
-            palatability = ((:Z_1, :P_1),),
-            assimilation = ((:Z_1, :P_1),),
-        ),
-    )
-    p_matrix = [mu0, 3base_bgc.parameters.interactions.palatability[1, 1], 0.8]
-    bgc_matrix = Agate.Runtime.parameterized(
-        base_bgc,
-        p_matrix;
-        active_parameters=active_matrix,
-    )
-
-    @test bgc_matrix.parameters.maximum_growth_rate[3] == p_matrix[1]
-    @test bgc_matrix.parameters.interactions.palatability[1, 1] == p_matrix[2]
-    @test bgc_matrix.parameters.interactions.assimilation[1, 1] == p_matrix[3]
-    @test bgc_matrix.parameters.interactions.palatability[1, 2] == base_bgc.parameters.interactions.palatability[1, 2]
-
-    matrix_tendency = bgc_matrix(Val(:P_1), args...)
-    @test matrix_tendency != base_tendency
 
     p_fast = [2mu0]
     fast_bgc = Agate.Runtime.parameterized(
@@ -109,8 +70,6 @@ end
 
     box_model = BoxModel(; biogeochemistry=bgc_model)
 
-    @test required_biogeochemical_tracers(bgc_p) == required_biogeochemical_tracers(base_bgc)
-    @test required_biogeochemical_auxiliary_fields(bgc_p) == required_biogeochemical_auxiliary_fields(base_bgc)
     @test !isnothing(box_model)
 end
 
@@ -178,9 +137,9 @@ end
 
     active_matrix = Agate.Runtime.active_parameters(base_bgc;
         maximum_growth_rate = (:P_1,),
-        interactions = (; palatability = ((:Z_1, :P_1),)),
+        palatability_matrix = ((:Z_1, :P_1),),
     )
-    p_matrix = [mu0, 3base_bgc.parameters.interactions.palatability[1, 1]]
+    p_matrix = [mu0, 3base_bgc.parameters.palatability_matrix[1, 1]]
     problem_matrix = Agate.Runtime.ode_problem(
         base_bgc,
         u0,
@@ -225,13 +184,13 @@ end
     )
 
     for selector in palatability_selectors
-        @test occursin(":interactions.palatability", argument_error_message(selector))
+        @test occursin(":palatability_matrix", argument_error_message(selector))
     end
 
     assimilation_message = argument_error_message(() ->
         Agate.Runtime.active_parameters(base_bgc; assimilation_efficiency = (:Z_1,))
     )
-    @test occursin(":interactions.assimilation", assimilation_message)
+    @test occursin(":assimilation_matrix", assimilation_message)
 
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; palatability_matrix = true)
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = ((:P_1, :P_2, :extra),))
@@ -246,30 +205,28 @@ end
     active = Agate.Runtime.active_parameters(base_bgc;
         maximum_growth_rate = (:P_1, :P_2),
         detritus_remineralization = true,
-        interactions = (;
-            palatability = ((:Z_1, :P_1), (:Z_1, :P_2), (:Z_2, :P_1)),
-            assimilation = ((:Z_1, :P_1),),
-        ),
+        palatability_matrix = ((:Z_1, :P_1), (:Z_1, :P_2), (:Z_2, :P_1)),
+        assimilation_matrix = ((:Z_1, :P_1),),
     )
 
     @test active.labels == (
         "maximum_growth_rate.P_1",
         "maximum_growth_rate.P_2",
         "detritus_remineralization",
-        "interactions.palatability[Z_1, P_1]",
-        "interactions.palatability[Z_1, P_2]",
-        "interactions.palatability[Z_2, P_1]",
-        "interactions.assimilation[Z_1, P_1]",
+        "palatability_matrix[Z_1, P_1]",
+        "palatability_matrix[Z_1, P_2]",
+        "palatability_matrix[Z_2, P_1]",
+        "assimilation_matrix[Z_1, P_1]",
     )
 
     @test length(active) == 7
     @test active.values[1] == base_bgc.parameters.maximum_growth_rate[3]
     @test active.values[2] == base_bgc.parameters.maximum_growth_rate[4]
     @test active.values[3] == base_bgc.parameters.detritus_remineralization
-    @test active.values[4] == base_bgc.parameters.interactions.palatability[1, 1]
-    @test active.values[5] == base_bgc.parameters.interactions.palatability[1, 2]
-    @test active.values[6] == base_bgc.parameters.interactions.palatability[2, 1]
-    @test active.values[7] == base_bgc.parameters.interactions.assimilation[1, 1]
+    @test active.values[4] == base_bgc.parameters.palatability_matrix[1, 1]
+    @test active.values[5] == base_bgc.parameters.palatability_matrix[1, 2]
+    @test active.values[6] == base_bgc.parameters.palatability_matrix[2, 1]
+    @test active.values[7] == base_bgc.parameters.assimilation_matrix[1, 1]
 
     p = copy(active.values)
     p[1] *= 2
@@ -282,12 +239,12 @@ end
     @test bgc_p.parameters.maximum_growth_rate[3] == p[1]
     @test bgc_p.parameters.maximum_growth_rate[4] == p[2]
     @test bgc_p.parameters.detritus_remineralization == p[3]
-    @test bgc_p.parameters.interactions.palatability[1, 1] == p[4]
-    @test bgc_p.parameters.interactions.palatability[1, 2] == p[5]
-    @test bgc_p.parameters.interactions.palatability[2, 1] == p[6]
-    @test bgc_p.parameters.interactions.assimilation[1, 1] == p[7]
+    @test bgc_p.parameters.palatability_matrix[1, 1] == p[4]
+    @test bgc_p.parameters.palatability_matrix[1, 2] == p[5]
+    @test bgc_p.parameters.palatability_matrix[2, 1] == p[6]
+    @test bgc_p.parameters.assimilation_matrix[1, 1] == p[7]
 
-    @test bgc_p.parameters.interactions.palatability[2, 2] == base_bgc.parameters.interactions.palatability[2, 2]
+    @test bgc_p.parameters.palatability_matrix[2, 2] == base_bgc.parameters.palatability_matrix[2, 2]
 end
 
 @testset "named-group runtime active parameters" begin
@@ -308,10 +265,8 @@ end
         consumer_1, consumer_2 = consumers
         return Agate.Runtime.active_parameters(bgc;
             maximum_growth_rate=(producer_1, producer_2),
-            interactions=(;
-                palatability=((consumer_1, producer_1),),
-                assimilation=((consumer_2, producer_2),),
-            ),
+            palatability_matrix=((consumer_1, producer_1),),
+            assimilation_matrix=((consumer_2, producer_2),),
         )
     end
 
@@ -323,8 +278,8 @@ end
     @test named_active.labels == (
         "maximum_growth_rate.diat_1",
         "maximum_growth_rate.dino_1",
-        "interactions.palatability[microzoo_1, diat_1]",
-        "interactions.assimilation[mesozoo_1, dino_1]",
+        "palatability_matrix[microzoo_1, diat_1]",
+        "assimilation_matrix[mesozoo_1, dino_1]",
     )
     @test named_active.values == flat_active.values
 

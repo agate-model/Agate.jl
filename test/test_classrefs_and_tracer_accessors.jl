@@ -2,102 +2,35 @@ using Agate
 using Test
 
 using Agate.Configuration:
-    build_plankton_community, parse_community, DiameterRangeSpecification
-using Agate.Runtime: class, resolve_class, class_count, build_tracer_index, Tracers
-using Agate.Factories: default_biogeochem_dynamics, default_community
-using Agate.Equations: CompiledEquation
-using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
+    build_plankton_community, parse_community, DiameterRangeSpecification, Population, Pool,
+    population_state, realize_components
+using Agate.Runtime: class, resolve_class, resolve_state, class_count, build_tracer_index, Tracers
+using Agate.ModelFamilies: default_components
 
-
-struct GenericRoleFixtureFactory <: Agate.Factories.AbstractBGCFactory end
-
-Agate.Construction.recipe_family(::GenericRoleFixtureFactory) = :GenericRoleFixture
-Agate.Construction.recipe_factory(::Val{:GenericRoleFixture}) = GenericRoleFixtureFactory()
-Agate.Factories.parameter_definitions(::GenericRoleFixtureFactory) = ()
-Agate.Configuration.matrix_definitions(::GenericRoleFixtureFactory) = (;)
-
-zero_plankton_tendency(::Int) = CompiledEquation(
-    (bgc, x, y, z, t, args...) -> zero(first(args))
+pool_component_names(family) = Tuple(
+    name for (name, component) in pairs(default_components(family)) if
+    component isa Agate.Configuration.Pool
 )
-Agate.Factories.default_plankton_dynamics(::GenericRoleFixtureFactory) = (
-    P=zero_plankton_tendency,
-    B=zero_plankton_tendency,
-    M=zero_plankton_tendency,
-    Z=zero_plankton_tendency,
-)
-Agate.Factories.default_biogeochem_dynamics(::GenericRoleFixtureFactory) = (;)
 
-@testset "Independent community roles" begin
+@testset "Independent interaction roles" begin
     pft = Agate.Configuration.PFTSpecification()
     group = (; diameters=[1.0], pft)
     community = (P=group, B=group, M=group, Z=group)
-    ecological_roles = (
-        phytoplankton=(:P,),
-        bacterioplankton=(:B,),
-        mixotrophs=(:M,),
-        zooplankton=(:Z,),
-    )
-    interaction_roles = (consumers=(:Z, :M), prey=(:P, :B, :M))
-    parameter_roles = (
-        producers=(:P, :M), consumers=(:Z, :M), bacterioplankton=(:B,)
-    )
-
-    factory = GenericRoleFixtureFactory()
     context = parse_community(
         Float64,
         community;
-        interaction_roles,
-        parameter_roles,
+        interaction_roles=(consumers=(:Z, :M), prey=(:P, :B, :M)),
     )
 
-    @test (
-        context.parameter_role_indices,
-        context.consumer_indices,
-        context.prey_indices,
-    ) == (
-        (producers=[1, 3], consumers=[3, 4], bacterioplankton=[2]),
-        [3, 4],
-        [1, 2, 3],
-    )
-
-    recipe = Agate.Construction.capture_model_recipe(
-        factory;
-        community,
-        ecological_roles,
-        interaction_roles,
-        parameter_roles,
-        auxiliary_fields=(),
-    )
-    manifest = Agate.Construction.capture_model_manifest(
-        factory,
-        (;),
-        context;
-        tracer_order=Tuple(context.plankton_symbols),
-        auxiliary_fields=(),
-        ecological_roles,
-        explicit_override_keys=(),
-        sinking_tracers=nothing,
-        open_bottom=true,
-        scalar_type=Float64,
-    )
-
-    @test (recipe.ecological_roles, recipe.interaction_roles, recipe.parameter_roles) ==
-          (ecological_roles, interaction_roles, parameter_roles)
-    @test manifest.ecological_roles == ecological_roles
-    @test manifest.interaction_role_indices == (consumers=(3, 4), prey=(1, 2, 3))
-    @test manifest.parameter_role_indices ==
-          (producers=(1, 3), consumers=(3, 4), bacterioplankton=(2,))
-
-    replayed = Agate.Construction.construct_factory(recipe; scalar_type=Float64)
-    @test required_biogeochemical_tracers(replayed) == (:P_1, :B_1, :M_1, :Z_1)
+    @test context.consumer_indices == [3, 4]
+    @test context.prey_indices == [1, 2, 3]
 end
 
 @testset "ClassRef + Tracers accessors" begin
-    factory = Agate.Models.NiPiZD.NiPiZDFactory()
-    community = default_community(factory)
-    biogeochem_dyn = default_biogeochem_dynamics(factory)
+    family = Agate.Models.NiPiZD.NiPiZDFamily()
+    community = default_nipizd_community()
     ctx = parse_community(
-        Float64, community; biogeochem_tracers=keys(biogeochem_dyn)
+        Float64, community; biogeochem_tracers=pool_component_names(family)
     )
 
     @test class_count(ctx, :Z) == 2
@@ -108,7 +41,7 @@ end
     @test resolve_class(ctx, class(:P, 1)) == 3
     @test resolve_class(ctx, class(:P, 2)) == 4
 
-    tracer_names = (:N, :D, ctx.plankton_symbols...)
+    tracer_names = (:N, :D, ctx.class_symbols...)
     aux = (:PAR,)
     idx = build_tracer_index(ctx, tracer_names, aux; n_biogeochem_tracers=2)
     tracers = Tracers(idx)
@@ -129,10 +62,32 @@ end
     @test @inferred(tracers.P(args, 2)) == 4.0
 end
 
+
+@testset "Generic component ClassRef" begin
+    layout = realize_components((
+        B=Population(:carbon),
+        POM=Pool(:carbon; size_structure=[0.5, 5.0, 50.0]),
+    ))
+
+    @test class_count(layout, :B) == 1
+    @test class_count(layout, :POM) == 3
+    @test resolve_class(layout, class(:B, 1)) == 1
+    @test resolve_class(layout, class(:POM, 1)) == 2
+    @test resolve_class(layout, class(:POM, 3)) == 4
+    @test_throws ArgumentError resolve_class(layout, class(:POM, 4))
+
+    multistate = realize_components((
+        P=Population(; states=(carbon=:carbon, nitrogen=:nitrogen), size_structure=[1.0, 2.0]),
+    ))
+    @test class_count(multistate, :P) == 2
+    @test_throws ArgumentError resolve_class(multistate, class(:P, 1))
+    @test resolve_state(multistate, class(:P, 1), population_state(:P, :carbon)) == 1
+    @test resolve_state(multistate, class(:P, 2), population_state(:P, :nitrogen)) == 4
+end
+
 @testset "Diameter input normalization" begin
-    factory = Agate.Models.NiPiZD.NiPiZDFactory()
-    base = default_community(factory)
-    biogeochem_dyn = default_biogeochem_dynamics(factory)
+    family = Agate.Models.NiPiZD.NiPiZDFamily()
+    base = default_nipizd_community()
 
     community = build_plankton_community(
         base;
@@ -143,7 +98,7 @@ end
     )
 
     ctx = parse_community(
-        Float64, community; biogeochem_tracers=keys(biogeochem_dyn)
+        Float64, community; biogeochem_tracers=pool_component_names(family)
     )
 
     @test class_count(ctx, :Z) == 2

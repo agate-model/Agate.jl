@@ -42,10 +42,10 @@ function _package_provenance(mod::Module)
     return record
 end
 
-function _recipe_provenance(recipe::ModelRecipe)
+function _recipe_provenance(recipe::ProcessModelRecipe)
     agate = Base.moduleroot(@__MODULE__)
     provenance = Dict{String,Any}("agate" => _package_provenance(agate))
-    provider = Base.moduleroot(parentmodule(typeof(recipe_factory(Val(recipe.family)))))
+    provider = Base.moduleroot(parentmodule(typeof(registered_family(Val(recipe.family)))))
     provider === agate || (provenance["provider"] = _package_provenance(provider))
     return provenance
 end
@@ -61,8 +61,8 @@ function _canonical_json(x)
     return JSON.json(x)
 end
 
-function _recipe_hash(recipe::ModelRecipe, data)
-    content = Dict{String,Any}("family" => String(recipe.family), "recipe" => data)
+function _recipe_hash(family::Symbol, data)
+    content = Dict{String,Any}("family" => String(family), "recipe" => data)
     return "sha256:" * bytes2hex(sha256(_canonical_json(content)))
 end
 
@@ -82,7 +82,7 @@ function _decode_provenance(x, path)
     return x
 end
 
-function _check_recipe_provenance(recipe::ModelRecipe, recorded)
+function _check_recipe_provenance(recipe::ProcessModelRecipe, recorded)
     current = _recipe_provenance(recipe)
     haskey(recorded, "provider") == haskey(current, "provider") ||
         @warn "Model-provider provenance differs from the loaded recipe family."

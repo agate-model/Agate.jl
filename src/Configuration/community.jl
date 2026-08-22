@@ -92,24 +92,22 @@ Fields
 - `n_total`: total number of plankton classes.
 - `diameters`: flattened diameter vector in global plankton order.
 - `pfts`: per-class PFT specifications.
-- `plankton_symbols`: flattened class symbols such as `:P_1`, `:P_2`, or `:diat_1`.
+- `class_symbols`: flattened ecological class symbols such as `:P_1`, `:P_2`, or `:diat_1`.
 - `group_symbols`: group symbol for each flattened class.
 - `group_indices`: mapping from group symbol to flattened class indices.
 - `consumer_indices`: flattened indices used for the consumer axis.
 - `prey_indices`: flattened indices used for the prey axis.
-- `parameter_role_indices`: resolved class indices for named parameter-applicability roles.
 """
 struct CommunityContext{T<:Real,VT<:AbstractVector{T}}
     scalar_type::Type{T}
     n_total::Int
     diameters::VT
     pfts::Vector{PFTSpecification}
-    plankton_symbols::Vector{Symbol}
+    class_symbols::Vector{Symbol}
     group_symbols::Vector{Symbol}
     group_indices::Dict{Symbol,Vector{Int}}
     consumer_indices::Vector{Int}
     prey_indices::Vector{Int}
-    parameter_role_indices::NamedTuple
 end
 
 """Return normalized diameter input and any size-class count it defines."""
@@ -140,33 +138,15 @@ normalize_diameters(spec::DiameterRangeSpecification) = (; n=spec.n, specificati
 
 normalize_diameters(spec) = throw(ArgumentError("invalid `diameters` specification"))
 
-"""Validate `plankton_dynamics` and `community` inputs.
+"""Validate a population-community realization.
 
-Throws a single `ArgumentError` listing all issues.
+Throws a single `ArgumentError` listing all structural issues.
 """
-function validate_community_inputs(plankton_dynamics, community)
+function validate_community(community)
+    community isa NamedTuple || throw(ArgumentError("community must be a NamedTuple"))
     issues = String[]
 
-    if !(plankton_dynamics isa NamedTuple)
-        push!(issues, "plankton_dynamics must be a NamedTuple")
-    end
-    if !(community isa NamedTuple)
-        push!(issues, "community must be a NamedTuple")
-    end
-
-    if !isempty(issues)
-        throw(ArgumentError(join(issues, "\n")))
-    end
-
-    dyn_keys = collect(keys(plankton_dynamics))
-    arg_keys = collect(keys(community))
-
-    missing = setdiff(dyn_keys, arg_keys)
-    extra = setdiff(arg_keys, dyn_keys)
-    !isempty(missing) && push!(issues, "community is missing groups: $(missing)")
-    !isempty(extra) && push!(issues, "community has extra groups: $(extra)")
-
-    for k in arg_keys
+    for k in keys(community)
         spec = getfield(community, k)
 
         if !hasproperty(spec, :diameters)
@@ -193,12 +173,8 @@ function validate_community_inputs(plankton_dynamics, community)
                 end
 
                 n_source = !isnothing(diameter_n) ? diameter_n : spec_n
-
                 if isnothing(n_source)
-                    push!(
-                        issues,
-                        "group $(k): missing required field `n` for non-explicit diameters",
-                    )
+                    push!(issues, "group $(k): missing required field `n` for non-explicit diameters")
                 elseif !(n_source isa Integer) || n_source < 1
                     push!(issues, "group $(k): `n` must be a positive integer")
                 elseif d isa AbstractVector && n_source != length(d)
@@ -210,19 +186,26 @@ function validate_community_inputs(plankton_dynamics, community)
             end
         end
 
+        if hasproperty(spec, :class_symbols)
+            symbols = getproperty(spec, :class_symbols)
+            symbols isa Tuple || symbols isa AbstractVector ||
+                push!(issues, "group $(k): `class_symbols` must be a tuple or vector")
+            if symbols isa Tuple || symbols isa AbstractVector
+                all(symbol -> symbol isa Symbol, symbols) ||
+                    push!(issues, "group $(k): `class_symbols` must contain only Symbols")
+            end
+        end
+
         if !hasproperty(spec, :pft)
             push!(issues, "group $(k): missing required field `pft`")
         else
             pft = getproperty(spec, :pft)
-            ok = pft isa PFTSpecification || pft isa NamedTuple
-            ok || push!(issues, "group $(k): `pft` must be PFTSpecification or NamedTuple")
+            pft isa Union{PFTSpecification,NamedTuple} ||
+                push!(issues, "group $(k): `pft` must be PFTSpecification or NamedTuple")
         end
     end
 
-    if !isempty(issues)
-        throw(ArgumentError(join(issues, "\n")))
-    end
-
+    isempty(issues) || throw(ArgumentError(join(issues, "\n")))
     return nothing
 end
 
@@ -234,19 +217,14 @@ Keyword arguments
 - `interaction_roles`: optional `NamedTuple` with fields `consumers` and
   `prey`. Each field may be `nothing`, a collection of group symbols, an index
   vector, or a boolean mask.
-- `parameter_roles`: optional `NamedTuple` mapping semantic parameter-applicability
-  roles to group selections, index vectors, or boolean masks.
-
 When `interaction_roles` is omitted, both interaction axes include all classes.
-When `parameter_roles` is omitted, `producers` defaults to the prey axis and
-`consumers` defaults to the consumer axis.
+Parameter applicability is resolved separately from these interaction axes and derives directly from process participation.
 """
 function parse_community(
     ::Type{T},
     community::NamedTuple;
     biogeochem_tracers::Tuple=(),
     interaction_roles=nothing,
-    parameter_roles=nothing,
 ) where {T<:Real}
     if !isnothing(interaction_roles)
         (
@@ -259,13 +237,8 @@ function parse_community(
         )
     end
 
-    !isnothing(parameter_roles) && !(parameter_roles isa NamedTuple) && throw(
-        ArgumentError(
-            "parameter_roles must be a NamedTuple mapping role names to group Symbols, indices, or boolean masks."
-        ),
-    )
     group_order = keys(community)
-    plankton_symbols = Symbol[]
+    class_symbols = Symbol[]
     group_of = Symbol[]
     pfts = PFTSpecification[]
     diameters = T[]
@@ -287,10 +260,21 @@ function parse_community(
         pft_raw = getproperty(spec, :pft)
         pft = pft_raw isa PFTSpecification ? pft_raw : PFTSpecification(pft_raw)
 
-        class_symbols = Symbol[Symbol(string(g), "_", i) for i in 1:n]
+        realized_class_symbols = if hasproperty(spec, :class_symbols)
+            supplied = Tuple(getproperty(spec, :class_symbols))
+            length(supplied) == n || throw(
+                ArgumentError("group $g: class_symbols must have length $n")
+            )
+            all(symbol -> symbol isa Symbol, supplied) || throw(
+                ArgumentError("group $g: class_symbols must contain only Symbols")
+            )
+            supplied
+        else
+            ntuple(i -> Symbol(string(g), "_", i), n)
+        end
 
         for i in 1:n
-            push!(plankton_symbols, class_symbols[i])
+            push!(class_symbols, realized_class_symbols[i])
             push!(group_of, g)
             push!(pfts, pft)
             push!(diameters, ds[i])
@@ -298,14 +282,17 @@ function parse_community(
     end
 
     biogeochem_symbols = Set(biogeochem_tracers)
-    conflicting_symbols = [symbol for symbol in plankton_symbols if symbol in biogeochem_symbols]
+    length(unique(class_symbols)) == length(class_symbols) || throw(
+        ArgumentError("community realizes duplicate ecological class symbols")
+    )
+    conflicting_symbols = [symbol for symbol in class_symbols if symbol in biogeochem_symbols]
     isempty(conflicting_symbols) || throw(
         ArgumentError(
-            "plankton tracer names conflict with non-plankton tracers: $(unique(conflicting_symbols))"
+            "population class names conflict with non-plankton tracers: $(unique(conflicting_symbols))"
         ),
     )
 
-    n_total = length(plankton_symbols)
+    n_total = length(class_symbols)
 
     group_indices = Dict{Symbol,Vector{Int}}()
     for (i, g) in enumerate(group_of)
@@ -354,44 +341,19 @@ function parse_community(
     )
     prey_indices = indices_for_role(getproperty(interaction_roles_resolved, :prey), :prey)
 
-    parameter_roles_resolved = if isnothing(parameter_roles)
-        (
-            producers=getproperty(interaction_roles_resolved, :prey),
-            consumers=getproperty(interaction_roles_resolved, :consumers),
-        )
-    else
-        parameter_roles
-    end
-    parameter_role_names = keys(parameter_roles_resolved)
-    parameter_role_values = ntuple(length(parameter_role_names)) do i
-        role_name = parameter_role_names[i]
-        indices_for_role(getproperty(parameter_roles_resolved, role_name), role_name)
-    end
-    parameter_role_indices = NamedTuple{parameter_role_names}(parameter_role_values)
-
     community_context = CommunityContext{T,typeof(diameters)}(
         T,
         n_total,
         diameters,
         pfts,
-        plankton_symbols,
+        class_symbols,
         group_of,
         group_indices,
         consumer_indices,
         prey_indices,
-        parameter_role_indices,
     )
 
     return community_context
-end
-
-function parameter_role_indices(context::CommunityContext, role::Symbol)
-    hasproperty(context.parameter_role_indices, role) || throw(
-        ArgumentError(
-            "Unknown parameter role :$role. Available roles: $(collect(keys(context.parameter_role_indices)))."
-        ),
-    )
-    return getproperty(context.parameter_role_indices, role)
 end
 
 @inline function param_check_length(name::Symbol, expected::Int, got::Int)

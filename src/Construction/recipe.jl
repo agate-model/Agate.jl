@@ -1,32 +1,30 @@
-using ..Factories: AbstractBGCFactory, parameter_directory
-using ..Configuration: matrix_definitions, normalize_diameters
+using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
+using ..Parameters: DerivedDefault, parameter_definitions, parameter_directory
+using ..Configuration: normalize_diameters
 
-"""Return the stable recipe-family identifier for a model factory."""
-function recipe_family(factory::AbstractBGCFactory)
-    throw(ArgumentError("Recipe support is not implemented for $(typeof(factory))."))
+"""Return the stable recipe-family identifier for a model family."""
+function family_id(family::AbstractModelFamily)
+    throw(ArgumentError("Recipe support is not implemented for $(typeof(family))."))
 end
 
-"""Construct the model factory identified by a recipe family."""
-function recipe_factory(::Val{family}) where {family}
+"""Return the registered model-family token identified by `family`."""
+function registered_family(::Val{family}) where {family}
     throw(ArgumentError("Unsupported recipe model family $(repr(String(family)))."))
 end
 
-"""Authored scientific definition captured before model-state materialization.
+"""Canonical component/process recipe captured before runtime realization.
 
-`ModelRecipe` stores a stable model-family identifier and the authored scientific
-inputs needed to describe a model independently of runtime execution choices such
-as grids, architectures, and scalar precision. Model-family code supplies parameter
-defaults, interaction derivations, and tracer equations when the recipe is replayed.
+`ProcessModelRecipe` stores the scientific component/process definition together with
+subgroup realization and authored overrides. Runtime precision, architecture, host fields,
+parameter materialization, topology maps, and compiled equations are derived on replay.
 """
-struct ModelRecipe{C,PO,IO,ER,IR,PR,A,S}
+struct ProcessModelRecipe{C,P,G,CM,PO,S}
     family::Symbol
-    community::C
+    components::C
+    processes::P
+    population_groups::G
+    community::CM
     parameter_overrides::PO
-    interaction_overrides::IO
-    ecological_roles::ER
-    interaction_roles::IR
-    parameter_roles::PR
-    auxiliary_fields::A
     sinking_tracers::S
     open_bottom::Bool
 end
@@ -34,19 +32,16 @@ end
 """Resolved deterministic scientific state produced by model construction.
 
 `ModelManifest` records the fully materialized parameters, expanded groups and
-tracer ordering, resolved role indices, interaction sources, sinking
-configuration, and scalar type. It is an in-memory record of the constructed
-model state; durable replay is defined by `ModelRecipe`.
+tracer ordering, interaction sources, sinking configuration, and scalar type. It is
+an in-memory record of the constructed model state; durable replay is defined by the
+corresponding recipe representation.
 """
-struct ModelManifest{P,G,TR,A,D,ER,IR,PRI,I,S,T<:Real}
+struct ModelManifest{P,G,TR,A,D,I,S,T<:Real}
     parameters::P
     group_tracers::G
     tracer_order::TR
     auxiliary_fields::A
     plankton_diameters::D
-    ecological_roles::ER
-    interaction_role_indices::IR
-    parameter_role_indices::PRI
     interaction_matrix_sources::I
     sinking_tracers::S
     open_bottom::Bool
@@ -108,7 +103,7 @@ function _recipe_isequal(a, b)
     return Ta === Tb && isequal(a, b)
 end
 
-function Base.:(==)(a::ModelRecipe, b::ModelRecipe)
+function Base.:(==)(a::ProcessModelRecipe, b::ProcessModelRecipe)
     return all(
         _recipe_isequal(getfield(a, i), getfield(b, i))
         for i in 1:fieldcount(typeof(a))
@@ -129,49 +124,41 @@ function _normalize_recipe_community(community::NamedTuple)
     return NamedTuple{groups}(values)
 end
 
-"""Capture a construction recipe from semantic inputs before materialization."""
-function capture_model_recipe(
-    factory::AbstractBGCFactory;
-    community,
+"""Capture a component/process recipe before runtime realization."""
+function capture_process_model_recipe(
+    family::AbstractModelFamily;
+    population_groups::NamedTuple,
+    community::NamedTuple,
     parameter_overrides::NamedTuple=(;),
-    interaction_overrides::NamedTuple=(;),
-    ecological_roles,
-    interaction_roles,
-    parameter_roles,
-    auxiliary_fields::Tuple,
     sinking_tracers=nothing,
     open_bottom::Bool=true,
 )
-    family = recipe_family(factory)
-    family isa Symbol || throw(
-        ArgumentError("recipe_family must return a Symbol; got $(typeof(family)).")
+    family_id_value = family_id(family)
+    family_id_value isa Symbol || throw(
+        ArgumentError("family_id must return a Symbol; got $(typeof(family_id_value)).")
     )
-
-    return ModelRecipe(
-        family,
+    return ProcessModelRecipe(
+        family_id_value,
+        deepcopy(default_components(family)),
+        deepcopy(default_processes(family)),
+        deepcopy(population_groups),
         deepcopy(_normalize_recipe_community(community)),
         deepcopy(parameter_overrides),
-        deepcopy(interaction_overrides),
-        deepcopy(ecological_roles),
-        deepcopy(interaction_roles),
-        deepcopy(parameter_roles),
-        deepcopy(auxiliary_fields),
         deepcopy(sinking_tracers),
         open_bottom,
     )
 end
 
-"""Return the model-family factory used to replay `recipe`."""
-replay_factory(recipe::ModelRecipe) = recipe_factory(Val(recipe.family))
+"""Return the registered model family used to replay `recipe`."""
+replay_family(recipe::ProcessModelRecipe) = registered_family(Val(recipe.family))
 
 """Capture the resolved deterministic state of a constructed model."""
 function capture_model_manifest(
-    factory::AbstractBGCFactory,
+    family::AbstractModelFamily,
     parameters,
     community_context;
     tracer_order::Tuple,
     auxiliary_fields::Tuple,
-    ecological_roles::NamedTuple=(;),
     explicit_override_keys::Tuple,
     sinking_tracers,
     open_bottom::Bool,
@@ -181,26 +168,18 @@ function capture_model_manifest(
     group_values = ntuple(length(group_order)) do i
         group = group_order[i]
         indices = community_context.group_indices[group]
-        return Tuple(community_context.plankton_symbols[indices])
+        return Tuple(community_context.class_symbols[indices])
     end
     group_tracers = NamedTuple{group_order}(group_values)
 
-    interaction_role_indices = (
-        consumers=Tuple(community_context.consumer_indices),
-        prey=Tuple(community_context.prey_indices),
-    )
-    parameter_role_names = keys(community_context.parameter_role_indices)
-    parameter_role_values = ntuple(length(parameter_role_names)) do i
-        role = parameter_role_names[i]
-        Tuple(getproperty(community_context.parameter_role_indices, role))
-    end
-    parameter_role_indices = NamedTuple{parameter_role_names}(parameter_role_values)
-
     interaction_names = Tuple(
-        spec.name for spec in parameter_directory(factory) if
-        spec.shape === :matrix && spec.axes == (:consumer, :prey)
+        name for (name, spec) in pairs(parameter_directory(family)) if
+        spec.axes == (:consumer, :prey)
     )
-    derived_interaction_names = keys(matrix_definitions(factory))
+    derived_interaction_names = Tuple(
+        name for (name, parameter) in pairs(parameter_definitions(family)) if
+        parameter.default isa DerivedDefault
+    )
     interaction_matrix_sources = NamedTuple{interaction_names}(
         Tuple(
             name in explicit_override_keys ? :explicit :
@@ -215,9 +194,6 @@ function capture_model_manifest(
         tracer_order,
         auxiliary_fields,
         Tuple(community_context.diameters),
-        deepcopy(ecological_roles),
-        interaction_role_indices,
-        parameter_role_indices,
         deepcopy(interaction_matrix_sources),
         deepcopy(sinking_tracers),
         open_bottom,

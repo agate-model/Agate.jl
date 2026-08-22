@@ -2,13 +2,80 @@ using Agate
 
 const NiPiZD = Agate.Models.NiPiZD
 
-using Agate.Library.Light
+using Agate.Library.Light: FunctionFieldPAR
 using Agate.Diagnostics: box_model_mass_balance
+using Agate.Configuration: Population, Pool
+using Agate.Construction: construct
+using Agate.Parameters: ConstantDefault, Parameter
+using Agate.Processes:
+    FixedStoichiometry, Growth, Light, ModelDefinition, Nutrients, NutrientResponse,
+    Geider, Liebig, FrankTNorm, Monod
 
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans.Units: day, minutes
+
+function multi_nutrient_test_model(grid; nutrient_formulation=Liebig())
+    components = (
+        P=Population(:carbon; size_structure=[1.0]),
+        DIC=Pool(:carbon),
+        DIN=Pool(:nitrogen),
+        PO4=Pool(:phosphorus),
+    )
+    processes = (
+        growth_P=Growth(;
+            populations=:P,
+            source=:DIC,
+            factors=(
+                light=Light(
+                    Geider();
+                    driver=:PAR,
+                    bindings=(
+                        maximum_rate=:maximum_growth_rate,
+                        alpha=:photosynthetic_slope,
+                    ),
+                ),
+                nutrients=Nutrients(
+                    nutrient_formulation;
+                    bindings=nutrient_formulation isa FrankTNorm ?
+                             (sharpness=:frank_sharpness,) : NamedTuple(),
+                    responses=(
+                        nitrogen=NutrientResponse(
+                            Monod(); resource=:DIN, bindings=(K=:half_saturation_DIN,)
+                        ),
+                        phosphorus=NutrientResponse(
+                            Monod(); resource=:PO4, bindings=(K=:half_saturation_PO4,)
+                        ),
+                    ),
+                ),
+            ),
+            stoichiometry=FixedStoichiometry(;
+                reference=:carbon,
+                bindings=(
+                    ratio=(
+                        nitrogen=:nitrogen_to_carbon,
+                        phosphorus=:phosphorus_to_carbon,
+                    ),
+                ),
+            ),
+        ),
+    )
+    frank_tnorm_parameters = nutrient_formulation isa FrankTNorm ? (
+        frank_sharpness=Parameter(ConstantDefault(25)),
+    ) : (;)
+    parameters = merge((
+        nitrogen_to_carbon=Parameter(ConstantDefault(16 / 106)),
+        phosphorus_to_carbon=Parameter(ConstantDefault(1 / 106)),
+        maximum_growth_rate=Parameter(ConstantDefault(2 / 86400)),
+        half_saturation_DIN=Parameter(ConstantDefault(0.5)),
+        half_saturation_PO4=Parameter(ConstantDefault(0.5)),
+        photosynthetic_slope=Parameter(ConstantDefault(0.1 / 86400)),
+        chlorophyll_to_carbon_ratio=Parameter(ConstantDefault(0.02)),
+    ), frank_tnorm_parameters)
+
+    return construct(ModelDefinition(; components, processes, parameters); grid)
+end
 
 @testset "mass_balance" begin
     function build_box_model(bgc_instance, grid)
@@ -47,35 +114,30 @@ using Oceananigans.Units: day, minutes
     end
 
     @testset "Generic multi-nutrient conservation" begin
-        grid = BoxModelGrid()
-        bgc_instance = multi_nutrient_test_model()
-        box_model = build_box_model(bgc_instance, grid)
-        set!(
-            box_model;
-            DIC=2.0,
-            DIN=7.0,
-            PO4=3.0,
-            DOC=0.0,
-            POC=0.0,
-            DON=0.0,
-            PON=0.0,
-            DOP=0.0,
-            POP=0.0,
-            P_1=0.01,
-        )
+        for nutrient_formulation in (Liebig(), FrankTNorm())
+            @testset "$(nameof(typeof(nutrient_formulation)))" begin
+                grid = BoxModelGrid()
+                bgc_instance = multi_nutrient_test_model(grid; nutrient_formulation)
+                if nutrient_formulation isa FrankTNorm
+                    @test bgc_instance.parameters.frank_sharpness == 25
+                end
+                box_model = build_box_model(bgc_instance, grid)
+                set!(box_model; DIC=2.0, DIN=7.0, PO4=3.0, P_1=0.01)
 
-        n2c = bgc_instance.parameters.nitrogen_to_carbon
-        p2c = bgc_instance.parameters.phosphorus_to_carbon
-        budgets = (
-            carbon=[:DIC => 1, :P_1 => 1, :POC => 1, :DOC => 1],
-            nitrogen=[:DIN => 1, :P_1 => n2c, :PON => 1, :DON => 1],
-            phosphorus=[:PO4 => 1, :P_1 => p2c, :POP => 1, :DOP => 1],
-        )
+                n2c = bgc_instance.parameters.nitrogen_to_carbon
+                p2c = bgc_instance.parameters.phosphorus_to_carbon
+                budgets = (
+                    carbon=[:DIC => 1, :P_1 => 1],
+                    nitrogen=[:DIN => 1, :P_1 => n2c],
+                    phosphorus=[:PO4 => 1, :P_1 => p2c],
+                )
 
-        result = box_model_mass_balance(box_model, budgets; dt, nsteps)
-        @test isapprox(result.initial.carbon, result.final.carbon; rtol=1e-6)
-        @test isapprox(result.initial.nitrogen, result.final.nitrogen; rtol=1e-6)
-        @test isapprox(result.initial.phosphorus, result.final.phosphorus; rtol=1e-6)
+                result = box_model_mass_balance(box_model, budgets; dt, nsteps)
+                @test isapprox(result.initial.carbon, result.final.carbon; rtol=1e-6)
+                @test isapprox(result.initial.nitrogen, result.final.nitrogen; rtol=1e-6)
+                @test isapprox(result.initial.phosphorus, result.final.phosphorus; rtol=1e-6)
+            end
+        end
     end
 
 end

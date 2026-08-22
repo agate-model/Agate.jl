@@ -77,6 +77,18 @@ plankton tracers in the positional tracer list.
 function build_tracer_index(
     community_context, tracers::Tuple, auxiliary_fields::Tuple; n_biogeochem_tracers::Int
 )
+    expected_tracers = n_biogeochem_tracers + community_context.n_total
+    if length(tracers) != expected_tracers
+        # Multi-state populations no longer have a unique numerical value per ecological
+        # class. Compiled state-aware processes address their physical tracers by name,
+        # so the runtime index intentionally exposes scalar tracer access only.
+        TR = tracers
+        AF = auxiliary_fields
+        return TracerIndex{TR,(),AF,0}(
+            length(tracers), length(tracers) + 1, 0, (), ()
+        )
+    end
+
     groups_vec = Symbol[]
     if !isempty(community_context.group_symbols)
         last = community_context.group_symbols[1]

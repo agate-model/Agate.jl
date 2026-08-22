@@ -1,5 +1,130 @@
 # API reference
 
+## Direct model construction
+
+`ModelDefinition` is the scientific model-definition container. Direct construction realizes intrinsic component size structure, resolves process-owned parameter slots and required drivers, and compiles runtime tracer equations during setup.
+
+```@docs
+Agate.Construction.construct
+Agate.Processes.ModelDefinition
+```
+
+### Components
+
+```@docs
+Agate.Configuration.Population
+Agate.Configuration.Pool
+Agate.Configuration.currency
+Agate.Configuration.states
+Agate.Configuration.state_currency
+Agate.Configuration.population_state
+Agate.Configuration.size_structure
+Agate.Configuration.ComponentLayout
+Agate.Configuration.realize_components
+Agate.Configuration.realize_component_groups
+Agate.Configuration.component_classes
+Agate.Configuration.component_state_tracers
+Agate.Configuration.state_tracers
+Agate.Configuration.state_tracer
+```
+
+### Processes and factors
+
+Formulations are authored as concrete scientific objects, for example `Light(Smith(); driver=:PAR)`
+and `Consumption(HeterotrophicConsumption(); ...)`. Numerical scientific parameters belong to
+the model parameter system rather than the formulation object; for example
+`Nutrients(FrankTNorm(); ...)` uses the Frank t-norm's declared `sharpness` parameter slot.
+`FrankTNorm()` names the formulation; `Agate.Library.Nutrients.frank_tnorm` is the numerical
+kernel. Parameterized nodes bind their formulation-local slots directly to model-level parameter
+names with `bindings=(...)`. Omitted slots bind by the same name; a `Symbol` explicitly renames
+or shares one parameter, while a one-level qualifier map handles repeated slots such as
+source-specific remineralization. External process and factor extensions use the same concrete
+formulation-object and binding protocol without built-in registration. `formulation_tag` supplies
+one-way semantic identity for recipes; it is not used to construct formulations during authoring.
+Stateless formulations serialize generically. A formulation that carries scientific structural state
+defines `formulation_recipe_fields`; omission fails loudly so implementation fields cannot silently
+enter or disappear from durable recipe identity.
+
+```@docs
+Agate.Processes.AbstractProcess
+Agate.Processes.AbstractFormulation
+Agate.Processes.formulation_tag
+Agate.Processes.formulation_recipe_fields
+Agate.Processes.factor_kind
+Agate.Processes.AbstractFactor
+Agate.Processes.Growth
+Agate.Processes.Light
+Agate.Processes.NutrientResponse
+Agate.Processes.Nutrients
+Agate.Processes.Temperature
+Agate.Processes.factors
+Agate.Processes.Consumption
+Agate.Processes.Mortality
+Agate.Processes.ProductRouting
+Agate.Processes.FixedStoichiometry
+Agate.Processes.Remineralization
+Agate.Processes.authored_parameter_bindings
+```
+
+### Parameter definitions
+
+The keyed parameter block owns defaults and storage policy. Scientific slot-to-parameter
+relationships are authored beside the process or factor through `bindings=`.
+
+```@docs
+Agate.Parameters.ParameterSpec
+Agate.Parameters.Parameter
+Agate.Parameters.DefaultProvider
+Agate.Parameters.ConstantDefault
+Agate.Parameters.DerivedDefault
+Agate.Parameters.derive_default
+Agate.Parameters.NoDefault
+Agate.Parameters.DiameterIndexedVectorDefault
+Agate.Configuration.PalatabilityAllometric
+Agate.Configuration.AssimilationBinary
+```
+
+### Normalization and process compilation
+
+```@docs
+Agate.Processes.NamedProcess
+Agate.Processes.NormalizedModelDefinition
+Agate.Processes.ParameterBinding
+Agate.Processes.ParameterApplicability
+Agate.Processes.driver_identities
+Agate.Processes.parameter_bindings
+Agate.Processes.resolve_parameter_applicability
+Agate.Processes.normalize_model
+Agate.Compilation.compile_model_tendencies
+```
+
+## Named families, recipes, and replay
+
+Named model families add stable code identity and durable recipe replay around the same definition-driven process compiler. `ProcessModelRecipe` is the `agate.model_recipe.v0.6` scientific representation for component/process families. `ModelManifest` records the resolved execution state.
+
+```@docs
+Agate.Construction.ProcessModelRecipe
+Agate.Construction.ModelManifest
+Agate.Construction.construct_plus_manifest
+Agate.Construction.capture_process_model_recipe
+Agate.Construction.replay_family
+Agate.Construction.resolve_construction_scalar_type
+Agate.Construction.family_id
+Agate.Construction.registered_family
+Agate.Construction.encode_recipe
+Agate.Construction.decode_recipe
+Agate.Construction.export_recipe
+Agate.Construction.import_recipe
+Agate.ModelFamilies.AbstractModelFamily
+Agate.Parameters.parameter_definitions
+Agate.Parameters.parameter_directory
+Agate.Parameters.parameter_spec
+Agate.ModelFamilies.default_components
+Agate.ModelFamilies.default_processes
+Agate.Configuration.PFTSpecification
+Agate.Configuration.build_plankton_community
+```
+
 ## Introspection
 
 ```@docs
@@ -23,76 +148,9 @@ using Agate
 using Agate.Introspection
 
 bgc = Agate.Models.NiPiZD.construct()
-pal = interaction_matrix(bgc, :palatability)
+pal = interaction_matrix(bgc, :palatability_matrix)
 
-pal.rows     # consumer labels
-pal.columns  # prey labels
-pal.matrix   # consumer-by-prey matrix
-```
-
-## Construction API
-
-### Recipes and low-level construction records
-
-Model users normally work through the model-family constructors (`construct`,
-`construct_plus_recipe`, and `construct_from_recipe`). The manifest API below is a
-lower-level resolved-state record used for diagnostics, model-family development, and
-semantic replay tests across explicit execution environments.
-
-`ModelRecipe` uses the `agate.model_recipe.v2` schema and records scientific construction
-semantics only. Fresh model inputs canonicalize to a recipe, and loaded recipes enter the
-same `construct_factory(recipe; ...)` realization path. Scalar precision is resolved from
-the execution environment (or an explicit `scalar_type` override) and is recorded on
-`ModelManifest`, not on the recipe.
-
-```@docs
-Agate.Construction.ModelRecipe
-Agate.Construction.ModelManifest
-Agate.Construction.construct_factory
-Agate.Construction.construct_factory_plus_manifest
-Agate.Construction.encode_recipe
-Agate.Construction.decode_recipe
-Agate.Construction.export_recipe
-Agate.Construction.import_recipe
-```
-
-### External model-family API
-
-Extension hooks are imported explicitly by packages that define model families.
-
-```@docs
-Agate.Construction.capture_model_recipe
-Agate.Construction.replay_factory
-Agate.Construction.resolve_construction_scalar_type
-Agate.Construction.recipe_family
-Agate.Construction.recipe_factory
-Agate.Factories.AbstractBGCFactory
-Agate.Factories.parameter_definitions
-Agate.Factories.parameter_directory
-Agate.Factories.parameter_spec
-Agate.Factories.ParameterSpec
-Agate.Factories.ParameterDefinition
-Agate.Factories.DefaultProvider
-Agate.Factories.ConstDefault
-Agate.Factories.NoDefault
-Agate.Factories.FillDefault
-Agate.Factories.DiameterIndexedVectorDefault
-Agate.Factories.DiameterIndexedMaterialization
-Agate.Factories.default_community
-Agate.Factories.default_plankton_dynamics
-Agate.Factories.default_biogeochem_dynamics
-Agate.Configuration.AbstractMatrixDeriver
-Agate.Configuration.MatrixDefinition
-Agate.Configuration.matrix_definitions
-Agate.Configuration.derive_matrix
-Agate.Configuration.derivation_deps
-```
-
-### Plankton communities and interactions
-
-```@docs
-Agate.Configuration.PFTSpecification
-Agate.Configuration.build_plankton_community
-Agate.Configuration.PalatabilityAllometric
-Agate.Configuration.AssimilationBinary
+pal.rows
+pal.columns
+pal.matrix
 ```

@@ -10,6 +10,9 @@ using Agate.Introspection:
     interaction_matrix
 using Test
 
+using Agate.Construction: define_tracer_functions
+using Agate.Equations: CompiledEquation
+
 @testset "Public introspection helpers" begin
     @testset "Model-constructed instance" begin
         bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
@@ -32,12 +35,15 @@ using Test
         pars = parameter_names(bgc)
         @test !isempty(pars)
         @test :data ∉ pars
+        @test :palatability_matrix in pars
+        @test :assimilation_matrix in pars
+        @test :interactions ∉ pars
 
-        pal = interaction_matrix(bgc, :palatability)
-        assim = interaction_matrix(bgc, :assimilation)
+        pal = interaction_matrix(bgc, :palatability_matrix)
+        assim = interaction_matrix(bgc, :assimilation_matrix)
 
-        @test pal.kind == :palatability
-        @test assim.kind == :assimilation
+        @test pal.parameter == :palatability_matrix
+        @test assim.parameter == :assimilation_matrix
         @test pal.rows == [:Z_1, :Z_2]
         @test pal.columns == [:P_1, :P_2]
         @test assim.rows == pal.rows
@@ -50,14 +56,14 @@ using Test
         @test all(col in tracer_names(bgc) for col in pal.columns)
 
         synthetic_bgc = (;
-            parameters=(;
-                interactions=(; encounter=zeros(1, 1), consumer_global=[1], prey_global=[1]),
+            parameters=(encounter_matrix=zeros(1, 1),),
+            interaction_axes=(;
+                parameters=(:encounter_matrix,), consumers=(:Z_1,), prey=(:P_1,)
             ),
-            tracers=bgc.tracers,
         )
-        encounter = interaction_matrix(synthetic_bgc, :encounter)
-        @test encounter.kind == :encounter
-        @test encounter.matrix === synthetic_bgc.parameters.interactions.encounter
+        encounter = interaction_matrix(synthetic_bgc, :encounter_matrix)
+        @test encounter.parameter == :encounter_matrix
+        @test encounter.matrix === synthetic_bgc.parameters.encounter_matrix
 
         @test_throws ArgumentError interaction_matrix(bgc, :consumer_global)
         @test_throws ArgumentError interaction_matrix(bgc, :unknown)
@@ -119,36 +125,28 @@ using Test
         @test plankton_diameters(named_bgc) ≈
             [30.0, 60.0, 100.0, 2.0, 5.0, 10.0, 8.0, 20.0]
 
-        named_pal = interaction_matrix(named_bgc, :palatability)
+        named_pal = interaction_matrix(named_bgc, :palatability_matrix)
         @test named_pal.rows == [:microzoo_1, :microzoo_2, :mesozoo_1]
         @test named_pal.columns == [:diat_1, :diat_2, :diat_3, :dino_1, :dino_2]
 
-        params = bgc.parameters
-        interactions = params.interactions
-        interaction_names = propertynames(interactions)
-        broken_interactions = NamedTuple{interaction_names}(
-            map(interaction_names) do name
-                name === :palatability ? ones(1, 1) : getproperty(interactions, name)
-            end,
+        broken_bgc = (;
+            parameters=merge(bgc.parameters, (palatability_matrix=ones(1, 1),)),
+            interaction_axes=bgc.interaction_axes,
         )
-        broken_bgc = (; parameters=(; interactions=broken_interactions), tracers=bgc.tracers)
-        @test_throws ArgumentError interaction_matrix(broken_bgc, :palatability)
+        @test_throws ArgumentError interaction_matrix(broken_bgc, :palatability_matrix)
     end
 
-    @testset "Generated model (define_tracer_functions)" begin
-        model = AgateNPZD(parameters)
-        @test tracer_names(model) == [:N, :D, :P, :Z]
-        @test plankton_groups(model) == NamedTuple()
-        @test plankton_tracers(model) == Symbol[]
-        @test isempty(plankton_diameters(model))
-        @test nonplankton_tracers(model) == tracer_names(model)
-
+    @testset "Generated model without groups" begin
+        parameters = (rate=1.0,)
+        tracers = (X=CompiledEquation((bgc, x, y, z, t, X) -> -bgc.parameters.rate * X),)
+        model = define_tracer_functions(parameters, tracers)(parameters)
         groups = tracer_groups(model)
-        @test groups.all == tracer_names(model)
-        @test groups.by_group == NamedTuple()
-        @test groups.plankton == Symbol[]
-        @test groups.nonplankton == tracer_names(model)
-        @test !isempty(parameter_names(model))
-        @test_throws ArgumentError interaction_matrix(model, :palatability)
+
+        @test tracer_names(model) == [:X]
+        @test groups == (all=[:X], plankton=Symbol[], nonplankton=[:X], by_group=NamedTuple())
+        @test plankton_groups(model) == NamedTuple()
+        @test isempty(plankton_diameters(model))
+        @test parameter_names(model) == [:rate]
+        @test_throws ArgumentError interaction_matrix(model, :palatability_matrix)
     end
 end

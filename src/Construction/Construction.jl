@@ -1,11 +1,12 @@
-"""Model construction utilities for factory-defined biogeochemistry models."""
+"""Model construction utilities for authored and registered biogeochemistry models."""
 module Construction
 
 import Oceananigans
 using ..Configuration: PFTSpecification
 
-export construct_factory, construct_factory_plus_manifest
-export ModelRecipe, ModelManifest
+export construct, construct_plus_manifest
+export ProcessModelRecipe, ModelManifest
+export capture_process_model_recipe
 export encode_recipe, decode_recipe, export_recipe, import_recipe
 export PFTSpecification
 

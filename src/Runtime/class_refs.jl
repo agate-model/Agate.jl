@@ -1,39 +1,28 @@
-"""Reference a single plankton class within a size-structured group.
+"""Reference one concrete class within a named structured group or component.
 
-Fields
-------
-- `group`: plankton group symbol such as `:P` or `:Z`.
-- `i`: one-based class index within that group.
+`group` may identify a parsed community subgroup or a logical component in a
+`ComponentLayout`. `i` is the one-based class ordinal within that identity.
 """
 struct ClassRef
     group::Symbol
     i::Int
 end
 
-"""Construct a `ClassRef`.
-
-A thin wrapper around the `ClassRef` constructor for convenient syntax.
-
-```julia
-cref = class(:P, 1)
-```
-"""
+"""Construct a `ClassRef` for host-side class lookup."""
 @inline class(group::Symbol, i::Integer) = ClassRef(group, Int(i))
 
-"""Return the number of classes in `group` within a parsed community `community_context`."""
+"""Return the number of classes in a parsed community subgroup."""
 function class_count(community_context, group::Symbol)::Int
     idx = get(community_context.group_indices, group, nothing)
     idx === nothing && throw(ArgumentError("Unknown group symbol $group"))
     return length(idx)
 end
 
-"""Resolve `cref` to the global plankton-class index within `community_context`.
+"""Return the number of concrete classes realized by a logical component."""
+class_count(layout::ComponentLayout, component::Symbol)::Int =
+    component_class_count(layout, component)
 
-The returned index starts at 1 and refers to the flattened plankton ordering
-underlying both `community_context.plankton_symbols` and `community_context.group_symbols`.
-
-This is intended for host-side utilities such as initial conditions and diagnostics.
-"""
+"""Resolve a community `ClassRef` to its flattened community-class index."""
 function resolve_class(community_context, cref::ClassRef)::Int
     idx = get(community_context.group_indices, cref.group, nothing)
     idx === nothing && throw(ArgumentError("Unknown group symbol $(cref.group)"))
@@ -43,4 +32,49 @@ function resolve_class(community_context, cref::ClassRef)::Int
         ),
     )
     return idx[cref.i]
+end
+
+"""Resolve a component `ClassRef` to one physical tracer position.
+
+Pool classes and single-state population classes are unambiguous. Multi-state
+populations require an explicit state reference and therefore cannot be resolved
+by `ClassRef` alone.
+"""
+function resolve_class(layout::ComponentLayout, cref::ClassRef)::Int
+    nclasses = component_class_count(layout, cref.group)
+    1 <= cref.i <= nclasses || throw(
+        ArgumentError(
+            "Class ordinal $(cref.i) is out of bounds for component $(cref.group) (valid 1:$nclasses).",
+        ),
+    )
+    state_mapping = component_state_tracers(layout, cref.group)
+    if state_mapping === nothing
+        return component_indices(layout, cref.group)[cref.i]
+    end
+    length(state_mapping) == 1 || throw(
+        ArgumentError(
+            "ClassRef for multi-state component $(cref.group) is ambiguous; select a prognostic state explicitly",
+        ),
+    )
+    state = only(keys(state_mapping))
+    return state_indices(layout, cref.group, state)[cref.i]
+end
+
+
+"""Resolve one explicit population-state `ClassRef` to its physical tracer position."""
+function resolve_state(
+    layout::ComponentLayout, cref::ClassRef, reference::PopulationStateRef
+)::Int
+    cref.group === reference.population || throw(
+        ArgumentError(
+            "ClassRef component :$(cref.group) does not match state reference population :$(reference.population)",
+        ),
+    )
+    indices = state_indices(layout, reference.population, reference.state)
+    1 <= cref.i <= length(indices) || throw(
+        ArgumentError(
+            "Class ordinal $(cref.i) is out of bounds for component $(cref.group) state $(reference.state) (valid 1:$(length(indices))).",
+        ),
+    )
+    return indices[cref.i]
 end

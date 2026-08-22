@@ -3,7 +3,6 @@ using OceanBioME: BoxModelGrid
 import ...Configuration
 import ...Construction
 
-export construct, construct_plus_recipe, construct_from_recipe
 
 function _validated_size_structure(size_structure)
     size_structure isa NamedTuple ||
@@ -59,20 +58,8 @@ function _community_inputs(size_structure)
     community_base = NamedTuple{group_order}(community_base_values)
     community = Configuration.build_plankton_community(community_base)
 
-    interaction_roles = (consumers=structure.consumer_groups, prey=structure.producer_groups)
-    parameter_roles = (;
-        producers=structure.producer_groups, consumers=structure.consumer_groups
-    )
-
-    ecological_roles = (;
-        phytoplankton=structure.producer_groups, zooplankton=structure.consumer_groups
-    )
-    return (;
-        community,
-        interaction_roles,
-        parameter_roles,
-        ecological_roles,
-    )
+    component_groups = (P=structure.producer_groups, Z=structure.consumer_groups)
+    return (; community, component_groups)
 end
 
 function _construction_inputs(;
@@ -86,25 +73,19 @@ function _construction_inputs(;
     sinking_tracers=nothing,
     open_bottom::Bool=true,
 )
-    factory = NiPiZDFactory()
+    family = NiPiZDFamily()
     community_inputs = _community_inputs(size_structure)
 
-    pairs = Pair{Symbol,Any}[]
-    palatability_matrix !== nothing &&
-        push!(pairs, :palatability_matrix => palatability_matrix)
-    assimilation_matrix !== nothing &&
-        push!(pairs, :assimilation_matrix => assimilation_matrix)
-
-    interaction_overrides = (; pairs...)
-    recipe = Construction.capture_model_recipe(
-        factory;
+    parameter_overrides = parameters
+    palatability_matrix === nothing ||
+        (parameter_overrides = merge(parameter_overrides, (; palatability_matrix)))
+    assimilation_matrix === nothing ||
+        (parameter_overrides = merge(parameter_overrides, (; assimilation_matrix)))
+    recipe = Construction.capture_process_model_recipe(
+        family;
+        population_groups=community_inputs.component_groups,
         community=community_inputs.community,
-        parameter_overrides=parameters,
-        interaction_overrides,
-        ecological_roles=community_inputs.ecological_roles,
-        interaction_roles=community_inputs.interaction_roles,
-        parameter_roles=community_inputs.parameter_roles,
-        auxiliary_fields=(:PAR,),
+        parameter_overrides,
         sinking_tracers,
         open_bottom,
     )
@@ -120,7 +101,7 @@ Construct a size-structured NiPiZD ecosystem model.
 The NiPiZD model contains phytoplankton and zooplankton roles. `size_structure` defines
 the groups within each role; the defaults are `P` and `Z`.
 
-In addition to plankton, the default NiPiZD factory includes idealized nutrient (`N`) and
+In addition to plankton, the NiPiZD definition includes idealized nutrient (`N`) and
 detritus (`D`) cycling. The returned biogeochemistry instance includes a photosynthetically
 active radiation (PAR) auxiliary field.
 
@@ -178,7 +159,7 @@ bgc = NiPiZD.construct(;
 """
 function construct(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
-    return Construction.construct_factory(inputs.recipe; inputs.execution...)
+    return Construction.construct(inputs.recipe; inputs.execution...)
 end
 
 """
@@ -187,14 +168,14 @@ end
 Replay a NiPiZD recipe in the supplied runtime environment.
 """
 function construct_from_recipe(
-    recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing, scalar_type=nothing
+    recipe::Construction.ProcessModelRecipe; grid=BoxModelGrid(), arch=nothing, scalar_type=nothing
 )
     recipe.family == :NiPiZD || throw(
         ArgumentError(
             "NiPiZD.construct_from_recipe requires a NiPiZD recipe; got family $(recipe.family)"
         ),
     )
-    return Construction.construct_factory(recipe; grid, arch, scalar_type)
+    return Construction.construct(recipe; grid, arch, scalar_type)
 end
 
 
@@ -202,14 +183,13 @@ end
     construct_plus_recipe(; kw...) -> bgc, recipe
 
 Construct NiPiZD and return the model together with its authored scientific recipe.
-The recipe records semantic size specifications, authored parameter and interaction
-overrides, role selections, sinking configuration, and open-bottom state. Model-family
-code supplies defaults, derivations, and equations when the recipe is replayed. Runtime
-grid, architecture, and scalar precision remain execution-environment inputs and are not
-stored in the recipe.
+The recipe records canonical components, named processes, parameter bindings, subgroup
+realization, authored parameter overrides, sinking configuration, and
+open-bottom state. Runtime grid, architecture, scalar precision, and compiled equations
+are derived when the recipe is realized.
 """
 function construct_plus_recipe(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
-    bgc = Construction.construct_factory(inputs.recipe; inputs.execution...)
+    bgc = Construction.construct(inputs.recipe; inputs.execution...)
     return bgc, inputs.recipe
 end

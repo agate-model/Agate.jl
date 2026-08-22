@@ -33,8 +33,9 @@ if BUILD_COLUMN_EXAMPLE
     push!(examples, "Column model" => "1D_column")
 end
 
-model_examples = [
-    "Defining your own model" => "external_model_family",
+defining_models_examples = [
+    "Model with mixotrophy" => "mixotrophy",
+    "Model with bacterioplankton" => "detritus_bacteria",
 ]
 
 differentiable_modelling = [
@@ -42,9 +43,9 @@ differentiable_modelling = [
     "Reverse-mode AD sensitivity" => "reverse_mode_ad_nipizd_sensitivity",
 ]
 
-
 example_scripts = [
-    filename * ".jl" for (title, filename) in vcat(examples, model_examples, differentiable_modelling)
+    filename * ".jl" for (title, filename) in
+    vcat(examples, defining_models_examples, differentiable_modelling)
 ]
 
 function replace_silly_warning(content)
@@ -72,23 +73,23 @@ for example in example_scripts
 end
 
 example_pages = [title => "generated/$(filename).md" for (title, filename) in examples]
+defining_models_pages = [
+    title => "generated/$(filename).md" for (title, filename) in defining_models_examples
+]
 differentiable_modelling_pages = [
     title => "generated/$(filename).md" for (title, filename) in differentiable_modelling
 ]
 
 contributor_pages = ["Architecture" => "architecture_overview.md"]
-model_pages = [
-    "NiPiZD" => "nipizd.md",
-    "Defining your own model" => "generated/external_model_family.md",
-]
+model_pages = ["NiPiZD" => "nipizd.md"]
 
 makedocs(;
     sitename="Agate.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", nothing) == "true",
-        size_threshold=1_000_000,  # allow larger example pages with embedded figures
+        size_threshold=1_000_000,
         size_threshold_warn=300_000,
-    ), # 300KB warning
+    ),
     modules=[Agate],
     checkdocs=:exports,
     warnonly=[:missing_docs],
@@ -97,6 +98,7 @@ makedocs(;
         "Quick start" => "quick_start.md",
         "Examples" => example_pages,
         "Models" => model_pages,
+        "Defining new models" => defining_models_pages,
         "Library" => "library.md",
         "Differentiable modelling" => differentiable_modelling_pages,
         "Contributor guide" => contributor_pages,

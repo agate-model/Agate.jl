@@ -2,16 +2,17 @@ using Agate
 using Test
 using ForwardDiff
 
-using Agate.Library.Nutrients: FrankTNorm, frank_tnorm, liebig_minimum
-using Agate.Library.Photosynthesis: frank_nutrient_limitation, liebig_nutrient_limitation
-using Agate.Library.Predation: holling_type_ii, idealized_predation_loss
-using Agate.Tendencies: TendencyConfig
+using Agate.Library.Nutrients: frank_tnorm, liebig_minimum
+using Agate.Library.Photosynthesis:
+    frank_nutrient_limitation, geider_light_limitation, geider_light_response,
+    liebig_nutrient_limitation
+using Agate.Library.Predation: holling_type_ii, idealized_predation_loss, preferential_predation_loss
 
 @testset "Library" begin
     @test holling_type_ii(1.0, 1.0) == 0.5
+    @test idealized_predation_loss(2.0, 0.5, 0.1, 1.0) ≈ 0.04
 
-    loss = idealized_predation_loss(1.0, 0.5, 0.1, 0.2)
-    @test loss > 0
+    @test preferential_predation_loss(1.0, 0.5, 0.1, 0.2, 0.8) ≈ 1 / 30
 end
 
 @testset "Library scalar genericity" begin
@@ -29,6 +30,10 @@ end
     @test Agate.Library.Predation.holling_type_ii(T(1), T(0.5)) isa T
     @test Agate.Library.Remineralization.linear_remineralization(T(1), T(0.1)) isa T
     @test Agate.Library.Temperature.q10_temperature_factor(T(10), T(2)) isa T
+    @test Agate.Library.Temperature.q10_temperature_factor(T(30), T(2), T(20)) == T(2)
+    geider_response = geider_light_response(T(100), T(2e-6), T(2e-5), T(0.02))
+    @test geider_response isa T
+    @test geider_light_limitation(T(100), T(2e-6), T(2e-5), T(0.02)) == T(2e-5) * geider_response
 end
 
 @testset "Frank t-norm" begin
@@ -50,33 +55,17 @@ end
 
     @test frank_nutrient_limitation((1.0,), (1.0,), 1.0) ≈ 0.5
 
-    gradient = ForwardDiff.gradient(x -> FrankTNorm()(x[1], x[2]), [0.5, 0.5])
+    gradient = ForwardDiff.gradient(x -> frank_tnorm(x[1], x[2]), [0.5, 0.5])
     @test all(isfinite, gradient)
     @test gradient[1] ≈ gradient[2]
 
-    liebig_config = TendencyConfig(;
-        growth=:smith, organic_cycling=:simple_detritus, nutrient_limitation=:liebig
+    resources = (0.5, 0.5)
+    half_saturations = (0.5, 0.5)
+    frank = frank_nutrient_limitation(
+        resources, half_saturations, 1.0; sharpness=50
     )
-    @test liebig_config.nutrient_limitation isa Agate.Library.Nutrients.LiebigMinimum
-
-    frank_config = TendencyConfig(;
-        growth=:smith,
-        organic_cycling=:simple_detritus,
-        nutrient_limitation=FrankTNorm(25),
-    )
-    @test frank_config.nutrient_limitation isa FrankTNorm
-    @test frank_config.nutrient_limitation.sharpness == 25
-
-    bgc = multi_nutrient_test_model()
-    frank_tendency = Agate.Tendencies.phytoplankton_tendency(
-        MULTI_NUTRIENT_FRANK; plankton_idx=1
-    )
-    DIN = bgc.parameters.half_saturation_DIN[1]
-    PO4 = bgc.parameters.half_saturation_PO4[1]
-    args = (10.0, DIN, PO4, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 100.0)
-
-    frank = frank_tendency(bgc, 0, 0, 0, 0, args...)
-    liebig = bgc(Val(:P_1), 0, 0, 0, 0, args...)
+    liebig = liebig_nutrient_limitation(resources, half_saturations, 1.0)
     @test isfinite(frank)
     @test frank < liebig
+
 end
