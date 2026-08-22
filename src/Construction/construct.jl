@@ -9,10 +9,9 @@ using Oceananigans.Architectures: architecture, CPU, GPU
 using ..ModelFamilies: AbstractModelFamily
 
 using ..Parameters:
-    ConstDefault,
+    ConstantDefault,
     DerivedDefault,
     NoDefault,
-    FillDefault,
     DiameterIndexedVectorDefault,
     DiameterIndexedMaterialization,
     derive_default,
@@ -560,37 +559,30 @@ end
 
 function _process_parameter_indices(definition, layout, context, parameter::Symbol)
     selected = Set{Symbol}()
+    has_applicability = false
     for applicability in resolve_parameter_applicability(definition, layout)
         applicability.binding.parameter === parameter || continue
+        has_applicability = true
         for axis in applicability.axis_classes, class in axis
             class in context.class_symbols && push!(selected, class)
         end
     end
+    has_applicability || return collect(eachindex(context.class_symbols))
     return [i for (i, class) in pairs(context.class_symbols) if class in selected]
 end
 
 function evaluate_process_default(
-    provider::ConstDefault, spec, source, definition, layout, context, ::Type{T}
-) where {T<:Real}
-    spec.shape === :scalar || throw(
-        ArgumentError("ConstDefault can only be used for scalar parameters (:$(spec.name)).")
-    )
-    value = provider.value
-    return value isa Bool ? value : T(value)
-end
-
-function evaluate_process_default(
-    provider::FillDefault, spec, source, definition, layout, context, ::Type{T}
+    provider::ConstantDefault, spec, source, definition, layout, context, ::Type{T}
 ) where {T<:Real}
     value = provider.value
     value = value isa Bool ? value : T(value)
-    expected = _parameter_storage_shape(definition, layout, context, spec)
+    spec.shape === :scalar && return value
 
+    expected = _parameter_storage_shape(definition, layout, context, spec)
     if spec.shape === :vector
         if spec.axes === :plankton
             result = fill(zero(value), only(expected))
             indices = _process_parameter_indices(definition, layout, context, spec.name)
-            isempty(indices) && (indices = collect(eachindex(result)))
             result[indices] .= value
             return result
         end
@@ -598,7 +590,7 @@ function evaluate_process_default(
     elseif spec.shape === :matrix
         return fill(value, expected...)
     end
-    throw(ArgumentError("FillDefault requires vector or matrix parameter storage."))
+    throw(ArgumentError("unsupported parameter shape $(spec.shape) for :$(spec.name)"))
 end
 
 function evaluate_process_default(
@@ -804,7 +796,7 @@ function _construct_process_definition(
     end
 
     normalized = normalize_model(definition)
-    definitions = isnothing(definition.parameters) ? () : definition.parameters
+    definitions = isnothing(normalized.parameters) ? () : normalized.parameters
     parameter_source = _DefinitionParameterSource(definitions)
     isnothing(derivation_owner) && (derivation_owner = definition)
     isnothing(definition.parameters) && !isempty(normalized.parameter_requirements) && throw(

@@ -59,14 +59,6 @@ function food_web_parameters()
             runtime_path=(:interactions, :living_assimilation),
             axes=(:consumer, :prey),
         ),
-        no_default(:optimum_predator_prey_ratio, :vector,
-            slot(:grazing_living, :optimum_predator_prey_ratio)),
-        no_default(:specificity, :vector,
-            slot(:grazing_living, :specificity)),
-        no_default(:protection, :vector,
-            slot(:grazing_living, :protection)),
-        no_default(:assimilation_efficiency, :vector,
-            slot(:grazing_living, :assimilation_efficiency)),
     )
 end
 

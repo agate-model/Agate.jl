@@ -3,9 +3,8 @@ using Agate.Introspection: parameter_names
 using Test
 
 import Agate.Parameters:
-    ConstDefault,
+    ConstantDefault,
     DerivedDefault,
-    FillDefault,
     ParameterDefinition,
     derive_default,
     parameter_definitions,
@@ -21,15 +20,15 @@ derive_default(::DoubleDefault, ::DerivedDefaultFixture, ::Any, params::NamedTup
     2 * params.middle
 
 parameter_definitions(::DerivedDefaultFixture) = (
-    ParameterDefinition(:base, ConstDefault(2.0)),
-    ParameterDefinition(:top, DerivedDefault(DoubleDefault(); deps=(:middle,))),
-    ParameterDefinition(:middle, DerivedDefault(AddOneDefault(); deps=(:base,))),
+    ParameterDefinition(:base, ConstantDefault(2.0); shape=:scalar),
+    ParameterDefinition(:top, DerivedDefault(DoubleDefault(); deps=(:middle,)); shape=:scalar),
+    ParameterDefinition(:middle, DerivedDefault(AddOneDefault(); deps=(:base,)); shape=:scalar),
 )
 
 struct CyclicDerivedDefaultFixture end
 parameter_definitions(::CyclicDerivedDefaultFixture) = (
-    ParameterDefinition(:a, DerivedDefault(AddOneDefault(); deps=(:b,))),
-    ParameterDefinition(:b, DerivedDefault(DoubleDefault(); deps=(:a,))),
+    ParameterDefinition(:a, DerivedDefault(AddOneDefault(); deps=(:b,)); shape=:scalar),
+    ParameterDefinition(:b, DerivedDefault(DoubleDefault(); deps=(:a,)); shape=:scalar),
 )
 
 @testset "Parameter directory" begin
@@ -48,17 +47,23 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
 
         specmap = Dict(spec.name => spec for spec in dir)
         definitions = Dict(def.spec.name => def for def in parameter_definitions(family))
-        @test definitions[:linear_mortality].default isa FillDefault
+        @test definitions[:linear_mortality].default isa ConstantDefault
         @test definitions[:palatability_matrix].default isa DerivedDefault
         @test definitions[:palatability_matrix].default.deps == (
             :optimum_predator_prey_ratio, :specificity, :protection
         )
         @test definitions[:assimilation_matrix].default isa DerivedDefault
         @test definitions[:assimilation_matrix].default.deps == (:assimilation_efficiency,)
-        @test all(!isempty(spec.provides) for spec in values(specmap))
+        @test all(
+            isempty(specmap[name].provides)
+            for name in (:optimum_predator_prey_ratio, :specificity, :protection, :assimilation_efficiency)
+        )
         @test length(specmap[:linear_mortality].provides) == 2
         @test length(specmap[:linear_detrital_mortality].provides) == 1
-        @test specmap[:detritus_remineralization].shape == :scalar
+        @test specmap[:detritus_remineralization].shape === nothing
+        normalized = Agate.Processes.normalize_model(Agate.Processes.ModelDefinition(family))
+        normalized_specs = Dict(def.spec.name => def.spec for def in normalized.parameters)
+        @test normalized_specs[:detritus_remineralization].shape === :scalar
         @test specmap[:maximum_growth_rate].shape == :vector
         @test specmap[:maximum_growth_rate].axes == :plankton
         @test !isnothing(specmap[:maximum_growth_rate].materialization)

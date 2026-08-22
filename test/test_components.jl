@@ -7,7 +7,7 @@ using Agate.Configuration:
     component_indices, state_tracers, state_indices,
     component_diameters, component_class_count, parse_community
 using Agate.ModelFamilies: default_components
-using Agate.Parameters: ParameterProvision, ParameterDefinition, ConstDefault, NoDefault
+using Agate.Parameters: ParameterProvision, ParameterDefinition, ConstantDefault, NoDefault
 using Agate.Processes:
     ModelDefinition, Mortality, Remineralization, normalize_model, resolve_parameter_applicability
 
@@ -141,7 +141,7 @@ end
     process = Remineralization(:linear; source=:POM, destination=:N)
     parameter = ParameterDefinition(
         :pom_remineralization,
-        ConstDefault(0.1);
+        ConstantDefault(0.1);
         provides=ParameterProvision(:remineralization_POM, :rate),
     )
     definition = normalize_model(

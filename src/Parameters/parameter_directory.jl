@@ -3,10 +3,9 @@ export ParameterProvision
 export DefaultProvider
 export ParameterDefinition
 export parameter_definitions
-export ConstDefault
+export ConstantDefault
 export DerivedDefault
 export NoDefault
-export FillDefault
 export DiameterIndexedVectorDefault
 export DiameterIndexedMaterialization
 export derive_default
@@ -15,8 +14,9 @@ export parameter_spec
 
 """Materialize a diameter-indexed parameter law during construction.
 
-Process participation determines which concrete classes the parameter applies to;
-`fill_value` is assigned outside that applicability set.
+Process participation determines which concrete classes a provision-bound parameter applies
+to; provision-less diameter-indexed parameters use the full living-class axis. `fill_value`
+is assigned outside the selected applicability set.
 """
 struct DiameterIndexedMaterialization{T}
     fill_value::T
@@ -68,7 +68,7 @@ end
 Fields
 ------
 - `name`: parameter key.
-- `shape`: one of `:scalar`, `:vector`, or `:matrix`.
+- `shape`: resolved storage shape (`:scalar`, `:vector`, or `:matrix`); may be `nothing` before process-bound shape inference.
 - `axes`: optional explicit runtime storage axis/axes. With `axes=nothing`,
   vector/matrix storage is process-local and follows the resolved provision applicability.
   `axes=:plankton` selects the full living-class axis; matrix axes such as
@@ -79,7 +79,7 @@ Fields
 """
 struct ParameterSpec{R<:Tuple,P<:Tuple}
     name::Symbol
-    shape::Symbol
+    shape::Union{Nothing,Symbol}
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}
     runtime_path::R
     materialization::Union{Nothing,DiameterIndexedMaterialization}
@@ -89,7 +89,7 @@ end
 """Convenience constructor for `ParameterSpec`."""
 function ParameterSpec(
     name::Symbol,
-    shape::Symbol;
+    shape::Union{Nothing,Symbol}=nothing;
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
     runtime_path::Tuple=(name,),
     materialization::Union{Nothing,DiameterIndexedMaterialization}=nothing,
@@ -100,7 +100,12 @@ function ParameterSpec(
         ArgumentError("runtime_path must contain only Symbols"),
     )
     provisions = _parameter_provisions(provides)
-    return ParameterSpec(name, shape, axes, runtime_path, materialization, provisions)
+    declared_shape = if isnothing(shape)
+        axes isa Symbol ? :vector : axes isa Tuple ? :matrix : nothing
+    else
+        shape
+    end
+    return ParameterSpec(name, declared_shape, axes, runtime_path, materialization, provisions)
 end
 
 """Abstract supertype for constructor-time default providers.
@@ -119,14 +124,16 @@ end
 
 """Define a model parameter and its constructor-time default.
 
-`shape` is `:scalar`, `:vector`, or `:matrix`; vector and matrix definitions may
-declare runtime `axes`. `provides` links the parameter to one or more scientific
+`shape` may be `:scalar`, `:vector`, or `:matrix`. For provision-bound parameters it
+may be omitted and is inferred from the resolved process requirement. Explicit runtime
+`axes` also imply vector or matrix shape. Parameters with neither provisions nor axes
+must declare shape explicitly. `provides` links the parameter to one or more scientific
 process parameter slots.
 """
 function ParameterDefinition(
     name::Symbol,
     default::D;
-    shape::Symbol=:scalar,
+    shape::Union{Nothing,Symbol}=nothing,
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
     runtime_path::Tuple=(name,),
     materialization::Union{Nothing,DiameterIndexedMaterialization}=nothing,
@@ -136,8 +143,13 @@ function ParameterDefinition(
     return ParameterDefinition(spec, default)
 end
 
-"""A scalar default that converts a literal value to the construction scalar type."""
-struct ConstDefault{T} <: DefaultProvider
+"""A literal parameter default.
+
+Scalar parameters use the literal value directly after conversion to the construction
+scalar type. Vector and matrix parameters fill their resolved storage shape with the
+literal value.
+"""
+struct ConstantDefault{T} <: DefaultProvider
     value::T
 end
 
@@ -180,15 +192,11 @@ The parameter must be supplied by an override before construction can complete.
 """
 struct NoDefault <: DefaultProvider end
 
-"""A uniform fill default for vectors or matrices."""
-struct FillDefault{T} <: DefaultProvider
-    value::T
-end
-
 """Default provider for a diameter-indexed vector parameter.
 
 The provider fills the complete runtime vector with `default`, then materializes
-`value` over the classes selected from process-derived parameter applicability.
+`value` over process-derived applicability. Provision-less parameters materialize over
+the full living-class axis.
 """
 struct DiameterIndexedVectorDefault{V,T} <: DefaultProvider
     value::V
@@ -200,7 +208,11 @@ DiameterIndexedVectorDefault(value; default) = DiameterIndexedVectorDefault(valu
 """Return the parameter definitions owned by a model family or direct definition source."""
 parameter_definitions(source) = ()
 
-"""Return the parameter specifications derived from `parameter_definitions(source)`."""
+"""Return authored parameter specifications derived from `parameter_definitions(source)`.
+
+Provision-bound specifications may have `shape === nothing` until `normalize_model` resolves
+their process requirements.
+"""
 parameter_directory(source) = map(d -> d.spec, parameter_definitions(source))
 
 """Return the `ParameterSpec` for `key`, or `nothing` if absent."""

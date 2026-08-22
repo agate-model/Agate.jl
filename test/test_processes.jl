@@ -3,7 +3,7 @@ using ForwardDiff
 
 using Agate.Configuration: Population, Pool, realize_components
 using Agate.ModelFamilies: default_components, default_processes
-using Agate.Parameters: NoDefault, ParameterDefinition, ParameterProvision
+using Agate.Parameters: ConstantDefault, NoDefault, ParameterDefinition, ParameterProvision
 using Agate.Processes:
     Smith,
     Geider,
@@ -45,6 +45,10 @@ using Agate.Processes:
     rate_axes
 
 @testset "Process authoring and normalization" begin
+    @test :Light in names(Agate.Processes)
+    @test :FixedStoichiometry in names(Agate.Processes)
+    @test :Smith ∉ names(Agate.Processes)
+
     symbolic_light = Light(:smith; driver=:PAR)
     concrete_light = Light(Smith(); driver=:PAR)
     symbolic_response = NutrientResponse(:monod; resource=:N)
@@ -256,8 +260,8 @@ end
     )
     @test Tuple(process_id(process) for process in values(normalized.processes)) ==
         keys(normalized.processes)
-    @test length(parameter_requirements(normalized)) == 16
-    @test length(parameter_bindings(normalized)) == 16
+    @test length(parameter_requirements(normalized)) == 12
+    @test length(parameter_bindings(normalized)) == 12
 
     growth = normalized.processes.growth_P
     light_slots = parameter_slot_bindings(
@@ -306,9 +310,6 @@ end
     ).axis_classes == ((:P_1, :P_2),)
     @test application(:maximum_predation_rate, :grazing_Z_on_P, :maximum_rate).axis_classes ==
         ((:Z_1, :Z_2),)
-    @test application(
-        :protection, :grazing_Z_on_P, :protection; path=(:palatability, :default)
-    ).axis_classes == ((:P_1, :P_2),)
     @test application(:palatability_matrix, :grazing_Z_on_P, :palatability).axis_classes ==
         ((:Z_1, :Z_2), (:P_1, :P_2))
     remineralization_rate = application(
@@ -399,12 +400,10 @@ end
         ),
     )
     parameter(name, slot, path) = ParameterDefinition(
-        name, NoDefault();
-        shape=:vector,
-        provides=ParameterProvision(:growth, slot; path),
+        name, NoDefault(); provides=ParameterProvision(:growth, slot; path)
     )
     parameters(max_a) = (
-        ParameterDefinition(:max_a, NoDefault(); shape=:vector, provides=max_a),
+        ParameterDefinition(:max_a, NoDefault(); provides=max_a),
         parameter(:alpha_a, :alpha, (:factors, :light_a)),
         parameter(:max_b, :maximum_rate, (:factors, :light_b)),
         parameter(:alpha_b, :alpha, (:factors, :light_b)),
@@ -420,6 +419,20 @@ end
     end)
     @test max_a_requirement.identity.formulation === :smith
     @test parameter_name(normalized, max_a_requirement) === :max_a
+    @test all(def.spec.shape === :vector for def in normalized.parameters)
+
+    bad_shape = parameters(
+        ParameterProvision(:growth, :maximum_rate; path=(:factors, :light_a))
+    )
+    bad_shape = (
+        ParameterDefinition(
+            :max_a, NoDefault();
+            shape=:scalar,
+            provides=ParameterProvision(:growth, :maximum_rate; path=(:factors, :light_a)),
+        ),
+        bad_shape[2:end]...,
+    )
+    @test_throws ArgumentError normalize_model(definition(bad_shape))
 
     @test_throws ArgumentError normalize_model(
         definition(parameters(ParameterProvision(:growth, :maximum_rate)))
@@ -427,4 +440,43 @@ end
     @test_throws ArgumentError normalize_model(
         definition(parameters(ParameterProvision(:growth, :missing)))
     )
+end
+
+@testset "Literal interaction defaults need no derivation dependencies" begin
+    components = (
+        P=Population(; currency=:carbon, size_structure=[1.0]),
+        Z=Population(; currency=:carbon, size_structure=[10.0]),
+    )
+    processes = (
+        grazing=Grazing(:preferential; consumer=:Z, resource=:P),
+    )
+    parameters = (
+        ParameterDefinition(
+            :maximum_rate, ConstantDefault(1.0);
+            provides=ParameterProvision(:grazing, :maximum_rate),
+        ),
+        ParameterDefinition(
+            :half_saturation, ConstantDefault(0.5);
+            provides=ParameterProvision(:grazing, :half_saturation),
+        ),
+        ParameterDefinition(
+            :palatability, ConstantDefault(1.0);
+            axes=(:consumer, :prey),
+            runtime_path=(:interactions, :palatability),
+            provides=ParameterProvision(:grazing, :palatability),
+        ),
+        ParameterDefinition(
+            :assimilation, ConstantDefault(0.7);
+            axes=(:consumer, :prey),
+            runtime_path=(:interactions, :assimilation),
+            provides=ParameterProvision(:grazing, :assimilation),
+        ),
+    )
+
+    normalized = normalize_model(ModelDefinition(; components, processes, parameters))
+    @test length(parameter_requirements(normalized)) == 4
+    @test Tuple(def.spec.name for def in normalized.parameters) ==
+        (:maximum_rate, :half_saturation, :palatability, :assimilation)
+    @test Tuple(def.spec.shape for def in normalized.parameters) ==
+        (:vector, :vector, :matrix, :matrix)
 end

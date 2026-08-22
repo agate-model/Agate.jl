@@ -163,12 +163,6 @@ parameter_slots(::DirectRouting) = ()
 parameter_slots(::PartitionRouting) = (ParameterSlot(:export_fraction),)
 parameter_slots(::DOMPOMRouting) = (ParameterSlot(:POM_fraction),)
 parameter_slots(::FixedStoichiometry) = (ParameterSlot(:ratio; qualify=:currency),)
-parameter_slots(::Val{:allometric}) = (
-    ParameterSlot(:optimum_predator_prey_ratio, (:consumer,)),
-    ParameterSlot(:specificity, (:consumer,)),
-    ParameterSlot(:protection, (:resource,)),
-)
-parameter_slots(::Val{:binary}) = (ParameterSlot(:assimilation_efficiency, (:consumer,)),)
 
 """One formulation-declared semantic parameter requirement.
 
@@ -335,17 +329,6 @@ function _parameter_nodes(named::NamedProcess{P}) where {P<:Consumption}
         ArgumentError("unsupported consumption formulation $(typeof(formulation))"),
     )
     nodes = (_parameter_node((), formulation),)
-    if uses_living_interactions(formulation)
-        nodes = (
-            nodes...,
-            _parameter_node(
-                (:palatability, :default), Val(:allometric); formulation_value=:allometric
-            ),
-            _parameter_node(
-                (:assimilation, :default), Val(:binary); formulation_value=:binary
-            ),
-        )
-    end
     for (name, factor) in pairs(process.factors)
         nodes = (nodes..., _factor_parameter_nodes(name, factor)...)
     end
@@ -712,7 +695,7 @@ function _resolve_parameter_requirement(
 end
 
 function _normalize_parameter_bindings(requirements::Tuple, definitions)
-    isnothing(definitions) && return ()
+    isnothing(definitions) && return (), nothing
     definitions isa Tuple || throw(
         ArgumentError("model parameters must be a tuple of ParameterDefinition values"),
     )
@@ -721,18 +704,38 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
     )
 
     provided = Dict{ParameterRequirementIdentity,Tuple{Symbol,Tuple,Union{Nothing,Symbol,NTuple{2,Symbol}}}}()
+    resolved_definitions = ()
 
     for definition in definitions
         spec = definition.spec
-        for provision in spec.provides
-            requirement = _resolve_parameter_requirement(provision, requirements, spec.name)
-            identity = requirement.identity
-            spec.shape === requirement.shape || throw(
+        matched = Tuple(
+            _resolve_parameter_requirement(provision, requirements, spec.name)
+            for provision in spec.provides
+        )
+        required_shapes = unique(Tuple(requirement.shape for requirement in matched))
+        shape = spec.shape
+        if isnothing(shape)
+            isempty(required_shapes) && throw(
                 ArgumentError(
-                    "parameter :$(spec.name) provides $identity with required shape " *
-                    "$(requirement.shape), not $(spec.shape)",
+                    "parameter :$(spec.name) has no semantic provision or explicit storage axes; declare shape explicitly",
                 ),
             )
+            length(required_shapes) == 1 || throw(
+                ArgumentError(
+                    "parameter :$(spec.name) provisions require incompatible shapes $(Tuple(required_shapes))",
+                ),
+            )
+            shape = only(required_shapes)
+        end
+
+        for requirement in matched
+            shape === requirement.shape || throw(
+                ArgumentError(
+                    "parameter :$(spec.name) provides $(requirement.identity) with required shape " *
+                    "$(requirement.shape), not $shape",
+                ),
+            )
+            identity = requirement.identity
             haskey(provided, identity) && throw(
                 ArgumentError(
                     "parameter requirement $identity is provided by both :$(first(provided[identity])) and :$(spec.name)",
@@ -740,6 +743,18 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
             )
             provided[identity] = (spec.name, spec.runtime_path, spec.axes)
         end
+
+        resolved_spec = ParameterSpec(
+            spec.name,
+            shape;
+            axes=spec.axes,
+            runtime_path=spec.runtime_path,
+            materialization=spec.materialization,
+            provides=spec.provides,
+        )
+        resolved_definitions = (
+            resolved_definitions..., ParameterDefinition(resolved_spec, definition.default)
+        )
     end
 
     missing = filter(requirement -> !haskey(provided, requirement.identity), requirements)
@@ -748,10 +763,11 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
             "model parameter definitions do not provide requirements $(map(r -> r.identity, missing))",
         ),
     )
-    return Tuple(
+    bindings = Tuple(
         ParameterBinding(requirement, provided[requirement.identity]...)
         for requirement in requirements
     )
+    return bindings, resolved_definitions
 end
 
 """Normalize process identity, semantic parameter requirements, and model bindings.
@@ -769,11 +785,11 @@ function normalize_model(definition::ModelDefinition)
         definition.processes, definition.components
     )
     requirements = _declared_parameter_requirements(normalized_processes)
-    bindings = _normalize_parameter_bindings(requirements, definition.parameters)
+    bindings, parameters = _normalize_parameter_bindings(requirements, definition.parameters)
     return NormalizedModelDefinition(
         definition.components,
         normalized_processes,
-        definition.parameters,
+        parameters,
         _canonical_driver_identities(normalized_processes),
         requirements,
         bindings,

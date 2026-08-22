@@ -7,7 +7,7 @@ using Agate.Diagnostics: box_model_mass_balance
 using Agate.Configuration: Population, Pool
 using Agate.Construction: construct
 using Agate.Parameters:
-    ConstDefault, FillDefault, ParameterDefinition, ParameterProvision
+    ConstantDefault, ParameterDefinition, ParameterProvision
 using Agate.Processes:
     FixedStoichiometry, Growth, Light, ModelDefinition, Nutrients, NutrientResponse
 
@@ -44,42 +44,37 @@ function multi_nutrient_test_model(grid; nutrient_formulation=:liebig, sharpness
     parameters = (
         ParameterDefinition(
             :nitrogen_to_carbon,
-            ConstDefault(16 / 106);
+            ConstantDefault(16 / 106);
             provides=ParameterProvision(:growth_P, :ratio; qualifier=(currency=:nitrogen,)),
         ),
         ParameterDefinition(
             :phosphorus_to_carbon,
-            ConstDefault(1 / 106);
+            ConstantDefault(1 / 106);
             provides=ParameterProvision(:growth_P, :ratio; qualifier=(currency=:phosphorus,)),
         ),
         ParameterDefinition(
             :maximum_growth_rate,
-            FillDefault(2 / 86400);
-            shape=:vector, axes=:plankton,
+            ConstantDefault(2 / 86400);
             provides=ParameterProvision(:growth_P, :maximum_rate),
         ),
         ParameterDefinition(
             :half_saturation_DIN,
-            FillDefault(0.5);
-            shape=:vector, axes=:plankton,
+            ConstantDefault(0.5);
             provides=ParameterProvision(:growth_P, :K; qualifier=(resource=:DIN,)),
         ),
         ParameterDefinition(
             :half_saturation_PO4,
-            FillDefault(0.5);
-            shape=:vector, axes=:plankton,
+            ConstantDefault(0.5);
             provides=ParameterProvision(:growth_P, :K; qualifier=(resource=:PO4,)),
         ),
         ParameterDefinition(
             :photosynthetic_slope,
-            FillDefault(0.1 / 86400);
-            shape=:vector, axes=:plankton,
+            ConstantDefault(0.1 / 86400);
             provides=ParameterProvision(:growth_P, :alpha),
         ),
         ParameterDefinition(
             :chlorophyll_to_carbon_ratio,
-            FillDefault(0.02);
-            shape=:vector, axes=:plankton,
+            ConstantDefault(0.02);
             provides=ParameterProvision(:growth_P, :chlorophyll_to_carbon_ratio),
         ),
     )

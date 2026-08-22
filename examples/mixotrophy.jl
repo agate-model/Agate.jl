@@ -6,7 +6,7 @@
 using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Population, Pool
 using Agate.Construction: construct
 using Agate.Parameters:
-    DerivedDefault, FillDefault, ParameterDefinition, ParameterProvision
+    DerivedDefault, ConstantDefault, ParameterDefinition, ParameterProvision
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
     Grazing, Growth, Light, ModelDefinition, NutrientResponse, normalize_model, participants
@@ -43,66 +43,53 @@ processes = (
 parameters = (
     ParameterDefinition(
         :maximum_growth_rate,
-        FillDefault(0.8 / day);
-        shape=:vector,
+        ConstantDefault(0.8 / day);
         axes=:plankton,
         provides=ParameterProvision(:growth_M, :maximum_rate),
     ),
     ParameterDefinition(
         :alpha,
-        FillDefault(0.08 / day);
-        shape=:vector,
+        ConstantDefault(0.08 / day);
         axes=:plankton,
         provides=ParameterProvision(:growth_M, :alpha),
     ),
     ParameterDefinition(
         :nutrient_half_saturation,
-        FillDefault(0.2);
-        shape=:vector,
+        ConstantDefault(0.2);
         axes=:plankton,
         provides=ParameterProvision(:growth_M, :K),
     ),
     ParameterDefinition(
         :maximum_predation_rate,
-        FillDefault(0.4 / day);
-        shape=:vector,
+        ConstantDefault(0.4 / day);
         axes=:plankton,
         provides=ParameterProvision(:grazing_M, :maximum_rate),
     ),
     ParameterDefinition(
         :holling_half_saturation,
-        FillDefault(0.15);
-        shape=:vector,
+        ConstantDefault(0.15);
         axes=:plankton,
         provides=ParameterProvision(:grazing_M, :half_saturation),
     ),
     ParameterDefinition(
         :optimum_predator_prey_ratio,
-        FillDefault(4.0);
-        shape=:vector,
+        ConstantDefault(4.0);
         axes=:plankton,
-        provides=ParameterProvision(:grazing_M, :optimum_predator_prey_ratio),
     ),
     ParameterDefinition(
         :specificity,
-        FillDefault(0.5);
-        shape=:vector,
+        ConstantDefault(0.5);
         axes=:plankton,
-        provides=ParameterProvision(:grazing_M, :specificity),
     ),
     ParameterDefinition(
         :protection,
-        FillDefault(0.0);
-        shape=:vector,
+        ConstantDefault(0.0);
         axes=:plankton,
-        provides=ParameterProvision(:grazing_M, :protection),
     ),
     ParameterDefinition(
         :assimilation_efficiency,
-        FillDefault(0.65);
-        shape=:vector,
+        ConstantDefault(0.65);
         axes=:plankton,
-        provides=ParameterProvision(:grazing_M, :assimilation_efficiency),
     ),
     ParameterDefinition(
         :palatability_matrix,
@@ -110,7 +97,6 @@ parameters = (
             PalatabilityAllometric();
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
         );
-        shape=:matrix,
         axes=(:consumer, :prey),
         runtime_path=(:interactions, :palatability),
         provides=ParameterProvision(:grazing_M, :palatability),
@@ -118,7 +104,6 @@ parameters = (
     ParameterDefinition(
         :assimilation_matrix,
         DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,));
-        shape=:matrix,
         axes=(:consumer, :prey),
         runtime_path=(:interactions, :assimilation),
         provides=ParameterProvision(:grazing_M, :assimilation),

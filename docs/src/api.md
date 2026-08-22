@@ -30,6 +30,10 @@ Agate.Configuration.state_tracer
 
 ### Processes and factors
 
+Built-in formulations are authored with Symbols, for example `Light(:smith; driver=:PAR)`
+and `Consumption(:heterotrophic; ...)`. Concrete formulation marker types are dispatch
+details for qualified extension use rather than equal-status authoring API.
+
 ```@docs
 Agate.Processes.AbstractProcess
 Agate.Processes.AbstractFormulation
@@ -55,11 +59,10 @@ Agate.Parameters.ParameterSpec
 Agate.Parameters.ParameterProvision
 Agate.Parameters.ParameterDefinition
 Agate.Parameters.DefaultProvider
-Agate.Parameters.ConstDefault
+Agate.Parameters.ConstantDefault
 Agate.Parameters.DerivedDefault
 Agate.Parameters.derive_default
 Agate.Parameters.NoDefault
-Agate.Parameters.FillDefault
 Agate.Parameters.DiameterIndexedVectorDefault
 Agate.Parameters.DiameterIndexedMaterialization
 Agate.Configuration.PalatabilityAllometric
