@@ -702,7 +702,7 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
         ArgumentError("model parameters must contain only ParameterDefinition values"),
     )
 
-    provided = Dict{ParameterRequirementIdentity,Tuple{Symbol,Tuple,Union{Nothing,Symbol,NTuple{2,Symbol}}}}()
+    provided = Dict{ParameterRequirementIdentity,Tuple{Symbol,Union{Nothing,Symbol,NTuple{2,Symbol}}}}()
     resolved_definitions = ()
 
     for definition in definitions
