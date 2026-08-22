@@ -133,6 +133,7 @@ parameter_slots(::Geider) = (
 )
 parameter_slots(::Monod) = (ParameterSlot(:K, (:population,); qualify=:resource),)
 parameter_slots(::Liebig) = ()
+parameter_slots(::FrankTNorm) = (ParameterSlot(:sharpness),)
 parameter_slots(::Q10) = (
     ParameterSlot(:q10),
     ParameterSlot(:reference_temperature),
@@ -239,7 +240,7 @@ _validate_factor_formulation(factor::Light) =
 _validate_factor_formulation(factor::NutrientResponse) =
     formulation(factor) isa Monod || throw(ArgumentError("invalid nutrient-response formulation"))
 _validate_factor_formulation(factor::Nutrients) =
-    formulation(factor) isa Union{Liebig,Frank} || throw(ArgumentError("invalid nutrient formulation"))
+    formulation(factor) isa Union{Liebig,FrankTNorm} || throw(ArgumentError("invalid nutrient formulation"))
 _validate_factor_formulation(factor::Temperature) =
     formulation(factor) isa Q10 || throw(ArgumentError("invalid temperature formulation"))
 

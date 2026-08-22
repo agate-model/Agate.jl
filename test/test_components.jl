@@ -9,7 +9,8 @@ using Agate.Configuration:
 using Agate.ModelFamilies: default_components
 using Agate.Parameters: ParameterProvision, ParameterDefinition, ConstantDefault, NoDefault
 using Agate.Processes:
-    ModelDefinition, Mortality, Remineralization, normalize_model, resolve_parameter_applicability
+    ModelDefinition, Mortality, Remineralization, LinearMortality, LinearRemineralization,
+    normalize_model, resolve_parameter_applicability
 
 @testset "Component authoring" begin
     population = Population(:nitrogen;
@@ -79,7 +80,7 @@ end
         :P_2_carbon, :P_2_nitrogen, :P_2_phosphorus,
     )
 
-    mortality = Mortality(:linear; populations=:P)
+    mortality = Mortality(LinearMortality(); populations=:P)
     parameter = ParameterDefinition(
         :mortality_rate,
         NoDefault();
@@ -120,7 +121,7 @@ end
     @test component_indices(layout, :POM) == (3, 4, 5)
     @test component_diameters(layout, :POM) == (0.5f0, 5.0f0, 50.0f0)
 
-    process = Remineralization(:linear; sources=:POM, destinations=:N)
+    process = Remineralization(LinearRemineralization(); sources=:POM, destinations=:N)
     parameter = ParameterDefinition(
         :pom_remineralization,
         ConstantDefault(0.1);

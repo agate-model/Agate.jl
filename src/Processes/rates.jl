@@ -12,8 +12,8 @@
     monod_limitation(resource, half_saturation)
 
 @inline factor_value(::Liebig, limitations::Tuple) = liebig_minimum(limitations)
-@inline factor_value(formulation::Frank, limitations::Tuple) =
-    FrankTNorm(formulation.sharpness)(limitations)
+@inline factor_value(::FrankTNorm, limitations::Tuple, sharpness) =
+    frank_tnorm(limitations; sharpness)
 
 @inline factor_value(::Q10, temperature, q10, reference_temperature) =
     q10_temperature_factor(temperature, q10, reference_temperature)

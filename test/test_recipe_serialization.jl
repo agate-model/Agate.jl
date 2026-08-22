@@ -1,7 +1,7 @@
 using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe
 using Agate.Models: NiPiZD
 using Agate.Configuration: Population, Pool
-using Agate.Processes: Growth, Light, NutrientResponse, Nutrients
+using Agate.Processes: Growth, Light, NutrientResponse, Nutrients, Smith, Monod, FrankTNorm
 using JSON
 using OceanBioME: BoxModelGrid
 using Test
@@ -100,8 +100,8 @@ explicit_json_value(::Any) = false
     reordered_growth = Growth(;
         populations=:P,
         factors=(
-            nutrients=NutrientResponse(:monod; resource=:N),
-            light=Light(:smith; driver=:PAR),
+            nutrients=NutrientResponse(Monod(); resource=:N),
+            light=Light(Smith(); driver=:PAR),
         ),
     )
     reordered_processes = merge(recipe.processes, (growth_P=reordered_growth,))
@@ -152,13 +152,11 @@ explicit_json_value(::Any) = false
         Dict("carbon" => "carbon", "nitrogen" => "nitrogen")
 
     frank_factor = Nutrients(
-        :frank;
-        responses=(nitrogen=NutrientResponse(:monod; resource=:N),),
-        sharpness=25,
+        FrankTNorm(); responses=(nitrogen=NutrientResponse(Monod(); resource=:N),)
     )
     frank_science = Agate.Construction._recipe_science_value(frank_factor)
-    @test frank_science["formulation"] == "frank"
-    @test frank_science["sharpness"] == 25
+    @test frank_science["formulation"] == "frank_tnorm"
+    @test !haskey(frank_science, "sharpness")
 
     sinking = (D=2.5 / 86400,)
     _, recipe_f32 = NiPiZD.construct_plus_recipe(;

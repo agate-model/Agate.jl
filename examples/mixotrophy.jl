@@ -10,7 +10,7 @@ using Agate.Parameters:
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
     Consumption, Growth, Light, ModelDefinition, NutrientResponse, ProductRouting,
-    normalize_model, participants
+    Smith, Monod, PreferentialGrazing, DirectRouting, normalize_model, participants
 using Oceananigans.Units: day
 
 nothing #hide
@@ -25,15 +25,15 @@ processes = (
     growth_M=Growth(;
         populations=:M,
         factors=(
-            light=Light(:smith; driver=:PAR),
-            nutrients=NutrientResponse(:monod; resource=:N),
+            light=Light(Smith(); driver=:PAR),
+            nutrients=NutrientResponse(Monod(); resource=:N),
         ),
     ),
     grazing_M=Consumption(
-        :preferential;
+        PreferentialGrazing();
         consumers=:M,
         resources=:P,
-        routing=ProductRouting(:direct; destination=:N),
+        routing=ProductRouting(DirectRouting(); destination=:N),
     ),
 )
 

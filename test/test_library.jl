@@ -2,7 +2,7 @@ using Agate
 using Test
 using ForwardDiff
 
-using Agate.Library.Nutrients: FrankTNorm, frank_tnorm, liebig_minimum
+using Agate.Library.Nutrients: frank_tnorm, liebig_minimum
 using Agate.Library.Photosynthesis:
     frank_nutrient_limitation, geider_light_limitation, geider_light_response,
     liebig_nutrient_limitation
@@ -55,7 +55,7 @@ end
 
     @test frank_nutrient_limitation((1.0,), (1.0,), 1.0) ≈ 0.5
 
-    gradient = ForwardDiff.gradient(x -> FrankTNorm()(x[1], x[2]), [0.5, 0.5])
+    gradient = ForwardDiff.gradient(x -> frank_tnorm(x[1], x[2]), [0.5, 0.5])
     @test all(isfinite, gradient)
     @test gradient[1] ≈ gradient[2]
 

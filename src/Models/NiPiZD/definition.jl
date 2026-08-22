@@ -1,7 +1,9 @@
 using ...ModelFamilies: AbstractModelFamily
 using ...Configuration: Population, Pool
 using ...Processes:
-    Growth, Light, NutrientResponse, Consumption, Mortality, ProductRouting, Remineralization
+    Growth, Light, NutrientResponse, Consumption, Mortality, ProductRouting, Remineralization,
+    Smith, Monod, IdealizedGrazing, LinearMortality, QuadraticMortality,
+    LinearRemineralization, DirectRouting
 
 import ...ModelFamilies: default_components, default_processes
 import ...Construction: family_id, registered_family
@@ -31,37 +33,37 @@ const NIPIZD_PROCESSES = (
     growth_P=Growth(;
         populations=:P,
         factors=(
-            light=Light(:smith; driver=:PAR),
-            nutrients=NutrientResponse(:monod; resource=:N),
+            light=Light(Smith(); driver=:PAR),
+            nutrients=NutrientResponse(Monod(); resource=:N),
         ),
     ),
     grazing_Z_on_P=Consumption(
-        :idealized;
+        IdealizedGrazing();
         consumers=:Z,
         resources=:P,
-        routing=ProductRouting(:direct; destination=:D),
+        routing=ProductRouting(DirectRouting(); destination=:D),
     ),
     linear_mortality_P_to_N=Mortality(
-        :linear;
+        LinearMortality();
         populations=:P,
-        routing=ProductRouting(:direct; destination=:N),
+        routing=ProductRouting(DirectRouting(); destination=:N),
     ),
     linear_mortality_P_to_D=Mortality(
-        :linear;
+        LinearMortality();
         populations=:P,
-        routing=ProductRouting(:direct; destination=:D),
+        routing=ProductRouting(DirectRouting(); destination=:D),
     ),
     linear_mortality_Z_to_N=Mortality(
-        :linear;
+        LinearMortality();
         populations=:Z,
-        routing=ProductRouting(:direct; destination=:N),
+        routing=ProductRouting(DirectRouting(); destination=:N),
     ),
     quadratic_mortality_Z_to_D=Mortality(
-        :quadratic;
+        QuadraticMortality();
         populations=:Z,
-        routing=ProductRouting(:direct; destination=:D),
+        routing=ProductRouting(DirectRouting(); destination=:D),
     ),
-    remineralization_D=Remineralization(:linear; sources=:D, destinations=:N),
+    remineralization_D=Remineralization(LinearRemineralization(); sources=:D, destinations=:N),
 )
 
 """Canonical named scientific processes for NiPiZD."""

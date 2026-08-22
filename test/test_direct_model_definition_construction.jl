@@ -7,7 +7,8 @@ using Agate.Construction: construct
 using Agate.Parameters:
     DerivedDefault, ConstantDefault, ParameterDefinition, ParameterProvision
 using Agate.Processes:
-    Consumption, Growth, Light, ModelDefinition, NutrientResponse, ProductRouting
+    Consumption, Growth, Light, ModelDefinition, NutrientResponse, ProductRouting,
+    Smith, Monod, PreferentialGrazing, DirectRouting
 
 function direct_npz_definition()
     components = (
@@ -19,15 +20,15 @@ function direct_npz_definition()
         growth_P=Growth(;
             populations=:P,
             factors=(
-                light=Light(:smith; driver=:PAR),
-                nutrients=NutrientResponse(:monod; resource=:N),
+                light=Light(Smith(); driver=:PAR),
+                nutrients=NutrientResponse(Monod(); resource=:N),
             ),
         ),
         grazing_Z_on_P=Consumption(
-            :preferential;
+            PreferentialGrazing();
             consumers=:Z,
             resources=:P,
-            routing=ProductRouting(:direct; destination=:N),
+            routing=ProductRouting(DirectRouting(); destination=:N),
         ),
     )
     parameters = (

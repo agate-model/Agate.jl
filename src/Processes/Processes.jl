@@ -7,11 +7,15 @@ using ..Parameters: ParameterSpec, ParameterDefinition, ParameterProvision, para
 using ..Library.Mortality: linear_loss, quadratic_loss
 using ..Library.Predation: idealized_predation_loss, preferential_predation_loss
 using ..Library.Photosynthesis: geider_light_response, smith_light_limitation
-using ..Library.Nutrients: DEFAULT_FRANK_SHARPNESS, FrankTNorm, liebig_minimum, monod_limitation
+using ..Library.Nutrients: frank_tnorm, liebig_minimum, monod_limitation
 using ..Library.Temperature: q10_temperature_factor
 using ..Library.Remineralization: linear_remineralization
 
 export AbstractProcess, AbstractFormulation, AbstractFactor, AbstractStoichiometry
+export Smith, Geider, Monod, Liebig, FrankTNorm, Q10
+export IdealizedGrazing, PreferentialGrazing, HeterotrophicConsumption
+export LinearMortality, QuadraticMortality, LinearRemineralization
+export DirectRouting, PartitionRouting, DOMPOMRouting
 export Light, Nutrients, Temperature
 export FixedStoichiometry
 export Growth, NutrientResponse, Consumption, Mortality, ProductRouting, Remineralization

@@ -9,6 +9,7 @@ using Agate.Parameters:
     ParameterProvision, ParameterDefinition, NoDefault
 using Agate.Processes:
     ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, ProductRouting,
+    Smith, Monod, Q10, HeterotrophicConsumption, PreferentialGrazing, DirectRouting,
     normalize_model, participants, driver_identities
 
 function food_web_parameters()
@@ -66,28 +67,28 @@ function food_web_compilation(::Type{T}=Float64) where {T<:Real}
         M=Population(:nitrogen; size_structure=T[2]),
         Z=Population(:nitrogen; size_structure=T[10]),
     )
-    temperature = Temperature(:q10)
+    temperature = Temperature(Q10())
     processes = (
         growth_autotrophs=Growth(;
             populations=(:P, :M),
             factors=(
                 temperature=temperature,
-                nutrients=NutrientResponse(:monod; resource=:N),
-                light=Light(:smith; driver=:PAR),
+                nutrients=NutrientResponse(Monod(); resource=:N),
+                light=Light(Smith(); driver=:PAR),
             ),
         ),
         consume_POM=Consumption(
-            :heterotrophic;
+            HeterotrophicConsumption();
             consumers=:B,
             resources=:POM,
             factors=(temperature=temperature,),
-            routing=ProductRouting(:direct; destination=:D),
+            routing=ProductRouting(DirectRouting(); destination=:D),
         ),
         grazing_living=Consumption(
-            :preferential;
+            PreferentialGrazing();
             consumers=(:M, :Z),
             resources=(:P, :B),
-            routing=ProductRouting(:direct; destination=:D),
+            routing=ProductRouting(DirectRouting(); destination=:D),
         ),
     )
     normalized = normalize_model(ModelDefinition(;
@@ -215,10 +216,10 @@ end
     )
     processes = (
         consume_POM=Consumption(
-            :heterotrophic;
+            HeterotrophicConsumption();
             consumers=:B,
             resources=:POM,
-            routing=ProductRouting(:direct; destination=:N),
+            routing=ProductRouting(DirectRouting(); destination=:N),
         ),
     )
     parameters = (

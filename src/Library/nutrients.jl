@@ -81,52 +81,10 @@ end
     return m
 end
 
-"""
-    FrankTNorm()
-    FrankTNorm(sharpness)
-
-Differentiable Frank t-norm approximation to Liebig's minimum on limitation
-factors in `[0, 1]`.
-
-!!! formulation
-    For two limitation factors `a` and `b`, let `q = exp(-s)`, where `s` is
-    `sharpness`. The Frank t-norm is
-
-    ```text
-    q = exp(-s)
-    F(a, b) = log(1 + ((q^a - 1) * (q^b - 1)) / (q - 1)) / log(q)
-    ```
-
-    Positive `sharpness` values give the minimum-like branch of the Frank
-    family, with larger values approaching `min(a, b)`. The implementation uses
-    an equivalent shifted form for numerical stability.
-
-    `1` is the neutral element, so `F(a, 1) = a`. `0` is absorbing, so
-    `F(a, 0) = 0`. For more than two factors the associative binary operator is
-    applied successively.
-
-Finite `sharpness` provides a smooth transition through nutrient co-limitation
-for automatic differentiation; `LiebigMinimum` remains the exact hard minimum.
-The default `sharpness = 50` keeps the transition localized while retaining a
-smooth derivative crossover. Finite sharpness can underestimate the hard minimum
-when several small limitation factors are similar; increasing `sharpness` reduces
-that discrepancy while narrowing the smooth transition.
-
-!!! warning "Domain"
-    `FrankTNorm` is defined for normalized limitation factors in `[0, 1]`.
-    Inputs outside this interval can violate the minimum-like bounds or produce
-    non-finite values.
-"""
-struct FrankTNorm{S}
-    sharpness::S
-end
-
 const DEFAULT_FRANK_SHARPNESS = 50
 
-@inline FrankTNorm() = FrankTNorm(DEFAULT_FRANK_SHARPNESS)
-
-@inline function (f::FrankTNorm)(a, b)
-    s = oftype(one(a + b), f.sharpness)
+@inline function _frank_tnorm_pair(a, b, sharpness)
+    s = oftype(one(a + b), sharpness)
     a_is_min = a < b
     m = ifelse(a_is_min, a, b)
     M = ifelse(a_is_min, b, a)
@@ -137,18 +95,6 @@ const DEFAULT_FRANK_SHARPNESS = 50
     result = m - log(numerator / denominator) / s
 
     return ifelse(isnan(a) | isnan(b), a + b, result)
-end
-
-@inline function (f::FrankTNorm)(a, b, c, rest...)
-    return f((a, b, c, rest...))
-end
-
-@inline function (f::FrankTNorm)(values::Tuple{Vararg{Any,N}}) where N
-    result = values[1]
-    @inbounds for i in 2:N
-        result = f(result, values[i])
-    end
-    return result
 end
 
 """
@@ -204,17 +150,23 @@ minimum when several small limitation factors are similar; increasing
     Inputs outside this interval can violate the minimum-like bounds or produce
     non-finite values.
 
-The callable `FrankTNorm(sharpness)` functor provides the same operation for
-lower-level tendency configuration.
+`sharpness` is supplied explicitly as a numerical parameter; formulation
+identity is represented separately by the process-authoring layer.
 """
 @inline frank_tnorm(a, b; sharpness=DEFAULT_FRANK_SHARPNESS) =
-    FrankTNorm(sharpness)(a, b)
+    _frank_tnorm_pair(a, b, sharpness)
 
 @inline frank_tnorm(a, b, c, rest...; sharpness=DEFAULT_FRANK_SHARPNESS) =
-    FrankTNorm(sharpness)(a, b, c, rest...)
+    frank_tnorm((a, b, c, rest...); sharpness)
 
-@inline frank_tnorm(
+@inline function frank_tnorm(
     values::Tuple{Vararg{Any,N}}; sharpness=DEFAULT_FRANK_SHARPNESS
-) where N = FrankTNorm(sharpness)(values)
+) where N
+    result = values[1]
+    @inbounds for i in 2:N
+        result = _frank_tnorm_pair(result, values[i], sharpness)
+    end
+    return result
+end
 
 end # module

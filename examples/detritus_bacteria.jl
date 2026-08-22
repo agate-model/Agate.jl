@@ -10,7 +10,8 @@ using Agate.Parameters:
     ConstantDefault, DerivedDefault, ParameterDefinition, ParameterProvision
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
-    Consumption, ModelDefinition, ProductRouting, Temperature, normalize_model, participants
+    Consumption, ModelDefinition, ProductRouting, Temperature, Q10,
+    HeterotrophicConsumption, PreferentialGrazing, DirectRouting, normalize_model, participants
 using Oceananigans.Units: day
 
 nothing #hide
@@ -29,17 +30,17 @@ components = (
 
 processes = (
     consume_POM=Consumption(
-        :heterotrophic;
+        HeterotrophicConsumption();
         consumers=:B,
         resources=:POM,
-        factors=(temperature=Temperature(:q10),),
-        routing=ProductRouting(:direct; destination=:N),
+        factors=(temperature=Temperature(Q10()),),
+        routing=ProductRouting(DirectRouting(); destination=:N),
     ),
     graze_bacteria=Consumption(
-        :preferential;
+        PreferentialGrazing();
         consumers=:Z,
         resources=:B,
-        routing=ProductRouting(:direct; destination=:N),
+        routing=ProductRouting(DirectRouting(); destination=:N),
     ),
 )
 

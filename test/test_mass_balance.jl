@@ -9,14 +9,15 @@ using Agate.Construction: construct
 using Agate.Parameters:
     ConstantDefault, ParameterDefinition, ParameterProvision
 using Agate.Processes:
-    FixedStoichiometry, Growth, Light, ModelDefinition, Nutrients, NutrientResponse
+    FixedStoichiometry, Growth, Light, ModelDefinition, Nutrients, NutrientResponse,
+    Geider, Liebig, FrankTNorm, Monod
 
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
 using Oceananigans.Units: day, minutes
 
-function multi_nutrient_test_model(grid; nutrient_formulation=:liebig, sharpness=nothing)
+function multi_nutrient_test_model(grid; nutrient_formulation=Liebig())
     components = (
         P=Population(:carbon; size_structure=[1.0]),
         DIC=Pool(:carbon),
@@ -28,19 +29,27 @@ function multi_nutrient_test_model(grid; nutrient_formulation=:liebig, sharpness
             populations=:P,
             source=:DIC,
             factors=(
-                light=Light(:geider; driver=:PAR),
+                light=Light(Geider(); driver=:PAR),
                 nutrients=Nutrients(
                     nutrient_formulation;
-                    sharpness,
                     responses=(
-                        nitrogen=NutrientResponse(:monod; resource=:DIN),
-                        phosphorus=NutrientResponse(:monod; resource=:PO4),
+                        nitrogen=NutrientResponse(Monod(); resource=:DIN),
+                        phosphorus=NutrientResponse(Monod(); resource=:PO4),
                     ),
                 ),
             ),
             stoichiometry=FixedStoichiometry(; reference=:carbon),
         ),
     )
+    frank_tnorm_parameters = nutrient_formulation isa FrankTNorm ? (
+        ParameterDefinition(
+            :frank_sharpness,
+            ConstantDefault(25);
+            provides=ParameterProvision(
+                :growth_P, :sharpness; path=(:factors, :nutrients)
+            ),
+        ),
+    ) : ()
     parameters = (
         ParameterDefinition(
             :nitrogen_to_carbon,
@@ -77,6 +86,7 @@ function multi_nutrient_test_model(grid; nutrient_formulation=:liebig, sharpness
             ConstantDefault(0.02);
             provides=ParameterProvision(:growth_P, :chlorophyll_to_carbon_ratio),
         ),
+        frank_tnorm_parameters...,
     )
 
     return construct(ModelDefinition(; components, processes, parameters); grid)
@@ -119,12 +129,13 @@ end
     end
 
     @testset "Generic multi-nutrient conservation" begin
-        for (nutrient_formulation, sharpness) in ((:liebig, nothing), (:frank, 25))
-            @testset "$nutrient_formulation" begin
+        for nutrient_formulation in (Liebig(), FrankTNorm())
+            @testset "$(nameof(typeof(nutrient_formulation)))" begin
                 grid = BoxModelGrid()
-                bgc_instance = multi_nutrient_test_model(
-                    grid; nutrient_formulation, sharpness
-                )
+                bgc_instance = multi_nutrient_test_model(grid; nutrient_formulation)
+                if nutrient_formulation isa FrankTNorm
+                    @test bgc_instance.parameters.frank_sharpness == 25
+                end
                 box_model = build_box_model(bgc_instance, grid)
                 set!(box_model; DIC=2.0, DIN=7.0, PO4=3.0, P_1=0.01)
 

@@ -9,11 +9,8 @@ struct Geider <: AbstractFormulation end
 struct Monod <: AbstractFormulation end
 struct Liebig <: AbstractFormulation end
 
-"""Differentiable Frank t-norm nutrient combination with configurable sharpness."""
-struct Frank{S} <: AbstractFormulation
-    sharpness::S
-end
-Frank() = Frank(DEFAULT_FRANK_SHARPNESS)
+"""Differentiable Frank t-norm nutrient-combination formulation."""
+struct FrankTNorm <: AbstractFormulation end
 
 struct Q10 <: AbstractFormulation end
 struct MultiplicativeFactors <: AbstractFormulation end
@@ -42,11 +39,19 @@ end
 
 FixedStoichiometry(; reference::Symbol) = FixedStoichiometry(reference)
 
+"""Stable semantic formulation identity used by normalization and recipes."""
+function formulation_tag(formulation::AbstractFormulation)
+    throw(ArgumentError(
+        "no semantic formulation tag defined for $(typeof(formulation)); " *
+        "extend `formulation_tag` for external formulations that require semantic identity",
+    ))
+end
+
 formulation_tag(::Smith) = :smith
 formulation_tag(::Geider) = :geider
 formulation_tag(::Monod) = :monod
 formulation_tag(::Liebig) = :liebig
-formulation_tag(::Frank) = :frank
+formulation_tag(::FrankTNorm) = :frank_tnorm
 formulation_tag(::Q10) = :q10
 formulation_tag(::MultiplicativeFactors) = :multiplicative
 formulation_tag(::IdealizedGrazing) = :idealized
@@ -59,10 +64,6 @@ formulation_tag(::DirectRouting) = :direct
 formulation_tag(::PartitionRouting) = :partition
 formulation_tag(::DOMPOMRouting) = :dom_pom
 formulation_tag(::FixedStoichiometry) = :fixed
-
-function formulation_for(::Type{H}, ::Val{F}) where {H,F}
-    throw(ArgumentError("unknown formulation :$F for $H"))
-end
 
 function _canonical_participants(role::Symbol, values)
     values isa Symbol && (values = (values,))
@@ -80,11 +81,6 @@ struct Light{F<:AbstractFormulation} <: AbstractFactor
     driver::Symbol
 end
 
-formulation_for(::Type{Light}, ::Val{:smith}) = Smith()
-formulation_for(::Type{Light}, ::Val{:geider}) = Geider()
-
-Light(formulation::Symbol; driver::Symbol) =
-    Light(formulation_for(Light, Val(formulation)); driver)
 Light(formulation::Union{Smith,Geider}; driver::Symbol) = Light(formulation, driver)
 
 """Single-resource multiplicative nutrient factor used by processes such as growth."""
@@ -93,10 +89,6 @@ struct NutrientResponse{F<:AbstractFormulation} <: AbstractFactor
     resource::Symbol
 end
 
-formulation_for(::Type{NutrientResponse}, ::Val{:monod}) = Monod()
-
-NutrientResponse(formulation::Symbol; resource::Symbol) =
-    NutrientResponse(formulation_for(NutrientResponse, Val(formulation)); resource)
 NutrientResponse(formulation::Monod; resource::Symbol) = NutrientResponse(formulation, resource)
 
 """Temperature-dependent multiplicative process-rate factor."""
@@ -105,10 +97,6 @@ struct Temperature{F<:AbstractFormulation} <: AbstractFactor
     driver::Symbol
 end
 
-formulation_for(::Type{Temperature}, ::Val{:q10}) = Q10()
-
-Temperature(formulation::Symbol; driver::Symbol=:temperature) =
-    Temperature(formulation_for(Temperature, Val(formulation)); driver)
 Temperature(formulation::Q10; driver::Symbol=:temperature) = Temperature(formulation, driver)
 
 function _canonical_responses(responses::NamedTuple)
@@ -130,25 +118,8 @@ struct Nutrients{F<:AbstractFormulation,R<:NamedTuple} <: AbstractFactor
     responses::R
 end
 
-formulation_for(::Type{Nutrients}, ::Val{:liebig}) = Liebig()
-formulation_for(::Type{Nutrients}, ::Val{:frank}) = Frank()
-
-function Nutrients(formulation::Union{Liebig,Frank}; responses::NamedTuple)
+function Nutrients(formulation::Union{Liebig,FrankTNorm}; responses::NamedTuple)
     return Nutrients(formulation, _canonical_responses(responses))
-end
-
-function Nutrients(
-    formulation::Symbol;
-    responses::NamedTuple,
-    sharpness=nothing,
-)
-    if formulation === :frank && !isnothing(sharpness)
-        return Nutrients(Frank(sharpness); responses)
-    end
-    isnothing(sharpness) || throw(
-        ArgumentError("`sharpness` is only valid for the :frank nutrient formulation"),
-    )
-    return Nutrients(formulation_for(Nutrients, Val(formulation)); responses)
 end
 
 abstract type AbstractFactorInput end
@@ -186,12 +157,6 @@ struct ProductRouting{F<:AbstractFormulation,R,E,P,S}
     stoichiometry::S
 end
 
-formulation_for(::Type{ProductRouting}, ::Val{:direct}) = DirectRouting()
-formulation_for(::Type{ProductRouting}, ::Val{:partition}) = PartitionRouting()
-formulation_for(::Type{ProductRouting}, ::Val{:dom_pom}) = DOMPOMRouting()
-
-ProductRouting(formulation::Symbol; kwargs...) =
-    ProductRouting(formulation_for(ProductRouting, Val(formulation)); kwargs...)
 ProductRouting(formulation::DirectRouting; destination::Symbol) =
     ProductRouting(formulation, destination, nothing, nothing, nothing)
 ProductRouting(formulation::PartitionRouting; retained::Symbol, exported::Symbol) =
@@ -272,10 +237,6 @@ struct Consumption{F<:AbstractFormulation,A<:NamedTuple,R} <: AbstractProcess
     routing::R
 end
 
-formulation_for(::Type{Consumption}, ::Val{:idealized}) = IdealizedGrazing()
-formulation_for(::Type{Consumption}, ::Val{:preferential}) = PreferentialGrazing()
-formulation_for(::Type{Consumption}, ::Val{:heterotrophic}) = HeterotrophicConsumption()
-
 function Consumption(
     formulation::Union{IdealizedGrazing,PreferentialGrazing,HeterotrophicConsumption};
     consumers,
@@ -292,18 +253,12 @@ function Consumption(
     return Consumption(formulation, consumer_refs, resource_refs, canonical, routing)
 end
 
-Consumption(formulation::Symbol; kwargs...) =
-    Consumption(formulation_for(Consumption, Val(formulation)); kwargs...)
-
 """Population mortality process with optional product routing."""
 struct Mortality{F<:AbstractFormulation,R} <: AbstractProcess
     formulation::F
     populations::Tuple
     routing::R
 end
-
-formulation_for(::Type{Mortality}, ::Val{:linear}) = LinearMortality()
-formulation_for(::Type{Mortality}, ::Val{:quadratic}) = QuadraticMortality()
 
 function Mortality(
     formulation::Union{LinearMortality,QuadraticMortality};
@@ -317,17 +272,12 @@ function Mortality(
     return Mortality(formulation, population_refs, routing)
 end
 
-Mortality(formulation::Symbol; kwargs...) =
-    Mortality(formulation_for(Mortality, Val(formulation)); kwargs...)
-
 """Source-to-destination remineralization process."""
 struct Remineralization{F<:AbstractFormulation} <: AbstractProcess
     formulation::F
     sources::Tuple
     destinations::Tuple
 end
-
-formulation_for(::Type{Remineralization}, ::Val{:linear}) = LinearRemineralization()
 
 function Remineralization(
     formulation::LinearRemineralization;
@@ -338,9 +288,6 @@ function Remineralization(
     destination_refs = _canonical_participants(:destinations, destinations)
     return Remineralization(formulation, source_refs, destination_refs)
 end
-
-Remineralization(formulation::Symbol; kwargs...) =
-    Remineralization(formulation_for(Remineralization, Val(formulation)); kwargs...)
 
 formulation(::Growth) = MultiplicativeFactors()
 formulation(process::AbstractProcess) = process.formulation

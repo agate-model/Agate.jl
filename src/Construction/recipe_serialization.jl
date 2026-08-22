@@ -12,7 +12,7 @@ using ..Processes:
     ModelDefinition, normalize_model, parameter_bindings, process_kind, formulation,
     formulation_tag, factors, factor_inputs, factor_children, participants, drivers, rate_axes,
     process_routing, process_stoichiometry,
-    Growth, Light, NutrientResponse, Nutrients, Temperature, Frank, Consumption, Mortality,
+    Growth, Light, NutrientResponse, Nutrients, Temperature, Consumption, Mortality,
     ProductRouting,
     DirectRouting, PartitionRouting, DOMPOMRouting, FixedStoichiometry
 
@@ -395,7 +395,6 @@ _factor_children_key(::AbstractFactor) = :factors
 _factor_children_key(::Nutrients) = :responses
 
 _factor_formulation_recipe_fields(::AbstractFormulation) = NamedTuple()
-_factor_formulation_recipe_fields(formulation::Frank) = (sharpness=formulation.sharpness,)
 
 function _factor_recipe_fields(factor::AbstractFactor)
     factor_formulation = formulation(factor)

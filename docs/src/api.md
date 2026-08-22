@@ -30,13 +30,20 @@ Agate.Configuration.state_tracer
 
 ### Processes and factors
 
-Built-in formulations are authored with Symbols, for example `Light(:smith; driver=:PAR)`
-and `Consumption(:heterotrophic; ...)`. Concrete formulation marker types are dispatch
-details for qualified extension use rather than equal-status authoring API.
+Formulations are authored as concrete scientific objects, for example `Light(Smith(); driver=:PAR)`
+and `Consumption(HeterotrophicConsumption(); ...)`. Numerical scientific parameters belong to
+the model parameter system rather than the formulation object; for example
+`Nutrients(FrankTNorm(); ...)` uses the Frank t-norm's declared `sharpness` parameter slot.
+`FrankTNorm()` names the formulation; `Agate.Library.Nutrients.frank_tnorm` is the numerical
+kernel. External process and factor extensions use the same concrete formulation-object pattern
+without built-in registration. `formulation_tag` supplies
+one-way semantic identity for normalization and recipes; it is not used to construct formulations
+during authoring.
 
 ```@docs
 Agate.Processes.AbstractProcess
 Agate.Processes.AbstractFormulation
+Agate.Processes.formulation_tag
 Agate.Processes.AbstractFactor
 Agate.Processes.Growth
 Agate.Processes.Light
