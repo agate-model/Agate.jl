@@ -16,7 +16,7 @@ export Smith, Geider, Monod, Liebig, Frank, Q10, IdealizedGrazing, PreferentialG
 export Light, Nutrients, Temperature
 export LinearMortality, QuadraticMortality, LinearRemineralization
 export DirectRouting, PartitionRouting, DOMPOMRouting, FixedStoichiometry
-export Growth, NutrientResponse, Grazing, Consumption, Mortality, ProductRouting, Remineralization
+export Growth, NutrientResponse, Consumption, Grazing, Mortality, ProductRouting, Remineralization
 export ModelDefinition, NormalizedModelDefinition, NamedProcess
 export ParameterSlot, ParameterRequirementIdentity, ParameterRequirement
 export ParameterBinding, ParameterApplicability

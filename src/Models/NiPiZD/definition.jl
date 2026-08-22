@@ -1,7 +1,7 @@
 using ...ModelFamilies: AbstractModelFamily
 using ...Configuration: Population, Pool
 using ...Processes:
-    Growth, Light, NutrientResponse, Grazing, Mortality, ProductRouting, Remineralization
+    Growth, Light, NutrientResponse, Consumption, Mortality, ProductRouting, Remineralization
 
 import ...ModelFamilies: default_components, default_processes
 import ...Construction: family_id, registered_family
@@ -39,7 +39,7 @@ const NIPIZD_PROCESSES = (
             nutrients=NutrientResponse(:monod; resource=:N),
         ),
     ),
-    grazing_Z_on_P=Grazing(
+    grazing_Z_on_P=Consumption(
         :idealized; consumer=:Z, resource=:P, unassimilated_destination=:D
     ),
     linear_mortality_P_to_N=Mortality(

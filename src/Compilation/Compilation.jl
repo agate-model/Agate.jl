@@ -7,7 +7,6 @@ using ..Processes:
     AbstractFactor,
     Growth,
     Nutrients,
-    Grazing,
     Consumption,
     Mortality,
     Remineralization,
@@ -44,7 +43,6 @@ include("factors.jl")
 include("routing.jl")
 include("mortality.jl")
 include("growth.jl")
-include("grazing.jl")
 include("consumption.jl")
 include("remineralization.jl")
 

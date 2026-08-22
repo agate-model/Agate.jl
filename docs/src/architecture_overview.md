@@ -49,7 +49,7 @@ lean runtime
 
 ## Scientific boundaries
 
-Components describe structure rather than ecological role. A mixotroph is an ordinary population participating in both growth and grazing. Bacterioplankton are ordinary populations that may consume POM through `Consumption` and be consumed as living prey through `Grazing`. Structured material pools use the same component-layout machinery as structured populations.
+Components describe structure rather than ecological role. A mixotroph is an ordinary population participating in both growth and living-prey consumption. `Consumption` is the canonical consumer-resource process; `Grazing(...)` is author-facing shorthand for its living-prey formulations and desugars immediately. Likewise, `unassimilated_destination=` becomes direct product routing at authoring time. Bacterioplankton may consume POM and be consumed as living prey through the same consumer-resource machinery. Structured material pools use the same component-layout machinery as structured populations.
 
 Named factors are multiplicative within a process, while independent named processes add through their fluxes to a tracer equation. Routing and stoichiometry map process rates into affected material and currency pools.
 

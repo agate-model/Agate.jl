@@ -172,7 +172,7 @@ end
 
     @test component_tracers(layout, :POM) == (:POM_1, :POM_2)
     @test participants(normalized.processes.consume_POM) == (
-        consumer=(:B,), resource=(:POM,), unassimilated_destination=(:D,)
+        consumer=(:B,), resource=(:POM,)
     )
     @test participants(normalized.processes.grazing_living).resource == (:P, :B)
     @test :POM ∉ participants(normalized.processes.grazing_living).resource

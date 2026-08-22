@@ -36,8 +36,8 @@ using ..Configuration:
 using ..Runtime: build_tracer_index
 
 using ..Processes:
-    ModelDefinition, normalize_model, driver_identities, participants, process_kind,
-    resolve_parameter_applicability
+    ModelDefinition, normalize_model, driver_identities, participants, formulation,
+    uses_living_interactions, resolve_parameter_applicability
 
 using ..Compilation: compile_model_tendencies
 
@@ -544,7 +544,7 @@ function _process_interaction_roles(definition, population_groups::NamedTuple)
     consumer_components = Symbol[]
     resource_components = Symbol[]
     for named in values(definition.processes)
-        process_kind(named) === :grazing || continue
+        uses_living_interactions(formulation(named.process)) || continue
         process_participants = participants(named)
         hasproperty(process_participants, :consumer) &&
             append!(consumer_components, process_participants.consumer)

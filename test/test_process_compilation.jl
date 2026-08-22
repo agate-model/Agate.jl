@@ -49,7 +49,7 @@ using Agate.Processes:
         @test map(length, grouped) == (N=2, P_1=1, P_2=1)
     end
 
-    @testset "Grazing" begin
+    @testset "Living-resource consumption" begin
         process = normalized.processes.grazing_Z_on_P
         fluxes = process_fluxes(process, normalized, layout, context)
         grouped = group_fluxes(fluxes; target_order=(:D, :Z_1, :Z_2, :P_1, :P_2))

@@ -11,7 +11,8 @@ using ..Processes:
     AbstractProcess, AbstractFormulation, AbstractFactor, FactorDriver, FactorComponent,
     ModelDefinition, normalize_model, parameter_bindings, process_kind, formulation,
     formulation_tag, factors, factor_inputs, factor_children, participants, drivers, rate_axes,
-    Growth, Light, NutrientResponse, Nutrients, Temperature, Frank, Grazing, Mortality, ProductRouting,
+    Growth, Light, NutrientResponse, Nutrients, Temperature, Frank, Consumption, Mortality,
+    ProductRouting,
     DirectRouting, PartitionRouting, DOMPOMRouting, FixedStoichiometry
 
 using ..Library.Allometry:
@@ -438,7 +439,7 @@ _process_formulation_tag(process::AbstractProcess) = formulation_tag(formulation
 _process_stoichiometry(::AbstractProcess) = nothing
 _process_stoichiometry(process::Growth) = process.stoichiometry
 _process_routing(::AbstractProcess) = nothing
-_process_routing(process::Union{Grazing,Mortality}) = process.routing
+_process_routing(process::Union{Consumption,Mortality}) = process.routing
 
 function _process_recipe_data(named)
     process = named.process

@@ -33,8 +33,8 @@ Agate.Processes.NutrientResponse
 Agate.Processes.Nutrients
 Agate.Processes.Temperature
 Agate.Processes.factors
-Agate.Processes.Grazing
 Agate.Processes.Consumption
+Agate.Processes.Grazing
 Agate.Processes.Mortality
 Agate.Processes.ProductRouting
 Agate.Processes.FixedStoichiometry

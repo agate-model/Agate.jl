@@ -332,34 +332,29 @@ function _parameter_nodes(named::NamedProcess{P}) where {P<:Growth}
     return nodes
 end
 
-function _parameter_nodes(named::NamedProcess{P}) where {P<:Grazing}
-    process = named.process
-    process.formulation isa Union{IdealizedGrazing,PreferentialGrazing} || throw(
-        ArgumentError("unsupported grazing formulation $(typeof(process.formulation))"),
-    )
-    nodes = (
-        _parameter_node((), process.formulation),
-        _parameter_node(
-            (:palatability, :default), Val(:allometric); formulation_value=:allometric
-        ),
-        _parameter_node(
-            (:assimilation, :default), Val(:binary); formulation_value=:binary
-        ),
-    )
-    isnothing(process.routing) && return nodes
-    return (nodes..., _routing_parameter_nodes(process.routing)...)
-end
-
 function _parameter_nodes(named::NamedProcess{P}) where {P<:Consumption}
     process = named.process
-    process.formulation isa HeterotrophicConsumption || throw(
-        ArgumentError("unsupported consumption formulation $(typeof(process.formulation))"),
+    formulation = process.formulation
+    formulation isa Union{IdealizedGrazing,PreferentialGrazing,HeterotrophicConsumption} || throw(
+        ArgumentError("unsupported consumption formulation $(typeof(formulation))"),
     )
-    nodes = (_parameter_node((), process.formulation),)
+    nodes = (_parameter_node((), formulation),)
+    if uses_living_interactions(formulation)
+        nodes = (
+            nodes...,
+            _parameter_node(
+                (:palatability, :default), Val(:allometric); formulation_value=:allometric
+            ),
+            _parameter_node(
+                (:assimilation, :default), Val(:binary); formulation_value=:binary
+            ),
+        )
+    end
     for (name, factor) in pairs(process.factors)
         nodes = (nodes..., _factor_parameter_nodes(name, factor)...)
     end
-    return nodes
+    isnothing(process.routing) && return nodes
+    return (nodes..., _routing_parameter_nodes(process.routing)...)
 end
 
 function _parameter_nodes(named::NamedProcess{P}) where {P<:Mortality}
@@ -497,17 +492,9 @@ function _process_component_references(process::Growth)
     return references
 end
 
-function _process_component_references(process::Grazing)
-    destination = process.unassimilated_destination
-    destination_refs = isnothing(destination) ? () : (destination,)
-    routing_refs = isnothing(process.routing) ? () : _routing_component_references(process.routing)
-    return (process.consumers..., process.resources..., destination_refs..., routing_refs...)
-end
-
 function _process_component_references(process::Consumption)
-    destination = process.unassimilated_destination
-    destination_refs = isnothing(destination) ? () : (destination,)
-    references = (process.consumers..., process.resources..., destination_refs...)
+    routing_refs = isnothing(process.routing) ? () : _routing_component_references(process.routing)
+    references = (process.consumers..., process.resources..., routing_refs...)
     for factor in values(process.factors)
         references = (references..., _factor_component_references(factor)...)
     end
@@ -570,8 +557,28 @@ function _validate_routing_science(routing::ProductRouting, components::NamedTup
     return nothing
 end
 
-function _validate_process_science(process::Grazing, components::NamedTuple)
-    isnothing(process.routing) || _validate_routing_science(process.routing, components)
+function _validate_consumption_routing(
+    routing::ProductRouting, components::NamedTuple, reference::Symbol
+)
+    if routing.formulation isa DirectRouting
+        getproperty(components, routing.retained) isa Pool || throw(
+            ArgumentError("consumption routing destination must be a Pool component"),
+        )
+        _validate_currency_target(
+            components, routing.retained, reference, "consumption destination"
+        )
+    elseif routing.formulation isa PartitionRouting
+        for target in (routing.retained, routing.exported)
+            getproperty(components, target) isa Pool || throw(
+                ArgumentError("consumption routing targets must be Pool components"),
+            )
+            _validate_currency_target(
+                components, target, reference, "consumption routing target"
+            )
+        end
+    else
+        _validate_routing_science(routing, components)
+    end
     return nothing
 end
 
@@ -579,14 +586,15 @@ function _validate_process_science(process::Consumption, components::NamedTuple)
     all(consumer -> getproperty(components, consumer) isa Population, process.consumers) || throw(
         ArgumentError("consumption consumers must be Population components"),
     )
-    all(resource -> getproperty(components, resource) isa Pool, process.resources) || throw(
-        ArgumentError("consumption resources must be Pool components"),
+    living_resources = uses_living_interactions(process.formulation)
+    resource_type = living_resources ? Population : Pool
+    valid_resources = all(
+        resource -> getproperty(components, resource) isa resource_type, process.resources
     )
-    if !isnothing(process.unassimilated_destination)
-        getproperty(components, process.unassimilated_destination) isa Pool || throw(
-            ArgumentError("consumption unassimilated destination must be a Pool component"),
-        )
-    end
+    resource_error = living_resources ?
+                     "living-interaction resources must be Population components" :
+                     "heterotrophic-consumption resources must be Pool components"
+    valid_resources || throw(ArgumentError(resource_error))
 
     reference = currency(getproperty(components, first(process.consumers)))
     for consumer in process.consumers
@@ -595,9 +603,8 @@ function _validate_process_science(process::Consumption, components::NamedTuple)
     for resource in process.resources
         _validate_currency_target(components, resource, reference, "consumption resource")
     end
-    isnothing(process.unassimilated_destination) || _validate_currency_target(
-        components, process.unassimilated_destination, reference, "consumption destination"
-    )
+    isnothing(process.routing) ||
+        _validate_consumption_routing(process.routing, components, reference)
     return nothing
 end
 

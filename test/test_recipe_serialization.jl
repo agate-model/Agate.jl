@@ -73,6 +73,12 @@ explicit_json_value(::Any) = false
             "participants" => Dict("resource" => "N"),
         ),
     )
+    grazing_data = encoded["recipe"]["processes"]["grazing_Z_on_P"]
+    @test grazing_data["kind"] == "consumption"
+    @test grazing_data["participants"] == Dict("consumer" => "Z", "resource" => "P")
+    @test grazing_data["routing"] == Dict(
+        "kind" => "product_routing", "formulation" => "direct", "destination" => "D"
+    )
     @test encoded["provenance"]["agate"]["package"] == "Agate"
     @test encoded["provenance"]["agate"]["version"] == string(Base.pkgversion(Agate))
     @test startswith(recipe_hash, "sha256:")

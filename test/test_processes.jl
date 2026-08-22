@@ -18,6 +18,8 @@ using Agate.Processes:
     NutrientResponse,
     FixedStoichiometry,
     Grazing,
+    Consumption,
+    DirectRouting,
     ModelDefinition,
     ParameterSlot,
     ParameterRequirementIdentity,
@@ -76,9 +78,11 @@ using Agate.Processes:
         resources=(:P, :B),
         unassimilated_destination=:D,
     )
-    @test participants(grazing) == (
-        consumer=(:Z,), resource=(:P, :B), unassimilated_destination=(:D,)
-    )
+    @test grazing isa Consumption
+    @test process_kind(grazing) === :consumption
+    @test participants(grazing) == (consumer=(:Z,), resource=(:P, :B))
+    @test formulation(grazing.routing) isa DirectRouting
+    @test grazing.routing.retained === :D
     @test rate_axes(grazing) == (:consumer, :resource)
     @test isempty(factors(grazing))
 
@@ -124,7 +128,8 @@ using Agate.Processes:
         :preferential;
         consumer=:Z,
         resource=:P,
-        routing=ProductRouting(:partition; retained=:D, exported=:N),
+        unassimilated_destination=:D,
+        routing=ProductRouting(:direct; destination=:N),
     )
 
     redundant_growth_source = ModelDefinition(;
@@ -258,8 +263,9 @@ end
     @test participants(normalized.processes.growth_P) == (population=(:P,),)
     @test drivers(normalized.processes.growth_P) == (light=:PAR,)
     @test participants(normalized.processes.grazing_Z_on_P) == (
-        consumer=(:Z,), resource=(:P,), unassimilated_destination=(:D,)
+        consumer=(:Z,), resource=(:P,)
     )
+    @test process_kind(normalized.processes.grazing_Z_on_P) === :consumption
     @test participants(normalized.processes.remineralization_D) ==
         (source=(:D,), destination=(:N,))
 

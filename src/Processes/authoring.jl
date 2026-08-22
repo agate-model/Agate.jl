@@ -66,8 +66,8 @@ _resolve_response(::Val{:monod}) = Monod()
 _resolve_nutrients(::Val{:liebig}) = Liebig()
 _resolve_nutrients(::Val{:frank}) = Frank()
 _resolve_temperature(::Val{:q10}) = Q10()
-_resolve_grazing(::Val{:idealized}) = IdealizedGrazing()
-_resolve_grazing(::Val{:preferential}) = PreferentialGrazing()
+_resolve_consumption(::Val{:idealized}) = IdealizedGrazing()
+_resolve_consumption(::Val{:preferential}) = PreferentialGrazing()
 _resolve_consumption(::Val{:heterotrophic}) = HeterotrophicConsumption()
 _resolve_mortality(::Val{:linear}) = LinearMortality()
 _resolve_mortality(::Val{:quadratic}) = QuadraticMortality()
@@ -84,7 +84,6 @@ _resolve_light(::Val{F}) where {F} = _unknown_formulation(:light, F)
 _resolve_response(::Val{F}) where {F} = _unknown_formulation(:nutrient_response, F)
 _resolve_nutrients(::Val{F}) where {F} = _unknown_formulation(:nutrients, F)
 _resolve_temperature(::Val{F}) where {F} = _unknown_formulation(:temperature, F)
-_resolve_grazing(::Val{F}) where {F} = _unknown_formulation(:grazing, F)
 _resolve_consumption(::Val{F}) where {F} = _unknown_formulation(:consumption, F)
 _resolve_mortality(::Val{F}) where {F} = _unknown_formulation(:mortality, F)
 _resolve_remineralization(::Val{F}) where {F} = _unknown_formulation(:remineralization, F)
@@ -301,73 +300,55 @@ function Growth(;
     return Growth(population_refs, factors, source, stoichiometry)
 end
 
-"""Consumer-resource grazing process."""
-struct Grazing{F<:AbstractFormulation,R} <: AbstractProcess
+"""Canonical consumer-resource process with optional factors and product routing."""
+struct Consumption{F<:AbstractFormulation,A<:NamedTuple,R} <: AbstractProcess
     formulation::F
     consumers::Tuple
     resources::Tuple
-    unassimilated_destination::Union{Nothing,Symbol}
+    factors::A
     routing::R
 end
 
-function Grazing(
-    formulation::Union{IdealizedGrazing,PreferentialGrazing};
-    consumer=nothing,
-    consumers=nothing,
-    resource=nothing,
-    resources=nothing,
-    unassimilated_destination=nothing,
-    routing=nothing,
-)
-    consumer_refs = _participant_tuple(:consumer, consumer, consumers)
-    resource_refs = _participant_tuple(:resource, resource, resources)
-    destination = _optional_reference(:unassimilated_destination, unassimilated_destination)
-    isnothing(destination) || isnothing(routing) || throw(
-        ArgumentError("grazing cannot specify both `unassimilated_destination` and `routing`"),
-    )
-    isnothing(routing) || routing isa ProductRouting || throw(
-        ArgumentError("grazing `routing` must be a ProductRouting"),
-    )
-    isnothing(routing) || routing.formulation isa DOMPOMRouting || throw(
-        ArgumentError("grazing product routing must use the :dom_pom formulation"),
-    )
-    return Grazing(formulation, consumer_refs, resource_refs, destination, routing)
-end
-
-Grazing(formulation::Symbol; kwargs...) = Grazing(_resolve_grazing(Val(formulation)); kwargs...)
-function Grazing(formulation::AbstractFormulation; kwargs...)
-    throw(ArgumentError("$(typeof(formulation)) is not a grazing formulation"))
-end
-
-"""Consumer-resource heterotrophic consumption with optional multiplicative factors."""
-struct Consumption{F<:AbstractFormulation,A<:NamedTuple} <: AbstractProcess
-    formulation::F
-    consumers::Tuple
-    resources::Tuple
-    unassimilated_destination::Union{Nothing,Symbol}
-    factors::A
-end
-
 function Consumption(
-    formulation::HeterotrophicConsumption;
+    formulation::Union{IdealizedGrazing,PreferentialGrazing,HeterotrophicConsumption};
     consumer=nothing,
     consumers=nothing,
     resource=nothing,
     resources=nothing,
     unassimilated_destination=nothing,
     factors::NamedTuple=NamedTuple(),
+    routing=nothing,
 )
     consumer_refs = _participant_tuple(:consumer, consumer, consumers)
     resource_refs = _participant_tuple(:resource, resource, resources)
-    destination = _optional_reference(:unassimilated_destination, unassimilated_destination)
     canonical = _canonical_factors(factors; allow_empty=true)
-    return Consumption(formulation, consumer_refs, resource_refs, destination, canonical)
+    destination = _optional_reference(:unassimilated_destination, unassimilated_destination)
+    isnothing(destination) || isnothing(routing) || throw(
+        ArgumentError("consumption cannot specify both `unassimilated_destination` and `routing`"),
+    )
+    isnothing(routing) || routing isa ProductRouting || throw(
+        ArgumentError("consumption `routing` must be a ProductRouting"),
+    )
+    isnothing(destination) || (routing = ProductRouting(DirectRouting(); destination=destination))
+    return Consumption(formulation, consumer_refs, resource_refs, canonical, routing)
 end
 
 Consumption(formulation::Symbol; kwargs...) =
     Consumption(_resolve_consumption(Val(formulation)); kwargs...)
 function Consumption(formulation::AbstractFormulation; kwargs...)
     throw(ArgumentError("$(typeof(formulation)) is not a consumption formulation"))
+end
+
+"""Author-facing grazing convenience that immediately returns canonical `Consumption`."""
+function Grazing(formulation::Union{IdealizedGrazing,PreferentialGrazing}; kwargs...)
+    return Consumption(formulation; kwargs...)
+end
+function Grazing(formulation::Symbol; kwargs...)
+    formulation in (:idealized, :preferential) || _unknown_formulation(:grazing, formulation)
+    return Consumption(formulation; kwargs...)
+end
+function Grazing(formulation::AbstractFormulation; kwargs...)
+    throw(ArgumentError("$(typeof(formulation)) is not a grazing formulation"))
 end
 
 """Population mortality process with optional product routing."""
@@ -427,29 +408,23 @@ formulation(routing::ProductRouting) = routing.formulation
 
 """Return the named multiplicative factors attached to a process."""
 factors(process::Union{Growth,Consumption}) = process.factors
-factors(::Union{Grazing,Mortality,Remineralization}) = NamedTuple()
+factors(::Union{Mortality,Remineralization}) = NamedTuple()
 
 process_kind(::Growth) = :growth
-process_kind(::Grazing) = :grazing
 process_kind(::Consumption) = :consumption
 process_kind(::Mortality) = :mortality
 process_kind(::Remineralization) = :remineralization
+
+"""Whether a consumer-resource formulation uses living consumer-prey interaction matrices."""
+uses_living_interactions(::AbstractFormulation) = false
+uses_living_interactions(::Union{IdealizedGrazing,PreferentialGrazing}) = true
 
 function participants(process::Growth)
     base = (population=process.populations,)
     isnothing(process.source) && return base
     return merge(base, (source=(process.source,),))
 end
-function participants(process::Grazing)
-    base = (consumer=process.consumers, resource=process.resources)
-    isnothing(process.unassimilated_destination) && return base
-    return merge(base, (unassimilated_destination=(process.unassimilated_destination,),))
-end
-function participants(process::Consumption)
-    base = (consumer=process.consumers, resource=process.resources)
-    isnothing(process.unassimilated_destination) && return base
-    return merge(base, (unassimilated_destination=(process.unassimilated_destination,),))
-end
+participants(process::Consumption) = (consumer=process.consumers, resource=process.resources)
 participants(process::Mortality) = (population=process.populations,)
 participants(process::Remineralization) =
     (source=process.sources, destination=process.destinations)
@@ -486,10 +461,9 @@ function _factor_drivers(process)
 end
 
 drivers(process::Union{Growth,Consumption}) = _factor_drivers(process)
-drivers(::Union{Grazing,Mortality,Remineralization}) = NamedTuple()
+drivers(::Union{Mortality,Remineralization}) = NamedTuple()
 
 rate_axes(::Growth) = (:population,)
-rate_axes(::Grazing) = (:consumer, :resource)
 rate_axes(::Consumption) = (:consumer, :resource)
 rate_axes(::Mortality) = (:population,)
 rate_axes(::Remineralization) = (:source,)
