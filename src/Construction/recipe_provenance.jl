@@ -61,8 +61,8 @@ function _canonical_json(x)
     return JSON.json(x)
 end
 
-function _recipe_hash(recipe::ProcessModelRecipe, data)
-    content = Dict{String,Any}("family" => String(recipe.family), "recipe" => data)
+function _recipe_hash(family::Symbol, data)
+    content = Dict{String,Any}("family" => String(family), "recipe" => data)
     return "sha256:" * bytes2hex(sha256(_canonical_json(content)))
 end
 

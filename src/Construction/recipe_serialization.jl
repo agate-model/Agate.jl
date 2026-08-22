@@ -527,14 +527,12 @@ function encode_recipe(recipe::ProcessModelRecipe)
         "model" => Dict{String,Any}("family" => String(recipe.family)),
         "provenance" => _recipe_provenance(recipe),
         "recipe" => data,
-        "recipe_hash" => _recipe_hash(recipe, data),
+        "recipe_hash" => _recipe_hash(recipe.family, data),
     ))
 end
 
 """Decode a recipe document, verifying its hash and checking package provenance."""
 const _PROCESS_RECIPE_KEYS = ("components", "processes", "parameter_bindings", "realization")
-const _PARAMETER_BINDING_KEYS = ("provides",)
-const _PARAMETER_PROVISION_KEYS = ("process", "path", "formulation", "slot", "qualifier", "axes")
 const _PROCESS_REALIZATION_KEYS = (
     "community",
     "population_groups",
@@ -543,61 +541,11 @@ const _PROCESS_REALIZATION_KEYS = (
     "open_bottom",
 )
 
-function _string_tuple(x, path)
-    x isa AbstractVector || throw(ArgumentError("$path must be an array."))
-    return Tuple(_string(value, "$path[$i]") for (i, value) in pairs(x))
-end
-
-function _canonical_parameter_provision(x, path)
-    x = _complete_object(x, _PARAMETER_PROVISION_KEYS, path)
-    qualifier_data = x["qualifier"]
-    qualifier_data isa AbstractDict || throw(ArgumentError("$path.qualifier must be an object."))
-    qualifier = Tuple(sort!(
-        [(String(key), _string(value, "$path.qualifier.$key")) for (key, value) in pairs(qualifier_data)];
-        by=first,
-    ))
-    return (
-        process=_string(x["process"], "$path.process"),
-        path=_string_tuple(x["path"], "$path.path"),
-        formulation=_string(x["formulation"], "$path.formulation"),
-        slot=_string(x["slot"], "$path.slot"),
-        qualifier=qualifier,
-        axes=_string_tuple(x["axes"], "$path.axes"),
-    )
-end
-
-_parameter_provision_sort_key(provision) = (
-    provision.process,
-    provision.path,
-    provision.formulation,
-    provision.slot,
-    provision.qualifier,
-    provision.axes,
-)
-
-function _canonical_parameter_bindings(x, path)
-    x isa AbstractDict || throw(ArgumentError("$path must be an object."))
-    parameters = sort!(String[String(key) for key in keys(x)])
-    return Tuple(map(parameters) do parameter
-        binding_path = "$path.$parameter"
-        binding = _complete_object(x[parameter], _PARAMETER_BINDING_KEYS, binding_path)
-        provides = binding["provides"]
-        provides isa AbstractVector || throw(ArgumentError("$binding_path.provides must be an array."))
-        provisions = [
-            _canonical_parameter_provision(value, "$binding_path.provides[$i]")
-            for (i, value) in pairs(provides)
-        ]
-        sort!(provisions; by=_parameter_provision_sort_key)
-        return (parameter=parameter, provides=Tuple(provisions))
-    end)
-end
-
 function _decode_process_model_recipe(document::AbstractDict)
     model = _check_keys(
         _required(document, "model", "Recipe document"), _RECIPE_MODEL_KEYS, "Recipe document.model"
     )
     family = _symbol(_required(model, "family", "Recipe document.model"), "Recipe document.model.family")
-    model_family = registered_family(Val(family))
     provenance = _decode_provenance(
         _required(document, "provenance", "Recipe document"), "Recipe document.provenance"
     )
@@ -607,6 +555,10 @@ function _decode_process_model_recipe(document::AbstractDict)
     recipe_data = _complete_object(
         _required(document, "recipe", "Recipe document"), _PROCESS_RECIPE_KEYS, "Recipe document.recipe"
     )
+    recorded_hash == _recipe_hash(family, recipe_data) || throw(
+        ArgumentError("Recipe document.recipe_hash does not match the serialized recipe content.")
+    )
+    model_family = registered_family(Val(family))
     realization = _complete_object(
         recipe_data["realization"], _PROCESS_REALIZATION_KEYS, "Recipe document.recipe.realization"
     )
@@ -645,19 +597,8 @@ function _decode_process_model_recipe(document::AbstractDict)
     )
 
     expected_science = _encode_process_recipe_data(decoded)
-    for key in ("components", "processes")
-        _canonical_json(recipe_data[key]) == _canonical_json(expected_science[key]) || throw(
-            ArgumentError("Recipe document.recipe.$key does not match the loaded model family contract.")
-        )
-    end
-    binding_path = "Recipe document.recipe.parameter_bindings"
-    _canonical_parameter_bindings(recipe_data["parameter_bindings"], binding_path) ==
-        _canonical_parameter_bindings(expected_science["parameter_bindings"], binding_path) || throw(
-            ArgumentError("$binding_path does not match the loaded model family contract.")
-        )
-    expected_hash = _recipe_hash(decoded, expected_science)
-    recorded_hash == expected_hash || throw(
-        ArgumentError("Recipe document.recipe_hash does not match the decoded recipe.")
+    recorded_hash == _recipe_hash(family, expected_science) || throw(
+        ArgumentError("Recipe document does not match the loaded model family contract.")
     )
     _check_recipe_provenance(decoded, provenance)
     return decoded

@@ -17,11 +17,15 @@ function modified(document, mutation)
     return copy
 end
 
-function first_empty_provision(bindings, field)
-    for binding in values(bindings), provision in binding["provides"]
-        isempty(provision[field]) && return provision
-    end
-    error("No empty parameter-binding $field found")
+function rehash!(document)
+    family = Symbol(document["model"]["family"])
+    document["recipe_hash"] = Agate.Construction._recipe_hash(family, document["recipe"])
+    return document
+end
+
+function rehashed(document, mutation)
+    copy = modified(document, mutation)
+    return rehash!(copy)
 end
 
 explicit_json_value(::Nothing) = true
@@ -182,7 +186,6 @@ explicit_json_value(::Any) = false
         @test !isempty(provisions)
         @test all(provision -> provision["path"] isa AbstractVector, provisions)
         @test all(provision -> provision["axes"] isa AbstractVector, provisions)
-        @test isempty(first_empty_provision(bindings, "path")["path"])
         @test import_recipe(path) == recipe
     end
 
@@ -197,28 +200,34 @@ explicit_json_value(::Any) = false
     warned = @test_logs (:warn, r"Agate version differs") decode_recipe(version_mismatch)
     @test warned == recipe
 
+    component_tamper = modified(encoded) do x
+        x["recipe"]["components"]["P"]["states"]["nitrogen"] = "carbon"
+    end
+    @test_throws ArgumentError decode_recipe(component_tamper)
+
+    binding_tamper = modified(encoded) do x
+        binding = first(values(x["recipe"]["parameter_bindings"]))
+        first(binding["provides"])["slot"] = "tampered_slot"
+    end
+    @test_throws ArgumentError decode_recipe(binding_tamper)
+
+    self_consistent_wrong_contract = rehash!(deepcopy(binding_tamper))
+    @test_throws ArgumentError decode_recipe(self_consistent_wrong_contract)
+
     invalid_schema = modified(encoded, x -> (x["schema"] = "agate.model_recipe.invalid"))
     @test_throws ArgumentError decode_recipe(invalid_schema)
 
     invalid_documents = (
         modified(encoded, x -> (x["extra"] = true)),
-        modified(encoded, x -> delete!(x["recipe"]["realization"], "open_bottom")),
-        modified(encoded, x -> (x["model"]["family"] = "UnknownModel")),
-        modified(encoded, x -> (x["recipe"]["realization"]["scalar_type"] = "Float32")),
-        modified(encoded, x -> (
-            first_empty_provision(x["recipe"]["parameter_bindings"], "path")["path"] = Dict{String,Any}()
-        )),
-        modified(encoded, x -> (x["recipe"]["realization"]["open_bottom"] =
-            !x["recipe"]["realization"]["open_bottom"])),
-        modified(encoded, x -> (
-            x["recipe"]["processes"]["growth_P"]["factors"]["light"]["formulation"] = "unknown"
-        )),
-        modified(encoded, x -> (
+        rehashed(encoded, x -> delete!(x["recipe"]["realization"], "open_bottom")),
+        rehashed(encoded, x -> (x["model"]["family"] = "UnknownModel")),
+        rehashed(encoded, x -> (x["recipe"]["realization"]["scalar_type"] = "Float32")),
+        rehashed(encoded, x -> (
             encoded_named_value(
                 x["recipe"]["realization"]["parameter_overrides"], :linear_mortality
             )["law"] = "unknown"
         )),
-        modified(encoded, x -> (
+        rehashed(encoded, x -> (
             encoded_named_value(
                 x["recipe"]["realization"]["parameter_overrides"], :palatability_matrix
             )[2] = [0.3]
