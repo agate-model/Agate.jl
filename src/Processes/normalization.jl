@@ -283,79 +283,42 @@ function _routing_parameter_nodes(routing::ProductRouting)
     return nodes
 end
 
+_process_parameter_nodes(process::AbstractProcess) =
+    (_parameter_node((), formulation(process)),)
+
+function _process_parameter_nodes(process::Mortality)
+    context = length(process.populations) == 1 ?
+              (population=only(process.populations),) : NamedTuple()
+    return (_parameter_node((), formulation(process); context),)
+end
+
+_process_parameter_nodes(process::Remineralization) = Tuple(
+    _parameter_node((), formulation(process); context=(source=source,))
+    for source in process.sources
+)
+
+_stoichiometry_parameter_nodes(::AbstractProcess) = ()
+function _stoichiometry_parameter_nodes(process::Growth)
+    stoichiometry = process_stoichiometry(process)
+    isnothing(stoichiometry) && return ()
+    nutrients = only(factor for factor in values(process.factors) if factor isa Nutrients)
+    return Tuple(
+        _parameter_node(
+            (:stoichiometry,), stoichiometry; context=(currency=currency,)
+        )
+        for currency in keys(nutrients.responses)
+    )
+end
+
 function _parameter_nodes(named::NamedProcess)
     process = named.process
-    nodes = (_parameter_node((), formulation(process)),)
+    nodes = _process_parameter_nodes(process)
     for (name, factor) in pairs(factors(process))
         nodes = (nodes..., _factor_parameter_nodes(name, factor)...)
     end
-    return nodes
-end
-
-function _parameter_nodes(named::NamedProcess{P}) where {P<:Growth}
-    process = named.process
-    nodes = ()
-    for (name, factor) in pairs(process.factors)
-        nodes = (nodes..., _factor_parameter_nodes(name, factor)...)
-    end
-
-    stoichiometry = process.stoichiometry
-    isnothing(stoichiometry) && return nodes
-    stoichiometry isa FixedStoichiometry || throw(
-        ArgumentError("unsupported growth stoichiometry $(typeof(stoichiometry))"),
-    )
-    nutrient_factors = Tuple(factor for factor in values(process.factors) if factor isa Nutrients)
-    length(nutrient_factors) == 1 || throw(
-        ArgumentError(
-            "fixed-stoichiometry growth requires exactly one multi-resource Nutrients factor"
-        ),
-    )
-    for currency in keys(only(nutrient_factors).responses)
-        nodes = (
-            nodes...,
-            _parameter_node(
-                (:stoichiometry,), stoichiometry; context=(currency=currency,)
-            ),
-        )
-    end
-    return nodes
-end
-
-function _parameter_nodes(named::NamedProcess{P}) where {P<:Consumption}
-    process = named.process
-    formulation = process.formulation
-    formulation isa Union{IdealizedGrazing,PreferentialGrazing,HeterotrophicConsumption} || throw(
-        ArgumentError("unsupported consumption formulation $(typeof(formulation))"),
-    )
-    nodes = (_parameter_node((), formulation),)
-    for (name, factor) in pairs(process.factors)
-        nodes = (nodes..., _factor_parameter_nodes(name, factor)...)
-    end
-    isnothing(process.routing) && return nodes
-    return (nodes..., _routing_parameter_nodes(process.routing)...)
-end
-
-function _parameter_nodes(named::NamedProcess{P}) where {P<:Mortality}
-    process = named.process
-    process.formulation isa Union{LinearMortality,QuadraticMortality} || throw(
-        ArgumentError("unsupported mortality formulation $(typeof(process.formulation))"),
-    )
-    context = length(process.populations) == 1 ?
-              (population=only(process.populations),) : NamedTuple()
-    nodes = (_parameter_node((), process.formulation; context),)
-    isnothing(process.routing) && return nodes
-    return (nodes..., _routing_parameter_nodes(process.routing)...)
-end
-
-function _parameter_nodes(named::NamedProcess{P}) where {P<:Remineralization}
-    process = named.process
-    process.formulation isa LinearRemineralization || throw(
-        ArgumentError("unsupported remineralization formulation $(typeof(process.formulation))"),
-    )
-    return Tuple(
-        _parameter_node((), process.formulation; context=(source=source,))
-        for source in process.sources
-    )
+    routing = process_routing(process)
+    isnothing(routing) || (nodes = (nodes..., _routing_parameter_nodes(routing)...))
+    return (nodes..., _stoichiometry_parameter_nodes(process)...)
 end
 
 """Return semantic parameter requirements from the named process scientific tree."""
@@ -472,35 +435,11 @@ function _process_component_references(process::AbstractProcess)
     for factor in values(factors(process))
         references = (references..., _factor_component_references(factor)...)
     end
+    routing = process_routing(process)
+    isnothing(routing) ||
+        (references = (references..., _routing_component_references(routing)...))
     return references
 end
-
-function _process_component_references(process::Growth)
-    references = process.populations
-    for factor in values(process.factors)
-        references = (references..., _factor_component_references(factor)...)
-    end
-    isnothing(process.source) || (references = (references..., process.source))
-    return references
-end
-
-function _process_component_references(process::Consumption)
-    routing_refs = isnothing(process.routing) ? () : _routing_component_references(process.routing)
-    references = (process.consumers..., process.resources..., routing_refs...)
-    for factor in values(process.factors)
-        references = (references..., _factor_component_references(factor)...)
-    end
-    return references
-end
-
-function _process_component_references(process::Mortality)
-    routing = process.routing
-    routing_refs = isnothing(routing) ? () : _routing_component_references(routing)
-    return (process.populations..., routing_refs...)
-end
-
-_process_component_references(process::Remineralization) =
-    (process.sources..., process.destinations...)
 
 function _validate_currency_target(
     components::NamedTuple, component::Symbol, expected::Symbol, label::String
@@ -522,8 +461,19 @@ function _validate_process_science(process::Growth, components::NamedTuple)
         ),
     )
 
-    stoichiometry = process.stoichiometry
-    stoichiometry isa FixedStoichiometry || return nothing
+    stoichiometry = process_stoichiometry(process)
+    isnothing(stoichiometry) && return nothing
+    stoichiometry isa FixedStoichiometry || throw(
+        ArgumentError("unsupported growth stoichiometry $(typeof(stoichiometry))"),
+    )
+    nutrient_factors = Tuple(
+        factor for factor in values(process.factors) if factor isa Nutrients
+    )
+    length(nutrient_factors) == 1 || throw(
+        ArgumentError(
+            "fixed-stoichiometry growth requires exactly one multi-resource Nutrients factor"
+        ),
+    )
     reference = stoichiometry.reference
     isnothing(process.source) && throw(
         ArgumentError("fixed-stoichiometry growth requires a reference-currency source component"),
@@ -577,6 +527,11 @@ function _validate_consumption_routing(
 end
 
 function _validate_process_science(process::Consumption, components::NamedTuple)
+    formulation(process) isa Union{
+        IdealizedGrazing,PreferentialGrazing,HeterotrophicConsumption
+    } || throw(
+        ArgumentError("unsupported consumption formulation $(typeof(formulation(process)))"),
+    )
     all(consumer -> getproperty(components, consumer) isa Population, process.consumers) || throw(
         ArgumentError("consumption consumers must be Population components"),
     )
@@ -603,11 +558,19 @@ function _validate_process_science(process::Consumption, components::NamedTuple)
 end
 
 function _validate_process_science(process::Mortality, components::NamedTuple)
+    formulation(process) isa Union{LinearMortality,QuadraticMortality} || throw(
+        ArgumentError("unsupported mortality formulation $(typeof(formulation(process)))"),
+    )
     isnothing(process.routing) || _validate_routing_science(process.routing, components)
     return nothing
 end
 
-_validate_process_science(::Remineralization, ::NamedTuple) = nothing
+function _validate_process_science(process::Remineralization, ::NamedTuple)
+    formulation(process) isa LinearRemineralization || throw(
+        ArgumentError("unsupported remineralization formulation $(typeof(formulation(process)))"),
+    )
+    return nothing
+end
 
 function _validate_process(id::Symbol, process, components::NamedTuple)
     process isa AbstractProcess || throw(

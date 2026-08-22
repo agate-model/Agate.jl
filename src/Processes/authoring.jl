@@ -383,6 +383,12 @@ formulation(routing::ProductRouting) = routing.formulation
 factors(::AbstractProcess) = NamedTuple()
 factors(process::Union{Growth,Consumption}) = process.factors
 
+process_routing(::AbstractProcess) = nothing
+process_routing(process::Union{Consumption,Mortality}) = process.routing
+
+process_stoichiometry(::AbstractProcess) = nothing
+process_stoichiometry(process::Growth) = process.stoichiometry
+
 process_kind(::Growth) = :growth
 process_kind(::Consumption) = :consumption
 process_kind(::Mortality) = :mortality
