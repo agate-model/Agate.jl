@@ -85,14 +85,12 @@ function direct_npz_definition()
                 deps=(:optimum_predator_prey_ratio, :specificity, :protection),
             );
             axes=(:consumer, :prey),
-            runtime_path=(:interactions, :palatability),
             provides=ParameterProvision(:grazing_Z_on_P, :palatability),
         ),
         ParameterDefinition(
             :assimilation_matrix,
             DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,));
             axes=(:consumer, :prey),
-            runtime_path=(:interactions, :assimilation),
             provides=ParameterProvision(:grazing_Z_on_P, :assimilation),
         ),
     )

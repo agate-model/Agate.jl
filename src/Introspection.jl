@@ -63,12 +63,7 @@ biogeochemistry instance.
 """
 function parameter_names(bgc)::Vector{Symbol}
     params = getproperty(bgc, :parameters)
-    keys = collect(propertynames(params))
-
-    # Some parameter fields are internal containers (for example, interaction
-    # matrices plus axis maps). Hide these from the public parameter list.
-    filter!(k -> k !== :interactions, keys)
-    return keys
+    return collect(propertynames(params))
 end
 
 function _tracer_index(bgc)
@@ -154,82 +149,34 @@ function tracer_groups(bgc)
     )
 end
 
-function _interaction_container(bgc)
-    hasproperty(bgc, :parameters) || return nothing
-    params = getproperty(bgc, :parameters)
-    hasproperty(params, :interactions) || return nothing
-    return getproperty(params, :interactions)
-end
-
-const _INTERACTION_AXIS_FIELDS = (
-    :consumer_global,
-    :prey_global,
-    :global_to_consumer,
-    :global_to_prey,
-)
-
-
-function _available_interaction_kinds(interactions)
-    kinds = Symbol[]
-
-    for property in propertynames(interactions)
-        property in _INTERACTION_AXIS_FIELDS && continue
-        value = getproperty(interactions, property)
-        value isa AbstractMatrix && push!(kinds, property)
+function _interaction_axes(bgc)
+    axes = try
+        getproperty(bgc, :interaction_axes)
+    catch err
+        err isa ErrorException || rethrow()
+        throw(ArgumentError("No interaction matrix metadata found for this model."))
     end
-
-    return kinds
+    axes === nothing && throw(ArgumentError("No interaction matrices found for this model."))
+    return axes
 end
 
-function _require_interactions(bgc)
-    interactions = _interaction_container(bgc)
-    interactions === nothing &&
-        throw(ArgumentError("No interaction matrices found for this model."))
-    return interactions
-end
-
-function _require_interaction_kind(interactions, kind::Symbol)
-    available = _available_interaction_kinds(interactions)
-    kind in available && return getproperty(interactions, kind)
-
-    available_text = isempty(available) ? "none" : join(string.(available), ", ")
-    throw(
-        ArgumentError(
-            "Unknown interaction matrix kind: $kind. Available kinds are: $available_text."
-        ),
-    )
-end
-
-function _plankton_axis_labels(bgc, indices)
-    plankton = plankton_tracers(bgc)
-    isempty(plankton) &&
-        throw(ArgumentError("Interaction axes require plankton tracer metadata."))
-
-    labels = Symbol[]
-    for index in Array(indices)
-        i = Int(index)
-        1 <= i <= length(plankton) || throw(
+function _require_interaction_parameter(bgc, kind::Symbol, axes)
+    kind in axes.parameters || begin
+        available_text = isempty(axes.parameters) ? "none" : join(string.(axes.parameters), ", ")
+        throw(
             ArgumentError(
-                "Interaction axis index $i is outside the plankton tracer axis of length $(length(plankton)).",
+                "Unknown interaction matrix parameter: $kind. Available parameters are: $available_text."
             ),
         )
-        push!(labels, plankton[i])
     end
-
-    return labels
-end
-
-function _interaction_axes(bgc, interactions)
-    for field in (:consumer_global, :prey_global)
-        hasproperty(interactions, field) || throw(
-            ArgumentError("Interaction matrices are missing required axis field: $field."),
-        )
-    end
-
-    rows = _plankton_axis_labels(bgc, getproperty(interactions, :consumer_global))
-    columns = _plankton_axis_labels(bgc, getproperty(interactions, :prey_global))
-
-    return (rows=rows, columns=columns, row_axis=:consumer, column_axis=:prey)
+    hasproperty(bgc.parameters, kind) || throw(
+        ArgumentError("Interaction parameter :$kind is missing from runtime parameters."),
+    )
+    matrix = getproperty(bgc.parameters, kind)
+    matrix isa AbstractMatrix || throw(
+        ArgumentError("Interaction parameter :$kind is not stored as a matrix."),
+    )
+    return matrix
 end
 
 function _require_interaction_shape(matrix, rows, columns, kind::Symbol)
@@ -243,28 +190,28 @@ function _require_interaction_shape(matrix, rows, columns, kind::Symbol)
     )
 end
 
-"""    interaction_matrix(bgc, kind::Symbol) -> NamedTuple
+"""    interaction_matrix(bgc, parameter::Symbol) -> NamedTuple
 
-Return an interaction matrix with consumer and prey labels.
+Return a consumer-by-prey parameter matrix with ecological class labels.
 
-Supported `kind` values are the available interaction matrix fields, such as
-`:palatability` and `:assimilation`. The returned `NamedTuple` contains `kind`,
-`matrix`, `rows`, `columns`, `row_axis`, and `column_axis`. Matrix orientation
-follows the runtime container: rows are consumers and columns are prey.
+`parameter` is the canonical model parameter identity, for example
+`:palatability_matrix` or `:assimilation_matrix`. The returned `NamedTuple` contains
+`parameter`, `matrix`, `rows`, `columns`, `row_axis`, and `column_axis`.
 """
-function interaction_matrix(bgc, kind::Symbol)
-    interactions = _require_interactions(bgc)
-    axes = _interaction_axes(bgc, interactions)
-    matrix = _require_interaction_kind(interactions, kind)
-    _require_interaction_shape(matrix, axes.rows, axes.columns, kind)
+function interaction_matrix(bgc, parameter::Symbol)
+    axes = _interaction_axes(bgc)
+    matrix = _require_interaction_parameter(bgc, parameter, axes)
+    rows = collect(axes.consumers)
+    columns = collect(axes.prey)
+    _require_interaction_shape(matrix, rows, columns, parameter)
 
     return (
-        kind=kind,
+        parameter=parameter,
         matrix=matrix,
-        rows=axes.rows,
-        columns=axes.columns,
-        row_axis=axes.row_axis,
-        column_axis=axes.column_axis,
+        rows=rows,
+        columns=columns,
+        row_axis=:consumer,
+        column_axis=:prey,
     )
 end
 

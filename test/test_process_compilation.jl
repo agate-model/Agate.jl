@@ -2,7 +2,7 @@ using Agate.Compilation:
     TracerOp,
     ScalarParamOp,
     VecParamOp,
-    InteractionParamOp,
+    MatParamOp,
     ComplementOp,
     process_fluxes,
     group_fluxes,
@@ -61,16 +61,16 @@ using Agate.Processes:
             TracerOp{:Z_1}(),
             VecParamOp{:maximum_predation_rate,1}(),
             VecParamOp{:holling_half_saturation,1}(),
-            InteractionParamOp{:palatability,1,1}(),
+            MatParamOp{:palatability_matrix,1,1}(),
         )
-        assimilation = InteractionParamOp{:assimilation,1,1}()
+        assimilation = MatParamOp{:assimilation_matrix,1,1}()
         @test fluxes[2].weight.operands == (assimilation,)
         @test fluxes[3].weight.operands == (ComplementOp(assimilation),)
         @test Tuple(flux.rate.operands[5] for flux in fluxes[1:3:end]) == (
-            InteractionParamOp{:palatability,1,1}(),
-            InteractionParamOp{:palatability,1,2}(),
-            InteractionParamOp{:palatability,2,1}(),
-            InteractionParamOp{:palatability,2,2}(),
+            MatParamOp{:palatability_matrix,1,1}(),
+            MatParamOp{:palatability_matrix,1,2}(),
+            MatParamOp{:palatability_matrix,2,1}(),
+            MatParamOp{:palatability_matrix,2,2}(),
         )
         @test map(length, grouped) == (D=4, Z_1=2, Z_2=2, P_1=2, P_2=2)
     end

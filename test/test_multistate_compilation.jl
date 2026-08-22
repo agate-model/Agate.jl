@@ -10,7 +10,7 @@ using Agate.Processes:
     AbstractProcess, AbstractFormulation, ModelDefinition, ParameterSlot,
     formulation, parameter_slot_bindings, process_id
 using Agate.Compilation:
-    TracerOp, RatioOp, InteractionParamOp, RateElement, Weight, FluxSpec,
+    TracerOp, RatioOp, MatParamOp, RateElement, Weight, FluxSpec,
     parameter_operand, state_operand, _axis_position, _realize_population_state
 
 import Agate.Processes:
@@ -277,7 +277,6 @@ end
             :state_palatability,
             ConstantDefault(0.5);
             axes=(:consumer, :prey),
-            runtime_path=(:interactions, :state_palatability),
             provides=ParameterProvision(:consume, :palatability),
         ),
     )
@@ -285,8 +284,14 @@ end
         components, processes=(consume=process,), parameters
     ))
 
-    @test size(bgc.parameters.interactions.state_palatability) == (1, 1)
-    @test bgc.parameters.interactions.state_palatability[1, 1] == 0.5
+    @test size(bgc.parameters.state_palatability) == (1, 1)
+    @test bgc.parameters.state_palatability[1, 1] == 0.5
+    @test bgc.interaction_axes.consumers == (:Z,)
+    @test bgc.interaction_axes.prey == (:P,)
+    active = Agate.Runtime.active_parameters(
+        bgc; state_palatability=((:Z, :P),)
+    )
+    @test active.values == [0.5]
 
     values = (
         Z_carbon=1.0, Z_nitrogen=0.2,
@@ -316,6 +321,6 @@ end
         normalized.processes.consume, normalized, realization.layout, realization.context
     )
     interaction_operand = fluxes[1].rate.operands[3]
-    @test interaction_operand == InteractionParamOp{:state_palatability,1,1}()
+    @test interaction_operand == MatParamOp{:state_palatability,1,1}()
     @test fluxes[3].weight.operands[1] isa RatioOp
 end

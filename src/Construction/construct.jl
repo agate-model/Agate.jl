@@ -21,8 +21,7 @@ import ..Parameters: parameter_definitions
 
 using ..Configuration:
     axis_indices,
-    normalize_interaction_overrides,
-    finalize_interaction_parameters,
+    interaction_axis_metadata,
     parse_community,
     validate_community,
     Population,
@@ -367,6 +366,9 @@ function validate_parameter_shapes(
         expected = _parameter_storage_shape(definition, layout, context, spec)
         if spec.shape === :vector
             v = getproperty(params, k)
+            v isa AbstractVector || throw(
+                ArgumentError("parameter :$k must be a vector; got $(typeof(v))."),
+            )
             length(v) == only(expected) || throw(
                 ArgumentError(
                     "parameter :$k must have length $(only(expected)) (got $(length(v))).",
@@ -374,6 +376,9 @@ function validate_parameter_shapes(
             )
         elseif spec.shape === :matrix
             m = getproperty(params, k)
+            m isa AbstractMatrix || throw(
+                ArgumentError("parameter :$k must be a matrix; got $(typeof(m))."),
+            )
             size(m) == expected || throw(
                 ArgumentError(
                     "parameter :$k must have size $expected (got $(size(m))).",
@@ -766,7 +771,6 @@ function _construct_process_definition(
     population_groups=nothing,
     community=nothing,
     parameter_overrides::NamedTuple=(;),
-    interaction_overrides::NamedTuple=(;),
     sinking_tracers=nothing,
     open_bottom::Bool=true,
     grid=nothing,
@@ -813,17 +817,8 @@ function _construct_process_definition(
     auxiliary_fields = driver_identities(normalized)
 
     required = validate_parameter_directory(parameter_source)
-    interaction_parameter_overrides = normalize_interaction_overrides(
-        parameter_source, community_context, deepcopy(interaction_overrides)
-    )
     validate_override_keys(
         "parameters", parameter_overrides, required, parameter_source
-    )
-    validate_override_keys(
-        "interaction_overrides",
-        interaction_parameter_overrides,
-        required,
-        parameter_source,
     )
 
     parameter_defaults = build_process_parameter_defaults(
@@ -838,12 +833,8 @@ function _construct_process_definition(
         parameter_overrides,
         T,
     )
-    merged_parameters = merge(
-        parameter_defaults, materialized_overrides, interaction_parameter_overrides
-    )
-    explicit_override_keys = (
-        keys(parameter_overrides)..., keys(interaction_parameter_overrides)...
-    )
+    merged_parameters = merge(parameter_defaults, materialized_overrides)
+    explicit_override_keys = Tuple(keys(parameter_overrides))
     merged_parameters = resolve_parameter_defaults(
         parameter_source,
         community_context,
@@ -857,13 +848,8 @@ function _construct_process_definition(
     isempty(missing) || throw(
         ArgumentError("missing required parameters: $(join(string.(missing), ", "))")
     )
-    merged_parameters = finalize_interaction_parameters(
-        parameter_source, community_context, merged_parameters
-    )
-    internal = hasproperty(merged_parameters, :interactions) ? (:interactions,) : ()
-    all_keys = (required..., internal...)
-    resolved_parameters = NamedTuple{all_keys}(
-        Tuple(getproperty(merged_parameters, key) for key in all_keys)
+    resolved_parameters = NamedTuple{required}(
+        Tuple(getproperty(merged_parameters, key) for key in required)
     )
     reject_missing_values(resolved_parameters)
     validate_parameter_shapes(
@@ -884,6 +870,7 @@ function _construct_process_definition(
         ),
     )
     plankton_diameter_metadata = Tuple(community_context.diameters)
+    interaction_axes = interaction_axis_metadata(parameter_source, community_context)
 
     bgc = if isnothing(sinking_tracers)
         bgc_factory = define_tracer_functions(
@@ -892,7 +879,11 @@ function _construct_process_definition(
             auxiliary_fields,
             tracer_index,
         )
-        bgc_factory(resolved_parameters; plankton_diameters=plankton_diameter_metadata)
+        bgc_factory(
+            resolved_parameters;
+            plankton_diameters=plankton_diameter_metadata,
+            interaction_axes,
+        )
     else
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
         bgc_factory = define_tracer_functions(
@@ -906,6 +897,7 @@ function _construct_process_definition(
             resolved_parameters,
             sinking_velocities;
             plankton_diameters=plankton_diameter_metadata,
+            interaction_axes,
         )
     end
 
@@ -949,7 +941,6 @@ function _construct_registered_model(
         population_groups=recipe.population_groups,
         community=recipe.community,
         parameter_overrides=recipe.parameter_overrides,
-        interaction_overrides=recipe.interaction_overrides,
         sinking_tracers=recipe.sinking_tracers,
         open_bottom=recipe.open_bottom,
         grid,
@@ -970,14 +961,13 @@ process participation determines interaction axes and required auxiliary drivers
 runtime tracer equations are compiled during setup.
 
 `parameter_overrides` supplies concrete parameter values over the defaults declared in
-`definition.parameters`. `interaction_overrides` accepts explicit axis-sized interaction
-matrices. Runtime grid, architecture, and scalar precision remain execution choices rather
-than part of the scientific definition.
+`definition.parameters`, including explicit axis-sized interaction matrices. Runtime grid,
+architecture, and scalar precision remain execution choices rather than part of the
+scientific definition.
 """
 function construct(
     definition::ModelDefinition;
     parameter_overrides::NamedTuple=(;),
-    interaction_overrides::NamedTuple=(;),
     sinking_tracers=nothing,
     open_bottom::Bool=true,
     grid=nothing,
@@ -987,7 +977,6 @@ function construct(
     bgc, _ = _construct_process_definition(
         definition;
         parameter_overrides,
-        interaction_overrides,
         sinking_tracers,
         open_bottom,
         grid,

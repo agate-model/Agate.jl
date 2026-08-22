@@ -180,10 +180,9 @@ end
 `storage_axes=nothing` means requirement-local storage; explicit axes identify the
 global runtime storage coordinate system used by the bound parameter.
 """
-struct ParameterBinding{R<:ParameterRequirement,P<:Tuple,A}
+struct ParameterBinding{R<:ParameterRequirement,A}
     requirement::R
     parameter::Symbol
-    runtime_path::P
     storage_axes::A
 end
 
@@ -741,14 +740,13 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
                     "parameter requirement $identity is provided by both :$(first(provided[identity])) and :$(spec.name)",
                 ),
             )
-            provided[identity] = (spec.name, spec.runtime_path, spec.axes)
+            provided[identity] = (spec.name, spec.axes)
         end
 
         resolved_spec = ParameterSpec(
             spec.name,
             shape;
             axes=spec.axes,
-            runtime_path=spec.runtime_path,
             materialization=spec.materialization,
             provides=spec.provides,
         )

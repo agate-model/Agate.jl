@@ -19,21 +19,18 @@ function Agate.Parameters.parameter_definitions(::ThreeInteractionMatrixSource)
             Agate.Parameters.NoDefault();
             shape=:matrix,
             axes=(:consumer, :prey),
-            runtime_path=(:interactions, :encounter),
         ),
         Agate.Parameters.ParameterDefinition(
             :capture_efficiency_matrix,
             Agate.Parameters.NoDefault();
             shape=:matrix,
             axes=(:consumer, :prey),
-            runtime_path=(:interactions, :capture_efficiency),
         ),
         Agate.Parameters.ParameterDefinition(
             :handling_time_matrix,
             Agate.Parameters.NoDefault();
             shape=:matrix,
             axes=(:consumer, :prey),
-            runtime_path=(:interactions, :handling_time),
         ),
     )
 end
@@ -93,14 +90,15 @@ end
         @test recipe.community.microzoo.diameters isa
               Agate.Configuration.DiameterRangeSpecification
         @test recipe.community.microzoo.diameters.splitting === :log_splitting
-        @test recipe.parameter_overrides == inputs.parameters
-        @test keys(recipe.interaction_overrides) == (:palatability_matrix,)
-        @test recipe.interaction_overrides.palatability_matrix == palatability
+        @test recipe.parameter_overrides == merge(
+            inputs.parameters, (palatability_matrix=inputs.palatability_matrix,)
+        )
+        @test recipe.parameter_overrides.palatability_matrix == palatability
 
         phyto_diameters[1] = 999.0
         palatability[1, 1] = 999.0
         @test recipe.community.diat.diameters.diameters[1] == 2.0
-        @test recipe.interaction_overrides.palatability_matrix[1, 1] == Float32(0.8)
+        @test recipe.parameter_overrides.palatability_matrix[1, 1] == Float32(0.8)
 
         replayed = NiPiZD.construct_from_recipe(recipe; scalar_type=Float32)
         @test replayed.parameters == manifest.parameters
@@ -143,8 +141,8 @@ end
             :dino_1,
             :dino_2,
         )
-        @test size(named.parameters.interactions.palatability) == (3, 5)
-        @test size(named.parameters.interactions.assimilation) == (3, 5)
+        @test size(named.parameters.palatability_matrix) == (3, 5)
+        @test size(named.parameters.assimilation_matrix) == (3, 5)
         @test count(x -> x != 0, named.parameters.maximum_growth_rate) == 5
         @test count(x -> x != 0, named.parameters.maximum_predation_rate) == 3
 
@@ -226,8 +224,8 @@ end
             palatability_matrix=palatability,
             assimilation_matrix=assimilation,
         )
-        @test explicit_interactions.parameters.interactions.palatability == palatability
-        @test explicit_interactions.parameters.interactions.assimilation == assimilation
+        @test explicit_interactions.parameters.palatability_matrix == palatability
+        @test explicit_interactions.parameters.assimilation_matrix == assimilation
 
         @test_throws ArgumentError NiPiZD.construct(;
             size_structure=named_size_structure,
@@ -236,12 +234,11 @@ end
         )
     end
 
-    @testset "NiPiZD interaction overrides" begin
+    @testset "NiPiZD interaction parameter overrides" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
-        ints0 = bgc.parameters.interactions
-        n_total = length(ints0.global_to_prey)
-        n_cons = length(ints0.consumer_global)
-        n_prey = length(ints0.prey_global)
+        n_total = length(bgc.parameters.specificity)
+        n_cons = length(bgc.interaction_axes.consumers)
+        n_prey = length(bgc.interaction_axes.prey)
 
         wrong = zeros(Float32, 3, 3)
         @test_throws ArgumentError NiPiZD.construct(;
@@ -266,7 +263,7 @@ end
             assimilation_matrix=axis_block,
         )
 
-        # Full-square matrices are not accepted for role-aware interaction overrides.
+        # Full-square matrices are not accepted for role-aware interaction parameters.
         correct = zeros(Float32, n_total, n_total)
         @test_throws ArgumentError NiPiZD.construct(;
             grid=dummy_grid(Float32),
@@ -274,7 +271,7 @@ end
             assimilation_matrix=correct,
         )
 
-        # Provider/callable values are not supported for interaction overrides.
+        # Provider/callable values are not parameter values.
         rect_provider(ctx) = fill(
             Float32(9), length(ctx.consumer_indices), length(ctx.prey_indices)
         )
@@ -289,46 +286,17 @@ end
             e
         end
         @test err isa ArgumentError
-        @test occursin("providers are not supported", sprint(showerror, err))
+        @test occursin("must be a matrix", sprint(showerror, err))
     end
 
-    @testset "InteractionMatrices structural equality" begin
-        interactions = NiPiZD.construct(; grid=dummy_grid(Float32)).parameters.interactions
-
-        matrix_names = keys(interactions.matrices)
-        copied_matrices = NamedTuple{matrix_names}(
-            Tuple(copy(getproperty(interactions.matrices, name)) for name in matrix_names)
-        )
-        copied = typeof(interactions)(
-            copied_matrices,
-            copy(interactions.consumer_global),
-            copy(interactions.prey_global),
-            copy(interactions.global_to_consumer),
-            copy(interactions.global_to_prey),
-        )
-        @test copied == interactions
-
-        function replace_field(interactions, field::Symbol, value)
-            names = fieldnames(typeof(interactions))
-            values = ntuple(
-                i -> names[i] === field ? value : getfield(interactions, i), length(names)
-            )
-            return typeof(interactions)(values...)
-        end
-
-        for field in fieldnames(typeof(interactions))
-            changed = if field === :matrices
-                name = first(keys(interactions.matrices))
-                matrix = copy(getproperty(interactions.matrices, name))
-                matrix[1, 1] += one(eltype(matrix))
-                merge(interactions.matrices, NamedTuple{(name,)}((matrix,)))
-            else
-                value = copy(getproperty(interactions, field))
-                value[1] = value[1] == 0 ? 1 : 0
-                value
-            end
-            @test replace_field(interactions, field, changed) != interactions
-        end
+    @testset "Canonical interaction parameter identity" begin
+        bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
+        @test !hasproperty(bgc.parameters, :interactions)
+        @test bgc.interaction_axes.parameters == (:palatability_matrix, :assimilation_matrix)
+        @test bgc.interaction_axes.consumers == (:Z_1, :Z_2)
+        @test bgc.interaction_axes.prey == (:P_1, :P_2)
+        @test size(bgc.parameters.palatability_matrix) == (2, 2)
+        @test size(bgc.parameters.assimilation_matrix) == (2, 2)
     end
 
     @testset "Generic interaction matrix collection" begin
@@ -343,23 +311,14 @@ end
             [1],
             [2, 3],
         )
-        params = (;
-            encounter_matrix=Float32[1 2],
-            capture_efficiency_matrix=Float32[0.5 0.75],
-            handling_time_matrix=Float32[3 4],
+        metadata = Agate.Configuration.interaction_axis_metadata(
+            ThreeInteractionMatrixSource(), context
         )
-
-        finalized = Agate.Configuration.finalize_interaction_parameters(
-            ThreeInteractionMatrixSource(), context, params
+        @test metadata.parameters == (
+            :encounter_matrix, :capture_efficiency_matrix, :handling_time_matrix
         )
-        interactions = finalized.interactions
-
-        @test keys(interactions.matrices) == (:encounter, :capture_efficiency, :handling_time)
-        @test interactions.encounter === finalized.encounter_matrix
-        @test interactions.capture_efficiency === finalized.capture_efficiency_matrix
-        @test interactions.handling_time === finalized.handling_time_matrix
-        @test interactions.consumer_global == [1]
-        @test interactions.prey_global == [2, 3]
+        @test metadata.consumers == (:consumer_1,)
+        @test metadata.prey == (:prey_1, :prey_2)
     end
 
     @testset "Derived interaction matrices" begin
@@ -368,16 +327,13 @@ end
         # explicitly overridden).
 
         bgc0 = NiPiZD.construct(; grid=dummy_grid(Float32))
-        pal0 = bgc0.parameters.interactions.palatability
-        n_total = length(bgc0.parameters.interactions.global_to_prey)
-
-        specificity = zeros(Float32, n_total)
-        specificity[bgc0.parameters.interactions.consumer_global] .= 3.0f0
+        pal0 = bgc0.parameters.palatability_matrix
+        specificity = fill(Float32(3), length(bgc0.parameters.specificity))
 
         bgc1 = NiPiZD.construct(;
             grid=dummy_grid(Float32), parameters=(; specificity=specificity)
         )
-        pal1 = bgc1.parameters.interactions.palatability
+        pal1 = bgc1.parameters.palatability_matrix
         @test any(pal1 .!= pal0)
 
         rect = fill(Float32(11), size(pal0))
@@ -386,7 +342,7 @@ end
             parameters=(; specificity=specificity),
             palatability_matrix=rect,
         )
-        @test all(bgc2.parameters.interactions.palatability .== rect)
+        @test all(bgc2.parameters.palatability_matrix .== rect)
     end
 
 
@@ -417,8 +373,8 @@ end
             bgc_positional.parameters.optimum_predator_prey_ratio
         @test bgc_named.parameters.maximum_growth_rate ==
             bgc_positional.parameters.maximum_growth_rate
-        @test bgc_named.parameters.interactions.palatability ==
-            bgc_positional.parameters.interactions.palatability
+        @test bgc_named.parameters.palatability_matrix ==
+            bgc_positional.parameters.palatability_matrix
 
 
         err = try
@@ -602,7 +558,7 @@ end
 
                 @test required_biogeochemical_tracers(bgc_gpu) ==
                     required_biogeochemical_tracers(bgc_cpu)
-                @test bgc_gpu.parameters.interactions.palatability isa array_type(GPU())
+                @test bgc_gpu.parameters.palatability_matrix isa array_type(GPU())
                 @test bgc_gpu.parameters.maximum_predation_rate isa array_type(GPU())
 
                 grid = RectilinearGrid(

@@ -10,9 +10,6 @@ struct VecParamOp{S,I} end
 """Static setup-time operand that reads one matrix parameter element."""
 struct MatParamOp{S,I,J} end
 
-"""Static setup-time operand that reads one interaction-matrix element."""
-struct InteractionParamOp{S,I,J} end
-
 """Static operand whose value is one minus another operand."""
 struct ComplementOp{O}
     operand::O
@@ -35,8 +32,6 @@ end
     @inbounds getproperty(bgc.parameters, S)[I]
 @inline operand_value(::MatParamOp{S,I,J}, bgc, args) where {S,I,J} =
     @inbounds getproperty(bgc.parameters, S)[I, J]
-@inline operand_value(::InteractionParamOp{S,I,J}, bgc, args) where {S,I,J} =
-    @inbounds getproperty(bgc.parameters.interactions, S)[I, J]
 @inline function operand_value(op::ComplementOp, bgc, args)
     value = operand_value(op.operand, bgc, args)
     return one(value) - value
@@ -130,29 +125,18 @@ end
 
 function parameter_operand(binding::ParameterBinding, indices::Int...)
     shape = binding.requirement.shape
-    path = binding.runtime_path
+    parameter = binding.parameter
 
     if shape === :scalar
         isempty(indices) || throw(ArgumentError("scalar parameter operands do not take indices"))
-        length(path) == 1 || throw(
-            ArgumentError("scalar runtime parameter paths must have one component; got $path"),
-        )
-        return ScalarParamOp{only(path)}()
+        return ScalarParamOp{parameter}()
     elseif shape === :vector
         length(indices) == 1 || throw(ArgumentError("vector parameter operands require one index"))
-        length(path) == 1 || throw(
-            ArgumentError("vector runtime parameter paths must have one component; got $path"),
-        )
-        return VecParamOp{only(path),only(indices)}()
+        return VecParamOp{parameter,only(indices)}()
     elseif shape === :matrix
         length(indices) == 2 || throw(ArgumentError("matrix parameter operands require two indices"))
         i, j = indices
-        if length(path) == 1
-            return MatParamOp{only(path),i,j}()
-        elseif length(path) == 2 && first(path) === :interactions
-            return InteractionParamOp{last(path),i,j}()
-        end
-        throw(ArgumentError("unsupported matrix runtime parameter path $path"))
+        return MatParamOp{parameter,i,j}()
     end
     throw(ArgumentError("unsupported parameter requirement shape $shape"))
 end

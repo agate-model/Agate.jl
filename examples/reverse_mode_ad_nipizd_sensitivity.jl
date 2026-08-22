@@ -46,10 +46,8 @@ const PHYTOPLANKTON_INDICES = tracer_index.(PHYTOPLANKTON)
 const ACTIVE = Agate.Runtime.active_parameters(BGC;
     maximum_growth_rate = (:P_1, :P_2),
     detritus_remineralization = true,
-    interactions = (;
-        palatability = ((:Z_1, :P_1), (:Z_1, :P_2), (:Z_2, :P_1)),
-        assimilation = ((:Z_1, :P_1),),
-    ),
+    palatability_matrix = ((:Z_1, :P_1), (:Z_1, :P_2), (:Z_2, :P_1)),
+    assimilation_matrix = ((:Z_1, :P_1),),
 )
 const PARAMETER_LABELS = ACTIVE.labels
 

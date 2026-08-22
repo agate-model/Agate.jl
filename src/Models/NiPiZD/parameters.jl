@@ -115,7 +115,6 @@ function parameter_definitions(::NiPiZDFamily)
                 ),
             );
             axes=(:consumer, :prey),
-            runtime_path=(:interactions, :palatability),
             provides=ParameterProvision(:grazing_Z_on_P, :palatability),
         ),
         ParameterDefinition(
@@ -124,7 +123,6 @@ function parameter_definitions(::NiPiZDFamily)
                 AssimilationBinary(); deps=(:assimilation_efficiency,)
             );
             axes=(:consumer, :prey),
-            runtime_path=(:interactions, :assimilation),
             provides=ParameterProvision(:grazing_Z_on_P, :assimilation),
         ),
         ParameterDefinition(

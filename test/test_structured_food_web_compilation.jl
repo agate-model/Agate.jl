@@ -17,9 +17,8 @@ using Agate.Processes:
 function food_web_parameters()
     slot(process, name) = ParameterProvision(process, name)
     no_default(
-        name, shape, provides; runtime_path=(name,),
-        axes=shape === :vector ? :plankton : nothing,
-    ) = ParameterDefinition(name, NoDefault(); shape, axes, runtime_path, provides)
+        name, shape, provides; axes=shape === :vector ? :plankton : nothing,
+    ) = ParameterDefinition(name, NoDefault(); shape, axes, provides)
 
     return (
         no_default(:maximum_growth_rate, :vector,
@@ -50,13 +49,11 @@ function food_web_parameters()
         no_default(
             :living_palatability_matrix, :matrix,
             slot(:grazing_living, :palatability);
-            runtime_path=(:interactions, :living_palatability),
             axes=(:consumer, :prey),
         ),
         no_default(
             :living_assimilation_matrix, :matrix,
             slot(:grazing_living, :assimilation);
-            runtime_path=(:interactions, :living_assimilation),
             axes=(:consumer, :prey),
         ),
     )

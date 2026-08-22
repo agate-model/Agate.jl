@@ -112,14 +112,12 @@ parameters = (
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
         );
         axes=(:consumer, :prey),
-        runtime_path=(:interactions, :living_palatability),
         provides=ParameterProvision(:graze_bacteria, :palatability),
     ),
     ParameterDefinition(
         :living_assimilation,
         DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,));
         axes=(:consumer, :prey),
-        runtime_path=(:interactions, :living_assimilation),
         provides=ParameterProvision(:graze_bacteria, :assimilation),
     ),
 )

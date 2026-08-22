@@ -34,7 +34,7 @@ explicit_json_value(::Any) = false
     _, default_recipe = NiPiZD.construct_plus_recipe()
     default_encoded = encode_recipe(default_recipe)
     @test decode_recipe(default_encoded) == default_recipe
-    @test default_encoded["schema"] == "agate.model_recipe.v0.4"
+    @test default_encoded["schema"] == "agate.model_recipe.v0.5"
 
     bgc, recipe = NiPiZD.construct_plus_recipe(; authored_nipizd_inputs(Float32)...)
     manifest = nipizd_manifest(recipe; scalar_type=Float32)
@@ -44,7 +44,7 @@ explicit_json_value(::Any) = false
     recipe_hash = encoded["recipe_hash"]
     @test explicit_json_value(encoded)
     bgc.parameters.palatability_matrix[1, 1] = 0f0
-    @test recipe.interaction_overrides.palatability_matrix[1, 1] == 0.8f0
+    @test recipe.parameter_overrides.palatability_matrix[1, 1] == 0.8f0
     @test encode_recipe(recipe)["recipe_hash"] == recipe_hash
     decoded = decode_recipe(encoded)
     decoded_manifest = nipizd_manifest(decoded; scalar_type=Float32)
@@ -56,7 +56,6 @@ explicit_json_value(::Any) = false
         "community",
         "population_groups",
         "parameter_overrides",
-        "interaction_overrides",
         "sinking_tracers",
         "open_bottom",
     ))
@@ -107,7 +106,6 @@ explicit_json_value(::Any) = false
         recipe.population_groups,
         recipe.community,
         recipe.parameter_overrides,
-        recipe.interaction_overrides,
         recipe.sinking_tracers,
         recipe.open_bottom,
     )
@@ -120,7 +118,6 @@ explicit_json_value(::Any) = false
         recipe.population_groups,
         recipe.community,
         recipe.parameter_overrides,
-        recipe.interaction_overrides,
         recipe.sinking_tracers,
         recipe.open_bottom,
     )
@@ -139,7 +136,6 @@ explicit_json_value(::Any) = false
         recipe.population_groups,
         recipe.community,
         recipe.parameter_overrides,
-        recipe.interaction_overrides,
         recipe.sinking_tracers,
         recipe.open_bottom,
     )
@@ -224,7 +220,7 @@ explicit_json_value(::Any) = false
         )),
         modified(encoded, x -> (
             encoded_named_value(
-                x["recipe"]["realization"]["interaction_overrides"], :palatability_matrix
+                x["recipe"]["realization"]["parameter_overrides"], :palatability_matrix
             )[2] = [0.3]
         )),
     )

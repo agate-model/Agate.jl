@@ -75,15 +75,6 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
         @test specmap[:palatability_matrix].shape == :matrix
         @test specmap[:palatability_matrix].axes == (:consumer, :prey)
         @test specmap[:assimilation_matrix].axes == (:consumer, :prey)
-        @test (
-            specmap[:maximum_growth_rate].runtime_path,
-            specmap[:palatability_matrix].runtime_path,
-            specmap[:assimilation_matrix].runtime_path,
-        ) == (
-            (:maximum_growth_rate,),
-            (:interactions, :palatability),
-            (:interactions, :assimilation),
-        )
     end
 
     @testset "Derived default dependency resolution" begin

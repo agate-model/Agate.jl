@@ -21,7 +21,7 @@ using ..Library.Allometry:
     allometric_relationship_identifier,
     allometric_relationship_from_identifier
 
-const PROCESS_MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.4"
+const PROCESS_MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.5"
 const _RECIPE_DOCUMENT_KEYS = ("schema", "model", "provenance", "recipe", "recipe_hash")
 const _RECIPE_MODEL_KEYS = ("family",)
 const _SUPPORTED_SPLITTING = (:linear_splitting, :log_splitting)
@@ -508,7 +508,6 @@ function _encode_process_recipe_data(recipe::ProcessModelRecipe)
         "community" => _encode_community(recipe.community),
         "population_groups" => _encode_value(recipe.population_groups),
         "parameter_overrides" => _encode_value(recipe.parameter_overrides),
-        "interaction_overrides" => _encode_value(recipe.interaction_overrides),
         "sinking_tracers" => isnothing(recipe.sinking_tracers) ? nothing : _encode_value(recipe.sinking_tracers),
         "open_bottom" => recipe.open_bottom,
     )
@@ -540,7 +539,6 @@ const _PROCESS_REALIZATION_KEYS = (
     "community",
     "population_groups",
     "parameter_overrides",
-    "interaction_overrides",
     "sinking_tracers",
     "open_bottom",
 )
@@ -628,15 +626,6 @@ function _decode_process_model_recipe(document::AbstractDict)
     parameter_overrides isa NamedTuple || throw(
         ArgumentError("Recipe parameter_overrides must decode to a NamedTuple.")
     )
-    interaction_overrides = _decode_value(
-        realization["interaction_overrides"], "Recipe document.recipe.realization.interaction_overrides"
-    )
-    interaction_overrides isa NamedTuple || throw(
-        ArgumentError("Recipe interaction_overrides must decode to a NamedTuple.")
-    )
-    all(value -> value isa AbstractMatrix, values(interaction_overrides)) || throw(
-        ArgumentError("Recipe interaction_overrides values must be matrices.")
-    )
     sinking_tracers = isnothing(realization["sinking_tracers"]) ? nothing : _decode_value(
         realization["sinking_tracers"], "Recipe document.recipe.realization.sinking_tracers"
     )
@@ -651,7 +640,6 @@ function _decode_process_model_recipe(document::AbstractDict)
         population_groups,
         community,
         parameter_overrides,
-        interaction_overrides,
         sinking_tracers,
         _boolean(realization["open_bottom"], "Recipe document.recipe.realization.open_bottom"),
     )

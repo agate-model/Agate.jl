@@ -18,14 +18,13 @@ end
 subgroup realization and authored overrides. Runtime precision, architecture, host fields,
 parameter materialization, topology maps, and compiled equations are derived on replay.
 """
-struct ProcessModelRecipe{C,P,G,CM,PO,IO,S}
+struct ProcessModelRecipe{C,P,G,CM,PO,S}
     family::Symbol
     components::C
     processes::P
     population_groups::G
     community::CM
     parameter_overrides::PO
-    interaction_overrides::IO
     sinking_tracers::S
     open_bottom::Bool
 end
@@ -131,7 +130,6 @@ function capture_process_model_recipe(
     population_groups::NamedTuple,
     community::NamedTuple,
     parameter_overrides::NamedTuple=(;),
-    interaction_overrides::NamedTuple=(;),
     sinking_tracers=nothing,
     open_bottom::Bool=true,
 )
@@ -146,7 +144,6 @@ function capture_process_model_recipe(
         deepcopy(population_groups),
         deepcopy(_normalize_recipe_community(community)),
         deepcopy(parameter_overrides),
-        deepcopy(interaction_overrides),
         deepcopy(sinking_tracers),
         open_bottom,
     )

@@ -123,9 +123,7 @@ active = active_parameters(
     bgc;
     maximum_growth_rate = (:P_1, :P_2),
     detritus_remineralization = true,
-    interactions = (;
-        palatability = ((:Z_1, :P_1), (:Z_1, :P_2)),
-    ),
+    palatability_matrix = ((:Z_1, :P_1), (:Z_1, :P_2)),
 )
 
 θ = copy(active.values)
@@ -239,7 +237,7 @@ function matrix_active_parameter_entry!(labels, values, bgc, path::Tuple, value,
 
     entries = []
     for (row, column) in selection
-        indices = interaction_parameter_indices(bgc, row, column)
+        indices = interaction_parameter_indices(bgc, only(path), row, column)
         push_active_slot!(entries, labels, values, active_index, "$(path_label(path))[$row, $column]", value[indices...], indices)
     end
 
@@ -247,23 +245,21 @@ function matrix_active_parameter_entry!(labels, values, bgc, path::Tuple, value,
 end
 
 const CONSTRUCTOR_DERIVED_ACTIVE_PARAMETERS = (
-    :palatability_matrix => ":interactions.palatability",
-    :assimilation_matrix => ":interactions.assimilation",
-    :specificity => ":interactions.palatability",
-    :protection => ":interactions.palatability",
-    :optimum_predator_prey_ratio => ":interactions.palatability",
-    :assimilation_efficiency => ":interactions.assimilation",
+    :specificity => :palatability_matrix,
+    :protection => :palatability_matrix,
+    :optimum_predator_prey_ratio => :palatability_matrix,
+    :assimilation_efficiency => :assimilation_matrix,
 )
 
 function validate_runtime_active_parameter(path::Tuple)
     length(path) == 1 || return nothing
 
     name = only(path)
-    for (derived, runtime_path) in CONSTRUCTOR_DERIVED_ACTIVE_PARAMETERS
+    for (derived, runtime_parameter) in CONSTRUCTOR_DERIVED_ACTIVE_PARAMETERS
         name === derived || continue
         throw(ArgumentError(
             "Active parameter :$name is not currently supported because it is used to derive " *
-            "the runtime parameter $runtime_path during model construction. Select $runtime_path instead."
+            "the runtime parameter :$runtime_parameter during model construction. Select :$runtime_parameter instead."
         ))
     end
 
@@ -283,18 +279,24 @@ function plankton_parameter_index(bgc, tracer::Symbol)
     return parameter_index
 end
 
-function interaction_parameter_indices(bgc, consumer::Symbol, prey::Symbol)
-    hasproperty(bgc.parameters, :interactions) || throw(ArgumentError("Model has no interaction matrix axes."))
+function interaction_parameter_indices(
+    bgc, parameter::Symbol, consumer::Symbol, prey::Symbol
+)
+    axes = bgc.interaction_axes
+    axes === nothing && throw(ArgumentError("Model has no interaction matrix axes."))
+    parameter in axes.parameters || throw(
+        ArgumentError(":$parameter is not a consumer-by-prey interaction parameter."),
+    )
 
-    interactions = bgc.parameters.interactions
-    consumer_global = plankton_parameter_index(bgc, consumer)
-    prey_global = plankton_parameter_index(bgc, prey)
+    consumer_index = findfirst(==(consumer), axes.consumers)
+    prey_index = findfirst(==(prey), axes.prey)
 
-    consumer_index = interactions.global_to_consumer[consumer_global]
-    prey_index = interactions.global_to_prey[prey_global]
-
-    consumer_index > 0 || throw(ArgumentError("Tracer :$consumer is not on the consumer axis."))
-    prey_index > 0 || throw(ArgumentError("Tracer :$prey is not on the prey axis."))
+    consumer_index === nothing && throw(
+        ArgumentError("Class :$consumer is not on the consumer axis."),
+    )
+    prey_index === nothing && throw(
+        ArgumentError("Class :$prey is not on the prey axis."),
+    )
 
     return (consumer_index, prey_index)
 end

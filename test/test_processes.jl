@@ -278,8 +278,8 @@ end
         normalized, grazing, (), grazing.process.formulation
     )
     @test (
-        grazing_slots.palatability.runtime_path, grazing_slots.assimilation.runtime_path
-    ) == ((:interactions, :palatability), (:interactions, :assimilation))
+        grazing_slots.palatability.parameter, grazing_slots.assimilation.parameter
+    ) == (:palatability_matrix, :assimilation_matrix)
 
     @test participants(normalized.processes.growth_P) == (population=(:P,),)
     @test drivers(normalized.processes.growth_P) == (light=:PAR,)
@@ -462,13 +462,11 @@ end
         ParameterDefinition(
             :palatability, ConstantDefault(1.0);
             axes=(:consumer, :prey),
-            runtime_path=(:interactions, :palatability),
             provides=ParameterProvision(:grazing, :palatability),
         ),
         ParameterDefinition(
             :assimilation, ConstantDefault(0.7);
             axes=(:consumer, :prey),
-            runtime_path=(:interactions, :assimilation),
             provides=ParameterProvision(:grazing, :assimilation),
         ),
     )

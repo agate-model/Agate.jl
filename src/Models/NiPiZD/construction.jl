@@ -76,19 +76,16 @@ function _construction_inputs(;
     family = NiPiZDFamily()
     community_inputs = _community_inputs(size_structure)
 
-    pairs = Pair{Symbol,Any}[]
-    palatability_matrix !== nothing &&
-        push!(pairs, :palatability_matrix => palatability_matrix)
-    assimilation_matrix !== nothing &&
-        push!(pairs, :assimilation_matrix => assimilation_matrix)
-
-    interaction_overrides = (; pairs...)
+    parameter_overrides = parameters
+    palatability_matrix === nothing ||
+        (parameter_overrides = merge(parameter_overrides, (; palatability_matrix)))
+    assimilation_matrix === nothing ||
+        (parameter_overrides = merge(parameter_overrides, (; assimilation_matrix)))
     recipe = Construction.capture_process_model_recipe(
         family;
         population_groups=community_inputs.component_groups,
         community=community_inputs.community,
-        parameter_overrides=parameters,
-        interaction_overrides,
+        parameter_overrides,
         sinking_tracers,
         open_bottom,
     )
@@ -187,7 +184,7 @@ end
 
 Construct NiPiZD and return the model together with its authored scientific recipe.
 The recipe records canonical components, named processes, parameter bindings, subgroup
-realization, authored parameter and interaction overrides, sinking configuration, and
+realization, authored parameter overrides, sinking configuration, and
 open-bottom state. Runtime grid, architecture, scalar precision, and compiled equations
 are derived when the recipe is realized.
 """

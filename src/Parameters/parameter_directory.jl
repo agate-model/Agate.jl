@@ -73,15 +73,13 @@ Fields
   vector/matrix storage is process-local and follows the resolved provision applicability.
   `axes=:plankton` selects the full living-class axis; matrix axes such as
   `(:consumer, :prey)` select the corresponding global role axes.
-- `runtime_path`: concrete runtime storage path below `bgc.parameters`.
 - `materialization`: optional constructor-time parameter-law materialization semantics.
 - `provides`: semantic process parameter slots supplied by this parameter.
 """
-struct ParameterSpec{R<:Tuple,P<:Tuple}
+struct ParameterSpec{P<:Tuple}
     name::Symbol
     shape::Union{Nothing,Symbol}
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}
-    runtime_path::R
     materialization::Union{Nothing,DiameterIndexedMaterialization}
     provides::P
 end
@@ -91,21 +89,16 @@ function ParameterSpec(
     name::Symbol,
     shape::Union{Nothing,Symbol}=nothing;
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
-    runtime_path::Tuple=(name,),
     materialization::Union{Nothing,DiameterIndexedMaterialization}=nothing,
     provides=(),
 )
-    isempty(runtime_path) && throw(ArgumentError("runtime_path cannot be empty"))
-    all(item -> item isa Symbol, runtime_path) || throw(
-        ArgumentError("runtime_path must contain only Symbols"),
-    )
     provisions = _parameter_provisions(provides)
     declared_shape = if isnothing(shape)
         axes isa Symbol ? :vector : axes isa Tuple ? :matrix : nothing
     else
         shape
     end
-    return ParameterSpec(name, declared_shape, axes, runtime_path, materialization, provisions)
+    return ParameterSpec(name, declared_shape, axes, materialization, provisions)
 end
 
 """Abstract supertype for constructor-time default providers.
@@ -135,11 +128,10 @@ function ParameterDefinition(
     default::D;
     shape::Union{Nothing,Symbol}=nothing,
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
-    runtime_path::Tuple=(name,),
     materialization::Union{Nothing,DiameterIndexedMaterialization}=nothing,
     provides=(),
 ) where {D<:DefaultProvider}
-    spec = ParameterSpec(name, shape; axes, runtime_path, materialization, provides)
+    spec = ParameterSpec(name, shape; axes, materialization, provides)
     return ParameterDefinition(spec, default)
 end
 

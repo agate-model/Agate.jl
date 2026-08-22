@@ -38,7 +38,7 @@ processes = (
 # Parameters name their scientific process slot through `ParameterProvision`;
 # formulation and nested path are inferred unless disambiguation is needed.
 # Vector parameters use the realized plankton axis, while derived interaction
-# matrices are stored under `bgc.parameters.interactions`.
+# matrices are ordinary top-level runtime parameters.
 
 parameters = (
     ParameterDefinition(
@@ -98,14 +98,12 @@ parameters = (
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
         );
         axes=(:consumer, :prey),
-        runtime_path=(:interactions, :palatability),
         provides=ParameterProvision(:grazing_M, :palatability),
     ),
     ParameterDefinition(
         :assimilation_matrix,
         DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,));
         axes=(:consumer, :prey),
-        runtime_path=(:interactions, :assimilation),
         provides=ParameterProvision(:grazing_M, :assimilation),
     ),
 )
