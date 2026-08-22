@@ -803,7 +803,7 @@ function _construct_process_definition(
     isnothing(derivation_owner) && (derivation_owner = definition)
     isnothing(definition.parameters) && !isempty(normalized.parameter_requirements) && throw(
         ArgumentError(
-            "construct(definition) requires ModelDefinition.parameters to provide the process parameter requirements."
+            "construct(definition) requires ModelDefinition.parameters for the declared process parameter slots."
         ),
     )
     realization = _realize_process_definition(

@@ -11,10 +11,13 @@ export derive_default
 export parameter_directory
 export parameter_spec
 
-"""Declare that a model parameter supplies one semantic process parameter slot.
+"""Legacy declaration that a model parameter supplies one semantic process parameter slot.
 
-`process` is the stable named process identity and `slot` is the scientific parameter
-name. `qualifier` narrows repeated slots, such as Monod `K` for a specific resource.
+New model definitions bind slots directly on their owning process/factor nodes with `bindings=`.
+This type remains temporarily available while the v0.12 implementation migrates off the
+requirement/provision path. `process` is the stable named process identity and `slot` is the
+scientific parameter name. `qualifier` narrows repeated slots, such as Monod `K` for a specific
+resource.
 `path` is an optional disambiguator for models that contain more than one matching
 slot within the same process. Formulation and resolved path are otherwise derived
 from the normalized process definition.
@@ -99,11 +102,10 @@ end
 
 """Define one model parameter value/default independent of its model-level key.
 
-`shape` may be `:scalar`, `:vector`, or `:matrix`. For provision-bound parameters it
-may be omitted and is inferred from the resolved process requirement. Explicit runtime
-`axes` also imply vector or matrix shape. Parameters with neither provisions nor axes
-must declare shape explicitly. `provides` links the parameter to one or more scientific
-process parameter slots until the inline-binding migration removes that legacy layer.
+`shape` may be `:scalar`, `:vector`, or `:matrix`. For slot-bound parameters it may be
+omitted and is inferred from the resolved process requirement. Explicit runtime `axes` also
+imply vector or matrix shape. Parameters with neither a scientific slot binding nor axes must
+declare shape explicitly. `provides` remains only for the temporary legacy normalization path.
 """
 function Parameter(
     default::D;
@@ -183,8 +185,8 @@ parameter_definitions(source) = (;)
 
 """Return authored parameter specifications keyed by stable model parameter name.
 
-Provision-bound specifications may have `shape === nothing` until `normalize_model`
-resolves their process requirements.
+Slot-bound specifications may have `shape === nothing` until `normalize_model` resolves their
+process requirements.
 """
 function parameter_directory(source)
     definitions = parameter_definitions(source)

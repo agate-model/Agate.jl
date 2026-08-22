@@ -100,8 +100,12 @@ explicit_json_value(::Any) = false
     reordered_growth = Growth(;
         populations=:P,
         factors=(
-            nutrients=NutrientResponse(Monod(); resource=:N),
-            light=Light(Smith(); driver=:PAR),
+            nutrients=NutrientResponse(
+                Monod(); resource=:N, bindings=(K=:nutrient_half_saturation,)
+            ),
+            light=Light(
+                Smith(); driver=:PAR, bindings=(maximum_rate=:maximum_growth_rate,)
+            ),
         ),
     )
     reordered_processes = merge(recipe.processes, (growth_P=reordered_growth,))

@@ -5,43 +5,29 @@ using Agate.Compilation:
 using Agate.Configuration:
     Population, Pool, realize_components, component_tracers, parse_community
 using Agate.Construction: construct, define_tracer_functions
-using Agate.Parameters:
-    ParameterProvision, Parameter, NoDefault
+using Agate.Parameters: Parameter, NoDefault
 using Agate.Processes:
     ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, ProductRouting,
     Smith, Monod, Q10, HeterotrophicConsumption, PreferentialGrazing, DirectRouting,
     normalize_model, participants, driver_identities
 
 function food_web_parameters()
-    slot(process, name) = ParameterProvision(process, name)
-    no_default(shape, provides; axes=shape === :vector ? :plankton : nothing) =
-        Parameter(NoDefault(); shape, axes, provides)
+    no_default(shape; axes=shape === :vector ? :plankton : nothing) =
+        Parameter(NoDefault(); shape, axes)
 
     return (
-        maximum_growth_rate=no_default(:vector, slot(:growth_autotrophs, :maximum_rate)),
-        alpha=no_default(:vector, slot(:growth_autotrophs, :alpha)),
-        nutrient_half_saturation=no_default(:vector, slot(:growth_autotrophs, :K)),
-        temperature_q10=no_default(:scalar, (
-            slot(:growth_autotrophs, :q10),
-            slot(:consume_POM, :q10),
-        )),
-        reference_temperature=no_default(:scalar, (
-            slot(:growth_autotrophs, :reference_temperature),
-            slot(:consume_POM, :reference_temperature),
-        )),
-        maximum_consumption_rate=no_default(:vector, slot(:consume_POM, :maximum_rate)),
-        pom_half_saturation=no_default(
-            :vector, slot(:consume_POM, :half_saturation); axes=nothing
-        ),
-        bacterial_assimilation=no_default(:matrix, slot(:consume_POM, :assimilation)),
-        maximum_predation_rate=no_default(:vector, slot(:grazing_living, :maximum_rate)),
-        holling_half_saturation=no_default(:vector, slot(:grazing_living, :half_saturation)),
-        living_palatability_matrix=no_default(
-            :matrix, slot(:grazing_living, :palatability); axes=(:consumer, :prey)
-        ),
-        living_assimilation_matrix=no_default(
-            :matrix, slot(:grazing_living, :assimilation); axes=(:consumer, :prey)
-        ),
+        maximum_growth_rate=no_default(:vector),
+        alpha=no_default(:vector),
+        nutrient_half_saturation=no_default(:vector),
+        temperature_q10=no_default(:scalar; axes=nothing),
+        reference_temperature=no_default(:scalar; axes=nothing),
+        maximum_consumption_rate=no_default(:vector),
+        pom_half_saturation=no_default(:vector; axes=nothing),
+        bacterial_assimilation=no_default(:matrix; axes=nothing),
+        maximum_predation_rate=no_default(:vector),
+        holling_half_saturation=no_default(:vector),
+        living_palatability_matrix=no_default(:matrix; axes=(:consumer, :prey)),
+        living_assimilation_matrix=no_default(:matrix; axes=(:consumer, :prey)),
     )
 end
 
@@ -55,20 +41,31 @@ function food_web_compilation(::Type{T}=Float64) where {T<:Real}
         M=Population(:nitrogen; size_structure=T[2]),
         Z=Population(:nitrogen; size_structure=T[10]),
     )
-    temperature = Temperature(Q10())
+    temperature = Temperature(
+        Q10(); bindings=(q10=:temperature_q10, reference_temperature=:reference_temperature)
+    )
     processes = (
         growth_autotrophs=Growth(;
             populations=(:P, :M),
             factors=(
                 temperature=temperature,
-                nutrients=NutrientResponse(Monod(); resource=:N),
-                light=Light(Smith(); driver=:PAR),
+                nutrients=NutrientResponse(
+                    Monod(); resource=:N, bindings=(K=:nutrient_half_saturation,)
+                ),
+                light=Light(
+                    Smith(); driver=:PAR, bindings=(maximum_rate=:maximum_growth_rate,)
+                ),
             ),
         ),
         consume_POM=Consumption(
             HeterotrophicConsumption();
             consumers=:B,
             resources=:POM,
+            bindings=(
+                maximum_rate=:maximum_consumption_rate,
+                half_saturation=:pom_half_saturation,
+                assimilation=:bacterial_assimilation,
+            ),
             factors=(temperature=temperature,),
             routing=ProductRouting(DirectRouting(); destination=:D),
         ),
@@ -76,6 +73,12 @@ function food_web_compilation(::Type{T}=Float64) where {T<:Real}
             PreferentialGrazing();
             consumers=(:M, :Z),
             resources=(:P, :B),
+            bindings=(
+                maximum_rate=:maximum_predation_rate,
+                half_saturation=:holling_half_saturation,
+                palatability=:living_palatability_matrix,
+                assimilation=:living_assimilation_matrix,
+            ),
             routing=ProductRouting(DirectRouting(); destination=:D),
         ),
     )
@@ -207,6 +210,11 @@ end
             HeterotrophicConsumption();
             consumers=:B,
             resources=:POM,
+            bindings=(
+                maximum_rate=:maximum_consumption_rate,
+                half_saturation=:pom_half_saturation,
+                assimilation=:bacterial_assimilation,
+            ),
             routing=ProductRouting(DirectRouting(); destination=:N),
         ),
     )
@@ -215,17 +223,14 @@ end
             NoDefault();
             shape=:vector,
             axes=:plankton,
-            provides=ParameterProvision(:consume_POM, :maximum_rate),
         ),
         pom_half_saturation=Parameter(
             NoDefault();
             shape=:vector,
-            provides=ParameterProvision(:consume_POM, :half_saturation),
         ),
         bacterial_assimilation=Parameter(
             NoDefault();
             shape=:matrix,
-            provides=ParameterProvision(:consume_POM, :assimilation),
         ),
     )
     definition = ModelDefinition(; components, processes, parameters)

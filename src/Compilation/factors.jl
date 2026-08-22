@@ -55,7 +55,7 @@ function _factor_element(
         definition,
         named,
         path,
-        formulation(factor);
+        factor;
         context=factor_parameter_context(factor),
     )
     parameter_operands = _factor_parameter_operands(slots, context, axis_positions)

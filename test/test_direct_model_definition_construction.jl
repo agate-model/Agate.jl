@@ -4,8 +4,7 @@ using Test
 
 using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Population, Pool
 using Agate.Construction: construct
-using Agate.Parameters:
-    DerivedDefault, ConstantDefault, Parameter, ParameterProvision
+using Agate.Parameters: DerivedDefault, ConstantDefault, Parameter
 using Agate.Processes:
     Consumption, Growth, Light, ModelDefinition, NutrientResponse, ProductRouting,
     Smith, Monod, PreferentialGrazing, DirectRouting
@@ -20,14 +19,24 @@ function direct_npz_definition()
         growth_P=Growth(;
             populations=:P,
             factors=(
-                light=Light(Smith(); driver=:PAR),
-                nutrients=NutrientResponse(Monod(); resource=:N),
+                light=Light(
+                    Smith(); driver=:PAR, bindings=(maximum_rate=:maximum_growth_rate,)
+                ),
+                nutrients=NutrientResponse(
+                    Monod(); resource=:N, bindings=(K=:nutrient_half_saturation,)
+                ),
             ),
         ),
         grazing_Z_on_P=Consumption(
             PreferentialGrazing();
             consumers=:Z,
             resources=:P,
+            bindings=(
+                maximum_rate=:maximum_predation_rate,
+                half_saturation=:holling_half_saturation,
+                palatability=:palatability_matrix,
+                assimilation=:assimilation_matrix,
+            ),
             routing=ProductRouting(DirectRouting(); destination=:N),
         ),
     )
@@ -35,27 +44,22 @@ function direct_npz_definition()
         maximum_growth_rate=Parameter(
             ConstantDefault(2e-5);
             axes=:plankton,
-            provides=ParameterProvision(:growth_P, :maximum_rate),
         ),
         alpha=Parameter(
             ConstantDefault(2e-6);
             axes=:plankton,
-            provides=ParameterProvision(:growth_P, :alpha),
         ),
         nutrient_half_saturation=Parameter(
             ConstantDefault(0.2);
             axes=:plankton,
-            provides=ParameterProvision(:growth_P, :K),
         ),
         maximum_predation_rate=Parameter(
             ConstantDefault(5e-5);
             axes=:plankton,
-            provides=ParameterProvision(:grazing_Z_on_P, :maximum_rate),
         ),
         holling_half_saturation=Parameter(
             ConstantDefault(0.1);
             axes=:plankton,
-            provides=ParameterProvision(:grazing_Z_on_P, :half_saturation),
         ),
         optimum_predator_prey_ratio=Parameter(
             ConstantDefault(10.0);
@@ -79,12 +83,10 @@ function direct_npz_definition()
                 deps=(:optimum_predator_prey_ratio, :specificity, :protection),
             );
             axes=(:consumer, :prey),
-            provides=ParameterProvision(:grazing_Z_on_P, :palatability),
         ),
         assimilation_matrix=Parameter(
             DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,));
             axes=(:consumer, :prey),
-            provides=ParameterProvision(:grazing_Z_on_P, :assimilation),
         ),
     )
     return ModelDefinition(; components, processes, parameters)

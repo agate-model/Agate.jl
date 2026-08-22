@@ -6,8 +6,7 @@ using Agate.Library.Light: FunctionFieldPAR
 using Agate.Diagnostics: box_model_mass_balance
 using Agate.Configuration: Population, Pool
 using Agate.Construction: construct
-using Agate.Parameters:
-    ConstantDefault, Parameter, ParameterProvision
+using Agate.Parameters: ConstantDefault, Parameter
 using Agate.Processes:
     FixedStoichiometry, Growth, Light, ModelDefinition, Nutrients, NutrientResponse,
     Geider, Liebig, FrankTNorm, Monod
@@ -29,55 +28,50 @@ function multi_nutrient_test_model(grid; nutrient_formulation=Liebig())
             populations=:P,
             source=:DIC,
             factors=(
-                light=Light(Geider(); driver=:PAR),
+                light=Light(
+                    Geider();
+                    driver=:PAR,
+                    bindings=(
+                        maximum_rate=:maximum_growth_rate,
+                        alpha=:photosynthetic_slope,
+                    ),
+                ),
                 nutrients=Nutrients(
                     nutrient_formulation;
+                    bindings=nutrient_formulation isa FrankTNorm ?
+                             (sharpness=:frank_sharpness,) : NamedTuple(),
                     responses=(
-                        nitrogen=NutrientResponse(Monod(); resource=:DIN),
-                        phosphorus=NutrientResponse(Monod(); resource=:PO4),
+                        nitrogen=NutrientResponse(
+                            Monod(); resource=:DIN, bindings=(K=:half_saturation_DIN,)
+                        ),
+                        phosphorus=NutrientResponse(
+                            Monod(); resource=:PO4, bindings=(K=:half_saturation_PO4,)
+                        ),
                     ),
                 ),
             ),
-            stoichiometry=FixedStoichiometry(; reference=:carbon),
+            stoichiometry=FixedStoichiometry(;
+                reference=:carbon,
+                bindings=(
+                    ratio=(
+                        nitrogen=:nitrogen_to_carbon,
+                        phosphorus=:phosphorus_to_carbon,
+                    ),
+                ),
+            ),
         ),
     )
     frank_tnorm_parameters = nutrient_formulation isa FrankTNorm ? (
-        frank_sharpness=Parameter(
-            ConstantDefault(25);
-            provides=ParameterProvision(
-                :growth_P, :sharpness; path=(:factors, :nutrients)
-            ),
-        ),
+        frank_sharpness=Parameter(ConstantDefault(25)),
     ) : (;)
     parameters = merge((
-        nitrogen_to_carbon=Parameter(
-            ConstantDefault(16 / 106);
-            provides=ParameterProvision(:growth_P, :ratio; qualifier=(currency=:nitrogen,)),
-        ),
-        phosphorus_to_carbon=Parameter(
-            ConstantDefault(1 / 106);
-            provides=ParameterProvision(:growth_P, :ratio; qualifier=(currency=:phosphorus,)),
-        ),
-        maximum_growth_rate=Parameter(
-            ConstantDefault(2 / 86400);
-            provides=ParameterProvision(:growth_P, :maximum_rate),
-        ),
-        half_saturation_DIN=Parameter(
-            ConstantDefault(0.5);
-            provides=ParameterProvision(:growth_P, :K; qualifier=(resource=:DIN,)),
-        ),
-        half_saturation_PO4=Parameter(
-            ConstantDefault(0.5);
-            provides=ParameterProvision(:growth_P, :K; qualifier=(resource=:PO4,)),
-        ),
-        photosynthetic_slope=Parameter(
-            ConstantDefault(0.1 / 86400);
-            provides=ParameterProvision(:growth_P, :alpha),
-        ),
-        chlorophyll_to_carbon_ratio=Parameter(
-            ConstantDefault(0.02);
-            provides=ParameterProvision(:growth_P, :chlorophyll_to_carbon_ratio),
-        ),
+        nitrogen_to_carbon=Parameter(ConstantDefault(16 / 106)),
+        phosphorus_to_carbon=Parameter(ConstantDefault(1 / 106)),
+        maximum_growth_rate=Parameter(ConstantDefault(2 / 86400)),
+        half_saturation_DIN=Parameter(ConstantDefault(0.5)),
+        half_saturation_PO4=Parameter(ConstantDefault(0.5)),
+        photosynthetic_slope=Parameter(ConstantDefault(0.1 / 86400)),
+        chlorophyll_to_carbon_ratio=Parameter(ConstantDefault(0.02)),
     ), frank_tnorm_parameters)
 
     return construct(ModelDefinition(; components, processes, parameters); grid)

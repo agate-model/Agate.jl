@@ -29,7 +29,7 @@ function _growth_scale_binding(
         any(slot -> slot.name === :maximum_rate, parameter_slots(formulation(factor))) ||
             continue
         slots = parameter_slot_bindings(
-            definition, named, (:factors, name), formulation(factor)
+            definition, named, (:factors, name), factor
         )
         push!(matches, slots.maximum_rate)
     end

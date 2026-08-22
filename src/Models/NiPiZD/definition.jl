@@ -33,37 +33,56 @@ const NIPIZD_PROCESSES = (
     growth_P=Growth(;
         populations=:P,
         factors=(
-            light=Light(Smith(); driver=:PAR),
-            nutrients=NutrientResponse(Monod(); resource=:N),
+            light=Light(
+                Smith(); driver=:PAR, bindings=(maximum_rate=:maximum_growth_rate,)
+            ),
+            nutrients=NutrientResponse(
+                Monod(); resource=:N, bindings=(K=:nutrient_half_saturation,)
+            ),
         ),
     ),
     grazing_Z_on_P=Consumption(
         IdealizedGrazing();
         consumers=:Z,
         resources=:P,
+        bindings=(
+            maximum_rate=:maximum_predation_rate,
+            half_saturation=:holling_half_saturation,
+            palatability=:palatability_matrix,
+            assimilation=:assimilation_matrix,
+        ),
         routing=ProductRouting(DirectRouting(); destination=:D),
     ),
     linear_mortality_P_to_N=Mortality(
         LinearMortality();
         populations=:P,
+        bindings=(rate=:linear_mortality,),
         routing=ProductRouting(DirectRouting(); destination=:N),
     ),
     linear_mortality_P_to_D=Mortality(
         LinearMortality();
         populations=:P,
+        bindings=(rate=:linear_detrital_mortality,),
         routing=ProductRouting(DirectRouting(); destination=:D),
     ),
     linear_mortality_Z_to_N=Mortality(
         LinearMortality();
         populations=:Z,
+        bindings=(rate=:linear_mortality,),
         routing=ProductRouting(DirectRouting(); destination=:N),
     ),
     quadratic_mortality_Z_to_D=Mortality(
         QuadraticMortality();
         populations=:Z,
+        bindings=(rate=:quadratic_mortality,),
         routing=ProductRouting(DirectRouting(); destination=:D),
     ),
-    remineralization_D=Remineralization(LinearRemineralization(); sources=:D, destinations=:N),
+    remineralization_D=Remineralization(
+        LinearRemineralization();
+        sources=:D,
+        destinations=:N,
+        bindings=(rate=:detritus_remineralization,),
+    ),
 )
 
 """Canonical named scientific processes for NiPiZD."""

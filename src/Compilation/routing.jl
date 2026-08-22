@@ -1,7 +1,7 @@
 function _routing_fraction_binding(
     definition::NormalizedModelDefinition, named::NamedProcess, routing::ProductRouting
 )
-    slots = parameter_slot_bindings(definition, named, (:routing,), routing.formulation)
+    slots = parameter_slot_bindings(definition, named, (:routing,), routing)
     return routing.formulation isa PartitionRouting ? slots.export_fraction : slots.POM_fraction
 end
 

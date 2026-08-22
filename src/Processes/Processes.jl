@@ -23,8 +23,10 @@ export ModelDefinition, NormalizedModelDefinition, NamedProcess
 export ParameterSlot, ParameterRequirementIdentity, ParameterRequirement
 export ParameterBinding, ParameterApplicability
 export process_id, process_kind, formulation, formulation_tag, factors
+export authored_parameter_bindings
 export participants, drivers, rate_axes, driver_identities, normalize_model
-export parameter_slots, parameter_requirements, parameter_bindings, parameter_binding, parameter_name
+export parameter_slots, parameter_requirements, parameter_bindings
+export parameter_binding, parameter_name
 export parameter_slot_bindings
 export resolve_parameter_applicability
 

@@ -1,8 +1,7 @@
 """Parameter definitions for the NiPiZD model.
 
 This file defines a single source of truth for:
-- keyed parameter definitions and semantic provisions
-- constructor-time default values (via `DefaultProvider` entries)
+- keyed parameter definitions and constructor-time defaults
 
 Numeric defaults are evaluated on the host during construction and later moved to the
 target architecture with `Adapt`.
@@ -14,7 +13,6 @@ defaults whose dependencies are declared beside their parameter definitions.
 import ...Parameters:
     parameter_definitions,
     Parameter,
-    ParameterProvision,
     ConstantDefault,
     DerivedDefault,
     DiameterIndexedVectorDefault
@@ -28,26 +26,19 @@ function parameter_definitions(::NiPiZDFamily)
 
     return (
         detritus_remineralization=Parameter(
-            ConstantDefault(detritus_remin);
-            provides=ParameterProvision(:remineralization_D, :rate),
+            ConstantDefault(detritus_remin),
         ),
         linear_detrital_mortality=Parameter(
             DiameterIndexedVectorDefault(0.0101 / 86400; default=0);
             axes=:plankton,
-            provides=ParameterProvision(:linear_mortality_P_to_D, :rate),
         ),
         linear_mortality=Parameter(
             DiameterIndexedVectorDefault(8e-7; default=0);
             axes=:plankton,
-            provides=(
-                ParameterProvision(:linear_mortality_P_to_N, :rate),
-                ParameterProvision(:linear_mortality_Z_to_N, :rate),
-            ),
         ),
         quadratic_mortality=Parameter(
             DiameterIndexedVectorDefault(1e-6; default=0);
             axes=:plankton,
-            provides=ParameterProvision(:quadratic_mortality_Z_to_D, :rate),
         ),
         maximum_growth_rate=Parameter(
             DiameterIndexedVectorDefault(
@@ -55,7 +46,6 @@ function parameter_definitions(::NiPiZDFamily)
                 default=0,
             );
             axes=:plankton,
-            provides=ParameterProvision(:growth_P, :maximum_rate),
         ),
         nutrient_half_saturation=Parameter(
             DiameterIndexedVectorDefault(
@@ -63,12 +53,10 @@ function parameter_definitions(::NiPiZDFamily)
                 default=0,
             );
             axes=:plankton,
-            provides=ParameterProvision(:growth_P, :K),
         ),
         alpha=Parameter(
             DiameterIndexedVectorDefault(0.1953 / 86400; default=0);
             axes=:plankton,
-            provides=ParameterProvision(:growth_P, :alpha),
         ),
         maximum_predation_rate=Parameter(
             DiameterIndexedVectorDefault(
@@ -76,12 +64,10 @@ function parameter_definitions(::NiPiZDFamily)
                 default=0,
             );
             axes=:plankton,
-            provides=ParameterProvision(:grazing_Z_on_P, :maximum_rate),
         ),
         holling_half_saturation=Parameter(
             DiameterIndexedVectorDefault(5.0; default=0);
             axes=:plankton,
-            provides=ParameterProvision(:grazing_Z_on_P, :half_saturation),
         ),
         palatability_matrix=Parameter(
             DerivedDefault(
@@ -93,14 +79,12 @@ function parameter_definitions(::NiPiZDFamily)
                 ),
             );
             axes=(:consumer, :prey),
-            provides=ParameterProvision(:grazing_Z_on_P, :palatability),
         ),
         assimilation_matrix=Parameter(
             DerivedDefault(
                 AssimilationBinary(); deps=(:assimilation_efficiency,)
             );
             axes=(:consumer, :prey),
-            provides=ParameterProvision(:grazing_Z_on_P, :assimilation),
         ),
         optimum_predator_prey_ratio=Parameter(
             DiameterIndexedVectorDefault(10.0; default=0);

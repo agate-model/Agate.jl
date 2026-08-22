@@ -194,6 +194,9 @@ struct ParameterApplicability{B,C,T}
     axis_classes::T
 end
 
+_parameter_slot_source(node::Union{AbstractFormulation,AbstractStoichiometry}) = node
+_parameter_slot_source(node) = formulation(node)
+
 function _slot_qualifier(slot::ParameterSlot, context::NamedTuple)
     isnothing(slot.qualify) && return NamedTuple()
     hasproperty(context, slot.qualify) || return NamedTuple()
@@ -223,11 +226,12 @@ function _slot_requirements(
     path::Tuple,
     node;
     context::NamedTuple=NamedTuple(),
-    formulation_value=node,
+    formulation_value=_parameter_slot_source(node),
 )
+    slot_source = _parameter_slot_source(node)
     return Tuple(
         _slot_requirement(named, path, formulation_value, slot, context)
-        for slot in parameter_slots(node)
+        for slot in parameter_slots(slot_source)
     )
 end
 
@@ -247,7 +251,9 @@ _validate_factor_formulation(factor::Temperature) =
 function _factor_parameter_nodes(path::Tuple, factor::AbstractFactor)
     _validate_factor_formulation(factor)
     nodes = (_parameter_node(
-        path, formulation(factor); context=factor_parameter_context(factor)
+        path, factor;
+        context=factor_parameter_context(factor),
+        formulation_value=formulation(factor),
     ),)
     for (name, child) in pairs(factor_children(factor))
         child isa AbstractFactor || throw(ArgumentError("factor children must be process factors"))
@@ -266,7 +272,9 @@ _factor_parameter_nodes(name::Symbol, factor::AbstractFactor) =
     _factor_parameter_nodes((:factors, name), factor)
 
 function _routing_parameter_nodes(routing::ProductRouting)
-    nodes = (_parameter_node((:routing,), routing.formulation),)
+    nodes = (_parameter_node(
+        (:routing,), routing; formulation_value=formulation(routing)
+    ),)
     routing.formulation isa DOMPOMRouting || return nodes
 
     reference = routing.stoichiometry.reference
@@ -285,16 +293,19 @@ function _routing_parameter_nodes(routing::ProductRouting)
 end
 
 _process_parameter_nodes(process::AbstractProcess) =
-    (_parameter_node((), formulation(process)),)
+    (_parameter_node((), process; formulation_value=formulation(process)),)
 
-function _process_parameter_nodes(process::Mortality)
-    context = length(process.populations) == 1 ?
-              (population=only(process.populations),) : NamedTuple()
-    return (_parameter_node((), formulation(process); context),)
-end
+_process_parameter_nodes(process::Mortality) = Tuple(
+    _parameter_node(
+        (), process; context=(population=population,), formulation_value=formulation(process)
+    )
+    for population in process.populations
+)
 
 _process_parameter_nodes(process::Remineralization) = Tuple(
-    _parameter_node((), formulation(process); context=(source=source,))
+    _parameter_node(
+        (), process; context=(source=source,), formulation_value=formulation(process)
+    )
     for source in process.sources
 )
 
@@ -384,7 +395,7 @@ function parameter_slot_bindings(
     path::Tuple,
     node;
     context::NamedTuple=NamedTuple(),
-    formulation_value=node,
+    formulation_value=_parameter_slot_source(node),
 )
     requirements = _slot_requirements(named, path, node; context, formulation_value)
     names = Tuple(requirement.identity.slot for requirement in requirements)
@@ -661,6 +672,156 @@ function _resolve_parameter_requirement(
     return only(matches)
 end
 
+function _validate_binding_slot_names(node)
+    slots = parameter_slots(_parameter_slot_source(node))
+    bindings = if applicable(authored_parameter_bindings, node)
+        authored_parameter_bindings(node)
+    else
+        isempty(slots) || throw(ArgumentError(
+            "slot-owning node $(typeof(node)) must implement `authored_parameter_bindings`",
+        ))
+        NamedTuple()
+    end
+    slot_names = Tuple(slot.name for slot in slots)
+    unknown = Tuple(name for name in keys(bindings) if !(name in slot_names))
+    isempty(unknown) || throw(ArgumentError(
+        "inline bindings contain unknown slots $unknown; expected $slot_names",
+    ))
+    return bindings
+end
+
+function _binding_value(bindings::NamedTuple, slot::ParameterSlot, qualifier::NamedTuple)
+    explicit = hasproperty(bindings, slot.name)
+    value = explicit ? getproperty(bindings, slot.name) : slot.name
+    value isa Symbol && return value, explicit
+
+    value isa NamedTuple || throw(ArgumentError(
+        "binding :$(slot.name) must be a parameter Symbol or one-level qualifier NamedTuple",
+    ))
+    isnothing(slot.qualify) && throw(ArgumentError(
+        "binding :$(slot.name) uses a qualifier map but the slot is unqualified",
+    ))
+    hasproperty(qualifier, slot.qualify) || throw(ArgumentError(
+        "binding :$(slot.name) requires qualifier :$(slot.qualify)",
+    ))
+    qualifier_value = getproperty(qualifier, slot.qualify)
+    hasproperty(value, qualifier_value) || throw(ArgumentError(
+        "binding :$(slot.name) has no entry for qualifier :$qualifier_value",
+    ))
+    parameter = getproperty(value, qualifier_value)
+    parameter isa Symbol || throw(ArgumentError(
+        "binding :$(slot.name) qualifier :$qualifier_value must map to a parameter Symbol",
+    ))
+    return parameter, true
+end
+
+function _declared_parameter_uses(processes::NamedTuple)
+    uses = Any[]
+    for named in values(processes), node in _parameter_nodes(named)
+        bindings = _validate_binding_slot_names(node.node)
+        slot_source = _parameter_slot_source(node.node)
+        for slot in parameter_slots(slot_source)
+            qualifier = _slot_qualifier(slot, node.context)
+            requirement = _slot_requirement(
+                named, node.path, node.formulation_value, slot, node.context
+            )
+            parameter, explicit = _binding_value(bindings, slot, qualifier)
+            push!(uses, (; requirement, parameter, explicit))
+        end
+    end
+    identities = Tuple(use.requirement.identity for use in uses)
+    length(unique(identities)) == length(identities) || throw(
+        ArgumentError("normalized processes declare duplicate parameter requirement identities"),
+    )
+    return Tuple(uses)
+end
+
+function _normalize_inline_parameter_bindings(processes::NamedTuple, definitions)
+    uses = _declared_parameter_uses(processes)
+    requirements = Tuple(use.requirement for use in uses)
+    isnothing(definitions) && return requirements, (), nothing
+    definitions isa NamedTuple || throw(
+        ArgumentError("model parameters must be a NamedTuple of Parameter values"),
+    )
+    all(parameter -> parameter isa Parameter, values(definitions)) || throw(
+        ArgumentError("model parameters must contain only Parameter values"),
+    )
+    all(parameter -> isempty(parameter.spec.provides), values(definitions)) || throw(
+        ArgumentError("inline-bound model parameters must not declare `provides`"),
+    )
+
+    definition_names = Set(keys(definitions))
+    for use in uses
+        use.parameter in definition_names || throw(ArgumentError(
+            "inline binding for $(use.requirement.identity) names undeclared parameter :$(use.parameter)",
+        ))
+    end
+
+    by_parameter = Dict{Symbol,Vector{Any}}()
+    for use in uses
+        push!(get!(by_parameter, use.parameter, Any[]), use)
+    end
+    for (parameter, parameter_uses) in by_parameter
+        if length(parameter_uses) > 1 && any(use -> !use.explicit, parameter_uses)
+            identities = Tuple(use.requirement.identity for use in parameter_uses)
+            throw(ArgumentError(
+                "parameter :$parameter is implicitly bound by multiple parameter slots $identities; " *
+                "bind every shared use explicitly",
+            ))
+        end
+        required_shapes = unique(Tuple(use.requirement.shape for use in parameter_uses))
+        length(required_shapes) == 1 || throw(ArgumentError(
+            "parameter :$parameter is bound to incompatible slot shapes $(Tuple(required_shapes))",
+        ))
+    end
+
+    resolved = Pair{Symbol,Any}[]
+    for (name, parameter) in pairs(definitions)
+        spec = parameter.spec
+        parameter_uses = get(by_parameter, name, Any[])
+        required_shapes = unique(Tuple(use.requirement.shape for use in parameter_uses))
+        shape = spec.shape
+        if isnothing(shape)
+            isempty(required_shapes) && throw(ArgumentError(
+                "parameter :$name has no inline binding or explicit storage axes; declare shape explicitly",
+            ))
+            shape = only(required_shapes)
+        end
+        all(use -> use.requirement.shape === shape, parameter_uses) || throw(ArgumentError(
+            "parameter :$name storage shape $shape is incompatible with one or more bound slots",
+        ))
+        resolved_spec = ParameterSpec(shape; axes=spec.axes)
+        push!(resolved, name => Parameter(resolved_spec, parameter.default))
+    end
+
+    bindings = Tuple(
+        ParameterBinding(
+            use.requirement,
+            use.parameter,
+            getproperty(definitions, use.parameter).spec.axes,
+        )
+        for use in uses
+    )
+    return requirements, bindings, (; resolved...)
+end
+
+function _uses_legacy_parameter_provisions(definitions)
+    isnothing(definitions) && return false
+    definitions isa NamedTuple || return false
+    return any(
+        parameter -> parameter isa Parameter && !isempty(parameter.spec.provides),
+        values(definitions),
+    )
+end
+
+function _has_inline_parameter_bindings(processes::NamedTuple)
+    return any(
+        applicable(authored_parameter_bindings, node.node) &&
+        !isempty(authored_parameter_bindings(node.node))
+        for named in values(processes) for node in _parameter_nodes(named)
+    )
+end
+
 function _normalize_parameter_bindings(requirements::Tuple, definitions)
     isnothing(definitions) && return (), nothing
     definitions isa NamedTuple || throw(
@@ -742,8 +903,19 @@ function normalize_model(definition::ModelDefinition)
     normalized_processes = _canonical_processes(
         definition.processes, definition.components
     )
-    requirements = _declared_parameter_requirements(normalized_processes)
-    bindings, parameters = _normalize_parameter_bindings(requirements, definition.parameters)
+    if _uses_legacy_parameter_provisions(definition.parameters)
+        _has_inline_parameter_bindings(normalized_processes) && throw(ArgumentError(
+            "model definitions cannot mix inline `bindings` with legacy `provides` declarations",
+        ))
+        requirements = _declared_parameter_requirements(normalized_processes)
+        bindings, parameters = _normalize_parameter_bindings(
+            requirements, definition.parameters
+        )
+    else
+        requirements, bindings, parameters = _normalize_inline_parameter_bindings(
+            normalized_processes, definition.parameters
+        )
+    end
     lookup = Dict{ParameterRequirementIdentity,ParameterBinding}(
         binding.requirement.identity => binding for binding in bindings
     )

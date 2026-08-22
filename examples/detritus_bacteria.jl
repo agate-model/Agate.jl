@@ -6,8 +6,7 @@
 
 using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Population, Pool
 using Agate.Construction: construct
-using Agate.Parameters:
-    ConstantDefault, DerivedDefault, Parameter, ParameterProvision
+using Agate.Parameters: ConstantDefault, DerivedDefault, Parameter
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
     Consumption, ModelDefinition, ProductRouting, Temperature, Q10,
@@ -33,13 +32,32 @@ processes = (
         HeterotrophicConsumption();
         consumers=:B,
         resources=:POM,
-        factors=(temperature=Temperature(Q10()),),
+        bindings=(
+            maximum_rate=:maximum_consumption_rate,
+            half_saturation=:pom_half_saturation,
+            assimilation=:bacterial_assimilation,
+        ),
+        factors=(
+            temperature=Temperature(
+                Q10();
+                bindings=(
+                    q10=:temperature_q10,
+                    reference_temperature=:reference_temperature,
+                ),
+            ),
+        ),
         routing=ProductRouting(DirectRouting(); destination=:N),
     ),
     graze_bacteria=Consumption(
         PreferentialGrazing();
         consumers=:Z,
         resources=:B,
+        bindings=(
+            maximum_rate=:maximum_predation_rate,
+            half_saturation=:holling_half_saturation,
+            palatability=:living_palatability,
+            assimilation=:living_assimilation,
+        ),
         routing=ProductRouting(DirectRouting(); destination=:N),
     ),
 )
@@ -55,33 +73,18 @@ parameters = (
     maximum_consumption_rate=Parameter(
         ConstantDefault(0.8 / day);
         axes=:plankton,
-        provides=ParameterProvision(:consume_POM, :maximum_rate),
     ),
-    pom_half_saturation=Parameter(
-        ConstantDefault(0.2);
-        provides=ParameterProvision(:consume_POM, :half_saturation),
-    ),
-    bacterial_assimilation=Parameter(
-        ConstantDefault(0.65);
-        provides=ParameterProvision(:consume_POM, :assimilation),
-    ),
-    temperature_q10=Parameter(
-        ConstantDefault(2.0);
-        provides=ParameterProvision(:consume_POM, :q10),
-    ),
-    reference_temperature=Parameter(
-        ConstantDefault(20.0);
-        provides=ParameterProvision(:consume_POM, :reference_temperature),
-    ),
+    pom_half_saturation=Parameter(ConstantDefault(0.2)),
+    bacterial_assimilation=Parameter(ConstantDefault(0.65)),
+    temperature_q10=Parameter(ConstantDefault(2.0)),
+    reference_temperature=Parameter(ConstantDefault(20.0)),
     maximum_predation_rate=Parameter(
         ConstantDefault(0.6 / day);
         axes=:plankton,
-        provides=ParameterProvision(:graze_bacteria, :maximum_rate),
     ),
     holling_half_saturation=Parameter(
         ConstantDefault(0.1);
         axes=:plankton,
-        provides=ParameterProvision(:graze_bacteria, :half_saturation),
     ),
     optimum_predator_prey_ratio=Parameter(
         ConstantDefault(12.5);
@@ -105,12 +108,10 @@ parameters = (
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
         );
         axes=(:consumer, :prey),
-        provides=ParameterProvision(:graze_bacteria, :palatability),
     ),
     living_assimilation=Parameter(
         DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,));
         axes=(:consumer, :prey),
-        provides=ParameterProvision(:graze_bacteria, :assimilation),
     ),
 )
 

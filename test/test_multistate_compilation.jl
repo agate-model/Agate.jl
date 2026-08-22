@@ -4,8 +4,7 @@ using Test
 using Agate.Configuration:
     Population, Pool, population_state, state_tracer
 using Agate.Construction: construct
-using Agate.Parameters:
-    Parameter, ParameterProvision, ConstantDefault
+using Agate.Parameters: Parameter, ConstantDefault
 using Agate.Processes:
     AbstractProcess, AbstractFormulation, ModelDefinition, ParameterSlot,
     formulation, parameter_slot_bindings, process_id
@@ -15,7 +14,7 @@ using Agate.Compilation:
 
 import Agate.Processes:
     formulation_tag, parameter_slots, process_kind, participants, rate_axes,
-    process_rate, uses_living_interactions
+    process_rate, uses_living_interactions, authored_parameter_bindings
 import Agate.Compilation: process_fluxes
 
 struct LinearStateTurnover <: AbstractFormulation end
@@ -25,10 +24,21 @@ struct StateTurnover{D<:NamedTuple} <: AbstractProcess
     population::Symbol
     reference_state::Symbol
     destinations::D
+    bindings::NamedTuple
 end
 
-StateTurnover(population::Symbol, reference_state::Symbol, destinations::NamedTuple) =
-    StateTurnover(LinearStateTurnover(), population, reference_state, destinations)
+function StateTurnover(
+    population::Symbol,
+    reference_state::Symbol,
+    destinations::NamedTuple;
+    bindings::NamedTuple=NamedTuple(),
+)
+    return StateTurnover(
+        LinearStateTurnover(), population, reference_state, destinations, bindings
+    )
+end
+
+authored_parameter_bindings(process::StateTurnover) = process.bindings
 
 formulation_tag(::LinearStateTurnover) = :linear_state_turnover
 parameter_slots(::LinearStateTurnover) = (ParameterSlot(:rate, (:population,)),)
@@ -50,7 +60,7 @@ function process_fluxes(
     reference_tracers, population_indices = _realize_population_state(
         named, reference, layout, context
     )
-    slots = parameter_slot_bindings(definition, named, (), formulation(process))
+    slots = parameter_slot_bindings(definition, named, (), process)
     fluxes = ()
 
     for population_axis in eachindex(reference_tracers)
@@ -93,10 +103,21 @@ struct StateInteraction <: AbstractProcess
     resource::Symbol
     carbon_state::Symbol
     nitrogen_state::Symbol
+    bindings::NamedTuple
 end
 
-StateInteraction(consumer, resource; carbon_state=:carbon, nitrogen_state=:nitrogen) =
-    StateInteraction(StateInteractionRate(), consumer, resource, carbon_state, nitrogen_state)
+function StateInteraction(
+    consumer, resource;
+    carbon_state=:carbon,
+    nitrogen_state=:nitrogen,
+    bindings::NamedTuple=NamedTuple(),
+)
+    return StateInteraction(
+        StateInteractionRate(), consumer, resource, carbon_state, nitrogen_state, bindings
+    )
+end
+
+authored_parameter_bindings(process::StateInteraction) = process.bindings
 
 formulation_tag(::StateInteractionRate) = :state_interaction
 parameter_slots(::StateInteractionRate) = (
@@ -126,7 +147,7 @@ function process_fluxes(
     resource_tracers, resource_indices = _realize_population_state(
         named, resource_carbon, layout, context
     )
-    slots = parameter_slot_bindings(definition, named, (), formulation(process))
+    slots = parameter_slot_bindings(definition, named, (), process)
     fluxes = ()
 
     for consumer_axis in eachindex(consumer_tracers)
@@ -198,13 +219,13 @@ end
         ),
     )
     process = StateTurnover(
-        :P, :carbon, (carbon=:DOC, nitrogen=:DON, phosphorus=:DOP)
+        :P, :carbon, (carbon=:DOC, nitrogen=:DON, phosphorus=:DOP);
+        bindings=(rate=:turnover_rate,),
     )
     parameters = (
         turnover_rate=Parameter(
             ConstantDefault(0.1);
             axes=:plankton,
-            provides=ParameterProvision(:turnover, :rate),
         ),
     )
     bgc = construct(ModelDefinition(;
@@ -270,12 +291,11 @@ end
         Z=Population(; states=(carbon=:carbon, nitrogen=:nitrogen)),
         P=Population(; states=(carbon=:carbon, nitrogen=:nitrogen)),
     )
-    process = StateInteraction(:Z, :P)
+    process = StateInteraction(:Z, :P; bindings=(palatability=:state_palatability,))
     parameters = (
         state_palatability=Parameter(
             ConstantDefault(0.5);
             axes=(:consumer, :prey),
-            provides=ParameterProvision(:consume, :palatability),
         ),
     )
     bgc = construct(ModelDefinition(;

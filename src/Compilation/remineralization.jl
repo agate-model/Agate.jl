@@ -17,7 +17,7 @@ function process_fluxes(
             definition,
             named,
             (),
-            process.formulation;
+            process;
             context=(source=source_component,),
         ).rate
         rate = RateElement(

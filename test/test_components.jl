@@ -7,7 +7,7 @@ using Agate.Configuration:
     component_indices, state_tracers, state_indices,
     component_diameters, component_class_count, parse_community
 using Agate.ModelFamilies: default_components
-using Agate.Parameters: ParameterProvision, Parameter, ConstantDefault, NoDefault
+using Agate.Parameters: Parameter, ConstantDefault, NoDefault
 using Agate.Processes:
     ModelDefinition, Mortality, Remineralization, LinearMortality, LinearRemineralization,
     normalize_model, resolve_parameter_applicability
@@ -80,12 +80,10 @@ end
         :P_2_carbon, :P_2_nitrogen, :P_2_phosphorus,
     )
 
-    mortality = Mortality(LinearMortality(); populations=:P)
-    parameter = Parameter(
-        NoDefault();
-        shape=:vector,
-        provides=ParameterProvision(:mortality_P, :rate),
+    mortality = Mortality(
+        LinearMortality(); populations=:P, bindings=(rate=:mortality_rate,)
     )
+    parameter = Parameter(NoDefault(); shape=:vector)
     definition = normalize_model(ModelDefinition(;
         components=(P=population,),
         processes=(mortality_P=mortality,),
@@ -120,11 +118,13 @@ end
     @test component_indices(layout, :POM) == (3, 4, 5)
     @test component_diameters(layout, :POM) == (0.5f0, 5.0f0, 50.0f0)
 
-    process = Remineralization(LinearRemineralization(); sources=:POM, destinations=:N)
-    parameter = Parameter(
-        ConstantDefault(0.1);
-        provides=ParameterProvision(:remineralization_POM, :rate),
+    process = Remineralization(
+        LinearRemineralization();
+        sources=:POM,
+        destinations=:N,
+        bindings=(rate=:pom_remineralization,),
     )
+    parameter = Parameter(ConstantDefault(0.1))
     definition = normalize_model(
         ModelDefinition(;
             components,

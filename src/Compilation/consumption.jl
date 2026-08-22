@@ -109,7 +109,7 @@ function process_fluxes(
     resource_tracers, resource_indices = _consumption_resources(
         formulation, named, process.resources, layout, context
     )
-    slots = parameter_slot_bindings(definition, named, (), formulation)
+    slots = parameter_slot_bindings(definition, named, (), process)
     fluxes = Any[]
 
     for consumer_axis in eachindex(consumer_tracers)

@@ -29,15 +29,48 @@ struct DOMPOMRouting <: AbstractFormulation end
 
 abstract type AbstractStoichiometry end
 
+function _canonical_bindings(bindings::NamedTuple)
+    names = sort!(collect(keys(bindings)); by=String)
+    names_tuple = Tuple(names)
+    values = Tuple(begin
+        value = getproperty(bindings, name)
+        if value isa Symbol
+            value
+        elseif value isa NamedTuple
+            all(entry -> entry isa Symbol, Base.values(value)) || throw(
+                ArgumentError(
+                    "binding map for :$name must map qualifier values to parameter Symbols"
+                ),
+            )
+            qualifier_names = sort!(collect(keys(value)); by=String)
+            qualifier_names_tuple = Tuple(qualifier_names)
+            qualifier_values = Tuple(getproperty(value, key) for key in qualifier_names)
+            NamedTuple{qualifier_names_tuple}(qualifier_values)
+        else
+            throw(ArgumentError(
+                "binding :$name must be a parameter Symbol or one-level qualifier NamedTuple",
+            ))
+        end
+    end for name in names)
+    return NamedTuple{names_tuple}(values)
+end
+
+"""Return setup-only authored model-parameter bindings for one slot-owning node."""
+function authored_parameter_bindings end
+
 """Fixed conversion from one reference currency to process target currencies.
 
 Each bound ratio is the amount of its target currency per unit reference currency.
 """
 struct FixedStoichiometry <: AbstractStoichiometry
     reference::Symbol
+    bindings::NamedTuple
 end
 
-FixedStoichiometry(; reference::Symbol) = FixedStoichiometry(reference)
+FixedStoichiometry(; reference::Symbol, bindings::NamedTuple=NamedTuple()) =
+    FixedStoichiometry(reference, _canonical_bindings(bindings))
+
+authored_parameter_bindings(stoichiometry::FixedStoichiometry) = stoichiometry.bindings
 
 """Stable semantic formulation identity used by normalization and recipes."""
 function formulation_tag(formulation::AbstractFormulation)
@@ -79,25 +112,46 @@ end
 struct Light{F<:AbstractFormulation} <: AbstractFactor
     formulation::F
     driver::Symbol
+    bindings::NamedTuple
 end
 
-Light(formulation::Union{Smith,Geider}; driver::Symbol) = Light(formulation, driver)
+function Light(
+    formulation::Union{Smith,Geider}; driver::Symbol, bindings::NamedTuple=NamedTuple()
+)
+    return Light(formulation, driver, _canonical_bindings(bindings))
+end
+
+authored_parameter_bindings(factor::Light) = factor.bindings
 
 """Single-resource multiplicative nutrient factor used by processes such as growth."""
 struct NutrientResponse{F<:AbstractFormulation} <: AbstractFactor
     formulation::F
     resource::Symbol
+    bindings::NamedTuple
 end
 
-NutrientResponse(formulation::Monod; resource::Symbol) = NutrientResponse(formulation, resource)
+function NutrientResponse(
+    formulation::Monod; resource::Symbol, bindings::NamedTuple=NamedTuple()
+)
+    return NutrientResponse(formulation, resource, _canonical_bindings(bindings))
+end
+
+authored_parameter_bindings(factor::NutrientResponse) = factor.bindings
 
 """Temperature-dependent multiplicative process-rate factor."""
 struct Temperature{F<:AbstractFormulation} <: AbstractFactor
     formulation::F
     driver::Symbol
+    bindings::NamedTuple
 end
 
-Temperature(formulation::Q10; driver::Symbol=:temperature) = Temperature(formulation, driver)
+function Temperature(
+    formulation::Q10; driver::Symbol=:temperature, bindings::NamedTuple=NamedTuple()
+)
+    return Temperature(formulation, driver, _canonical_bindings(bindings))
+end
+
+authored_parameter_bindings(factor::Temperature) = factor.bindings
 
 function _canonical_responses(responses::NamedTuple)
     isempty(responses) && throw(ArgumentError("nutrient `responses` cannot be empty"))
@@ -116,11 +170,20 @@ When paired with `FixedStoichiometry`, response names identify target currencies
 struct Nutrients{F<:AbstractFormulation,R<:NamedTuple} <: AbstractFactor
     formulation::F
     responses::R
+    bindings::NamedTuple
 end
 
-function Nutrients(formulation::Union{Liebig,FrankTNorm}; responses::NamedTuple)
-    return Nutrients(formulation, _canonical_responses(responses))
+function Nutrients(
+    formulation::Union{Liebig,FrankTNorm};
+    responses::NamedTuple,
+    bindings::NamedTuple=NamedTuple(),
+)
+    return Nutrients(
+        formulation, _canonical_responses(responses), _canonical_bindings(bindings)
+    )
 end
+
+authored_parameter_bindings(factor::Nutrients) = factor.bindings
 
 abstract type AbstractFactorInput end
 
@@ -155,14 +218,31 @@ struct ProductRouting{F<:AbstractFormulation,R,E,P,S}
     exported::E
     pools::P
     stoichiometry::S
+    bindings::NamedTuple
 end
 
-ProductRouting(formulation::DirectRouting; destination::Symbol) =
-    ProductRouting(formulation, destination, nothing, nothing, nothing)
-ProductRouting(formulation::PartitionRouting; retained::Symbol, exported::Symbol) =
-    ProductRouting(formulation, retained, exported, nothing, nothing)
 function ProductRouting(
-    formulation::DOMPOMRouting; pools::NamedTuple, stoichiometry::FixedStoichiometry
+    formulation::DirectRouting; destination::Symbol, bindings::NamedTuple=NamedTuple()
+)
+    return ProductRouting(
+        formulation, destination, nothing, nothing, nothing, _canonical_bindings(bindings)
+    )
+end
+function ProductRouting(
+    formulation::PartitionRouting;
+    retained::Symbol,
+    exported::Symbol,
+    bindings::NamedTuple=NamedTuple(),
+)
+    return ProductRouting(
+        formulation, retained, exported, nothing, nothing, _canonical_bindings(bindings)
+    )
+end
+function ProductRouting(
+    formulation::DOMPOMRouting;
+    pools::NamedTuple,
+    stoichiometry::FixedStoichiometry,
+    bindings::NamedTuple=NamedTuple(),
 )
     keys(pools) == (:DOM, :POM) || throw(
         ArgumentError("DOM/POM routing `pools` must have exactly the keys (:DOM, :POM)"),
@@ -185,8 +265,12 @@ function ProductRouting(
     valid_targets || throw(
         ArgumentError("DOM/POM routing pool targets must be component Symbols"),
     )
-    return ProductRouting(formulation, nothing, nothing, pools, stoichiometry)
+    return ProductRouting(
+        formulation, nothing, nothing, pools, stoichiometry, _canonical_bindings(bindings)
+    )
 end
+
+authored_parameter_bindings(routing::ProductRouting) = routing.bindings
 
 function _canonical_factors(factors::NamedTuple; allow_empty::Bool=false)
     isempty(factors) && !allow_empty && throw(ArgumentError("process `factors` cannot be empty"))
@@ -235,6 +319,7 @@ struct Consumption{F<:AbstractFormulation,A<:NamedTuple,R} <: AbstractProcess
     resources::Tuple
     factors::A
     routing::R
+    bindings::NamedTuple
 end
 
 function Consumption(
@@ -243,6 +328,7 @@ function Consumption(
     resources,
     factors::NamedTuple=NamedTuple(),
     routing=nothing,
+    bindings::NamedTuple=NamedTuple(),
 )
     consumer_refs = _canonical_participants(:consumers, consumers)
     resource_refs = _canonical_participants(:resources, resources)
@@ -250,44 +336,60 @@ function Consumption(
     isnothing(routing) || routing isa ProductRouting || throw(
         ArgumentError("consumption `routing` must be a ProductRouting"),
     )
-    return Consumption(formulation, consumer_refs, resource_refs, canonical, routing)
+    return Consumption(
+        formulation, consumer_refs, resource_refs, canonical, routing, _canonical_bindings(bindings)
+    )
 end
+
+authored_parameter_bindings(process::Consumption) = process.bindings
 
 """Population mortality process with optional product routing."""
 struct Mortality{F<:AbstractFormulation,R} <: AbstractProcess
     formulation::F
     populations::Tuple
     routing::R
+    bindings::NamedTuple
 end
 
 function Mortality(
     formulation::Union{LinearMortality,QuadraticMortality};
     populations,
     routing=nothing,
+    bindings::NamedTuple=NamedTuple(),
 )
     population_refs = _canonical_participants(:populations, populations)
     isnothing(routing) || routing isa ProductRouting || throw(
         ArgumentError("mortality `routing` must be a ProductRouting"),
     )
-    return Mortality(formulation, population_refs, routing)
+    return Mortality(
+        formulation, population_refs, routing, _canonical_bindings(bindings)
+    )
 end
+
+authored_parameter_bindings(process::Mortality) = process.bindings
 
 """Source-to-destination remineralization process."""
 struct Remineralization{F<:AbstractFormulation} <: AbstractProcess
     formulation::F
     sources::Tuple
     destinations::Tuple
+    bindings::NamedTuple
 end
 
 function Remineralization(
     formulation::LinearRemineralization;
     sources,
     destinations,
+    bindings::NamedTuple=NamedTuple(),
 )
     source_refs = _canonical_participants(:sources, sources)
     destination_refs = _canonical_participants(:destinations, destinations)
-    return Remineralization(formulation, source_refs, destination_refs)
+    return Remineralization(
+        formulation, source_refs, destination_refs, _canonical_bindings(bindings)
+    )
 end
+
+authored_parameter_bindings(process::Remineralization) = process.bindings
 
 formulation(::Growth) = MultiplicativeFactors()
 formulation(process::AbstractProcess) = process.formulation

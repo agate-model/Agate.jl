@@ -161,14 +161,17 @@ Agate.Processes.formulation_tag(::ExternalTestFormulation) = :external_test
         components=(P=Population(:nitrogen), N=Pool(:nitrogen)),
         processes=(growth=Growth(;
             populations=:P,
-            factors=(light=Light(Monod(), :PAR), nutrients=NutrientResponse(Monod(); resource=:N)),
+            factors=(
+                light=Light(Monod(), :PAR, NamedTuple()),
+                nutrients=NutrientResponse(Monod(); resource=:N),
+            ),
         ),),
     )
     @test_throws ArgumentError normalize_model(bypassed_factor)
 
     bypassed_mortality = ModelDefinition(;
         components=(P=Population(:nitrogen),),
-        processes=(mortality=Mortality(Monod(), (:P,), nothing),),
+        processes=(mortality=Mortality(Monod(), (:P,), nothing, NamedTuple()),),
     )
     @test_throws ArgumentError normalize_model(bypassed_mortality)
 end
@@ -293,6 +296,105 @@ end
     )
 end
 
+@testset "Inline parameter binding resolution" begin
+    components = (
+        P=Population(:nitrogen; size_structure=[1.0]),
+        Z=Population(:nitrogen; size_structure=[10.0]),
+        D=Pool(:nitrogen),
+        E=Pool(:nitrogen),
+    )
+
+    shared = Mortality(
+        Agate.Processes.LinearMortality();
+        populations=(:P, :Z),
+        bindings=(rate=:shared_mortality,),
+    )
+    remineralization = Agate.Processes.Remineralization(
+        Agate.Processes.LinearRemineralization();
+        sources=(:D,),
+        destinations=:D,
+        bindings=(rate=(D=:remineralization_rate,),),
+    )
+    normalized = normalize_model(ModelDefinition(;
+        components,
+        processes=(mortality=shared, remineralization=remineralization),
+        parameters=(
+            shared_mortality=Parameter(ConstantDefault(0.1); axes=:plankton),
+            remineralization_rate=Parameter(ConstantDefault(0.2)),
+        ),
+    ))
+
+    mortality_bindings = filter(
+        binding -> binding.requirement.identity.process === :mortality,
+        normalized.parameter_bindings,
+    )
+    @test length(mortality_bindings) == 2
+    @test all(binding -> binding.parameter === :shared_mortality, mortality_bindings)
+    @test Set(
+        binding.requirement.identity.qualifier.population for binding in mortality_bindings
+    ) == Set((:P, :Z))
+    @test only(filter(
+        binding -> binding.requirement.identity.process === :remineralization,
+        normalized.parameter_bindings,
+    )).parameter === :remineralization_rate
+
+    accidental = ModelDefinition(;
+        components=(P=components.P, Z=components.Z),
+        processes=(
+            mortality=Mortality(
+                Agate.Processes.LinearMortality(); populations=(:P, :Z)
+            ),
+        ),
+        parameters=(rate=Parameter(ConstantDefault(0.1); axes=:plankton),),
+    )
+    @test_throws ArgumentError normalize_model(accidental)
+
+    missing_qualifier = ModelDefinition(;
+        components=(D=components.D, E=components.E),
+        processes=(
+            remineralization=Remineralization(
+                Agate.Processes.LinearRemineralization();
+                sources=(:D, :E),
+                destinations=:D,
+                bindings=(rate=(D=:remineralization_rate,),),
+            ),
+        ),
+        parameters=(remineralization_rate=Parameter(ConstantDefault(0.2)),),
+    )
+    @test_throws ArgumentError normalize_model(missing_qualifier)
+
+    unknown = ModelDefinition(;
+        components=(P=components.P,),
+        processes=(
+            mortality=Mortality(
+                Agate.Processes.LinearMortality();
+                populations=:P,
+                bindings=(missing=:shared_mortality,),
+            ),
+        ),
+        parameters=(shared_mortality=Parameter(ConstantDefault(0.1); axes=:plankton),),
+    )
+    @test_throws ArgumentError normalize_model(unknown)
+
+    unknown_zero_slot = ModelDefinition(;
+        components=(P=components.P, D=components.D),
+        processes=(
+            growth=Growth(;
+                populations=:P,
+                factors=(
+                    nutrients=Nutrients(
+                        Liebig();
+                        responses=(nitrogen=NutrientResponse(Monod(); resource=:D),),
+                        bindings=(missing=:shared_mortality,),
+                    ),
+                ),
+            ),
+        ),
+        parameters=(K=Parameter(ConstantDefault(0.1); axes=:plankton),),
+    )
+    @test_throws ArgumentError normalize_model(unknown_zero_slot)
+end
+
 @testset "Parameter provision inference" begin
     components = (P=Population(:nitrogen; size_structure=[1.0]),)
     processes = (
@@ -343,6 +445,25 @@ end
     @test_throws ArgumentError normalize_model(
         definition(parameters(ParameterProvision(:growth, :missing)))
     )
+
+    mixed_processes = (
+        growth=Growth(;
+            populations=:P,
+            factors=(
+                light_a=Light(
+                    Smith(); driver=:PAR, bindings=(maximum_rate=:max_a,)
+                ),
+                light_b=Light(Smith(); driver=:PAR),
+            ),
+        ),
+    )
+    @test_throws ArgumentError normalize_model(ModelDefinition(;
+        components,
+        processes=mixed_processes,
+        parameters=parameters(
+            ParameterProvision(:growth, :maximum_rate; path=(:factors, :light_a))
+        ),
+    ))
 end
 
 @testset "Literal interaction defaults need no derivation dependencies" begin
@@ -354,20 +475,10 @@ end
         grazing=Consumption(PreferentialGrazing(); consumers=:Z, resources=:P),
     )
     parameters = (
-        maximum_rate=Parameter(ConstantDefault(1.0);
-            provides=ParameterProvision(:grazing, :maximum_rate),
-        ),
-        half_saturation=Parameter(ConstantDefault(0.5);
-            provides=ParameterProvision(:grazing, :half_saturation),
-        ),
-        palatability=Parameter(ConstantDefault(1.0);
-            axes=(:consumer, :prey),
-            provides=ParameterProvision(:grazing, :palatability),
-        ),
-        assimilation=Parameter(ConstantDefault(0.7);
-            axes=(:consumer, :prey),
-            provides=ParameterProvision(:grazing, :assimilation),
-        ),
+        maximum_rate=Parameter(ConstantDefault(1.0); axes=:plankton),
+        half_saturation=Parameter(ConstantDefault(0.5); axes=:plankton),
+        palatability=Parameter(ConstantDefault(1.0); axes=(:consumer, :prey)),
+        assimilation=Parameter(ConstantDefault(0.7); axes=(:consumer, :prey)),
     )
 
     normalized = normalize_model(ModelDefinition(; components, processes, parameters))

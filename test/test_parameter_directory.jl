@@ -55,12 +55,7 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
         )
         @test definitions.assimilation_matrix.default isa DerivedDefault
         @test definitions.assimilation_matrix.default.deps == (:assimilation_efficiency,)
-        @test all(
-            isempty(getproperty(dir, name).provides)
-            for name in (:optimum_predator_prey_ratio, :specificity, :protection, :assimilation_efficiency)
-        )
-        @test length(dir.linear_mortality.provides) == 2
-        @test length(dir.linear_detrital_mortality.provides) == 1
+        @test all(spec -> isempty(spec.provides), values(dir))
         @test dir.detritus_remineralization.shape === nothing
         normalized = Agate.Processes.normalize_model(Agate.Processes.ModelDefinition(family))
         @test normalized.parameters.detritus_remineralization.spec.shape === :scalar

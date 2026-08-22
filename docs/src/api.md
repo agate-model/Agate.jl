@@ -35,8 +35,11 @@ and `Consumption(HeterotrophicConsumption(); ...)`. Numerical scientific paramet
 the model parameter system rather than the formulation object; for example
 `Nutrients(FrankTNorm(); ...)` uses the Frank t-norm's declared `sharpness` parameter slot.
 `FrankTNorm()` names the formulation; `Agate.Library.Nutrients.frank_tnorm` is the numerical
-kernel. External process and factor extensions use the same concrete formulation-object pattern
-without built-in registration. `formulation_tag` supplies
+kernel. Parameterized nodes bind their formulation-local slots directly to model-level parameter
+names with `bindings=(...)`. Omitted slots bind by the same name; a `Symbol` explicitly renames
+or shares one parameter, while a one-level qualifier map handles repeated slots such as
+source-specific remineralization. External process and factor extensions use the same concrete
+formulation-object and binding protocol without built-in registration. `formulation_tag` supplies
 one-way semantic identity for normalization and recipes; it is not used to construct formulations
 during authoring.
 
@@ -56,13 +59,16 @@ Agate.Processes.Mortality
 Agate.Processes.ProductRouting
 Agate.Processes.FixedStoichiometry
 Agate.Processes.Remineralization
+Agate.Processes.authored_parameter_bindings
 ```
 
 ### Parameter definitions
 
+The keyed parameter block owns defaults and storage policy. Scientific slot-to-parameter
+relationships are authored beside the process or factor through `bindings=`.
+
 ```@docs
 Agate.Parameters.ParameterSpec
-Agate.Parameters.ParameterProvision
 Agate.Parameters.Parameter
 Agate.Parameters.DefaultProvider
 Agate.Parameters.ConstantDefault
