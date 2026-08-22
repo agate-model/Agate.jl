@@ -5,7 +5,7 @@ using Test
 import Agate.Parameters:
     ConstantDefault,
     DerivedDefault,
-    ParameterDefinition,
+    Parameter,
     derive_default,
     parameter_definitions,
     parameter_directory
@@ -20,15 +20,15 @@ derive_default(::DoubleDefault, ::DerivedDefaultFixture, ::Any, params::NamedTup
     2 * params.middle
 
 parameter_definitions(::DerivedDefaultFixture) = (
-    ParameterDefinition(:base, ConstantDefault(2.0); shape=:scalar),
-    ParameterDefinition(:top, DerivedDefault(DoubleDefault(); deps=(:middle,)); shape=:scalar),
-    ParameterDefinition(:middle, DerivedDefault(AddOneDefault(); deps=(:base,)); shape=:scalar),
+    base=Parameter(ConstantDefault(2.0); shape=:scalar),
+    top=Parameter(DerivedDefault(DoubleDefault(); deps=(:middle,)); shape=:scalar),
+    middle=Parameter(DerivedDefault(AddOneDefault(); deps=(:base,)); shape=:scalar),
 )
 
 struct CyclicDerivedDefaultFixture end
 parameter_definitions(::CyclicDerivedDefaultFixture) = (
-    ParameterDefinition(:a, DerivedDefault(AddOneDefault(); deps=(:b,)); shape=:scalar),
-    ParameterDefinition(:b, DerivedDefault(DoubleDefault(); deps=(:a,)); shape=:scalar),
+    a=Parameter(DerivedDefault(AddOneDefault(); deps=(:b,)); shape=:scalar),
+    b=Parameter(DerivedDefault(DoubleDefault(); deps=(:a,)); shape=:scalar),
 )
 
 @testset "Parameter directory" begin
@@ -38,42 +38,42 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
         @test !isempty(dir)
 
         bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
-        dir_names = Set(spec.name for spec in dir)
+        dir_names = Set(keys(dir))
 
         # All constructed parameters should be declared in the directory.
         for k in parameter_names(bgc)
             @test k in dir_names
         end
 
-        specmap = Dict(spec.name => spec for spec in dir)
-        definitions = Dict(def.spec.name => def for def in parameter_definitions(family))
-        @test definitions[:linear_mortality].default isa Agate.Parameters.DiameterIndexedVectorDefault
-        @test definitions[:palatability_matrix].default isa DerivedDefault
-        @test definitions[:palatability_matrix].default.deps == (
+        definitions = parameter_definitions(family)
+        @test keys(dir) == keys(definitions)
+        @test !hasproperty(dir.maximum_growth_rate, :name)
+        @test definitions.linear_mortality.default isa Agate.Parameters.DiameterIndexedVectorDefault
+        @test definitions.palatability_matrix.default isa DerivedDefault
+        @test definitions.palatability_matrix.default.deps == (
             :optimum_predator_prey_ratio, :specificity, :protection
         )
-        @test definitions[:assimilation_matrix].default isa DerivedDefault
-        @test definitions[:assimilation_matrix].default.deps == (:assimilation_efficiency,)
+        @test definitions.assimilation_matrix.default isa DerivedDefault
+        @test definitions.assimilation_matrix.default.deps == (:assimilation_efficiency,)
         @test all(
-            isempty(specmap[name].provides)
+            isempty(getproperty(dir, name).provides)
             for name in (:optimum_predator_prey_ratio, :specificity, :protection, :assimilation_efficiency)
         )
-        @test length(specmap[:linear_mortality].provides) == 2
-        @test length(specmap[:linear_detrital_mortality].provides) == 1
-        @test specmap[:detritus_remineralization].shape === nothing
+        @test length(dir.linear_mortality.provides) == 2
+        @test length(dir.linear_detrital_mortality.provides) == 1
+        @test dir.detritus_remineralization.shape === nothing
         normalized = Agate.Processes.normalize_model(Agate.Processes.ModelDefinition(family))
-        normalized_specs = Dict(def.spec.name => def.spec for def in normalized.parameters)
-        @test normalized_specs[:detritus_remineralization].shape === :scalar
-        @test specmap[:maximum_growth_rate].shape == :vector
-        @test specmap[:maximum_growth_rate].axes == :plankton
-        @test definitions[:maximum_growth_rate].default isa Agate.Parameters.DiameterIndexedVectorDefault
-        @test definitions[:maximum_growth_rate].default.default == 0
-        @test definitions[:linear_mortality].default.default == 0
-        @test specmap[:linear_detrital_mortality].axes == :plankton
-        @test definitions[:linear_detrital_mortality].default.default == 0
-        @test specmap[:palatability_matrix].shape == :matrix
-        @test specmap[:palatability_matrix].axes == (:consumer, :prey)
-        @test specmap[:assimilation_matrix].axes == (:consumer, :prey)
+        @test normalized.parameters.detritus_remineralization.spec.shape === :scalar
+        @test dir.maximum_growth_rate.shape == :vector
+        @test dir.maximum_growth_rate.axes == :plankton
+        @test definitions.maximum_growth_rate.default isa Agate.Parameters.DiameterIndexedVectorDefault
+        @test definitions.maximum_growth_rate.default.default == 0
+        @test definitions.linear_mortality.default.default == 0
+        @test dir.linear_detrital_mortality.axes == :plankton
+        @test definitions.linear_detrital_mortality.default.default == 0
+        @test dir.palatability_matrix.shape == :matrix
+        @test dir.palatability_matrix.axes == (:consumer, :prey)
+        @test dir.assimilation_matrix.axes == (:consumer, :prey)
     end
 
     @testset "Derived default dependency resolution" begin

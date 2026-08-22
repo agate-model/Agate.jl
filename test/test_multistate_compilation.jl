@@ -5,7 +5,7 @@ using Agate.Configuration:
     Population, Pool, population_state, state_tracer
 using Agate.Construction: construct
 using Agate.Parameters:
-    ParameterDefinition, ParameterProvision, ConstantDefault
+    Parameter, ParameterProvision, ConstantDefault
 using Agate.Processes:
     AbstractProcess, AbstractFormulation, ModelDefinition, ParameterSlot,
     formulation, parameter_slot_bindings, process_id
@@ -201,8 +201,7 @@ end
         :P, :carbon, (carbon=:DOC, nitrogen=:DON, phosphorus=:DOP)
     )
     parameters = (
-        ParameterDefinition(
-            :turnover_rate,
+        turnover_rate=Parameter(
             ConstantDefault(0.1);
             axes=:plankton,
             provides=ParameterProvision(:turnover, :rate),
@@ -273,8 +272,7 @@ end
     )
     process = StateInteraction(:Z, :P)
     parameters = (
-        ParameterDefinition(
-            :state_palatability,
+        state_palatability=Parameter(
             ConstantDefault(0.5);
             axes=(:consumer, :prey),
             provides=ParameterProvision(:consume, :palatability),

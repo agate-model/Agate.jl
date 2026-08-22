@@ -5,7 +5,7 @@ using Test
 using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Population, Pool
 using Agate.Construction: construct
 using Agate.Parameters:
-    DerivedDefault, ConstantDefault, ParameterDefinition, ParameterProvision
+    DerivedDefault, ConstantDefault, Parameter, ParameterProvision
 using Agate.Processes:
     Consumption, Growth, Light, ModelDefinition, NutrientResponse, ProductRouting,
     Smith, Monod, PreferentialGrazing, DirectRouting
@@ -32,58 +32,48 @@ function direct_npz_definition()
         ),
     )
     parameters = (
-        ParameterDefinition(
-            :maximum_growth_rate,
+        maximum_growth_rate=Parameter(
             ConstantDefault(2e-5);
             axes=:plankton,
             provides=ParameterProvision(:growth_P, :maximum_rate),
         ),
-        ParameterDefinition(
-            :alpha,
+        alpha=Parameter(
             ConstantDefault(2e-6);
             axes=:plankton,
             provides=ParameterProvision(:growth_P, :alpha),
         ),
-        ParameterDefinition(
-            :nutrient_half_saturation,
+        nutrient_half_saturation=Parameter(
             ConstantDefault(0.2);
             axes=:plankton,
             provides=ParameterProvision(:growth_P, :K),
         ),
-        ParameterDefinition(
-            :maximum_predation_rate,
+        maximum_predation_rate=Parameter(
             ConstantDefault(5e-5);
             axes=:plankton,
             provides=ParameterProvision(:grazing_Z_on_P, :maximum_rate),
         ),
-        ParameterDefinition(
-            :holling_half_saturation,
+        holling_half_saturation=Parameter(
             ConstantDefault(0.1);
             axes=:plankton,
             provides=ParameterProvision(:grazing_Z_on_P, :half_saturation),
         ),
-        ParameterDefinition(
-            :optimum_predator_prey_ratio,
+        optimum_predator_prey_ratio=Parameter(
             ConstantDefault(10.0);
             axes=:plankton,
         ),
-        ParameterDefinition(
-            :specificity,
+        specificity=Parameter(
             ConstantDefault(0.3);
             axes=:plankton,
         ),
-        ParameterDefinition(
-            :protection,
+        protection=Parameter(
             ConstantDefault(0.0);
             axes=:plankton,
         ),
-        ParameterDefinition(
-            :assimilation_efficiency,
+        assimilation_efficiency=Parameter(
             ConstantDefault(0.7);
             axes=:plankton,
         ),
-        ParameterDefinition(
-            :palatability_matrix,
+        palatability_matrix=Parameter(
             DerivedDefault(
                 PalatabilityAllometric();
                 deps=(:optimum_predator_prey_ratio, :specificity, :protection),
@@ -91,8 +81,7 @@ function direct_npz_definition()
             axes=(:consumer, :prey),
             provides=ParameterProvision(:grazing_Z_on_P, :palatability),
         ),
-        ParameterDefinition(
-            :assimilation_matrix,
+        assimilation_matrix=Parameter(
             DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,));
             axes=(:consumer, :prey),
             provides=ParameterProvision(:grazing_Z_on_P, :assimilation),

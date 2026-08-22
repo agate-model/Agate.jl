@@ -9,6 +9,7 @@ using Oceananigans.Architectures: architecture, CPU, GPU
 using ..ModelFamilies: AbstractModelFamily
 
 using ..Parameters:
+    Parameter,
     ConstantDefault,
     DerivedDefault,
     NoDefault,
@@ -65,30 +66,30 @@ end
 const RESERVED_PARAMETER_KEYS = (:x, :y, :z, :t)
 
 function validate_parameter_directory(source)
-    defs = parameter_definitions(source)
-    isempty(defs) && return ()
-
-    keys_ = map(d -> d.spec.name, defs)
-    length(unique(keys_)) == length(keys_) || throw(
-        ArgumentError(
-            "parameter_definitions(::$(typeof(source))) contains duplicate keys."
-        ),
+    definitions = parameter_definitions(source)
+    definitions isa NamedTuple || throw(
+        ArgumentError("parameter_definitions(::$(typeof(source))) must return a NamedTuple"),
+    )
+    isempty(definitions) && return ()
+    all(parameter -> parameter isa Parameter, values(definitions)) || throw(
+        ArgumentError("parameter_definitions(::$(typeof(source))) must contain only Parameter values"),
     )
 
-    key_set = Set(keys_)
-    for k in keys_
-        (k in RESERVED_PARAMETER_KEYS) && throw(
+    parameter_keys = Tuple(keys(definitions))
+    key_set = Set(parameter_keys)
+    for name in parameter_keys
+        (name in RESERVED_PARAMETER_KEYS) && throw(
             ArgumentError(
-                "parameter_definitions(::$(typeof(source))) declares reserved parameter key :$k.",
+                "parameter_definitions(::$(typeof(source))) declares reserved parameter key :$name.",
             ),
         )
     end
 
-    for def in defs
-        spec = def.spec
+    for (name, parameter) in pairs(definitions)
+        spec = parameter.spec
         spec.shape in (:scalar, :vector, :matrix) || throw(
             ArgumentError(
-                "parameter_definitions(::$(typeof(source))) declares :$(spec.name) with invalid shape $(spec.shape).",
+                "parameter_definitions(::$(typeof(source))) declares :$name with invalid shape $(spec.shape).",
             ),
         )
 
@@ -96,7 +97,7 @@ function validate_parameter_directory(source)
             if spec.axes !== nothing
                 spec.axes isa Symbol || throw(
                     ArgumentError(
-                        "parameter :$(spec.name) vector axis must be a Symbol (got $(typeof(spec.axes))).",
+                        "parameter :$name vector axis must be a Symbol (got $(typeof(spec.axes))).",
                     ),
                 )
             end
@@ -104,72 +105,72 @@ function validate_parameter_directory(source)
             if spec.axes !== nothing
                 (spec.axes isa Tuple && length(spec.axes) == 2) || throw(
                     ArgumentError(
-                        "parameter :$(spec.name) axes must be a 2-tuple of Symbols (got $(typeof(spec.axes))).",
+                        "parameter :$name axes must be a 2-tuple of Symbols (got $(typeof(spec.axes))).",
                     ),
                 )
                 row_axis, col_axis = spec.axes
                 (row_axis isa Symbol && col_axis isa Symbol) || throw(
                     ArgumentError(
-                        "parameter :$(spec.name) axes must be Symbols (got $(spec.axes)).",
+                        "parameter :$name axes must be Symbols (got $(spec.axes)).",
                     ),
                 )
             end
         else
             spec.axes === nothing || throw(
                 ArgumentError(
-                    "parameter :$(spec.name) has axes=$(spec.axes) but is not vector or matrix."
+                    "parameter :$name has axes=$(spec.axes) but is not vector or matrix."
                 ),
             )
         end
 
-        provider = def.default
+        provider = parameter.default
         if provider isa DerivedDefault
             for dep in provider.deps
                 dep in key_set || throw(
                     ArgumentError(
-                        "derived default :$(spec.name) depends on undeclared parameter :$dep.",
+                        "derived default :$name depends on undeclared parameter :$dep.",
                     ),
                 )
             end
         end
     end
 
-    return Tuple(keys_)
+    return parameter_keys
 end
 
 function derived_default_order(source)
-    derived = Any[
-        definition for definition in parameter_definitions(source) if
-        definition.default isa DerivedDefault
+    derived = Pair{Symbol,Any}[
+        name => parameter for (name, parameter) in pairs(parameter_definitions(source)) if
+        parameter.default isa DerivedDefault
     ]
     isempty(derived) && return ()
 
-    derived_keys = Tuple(definition.spec.name for definition in derived)
+    derived_keys = Tuple(first(entry) for entry in derived)
     resolved_keys = Set{Symbol}()
-    ordered = Any[]
+    ordered = Pair{Symbol,Any}[]
     pending = derived
 
     while !isempty(pending)
-        remaining = Any[]
+        remaining = Pair{Symbol,Any}[]
         progressed = false
 
-        for definition in pending
+        for (name, parameter) in pending
             dependencies = Tuple(
-                dep for dep in definition.default.deps if dep in derived_keys
+                dep for dep in parameter.default.deps if dep in derived_keys
             )
             if all(dep -> dep in resolved_keys, dependencies)
-                push!(ordered, definition)
-                push!(resolved_keys, definition.spec.name)
+                push!(ordered, name => parameter)
+                push!(resolved_keys, name)
                 progressed = true
             else
-                push!(remaining, definition)
+                push!(remaining, name => parameter)
             end
         end
 
         progressed || throw(
             ArgumentError(
                 "derived parameter defaults contain a dependency cycle among: " *
-                join(string.(Tuple(definition.spec.name for definition in remaining)), ", "),
+                join(string.(Tuple(first(entry) for entry in remaining)), ", "),
             ),
         )
         pending = remaining
@@ -205,17 +206,17 @@ function _local_parameter_axis_classes(definition, layout, parameter::Symbol, sh
     return first_axes
 end
 
-function _parameter_storage_shape(definition, layout, context, spec)
+function _parameter_storage_shape(definition, layout, context, name::Symbol, spec)
     spec.shape === :scalar && return ()
 
     if spec.axes === nothing
         (definition === nothing || layout === nothing) && throw(
             ArgumentError(
-                "parameter :$(spec.name) local storage requires a normalized model definition and component layout",
+                "parameter :$name local storage requires a normalized model definition and component layout",
             ),
         )
         local_axes = _local_parameter_axis_classes(
-            definition, layout, spec.name, spec.shape
+            definition, layout, name, spec.shape
         )
         return Tuple(length(axis) for axis in local_axes)
     elseif spec.shape === :vector
@@ -228,7 +229,7 @@ function _parameter_storage_shape(definition, layout, context, spec)
 end
 
 function validate_derived_parameter_result(
-    spec, context, value; definition=nothing, layout=nothing
+    name::Symbol, spec, context, value; definition=nothing, layout=nothing
 )
     T = context.scalar_type
 
@@ -236,30 +237,30 @@ function validate_derived_parameter_result(
         value isa Bool && return nothing
         value isa Number || throw(
             ArgumentError(
-                "derived default :$(spec.name) must be scalar; got $(typeof(value)).",
+                "derived default :$name must be scalar; got $(typeof(value)).",
             ),
         )
         typeof(value) === T || throw(
             ArgumentError(
-                "derived default :$(spec.name) must have type $(T); got $(typeof(value)). No implicit casting is performed.",
+                "derived default :$name must have type $(T); got $(typeof(value)). No implicit casting is performed.",
             ),
         )
         return nothing
     elseif spec.shape === :vector
         value isa AbstractVector || throw(
             ArgumentError(
-                "derived default :$(spec.name) must be a vector; got $(typeof(value)).",
+                "derived default :$name must be a vector; got $(typeof(value)).",
             ),
         )
         eltype(value) === T || throw(
             ArgumentError(
-                "derived default :$(spec.name) must have eltype $(T); got eltype $(eltype(value)). No implicit casting is performed.",
+                "derived default :$name must have eltype $(T); got eltype $(eltype(value)). No implicit casting is performed.",
             ),
         )
-        expected = only(_parameter_storage_shape(definition, layout, context, spec))
+        expected = only(_parameter_storage_shape(definition, layout, context, name, spec))
         length(value) == expected || throw(
             ArgumentError(
-                "derived default :$(spec.name) must have length $expected; got $(length(value)).",
+                "derived default :$name must have length $expected; got $(length(value)).",
             ),
         )
         return nothing
@@ -267,19 +268,19 @@ function validate_derived_parameter_result(
 
     value isa AbstractMatrix || throw(
         ArgumentError(
-            "derived default :$(spec.name) must be a matrix; got $(typeof(value)).",
+            "derived default :$name must be a matrix; got $(typeof(value)).",
         ),
     )
     eltype(value) === T || throw(
         ArgumentError(
-            "derived default :$(spec.name) must have eltype $(T); got eltype $(eltype(value)). No implicit casting is performed.",
+            "derived default :$name must have eltype $(T); got eltype $(eltype(value)). No implicit casting is performed.",
         ),
     )
 
-    expected = _parameter_storage_shape(definition, layout, context, spec)
+    expected = _parameter_storage_shape(definition, layout, context, name, spec)
     size(value) == expected || throw(
         ArgumentError(
-            "derived default :$(spec.name) must have size $expected; got $(size(value)).",
+            "derived default :$name must have size $expected; got $(size(value)).",
         ),
     )
     return nothing
@@ -308,9 +309,8 @@ function resolve_parameter_defaults(
     changed = Set{Symbol}(explicit_override_keys)
     resolved = params
 
-    for definition in ordered
-        key = definition.spec.name
-        provider = definition.default
+    for (key, parameter) in ordered
+        provider = parameter.default
 
         if key in override_set && hasproperty(resolved, key)
             continue
@@ -329,7 +329,8 @@ function resolve_parameter_defaults(
         if needs_compute || needs_recompute
             value = derive_default(provider.deriver, derivation_owner, context, resolved)
             validate_derived_parameter_result(
-                definition.spec,
+                key,
+                parameter.spec,
                 context,
                 value;
                 definition=normalized_definition,
@@ -354,7 +355,7 @@ function validate_parameter_shapes(
             ),
         )
 
-        expected = _parameter_storage_shape(definition, layout, context, spec)
+        expected = _parameter_storage_shape(definition, layout, context, k, spec)
         if spec.shape === :vector
             v = getproperty(params, k)
             v isa AbstractVector || throw(
@@ -388,18 +389,18 @@ function parameter_axis_names(context, axis::Symbol, parameter_name::Symbol)
 end
 
 function expand_named_vector_override(
-    spec, default_value, user_value::NamedTuple, context, ::Type{T}
+    name::Symbol, spec, default_value, user_value::NamedTuple, context, ::Type{T}
 ) where {T<:Real}
     spec.axes === nothing && throw(
         ArgumentError(
-            "parameter :$(spec.name) does not support NamedTuple overrides because it has no named vector axis."
+            "parameter :$name does not support NamedTuple overrides because it has no named vector axis."
         ),
     )
 
-    names = parameter_axis_names(context, spec.axes, spec.name)
+    names = parameter_axis_names(context, spec.axes, name)
     length(default_value) == length(names) || throw(
         ArgumentError(
-            "parameter :$(spec.name) default length $(length(default_value)) does not match axis :$(spec.axes) length $(length(names))."
+            "parameter :$name default length $(length(default_value)) does not match axis :$(spec.axes) length $(length(names))."
         ),
     )
 
@@ -410,7 +411,7 @@ function expand_named_vector_override(
             expected = join(string.(names), ", ")
             throw(
                 ArgumentError(
-                    "Unknown key `$(key)` for parameter `$(spec.name)`. Expected one of: $(expected)."
+                    "Unknown key `$(key)` for parameter `$name`. Expected one of: $(expected)."
                 ),
             )
         end
@@ -568,17 +569,17 @@ function _process_parameter_indices(definition, layout, context, parameter::Symb
 end
 
 function evaluate_process_default(
-    provider::ConstantDefault, spec, source, definition, layout, context, ::Type{T}
+    provider::ConstantDefault, name::Symbol, spec, source, definition, layout, context, ::Type{T}
 ) where {T<:Real}
     value = provider.value
     value = value isa Bool ? value : T(value)
     spec.shape === :scalar && return value
 
-    expected = _parameter_storage_shape(definition, layout, context, spec)
+    expected = _parameter_storage_shape(definition, layout, context, name, spec)
     if spec.shape === :vector
         if spec.axes === :plankton
             result = fill(zero(value), only(expected))
-            indices = _process_parameter_indices(definition, layout, context, spec.name)
+            indices = _process_parameter_indices(definition, layout, context, name)
             result[indices] .= value
             return result
         end
@@ -586,11 +587,12 @@ function evaluate_process_default(
     elseif spec.shape === :matrix
         return fill(value, expected...)
     end
-    throw(ArgumentError("unsupported parameter shape $(spec.shape) for :$(spec.name)"))
+    throw(ArgumentError("unsupported parameter shape $(spec.shape) for :$name"))
 end
 
 function evaluate_process_default(
     provider::DiameterIndexedVectorDefault,
+    name::Symbol,
     spec,
     source,
     definition,
@@ -601,7 +603,7 @@ function evaluate_process_default(
     spec.shape === :vector || throw(
         ArgumentError("DiameterIndexedVectorDefault requires vector parameter storage.")
     )
-    indices = _process_parameter_indices(definition, layout, context, spec.name)
+    indices = _process_parameter_indices(definition, layout, context, name)
     default = T(provider.default)
     return resolve_diameter_indexed_vector(
         T, context.diameters, indices, provider.value; default
@@ -610,30 +612,30 @@ end
 
 function build_process_parameter_defaults(source, definition, layout, context, ::Type{T}) where {T<:Real}
     entries = Pair{Symbol,Any}[]
-    for parameter_definition in parameter_definitions(source)
-        provider = parameter_definition.default
+    for (name, parameter) in pairs(parameter_definitions(source))
+        provider = parameter.default
         (provider isa NoDefault || provider isa DerivedDefault) && continue
-        spec = parameter_definition.spec
-        value = evaluate_process_default(provider, spec, source, definition, layout, context, T)
-        push!(entries, spec.name => value)
+        spec = parameter.spec
+        value = evaluate_process_default(provider, name, spec, source, definition, layout, context, T)
+        push!(entries, name => value)
     end
     return (; entries...)
 end
 
 function materialize_process_parameter_law_override(
-    context, definition, layout, parameter_definition, value::AbstractParamDef, ::Type{T}
+    context, definition, layout, name::Symbol, parameter, value::AbstractParamDef, ::Type{T}
 ) where {T<:Real}
-    spec = parameter_definition.spec
-    provider = parameter_definition.default
+    spec = parameter.spec
+    provider = parameter.default
     provider isa DiameterIndexedVectorDefault || throw(
         ArgumentError(
-            "parameter :$(spec.name) only supports parameter-law overrides with a diameter-indexed vector default provider (DiameterIndexedVectorDefault)."
+            "parameter :$name only supports parameter-law overrides with a diameter-indexed vector default provider (DiameterIndexedVectorDefault)."
         ),
     )
     spec.shape === :vector || throw(
-        ArgumentError("parameter :$(spec.name) diameter-indexed override requires vector storage")
+        ArgumentError("parameter :$name diameter-indexed override requires vector storage")
     )
-    indices = _process_parameter_indices(definition, layout, context, spec.name)
+    indices = _process_parameter_indices(definition, layout, context, name)
     return resolve_diameter_indexed_vector(
         T, context.diameters, indices, value; default=T(provider.default)
     )
@@ -650,17 +652,17 @@ function materialize_process_parameter_overrides(
 ) where {T<:Real}
     isempty(overrides) && return overrides
     entries = Pair{Symbol,Any}[]
-    definitions = Dict{Symbol,Any}(def.spec.name => def for def in parameter_definitions(source))
+    definitions = parameter_definitions(source)
     for (key, value) in Base.pairs(overrides)
-        parameter_definition = get(definitions, key, nothing)
-        if parameter_definition === nothing
+        parameter = hasproperty(definitions, key) ? getproperty(definitions, key) : nothing
+        if parameter === nothing
             push!(entries, key => value)
             continue
         end
-        spec = parameter_definition.spec
+        spec = parameter.spec
         if value isa AbstractParamDef
             push!(entries, key => materialize_process_parameter_law_override(
-                context, definition, layout, parameter_definition, value, T
+                context, definition, layout, key, parameter, value, T
             ))
         elseif value isa NamedTuple
             spec.shape === :vector || throw(
@@ -670,7 +672,7 @@ function materialize_process_parameter_overrides(
                 ArgumentError("parameter :$key has no direct default for partial overrides.")
             )
             push!(entries, key => expand_named_vector_override(
-                spec, getproperty(defaults, key), value, context, T
+                key, spec, getproperty(defaults, key), value, context, T
             ))
         else
             push!(entries, key => materialize_parameter_value(spec, value, T))
@@ -796,7 +798,7 @@ function _construct_process_definition(
     end
 
     normalized = normalize_model(definition)
-    definitions = isnothing(normalized.parameters) ? () : normalized.parameters
+    definitions = isnothing(normalized.parameters) ? (;) : normalized.parameters
     parameter_source = _DefinitionParameterSource(definitions)
     isnothing(derivation_owner) && (derivation_owner = definition)
     isnothing(definition.parameters) && !isempty(normalized.parameter_requirements) && throw(

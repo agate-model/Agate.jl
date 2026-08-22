@@ -6,7 +6,7 @@ using Agate.Configuration:
     Population, Pool, realize_components, component_tracers, parse_community
 using Agate.Construction: construct, define_tracer_functions
 using Agate.Parameters:
-    ParameterProvision, ParameterDefinition, NoDefault
+    ParameterProvision, Parameter, NoDefault
 using Agate.Processes:
     ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, ProductRouting,
     Smith, Monod, Q10, HeterotrophicConsumption, PreferentialGrazing, DirectRouting,
@@ -14,45 +14,33 @@ using Agate.Processes:
 
 function food_web_parameters()
     slot(process, name) = ParameterProvision(process, name)
-    no_default(
-        name, shape, provides; axes=shape === :vector ? :plankton : nothing,
-    ) = ParameterDefinition(name, NoDefault(); shape, axes, provides)
+    no_default(shape, provides; axes=shape === :vector ? :plankton : nothing) =
+        Parameter(NoDefault(); shape, axes, provides)
 
     return (
-        no_default(:maximum_growth_rate, :vector,
-            slot(:growth_autotrophs, :maximum_rate)),
-        no_default(:alpha, :vector,
-            slot(:growth_autotrophs, :alpha)),
-        no_default(:nutrient_half_saturation, :vector,
-            slot(:growth_autotrophs, :K)),
-        no_default(:temperature_q10, :scalar, (
+        maximum_growth_rate=no_default(:vector, slot(:growth_autotrophs, :maximum_rate)),
+        alpha=no_default(:vector, slot(:growth_autotrophs, :alpha)),
+        nutrient_half_saturation=no_default(:vector, slot(:growth_autotrophs, :K)),
+        temperature_q10=no_default(:scalar, (
             slot(:growth_autotrophs, :q10),
             slot(:consume_POM, :q10),
         )),
-        no_default(:reference_temperature, :scalar, (
+        reference_temperature=no_default(:scalar, (
             slot(:growth_autotrophs, :reference_temperature),
             slot(:consume_POM, :reference_temperature),
         )),
-        no_default(:maximum_consumption_rate, :vector,
-            slot(:consume_POM, :maximum_rate)),
-        no_default(
-            :pom_half_saturation, :vector, slot(:consume_POM, :half_saturation); axes=nothing
+        maximum_consumption_rate=no_default(:vector, slot(:consume_POM, :maximum_rate)),
+        pom_half_saturation=no_default(
+            :vector, slot(:consume_POM, :half_saturation); axes=nothing
         ),
-        no_default(:bacterial_assimilation, :matrix,
-            slot(:consume_POM, :assimilation)),
-        no_default(:maximum_predation_rate, :vector,
-            slot(:grazing_living, :maximum_rate)),
-        no_default(:holling_half_saturation, :vector,
-            slot(:grazing_living, :half_saturation)),
-        no_default(
-            :living_palatability_matrix, :matrix,
-            slot(:grazing_living, :palatability);
-            axes=(:consumer, :prey),
+        bacterial_assimilation=no_default(:matrix, slot(:consume_POM, :assimilation)),
+        maximum_predation_rate=no_default(:vector, slot(:grazing_living, :maximum_rate)),
+        holling_half_saturation=no_default(:vector, slot(:grazing_living, :half_saturation)),
+        living_palatability_matrix=no_default(
+            :matrix, slot(:grazing_living, :palatability); axes=(:consumer, :prey)
         ),
-        no_default(
-            :living_assimilation_matrix, :matrix,
-            slot(:grazing_living, :assimilation);
-            axes=(:consumer, :prey),
+        living_assimilation_matrix=no_default(
+            :matrix, slot(:grazing_living, :assimilation); axes=(:consumer, :prey)
         ),
     )
 end
@@ -223,21 +211,18 @@ end
         ),
     )
     parameters = (
-        ParameterDefinition(
-            :maximum_consumption_rate,
+        maximum_consumption_rate=Parameter(
             NoDefault();
             shape=:vector,
             axes=:plankton,
             provides=ParameterProvision(:consume_POM, :maximum_rate),
         ),
-        ParameterDefinition(
-            :pom_half_saturation,
+        pom_half_saturation=Parameter(
             NoDefault();
             shape=:vector,
             provides=ParameterProvision(:consume_POM, :half_saturation),
         ),
-        ParameterDefinition(
-            :bacterial_assimilation,
+        bacterial_assimilation=Parameter(
             NoDefault();
             shape=:matrix,
             provides=ParameterProvision(:consume_POM, :assimilation),

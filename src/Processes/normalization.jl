@@ -663,20 +663,20 @@ end
 
 function _normalize_parameter_bindings(requirements::Tuple, definitions)
     isnothing(definitions) && return (), nothing
-    definitions isa Tuple || throw(
-        ArgumentError("model parameters must be a tuple of ParameterDefinition values"),
+    definitions isa NamedTuple || throw(
+        ArgumentError("model parameters must be a NamedTuple of Parameter values"),
     )
-    all(definition -> definition isa ParameterDefinition, definitions) || throw(
-        ArgumentError("model parameters must contain only ParameterDefinition values"),
+    all(parameter -> parameter isa Parameter, values(definitions)) || throw(
+        ArgumentError("model parameters must contain only Parameter values"),
     )
 
     provided = Dict{ParameterRequirementIdentity,Tuple{Symbol,Union{Nothing,Symbol,NTuple{2,Symbol}}}}()
-    resolved_definitions = ParameterDefinition[]
+    resolved = Pair{Symbol,Any}[]
 
-    for definition in definitions
-        spec = definition.spec
+    for (name, parameter) in pairs(definitions)
+        spec = parameter.spec
         matched = Tuple(
-            _resolve_parameter_requirement(provision, requirements, spec.name)
+            _resolve_parameter_requirement(provision, requirements, name)
             for provision in spec.provides
         )
         required_shapes = unique(Tuple(requirement.shape for requirement in matched))
@@ -684,12 +684,12 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
         if isnothing(shape)
             isempty(required_shapes) && throw(
                 ArgumentError(
-                    "parameter :$(spec.name) has no semantic provision or explicit storage axes; declare shape explicitly",
+                    "parameter :$name has no semantic provision or explicit storage axes; declare shape explicitly",
                 ),
             )
             length(required_shapes) == 1 || throw(
                 ArgumentError(
-                    "parameter :$(spec.name) provisions require incompatible shapes $(Tuple(required_shapes))",
+                    "parameter :$name provisions require incompatible shapes $(Tuple(required_shapes))",
                 ),
             )
             shape = only(required_shapes)
@@ -698,39 +698,34 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
         for requirement in matched
             shape === requirement.shape || throw(
                 ArgumentError(
-                    "parameter :$(spec.name) provides $(requirement.identity) with required shape " *
+                    "parameter :$name provides $(requirement.identity) with required shape " *
                     "$(requirement.shape), not $shape",
                 ),
             )
             identity = requirement.identity
             haskey(provided, identity) && throw(
                 ArgumentError(
-                    "parameter requirement $identity is provided by both :$(first(provided[identity])) and :$(spec.name)",
+                    "parameter requirement $identity is provided by both :$(first(provided[identity])) and :$name",
                 ),
             )
-            provided[identity] = (spec.name, spec.axes)
+            provided[identity] = (name, spec.axes)
         end
 
-        resolved_spec = ParameterSpec(
-            spec.name,
-            shape;
-            axes=spec.axes,
-            provides=spec.provides,
-        )
-        push!(resolved_definitions, ParameterDefinition(resolved_spec, definition.default))
+        resolved_spec = ParameterSpec(shape; axes=spec.axes, provides=spec.provides)
+        push!(resolved, name => Parameter(resolved_spec, parameter.default))
     end
 
     missing = filter(requirement -> !haskey(provided, requirement.identity), requirements)
     isempty(missing) || throw(
         ArgumentError(
-            "model parameter definitions do not provide requirements $(map(r -> r.identity, missing))",
+            "model parameters do not provide requirements $(map(r -> r.identity, missing))",
         ),
     )
     bindings = Tuple(
         ParameterBinding(requirement, provided[requirement.identity]...)
         for requirement in requirements
     )
-    return bindings, Tuple(resolved_definitions)
+    return bindings, (; resolved...)
 end
 
 """Normalize process identity, semantic parameter requirements, and model bindings.

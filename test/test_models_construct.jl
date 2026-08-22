@@ -14,20 +14,17 @@ struct ThreeInteractionMatrixSource end
 
 function Agate.Parameters.parameter_definitions(::ThreeInteractionMatrixSource)
     return (
-        Agate.Parameters.ParameterDefinition(
-            :encounter_matrix,
+        encounter_matrix=Agate.Parameters.Parameter(
             Agate.Parameters.NoDefault();
             shape=:matrix,
             axes=(:consumer, :prey),
         ),
-        Agate.Parameters.ParameterDefinition(
-            :capture_efficiency_matrix,
+        capture_efficiency_matrix=Agate.Parameters.Parameter(
             Agate.Parameters.NoDefault();
             shape=:matrix,
             axes=(:consumer, :prey),
         ),
-        Agate.Parameters.ParameterDefinition(
-            :handling_time_matrix,
+        handling_time_matrix=Agate.Parameters.Parameter(
             Agate.Parameters.NoDefault();
             shape=:matrix,
             axes=(:consumer, :prey),

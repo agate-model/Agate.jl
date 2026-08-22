@@ -6,7 +6,7 @@
 using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Population, Pool
 using Agate.Construction: construct
 using Agate.Parameters:
-    DerivedDefault, ConstantDefault, ParameterDefinition, ParameterProvision
+    DerivedDefault, ConstantDefault, Parameter, ParameterProvision
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
     Consumption, Growth, Light, ModelDefinition, NutrientResponse, ProductRouting,
@@ -39,64 +39,55 @@ processes = (
 
 # ## Parameters
 #
-# Parameters name their scientific process slot through `ParameterProvision`;
+# Each NamedTuple key is the stable model parameter name. The `Parameter` value
+# carries its default/storage metadata and, for now, its `ParameterProvision`;
 # formulation and nested path are inferred unless disambiguation is needed.
 # Vector parameters use the realized plankton axis, while derived interaction
 # matrices are ordinary top-level runtime parameters.
 
 parameters = (
-    ParameterDefinition(
-        :maximum_growth_rate,
+    maximum_growth_rate=Parameter(
         ConstantDefault(0.8 / day);
         axes=:plankton,
         provides=ParameterProvision(:growth_M, :maximum_rate),
     ),
-    ParameterDefinition(
-        :alpha,
+    alpha=Parameter(
         ConstantDefault(0.08 / day);
         axes=:plankton,
         provides=ParameterProvision(:growth_M, :alpha),
     ),
-    ParameterDefinition(
-        :nutrient_half_saturation,
+    nutrient_half_saturation=Parameter(
         ConstantDefault(0.2);
         axes=:plankton,
         provides=ParameterProvision(:growth_M, :K),
     ),
-    ParameterDefinition(
-        :maximum_predation_rate,
+    maximum_predation_rate=Parameter(
         ConstantDefault(0.4 / day);
         axes=:plankton,
         provides=ParameterProvision(:grazing_M, :maximum_rate),
     ),
-    ParameterDefinition(
-        :holling_half_saturation,
+    holling_half_saturation=Parameter(
         ConstantDefault(0.15);
         axes=:plankton,
         provides=ParameterProvision(:grazing_M, :half_saturation),
     ),
-    ParameterDefinition(
-        :optimum_predator_prey_ratio,
+    optimum_predator_prey_ratio=Parameter(
         ConstantDefault(4.0);
         axes=:plankton,
     ),
-    ParameterDefinition(
-        :specificity,
+    specificity=Parameter(
         ConstantDefault(0.5);
         axes=:plankton,
     ),
-    ParameterDefinition(
-        :protection,
+    protection=Parameter(
         ConstantDefault(0.0);
         axes=:plankton,
     ),
-    ParameterDefinition(
-        :assimilation_efficiency,
+    assimilation_efficiency=Parameter(
         ConstantDefault(0.65);
         axes=:plankton,
     ),
-    ParameterDefinition(
-        :palatability_matrix,
+    palatability_matrix=Parameter(
         DerivedDefault(
             PalatabilityAllometric();
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
@@ -104,8 +95,7 @@ parameters = (
         axes=(:consumer, :prey),
         provides=ParameterProvision(:grazing_M, :palatability),
     ),
-    ParameterDefinition(
-        :assimilation_matrix,
+    assimilation_matrix=Parameter(
         DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,));
         axes=(:consumer, :prey),
         provides=ParameterProvision(:grazing_M, :assimilation),

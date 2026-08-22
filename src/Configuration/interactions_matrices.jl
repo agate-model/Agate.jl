@@ -1,7 +1,7 @@
 """Return parameter specs stored on the canonical consumer-by-prey axes."""
 function interaction_parameter_specs(source)
     return Tuple(
-        spec for spec in parameter_directory(source) if
+        name => spec for (name, spec) in pairs(parameter_directory(source)) if
         spec.shape === :matrix && spec.axes == (:consumer, :prey)
     )
 end
@@ -23,7 +23,7 @@ function interaction_axis_metadata(source, community_context::CommunityContext)
     prey_classes = Tuple(
         community_context.class_symbols[i] for i in community_context.prey_indices
     )
-    parameter_names = Tuple(spec.name for spec in specs)
+    parameter_names = Tuple(first(entry) for entry in specs)
 
     return (;
         parameters=parameter_names,

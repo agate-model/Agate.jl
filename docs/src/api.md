@@ -63,7 +63,7 @@ Agate.Processes.Remineralization
 ```@docs
 Agate.Parameters.ParameterSpec
 Agate.Parameters.ParameterProvision
-Agate.Parameters.ParameterDefinition
+Agate.Parameters.Parameter
 Agate.Parameters.DefaultProvider
 Agate.Parameters.ConstantDefault
 Agate.Parameters.DerivedDefault

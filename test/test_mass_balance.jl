@@ -7,7 +7,7 @@ using Agate.Diagnostics: box_model_mass_balance
 using Agate.Configuration: Population, Pool
 using Agate.Construction: construct
 using Agate.Parameters:
-    ConstantDefault, ParameterDefinition, ParameterProvision
+    ConstantDefault, Parameter, ParameterProvision
 using Agate.Processes:
     FixedStoichiometry, Growth, Light, ModelDefinition, Nutrients, NutrientResponse,
     Geider, Liebig, FrankTNorm, Monod
@@ -42,52 +42,43 @@ function multi_nutrient_test_model(grid; nutrient_formulation=Liebig())
         ),
     )
     frank_tnorm_parameters = nutrient_formulation isa FrankTNorm ? (
-        ParameterDefinition(
-            :frank_sharpness,
+        frank_sharpness=Parameter(
             ConstantDefault(25);
             provides=ParameterProvision(
                 :growth_P, :sharpness; path=(:factors, :nutrients)
             ),
         ),
-    ) : ()
-    parameters = (
-        ParameterDefinition(
-            :nitrogen_to_carbon,
+    ) : (;)
+    parameters = merge((
+        nitrogen_to_carbon=Parameter(
             ConstantDefault(16 / 106);
             provides=ParameterProvision(:growth_P, :ratio; qualifier=(currency=:nitrogen,)),
         ),
-        ParameterDefinition(
-            :phosphorus_to_carbon,
+        phosphorus_to_carbon=Parameter(
             ConstantDefault(1 / 106);
             provides=ParameterProvision(:growth_P, :ratio; qualifier=(currency=:phosphorus,)),
         ),
-        ParameterDefinition(
-            :maximum_growth_rate,
+        maximum_growth_rate=Parameter(
             ConstantDefault(2 / 86400);
             provides=ParameterProvision(:growth_P, :maximum_rate),
         ),
-        ParameterDefinition(
-            :half_saturation_DIN,
+        half_saturation_DIN=Parameter(
             ConstantDefault(0.5);
             provides=ParameterProvision(:growth_P, :K; qualifier=(resource=:DIN,)),
         ),
-        ParameterDefinition(
-            :half_saturation_PO4,
+        half_saturation_PO4=Parameter(
             ConstantDefault(0.5);
             provides=ParameterProvision(:growth_P, :K; qualifier=(resource=:PO4,)),
         ),
-        ParameterDefinition(
-            :photosynthetic_slope,
+        photosynthetic_slope=Parameter(
             ConstantDefault(0.1 / 86400);
             provides=ParameterProvision(:growth_P, :alpha),
         ),
-        ParameterDefinition(
-            :chlorophyll_to_carbon_ratio,
+        chlorophyll_to_carbon_ratio=Parameter(
             ConstantDefault(0.02);
             provides=ParameterProvision(:growth_P, :chlorophyll_to_carbon_ratio),
         ),
-        frank_tnorm_parameters...,
-    )
+    ), frank_tnorm_parameters)
 
     return construct(ModelDefinition(; components, processes, parameters); grid)
 end

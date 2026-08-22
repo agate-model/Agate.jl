@@ -1,7 +1,7 @@
 export ParameterSpec
 export ParameterProvision
 export DefaultProvider
-export ParameterDefinition
+export Parameter
 export parameter_definitions
 export ConstantDefault
 export DerivedDefault
@@ -50,20 +50,14 @@ function _parameter_provisions(provides)
     return provides
 end
 
-"""Describe a configurable model parameter.
+"""Describe one configurable model parameter independent of its model-level name.
 
-Fields
-------
-- `name`: parameter key.
-- `shape`: resolved storage shape (`:scalar`, `:vector`, or `:matrix`); may be `nothing` before process-bound shape inference.
-- `axes`: optional explicit runtime storage axis/axes. With `axes=nothing`,
-  vector/matrix storage is process-local and follows the resolved provision applicability.
-  `axes=:plankton` selects the full living-class axis; matrix axes such as
-  `(:consumer, :prey)` select the corresponding global role axes.
-- `provides`: semantic process parameter slots supplied by this parameter.
+The parameter name is owned by the key in the model's `parameters` NamedTuple.
+`shape` records resolved storage dimensionality, `axes` optionally selects explicit
+runtime storage axes, and `provides` temporarily records semantic process slots during
+the v0.12 inline-binding migration.
 """
 struct ParameterSpec{P<:Tuple}
-    name::Symbol
     shape::Union{Nothing,Symbol}
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}
     provides::P
@@ -71,7 +65,6 @@ end
 
 """Convenience constructor for `ParameterSpec`."""
 function ParameterSpec(
-    name::Symbol,
     shape::Union{Nothing,Symbol}=nothing;
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
     provides=(),
@@ -82,7 +75,7 @@ function ParameterSpec(
     else
         shape
     end
-    return ParameterSpec(name, declared_shape, axes, provisions)
+    return ParameterSpec(declared_shape, axes, provisions)
 end
 
 """Abstract supertype for constructor-time default providers.
@@ -93,29 +86,33 @@ later be moved to a GPU architecture via `Adapt`.
 """
 abstract type DefaultProvider end
 
-"""Parameter definition that pairs a `ParameterSpec` with a default provider."""
-struct ParameterDefinition{D<:DefaultProvider}
+"""A keyed model parameter with setup-time metadata and a default provider.
+
+The stable model parameter name is the key in the enclosing `parameters` NamedTuple,
+for example `parameters=(maximum_growth_rate=Parameter(...),)`. `Parameter` therefore
+does not duplicate its name internally.
+"""
+struct Parameter{D<:DefaultProvider}
     spec::ParameterSpec
     default::D
 end
 
-"""Define a model parameter and its constructor-time default.
+"""Define one model parameter value/default independent of its model-level key.
 
 `shape` may be `:scalar`, `:vector`, or `:matrix`. For provision-bound parameters it
 may be omitted and is inferred from the resolved process requirement. Explicit runtime
 `axes` also imply vector or matrix shape. Parameters with neither provisions nor axes
 must declare shape explicitly. `provides` links the parameter to one or more scientific
-process parameter slots.
+process parameter slots until the inline-binding migration removes that legacy layer.
 """
-function ParameterDefinition(
-    name::Symbol,
+function Parameter(
     default::D;
     shape::Union{Nothing,Symbol}=nothing,
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
     provides=(),
 ) where {D<:DefaultProvider}
-    spec = ParameterSpec(name, shape; axes, provides)
-    return ParameterDefinition(spec, default)
+    spec = ParameterSpec(shape; axes, provides)
+    return Parameter(spec, default)
 end
 
 """A literal parameter default.
@@ -181,20 +178,24 @@ end
 
 DiameterIndexedVectorDefault(value; default) = DiameterIndexedVectorDefault(value, default)
 
-"""Return the parameter definitions owned by a model family or direct definition source."""
-parameter_definitions(source) = ()
+"""Return the keyed parameter definitions owned by a model family or direct source."""
+parameter_definitions(source) = (;)
 
-"""Return authored parameter specifications derived from `parameter_definitions(source)`.
+"""Return authored parameter specifications keyed by stable model parameter name.
 
-Provision-bound specifications may have `shape === nothing` until `normalize_model` resolves
-their process requirements.
+Provision-bound specifications may have `shape === nothing` until `normalize_model`
+resolves their process requirements.
 """
-parameter_directory(source) = map(d -> d.spec, parameter_definitions(source))
+function parameter_directory(source)
+    definitions = parameter_definitions(source)
+    definitions isa NamedTuple || throw(
+        ArgumentError("parameter_definitions(::$(typeof(source))) must return a NamedTuple"),
+    )
+    return NamedTuple{keys(definitions)}(Tuple(definition.spec for definition in values(definitions)))
+end
 
 """Return the `ParameterSpec` for `key`, or `nothing` if absent."""
 function parameter_spec(source, key::Symbol)
-    for spec in parameter_directory(source)
-        spec.name === key && return spec
-    end
-    return nothing
+    directory = parameter_directory(source)
+    return hasproperty(directory, key) ? getproperty(directory, key) : nothing
 end

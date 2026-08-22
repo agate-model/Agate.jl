@@ -173,12 +173,12 @@ function capture_model_manifest(
     group_tracers = NamedTuple{group_order}(group_values)
 
     interaction_names = Tuple(
-        spec.name for spec in parameter_directory(family) if
+        name for (name, spec) in pairs(parameter_directory(family)) if
         spec.shape === :matrix && spec.axes == (:consumer, :prey)
     )
     derived_interaction_names = Tuple(
-        definition.spec.name for definition in parameter_definitions(family) if
-        definition.default isa DerivedDefault
+        name for (name, parameter) in pairs(parameter_definitions(family)) if
+        parameter.default isa DerivedDefault
     )
     interaction_matrix_sources = NamedTuple{interaction_names}(
         Tuple(

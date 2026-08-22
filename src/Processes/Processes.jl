@@ -3,7 +3,7 @@ module Processes
 
 using ..Configuration: Population, Pool, ComponentLayout, currency, component_classes
 using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
-using ..Parameters: ParameterSpec, ParameterDefinition, ParameterProvision, parameter_definitions
+using ..Parameters: ParameterSpec, Parameter, ParameterProvision, parameter_definitions
 using ..Library.Mortality: linear_loss, quadratic_loss
 using ..Library.Predation: idealized_predation_loss, preferential_predation_loss
 using ..Library.Photosynthesis: geider_light_response, smith_light_limitation

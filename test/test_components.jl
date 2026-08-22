@@ -7,7 +7,7 @@ using Agate.Configuration:
     component_indices, state_tracers, state_indices,
     component_diameters, component_class_count, parse_community
 using Agate.ModelFamilies: default_components
-using Agate.Parameters: ParameterProvision, ParameterDefinition, ConstantDefault, NoDefault
+using Agate.Parameters: ParameterProvision, Parameter, ConstantDefault, NoDefault
 using Agate.Processes:
     ModelDefinition, Mortality, Remineralization, LinearMortality, LinearRemineralization,
     normalize_model, resolve_parameter_applicability
@@ -81,8 +81,7 @@ end
     )
 
     mortality = Mortality(LinearMortality(); populations=:P)
-    parameter = ParameterDefinition(
-        :mortality_rate,
+    parameter = Parameter(
         NoDefault();
         shape=:vector,
         provides=ParameterProvision(:mortality_P, :rate),
@@ -90,7 +89,7 @@ end
     definition = normalize_model(ModelDefinition(;
         components=(P=population,),
         processes=(mortality_P=mortality,),
-        parameters=(parameter,),
+        parameters=(mortality_rate=parameter,),
     ))
     applicability = only(resolve_parameter_applicability(definition, realize_components((P=population,))))
     @test applicability.axis_components == ((:P,),)
@@ -122,8 +121,7 @@ end
     @test component_diameters(layout, :POM) == (0.5f0, 5.0f0, 50.0f0)
 
     process = Remineralization(LinearRemineralization(); sources=:POM, destinations=:N)
-    parameter = ParameterDefinition(
-        :pom_remineralization,
+    parameter = Parameter(
         ConstantDefault(0.1);
         provides=ParameterProvision(:remineralization_POM, :rate),
     )
@@ -131,7 +129,7 @@ end
         ModelDefinition(;
             components,
             processes=(remineralization_POM=process,),
-            parameters=(parameter,),
+            parameters=(pom_remineralization=parameter,),
         ),
     )
     applicability = only(resolve_parameter_applicability(definition, layout))

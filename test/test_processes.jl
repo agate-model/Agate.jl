@@ -3,7 +3,7 @@ using ForwardDiff
 
 using Agate.Configuration: Population, Pool, realize_components
 using Agate.ModelFamilies: default_components, default_processes
-using Agate.Parameters: ConstantDefault, NoDefault, ParameterDefinition, ParameterProvision
+using Agate.Parameters: ConstantDefault, NoDefault, Parameter, ParameterProvision
 using Agate.Processes:
     AbstractFormulation,
     AbstractFactor,
@@ -266,7 +266,7 @@ end
         ModelDefinition(;
             components=default_components(family),
             processes=default_processes(family),
-            parameters=(definition.parameters..., first(definition.parameters)),
+            parameters=(invalid=1,),
         ),
     )
 end
@@ -304,14 +304,14 @@ end
             ),
         ),
     )
-    parameter(name, slot, path) = ParameterDefinition(
-        name, NoDefault(); provides=ParameterProvision(:growth, slot; path)
+    parameter(slot, path) = Parameter(
+        NoDefault(); provides=ParameterProvision(:growth, slot; path)
     )
     parameters(max_a) = (
-        ParameterDefinition(:max_a, NoDefault(); provides=max_a),
-        parameter(:alpha_a, :alpha, (:factors, :light_a)),
-        parameter(:max_b, :maximum_rate, (:factors, :light_b)),
-        parameter(:alpha_b, :alpha, (:factors, :light_b)),
+        max_a=Parameter(NoDefault(); provides=max_a),
+        alpha_a=parameter(:alpha, (:factors, :light_a)),
+        max_b=parameter(:maximum_rate, (:factors, :light_b)),
+        alpha_b=parameter(:alpha, (:factors, :light_b)),
     )
     definition(parameters) = ModelDefinition(; components, processes, parameters)
 
@@ -328,14 +328,13 @@ end
     bad_shape = parameters(
         ParameterProvision(:growth, :maximum_rate; path=(:factors, :light_a))
     )
-    bad_shape = (
-        ParameterDefinition(
-            :max_a, NoDefault();
+    bad_shape = merge(bad_shape, (
+        max_a=Parameter(
+            NoDefault();
             shape=:scalar,
             provides=ParameterProvision(:growth, :maximum_rate; path=(:factors, :light_a)),
         ),
-        bad_shape[2:end]...,
-    )
+    ))
     @test_throws ArgumentError normalize_model(definition(bad_shape))
 
     @test_throws ArgumentError normalize_model(
@@ -355,28 +354,24 @@ end
         grazing=Consumption(PreferentialGrazing(); consumers=:Z, resources=:P),
     )
     parameters = (
-        ParameterDefinition(
-            :maximum_rate, ConstantDefault(1.0);
+        maximum_rate=Parameter(ConstantDefault(1.0);
             provides=ParameterProvision(:grazing, :maximum_rate),
         ),
-        ParameterDefinition(
-            :half_saturation, ConstantDefault(0.5);
+        half_saturation=Parameter(ConstantDefault(0.5);
             provides=ParameterProvision(:grazing, :half_saturation),
         ),
-        ParameterDefinition(
-            :palatability, ConstantDefault(1.0);
+        palatability=Parameter(ConstantDefault(1.0);
             axes=(:consumer, :prey),
             provides=ParameterProvision(:grazing, :palatability),
         ),
-        ParameterDefinition(
-            :assimilation, ConstantDefault(0.7);
+        assimilation=Parameter(ConstantDefault(0.7);
             axes=(:consumer, :prey),
             provides=ParameterProvision(:grazing, :assimilation),
         ),
     )
 
     normalized = normalize_model(ModelDefinition(; components, processes, parameters))
-    @test Tuple(def.spec.name for def in normalized.parameters) ==
+    @test keys(normalized.parameters) ==
         (:maximum_rate, :half_saturation, :palatability, :assimilation)
     @test Tuple(def.spec.shape for def in normalized.parameters) ==
         (:vector, :vector, :matrix, :matrix)
