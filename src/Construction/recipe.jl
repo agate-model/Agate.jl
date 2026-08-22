@@ -174,7 +174,7 @@ function capture_model_manifest(
 
     interaction_names = Tuple(
         name for (name, spec) in pairs(parameter_directory(family)) if
-        spec.shape === :matrix && spec.axes == (:consumer, :prey)
+        spec.axes == (:consumer, :prey)
     )
     derived_interaction_names = Tuple(
         name for (name, parameter) in pairs(parameter_definitions(family)) if

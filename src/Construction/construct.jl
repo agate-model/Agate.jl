@@ -86,43 +86,6 @@ function validate_parameter_directory(source)
     end
 
     for (name, parameter) in pairs(definitions)
-        spec = parameter.spec
-        spec.shape in (:scalar, :vector, :matrix) || throw(
-            ArgumentError(
-                "parameter_definitions(::$(typeof(source))) declares :$name with invalid shape $(spec.shape).",
-            ),
-        )
-
-        if spec.shape === :vector
-            if spec.axes !== nothing
-                spec.axes isa Symbol || throw(
-                    ArgumentError(
-                        "parameter :$name vector axis must be a Symbol (got $(typeof(spec.axes))).",
-                    ),
-                )
-            end
-        elseif spec.shape === :matrix
-            if spec.axes !== nothing
-                (spec.axes isa Tuple && length(spec.axes) == 2) || throw(
-                    ArgumentError(
-                        "parameter :$name axes must be a 2-tuple of Symbols (got $(typeof(spec.axes))).",
-                    ),
-                )
-                row_axis, col_axis = spec.axes
-                (row_axis isa Symbol && col_axis isa Symbol) || throw(
-                    ArgumentError(
-                        "parameter :$name axes must be Symbols (got $(spec.axes)).",
-                    ),
-                )
-            end
-        else
-            spec.axes === nothing || throw(
-                ArgumentError(
-                    "parameter :$name has axes=$(spec.axes) but is not vector or matrix."
-                ),
-            )
-        end
-
         provider = parameter.default
         if provider isa DerivedDefault
             for dep in provider.deps
@@ -179,7 +142,23 @@ function derived_default_order(source)
     return Tuple(ordered)
 end
 
-function _local_parameter_axis_classes(definition, layout, parameter::Symbol, shape::Symbol)
+function _parameter_rank(definition, name::Symbol, spec)
+    spec.axes isa Symbol && return 1
+    spec.axes isa Tuple && return length(spec.axes)
+    definition === nothing && return 0
+
+    ranks = unique(Tuple(
+        length(binding.axes) for binding in definition.parameter_bindings
+        if binding.parameter === name
+    ))
+    isempty(ranks) && return 0
+    length(ranks) == 1 || throw(ArgumentError(
+        "parameter :$name is bound to slots with incompatible dimensionality $(Tuple(ranks))",
+    ))
+    return only(ranks)
+end
+
+function _local_parameter_axis_classes(definition, layout, parameter::Symbol)
     matches = Tuple(
         applicability.axis_classes
         for applicability in resolve_parameter_applicability(definition, layout)
@@ -191,12 +170,6 @@ function _local_parameter_axis_classes(definition, layout, parameter::Symbol, sh
         ),
     )
 
-    expected_axes = shape === :vector ? 1 : shape === :matrix ? 2 : 0
-    all(axes -> length(axes) == expected_axes, matches) || throw(
-        ArgumentError(
-            "parameter :$parameter local storage does not match its declared $shape shape",
-        ),
-    )
     first_axes = first(matches)
     all(==(first_axes), matches) || throw(
         ArgumentError(
@@ -206,8 +179,9 @@ function _local_parameter_axis_classes(definition, layout, parameter::Symbol, sh
     return first_axes
 end
 
-function _parameter_storage_shape(definition, layout, context, name::Symbol, spec)
-    spec.shape === :scalar && return ()
+function _parameter_storage_size(definition, layout, context, name::Symbol, spec)
+    rank = _parameter_rank(definition, name, spec)
+    rank == 0 && return ()
 
     if spec.axes === nothing
         (definition === nothing || layout === nothing) && throw(
@@ -215,15 +189,17 @@ function _parameter_storage_shape(definition, layout, context, name::Symbol, spe
                 "parameter :$name local storage requires a normalized model definition and component layout",
             ),
         )
-        local_axes = _local_parameter_axis_classes(
-            definition, layout, name, spec.shape
-        )
+        local_axes = _local_parameter_axis_classes(definition, layout, name)
+        length(local_axes) == rank || throw(ArgumentError(
+            "parameter :$name local storage rank does not match its bound slot axes",
+        ))
         return Tuple(length(axis) for axis in local_axes)
-    elseif spec.shape === :vector
+    elseif rank == 1
         n = spec.axes === :plankton ? context.n_total : length(axis_indices(context, spec.axes))
         return (n,)
     end
 
+    rank == 2 || throw(ArgumentError("parameter :$name has unsupported rank $rank"))
     row_axis, col_axis = spec.axes
     return (length(axis_indices(context, row_axis)), length(axis_indices(context, col_axis)))
 end
@@ -232,8 +208,9 @@ function validate_derived_parameter_result(
     name::Symbol, spec, context, value; definition=nothing, layout=nothing
 )
     T = context.scalar_type
+    rank = _parameter_rank(definition, name, spec)
 
-    if spec.shape === :scalar
+    if rank == 0
         value isa Bool && return nothing
         value isa Number || throw(
             ArgumentError(
@@ -246,7 +223,7 @@ function validate_derived_parameter_result(
             ),
         )
         return nothing
-    elseif spec.shape === :vector
+    elseif rank == 1
         value isa AbstractVector || throw(
             ArgumentError(
                 "derived default :$name must be a vector; got $(typeof(value)).",
@@ -257,7 +234,7 @@ function validate_derived_parameter_result(
                 "derived default :$name must have eltype $(T); got eltype $(eltype(value)). No implicit casting is performed.",
             ),
         )
-        expected = only(_parameter_storage_shape(definition, layout, context, name, spec))
+        expected = only(_parameter_storage_size(definition, layout, context, name, spec))
         length(value) == expected || throw(
             ArgumentError(
                 "derived default :$name must have length $expected; got $(length(value)).",
@@ -266,6 +243,7 @@ function validate_derived_parameter_result(
         return nothing
     end
 
+    rank == 2 || throw(ArgumentError("parameter :$name has unsupported rank $rank"))
     value isa AbstractMatrix || throw(
         ArgumentError(
             "derived default :$name must be a matrix; got $(typeof(value)).",
@@ -277,7 +255,7 @@ function validate_derived_parameter_result(
         ),
     )
 
-    expected = _parameter_storage_shape(definition, layout, context, name, spec)
+    expected = _parameter_storage_size(definition, layout, context, name, spec)
     size(value) == expected || throw(
         ArgumentError(
             "derived default :$name must have size $expected; got $(size(value)).",
@@ -344,7 +322,7 @@ function resolve_parameter_defaults(
     return resolved
 end
 
-function validate_parameter_shapes(
+function validate_parameter_storage(
     source, definition, layout, context, params::NamedTuple, required::Tuple
 )
     for k in required
@@ -355,8 +333,9 @@ function validate_parameter_shapes(
             ),
         )
 
-        expected = _parameter_storage_shape(definition, layout, context, k, spec)
-        if spec.shape === :vector
+        rank = _parameter_rank(definition, k, spec)
+        expected = _parameter_storage_size(definition, layout, context, k, spec)
+        if rank == 1
             v = getproperty(params, k)
             v isa AbstractVector || throw(
                 ArgumentError("parameter :$k must be a vector; got $(typeof(v))."),
@@ -366,7 +345,7 @@ function validate_parameter_shapes(
                     "parameter :$k must have length $(only(expected)) (got $(length(v))).",
                 ),
             )
-        elseif spec.shape === :matrix
+        elseif rank == 2
             m = getproperty(params, k)
             m isa AbstractMatrix || throw(
                 ArgumentError("parameter :$k must be a matrix; got $(typeof(m))."),
@@ -376,6 +355,8 @@ function validate_parameter_shapes(
                     "parameter :$k must have size $expected (got $(size(m))).",
                 ),
             )
+        elseif rank != 0
+            throw(ArgumentError("parameter :$k has unsupported rank $rank"))
         end
     end
 
@@ -420,16 +401,17 @@ function expand_named_vector_override(
     return expanded
 end
 
-function materialize_parameter_value(spec, value, ::Type{T}) where {T<:Real}
-    if spec.shape === :scalar
+function materialize_parameter_value(definition, name::Symbol, spec, value, ::Type{T}) where {T<:Real}
+    rank = _parameter_rank(definition, name, spec)
+    if rank == 0
         return value isa Bool ? value : T(value)
-    elseif spec.shape === :vector
+    elseif rank == 1
         value isa AbstractVector || return value
         eltype(value) === T && return copy(value)
         out = similar(value, T, axes(value))
         copyto!(out, value)
         return out
-    elseif spec.shape === :matrix
+    elseif rank == 2
         value isa AbstractMatrix || return value
         eltype(value) === T && return copy(value)
         out = similar(value, T, axes(value))
@@ -437,8 +419,9 @@ function materialize_parameter_value(spec, value, ::Type{T}) where {T<:Real}
         return out
     end
 
-    return value
+    throw(ArgumentError("parameter :$name has unsupported rank $rank"))
 end
+
 
 function validate_override_keys(where_, overrides::NamedTuple, required::Tuple, source)
     isempty(overrides) && return nothing
@@ -573,10 +556,11 @@ function evaluate_process_default(
 ) where {T<:Real}
     value = provider.value
     value = value isa Bool ? value : T(value)
-    spec.shape === :scalar && return value
+    rank = _parameter_rank(definition, name, spec)
+    rank == 0 && return value
 
-    expected = _parameter_storage_shape(definition, layout, context, name, spec)
-    if spec.shape === :vector
+    expected = _parameter_storage_size(definition, layout, context, name, spec)
+    if rank == 1
         if spec.axes === :plankton
             result = fill(zero(value), only(expected))
             indices = _process_parameter_indices(definition, layout, context, name)
@@ -584,10 +568,10 @@ function evaluate_process_default(
             return result
         end
         return fill(value, only(expected))
-    elseif spec.shape === :matrix
+    elseif rank == 2
         return fill(value, expected...)
     end
-    throw(ArgumentError("unsupported parameter shape $(spec.shape) for :$name"))
+    throw(ArgumentError("parameter :$name has unsupported rank $rank"))
 end
 
 function evaluate_process_default(
@@ -600,7 +584,7 @@ function evaluate_process_default(
     context,
     ::Type{T},
 ) where {T<:Real}
-    spec.shape === :vector || throw(
+    _parameter_rank(definition, name, spec) == 1 || throw(
         ArgumentError("DiameterIndexedVectorDefault requires vector parameter storage.")
     )
     indices = _process_parameter_indices(definition, layout, context, name)
@@ -632,7 +616,7 @@ function materialize_process_parameter_law_override(
             "parameter :$name only supports parameter-law overrides with a diameter-indexed vector default provider (DiameterIndexedVectorDefault)."
         ),
     )
-    spec.shape === :vector || throw(
+    _parameter_rank(definition, name, spec) == 1 || throw(
         ArgumentError("parameter :$name diameter-indexed override requires vector storage")
     )
     indices = _process_parameter_indices(definition, layout, context, name)
@@ -665,8 +649,8 @@ function materialize_process_parameter_overrides(
                 context, definition, layout, key, parameter, value, T
             ))
         elseif value isa NamedTuple
-            spec.shape === :vector || throw(
-                ArgumentError("parameter :$key does not support NamedTuple overrides because it is $(spec.shape)-shaped.")
+            _parameter_rank(definition, key, spec) == 1 || throw(
+                ArgumentError("parameter :$key does not support NamedTuple overrides because it is not vector-valued.")
             )
             hasproperty(defaults, key) || throw(
                 ArgumentError("parameter :$key has no direct default for partial overrides.")
@@ -675,7 +659,7 @@ function materialize_process_parameter_overrides(
                 key, spec, getproperty(defaults, key), value, context, T
             ))
         else
-            push!(entries, key => materialize_parameter_value(spec, value, T))
+            push!(entries, key => materialize_parameter_value(definition, key, spec, value, T))
         end
     end
     return (; entries...)
@@ -801,7 +785,7 @@ function _construct_process_definition(
     definitions = isnothing(normalized.parameters) ? (;) : normalized.parameters
     parameter_source = _DefinitionParameterSource(definitions)
     isnothing(derivation_owner) && (derivation_owner = definition)
-    isnothing(definition.parameters) && !isempty(normalized.parameter_requirements) && throw(
+    isnothing(definition.parameters) && !isempty(normalized.parameter_bindings) && throw(
         ArgumentError(
             "construct(definition) requires ModelDefinition.parameters for the declared process parameter slots."
         ),
@@ -850,7 +834,7 @@ function _construct_process_definition(
         Tuple(getproperty(merged_parameters, key) for key in required)
     )
     reject_missing_values(resolved_parameters)
-    validate_parameter_shapes(
+    validate_parameter_storage(
         parameter_source, normalized, layout, community_context, resolved_parameters, required
     )
     validate_auxiliary_fields(auxiliary_fields, tracer_names)

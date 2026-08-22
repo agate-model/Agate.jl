@@ -38,76 +38,23 @@ function _canonical_qualifier(qualifier::NamedTuple)
     return NamedTuple{names_tuple}(values)
 end
 
-"""Stable identity of one semantic formulation parameter requirement.
+"""Formulation-local declaration of one semantic parameter slot.
 
-The identity is scoped by the owning named process, nested factor/formulation path,
-formulation tag, slot, and participant qualifier. Applicability axes are resolved from
-process participation during setup.
+Dimensionality is structural: zero, one, or two declared axes imply scalar, vector, or
+matrix values respectively. `qualify` identifies repeated semantic instances without
+changing storage dimensionality. For a scalar slot, a qualifier that is also a process
+participant role can still provide ecological applicability without becoming a storage axis.
 """
-struct ParameterRequirementIdentity{P,Q}
-    process::Symbol
-    path::P
-    formulation::Symbol
-    slot::Symbol
-    qualifier::Q
-end
-
-Base.:(==)(a::ParameterRequirementIdentity, b::ParameterRequirementIdentity) =
-    a.process == b.process &&
-    a.path == b.path &&
-    a.formulation == b.formulation &&
-    a.slot == b.slot &&
-    a.qualifier == b.qualifier
-
-Base.hash(requirement::ParameterRequirementIdentity, h::UInt) = hash(
-    (
-        requirement.process,
-        requirement.path,
-        requirement.formulation,
-        requirement.slot,
-        requirement.qualifier,
-    ),
-    h,
-)
-
-function ParameterRequirementIdentity(
-    process::Symbol,
-    path::Tuple,
-    formulation_value,
-    slot::Symbol;
-    qualifier::NamedTuple=NamedTuple(),
-)
-    all(item -> item isa Symbol, path) || throw(
-        ArgumentError("parameter requirement path must contain only Symbols"),
-    )
-    formulation_name = formulation_value isa Symbol ?
-                       formulation_value : formulation_tag(formulation_value)
-    return ParameterRequirementIdentity(
-        process, path, formulation_name, slot, _canonical_qualifier(qualifier)
-    )
-end
-
-function _default_requirement_shape(axes::Tuple)
-    n_axes = length(axes)
-    n_axes == 0 && return :scalar
-    n_axes == 1 && return :vector
-    n_axes == 2 && return :matrix
-    throw(ArgumentError("parameter requirement axes currently support at most two dimensions"))
-end
-
-"""Formulation-local declaration of one semantic parameter slot."""
 struct ParameterSlot{A<:Tuple}
     name::Symbol
     axes::A
     qualify::Union{Nothing,Symbol}
-    shape::Symbol
 end
 
 function ParameterSlot(
     name::Symbol,
     axes::Tuple=();
     qualify::Union{Nothing,Symbol}=nothing,
-    shape::Symbol=_default_requirement_shape(axes),
 )
     length(axes) <= 2 || throw(
         ArgumentError("parameter slot axes currently support at most two dimensions"),
@@ -115,10 +62,7 @@ function ParameterSlot(
     all(axis -> axis isa Symbol, axes) || throw(
         ArgumentError("parameter slot axes must contain only Symbols"),
     )
-    shape in (:scalar, :vector, :matrix) || throw(
-        ArgumentError("parameter slot shape must be :scalar, :vector, or :matrix"),
-    )
-    return ParameterSlot(name, axes, qualify, shape)
+    return ParameterSlot(name, axes, qualify)
 end
 
 parameter_slots(::AbstractFormulation) = ()
@@ -158,36 +102,31 @@ parameter_slots(::HeterotrophicConsumption) = (
 parameter_slots(::LinearMortality) = (ParameterSlot(:rate, (:population,); qualify=:population),)
 parameter_slots(::QuadraticMortality) = (ParameterSlot(:rate, (:population,); qualify=:population),)
 parameter_slots(::LinearRemineralization) = (
-    ParameterSlot(:rate, (:source,); qualify=:source, shape=:scalar),
+    ParameterSlot(:rate; qualify=:source),
 )
 parameter_slots(::DirectRouting) = ()
 parameter_slots(::PartitionRouting) = (ParameterSlot(:export_fraction),)
 parameter_slots(::DOMPOMRouting) = (ParameterSlot(:POM_fraction),)
 parameter_slots(::FixedStoichiometry) = (ParameterSlot(:ratio; qualify=:currency),)
 
-"""One formulation-declared semantic parameter requirement.
+"""Resolved setup-time mapping from one local parameter slot to model storage.
 
-`axes` describe process-local applicability. `shape` describes model-parameter storage,
-so a scalar parameter may be shared across an indexed process family.
+The scientific-tree location and qualifier identify the local slot during compilation.
+`storage_axes=nothing` means slot-local storage; explicit axes identify the global runtime
+storage coordinate system used by the bound model parameter.
 """
-struct ParameterRequirement{I,A<:Tuple}
-    identity::I
+struct ParameterBinding{P,Q,A,S}
+    process::Symbol
+    path::P
+    formulation::Symbol
+    slot::Symbol
+    qualifier::Q
     axes::A
-    shape::Symbol
-end
-
-"""Resolved mapping from one semantic requirement to concrete runtime parameter storage.
-
-`storage_axes=nothing` means requirement-local storage; explicit axes identify the
-global runtime storage coordinate system used by the bound parameter.
-"""
-struct ParameterBinding{R<:ParameterRequirement,A}
-    requirement::R
     parameter::Symbol
-    storage_axes::A
+    storage_axes::S
 end
 
-"""Concrete participant applicability of one bound parameter requirement."""
+"""Concrete participant applicability of one resolved parameter binding."""
 struct ParameterApplicability{B,C,T}
     binding::B
     axis_components::C
@@ -207,33 +146,34 @@ function _slot_qualifier(slot::ParameterSlot, context::NamedTuple)
     return NamedTuple{(slot.qualify,)}((value,))
 end
 
-function _slot_requirement(
+function _slot_metadata(
     named::NamedProcess,
     path::Tuple,
     formulation_value,
     slot::ParameterSlot,
     context::NamedTuple,
 )
-    identity = ParameterRequirementIdentity(
-        process_id(named), path, formulation_value, slot.name;
-        qualifier=_slot_qualifier(slot, context),
+    all(item -> item isa Symbol, path) || throw(
+        ArgumentError("parameter binding path must contain only Symbols"),
     )
-    return ParameterRequirement(identity, slot.axes, slot.shape)
+    formulation_name = formulation_value isa Symbol ?
+                       formulation_value : formulation_tag(formulation_value)
+    return (;
+        process=process_id(named),
+        path,
+        formulation=formulation_name,
+        slot=slot.name,
+        qualifier=_canonical_qualifier(_slot_qualifier(slot, context)),
+        axes=slot.axes,
+    )
 end
 
-function _slot_requirements(
-    named::NamedProcess,
-    path::Tuple,
-    node;
-    context::NamedTuple=NamedTuple(),
-    formulation_value=_parameter_slot_source(node),
-)
-    slot_source = _parameter_slot_source(node)
-    return Tuple(
-        _slot_requirement(named, path, formulation_value, slot, context)
-        for slot in parameter_slots(slot_source)
-    )
-end
+_binding_key(process::Symbol, path::Tuple, slot::Symbol, qualifier::NamedTuple) =
+    (process, path, slot, _canonical_qualifier(qualifier))
+_binding_key(binding::ParameterBinding) =
+    _binding_key(binding.process, binding.path, binding.slot, binding.qualifier)
+_binding_key(metadata::NamedTuple) =
+    _binding_key(metadata.process, metadata.path, metadata.slot, metadata.qualifier)
 
 _parameter_node(path::Tuple, node; context=NamedTuple(), formulation_value=node) =
     (; path, node, context, formulation_value)
@@ -334,35 +274,16 @@ function _parameter_nodes(named::NamedProcess)
     return Tuple(nodes)
 end
 
-"""Return semantic parameter requirements from the named process scientific tree."""
-function parameter_requirements(named::NamedProcess)
-    requirements = Any[]
-    for node in _parameter_nodes(named)
-        append!(
-            requirements,
-            _slot_requirements(
-                named,
-                node.path,
-                node.node;
-                context=node.context,
-                formulation_value=node.formulation_value,
-            ),
-        )
-    end
-    return Tuple(requirements)
-end
-
 """Setup-time normalized scientific model definition.
 
 `parameter_bindings` is the canonical ordered contract; `parameter_lookup` is a transient
 setup cache used while lowering processes.
 """
-struct NormalizedModelDefinition{C,P,A,D,R,B,L}
+struct NormalizedModelDefinition{C,P,A,D,B,L}
     components::C
     processes::P
     parameters::A
     driver_identities::D
-    parameter_requirements::R
     parameter_bindings::B
     parameter_lookup::L
 end
@@ -370,56 +291,52 @@ end
 """Return the canonical external-driver identities required by a normalized model."""
 driver_identities(definition::NormalizedModelDefinition) = definition.driver_identities
 
-"""Return formulation-declared semantic parameter requirements for a normalized model."""
-parameter_requirements(definition::NormalizedModelDefinition) = definition.parameter_requirements
-
-"""Return resolved semantic requirement-to-model-parameter bindings."""
+"""Return resolved local-slot-to-model-parameter bindings."""
 parameter_bindings(definition::NormalizedModelDefinition) = definition.parameter_bindings
 
-"""Return the resolved binding for one semantic parameter requirement identity."""
-function parameter_binding(
-    definition::NormalizedModelDefinition, identity::ParameterRequirementIdentity
+function _parameter_binding(
+    definition::NormalizedModelDefinition,
+    process::Symbol,
+    path::Tuple,
+    slot::Symbol,
+    qualifier::NamedTuple,
 )
-    return get(definition.parameter_lookup, identity) do
-        throw(ArgumentError("no model parameter is bound to requirement $identity"))
+    key = _binding_key(process, path, slot, qualifier)
+    return get(definition.parameter_lookup, key) do
+        throw(ArgumentError(
+            "no model parameter is bound to slot :$slot at process :$process path $path qualifier $qualifier",
+        ))
     end
 end
 
-parameter_binding(definition::NormalizedModelDefinition, requirement::ParameterRequirement) =
-    parameter_binding(definition, requirement.identity)
-
-"""Resolve all slots for one scientific node from its formulation slot schema."""
+"""Resolve all parameter slots for one scientific node from its formulation schema."""
 function parameter_slot_bindings(
     definition::NormalizedModelDefinition,
     named::NamedProcess,
     path::Tuple,
     node;
     context::NamedTuple=NamedTuple(),
-    formulation_value=_parameter_slot_source(node),
 )
-    requirements = _slot_requirements(named, path, node; context, formulation_value)
-    names = Tuple(requirement.identity.slot for requirement in requirements)
+    slot_source = _parameter_slot_source(node)
+    slots = parameter_slots(slot_source)
+    names = Tuple(slot.name for slot in slots)
     bindings = Tuple(
         begin
-            binding = parameter_binding(definition, requirement)
-            binding.requirement == requirement || throw(
+            qualifier = _slot_qualifier(slot, context)
+            binding = _parameter_binding(
+                definition, process_id(named), path, slot.name, qualifier
+            )
+            binding.axes == slot.axes || throw(
                 ArgumentError(
-                    "resolved parameter binding does not match slot schema for $(requirement.identity)",
+                    "resolved parameter binding does not match slot schema for process " *
+                    ":$(process_id(named)) path $path slot :$(slot.name) qualifier $qualifier",
                 ),
             )
             binding
-        end for requirement in requirements
+        end for slot in slots
     )
     return NamedTuple{names}(bindings)
 end
-
-"""Return the model parameter name that supplies `requirement`."""
-parameter_name(definition::NormalizedModelDefinition, requirement::ParameterRequirement) =
-    parameter_binding(definition, requirement).parameter
-
-parameter_name(
-    definition::NormalizedModelDefinition, identity::ParameterRequirementIdentity
-) = parameter_binding(definition, identity).parameter
 
 function _factor_component_references(factor::AbstractFactor)
     references = Symbol[
@@ -621,57 +538,6 @@ function _canonical_driver_identities(processes::NamedTuple)
     return Tuple(identities)
 end
 
-function _declared_parameter_requirements(processes::NamedTuple)
-    requirements = Any[]
-    for process in values(processes)
-        append!(requirements, parameter_requirements(process))
-    end
-    identities = map(requirement -> requirement.identity, requirements)
-    length(unique(identities)) == length(identities) || throw(
-        ArgumentError("normalized processes declare duplicate parameter requirement identities"),
-    )
-    return Tuple(requirements)
-end
-
-function _matches_parameter_provision(
-    requirement::ParameterRequirement, provision::ParameterProvision
-)
-    identity = requirement.identity
-    identity.process === provision.process || return false
-    identity.slot === provision.slot || return false
-    isnothing(provision.path) || identity.path == provision.path || return false
-    return all(keys(provision.qualifier)) do name
-        hasproperty(identity.qualifier, name) &&
-            getproperty(identity.qualifier, name) == getproperty(provision.qualifier, name)
-    end
-end
-
-function _resolve_parameter_requirement(
-    provision::ParameterProvision, requirements::Tuple, parameter::Symbol
-)
-    matches = filter(
-        requirement -> _matches_parameter_provision(requirement, provision), requirements
-    )
-    description = (
-        process=provision.process,
-        slot=provision.slot,
-        qualifier=provision.qualifier,
-        path=provision.path,
-    )
-    isempty(matches) && throw(
-        ArgumentError(
-            "parameter :$parameter provision $description matches no declared requirement"
-        ),
-    )
-    length(matches) == 1 || throw(
-        ArgumentError(
-            "parameter :$parameter provision $description is ambiguous; " *
-            "matches $(map(r -> r.identity, matches)). Add a qualifier or path.",
-        ),
-    )
-    return only(matches)
-end
-
 function _validate_binding_slot_names(node)
     slots = parameter_slots(_parameter_slot_source(node))
     bindings = if applicable(authored_parameter_bindings, node)
@@ -722,38 +588,62 @@ function _declared_parameter_uses(processes::NamedTuple)
         slot_source = _parameter_slot_source(node.node)
         for slot in parameter_slots(slot_source)
             qualifier = _slot_qualifier(slot, node.context)
-            requirement = _slot_requirement(
+            metadata = _slot_metadata(
                 named, node.path, node.formulation_value, slot, node.context
             )
             parameter, explicit = _binding_value(bindings, slot, qualifier)
-            push!(uses, (; requirement, parameter, explicit))
+            push!(uses, (; metadata..., parameter, explicit))
         end
     end
-    identities = Tuple(use.requirement.identity for use in uses)
-    length(unique(identities)) == length(identities) || throw(
-        ArgumentError("normalized processes declare duplicate parameter requirement identities"),
+    keys = Tuple(_binding_key(use) for use in uses)
+    length(unique(keys)) == length(keys) || throw(
+        ArgumentError("normalized processes declare duplicate parameter binding keys"),
     )
     return Tuple(uses)
 end
 
-function _normalize_inline_parameter_bindings(processes::NamedTuple, definitions)
+function _storage_rank(axes)
+    axes === nothing && return nothing
+    axes isa Symbol && return 1
+    return length(axes)
+end
+
+function _normalize_parameter_bindings(processes::NamedTuple, definitions)
     uses = _declared_parameter_uses(processes)
-    requirements = Tuple(use.requirement for use in uses)
-    isnothing(definitions) && return requirements, (), nothing
+    if isnothing(definitions)
+        bindings = Tuple(
+            ParameterBinding(
+                use.process, use.path, use.formulation, use.slot, use.qualifier,
+                use.axes, use.parameter, nothing,
+            )
+            for use in uses
+        )
+        return bindings, nothing
+    end
     definitions isa NamedTuple || throw(
         ArgumentError("model parameters must be a NamedTuple of Parameter values"),
     )
     all(parameter -> parameter isa Parameter, values(definitions)) || throw(
         ArgumentError("model parameters must contain only Parameter values"),
     )
-    all(parameter -> isempty(parameter.spec.provides), values(definitions)) || throw(
-        ArgumentError("inline-bound model parameters must not declare `provides`"),
-    )
 
     definition_names = Set(keys(definitions))
+    dependency_names = Set{Symbol}()
+    for (name, parameter) in pairs(definitions)
+        default = parameter.default
+        default isa DerivedDefault || continue
+        for dependency in default.deps
+            dependency in definition_names || throw(ArgumentError(
+                "parameter :$name default depends on undeclared parameter :$dependency",
+            ))
+            push!(dependency_names, dependency)
+        end
+    end
+
     for use in uses
         use.parameter in definition_names || throw(ArgumentError(
-            "inline binding for $(use.requirement.identity) names undeclared parameter :$(use.parameter)",
+            "inline binding for process :$(use.process) path $(use.path) slot :$(use.slot) " *
+            "qualifier $(use.qualifier) names undeclared parameter :$(use.parameter)",
         ))
     end
 
@@ -763,139 +653,56 @@ function _normalize_inline_parameter_bindings(processes::NamedTuple, definitions
     end
     for (parameter, parameter_uses) in by_parameter
         if length(parameter_uses) > 1 && any(use -> !use.explicit, parameter_uses)
-            identities = Tuple(use.requirement.identity for use in parameter_uses)
+            locations = Tuple(
+                (process=use.process, path=use.path, slot=use.slot, qualifier=use.qualifier)
+                for use in parameter_uses
+            )
             throw(ArgumentError(
-                "parameter :$parameter is implicitly bound by multiple parameter slots $identities; " *
+                "parameter :$parameter is implicitly bound by multiple parameter slots $locations; " *
                 "bind every shared use explicitly",
             ))
         end
-        required_shapes = unique(Tuple(use.requirement.shape for use in parameter_uses))
-        length(required_shapes) == 1 || throw(ArgumentError(
-            "parameter :$parameter is bound to incompatible slot shapes $(Tuple(required_shapes))",
+        required_ranks = unique(Tuple(length(use.axes) for use in parameter_uses))
+        length(required_ranks) == 1 || throw(ArgumentError(
+            "parameter :$parameter is bound to slots with incompatible dimensionality $(Tuple(required_ranks))",
         ))
     end
 
-    resolved = Pair{Symbol,Any}[]
     for (name, parameter) in pairs(definitions)
-        spec = parameter.spec
         parameter_uses = get(by_parameter, name, Any[])
-        required_shapes = unique(Tuple(use.requirement.shape for use in parameter_uses))
-        shape = spec.shape
-        if isnothing(shape)
-            isempty(required_shapes) && throw(ArgumentError(
-                "parameter :$name has no inline binding or explicit storage axes; declare shape explicitly",
-            ))
-            shape = only(required_shapes)
-        end
-        all(use -> use.requirement.shape === shape, parameter_uses) || throw(ArgumentError(
-            "parameter :$name storage shape $shape is incompatible with one or more bound slots",
+        isempty(parameter_uses) && !(name in dependency_names) && throw(ArgumentError(
+            "parameter :$name is neither bound to a process slot nor used by a derived default",
         ))
-        resolved_spec = ParameterSpec(shape; axes=spec.axes)
-        push!(resolved, name => Parameter(resolved_spec, parameter.default))
+        isempty(parameter_uses) && continue
+        required_rank = only(unique(Tuple(length(use.axes) for use in parameter_uses)))
+        storage_rank = _storage_rank(parameter.spec.axes)
+        isnothing(storage_rank) || storage_rank == required_rank || throw(ArgumentError(
+            "parameter :$name storage axes imply rank $storage_rank but its bound slots require rank $required_rank",
+        ))
     end
 
     bindings = Tuple(
         ParameterBinding(
-            use.requirement,
+            use.process,
+            use.path,
+            use.formulation,
+            use.slot,
+            use.qualifier,
+            use.axes,
             use.parameter,
             getproperty(definitions, use.parameter).spec.axes,
         )
         for use in uses
     )
-    return requirements, bindings, (; resolved...)
+    return bindings, definitions
 end
 
-function _uses_legacy_parameter_provisions(definitions)
-    isnothing(definitions) && return false
-    definitions isa NamedTuple || return false
-    return any(
-        parameter -> parameter isa Parameter && !isempty(parameter.spec.provides),
-        values(definitions),
-    )
-end
-
-function _has_inline_parameter_bindings(processes::NamedTuple)
-    return any(
-        applicable(authored_parameter_bindings, node.node) &&
-        !isempty(authored_parameter_bindings(node.node))
-        for named in values(processes) for node in _parameter_nodes(named)
-    )
-end
-
-function _normalize_parameter_bindings(requirements::Tuple, definitions)
-    isnothing(definitions) && return (), nothing
-    definitions isa NamedTuple || throw(
-        ArgumentError("model parameters must be a NamedTuple of Parameter values"),
-    )
-    all(parameter -> parameter isa Parameter, values(definitions)) || throw(
-        ArgumentError("model parameters must contain only Parameter values"),
-    )
-
-    provided = Dict{ParameterRequirementIdentity,Tuple{Symbol,Union{Nothing,Symbol,NTuple{2,Symbol}}}}()
-    resolved = Pair{Symbol,Any}[]
-
-    for (name, parameter) in pairs(definitions)
-        spec = parameter.spec
-        matched = Tuple(
-            _resolve_parameter_requirement(provision, requirements, name)
-            for provision in spec.provides
-        )
-        required_shapes = unique(Tuple(requirement.shape for requirement in matched))
-        shape = spec.shape
-        if isnothing(shape)
-            isempty(required_shapes) && throw(
-                ArgumentError(
-                    "parameter :$name has no semantic provision or explicit storage axes; declare shape explicitly",
-                ),
-            )
-            length(required_shapes) == 1 || throw(
-                ArgumentError(
-                    "parameter :$name provisions require incompatible shapes $(Tuple(required_shapes))",
-                ),
-            )
-            shape = only(required_shapes)
-        end
-
-        for requirement in matched
-            shape === requirement.shape || throw(
-                ArgumentError(
-                    "parameter :$name provides $(requirement.identity) with required shape " *
-                    "$(requirement.shape), not $shape",
-                ),
-            )
-            identity = requirement.identity
-            haskey(provided, identity) && throw(
-                ArgumentError(
-                    "parameter requirement $identity is provided by both :$(first(provided[identity])) and :$name",
-                ),
-            )
-            provided[identity] = (name, spec.axes)
-        end
-
-        resolved_spec = ParameterSpec(shape; axes=spec.axes, provides=spec.provides)
-        push!(resolved, name => Parameter(resolved_spec, parameter.default))
-    end
-
-    missing = filter(requirement -> !haskey(provided, requirement.identity), requirements)
-    isempty(missing) || throw(
-        ArgumentError(
-            "model parameters do not provide requirements $(map(r -> r.identity, missing))",
-        ),
-    )
-    bindings = Tuple(
-        ParameterBinding(requirement, provided[requirement.identity]...)
-        for requirement in requirements
-    )
-    return bindings, (; resolved...)
-end
-
-"""Normalize process identity, semantic parameter requirements, and model bindings.
+"""Normalize process identity and resolve inline parameter bindings.
 
 Process instances are canonicalized by stable process ID, so declaration order does
 not change normalized scientific identity. Component ordering is preserved because it
-still participates in concrete tracer realization. Parameter requirements come from the
-normalized formulations; model parameter definitions bind their stable names to those
-requirements before runtime construction.
+still participates in concrete tracer realization. Local formulation slots bind directly
+to stable model parameter names during normalization.
 """
 function normalize_model(definition::ModelDefinition)
     all(component -> component isa Union{Population,Pool}, values(definition.components)) ||
@@ -903,37 +710,24 @@ function normalize_model(definition::ModelDefinition)
     normalized_processes = _canonical_processes(
         definition.processes, definition.components
     )
-    if _uses_legacy_parameter_provisions(definition.parameters)
-        _has_inline_parameter_bindings(normalized_processes) && throw(ArgumentError(
-            "model definitions cannot mix inline `bindings` with legacy `provides` declarations",
-        ))
-        requirements = _declared_parameter_requirements(normalized_processes)
-        bindings, parameters = _normalize_parameter_bindings(
-            requirements, definition.parameters
-        )
-    else
-        requirements, bindings, parameters = _normalize_inline_parameter_bindings(
-            normalized_processes, definition.parameters
-        )
-    end
-    lookup = Dict{ParameterRequirementIdentity,ParameterBinding}(
-        binding.requirement.identity => binding for binding in bindings
+    bindings, parameters = _normalize_parameter_bindings(
+        normalized_processes, definition.parameters
     )
+    lookup = Dict(_binding_key(binding) => binding for binding in bindings)
     return NormalizedModelDefinition(
         definition.components,
         normalized_processes,
         parameters,
         _canonical_driver_identities(normalized_processes),
-        requirements,
         bindings,
         lookup,
     )
 end
 
 function _axis_components(
-    process::NamedProcess, requirement::ParameterRequirement, axis::Symbol
+    process::NamedProcess, binding::ParameterBinding, axis::Symbol
 )
-    qualifier = requirement.identity.qualifier
+    qualifier = binding.qualifier
     if hasproperty(qualifier, axis)
         value = getproperty(qualifier, axis)
         value isa Symbol || throw(
@@ -965,16 +759,26 @@ end
 
 The result is setup-time applicability metadata. Population state multiplicity does not
 change parameter-axis length: applicability follows ecological classes rather than physical
-state tracers.
+state tracers. Scalar qualified slots retain participant applicability when their qualifier
+names a process participant role; non-participant qualifiers such as currency do not create
+ecological axes.
 """
+function _applicability_axes(process::NamedProcess, binding::ParameterBinding)
+    isempty(binding.axes) || return binding.axes
+    process_participants = participants(process)
+    return Tuple(
+        axis for axis in keys(binding.qualifier) if hasproperty(process_participants, axis)
+    )
+end
+
 function resolve_parameter_applicability(
     definition::NormalizedModelDefinition, layout::ComponentLayout
 )
     return map(definition.parameter_bindings) do binding
-        requirement = binding.requirement
-        process = getproperty(definition.processes, requirement.identity.process)
+        process = getproperty(definition.processes, binding.process)
+        applicability_axes = _applicability_axes(process, binding)
         axis_components = map(
-            axis -> _axis_components(process, requirement, axis), requirement.axes
+            axis -> _axis_components(process, binding, axis), applicability_axes
         )
         axis_classes = map(components -> _axis_classes(layout, components), axis_components)
         ParameterApplicability(binding, axis_components, axis_classes)

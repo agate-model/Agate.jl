@@ -464,24 +464,22 @@ function _process_recipe_data(named)
     return data
 end
 
-function _parameter_provision_recipe_data(binding)
-    requirement = binding.requirement
-    identity = requirement.identity
+function _parameter_binding_recipe_data(binding)
     return _recipe_science_value((
-        process=identity.process,
-        path=identity.path,
-        formulation=identity.formulation,
-        slot=identity.slot,
-        qualifier=identity.qualifier,
-        axes=requirement.axes,
+        process=binding.process,
+        path=binding.path,
+        formulation=binding.formulation,
+        slot=binding.slot,
+        qualifier=binding.qualifier,
+        axes=binding.axes,
     ))
 end
 
 function _parameter_bindings_recipe_data(normalized)
     result = Dict{String,Any}()
     for binding in parameter_bindings(normalized)
-        entry = get!(result, String(binding.parameter), Dict{String,Any}("provides" => Any[]))
-        push!(entry["provides"], _parameter_provision_recipe_data(binding))
+        entry = get!(result, String(binding.parameter), Dict{String,Any}("bindings" => Any[]))
+        push!(entry["bindings"], _parameter_binding_recipe_data(binding))
     end
     return result
 end

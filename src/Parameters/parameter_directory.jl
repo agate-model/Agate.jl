@@ -1,5 +1,4 @@
 export ParameterSpec
-export ParameterProvision
 export DefaultProvider
 export Parameter
 export parameter_definitions
@@ -11,75 +10,18 @@ export derive_default
 export parameter_directory
 export parameter_spec
 
-"""Legacy declaration that a model parameter supplies one semantic process parameter slot.
-
-New model definitions bind slots directly on their owning process/factor nodes with `bindings=`.
-This type remains temporarily available while the v0.12 implementation migrates off the
-requirement/provision path. `process` is the stable named process identity and `slot` is the
-scientific parameter name. `qualifier` narrows repeated slots, such as Monod `K` for a specific
-resource.
-`path` is an optional disambiguator for models that contain more than one matching
-slot within the same process. Formulation and resolved path are otherwise derived
-from the normalized process definition.
-"""
-struct ParameterProvision{P<:Union{Nothing,Tuple},Q<:NamedTuple}
-    process::Symbol
-    slot::Symbol
-    path::P
-    qualifier::Q
-end
-
-function ParameterProvision(
-    process::Symbol,
-    slot::Symbol;
-    path::Union{Nothing,Tuple}=nothing,
-    qualifier::NamedTuple=NamedTuple(),
-)
-    isnothing(path) || all(item -> item isa Symbol, path) || throw(
-        ArgumentError("parameter provision path must contain only Symbols"),
-    )
-    return ParameterProvision(process, slot, path, qualifier)
-end
-
-function _parameter_provisions(provides)
-    isnothing(provides) && return ()
-    provides isa ParameterProvision && return (provides,)
-    provides isa Tuple || throw(
-        ArgumentError("`provides` must be a ParameterProvision or tuple of provisions"),
-    )
-    all(provision -> provision isa ParameterProvision, provides) || throw(
-        ArgumentError("`provides` must contain only ParameterProvision values"),
-    )
-    return provides
-end
-
 """Describe one configurable model parameter independent of its model-level name.
 
-The parameter name is owned by the key in the model's `parameters` NamedTuple.
-`shape` records resolved storage dimensionality, `axes` optionally selects explicit
-runtime storage axes, and `provides` temporarily records semantic process slots during
-the v0.12 inline-binding migration.
+The parameter name is owned by the key in the model's `parameters` NamedTuple. `axes`
+optionally selects explicit runtime storage axes. With `axes=nothing`, dimensionality is
+resolved structurally from the bound scientific slot; dependency-only parameters are scalar.
 """
-struct ParameterSpec{P<:Tuple}
-    shape::Union{Nothing,Symbol}
+struct ParameterSpec
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}
-    provides::P
 end
 
 """Convenience constructor for `ParameterSpec`."""
-function ParameterSpec(
-    shape::Union{Nothing,Symbol}=nothing;
-    axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
-    provides=(),
-)
-    provisions = _parameter_provisions(provides)
-    declared_shape = if isnothing(shape)
-        axes isa Symbol ? :vector : axes isa Tuple ? :matrix : nothing
-    else
-        shape
-    end
-    return ParameterSpec(declared_shape, axes, provisions)
-end
+ParameterSpec(; axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing) = ParameterSpec(axes)
 
 """Abstract supertype for constructor-time default providers.
 
@@ -102,25 +44,21 @@ end
 
 """Define one model parameter value/default independent of its model-level key.
 
-`shape` may be `:scalar`, `:vector`, or `:matrix`. For slot-bound parameters it may be
-omitted and is inferred from the resolved process requirement. Explicit runtime `axes` also
-imply vector or matrix shape. Parameters with neither a scientific slot binding nor axes must
-declare shape explicitly. `provides` remains only for the temporary legacy normalization path.
+Explicit `axes` select vector (`Symbol`) or matrix (`NTuple{2,Symbol}`) runtime storage.
+With `axes=nothing`, dimensionality comes from the bound scientific slot; a parameter used
+only as a `DerivedDefault` dependency is scalar.
 """
 function Parameter(
     default::D;
-    shape::Union{Nothing,Symbol}=nothing,
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
-    provides=(),
 ) where {D<:DefaultProvider}
-    spec = ParameterSpec(shape; axes, provides)
-    return Parameter(spec, default)
+    return Parameter(ParameterSpec(; axes), default)
 end
 
 """A literal parameter default.
 
 Scalar parameters use the literal value directly after conversion to the construction
-scalar type. Vector and matrix parameters fill their resolved storage shape with the
+scalar type. Vector and matrix parameters fill their resolved storage extent with the
 literal value.
 """
 struct ConstantDefault{T} <: DefaultProvider
@@ -170,8 +108,8 @@ struct NoDefault <: DefaultProvider end
 
 The provider fills the complete runtime vector with `default`, then materializes
 `value` over process-derived applicability. The same `default` value is used outside
-applicability when a diameter-indexed parameter-law override is supplied. Provision-less
-parameters materialize over the full living-class axis.
+applicability when a diameter-indexed parameter-law override is supplied. Parameters without process applicability
+materialize over the full living-class axis.
 """
 struct DiameterIndexedVectorDefault{V,T} <: DefaultProvider
     value::V
@@ -183,11 +121,7 @@ DiameterIndexedVectorDefault(value; default) = DiameterIndexedVectorDefault(valu
 """Return the keyed parameter definitions owned by a model family or direct source."""
 parameter_definitions(source) = (;)
 
-"""Return authored parameter specifications keyed by stable model parameter name.
-
-Slot-bound specifications may have `shape === nothing` until `normalize_model` resolves their
-process requirements.
-"""
+"""Return authored parameter specifications keyed by stable model parameter name."""
 function parameter_directory(source)
     definitions = parameter_definitions(source)
     definitions isa NamedTuple || throw(

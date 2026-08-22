@@ -3,7 +3,7 @@ module Processes
 
 using ..Configuration: Population, Pool, ComponentLayout, currency, component_classes
 using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
-using ..Parameters: ParameterSpec, Parameter, ParameterProvision, parameter_definitions
+using ..Parameters: Parameter, DerivedDefault, parameter_definitions
 using ..Library.Mortality: linear_loss, quadratic_loss
 using ..Library.Predation: idealized_predation_loss, preferential_predation_loss
 using ..Library.Photosynthesis: geider_light_response, smith_light_limitation
@@ -20,13 +20,12 @@ export Light, Nutrients, Temperature
 export FixedStoichiometry
 export Growth, NutrientResponse, Consumption, Mortality, ProductRouting, Remineralization
 export ModelDefinition, NormalizedModelDefinition, NamedProcess
-export ParameterSlot, ParameterRequirementIdentity, ParameterRequirement
+export ParameterSlot
 export ParameterBinding, ParameterApplicability
 export process_id, process_kind, formulation, formulation_tag, factors
 export authored_parameter_bindings
 export participants, drivers, rate_axes, driver_identities, normalize_model
-export parameter_slots, parameter_requirements, parameter_bindings
-export parameter_binding, parameter_name
+export parameter_slots, parameter_bindings
 export parameter_slot_bindings
 export resolve_parameter_applicability
 

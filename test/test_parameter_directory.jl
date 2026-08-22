@@ -20,15 +20,15 @@ derive_default(::DoubleDefault, ::DerivedDefaultFixture, ::Any, params::NamedTup
     2 * params.middle
 
 parameter_definitions(::DerivedDefaultFixture) = (
-    base=Parameter(ConstantDefault(2.0); shape=:scalar),
-    top=Parameter(DerivedDefault(DoubleDefault(); deps=(:middle,)); shape=:scalar),
-    middle=Parameter(DerivedDefault(AddOneDefault(); deps=(:base,)); shape=:scalar),
+    base=Parameter(ConstantDefault(2.0)),
+    top=Parameter(DerivedDefault(DoubleDefault(); deps=(:middle,))),
+    middle=Parameter(DerivedDefault(AddOneDefault(); deps=(:base,))),
 )
 
 struct CyclicDerivedDefaultFixture end
 parameter_definitions(::CyclicDerivedDefaultFixture) = (
-    a=Parameter(DerivedDefault(AddOneDefault(); deps=(:b,)); shape=:scalar),
-    b=Parameter(DerivedDefault(DoubleDefault(); deps=(:a,)); shape=:scalar),
+    a=Parameter(DerivedDefault(AddOneDefault(); deps=(:b,))),
+    b=Parameter(DerivedDefault(DoubleDefault(); deps=(:a,))),
 )
 
 @testset "Parameter directory" begin
@@ -55,18 +55,16 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
         )
         @test definitions.assimilation_matrix.default isa DerivedDefault
         @test definitions.assimilation_matrix.default.deps == (:assimilation_efficiency,)
-        @test all(spec -> isempty(spec.provides), values(dir))
-        @test dir.detritus_remineralization.shape === nothing
+        @test propertynames(dir.maximum_growth_rate) == (:axes,)
+        @test dir.detritus_remineralization.axes === nothing
         normalized = Agate.Processes.normalize_model(Agate.Processes.ModelDefinition(family))
-        @test normalized.parameters.detritus_remineralization.spec.shape === :scalar
-        @test dir.maximum_growth_rate.shape == :vector
+        @test normalized.parameters.detritus_remineralization.spec.axes === nothing
         @test dir.maximum_growth_rate.axes == :plankton
         @test definitions.maximum_growth_rate.default isa Agate.Parameters.DiameterIndexedVectorDefault
         @test definitions.maximum_growth_rate.default.default == 0
         @test definitions.linear_mortality.default.default == 0
         @test dir.linear_detrital_mortality.axes == :plankton
         @test definitions.linear_detrital_mortality.default.default == 0
-        @test dir.palatability_matrix.shape == :matrix
         @test dir.palatability_matrix.axes == (:consumer, :prey)
         @test dir.assimilation_matrix.axes == (:consumer, :prey)
     end

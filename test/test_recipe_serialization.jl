@@ -184,12 +184,12 @@ explicit_json_value(::Any) = false
         @test export_recipe(path, recipe) == path
         exported = JSON.parsefile(path)
         bindings = exported["recipe"]["parameter_bindings"]
-        provisions = [
-            provision for binding in values(bindings) for provision in binding["provides"]
+        resolved_bindings = [
+            entry for binding in values(bindings) for entry in binding["bindings"]
         ]
-        @test !isempty(provisions)
-        @test all(provision -> provision["path"] isa AbstractVector, provisions)
-        @test all(provision -> provision["axes"] isa AbstractVector, provisions)
+        @test !isempty(resolved_bindings)
+        @test all(binding -> binding["path"] isa AbstractVector, resolved_bindings)
+        @test all(binding -> binding["axes"] isa AbstractVector, resolved_bindings)
         @test import_recipe(path) == recipe
     end
 
@@ -211,7 +211,7 @@ explicit_json_value(::Any) = false
 
     binding_tamper = modified(encoded) do x
         binding = first(values(x["recipe"]["parameter_bindings"]))
-        first(binding["provides"])["slot"] = "tampered_slot"
+        first(binding["bindings"])["slot"] = "tampered_slot"
     end
     @test_throws ArgumentError decode_recipe(binding_tamper)
 

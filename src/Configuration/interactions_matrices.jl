@@ -2,7 +2,7 @@
 function interaction_parameter_specs(source)
     return Tuple(
         name => spec for (name, spec) in pairs(parameter_directory(source)) if
-        spec.shape === :matrix && spec.axes == (:consumer, :prey)
+        spec.axes == (:consumer, :prey)
     )
 end
 

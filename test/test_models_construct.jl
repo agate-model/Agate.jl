@@ -16,17 +16,14 @@ function Agate.Parameters.parameter_definitions(::ThreeInteractionMatrixSource)
     return (
         encounter_matrix=Agate.Parameters.Parameter(
             Agate.Parameters.NoDefault();
-            shape=:matrix,
             axes=(:consumer, :prey),
         ),
         capture_efficiency_matrix=Agate.Parameters.Parameter(
             Agate.Parameters.NoDefault();
-            shape=:matrix,
             axes=(:consumer, :prey),
         ),
         handling_time_matrix=Agate.Parameters.Parameter(
             Agate.Parameters.NoDefault();
-            shape=:matrix,
             axes=(:consumer, :prey),
         ),
     )

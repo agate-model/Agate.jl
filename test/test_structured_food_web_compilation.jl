@@ -12,22 +12,21 @@ using Agate.Processes:
     normalize_model, participants, driver_identities
 
 function food_web_parameters()
-    no_default(shape; axes=shape === :vector ? :plankton : nothing) =
-        Parameter(NoDefault(); shape, axes)
+    no_default(; axes=nothing) = Parameter(NoDefault(); axes)
 
     return (
-        maximum_growth_rate=no_default(:vector),
-        alpha=no_default(:vector),
-        nutrient_half_saturation=no_default(:vector),
-        temperature_q10=no_default(:scalar; axes=nothing),
-        reference_temperature=no_default(:scalar; axes=nothing),
-        maximum_consumption_rate=no_default(:vector),
-        pom_half_saturation=no_default(:vector; axes=nothing),
-        bacterial_assimilation=no_default(:matrix; axes=nothing),
-        maximum_predation_rate=no_default(:vector),
-        holling_half_saturation=no_default(:vector),
-        living_palatability_matrix=no_default(:matrix; axes=(:consumer, :prey)),
-        living_assimilation_matrix=no_default(:matrix; axes=(:consumer, :prey)),
+        maximum_growth_rate=no_default(; axes=:plankton),
+        alpha=no_default(; axes=:plankton),
+        nutrient_half_saturation=no_default(; axes=:plankton),
+        temperature_q10=no_default(),
+        reference_temperature=no_default(),
+        maximum_consumption_rate=no_default(; axes=:plankton),
+        pom_half_saturation=no_default(),
+        bacterial_assimilation=no_default(),
+        maximum_predation_rate=no_default(; axes=:plankton),
+        holling_half_saturation=no_default(; axes=:plankton),
+        living_palatability_matrix=no_default(; axes=(:consumer, :prey)),
+        living_assimilation_matrix=no_default(; axes=(:consumer, :prey)),
     )
 end
 
@@ -221,17 +220,10 @@ end
     parameters = (
         maximum_consumption_rate=Parameter(
             NoDefault();
-            shape=:vector,
             axes=:plankton,
         ),
-        pom_half_saturation=Parameter(
-            NoDefault();
-            shape=:vector,
-        ),
-        bacterial_assimilation=Parameter(
-            NoDefault();
-            shape=:matrix,
-        ),
+        pom_half_saturation=Parameter(NoDefault()),
+        bacterial_assimilation=Parameter(NoDefault()),
     )
     definition = ModelDefinition(; components, processes, parameters)
     bgc = construct(

@@ -83,7 +83,7 @@ end
     mortality = Mortality(
         LinearMortality(); populations=:P, bindings=(rate=:mortality_rate,)
     )
-    parameter = Parameter(NoDefault(); shape=:vector)
+    parameter = Parameter(NoDefault())
     definition = normalize_model(ModelDefinition(;
         components=(P=population,),
         processes=(mortality_P=mortality,),

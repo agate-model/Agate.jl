@@ -3,7 +3,7 @@ using ForwardDiff
 
 using Agate.Configuration: Population, Pool, realize_components
 using Agate.ModelFamilies: default_components, default_processes
-using Agate.Parameters: ConstantDefault, NoDefault, Parameter, ParameterProvision
+using Agate.Parameters: ConstantDefault, DerivedDefault, Parameter
 using Agate.Processes:
     AbstractFormulation,
     AbstractFactor,
@@ -23,11 +23,8 @@ using Agate.Processes:
     Mortality,
     DirectRouting,
     ModelDefinition,
-    ParameterRequirementIdentity,
     ProductRouting,
-    parameter_requirements,
-    parameter_slot_bindings,
-    parameter_name,
+    parameter_bindings,
     resolve_parameter_applicability,
     drivers,
     driver_identities,
@@ -40,6 +37,8 @@ using Agate.Processes:
     PreferentialGrazing
 
 struct ExternalTestFormulation <: AbstractFormulation end
+
+struct BindingDependencyDefault end
 struct ExternalTestFactor{F<:AbstractFormulation} <: AbstractFactor
     formulation::F
 end
@@ -75,7 +74,7 @@ Agate.Processes.formulation_tag(::ExternalTestFormulation) = :external_test
         processes=(growth=Growth(; populations=:P, factors=(external=external_factor,)),),
     ))
     @test formulation_tag(formulation(external_factor)) === :external_test
-    @test isempty(parameter_requirements(external_model))
+    @test isempty(parameter_bindings(external_model))
 
     grazing = Consumption(
         PreferentialGrazing();
@@ -232,9 +231,9 @@ end
     applicability = resolve_parameter_applicability(normalized, layout)
     function application(parameter, process, slot; path=())
         return only(filter(applicability) do item
-            identity = item.binding.requirement.identity
-            item.binding.parameter === parameter && identity.process === process &&
-                identity.path == path && identity.slot === slot
+            binding = item.binding
+            binding.parameter === parameter && binding.process === process &&
+                binding.path == path && binding.slot === slot
         end)
     end
     @test application(
@@ -243,14 +242,14 @@ end
     @test application(:palatability_matrix, :grazing_Z_on_P, :palatability).axis_classes ==
         ((:Z_1, :Z_2), (:P_1, :P_2))
 
-    linear_P_to_N_rate = only(filter(parameter_requirements(normalized.processes.linear_mortality_P_to_N)) do requirement
-        requirement.identity.slot === :rate
+    linear_P_to_N_rate = only(filter(parameter_bindings(normalized)) do binding
+        binding.process === :linear_mortality_P_to_N && binding.slot === :rate
     end)
-    linear_P_to_D_rate = only(filter(parameter_requirements(normalized.processes.linear_mortality_P_to_D)) do requirement
-        requirement.identity.slot === :rate
+    linear_P_to_D_rate = only(filter(parameter_bindings(normalized)) do binding
+        binding.process === :linear_mortality_P_to_D && binding.slot === :rate
     end)
-    @test parameter_name(normalized, linear_P_to_N_rate) === :linear_mortality
-    @test parameter_name(normalized, linear_P_to_D_rate) === :linear_detrital_mortality
+    @test linear_P_to_N_rate.parameter === :linear_mortality
+    @test linear_P_to_D_rate.parameter === :linear_detrital_mortality
 
     invalid = ModelDefinition(;
         components=default_components(family),
@@ -271,28 +270,6 @@ end
             processes=default_processes(family),
             parameters=(invalid=1,),
         ),
-    )
-end
-
-@testset "Parameter requirement identity" begin
-    a = ParameterRequirementIdentity(
-        :growth_P,
-        (:factors, :nutrients),
-        Monod(),
-        :K;
-        qualifier=(resource=:N, population=:P),
-    )
-    b = ParameterRequirementIdentity(
-        :growth_P,
-        (:factors, :nutrients),
-        :monod,
-        :K;
-        qualifier=(population=:P, resource=:N),
-    )
-
-    @test a == b
-    @test a != ParameterRequirementIdentity(
-        :other_growth, (:factors, :nutrients), :monod, :K; qualifier=(resource=:N, population=:P)
     )
 end
 
@@ -325,18 +302,31 @@ end
     ))
 
     mortality_bindings = filter(
-        binding -> binding.requirement.identity.process === :mortality,
+        binding -> binding.process === :mortality,
         normalized.parameter_bindings,
     )
     @test length(mortality_bindings) == 2
     @test all(binding -> binding.parameter === :shared_mortality, mortality_bindings)
     @test Set(
-        binding.requirement.identity.qualifier.population for binding in mortality_bindings
+        binding.qualifier.population for binding in mortality_bindings
     ) == Set((:P, :Z))
-    @test only(filter(
-        binding -> binding.requirement.identity.process === :remineralization,
+    remineralization_binding = only(filter(
+        binding -> binding.process === :remineralization,
         normalized.parameter_bindings,
-    )).parameter === :remineralization_rate
+    ))
+    @test (
+        remineralization_binding.parameter,
+        remineralization_binding.axes,
+        remineralization_binding.qualifier,
+    ) == (:remineralization_rate, (), (source=:D,))
+
+    @test_throws ArgumentError normalize_model(ModelDefinition(;
+        components=(P=components.P, Z=components.Z),
+        processes=(mortality=shared,),
+        parameters=(shared_mortality=Parameter(
+            ConstantDefault(0.1); axes=(:consumer, :prey)
+        ),),
+    ))
 
     accidental = ModelDefinition(;
         components=(P=components.P, Z=components.Z),
@@ -393,75 +383,34 @@ end
         parameters=(K=Parameter(ConstantDefault(0.1); axes=:plankton),),
     )
     @test_throws ArgumentError normalize_model(unknown_zero_slot)
-end
 
-@testset "Parameter provision inference" begin
-    components = (P=Population(:nitrogen; size_structure=[1.0]),)
-    processes = (
-        growth=Growth(;
+    dependency_only = normalize_model(ModelDefinition(;
+        components=(P=components.P,),
+        processes=(mortality=Mortality(
+            Agate.Processes.LinearMortality();
             populations=:P,
-            factors=(
-                light_a=Light(Smith(); driver=:PAR),
-                light_b=Light(Smith(); driver=:PAR),
+            bindings=(rate=:mortality_rate,),
+        ),),
+        parameters=(
+            mortality_rate=Parameter(
+                DerivedDefault(BindingDependencyDefault(); deps=(:helper,));
+                axes=:plankton,
             ),
-        ),
-    )
-    parameter(slot, path) = Parameter(
-        NoDefault(); provides=ParameterProvision(:growth, slot; path)
-    )
-    parameters(max_a) = (
-        max_a=Parameter(NoDefault(); provides=max_a),
-        alpha_a=parameter(:alpha, (:factors, :light_a)),
-        max_b=parameter(:maximum_rate, (:factors, :light_b)),
-        alpha_b=parameter(:alpha, (:factors, :light_b)),
-    )
-    definition(parameters) = ModelDefinition(; components, processes, parameters)
-
-    normalized = normalize_model(definition(parameters(
-        ParameterProvision(:growth, :maximum_rate; path=(:factors, :light_a))
-    )))
-    max_a_requirement = only(filter(parameter_requirements(normalized)) do requirement
-        identity = requirement.identity
-        identity.path == (:factors, :light_a) && identity.slot === :maximum_rate
-    end)
-    @test parameter_name(normalized, max_a_requirement) === :max_a
-    @test all(def.spec.shape === :vector for def in normalized.parameters)
-
-    bad_shape = parameters(
-        ParameterProvision(:growth, :maximum_rate; path=(:factors, :light_a))
-    )
-    bad_shape = merge(bad_shape, (
-        max_a=Parameter(
-            NoDefault();
-            shape=:scalar,
-            provides=ParameterProvision(:growth, :maximum_rate; path=(:factors, :light_a)),
+            helper=Parameter(ConstantDefault(1.0)),
         ),
     ))
-    @test_throws ArgumentError normalize_model(definition(bad_shape))
+    @test dependency_only.parameters.helper.spec.axes === nothing
 
-    @test_throws ArgumentError normalize_model(
-        definition(parameters(ParameterProvision(:growth, :maximum_rate)))
-    )
-    @test_throws ArgumentError normalize_model(
-        definition(parameters(ParameterProvision(:growth, :missing)))
-    )
-
-    mixed_processes = (
-        growth=Growth(;
-            populations=:P,
-            factors=(
-                light_a=Light(
-                    Smith(); driver=:PAR, bindings=(maximum_rate=:max_a,)
-                ),
-                light_b=Light(Smith(); driver=:PAR),
-            ),
-        ),
-    )
     @test_throws ArgumentError normalize_model(ModelDefinition(;
-        components,
-        processes=mixed_processes,
-        parameters=parameters(
-            ParameterProvision(:growth, :maximum_rate; path=(:factors, :light_a))
+        components=(P=components.P,),
+        processes=(mortality=Mortality(
+            Agate.Processes.LinearMortality();
+            populations=:P,
+            bindings=(rate=:mortality_rate,),
+        ),),
+        parameters=(
+            mortality_rate=Parameter(ConstantDefault(0.1); axes=:plankton),
+            unused=Parameter(ConstantDefault(1.0)),
         ),
     ))
 end
@@ -484,6 +433,6 @@ end
     normalized = normalize_model(ModelDefinition(; components, processes, parameters))
     @test keys(normalized.parameters) ==
         (:maximum_rate, :half_saturation, :palatability, :assimilation)
-    @test Tuple(def.spec.shape for def in normalized.parameters) ==
-        (:vector, :vector, :matrix, :matrix)
+    @test Tuple(def.spec.axes for def in normalized.parameters) ==
+        (:plankton, :plankton, (:consumer, :prey), (:consumer, :prey))
 end

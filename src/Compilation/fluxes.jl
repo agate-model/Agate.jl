@@ -124,21 +124,21 @@ end
 end
 
 function parameter_operand(binding::ParameterBinding, indices::Int...)
-    shape = binding.requirement.shape
+    rank = length(binding.axes)
     parameter = binding.parameter
 
-    if shape === :scalar
+    if rank == 0
         isempty(indices) || throw(ArgumentError("scalar parameter operands do not take indices"))
         return ScalarParamOp{parameter}()
-    elseif shape === :vector
+    elseif rank == 1
         length(indices) == 1 || throw(ArgumentError("vector parameter operands require one index"))
         return VecParamOp{parameter,only(indices)}()
-    elseif shape === :matrix
+    elseif rank == 2
         length(indices) == 2 || throw(ArgumentError("matrix parameter operands require two indices"))
         i, j = indices
         return MatParamOp{parameter,i,j}()
     end
-    throw(ArgumentError("unsupported parameter requirement shape $shape"))
+    throw(ArgumentError("unsupported parameter rank $rank"))
 end
 
 @inline _axis_position(local_index::Int, plankton_index::Union{Nothing,Int}=nothing) =
@@ -169,9 +169,8 @@ end
 function parameter_operand(
     binding::ParameterBinding, context::CommunityContext, axis_positions::NamedTuple
 )
-    requirement = binding.requirement
-    shape = requirement.shape
-    shape === :scalar && return parameter_operand(binding)
+    rank = length(binding.axes)
+    rank == 0 && return parameter_operand(binding)
 
     positions = Tuple(
         begin
@@ -181,13 +180,13 @@ function parameter_operand(
                 ),
             )
             getproperty(axis_positions, axis)
-        end for axis in requirement.axes
+        end for axis in binding.axes
     )
 
     storage_axes = binding.storage_axes
     if storage_axes === nothing
         return parameter_operand(binding, Tuple(position.local_index for position in positions)...)
-    elseif shape === :vector
+    elseif rank == 1
         storage_axes isa Symbol || throw(
             ArgumentError(
                 "vector parameter :$(binding.parameter) must have one Symbol storage axis",
@@ -195,7 +194,7 @@ function parameter_operand(
         )
         index = _explicit_storage_index(storage_axes, only(positions), context, binding.parameter)
         return parameter_operand(binding, index)
-    elseif shape === :matrix
+    elseif rank == 2
         storage_axes isa Tuple && length(storage_axes) == 2 || throw(
             ArgumentError(
                 "matrix parameter :$(binding.parameter) must have two storage axes",
@@ -207,7 +206,7 @@ function parameter_operand(
         return parameter_operand(binding, indices...)
     end
 
-    throw(ArgumentError("unsupported parameter requirement shape $shape"))
+    throw(ArgumentError("unsupported parameter rank $rank"))
 end
 
 function _scalar_component_target(layout::ComponentLayout, component::Symbol)

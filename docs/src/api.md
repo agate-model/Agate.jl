@@ -2,7 +2,7 @@
 
 ## Direct model construction
 
-`ModelDefinition` is the scientific model-definition container. Direct construction realizes intrinsic component size structure, resolves process-owned parameter requirements and required drivers, and compiles runtime tracer equations during setup.
+`ModelDefinition` is the scientific model-definition container. Direct construction realizes intrinsic component size structure, resolves process-owned parameter slots and required drivers, and compiles runtime tracer equations during setup.
 
 ```@docs
 Agate.Construction.construct
@@ -85,14 +85,10 @@ Agate.Configuration.AssimilationBinary
 ```@docs
 Agate.Processes.NamedProcess
 Agate.Processes.NormalizedModelDefinition
-Agate.Processes.ParameterRequirementIdentity
-Agate.Processes.ParameterRequirement
 Agate.Processes.ParameterBinding
 Agate.Processes.ParameterApplicability
 Agate.Processes.driver_identities
-Agate.Processes.parameter_requirements
 Agate.Processes.parameter_bindings
-Agate.Processes.parameter_name
 Agate.Processes.resolve_parameter_applicability
 Agate.Processes.normalize_model
 Agate.Compilation.compile_model_tendencies
