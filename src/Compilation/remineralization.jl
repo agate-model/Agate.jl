@@ -5,9 +5,6 @@ function process_fluxes(
     context::CommunityContext,
 ) where {P<:Remineralization}
     process = named.process
-    process.formulation isa LinearRemineralization || throw(
-        ArgumentError("unsupported remineralization formulation $(typeof(process.formulation))"),
-    )
     length(process.destinations) == 1 || throw(
         ArgumentError("linear remineralization currently requires one destination"),
     )

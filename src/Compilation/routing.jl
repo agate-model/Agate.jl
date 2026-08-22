@@ -2,9 +2,7 @@ function _routing_fraction_binding(
     definition::NormalizedModelDefinition, named::NamedProcess, routing::ProductRouting
 )
     slots = parameter_slot_bindings(definition, named, (:routing,), routing.formulation)
-    routing.formulation isa PartitionRouting && return slots.export_fraction
-    routing.formulation isa DOMPOMRouting && return slots.POM_fraction
-    throw(ArgumentError("unsupported routing formulation $(typeof(routing.formulation))"))
+    return routing.formulation isa PartitionRouting ? slots.export_fraction : slots.POM_fraction
 end
 
 function _routing_ratio_binding(
@@ -99,15 +97,4 @@ function _routing_fluxes(
         end
     end
     return fluxes
-end
-
-function _routing_fluxes(
-    named::NamedProcess,
-    definition::NormalizedModelDefinition,
-    routing::ProductRouting,
-    layout::ComponentLayout,
-    rate::RateElement;
-    suffix::Tuple=(),
-)
-    throw(ArgumentError("unsupported routing formulation $(typeof(routing.formulation))"))
 end

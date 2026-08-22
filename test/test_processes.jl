@@ -19,6 +19,7 @@ using Agate.Processes:
     FixedStoichiometry,
     Grazing,
     Consumption,
+    Mortality,
     DirectRouting,
     ModelDefinition,
     ParameterSlot,
@@ -174,6 +175,22 @@ using Agate.Processes:
         ),),
     )
     @test_throws ArgumentError normalize_model(wrong_currency)
+
+    # Normalization remains the trusted boundary when field constructors bypass authoring checks.
+    bypassed_factor = ModelDefinition(;
+        components=(P=Population(; currency=:nitrogen), N=Pool(:nitrogen)),
+        processes=(growth=Growth(;
+            population=:P,
+            factors=(light=Light(Monod(), :PAR), nutrients=NutrientResponse(:monod; resource=:N)),
+        ),),
+    )
+    @test_throws ArgumentError normalize_model(bypassed_factor)
+
+    bypassed_mortality = ModelDefinition(;
+        components=(P=Population(; currency=:nitrogen),),
+        processes=(mortality=Mortality(Monod(), (:P,), nothing),),
+    )
+    @test_throws ArgumentError normalize_model(bypassed_mortality)
 end
 
 @testset "Compositional factor mathematics" begin

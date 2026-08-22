@@ -181,30 +181,6 @@ struct ParameterRequirement{I,A<:Tuple}
     shape::Symbol
 end
 
-function ParameterRequirement(
-    process::Symbol,
-    path::Tuple,
-    formulation_value,
-    slot::Symbol,
-    axes::Tuple;
-    qualifier::NamedTuple=NamedTuple(),
-    shape::Symbol=_default_requirement_shape(axes),
-)
-    length(axes) <= 2 || throw(
-        ArgumentError("parameter requirement axes currently support at most two dimensions"),
-    )
-    all(axis -> axis isa Symbol, axes) || throw(
-        ArgumentError("parameter requirement axes must contain only Symbols"),
-    )
-    shape in (:scalar, :vector, :matrix) || throw(
-        ArgumentError("parameter requirement shape must be :scalar, :vector, or :matrix"),
-    )
-    identity = ParameterRequirementIdentity(
-        process, path, formulation_value, slot; qualifier
-    )
-    return ParameterRequirement(identity, axes, shape)
-end
-
 """Resolved mapping from one semantic requirement to concrete runtime parameter storage.
 
 `storage_axes=nothing` means requirement-local storage; explicit axes identify the
@@ -241,15 +217,11 @@ function _slot_requirement(
     slot::ParameterSlot,
     context::NamedTuple,
 )
-    return ParameterRequirement(
-        process_id(named),
-        path,
-        formulation_value,
-        slot.name,
-        slot.axes;
+    identity = ParameterRequirementIdentity(
+        process_id(named), path, formulation_value, slot.name;
         qualifier=_slot_qualifier(slot, context),
-        shape=slot.shape,
     )
+    return ParameterRequirement(identity, slot.axes, slot.shape)
 end
 
 function _slot_requirements(
@@ -268,11 +240,26 @@ end
 _parameter_node(path::Tuple, node; context=NamedTuple(), formulation_value=node) =
     (; path, node, context, formulation_value)
 
+_validate_factor_formulation(::AbstractFactor) = nothing
+_validate_factor_formulation(factor::Light) =
+    formulation(factor) isa Union{Smith,Geider} || throw(ArgumentError("invalid light formulation"))
+_validate_factor_formulation(factor::NutrientResponse) =
+    formulation(factor) isa Monod || throw(ArgumentError("invalid nutrient-response formulation"))
+_validate_factor_formulation(factor::Nutrients) =
+    formulation(factor) isa Union{Liebig,Frank} || throw(ArgumentError("invalid nutrient formulation"))
+_validate_factor_formulation(factor::Temperature) =
+    formulation(factor) isa Q10 || throw(ArgumentError("invalid temperature formulation"))
+
 function _factor_parameter_nodes(path::Tuple, factor::AbstractFactor)
+    _validate_factor_formulation(factor)
     nodes = (_parameter_node(
         path, formulation(factor); context=factor_parameter_context(factor)
     ),)
     for (name, child) in pairs(factor_children(factor))
+        child isa AbstractFactor || throw(ArgumentError("factor children must be process factors"))
+        factor isa Nutrients && !(child isa NutrientResponse) && throw(
+            ArgumentError("nutrient responses must be NutrientResponse factors"),
+        )
         nodes = (
             nodes...,
             _factor_parameter_nodes(factor_child_path(path, factor, name), child)...,
@@ -368,6 +355,9 @@ end
 
 function _parameter_nodes(named::NamedProcess{P}) where {P<:Mortality}
     process = named.process
+    process.formulation isa Union{LinearMortality,QuadraticMortality} || throw(
+        ArgumentError("unsupported mortality formulation $(typeof(process.formulation))"),
+    )
     context = length(process.populations) == 1 ?
               (population=only(process.populations),) : NamedTuple()
     nodes = (_parameter_node((), process.formulation; context),)

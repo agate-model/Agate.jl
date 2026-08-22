@@ -103,9 +103,6 @@ function process_fluxes(
 ) where {P<:Consumption}
     process = named.process
     formulation = process.formulation
-    formulation isa Union{IdealizedGrazing,PreferentialGrazing,HeterotrophicConsumption} || throw(
-        ArgumentError("unsupported consumption formulation $(typeof(formulation))"),
-    )
     consumer_tracers, consumer_indices = _realize_population_classes(
         named, process.consumers, layout, context
     )

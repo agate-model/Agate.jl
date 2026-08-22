@@ -60,34 +60,9 @@ formulation_tag(::PartitionRouting) = :partition
 formulation_tag(::DOMPOMRouting) = :dom_pom
 formulation_tag(::FixedStoichiometry) = :fixed
 
-_resolve_light(::Val{:smith}) = Smith()
-_resolve_light(::Val{:geider}) = Geider()
-_resolve_response(::Val{:monod}) = Monod()
-_resolve_nutrients(::Val{:liebig}) = Liebig()
-_resolve_nutrients(::Val{:frank}) = Frank()
-_resolve_temperature(::Val{:q10}) = Q10()
-_resolve_consumption(::Val{:idealized}) = IdealizedGrazing()
-_resolve_consumption(::Val{:preferential}) = PreferentialGrazing()
-_resolve_consumption(::Val{:heterotrophic}) = HeterotrophicConsumption()
-_resolve_mortality(::Val{:linear}) = LinearMortality()
-_resolve_mortality(::Val{:quadratic}) = QuadraticMortality()
-_resolve_remineralization(::Val{:linear}) = LinearRemineralization()
-_resolve_routing(::Val{:direct}) = DirectRouting()
-_resolve_routing(::Val{:partition}) = PartitionRouting()
-_resolve_routing(::Val{:dom_pom}) = DOMPOMRouting()
-
-function _unknown_formulation(kind::Symbol, formulation::Symbol)
-    throw(ArgumentError("unknown $(kind) formulation :$(formulation)"))
+function formulation_for(::Type{H}, ::Val{F}) where {H,F}
+    throw(ArgumentError("unknown formulation :$F for $H"))
 end
-
-_resolve_light(::Val{F}) where {F} = _unknown_formulation(:light, F)
-_resolve_response(::Val{F}) where {F} = _unknown_formulation(:nutrient_response, F)
-_resolve_nutrients(::Val{F}) where {F} = _unknown_formulation(:nutrients, F)
-_resolve_temperature(::Val{F}) where {F} = _unknown_formulation(:temperature, F)
-_resolve_consumption(::Val{F}) where {F} = _unknown_formulation(:consumption, F)
-_resolve_mortality(::Val{F}) where {F} = _unknown_formulation(:mortality, F)
-_resolve_remineralization(::Val{F}) where {F} = _unknown_formulation(:remineralization, F)
-_resolve_routing(::Val{F}) where {F} = _unknown_formulation(:product_routing, F)
 
 function _participant_tuple(role::Symbol, singular, plural)
     isnothing(singular) == isnothing(plural) && throw(
@@ -115,11 +90,12 @@ struct Light{F<:AbstractFormulation} <: AbstractFactor
     driver::Symbol
 end
 
-Light(formulation::Symbol; driver::Symbol) = Light(_resolve_light(Val(formulation)); driver)
+formulation_for(::Type{Light}, ::Val{:smith}) = Smith()
+formulation_for(::Type{Light}, ::Val{:geider}) = Geider()
+
+Light(formulation::Symbol; driver::Symbol) =
+    Light(formulation_for(Light, Val(formulation)); driver)
 Light(formulation::Union{Smith,Geider}; driver::Symbol) = Light(formulation, driver)
-function Light(formulation::AbstractFormulation; driver::Symbol)
-    throw(ArgumentError("$(typeof(formulation)) is not a light formulation"))
-end
 
 """Single-resource multiplicative nutrient factor used by processes such as growth."""
 struct NutrientResponse{F<:AbstractFormulation} <: AbstractFactor
@@ -127,12 +103,11 @@ struct NutrientResponse{F<:AbstractFormulation} <: AbstractFactor
     resource::Symbol
 end
 
+formulation_for(::Type{NutrientResponse}, ::Val{:monod}) = Monod()
+
 NutrientResponse(formulation::Symbol; resource::Symbol) =
-    NutrientResponse(_resolve_response(Val(formulation)); resource)
+    NutrientResponse(formulation_for(NutrientResponse, Val(formulation)); resource)
 NutrientResponse(formulation::Monod; resource::Symbol) = NutrientResponse(formulation, resource)
-function NutrientResponse(formulation::AbstractFormulation; resource::Symbol)
-    throw(ArgumentError("$(typeof(formulation)) is not a nutrient-response formulation"))
-end
 
 """Temperature-dependent multiplicative process-rate factor."""
 struct Temperature{F<:AbstractFormulation} <: AbstractFactor
@@ -140,12 +115,11 @@ struct Temperature{F<:AbstractFormulation} <: AbstractFactor
     driver::Symbol
 end
 
+formulation_for(::Type{Temperature}, ::Val{:q10}) = Q10()
+
 Temperature(formulation::Symbol; driver::Symbol=:temperature) =
-    Temperature(_resolve_temperature(Val(formulation)); driver)
+    Temperature(formulation_for(Temperature, Val(formulation)); driver)
 Temperature(formulation::Q10; driver::Symbol=:temperature) = Temperature(formulation, driver)
-function Temperature(formulation::AbstractFormulation; driver::Symbol=:temperature)
-    throw(ArgumentError("$(typeof(formulation)) is not a temperature formulation"))
-end
 
 function _canonical_responses(responses::NamedTuple)
     isempty(responses) && throw(ArgumentError("nutrient `responses` cannot be empty"))
@@ -166,6 +140,9 @@ struct Nutrients{F<:AbstractFormulation,R<:NamedTuple} <: AbstractFactor
     responses::R
 end
 
+formulation_for(::Type{Nutrients}, ::Val{:liebig}) = Liebig()
+formulation_for(::Type{Nutrients}, ::Val{:frank}) = Frank()
+
 function Nutrients(formulation::Union{Liebig,Frank}; responses::NamedTuple)
     return Nutrients(formulation, _canonical_responses(responses))
 end
@@ -181,10 +158,7 @@ function Nutrients(
     isnothing(sharpness) || throw(
         ArgumentError("`sharpness` is only valid for the :frank nutrient formulation"),
     )
-    return Nutrients(_resolve_nutrients(Val(formulation)); responses)
-end
-function Nutrients(formulation::AbstractFormulation; responses::NamedTuple)
-    throw(ArgumentError("$(typeof(formulation)) is not a nutrient-combination formulation"))
+    return Nutrients(formulation_for(Nutrients, Val(formulation)); responses)
 end
 
 abstract type AbstractFactorInput end
@@ -222,8 +196,12 @@ struct ProductRouting{F<:AbstractFormulation,R,E,P,S}
     stoichiometry::S
 end
 
+formulation_for(::Type{ProductRouting}, ::Val{:direct}) = DirectRouting()
+formulation_for(::Type{ProductRouting}, ::Val{:partition}) = PartitionRouting()
+formulation_for(::Type{ProductRouting}, ::Val{:dom_pom}) = DOMPOMRouting()
+
 ProductRouting(formulation::Symbol; kwargs...) =
-    ProductRouting(_resolve_routing(Val(formulation)); kwargs...)
+    ProductRouting(formulation_for(ProductRouting, Val(formulation)); kwargs...)
 ProductRouting(formulation::DirectRouting; destination::Symbol) =
     ProductRouting(formulation, destination, nothing, nothing, nothing)
 ProductRouting(formulation::PartitionRouting; retained::Symbol, exported::Symbol) =
@@ -253,9 +231,6 @@ function ProductRouting(
         ArgumentError("DOM/POM routing pool targets must be component Symbols"),
     )
     return ProductRouting(formulation, nothing, nothing, pools, stoichiometry)
-end
-function ProductRouting(formulation::AbstractFormulation; kwargs...)
-    throw(ArgumentError("$(typeof(formulation)) is not a product-routing formulation"))
 end
 
 function _canonical_factors(factors::NamedTuple; allow_empty::Bool=false)
@@ -309,6 +284,10 @@ struct Consumption{F<:AbstractFormulation,A<:NamedTuple,R} <: AbstractProcess
     routing::R
 end
 
+formulation_for(::Type{Consumption}, ::Val{:idealized}) = IdealizedGrazing()
+formulation_for(::Type{Consumption}, ::Val{:preferential}) = PreferentialGrazing()
+formulation_for(::Type{Consumption}, ::Val{:heterotrophic}) = HeterotrophicConsumption()
+
 function Consumption(
     formulation::Union{IdealizedGrazing,PreferentialGrazing,HeterotrophicConsumption};
     consumer=nothing,
@@ -334,22 +313,17 @@ function Consumption(
 end
 
 Consumption(formulation::Symbol; kwargs...) =
-    Consumption(_resolve_consumption(Val(formulation)); kwargs...)
-function Consumption(formulation::AbstractFormulation; kwargs...)
-    throw(ArgumentError("$(typeof(formulation)) is not a consumption formulation"))
-end
+    Consumption(formulation_for(Consumption, Val(formulation)); kwargs...)
 
 """Author-facing grazing convenience that immediately returns canonical `Consumption`."""
-function Grazing(formulation::Union{IdealizedGrazing,PreferentialGrazing}; kwargs...)
-    return Consumption(formulation; kwargs...)
-end
 function Grazing(formulation::Symbol; kwargs...)
-    formulation in (:idealized, :preferential) || _unknown_formulation(:grazing, formulation)
+    formulation in (:idealized, :preferential) || throw(
+        ArgumentError("unknown grazing formulation :$formulation"),
+    )
     return Consumption(formulation; kwargs...)
 end
-function Grazing(formulation::AbstractFormulation; kwargs...)
-    throw(ArgumentError("$(typeof(formulation)) is not a grazing formulation"))
-end
+Grazing(formulation::Union{IdealizedGrazing,PreferentialGrazing}; kwargs...) =
+    Consumption(formulation; kwargs...)
 
 """Population mortality process with optional product routing."""
 struct Mortality{F<:AbstractFormulation,R} <: AbstractProcess
@@ -357,6 +331,9 @@ struct Mortality{F<:AbstractFormulation,R} <: AbstractProcess
     populations::Tuple
     routing::R
 end
+
+formulation_for(::Type{Mortality}, ::Val{:linear}) = LinearMortality()
+formulation_for(::Type{Mortality}, ::Val{:quadratic}) = QuadraticMortality()
 
 function Mortality(
     formulation::Union{LinearMortality,QuadraticMortality};
@@ -372,10 +349,7 @@ function Mortality(
 end
 
 Mortality(formulation::Symbol; kwargs...) =
-    Mortality(_resolve_mortality(Val(formulation)); kwargs...)
-function Mortality(formulation::AbstractFormulation; kwargs...)
-    throw(ArgumentError("$(typeof(formulation)) is not a mortality formulation"))
-end
+    Mortality(formulation_for(Mortality, Val(formulation)); kwargs...)
 
 """Source-to-destination remineralization process."""
 struct Remineralization{F<:AbstractFormulation} <: AbstractProcess
@@ -383,6 +357,8 @@ struct Remineralization{F<:AbstractFormulation} <: AbstractProcess
     sources::Tuple
     destinations::Tuple
 end
+
+formulation_for(::Type{Remineralization}, ::Val{:linear}) = LinearRemineralization()
 
 function Remineralization(
     formulation::LinearRemineralization;
@@ -397,10 +373,7 @@ function Remineralization(
 end
 
 Remineralization(formulation::Symbol; kwargs...) =
-    Remineralization(_resolve_remineralization(Val(formulation)); kwargs...)
-function Remineralization(formulation::AbstractFormulation; kwargs...)
-    throw(ArgumentError("$(typeof(formulation)) is not a remineralization formulation"))
-end
+    Remineralization(formulation_for(Remineralization, Val(formulation)); kwargs...)
 
 formulation(process::AbstractProcess) = process.formulation
 formulation(factor::AbstractFactor) = factor.formulation
