@@ -118,7 +118,6 @@ storage coordinate system used by the bound model parameter.
 struct ParameterBinding{P,Q,A,S}
     process::Symbol
     path::P
-    formulation::Symbol
     slot::Symbol
     qualifier::Q
     axes::A
@@ -149,19 +148,15 @@ end
 function _slot_metadata(
     named::NamedProcess,
     path::Tuple,
-    formulation_value,
     slot::ParameterSlot,
     context::NamedTuple,
 )
     all(item -> item isa Symbol, path) || throw(
         ArgumentError("parameter binding path must contain only Symbols"),
     )
-    formulation_name = formulation_value isa Symbol ?
-                       formulation_value : formulation_tag(formulation_value)
     return (;
         process=process_id(named),
         path,
-        formulation=formulation_name,
         slot=slot.name,
         qualifier=_canonical_qualifier(_slot_qualifier(slot, context)),
         axes=slot.axes,
@@ -175,8 +170,8 @@ _binding_key(binding::ParameterBinding) =
 _binding_key(metadata::NamedTuple) =
     _binding_key(metadata.process, metadata.path, metadata.slot, metadata.qualifier)
 
-_parameter_node(path::Tuple, node; context=NamedTuple(), formulation_value=node) =
-    (; path, node, context, formulation_value)
+_parameter_node(path::Tuple, node; context=NamedTuple()) =
+    (; path, node, context)
 
 _validate_factor_formulation(::AbstractFactor) = nothing
 _validate_factor_formulation(factor::Light) =
@@ -191,9 +186,7 @@ _validate_factor_formulation(factor::Temperature) =
 function _factor_parameter_nodes(path::Tuple, factor::AbstractFactor)
     _validate_factor_formulation(factor)
     nodes = (_parameter_node(
-        path, factor;
-        context=factor_parameter_context(factor),
-        formulation_value=formulation(factor),
+        path, factor; context=factor_parameter_context(factor),
     ),)
     for (name, child) in pairs(factor_children(factor))
         child isa AbstractFactor || throw(ArgumentError("factor children must be process factors"))
@@ -212,9 +205,7 @@ _factor_parameter_nodes(name::Symbol, factor::AbstractFactor) =
     _factor_parameter_nodes((:factors, name), factor)
 
 function _routing_parameter_nodes(routing::ProductRouting)
-    nodes = (_parameter_node(
-        (:routing,), routing; formulation_value=formulation(routing)
-    ),)
+    nodes = (_parameter_node((:routing,), routing),)
     routing.formulation isa DOMPOMRouting || return nodes
 
     reference = routing.stoichiometry.reference
@@ -233,18 +224,18 @@ function _routing_parameter_nodes(routing::ProductRouting)
 end
 
 _process_parameter_nodes(process::AbstractProcess) =
-    (_parameter_node((), process; formulation_value=formulation(process)),)
+    (_parameter_node((), process),)
 
 _process_parameter_nodes(process::Mortality) = Tuple(
     _parameter_node(
-        (), process; context=(population=population,), formulation_value=formulation(process)
+        (), process; context=(population=population,)
     )
     for population in process.populations
 )
 
 _process_parameter_nodes(process::Remineralization) = Tuple(
     _parameter_node(
-        (), process; context=(source=source,), formulation_value=formulation(process)
+        (), process; context=(source=source,)
     )
     for source in process.sources
 )
@@ -588,9 +579,7 @@ function _declared_parameter_uses(processes::NamedTuple)
         slot_source = _parameter_slot_source(node.node)
         for slot in parameter_slots(slot_source)
             qualifier = _slot_qualifier(slot, node.context)
-            metadata = _slot_metadata(
-                named, node.path, node.formulation_value, slot, node.context
-            )
+            metadata = _slot_metadata(named, node.path, slot, node.context)
             parameter, explicit = _binding_value(bindings, slot, qualifier)
             push!(uses, (; metadata..., parameter, explicit))
         end
@@ -613,7 +602,7 @@ function _normalize_parameter_bindings(processes::NamedTuple, definitions)
     if isnothing(definitions)
         bindings = Tuple(
             ParameterBinding(
-                use.process, use.path, use.formulation, use.slot, use.qualifier,
+                use.process, use.path, use.slot, use.qualifier,
                 use.axes, use.parameter, nothing,
             )
             for use in uses
@@ -685,7 +674,6 @@ function _normalize_parameter_bindings(processes::NamedTuple, definitions)
         ParameterBinding(
             use.process,
             use.path,
-            use.formulation,
             use.slot,
             use.qualifier,
             use.axes,

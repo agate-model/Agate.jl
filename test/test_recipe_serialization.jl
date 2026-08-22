@@ -1,10 +1,24 @@
 using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe
 using Agate.Models: NiPiZD
 using Agate.Configuration: Population, Pool
-using Agate.Processes: Growth, Light, NutrientResponse, Nutrients, Smith, Monod, FrankTNorm
+using Agate.Processes:
+    AbstractFormulation, Growth, Light, NutrientResponse, Smith, Monod, FrankTNorm,
+    formulation_recipe_fields
 using JSON
 using OceanBioME: BoxModelGrid
 using Test
+
+
+struct MissingRecipeFields <: AbstractFormulation
+    exponent::Float64
+end
+
+struct ExplicitRecipeFields <: AbstractFormulation
+    exponent::Float64
+end
+
+Agate.Processes.formulation_recipe_fields(formulation::ExplicitRecipeFields) =
+    (exponent=formulation.exponent,)
 
 function encoded_named_value(encoded, name)
     entry = only(item for item in encoded["entries"] if item["name"] == String(name))
@@ -40,7 +54,7 @@ explicit_json_value(::Any) = false
     _, default_recipe = NiPiZD.construct_plus_recipe()
     default_encoded = encode_recipe(default_recipe)
     @test decode_recipe(default_encoded) == default_recipe
-    @test default_encoded["schema"] == "agate.model_recipe.v0.5"
+    @test default_encoded["schema"] == "agate.model_recipe.v0.6"
 
     bgc, recipe = NiPiZD.construct_plus_recipe(; authored_nipizd_inputs(Float32)...)
     manifest = nipizd_manifest(recipe; scalar_type=Float32)
@@ -56,8 +70,7 @@ explicit_json_value(::Any) = false
     decoded_manifest = nipizd_manifest(decoded; scalar_type=Float32)
 
     @test Set(keys(encoded)) == Set(("schema", "model", "provenance", "recipe", "recipe_hash"))
-    @test Set(keys(encoded["recipe"])) ==
-        Set(("components", "processes", "parameter_bindings", "realization"))
+    @test Set(keys(encoded["recipe"])) == Set(("components", "processes", "realization"))
     @test Set(keys(realization)) == Set((
         "community",
         "population_groups",
@@ -71,11 +84,18 @@ explicit_json_value(::Any) = false
             "kind" => "light",
             "formulation" => "smith",
             "drivers" => Dict("driver" => "PAR"),
+            "bindings" => Dict(
+                "alpha" => "alpha",
+                "maximum_rate" => "maximum_growth_rate",
+            ),
         ),
         "nutrients" => Dict(
             "kind" => "nutrient_response",
             "formulation" => "monod",
             "participants" => Dict("resource" => "N"),
+            "bindings" => Dict(
+                "K" => Dict("N" => "nutrient_half_saturation"),
+            ),
         ),
     )
     phytoplankton_data = encoded["recipe"]["components"]["P"]
@@ -89,6 +109,14 @@ explicit_json_value(::Any) = false
     @test grazing_data["routing"] == Dict(
         "kind" => "product_routing", "formulation" => "direct", "destination" => "D"
     )
+    @test grazing_data["bindings"] == Dict(
+        "assimilation" => "assimilation_matrix",
+        "half_saturation" => "holling_half_saturation",
+        "maximum_rate" => "maximum_predation_rate",
+        "palatability" => "palatability_matrix",
+    )
+    @test encoded["recipe"]["processes"]["remineralization_D"]["bindings"] ==
+        Dict("rate" => Dict("D" => "detritus_remineralization"))
     @test encoded["provenance"]["agate"]["package"] == "Agate"
     @test encoded["provenance"]["agate"]["version"] == string(Base.pkgversion(Agate))
     @test startswith(recipe_hash, "sha256:")
@@ -155,12 +183,12 @@ explicit_json_value(::Any) = false
     @test multistate_population["states"] ==
         Dict("carbon" => "carbon", "nitrogen" => "nitrogen")
 
-    frank_factor = Nutrients(
-        FrankTNorm(); responses=(nitrogen=NutrientResponse(Monod(); resource=:N),)
-    )
-    frank_science = Agate.Construction._recipe_science_value(frank_factor)
-    @test frank_science["formulation"] == "frank_tnorm"
-    @test !haskey(frank_science, "sharpness")
+    @test formulation_recipe_fields(FrankTNorm()) == NamedTuple()
+    @test_throws ArgumentError
+        Agate.Construction._validated_formulation_recipe_fields(MissingRecipeFields(2.0))
+    @test Agate.Construction._validated_formulation_recipe_fields(
+        ExplicitRecipeFields(2.0)
+    ) == (exponent=2.0,)
 
     sinking = (D=2.5 / 86400,)
     _, recipe_f32 = NiPiZD.construct_plus_recipe(;
@@ -183,13 +211,8 @@ explicit_json_value(::Any) = false
         close(io)
         @test export_recipe(path, recipe) == path
         exported = JSON.parsefile(path)
-        bindings = exported["recipe"]["parameter_bindings"]
-        resolved_bindings = [
-            entry for binding in values(bindings) for entry in binding["bindings"]
-        ]
-        @test !isempty(resolved_bindings)
-        @test all(binding -> binding["path"] isa AbstractVector, resolved_bindings)
-        @test all(binding -> binding["axes"] isa AbstractVector, resolved_bindings)
+        @test !haskey(exported["recipe"], "parameter_bindings")
+        @test exported["recipe"]["processes"]["growth_P"]["factors"]["light"]["bindings"]["alpha"] == "alpha"
         @test import_recipe(path) == recipe
     end
 
@@ -210,8 +233,9 @@ explicit_json_value(::Any) = false
     @test_throws ArgumentError decode_recipe(component_tamper)
 
     binding_tamper = modified(encoded) do x
-        binding = first(values(x["recipe"]["parameter_bindings"]))
-        first(binding["bindings"])["slot"] = "tampered_slot"
+        x["recipe"]["processes"]["growth_P"]["factors"]["light"]["bindings"][
+            "maximum_rate"
+        ] = "tampered_parameter"
     end
     @test_throws ArgumentError decode_recipe(binding_tamper)
 

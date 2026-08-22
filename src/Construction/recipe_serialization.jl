@@ -9,11 +9,11 @@ using ..Parameters: parameter_definitions
 
 using ..Processes:
     AbstractProcess, AbstractFormulation, AbstractFactor, FactorDriver, FactorComponent,
-    ModelDefinition, normalize_model, parameter_bindings, process_kind, formulation,
-    formulation_tag, factors, factor_inputs, factor_children, participants, drivers, rate_axes,
+    ModelDefinition, normalize_model, parameter_bindings, process_id, process_kind, factor_kind, formulation,
+    formulation_tag, formulation_recipe_fields, factors, factor_inputs, factor_children,
+    factor_child_path, participants, drivers, rate_axes,
     process_routing, process_stoichiometry,
-    Growth, Light, NutrientResponse, Nutrients, Temperature, Consumption, Mortality,
-    ProductRouting,
+    Growth, Nutrients, ProductRouting,
     DirectRouting, PartitionRouting, DOMPOMRouting, FixedStoichiometry
 
 using ..Library.Allometry:
@@ -22,7 +22,7 @@ using ..Library.Allometry:
     allometric_relationship_identifier,
     allometric_relationship_from_identifier
 
-const PROCESS_MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.5"
+const PROCESS_MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.6"
 const _RECIPE_DOCUMENT_KEYS = ("schema", "model", "provenance", "recipe", "recipe_hash")
 const _RECIPE_MODEL_KEYS = ("family",)
 const _SUPPORTED_SPLITTING = (:linear_splitting, :log_splitting)
@@ -385,62 +385,132 @@ function _participants_recipe_data(named)
     )
 end
 
-_factor_kind(::Light) = :light
-_factor_kind(::Temperature) = :temperature
-_factor_kind(::NutrientResponse) = :nutrient_response
-_factor_kind(::Nutrients) = :nutrients
+function _validated_formulation_recipe_fields(formulation_value::AbstractFormulation)
+    fields = formulation_recipe_fields(formulation_value)
+    fields isa NamedTuple || throw(ArgumentError(
+        "formulation_recipe_fields for $(typeof(formulation_value)) must return a NamedTuple",
+    ))
+    return fields
+end
+
+function _attach_formulation_recipe_fields!(data::Dict{String,Any}, formulation_value)
+    formulation_value isa AbstractFormulation || return data
+    fields = _validated_formulation_recipe_fields(formulation_value)
+    isempty(fields) || (data["formulation_fields"] = _recipe_science_value(fields))
+    return data
+end
+
+function _node_bindings_recipe_data(normalized, process::Symbol, path::Tuple)
+    matches = (
+        binding for binding in parameter_bindings(normalized)
+        if binding.process === process && binding.path == path
+    )
+    result = Dict{String,Any}()
+    for binding in matches
+        slot = String(binding.slot)
+        if isempty(binding.qualifier)
+            haskey(result, slot) && throw(ArgumentError(
+                "recipe serialization found repeated unqualified binding for process :$process path $path slot :$(binding.slot)",
+            ))
+            result[slot] = String(binding.parameter)
+            continue
+        end
+
+        length(binding.qualifier) == 1 || throw(ArgumentError(
+            "recipe serialization supports one qualifier dimension per parameter slot",
+        ))
+        qualified = get!(result, slot, Dict{String,Any}())
+        qualified isa Dict || throw(ArgumentError(
+            "recipe serialization found mixed qualified and unqualified bindings for process :$process path $path slot :$(binding.slot)",
+        ))
+        qualified[String(only(values(binding.qualifier)))] = String(binding.parameter)
+    end
+    return isempty(result) ? nothing : result
+end
+
+function _attach_node_bindings!(data::Dict{String,Any}, normalized, process::Symbol, path::Tuple)
+    bindings = _node_bindings_recipe_data(normalized, process, path)
+    isnothing(bindings) || (data["bindings"] = bindings)
+    return data
+end
+
 _factor_input_fields(input::FactorDriver) = (drivers=(driver=input.identity,),)
 _factor_input_fields(input::FactorComponent) = (participants=(resource=input.component,),)
 _factor_children_key(::AbstractFactor) = :factors
 _factor_children_key(::Nutrients) = :responses
 
-_factor_formulation_recipe_fields(::AbstractFormulation) = NamedTuple()
-
-function _factor_recipe_fields(factor::AbstractFactor)
+function _factor_recipe_data(
+    factor::AbstractFactor, normalized, process::Symbol, path::Tuple
+)
     factor_formulation = formulation(factor)
-    fields = merge(
-        (kind=_factor_kind(factor), formulation=formulation_tag(factor_formulation)),
-        _factor_formulation_recipe_fields(factor_formulation),
+    data = Dict{String,Any}(
+        "kind" => String(factor_kind(factor)),
+        "formulation" => String(formulation_tag(factor_formulation)),
     )
-    for input in factor_inputs(factor)
-        fields = merge(fields, _factor_input_fields(input))
+    _attach_formulation_recipe_fields!(data, factor_formulation)
+
+    for input in factor_inputs(factor), (name, value) in pairs(_factor_input_fields(input))
+        data[String(name)] = _recipe_science_value(value)
     end
+    _attach_node_bindings!(data, normalized, process, path)
+
     children = factor_children(factor)
-    isempty(children) || (
-        fields = merge(fields, NamedTuple{(_factor_children_key(factor),)}((children,)))
-    )
-    return fields
+    if !isempty(children)
+        child_data = Dict{String,Any}()
+        for (name, child) in pairs(children)
+            child_path = factor_child_path(path, factor, name)
+            child_data[String(name)] = _factor_recipe_data(child, normalized, process, child_path)
+        end
+        data[String(_factor_children_key(factor))] = child_data
+    end
+    return data
 end
 
-_recipe_science_value(factor::AbstractFactor) = _recipe_science_value(_factor_recipe_fields(factor))
-_recipe_science_value(stoichiometry::FixedStoichiometry) = _recipe_science_value((
-    kind=formulation_tag(stoichiometry), reference=stoichiometry.reference,
-))
+function _stoichiometry_recipe_data(
+    stoichiometry::FixedStoichiometry, normalized, process::Symbol, path::Tuple
+)
+    data = Dict{String,Any}(
+        "kind" => String(formulation_tag(stoichiometry)),
+        "reference" => String(stoichiometry.reference),
+    )
+    _attach_node_bindings!(data, normalized, process, path)
+    return data
+end
 
-_routing_recipe_fields(routing::ProductRouting{<:DirectRouting}) = (
-    kind=:product_routing,
-    formulation=formulation_tag(formulation(routing)),
-    destination=routing.retained,
+function _routing_recipe_data(
+    routing::ProductRouting, normalized, process::Symbol
 )
-_routing_recipe_fields(routing::ProductRouting{<:PartitionRouting}) = (
-    kind=:product_routing,
-    formulation=formulation_tag(formulation(routing)),
-    retained=routing.retained,
-    exported=routing.exported,
-)
-_routing_recipe_fields(routing::ProductRouting{<:DOMPOMRouting}) = (
-    kind=:product_routing,
-    formulation=formulation_tag(formulation(routing)),
-    pools=routing.pools,
-    stoichiometry=routing.stoichiometry,
-)
-_recipe_science_value(routing::ProductRouting) = _recipe_science_value(_routing_recipe_fields(routing))
+    routing_formulation = formulation(routing)
+    data = Dict{String,Any}(
+        "kind" => "product_routing",
+        "formulation" => String(formulation_tag(routing_formulation)),
+    )
+    _attach_formulation_recipe_fields!(data, routing_formulation)
+
+    if routing_formulation isa DirectRouting
+        data["destination"] = String(routing.retained)
+    elseif routing_formulation isa PartitionRouting
+        data["retained"] = String(routing.retained)
+        data["exported"] = String(routing.exported)
+    elseif routing_formulation isa DOMPOMRouting
+        data["pools"] = _recipe_science_value(routing.pools)
+        data["stoichiometry"] = _stoichiometry_recipe_data(
+            routing.stoichiometry, normalized, process, (:routing, :stoichiometry)
+        )
+    else
+        throw(ArgumentError("unsupported product-routing formulation $(typeof(routing_formulation))"))
+    end
+
+    _attach_node_bindings!(data, normalized, process, (:routing,))
+    return data
+end
 
 _process_formulation_tag(::Growth) = nothing
 _process_formulation_tag(process::AbstractProcess) = formulation_tag(formulation(process))
 
-function _process_recipe_data(named)
+function _process_recipe_data(named, normalized)
     process = named.process
+    process_name = process_id(named)
     data = Dict{String,Any}(
         "kind" => String(process_kind(named)),
         "participants" => _participants_recipe_data(named),
@@ -448,40 +518,38 @@ function _process_recipe_data(named)
     )
 
     formulation_name = _process_formulation_tag(process)
-    isnothing(formulation_name) || (data["formulation"] = String(formulation_name))
+    if !isnothing(formulation_name)
+        process_formulation = formulation(process)
+        data["formulation"] = String(formulation_name)
+        _attach_formulation_recipe_fields!(data, process_formulation)
+    end
+    _attach_node_bindings!(data, normalized, process_name, ())
 
     process_factors = factors(named)
-    isempty(process_factors) || (data["factors"] = _recipe_science_value(process_factors))
-    if isempty(process_factors)
+    if !isempty(process_factors)
+        factor_data = Dict{String,Any}()
+        for (name, factor) in pairs(process_factors)
+            factor_data[String(name)] = _factor_recipe_data(
+                factor, normalized, process_name, (:factors, name)
+            )
+        end
+        data["factors"] = factor_data
+    else
         process_drivers = drivers(named)
         isempty(process_drivers) || (data["drivers"] = _recipe_science_value(process_drivers))
     end
 
     stoichiometry = process_stoichiometry(process)
-    isnothing(stoichiometry) || (data["stoichiometry"] = _recipe_science_value(stoichiometry))
+    isnothing(stoichiometry) || (
+        data["stoichiometry"] = _stoichiometry_recipe_data(
+            stoichiometry, normalized, process_name, (:stoichiometry,)
+        )
+    )
     routing = process_routing(process)
-    isnothing(routing) || (data["routing"] = _recipe_science_value(routing))
+    isnothing(routing) || (
+        data["routing"] = _routing_recipe_data(routing, normalized, process_name)
+    )
     return data
-end
-
-function _parameter_binding_recipe_data(binding)
-    return _recipe_science_value((
-        process=binding.process,
-        path=binding.path,
-        formulation=binding.formulation,
-        slot=binding.slot,
-        qualifier=binding.qualifier,
-        axes=binding.axes,
-    ))
-end
-
-function _parameter_bindings_recipe_data(normalized)
-    result = Dict{String,Any}()
-    for binding in parameter_bindings(normalized)
-        entry = get!(result, String(binding.parameter), Dict{String,Any}("bindings" => Any[]))
-        push!(entry["bindings"], _parameter_binding_recipe_data(binding))
-    end
-    return result
 end
 
 function _encode_process_recipe_data(recipe::ProcessModelRecipe)
@@ -495,7 +563,7 @@ function _encode_process_recipe_data(recipe::ProcessModelRecipe)
         for name in keys(recipe.components)
     )
     processes = Dict{String,Any}(
-        String(name) => _process_recipe_data(getproperty(normalized.processes, name))
+        String(name) => _process_recipe_data(getproperty(normalized.processes, name), normalized)
         for name in keys(normalized.processes)
     )
     realization = Dict{String,Any}(
@@ -508,7 +576,6 @@ function _encode_process_recipe_data(recipe::ProcessModelRecipe)
     return Dict{String,Any}(
         "components" => components,
         "processes" => processes,
-        "parameter_bindings" => _parameter_bindings_recipe_data(normalized),
         "realization" => realization,
     )
 end
@@ -526,7 +593,7 @@ function encode_recipe(recipe::ProcessModelRecipe)
 end
 
 """Decode a recipe document, verifying its hash and checking package provenance."""
-const _PROCESS_RECIPE_KEYS = ("components", "processes", "parameter_bindings", "realization")
+const _PROCESS_RECIPE_KEYS = ("components", "processes", "realization")
 const _PROCESS_REALIZATION_KEYS = (
     "community",
     "population_groups",

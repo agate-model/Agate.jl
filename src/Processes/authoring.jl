@@ -72,7 +72,7 @@ FixedStoichiometry(; reference::Symbol, bindings::NamedTuple=NamedTuple()) =
 
 authored_parameter_bindings(stoichiometry::FixedStoichiometry) = stoichiometry.bindings
 
-"""Stable semantic formulation identity used by normalization and recipes."""
+"""Stable semantic formulation identity used by recipes and provenance."""
 function formulation_tag(formulation::AbstractFormulation)
     throw(ArgumentError(
         "no semantic formulation tag defined for $(typeof(formulation)); " *
@@ -97,6 +97,19 @@ formulation_tag(::DirectRouting) = :direct
 formulation_tag(::PartitionRouting) = :partition
 formulation_tag(::DOMPOMRouting) = :dom_pom
 formulation_tag(::FixedStoichiometry) = :fixed
+
+"""Return explicit scientific state carried by a formulation for recipe serialization.
+
+Stateless formulations require no method. Formulations with fields must define this hook so
+private implementation fields cannot silently become, or disappear from, durable scientific
+identity.
+"""
+function formulation_recipe_fields(formulation::AbstractFormulation)
+    fieldcount(typeof(formulation)) == 0 && return NamedTuple()
+    throw(ArgumentError(
+        "stateful formulation $(typeof(formulation)) must implement `formulation_recipe_fields`",
+    ))
+end
 
 function _canonical_participants(role::Symbol, values)
     values isa Symbol && (values = (values,))
@@ -184,6 +197,12 @@ function Nutrients(
 end
 
 authored_parameter_bindings(factor::Nutrients) = factor.bindings
+
+"""Return the stable semantic kind of an authored factor."""
+factor_kind(::Light) = :light
+factor_kind(::Temperature) = :temperature
+factor_kind(::NutrientResponse) = :nutrient_response
+factor_kind(::Nutrients) = :nutrients
 
 abstract type AbstractFactorInput end
 

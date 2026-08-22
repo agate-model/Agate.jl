@@ -13,8 +13,8 @@ using Agate.Compilation:
     parameter_operand, state_operand, _axis_position, _realize_population_state
 
 import Agate.Processes:
-    formulation_tag, parameter_slots, process_kind, participants, rate_axes,
-    process_rate, uses_living_interactions, authored_parameter_bindings
+    parameter_slots, process_kind, participants, rate_axes, process_rate,
+    uses_living_interactions, authored_parameter_bindings
 import Agate.Compilation: process_fluxes
 
 struct LinearStateTurnover <: AbstractFormulation end
@@ -40,7 +40,6 @@ end
 
 authored_parameter_bindings(process::StateTurnover) = process.bindings
 
-formulation_tag(::LinearStateTurnover) = :linear_state_turnover
 parameter_slots(::LinearStateTurnover) = (ParameterSlot(:rate, (:population,)),)
 process_kind(::StateTurnover) = :state_turnover
 participants(process::StateTurnover) = (
@@ -119,7 +118,6 @@ end
 
 authored_parameter_bindings(process::StateInteraction) = process.bindings
 
-formulation_tag(::StateInteractionRate) = :state_interaction
 parameter_slots(::StateInteractionRate) = (
     ParameterSlot(:palatability, (:consumer, :resource)),
 )
