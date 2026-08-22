@@ -143,8 +143,9 @@ explicit_json_value(::Any) = false
         recipe.sinking_tracers,
         recipe.open_bottom,
     )
-    multistate_population =
-        encode_recipe(multistate_recipe)["recipe"]["components"]["P"]
+    multistate_population = Agate.Construction._component_recipe_data(
+        :P, multistate_recipe.components.P, multistate_recipe
+    )
     @test multistate_population["states"] ==
         Dict("carbon" => "carbon", "nitrogen" => "nitrogen")
 
