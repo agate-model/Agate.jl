@@ -11,11 +11,13 @@ function encoded_named_value(encoded, name)
     return entry["value"]
 end
 
-function modified(document, mutation)
+function modified(document, mutation::Function)
     copy = deepcopy(document)
     mutation(copy)
     return copy
 end
+
+modified(mutation::Function, document) = modified(document, mutation)
 
 function rehash!(document)
     family = Symbol(document["model"]["family"])
