@@ -433,13 +433,13 @@ function materialize_parameter_value(spec, value, ::Type{T}) where {T<:Real}
         return value isa Bool ? value : T(value)
     elseif spec.shape === :vector
         value isa AbstractVector || return value
-        eltype(value) === T && return value
+        eltype(value) === T && return copy(value)
         out = similar(value, T, axes(value))
         copyto!(out, value)
         return out
     elseif spec.shape === :matrix
         value isa AbstractMatrix || return value
-        eltype(value) === T && return value
+        eltype(value) === T && return copy(value)
         out = similar(value, T, axes(value))
         copyto!(out, value)
         return out
