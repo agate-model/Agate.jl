@@ -128,10 +128,8 @@ function food_web_bgc(compilation)
         bacterial_assimilation=reshape(T[0.65, 0.75], 1, 2),
         maximum_predation_rate=T[0, 0, 6e-5, 9e-5],
         holling_half_saturation=T[1, 1, 0.12, 0.18],
-        interactions=(
-            living_palatability=T[0.6 0.8; 0.7 0.9],
-            living_assimilation=T[0.4 0.5; 0.35 0.45],
-        ),
+        living_palatability_matrix=T[0.6 0.8; 0.7 0.9],
+        living_assimilation_matrix=T[0.4 0.5; 0.35 0.45],
     )
     drivers = driver_identities(compilation.normalized)
     tracer_index = Agate.Runtime.build_tracer_index(
