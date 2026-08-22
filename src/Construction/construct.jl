@@ -887,7 +887,8 @@ function _construct_process_definition(
         tracer_names,
         auxiliary_fields;
         n_biogeochem_tracers=sum(
-            length(component_tracers(layout, name)) for name in realization.pool_names
+            (length(component_tracers(layout, name)) for name in realization.pool_names);
+            init=0,
         ),
     )
     plankton_diameter_metadata = Tuple(community_context.diameters)
