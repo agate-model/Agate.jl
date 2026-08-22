@@ -64,6 +64,7 @@ using Agate.Processes:
 
     @test typeof(formulation(symbolic_light)) === Smith
     @test typeof(formulation(symbolic_response)) === Monod
+    @test formulation(symbolic_growth) isa MultiplicativeFactors
     frank_nutrients = Nutrients(
         :frank;
         responses=(nitrogen=NutrientResponse(:monod; resource=:N),),
@@ -94,7 +95,7 @@ using Agate.Processes:
     shared_driver_model = normalize_model(
         ModelDefinition(;
             components=(
-                P=Population(; currency=:nitrogen), Z=Population(; currency=:nitrogen)
+                P=Population(:nitrogen), Z=Population(:nitrogen)
             ),
             processes=(
                 growth_Z=Growth(;
@@ -109,7 +110,7 @@ using Agate.Processes:
     @test driver_identities(shared_driver_model) == (:PAR,)
 
     invalid_growth = ModelDefinition(;
-        components=(P=Population(; currency=:nitrogen),),
+        components=(P=Population(:nitrogen),),
         processes=(growth=Growth(;
             population=:P,
             factors=(nutrients=NutrientResponse(:monod; resource=:missing),),
@@ -139,7 +140,7 @@ using Agate.Processes:
 
     redundant_growth_source = ModelDefinition(;
         components=(
-            P=Population(; currency=:nitrogen),
+            P=Population(:nitrogen),
             N=Pool(:nitrogen),
             D=Pool(:nitrogen),
         ),
@@ -161,7 +162,7 @@ using Agate.Processes:
 
     wrong_currency = ModelDefinition(;
         components=(
-            P=Population(; currency=:carbon),
+            P=Population(:carbon),
             DIC=Pool(:carbon),
             DIN=Pool(:phosphorus),
         ),
@@ -182,7 +183,7 @@ using Agate.Processes:
 
     # Normalization remains the trusted boundary when field constructors bypass authoring checks.
     bypassed_factor = ModelDefinition(;
-        components=(P=Population(; currency=:nitrogen), N=Pool(:nitrogen)),
+        components=(P=Population(:nitrogen), N=Pool(:nitrogen)),
         processes=(growth=Growth(;
             population=:P,
             factors=(light=Light(Monod(), :PAR), nutrients=NutrientResponse(:monod; resource=:N)),
@@ -191,7 +192,7 @@ using Agate.Processes:
     @test_throws ArgumentError normalize_model(bypassed_factor)
 
     bypassed_mortality = ModelDefinition(;
-        components=(P=Population(; currency=:nitrogen),),
+        components=(P=Population(:nitrogen),),
         processes=(mortality=Mortality(Monod(), (:P,), nothing),),
     )
     @test_throws ArgumentError normalize_model(bypassed_mortality)
@@ -389,7 +390,7 @@ end
 end
 
 @testset "Parameter provision inference" begin
-    components = (P=Population(; currency=:nitrogen, size_structure=[1.0]),)
+    components = (P=Population(:nitrogen; size_structure=[1.0]),)
     processes = (
         growth=Growth(;
             population=:P,
@@ -444,8 +445,8 @@ end
 
 @testset "Literal interaction defaults need no derivation dependencies" begin
     components = (
-        P=Population(; currency=:carbon, size_structure=[1.0]),
-        Z=Population(; currency=:carbon, size_structure=[10.0]),
+        P=Population(:carbon; size_structure=[1.0]),
+        Z=Population(:carbon; size_structure=[10.0]),
     )
     processes = (
         grazing=Grazing(:preferential; consumer=:Z, resource=:P),

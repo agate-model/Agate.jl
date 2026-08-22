@@ -64,10 +64,10 @@ function food_web_compilation(::Type{T}=Float64) where {T<:Real}
         N=Pool(:nitrogen),
         D=Pool(:nitrogen),
         POM=Pool(:nitrogen; size_structure=T[0.5, 5]),
-        P=Population(; currency=:nitrogen, size_structure=T[1]),
-        B=Population(; currency=:nitrogen, size_structure=T[0.8]),
-        M=Population(; currency=:nitrogen, size_structure=T[2]),
-        Z=Population(; currency=:nitrogen, size_structure=T[10]),
+        P=Population(:nitrogen; size_structure=T[1]),
+        B=Population(:nitrogen; size_structure=T[0.8]),
+        M=Population(:nitrogen; size_structure=T[2]),
+        Z=Population(:nitrogen; size_structure=T[10]),
     )
     temperature = Temperature(:q10)
     processes = (
@@ -260,8 +260,8 @@ end
     components = (
         N=Pool(:nitrogen),
         POM=Pool(:nitrogen; size_structure=[0.5, 1.0, 2.0]),
-        X=Population(; currency=:nitrogen, size_structure=[0.4]),
-        B=Population(; currency=:nitrogen, size_structure=[0.8]),
+        X=Population(:nitrogen; size_structure=[0.4]),
+        B=Population(:nitrogen; size_structure=[0.8]),
     )
     processes = (
         consume_POM=Consumption(

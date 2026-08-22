@@ -64,7 +64,6 @@ Agate.Parameters.DerivedDefault
 Agate.Parameters.derive_default
 Agate.Parameters.NoDefault
 Agate.Parameters.DiameterIndexedVectorDefault
-Agate.Parameters.DiameterIndexedMaterialization
 Agate.Configuration.PalatabilityAllometric
 Agate.Configuration.AssimilationBinary
 ```

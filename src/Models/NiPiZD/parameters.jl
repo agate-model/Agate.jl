@@ -17,8 +17,7 @@ import ...Parameters:
     ParameterProvision,
     ConstantDefault,
     DerivedDefault,
-    DiameterIndexedVectorDefault,
-    DiameterIndexedMaterialization
+    DiameterIndexedVectorDefault
 
 using ...Library.Allometry: AllometricParam, PowerLaw
 
@@ -26,7 +25,6 @@ using ...Configuration: PalatabilityAllometric, AssimilationBinary
 
 function parameter_definitions(::NiPiZDFamily)
     detritus_remin = 0.1213 / 86400
-    plankton_materialization = DiameterIndexedMaterialization(; fill_value=0)
 
     return (
         ParameterDefinition(
@@ -38,14 +36,12 @@ function parameter_definitions(::NiPiZDFamily)
             :linear_detrital_mortality,
             DiameterIndexedVectorDefault(0.0101 / 86400; default=0);
             axes=:plankton,
-            materialization=plankton_materialization,
             provides=ParameterProvision(:linear_mortality_P_to_D, :rate),
         ),
         ParameterDefinition(
             :linear_mortality,
-            ConstantDefault(8e-7);
+            DiameterIndexedVectorDefault(8e-7; default=0);
             axes=:plankton,
-            materialization=plankton_materialization,
             provides=(
                 ParameterProvision(:linear_mortality_P_to_N, :rate),
                 ParameterProvision(:linear_mortality_Z_to_N, :rate),
@@ -55,7 +51,6 @@ function parameter_definitions(::NiPiZDFamily)
             :quadratic_mortality,
             DiameterIndexedVectorDefault(1e-6; default=0);
             axes=:plankton,
-            materialization=plankton_materialization,
             provides=ParameterProvision(:quadratic_mortality_Z_to_D, :rate),
         ),
         ParameterDefinition(
@@ -65,7 +60,6 @@ function parameter_definitions(::NiPiZDFamily)
                 default=0,
             );
             axes=:plankton,
-            materialization=plankton_materialization,
             provides=ParameterProvision(:growth_P, :maximum_rate),
         ),
         ParameterDefinition(
@@ -75,7 +69,6 @@ function parameter_definitions(::NiPiZDFamily)
                 default=0,
             );
             axes=:plankton,
-            materialization=plankton_materialization,
             provides=ParameterProvision(:growth_P, :K),
         ),
         ParameterDefinition(
@@ -84,7 +77,6 @@ function parameter_definitions(::NiPiZDFamily)
                 0.1953 / 86400; default=0
             );
             axes=:plankton,
-            materialization=plankton_materialization,
             provides=ParameterProvision(:growth_P, :alpha),
         ),
         ParameterDefinition(
@@ -94,14 +86,12 @@ function parameter_definitions(::NiPiZDFamily)
                 default=0,
             );
             axes=:plankton,
-            materialization=plankton_materialization,
             provides=ParameterProvision(:grazing_Z_on_P, :maximum_rate),
         ),
         ParameterDefinition(
             :holling_half_saturation,
             DiameterIndexedVectorDefault(5.0; default=0);
             axes=:plankton,
-            materialization=plankton_materialization,
             provides=ParameterProvision(:grazing_Z_on_P, :half_saturation),
         ),
         ParameterDefinition(
@@ -129,25 +119,21 @@ function parameter_definitions(::NiPiZDFamily)
             :optimum_predator_prey_ratio,
             DiameterIndexedVectorDefault(10.0; default=0);
             axes=:plankton,
-            materialization=plankton_materialization,
         ),
         ParameterDefinition(
             :specificity,
             DiameterIndexedVectorDefault(0.3; default=0);
             axes=:plankton,
-            materialization=plankton_materialization,
         ),
         ParameterDefinition(
             :protection,
             DiameterIndexedVectorDefault(0.0; default=1.0);
             axes=:plankton,
-            materialization=plankton_materialization,
         ),
         ParameterDefinition(
             :assimilation_efficiency,
             DiameterIndexedVectorDefault(0.32; default=0);
             axes=:plankton,
-            materialization=plankton_materialization,
         ),
     )
 end

@@ -16,8 +16,8 @@ nothing #hide
 
 components = (
     N=Pool(:nitrogen),
-    P=Population(; currency=:nitrogen, size_structure=[1.0]),
-    M=Population(; currency=:nitrogen, size_structure=[4.0]),
+    P=Population(:nitrogen; size_structure=[1.0]),
+    M=Population(:nitrogen; size_structure=[4.0]),
 )
 
 processes = (

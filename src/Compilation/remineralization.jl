@@ -9,7 +9,7 @@ function process_fluxes(
         ArgumentError("linear remineralization currently requires one destination"),
     )
     destination = _scalar_component_target(layout, only(process.destinations))
-    fluxes = ()
+    fluxes = Any[]
 
     for source_component in process.sources
         source = _scalar_component_target(layout, source_component)
@@ -24,11 +24,11 @@ function process_fluxes(
             process.formulation,
             (TracerOp{source}(), parameter_operand(rate_binding)),
         )
-        fluxes = (
-            fluxes...,
+        push!(
+            fluxes,
             FluxSpec(process_id(named), source, rate, Weight{-1}()),
             FluxSpec(process_id(named), destination, rate, Weight{1}()),
         )
     end
-    return fluxes
+    return Tuple(fluxes)
 end

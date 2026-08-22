@@ -1,16 +1,16 @@
 function _consumption_resource_tracers(
     named::NamedProcess, resources::Tuple, layout::ComponentLayout
 )
-    tracers = ()
+    tracers = Symbol[]
     for resource in resources
         hasproperty(layout.component_tracers, resource) || throw(
             ArgumentError(
                 "process :$(process_id(named)) references unrealized resource :$resource"
             ),
         )
-        tracers = (tracers..., getproperty(layout.component_tracers, resource)...)
+        append!(tracers, getproperty(layout.component_tracers, resource))
     end
-    return tracers
+    return Tuple(tracers)
 end
 
 function _consumption_resources(
@@ -110,7 +110,7 @@ function process_fluxes(
         formulation, named, process.resources, layout, context
     )
     slots = parameter_slot_bindings(definition, named, (), formulation)
-    fluxes = ()
+    fluxes = Any[]
 
     for consumer_axis in eachindex(consumer_tracers)
         consumer = consumer_tracers[consumer_axis]
@@ -136,25 +136,23 @@ function process_fluxes(
                 axis_positions,
             )
             assimilation = parameter_operand(slots.assimilation, context, axis_positions)
-            fluxes = (
-                fluxes...,
+            push!(
+                fluxes,
                 FluxSpec(process_id(named), resource, rate, Weight{-1}()),
                 FluxSpec(process_id(named), consumer, rate, Weight{1}((assimilation,))),
             )
-            isnothing(process.routing) || (
-                fluxes = (
-                    fluxes...,
-                    _routing_fluxes(
-                        named,
-                        definition,
-                        process.routing,
-                        layout,
-                        rate;
-                        suffix=(ComplementOp(assimilation),),
-                    )...,
-                )
+            isnothing(process.routing) || append!(
+                fluxes,
+                _routing_fluxes(
+                    named,
+                    definition,
+                    process.routing,
+                    layout,
+                    rate;
+                    suffix=(ComplementOp(assimilation),),
+                ),
             )
         end
     end
-    return fluxes
+    return Tuple(fluxes)
 end

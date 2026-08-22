@@ -47,7 +47,7 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
 
         specmap = Dict(spec.name => spec for spec in dir)
         definitions = Dict(def.spec.name => def for def in parameter_definitions(family))
-        @test definitions[:linear_mortality].default isa ConstantDefault
+        @test definitions[:linear_mortality].default isa Agate.Parameters.DiameterIndexedVectorDefault
         @test definitions[:palatability_matrix].default isa DerivedDefault
         @test definitions[:palatability_matrix].default.deps == (
             :optimum_predator_prey_ratio, :specificity, :protection
@@ -66,12 +66,11 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
         @test normalized_specs[:detritus_remineralization].shape === :scalar
         @test specmap[:maximum_growth_rate].shape == :vector
         @test specmap[:maximum_growth_rate].axes == :plankton
-        @test !isnothing(specmap[:maximum_growth_rate].materialization)
-        @test specmap[:maximum_growth_rate].materialization.fill_value == 0
-        @test !isnothing(specmap[:linear_mortality].materialization)
-        @test specmap[:linear_mortality].materialization.fill_value == 0
+        @test definitions[:maximum_growth_rate].default isa Agate.Parameters.DiameterIndexedVectorDefault
+        @test definitions[:maximum_growth_rate].default.default == 0
+        @test definitions[:linear_mortality].default.default == 0
         @test specmap[:linear_detrital_mortality].axes == :plankton
-        @test specmap[:linear_detrital_mortality].materialization.fill_value == 0
+        @test definitions[:linear_detrital_mortality].default.default == 0
         @test specmap[:palatability_matrix].shape == :matrix
         @test specmap[:palatability_matrix].axes == (:consumer, :prey)
         @test specmap[:assimilation_matrix].axes == (:consumer, :prey)

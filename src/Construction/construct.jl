@@ -13,7 +13,6 @@ using ..Parameters:
     DerivedDefault,
     NoDefault,
     DiameterIndexedVectorDefault,
-    DiameterIndexedMaterialization,
     derive_default,
     parameter_spec
 
@@ -30,7 +29,7 @@ using ..Configuration:
     realize_components,
     component_classes,
     component_tracers,
-    realize_component_groups
+    _realize_component_groups
 
 using ..Runtime: build_tracer_index
 
@@ -119,14 +118,6 @@ function validate_parameter_directory(source)
             spec.axes === nothing || throw(
                 ArgumentError(
                     "parameter :$(spec.name) has axes=$(spec.axes) but is not vector or matrix."
-                ),
-            )
-        end
-
-        if spec.materialization isa DiameterIndexedMaterialization
-            spec.shape === :vector || throw(
-                ArgumentError(
-                    "parameter :$(spec.name) declares diameter-indexed materialization but is not vector-shaped."
                 ),
             )
         end
@@ -630,20 +621,21 @@ function build_process_parameter_defaults(source, definition, layout, context, :
 end
 
 function materialize_process_parameter_law_override(
-    context, definition, layout, spec, value::AbstractParamDef, ::Type{T}
+    context, definition, layout, parameter_definition, value::AbstractParamDef, ::Type{T}
 ) where {T<:Real}
-    materialization = spec.materialization
-    materialization isa DiameterIndexedMaterialization || throw(
+    spec = parameter_definition.spec
+    provider = parameter_definition.default
+    provider isa DiameterIndexedVectorDefault || throw(
         ArgumentError(
-            "parameter :$(spec.name) only supports parameter-law overrides for parameters with declared diameter-indexed vector materialization."
+            "parameter :$(spec.name) only supports parameter-law overrides with a diameter-indexed vector default provider (DiameterIndexedVectorDefault)."
         ),
     )
     spec.shape === :vector || throw(
-        ArgumentError("parameter :$(spec.name) diameter-indexed materialization requires vector storage")
+        ArgumentError("parameter :$(spec.name) diameter-indexed override requires vector storage")
     )
     indices = _process_parameter_indices(definition, layout, context, spec.name)
     return resolve_diameter_indexed_vector(
-        T, context.diameters, indices, value; default=T(materialization.fill_value)
+        T, context.diameters, indices, value; default=T(provider.default)
     )
 end
 
@@ -658,13 +650,17 @@ function materialize_process_parameter_overrides(
 ) where {T<:Real}
     isempty(overrides) && return overrides
     entries = Pair{Symbol,Any}[]
+    definitions = Dict{Symbol,Any}(def.spec.name => def for def in parameter_definitions(source))
     for (key, value) in Base.pairs(overrides)
-        spec = parameter_spec(source, key)
-        if spec === nothing
+        parameter_definition = get(definitions, key, nothing)
+        if parameter_definition === nothing
             push!(entries, key => value)
-        elseif value isa AbstractParamDef
+            continue
+        end
+        spec = parameter_definition.spec
+        if value isa AbstractParamDef
             push!(entries, key => materialize_process_parameter_law_override(
-                context, definition, layout, spec, value, T
+                context, definition, layout, parameter_definition, value, T
             ))
         elseif value isa NamedTuple
             spec.shape === :vector || throw(
@@ -762,7 +758,7 @@ function _realize_process_definition(
         interaction_roles,
     )
 
-    intrinsic || (layout = realize_component_groups(definition.components, groups, context))
+    intrinsic || (layout = _realize_component_groups(definition.components, groups, context, pool_layout))
     return (; layout, context, population_groups=groups, pool_names)
 end
 

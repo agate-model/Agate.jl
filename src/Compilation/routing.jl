@@ -86,15 +86,15 @@ function _routing_fluxes(
     suffix::Tuple=(),
 )
     fraction = _routing_fraction_binding(definition, named, routing)
-    fluxes = ()
+    fluxes = Any[]
     for route in (:DOM, :POM)
         pool = getproperty(routing.pools, route)
         for currency in keys(pool)
             target = _scalar_component_target(layout, getproperty(pool, currency))
             ratio = _routing_ratio_binding(definition, named, routing, currency)
             weight = _routing_weight(fraction, route; ratio, suffix)
-            fluxes = (fluxes..., FluxSpec(process_id(named), target, rate, weight))
+            push!(fluxes, FluxSpec(process_id(named), target, rate, weight))
         end
     end
-    return fluxes
+    return Tuple(fluxes)
 end

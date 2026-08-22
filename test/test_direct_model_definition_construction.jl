@@ -12,8 +12,8 @@ using Agate.Processes:
 function direct_npz_definition()
     components = (
         N=Pool(:nitrogen),
-        P=Population(; currency=:nitrogen, size_structure=[1.0]),
-        Z=Population(; currency=:nitrogen, size_structure=[10.0]),
+        P=Population(:nitrogen; size_structure=[1.0]),
+        Z=Population(:nitrogen; size_structure=[10.0]),
     )
     processes = (
         growth_P=Growth(;

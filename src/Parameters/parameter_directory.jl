@@ -7,22 +7,9 @@ export ConstantDefault
 export DerivedDefault
 export NoDefault
 export DiameterIndexedVectorDefault
-export DiameterIndexedMaterialization
 export derive_default
 export parameter_directory
 export parameter_spec
-
-"""Materialize a diameter-indexed parameter law during construction.
-
-Process participation determines which concrete classes a provision-bound parameter applies
-to; provision-less diameter-indexed parameters use the full living-class axis. `fill_value`
-is assigned outside the selected applicability set.
-"""
-struct DiameterIndexedMaterialization{T}
-    fill_value::T
-end
-
-DiameterIndexedMaterialization(; fill_value) = DiameterIndexedMaterialization(fill_value)
 
 """Declare that a model parameter supplies one semantic process parameter slot.
 
@@ -73,14 +60,12 @@ Fields
   vector/matrix storage is process-local and follows the resolved provision applicability.
   `axes=:plankton` selects the full living-class axis; matrix axes such as
   `(:consumer, :prey)` select the corresponding global role axes.
-- `materialization`: optional constructor-time parameter-law materialization semantics.
 - `provides`: semantic process parameter slots supplied by this parameter.
 """
 struct ParameterSpec{P<:Tuple}
     name::Symbol
     shape::Union{Nothing,Symbol}
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}
-    materialization::Union{Nothing,DiameterIndexedMaterialization}
     provides::P
 end
 
@@ -89,7 +74,6 @@ function ParameterSpec(
     name::Symbol,
     shape::Union{Nothing,Symbol}=nothing;
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
-    materialization::Union{Nothing,DiameterIndexedMaterialization}=nothing,
     provides=(),
 )
     provisions = _parameter_provisions(provides)
@@ -98,7 +82,7 @@ function ParameterSpec(
     else
         shape
     end
-    return ParameterSpec(name, declared_shape, axes, materialization, provisions)
+    return ParameterSpec(name, declared_shape, axes, provisions)
 end
 
 """Abstract supertype for constructor-time default providers.
@@ -128,10 +112,9 @@ function ParameterDefinition(
     default::D;
     shape::Union{Nothing,Symbol}=nothing,
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
-    materialization::Union{Nothing,DiameterIndexedMaterialization}=nothing,
     provides=(),
 ) where {D<:DefaultProvider}
-    spec = ParameterSpec(name, shape; axes, materialization, provides)
+    spec = ParameterSpec(name, shape; axes, provides)
     return ParameterDefinition(spec, default)
 end
 
@@ -187,8 +170,9 @@ struct NoDefault <: DefaultProvider end
 """Default provider for a diameter-indexed vector parameter.
 
 The provider fills the complete runtime vector with `default`, then materializes
-`value` over process-derived applicability. Provision-less parameters materialize over
-the full living-class axis.
+`value` over process-derived applicability. The same `default` value is used outside
+applicability when a diameter-indexed parameter-law override is supplied. Provision-less
+parameters materialize over the full living-class axis.
 """
 struct DiameterIndexedVectorDefault{V,T} <: DefaultProvider
     value::V

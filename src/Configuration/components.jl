@@ -3,7 +3,7 @@
 Ecological function is supplied by process participation. `states` maps each
 prognostic state identity to the conserved-material currency it represents,
 while `size_structure` describes the shared ecological class realization.
-A one-state population may be authored with the `currency=` convenience.
+A one-state population is authored with its currency as the positional argument.
 """
 struct Population{ST<:NamedTuple,S}
     states::ST
@@ -18,22 +18,16 @@ struct Population{ST<:NamedTuple,S}
     end
 end
 
-function Population(; currency=nothing, states=nothing, size_structure=nothing)
-    isnothing(currency) != isnothing(states) || throw(
-        ArgumentError("Population requires exactly one of `currency` or `states`."),
-    )
-    resolved_states = if isnothing(states)
-        currency isa Symbol || throw(
-            ArgumentError("Population `currency` must be a Symbol; use `states` for named state mappings."),
-        )
-        NamedTuple{(currency,)}((currency,))
-    else
-        states
-    end
-    resolved_states isa NamedTuple || throw(
+function Population(currency; size_structure=nothing)
+    currency isa Symbol || throw(ArgumentError("Population currency must be a Symbol."))
+    return Population(NamedTuple{(currency,)}((currency,)), size_structure)
+end
+
+function Population(; states, size_structure=nothing)
+    states isa NamedTuple || throw(
         ArgumentError("Population states must be a NamedTuple mapping state names to currencies."),
     )
-    return Population(resolved_states, size_structure)
+    return Population(states, size_structure)
 end
 
 """Material-pool state described by intrinsic component properties."""
@@ -46,9 +40,6 @@ function Pool(currency; size_structure=nothing)
     isnothing(currency) && throw(ArgumentError("Pool currency must be specified."))
     return Pool(currency, size_structure)
 end
-
-Pool(; currency, size_structure=nothing) = Pool(currency; size_structure)
-
 
 """Reference one named prognostic state carried by a logical population."""
 struct PopulationStateRef
@@ -370,11 +361,11 @@ end
 function _population_classes(
     population::Symbol, population_groups::NamedTuple, context::CommunityContext
 )
-    classes = ()
+    classes = Symbol[]
     for group in getproperty(population_groups, population)
-        classes = (classes..., Tuple(context.class_symbols[context.group_indices[group]])...)
+        append!(classes, context.class_symbols[context.group_indices[group]])
     end
-    return classes
+    return Tuple(classes)
 end
 
 """Realize logical components over named population subgroups.
@@ -389,14 +380,23 @@ function realize_component_groups(
     population_groups::NamedTuple,
     context::CommunityContext,
 )
-    names = keys(components)
-    _validate_population_groups(components, population_groups, context)
     pool_names = _pool_names(components)
-
     pool_components = NamedTuple{pool_names}(
         Tuple(getproperty(components, name) for name in pool_names)
     )
     pool_layout = realize_components(pool_components; scalar_type=context.scalar_type)
+    return _realize_component_groups(components, population_groups, context, pool_layout)
+end
+
+function _realize_component_groups(
+    components::NamedTuple,
+    population_groups::NamedTuple,
+    context::CommunityContext,
+    pool_layout::ComponentLayout,
+)
+    names = keys(components)
+    _validate_population_groups(components, population_groups, context)
+    pool_names = _pool_names(components)
     class_conflicts = filter(class -> class in pool_layout.tracer_order, context.class_symbols)
     isempty(class_conflicts) || throw(
         ArgumentError(

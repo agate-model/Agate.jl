@@ -24,14 +24,14 @@ end
 function _growth_scale_binding(
     definition::NormalizedModelDefinition, named::NamedProcess
 )
-    matches = ()
+    matches = ParameterBinding[]
     for (name, factor) in pairs(factors(named))
         any(slot -> slot.name === :maximum_rate, parameter_slots(formulation(factor))) ||
             continue
         slots = parameter_slot_bindings(
             definition, named, (:factors, name), formulation(factor)
         )
-        matches = (matches..., slots.maximum_rate)
+        push!(matches, slots.maximum_rate)
     end
     length(matches) == 1 || throw(ArgumentError(
         "growth process :$(process_id(named)) must declare exactly one factor-owned maximum_rate slot",
@@ -80,7 +80,7 @@ function _growth_resource_fluxes(
     isnothing(source_target) && throw(ArgumentError(
         "multi-resource growth requires a canonical source component",
     ))
-    fluxes = (FluxSpec(process_id(named), source_target, rate, Weight{-1}()),)
+    fluxes = Any[FluxSpec(process_id(named), source_target, rate, Weight{-1}())]
     stoichiometry = named.process.stoichiometry
     isnothing(stoichiometry) && throw(ArgumentError(
         "multi-resource growth requires stoichiometry for resource routing",
@@ -93,8 +93,8 @@ function _growth_resource_fluxes(
             stoichiometry;
             context=(currency=currency,),
         ).ratio
-        fluxes = (
-            fluxes...,
+        push!(
+            fluxes,
             FluxSpec(
                 process_id(named),
                 getproperty(resource_target, currency),
@@ -103,7 +103,7 @@ function _growth_resource_fluxes(
             ),
         )
     end
-    return fluxes
+    return Tuple(fluxes)
 end
 
 """Derive biomass-gain and resource-loss fluxes for factorized growth."""
@@ -122,7 +122,7 @@ function process_fluxes(
     source_target = isnothing(process.source) ? nothing :
                     _scalar_component_target(layout, process.source)
     scale_binding = _growth_scale_binding(definition, named)
-    fluxes = ()
+    fluxes = Any[]
 
     for population_axis in eachindex(population_tracers)
         population_index = population_indices[population_axis]
@@ -142,7 +142,8 @@ function process_fluxes(
         resources = _growth_resource_fluxes(
             named, definition, resource_target, source_target, rate, nutrients
         )
-        fluxes = (fluxes..., biomass, resources...)
+        push!(fluxes, biomass)
+        append!(fluxes, resources)
     end
-    return fluxes
+    return Tuple(fluxes)
 end

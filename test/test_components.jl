@@ -12,8 +12,7 @@ using Agate.Processes:
     ModelDefinition, Mortality, Remineralization, normalize_model, resolve_parameter_applicability
 
 @testset "Component authoring" begin
-    population = Population(;
-        currency=:nitrogen,
+    population = Population(:nitrogen;
         size_structure=(n=3, min_esd=1.0, max_esd=100.0, splitting=:log_splitting),
     )
     pool = Pool(:carbon)
@@ -34,7 +33,7 @@ using Agate.Processes:
     @test collect(layout.component_diameters.P) ≈ Float32[1, 10, 100]
     @test isnothing(layout.component_diameters.D)
 
-    scalar_population = realize_components((B=Population(; currency=:carbon),))
+    scalar_population = realize_components((B=Population(:carbon),))
     @test scalar_population.tracer_order == (:B,)
     @test isnothing(scalar_population.component_diameters.B)
 
@@ -45,7 +44,7 @@ using Agate.Processes:
     @test component_indices(generic, :POM) == (4, 5, 6)
     @test component_diameters(generic, :POM) == (1.0f0, 10.0f0, 100.0f0)
     @test component_class_count(generic, :POM) == 3
-    @test_throws ArgumentError Population(; currency=nothing)
+    @test_throws ArgumentError Population(nothing)
     @test_throws ArgumentError Pool(nothing)
     @test_throws ArgumentError realize_components((P=population, P_1=Pool(:nitrogen)))
 end
@@ -111,8 +110,6 @@ end
     @test applicability.axis_components == ((:P,),)
     @test applicability.axis_classes == ((:P_1, :P_2),)
 
-    @test_throws ArgumentError Population()
-    @test_throws ArgumentError Population(; currency=:carbon, states=(carbon=:carbon,))
     @test_throws ArgumentError Population(; states=NamedTuple())
     @test_throws ArgumentError Population(; states=(carbon=nothing,))
     @test_throws ArgumentError Population(; states=(carbon=1,))

@@ -18,7 +18,7 @@ using Oceananigans.Units: day, minutes
 
 function multi_nutrient_test_model(grid; nutrient_formulation=:liebig, sharpness=nothing)
     components = (
-        P=Population(; currency=:carbon, size_structure=[1.0]),
+        P=Population(:carbon; size_structure=[1.0]),
         DIC=Pool(:carbon),
         DIN=Pool(:nitrogen),
         PO4=Pool(:phosphorus),

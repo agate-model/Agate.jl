@@ -65,7 +65,7 @@ end
 
 @testset "Generic component ClassRef" begin
     layout = realize_components((
-        B=Population(; currency=:carbon),
+        B=Population(:carbon),
         POM=Pool(:carbon; size_structure=[0.5, 5.0, 50.0]),
     ))
 

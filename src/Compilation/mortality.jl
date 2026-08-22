@@ -35,7 +35,7 @@ function process_fluxes(
         named, process.populations, layout, context
     )
     slots = _mortality_slots(definition, named)
-    fluxes = ()
+    fluxes = Any[]
 
     for population_axis in eachindex(population_tracers)
         population_index = population_indices[population_axis]
@@ -43,18 +43,15 @@ function process_fluxes(
             formulation(process), slots.rate, context, population_axis, population_index,
             population_tracers[population_axis],
         )
-        fluxes = (
-            fluxes...,
+        push!(
+            fluxes,
             FluxSpec(
                 process_id(named), population_tracers[population_axis], rate, Weight{-1}()
             ),
         )
         if !isnothing(process.routing)
-            fluxes = (
-                fluxes...,
-                _routing_fluxes(named, definition, process.routing, layout, rate)...,
-            )
+            append!(fluxes, _routing_fluxes(named, definition, process.routing, layout, rate))
         end
     end
-    return fluxes
+    return Tuple(fluxes)
 end

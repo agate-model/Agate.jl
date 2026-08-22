@@ -312,41 +312,47 @@ end
 
 function _parameter_nodes(named::NamedProcess)
     process = named.process
-    nodes = _process_parameter_nodes(process)
+    nodes = Any[_process_parameter_nodes(process)...]
     for (name, factor) in pairs(factors(process))
-        nodes = (nodes..., _factor_parameter_nodes(name, factor)...)
+        append!(nodes, _factor_parameter_nodes(name, factor))
     end
     routing = process_routing(process)
-    isnothing(routing) || (nodes = (nodes..., _routing_parameter_nodes(routing)...))
-    return (nodes..., _stoichiometry_parameter_nodes(process)...)
+    isnothing(routing) || append!(nodes, _routing_parameter_nodes(routing))
+    append!(nodes, _stoichiometry_parameter_nodes(process))
+    return Tuple(nodes)
 end
 
 """Return semantic parameter requirements from the named process scientific tree."""
 function parameter_requirements(named::NamedProcess)
-    requirements = ()
+    requirements = Any[]
     for node in _parameter_nodes(named)
-        requirements = (
-            requirements...,
+        append!(
+            requirements,
             _slot_requirements(
                 named,
                 node.path,
                 node.node;
                 context=node.context,
                 formulation_value=node.formulation_value,
-            )...,
+            ),
         )
     end
-    return requirements
+    return Tuple(requirements)
 end
 
-"""Setup-time normalized scientific model definition."""
-struct NormalizedModelDefinition{C,P,A,D,R,B}
+"""Setup-time normalized scientific model definition.
+
+`parameter_bindings` is the canonical ordered contract; `parameter_lookup` is a transient
+setup cache used while lowering processes.
+"""
+struct NormalizedModelDefinition{C,P,A,D,R,B,L}
     components::C
     processes::P
     parameters::A
     driver_identities::D
     parameter_requirements::R
     parameter_bindings::B
+    parameter_lookup::L
 end
 
 """Return the canonical external-driver identities required by a normalized model."""
@@ -362,10 +368,9 @@ parameter_bindings(definition::NormalizedModelDefinition) = definition.parameter
 function parameter_binding(
     definition::NormalizedModelDefinition, identity::ParameterRequirementIdentity
 )
-    for binding in definition.parameter_bindings
-        binding.requirement.identity == identity && return binding
+    return get(definition.parameter_lookup, identity) do
+        throw(ArgumentError("no model parameter is bound to requirement $identity"))
     end
-    throw(ArgumentError("no model parameter is bound to requirement $identity"))
 end
 
 parameter_binding(definition::NormalizedModelDefinition, requirement::ParameterRequirement) =
@@ -405,13 +410,13 @@ parameter_name(
 ) = parameter_binding(definition, identity).parameter
 
 function _factor_component_references(factor::AbstractFactor)
-    references = Tuple(
+    references = Symbol[
         input.component for input in factor_inputs(factor) if input isa FactorComponent
-    )
+    ]
     for child in values(factor_children(factor))
-        references = (references..., _factor_component_references(child)...)
+        append!(references, _factor_component_references(child))
     end
-    return references
+    return Tuple(references)
 end
 
 function _routing_component_references(routing::ProductRouting)
@@ -420,25 +425,24 @@ function _routing_component_references(routing::ProductRouting)
     routing.formulation isa DOMPOMRouting || throw(
         ArgumentError("unsupported product-routing formulation $(typeof(routing.formulation))"),
     )
-    references = ()
+    references = Symbol[]
     for pool in values(routing.pools), component in values(pool)
-        references = (references..., component)
+        push!(references, component)
     end
-    return references
+    return Tuple(references)
 end
 
 function _process_component_references(process::AbstractProcess)
-    references = ()
+    references = Symbol[]
     for values_for_role in values(participants(process)), component in values_for_role
-        references = (references..., component)
+        push!(references, component)
     end
     for factor in values(factors(process))
-        references = (references..., _factor_component_references(factor)...)
+        append!(references, _factor_component_references(factor))
     end
     routing = process_routing(process)
-    isnothing(routing) ||
-        (references = (references..., _routing_component_references(routing)...))
-    return references
+    isnothing(routing) || append!(references, _routing_component_references(routing))
+    return Tuple(references)
 end
 
 function _validate_currency_target(
@@ -606,15 +610,15 @@ function _canonical_driver_identities(processes::NamedTuple)
 end
 
 function _declared_parameter_requirements(processes::NamedTuple)
-    requirements = ()
+    requirements = Any[]
     for process in values(processes)
-        requirements = (requirements..., parameter_requirements(process)...)
+        append!(requirements, parameter_requirements(process))
     end
     identities = map(requirement -> requirement.identity, requirements)
     length(unique(identities)) == length(identities) || throw(
         ArgumentError("normalized processes declare duplicate parameter requirement identities"),
     )
-    return requirements
+    return Tuple(requirements)
 end
 
 function _matches_parameter_provision(
@@ -666,7 +670,7 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
     )
 
     provided = Dict{ParameterRequirementIdentity,Tuple{Symbol,Union{Nothing,Symbol,NTuple{2,Symbol}}}}()
-    resolved_definitions = ()
+    resolved_definitions = ParameterDefinition[]
 
     for definition in definitions
         spec = definition.spec
@@ -710,12 +714,9 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
             spec.name,
             shape;
             axes=spec.axes,
-            materialization=spec.materialization,
             provides=spec.provides,
         )
-        resolved_definitions = (
-            resolved_definitions..., ParameterDefinition(resolved_spec, definition.default)
-        )
+        push!(resolved_definitions, ParameterDefinition(resolved_spec, definition.default))
     end
 
     missing = filter(requirement -> !haskey(provided, requirement.identity), requirements)
@@ -728,7 +729,7 @@ function _normalize_parameter_bindings(requirements::Tuple, definitions)
         ParameterBinding(requirement, provided[requirement.identity]...)
         for requirement in requirements
     )
-    return bindings, resolved_definitions
+    return bindings, Tuple(resolved_definitions)
 end
 
 """Normalize process identity, semantic parameter requirements, and model bindings.
@@ -747,6 +748,9 @@ function normalize_model(definition::ModelDefinition)
     )
     requirements = _declared_parameter_requirements(normalized_processes)
     bindings, parameters = _normalize_parameter_bindings(requirements, definition.parameters)
+    lookup = Dict{ParameterRequirementIdentity,ParameterBinding}(
+        binding.requirement.identity => binding for binding in bindings
+    )
     return NormalizedModelDefinition(
         definition.components,
         normalized_processes,
@@ -754,6 +758,7 @@ function normalize_model(definition::ModelDefinition)
         _canonical_driver_identities(normalized_processes),
         requirements,
         bindings,
+        lookup,
     )
 end
 
@@ -778,14 +783,14 @@ function _axis_components(
 end
 
 function _axis_classes(layout::ComponentLayout, components::Tuple)
-    classes = ()
+    classes = Symbol[]
     for component in components
         hasproperty(layout.component_classes, component) || throw(
             ArgumentError("parameter applicability references unrealized component :$component"),
         )
-        classes = (classes..., component_classes(layout, component)...)
+        append!(classes, component_classes(layout, component))
     end
-    return classes
+    return Tuple(classes)
 end
 
 """Resolve each semantic parameter axis onto ecological component class identities.

@@ -271,8 +271,8 @@ function _realize_population_classes(
     layout::ComponentLayout,
     context::CommunityContext,
 )
-    tracer_values = ()
-    index_values = ()
+    tracer_values = Symbol[]
+    index_values = Int[]
 
     for population in populations
         state_mapping = component_state_tracers(layout, population)
@@ -286,11 +286,11 @@ function _realize_population_classes(
         )
         reference = PopulationStateRef(population, only(keys(state_mapping)))
         tracers, indices = _realize_population_state(named, reference, layout, context)
-        tracer_values = (tracer_values..., tracers...)
-        index_values = (index_values..., indices...)
+        append!(tracer_values, tracers)
+        append!(index_values, indices)
     end
 
-    return tracer_values, index_values
+    return Tuple(tracer_values), Tuple(index_values)
 end
 
 function _target_order(fluxes::Tuple)
@@ -364,11 +364,11 @@ function model_fluxes(
     layout::ComponentLayout,
     context::CommunityContext,
 )
-    fluxes = ()
+    fluxes = Any[]
     for named in values(definition.processes)
-        fluxes = (fluxes..., process_fluxes(named, definition, layout, context)...)
+        append!(fluxes, process_fluxes(named, definition, layout, context))
     end
-    return fluxes
+    return Tuple(fluxes)
 end
 
 """Compile a normalized model into one static equation per requested concrete tracer."""

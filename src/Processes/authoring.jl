@@ -245,7 +245,6 @@ end
 
 """Population growth process whose named top-level factors multiply."""
 struct Growth{F<:NamedTuple,S,T} <: AbstractProcess
-    formulation::MultiplicativeFactors
     populations::Tuple
     factors::F
     source::S
@@ -259,7 +258,7 @@ struct Growth{F<:NamedTuple,S,T} <: AbstractProcess
             ArgumentError("growth `stoichiometry` must be an AbstractStoichiometry"),
         )
         return new{typeof(canonical),typeof(source),typeof(stoichiometry)}(
-            MultiplicativeFactors(), populations, canonical, source, stoichiometry
+            populations, canonical, source, stoichiometry
         )
     end
 end
@@ -375,6 +374,7 @@ end
 Remineralization(formulation::Symbol; kwargs...) =
     Remineralization(formulation_for(Remineralization, Val(formulation)); kwargs...)
 
+formulation(::Growth) = MultiplicativeFactors()
 formulation(process::AbstractProcess) = process.formulation
 formulation(factor::AbstractFactor) = factor.formulation
 formulation(routing::ProductRouting) = routing.formulation
@@ -409,13 +409,13 @@ participants(process::Remineralization) =
     (source=process.sources, destination=process.destinations)
 
 function _factor_driver_identities(factor::AbstractFactor)
-    identities = Tuple(
+    identities = Symbol[
         input.identity for input in factor_inputs(factor) if input isa FactorDriver
-    )
+    ]
     for child in values(factor_children(factor))
-        identities = (identities..., _factor_driver_identities(child)...)
+        append!(identities, _factor_driver_identities(child))
     end
-    return identities
+    return Tuple(identities)
 end
 
 function factor_drivers(factor::AbstractFactor)
