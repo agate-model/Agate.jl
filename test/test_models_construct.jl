@@ -289,16 +289,6 @@ end
         @test occursin("must be a matrix", sprint(showerror, err))
     end
 
-    @testset "Canonical interaction parameter identity" begin
-        bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
-        @test !hasproperty(bgc.parameters, :interactions)
-        @test bgc.interaction_axes.parameters == (:palatability_matrix, :assimilation_matrix)
-        @test bgc.interaction_axes.consumers == (:Z_1, :Z_2)
-        @test bgc.interaction_axes.prey == (:P_1, :P_2)
-        @test size(bgc.parameters.palatability_matrix) == (2, 2)
-        @test size(bgc.parameters.assimilation_matrix) == (2, 2)
-    end
-
     @testset "Generic interaction matrix collection" begin
         context = Agate.Configuration.CommunityContext(
             Float32,

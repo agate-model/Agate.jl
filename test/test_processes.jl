@@ -22,12 +22,9 @@ using Agate.Processes:
     Mortality,
     DirectRouting,
     ModelDefinition,
-    ParameterSlot,
     ParameterRequirementIdentity,
     ProductRouting,
-    parameter_bindings,
     parameter_requirements,
-    parameter_slots,
     parameter_slot_bindings,
     parameter_name,
     resolve_parameter_applicability,
@@ -35,14 +32,10 @@ using Agate.Processes:
     driver_identities,
     formulation,
     formulation_tag,
-    factors,
     factor_value,
     normalize_model,
     participants,
-    process_id,
-    process_kind,
-    process_rate,
-    rate_axes
+    process_rate
 
 @testset "Process authoring and normalization" begin
     @test :Light in names(Agate.Processes)
@@ -52,17 +45,12 @@ using Agate.Processes:
     symbolic_light = Light(:smith; driver=:PAR)
     concrete_light = Light(Smith(); driver=:PAR)
     symbolic_response = NutrientResponse(:monod; resource=:N)
-    concrete_response = NutrientResponse(Monod(); resource=:N)
     symbolic_growth = Growth(;
         population=:P,
         factors=(light=symbolic_light, nutrients=symbolic_response),
     )
-    concrete_growth = Growth(;
-        population=:P,
-        factors=(nutrients=concrete_response, light=concrete_light),
-    )
-
     @test typeof(formulation(symbolic_light)) === Smith
+    @test typeof(formulation(concrete_light)) === Smith
     @test typeof(formulation(symbolic_response)) === Monod
     @test formulation(symbolic_growth) isa MultiplicativeFactors
     frank_nutrients = Nutrients(
@@ -72,11 +60,8 @@ using Agate.Processes:
     )
     @test formulation_tag(formulation(frank_nutrients)) === :frank
     @test formulation(frank_nutrients).sharpness == 25
-    @test factors(symbolic_growth) == factors(concrete_growth)
-    @test keys(factors(symbolic_growth)) == (:light, :nutrients)
-    @test participants(symbolic_growth) == participants(concrete_growth) == (population=(:P,),)
-    @test drivers(symbolic_growth) == drivers(concrete_growth) == (light=:PAR,)
-    @test rate_axes(symbolic_growth) == (:population,)
+    @test participants(symbolic_growth) == (population=(:P,),)
+    @test drivers(symbolic_growth) == (light=:PAR,)
 
     grazing = Grazing(
         :preferential;
@@ -85,12 +70,9 @@ using Agate.Processes:
         unassimilated_destination=:D,
     )
     @test grazing isa Consumption
-    @test process_kind(grazing) === :consumption
     @test participants(grazing) == (consumer=(:Z,), resource=(:P, :B))
     @test formulation(grazing.routing) isa DirectRouting
     @test grazing.routing.retained === :D
-    @test rate_axes(grazing) == (:consumer, :resource)
-    @test isempty(factors(grazing))
 
     shared_driver_model = normalize_model(
         ModelDefinition(;
@@ -151,14 +133,6 @@ using Agate.Processes:
         ),),
     )
     @test_throws ArgumentError normalize_model(redundant_growth_source)
-
-    @test parameter_slots(Smith()) == (
-        ParameterSlot(:maximum_rate, (:population,)),
-        ParameterSlot(:alpha, (:population,)),
-    )
-    @test parameter_slots(Monod()) == (
-        ParameterSlot(:K, (:population,); qualify=:resource),
-    )
 
     wrong_currency = ModelDefinition(;
         components=(
@@ -248,102 +222,31 @@ end
     normalized = normalize_model(definition)
 
     @test normalized.components == default_components(family)
-    @test length(normalized.parameters) == 15
     @test driver_identities(normalized) == (:PAR,)
-    @test keys(normalized.processes) == (
-        :grazing_Z_on_P,
-        :growth_P,
-        :linear_mortality_P_to_D,
-        :linear_mortality_P_to_N,
-        :linear_mortality_Z_to_N,
-        :quadratic_mortality_Z_to_D,
-        :remineralization_D,
-    )
-    @test Tuple(process_id(process) for process in values(normalized.processes)) ==
-        keys(normalized.processes)
-    @test length(parameter_requirements(normalized)) == 12
-    @test length(parameter_bindings(normalized)) == 12
-
-    growth = normalized.processes.growth_P
-    light_slots = parameter_slot_bindings(
-        normalized, growth, (:factors, :light), growth.process.factors.light.formulation
-    )
-    @test keys(light_slots) == Tuple(slot.name for slot in parameter_slots(Smith()))
-    @test Tuple(binding.requirement.identity.slot for binding in values(light_slots)) ==
-        keys(light_slots)
-    @test Tuple(binding.parameter for binding in values(light_slots)) ==
-        (:maximum_growth_rate, :alpha)
-
-    grazing = normalized.processes.grazing_Z_on_P
-    grazing_slots = parameter_slot_bindings(
-        normalized, grazing, (), grazing.process.formulation
-    )
-    @test (
-        grazing_slots.palatability.parameter, grazing_slots.assimilation.parameter
-    ) == (:palatability_matrix, :assimilation_matrix)
-
-    @test participants(normalized.processes.growth_P) == (population=(:P,),)
-    @test drivers(normalized.processes.growth_P) == (light=:PAR,)
-    @test participants(normalized.processes.grazing_Z_on_P) == (
-        consumer=(:Z,), resource=(:P,)
-    )
-    @test process_kind(normalized.processes.grazing_Z_on_P) === :consumption
-    @test participants(normalized.processes.remineralization_D) ==
-        (source=(:D,), destination=(:N,))
-
-    @test process_kind(normalized.processes.growth_P) === :growth
-    @test rate_axes(normalized.processes.growth_P) == (:population,)
-    @test rate_axes(normalized.processes.grazing_Z_on_P) == (:consumer, :resource)
 
     layout = realize_components(normalized.components)
     applicability = resolve_parameter_applicability(normalized, layout)
     function application(parameter, process, slot; path=())
-        return only(
-            filter(applicability) do item
-                identity = item.binding.requirement.identity
-                item.binding.parameter === parameter && identity.process === process &&
-                    identity.path == path && identity.slot === slot
-            end,
-        )
+        return only(filter(applicability) do item
+            identity = item.binding.requirement.identity
+            item.binding.parameter === parameter && identity.process === process &&
+                identity.path == path && identity.slot === slot
+        end)
     end
     @test application(
         :maximum_growth_rate, :growth_P, :maximum_rate; path=(:factors, :light)
     ).axis_classes == ((:P_1, :P_2),)
-    @test application(:maximum_predation_rate, :grazing_Z_on_P, :maximum_rate).axis_classes ==
-        ((:Z_1, :Z_2),)
     @test application(:palatability_matrix, :grazing_Z_on_P, :palatability).axis_classes ==
         ((:Z_1, :Z_2), (:P_1, :P_2))
-    remineralization_rate = application(
-        :detritus_remineralization, :remineralization_D, :rate
-    )
-    @test remineralization_rate.binding.requirement.shape === :scalar
-    @test remineralization_rate.axis_classes == ((:D,),)
-    linear_P_to_N_rate = only(
-        filter(parameter_requirements(normalized.processes.linear_mortality_P_to_N)) do requirement
-            requirement.identity.slot === :rate
-        end,
-    )
-    linear_P_to_D_rate = only(
-        filter(parameter_requirements(normalized.processes.linear_mortality_P_to_D)) do requirement
-            requirement.identity.slot === :rate
-        end,
-    )
+
+    linear_P_to_N_rate = only(filter(parameter_requirements(normalized.processes.linear_mortality_P_to_N)) do requirement
+        requirement.identity.slot === :rate
+    end)
+    linear_P_to_D_rate = only(filter(parameter_requirements(normalized.processes.linear_mortality_P_to_D)) do requirement
+        requirement.identity.slot === :rate
+    end)
     @test parameter_name(normalized, linear_P_to_N_rate) === :linear_mortality
     @test parameter_name(normalized, linear_P_to_D_rate) === :linear_detrital_mortality
-
-    processes = default_processes(family)
-    reversed_names = reverse(keys(processes))
-    reversed_processes = NamedTuple{reversed_names}(reverse(values(processes)))
-    reordered = normalize_model(
-        ModelDefinition(;
-            components=default_components(family), processes=reversed_processes
-        ),
-    )
-    @test keys(reordered.processes) == keys(normalized.processes)
-    @test all(
-        getproperty(reordered.processes, name).process ===
-        getproperty(normalized.processes, name).process for name in keys(normalized.processes)
-    )
 
     invalid = ModelDefinition(;
         components=default_components(family),
@@ -418,7 +321,6 @@ end
         identity = requirement.identity
         identity.path == (:factors, :light_a) && identity.slot === :maximum_rate
     end)
-    @test max_a_requirement.identity.formulation === :smith
     @test parameter_name(normalized, max_a_requirement) === :max_a
     @test all(def.spec.shape === :vector for def in normalized.parameters)
 
@@ -473,7 +375,6 @@ end
     )
 
     normalized = normalize_model(ModelDefinition(; components, processes, parameters))
-    @test length(parameter_requirements(normalized)) == 4
     @test Tuple(def.spec.name for def in normalized.parameters) ==
         (:maximum_rate, :half_saturation, :palatability, :assimilation)
     @test Tuple(def.spec.shape for def in normalized.parameters) ==

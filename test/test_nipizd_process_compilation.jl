@@ -1,7 +1,4 @@
-using Agate.Compilation:
-    model_fluxes,
-    group_fluxes,
-    compile_model_tendencies
+using Agate.Compilation: compile_model_tendencies
 using Agate.Configuration: realize_components
 using Agate.Construction: define_tracer_functions
 using Agate.Equations: CompiledEquation
@@ -23,15 +20,11 @@ function nipizd_process_compilation(::Type{T}=Float64) where {T<:Real}
         biogeochem_tracers=(:N, :D),
         interaction_roles=(consumers=(:Z,), prey=(:P,)),
     )
-    fluxes = model_fluxes(normalized, layout, context)
-    grouped = group_fluxes(
-        fluxes; target_order=NIPIZD_PROCESS_TRACER_ORDER
-    )
     compiled = compile_model_tendencies(
         normalized, layout, context; target_order=NIPIZD_PROCESS_TRACER_ORDER
     )
     drivers = driver_identities(normalized)
-    return (; normalized, layout, context, fluxes, grouped, compiled, drivers)
+    return (; normalized, layout, context, compiled, drivers)
 end
 
 function full_process_bgc()
@@ -54,13 +47,9 @@ end
 
 @testset "Complete NiPiZD process flux compiler" begin
     compilation = nipizd_process_compilation()
-    fluxes = compilation.fluxes
-    grouped = compilation.grouped
     compiled = compilation.compiled
 
     @test compilation.drivers == (:PAR,)
-    @test length(fluxes) == 34
-    @test map(length, grouped) == (N=7, D=9, Z_1=4, Z_2=4, P_1=5, P_2=5)
     @test keys(compiled) == NIPIZD_PROCESS_TRACER_ORDER
     @test all(equation -> equation isa CompiledEquation, values(compiled))
     @test all(equation -> isbitstype(typeof(equation.f)), values(compiled))

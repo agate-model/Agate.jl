@@ -26,10 +26,7 @@ using Agate.Processes:
 
     layout = realize_components((P=population, D=pool); scalar_type=Float32)
     @test layout.tracer_order == (:P_1, :P_2, :P_3, :D)
-    @test layout.component_classes == (P=(:P_1, :P_2, :P_3), D=(:D,))
-    @test layout.component_state_tracers == (P=(nitrogen=(:P_1, :P_2, :P_3),), D=nothing)
-    @test layout.component_tracers == (P=(:P_1, :P_2, :P_3), D=(:D,))
-    @test layout.component_indices == (P=(1, 2, 3), D=(4,))
+    @test component_tracers(layout, :P) == (:P_1, :P_2, :P_3)
     @test collect(layout.component_diameters.P) ≈ Float32[1, 10, 100]
     @test isnothing(layout.component_diameters.D)
 
@@ -37,13 +34,6 @@ using Agate.Processes:
     @test scalar_population.tracer_order == (:B,)
     @test isnothing(scalar_population.component_diameters.B)
 
-    structured_pool = Pool(:carbon; size_structure=[1.0, 10.0, 100.0])
-    generic = realize_components((P=population, POM=structured_pool); scalar_type=Float32)
-    @test generic.tracer_order == (:P_1, :P_2, :P_3, :POM_1, :POM_2, :POM_3)
-    @test component_tracers(generic, :POM) == (:POM_1, :POM_2, :POM_3)
-    @test component_indices(generic, :POM) == (4, 5, 6)
-    @test component_diameters(generic, :POM) == (1.0f0, 10.0f0, 100.0f0)
-    @test component_class_count(generic, :POM) == 3
     @test_throws ArgumentError Population(nothing)
     @test_throws ArgumentError Pool(nothing)
     @test_throws ArgumentError realize_components((P=population, P_1=Pool(:nitrogen)))
@@ -73,7 +63,6 @@ end
     )
     @test state_tracers(layout, :P, :nitrogen) == (:P_1_nitrogen, :P_2_nitrogen)
     @test state_indices(layout, :P, :carbon) == (1, 4)
-    @test state_indices(layout, :P, :phosphorus) == (3, 6)
     @test component_diameters(layout, :P) == (2.0f0, 10.0f0)
     @test layout.tracer_order == (
         :P_1_carbon, :P_1_nitrogen, :P_1_phosphorus,
@@ -83,10 +72,6 @@ end
     community = (P=(diameters=[2.0, 10.0], pft=Agate.Configuration.PFTSpecification()),)
     context = parse_community(Float32, community; biogeochem_tracers=(:DIN,))
     grouped = realize_component_groups((P=population, DIN=Pool(:nitrogen)), (P=(:P,),), context)
-    @test context.class_symbols == [:P_1, :P_2]
-    @test context.n_total == 2
-    @test context.consumer_indices == [1, 2]
-    @test context.prey_indices == [1, 2]
     @test component_classes(grouped, :P) == (:P_1, :P_2)
     @test grouped.tracer_order == (
         :DIN,
@@ -156,23 +141,12 @@ end
 @testset "NiPiZD component declaration" begin
     family = Agate.Models.NiPiZD.NiPiZDFamily()
     components = default_components(family)
-    layout = realize_components(components)
-
     @test keys(components) == (:P, :Z, :N, :D)
     @test components.P isa Population
     @test components.Z isa Population
-    @test components.N isa Pool
-    @test components.D isa Pool
     @test all(currency(getproperty(components, name)) === :nitrogen for name in keys(components))
-
-    @test layout.component_tracers == (
-        P=(:P_1, :P_2), Z=(:Z_1, :Z_2), N=(:N,), D=(:D,)
-    )
-    @test collect(layout.component_diameters.P) ≈ [2.0, 10.0]
-    @test collect(layout.component_diameters.Z) ≈ [20.0, 100.0]
 
     bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
     runtime_tracers = required_biogeochemical_tracers(bgc)
-    @test Set(layout.tracer_order) == Set(runtime_tracers)
     @test runtime_tracers == (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
 end

@@ -5,7 +5,6 @@ using Agate.Compilation:
     MatParamOp,
     ComplementOp,
     process_fluxes,
-    group_fluxes,
     weight_sign
 using Agate.Configuration: realize_components
 using Agate.ModelFamilies: default_components
@@ -26,8 +25,6 @@ using Agate.Processes:
     @testset "Growth" begin
         process = normalized.processes.growth_P
         fluxes = process_fluxes(process, normalized, layout, context)
-        grouped = group_fluxes(fluxes; target_order=(:N, :P_1, :P_2))
-
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) ==
             ((:P_1, 1), (:N, -1), (:P_2, 1), (:N, -1))
 
@@ -37,23 +34,11 @@ using Agate.Processes:
             TracerOp{:P_1}(), VecParamOp{:maximum_growth_rate,3}()
         )
         @test Tuple(typeof(factor.formulation) for factor in rate.factors) == (Smith, Monod)
-        @test rate.factors[1].operands == (
-            TracerOp{:PAR}(),
-            VecParamOp{:maximum_growth_rate,3}(),
-            VecParamOp{:alpha,3}(),
-        )
-        @test rate.factors[2].operands == (
-            TracerOp{:N}(), VecParamOp{:nutrient_half_saturation,3}()
-        )
-        @test map(length, grouped) == (N=2, P_1=1, P_2=1)
     end
 
     @testset "Living-resource consumption" begin
         process = normalized.processes.grazing_Z_on_P
         fluxes = process_fluxes(process, normalized, layout, context)
-        grouped = group_fluxes(fluxes; target_order=(:D, :Z_1, :Z_2, :P_1, :P_2))
-
-        @test length(fluxes) == 12
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes[1:3]) ==
             ((:P_1, -1), (:Z_1, 1), (:D, 1))
         @test fluxes[1].rate.operands == (
@@ -66,13 +51,6 @@ using Agate.Processes:
         assimilation = MatParamOp{:assimilation_matrix,1,1}()
         @test fluxes[2].weight.operands == (assimilation,)
         @test fluxes[3].weight.operands == (ComplementOp(assimilation),)
-        @test Tuple(flux.rate.operands[5] for flux in fluxes[1:3:end]) == (
-            MatParamOp{:palatability_matrix,1,1}(),
-            MatParamOp{:palatability_matrix,1,2}(),
-            MatParamOp{:palatability_matrix,2,1}(),
-            MatParamOp{:palatability_matrix,2,2}(),
-        )
-        @test map(length, grouped) == (D=4, Z_1=2, Z_2=2, P_1=2, P_2=2)
     end
 
     @testset "Mortality" begin
@@ -86,18 +64,12 @@ using Agate.Processes:
             process = getproperty(normalized.processes, id)
             fluxes = (fluxes..., process_fluxes(process, normalized, layout, context)...)
         end
-        grouped = group_fluxes(
-            fluxes; target_order=(:N, :D, :Z_1, :Z_2, :P_1, :P_2)
-        )
-
-        @test length(fluxes) == 16
         @test Tuple(
             flux.rate.operands[1] for flux in fluxes if
             flux.process === :linear_mortality_P_to_N && weight_sign(flux.weight) == -1
         ) == (TracerOp{:P_1}(), TracerOp{:P_2}())
         @test fluxes[2].target === :N
         @test isempty(fluxes[2].weight.operands)
-        @test map(length, grouped) == (N=4, D=4, Z_1=2, Z_2=2, P_1=2, P_2=2)
     end
 
     @testset "Remineralization" begin

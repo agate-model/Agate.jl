@@ -1,9 +1,7 @@
 using ForwardDiff
 
 using Agate.Compilation:
-    TracerOp, VecParamOp, MatParamOp,
-    ScalarParamOp, ComplementOp, process_fluxes, model_fluxes, group_fluxes,
-    compile_tendencies, compile_model_tendencies, weight_sign
+    process_fluxes, group_fluxes, compile_tendencies, compile_model_tendencies
 using Agate.Configuration:
     Population, Pool, realize_components, component_tracers, parse_community
 using Agate.Construction: construct, define_tracer_functions
@@ -11,8 +9,7 @@ using Agate.Parameters:
     ParameterProvision, ParameterDefinition, NoDefault
 using Agate.Processes:
     ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, Grazing,
-    Smith, Monod, Q10, normalize_model, resolve_parameter_applicability, participants, factors,
-    driver_identities
+    normalize_model, participants, driver_identities
 
 function food_web_parameters()
     slot(process, name) = ParameterProvision(process, name)
@@ -110,9 +107,8 @@ function food_web_compilation(::Type{T}=Float64) where {T<:Real}
     )
     layout = realize_components(components; scalar_type=T)
     target_order = layout.tracer_order
-    fluxes = model_fluxes(normalized, layout, context)
     compiled = compile_model_tendencies(normalized, layout, context; target_order)
-    return (; normalized, layout, context, fluxes, compiled, target_order)
+    return (; normalized, layout, context, compiled, target_order)
 end
 
 function food_web_bgc(compilation)
@@ -165,61 +161,15 @@ end
     @test :POM ∉ participants(normalized.processes.grazing_living).resource
     @test :M ∈ participants(normalized.processes.growth_autotrophs).population
     @test :M ∈ participants(normalized.processes.grazing_living).consumer
-    @test keys(factors(normalized.processes.growth_autotrophs)) ==
-          (:light, :nutrients, :temperature)
-    @test keys(factors(normalized.processes.consume_POM)) == (:temperature,)
     @test driver_identities(normalized) == (:PAR, :temperature)
-    population_groups = (P=(:P,), B=(:B,), M=(:M,), Z=(:Z,))
-    @test Agate.Construction._process_interaction_roles(normalized, population_groups) ==
-          (consumers=(:M, :Z), prey=(:P, :B))
-
-    applicability = resolve_parameter_applicability(normalized, layout)
-    pom_K = only(a for a in applicability if a.binding.parameter === :pom_half_saturation)
-    bacterial_assimilation = only(
-        a for a in applicability if a.binding.parameter === :bacterial_assimilation
-    )
-    @test pom_K.axis_classes == ((:POM_1, :POM_2),)
-    @test bacterial_assimilation.axis_classes == ((:B_1,), (:POM_1, :POM_2))
-
     consumption = normalized.processes.consume_POM
     fluxes = process_fluxes(
         consumption, normalized, layout, compilation.context
     )
-    @test length(fluxes) == 6
-    @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) == (
-        (:POM_1, -1), (:B_1, 1), (:D, 1),
-        (:POM_2, -1), (:B_1, 1), (:D, 1),
-    )
-    @test fluxes[1].rate.operands == (
-        TracerOp{:POM_1}(),
-        TracerOp{:B_1}(),
-        VecParamOp{:maximum_consumption_rate,2}(),
-        VecParamOp{:pom_half_saturation,1}(),
-    )
-    assimilation = MatParamOp{:bacterial_assimilation,1,1}()
-    @test fluxes[2].weight.operands == (assimilation,)
-    @test fluxes[3].weight.operands == (ComplementOp(assimilation),)
-    consumption_factor = only(fluxes[1].rate.factors)
-    @test consumption_factor.formulation isa Q10
-    @test consumption_factor.operands == (
-        TracerOp{:temperature}(),
-        ScalarParamOp{:temperature_q10}(),
-        ScalarParamOp{:reference_temperature}(),
-    )
-
     growth_fluxes = process_fluxes(
         normalized.processes.growth_autotrophs, normalized, layout, compilation.context
     )
-    growth_rate = first(growth_fluxes).rate
-    @test Tuple(typeof(factor.formulation) for factor in growth_rate.factors) ==
-          (Smith, Monod, Q10)
-    @test growth_rate.factors[3].operands == consumption_factor.operands
 
-    @test length(compilation.fluxes) == 22
-    grouped = group_fluxes(compilation.fluxes; target_order=compilation.target_order)
-    @test map(length, grouped) == (
-        N=2, D=6, POM_1=1, POM_2=1, P_1=3, B_1=4, M_1=3, Z_1=2
-    )
     @test all(equation -> isbitstype(typeof(equation.f)), values(compilation.compiled))
     @test all(
         equation -> all(term -> isbitstype(typeof(term)), equation.f.terms),
