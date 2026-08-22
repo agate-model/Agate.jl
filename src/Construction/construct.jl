@@ -30,6 +30,7 @@ using ..Configuration:
     Pool,
     size_structure,
     realize_components,
+    component_classes,
     component_tracers,
     realize_component_groups
 
@@ -188,9 +189,9 @@ function derived_default_order(source)
     return Tuple(ordered)
 end
 
-function _local_parameter_axis_tracers(definition, layout, parameter::Symbol, shape::Symbol)
+function _local_parameter_axis_classes(definition, layout, parameter::Symbol, shape::Symbol)
     matches = Tuple(
-        applicability.axis_tracers
+        applicability.axis_classes
         for applicability in resolve_parameter_applicability(definition, layout)
         if applicability.binding.parameter === parameter
     )
@@ -224,7 +225,7 @@ function _parameter_storage_shape(definition, layout, context, spec)
                 "parameter :$(spec.name) local storage requires a normalized model definition and component layout",
             ),
         )
-        local_axes = _local_parameter_axis_tracers(
+        local_axes = _local_parameter_axis_classes(
             definition, layout, spec.name, spec.shape
         )
         return Tuple(length(axis) for axis in local_axes)
@@ -387,7 +388,7 @@ end
 
 
 function parameter_axis_names(context, axis::Symbol, parameter_name::Symbol)
-    axis === :plankton && return context.plankton_symbols
+    axis === :plankton && return context.class_symbols
     throw(ArgumentError("parameter :$parameter_name has unsupported vector axis :$axis."))
 end
 
@@ -561,11 +562,11 @@ function _process_parameter_indices(definition, layout, context, parameter::Symb
     selected = Set{Symbol}()
     for applicability in resolve_parameter_applicability(definition, layout)
         applicability.binding.parameter === parameter || continue
-        for axis in applicability.axis_tracers, tracer in axis
-            tracer in context.plankton_symbols && push!(selected, tracer)
+        for axis in applicability.axis_classes, class in axis
+            class in context.class_symbols && push!(selected, class)
         end
     end
-    return [i for (i, tracer) in pairs(context.plankton_symbols) if tracer in selected]
+    return [i for (i, class) in pairs(context.class_symbols) if class in selected]
 end
 
 function evaluate_process_default(
@@ -696,7 +697,10 @@ end
 @inline _unspecified_diameter(::Type{T}) where {T<:Real} = zero(T)
 
 function _intrinsic_population_community(
-    components::NamedTuple, population_groups::NamedTuple, ::Type{T}
+    components::NamedTuple,
+    population_groups::NamedTuple,
+    layout,
+    ::Type{T},
 ) where {T<:Real}
     names = keys(population_groups)
     specs = ntuple(length(names)) do i
@@ -704,7 +708,8 @@ function _intrinsic_population_community(
         component = getproperty(components, name)
         structure = size_structure(component)
         diameters = isnothing(structure) ? T[_unspecified_diameter(T)] : structure
-        return (; diameters, pft=PFTSpecification())
+        class_symbols = component_classes(layout, name)
+        return (; diameters, pft=PFTSpecification(), class_symbols)
     end
     return NamedTuple{names}(specs)
 end
@@ -721,42 +726,46 @@ function _realize_process_definition(
     )
 
     groups = intrinsic ? _intrinsic_population_groups(definition.components) : population_groups
-    community_input = intrinsic ?
-        _intrinsic_population_community(definition.components, groups, T) : community
-
-    validate_community(community_input)
-    interaction_roles = _process_interaction_roles(definition, groups)
     pool_names = Tuple(
         name for name in keys(definition.components) if
         getproperty(definition.components, name) isa Pool
     )
-    pool_components = NamedTuple{pool_names}(
-        Tuple(getproperty(definition.components, name) for name in pool_names)
-    )
-    pool_layout = realize_components(pool_components; scalar_type=T)
-    context = parse_community(
-        T,
-        community_input;
-        biogeochem_tracers=pool_layout.tracer_order,
-        interaction_roles,
-    )
 
-    layout = if intrinsic
+    layout = nothing
+    pool_tracers = ()
+    community_input = community
+
+    if intrinsic
         population_names = keys(groups)
         realization_names = (pool_names..., population_names...)
         realization_components = NamedTuple{realization_names}(
             Tuple(getproperty(definition.components, name) for name in realization_names)
         )
-        intrinsic_layout = realize_components(realization_components; scalar_type=T)
-        population_tracers = Tuple(
-            tracer for name in population_names for
-            tracer in component_tracers(intrinsic_layout, name)
+        layout = realize_components(realization_components; scalar_type=T)
+        pool_tracers = Tuple(
+            tracer for name in pool_names for tracer in component_tracers(layout, name)
         )
-        context.plankton_symbols .= population_tracers
-        intrinsic_layout
+        community_input = _intrinsic_population_community(
+            definition.components, groups, layout, T
+        )
     else
-        realize_component_groups(definition.components, groups, context)
+        pool_components = NamedTuple{pool_names}(
+            Tuple(getproperty(definition.components, name) for name in pool_names)
+        )
+        pool_layout = realize_components(pool_components; scalar_type=T)
+        pool_tracers = pool_layout.tracer_order
     end
+
+    validate_community(community_input)
+    interaction_roles = _process_interaction_roles(definition, groups)
+    context = parse_community(
+        T,
+        community_input;
+        biogeochem_tracers=Tuple(pool_tracers),
+        interaction_roles,
+    )
+
+    intrinsic || (layout = realize_component_groups(definition.components, groups, context))
     return (; layout, context, population_groups=groups, pool_names)
 end
 

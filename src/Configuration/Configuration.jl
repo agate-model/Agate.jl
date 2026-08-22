@@ -4,9 +4,11 @@ using ..Parameters: ParameterSpec, parameter_directory, parameter_spec
 import Adapt
 
 export Population, Pool
-export currency, size_structure
+export currency, states, state_currency, size_structure
 export ComponentLayout, realize_components, realize_component_groups
-export component_tracers, component_indices, component_diameters, component_class_count
+export component_classes, component_state_tracers, component_tracers
+export component_indices, state_tracers, state_indices
+export component_diameters, component_class_count
 
 export PFTSpecification
 

@@ -1,7 +1,7 @@
 """Scientific process authoring and setup-time normalization."""
 module Processes
 
-using ..Configuration: Population, Pool, ComponentLayout, currency
+using ..Configuration: Population, Pool, ComponentLayout, currency, component_classes
 using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
 using ..Parameters: ParameterDefinition, ParameterProvision, parameter_definitions
 using ..Library.Mortality: linear_loss, quadratic_loss

@@ -2,7 +2,8 @@
 module Runtime
 
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry, required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
-using ..Configuration: ComponentLayout, component_class_count, component_indices
+using ..Configuration:
+    ComponentLayout, component_class_count, component_indices, component_state_tracers, state_indices
 
 export TracerValues
 export tendency_inputs

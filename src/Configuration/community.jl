@@ -92,7 +92,7 @@ Fields
 - `n_total`: total number of plankton classes.
 - `diameters`: flattened diameter vector in global plankton order.
 - `pfts`: per-class PFT specifications.
-- `plankton_symbols`: flattened class symbols such as `:P_1`, `:P_2`, or `:diat_1`.
+- `class_symbols`: flattened ecological class symbols such as `:P_1`, `:P_2`, or `:diat_1`.
 - `group_symbols`: group symbol for each flattened class.
 - `group_indices`: mapping from group symbol to flattened class indices.
 - `consumer_indices`: flattened indices used for the consumer axis.
@@ -103,7 +103,7 @@ struct CommunityContext{T<:Real,VT<:AbstractVector{T}}
     n_total::Int
     diameters::VT
     pfts::Vector{PFTSpecification}
-    plankton_symbols::Vector{Symbol}
+    class_symbols::Vector{Symbol}
     group_symbols::Vector{Symbol}
     group_indices::Dict{Symbol,Vector{Int}}
     consumer_indices::Vector{Int}
@@ -186,6 +186,16 @@ function validate_community(community)
             end
         end
 
+        if hasproperty(spec, :class_symbols)
+            symbols = getproperty(spec, :class_symbols)
+            symbols isa Tuple || symbols isa AbstractVector ||
+                push!(issues, "group $(k): `class_symbols` must be a tuple or vector")
+            if symbols isa Tuple || symbols isa AbstractVector
+                all(symbol -> symbol isa Symbol, symbols) ||
+                    push!(issues, "group $(k): `class_symbols` must contain only Symbols")
+            end
+        end
+
         if !hasproperty(spec, :pft)
             push!(issues, "group $(k): missing required field `pft`")
         else
@@ -228,7 +238,7 @@ function parse_community(
     end
 
     group_order = keys(community)
-    plankton_symbols = Symbol[]
+    class_symbols = Symbol[]
     group_of = Symbol[]
     pfts = PFTSpecification[]
     diameters = T[]
@@ -250,10 +260,21 @@ function parse_community(
         pft_raw = getproperty(spec, :pft)
         pft = pft_raw isa PFTSpecification ? pft_raw : PFTSpecification(pft_raw)
 
-        class_symbols = Symbol[Symbol(string(g), "_", i) for i in 1:n]
+        realized_class_symbols = if hasproperty(spec, :class_symbols)
+            supplied = Tuple(getproperty(spec, :class_symbols))
+            length(supplied) == n || throw(
+                ArgumentError("group $g: class_symbols must have length $n")
+            )
+            all(symbol -> symbol isa Symbol, supplied) || throw(
+                ArgumentError("group $g: class_symbols must contain only Symbols")
+            )
+            supplied
+        else
+            ntuple(i -> Symbol(string(g), "_", i), n)
+        end
 
         for i in 1:n
-            push!(plankton_symbols, class_symbols[i])
+            push!(class_symbols, realized_class_symbols[i])
             push!(group_of, g)
             push!(pfts, pft)
             push!(diameters, ds[i])
@@ -261,14 +282,17 @@ function parse_community(
     end
 
     biogeochem_symbols = Set(biogeochem_tracers)
-    conflicting_symbols = [symbol for symbol in plankton_symbols if symbol in biogeochem_symbols]
+    length(unique(class_symbols)) == length(class_symbols) || throw(
+        ArgumentError("community realizes duplicate ecological class symbols")
+    )
+    conflicting_symbols = [symbol for symbol in class_symbols if symbol in biogeochem_symbols]
     isempty(conflicting_symbols) || throw(
         ArgumentError(
-            "plankton tracer names conflict with non-plankton tracers: $(unique(conflicting_symbols))"
+            "population class names conflict with non-plankton tracers: $(unique(conflicting_symbols))"
         ),
     )
 
-    n_total = length(plankton_symbols)
+    n_total = length(class_symbols)
 
     group_indices = Dict{Symbol,Vector{Int}}()
     for (i, g) in enumerate(group_of)
@@ -322,7 +346,7 @@ function parse_community(
         n_total,
         diameters,
         pfts,
-        plankton_symbols,
+        class_symbols,
         group_of,
         group_indices,
         consumer_indices,

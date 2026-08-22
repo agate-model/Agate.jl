@@ -171,7 +171,7 @@ function capture_model_manifest(
     group_values = ntuple(length(group_order)) do i
         group = group_order[i]
         indices = community_context.group_indices[group]
-        return Tuple(community_context.plankton_symbols[indices])
+        return Tuple(community_context.class_symbols[indices])
     end
     group_tracers = NamedTuple{group_order}(group_values)
 

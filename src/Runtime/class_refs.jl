@@ -34,13 +34,28 @@ function resolve_class(community_context, cref::ClassRef)::Int
     return idx[cref.i]
 end
 
-"""Resolve a component `ClassRef` to its position in `layout.tracer_order`."""
+"""Resolve a component `ClassRef` to one physical tracer position.
+
+Pool classes and single-state population classes are unambiguous. Multi-state
+populations require an explicit state reference and therefore cannot be resolved
+by `ClassRef` alone.
+"""
 function resolve_class(layout::ComponentLayout, cref::ClassRef)::Int
-    indices = component_indices(layout, cref.group)
-    1 <= cref.i <= length(indices) || throw(
+    nclasses = component_class_count(layout, cref.group)
+    1 <= cref.i <= nclasses || throw(
         ArgumentError(
-            "Class ordinal $(cref.i) is out of bounds for component $(cref.group) (valid 1:$(length(indices))).",
+            "Class ordinal $(cref.i) is out of bounds for component $(cref.group) (valid 1:$nclasses).",
         ),
     )
-    return indices[cref.i]
+    state_mapping = component_state_tracers(layout, cref.group)
+    if state_mapping === nothing
+        return component_indices(layout, cref.group)[cref.i]
+    end
+    length(state_mapping) == 1 || throw(
+        ArgumentError(
+            "ClassRef for multi-state component $(cref.group) is ambiguous; select a prognostic state explicitly",
+        ),
+    )
+    state = only(keys(state_mapping))
+    return state_indices(layout, cref.group, state)[cref.i]
 end

@@ -191,8 +191,8 @@ end
     bacterial_assimilation = only(
         a for a in applicability if a.binding.parameter === :bacterial_assimilation
     )
-    @test pom_K.axis_tracers == ((:POM_1, :POM_2),)
-    @test bacterial_assimilation.axis_tracers == ((:B_1,), (:POM_1, :POM_2))
+    @test pom_K.axis_classes == ((:POM_1, :POM_2),)
+    @test bacterial_assimilation.axis_classes == ((:B_1,), (:POM_1, :POM_2))
 
     consumption = normalized.processes.consume_POM
     fluxes = process_fluxes(

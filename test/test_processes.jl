@@ -286,19 +286,19 @@ end
     end
     @test application(
         :maximum_growth_rate, :growth_P, :maximum_rate; path=(:factors, :light)
-    ).axis_tracers == ((:P_1, :P_2),)
-    @test application(:maximum_predation_rate, :grazing_Z_on_P, :maximum_rate).axis_tracers ==
+    ).axis_classes == ((:P_1, :P_2),)
+    @test application(:maximum_predation_rate, :grazing_Z_on_P, :maximum_rate).axis_classes ==
         ((:Z_1, :Z_2),)
     @test application(
         :protection, :grazing_Z_on_P, :protection; path=(:palatability, :default)
-    ).axis_tracers == ((:P_1, :P_2),)
-    @test application(:palatability_matrix, :grazing_Z_on_P, :palatability).axis_tracers ==
+    ).axis_classes == ((:P_1, :P_2),)
+    @test application(:palatability_matrix, :grazing_Z_on_P, :palatability).axis_classes ==
         ((:Z_1, :Z_2), (:P_1, :P_2))
     remineralization_rate = application(
         :detritus_remineralization, :remineralization_D, :rate
     )
     @test remineralization_rate.binding.requirement.shape === :scalar
-    @test remineralization_rate.axis_tracers == ((:D,),)
+    @test remineralization_rate.axis_classes == ((:D,),)
     linear_P_to_N_rate = only(
         filter(parameter_requirements(normalized.processes.linear_mortality_P_to_N)) do requirement
             requirement.identity.slot === :rate

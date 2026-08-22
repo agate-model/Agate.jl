@@ -2,7 +2,7 @@ using JSON
 
 using ..Configuration:
     PFTSpecification, DiameterListSpecification, DiameterRangeSpecification, Population, Pool,
-    currency, size_structure, normalize_diameters
+    currency, states, state_currency, size_structure, normalize_diameters
 
 using ..ModelFamilies: default_components, default_processes
 using ..Parameters: parameter_definitions
@@ -21,7 +21,7 @@ using ..Library.Allometry:
     allometric_relationship_identifier,
     allometric_relationship_from_identifier
 
-const PROCESS_MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.3"
+const PROCESS_MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.4"
 const _RECIPE_DOCUMENT_KEYS = ("schema", "model", "provenance", "recipe", "recipe_hash")
 const _RECIPE_MODEL_KEYS = ("family",)
 const _SUPPORTED_SPLITTING = (:linear_splitting, :log_splitting)
@@ -341,7 +341,9 @@ function _component_recipe_data(name::Symbol, component::Population, recipe::Pro
     groups = getproperty(recipe.population_groups, name)
     data = Dict{String,Any}(
         "kind" => "population",
-        "currency" => String(currency(component)),
+        "states" => Dict(
+            String(state) => String(state_currency(component, state)) for state in keys(states(component))
+        ),
         "size_structure" => nothing,
     )
     if length(groups) == 1 && only(groups) === name

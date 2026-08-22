@@ -221,7 +221,7 @@ end
 struct ParameterApplicability{B,C,T}
     binding::B
     axis_components::C
-    axis_tracers::T
+    axis_classes::T
 end
 
 function _slot_qualifier(slot::ParameterSlot, context::NamedTuple)
@@ -788,21 +788,22 @@ function _axis_components(
     return getproperty(process_participants, axis)
 end
 
-function _axis_tracers(layout::ComponentLayout, components::Tuple)
-    tracers = ()
+function _axis_classes(layout::ComponentLayout, components::Tuple)
+    classes = ()
     for component in components
-        hasproperty(layout.component_tracers, component) || throw(
+        hasproperty(layout.component_classes, component) || throw(
             ArgumentError("parameter applicability references unrealized component :$component"),
         )
-        tracers = (tracers..., getproperty(layout.component_tracers, component)...)
+        classes = (classes..., component_classes(layout, component)...)
     end
-    return tracers
+    return classes
 end
 
-"""Resolve each semantic parameter axis onto concrete component tracer identities.
+"""Resolve each semantic parameter axis onto ecological component class identities.
 
-The result is setup-time applicability metadata. It derives vector/matrix axes from the
-participants of the owning named process rather than from global producer/consumer roles.
+The result is setup-time applicability metadata. Population state multiplicity does not
+change parameter-axis length: applicability follows ecological classes rather than physical
+state tracers.
 """
 function resolve_parameter_applicability(
     definition::NormalizedModelDefinition, layout::ComponentLayout
@@ -813,7 +814,7 @@ function resolve_parameter_applicability(
         axis_components = map(
             axis -> _axis_components(process, requirement, axis), requirement.axes
         )
-        axis_tracers = map(components -> _axis_tracers(layout, components), axis_components)
-        ParameterApplicability(binding, axis_components, axis_tracers)
+        axis_classes = map(components -> _axis_classes(layout, components), axis_components)
+        ParameterApplicability(binding, axis_components, axis_classes)
     end
 end

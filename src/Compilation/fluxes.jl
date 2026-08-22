@@ -243,14 +243,24 @@ function _realize_population_classes(
     index_values = ()
 
     for population in populations
-        hasproperty(layout.component_tracers, population) || throw(
+        hasproperty(layout.component_classes, population) || throw(
             ArgumentError("process :$(named.id) references unrealized population :$population"),
         )
-        tracers = getproperty(layout.component_tracers, population)
-        indices = Tuple(findfirst(==(tracer), context.plankton_symbols) for tracer in tracers)
+        classes = component_classes(layout, population)
+        state_mapping = component_state_tracers(layout, population)
+        state_mapping isa NamedTuple || throw(
+            ArgumentError("process :$(named.id) component :$population is not a Population"),
+        )
+        length(state_mapping) == 1 || throw(
+            ArgumentError(
+                "process :$(named.id) requires explicit state selection for multi-state population :$population",
+            ),
+        )
+        tracers = only(values(state_mapping))
+        indices = Tuple(findfirst(==(class), context.class_symbols) for class in classes)
         any(isnothing, indices) && throw(
             ArgumentError(
-                "process :$(named.id) population :$population realizes tracers absent from the current runtime community",
+                "process :$(named.id) population :$population realizes classes absent from the current runtime community",
             ),
         )
         tracer_values = (tracer_values..., tracers...)

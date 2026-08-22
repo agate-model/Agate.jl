@@ -15,10 +15,15 @@ Agate.Processes.ModelDefinition
 Agate.Configuration.Population
 Agate.Configuration.Pool
 Agate.Configuration.currency
+Agate.Configuration.states
+Agate.Configuration.state_currency
 Agate.Configuration.size_structure
 Agate.Configuration.ComponentLayout
 Agate.Configuration.realize_components
 Agate.Configuration.realize_component_groups
+Agate.Configuration.component_classes
+Agate.Configuration.component_state_tracers
+Agate.Configuration.state_tracers
 ```
 
 ### Processes and factors
@@ -79,7 +84,7 @@ Agate.Compilation.compile_model_tendencies
 
 ## Named families, recipes, and replay
 
-Named model families add stable code identity and durable recipe replay around the same definition-driven process compiler. `ProcessModelRecipe` is the `agate.model_recipe.v0.3` scientific representation for component/process families. `ModelManifest` records the resolved execution state.
+Named model families add stable code identity and durable recipe replay around the same definition-driven process compiler. `ProcessModelRecipe` is the `agate.model_recipe.v0.4` scientific representation for component/process families. `ModelManifest` records the resolved execution state.
 
 ```@docs
 Agate.Construction.ProcessModelRecipe

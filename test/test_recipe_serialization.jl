@@ -1,6 +1,6 @@
 using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe
 using Agate.Models: NiPiZD
-using Agate.Configuration: Pool
+using Agate.Configuration: Population, Pool
 using Agate.Processes: Growth, Light, NutrientResponse, Nutrients
 using JSON
 using OceanBioME: BoxModelGrid
@@ -34,7 +34,7 @@ explicit_json_value(::Any) = false
     _, default_recipe = NiPiZD.construct_plus_recipe()
     default_encoded = encode_recipe(default_recipe)
     @test decode_recipe(default_encoded) == default_recipe
-    @test default_encoded["schema"] == "agate.model_recipe.v0.3"
+    @test default_encoded["schema"] == "agate.model_recipe.v0.4"
 
     bgc, recipe = NiPiZD.construct_plus_recipe(; authored_nipizd_inputs(Float32)...)
     manifest = nipizd_manifest(recipe; scalar_type=Float32)
@@ -73,6 +73,11 @@ explicit_json_value(::Any) = false
             "participants" => Dict("resource" => "N"),
         ),
     )
+    phytoplankton_data = encoded["recipe"]["components"]["P"]
+    @test phytoplankton_data["kind"] == "population"
+    @test phytoplankton_data["states"] == Dict("nitrogen" => "nitrogen")
+    @test !haskey(phytoplankton_data, "currency")
+
     grazing_data = encoded["recipe"]["processes"]["grazing_Z_on_P"]
     @test grazing_data["kind"] == "consumption"
     @test grazing_data["participants"] == Dict("consumer" => "Z", "resource" => "P")
@@ -123,6 +128,25 @@ explicit_json_value(::Any) = false
     @test structured_pool["kind"] == "pool"
     @test structured_pool["size_structure"]["diameters"] == [0.5, 5.0, 50.0]
     @test !haskey(structured_pool, "sinking")
+
+    multistate_recipe = Agate.Construction.ProcessModelRecipe(
+        recipe.family,
+        merge(
+            recipe.components,
+            (P=Population(; states=(carbon=:carbon, nitrogen=:nitrogen)),),
+        ),
+        recipe.processes,
+        recipe.population_groups,
+        recipe.community,
+        recipe.parameter_overrides,
+        recipe.interaction_overrides,
+        recipe.sinking_tracers,
+        recipe.open_bottom,
+    )
+    multistate_population =
+        encode_recipe(multistate_recipe)["recipe"]["components"]["P"]
+    @test multistate_population["states"] ==
+        Dict("carbon" => "carbon", "nitrogen" => "nitrogen")
 
     frank_factor = Nutrients(
         :frank;

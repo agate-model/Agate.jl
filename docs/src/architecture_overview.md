@@ -7,10 +7,10 @@ Agate separates scientific model definition from setup-time compilation and runt
 A process-defined model moves through five stages:
 
 1. **Definition** (`Configuration/`, `Processes/`, and `Parameters/`).
-   `Population` and `Pool` components describe state identity and structure. Named processes describe scientific transformations, and parameter definitions bind defaults to formulation-owned semantic requirements.
+   `Population` and `Pool` components describe state identity and structure. A population owns ecological classes and may carry one or more aligned prognostic states. Named processes describe scientific transformations, and parameter definitions bind defaults to formulation-owned semantic requirements.
 
 2. **Normalization and realization** (`Processes/` and `Configuration/`).
-   Agate canonicalizes process identity and factor order, realizes structured components into concrete tracer classes, discovers process drivers, and resolves process-local participant axes.
+   Agate canonicalizes process identity and factor order, realizes ecological classes separately from concrete prognostic tracers, discovers process drivers, and resolves process-local participant axes.
 
 3. **Flux compilation** (`Compilation/`).
    Each named process produces generic target + rate + weight flux specifications. Fluxes are grouped by target tracer and lowered during setup into static compiled equations with no target symbols or process metadata in runtime terms.
@@ -49,7 +49,9 @@ lean runtime
 
 ## Scientific boundaries
 
-Components describe structure rather than ecological role. A mixotroph is an ordinary population participating in both growth and living-prey consumption. `Consumption` is the canonical consumer-resource process; `Grazing(...)` is author-facing shorthand for its living-prey formulations and desugars immediately. Likewise, `unassimilated_destination=` becomes direct product routing at authoring time. Bacterioplankton may consume POM and be consumed as living prey through the same consumer-resource machinery. Structured material pools use the same component-layout machinery as structured populations.
+Components describe structure rather than ecological role. A `Population` owns ecological classes; prognostic states are aligned inventories carried by those classes. A one-state population preserves the established tracer identity (`P_1`, `P_2`, ...), while a multi-state population realizes class-qualified state tracers such as `P_1_carbon` and `P_1_nitrogen`. Interaction and parameter axes remain ecological-class axes and therefore do not grow with state multiplicity.
+
+A mixotroph is an ordinary population participating in both growth and living-prey consumption. `Consumption` is the canonical consumer-resource process; `Grazing(...)` is author-facing shorthand for its living-prey formulations and desugars immediately. Likewise, `unassimilated_destination=` becomes direct product routing at authoring time. Bacterioplankton may consume POM and be consumed as living prey through the same consumer-resource machinery. Structured material pools use the same component-layout machinery as structured populations.
 
 Named factors are multiplicative within a process, while independent named processes add through their fluxes to a tracer equation. Routing and stoichiometry map process rates into affected material and currency pools.
 

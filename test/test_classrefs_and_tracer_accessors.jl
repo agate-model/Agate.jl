@@ -41,7 +41,7 @@ end
     @test resolve_class(ctx, class(:P, 1)) == 3
     @test resolve_class(ctx, class(:P, 2)) == 4
 
-    tracer_names = (:N, :D, ctx.plankton_symbols...)
+    tracer_names = (:N, :D, ctx.class_symbols...)
     aux = (:PAR,)
     idx = build_tracer_index(ctx, tracer_names, aux; n_biogeochem_tracers=2)
     tracers = Tracers(idx)
@@ -75,6 +75,12 @@ end
     @test resolve_class(layout, class(:POM, 1)) == 2
     @test resolve_class(layout, class(:POM, 3)) == 4
     @test_throws ArgumentError resolve_class(layout, class(:POM, 4))
+
+    multistate = realize_components((
+        P=Population(; states=(carbon=:carbon, nitrogen=:nitrogen), size_structure=[1.0, 2.0]),
+    ))
+    @test class_count(multistate, :P) == 2
+    @test_throws ArgumentError resolve_class(multistate, class(:P, 1))
 end
 
 @testset "Diameter input normalization" begin
