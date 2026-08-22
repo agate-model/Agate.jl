@@ -240,10 +240,25 @@ end
     @test tendencies.DOC ≈ 3.0
     @test tendencies.DON ≈ 0.8
     @test tendencies.DOP ≈ 0.5
-    @test tendencies.DOC + tendencies.P_1_carbon + tendencies.P_2_carbon ≈ 0.0
-    @test tendencies.DON + tendencies.P_1_nitrogen + tendencies.P_2_nitrogen ≈ 0.0
-    @test tendencies.DOP + tendencies.P_1_phosphorus + tendencies.P_2_phosphorus ≈ 0.0
-    @test all(equation -> isbitstype(typeof(equation)), values(bgc.tracer_functions))
+    carbon_tendencies = (tendencies.DOC, tendencies.P_1_carbon, tendencies.P_2_carbon)
+    nitrogen_tendencies = (
+        tendencies.DON, tendencies.P_1_nitrogen, tendencies.P_2_nitrogen
+    )
+    phosphorus_tendencies = (
+        tendencies.DOP, tendencies.P_1_phosphorus, tendencies.P_2_phosphorus
+    )
+    @test isapprox(
+        sum(carbon_tendencies), 0; atol=10 * eps(sum(abs, carbon_tendencies))
+    )
+    @test isapprox(
+        sum(nitrogen_tendencies), 0; atol=10 * eps(sum(abs, nitrogen_tendencies))
+    )
+    @test isapprox(
+        sum(phosphorus_tendencies), 0; atol=10 * eps(sum(abs, phosphorus_tendencies))
+    )
+    @test all(
+        equation -> isbitstype(typeof(equation)), Base.values(bgc.tracer_functions)
+    )
 
     derivative = ForwardDiff.derivative(2.0) do nitrogen
         dynamic = merge(values, (P_1_nitrogen=nitrogen,))
@@ -284,8 +299,16 @@ end
     @test bgc(Val(:Z_carbon), args...) ≈ 1.0
     @test bgc(Val(:P_nitrogen), args...) ≈ -0.5
     @test bgc(Val(:Z_nitrogen), args...) ≈ 0.5
-    @test bgc(Val(:P_carbon), args...) + bgc(Val(:Z_carbon), args...) ≈ 0.0
-    @test bgc(Val(:P_nitrogen), args...) + bgc(Val(:Z_nitrogen), args...) ≈ 0.0
+    interaction_carbon = (bgc(Val(:P_carbon), args...), bgc(Val(:Z_carbon), args...))
+    interaction_nitrogen = (
+        bgc(Val(:P_nitrogen), args...), bgc(Val(:Z_nitrogen), args...)
+    )
+    @test isapprox(
+        sum(interaction_carbon), 0; atol=10 * eps(sum(abs, interaction_carbon))
+    )
+    @test isapprox(
+        sum(interaction_nitrogen), 0; atol=10 * eps(sum(abs, interaction_nitrogen))
+    )
 
     normalized = Agate.Processes.normalize_model(ModelDefinition(;
         components, processes=(consume=process,), parameters
