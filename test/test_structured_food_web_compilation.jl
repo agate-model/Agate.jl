@@ -8,7 +8,7 @@ using Agate.Construction: construct, define_tracer_functions
 using Agate.Parameters:
     ParameterProvision, ParameterDefinition, NoDefault
 using Agate.Processes:
-    ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, Grazing,
+    ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, ProductRouting,
     normalize_model, participants, driver_identities
 
 function food_web_parameters()
@@ -78,16 +78,16 @@ function food_web_compilation(::Type{T}=Float64) where {T<:Real}
         ),
         consume_POM=Consumption(
             :heterotrophic;
-            consumer=:B,
-            resource=:POM,
-            unassimilated_destination=:D,
+            consumers=:B,
+            resources=:POM,
             factors=(temperature=temperature,),
+            routing=ProductRouting(:direct; destination=:D),
         ),
-        grazing_living=Grazing(
+        grazing_living=Consumption(
             :preferential;
             consumers=(:M, :Z),
             resources=(:P, :B),
-            unassimilated_destination=:D,
+            routing=ProductRouting(:direct; destination=:D),
         ),
     )
     normalized = normalize_model(ModelDefinition(;
@@ -216,9 +216,9 @@ end
     processes = (
         consume_POM=Consumption(
             :heterotrophic;
-            consumer=:B,
-            resource=:POM,
-            unassimilated_destination=:N,
+            consumers=:B,
+            resources=:POM,
+            routing=ProductRouting(:direct; destination=:N),
         ),
     )
     parameters = (

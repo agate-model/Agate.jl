@@ -29,36 +29,39 @@ default_components(::NiPiZDFamily) = NIPIZD_COMPONENTS
 
 const NIPIZD_PROCESSES = (
     growth_P=Growth(;
-        population=:P,
+        populations=:P,
         factors=(
             light=Light(:smith; driver=:PAR),
             nutrients=NutrientResponse(:monod; resource=:N),
         ),
     ),
     grazing_Z_on_P=Consumption(
-        :idealized; consumer=:Z, resource=:P, unassimilated_destination=:D
+        :idealized;
+        consumers=:Z,
+        resources=:P,
+        routing=ProductRouting(:direct; destination=:D),
     ),
     linear_mortality_P_to_N=Mortality(
         :linear;
-        population=:P,
+        populations=:P,
         routing=ProductRouting(:direct; destination=:N),
     ),
     linear_mortality_P_to_D=Mortality(
         :linear;
-        population=:P,
+        populations=:P,
         routing=ProductRouting(:direct; destination=:D),
     ),
     linear_mortality_Z_to_N=Mortality(
         :linear;
-        population=:Z,
+        populations=:Z,
         routing=ProductRouting(:direct; destination=:N),
     ),
     quadratic_mortality_Z_to_D=Mortality(
         :quadratic;
-        population=:Z,
+        populations=:Z,
         routing=ProductRouting(:direct; destination=:D),
     ),
-    remineralization_D=Remineralization(:linear; source=:D, destination=:N),
+    remineralization_D=Remineralization(:linear; sources=:D, destinations=:N),
 )
 
 """Canonical named scientific processes for NiPiZD."""

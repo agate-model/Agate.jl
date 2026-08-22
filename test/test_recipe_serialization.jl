@@ -98,7 +98,7 @@ explicit_json_value(::Any) = false
     @test decoded_manifest.sinking_tracers.D isa Float32
 
     reordered_growth = Growth(;
-        population=:P,
+        populations=:P,
         factors=(
             nutrients=NutrientResponse(:monod; resource=:N),
             light=Light(:smith; driver=:PAR),

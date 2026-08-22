@@ -25,7 +25,7 @@ function multi_nutrient_test_model(grid; nutrient_formulation=:liebig, sharpness
     )
     processes = (
         growth_P=Growth(;
-            population=:P,
+            populations=:P,
             source=:DIC,
             factors=(
                 light=Light(:geider; driver=:PAR),

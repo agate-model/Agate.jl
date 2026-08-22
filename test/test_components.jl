@@ -79,7 +79,7 @@ end
         :P_2_carbon, :P_2_nitrogen, :P_2_phosphorus,
     )
 
-    mortality = Mortality(:linear; population=:P)
+    mortality = Mortality(:linear; populations=:P)
     parameter = ParameterDefinition(
         :mortality_rate,
         NoDefault();
@@ -120,7 +120,7 @@ end
     @test component_indices(layout, :POM) == (3, 4, 5)
     @test component_diameters(layout, :POM) == (0.5f0, 5.0f0, 50.0f0)
 
-    process = Remineralization(:linear; source=:POM, destination=:N)
+    process = Remineralization(:linear; sources=:POM, destinations=:N)
     parameter = ParameterDefinition(
         :pom_remineralization,
         ConstantDefault(0.1);

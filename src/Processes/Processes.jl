@@ -14,7 +14,7 @@ using ..Library.Remineralization: linear_remineralization
 export AbstractProcess, AbstractFormulation, AbstractFactor, AbstractStoichiometry
 export Light, Nutrients, Temperature
 export FixedStoichiometry
-export Growth, NutrientResponse, Consumption, Grazing, Mortality, ProductRouting, Remineralization
+export Growth, NutrientResponse, Consumption, Mortality, ProductRouting, Remineralization
 export ModelDefinition, NormalizedModelDefinition, NamedProcess
 export ParameterSlot, ParameterRequirementIdentity, ParameterRequirement
 export ParameterBinding, ParameterApplicability

@@ -9,7 +9,8 @@ using Agate.Parameters:
     DerivedDefault, ConstantDefault, ParameterDefinition, ParameterProvision
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
-    Grazing, Growth, Light, ModelDefinition, NutrientResponse, normalize_model, participants
+    Consumption, Growth, Light, ModelDefinition, NutrientResponse, ProductRouting,
+    normalize_model, participants
 using Oceananigans.Units: day
 
 nothing #hide
@@ -22,14 +23,17 @@ components = (
 
 processes = (
     growth_M=Growth(;
-        population=:M,
+        populations=:M,
         factors=(
             light=Light(:smith; driver=:PAR),
             nutrients=NutrientResponse(:monod; resource=:N),
         ),
     ),
-    grazing_M=Grazing(
-        :preferential; consumer=:M, resource=:P, unassimilated_destination=:N
+    grazing_M=Consumption(
+        :preferential;
+        consumers=:M,
+        resources=:P,
+        routing=ProductRouting(:direct; destination=:N),
     ),
 )
 

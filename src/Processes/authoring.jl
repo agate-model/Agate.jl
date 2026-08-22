@@ -64,24 +64,14 @@ function formulation_for(::Type{H}, ::Val{F}) where {H,F}
     throw(ArgumentError("unknown formulation :$F for $H"))
 end
 
-function _participant_tuple(role::Symbol, singular, plural)
-    isnothing(singular) == isnothing(plural) && throw(
-        ArgumentError("specify exactly one of `$(role)` or `$(role)s`"),
-    )
-    values = isnothing(singular) ? plural : (singular,)
+function _canonical_participants(role::Symbol, values)
     values isa Symbol && (values = (values,))
-    values isa Tuple || throw(ArgumentError("participant `$(role)s` must be a Symbol or tuple"))
-    isempty(values) && throw(ArgumentError("participant `$(role)s` cannot be empty"))
+    values isa Tuple || throw(ArgumentError("participant `$role` must be a Symbol or tuple"))
+    isempty(values) && throw(ArgumentError("participant `$role` cannot be empty"))
     all(value -> value isa Symbol, values) || throw(
-        ArgumentError("participant `$(role)s` must contain only Symbols"),
+        ArgumentError("participant `$role` must contain only Symbols"),
     )
     return values
-end
-
-function _optional_reference(name::Symbol, value)
-    isnothing(value) && return nothing
-    value isa Symbol || throw(ArgumentError("`$name` must be a Symbol"))
-    return value
 end
 
 """Light-dependent multiplicative factor in a process rate."""
@@ -264,13 +254,12 @@ struct Growth{F<:NamedTuple,S,T} <: AbstractProcess
 end
 
 function Growth(;
-    population=nothing,
-    populations=nothing,
+    populations,
     factors::NamedTuple,
     source=nothing,
     stoichiometry=nothing,
 )
-    population_refs = _participant_tuple(:population, population, populations)
+    population_refs = _canonical_participants(:populations, populations)
     return Growth(population_refs, factors, source, stoichiometry)
 end
 
@@ -289,40 +278,22 @@ formulation_for(::Type{Consumption}, ::Val{:heterotrophic}) = HeterotrophicConsu
 
 function Consumption(
     formulation::Union{IdealizedGrazing,PreferentialGrazing,HeterotrophicConsumption};
-    consumer=nothing,
-    consumers=nothing,
-    resource=nothing,
-    resources=nothing,
-    unassimilated_destination=nothing,
+    consumers,
+    resources,
     factors::NamedTuple=NamedTuple(),
     routing=nothing,
 )
-    consumer_refs = _participant_tuple(:consumer, consumer, consumers)
-    resource_refs = _participant_tuple(:resource, resource, resources)
+    consumer_refs = _canonical_participants(:consumers, consumers)
+    resource_refs = _canonical_participants(:resources, resources)
     canonical = _canonical_factors(factors; allow_empty=true)
-    destination = _optional_reference(:unassimilated_destination, unassimilated_destination)
-    isnothing(destination) || isnothing(routing) || throw(
-        ArgumentError("consumption cannot specify both `unassimilated_destination` and `routing`"),
-    )
     isnothing(routing) || routing isa ProductRouting || throw(
         ArgumentError("consumption `routing` must be a ProductRouting"),
     )
-    isnothing(destination) || (routing = ProductRouting(DirectRouting(); destination=destination))
     return Consumption(formulation, consumer_refs, resource_refs, canonical, routing)
 end
 
 Consumption(formulation::Symbol; kwargs...) =
     Consumption(formulation_for(Consumption, Val(formulation)); kwargs...)
-
-"""Author-facing grazing convenience that immediately returns canonical `Consumption`."""
-function Grazing(formulation::Symbol; kwargs...)
-    formulation in (:idealized, :preferential) || throw(
-        ArgumentError("unknown grazing formulation :$formulation"),
-    )
-    return Consumption(formulation; kwargs...)
-end
-Grazing(formulation::Union{IdealizedGrazing,PreferentialGrazing}; kwargs...) =
-    Consumption(formulation; kwargs...)
 
 """Population mortality process with optional product routing."""
 struct Mortality{F<:AbstractFormulation,R} <: AbstractProcess
@@ -336,11 +307,10 @@ formulation_for(::Type{Mortality}, ::Val{:quadratic}) = QuadraticMortality()
 
 function Mortality(
     formulation::Union{LinearMortality,QuadraticMortality};
-    population=nothing,
-    populations=nothing,
+    populations,
     routing=nothing,
 )
-    population_refs = _participant_tuple(:population, population, populations)
+    population_refs = _canonical_participants(:populations, populations)
     isnothing(routing) || routing isa ProductRouting || throw(
         ArgumentError("mortality `routing` must be a ProductRouting"),
     )
@@ -361,13 +331,11 @@ formulation_for(::Type{Remineralization}, ::Val{:linear}) = LinearRemineralizati
 
 function Remineralization(
     formulation::LinearRemineralization;
-    source=nothing,
-    sources=nothing,
-    destination=nothing,
-    destinations=nothing,
+    sources,
+    destinations,
 )
-    source_refs = _participant_tuple(:source, source, sources)
-    destination_refs = _participant_tuple(:destination, destination, destinations)
+    source_refs = _canonical_participants(:sources, sources)
+    destination_refs = _canonical_participants(:destinations, destinations)
     return Remineralization(formulation, source_refs, destination_refs)
 end
 

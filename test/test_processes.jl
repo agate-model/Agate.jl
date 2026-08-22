@@ -17,7 +17,6 @@ using Agate.Processes:
     Nutrients,
     NutrientResponse,
     FixedStoichiometry,
-    Grazing,
     Consumption,
     Mortality,
     DirectRouting,
@@ -40,13 +39,14 @@ using Agate.Processes:
 @testset "Process authoring and normalization" begin
     @test :Light in names(Agate.Processes)
     @test :FixedStoichiometry in names(Agate.Processes)
+    @test :Grazing ∉ names(Agate.Processes)
     @test :Smith ∉ names(Agate.Processes)
 
     symbolic_light = Light(:smith; driver=:PAR)
     concrete_light = Light(Smith(); driver=:PAR)
     symbolic_response = NutrientResponse(:monod; resource=:N)
     symbolic_growth = Growth(;
-        population=:P,
+        populations=:P,
         factors=(light=symbolic_light, nutrients=symbolic_response),
     )
     @test typeof(formulation(symbolic_light)) === Smith
@@ -63,13 +63,12 @@ using Agate.Processes:
     @test participants(symbolic_growth) == (population=(:P,),)
     @test drivers(symbolic_growth) == (light=:PAR,)
 
-    grazing = Grazing(
+    grazing = Consumption(
         :preferential;
         consumers=:Z,
         resources=(:P, :B),
-        unassimilated_destination=:D,
+        routing=ProductRouting(:direct; destination=:D),
     )
-    @test grazing isa Consumption
     @test participants(grazing) == (consumer=(:Z,), resource=(:P, :B))
     @test formulation(grazing.routing) isa DirectRouting
     @test grazing.routing.retained === :D
@@ -81,10 +80,10 @@ using Agate.Processes:
             ),
             processes=(
                 growth_Z=Growth(;
-                    population=:Z, factors=(light=Light(:smith; driver=:PAR),)
+                    populations=:Z, factors=(light=Light(:smith; driver=:PAR),)
                 ),
                 growth_P=Growth(;
-                    population=:P, factors=(light=Light(:smith; driver=:PAR),)
+                    populations=:P, factors=(light=Light(:smith; driver=:PAR),)
                 ),
             ),
         ),
@@ -94,7 +93,7 @@ using Agate.Processes:
     invalid_growth = ModelDefinition(;
         components=(P=Population(:nitrogen),),
         processes=(growth=Growth(;
-            population=:P,
+            populations=:P,
             factors=(nutrients=NutrientResponse(:monod; resource=:missing),),
         ),),
     )
@@ -106,19 +105,12 @@ using Agate.Processes:
         responses=(nitrogen=NutrientResponse(:monod; resource=:N),),
         sharpness=25,
     )
-    @test_throws ArgumentError Growth(; population=:P, factors=NamedTuple())
+    @test_throws ArgumentError Growth(; populations=:P, factors=NamedTuple())
     @test_throws ArgumentError Growth(;
-        population=:P,
-        populations=(:P,),
-        factors=(light=Light(:smith; driver=:PAR),),
+        populations=(), factors=(light=Light(:smith; driver=:PAR),)
     )
-    @test_throws ArgumentError Grazing(
-        :preferential;
-        consumer=:Z,
-        resource=:P,
-        unassimilated_destination=:D,
-        routing=ProductRouting(:direct; destination=:N),
-    )
+    @test_throws ArgumentError Consumption(:preferential; consumers=(), resources=:P)
+    @test_throws ArgumentError Consumption(:preferential; consumers=:Z, resources=(:P, 1))
 
     redundant_growth_source = ModelDefinition(;
         components=(
@@ -127,7 +119,7 @@ using Agate.Processes:
             D=Pool(:nitrogen),
         ),
         processes=(growth=Growth(;
-            population=:P,
+            populations=:P,
             source=:D,
             factors=(nutrients=NutrientResponse(:monod; resource=:N),),
         ),),
@@ -141,7 +133,7 @@ using Agate.Processes:
             DIN=Pool(:phosphorus),
         ),
         processes=(growth=Growth(;
-            population=:P,
+            populations=:P,
             source=:DIC,
             factors=(
                 light=Light(:geider; driver=:PAR),
@@ -159,7 +151,7 @@ using Agate.Processes:
     bypassed_factor = ModelDefinition(;
         components=(P=Population(:nitrogen), N=Pool(:nitrogen)),
         processes=(growth=Growth(;
-            population=:P,
+            populations=:P,
             factors=(light=Light(Monod(), :PAR), nutrients=NutrientResponse(:monod; resource=:N)),
         ),),
     )
@@ -250,7 +242,7 @@ end
 
     invalid = ModelDefinition(;
         components=default_components(family),
-        processes=(bad=Grazing(:preferential; consumer=:Z, resource=:missing),),
+        processes=(bad=Consumption(:preferential; consumers=:Z, resources=:missing),),
     )
     @test_throws ArgumentError normalize_model(invalid)
 
@@ -296,7 +288,7 @@ end
     components = (P=Population(:nitrogen; size_structure=[1.0]),)
     processes = (
         growth=Growth(;
-            population=:P,
+            populations=:P,
             factors=(
                 light_a=Light(:smith; driver=:PAR),
                 light_b=Light(:smith; driver=:PAR),
@@ -351,7 +343,7 @@ end
         Z=Population(:carbon; size_structure=[10.0]),
     )
     processes = (
-        grazing=Grazing(:preferential; consumer=:Z, resource=:P),
+        grazing=Consumption(:preferential; consumers=:Z, resources=:P),
     )
     parameters = (
         ParameterDefinition(
