@@ -49,6 +49,16 @@ end
 
 Pool(; currency, size_structure=nothing) = Pool(currency; size_structure)
 
+
+"""Reference one named prognostic state carried by a logical population."""
+struct PopulationStateRef
+    population::Symbol
+    state::Symbol
+end
+
+"""Construct a setup-time reference to one population prognostic state."""
+@inline population_state(population::Symbol, state::Symbol) = PopulationStateRef(population, state)
+
 """Return the prognostic state-to-currency mapping for a population."""
 @inline states(component::Population) = component.states
 
@@ -185,6 +195,22 @@ function state_tracers(layout::ComponentLayout, component::Symbol, state::Symbol
     return getproperty(mapping, state)
 end
 
+state_tracers(layout::ComponentLayout, reference::PopulationStateRef) =
+    state_tracers(layout, reference.population, reference.state)
+
+"""Return one concrete tracer for a population state and local ecological class ordinal."""
+function state_tracer(
+    layout::ComponentLayout, reference::PopulationStateRef, class_ordinal::Integer
+)
+    tracers = state_tracers(layout, reference)
+    1 <= class_ordinal <= length(tracers) || throw(
+        ArgumentError(
+            "class ordinal $class_ordinal is out of bounds for population :$(reference.population) state :$(reference.state)",
+        ),
+    )
+    return tracers[Int(class_ordinal)]
+end
+
 """Return concrete tracer positions for one population state."""
 function state_indices(layout::ComponentLayout, component::Symbol, state::Symbol)
     tracers = state_tracers(layout, component, state)
@@ -194,6 +220,9 @@ function state_indices(layout::ComponentLayout, component::Symbol, state::Symbol
     )
     return Tuple(Int(index) for index in indices)
 end
+
+state_indices(layout::ComponentLayout, reference::PopulationStateRef) =
+    state_indices(layout, reference.population, reference.state)
 
 """Return class diameters for one component, or `nothing` for scalar state."""
 component_diameters(layout::ComponentLayout, component::Symbol) =

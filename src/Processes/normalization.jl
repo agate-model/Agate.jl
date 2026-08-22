@@ -303,6 +303,15 @@ function _routing_parameter_nodes(routing::ProductRouting)
     return nodes
 end
 
+function _parameter_nodes(named::NamedProcess)
+    process = named.process
+    nodes = (_parameter_node((), formulation(process)),)
+    for (name, factor) in pairs(factors(process))
+        nodes = (nodes..., _factor_parameter_nodes(name, factor)...)
+    end
+    return nodes
+end
+
 function _parameter_nodes(named::NamedProcess{P}) where {P<:Growth}
     process = named.process
     nodes = ()
@@ -483,6 +492,17 @@ function _routing_component_references(routing::ProductRouting)
     return references
 end
 
+function _process_component_references(process::AbstractProcess)
+    references = ()
+    for values_for_role in values(participants(process)), component in values_for_role
+        references = (references..., component)
+    end
+    for factor in values(factors(process))
+        references = (references..., _factor_component_references(factor)...)
+    end
+    return references
+end
+
 function _process_component_references(process::Growth)
     references = process.populations
     for factor in values(process.factors)
@@ -519,6 +539,8 @@ function _validate_currency_target(
     )
     return nothing
 end
+
+_validate_process_science(::AbstractProcess, ::NamedTuple) = nothing
 
 function _validate_process_science(process::Growth, components::NamedTuple)
     single_resource = any(factor -> factor isa NutrientResponse, values(process.factors))

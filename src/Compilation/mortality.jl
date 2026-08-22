@@ -14,10 +14,11 @@ function _mortality_rate(
     context::CommunityContext,
     population_axis::Int,
     population_index::Int,
+    population_tracer::Symbol,
 )
     axis_positions = (population=_axis_position(population_axis, population_index),)
     operands = (
-        ClassOp{population_index}(),
+        TracerOp{population_tracer}(),
         parameter_operand(rate_binding, context, axis_positions),
     )
     return RateElement(formulation, operands)
@@ -39,7 +40,8 @@ function process_fluxes(
     for population_axis in eachindex(population_tracers)
         population_index = population_indices[population_axis]
         rate = _mortality_rate(
-            formulation(process), slots.rate, context, population_axis, population_index
+            formulation(process), slots.rate, context, population_axis, population_index,
+            population_tracers[population_axis],
         )
         fluxes = (
             fluxes...,

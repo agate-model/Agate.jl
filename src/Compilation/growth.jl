@@ -46,12 +46,13 @@ function _growth_rate(
     context::CommunityContext,
     population_axis::Int,
     population_index::Int,
+    population_tracer::Symbol,
     scale_binding::ParameterBinding,
 )
     axis_positions = (population=_axis_position(population_axis, population_index),)
     rate_factors = _factor_elements(definition, named, layout, context, axis_positions)
     operands = (
-        ClassOp{population_index}(),
+        TracerOp{population_tracer}(),
         parameter_operand(scale_binding, context, axis_positions),
     )
     return RateElement(formulation(named.process), operands; factors=rate_factors)
@@ -132,6 +133,7 @@ function process_fluxes(
             context,
             population_axis,
             population_index,
+            population_tracers[population_axis],
             scale_binding,
         )
         biomass = FluxSpec(

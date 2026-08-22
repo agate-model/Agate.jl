@@ -1,9 +1,6 @@
 """Static setup-time operand that reads a named tracer or auxiliary field."""
 struct TracerOp{S} end
 
-"""Static setup-time operand that reads one flattened plankton class."""
-struct ClassOp{I} end
-
 """Static setup-time operand that reads one scalar parameter."""
 struct ScalarParamOp{S} end
 
@@ -21,13 +18,18 @@ struct ComplementOp{O}
     operand::O
 end
 
+"""Static operand that divides one resolved operand value by another."""
+struct RatioOp{N,D}
+    numerator::N
+    denominator::D
+end
+
 """Static operand that evaluates a tuple of child operands."""
 struct TupleOp{O}
     operands::O
 end
 
 @inline operand_value(::TracerOp{S}, bgc, args) where {S} = getproperty(bgc.tracers, S)(args)
-@inline operand_value(::ClassOp{I}, bgc, args) where {I} = bgc.tracers.plankton(args, I)
 @inline operand_value(::ScalarParamOp{S}, bgc, args) where {S} = getproperty(bgc.parameters, S)
 @inline operand_value(::VecParamOp{S,I}, bgc, args) where {S,I} =
     @inbounds getproperty(bgc.parameters, S)[I]
@@ -39,6 +41,8 @@ end
     value = operand_value(op.operand, bgc, args)
     return one(value) - value
 end
+@inline operand_value(op::RatioOp, bgc, args) =
+    operand_value(op.numerator, bgc, args) / operand_value(op.denominator, bgc, args)
 @inline operand_value(op::TupleOp, bgc, args) = operand_values(op.operands, bgc, args)
 
 @inline operand_values(::Tuple{}, bgc, args) = ()
@@ -233,6 +237,50 @@ function _scalar_component_target(layout::ComponentLayout, component::Symbol)
     return only(tracers)
 end
 
+"""Resolve one explicit population state onto static tracer operands for its ecological classes."""
+function _realize_population_state(
+    named::NamedProcess,
+    reference::PopulationStateRef,
+    layout::ComponentLayout,
+    context::CommunityContext,
+)
+    population = reference.population
+    hasproperty(layout.component_classes, population) || throw(
+        ArgumentError("process :$(named.id) references unrealized population :$population"),
+    )
+    classes = component_classes(layout, population)
+    tracers = Tuple(state_tracer(layout, reference, i) for i in eachindex(classes))
+    indices = Tuple(findfirst(==(class), context.class_symbols) for class in classes)
+    any(isnothing, indices) && throw(
+        ArgumentError(
+            "process :$(named.id) population :$population realizes classes absent from the current runtime community",
+        ),
+    )
+    return tracers, Tuple(Int(index) for index in indices)
+end
+
+"""Resolve one population state read at a global ecological class index to a static tracer operand."""
+function state_operand(
+    layout::ComponentLayout,
+    context::CommunityContext,
+    reference::PopulationStateRef,
+    global_class_index::Integer,
+)
+    1 <= global_class_index <= length(context.class_symbols) || throw(
+        ArgumentError("global ecological class index $global_class_index is out of bounds"),
+    )
+    class = context.class_symbols[Int(global_class_index)]
+    classes = component_classes(layout, reference.population)
+    local_index = findfirst(==(class), classes)
+    isnothing(local_index) && throw(
+        ArgumentError(
+            "ecological class :$class does not belong to population :$(reference.population)",
+        ),
+    )
+    tracer = state_tracer(layout, reference, local_index)
+    return TracerOp{tracer}()
+end
+
 function _realize_population_classes(
     named::NamedProcess,
     populations::Tuple,
@@ -243,10 +291,6 @@ function _realize_population_classes(
     index_values = ()
 
     for population in populations
-        hasproperty(layout.component_classes, population) || throw(
-            ArgumentError("process :$(named.id) references unrealized population :$population"),
-        )
-        classes = component_classes(layout, population)
         state_mapping = component_state_tracers(layout, population)
         state_mapping isa NamedTuple || throw(
             ArgumentError("process :$(named.id) component :$population is not a Population"),
@@ -256,15 +300,10 @@ function _realize_population_classes(
                 "process :$(named.id) requires explicit state selection for multi-state population :$population",
             ),
         )
-        tracers = only(values(state_mapping))
-        indices = Tuple(findfirst(==(class), context.class_symbols) for class in classes)
-        any(isnothing, indices) && throw(
-            ArgumentError(
-                "process :$(named.id) population :$population realizes classes absent from the current runtime community",
-            ),
-        )
+        reference = PopulationStateRef(population, only(keys(state_mapping)))
+        tracers, indices = _realize_population_state(named, reference, layout, context)
         tracer_values = (tracer_values..., tracers...)
-        index_values = (index_values..., Int.(indices)...)
+        index_values = (index_values..., indices...)
     end
 
     return tracer_values, index_values

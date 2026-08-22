@@ -1,7 +1,7 @@
 using ForwardDiff
 
 using Agate.Compilation:
-    TracerOp, ClassOp, VecParamOp, MatParamOp,
+    TracerOp, VecParamOp, MatParamOp,
     ScalarParamOp, ComplementOp, process_fluxes, model_fluxes, group_fluxes,
     compile_tendencies, compile_model_tendencies, weight_sign
 using Agate.Configuration:
@@ -205,7 +205,7 @@ end
     )
     @test fluxes[1].rate.operands == (
         TracerOp{:POM_1}(),
-        ClassOp{2}(),
+        TracerOp{:B_1}(),
         VecParamOp{:maximum_consumption_rate,2}(),
         VecParamOp{:pom_half_saturation,1}(),
     )

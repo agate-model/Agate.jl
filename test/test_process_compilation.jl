@@ -1,6 +1,5 @@
 using Agate.Compilation:
     TracerOp,
-    ClassOp,
     ScalarParamOp,
     VecParamOp,
     InteractionParamOp,
@@ -35,7 +34,7 @@ using Agate.Processes:
         rate = fluxes[1].rate
         @test rate.formulation isa MultiplicativeFactors
         @test rate.operands == (
-            ClassOp{3}(), VecParamOp{:maximum_growth_rate,3}()
+            TracerOp{:P_1}(), VecParamOp{:maximum_growth_rate,3}()
         )
         @test Tuple(typeof(factor.formulation) for factor in rate.factors) == (Smith, Monod)
         @test rate.factors[1].operands == (
@@ -58,8 +57,8 @@ using Agate.Processes:
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes[1:3]) ==
             ((:P_1, -1), (:Z_1, 1), (:D, 1))
         @test fluxes[1].rate.operands == (
-            ClassOp{3}(),
-            ClassOp{1}(),
+            TracerOp{:P_1}(),
+            TracerOp{:Z_1}(),
             VecParamOp{:maximum_predation_rate,1}(),
             VecParamOp{:holling_half_saturation,1}(),
             InteractionParamOp{:palatability,1,1}(),
@@ -95,7 +94,7 @@ using Agate.Processes:
         @test Tuple(
             flux.rate.operands[1] for flux in fluxes if
             flux.process === :linear_mortality_P_to_N && weight_sign(flux.weight) == -1
-        ) == (ClassOp{3}(), ClassOp{4}())
+        ) == (TracerOp{:P_1}(), TracerOp{:P_2}())
         @test fluxes[2].target === :N
         @test isempty(fluxes[2].weight.operands)
         @test map(length, grouped) == (N=4, D=4, Z_1=2, Z_2=2, P_1=2, P_2=2)

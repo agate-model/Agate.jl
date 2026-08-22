@@ -407,8 +407,8 @@ formulation(factor::AbstractFactor) = factor.formulation
 formulation(routing::ProductRouting) = routing.formulation
 
 """Return the named multiplicative factors attached to a process."""
+factors(::AbstractProcess) = NamedTuple()
 factors(process::Union{Growth,Consumption}) = process.factors
-factors(::Union{Mortality,Remineralization}) = NamedTuple()
 
 process_kind(::Growth) = :growth
 process_kind(::Consumption) = :consumption
@@ -460,9 +460,9 @@ function _factor_drivers(process)
     return NamedTuple{Tuple(names)}(Tuple(identities))
 end
 
-drivers(process::Union{Growth,Consumption}) = _factor_drivers(process)
-drivers(::Union{Mortality,Remineralization}) = NamedTuple()
+drivers(process::AbstractProcess) = _factor_drivers(process)
 
+rate_axes(::AbstractProcess) = ()
 rate_axes(::Growth) = (:population,)
 rate_axes(::Consumption) = (:consumer, :resource)
 rate_axes(::Mortality) = (:population,)

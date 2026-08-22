@@ -59,3 +59,22 @@ function resolve_class(layout::ComponentLayout, cref::ClassRef)::Int
     state = only(keys(state_mapping))
     return state_indices(layout, cref.group, state)[cref.i]
 end
+
+
+"""Resolve one explicit population-state `ClassRef` to its physical tracer position."""
+function resolve_state(
+    layout::ComponentLayout, cref::ClassRef, reference::PopulationStateRef
+)::Int
+    cref.group === reference.population || throw(
+        ArgumentError(
+            "ClassRef component :$(cref.group) does not match state reference population :$(reference.population)",
+        ),
+    )
+    indices = state_indices(layout, reference.population, reference.state)
+    1 <= cref.i <= length(indices) || throw(
+        ArgumentError(
+            "Class ordinal $(cref.i) is out of bounds for component $(cref.group) state $(reference.state) (valid 1:$(length(indices))).",
+        ),
+    )
+    return indices[cref.i]
+end

@@ -17,6 +17,7 @@ Agate.Configuration.Pool
 Agate.Configuration.currency
 Agate.Configuration.states
 Agate.Configuration.state_currency
+Agate.Configuration.population_state
 Agate.Configuration.size_structure
 Agate.Configuration.ComponentLayout
 Agate.Configuration.realize_components
@@ -24,6 +25,7 @@ Agate.Configuration.realize_component_groups
 Agate.Configuration.component_classes
 Agate.Configuration.component_state_tracers
 Agate.Configuration.state_tracers
+Agate.Configuration.state_tracer
 ```
 
 ### Processes and factors

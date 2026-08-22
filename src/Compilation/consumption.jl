@@ -55,14 +55,15 @@ function _consumption_rate(
     named::NamedProcess,
     layout::ComponentLayout,
     consumer_index::Int,
+    consumer::Symbol,
     resource::Symbol,
     resource_index::Int,
     context::CommunityContext,
     axis_positions::NamedTuple,
 )
     operands = (
-        ClassOp{resource_index}(),
-        ClassOp{consumer_index}(),
+        TracerOp{resource}(),
+        TracerOp{consumer}(),
         parameter_operand(slots.maximum_rate, context, axis_positions),
         parameter_operand(slots.half_saturation, context, axis_positions),
         parameter_operand(slots.palatability, context, axis_positions),
@@ -78,6 +79,7 @@ function _consumption_rate(
     named::NamedProcess,
     layout::ComponentLayout,
     consumer_index::Int,
+    consumer::Symbol,
     resource::Symbol,
     ::Nothing,
     context::CommunityContext,
@@ -85,7 +87,7 @@ function _consumption_rate(
 )
     operands = (
         TracerOp{resource}(),
-        ClassOp{consumer_index}(),
+        TracerOp{consumer}(),
         parameter_operand(slots.maximum_rate, context, axis_positions),
         parameter_operand(slots.half_saturation, context, axis_positions),
     )
@@ -130,6 +132,7 @@ function process_fluxes(
                 named,
                 layout,
                 consumer_index,
+                consumer,
                 resource,
                 resource_index,
                 context,

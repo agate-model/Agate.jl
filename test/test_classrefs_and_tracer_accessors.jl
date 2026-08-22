@@ -3,8 +3,8 @@ using Test
 
 using Agate.Configuration:
     build_plankton_community, parse_community, DiameterRangeSpecification, Population, Pool,
-    realize_components
-using Agate.Runtime: class, resolve_class, class_count, build_tracer_index, Tracers
+    population_state, realize_components
+using Agate.Runtime: class, resolve_class, resolve_state, class_count, build_tracer_index, Tracers
 using Agate.ModelFamilies: default_components
 
 pool_component_names(family) = Tuple(
@@ -81,6 +81,8 @@ end
     ))
     @test class_count(multistate, :P) == 2
     @test_throws ArgumentError resolve_class(multistate, class(:P, 1))
+    @test resolve_state(multistate, class(:P, 1), population_state(:P, :carbon)) == 1
+    @test resolve_state(multistate, class(:P, 2), population_state(:P, :nitrogen)) == 4
 end
 
 @testset "Diameter input normalization" begin
