@@ -1,82 +1,89 @@
 using Agate
 using Agate.Library.Light: FunctionFieldPAR
-using Agate.Introspection: tracer_names
 using OceanBioME: Biogeochemistry, BoxModelGrid, BoxModel
 using Oceananigans: set!, time_step!
 using Oceananigans.Units: day
 using Test
 
 const NiPiZDReference = Agate.Models.NiPiZD
-const HISTORICAL_NIPIZD_PARAMETERS = (
-    mu=0.6989 / day,
-    nutrient_half_saturation=2.3868,
-    phytoplankton_mortality_to_nutrient=0.066 / day,
-    zooplankton_mortality_to_nutrient=0.0102 / day,
-    phytoplankton_mortality_to_detritus=0.0101 / day,
-    maximum_grazing_rate=2.1522 / day,
-    grazing_half_saturation=0.5573,
-    assimilation_efficiency=0.9116,
-    zooplankton_quadratic_mortality_to_detritus=0.3395 / day,
-    detritus_remineralization=0.1213 / day,
-    photosynthetic_slope=0.1953 / day,
+const NIPIZD_REFERENCE_TRACERS = (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
+const NIPIZD_REFERENCE_INITIAL = (
+    N=7.0,
+    D=0.01,
+    Z_1=0.01,
+    Z_2=0.02,
+    P_1=0.01,
+    P_2=0.1,
 )
+const NIPIZD_REFERENCE_DT = day / 48
+const NIPIZD_REFERENCE_SAVE_EVERY = 12
+const NIPIZD_REFERENCE_RTOL = 1e-12
+const NIPIZD_REFERENCE_ATOL = 1e-14
 
-reference_path = joinpath(@__DIR__, "reference", "nipizd_box_model.csv")
+reference_path = joinpath(
+    @__DIR__, "reference", "nipizd_v0.11.0_production_reference.csv"
+)
 reference_rows = filter(
-    row -> !isempty(row) && !startswith(row, '#') && row != "day,P",
+    row -> !isempty(row) && !startswith(row, '#'),
     readlines(reference_path),
 )
-reference = map(reference_rows) do row
-    fields = split(row, ',')
-    return (day=parse(Int, fields[1]), P=parse(Float64, fields[2]))
+header = Symbol.(split(first(reference_rows), ','))
+reference = map(reference_rows[2:end]) do row
+    values = parse.(Float64, split(row, ','))
+    return NamedTuple{Tuple(header)}(Tuple(values))
 end
 
-function historical_nipizd_bgc()
-    p = HISTORICAL_NIPIZD_PARAMETERS
-    return NiPiZDReference.construct(;
-        size_structure=(
-            phytoplankton=(P=[1.0],),
-            zooplankton=(Z=[1.0],),
-        ),
-        parameters=(
-            detritus_remineralization=p.detritus_remineralization,
-            linear_mortality=(
-                P_1=p.phytoplankton_mortality_to_nutrient,
-                Z_1=p.zooplankton_mortality_to_nutrient,
-            ),
-            linear_detrital_mortality=(P_1=p.phytoplankton_mortality_to_detritus,),
-            quadratic_mortality=(Z_1=p.zooplankton_quadratic_mortality_to_detritus,),
-            maximum_growth_rate=(P_1=p.mu,),
-            nutrient_half_saturation=(P_1=p.nutrient_half_saturation,),
-            alpha=(P_1=p.photosynthetic_slope,),
-            maximum_predation_rate=(Z_1=p.maximum_grazing_rate,),
-            holling_half_saturation=(Z_1=p.grazing_half_saturation,),
-        ),
-        palatability_matrix=[1.0;;],
-        assimilation_matrix=[p.assimilation_efficiency;;],
-    )
-end
-
-@testset "NiPiZD historical scientific trajectory" begin
-    @test [entry.day for entry in reference] == collect(10:10:1000)
+@testset "NiPiZD v0.11 production trajectory" begin
+    @test Tuple(header) == (:time_days, :total_nitrogen, NIPIZD_REFERENCE_TRACERS...)
+    @test [row.time_days for row in reference] == collect(0.0:0.25:60.0)
 
     grid = BoxModelGrid()
-    bgc = historical_nipizd_bgc()
-    @test tracer_names(bgc) == [:N, :D, :Z_1, :P_1]
-
+    bgc = NiPiZDReference.construct()
     bgc_model = Biogeochemistry(
-        bgc; light_attenuation=FunctionFieldPAR(; grid)
+        bgc; light_attenuation=FunctionFieldPAR(; grid, PAR_f=t -> 100.0)
     )
     box_model = BoxModel(; biogeochemistry=bgc_model)
-    set!(box_model; N=7.0, P_1=0.01, Z_1=0.05, D=0.0)
+    set!(box_model; NIPIZD_REFERENCE_INITIAL...)
 
-    for i in 1:1000
-        time_step!(box_model, 1day)
-        i % 10 == 0 || continue
-        P = box_model.fields.P_1.data[1, 1, 1]
-        @test P ≈ reference[i ÷ 10].P rtol=1e-12 atol=0
+    mismatches = NamedTuple[]
+
+    function check_reference_state(row)
+        for tracer in NIPIZD_REFERENCE_TRACERS
+            actual = Float64(getproperty(box_model.fields, tracer).data[1, 1, 1])
+            expected = getproperty(row, tracer)
+            isapprox(
+                actual,
+                expected;
+                rtol=NIPIZD_REFERENCE_RTOL,
+                atol=NIPIZD_REFERENCE_ATOL,
+            ) && continue
+
+            push!(
+                mismatches,
+                (;
+                    time_days=row.time_days,
+                    tracer,
+                    actual,
+                    expected,
+                    absolute_error=abs(actual - expected),
+                ),
+            )
+        end
     end
 
-    total_N = sum(name -> box_model.fields[name].data[1, 1, 1], (:N, :P_1, :Z_1, :D))
-    @test total_N ≈ 7.06 rtol=1e-12 atol=1e-12
+    check_reference_state(reference[1])
+
+    for row in reference[2:end]
+        for _ in 1:NIPIZD_REFERENCE_SAVE_EVERY
+            time_step!(box_model, NIPIZD_REFERENCE_DT)
+        end
+        check_reference_state(row)
+    end
+
+    if !isempty(mismatches)
+        worst = mismatches[argmax(getproperty.(mismatches, :absolute_error))]
+        @info "NiPiZD trajectory mismatch" count=length(mismatches) time_days=worst.time_days tracer=worst.tracer actual=worst.actual expected=worst.expected absolute_error=worst.absolute_error
+    end
+
+    @test isempty(mismatches)
 end

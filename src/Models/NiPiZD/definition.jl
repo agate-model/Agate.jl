@@ -2,8 +2,8 @@ using ...ModelFamilies: AbstractModelFamily
 using ...Configuration: Population, Pool
 using ...Processes:
     Growth, Light, NutrientResponse, Consumption, Mortality, ProductRouting, Remineralization,
-    Smith, Monod, IdealizedGrazing, LinearMortality, QuadraticMortality,
-    LinearRemineralization, DirectRouting
+    Smith, Monod, PreferentialGrazing, LinearMortality, QuadraticMortality,
+    LinearRemineralization, DirectRouting, PartitionRouting
 
 import ...ModelFamilies: default_components, default_processes
 import ...Construction: family_id, registered_family
@@ -42,7 +42,7 @@ const NIPIZD_PROCESSES = (
         ),
     ),
     grazing_Z_on_P=Consumption(
-        IdealizedGrazing();
+        PreferentialGrazing();
         consumers=:Z,
         resources=:P,
         bindings=(
@@ -53,29 +53,38 @@ const NIPIZD_PROCESSES = (
         ),
         routing=ProductRouting(DirectRouting(); destination=:D),
     ),
-    linear_mortality_P_to_N=Mortality(
+    linear_mortality_P=Mortality(
         LinearMortality();
         populations=:P,
         bindings=(rate=:linear_mortality,),
-        routing=ProductRouting(DirectRouting(); destination=:N),
+        routing=ProductRouting(
+            PartitionRouting();
+            retained=:D,
+            exported=:N,
+            bindings=(export_fraction=:mortality_export_fraction,),
+        ),
     ),
-    linear_mortality_P_to_D=Mortality(
-        LinearMortality();
-        populations=:P,
-        bindings=(rate=:linear_detrital_mortality,),
-        routing=ProductRouting(DirectRouting(); destination=:D),
-    ),
-    linear_mortality_Z_to_N=Mortality(
+    linear_mortality_Z=Mortality(
         LinearMortality();
         populations=:Z,
         bindings=(rate=:linear_mortality,),
-        routing=ProductRouting(DirectRouting(); destination=:N),
+        routing=ProductRouting(
+            PartitionRouting();
+            retained=:D,
+            exported=:N,
+            bindings=(export_fraction=:mortality_export_fraction,),
+        ),
     ),
-    quadratic_mortality_Z_to_D=Mortality(
+    quadratic_mortality_Z=Mortality(
         QuadraticMortality();
         populations=:Z,
         bindings=(rate=:quadratic_mortality,),
-        routing=ProductRouting(DirectRouting(); destination=:D),
+        routing=ProductRouting(
+            PartitionRouting();
+            retained=:D,
+            exported=:N,
+            bindings=(export_fraction=:mortality_export_fraction,),
+        ),
     ),
     remineralization_D=Remineralization(
         LinearRemineralization();

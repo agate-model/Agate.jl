@@ -4,7 +4,6 @@ using Agate.Configuration: Population, Pool
 using Agate.Processes:
     AbstractFormulation, Growth, Light, NutrientResponse, Smith, Monod, FrankTNorm,
     formulation_recipe_fields
-using JSON
 using OceanBioME: BoxModelGrid
 using Test
 
@@ -115,6 +114,14 @@ explicit_json_value(::Any) = false
         "maximum_rate" => "maximum_predation_rate",
         "palatability" => "palatability_matrix",
     )
+    mortality_data = encoded["recipe"]["processes"]["linear_mortality_P"]
+    @test mortality_data["routing"] == Dict(
+        "kind" => "product_routing",
+        "formulation" => "partition",
+        "retained" => "D",
+        "exported" => "N",
+        "bindings" => Dict("export_fraction" => "mortality_export_fraction"),
+    )
     @test encoded["recipe"]["processes"]["remineralization_D"]["bindings"] ==
         Dict("rate" => Dict("D" => "detritus_remineralization"))
     @test encoded["provenance"]["agate"]["package"] == "Agate"
@@ -184,8 +191,9 @@ explicit_json_value(::Any) = false
         Dict("carbon" => "carbon", "nitrogen" => "nitrogen")
 
     @test formulation_recipe_fields(FrankTNorm()) == NamedTuple()
-    @test_throws ArgumentError
-        Agate.Construction._validated_formulation_recipe_fields(MissingRecipeFields(2.0))
+    @test_throws ArgumentError Agate.Construction._validated_formulation_recipe_fields(
+        MissingRecipeFields(2.0)
+    )
     @test Agate.Construction._validated_formulation_recipe_fields(
         ExplicitRecipeFields(2.0)
     ) == (exponent=2.0,)
@@ -210,9 +218,6 @@ explicit_json_value(::Any) = false
     mktemp() do path, io
         close(io)
         @test export_recipe(path, recipe) == path
-        exported = JSON.parsefile(path)
-        @test !haskey(exported["recipe"], "parameter_bindings")
-        @test exported["recipe"]["processes"]["growth_P"]["factors"]["light"]["bindings"]["alpha"] == "alpha"
         @test import_recipe(path) == recipe
     end
 

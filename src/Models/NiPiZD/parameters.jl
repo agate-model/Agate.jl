@@ -28,9 +28,8 @@ function parameter_definitions(::NiPiZDFamily)
         detritus_remineralization=Parameter(
             ConstantDefault(detritus_remin),
         ),
-        linear_detrital_mortality=Parameter(
-            DiameterIndexedVectorDefault(0.0101 / 86400; default=0);
-            axes=:plankton,
+        mortality_export_fraction=Parameter(
+            ConstantDefault(0.2),
         ),
         linear_mortality=Parameter(
             DiameterIndexedVectorDefault(8e-7; default=0);

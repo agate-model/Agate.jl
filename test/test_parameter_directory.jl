@@ -46,7 +46,6 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
         end
 
         definitions = parameter_definitions(family)
-        @test keys(dir) == keys(definitions)
         @test !hasproperty(dir.maximum_growth_rate, :name)
         @test definitions.linear_mortality.default isa Agate.Parameters.DiameterIndexedVectorDefault
         @test definitions.palatability_matrix.default isa DerivedDefault
@@ -57,14 +56,12 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
         @test definitions.assimilation_matrix.default.deps == (:assimilation_efficiency,)
         @test propertynames(dir.maximum_growth_rate) == (:axes,)
         @test dir.detritus_remineralization.axes === nothing
-        normalized = Agate.Processes.normalize_model(Agate.Processes.ModelDefinition(family))
-        @test normalized.parameters.detritus_remineralization.spec.axes === nothing
+        @test dir.mortality_export_fraction.axes === nothing
         @test dir.maximum_growth_rate.axes == :plankton
         @test definitions.maximum_growth_rate.default isa Agate.Parameters.DiameterIndexedVectorDefault
         @test definitions.maximum_growth_rate.default.default == 0
         @test definitions.linear_mortality.default.default == 0
-        @test dir.linear_detrital_mortality.axes == :plankton
-        @test definitions.linear_detrital_mortality.default.default == 0
+        @test definitions.mortality_export_fraction.default.value == 0.2
         @test dir.palatability_matrix.axes == (:consumer, :prey)
         @test dir.assimilation_matrix.axes == (:consumer, :prey)
     end

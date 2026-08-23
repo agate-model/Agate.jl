@@ -54,22 +54,19 @@ using Agate.Processes:
     end
 
     @testset "Mortality" begin
-        fluxes = ()
-        for id in (
-            :linear_mortality_P_to_N,
-            :linear_mortality_P_to_D,
-            :linear_mortality_Z_to_N,
-            :quadratic_mortality_Z_to_D,
+        process = normalized.processes.linear_mortality_P
+        fluxes = process_fluxes(process, normalized, layout, context)
+
+        @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) == (
+            (:P_1, -1), (:D, 1), (:N, 1),
+            (:P_2, -1), (:D, 1), (:N, 1),
         )
-            process = getproperty(normalized.processes, id)
-            fluxes = (fluxes..., process_fluxes(process, normalized, layout, context)...)
-        end
-        @test Tuple(
-            flux.rate.operands[1] for flux in fluxes if
-            flux.process === :linear_mortality_P_to_N && weight_sign(flux.weight) == -1
-        ) == (TracerOp{:P_1}(), TracerOp{:P_2}())
-        @test fluxes[2].target === :N
-        @test isempty(fluxes[2].weight.operands)
+        @test Tuple(flux.rate.operands[1] for flux in fluxes if weight_sign(flux.weight) == -1) ==
+            (TracerOp{:P_1}(), TracerOp{:P_2}())
+        @test fluxes[2].weight.operands ==
+            (ComplementOp(ScalarParamOp{:mortality_export_fraction}()),)
+        @test fluxes[3].weight.operands ==
+            (ScalarParamOp{:mortality_export_fraction}(),)
     end
 
     @testset "Remineralization" begin

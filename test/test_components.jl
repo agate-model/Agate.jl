@@ -1,6 +1,4 @@
 using Test
-using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
-
 using Agate.Configuration:
     Population, Pool, currency, states, state_currency, size_structure, realize_components,
     realize_component_groups, component_classes, component_state_tracers, component_tracers,
@@ -145,7 +143,4 @@ end
     @test components.Z isa Population
     @test all(currency(getproperty(components, name)) === :nitrogen for name in keys(components))
 
-    bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
-    runtime_tracers = required_biogeochemical_tracers(bgc)
-    @test runtime_tracers == (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
 end

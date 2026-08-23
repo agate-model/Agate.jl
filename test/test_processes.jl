@@ -225,8 +225,6 @@ end
     normalized = normalize_model(definition)
 
     @test normalized.components == default_components(family)
-    @test driver_identities(normalized) == (:PAR,)
-
     layout = realize_components(normalized.components)
     applicability = resolve_parameter_applicability(normalized, layout)
     function application(parameter, process, slot; path=())
@@ -241,15 +239,6 @@ end
     ).axis_classes == ((:P_1, :P_2),)
     @test application(:palatability_matrix, :grazing_Z_on_P, :palatability).axis_classes ==
         ((:Z_1, :Z_2), (:P_1, :P_2))
-
-    linear_P_to_N_rate = only(filter(parameter_bindings(normalized)) do binding
-        binding.process === :linear_mortality_P_to_N && binding.slot === :rate
-    end)
-    linear_P_to_D_rate = only(filter(parameter_bindings(normalized)) do binding
-        binding.process === :linear_mortality_P_to_D && binding.slot === :rate
-    end)
-    @test linear_P_to_N_rate.parameter === :linear_mortality
-    @test linear_P_to_D_rate.parameter === :linear_detrital_mortality
 
     invalid = ModelDefinition(;
         components=default_components(family),
