@@ -12,8 +12,8 @@ using ..Processes:
     ModelDefinition, normalize_model, parameter_bindings, process_id, process_kind, factor_kind, formulation,
     formulation_tag, formulation_recipe_fields, factors, factor_inputs, factor_children,
     factor_child_path, participants, drivers, rate_axes,
-    process_routing, process_products, product_path, product_recipe_key, process_stoichiometry,
-    Growth, Nutrients, Products, ProductRouting,
+    process_products, product_path, product_recipe_key, process_stoichiometry,
+    Growth, Nutrients, Products,
     FixedStoichiometry
 
 using ..Library.Allometry:
@@ -22,7 +22,7 @@ using ..Library.Allometry:
     allometric_relationship_identifier,
     allometric_relationship_from_identifier
 
-const PROCESS_MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.7"
+const PROCESS_MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.8"
 const _RECIPE_DOCUMENT_KEYS = ("schema", "model", "provenance", "recipe", "recipe_hash")
 const _RECIPE_MODEL_KEYS = ("family",)
 const _SUPPORTED_SPLITTING = (:linear_splitting, :log_splitting)
@@ -478,29 +478,20 @@ function _stoichiometry_recipe_data(
 end
 
 function _products_recipe_data(
-    products::Products, _normalized, _process::Symbol, _path::Tuple
+    products::Products, normalized, process::Symbol, path::Tuple
 )
-    if length(products.targets) == 1
+    if length(products.targets) == 1 && only(values(products.targets)) isa Symbol
         return String(only(values(products.targets)))
     end
-    return Dict{String,Any}(
+    data = Dict{String,Any}(
         "targets" => _recipe_science_value(products.targets),
         "fractions" => _recipe_science_value(products.fractions),
     )
-end
-
-function _routing_recipe_data(
-    routing::ProductRouting, normalized, process::Symbol
-)
-    data = Dict{String,Any}(
-        "kind" => "product_routing",
-        "formulation" => String(formulation_tag(formulation(routing))),
-        "pools" => _recipe_science_value(routing.pools),
-        "stoichiometry" => _stoichiometry_recipe_data(
-            routing.stoichiometry, normalized, process, (:routing, :stoichiometry)
-        ),
-    )
-    _attach_node_bindings!(data, normalized, process, (:routing,))
+    if !isnothing(products.stoichiometry)
+        data["stoichiometry"] = _stoichiometry_recipe_data(
+            products.stoichiometry, normalized, process, (path..., :stoichiometry)
+        )
+    end
     return data
 end
 
@@ -549,11 +540,6 @@ function _process_recipe_data(named, normalized)
         path = product_path(process)
         data[String(product_recipe_key(process))] = _products_recipe_data(
             products, normalized, process_name, path
-        )
-    else
-        routing = process_routing(process)
-        isnothing(routing) || (
-            data["routing"] = _routing_recipe_data(routing, normalized, process_name)
         )
     end
     return data

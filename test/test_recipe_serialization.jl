@@ -53,7 +53,7 @@ explicit_json_value(::Any) = false
     _, default_recipe = NiPiZD.construct_plus_recipe()
     default_encoded = encode_recipe(default_recipe)
     @test decode_recipe(default_encoded) == default_recipe
-    @test default_encoded["schema"] == "agate.model_recipe.v0.7"
+    @test default_encoded["schema"] == "agate.model_recipe.v0.8"
 
     bgc, recipe = NiPiZD.construct_plus_recipe(; authored_nipizd_inputs(Float32)...)
     manifest = nipizd_manifest(recipe; scalar_type=Float32)

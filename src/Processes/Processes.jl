@@ -15,10 +15,9 @@ export AbstractProcess, AbstractFormulation, AbstractFactor, AbstractStoichiomet
 export Smith, Geider, Monod, Liebig, FrankTNorm, Q10
 export IdealizedGrazing, PreferentialGrazing, HeterotrophicConsumption
 export LinearMortality, QuadraticMortality, LinearRemineralization
-export DOMPOMRouting
 export Light, Nutrients, Temperature
 export FixedStoichiometry
-export Growth, NutrientResponse, Consumption, Mortality, Products, ProductRouting, Remineralization
+export Growth, NutrientResponse, Consumption, Mortality, Products, Remineralization
 export ModelDefinition, NormalizedModelDefinition, NamedProcess
 export ParameterSlot
 export ParameterBinding, ParameterApplicability

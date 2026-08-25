@@ -53,10 +53,8 @@ function process_fluxes(
                     process_id(named), population_tracers[population_axis], rate, Weight{-1}()
                 ),
             )
-            if process.routing isa Products
-                append!(fluxes, _product_fluxes(named, definition, process.routing, layout, rate))
-            elseif !isnothing(process.routing)
-                append!(fluxes, _routing_fluxes(named, definition, process.routing, layout, rate))
+            if process.products isa Products
+                append!(fluxes, _product_fluxes(named, definition, process.products, layout, rate))
             end
         end
     end

@@ -53,7 +53,7 @@ Components describe structure rather than ecological role. A `Population` owns e
 
 A mixotroph is an ordinary population participating in both growth and living-prey consumption. `Consumption` is the single consumer-resource process for living prey, bacterivory, mixotrophy, and material-pool consumption. Process products are expressed directly through `products=` or `unassimilated_products=`. `Products` provides conservative named allocation when one process flux has multiple destinations. Collection-valued participant roles use plural keywords such as `populations=`, `consumers=`, `resources=`, `sources=`, and `destinations=`; each accepts either one `Symbol` or a tuple and is canonicalized to a tuple during authoring. Bacterioplankton may consume POM and be consumed as living prey through the same consumer-resource machinery. Structured material pools use the same component-layout machinery as structured populations.
 
-Named factors are multiplicative within a process, while independent named processes add through their fluxes to a tracer equation. Products and stoichiometry map process rates into affected material and currency pools.
+Named factors are multiplicative within a process, while independent named processes add through their fluxes to a tracer equation. Products and stoichiometry map process rates into affected material and currency pools. A product may target one pool directly or a currency-to-pool mapping under `FixedStoichiometry`, so multi-currency products use the same allocation machinery as single-currency products.
 
 ## Source tree
 

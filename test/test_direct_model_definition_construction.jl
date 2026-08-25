@@ -6,8 +6,8 @@ using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Populatio
 using Agate.Construction: construct
 using Agate.Parameters: DerivedDefault, ConstantDefault, Parameter
 using Agate.Processes:
-    Consumption, Growth, Light, LinearMortality, ModelDefinition, Mortality, NutrientResponse,
-    Products, Smith, Monod, PreferentialGrazing
+    Consumption, FixedStoichiometry, Growth, Light, LinearMortality, ModelDefinition, Mortality,
+    NutrientResponse, Products, Smith, Monod, PreferentialGrazing
 
 function direct_npz_definition()
     components = (
@@ -158,4 +158,48 @@ end
         grid=dummy_grid(Float64),
         parameter_overrides=(fraction_b=0.5,),
     )
+end
+
+@testset "Multi-currency products" begin
+    components = (
+        P=Population(:carbon; size_structure=[1.0]),
+        DOC=Pool(:carbon),
+        POC=Pool(:carbon),
+        DON=Pool(:nitrogen),
+        PON=Pool(:nitrogen),
+    )
+    stoichiometry = FixedStoichiometry(;
+        reference=:carbon,
+        bindings=(ratio=(nitrogen=:nitrogen_to_carbon,),),
+    )
+    processes = (
+        mortality_P=Mortality(
+            LinearMortality();
+            populations=:P,
+            bindings=(rate=:linear_mortality,),
+            products=Products(
+                (
+                    DOM=(carbon=:DOC, nitrogen=:DON),
+                    POM=(carbon=:POC, nitrogen=:PON),
+                );
+                fractions=(POM=:POM_fraction,),
+                stoichiometry,
+            ),
+        ),
+    )
+    parameters = (
+        linear_mortality=Parameter(ConstantDefault(1e-6); axes=:plankton),
+        POM_fraction=Parameter(ConstantDefault(0.25)),
+        nitrogen_to_carbon=Parameter(ConstantDefault(0.2)),
+    )
+    bgc = construct(ModelDefinition(; components, processes, parameters); grid=dummy_grid(Float64))
+
+    tracers = required_biogeochemical_tracers(bgc)
+    state = Dict(:DOC => 0.0, :POC => 0.0, :DON => 0.0, :PON => 0.0, :P_1 => 1.0)
+    args = (0.0, 0.0, 0.0, 0.0, (state[tracer] for tracer in tracers)...)
+    tendency = NamedTuple{tracers}(Tuple(bgc(Val(tracer), args...) for tracer in tracers))
+
+    actual = (tendency.DOC, tendency.POC, tendency.DON, tendency.PON, tendency.P_1)
+    expected = (0.75e-6, 0.25e-6, (0.75 * 0.2) * 1e-6, (0.25 * 0.2) * 1e-6, -1e-6)
+    @test all(process_compiler_isapprox.(actual, expected))
 end

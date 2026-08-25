@@ -23,7 +23,6 @@ struct HeterotrophicConsumption <: AbstractFormulation end
 struct LinearMortality <: AbstractFormulation end
 struct QuadraticMortality <: AbstractFormulation end
 struct LinearRemineralization <: AbstractFormulation end
-struct DOMPOMRouting <: AbstractFormulation end
 
 abstract type AbstractStoichiometry end
 
@@ -91,7 +90,6 @@ formulation_tag(::HeterotrophicConsumption) = :heterotrophic
 formulation_tag(::LinearMortality) = :linear
 formulation_tag(::QuadraticMortality) = :quadratic
 formulation_tag(::LinearRemineralization) = :linear
-formulation_tag(::DOMPOMRouting) = :dom_pom
 formulation_tag(::FixedStoichiometry) = :fixed
 
 """Return explicit scientific state carried by a formulation for recipe serialization.
@@ -226,76 +224,72 @@ factor_parameter_context(factor::NutrientResponse) = (resource=factor.resource,)
 factor_child_path(path::Tuple, ::AbstractFactor, name::Symbol) = (path..., name)
 factor_child_path(path::Tuple, ::Nutrients, name::Symbol) = (path..., :responses, name)
 
-"""Legacy DOM/POM product allocation retained until DARWIN migrates to `Products`."""
-struct ProductRouting{F<:DOMPOMRouting,P,S}
-    formulation::F
-    pools::P
-    stoichiometry::S
-    bindings::NamedTuple
-end
-
-function ProductRouting(
-    formulation::DOMPOMRouting;
-    pools::NamedTuple,
-    stoichiometry::FixedStoichiometry,
-    bindings::NamedTuple=NamedTuple(),
-)
-    keys(pools) == (:DOM, :POM) || throw(
-        ArgumentError("DOM/POM routing `pools` must have exactly the keys (:DOM, :POM)"),
-    )
-    dom = pools.DOM
-    pom = pools.POM
-    dom isa NamedTuple && pom isa NamedTuple || throw(
-        ArgumentError("DOM/POM routing pools must be named currency-to-component mappings"),
-    )
-    keys(dom) == keys(pom) || throw(
-        ArgumentError("DOM and POM routing pools must declare the same currencies"),
-    )
-    stoichiometry.reference in keys(dom) || throw(
-        ArgumentError(
-            "routing pools must include stoichiometric reference currency :$(stoichiometry.reference)"
-        ),
-    )
-    valid_targets = all(value -> value isa Symbol, values(dom)) &&
-                    all(value -> value isa Symbol, values(pom))
-    valid_targets || throw(
-        ArgumentError("DOM/POM routing pool targets must be component Symbols"),
-    )
-    return ProductRouting(
-        formulation, pools, stoichiometry, _canonical_bindings(bindings)
-    )
-end
-
-authored_parameter_bindings(routing::ProductRouting) = routing.bindings
-
 """Conservative allocation of one process product flux among named destinations.
 
-For `N` destinations, specify either `N - 1` named fractions or all `N` fractions.
-One product weight is always computed conservatively as `1 - sum(other fractions)`.
-When one fraction is omitted, that product is the conservative balance. When all
-fractions are supplied, one product is deterministically used as the conservative
-closure; its supplied fraction is a consistency constraint rather than an independent
-runtime weight. A single destination requires no fractions.
+Each product target may be either one component Symbol or a named currency-to-component
+mapping. Multi-currency products require `FixedStoichiometry`; every product then declares
+the same currencies and the stoichiometric reference currency must be present.
+
+For `N` products, specify either `N - 1` named fractions or all `N` fractions. One product
+weight is always computed conservatively as `1 - sum(other fractions)`. When one fraction
+is omitted, that product is the conservative balance. When all fractions are supplied, one
+product is deterministically used as the conservative closure; its supplied fraction is a
+consistency constraint rather than an independent runtime weight. A single product requires
+no fractions.
 """
-struct Products{T,F,B}
+struct Products{T,F,B,S}
     targets::T
     fractions::F
     balanced::B
+    stoichiometry::S
+end
+
+function _canonical_product_target(target)
+    target isa Symbol && return target
+    target isa NamedTuple || throw(
+        ArgumentError("product targets must be component Symbols or currency-to-component mappings"),
+    )
+    isempty(target) && throw(ArgumentError("multi-currency product targets cannot be empty"))
+    all(component -> component isa Symbol, values(target)) || throw(
+        ArgumentError("multi-currency product targets must map currencies to component Symbols"),
+    )
+    names = sort!(collect(keys(target)); by=String)
+    return NamedTuple{Tuple(names)}(Tuple(getproperty(target, name) for name in names))
 end
 
 function Products(
     targets::NamedTuple;
     fractions::NamedTuple=NamedTuple(),
+    stoichiometry=nothing,
 )
     isempty(targets) && throw(ArgumentError("products `targets` cannot be empty"))
-    all(target -> target isa Symbol, values(targets)) || throw(
-        ArgumentError("product targets must be component Symbols"),
-    )
 
     target_names = sort!(collect(keys(targets)); by=String)
-    canonical_targets = NamedTuple{Tuple(target_names)}(
-        Tuple(getproperty(targets, name) for name in target_names)
+    canonical_target_values = Tuple(
+        _canonical_product_target(getproperty(targets, name)) for name in target_names
     )
+    canonical_targets = NamedTuple{Tuple(target_names)}(canonical_target_values)
+
+    nested = first(canonical_target_values) isa NamedTuple
+    all(target -> (target isa NamedTuple) == nested, canonical_target_values) || throw(
+        ArgumentError("product targets cannot mix scalar and multi-currency destinations"),
+    )
+    if nested
+        stoichiometry isa FixedStoichiometry || throw(
+            ArgumentError("multi-currency products require FixedStoichiometry"),
+        )
+        currencies = keys(first(canonical_target_values))
+        all(target -> keys(target) == currencies, canonical_target_values) || throw(
+            ArgumentError("multi-currency products must declare the same currencies"),
+        )
+        stoichiometry.reference in currencies || throw(
+            ArgumentError(
+                "multi-currency products must include stoichiometric reference currency :$(stoichiometry.reference)"
+            ),
+        )
+    elseif !isnothing(stoichiometry)
+        throw(ArgumentError("scalar product targets do not take stoichiometry"))
+    end
 
     fraction_names = sort!(collect(keys(fractions)); by=String)
     all(name -> name in keys(canonical_targets), fraction_names) || throw(
@@ -312,7 +306,7 @@ function Products(
     nfractions = length(canonical_fractions)
     if nproducts == 1
         nfractions == 0 || throw(
-            ArgumentError("single-destination products do not take fractions"),
+            ArgumentError("single-product allocations do not take fractions"),
         )
         balanced = only(keys(canonical_targets))
     elseif nfractions == nproducts - 1
@@ -329,7 +323,7 @@ function Products(
         ))
     end
 
-    return Products(canonical_targets, canonical_fractions, balanced)
+    return Products(canonical_targets, canonical_fractions, balanced, stoichiometry)
 end
 
 Products(destination::Symbol) = Products((product=destination,))
@@ -382,12 +376,12 @@ function Growth(;
 end
 
 """Canonical consumer-resource process with optional factors and unassimilated products."""
-struct Consumption{F<:AbstractFormulation,A<:NamedTuple,R} <: AbstractProcess
+struct Consumption{F<:AbstractFormulation,A<:NamedTuple,P} <: AbstractProcess
     formulation::F
     consumers::Tuple
     resources::Tuple
     factors::A
-    routing::R
+    products::P
     bindings::NamedTuple
 end
 
@@ -397,19 +391,12 @@ function Consumption(
     resources,
     factors::NamedTuple=NamedTuple(),
     unassimilated_products=nothing,
-    routing=nothing,
     bindings::NamedTuple=NamedTuple(),
 )
     consumer_refs = _canonical_participants(:consumers, consumers)
     resource_refs = _canonical_participants(:resources, resources)
     canonical = _canonical_factors(factors; allow_empty=true)
-    !isnothing(unassimilated_products) && !isnothing(routing) && throw(
-        ArgumentError("specify `unassimilated_products` or legacy `routing`, not both"),
-    )
-    products = isnothing(unassimilated_products) ? routing : _canonical_products(unassimilated_products)
-    isnothing(products) || products isa Union{Products,ProductRouting} || throw(
-        ArgumentError("consumption products must be a component Symbol or Products"),
-    )
+    products = _canonical_products(unassimilated_products)
     return Consumption(
         formulation, consumer_refs, resource_refs, canonical, products, _canonical_bindings(bindings)
     )
@@ -418,10 +405,10 @@ end
 authored_parameter_bindings(process::Consumption) = process.bindings
 
 """Population mortality process with optional products."""
-struct Mortality{F<:AbstractFormulation,R} <: AbstractProcess
+struct Mortality{F<:AbstractFormulation,P} <: AbstractProcess
     formulation::F
     populations::Tuple
-    routing::R
+    products::P
     bindings::NamedTuple
 end
 
@@ -429,17 +416,10 @@ function Mortality(
     formulation::Union{LinearMortality,QuadraticMortality};
     populations,
     products=nothing,
-    routing=nothing,
     bindings::NamedTuple=NamedTuple(),
 )
     population_refs = _canonical_participants(:populations, populations)
-    !isnothing(products) && !isnothing(routing) && throw(
-        ArgumentError("specify `products` or legacy `routing`, not both"),
-    )
-    product_spec = isnothing(products) ? routing : _canonical_products(products)
-    isnothing(product_spec) || product_spec isa Union{Products,ProductRouting} || throw(
-        ArgumentError("mortality products must be a component Symbol or Products"),
-    )
+    product_spec = _canonical_products(products)
     return Mortality(
         formulation, population_refs, product_spec, _canonical_bindings(bindings)
     )
@@ -473,19 +453,13 @@ authored_parameter_bindings(process::Remineralization) = process.bindings
 formulation(::Growth) = MultiplicativeFactors()
 formulation(process::AbstractProcess) = process.formulation
 formulation(factor::AbstractFactor) = factor.formulation
-formulation(routing::ProductRouting) = routing.formulation
 
 """Return the named multiplicative factors attached to a process."""
 factors(::AbstractProcess) = NamedTuple()
 factors(process::Union{Growth,Consumption}) = process.factors
 
-process_routing(::AbstractProcess) = nothing
-process_routing(process::Union{Consumption,Mortality}) =
-    process.routing isa ProductRouting ? process.routing : nothing
-
 process_products(::AbstractProcess) = nothing
-process_products(process::Union{Consumption,Mortality}) =
-    process.routing isa Products ? process.routing : nothing
+process_products(process::Union{Consumption,Mortality}) = process.products
 product_path(::Mortality) = (:products,)
 product_path(::Consumption) = (:unassimilated_products,)
 product_recipe_key(::Mortality) = :products

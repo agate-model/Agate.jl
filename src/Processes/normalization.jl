@@ -104,7 +104,6 @@ parameter_slots(::QuadraticMortality) = (ParameterSlot(:rate, (:population,); qu
 parameter_slots(::LinearRemineralization) = (
     ParameterSlot(:rate; qualify=:source),
 )
-parameter_slots(::DOMPOMRouting) = (ParameterSlot(:POM_fraction),)
 parameter_slots(products::Products) = length(products.targets) == 1 ? () :
     (ParameterSlot(:fraction; qualify=:product),)
 parameter_slots(::FixedStoichiometry) = (ParameterSlot(:ratio; qualify=:currency),)
@@ -204,29 +203,27 @@ end
 _factor_parameter_nodes(name::Symbol, factor::AbstractFactor) =
     _factor_parameter_nodes((:factors, name), factor)
 
-function _routing_parameter_nodes(routing::ProductRouting)
-    nodes = (_parameter_node((:routing,), routing),)
-    reference = routing.stoichiometry.reference
-    for currency in keys(routing.pools.DOM)
-        currency === reference && continue
-        nodes = (
-            nodes...,
-            _parameter_node(
-                (:routing, :stoichiometry),
-                routing.stoichiometry;
-                context=(currency=currency,),
-            ),
-        )
-    end
-    return nodes
-end
-
 function _products_parameter_nodes(path::Tuple, products::Products)
-    isempty(products.fractions) && return ()
-    return Tuple(
+    nodes = Any[
         _parameter_node(path, products; context=(product=name,))
         for name in keys(products.fractions)
-    )
+    ]
+    stoichiometry = products.stoichiometry
+    if !isnothing(stoichiometry)
+        currencies = keys(first(values(products.targets)))
+        for currency in currencies
+            currency === stoichiometry.reference && continue
+            push!(
+                nodes,
+                _parameter_node(
+                    (path..., :stoichiometry),
+                    stoichiometry;
+                    context=(currency=currency,),
+                ),
+            )
+        end
+    end
+    return Tuple(nodes)
 end
 
 _process_parameter_nodes(process::AbstractProcess) =
@@ -265,8 +262,6 @@ function _parameter_nodes(named::NamedProcess)
     for (name, factor) in pairs(factors(process))
         append!(nodes, _factor_parameter_nodes(name, factor))
     end
-    routing = process_routing(process)
-    isnothing(routing) || append!(nodes, _routing_parameter_nodes(routing))
     products = process_products(process)
     isnothing(products) || append!(nodes, _products_parameter_nodes(product_path(process), products))
     append!(nodes, _stoichiometry_parameter_nodes(process))
@@ -347,15 +342,17 @@ function _factor_component_references(factor::AbstractFactor)
     return Tuple(references)
 end
 
-function _routing_component_references(routing::ProductRouting)
+function _product_component_references(products::Products)
     references = Symbol[]
-    for pool in values(routing.pools), component in values(pool)
-        push!(references, component)
+    for target in values(products.targets)
+        if target isa Symbol
+            push!(references, target)
+        else
+            append!(references, values(target))
+        end
     end
     return Tuple(references)
 end
-
-_product_component_references(products::Products) = Tuple(values(products.targets))
 
 function _process_component_references(process::AbstractProcess)
     references = Symbol[]
@@ -365,8 +362,6 @@ function _process_component_references(process::AbstractProcess)
     for factor in values(factors(process))
         append!(references, _factor_component_references(factor))
     end
-    routing = process_routing(process)
-    isnothing(routing) || append!(references, _routing_component_references(routing))
     products = process_products(process)
     isnothing(products) || append!(references, _product_component_references(products))
     return Tuple(references)
@@ -424,29 +419,30 @@ function _validate_process_science(process::Growth, components::NamedTuple)
     return nothing
 end
 
-function _validate_routing_science(routing::ProductRouting, components::NamedTuple)
-    for pool in values(routing.pools), (target_currency, component) in pairs(pool)
-        _validate_currency_target(components, component, target_currency, "routing target")
-    end
-    return nothing
-end
-
 function _validate_products_science(
     products::Products, components::NamedTuple, reference::Symbol
 )
-    for target in values(products.targets)
+    stoichiometry = products.stoichiometry
+    if isnothing(stoichiometry)
+        for target in values(products.targets)
+            target isa Symbol || throw(ArgumentError("scalar products require component targets"))
+            getproperty(components, target) isa Pool || throw(
+                ArgumentError("product targets must be Pool components"),
+            )
+            _validate_currency_target(components, target, reference, "product target")
+        end
+        return nothing
+    end
+
+    stoichiometry.reference === reference || throw(ArgumentError(
+        "product stoichiometric reference :$(stoichiometry.reference) does not match process currency :$reference",
+    ))
+    for target_group in values(products.targets), (target_currency, target) in pairs(target_group)
         getproperty(components, target) isa Pool || throw(
             ArgumentError("product targets must be Pool components"),
         )
-        _validate_currency_target(components, target, reference, "product target")
+        _validate_currency_target(components, target, target_currency, "product target")
     end
-    return nothing
-end
-
-function _validate_consumption_routing(
-    routing::ProductRouting, components::NamedTuple, ::Symbol
-)
-    _validate_routing_science(routing, components)
     return nothing
 end
 
@@ -476,11 +472,7 @@ function _validate_process_science(process::Consumption, components::NamedTuple)
     for resource in process.resources
         _validate_currency_target(components, resource, reference, "consumption resource")
     end
-    if process.routing isa Products
-        _validate_products_science(process.routing, components, reference)
-    elseif !isnothing(process.routing)
-        _validate_consumption_routing(process.routing, components, reference)
-    end
+    isnothing(process.products) || _validate_products_science(process.products, components, reference)
     return nothing
 end
 
@@ -488,16 +480,14 @@ function _validate_process_science(process::Mortality, components::NamedTuple)
     formulation(process) isa Union{LinearMortality,QuadraticMortality} || throw(
         ArgumentError("unsupported mortality formulation $(typeof(formulation(process)))"),
     )
-    if process.routing isa Products
+    if !isnothing(process.products)
         references = unique(Tuple(
             currency(getproperty(components, population)) for population in process.populations
         ))
         length(references) == 1 || throw(
             ArgumentError("mortality populations must share one currency when products are declared"),
         )
-        _validate_products_science(process.routing, components, only(references))
-    elseif !isnothing(process.routing)
-        _validate_routing_science(process.routing, components)
+        _validate_products_science(process.products, components, only(references))
     end
     return nothing
 end

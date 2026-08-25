@@ -23,7 +23,6 @@ using ..Processes:
     IdealizedGrazing,
     PreferentialGrazing,
     Products,
-    ProductRouting,
     NormalizedModelDefinition,
     NutrientResponse,
     LinearRemineralization,
@@ -41,7 +40,6 @@ export compile_model_tendencies
 
 include("fluxes.jl")
 include("factors.jl")
-include("routing.jl")
 include("products.jl")
 include("mortality.jl")
 include("growth.jl")
