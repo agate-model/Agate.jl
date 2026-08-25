@@ -329,7 +329,8 @@ function _validate_product_fractions(normalized, resolved_parameters)
         isnothing(products) && continue
         length(products.targets) == 1 && continue
 
-        fraction_values = Tuple(begin
+        fraction_names = keys(products.fractions)
+        fraction_values = NamedTuple{fraction_names}(Tuple(begin
             binding = parameter_slot_bindings(
                 normalized,
                 named,
@@ -345,20 +346,29 @@ function _validate_product_fractions(normalized, resolved_parameters)
                 "product fraction parameter :$(binding.parameter) for process :$(process_id(named)) must lie in [0, 1]; got $value",
             ))
             value
-        end for product in keys(products.fractions))
+        end for product in fraction_names))
 
-        total = sum(fraction_values)
-        if isnothing(products.inferred)
-            tolerance = 100 * (total isa AbstractFloat ? eps(total) : eps(Float64))
-            isapprox(total, one(total); rtol=zero(total), atol=tolerance) || throw(
+        independent_products = Tuple(
+            product for product in keys(products.targets)
+            if product !== products.balanced && hasproperty(fraction_values, product)
+        )
+        independent_values = Tuple(
+            getproperty(fraction_values, product) for product in independent_products
+        )
+        total = sum(independent_values)
+        balance = one(total) - total
+        zero(balance) <= balance <= one(balance) || throw(ArgumentError(
+            "product fractions for process :$(process_id(named)) leave conservative balance $balance for :$(products.balanced); expected a value in [0, 1]",
+        ))
+
+        if hasproperty(fraction_values, products.balanced)
+            supplied = getproperty(fraction_values, products.balanced)
+            tolerance = balance isa AbstractFloat ? 100 * eps(one(balance)) : zero(balance)
+            isapprox(supplied, balance; rtol=zero(balance), atol=tolerance) || throw(
                 ArgumentError(
-                    "explicit product fractions for process :$(process_id(named)) must sum to 1; got $total",
+                    "explicit product fraction for :$(products.balanced) in process :$(process_id(named)) must agree with the conservative balance $balance; got $supplied",
                 ),
             )
-        else
-            total <= one(total) || throw(ArgumentError(
-                "explicit product fractions for process :$(process_id(named)) sum to $total, leaving a negative inferred fraction for :$(products.inferred)",
-            ))
         end
     end
     return nothing

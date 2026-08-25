@@ -15,12 +15,17 @@ function _product_fraction_operand(
     products::Products,
     route::Symbol,
 )
-    hasproperty(products.fractions, route) && return parameter_operand(
-        _product_fraction_binding(definition, named, products, route)
-    )
-    route === products.inferred || return nothing
+    if route !== products.balanced
+        hasproperty(products.fractions, route) || return nothing
+        return parameter_operand(
+            _product_fraction_binding(definition, named, products, route)
+        )
+    end
 
-    explicit_routes = Tuple(keys(products.fractions))
+    explicit_routes = Tuple(
+        name for name in keys(products.targets)
+        if name !== products.balanced && hasproperty(products.fractions, name)
+    )
     isempty(explicit_routes) && return nothing
     operands = Tuple(
         parameter_operand(_product_fraction_binding(definition, named, products, name))

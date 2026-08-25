@@ -271,14 +271,16 @@ authored_parameter_bindings(routing::ProductRouting) = routing.bindings
 """Conservative allocation of one process product flux among named destinations.
 
 For `N` destinations, specify either `N - 1` named fractions or all `N` fractions.
-When one fraction is omitted, that product receives the balance
-`1 - sum(explicit fractions)`. Fully explicit fractions are validated to sum to one
-after parameter values are resolved. A single destination requires no fractions.
+One product weight is always computed conservatively as `1 - sum(other fractions)`.
+When one fraction is omitted, that product is the conservative balance. When all
+fractions are supplied, one product is deterministically used as the conservative
+closure; its supplied fraction is a consistency constraint rather than an independent
+runtime weight. A single destination requires no fractions.
 """
-struct Products{T,F,I}
+struct Products{T,F,B}
     targets::T
     fractions::F
-    inferred::I
+    balanced::B
 end
 
 function Products(
@@ -312,13 +314,13 @@ function Products(
         nfractions == 0 || throw(
             ArgumentError("single-destination products do not take fractions"),
         )
-        inferred = only(keys(canonical_targets))
+        balanced = only(keys(canonical_targets))
     elseif nfractions == nproducts - 1
-        inferred = only(
+        balanced = only(
             name for name in keys(canonical_targets) if !(name in keys(canonical_fractions))
         )
     elseif nfractions == nproducts
-        inferred = nothing
+        balanced = last(keys(canonical_targets))
     else
         throw(ArgumentError(
             "products has $nproducts destinations but $nfractions fractions; specify either " *
@@ -327,7 +329,7 @@ function Products(
         ))
     end
 
-    return Products(canonical_targets, canonical_fractions, inferred)
+    return Products(canonical_targets, canonical_fractions, balanced)
 end
 
 Products(destination::Symbol) = Products((product=destination,))

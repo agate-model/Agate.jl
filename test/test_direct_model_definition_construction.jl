@@ -142,14 +142,17 @@ end
     parameters = (
         linear_mortality=Parameter(ConstantDefault(1e-6); axes=:plankton),
         fraction_a=Parameter(ConstantDefault(0.4)),
-        fraction_b=Parameter(ConstantDefault(0.6)),
+        fraction_b=Parameter(ConstantDefault(nextfloat(0.6))),
     )
     definition = ModelDefinition(; components, processes, parameters)
 
     bgc = construct(definition; grid=dummy_grid(Float64))
     args = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0)
     tendencies = map(tracer -> bgc(Val(tracer), args...), (:A, :B, :P_1))
-    @test all(isapprox.(tendencies, (4e-7, 6e-7, -1e-6)))
+    conservative_b = (1.0 - 0.4) * 1e-6
+    @test tendencies[2] == conservative_b
+    @test tendencies[2] != nextfloat(0.6) * 1e-6
+    @test isapprox(sum(tendencies), 0; atol=10 * eps(sum(abs, tendencies)))
     @test_throws ArgumentError construct(
         definition;
         grid=dummy_grid(Float64),
