@@ -1,8 +1,7 @@
 function _routing_fraction_binding(
     definition::NormalizedModelDefinition, named::NamedProcess, routing::ProductRouting
 )
-    slots = parameter_slot_bindings(definition, named, (:routing,), routing)
-    return routing.formulation isa PartitionRouting ? slots.export_fraction : slots.POM_fraction
+    return parameter_slot_bindings(definition, named, (:routing,), routing).POM_fraction
 end
 
 function _routing_ratio_binding(
@@ -21,11 +20,11 @@ function _routing_ratio_binding(
     ).ratio
 end
 
-function _fraction_operand(binding::ParameterBinding, route::Symbol)
+function _routing_fraction_operand(binding::ParameterBinding, route::Symbol)
     operand = parameter_operand(binding)
-    route in (:retained, :DOM) && return ComplementOp(operand)
-    route in (:exported, :POM) && return operand
-    throw(ArgumentError("unsupported routing partition :$route"))
+    route === :DOM && return ComplementOp(operand)
+    route === :POM && return operand
+    throw(ArgumentError("unsupported DOM/POM route :$route"))
 end
 
 _ratio_operands(::Nothing) = ()
@@ -37,50 +36,14 @@ function _routing_weight(
     ratio::Union{Nothing,ParameterBinding}=nothing,
     suffix::Tuple=(),
 )
-    operands = (_fraction_operand(fraction, route), _ratio_operands(ratio)..., suffix...)
+    operands = (_routing_fraction_operand(fraction, route), _ratio_operands(ratio)..., suffix...)
     return Weight{1}(operands)
 end
 
 function _routing_fluxes(
     named::NamedProcess,
     definition::NormalizedModelDefinition,
-    routing::ProductRouting{DirectRouting},
-    layout::ComponentLayout,
-    rate::RateElement;
-    suffix::Tuple=(),
-)
-    target = _scalar_component_target(layout, routing.retained)
-    return (FluxSpec(process_id(named), target, rate, Weight{1}(suffix)),)
-end
-
-function _routing_fluxes(
-    named::NamedProcess,
-    definition::NormalizedModelDefinition,
-    routing::ProductRouting{PartitionRouting},
-    layout::ComponentLayout,
-    rate::RateElement;
-    suffix::Tuple=(),
-)
-    fraction = _routing_fraction_binding(definition, named, routing)
-    retained = FluxSpec(
-        process_id(named),
-        _scalar_component_target(layout, routing.retained),
-        rate,
-        _routing_weight(fraction, :retained; suffix),
-    )
-    exported = FluxSpec(
-        process_id(named),
-        _scalar_component_target(layout, routing.exported),
-        rate,
-        _routing_weight(fraction, :exported; suffix),
-    )
-    return (retained, exported)
-end
-
-function _routing_fluxes(
-    named::NamedProcess,
-    definition::NormalizedModelDefinition,
-    routing::ProductRouting{DOMPOMRouting},
+    routing::ProductRouting,
     layout::ComponentLayout,
     rate::RateElement;
     suffix::Tuple=(),

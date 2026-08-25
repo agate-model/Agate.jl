@@ -60,7 +60,7 @@ Agate.Processes.Temperature
 Agate.Processes.factors
 Agate.Processes.Consumption
 Agate.Processes.Mortality
-Agate.Processes.ProductRouting
+Agate.Processes.Products
 Agate.Processes.FixedStoichiometry
 Agate.Processes.Remineralization
 Agate.Processes.authored_parameter_bindings
@@ -100,7 +100,7 @@ Agate.Compilation.compile_model_tendencies
 
 ## Named families, recipes, and replay
 
-Named model families add stable code identity and durable recipe replay around the same definition-driven process compiler. `ProcessModelRecipe` is the `agate.model_recipe.v0.6` scientific representation for component/process families. `ModelManifest` records the resolved execution state.
+Named model families add stable code identity and durable recipe replay around the same definition-driven process compiler. `ProcessModelRecipe` is the `agate.model_recipe.v0.7` scientific representation for component/process families. `ModelManifest` records the resolved execution state.
 
 ```@docs
 Agate.Construction.ProcessModelRecipe

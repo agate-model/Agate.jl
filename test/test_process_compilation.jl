@@ -4,6 +4,7 @@ using Agate.Compilation:
     VecParamOp,
     MatParamOp,
     ComplementOp,
+    OneMinusSumOp,
     process_fluxes,
     weight_sign
 using Agate.Configuration: realize_components
@@ -67,6 +68,46 @@ using Agate.Processes:
             (ComplementOp(ScalarParamOp{:mortality_export_fraction}()),)
         @test fluxes[3].weight.operands ==
             (ScalarParamOp{:mortality_export_fraction}(),)
+    end
+
+    @testset "Arbitrary product partition" begin
+        components = (
+            P=default_components(family).P,
+            A=Agate.Configuration.Pool(:nitrogen),
+            B=Agate.Configuration.Pool(:nitrogen),
+            R=Agate.Configuration.Pool(:nitrogen),
+        )
+        process = Agate.Processes.Mortality(
+            Agate.Processes.LinearMortality();
+            populations=:P,
+            bindings=(rate=:linear_mortality,),
+            products=Agate.Processes.Products(
+                (a=:A, b=:B, c=:R);
+                fractions=(a=:fraction_a, b=:fraction_b),
+            ),
+        )
+        family_parameters = Agate.Parameters.parameter_definitions(family)
+        parameters = (
+            linear_mortality=family_parameters.linear_mortality,
+            fraction_a=Agate.Parameters.Parameter(Agate.Parameters.ConstantDefault(0.2)),
+            fraction_b=Agate.Parameters.Parameter(Agate.Parameters.ConstantDefault(0.3)),
+        )
+        normalized_partition = normalize_model(ModelDefinition(;
+            components, processes=(partition=process,), parameters,
+        ))
+        fluxes = process_fluxes(
+            normalized_partition.processes.partition,
+            normalized_partition,
+            realize_components(components),
+            context,
+        )
+        products = fluxes[2:4]
+        @test Tuple(flux.target for flux in products) == (:A, :B, :R)
+        @test products[1].weight.operands == (ScalarParamOp{:fraction_a}(),)
+        @test products[2].weight.operands == (ScalarParamOp{:fraction_b}(),)
+        @test products[3].weight.operands == (
+            OneMinusSumOp((ScalarParamOp{:fraction_a}(), ScalarParamOp{:fraction_b}())),
+        )
     end
 
     @testset "Remineralization" begin

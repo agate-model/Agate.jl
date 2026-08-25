@@ -22,12 +22,10 @@ using ..Processes:
     NamedProcess,
     IdealizedGrazing,
     PreferentialGrazing,
+    Products,
     ProductRouting,
-    DOMPOMRouting,
     NormalizedModelDefinition,
     NutrientResponse,
-    DirectRouting,
-    PartitionRouting,
     LinearRemineralization,
     formulation,
     factors,
@@ -36,6 +34,7 @@ using ..Processes:
     parameter_slots,
     parameter_slot_bindings,
     process_id,
+    product_path,
     process_rate
 
 export compile_model_tendencies
@@ -43,6 +42,7 @@ export compile_model_tendencies
 include("fluxes.jl")
 include("factors.jl")
 include("routing.jl")
+include("products.jl")
 include("mortality.jl")
 include("growth.jl")
 include("consumption.jl")

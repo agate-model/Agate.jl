@@ -9,8 +9,8 @@ using Agate.Construction: construct
 using Agate.Parameters: ConstantDefault, DerivedDefault, Parameter
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
-    Consumption, ModelDefinition, ProductRouting, Temperature, Q10,
-    HeterotrophicConsumption, PreferentialGrazing, DirectRouting, normalize_model, participants
+    Consumption, ModelDefinition, Temperature, Q10,
+    HeterotrophicConsumption, PreferentialGrazing, normalize_model, participants
 using Oceananigans.Units: day
 
 nothing #hide
@@ -46,7 +46,7 @@ processes = (
                 ),
             ),
         ),
-        routing=ProductRouting(DirectRouting(); destination=:N),
+        unassimilated_products=:N,
     ),
     graze_bacteria=Consumption(
         PreferentialGrazing();
@@ -58,7 +58,7 @@ processes = (
             palatability=:living_palatability,
             assimilation=:living_assimilation,
         ),
-        routing=ProductRouting(DirectRouting(); destination=:N),
+        unassimilated_products=:N,
     ),
 )
 

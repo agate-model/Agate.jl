@@ -12,9 +12,9 @@ using ..Processes:
     ModelDefinition, normalize_model, parameter_bindings, process_id, process_kind, factor_kind, formulation,
     formulation_tag, formulation_recipe_fields, factors, factor_inputs, factor_children,
     factor_child_path, participants, drivers, rate_axes,
-    process_routing, process_stoichiometry,
-    Growth, Nutrients, ProductRouting,
-    DirectRouting, PartitionRouting, DOMPOMRouting, FixedStoichiometry
+    process_routing, process_products, product_path, product_recipe_key, process_stoichiometry,
+    Growth, Nutrients, Products, ProductRouting,
+    FixedStoichiometry
 
 using ..Library.Allometry:
     ConstantParam,
@@ -22,7 +22,7 @@ using ..Library.Allometry:
     allometric_relationship_identifier,
     allometric_relationship_from_identifier
 
-const PROCESS_MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.6"
+const PROCESS_MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.7"
 const _RECIPE_DOCUMENT_KEYS = ("schema", "model", "provenance", "recipe", "recipe_hash")
 const _RECIPE_MODEL_KEYS = ("family",)
 const _SUPPORTED_SPLITTING = (:linear_splitting, :log_splitting)
@@ -477,30 +477,29 @@ function _stoichiometry_recipe_data(
     return data
 end
 
+function _products_recipe_data(
+    products::Products, _normalized, _process::Symbol, _path::Tuple
+)
+    if length(products.targets) == 1
+        return String(only(values(products.targets)))
+    end
+    return Dict{String,Any}(
+        "targets" => _recipe_science_value(products.targets),
+        "fractions" => _recipe_science_value(products.fractions),
+    )
+end
+
 function _routing_recipe_data(
     routing::ProductRouting, normalized, process::Symbol
 )
-    routing_formulation = formulation(routing)
     data = Dict{String,Any}(
         "kind" => "product_routing",
-        "formulation" => String(formulation_tag(routing_formulation)),
-    )
-    _attach_formulation_recipe_fields!(data, routing_formulation)
-
-    if routing_formulation isa DirectRouting
-        data["destination"] = String(routing.retained)
-    elseif routing_formulation isa PartitionRouting
-        data["retained"] = String(routing.retained)
-        data["exported"] = String(routing.exported)
-    elseif routing_formulation isa DOMPOMRouting
-        data["pools"] = _recipe_science_value(routing.pools)
-        data["stoichiometry"] = _stoichiometry_recipe_data(
+        "formulation" => String(formulation_tag(formulation(routing))),
+        "pools" => _recipe_science_value(routing.pools),
+        "stoichiometry" => _stoichiometry_recipe_data(
             routing.stoichiometry, normalized, process, (:routing, :stoichiometry)
-        )
-    else
-        throw(ArgumentError("unsupported product-routing formulation $(typeof(routing_formulation))"))
-    end
-
+        ),
+    )
     _attach_node_bindings!(data, normalized, process, (:routing,))
     return data
 end
@@ -545,10 +544,18 @@ function _process_recipe_data(named, normalized)
             stoichiometry, normalized, process_name, (:stoichiometry,)
         )
     )
-    routing = process_routing(process)
-    isnothing(routing) || (
-        data["routing"] = _routing_recipe_data(routing, normalized, process_name)
-    )
+    products = process_products(process)
+    if !isnothing(products)
+        path = product_path(process)
+        data[String(product_recipe_key(process))] = _products_recipe_data(
+            products, normalized, process_name, path
+        )
+    else
+        routing = process_routing(process)
+        isnothing(routing) || (
+            data["routing"] = _routing_recipe_data(routing, normalized, process_name)
+        )
+    end
     return data
 end
 

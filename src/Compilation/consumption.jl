@@ -141,17 +141,23 @@ function process_fluxes(
                 FluxSpec(process_id(named), resource, rate, Weight{-1}()),
                 FluxSpec(process_id(named), consumer, rate, Weight{1}((assimilation,))),
             )
-            isnothing(process.routing) || append!(
-                fluxes,
-                _routing_fluxes(
-                    named,
-                    definition,
-                    process.routing,
-                    layout,
-                    rate;
-                    suffix=(ComplementOp(assimilation),),
-                ),
-            )
+            if process.routing isa Products
+                append!(
+                    fluxes,
+                    _product_fluxes(
+                        named, definition, process.routing, layout, rate;
+                        suffix=(ComplementOp(assimilation),),
+                    ),
+                )
+            elseif !isnothing(process.routing)
+                append!(
+                    fluxes,
+                    _routing_fluxes(
+                        named, definition, process.routing, layout, rate;
+                        suffix=(ComplementOp(assimilation),),
+                    ),
+                )
+            end
         end
     end
     return Tuple(fluxes)

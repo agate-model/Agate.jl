@@ -21,9 +21,7 @@ using Agate.Processes:
     FixedStoichiometry,
     Consumption,
     Mortality,
-    DirectRouting,
     ModelDefinition,
-    ProductRouting,
     parameter_bindings,
     resolve_parameter_applicability,
     drivers,
@@ -80,11 +78,9 @@ Agate.Processes.formulation_tag(::ExternalTestFormulation) = :external_test
         PreferentialGrazing();
         consumers=:Z,
         resources=(:P, :B),
-        routing=ProductRouting(DirectRouting(); destination=:D),
+        unassimilated_products=:D,
     )
     @test participants(grazing) == (consumer=(:Z,), resource=(:P, :B))
-    @test formulation(grazing.routing) isa DirectRouting
-    @test grazing.routing.retained === :D
 
     shared_driver_model = normalize_model(
         ModelDefinition(;

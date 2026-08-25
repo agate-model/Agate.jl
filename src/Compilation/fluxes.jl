@@ -15,6 +15,11 @@ struct ComplementOp{O}
     operand::O
 end
 
+"""Static operand whose value is one minus the sum of child operands."""
+struct OneMinusSumOp{O}
+    operands::O
+end
+
 """Static operand that divides one resolved operand value by another."""
 struct RatioOp{N,D}
     numerator::N
@@ -35,6 +40,16 @@ end
 @inline function operand_value(op::ComplementOp, bgc, args)
     value = operand_value(op.operand, bgc, args)
     return one(value) - value
+end
+@inline function _operand_sum(operands::Tuple{T}, bgc, args) where {T}
+    return operand_value(first(operands), bgc, args)
+end
+@inline function _operand_sum(operands::Tuple{T,S,Vararg{Any,N}}, bgc, args) where {T,S,N}
+    return operand_value(first(operands), bgc, args) + _operand_sum(Base.tail(operands), bgc, args)
+end
+@inline function operand_value(op::OneMinusSumOp, bgc, args)
+    total = _operand_sum(op.operands, bgc, args)
+    return one(total) - total
 end
 @inline operand_value(op::RatioOp, bgc, args) =
     operand_value(op.numerator, bgc, args) / operand_value(op.denominator, bgc, args)

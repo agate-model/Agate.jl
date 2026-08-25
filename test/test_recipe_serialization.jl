@@ -53,7 +53,7 @@ explicit_json_value(::Any) = false
     _, default_recipe = NiPiZD.construct_plus_recipe()
     default_encoded = encode_recipe(default_recipe)
     @test decode_recipe(default_encoded) == default_recipe
-    @test default_encoded["schema"] == "agate.model_recipe.v0.6"
+    @test default_encoded["schema"] == "agate.model_recipe.v0.7"
 
     bgc, recipe = NiPiZD.construct_plus_recipe(; authored_nipizd_inputs(Float32)...)
     manifest = nipizd_manifest(recipe; scalar_type=Float32)
@@ -105,9 +105,7 @@ explicit_json_value(::Any) = false
     grazing_data = encoded["recipe"]["processes"]["grazing_Z_on_P"]
     @test grazing_data["kind"] == "consumption"
     @test grazing_data["participants"] == Dict("consumer" => "Z", "resource" => "P")
-    @test grazing_data["routing"] == Dict(
-        "kind" => "product_routing", "formulation" => "direct", "destination" => "D"
-    )
+    @test grazing_data["unassimilated_products"] == "D"
     @test grazing_data["bindings"] == Dict(
         "assimilation" => "assimilation_matrix",
         "half_saturation" => "holling_half_saturation",
@@ -115,12 +113,9 @@ explicit_json_value(::Any) = false
         "palatability" => "palatability_matrix",
     )
     mortality_data = encoded["recipe"]["processes"]["linear_mortality_P"]
-    @test mortality_data["routing"] == Dict(
-        "kind" => "product_routing",
-        "formulation" => "partition",
-        "retained" => "D",
-        "exported" => "N",
-        "bindings" => Dict("export_fraction" => "mortality_export_fraction"),
+    @test mortality_data["products"] == Dict(
+        "targets" => Dict("detritus" => "D", "nutrient" => "N"),
+        "fractions" => Dict("nutrient" => "mortality_export_fraction"),
     )
     @test encoded["recipe"]["processes"]["remineralization_D"]["bindings"] ==
         Dict("rate" => Dict("D" => "detritus_remineralization"))

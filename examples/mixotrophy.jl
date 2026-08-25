@@ -8,8 +8,7 @@ using Agate.Construction: construct
 using Agate.Parameters: DerivedDefault, ConstantDefault, Parameter
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
-    Consumption, Growth, Light, ModelDefinition, NutrientResponse, ProductRouting,
-    Smith, Monod, PreferentialGrazing, DirectRouting, normalize_model, participants
+    Consumption, Growth, Light, ModelDefinition, NutrientResponse, Smith, Monod, PreferentialGrazing, normalize_model, participants
 using Oceananigans.Units: day
 
 nothing #hide
@@ -42,7 +41,7 @@ processes = (
             palatability=:palatability_matrix,
             assimilation=:assimilation_matrix,
         ),
-        routing=ProductRouting(DirectRouting(); destination=:N),
+        unassimilated_products=:N,
     ),
 )
 

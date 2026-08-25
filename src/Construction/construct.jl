@@ -36,7 +36,8 @@ using ..Runtime: build_tracer_index
 
 using ..Processes:
     ModelDefinition, normalize_model, driver_identities, participants, formulation,
-    uses_living_interactions, resolve_parameter_applicability
+    uses_living_interactions, resolve_parameter_applicability, parameter_slot_bindings,
+    process_id, process_products, product_path
 
 using ..Compilation: compile_model_tendencies
 
@@ -320,6 +321,47 @@ function resolve_parameter_defaults(
     end
 
     return resolved
+end
+
+function _validate_product_fractions(normalized, resolved_parameters)
+    for named in values(normalized.processes)
+        products = process_products(named.process)
+        isnothing(products) && continue
+        length(products.targets) == 1 && continue
+
+        fraction_values = Tuple(begin
+            binding = parameter_slot_bindings(
+                normalized,
+                named,
+                product_path(named.process),
+                products;
+                context=(product=product,),
+            ).fraction
+            value = getproperty(resolved_parameters, binding.parameter)
+            value isa Real || throw(ArgumentError(
+                "product fraction parameter :$(binding.parameter) for process :$(process_id(named)) must resolve to a scalar Real",
+            ))
+            zero(value) <= value <= one(value) || throw(ArgumentError(
+                "product fraction parameter :$(binding.parameter) for process :$(process_id(named)) must lie in [0, 1]; got $value",
+            ))
+            value
+        end for product in keys(products.fractions))
+
+        total = sum(fraction_values)
+        if isnothing(products.inferred)
+            tolerance = 100 * (total isa AbstractFloat ? eps(total) : eps(Float64))
+            isapprox(total, one(total); rtol=zero(total), atol=tolerance) || throw(
+                ArgumentError(
+                    "explicit product fractions for process :$(process_id(named)) must sum to 1; got $total",
+                ),
+            )
+        else
+            total <= one(total) || throw(ArgumentError(
+                "explicit product fractions for process :$(process_id(named)) sum to $total, leaving a negative inferred fraction for :$(products.inferred)",
+            ))
+        end
+    end
+    return nothing
 end
 
 function validate_parameter_storage(
@@ -837,6 +879,7 @@ function _construct_process_definition(
     validate_parameter_storage(
         parameter_source, normalized, layout, community_context, resolved_parameters, required
     )
+    _validate_product_fractions(normalized, resolved_parameters)
     validate_auxiliary_fields(auxiliary_fields, tracer_names)
 
     tracers = compile_model_tendencies(

@@ -6,8 +6,8 @@ using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Populatio
 using Agate.Construction: construct
 using Agate.Parameters: DerivedDefault, ConstantDefault, Parameter
 using Agate.Processes:
-    Consumption, Growth, Light, ModelDefinition, NutrientResponse, ProductRouting,
-    Smith, Monod, PreferentialGrazing, DirectRouting
+    Consumption, Growth, Light, LinearMortality, ModelDefinition, Mortality, NutrientResponse,
+    Products, Smith, Monod, PreferentialGrazing
 
 function direct_npz_definition()
     components = (
@@ -37,7 +37,7 @@ function direct_npz_definition()
                 palatability=:palatability_matrix,
                 assimilation=:assimilation_matrix,
             ),
-            routing=ProductRouting(DirectRouting(); destination=:N),
+            unassimilated_products=:N,
         ),
     )
     parameters = (
@@ -120,4 +120,39 @@ end
     )
     @test all(isfinite, tendencies)
     @test isapprox(sum(tendencies), 0; atol=10 * eps(sum(abs, tendencies)))
+end
+
+@testset "Explicit product fractions" begin
+    components = (
+        P=Population(:nitrogen; size_structure=[1.0]),
+        A=Pool(:nitrogen),
+        B=Pool(:nitrogen),
+    )
+    processes = (
+        mortality_P=Mortality(
+            LinearMortality();
+            populations=:P,
+            bindings=(rate=:linear_mortality,),
+            products=Products(
+                (a=:A, b=:B);
+                fractions=(a=:fraction_a, b=:fraction_b),
+            ),
+        ),
+    )
+    parameters = (
+        linear_mortality=Parameter(ConstantDefault(1e-6); axes=:plankton),
+        fraction_a=Parameter(ConstantDefault(0.4)),
+        fraction_b=Parameter(ConstantDefault(0.6)),
+    )
+    definition = ModelDefinition(; components, processes, parameters)
+
+    bgc = construct(definition; grid=dummy_grid(Float64))
+    args = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0)
+    @test map(tracer -> bgc(Val(tracer), args...), (:A, :B, :P_1)) ≈
+        (4e-7, 6e-7, -1e-6)
+    @test_throws ArgumentError construct(
+        definition;
+        grid=dummy_grid(Float64),
+        parameter_overrides=(fraction_b=0.5,),
+    )
 end

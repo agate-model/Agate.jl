@@ -1,9 +1,9 @@
 using ...ModelFamilies: AbstractModelFamily
 using ...Configuration: Population, Pool
 using ...Processes:
-    Growth, Light, NutrientResponse, Consumption, Mortality, ProductRouting, Remineralization,
+    Growth, Light, NutrientResponse, Consumption, Mortality, Products, Remineralization,
     Smith, Monod, PreferentialGrazing, LinearMortality, QuadraticMortality,
-    LinearRemineralization, DirectRouting, PartitionRouting
+    LinearRemineralization
 
 import ...ModelFamilies: default_components, default_processes
 import ...Construction: family_id, registered_family
@@ -51,39 +51,33 @@ const NIPIZD_PROCESSES = (
             palatability=:palatability_matrix,
             assimilation=:assimilation_matrix,
         ),
-        routing=ProductRouting(DirectRouting(); destination=:D),
+        unassimilated_products=:D,
     ),
     linear_mortality_P=Mortality(
         LinearMortality();
         populations=:P,
         bindings=(rate=:linear_mortality,),
-        routing=ProductRouting(
-            PartitionRouting();
-            retained=:D,
-            exported=:N,
-            bindings=(export_fraction=:mortality_export_fraction,),
+        products=Products(
+            (detritus=:D, nutrient=:N);
+            fractions=(nutrient=:mortality_export_fraction,),
         ),
     ),
     linear_mortality_Z=Mortality(
         LinearMortality();
         populations=:Z,
         bindings=(rate=:linear_mortality,),
-        routing=ProductRouting(
-            PartitionRouting();
-            retained=:D,
-            exported=:N,
-            bindings=(export_fraction=:mortality_export_fraction,),
+        products=Products(
+            (detritus=:D, nutrient=:N);
+            fractions=(nutrient=:mortality_export_fraction,),
         ),
     ),
     quadratic_mortality_Z=Mortality(
         QuadraticMortality();
         populations=:Z,
         bindings=(rate=:quadratic_mortality,),
-        routing=ProductRouting(
-            PartitionRouting();
-            retained=:D,
-            exported=:N,
-            bindings=(export_fraction=:mortality_export_fraction,),
+        products=Products(
+            (detritus=:D, nutrient=:N);
+            fractions=(nutrient=:mortality_export_fraction,),
         ),
     ),
     remineralization_D=Remineralization(
