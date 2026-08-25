@@ -6,7 +6,7 @@
 
 using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Population, Pool
 using Agate.Construction: construct
-using Agate.Parameters: ConstantDefault, DerivedDefault, Parameter
+using Agate.Parameters: DerivedDefault, Parameter
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
     Consumption, ModelDefinition, Temperature, Q10,
@@ -70,38 +70,17 @@ processes = (
 # follows the process-local POM and B-by-POM applicability directly.
 
 parameters = (
-    maximum_consumption_rate=Parameter(
-        ConstantDefault(0.8 / day);
-        axes=:plankton,
-    ),
-    pom_half_saturation=Parameter(ConstantDefault(0.2)),
-    bacterial_assimilation=Parameter(ConstantDefault(0.65)),
-    temperature_q10=Parameter(ConstantDefault(2.0)),
-    reference_temperature=Parameter(ConstantDefault(20.0)),
-    maximum_predation_rate=Parameter(
-        ConstantDefault(0.6 / day);
-        axes=:plankton,
-    ),
-    holling_half_saturation=Parameter(
-        ConstantDefault(0.1);
-        axes=:plankton,
-    ),
-    optimum_predator_prey_ratio=Parameter(
-        ConstantDefault(12.5);
-        axes=:plankton,
-    ),
-    specificity=Parameter(
-        ConstantDefault(0.4);
-        axes=:plankton,
-    ),
-    protection=Parameter(
-        ConstantDefault(0.0);
-        axes=:plankton,
-    ),
-    assimilation_efficiency=Parameter(
-        ConstantDefault(0.7);
-        axes=:plankton,
-    ),
+    maximum_consumption_rate=Parameter(0.8 / day; axes=:plankton),
+    pom_half_saturation=Parameter(0.2),
+    bacterial_assimilation=Parameter(0.65),
+    temperature_q10=Parameter(2.0),
+    reference_temperature=Parameter(20.0),
+    maximum_predation_rate=Parameter(0.6 / day; axes=:plankton),
+    holling_half_saturation=Parameter(0.1; axes=:plankton),
+    optimum_predator_prey_ratio=Parameter(12.5; axes=:plankton),
+    specificity=Parameter(0.4; axes=:plankton),
+    protection=Parameter(0.0; axes=:plankton),
+    assimilation_efficiency=Parameter(0.7; axes=:plankton),
     living_palatability=Parameter(
         DerivedDefault(
             PalatabilityAllometric();

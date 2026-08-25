@@ -13,7 +13,6 @@ defaults whose dependencies are declared beside their parameter definitions.
 import ...Parameters:
     parameter_definitions,
     Parameter,
-    ConstantDefault,
     DerivedDefault,
     DiameterIndexedVectorDefault
 
@@ -25,12 +24,8 @@ function parameter_definitions(::NiPiZDFamily)
     detritus_remin = 0.1213 / 86400
 
     return (
-        detritus_remineralization=Parameter(
-            ConstantDefault(detritus_remin),
-        ),
-        mortality_export_fraction=Parameter(
-            ConstantDefault(0.2),
-        ),
+        detritus_remineralization=Parameter(detritus_remin),
+        mortality_export_fraction=Parameter(0.2),
         linear_mortality=Parameter(
             DiameterIndexedVectorDefault(8e-7; default=0);
             axes=:plankton,

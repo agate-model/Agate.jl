@@ -83,7 +83,7 @@ const NIPIZD_PROCESSES = (
     remineralization_D=Remineralization(
         LinearRemineralization();
         sources=:D,
-        destinations=:N,
+        destination=:N,
         bindings=(rate=:detritus_remineralization,),
     ),
 )

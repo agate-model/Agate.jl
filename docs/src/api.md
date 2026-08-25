@@ -68,14 +68,14 @@ Agate.Processes.authored_parameter_bindings
 
 ### Parameter definitions
 
-The keyed parameter block owns defaults and storage policy. Scientific slot-to-parameter
-relationships are authored beside the process or factor through `bindings=`.
+The keyed parameter block owns defaults and storage policy. Literal defaults use
+`Parameter(value; axes=...)`; explicit default-provider objects are reserved for derived,
+missing, or structure-dependent defaults. Scientific slot-to-parameter relationships are
+authored beside the process or factor through `bindings=`.
 
 ```@docs
-Agate.Parameters.ParameterSpec
 Agate.Parameters.Parameter
 Agate.Parameters.DefaultProvider
-Agate.Parameters.ConstantDefault
 Agate.Parameters.DerivedDefault
 Agate.Parameters.derive_default
 Agate.Parameters.NoDefault

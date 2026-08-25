@@ -431,20 +431,22 @@ authored_parameter_bindings(process::Mortality) = process.bindings
 struct Remineralization{F<:AbstractFormulation} <: AbstractProcess
     formulation::F
     sources::Tuple
-    destinations::Tuple
+    destination::Symbol
     bindings::NamedTuple
 end
 
 function Remineralization(
     formulation::LinearRemineralization;
     sources,
-    destinations,
+    destination,
     bindings::NamedTuple=NamedTuple(),
 )
     source_refs = _canonical_participants(:sources, sources)
-    destination_refs = _canonical_participants(:destinations, destinations)
+    destination isa Symbol || throw(
+        ArgumentError("remineralization `destination` must be a Symbol"),
+    )
     return Remineralization(
-        formulation, source_refs, destination_refs, _canonical_bindings(bindings)
+        formulation, source_refs, destination, _canonical_bindings(bindings)
     )
 end
 
@@ -485,7 +487,7 @@ end
 participants(process::Consumption) = (consumer=process.consumers, resource=process.resources)
 participants(process::Mortality) = (population=process.populations,)
 participants(process::Remineralization) =
-    (source=process.sources, destination=process.destinations)
+    (source=process.sources, destination=(process.destination,))
 
 function _factor_driver_identities(factor::AbstractFactor)
     identities = Symbol[

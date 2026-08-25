@@ -119,7 +119,7 @@ end
     process = Remineralization(
         LinearRemineralization();
         sources=:POM,
-        destinations=:N,
+        destination=:N,
         bindings=(rate=:pom_remineralization,),
     )
     parameter = Parameter(ConstantDefault(0.1))

@@ -274,7 +274,7 @@ end
     remineralization = Agate.Processes.Remineralization(
         Agate.Processes.LinearRemineralization();
         sources=(:D,),
-        destinations=:D,
+        destination=:D,
         bindings=(rate=(D=:remineralization_rate,),),
     )
     normalized = normalize_model(ModelDefinition(;
@@ -330,7 +330,7 @@ end
             remineralization=Remineralization(
                 Agate.Processes.LinearRemineralization();
                 sources=(:D, :E),
-                destinations=:D,
+                destination=:D,
                 bindings=(rate=(D=:remineralization_rate,),),
             ),
         ),

@@ -5,10 +5,7 @@ function process_fluxes(
     context::CommunityContext,
 ) where {P<:Remineralization}
     process = named.process
-    length(process.destinations) == 1 || throw(
-        ArgumentError("linear remineralization currently requires one destination"),
-    )
-    destination = _scalar_component_target(layout, only(process.destinations))
+    destination = _scalar_component_target(layout, process.destination)
     fluxes = Any[]
 
     for source_component in process.sources

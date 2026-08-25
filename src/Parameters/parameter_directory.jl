@@ -1,8 +1,6 @@
-export ParameterSpec
 export DefaultProvider
 export Parameter
 export parameter_definitions
-export ConstantDefault
 export DerivedDefault
 export NoDefault
 export DiameterIndexedVectorDefault
@@ -53,6 +51,18 @@ function Parameter(
     axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
 ) where {D<:DefaultProvider}
     return Parameter(ParameterSpec(; axes), default)
+end
+
+"""Define a parameter with a literal constant default.
+
+Literal defaults are wrapped in `ConstantDefault` automatically; explicit default-provider
+objects remain available for derived, missing, or structure-dependent defaults.
+"""
+function Parameter(
+    default;
+    axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
+)
+    return Parameter(ConstantDefault(default); axes)
 end
 
 """A literal parameter default.

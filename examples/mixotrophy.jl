@@ -5,7 +5,7 @@
 
 using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Population, Pool
 using Agate.Construction: construct
-using Agate.Parameters: DerivedDefault, ConstantDefault, Parameter
+using Agate.Parameters: DerivedDefault, Parameter
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
     Consumption, Growth, Light, ModelDefinition, NutrientResponse, Smith, Monod, PreferentialGrazing, normalize_model, participants
@@ -53,42 +53,15 @@ processes = (
 # runtime parameters.
 
 parameters = (
-    maximum_growth_rate=Parameter(
-        ConstantDefault(0.8 / day);
-        axes=:plankton,
-    ),
-    alpha=Parameter(
-        ConstantDefault(0.08 / day);
-        axes=:plankton,
-    ),
-    nutrient_half_saturation=Parameter(
-        ConstantDefault(0.2);
-        axes=:plankton,
-    ),
-    maximum_predation_rate=Parameter(
-        ConstantDefault(0.4 / day);
-        axes=:plankton,
-    ),
-    holling_half_saturation=Parameter(
-        ConstantDefault(0.15);
-        axes=:plankton,
-    ),
-    optimum_predator_prey_ratio=Parameter(
-        ConstantDefault(4.0);
-        axes=:plankton,
-    ),
-    specificity=Parameter(
-        ConstantDefault(0.5);
-        axes=:plankton,
-    ),
-    protection=Parameter(
-        ConstantDefault(0.0);
-        axes=:plankton,
-    ),
-    assimilation_efficiency=Parameter(
-        ConstantDefault(0.65);
-        axes=:plankton,
-    ),
+    maximum_growth_rate=Parameter(0.8 / day; axes=:plankton),
+    alpha=Parameter(0.08 / day; axes=:plankton),
+    nutrient_half_saturation=Parameter(0.2; axes=:plankton),
+    maximum_predation_rate=Parameter(0.4 / day; axes=:plankton),
+    holling_half_saturation=Parameter(0.15; axes=:plankton),
+    optimum_predator_prey_ratio=Parameter(4.0; axes=:plankton),
+    specificity=Parameter(0.5; axes=:plankton),
+    protection=Parameter(0.0; axes=:plankton),
+    assimilation_efficiency=Parameter(0.65; axes=:plankton),
     palatability_matrix=Parameter(
         DerivedDefault(
             PalatabilityAllometric();

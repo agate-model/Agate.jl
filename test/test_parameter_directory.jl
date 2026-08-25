@@ -3,7 +3,6 @@ using Agate.Introspection: parameter_names
 using Test
 
 import Agate.Parameters:
-    ConstantDefault,
     DerivedDefault,
     Parameter,
     derive_default,
@@ -20,7 +19,7 @@ derive_default(::DoubleDefault, ::DerivedDefaultFixture, ::Any, params::NamedTup
     2 * params.middle
 
 parameter_definitions(::DerivedDefaultFixture) = (
-    base=Parameter(ConstantDefault(2.0)),
+    base=Parameter(2.0),
     top=Parameter(DerivedDefault(DoubleDefault(); deps=(:middle,))),
     middle=Parameter(DerivedDefault(AddOneDefault(); deps=(:base,))),
 )
