@@ -1,9 +1,22 @@
-_factor_input_operand(input::FactorDriver, layout::ModelLayout) =
+_factor_input_operand(input::FactorDriver, layout::ModelLayout, axis_positions::NamedTuple) =
     input_operand(layout, input.identity)
 
-function _factor_input_operand(input::FactorComponent, layout::ModelLayout)
+function _factor_input_operand(
+    input::FactorComponent, layout::ModelLayout, axis_positions::NamedTuple
+)
     target = _scalar_component_target(layout, input.component)
     return input_operand(layout, target)
+end
+
+function _factor_input_operand(
+    input::FactorPopulationState, layout::ModelLayout, axis_positions::NamedTuple
+)
+    hasproperty(axis_positions, :population) || throw(ArgumentError(
+        "population-state factor input requires a realized :population axis position",
+    ))
+    local_index = axis_positions.population.local_index
+    tracer = state_tracer(layout, input.reference, local_index)
+    return input_operand(layout, tracer)
 end
 
 function _factor_element(
@@ -16,7 +29,7 @@ function _factor_element(
     axis_positions::NamedTuple,
 )
     input_operands = Tuple(
-        _factor_input_operand(input, layout) for input in factor_inputs(factor)
+        _factor_input_operand(input, layout, axis_positions) for input in factor_inputs(factor)
     )
     children = factor_children(factor)
     child_operands = if isempty(children)

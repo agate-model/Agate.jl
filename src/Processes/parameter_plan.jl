@@ -19,6 +19,27 @@ struct ProductFractionCheck{F}
     fractions::F
 end
 
+"""One class-local minimum/maximum quota inequality check."""
+struct QuotaBoundsCheck{I,J}
+    process::Symbol
+    path::Tuple
+    class::Symbol
+    minimum_parameter::Symbol
+    minimum_index::I
+    maximum_parameter::Symbol
+    maximum_index::J
+end
+
+"""One class-local scalar inequality for a realized model parameter."""
+struct ParameterConstraintCheck{I}
+    process::Symbol
+    path::Tuple
+    class::Symbol
+    parameter::Symbol
+    index::I
+    rule::Symbol
+end
+
 """Single host-side realization of parameter storage, indexing, and runtime eligibility."""
 struct ParameterPlan{P,L,O,R,C}
     parameters::P
@@ -196,6 +217,99 @@ function _slot_index_maps(binding, axis_classes, parameter)
     end
 end
 
+
+function _slot_axis_index_map(slot_lookup, binding::ParameterBinding)
+    mappings = get(slot_lookup, _binding_key(binding)) do
+        throw(ArgumentError(
+            "parameter plan has no realized slot for :$(binding.parameter) at process :$(binding.process)",
+        ))
+    end
+    length(mappings) == 1 || throw(ArgumentError(
+        "quota parameter :$(binding.parameter) must have exactly one population axis",
+    ))
+    return only(mappings)
+end
+
+function _append_quota_bounds_checks!(
+    checks, definition, layout, slot_lookup, named, path, node, population::Symbol
+)
+    slots = parameter_slot_bindings(definition, named, path, node)
+    minimum_map = _slot_axis_index_map(slot_lookup, slots.minimum_quota)
+    maximum_map = _slot_axis_index_map(slot_lookup, slots.maximum_quota)
+    classes = component_classes(layout, population)
+    length(classes) == length(minimum_map) == length(maximum_map) || throw(ArgumentError(
+        "quota parameter realization for process :$(process_id(named)) does not match population :$population classes",
+    ))
+    for (local_index, class) in pairs(classes)
+        push!(checks, QuotaBoundsCheck(
+            process_id(named), path, class,
+            slots.minimum_quota.parameter, (minimum_map[local_index],),
+            slots.maximum_quota.parameter, (maximum_map[local_index],),
+        ))
+    end
+    return nothing
+end
+
+function _append_parameter_constraint_checks!(
+    checks, definition, layout, slot_lookup, named, path, node,
+    population::Symbol, slot::Symbol, rule::Symbol,
+)
+    binding = getproperty(parameter_slot_bindings(definition, named, path, node), slot)
+    mapping = _slot_axis_index_map(slot_lookup, binding)
+    classes = component_classes(layout, population)
+    length(classes) == length(mapping) || throw(ArgumentError(
+        "parameter :$(binding.parameter) realization for process :$(process_id(named)) does not match population :$population classes",
+    ))
+    for (local_index, class) in pairs(classes)
+        push!(checks, ParameterConstraintCheck(
+            process_id(named), path, class, binding.parameter, (mapping[local_index],), rule,
+        ))
+    end
+    return nothing
+end
+
+function _quota_factor_checks!(checks, definition, layout, slot_lookup, named, path, factor)
+    if factor isa QuotaResponse
+        _append_quota_bounds_checks!(
+            checks, definition, layout, slot_lookup, named, path, factor, factor.target.population
+        )
+    end
+    for (name, child) in pairs(factor_children(factor))
+        _quota_factor_checks!(
+            checks, definition, layout, slot_lookup, named,
+            factor_child_path(path, factor, name), child,
+        )
+    end
+    return nothing
+end
+
+function _quota_science_checks(definition, layout, slot_lookup)
+    checks = Any[]
+    for named in values(definition.processes)
+        for (name, factor) in pairs(factors(named))
+            _quota_factor_checks!(
+                checks, definition, layout, slot_lookup, named, (:factors, name), factor
+            )
+        end
+        process = named.process
+        if process isa NutrientUptake
+            path = ()
+            _append_quota_bounds_checks!(
+                checks, definition, layout, slot_lookup, named, path, process, process.population
+            )
+            for (slot, rule) in (
+                (:maximum_rate, :nonnegative), (:K, :nonnegative), (:hill, :positive),
+            )
+                _append_parameter_constraint_checks!(
+                    checks, definition, layout, slot_lookup, named, path, process,
+                    process.population, slot, rule,
+                )
+            end
+        end
+    end
+    return Tuple(checks)
+end
+
 function _product_fraction_checks(definition::NormalizedModelDefinition)
     checks = Any[]
     for named in values(definition.processes)
@@ -233,9 +347,12 @@ function build_parameter_plan(definition::NormalizedModelDefinition, layout::Mod
         for (binding, classes) in zip(definition.parameter_bindings, binding_classes)
     )
     runtime_names = Tuple(name for name in names if getproperty(parameters, name).runtime_bound)
+    science_checks = (
+        _product_fraction_checks(definition)...,
+        _quota_science_checks(definition, layout, slot_lookup)...,
+    )
     return ParameterPlan(
-        parameters, slot_lookup, definition.derived_parameter_order, runtime_names,
-        _product_fraction_checks(definition),
+        parameters, slot_lookup, definition.derived_parameter_order, runtime_names, science_checks,
     )
 end
 
@@ -275,6 +392,35 @@ function parameter_plan_metadata(plan::ParameterPlan)
             derived_runtime_parameters,
         )
     end)
+end
+
+
+@inline function _realized_parameter_value(values::NamedTuple, parameter::Symbol, index::Tuple)
+    value = getproperty(values, parameter)
+    return isempty(index) ? value : value[index...]
+end
+
+function validate_realized_science(check::QuotaBoundsCheck, values::NamedTuple)
+    minimum = _realized_parameter_value(values, check.minimum_parameter, check.minimum_index)
+    maximum = _realized_parameter_value(values, check.maximum_parameter, check.maximum_index)
+    context = "process :$(check.process) path $(check.path) ecological class :$(check.class)"
+    minimum > zero(minimum) || throw(ArgumentError(
+        "$context parameter :$(check.minimum_parameter) must be > 0; got $minimum",
+    ))
+    maximum > minimum || throw(ArgumentError(
+        "$context parameter :$(check.maximum_parameter) must be greater than :$(check.minimum_parameter)=$minimum; got $maximum",
+    ))
+    return nothing
+end
+
+function validate_realized_science(check::ParameterConstraintCheck, values::NamedTuple)
+    value = _realized_parameter_value(values, check.parameter, check.index)
+    valid = check.rule === :positive ? value > zero(value) : value >= zero(value)
+    valid || throw(ArgumentError(
+        "process :$(check.process) path $(check.path) ecological class :$(check.class) " *
+        "parameter :$(check.parameter) must be $(check.rule === :positive ? "> 0" : ">= 0"); got $value",
+    ))
+    return nothing
 end
 
 function validate_realized_science(check::ProductFractionCheck, values::NamedTuple)

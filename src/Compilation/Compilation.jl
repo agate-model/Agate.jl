@@ -10,8 +10,10 @@ using ..Processes:
     Consumption,
     Mortality,
     Remineralization,
+    NutrientUptake,
     FactorDriver,
     FactorComponent,
+    FactorPopulationState,
     factor_inputs,
     factor_children,
     factor_parameter_context,
@@ -40,6 +42,7 @@ include("factors.jl")
 include("products.jl")
 include("mortality.jl")
 include("growth.jl")
+include("nutrient_uptake.jl")
 include("consumption.jl")
 include("remineralization.jl")
 

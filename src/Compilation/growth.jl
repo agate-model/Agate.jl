@@ -1,10 +1,12 @@
 _growth_resource_factor(named::NamedProcess) =
     getproperty(named.process.factors, named.facts.routing.factor)
 
-_growth_resource_target(factor::NutrientResponse, layout::ModelLayout) =
+_growth_resource_target(::Val{:quota}, factor, layout::ModelLayout) = nothing
+
+_growth_resource_target(::Val{:single_resource}, factor::NutrientResponse, layout::ModelLayout) =
     _scalar_component_target(layout, factor.resource)
 
-function _growth_resource_target(factor::Nutrients, layout::ModelLayout)
+function _growth_resource_target(::Val{:multi_resource}, factor::Nutrients, layout::ModelLayout)
     names = keys(factor.responses)
     targets = Tuple(
         _scalar_component_target(layout, response.resource)
@@ -42,6 +44,7 @@ function _growth_rate(
 end
 
 function _growth_resource_fluxes(
+    ::Val{:single_resource},
     named::NamedProcess,
     definition::NormalizedModelDefinition,
     plan::ParameterPlan,
@@ -54,6 +57,20 @@ function _growth_resource_fluxes(
 end
 
 function _growth_resource_fluxes(
+    ::Val{:quota},
+    named::NamedProcess,
+    definition::NormalizedModelDefinition,
+    plan::ParameterPlan,
+    resource_target,
+    source_target,
+    rate::RateElement,
+    ::Nutrients,
+)
+    return (FluxSpec(source_target, rate, Weight{-1}()),)
+end
+
+function _growth_resource_fluxes(
+    ::Val{:multi_resource},
     named::NamedProcess,
     definition::NormalizedModelDefinition,
     plan::ParameterPlan,
@@ -95,8 +112,10 @@ function process_fluxes(
     population_tracers = _realize_normalized_population_states(
         named.facts.population_states, layout
     )
-    resource_target = _growth_resource_target(nutrients, layout)
-    source_target = named.facts.routing.mode === :single_resource ? nothing :
+    routing_mode = named.facts.routing.mode
+    routing = Val(routing_mode)
+    resource_target = _growth_resource_target(routing, nutrients, layout)
+    source_target = routing_mode === :single_resource ? nothing :
                     _scalar_component_target(layout, named.facts.routing.source)
     scale_binding = _growth_scale_binding(definition, named)
     fluxes = Any[]
@@ -110,7 +129,7 @@ function process_fluxes(
             population_tracers[population_axis], rate, Weight{1}()
         )
         resources = _growth_resource_fluxes(
-            named, definition, plan, resource_target, source_target, rate, nutrients
+            routing, named, definition, plan, resource_target, source_target, rate, nutrients
         )
         push!(fluxes, biomass)
         append!(fluxes, resources)

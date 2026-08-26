@@ -11,6 +11,10 @@
 @inline factor_value(::Monod, resource, half_saturation) =
     monod_limitation(resource, half_saturation)
 
+@inline factor_value(
+    ::NormalizedDroop, internal, reference, minimum_quota, maximum_quota
+) = normalized_droop_limitation(internal, reference, minimum_quota, maximum_quota)
+
 @inline factor_value(::Liebig, limitations::Tuple) = liebig_minimum(limitations)
 @inline factor_value(::FrankTNorm, limitations::Tuple, sharpness) =
     frank_tnorm(limitations; sharpness)
@@ -21,6 +25,24 @@
 """Evaluate the unmodified population-growth scale before sibling factors."""
 @inline process_rate(::MultiplicativeFactors, biomass, maximum_rate) =
     maximum_rate * biomass
+
+"""Evaluate one quota-regulated external nutrient uptake rate."""
+@inline function process_rate(
+    ::QuotaRegulatedMonod,
+    resource,
+    internal,
+    reference,
+    maximum_rate,
+    half_saturation,
+    minimum_quota,
+    maximum_quota,
+    hill,
+)
+    return maximum_rate * reference * monod_limitation(resource, half_saturation) *
+           quota_uptake_regulation(
+               internal, reference, minimum_quota, maximum_quota, hill
+           )
+end
 
 """Evaluate one heterotrophic consumer-by-resource uptake rate."""
 @inline function process_rate(

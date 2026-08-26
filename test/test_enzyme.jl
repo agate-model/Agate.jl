@@ -49,3 +49,18 @@ const EnzymeNiPiZD = Agate.Models.NiPiZD
         @test isapprox(grad[i], fd; rtol=1e-4, atol=1e-10)
     end
 end
+
+@testset "Enzyme quota uptake tendency gradient" begin
+    bgc = Agate.Construction.construct(quota_definition())
+    active = Agate.Runtime.active_parameters(bgc; maximum_nitrogen_uptake=(:P_1,))
+    args = quota_runtime_args()
+    diagnostic(p) = Agate.Runtime.parameterized(
+        bgc, p; active_parameters=active
+    )(Val(:P_1_nitrogen), args...)
+    gradient = zeros(length(active.values))
+    Enzyme.autodiff(
+        Enzyme.set_runtime_activity(Enzyme.Reverse), Enzyme.Const(diagnostic), Enzyme.Active,
+        Enzyme.Duplicated(copy(active.values), gradient),
+    )
+    @test length(gradient) == 1 && isfinite(only(gradient)) && !iszero(only(gradient))
+end

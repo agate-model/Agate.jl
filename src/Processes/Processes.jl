@@ -8,7 +8,9 @@ using ..Parameters: Parameter, DerivedDefault, parameter_definitions
 using ..Library.Mortality: linear_loss, quadratic_loss
 using ..Library.Predation: idealized_predation_loss, preferential_predation_loss
 using ..Library.Photosynthesis: geider_light_response, smith_light_limitation
-using ..Library.Nutrients: frank_tnorm, liebig_minimum, monod_limitation
+using ..Library.Nutrients:
+    frank_tnorm, liebig_minimum, monod_limitation, normalized_droop_limitation,
+    quota_uptake_regulation
 using ..Library.Temperature: q10_temperature_factor
 using ..Library.Remineralization: linear_remineralization
 
