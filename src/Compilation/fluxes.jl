@@ -269,30 +269,19 @@ function state_operand(
     return TracerOp{tracer}()
 end
 
-function _realize_population_classes(
-    named::NamedProcess,
-    populations::Tuple,
-    layout::ModelLayout,
+function _realize_normalized_population_states(
+    references::Tuple, layout::ModelLayout
 )
     tracer_values = Symbol[]
     index_values = Int[]
-
-    for population in populations
-        state_mapping = component_state_tracers(layout, population)
-        state_mapping isa NamedTuple || throw(
-            ArgumentError("process :$(named.id) component :$population is not a Population"),
+    for reference in references
+        classes = component_classes(layout, reference.population)
+        append!(
+            tracer_values,
+            (state_tracer(layout, reference, i) for i in eachindex(classes)),
         )
-        length(state_mapping) == 1 || throw(
-            ArgumentError(
-                "process :$(named.id) requires explicit state selection for multi-state population :$population",
-            ),
-        )
-        reference = PopulationStateRef(population, only(keys(state_mapping)))
-        tracers, indices = _realize_population_state(named, reference, layout)
-        append!(tracer_values, tracers)
-        append!(index_values, indices)
+        append!(index_values, component_class_indices(layout, reference.population))
     end
-
     return Tuple(tracer_values), Tuple(index_values)
 end
 

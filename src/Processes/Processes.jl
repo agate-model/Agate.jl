@@ -1,7 +1,8 @@
 """Scientific process authoring and setup-time normalization."""
 module Processes
 
-using ..Configuration: Population, Pool, ModelLayout, currency, component_classes
+using ..Configuration: Population, Pool, PopulationStateRef, ModelLayout, currency, state_currency,
+    states, size_structure, component_classes
 using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
 using ..Parameters: Parameter, DerivedDefault, parameter_definitions
 using ..Library.Mortality: linear_loss, quadratic_loss
@@ -23,7 +24,7 @@ export ParameterSlot
 export ParameterBinding, ParameterApplicability
 export process_id, formulation, factors
 export authored_parameter_bindings
-export participants, drivers, driver_identities, normalize_model
+export participants, driver_identities, normalize_model
 export parameter_slots, parameter_bindings
 export parameter_slot_bindings
 export resolve_parameter_applicability

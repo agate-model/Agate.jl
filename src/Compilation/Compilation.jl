@@ -3,7 +3,7 @@ module Compilation
 
 using ..Configuration:
     ModelLayout, PopulationStateRef, axis_indices, component_classes, component_class_indices,
-    component_state_tracers, state_tracer
+    state_tracer
 using ..Equations: CompiledEquation
 using ..Processes:
     AbstractFactor,
@@ -30,7 +30,6 @@ using ..Processes:
     factors,
     factor_value,
     ParameterBinding,
-    parameter_slots,
     parameter_slot_bindings,
     process_id,
     product_path,

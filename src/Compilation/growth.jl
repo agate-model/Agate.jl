@@ -1,13 +1,5 @@
-function _growth_resource_factor(process::Growth)
-    matches = Tuple(
-        pair for pair in pairs(process.factors)
-        if last(pair) isa Union{NutrientResponse,Nutrients}
-    )
-    length(matches) == 1 || throw(ArgumentError(
-        "growth process must declare exactly one nutrient factor for resource routing",
-    ))
-    return only(matches)
-end
+_growth_resource_factor(named::NamedProcess) =
+    getproperty(named.process.factors, named.facts.routing.factor)
 
 _growth_resource_target(factor::NutrientResponse, layout::ModelLayout) =
     _scalar_component_target(layout, factor.resource)
@@ -24,19 +16,11 @@ end
 function _growth_scale_binding(
     definition::NormalizedModelDefinition, named::NamedProcess
 )
-    matches = ParameterBinding[]
-    for (name, factor) in pairs(factors(named))
-        any(slot -> slot.name === :maximum_rate, parameter_slots(formulation(factor))) ||
-            continue
-        slots = parameter_slot_bindings(
-            definition, named, (:factors, name), factor
-        )
-        push!(matches, slots.maximum_rate)
-    end
-    length(matches) == 1 || throw(ArgumentError(
-        "growth process :$(process_id(named)) must declare exactly one factor-owned maximum_rate slot",
-    ))
-    return only(matches)
+    name = named.facts.maximum_rate_factor
+    factor = getproperty(factors(named), name)
+    return parameter_slot_bindings(
+        definition, named, (:factors, name), factor
+    ).maximum_rate
 end
 
 function _growth_rate(
@@ -63,7 +47,7 @@ function _growth_resource_fluxes(
     resource_target,
     source_target,
     rate::RateElement,
-    nutrients::NutrientResponse,
+    ::NutrientResponse,
 )
     return (FluxSpec(process_id(named), resource_target, rate, Weight{-1}()),)
 end
@@ -74,16 +58,10 @@ function _growth_resource_fluxes(
     resource_target,
     source_target,
     rate::RateElement,
-    nutrients::Nutrients,
+    ::Nutrients,
 )
-    isnothing(source_target) && throw(ArgumentError(
-        "multi-resource growth requires a canonical source component",
-    ))
     fluxes = Any[FluxSpec(process_id(named), source_target, rate, Weight{-1}())]
-    stoichiometry = named.process.stoichiometry
-    isnothing(stoichiometry) && throw(ArgumentError(
-        "multi-resource growth requires stoichiometry for resource routing",
-    ))
+    stoichiometry = named.facts.routing.stoichiometry
     for currency in keys(resource_target)
         ratio = parameter_slot_bindings(
             definition,
@@ -112,13 +90,13 @@ function process_fluxes(
     layout::ModelLayout,
 ) where {P<:Growth}
     process = named.process
-    _, nutrients = _growth_resource_factor(process)
-    population_tracers, population_indices = _realize_population_classes(
-        named, process.populations, layout
+    nutrients = _growth_resource_factor(named)
+    population_tracers, population_indices = _realize_normalized_population_states(
+        named.facts.population_states, layout
     )
     resource_target = _growth_resource_target(nutrients, layout)
-    source_target = isnothing(process.source) ? nothing :
-                    _scalar_component_target(layout, process.source)
+    source_target = named.facts.routing.mode === :single_resource ? nothing :
+                    _scalar_component_target(layout, named.facts.routing.source)
     scale_binding = _growth_scale_binding(definition, named)
     fluxes = Any[]
 

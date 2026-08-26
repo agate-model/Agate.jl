@@ -1,13 +1,6 @@
-function _consumption_resource_tracers(
-    named::NamedProcess, resources::Tuple, layout::ModelLayout
-)
+function _consumption_resource_tracers(resources::Tuple, layout::ModelLayout)
     tracers = Symbol[]
     for resource in resources
-        hasproperty(layout.component_tracers, resource) || throw(
-            ArgumentError(
-                "process :$(process_id(named)) references unrealized resource :$resource"
-            ),
-        )
         append!(tracers, getproperty(layout.component_tracers, resource))
     end
     return Tuple(tracers)
@@ -15,20 +8,18 @@ end
 
 function _consumption_resources(
     ::Union{IdealizedGrazing,PreferentialGrazing},
-    named::NamedProcess,
     resources::Tuple,
     layout::ModelLayout,
 )
-    return _realize_population_classes(named, resources, layout)
+    return _realize_normalized_population_states(resources, layout)
 end
 
 function _consumption_resources(
     ::HeterotrophicConsumption,
-    named::NamedProcess,
     resources::Tuple,
     layout::ModelLayout,
 )
-    return _consumption_resource_tracers(named, resources, layout), nothing
+    return _consumption_resource_tracers(resources, layout), nothing
 end
 
 function _consumption_axis_positions(
@@ -98,11 +89,11 @@ function process_fluxes(
 ) where {P<:Consumption}
     process = named.process
     formulation = process.formulation
-    consumer_tracers, consumer_indices = _realize_population_classes(
-        named, process.consumers, layout
+    consumer_tracers, consumer_indices = _realize_normalized_population_states(
+        named.facts.consumer_states, layout
     )
     resource_tracers, resource_indices = _consumption_resources(
-        formulation, named, process.resources, layout
+        formulation, named.facts.resources, layout
     )
     slots = parameter_slot_bindings(definition, named, (), process)
     fluxes = Any[]

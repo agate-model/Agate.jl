@@ -5,9 +5,9 @@ using Agate.Configuration:
     component_tracers, component_indices, state_tracers, state_indices,
     component_diameters, component_class_count
 using Agate.ModelFamilies: default_components
-using Agate.Parameters: Parameter, ConstantDefault, NoDefault
+using Agate.Parameters: Parameter, ConstantDefault
 using Agate.Processes:
-    ModelDefinition, Mortality, Remineralization, LinearMortality, LinearRemineralization,
+    ModelDefinition, Remineralization, LinearRemineralization,
     normalize_model, resolve_parameter_applicability
 
 @testset "Component authoring" begin
@@ -82,19 +82,6 @@ end
     @test grouped.tracer_order == layout.tracer_order
     @test grouped.component_classes == layout.component_classes
     @test grouped.component_state_indices == layout.component_state_indices
-
-    mortality = Mortality(
-        LinearMortality(); populations=:P, bindings=(rate=:mortality_rate,)
-    )
-    parameter = Parameter(NoDefault())
-    definition = normalize_model(ModelDefinition(;
-        components=(P=population,),
-        processes=(mortality_P=mortality,),
-        parameters=(mortality_rate=parameter,),
-    ))
-    applicability = only(resolve_parameter_applicability(definition, realize_components((P=population,))))
-    @test applicability.axis_components == ((:P,),)
-    @test applicability.axis_classes == ((:P_1, :P_2),)
 
     @test_throws ArgumentError Population(; states=NamedTuple())
     @test_throws ArgumentError Population(; states=(carbon=nothing,))

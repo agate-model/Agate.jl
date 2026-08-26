@@ -24,12 +24,6 @@ parameter_definitions(::DerivedDefaultFixture) = (
     middle=Parameter(DerivedDefault(AddOneDefault(); deps=(:base,))),
 )
 
-struct CyclicDerivedDefaultFixture end
-parameter_definitions(::CyclicDerivedDefaultFixture) = (
-    a=Parameter(DerivedDefault(AddOneDefault(); deps=(:b,))),
-    b=Parameter(DerivedDefault(DoubleDefault(); deps=(:a,))),
-)
-
 @testset "Parameter directory" begin
     @testset "NiPiZD" begin
         family = Agate.Models.NiPiZD.NiPiZDFamily()
@@ -67,16 +61,27 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
 
     @testset "Derived default dependency resolution" begin
         source = DerivedDefaultFixture()
-        layout = Agate.Configuration.realize_components((;); scalar_type=Float64)
-        @test Agate.Construction.validate_parameter_directory(source) == (:base, :top, :middle)
+        components = (D=Agate.Configuration.Pool(:nitrogen),)
+        normalized = Agate.Processes.normalize_model(Agate.Processes.ModelDefinition(;
+            components,
+            processes=(remineralization=Agate.Processes.Remineralization(
+                Agate.Processes.LinearRemineralization();
+                sources=:D,
+                destination=:D,
+                bindings=(rate=(D=:top,),),
+            ),),
+            parameters=parameter_definitions(source),
+        ))
+        layout = Agate.Configuration.realize_components(components; scalar_type=Float64)
 
         defaults = Agate.Construction.build_process_parameter_defaults(
-            source, nothing, layout, Float64
+            source, normalized, layout, Float64
         )
         @test defaults == (base=2.0,)
 
         resolve(overrides=(;)) = Agate.Construction.resolve_parameter_defaults(
-            source, layout, merge(defaults, overrides), Tuple(keys(overrides))
+            source, layout, merge(defaults, overrides), Tuple(keys(overrides));
+            normalized_definition=normalized,
         )
 
         resolved = resolve()
@@ -90,9 +95,5 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
 
         resolved_top = resolve((base=4.0, top=99.0))
         @test (resolved_top.middle, resolved_top.top) == (5.0, 99.0)
-
-        @test_throws ArgumentError Agate.Construction.resolve_parameter_defaults(
-            CyclicDerivedDefaultFixture(), layout, (;), ()
-        )
     end
 end

@@ -30,14 +30,10 @@ function process_fluxes(
     process = named.process
     fluxes = Any[]
 
-    for population in process.populations
-        state_mapping = component_state_tracers(layout, population)
-        length(state_mapping) == 1 || throw(ArgumentError(
-            "process :$(process_id(named)) requires explicit state selection for multi-state population :$population",
-        ))
-        reference = PopulationStateRef(population, only(keys(state_mapping)))
-        population_tracers, population_indices = _realize_population_state(
-            named, reference, layout
+    for reference in named.facts.population_states
+        population = reference.population
+        population_tracers, population_indices = _realize_normalized_population_states(
+            (reference,), layout
         )
         slots = _mortality_slots(definition, named, population)
         for population_axis in eachindex(population_tracers)

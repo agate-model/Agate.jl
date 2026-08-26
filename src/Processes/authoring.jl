@@ -80,7 +80,7 @@ function _canonical_participants(role::Symbol, values)
 end
 
 """Light-dependent multiplicative factor in a process rate."""
-struct Light{F<:AbstractFormulation} <: AbstractFactor
+struct Light{F<:Union{Smith,Geider}} <: AbstractFactor
     formulation::F
     driver::Symbol
     bindings::NamedTuple
@@ -95,7 +95,7 @@ end
 authored_parameter_bindings(factor::Light) = factor.bindings
 
 """Single-resource multiplicative nutrient factor used by processes such as growth."""
-struct NutrientResponse{F<:AbstractFormulation} <: AbstractFactor
+struct NutrientResponse{F<:Monod} <: AbstractFactor
     formulation::F
     resource::Symbol
     bindings::NamedTuple
@@ -110,7 +110,7 @@ end
 authored_parameter_bindings(factor::NutrientResponse) = factor.bindings
 
 """Temperature-dependent multiplicative process-rate factor."""
-struct Temperature{F<:AbstractFormulation} <: AbstractFactor
+struct Temperature{F<:Q10} <: AbstractFactor
     formulation::F
     driver::Symbol
     bindings::NamedTuple
@@ -125,10 +125,6 @@ end
 authored_parameter_bindings(factor::Temperature) = factor.bindings
 
 function _canonical_responses(responses::NamedTuple)
-    isempty(responses) && throw(ArgumentError("nutrient `responses` cannot be empty"))
-    all(response -> response isa NutrientResponse, values(responses)) || throw(
-        ArgumentError("nutrient `responses` values must be NutrientResponse factors"),
-    )
     names = sort!(collect(keys(responses)); by=String)
     names_tuple = Tuple(names)
     return NamedTuple{names_tuple}(Tuple(getproperty(responses, name) for name in names))
@@ -138,10 +134,20 @@ end
 
 When paired with `FixedStoichiometry`, response names identify target currencies.
 """
-struct Nutrients{F<:AbstractFormulation,R<:NamedTuple} <: AbstractFactor
+struct Nutrients{F<:Union{Liebig,FrankTNorm},R<:NamedTuple} <: AbstractFactor
     formulation::F
     responses::R
     bindings::NamedTuple
+
+    function Nutrients(
+        formulation::F, responses::R, bindings::NamedTuple
+    ) where {F<:Union{Liebig,FrankTNorm},R<:NamedTuple}
+        isempty(responses) && throw(ArgumentError("nutrient `responses` cannot be empty"))
+        all(response -> response isa NutrientResponse, values(responses)) || throw(
+            ArgumentError("nutrient `responses` values must be NutrientResponse factors"),
+        )
+        return new{F,R}(formulation, responses, bindings)
+    end
 end
 
 function Nutrients(
@@ -334,7 +340,7 @@ function Growth(;
 end
 
 """Canonical consumer-resource process with optional factors and unassimilated products."""
-struct Consumption{F<:AbstractFormulation,A<:NamedTuple,P} <: AbstractProcess
+struct Consumption{F<:Union{IdealizedGrazing,PreferentialGrazing,HeterotrophicConsumption},A<:NamedTuple,P} <: AbstractProcess
     formulation::F
     consumers::Tuple
     resources::Tuple
@@ -363,7 +369,7 @@ end
 authored_parameter_bindings(process::Consumption) = process.bindings
 
 """Population mortality process with optional products."""
-struct Mortality{F<:AbstractFormulation,P} <: AbstractProcess
+struct Mortality{F<:Union{LinearMortality,QuadraticMortality},P} <: AbstractProcess
     formulation::F
     populations::Tuple
     products::P
@@ -386,7 +392,7 @@ end
 authored_parameter_bindings(process::Mortality) = process.bindings
 
 """Source-to-destination remineralization process."""
-struct Remineralization{F<:AbstractFormulation} <: AbstractProcess
+struct Remineralization{F<:LinearRemineralization} <: AbstractProcess
     formulation::F
     sources::Tuple
     destination::Symbol
@@ -423,9 +429,6 @@ process_products(process::Union{Consumption,Mortality}) = process.products
 product_path(::Mortality) = (:products,)
 product_path(::Consumption) = (:unassimilated_products,)
 
-process_stoichiometry(::AbstractProcess) = nothing
-process_stoichiometry(process::Growth) = process.stoichiometry
-
 """Whether a consumer-resource formulation uses living consumer-prey interaction matrices."""
 uses_living_interactions(::AbstractFormulation) = false
 uses_living_interactions(::Union{IdealizedGrazing,PreferentialGrazing}) = true
@@ -439,36 +442,3 @@ participants(process::Consumption) = (consumer=process.consumers, resource=proce
 participants(process::Mortality) = (population=process.populations,)
 participants(process::Remineralization) =
     (source=process.sources, destination=(process.destination,))
-
-function _factor_driver_identities(factor::AbstractFactor)
-    identities = Symbol[
-        input.identity for input in factor_inputs(factor) if input isa FactorDriver
-    ]
-    for child in values(factor_children(factor))
-        append!(identities, _factor_driver_identities(child))
-    end
-    return Tuple(identities)
-end
-
-function factor_drivers(factor::AbstractFactor)
-    identities = unique(_factor_driver_identities(factor))
-    isempty(identities) && return NamedTuple()
-    length(identities) == 1 || throw(ArgumentError(
-        "one named process factor cannot require multiple external drivers",
-    ))
-    return (driver=only(identities),)
-end
-
-function _factor_drivers(process)
-    names = Symbol[]
-    identities = Symbol[]
-    for (name, factor) in pairs(factors(process))
-        factor_bindings = factor_drivers(factor)
-        isempty(factor_bindings) && continue
-        push!(names, name)
-        push!(identities, only(values(factor_bindings)))
-    end
-    return NamedTuple{Tuple(names)}(Tuple(identities))
-end
-
-drivers(process::AbstractProcess) = _factor_drivers(process)

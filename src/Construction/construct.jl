@@ -54,85 +54,6 @@ function architecture_array_type(arch)
     return Array
 end
 
-const RESERVED_PARAMETER_KEYS = (:x, :y, :z, :t)
-
-function validate_parameter_directory(source)
-    definitions = parameter_definitions(source)
-    definitions isa NamedTuple || throw(
-        ArgumentError("parameter_definitions(::$(typeof(source))) must return a NamedTuple"),
-    )
-    isempty(definitions) && return ()
-    all(parameter -> parameter isa Parameter, values(definitions)) || throw(
-        ArgumentError("parameter_definitions(::$(typeof(source))) must contain only Parameter values"),
-    )
-
-    parameter_keys = Tuple(keys(definitions))
-    key_set = Set(parameter_keys)
-    for name in parameter_keys
-        (name in RESERVED_PARAMETER_KEYS) && throw(
-            ArgumentError(
-                "parameter_definitions(::$(typeof(source))) declares reserved parameter key :$name.",
-            ),
-        )
-    end
-
-    for (name, parameter) in pairs(definitions)
-        provider = parameter.default
-        if provider isa DerivedDefault
-            for dep in provider.deps
-                dep in key_set || throw(
-                    ArgumentError(
-                        "derived default :$name depends on undeclared parameter :$dep.",
-                    ),
-                )
-            end
-        end
-    end
-
-    return parameter_keys
-end
-
-function derived_default_order(source)
-    derived = Pair{Symbol,Any}[
-        name => parameter for (name, parameter) in pairs(parameter_definitions(source)) if
-        parameter.default isa DerivedDefault
-    ]
-    isempty(derived) && return ()
-
-    derived_keys = Tuple(first(entry) for entry in derived)
-    resolved_keys = Set{Symbol}()
-    ordered = Pair{Symbol,Any}[]
-    pending = derived
-
-    while !isempty(pending)
-        remaining = Pair{Symbol,Any}[]
-        progressed = false
-
-        for (name, parameter) in pending
-            dependencies = Tuple(
-                dep for dep in parameter.default.deps if dep in derived_keys
-            )
-            if all(dep -> dep in resolved_keys, dependencies)
-                push!(ordered, name => parameter)
-                push!(resolved_keys, name)
-                progressed = true
-            else
-                push!(remaining, name => parameter)
-            end
-        end
-
-        progressed || throw(
-            ArgumentError(
-                "derived parameter defaults contain a dependency cycle among: " *
-                join(string.(Tuple(first(entry) for entry in remaining)), ", "),
-            ),
-        )
-        pending = remaining
-    end
-
-    return Tuple(ordered)
-end
-
 function _parameter_rank(definition, name::Symbol, spec)
     spec.axes isa Symbol && return 1
     spec.axes isa Tuple && return length(spec.axes)
@@ -259,8 +180,7 @@ end
 
 An explicit override of a derived parameter wins. Otherwise a derived value is computed
 when missing and recomputed whenever a dependency was explicitly overridden or was itself
-recomputed. Dependencies between derived defaults are topologically ordered and cycles are
-rejected during setup.
+recomputed. The normalized model supplies the authoritative topological dependency order.
 """
 function resolve_parameter_defaults(
     source,
@@ -268,9 +188,13 @@ function resolve_parameter_defaults(
     params::NamedTuple,
     explicit_override_keys::Tuple{Vararg{Symbol}};
     derivation_owner=source,
-    normalized_definition=nothing,
+    normalized_definition,
 )
-    ordered = derived_default_order(source)
+    definitions = parameter_definitions(source)
+    ordered = Tuple(
+        name => getproperty(definitions, name)
+        for name in normalized_definition.derived_parameter_order
+    )
     isempty(ordered) && return params
 
     override_set = Set{Symbol}(explicit_override_keys)
@@ -769,7 +693,7 @@ function _construct_process_definition(
     )
     tracer_names = layout.tracer_order
 
-    required = validate_parameter_directory(parameter_source)
+    required = Tuple(keys(definitions))
     validate_override_keys(
         "parameters", parameter_overrides, required, parameter_source
     )

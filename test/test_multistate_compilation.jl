@@ -224,6 +224,8 @@ end
         components, processes=(turnover=process,), parameters
     ))
 
+    @test bgc.parameters.turnover_rate == [0.1, 0.1]
+
     @test Agate.Introspection.tracer_names(bgc) == [
         :DOC, :DON, :DOP,
         :P_1_carbon, :P_1_nitrogen, :P_1_phosphorus,

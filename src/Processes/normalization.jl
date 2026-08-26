@@ -17,23 +17,29 @@ function ModelDefinition(family::AbstractModelFamily)
     )
 end
 
-"""Named, validated process instance in canonical normalized model state."""
-struct NamedProcess{P<:AbstractProcess}
+"""Named, validated process instance in canonical normalized model state.
+
+`facts` contains setup-only decisions that compilation may trust, such as resolved
+population-state references and Growth routing ownership.
+"""
+struct NamedProcess{P<:AbstractProcess,F}
     id::Symbol
     process::P
+    facts::F
 end
+
+NamedProcess(id::Symbol, process::P) where {P<:AbstractProcess} =
+    NamedProcess(id, process, NamedTuple())
 
 process_id(process::NamedProcess) = process.id
 formulation(process::NamedProcess) = formulation(process.process)
 factors(process::NamedProcess) = factors(process.process)
 participants(process::NamedProcess) = participants(process.process)
-drivers(process::NamedProcess) = drivers(process.process)
 
-function _canonical_qualifier(qualifier::NamedTuple)
-    names = sort!(collect(keys(qualifier)); by=String)
-    names_tuple = Tuple(names)
-    values = Tuple(getproperty(qualifier, name) for name in names)
-    return NamedTuple{names_tuple}(values)
+"""Zero-or-one setup-time qualifier attached to a local parameter slot."""
+struct Qualifier
+    axis::Symbol
+    value::Symbol
 end
 
 """Formulation-local declaration of one semantic parameter slot.
@@ -133,13 +139,13 @@ _parameter_slot_source(node::Union{AbstractFormulation,AbstractStoichiometry,Pro
 _parameter_slot_source(node) = formulation(node)
 
 function _slot_qualifier(slot::ParameterSlot, context::NamedTuple)
-    isnothing(slot.qualify) && return NamedTuple()
-    hasproperty(context, slot.qualify) || return NamedTuple()
+    isnothing(slot.qualify) && return nothing
+    hasproperty(context, slot.qualify) || return nothing
     value = getproperty(context, slot.qualify)
     value isa Symbol || throw(
         ArgumentError("parameter slot qualifier :$(slot.qualify) must identify one Symbol"),
     )
-    return NamedTuple{(slot.qualify,)}((value,))
+    return Qualifier(slot.qualify, value)
 end
 
 function _slot_metadata(
@@ -155,115 +161,107 @@ function _slot_metadata(
         process=process_id(named),
         path,
         slot=slot.name,
-        qualifier=_canonical_qualifier(_slot_qualifier(slot, context)),
+        qualifier=_slot_qualifier(slot, context),
         axes=slot.axes,
     )
 end
 
-_binding_key(process::Symbol, path::Tuple, slot::Symbol, qualifier::NamedTuple) =
-    (process, path, slot, _canonical_qualifier(qualifier))
+_qualifier_key(::Nothing) = nothing
+_qualifier_key(qualifier::Qualifier) = (qualifier.axis, qualifier.value)
+_binding_key(process::Symbol, path::Tuple, slot::Symbol, qualifier) =
+    (process, path, slot, _qualifier_key(qualifier))
 _binding_key(binding::ParameterBinding) =
     _binding_key(binding.process, binding.path, binding.slot, binding.qualifier)
 _binding_key(metadata::NamedTuple) =
     _binding_key(metadata.process, metadata.path, metadata.slot, metadata.qualifier)
 
-_parameter_node(path::Tuple, node; context=NamedTuple()) =
-    (; path, node, context)
-
-_validate_factor_formulation(::AbstractFactor) = nothing
-_validate_factor_formulation(factor::Light) =
-    formulation(factor) isa Union{Smith,Geider} || throw(ArgumentError("invalid light formulation"))
-_validate_factor_formulation(factor::NutrientResponse) =
-    formulation(factor) isa Monod || throw(ArgumentError("invalid nutrient-response formulation"))
-_validate_factor_formulation(factor::Nutrients) =
-    formulation(factor) isa Union{Liebig,FrankTNorm} || throw(ArgumentError("invalid nutrient formulation"))
-_validate_factor_formulation(factor::Temperature) =
-    formulation(factor) isa Q10 || throw(ArgumentError("invalid temperature formulation"))
-
-function _factor_parameter_nodes(path::Tuple, factor::AbstractFactor)
-    _validate_factor_formulation(factor)
-    nodes = (_parameter_node(
-        path, factor; context=factor_parameter_context(factor),
-    ),)
-    for (name, child) in pairs(factor_children(factor))
-        child isa AbstractFactor || throw(ArgumentError("factor children must be process factors"))
-        factor isa Nutrients && !(child isa NutrientResponse) && throw(
-            ArgumentError("nutrient responses must be NutrientResponse factors"),
-        )
-        nodes = (
-            nodes...,
-            _factor_parameter_nodes(factor_child_path(path, factor, name), child)...,
-        )
+function _emit_parameter_slots!(
+    uses::Vector{Any},
+    named::NamedProcess,
+    path::Tuple,
+    node;
+    context::NamedTuple=NamedTuple(),
+)
+    bindings = _validate_binding_slot_names(node)
+    for slot in parameter_slots(_parameter_slot_source(node))
+        qualifier = _slot_qualifier(slot, context)
+        metadata = _slot_metadata(named, path, slot, context)
+        parameter, explicit = _binding_value(bindings, slot, qualifier)
+        push!(uses, (; metadata..., parameter, explicit))
     end
-    return nodes
+    return nothing
 end
 
-_factor_parameter_nodes(name::Symbol, factor::AbstractFactor) =
-    _factor_parameter_nodes((:factors, name), factor)
+function _visit_factor_slots!(
+    uses::Vector{Any}, named::NamedProcess, path::Tuple, factor::AbstractFactor
+)
+    _emit_parameter_slots!(
+        uses, named, path, factor; context=factor_parameter_context(factor)
+    )
+    for (name, child) in pairs(_validated_factor_children(factor))
+        _visit_factor_slots!(
+            uses, named, factor_child_path(path, factor, name), child
+        )
+    end
+    return nothing
+end
 
-function _products_parameter_nodes(path::Tuple, products::Products)
-    nodes = Any[
-        _parameter_node(path, products; context=(product=name,))
-        for name in keys(products.fractions)
-    ]
+function _visit_product_slots!(
+    uses::Vector{Any}, named::NamedProcess, path::Tuple, products::Products
+)
+    for product in keys(products.fractions)
+        _emit_parameter_slots!(uses, named, path, products; context=(product=product,))
+    end
     stoichiometry = products.stoichiometry
-    if !isnothing(stoichiometry)
-        currencies = keys(first(values(products.targets)))
-        for currency in currencies
-            currency === stoichiometry.reference && continue
-            push!(
-                nodes,
-                _parameter_node(
-                    (path..., :stoichiometry),
-                    stoichiometry;
-                    context=(currency=currency,),
-                ),
+    isnothing(stoichiometry) && return nothing
+    currencies = keys(first(values(products.targets)))
+    for currency in currencies
+        currency === stoichiometry.reference && continue
+        _emit_parameter_slots!(
+            uses,
+            named,
+            (path..., :stoichiometry),
+            stoichiometry;
+            context=(currency=currency,),
+        )
+    end
+    return nothing
+end
+
+function _visit_process_slots!(uses::Vector{Any}, named::NamedProcess)
+    process = named.process
+    if process isa Mortality
+        for population in process.populations
+            _emit_parameter_slots!(uses, named, (), process; context=(population=population,))
+        end
+    elseif process isa Remineralization
+        for source in process.sources
+            _emit_parameter_slots!(uses, named, (), process; context=(source=source,))
+        end
+    else
+        _emit_parameter_slots!(uses, named, (), process)
+    end
+
+    for (name, factor) in pairs(factors(process))
+        _visit_factor_slots!(uses, named, (:factors, name), factor)
+    end
+
+    products = process_products(process)
+    isnothing(products) || _visit_product_slots!(uses, named, product_path(process), products)
+
+    if process isa Growth && !isnothing(process.stoichiometry)
+        nutrients = getproperty(process.factors, named.facts.routing.factor)
+        for currency in keys(nutrients.responses)
+            _emit_parameter_slots!(
+                uses,
+                named,
+                (:stoichiometry,),
+                process.stoichiometry;
+                context=(currency=currency,),
             )
         end
     end
-    return Tuple(nodes)
-end
-
-_process_parameter_nodes(process::AbstractProcess) =
-    (_parameter_node((), process),)
-
-_process_parameter_nodes(process::Mortality) = Tuple(
-    _parameter_node(
-        (), process; context=(population=population,)
-    )
-    for population in process.populations
-)
-
-_process_parameter_nodes(process::Remineralization) = Tuple(
-    _parameter_node(
-        (), process; context=(source=source,)
-    )
-    for source in process.sources
-)
-
-_stoichiometry_parameter_nodes(::AbstractProcess) = ()
-function _stoichiometry_parameter_nodes(process::Growth)
-    stoichiometry = process_stoichiometry(process)
-    isnothing(stoichiometry) && return ()
-    nutrients = only(factor for factor in values(process.factors) if factor isa Nutrients)
-    return Tuple(
-        _parameter_node(
-            (:stoichiometry,), stoichiometry; context=(currency=currency,)
-        )
-        for currency in keys(nutrients.responses)
-    )
-end
-
-function _parameter_nodes(named::NamedProcess)
-    process = named.process
-    nodes = Any[_process_parameter_nodes(process)...]
-    for (name, factor) in pairs(factors(process))
-        append!(nodes, _factor_parameter_nodes(name, factor))
-    end
-    products = process_products(process)
-    isnothing(products) || append!(nodes, _products_parameter_nodes(product_path(process), products))
-    append!(nodes, _stoichiometry_parameter_nodes(process))
-    return Tuple(nodes)
+    return nothing
 end
 
 """Setup-time normalized scientific model definition.
@@ -271,10 +269,11 @@ end
 `parameter_bindings` is the canonical ordered contract; `parameter_lookup` is a transient
 setup cache used while lowering processes.
 """
-struct NormalizedModelDefinition{C,P,A,D,B,L}
+struct NormalizedModelDefinition{C,P,A,O,D,B,L}
     components::C
     processes::P
     parameters::A
+    derived_parameter_order::O
     driver_identities::D
     parameter_bindings::B
     parameter_lookup::L
@@ -291,7 +290,7 @@ function _parameter_binding(
     process::Symbol,
     path::Tuple,
     slot::Symbol,
-    qualifier::NamedTuple,
+    qualifier,
 )
     key = _binding_key(process, path, slot, qualifier)
     return get(definition.parameter_lookup, key) do
@@ -315,47 +314,45 @@ function parameter_slot_bindings(
     bindings = Tuple(
         begin
             qualifier = _slot_qualifier(slot, context)
-            binding = _parameter_binding(
+            _parameter_binding(
                 definition, process_id(named), path, slot.name, qualifier
             )
-            binding.axes == slot.axes || throw(
-                ArgumentError(
-                    "resolved parameter binding does not match slot schema for process " *
-                    ":$(process_id(named)) path $path slot :$(slot.name) qualifier $qualifier",
-                ),
-            )
-            binding
         end for slot in slots
     )
     return NamedTuple{names}(bindings)
+end
+
+function _validated_factor_children(factor::AbstractFactor)
+    children = factor_children(factor)
+    children isa NamedTuple || throw(
+        ArgumentError("factor children for $(typeof(factor)) must be a NamedTuple"),
+    )
+    all(child -> child isa AbstractFactor, values(children)) || throw(
+        ArgumentError("factor children for $(typeof(factor)) must be process factors"),
+    )
+    return children
 end
 
 function _factor_component_references(factor::AbstractFactor)
     references = Symbol[
         input.component for input in factor_inputs(factor) if input isa FactorComponent
     ]
-    for child in values(factor_children(factor))
+    for child in values(_validated_factor_children(factor))
         append!(references, _factor_component_references(child))
     end
     return Tuple(references)
 end
 
 function _product_component_references(products::Products)
-    references = Symbol[]
-    for target in values(products.targets)
-        if target isa Symbol
-            push!(references, target)
-        else
-            append!(references, values(target))
-        end
-    end
-    return Tuple(references)
+    return Tuple(Iterators.flatten(
+        target isa Symbol ? (target,) : Tuple(values(target)) for target in values(products.targets)
+    ))
 end
 
 function _process_component_references(process::AbstractProcess)
     references = Symbol[]
-    for values_for_role in values(participants(process)), component in values_for_role
-        push!(references, component)
+    for values_for_role in values(participants(process))
+        append!(references, values_for_role)
     end
     for factor in values(factors(process))
         append!(references, _factor_component_references(factor))
@@ -365,166 +362,235 @@ function _process_component_references(process::AbstractProcess)
     return Tuple(references)
 end
 
-function _validate_currency_target(
-    components::NamedTuple, component::Symbol, expected::Symbol, label::String
-)
-    actual = currency(getproperty(components, component))
+function _scalar_pool(components, name::Symbol, id::Symbol, label::AbstractString)
+    pool = getproperty(components, name)
+    pool isa Pool || throw(ArgumentError("process :$id $label :$name must be a Pool"))
+    isnothing(size_structure(pool)) || throw(
+        ArgumentError("process :$id $label :$name must be a scalar Pool"),
+    )
+    return pool
+end
+
+function _population_state(components, name::Symbol, id::Symbol, label::AbstractString)
+    population = getproperty(components, name)
+    population isa Population || throw(
+        ArgumentError("process :$id $label :$name must be a Population"),
+    )
+    state_names = keys(states(population))
+    length(state_names) == 1 || throw(
+        ArgumentError("process :$id $label :$name requires explicit state selection"),
+    )
+    return PopulationStateRef(name, only(state_names))
+end
+
+_state_currency(components, ref::PopulationStateRef) =
+    state_currency(getproperty(components, ref.population), ref.state)
+
+function _require_currency(actual, expected, id::Symbol, label::AbstractString)
     actual === expected || throw(
-        ArgumentError("$label component :$component has currency :$actual, expected :$expected"),
+        ArgumentError("process :$id $label has currency :$actual, expected :$expected"),
     )
-    return nothing
 end
 
-_validate_process_science(::AbstractProcess, ::NamedTuple) = nothing
-
-function _validate_process_science(process::Growth, components::NamedTuple)
-    single_resource = any(factor -> factor isa NutrientResponse, values(process.factors))
-    !single_resource || isnothing(process.source) || throw(
-        ArgumentError(
-            "single-resource growth derives its source from the nutrient response; omit `source`"
-        ),
-    )
-
-    stoichiometry = process_stoichiometry(process)
-    isnothing(stoichiometry) && return nothing
-    stoichiometry isa FixedStoichiometry || throw(
-        ArgumentError("unsupported growth stoichiometry $(typeof(stoichiometry))"),
-    )
-    nutrient_factors = Tuple(
-        factor for factor in values(process.factors) if factor isa Nutrients
-    )
-    length(nutrient_factors) == 1 || throw(
-        ArgumentError(
-            "fixed-stoichiometry growth requires exactly one multi-resource Nutrients factor"
-        ),
-    )
-    reference = stoichiometry.reference
-    isnothing(process.source) && throw(
-        ArgumentError("fixed-stoichiometry growth requires a reference-currency source component"),
-    )
-    _validate_currency_target(components, process.source, reference, "growth source")
-    for population in process.populations
-        _validate_currency_target(components, population, reference, "growth population")
-    end
-    for factor in values(process.factors)
-        factor isa Nutrients || continue
-        for (target_currency, response) in pairs(factor.responses)
-            _validate_currency_target(
-                components, response.resource, target_currency, "nutrient response"
-            )
-        end
+function _validate_state_currencies!(components, refs, expected, id, label)
+    for ref in refs
+        _require_currency(
+            _state_currency(components, ref), expected, id,
+            "$label :$(ref.population).$(ref.state)",
+        )
     end
     return nothing
 end
 
-function _validate_products_science(
-    products::Products, components::NamedTuple, reference::Symbol
-)
+function _validate_products!(id, products, components, reference, label)
     stoichiometry = products.stoichiometry
     if isnothing(stoichiometry)
-        for target in values(products.targets)
-            target isa Symbol || throw(ArgumentError("scalar products require component targets"))
-            getproperty(components, target) isa Pool || throw(
-                ArgumentError("product targets must be Pool components"),
+        for (name, target) in pairs(products.targets)
+            target isa Symbol || throw(
+                ArgumentError("process :$id $label product :$name requires a scalar target"),
             )
-            _validate_currency_target(components, target, reference, "product target")
+            pool = _scalar_pool(components, target, id, "$label product :$name target")
+            _require_currency(currency(pool), reference, id, "$label product :$name target :$target")
         end
         return nothing
     end
 
-    stoichiometry.reference === reference || throw(ArgumentError(
-        "product stoichiometric reference :$(stoichiometry.reference) does not match process currency :$reference",
-    ))
-    for target_group in values(products.targets), (target_currency, target) in pairs(target_group)
-        getproperty(components, target) isa Pool || throw(
-            ArgumentError("product targets must be Pool components"),
+    _require_currency(stoichiometry.reference, reference, id, "$label stoichiometric reference")
+    for (name, targets) in pairs(products.targets), (target_currency, target) in pairs(targets)
+        pool = _scalar_pool(components, target, id, "$label product :$name target")
+        _require_currency(
+            currency(pool), target_currency, id, "$label product :$name target :$target",
         )
-        _validate_currency_target(components, target, target_currency, "product target")
     end
     return nothing
 end
 
-function _validate_process_science(process::Consumption, components::NamedTuple)
-    formulation(process) isa Union{
-        IdealizedGrazing,PreferentialGrazing,HeterotrophicConsumption
-    } || throw(
-        ArgumentError("unsupported consumption formulation $(typeof(formulation(process)))"),
+function _growth_facts(id::Symbol, process::Growth, components::NamedTuple)
+    routing = Tuple(
+        (name, factor) for (name, factor) in pairs(process.factors)
+        if factor isa Union{NutrientResponse,Nutrients}
     )
-    all(consumer -> getproperty(components, consumer) isa Population, process.consumers) || throw(
-        ArgumentError("consumption consumers must be Population components"),
-    )
-    living_resources = uses_living_interactions(process.formulation)
-    resource_type = living_resources ? Population : Pool
-    valid_resources = all(
-        resource -> getproperty(components, resource) isa resource_type, process.resources
-    )
-    resource_error = living_resources ?
-                     "living-interaction resources must be Population components" :
-                     "heterotrophic-consumption resources must be Pool components"
-    valid_resources || throw(ArgumentError(resource_error))
+    length(routing) == 1 || throw(ArgumentError(
+        "process :$id growth must declare exactly one NutrientResponse or Nutrients routing factor",
+    ))
+    factor_name, nutrient_factor = only(routing)
 
-    reference = currency(getproperty(components, first(process.consumers)))
-    for consumer in process.consumers
-        _validate_currency_target(components, consumer, reference, "consumption consumer")
+    rate_owners = Tuple(
+        name for (name, factor) in pairs(process.factors)
+        if any(slot -> slot.name === :maximum_rate, parameter_slots(formulation(factor)))
+    )
+    length(rate_owners) == 1 || throw(ArgumentError(
+        "process :$id growth must declare exactly one factor that owns the maximum_rate slot",
+    ))
+    population_states = Tuple(
+        _population_state(components, population, id, "population")
+        for population in process.populations
+    )
+
+    if nutrient_factor isa NutrientResponse
+        isnothing(process.source) || throw(ArgumentError(
+            "process :$id single-resource growth derives its source from the nutrient response; omit `source`",
+        ))
+        isnothing(process.stoichiometry) || throw(ArgumentError(
+            "process :$id single-resource growth does not take fixed stoichiometry",
+        ))
+        resource = _scalar_pool(components, nutrient_factor.resource, id, "nutrient factor resource")
+        reference = currency(resource)
+        _validate_state_currencies!(components, population_states, reference, id, "population state")
+        route = (mode=:single_resource, factor=factor_name, source=nutrient_factor.resource)
+    else
+        process.source isa Symbol || throw(
+            ArgumentError("process :$id multi-resource growth requires a source component"),
+        )
+        process.stoichiometry isa FixedStoichiometry || throw(
+            ArgumentError("process :$id multi-resource growth requires FixedStoichiometry"),
+        )
+        reference = process.stoichiometry.reference
+        source = _scalar_pool(components, process.source, id, "growth source")
+        _require_currency(currency(source), reference, id, "growth source :$(process.source)")
+        _validate_state_currencies!(components, population_states, reference, id, "population state")
+        for (target_currency, response) in pairs(nutrient_factor.responses)
+            resource = _scalar_pool(
+                components, response.resource, id, "nutrient response :$target_currency resource",
+            )
+            _require_currency(
+                currency(resource), target_currency, id,
+                "nutrient response :$target_currency resource :$(response.resource)",
+            )
+        end
+        route = (
+            mode=:multi_resource, factor=factor_name, source=process.source,
+            stoichiometry=process.stoichiometry,
+        )
     end
-    for resource in process.resources
-        _validate_currency_target(components, resource, reference, "consumption resource")
-    end
-    isnothing(process.products) || _validate_products_science(process.products, components, reference)
-    return nothing
+    return (;
+        population_states, routing=route, maximum_rate_factor=only(rate_owners),
+    )
 end
 
-function _validate_process_science(process::Mortality, components::NamedTuple)
-    formulation(process) isa Union{LinearMortality,QuadraticMortality} || throw(
-        ArgumentError("unsupported mortality formulation $(typeof(formulation(process)))"),
+function _consumption_facts(id::Symbol, process::Consumption, components::NamedTuple)
+    consumer_states = Tuple(
+        _population_state(components, consumer, id, "consumer") for consumer in process.consumers
+    )
+    reference = _state_currency(components, first(consumer_states))
+    _validate_state_currencies!(components, consumer_states, reference, id, "consumer state")
+
+    if uses_living_interactions(process.formulation)
+        resources = Tuple(
+            _population_state(components, resource, id, "living resource")
+            for resource in process.resources
+        )
+        _validate_state_currencies!(components, resources, reference, id, "resource state")
+    else
+        resources = process.resources
+        for resource in resources
+            pool = getproperty(components, resource)
+            pool isa Pool || throw(
+                ArgumentError("process :$id heterotrophic resource :$resource must be a Pool"),
+            )
+            _require_currency(currency(pool), reference, id, "heterotrophic resource :$resource")
+        end
+    end
+    isnothing(process.products) || _validate_products!(
+        id, process.products, components, reference, "unassimilated products"
+    )
+    return (; consumer_states, resources)
+end
+
+function _mortality_facts(id::Symbol, process::Mortality, components::NamedTuple)
+    population_states = Tuple(
+        _population_state(components, population, id, "mortality population")
+        for population in process.populations
     )
     if !isnothing(process.products)
-        references = unique(Tuple(
-            currency(getproperty(components, population)) for population in process.populations
-        ))
-        length(references) == 1 || throw(
-            ArgumentError("mortality populations must share one currency when products are declared"),
+        reference = _state_currency(components, first(population_states))
+        _validate_state_currencies!(
+            components, population_states, reference, id, "mortality population state"
         )
-        _validate_products_science(process.products, components, only(references))
+        _validate_products!(id, process.products, components, reference, "mortality products")
     end
-    return nothing
+    return (; population_states)
 end
 
-function _validate_process_science(process::Remineralization, ::NamedTuple)
-    formulation(process) isa LinearRemineralization || throw(
-        ArgumentError("unsupported remineralization formulation $(typeof(formulation(process)))"),
-    )
-    return nothing
+function _remineralization_facts(id::Symbol, process::Remineralization, components::NamedTuple)
+    destination = _scalar_pool(components, process.destination, id, "remineralization destination")
+    reference = currency(destination)
+    for source in process.sources
+        pool = _scalar_pool(components, source, id, "remineralization source")
+        _require_currency(currency(pool), reference, id, "remineralization source :$source")
+    end
+    return NamedTuple()
 end
+
+_normalized_process_facts(::Symbol, ::AbstractProcess, ::NamedTuple) = NamedTuple()
+_normalized_process_facts(id::Symbol, process::Growth, components::NamedTuple) =
+    _growth_facts(id, process, components)
+_normalized_process_facts(id::Symbol, process::Consumption, components::NamedTuple) =
+    _consumption_facts(id, process, components)
+_normalized_process_facts(id::Symbol, process::Mortality, components::NamedTuple) =
+    _mortality_facts(id, process, components)
+_normalized_process_facts(id::Symbol, process::Remineralization, components::NamedTuple) =
+    _remineralization_facts(id, process, components)
 
 function _validate_process(id::Symbol, process, components::NamedTuple)
     process isa AbstractProcess || throw(
         ArgumentError("process :$id must be an AbstractProcess; got $(typeof(process))"),
     )
     component_names = keys(components)
-    missing = filter(
-        reference -> !(reference in component_names), _process_component_references(process)
-    )
+    missing = unique(Tuple(
+        reference for reference in _process_component_references(process)
+        if !(reference in component_names)
+    ))
     isempty(missing) || throw(
         ArgumentError("process :$id references unknown components $missing"),
     )
-    _validate_process_science(process, components)
-    return NamedProcess(id, process)
+    return NamedProcess(id, process, _normalized_process_facts(id, process, components))
 end
 
 function _canonical_processes(processes::NamedTuple, components::NamedTuple)
     names = sort!(collect(keys(processes)); by=String)
     names_tuple = Tuple(names)
-    values = Tuple(
+    process_values = Tuple(
         _validate_process(name, getproperty(processes, name), components) for name in names
     )
-    return NamedTuple{names_tuple}(values)
+    return NamedTuple{names_tuple}(process_values)
+end
+
+function _collect_driver_identities!(identities::Vector{Symbol}, factor::AbstractFactor)
+    for input in factor_inputs(factor)
+        input isa FactorDriver || continue
+        input.identity in identities || push!(identities, input.identity)
+    end
+    for child in values(_validated_factor_children(factor))
+        _collect_driver_identities!(identities, child)
+    end
+    return nothing
 end
 
 function _canonical_driver_identities(processes::NamedTuple)
     identities = Symbol[]
-    for process in values(processes), identity in values(drivers(process))
-        identity in identities || push!(identities, identity)
+    for process in values(processes), factor in values(factors(process))
+        _collect_driver_identities!(identities, factor)
     end
     sort!(identities; by=String)
     return Tuple(identities)
@@ -548,7 +614,7 @@ function _validate_binding_slot_names(node)
     return bindings
 end
 
-function _binding_value(bindings::NamedTuple, slot::ParameterSlot, qualifier::NamedTuple)
+function _binding_value(bindings::NamedTuple, slot::ParameterSlot, qualifier)
     explicit = hasproperty(bindings, slot.name)
     value = explicit ? getproperty(bindings, slot.name) : slot.name
     value isa Symbol && return value, explicit
@@ -559,10 +625,10 @@ function _binding_value(bindings::NamedTuple, slot::ParameterSlot, qualifier::Na
     isnothing(slot.qualify) && throw(ArgumentError(
         "binding :$(slot.name) uses a qualifier map but the slot is unqualified",
     ))
-    hasproperty(qualifier, slot.qualify) || throw(ArgumentError(
+    qualifier isa Qualifier && qualifier.axis === slot.qualify || throw(ArgumentError(
         "binding :$(slot.name) requires qualifier :$(slot.qualify)",
     ))
-    qualifier_value = getproperty(qualifier, slot.qualify)
+    qualifier_value = qualifier.value
     hasproperty(value, qualifier_value) || throw(ArgumentError(
         "binding :$(slot.name) has no entry for qualifier :$qualifier_value",
     ))
@@ -575,15 +641,8 @@ end
 
 function _declared_parameter_uses(processes::NamedTuple)
     uses = Any[]
-    for named in values(processes), node in _parameter_nodes(named)
-        bindings = _validate_binding_slot_names(node.node)
-        slot_source = _parameter_slot_source(node.node)
-        for slot in parameter_slots(slot_source)
-            qualifier = _slot_qualifier(slot, node.context)
-            metadata = _slot_metadata(named, node.path, slot, node.context)
-            parameter, explicit = _binding_value(bindings, slot, qualifier)
-            push!(uses, (; metadata..., parameter, explicit))
-        end
+    for named in values(processes)
+        _visit_process_slots!(uses, named)
     end
     keys = Tuple(_binding_key(use) for use in uses)
     length(unique(keys)) == length(keys) || throw(
@@ -598,7 +657,74 @@ function _storage_rank(axes)
     return length(axes)
 end
 
-function _normalize_parameter_bindings(processes::NamedTuple, definitions)
+const RESERVED_PARAMETER_KEYS = (:x, :y, :z, :t)
+
+function _normalize_parameter_definitions(definitions)
+    isnothing(definitions) && return nothing, (), Set{Symbol}()
+    definitions isa NamedTuple || throw(
+        ArgumentError("model parameters must be a NamedTuple of Parameter values"),
+    )
+    all(parameter -> parameter isa Parameter, values(definitions)) || throw(
+        ArgumentError("model parameters must contain only Parameter values"),
+    )
+
+    definition_names = Tuple(keys(definitions))
+    definition_set = Set(definition_names)
+    for name in definition_names
+        name in RESERVED_PARAMETER_KEYS && throw(
+            ArgumentError("model parameters declare reserved parameter name :$name"),
+        )
+    end
+
+    dependency_names = Set{Symbol}()
+    derived_names = Symbol[]
+    for (name, parameter) in pairs(definitions)
+        default = parameter.default
+        default isa DerivedDefault || continue
+        push!(derived_names, name)
+        for dependency in default.deps
+            dependency in definition_set || throw(
+                ArgumentError(
+                    "parameter :$name default depends on undeclared parameter :$dependency",
+                ),
+            )
+            push!(dependency_names, dependency)
+        end
+    end
+
+    derived_set = Set(derived_names)
+    resolved = Set{Symbol}()
+    order = Symbol[]
+    pending = copy(derived_names)
+    while !isempty(pending)
+        remaining = Symbol[]
+        progressed = false
+        for name in pending
+            dependencies = Tuple(
+                dep for dep in getproperty(definitions, name).default.deps if dep in derived_set
+            )
+            if all(dep -> dep in resolved, dependencies)
+                push!(order, name)
+                push!(resolved, name)
+                progressed = true
+            else
+                push!(remaining, name)
+            end
+        end
+        progressed || throw(
+            ArgumentError(
+                "derived parameter defaults contain a dependency cycle among: " *
+                join(string.(Tuple(remaining)), ", "),
+            ),
+        )
+        pending = remaining
+    end
+    return definitions, Tuple(order), dependency_names
+end
+
+function _normalize_parameter_bindings(
+    processes::NamedTuple, definitions, dependency_names::Set{Symbol}
+)
     uses = _declared_parameter_uses(processes)
     if isnothing(definitions)
         bindings = Tuple(
@@ -608,28 +734,10 @@ function _normalize_parameter_bindings(processes::NamedTuple, definitions)
             )
             for use in uses
         )
-        return bindings, nothing
+        return bindings
     end
-    definitions isa NamedTuple || throw(
-        ArgumentError("model parameters must be a NamedTuple of Parameter values"),
-    )
-    all(parameter -> parameter isa Parameter, values(definitions)) || throw(
-        ArgumentError("model parameters must contain only Parameter values"),
-    )
 
     definition_names = Set(keys(definitions))
-    dependency_names = Set{Symbol}()
-    for (name, parameter) in pairs(definitions)
-        default = parameter.default
-        default isa DerivedDefault || continue
-        for dependency in default.deps
-            dependency in definition_names || throw(ArgumentError(
-                "parameter :$name default depends on undeclared parameter :$dependency",
-            ))
-            push!(dependency_names, dependency)
-        end
-    end
-
     for use in uses
         use.parameter in definition_names || throw(ArgumentError(
             "inline binding for process :$(use.process) path $(use.path) slot :$(use.slot) " *
@@ -671,7 +779,7 @@ function _normalize_parameter_bindings(processes::NamedTuple, definitions)
         ))
     end
 
-    bindings = Tuple(
+    return Tuple(
         ParameterBinding(
             use.process,
             use.path,
@@ -683,7 +791,6 @@ function _normalize_parameter_bindings(processes::NamedTuple, definitions)
         )
         for use in uses
     )
-    return bindings, definitions
 end
 
 """Normalize process identity and resolve inline parameter bindings.
@@ -699,14 +806,18 @@ function normalize_model(definition::ModelDefinition)
     normalized_processes = _canonical_processes(
         definition.processes, definition.components
     )
-    bindings, parameters = _normalize_parameter_bindings(
-        normalized_processes, definition.parameters
+    parameters, derived_order, dependency_names = _normalize_parameter_definitions(
+        definition.parameters
+    )
+    bindings = _normalize_parameter_bindings(
+        normalized_processes, parameters, dependency_names
     )
     lookup = Dict(_binding_key(binding) => binding for binding in bindings)
     return NormalizedModelDefinition(
         definition.components,
         normalized_processes,
         parameters,
+        derived_order,
         _canonical_driver_identities(normalized_processes),
         bindings,
         lookup,
@@ -717,12 +828,8 @@ function _axis_components(
     process::NamedProcess, binding::ParameterBinding, axis::Symbol
 )
     qualifier = binding.qualifier
-    if hasproperty(qualifier, axis)
-        value = getproperty(qualifier, axis)
-        value isa Symbol || throw(
-            ArgumentError("parameter qualifier :$axis must identify one component Symbol"),
-        )
-        return (value,)
+    if qualifier isa Qualifier && qualifier.axis === axis
+        return (qualifier.value,)
     end
     process_participants = participants(process)
     hasproperty(process_participants, axis) || throw(
@@ -754,10 +861,10 @@ ecological axes.
 """
 function _applicability_axes(process::NamedProcess, binding::ParameterBinding)
     isempty(binding.axes) || return binding.axes
+    qualifier = binding.qualifier
+    qualifier isa Qualifier || return ()
     process_participants = participants(process)
-    return Tuple(
-        axis for axis in keys(binding.qualifier) if hasproperty(process_participants, axis)
-    )
+    return hasproperty(process_participants, qualifier.axis) ? (qualifier.axis,) : ()
 end
 
 function resolve_parameter_applicability(
