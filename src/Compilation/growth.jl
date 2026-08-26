@@ -9,10 +9,10 @@ function _growth_resource_factor(process::Growth)
     return only(matches)
 end
 
-_growth_resource_target(factor::NutrientResponse, layout::ComponentLayout) =
+_growth_resource_target(factor::NutrientResponse, layout::ModelLayout) =
     _scalar_component_target(layout, factor.resource)
 
-function _growth_resource_target(factor::Nutrients, layout::ComponentLayout)
+function _growth_resource_target(factor::Nutrients, layout::ModelLayout)
     names = keys(factor.responses)
     targets = Tuple(
         _scalar_component_target(layout, response.resource)
@@ -42,18 +42,17 @@ end
 function _growth_rate(
     named::NamedProcess,
     definition::NormalizedModelDefinition,
-    layout::ComponentLayout,
-    context::CommunityContext,
+    layout::ModelLayout,
     population_axis::Int,
     population_index::Int,
     population_tracer::Symbol,
     scale_binding::ParameterBinding,
 )
     axis_positions = (population=_axis_position(population_axis, population_index),)
-    rate_factors = _factor_elements(definition, named, layout, context, axis_positions)
+    rate_factors = _factor_elements(definition, named, layout, axis_positions)
     operands = (
         TracerOp{population_tracer}(),
-        parameter_operand(scale_binding, context, axis_positions),
+        parameter_operand(scale_binding, layout, axis_positions),
     )
     return RateElement(formulation(named.process), operands; factors=rate_factors)
 end
@@ -110,13 +109,12 @@ end
 function process_fluxes(
     named::NamedProcess{P},
     definition::NormalizedModelDefinition,
-    layout::ComponentLayout,
-    context::CommunityContext,
+    layout::ModelLayout,
 ) where {P<:Growth}
     process = named.process
     _, nutrients = _growth_resource_factor(process)
     population_tracers, population_indices = _realize_population_classes(
-        named, process.populations, layout, context
+        named, process.populations, layout
     )
     resource_target = _growth_resource_target(nutrients, layout)
     source_target = isnothing(process.source) ? nothing :
@@ -130,7 +128,6 @@ function process_fluxes(
             named,
             definition,
             layout,
-            context,
             population_axis,
             population_index,
             population_tracers[population_axis],

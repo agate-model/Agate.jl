@@ -266,23 +266,20 @@ function validate_runtime_active_parameter(path::Tuple)
     return nothing
 end
 
-function plankton_parameter_index(bgc, tracer::Symbol)
-    tracer_names = Tuple(keys(bgc.tracer_functions))
-    pos = findfirst(==(tracer), tracer_names)
-    pos === nothing && throw(ArgumentError("Unknown tracer :$tracer."))
-
-    plankton_base = bgc.tracers.idx.plankton_base
-    plankton_base == 0 && throw(ArgumentError("Model has no plankton parameter axis."))
-
-    parameter_index = pos - plankton_base + 1
-    parameter_index >= 1 || throw(ArgumentError("Tracer :$tracer is not a plankton tracer."))
-    return parameter_index
+function plankton_parameter_index(bgc, class::Symbol)
+    metadata = getproperty(bgc, :metadata)
+    metadata === nothing && throw(ArgumentError("Model has no plankton parameter metadata."))
+    index = findfirst(==(class), metadata.class_symbols)
+    index === nothing && throw(ArgumentError("Unknown plankton class :$class."))
+    return index
 end
 
 function interaction_parameter_indices(
     bgc, parameter::Symbol, consumer::Symbol, prey::Symbol
 )
-    axes = bgc.interaction_axes
+    metadata = getproperty(bgc, :metadata)
+    metadata === nothing && throw(ArgumentError("Model has no interaction matrix metadata."))
+    axes = metadata.interaction_axes
     axes === nothing && throw(ArgumentError("Model has no interaction matrix axes."))
     parameter in axes.parameters || throw(
         ArgumentError(":$parameter is not a consumer-by-prey interaction parameter."),

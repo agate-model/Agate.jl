@@ -67,16 +67,16 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
 
     @testset "Derived default dependency resolution" begin
         source = DerivedDefaultFixture()
-        context = (; scalar_type=Float64)
+        layout = Agate.Configuration.realize_components((;); scalar_type=Float64)
         @test Agate.Construction.validate_parameter_directory(source) == (:base, :top, :middle)
 
         defaults = Agate.Construction.build_process_parameter_defaults(
-            source, nothing, nothing, context, Float64
+            source, nothing, layout, Float64
         )
         @test defaults == (base=2.0,)
 
         resolve(overrides=(;)) = Agate.Construction.resolve_parameter_defaults(
-            source, context, merge(defaults, overrides), Tuple(keys(overrides))
+            source, layout, merge(defaults, overrides), Tuple(keys(overrides))
         )
 
         resolved = resolve()
@@ -92,7 +92,7 @@ parameter_definitions(::CyclicDerivedDefaultFixture) = (
         @test (resolved_top.middle, resolved_top.top) == (5.0, 99.0)
 
         @test_throws ArgumentError Agate.Construction.resolve_parameter_defaults(
-            CyclicDerivedDefaultFixture(), context, (;), ()
+            CyclicDerivedDefaultFixture(), layout, (;), ()
         )
     end
 end

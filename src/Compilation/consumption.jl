@@ -1,5 +1,5 @@
 function _consumption_resource_tracers(
-    named::NamedProcess, resources::Tuple, layout::ComponentLayout
+    named::NamedProcess, resources::Tuple, layout::ModelLayout
 )
     tracers = Symbol[]
     for resource in resources
@@ -17,18 +17,16 @@ function _consumption_resources(
     ::Union{IdealizedGrazing,PreferentialGrazing},
     named::NamedProcess,
     resources::Tuple,
-    layout::ComponentLayout,
-    context::CommunityContext,
+    layout::ModelLayout,
 )
-    return _realize_population_classes(named, resources, layout, context)
+    return _realize_population_classes(named, resources, layout)
 end
 
 function _consumption_resources(
     ::HeterotrophicConsumption,
     named::NamedProcess,
     resources::Tuple,
-    layout::ComponentLayout,
-    ::CommunityContext,
+    layout::ModelLayout,
 )
     return _consumption_resource_tracers(named, resources, layout), nothing
 end
@@ -53,22 +51,21 @@ function _consumption_rate(
     slots,
     definition::NormalizedModelDefinition,
     named::NamedProcess,
-    layout::ComponentLayout,
+    layout::ModelLayout,
     consumer_index::Int,
     consumer::Symbol,
     resource::Symbol,
     resource_index::Int,
-    context::CommunityContext,
     axis_positions::NamedTuple,
 )
     operands = (
         TracerOp{resource}(),
         TracerOp{consumer}(),
-        parameter_operand(slots.maximum_rate, context, axis_positions),
-        parameter_operand(slots.half_saturation, context, axis_positions),
-        parameter_operand(slots.palatability, context, axis_positions),
+        parameter_operand(slots.maximum_rate, layout, axis_positions),
+        parameter_operand(slots.half_saturation, layout, axis_positions),
+        parameter_operand(slots.palatability, layout, axis_positions),
     )
-    rate_factors = _factor_elements(definition, named, layout, context, axis_positions)
+    rate_factors = _factor_elements(definition, named, layout, axis_positions)
     return RateElement(formulation, operands; factors=rate_factors)
 end
 
@@ -77,37 +74,35 @@ function _consumption_rate(
     slots,
     definition::NormalizedModelDefinition,
     named::NamedProcess,
-    layout::ComponentLayout,
+    layout::ModelLayout,
     consumer_index::Int,
     consumer::Symbol,
     resource::Symbol,
     ::Nothing,
-    context::CommunityContext,
     axis_positions::NamedTuple,
 )
     operands = (
         TracerOp{resource}(),
         TracerOp{consumer}(),
-        parameter_operand(slots.maximum_rate, context, axis_positions),
-        parameter_operand(slots.half_saturation, context, axis_positions),
+        parameter_operand(slots.maximum_rate, layout, axis_positions),
+        parameter_operand(slots.half_saturation, layout, axis_positions),
     )
-    rate_factors = _factor_elements(definition, named, layout, context, axis_positions)
+    rate_factors = _factor_elements(definition, named, layout, axis_positions)
     return RateElement(formulation, operands; factors=rate_factors)
 end
 
 function process_fluxes(
     named::NamedProcess{P},
     definition::NormalizedModelDefinition,
-    layout::ComponentLayout,
-    context::CommunityContext,
+    layout::ModelLayout,
 ) where {P<:Consumption}
     process = named.process
     formulation = process.formulation
     consumer_tracers, consumer_indices = _realize_population_classes(
-        named, process.consumers, layout, context
+        named, process.consumers, layout
     )
     resource_tracers, resource_indices = _consumption_resources(
-        formulation, named, process.resources, layout, context
+        formulation, named, process.resources, layout
     )
     slots = parameter_slot_bindings(definition, named, (), process)
     fluxes = Any[]
@@ -132,10 +127,9 @@ function process_fluxes(
                 consumer,
                 resource,
                 resource_index,
-                context,
                 axis_positions,
             )
-            assimilation = parameter_operand(slots.assimilation, context, axis_positions)
+            assimilation = parameter_operand(slots.assimilation, layout, axis_positions)
             push!(
                 fluxes,
                 FluxSpec(process_id(named), resource, rate, Weight{-1}()),

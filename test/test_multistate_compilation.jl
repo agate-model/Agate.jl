@@ -49,13 +49,12 @@ process_rate(::LinearStateTurnover, reference_state, rate) = reference_state * r
 function process_fluxes(
     named::Agate.Processes.NamedProcess{P},
     definition::Agate.Processes.NormalizedModelDefinition,
-    layout::Agate.Configuration.ComponentLayout,
-    context::Agate.Configuration.CommunityContext,
+    layout::Agate.Configuration.ModelLayout,
 ) where {P<:StateTurnover}
     process = named.process
     reference = population_state(process.population, process.reference_state)
     reference_tracers, population_indices = _realize_population_state(
-        named, reference, layout, context
+        named, reference, layout
     )
     slots = parameter_slot_bindings(definition, named, (), process)
     fluxes = ()
@@ -70,7 +69,7 @@ function process_fluxes(
             formulation(process),
             (
                 reference_operand,
-                parameter_operand(slots.rate, context, axis_positions),
+                parameter_operand(slots.rate, layout, axis_positions),
             ),
         )
 
@@ -78,7 +77,7 @@ function process_fluxes(
             state_reference = population_state(process.population, state)
             source = state_tracer(layout, state_reference, population_axis)
             source_operand = state_operand(
-                layout, context, state_reference, population_index
+                layout, state_reference, population_index
             )
             ratio = state === process.reference_state ? () :
                     (RatioOp(source_operand, reference_operand),)
@@ -129,17 +128,16 @@ process_rate(::StateInteractionRate, resource, consumer, palatability) =
 function process_fluxes(
     named::Agate.Processes.NamedProcess{P},
     definition::Agate.Processes.NormalizedModelDefinition,
-    layout::Agate.Configuration.ComponentLayout,
-    context::Agate.Configuration.CommunityContext,
+    layout::Agate.Configuration.ModelLayout,
 ) where {P<:StateInteraction}
     process = named.process
     consumer_carbon = population_state(process.consumer, process.carbon_state)
     resource_carbon = population_state(process.resource, process.carbon_state)
     consumer_tracers, consumer_indices = _realize_population_state(
-        named, consumer_carbon, layout, context
+        named, consumer_carbon, layout
     )
     resource_tracers, resource_indices = _realize_population_state(
-        named, resource_carbon, layout, context
+        named, resource_carbon, layout
     )
     slots = parameter_slot_bindings(definition, named, (), process)
     fluxes = ()
@@ -154,7 +152,7 @@ function process_fluxes(
                 consumer=_axis_position(consumer_axis, consumer_index),
                 resource=_axis_position(resource_axis, resource_index),
             )
-            palatability = parameter_operand(slots.palatability, context, axis_positions)
+            palatability = parameter_operand(slots.palatability, layout, axis_positions)
             rate = RateElement(
                 formulation(process),
                 (resource_carbon_operand, consumer_carbon_operand, palatability),
@@ -163,7 +161,7 @@ function process_fluxes(
             resource_nitrogen = population_state(process.resource, process.nitrogen_state)
             consumer_nitrogen = population_state(process.consumer, process.nitrogen_state)
             resource_nitrogen_operand = state_operand(
-                layout, context, resource_nitrogen, resource_index
+                layout, resource_nitrogen, resource_index
             )
             nitrogen_ratio = RatioOp(
                 resource_nitrogen_operand, resource_carbon_operand
@@ -231,7 +229,10 @@ end
         :P_1_carbon, :P_1_nitrogen, :P_1_phosphorus,
         :P_2_carbon, :P_2_nitrogen, :P_2_phosphorus,
     ]
-    @test bgc.plankton_diameters == (1.0, 2.0)
+    @test bgc.metadata.plankton_diameters == (1.0, 2.0)
+    @test Agate.Introspection.plankton_groups(bgc) == (P=[:P_1, :P_2],)
+    @test Agate.Introspection.plankton_diameters(bgc) == [1.0, 2.0]
+    @test length(Agate.Introspection.plankton_tracers(bgc)) == 6
     @test bgc.tracers.idx.plankton_base == 0
 
     values = (
@@ -298,8 +299,8 @@ end
 
     @test size(bgc.parameters.state_palatability) == (1, 1)
     @test bgc.parameters.state_palatability[1, 1] == 0.5
-    @test bgc.interaction_axes.consumers == (:Z,)
-    @test bgc.interaction_axes.prey == (:P,)
+    @test bgc.metadata.interaction_axes.consumers == (:Z,)
+    @test bgc.metadata.interaction_axes.prey == (:P,)
     active = Agate.Runtime.active_parameters(
         bgc; state_palatability=((:Z, :P),)
     )
@@ -330,7 +331,7 @@ end
     ))
     realization = Agate.Construction._realize_process_definition(normalized, Float64)
     fluxes = process_fluxes(
-        normalized.processes.consume, normalized, realization.layout, realization.context
+        normalized.processes.consume, normalized, realization
     )
     interaction_operand = fluxes[1].rate.operands[3]
     @test interaction_operand == MatParamOp{:state_palatability,1,1}()

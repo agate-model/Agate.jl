@@ -3,7 +3,7 @@ using ForwardDiff
 using Agate.Compilation:
     process_fluxes, group_fluxes, compile_tendencies, compile_model_tendencies
 using Agate.Configuration:
-    Population, Pool, realize_components, component_tracers, parse_community
+    Population, Pool, realize_model_layout, component_tracers
 using Agate.Construction: construct, define_tracer_functions
 using Agate.Parameters: Parameter, NoDefault
 using Agate.Processes:
@@ -83,26 +83,20 @@ function food_web_compilation(::Type{T}=Float64) where {T<:Real}
     normalized = normalize_model(ModelDefinition(;
         components, processes, parameters=food_web_parameters()
     ))
-    community = (
-        P=(n=1, diameters=T[1], pft=NamedTuple()),
-        B=(n=1, diameters=T[0.8], pft=NamedTuple()),
-        M=(n=1, diameters=T[2], pft=NamedTuple()),
-        Z=(n=1, diameters=T[10], pft=NamedTuple()),
-    )
-    context = parse_community(
-        T,
-        community;
-        biogeochem_tracers=(:N, :D, :POM_1, :POM_2),
+    drivers = driver_identities(normalized)
+    layout = realize_model_layout(
+        components;
+        scalar_type=T,
         interaction_roles=(consumers=(:M, :Z), prey=(:P, :B)),
+        auxiliary_fields=drivers,
     )
-    layout = realize_components(components; scalar_type=T)
     target_order = layout.tracer_order
-    compiled = compile_model_tendencies(normalized, layout, context; target_order)
-    return (; normalized, layout, context, compiled, target_order)
+    compiled = compile_model_tendencies(normalized, layout; target_order)
+    return (; normalized, layout, compiled, target_order)
 end
 
 function food_web_bgc(compilation)
-    T = compilation.context.scalar_type
+    T = compilation.layout.scalar_type
     parameters = (
         maximum_growth_rate=T[2e-5, 0, 1.4e-5, 0],
         alpha=T[2e-6, 0, 1.6e-6, 0],
@@ -118,12 +112,7 @@ function food_web_bgc(compilation)
         living_assimilation_matrix=T[0.4 0.5; 0.35 0.45],
     )
     drivers = driver_identities(compilation.normalized)
-    tracer_index = Agate.Runtime.build_tracer_index(
-        compilation.context,
-        compilation.target_order,
-        drivers;
-        n_biogeochem_tracers=4,
-    )
+    tracer_index = Agate.Runtime.build_tracer_index(compilation.layout)
     factory = define_tracer_functions(
         parameters, compilation.compiled; auxiliary_fields=drivers, tracer_index
     )
@@ -154,10 +143,10 @@ end
     @test driver_identities(normalized) == (:PAR, :temperature)
     consumption = normalized.processes.consume_POM
     fluxes = process_fluxes(
-        consumption, normalized, layout, compilation.context
+        consumption, normalized, layout
     )
     growth_fluxes = process_fluxes(
-        normalized.processes.growth_autotrophs, normalized, layout, compilation.context
+        normalized.processes.growth_autotrophs, normalized, layout
     )
 
     @test all(equation -> isbitstype(typeof(equation.f)), values(compilation.compiled))

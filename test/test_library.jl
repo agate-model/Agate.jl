@@ -2,6 +2,9 @@ using Agate
 using Test
 using ForwardDiff
 
+using Agate.Library.Allometry:
+    assimilation_efficiency_matrix_binary_axes, palatability_matrix_allometric_axes,
+    resolve_diameter_indexed_vector
 using Agate.Library.Nutrients: frank_tnorm, liebig_minimum
 using Agate.Library.Photosynthesis:
     frank_nutrient_limitation, geider_light_limitation, geider_light_response,
@@ -13,6 +16,23 @@ using Agate.Library.Predation: holling_type_ii, idealized_predation_loss, prefer
     @test idealized_predation_loss(2.0, 0.5, 0.1, 1.0) ≈ 0.04
 
     @test preferential_predation_loss(1.0, 0.5, 0.1, 0.2, 0.8) ≈ 1 / 30
+end
+
+
+@testset "Allometry accepts realized diameter tuples" begin
+    diameters = (1.0, 2.0)
+    @test resolve_diameter_indexed_vector(Float64, diameters, (2,), 3.0; default=0.0) == [0.0, 3.0]
+    @test palatability_matrix_allometric_axes(
+        Float64, diameters;
+        optimum_predator_prey_ratio=[0.0, 2.0],
+        specificity=[0.0, 1.0],
+        protection=[0.0, 0.0],
+        consumer_indices=(2,),
+        prey_indices=(1, 2),
+    ) == [1.0 0.5]
+    @test assimilation_efficiency_matrix_binary_axes(
+        Float64; assimilation_efficiency=[0.2, 0.8], consumer_indices=(2,), prey_indices=(1, 2)
+    ) == [0.8 0.8]
 end
 
 @testset "Library scalar genericity" begin

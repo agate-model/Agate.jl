@@ -125,7 +125,7 @@ Build a consumer-by-prey palatability matrix from allometric traits.
 
 # Arguments
 - `T`: scalar type used for the output matrix and trait values.
-- `diameters`: full diameter vector indexed by model class.
+- `diameters`: full ordered diameter collection indexed by model class.
 - `optimum_predator_prey_ratio`: full vector of predator optimum ratios.
 - `specificity`: full vector of predator specificity parameters.
 - `protection`: full vector of prey protection parameters.
@@ -135,12 +135,12 @@ Build a consumer-by-prey palatability matrix from allometric traits.
 """
 function palatability_matrix_allometric_axes(
     ::Type{T},
-    diameters::AbstractVector{T};
+    diameters;
     optimum_predator_prey_ratio::AbstractVector{T},
     specificity::AbstractVector{T},
     protection::AbstractVector{T},
-    consumer_indices::AbstractVector{<:Integer},
-    prey_indices::AbstractVector{<:Integer},
+    consumer_indices,
+    prey_indices,
     palatability_fn=allometric_palatability_unimodal_protection,
 ) where {T<:Real}
     nr = length(consumer_indices)
@@ -184,8 +184,8 @@ Build a consumer-by-prey assimilation-efficiency matrix.
 function assimilation_efficiency_matrix_binary_axes(
     ::Type{T};
     assimilation_efficiency::AbstractVector{T},
-    consumer_indices::AbstractVector{<:Integer},
-    prey_indices::AbstractVector{<:Integer},
+    consumer_indices,
+    prey_indices,
 ) where {T<:Real}
     nr = length(consumer_indices)
     nc = length(prey_indices)

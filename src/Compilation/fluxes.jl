@@ -160,7 +160,7 @@ end
     (; local_index, plankton_index)
 
 function _explicit_storage_index(
-    storage_axis::Symbol, position, context::CommunityContext, parameter::Symbol
+    storage_axis::Symbol, position, layout::ModelLayout, parameter::Symbol
 )
     plankton_index = position.plankton_index
     isnothing(plankton_index) && throw(
@@ -170,7 +170,7 @@ function _explicit_storage_index(
     )
     storage_axis === :plankton && return plankton_index
 
-    storage_indices = axis_indices(context, storage_axis)
+    storage_indices = axis_indices(layout, storage_axis)
     storage_index = findfirst(==(plankton_index), storage_indices)
     isnothing(storage_index) && throw(
         ArgumentError(
@@ -182,7 +182,7 @@ end
 
 """Resolve process-local/global axis positions onto one parameter's runtime storage."""
 function parameter_operand(
-    binding::ParameterBinding, context::CommunityContext, axis_positions::NamedTuple
+    binding::ParameterBinding, layout::ModelLayout, axis_positions::NamedTuple
 )
     rank = length(binding.axes)
     rank == 0 && return parameter_operand(binding)
@@ -207,7 +207,7 @@ function parameter_operand(
                 "vector parameter :$(binding.parameter) must have one Symbol storage axis",
             ),
         )
-        index = _explicit_storage_index(storage_axes, only(positions), context, binding.parameter)
+        index = _explicit_storage_index(storage_axes, only(positions), layout, binding.parameter)
         return parameter_operand(binding, index)
     elseif rank == 2
         storage_axes isa Tuple && length(storage_axes) == 2 || throw(
@@ -216,7 +216,7 @@ function parameter_operand(
             ),
         )
         indices = ntuple(2) do i
-            _explicit_storage_index(storage_axes[i], positions[i], context, binding.parameter)
+            _explicit_storage_index(storage_axes[i], positions[i], layout, binding.parameter)
         end
         return parameter_operand(binding, indices...)
     end
@@ -224,7 +224,7 @@ function parameter_operand(
     throw(ArgumentError("unsupported parameter rank $rank"))
 end
 
-function _scalar_component_target(layout::ComponentLayout, component::Symbol)
+function _scalar_component_target(layout::ModelLayout, component::Symbol)
     hasproperty(layout.component_tracers, component) || throw(
         ArgumentError("unknown scalar component :$component"),
     )
@@ -239,8 +239,7 @@ end
 function _realize_population_state(
     named::NamedProcess,
     reference::PopulationStateRef,
-    layout::ComponentLayout,
-    context::CommunityContext,
+    layout::ModelLayout,
 )
     population = reference.population
     hasproperty(layout.component_classes, population) || throw(
@@ -248,42 +247,32 @@ function _realize_population_state(
     )
     classes = component_classes(layout, population)
     tracers = Tuple(state_tracer(layout, reference, i) for i in eachindex(classes))
-    indices = Tuple(findfirst(==(class), context.class_symbols) for class in classes)
-    any(isnothing, indices) && throw(
-        ArgumentError(
-            "process :$(named.id) population :$population realizes classes absent from the current runtime community",
-        ),
-    )
-    return tracers, Tuple(Int(index) for index in indices)
+    return tracers, component_class_indices(layout, population)
 end
 
 """Resolve one population state read at a global ecological class index to a static tracer operand."""
 function state_operand(
-    layout::ComponentLayout,
-    context::CommunityContext,
+    layout::ModelLayout,
     reference::PopulationStateRef,
     global_class_index::Integer,
 )
-    1 <= global_class_index <= length(context.class_symbols) || throw(
+    1 <= global_class_index <= length(layout.class_symbols) || throw(
         ArgumentError("global ecological class index $global_class_index is out of bounds"),
     )
-    class = context.class_symbols[Int(global_class_index)]
-    classes = component_classes(layout, reference.population)
-    local_index = findfirst(==(class), classes)
-    isnothing(local_index) && throw(
+    index = Int(global_class_index)
+    layout.class_populations[index] === reference.population || throw(
         ArgumentError(
-            "ecological class :$class does not belong to population :$(reference.population)",
+            "ecological class :$(layout.class_symbols[index]) does not belong to population :$(reference.population)",
         ),
     )
-    tracer = state_tracer(layout, reference, local_index)
+    tracer = state_tracer(layout, reference, layout.component_local_indices[index])
     return TracerOp{tracer}()
 end
 
 function _realize_population_classes(
     named::NamedProcess,
     populations::Tuple,
-    layout::ComponentLayout,
-    context::CommunityContext,
+    layout::ModelLayout,
 )
     tracer_values = Symbol[]
     index_values = Int[]
@@ -299,7 +288,7 @@ function _realize_population_classes(
             ),
         )
         reference = PopulationStateRef(population, only(keys(state_mapping)))
-        tracers, indices = _realize_population_state(named, reference, layout, context)
+        tracers, indices = _realize_population_state(named, reference, layout)
         append!(tracer_values, tracers)
         append!(index_values, indices)
     end
@@ -375,12 +364,11 @@ compile_tendencies(grouped::NamedTuple) = map(compile_tendency, grouped)
 """Derive all generic process fluxes for a normalized model."""
 function model_fluxes(
     definition::NormalizedModelDefinition,
-    layout::ComponentLayout,
-    context::CommunityContext,
+    layout::ModelLayout,
 )
     fluxes = Any[]
     for named in values(definition.processes)
-        append!(fluxes, process_fluxes(named, definition, layout, context))
+        append!(fluxes, process_fluxes(named, definition, layout))
     end
     return Tuple(fluxes)
 end
@@ -388,11 +376,10 @@ end
 """Compile a normalized model into one static equation per requested concrete tracer."""
 function compile_model_tendencies(
     definition::NormalizedModelDefinition,
-    layout::ComponentLayout,
-    context::CommunityContext;
+    layout::ModelLayout;
     target_order::Tuple,
 )
-    fluxes = model_fluxes(definition, layout, context)
+    fluxes = model_fluxes(definition, layout)
     grouped = group_fluxes(fluxes; target_order)
     return compile_tendencies(grouped)
 end

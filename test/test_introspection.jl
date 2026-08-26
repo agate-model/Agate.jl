@@ -7,7 +7,8 @@ using Agate.Introspection:
     plankton_diameters,
     nonplankton_tracers,
     tracer_groups,
-    interaction_matrix
+    interaction_matrix,
+    model_summary
 using Test
 
 using Agate.Construction: define_tracer_functions
@@ -28,9 +29,12 @@ using Agate.Equations: CompiledEquation
         @test plankton_groups(bgc) == groups.by_group
         @test plankton_tracers(bgc) == groups.plankton
         @test length(plankton_diameters(bgc)) == length(groups.plankton)
-        @test plankton_diameters(bgc) == collect(bgc.plankton_diameters)
+        @test plankton_diameters(bgc) == collect(bgc.metadata.plankton_diameters)
         @test eltype(plankton_diameters(bgc)) === Float32
         @test nonplankton_tracers(bgc) == groups.nonplankton
+        @test !model_summary(bgc).has_sinking_velocities
+        sinking_bgc = Agate.Models.NiPiZD.construct(; sinking_tracers=(D=1.0,))
+        @test model_summary(sinking_bgc).has_sinking_velocities
 
         pars = parameter_names(bgc)
         @test !isempty(pars)
@@ -57,9 +61,9 @@ using Agate.Equations: CompiledEquation
 
         synthetic_bgc = (;
             parameters=(encounter_matrix=zeros(1, 1),),
-            interaction_axes=(;
+            metadata=(; interaction_axes=(;
                 parameters=(:encounter_matrix,), consumers=(:Z_1,), prey=(:P_1,)
-            ),
+            )),
         )
         encounter = interaction_matrix(synthetic_bgc, :encounter_matrix)
         @test encounter.parameter == :encounter_matrix
@@ -131,7 +135,7 @@ using Agate.Equations: CompiledEquation
 
         broken_bgc = (;
             parameters=merge(bgc.parameters, (palatability_matrix=ones(1, 1),)),
-            interaction_axes=bgc.interaction_axes,
+            metadata=(; interaction_axes=bgc.metadata.interaction_axes),
         )
         @test_throws ArgumentError interaction_matrix(broken_bgc, :palatability_matrix)
     end

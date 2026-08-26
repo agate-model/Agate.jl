@@ -9,7 +9,7 @@ end
 function _mortality_rate(
     formulation,
     rate_binding::ParameterBinding,
-    context::CommunityContext,
+    layout::ModelLayout,
     population_axis::Int,
     population_index::Int,
     population_tracer::Symbol,
@@ -17,7 +17,7 @@ function _mortality_rate(
     axis_positions = (population=_axis_position(population_axis, population_index),)
     operands = (
         TracerOp{population_tracer}(),
-        parameter_operand(rate_binding, context, axis_positions),
+        parameter_operand(rate_binding, layout, axis_positions),
     )
     return RateElement(formulation, operands)
 end
@@ -25,8 +25,7 @@ end
 function process_fluxes(
     named::NamedProcess{P},
     definition::NormalizedModelDefinition,
-    layout::ComponentLayout,
-    context::CommunityContext,
+    layout::ModelLayout,
 ) where {P<:Mortality}
     process = named.process
     fluxes = Any[]
@@ -38,13 +37,13 @@ function process_fluxes(
         ))
         reference = PopulationStateRef(population, only(keys(state_mapping)))
         population_tracers, population_indices = _realize_population_state(
-            named, reference, layout, context
+            named, reference, layout
         )
         slots = _mortality_slots(definition, named, population)
         for population_axis in eachindex(population_tracers)
             population_index = population_indices[population_axis]
             rate = _mortality_rate(
-                formulation(process), slots.rate, context, population_axis, population_index,
+                formulation(process), slots.rate, layout, population_axis, population_index,
                 population_tracers[population_axis],
             )
             push!(

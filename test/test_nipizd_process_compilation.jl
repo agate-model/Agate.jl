@@ -1,8 +1,6 @@
 using Agate.Compilation: compile_model_tendencies
-using Agate.Configuration: realize_components
 using Agate.Construction: define_tracer_functions
 using Agate.Equations: CompiledEquation
-using Agate.ModelFamilies: default_components
 using Agate.Processes: ModelDefinition, driver_identities, normalize_model
 
 const NIPIZD_PROCESS_TRACER_ORDER = (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
@@ -13,18 +11,12 @@ const NIPIZD_PROCESS_ARGS = (
 function nipizd_process_compilation(::Type{T}=Float64) where {T<:Real}
     family = Agate.Models.NiPiZD.NiPiZDFamily()
     normalized = normalize_model(ModelDefinition(family))
-    layout = realize_components(default_components(family); scalar_type=T)
-    context = Agate.Configuration.parse_community(
-        T,
-        default_nipizd_community();
-        biogeochem_tracers=(:N, :D),
-        interaction_roles=(consumers=(:Z,), prey=(:P,)),
-    )
-    compiled = compile_model_tendencies(
-        normalized, layout, context; target_order=NIPIZD_PROCESS_TRACER_ORDER
-    )
     drivers = driver_identities(normalized)
-    return (; normalized, layout, context, compiled, drivers)
+    layout = default_nipizd_layout(T; auxiliary_fields=drivers)
+    compiled = compile_model_tendencies(
+        normalized, layout; target_order=NIPIZD_PROCESS_TRACER_ORDER
+    )
+    return (; normalized, layout, compiled, drivers)
 end
 
 function full_process_bgc()
@@ -58,12 +50,7 @@ end
     )
 
     bgc = full_process_bgc()
-    tracer_index = Agate.Runtime.build_tracer_index(
-        compilation.context,
-        NIPIZD_PROCESS_TRACER_ORDER,
-        compilation.drivers;
-        n_biogeochem_tracers=2,
-    )
+    tracer_index = Agate.Runtime.build_tracer_index(compilation.layout)
     factory = define_tracer_functions(
         bgc.parameters,
         compiled;

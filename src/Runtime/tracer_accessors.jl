@@ -69,53 +69,34 @@ function build_tracer_index(tracers::Tuple, auxiliary_fields::Tuple)
     return TracerIndex{TR,(),AF,0}(length(tracers), length(tracers) + 1, 0, (), ())
 end
 
-"""Create a `TracerIndex` using a parsed community context.
+"""Create a `TracerIndex` directly from one realized `ModelLayout`.
 
-`n_biogeochem_tracers` is the count of non-plankton tracers appearing before
-plankton tracers in the positional tracer list.
+Single-state population classes expose the familiar group and global-plankton accessors.
+For multi-state populations ecological classes do not map one-to-one onto physical tracer
+arguments, so state-aware compiled processes use their pre-resolved tracer operands and the
+runtime accessor remains scalar-only.
 """
-function build_tracer_index(
-    community_context, tracers::Tuple, auxiliary_fields::Tuple; n_biogeochem_tracers::Int
-)
-    expected_tracers = n_biogeochem_tracers + community_context.n_total
-    if length(tracers) != expected_tracers
-        # Multi-state populations no longer have a unique numerical value per ecological
-        # class. Compiled state-aware processes address their physical tracers by name,
-        # so the runtime index intentionally exposes scalar tracer access only.
-        TR = tracers
-        AF = auxiliary_fields
-        return TracerIndex{TR,(),AF,0}(
-            length(tracers), length(tracers) + 1, 0, (), ()
-        )
+function build_tracer_index(layout::ModelLayout)
+    tracers = layout.tracer_order
+    auxiliary_fields = layout.auxiliary_fields
+    class_positions = Tuple(
+        getproperty(layout.tracer_indices, class)
+        for class in layout.class_symbols if hasproperty(layout.tracer_indices, class)
+    )
+    if length(class_positions) != length(layout.class_symbols)
+        return build_tracer_index(tracers, auxiliary_fields)
     end
 
-    groups_vec = Symbol[]
-    if !isempty(community_context.group_symbols)
-        last = community_context.group_symbols[1]
-        push!(groups_vec, last)
-        @inbounds for i in 2:length(community_context.group_symbols)
-            g = community_context.group_symbols[i]
-            if g !== last
-                push!(groups_vec, g)
-                last = g
-            end
-        end
-    end
-
-    groups = Tuple(groups_vec)
+    groups = keys(layout.group_indices)
     NG = length(groups)
+    bases = ntuple(NG) do i
+        first_class = layout.class_symbols[first(getproperty(layout.group_indices, groups[i]))]
+        getproperty(layout.tracer_indices, first_class)
+    end
+    counts = ntuple(i -> length(getproperty(layout.group_indices, groups[i])), NG)
+    plankton_base = isempty(class_positions) ? 0 : first(class_positions)
 
-    plankton_base = n_biogeochem_tracers + 1
-    bases = ntuple(i -> begin
-        g = groups[i]
-        first_global = first(community_context.group_indices[g])
-        plankton_base + first_global - 1
-    end, NG)
-    counts = ntuple(i -> length(community_context.group_indices[groups[i]]), NG)
-
-    TR = tracers
-    AF = auxiliary_fields
-    return TracerIndex{TR,groups,AF,NG}(
+    return TracerIndex{tracers,groups,auxiliary_fields,NG}(
         length(tracers), length(tracers) + 1, plankton_base, bases, counts
     )
 end

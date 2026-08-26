@@ -25,36 +25,36 @@ struct AssimilationBinary end
 @inline function derive_default(
     ::PalatabilityAllometric,
     ::Any,
-    context::CommunityContext,
+    layout::ModelLayout,
     params::NamedTuple,
 )
-    T = context.scalar_type
+    T = layout.scalar_type
     return palatability_matrix_allometric_axes(
         T,
-        context.diameters;
+        layout.diameters;
         optimum_predator_prey_ratio=require_scalar_vector(
             T, params.optimum_predator_prey_ratio, :optimum_predator_prey_ratio
         ),
         specificity=require_scalar_vector(T, params.specificity, :specificity),
         protection=require_scalar_vector(T, params.protection, :protection),
-        consumer_indices=context.consumer_indices,
-        prey_indices=context.prey_indices,
+        consumer_indices=layout.consumer_indices,
+        prey_indices=layout.prey_indices,
     )
 end
 
 @inline function derive_default(
     ::AssimilationBinary,
     ::Any,
-    context::CommunityContext,
+    layout::ModelLayout,
     params::NamedTuple,
 )
-    T = context.scalar_type
+    T = layout.scalar_type
     return assimilation_efficiency_matrix_binary_axes(
         T;
         assimilation_efficiency=require_scalar_vector(
             T, params.assimilation_efficiency, :assimilation_efficiency
         ),
-        consumer_indices=context.consumer_indices,
-        prey_indices=context.prey_indices,
+        consumer_indices=layout.consumer_indices,
+        prey_indices=layout.prey_indices,
     )
 end

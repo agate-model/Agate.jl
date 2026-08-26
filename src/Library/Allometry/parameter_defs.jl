@@ -203,15 +203,15 @@ Resolve a scalar or parameter definition over a subset of diameters.
 
 # Arguments
 - `T`: target scalar type.
-- `diameters`: diameter vector.
+- `diameters`: ordered diameter collection.
 - `indices`: indices to resolve from `value`.
 - `value`: scalar or parameter definition to resolve at selected indices.
 - `default`: value assigned outside `indices`.
 """
 function resolve_diameter_indexed_vector(
     ::Type{T},
-    diameters::AbstractVector,
-    indices::AbstractVector{<:Integer},
+    diameters,
+    indices,
     value;
     default::T,
 ) where {T<:Real}

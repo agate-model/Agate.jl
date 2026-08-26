@@ -105,7 +105,7 @@ end
     @test bgc.parameters.maximum_growth_rate == [3e-5, 0.0]
     @test bgc.parameters.alpha == [2e-6, 0.0]
     @test bgc.parameters.maximum_predation_rate == [0.0, 5e-5]
-    @test bgc.plankton_diameters == (1.0, 10.0)
+    @test bgc.metadata.plankton_diameters == (1.0, 10.0)
     @test size(bgc.parameters.palatability_matrix) ==
           size(bgc.parameters.assimilation_matrix) == (1, 1)
     @test all(

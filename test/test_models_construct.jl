@@ -231,8 +231,8 @@ end
     @testset "NiPiZD interaction parameter overrides" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
         n_total = length(bgc.parameters.specificity)
-        n_cons = length(bgc.interaction_axes.consumers)
-        n_prey = length(bgc.interaction_axes.prey)
+        n_cons = length(bgc.metadata.interaction_axes.consumers)
+        n_prey = length(bgc.metadata.interaction_axes.prey)
 
         wrong = zeros(Float32, 3, 3)
         @test_throws ArgumentError NiPiZD.construct(;
@@ -284,19 +284,16 @@ end
     end
 
     @testset "Generic interaction matrix collection" begin
-        context = Agate.Configuration.CommunityContext(
-            Float32,
-            3,
-            Float32[10, 2, 5],
-            [Agate.Configuration.PFTSpecification() for _ in 1:3],
-            [:consumer_1, :prey_1, :prey_2],
-            [:consumer, :prey, :prey],
-            Dict(:consumer => [1], :prey => [2, 3]),
-            [1],
-            [2, 3],
+        layout = Agate.Configuration.realize_model_layout(
+            (
+                consumer=Agate.Configuration.Population(:carbon; size_structure=Float32[10]),
+                prey=Agate.Configuration.Population(:carbon; size_structure=Float32[2, 5]),
+            );
+            scalar_type=Float32,
+            interaction_roles=(consumers=(:consumer,), prey=(:prey,)),
         )
         metadata = Agate.Configuration.interaction_axis_metadata(
-            ThreeInteractionMatrixSource(), context
+            ThreeInteractionMatrixSource(), layout
         )
         @test metadata.parameters == (
             :encounter_matrix, :capture_efficiency_matrix, :handling_time_matrix

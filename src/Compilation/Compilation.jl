@@ -2,7 +2,7 @@
 module Compilation
 
 using ..Configuration:
-    ComponentLayout, CommunityContext, PopulationStateRef, axis_indices, component_classes,
+    ModelLayout, PopulationStateRef, axis_indices, component_classes, component_class_indices,
     component_state_tracers, state_tracer
 using ..Equations: CompiledEquation
 using ..Processes:

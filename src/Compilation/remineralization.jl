@@ -1,8 +1,7 @@
 function process_fluxes(
     named::NamedProcess{P},
     definition::NormalizedModelDefinition,
-    layout::ComponentLayout,
-    context::CommunityContext,
+    layout::ModelLayout,
 ) where {P<:Remineralization}
     process = named.process
     destination = _scalar_component_target(layout, process.destination)

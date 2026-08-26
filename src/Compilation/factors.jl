@@ -1,22 +1,22 @@
-_factor_input_operand(input::FactorDriver, layout::ComponentLayout) =
+_factor_input_operand(input::FactorDriver, layout::ModelLayout) =
     TracerOp{input.identity}()
 
-function _factor_input_operand(input::FactorComponent, layout::ComponentLayout)
+function _factor_input_operand(input::FactorComponent, layout::ModelLayout)
     target = _scalar_component_target(layout, input.component)
     return TracerOp{target}()
 end
 
 function _factor_parameter_operand(
-    binding::ParameterBinding, context::CommunityContext, axis_positions::NamedTuple
+    binding::ParameterBinding, layout::ModelLayout, axis_positions::NamedTuple
 )
-    return parameter_operand(binding, context, axis_positions)
+    return parameter_operand(binding, layout, axis_positions)
 end
 
 function _factor_parameter_operands(
-    bindings::NamedTuple, context::CommunityContext, axis_positions::NamedTuple
+    bindings::NamedTuple, layout::ModelLayout, axis_positions::NamedTuple
 )
     return Tuple(
-        _factor_parameter_operand(binding, context, axis_positions)
+        _factor_parameter_operand(binding, layout, axis_positions)
         for binding in values(bindings)
     )
 end
@@ -26,8 +26,7 @@ function _factor_element(
     named::NamedProcess,
     path::Tuple,
     factor::AbstractFactor,
-    layout::ComponentLayout,
-    context::CommunityContext,
+    layout::ModelLayout,
     axis_positions::NamedTuple,
 )
     input_operands = Tuple(
@@ -44,7 +43,6 @@ function _factor_element(
                 factor_child_path(path, factor, name),
                 child,
                 layout,
-                context,
                 axis_positions,
             )
             for (name, child) in pairs(children)
@@ -58,7 +56,7 @@ function _factor_element(
         factor;
         context=factor_parameter_context(factor),
     )
-    parameter_operands = _factor_parameter_operands(slots, context, axis_positions)
+    parameter_operands = _factor_parameter_operands(slots, layout, axis_positions)
     return FactorElement(
         formulation(factor), (input_operands..., child_operands..., parameter_operands...)
     )
@@ -67,13 +65,12 @@ end
 function _factor_elements(
     definition::NormalizedModelDefinition,
     named::NamedProcess,
-    layout::ComponentLayout,
-    context::CommunityContext,
+    layout::ModelLayout,
     axis_positions::NamedTuple,
 )
     return Tuple(
         _factor_element(
-            definition, named, (:factors, name), factor, layout, context, axis_positions
+            definition, named, (:factors, name), factor, layout, axis_positions
         )
         for (name, factor) in pairs(factors(named))
     )

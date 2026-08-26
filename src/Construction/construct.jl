@@ -20,17 +20,7 @@ using ..Parameters:
 import ..Parameters: parameter_definitions
 
 using ..Configuration:
-    axis_indices,
-    interaction_axis_metadata,
-    parse_community,
-    validate_community,
-    Population,
-    Pool,
-    size_structure,
-    realize_components,
-    component_classes,
-    component_tracers,
-    _realize_component_groups
+    axis_indices, interaction_axis_metadata, realize_model_layout, model_metadata, Population
 
 using ..Runtime: build_tracer_index
 
@@ -180,7 +170,7 @@ function _local_parameter_axis_classes(definition, layout, parameter::Symbol)
     return first_axes
 end
 
-function _parameter_storage_size(definition, layout, context, name::Symbol, spec)
+function _parameter_storage_size(definition, layout, name::Symbol, spec)
     rank = _parameter_rank(definition, name, spec)
     rank == 0 && return ()
 
@@ -196,19 +186,19 @@ function _parameter_storage_size(definition, layout, context, name::Symbol, spec
         ))
         return Tuple(length(axis) for axis in local_axes)
     elseif rank == 1
-        n = spec.axes === :plankton ? context.n_total : length(axis_indices(context, spec.axes))
+        n = spec.axes === :plankton ? length(layout.class_symbols) : length(axis_indices(layout, spec.axes))
         return (n,)
     end
 
     rank == 2 || throw(ArgumentError("parameter :$name has unsupported rank $rank"))
     row_axis, col_axis = spec.axes
-    return (length(axis_indices(context, row_axis)), length(axis_indices(context, col_axis)))
+    return (length(axis_indices(layout, row_axis)), length(axis_indices(layout, col_axis)))
 end
 
 function validate_derived_parameter_result(
-    name::Symbol, spec, context, value; definition=nothing, layout=nothing
+    name::Symbol, spec, layout, value; definition=nothing
 )
-    T = context.scalar_type
+    T = layout.scalar_type
     rank = _parameter_rank(definition, name, spec)
 
     if rank == 0
@@ -235,7 +225,7 @@ function validate_derived_parameter_result(
                 "derived default :$name must have eltype $(T); got eltype $(eltype(value)). No implicit casting is performed.",
             ),
         )
-        expected = only(_parameter_storage_size(definition, layout, context, name, spec))
+        expected = only(_parameter_storage_size(definition, layout, name, spec))
         length(value) == expected || throw(
             ArgumentError(
                 "derived default :$name must have length $expected; got $(length(value)).",
@@ -256,7 +246,7 @@ function validate_derived_parameter_result(
         ),
     )
 
-    expected = _parameter_storage_size(definition, layout, context, name, spec)
+    expected = _parameter_storage_size(definition, layout, name, spec)
     size(value) == expected || throw(
         ArgumentError(
             "derived default :$name must have size $expected; got $(size(value)).",
@@ -274,12 +264,11 @@ rejected during setup.
 """
 function resolve_parameter_defaults(
     source,
-    context,
+    layout,
     params::NamedTuple,
     explicit_override_keys::Tuple{Vararg{Symbol}};
     derivation_owner=source,
     normalized_definition=nothing,
-    layout=nothing,
 )
     ordered = derived_default_order(source)
     isempty(ordered) && return params
@@ -306,14 +295,13 @@ function resolve_parameter_defaults(
         needs_compute = !hasproperty(resolved, key)
         needs_recompute = any(dep -> dep in changed, provider.deps)
         if needs_compute || needs_recompute
-            value = derive_default(provider.deriver, derivation_owner, context, resolved)
+            value = derive_default(provider.deriver, derivation_owner, layout, resolved)
             validate_derived_parameter_result(
                 key,
                 parameter.spec,
-                context,
+                layout,
                 value;
                 definition=normalized_definition,
-                layout=layout,
             )
             resolved = merge(resolved, NamedTuple{(key,)}((value,)))
             push!(changed, key)
@@ -375,7 +363,7 @@ function _validate_product_fractions(normalized, resolved_parameters)
 end
 
 function validate_parameter_storage(
-    source, definition, layout, context, params::NamedTuple, required::Tuple
+    source, definition, layout, params::NamedTuple, required::Tuple
 )
     for k in required
         spec = parameter_spec(source, k)
@@ -386,7 +374,7 @@ function validate_parameter_storage(
         )
 
         rank = _parameter_rank(definition, k, spec)
-        expected = _parameter_storage_size(definition, layout, context, k, spec)
+        expected = _parameter_storage_size(definition, layout, k, spec)
         if rank == 1
             v = getproperty(params, k)
             v isa AbstractVector || throw(
@@ -416,13 +404,13 @@ function validate_parameter_storage(
 end
 
 
-function parameter_axis_names(context, axis::Symbol, parameter_name::Symbol)
-    axis === :plankton && return context.class_symbols
+function parameter_axis_names(layout, axis::Symbol, parameter_name::Symbol)
+    axis === :plankton && return layout.class_symbols
     throw(ArgumentError("parameter :$parameter_name has unsupported vector axis :$axis."))
 end
 
 function expand_named_vector_override(
-    name::Symbol, spec, default_value, user_value::NamedTuple, context, ::Type{T}
+    name::Symbol, spec, default_value, user_value::NamedTuple, layout, ::Type{T}
 ) where {T<:Real}
     spec.axes === nothing && throw(
         ArgumentError(
@@ -430,7 +418,7 @@ function expand_named_vector_override(
         ),
     )
 
-    names = parameter_axis_names(context, spec.axes, name)
+    names = parameter_axis_names(layout, spec.axes, name)
     length(default_value) == length(names) || throw(
         ArgumentError(
             "parameter :$name default length $(length(default_value)) does not match axis :$(spec.axes) length $(length(names))."
@@ -512,24 +500,6 @@ function reject_missing_values(params::NamedTuple)
     return nothing
 end
 
-function validate_auxiliary_fields(auxiliary_fields::Tuple, tracer_names::Tuple)
-    isempty(auxiliary_fields) && return nothing
-
-    seen = Set{Symbol}()
-    for s in auxiliary_fields
-        s isa Symbol || throw(
-            ArgumentError("auxiliary_fields entries must be Symbols, got $(typeof(s))")
-        )
-        (s ∉ seen) || throw(ArgumentError("auxiliary_fields contains duplicate entry :$s"))
-        push!(seen, s)
-        (s ∉ tracer_names) || throw(
-            ArgumentError("auxiliary field :$s conflicts with an existing tracer name")
-        )
-    end
-
-    return nothing
-end
-
 
 """Resolve the scalar type from an explicit choice, the grid, or `Float64`."""
 function resolve_construction_scalar_type(grid, scalar_type)
@@ -589,33 +559,33 @@ function _process_interaction_roles(definition, population_groups::NamedTuple)
     return (consumers=consumers, prey=resources)
 end
 
-function _process_parameter_indices(definition, layout, context, parameter::Symbol)
+function _process_parameter_indices(definition, layout, parameter::Symbol)
     selected = Set{Symbol}()
     has_applicability = false
     for applicability in resolve_parameter_applicability(definition, layout)
         applicability.binding.parameter === parameter || continue
         has_applicability = true
         for axis in applicability.axis_classes, class in axis
-            class in context.class_symbols && push!(selected, class)
+            class in layout.class_symbols && push!(selected, class)
         end
     end
-    has_applicability || return collect(eachindex(context.class_symbols))
-    return [i for (i, class) in pairs(context.class_symbols) if class in selected]
+    has_applicability || return collect(eachindex(layout.class_symbols))
+    return [i for (i, class) in pairs(layout.class_symbols) if class in selected]
 end
 
 function evaluate_process_default(
-    provider::ConstantDefault, name::Symbol, spec, source, definition, layout, context, ::Type{T}
+    provider::ConstantDefault, name::Symbol, spec, source, definition, layout, ::Type{T}
 ) where {T<:Real}
     value = provider.value
     value = value isa Bool ? value : T(value)
     rank = _parameter_rank(definition, name, spec)
     rank == 0 && return value
 
-    expected = _parameter_storage_size(definition, layout, context, name, spec)
+    expected = _parameter_storage_size(definition, layout, name, spec)
     if rank == 1
         if spec.axes === :plankton
             result = fill(zero(value), only(expected))
-            indices = _process_parameter_indices(definition, layout, context, name)
+            indices = _process_parameter_indices(definition, layout, name)
             result[indices] .= value
             return result
         end
@@ -633,33 +603,32 @@ function evaluate_process_default(
     source,
     definition,
     layout,
-    context,
     ::Type{T},
 ) where {T<:Real}
     _parameter_rank(definition, name, spec) == 1 || throw(
         ArgumentError("DiameterIndexedVectorDefault requires vector parameter storage.")
     )
-    indices = _process_parameter_indices(definition, layout, context, name)
+    indices = _process_parameter_indices(definition, layout, name)
     default = T(provider.default)
     return resolve_diameter_indexed_vector(
-        T, context.diameters, indices, provider.value; default
+        T, layout.diameters, indices, provider.value; default
     )
 end
 
-function build_process_parameter_defaults(source, definition, layout, context, ::Type{T}) where {T<:Real}
+function build_process_parameter_defaults(source, definition, layout, ::Type{T}) where {T<:Real}
     entries = Pair{Symbol,Any}[]
     for (name, parameter) in pairs(parameter_definitions(source))
         provider = parameter.default
         (provider isa NoDefault || provider isa DerivedDefault) && continue
         spec = parameter.spec
-        value = evaluate_process_default(provider, name, spec, source, definition, layout, context, T)
+        value = evaluate_process_default(provider, name, spec, source, definition, layout, T)
         push!(entries, name => value)
     end
     return (; entries...)
 end
 
 function materialize_process_parameter_law_override(
-    context, definition, layout, name::Symbol, parameter, value::AbstractParamDef, ::Type{T}
+    definition, layout, name::Symbol, parameter, value::AbstractParamDef, ::Type{T}
 ) where {T<:Real}
     spec = parameter.spec
     provider = parameter.default
@@ -671,15 +640,14 @@ function materialize_process_parameter_law_override(
     _parameter_rank(definition, name, spec) == 1 || throw(
         ArgumentError("parameter :$name diameter-indexed override requires vector storage")
     )
-    indices = _process_parameter_indices(definition, layout, context, name)
+    indices = _process_parameter_indices(definition, layout, name)
     return resolve_diameter_indexed_vector(
-        T, context.diameters, indices, value; default=T(provider.default)
+        T, layout.diameters, indices, value; default=T(provider.default)
     )
 end
 
 function materialize_process_parameter_overrides(
     source,
-    context,
     definition,
     layout,
     defaults::NamedTuple,
@@ -698,7 +666,7 @@ function materialize_process_parameter_overrides(
         spec = parameter.spec
         if value isa AbstractParamDef
             push!(entries, key => materialize_process_parameter_law_override(
-                context, definition, layout, key, parameter, value, T
+                definition, layout, key, parameter, value, T
             ))
         elseif value isa NamedTuple
             _parameter_rank(definition, key, spec) == 1 || throw(
@@ -708,7 +676,7 @@ function materialize_process_parameter_overrides(
                 ArgumentError("parameter :$key has no direct default for partial overrides.")
             )
             push!(entries, key => expand_named_vector_override(
-                key, spec, getproperty(defaults, key), value, context, T
+                key, spec, getproperty(defaults, key), value, layout, T
             ))
         else
             push!(entries, key => materialize_parameter_value(definition, key, spec, value, T))
@@ -724,86 +692,39 @@ function _intrinsic_population_groups(components::NamedTuple)
     return NamedTuple{names}(Tuple((name,) for name in names))
 end
 
-@inline _unspecified_diameter(::Type{T}) where {T<:AbstractFloat} = T(NaN)
-@inline _unspecified_diameter(::Type{T}) where {T<:Real} = zero(T)
-
-function _intrinsic_population_community(
-    components::NamedTuple,
-    population_groups::NamedTuple,
-    layout,
-    ::Type{T},
-) where {T<:Real}
-    names = keys(population_groups)
-    specs = ntuple(length(names)) do i
-        name = names[i]
-        component = getproperty(components, name)
-        structure = size_structure(component)
-        diameters = isnothing(structure) ? T[_unspecified_diameter(T)] : structure
-        class_symbols = component_classes(layout, name)
-        return (; diameters, pft=PFTSpecification(), class_symbols)
-    end
-    return NamedTuple{names}(specs)
-end
-
 function _realize_process_definition(
     definition,
     ::Type{T};
     population_groups=nothing,
-    community=nothing,
+    group_diameters=nothing,
+    auxiliary_fields::Tuple=(),
 ) where {T<:Real}
-    intrinsic = isnothing(population_groups) && isnothing(community)
-    xor(isnothing(population_groups), isnothing(community)) && throw(
-        ArgumentError("population_groups and community must be supplied together."),
+    intrinsic = isnothing(population_groups) && isnothing(group_diameters)
+    xor(isnothing(population_groups), isnothing(group_diameters)) && throw(
+        ArgumentError("population_groups and group_diameters must be supplied together."),
     )
-
     groups = intrinsic ? _intrinsic_population_groups(definition.components) : population_groups
-    pool_names = Tuple(
-        name for name in keys(definition.components) if
-        getproperty(definition.components, name) isa Pool
-    )
-
-    layout = nothing
-    pool_tracers = ()
-    community_input = community
+    interaction_roles = _process_interaction_roles(definition, groups)
 
     if intrinsic
-        population_names = keys(groups)
-        realization_names = (pool_names..., population_names...)
-        realization_components = NamedTuple{realization_names}(
-            Tuple(getproperty(definition.components, name) for name in realization_names)
+        return realize_model_layout(
+            definition.components; scalar_type=T, interaction_roles, auxiliary_fields
         )
-        layout = realize_components(realization_components; scalar_type=T)
-        pool_tracers = Tuple(
-            tracer for name in pool_names for tracer in component_tracers(layout, name)
-        )
-        community_input = _intrinsic_population_community(
-            definition.components, groups, layout, T
-        )
-    else
-        pool_components = NamedTuple{pool_names}(
-            Tuple(getproperty(definition.components, name) for name in pool_names)
-        )
-        pool_layout = realize_components(pool_components; scalar_type=T)
-        pool_tracers = pool_layout.tracer_order
     end
-
-    validate_community(community_input)
-    interaction_roles = _process_interaction_roles(definition, groups)
-    context = parse_community(
-        T,
-        community_input;
-        biogeochem_tracers=Tuple(pool_tracers),
+    return realize_model_layout(
+        definition.components;
+        scalar_type=T,
+        population_groups,
+        group_diameters,
         interaction_roles,
+        auxiliary_fields,
     )
-
-    intrinsic || (layout = _realize_component_groups(definition.components, groups, context, pool_layout))
-    return (; layout, context, population_groups=groups, pool_names)
 end
 
 function _construct_process_definition(
     definition::ModelDefinition;
     population_groups=nothing,
-    community=nothing,
+    group_diameters=nothing,
     parameter_overrides::NamedTuple=(;),
     sinking_tracers=nothing,
     open_bottom::Bool=true,
@@ -842,25 +763,20 @@ function _construct_process_definition(
             "construct(definition) requires ModelDefinition.parameters for the declared process parameter slots."
         ),
     )
-    realization = _realize_process_definition(
-        normalized, T; population_groups, community
-    )
-    layout = realization.layout
-    community_context = realization.context
-    tracer_names = layout.tracer_order
     auxiliary_fields = driver_identities(normalized)
+    layout = _realize_process_definition(
+        normalized, T; population_groups, group_diameters, auxiliary_fields
+    )
+    tracer_names = layout.tracer_order
 
     required = validate_parameter_directory(parameter_source)
     validate_override_keys(
         "parameters", parameter_overrides, required, parameter_source
     )
 
-    parameter_defaults = build_process_parameter_defaults(
-        parameter_source, normalized, layout, community_context, T
-    )
+    parameter_defaults = build_process_parameter_defaults(parameter_source, normalized, layout, T)
     materialized_overrides = materialize_process_parameter_overrides(
         parameter_source,
-        community_context,
         normalized,
         layout,
         parameter_defaults,
@@ -871,12 +787,11 @@ function _construct_process_definition(
     explicit_override_keys = Tuple(keys(parameter_overrides))
     merged_parameters = resolve_parameter_defaults(
         parameter_source,
-        community_context,
+        layout,
         merged_parameters,
         explicit_override_keys;
         derivation_owner,
         normalized_definition=normalized,
-        layout,
     )
     missing = Symbol[k for k in required if !hasproperty(merged_parameters, k)]
     isempty(missing) || throw(
@@ -887,25 +802,13 @@ function _construct_process_definition(
     )
     reject_missing_values(resolved_parameters)
     validate_parameter_storage(
-        parameter_source, normalized, layout, community_context, resolved_parameters, required
+        parameter_source, normalized, layout, resolved_parameters, required
     )
     _validate_product_fractions(normalized, resolved_parameters)
-    validate_auxiliary_fields(auxiliary_fields, tracer_names)
-
-    tracers = compile_model_tendencies(
-        normalized, layout, community_context; target_order=tracer_names
-    )
-    tracer_index = build_tracer_index(
-        community_context,
-        tracer_names,
-        auxiliary_fields;
-        n_biogeochem_tracers=sum(
-            (length(component_tracers(layout, name)) for name in realization.pool_names);
-            init=0,
-        ),
-    )
-    plankton_diameter_metadata = Tuple(community_context.diameters)
-    interaction_axes = interaction_axis_metadata(parameter_source, community_context)
+    tracers = compile_model_tendencies(normalized, layout; target_order=tracer_names)
+    tracer_index = build_tracer_index(layout)
+    interaction_axes = interaction_axis_metadata(parameter_source, layout)
+    metadata = model_metadata(layout; interaction_axes)
 
     bgc = if isnothing(sinking_tracers)
         bgc_factory = define_tracer_functions(
@@ -916,8 +819,7 @@ function _construct_process_definition(
         )
         bgc_factory(
             resolved_parameters;
-            plankton_diameters=plankton_diameter_metadata,
-            interaction_axes,
+            metadata,
         )
     else
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
@@ -931,8 +833,7 @@ function _construct_process_definition(
         bgc_factory(
             resolved_parameters,
             sinking_velocities;
-            plankton_diameters=plankton_diameter_metadata,
-            interaction_axes,
+            metadata,
         )
     end
 
@@ -943,7 +844,7 @@ function _construct_process_definition(
         capture_model_manifest(
             manifest_family,
             resolved_parameters,
-            community_context;
+            layout;
             tracer_order=tracer_names,
             auxiliary_fields,
             explicit_override_keys,

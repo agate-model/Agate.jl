@@ -6,23 +6,13 @@ function interaction_parameter_specs(source)
     )
 end
 
-"""Return runtime metadata for consumer-by-prey parameter matrices.
-
-Interaction matrices themselves remain ordinary top-level parameters. This metadata
-stores only the canonical parameter names and the ecological class labels used by the
-consumer and prey axes, so introspection and active-parameter selection do not require
-a second parameter representation.
-"""
-function interaction_axis_metadata(source, community_context::CommunityContext)
+"""Return runtime metadata for consumer-by-prey parameter matrices."""
+function interaction_axis_metadata(source, layout::ModelLayout)
     specs = interaction_parameter_specs(source)
     isempty(specs) && return nothing
 
-    consumer_classes = Tuple(
-        community_context.class_symbols[i] for i in community_context.consumer_indices
-    )
-    prey_classes = Tuple(
-        community_context.class_symbols[i] for i in community_context.prey_indices
-    )
+    consumer_classes = Tuple(layout.class_symbols[i] for i in layout.consumer_indices)
+    prey_classes = Tuple(layout.class_symbols[i] for i in layout.prey_indices)
     parameter_names = Tuple(first(entry) for entry in specs)
 
     return (;
@@ -32,25 +22,18 @@ function interaction_axis_metadata(source, community_context::CommunityContext)
     )
 end
 
-"""Return the global plankton indices for a semantic storage axis.
-
-Axes may be:
-
-- `:consumer` (role-defined consumer axis)
-- `:prey` (role-defined prey axis)
-- any existing group `Symbol` present in `community_context.group_indices`
-"""
-@inline axis_indices(community_context::CommunityContext, axis::Symbol) =
+"""Return global ecological-class indices for one semantic storage axis."""
+@inline axis_indices(layout::ModelLayout, axis::Symbol) =
     if axis === :consumer
-        community_context.consumer_indices
+        layout.consumer_indices
     elseif axis === :prey
-        community_context.prey_indices
-    elseif haskey(community_context.group_indices, axis)
-        community_context.group_indices[axis]
+        layout.prey_indices
+    elseif hasproperty(layout.group_indices, axis)
+        getproperty(layout.group_indices, axis)
     else
         throw(
             ArgumentError(
-                "Unknown interaction axis '$axis'. Valid axes are :consumer, :prey, or an existing group symbol.",
+                "Unknown interaction axis '$axis'. Valid axes are :consumer, :prey, or an existing population subgroup symbol.",
             ),
         )
     end

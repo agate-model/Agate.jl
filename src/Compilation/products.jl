@@ -74,7 +74,7 @@ function _product_fluxes(
     named::NamedProcess,
     definition::NormalizedModelDefinition,
     products::Products,
-    layout::ComponentLayout,
+    layout::ModelLayout,
     rate::RateElement;
     suffix::Tuple=(),
 )

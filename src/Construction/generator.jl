@@ -24,17 +24,16 @@ The model stores a small, GPU-safe `Tracers` accessor (`bgc.tracers`) that
 converts human-friendly names (e.g. `tr.N`, `tr.PAR`, `tr.plankton`) into
 integer indexing into the positional argument list passed to kernels.
 """
-struct AgateBGC{PT,TF,TR,SV,PD,IA} <: AbstractContinuousFormBiogeochemistry
+struct AgateBGC{PT,TF,TR,SV,MD} <: AbstractContinuousFormBiogeochemistry
     parameters::PT
     tracer_functions::TF
     tracers::TR
     sinking_velocities::SV
-    plankton_diameters::PD
-    interaction_axes::IA
+    metadata::MD
 end
 
 AgateBGC(parameters, tracer_functions, tracers, sinking_velocities) =
-    AgateBGC(parameters, tracer_functions, tracers, sinking_velocities, (), nothing)
+    AgateBGC(parameters, tracer_functions, tracers, sinking_velocities, nothing)
 
 Adapt.@adapt_structure AgateBGC
 
@@ -113,7 +112,7 @@ end
     return nothing
 end
 
-function (f::AgateBGCFactory)(parameters; plankton_diameters=(), interaction_axes=nothing)
+function (f::AgateBGCFactory)(parameters; metadata=nothing)
     validate_parameters(parameters, f.required_params)
     tr = Tracers(f.tracer_index)
     return AgateBGC(
@@ -121,12 +120,11 @@ function (f::AgateBGCFactory)(parameters; plankton_diameters=(), interaction_axe
         f.tracer_functions,
         tr,
         f.default_sinking_velocities,
-        plankton_diameters,
-        interaction_axes,
+        metadata,
     )
 end
 
-function (f::AgateBGCFactory)(parameters, sinking_velocities; plankton_diameters=(), interaction_axes=nothing)
+function (f::AgateBGCFactory)(parameters, sinking_velocities; metadata=nothing)
     validate_parameters(parameters, f.required_params)
     tr = Tracers(f.tracer_index)
     return AgateBGC(
@@ -134,8 +132,7 @@ function (f::AgateBGCFactory)(parameters, sinking_velocities; plankton_diameters
         f.tracer_functions,
         tr,
         sinking_velocities,
-        plankton_diameters,
-        interaction_axes,
+        metadata,
     )
 end
 

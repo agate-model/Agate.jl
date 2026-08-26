@@ -733,7 +733,7 @@ function _axis_components(
     return getproperty(process_participants, axis)
 end
 
-function _axis_classes(layout::ComponentLayout, components::Tuple)
+function _axis_classes(layout::ModelLayout, components::Tuple)
     classes = Symbol[]
     for component in components
         hasproperty(layout.component_classes, component) || throw(
@@ -761,7 +761,7 @@ function _applicability_axes(process::NamedProcess, binding::ParameterBinding)
 end
 
 function resolve_parameter_applicability(
-    definition::NormalizedModelDefinition, layout::ComponentLayout
+    definition::NormalizedModelDefinition, layout::ModelLayout
 )
     return map(definition.parameter_bindings) do binding
         process = getproperty(definition.processes, binding.process)

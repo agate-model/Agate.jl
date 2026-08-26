@@ -73,19 +73,29 @@ function _tracer_index(bgc)
     return getproperty(tracers, :idx)
 end
 
+
+function _model_metadata(bgc)
+    hasproperty(bgc, :metadata) || return nothing
+    return getproperty(bgc, :metadata)
+end
 _all_tracer_symbols(::TracerIndex{TR,GS,AF,NG}) where {TR,GS,AF,NG} = collect(TR)
 _plankton_group_symbols(::TracerIndex{TR,GS,AF,NG}) where {TR,GS,AF,NG} = collect(GS)
 
 """    plankton_groups(bgc) -> NamedTuple
 
-Return a `NamedTuple` mapping plankton group symbols to the tracer symbols in
-each group. The group and tracer order follows the constructed runtime tracer
-layout.
+Return a `NamedTuple` mapping plankton group symbols to ecological class symbols.
+For multi-state populations each size class appears once, independent of the number
+of physical prognostic state tracers. Group order follows the realized model layout.
 """
 function plankton_groups(bgc)
+    metadata = _model_metadata(bgc)
+    if metadata !== nothing
+        names = keys(metadata.group_classes)
+        return NamedTuple{names}(Tuple(collect(classes) for classes in values(metadata.group_classes)))
+    end
+
     idx = _tracer_index(bgc)
     idx isa TracerIndex || return NamedTuple()
-
     all_tracers = _all_tracer_symbols(idx)
     groups = _plankton_group_symbols(idx)
     isempty(groups) && return NamedTuple()
@@ -96,7 +106,6 @@ function plankton_groups(bgc)
         n_tracers = idx.group_counts[i]
         push!(pairs, group => all_tracers[first_index:(first_index + n_tracers - 1)])
     end
-
     return (; pairs...)
 end
 
@@ -105,26 +114,29 @@ end
 Return all plankton tracer symbols as a flat vector in runtime group order.
 """
 function plankton_tracers(bgc)
+    metadata = _model_metadata(bgc)
+    metadata !== nothing && return collect(metadata.population_tracers)
+
     groups = plankton_groups(bgc)
     isempty(groups) && return Symbol[]
-
     tracers = Symbol[]
     for group_tracers in values(groups)
         append!(tracers, group_tracers)
     end
-
     return tracers
 end
 
 """    plankton_diameters(bgc) -> Vector
 
-Return the equivalent spherical diameters for plankton tracers in the same order
-as `plankton_tracers(bgc)`. Models without plankton diameter metadata return
-an empty vector.
+Return the equivalent spherical diameters for realized plankton ecological classes.
+The ordering follows the flattened values of `plankton_groups(bgc)`, with one diameter
+per size class even when each class carries multiple prognostic state tracers. Models
+without plankton diameter metadata return an empty vector.
 """
 function plankton_diameters(bgc)
-    hasproperty(bgc, :plankton_diameters) || return []
-    return collect(getproperty(bgc, :plankton_diameters))
+    metadata = _model_metadata(bgc)
+    metadata === nothing && return []
+    return collect(metadata.plankton_diameters)
 end
 
 """    nonplankton_tracers(bgc) -> Vector{Symbol}
@@ -150,12 +162,9 @@ function tracer_groups(bgc)
 end
 
 function _interaction_axes(bgc)
-    axes = try
-        getproperty(bgc, :interaction_axes)
-    catch err
-        err isa ErrorException || rethrow()
-        throw(ArgumentError("No interaction matrix metadata found for this model."))
-    end
+    metadata = _model_metadata(bgc)
+    metadata === nothing && throw(ArgumentError("No interaction matrix metadata found for this model."))
+    axes = metadata.interaction_axes
     axes === nothing && throw(ArgumentError("No interaction matrices found for this model."))
     return axes
 end
@@ -231,7 +240,7 @@ function model_summary(bgc)
         tracers=tracer_names(bgc),
         auxiliary_fields=auxiliary_field_names(bgc),
         parameters=parameter_names(bgc),
-        has_sinking_velocities=Base.hasproperty(bgc, :sinking_velocities),
+        has_sinking_velocities=Base.hasproperty(bgc, :sinking_velocities) && getproperty(bgc, :sinking_velocities) !== nothing,
     )
 end
 

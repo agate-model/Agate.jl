@@ -7,7 +7,7 @@ using Agate.Compilation:
     OneMinusSumOp,
     process_fluxes,
     weight_sign
-using Agate.Configuration: realize_components
+using Agate.Configuration: realize_model_layout
 using Agate.ModelFamilies: default_components
 using Agate.Processes:
     ModelDefinition, MultiplicativeFactors, Smith, Monod, normalize_model
@@ -15,17 +15,11 @@ using Agate.Processes:
 @testset "Process compilation" begin
     family = Agate.Models.NiPiZD.NiPiZDFamily()
     normalized = normalize_model(ModelDefinition(family))
-    layout = realize_components(default_components(family))
-    context = Agate.Configuration.parse_community(
-        Float64,
-        default_nipizd_community();
-        biogeochem_tracers=(:N, :D),
-        interaction_roles=(consumers=(:Z,), prey=(:P,)),
-    )
+    layout = default_nipizd_layout()
 
     @testset "Growth" begin
         process = normalized.processes.growth_P
-        fluxes = process_fluxes(process, normalized, layout, context)
+        fluxes = process_fluxes(process, normalized, layout)
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) ==
             ((:P_1, 1), (:N, -1), (:P_2, 1), (:N, -1))
 
@@ -39,7 +33,7 @@ using Agate.Processes:
 
     @testset "Living-resource consumption" begin
         process = normalized.processes.grazing_Z_on_P
-        fluxes = process_fluxes(process, normalized, layout, context)
+        fluxes = process_fluxes(process, normalized, layout)
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes[1:3]) ==
             ((:P_1, -1), (:Z_1, 1), (:D, 1))
         @test fluxes[1].rate.operands == (
@@ -56,7 +50,7 @@ using Agate.Processes:
 
     @testset "Mortality" begin
         process = normalized.processes.linear_mortality_P
-        fluxes = process_fluxes(process, normalized, layout, context)
+        fluxes = process_fluxes(process, normalized, layout)
 
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) == (
             (:P_1, -1), (:D, 1), (:N, 1),
@@ -95,11 +89,14 @@ using Agate.Processes:
         normalized_partition = normalize_model(ModelDefinition(;
             components, processes=(partition=process,), parameters,
         ))
+        realization = default_nipizd_realization()
+        partition_layout = realize_model_layout(
+            components;
+            population_groups=(P=(:P,),),
+            group_diameters=(P=realization.group_diameters.P,),
+        )
         fluxes = process_fluxes(
-            normalized_partition.processes.partition,
-            normalized_partition,
-            realize_components(components),
-            context,
+            normalized_partition.processes.partition, normalized_partition, partition_layout
         )
         products = fluxes[2:4]
         @test Tuple(flux.target for flux in products) == (:A, :B, :R)
@@ -112,7 +109,7 @@ using Agate.Processes:
 
     @testset "Remineralization" begin
         process = normalized.processes.remineralization_D
-        fluxes = process_fluxes(process, normalized, layout, context)
+        fluxes = process_fluxes(process, normalized, layout)
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) ==
             ((:D, -1), (:N, 1))
         @test fluxes[1].rate.operands ==

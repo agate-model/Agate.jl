@@ -1,7 +1,6 @@
 using ..ModelFamilies: AbstractModelFamily, definition_version
 using ..Parameters: DerivedDefault, parameter_definitions, parameter_directory
-using ..Configuration:
-    PFTSpecification, build_plankton_community, normalize_diameters
+using ..Configuration: ModelLayout, normalize_diameters
 
 """Return the stable recipe-family identifier for a model family."""
 function family_id(family::AbstractModelFamily)
@@ -84,29 +83,22 @@ function Base.:(==)(a::ModelManifest, b::ModelManifest)
     return _structural_isequal(a, b)
 end
 
-function _canonical_group_diameters(community::NamedTuple)
-    names = keys(community)
+function _canonical_group_diameters(group_diameters::NamedTuple)
+    names = keys(group_diameters)
     values = ntuple(length(names)) do i
-        spec = getproperty(community, names[i])
-        normalize_diameters(spec.diameters).specification
+        group = names[i]
+        normalize_diameters(
+            getproperty(group_diameters, group); path="population group :$group diameters"
+        ).specification
     end
     return NamedTuple{names}(values)
-end
-
-function _recipe_community(recipe::ProcessModelRecipe)
-    names = keys(recipe.group_diameters)
-    pft = PFTSpecification()
-    base = NamedTuple{names}(ntuple(length(names)) do i
-        (; diameters=getproperty(recipe.group_diameters, names[i]), pft)
-    end)
-    return build_plankton_community(base)
 end
 
 """Capture canonical family construction inputs for durable replay."""
 function capture_process_model_recipe(
     family::AbstractModelFamily;
     population_groups::NamedTuple,
-    community::NamedTuple,
+    group_diameters::NamedTuple,
     parameter_overrides::NamedTuple=(;),
     sinking_tracers=nothing,
     open_bottom::Bool=true,
@@ -123,7 +115,7 @@ function capture_process_model_recipe(
         family_id_value,
         version,
         deepcopy(population_groups),
-        deepcopy(_canonical_group_diameters(community)),
+        deepcopy(_canonical_group_diameters(group_diameters)),
         deepcopy(parameter_overrides),
         deepcopy(sinking_tracers),
         open_bottom,
@@ -132,7 +124,7 @@ end
 
 _family_realization(inputs::NamedTuple) = (;
     population_groups=inputs.population_groups,
-    community=inputs.community,
+    group_diameters=inputs.group_diameters,
     parameter_overrides=inputs.parameter_overrides,
     sinking_tracers=inputs.sinking_tracers,
     open_bottom=inputs.open_bottom,
@@ -140,7 +132,7 @@ _family_realization(inputs::NamedTuple) = (;
 
 _family_realization(recipe::ProcessModelRecipe) = (;
     population_groups=recipe.population_groups,
-    community=_recipe_community(recipe),
+    group_diameters=recipe.group_diameters,
     parameter_overrides=recipe.parameter_overrides,
     sinking_tracers=recipe.sinking_tracers,
     open_bottom=recipe.open_bottom,
@@ -176,7 +168,7 @@ replay_family(recipe::ProcessModelRecipe) =
 function capture_model_manifest(
     family::AbstractModelFamily,
     parameters,
-    community_context;
+    layout::ModelLayout;
     tracer_order::Tuple,
     auxiliary_fields::Tuple,
     explicit_override_keys::Tuple,
@@ -184,11 +176,11 @@ function capture_model_manifest(
     open_bottom::Bool,
     scalar_type::Type{T},
 ) where {T<:Real}
-    group_order = Tuple(unique(community_context.group_symbols))
+    group_order = keys(layout.group_indices)
     group_values = ntuple(length(group_order)) do i
         group = group_order[i]
-        indices = community_context.group_indices[group]
-        return Tuple(community_context.class_symbols[indices])
+        indices = getproperty(layout.group_indices, group)
+        return Tuple(layout.class_symbols[index] for index in indices)
     end
     group_tracers = NamedTuple{group_order}(group_values)
 
@@ -213,7 +205,7 @@ function capture_model_manifest(
         group_tracers,
         tracer_order,
         auxiliary_fields,
-        Tuple(community_context.diameters),
+        Tuple(layout.diameters),
         deepcopy(interaction_matrix_sources),
         deepcopy(sinking_tracers),
         open_bottom,

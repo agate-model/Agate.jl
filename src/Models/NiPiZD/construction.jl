@@ -41,25 +41,20 @@ function _validated_size_structure(size_structure)
     return (; phytoplankton, zooplankton, producer_groups, consumer_groups)
 end
 
-function _community_inputs(size_structure)
+function _population_realization(size_structure)
     structure = _validated_size_structure(size_structure)
     group_order = (structure.consumer_groups..., structure.producer_groups...)
-    empty_pft = Configuration.PFTSpecification()
-
-    community_base_values = ntuple(length(group_order)) do i
+    group_diameters = NamedTuple{group_order}(ntuple(length(group_order)) do i
         group = group_order[i]
         diameters = if group in structure.consumer_groups
             getproperty(structure.zooplankton, group)
         else
             getproperty(structure.phytoplankton, group)
         end
-        return (; diameters, pft=empty_pft)
-    end
-    community_base = NamedTuple{group_order}(community_base_values)
-    community = Configuration.build_plankton_community(community_base)
-
-    component_groups = (P=structure.producer_groups, Z=structure.consumer_groups)
-    return (; community, component_groups)
+        diameters
+    end)
+    population_groups = (P=structure.producer_groups, Z=structure.consumer_groups)
+    return (; population_groups, group_diameters)
 end
 
 function _construction_inputs(;
@@ -74,7 +69,7 @@ function _construction_inputs(;
     open_bottom::Bool=true,
 )
     family = NiPiZDFamily()
-    community_inputs = _community_inputs(size_structure)
+    realization = _population_realization(size_structure)
 
     parameter_overrides = parameters
     palatability_matrix === nothing ||
@@ -83,8 +78,8 @@ function _construction_inputs(;
         (parameter_overrides = merge(parameter_overrides, (; assimilation_matrix)))
     return (;
         family,
-        population_groups=community_inputs.component_groups,
-        community=community_inputs.community,
+        population_groups=realization.population_groups,
+        group_diameters=realization.group_diameters,
         parameter_overrides,
         sinking_tracers,
         open_bottom,

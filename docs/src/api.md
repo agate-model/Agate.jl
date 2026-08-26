@@ -19,9 +19,7 @@ Agate.Configuration.states
 Agate.Configuration.state_currency
 Agate.Configuration.population_state
 Agate.Configuration.size_structure
-Agate.Configuration.ComponentLayout
 Agate.Configuration.realize_components
-Agate.Configuration.realize_component_groups
 Agate.Configuration.component_classes
 Agate.Configuration.component_state_tracers
 Agate.Configuration.state_tracers
@@ -116,8 +114,6 @@ Agate.Parameters.parameter_directory
 Agate.Parameters.parameter_spec
 Agate.ModelFamilies.default_components
 Agate.ModelFamilies.default_processes
-Agate.Configuration.PFTSpecification
-Agate.Configuration.build_plankton_community
 ```
 
 ## Introspection
