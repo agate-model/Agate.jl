@@ -27,7 +27,6 @@ using Agate.Processes:
     drivers,
     driver_identities,
     formulation,
-    formulation_tag,
     factor_value,
     normalize_model,
     participants,
@@ -40,7 +39,6 @@ struct BindingDependencyDefault end
 struct ExternalTestFactor{F<:AbstractFormulation} <: AbstractFactor
     formulation::F
 end
-Agate.Processes.formulation_tag(::ExternalTestFormulation) = :external_test
 
 @testset "Process authoring and normalization" begin
     @test :Light in names(Agate.Processes)
@@ -62,7 +60,6 @@ Agate.Processes.formulation_tag(::ExternalTestFormulation) = :external_test
         FrankTNorm(); responses=(nitrogen=NutrientResponse(Monod(); resource=:N),)
     )
     @test fieldcount(FrankTNorm) == 0
-    @test formulation_tag(formulation(frank_nutrients)) === :frank_tnorm
     @test participants(growth) == (population=(:P,),)
     @test drivers(growth) == (light=:PAR,)
 
@@ -71,7 +68,6 @@ Agate.Processes.formulation_tag(::ExternalTestFormulation) = :external_test
         components=(P=Population(:nitrogen),),
         processes=(growth=Growth(; populations=:P, factors=(external=external_factor,)),),
     ))
-    @test formulation_tag(formulation(external_factor)) === :external_test
     @test isempty(parameter_bindings(external_model))
 
     grazing = Consumption(

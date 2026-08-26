@@ -1,6 +1,6 @@
 # # [Exporting a model definition] (@id export_model_recipe)
 
-# Recipes allow model definitions be exported and replayed.
+# Recipes record versioned family construction inputs for export and replay.
 
 using Agate.Construction: export_recipe, import_recipe
 using Agate.Models: NiPiZD
@@ -25,7 +25,7 @@ bgc, recipe = NiPiZD.construct_plus_recipe(;
 recipe_path = tempname() * ".json"
 export_recipe(recipe_path, recipe)
 
-# The JSON also records a SHA-256 recipe fingerprint and package provenance. Git
+# The JSON records the family definition version, a SHA-256 content fingerprint, and package provenance. Git
 # repository and commit information are included when the implementation matches a checkout.
 
 println("Wrote model recipe to ", recipe_path)

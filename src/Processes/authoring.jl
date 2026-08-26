@@ -69,42 +69,6 @@ FixedStoichiometry(; reference::Symbol, bindings::NamedTuple=NamedTuple()) =
 
 authored_parameter_bindings(stoichiometry::FixedStoichiometry) = stoichiometry.bindings
 
-"""Stable semantic formulation identity used by recipes and provenance."""
-function formulation_tag(formulation::AbstractFormulation)
-    throw(ArgumentError(
-        "no semantic formulation tag defined for $(typeof(formulation)); " *
-        "extend `formulation_tag` for external formulations that require semantic identity",
-    ))
-end
-
-formulation_tag(::Smith) = :smith
-formulation_tag(::Geider) = :geider
-formulation_tag(::Monod) = :monod
-formulation_tag(::Liebig) = :liebig
-formulation_tag(::FrankTNorm) = :frank_tnorm
-formulation_tag(::Q10) = :q10
-formulation_tag(::MultiplicativeFactors) = :multiplicative
-formulation_tag(::IdealizedGrazing) = :idealized
-formulation_tag(::PreferentialGrazing) = :preferential
-formulation_tag(::HeterotrophicConsumption) = :heterotrophic
-formulation_tag(::LinearMortality) = :linear
-formulation_tag(::QuadraticMortality) = :quadratic
-formulation_tag(::LinearRemineralization) = :linear
-formulation_tag(::FixedStoichiometry) = :fixed
-
-"""Return explicit scientific state carried by a formulation for recipe serialization.
-
-Stateless formulations require no method. Formulations with fields must define this hook so
-private implementation fields cannot silently become, or disappear from, durable scientific
-identity.
-"""
-function formulation_recipe_fields(formulation::AbstractFormulation)
-    fieldcount(typeof(formulation)) == 0 && return NamedTuple()
-    throw(ArgumentError(
-        "stateful formulation $(typeof(formulation)) must implement `formulation_recipe_fields`",
-    ))
-end
-
 function _canonical_participants(role::Symbol, values)
     values isa Symbol && (values = (values,))
     values isa Tuple || throw(ArgumentError("participant `$role` must be a Symbol or tuple"))
@@ -191,12 +155,6 @@ function Nutrients(
 end
 
 authored_parameter_bindings(factor::Nutrients) = factor.bindings
-
-"""Return the stable semantic kind of an authored factor."""
-factor_kind(::Light) = :light
-factor_kind(::Temperature) = :temperature
-factor_kind(::NutrientResponse) = :nutrient_response
-factor_kind(::Nutrients) = :nutrients
 
 abstract type AbstractFactorInput end
 
@@ -464,16 +422,9 @@ process_products(::AbstractProcess) = nothing
 process_products(process::Union{Consumption,Mortality}) = process.products
 product_path(::Mortality) = (:products,)
 product_path(::Consumption) = (:unassimilated_products,)
-product_recipe_key(::Mortality) = :products
-product_recipe_key(::Consumption) = :unassimilated_products
 
 process_stoichiometry(::AbstractProcess) = nothing
 process_stoichiometry(process::Growth) = process.stoichiometry
-
-process_kind(::Growth) = :growth
-process_kind(::Consumption) = :consumption
-process_kind(::Mortality) = :mortality
-process_kind(::Remineralization) = :remineralization
 
 """Whether a consumer-resource formulation uses living consumer-prey interaction matrices."""
 uses_living_interactions(::AbstractFormulation) = false
@@ -521,9 +472,3 @@ function _factor_drivers(process)
 end
 
 drivers(process::AbstractProcess) = _factor_drivers(process)
-
-rate_axes(::AbstractProcess) = ()
-rate_axes(::Growth) = (:population,)
-rate_axes(::Consumption) = (:consumer, :resource)
-rate_axes(::Mortality) = (:population,)
-rate_axes(::Remineralization) = (:source,)

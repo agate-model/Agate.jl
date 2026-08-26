@@ -21,9 +21,9 @@ export Growth, NutrientResponse, Consumption, Mortality, Products, Remineralizat
 export ModelDefinition, NormalizedModelDefinition, NamedProcess
 export ParameterSlot
 export ParameterBinding, ParameterApplicability
-export process_id, process_kind, factor_kind, formulation, formulation_tag, formulation_recipe_fields, factors
+export process_id, formulation, factors
 export authored_parameter_bindings
-export participants, drivers, rate_axes, driver_identities, normalize_model
+export participants, drivers, driver_identities, normalize_model
 export parameter_slots, parameter_bindings
 export parameter_slot_bindings
 export resolve_parameter_applicability

@@ -80,10 +80,10 @@ end
         @test !hasproperty(recipe, :scalar_type)
         @test recipe.sinking_tracers == inputs.sinking_tracers
         @test recipe.open_bottom === false
-        @test recipe.community.diat.diameters isa Agate.Configuration.DiameterListSpecification
-        @test recipe.community.microzoo.diameters isa
+        @test recipe.group_diameters.diat isa Agate.Configuration.DiameterListSpecification
+        @test recipe.group_diameters.microzoo isa
               Agate.Configuration.DiameterRangeSpecification
-        @test recipe.community.microzoo.diameters.splitting === :log_splitting
+        @test recipe.group_diameters.microzoo.splitting === :log_splitting
         @test recipe.parameter_overrides == merge(
             inputs.parameters, (palatability_matrix=inputs.palatability_matrix,)
         )
@@ -91,7 +91,7 @@ end
 
         phyto_diameters[1] = 999.0
         palatability[1, 1] = 999.0
-        @test recipe.community.diat.diameters.diameters[1] == 2.0
+        @test recipe.group_diameters.diat.diameters[1] == 2.0
         @test recipe.parameter_overrides.palatability_matrix[1, 1] == Float32(0.8)
 
         replayed = NiPiZD.construct_from_recipe(recipe; scalar_type=Float32)

@@ -5,7 +5,7 @@ using ...Processes:
     Smith, Monod, PreferentialGrazing, LinearMortality, QuadraticMortality,
     LinearRemineralization
 
-import ...ModelFamilies: default_components, default_processes
+import ...ModelFamilies: default_components, default_processes, definition_version
 import ...Construction: family_id, registered_family
 
 """Registered family for the size-structured NiPiZD model."""
@@ -13,6 +13,7 @@ struct NiPiZDFamily <: AbstractModelFamily end
 
 family_id(::NiPiZDFamily) = :NiPiZD
 registered_family(::Val{:NiPiZD}) = NiPiZDFamily()
+definition_version(::NiPiZDFamily)::VersionNumber = v"0.1.0"
 
 const DEFAULT_SIZE_STRUCTURE = (
     phytoplankton=(P=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting),),

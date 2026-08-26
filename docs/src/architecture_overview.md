@@ -16,7 +16,7 @@ A process-defined model moves through five stages:
    Each named process produces generic target + rate + weight flux specifications. Fluxes are grouped by target tracer and lowered during setup into static compiled equations with no target symbols or process metadata in runtime terms.
 
 4. **Construction and replay** (`Construction/`).
-   Direct `ModelDefinition` construction resolves defaults and overrides from the model definition. Named model families such as NiPiZD and DARWIN use the same definition-driven core while adding durable recipe/replay identity. Recipe serialization follows the semantic process/factor tree and records resolved parameter bindings at the nodes that consume them.
+   Direct `ModelDefinition` construction resolves defaults and overrides from the model definition. Named model families such as NiPiZD and DARWIN use the same definition-driven core while adding durable recipe/replay identity. Recipes record a registered family, its exact scientific definition version, and the canonical realization inputs required by the family constructor; replay then follows the normal family construction path.
 
 5. **Runtime and inspection** (`Runtime/`, `Diagnostics/`, and `Introspection.jl`).
    Runtime kernels evaluate lean compiled terms with resolved tracer and parameter indices. Diagnostics and introspection expose the realized model without reinterpreting the model definition.

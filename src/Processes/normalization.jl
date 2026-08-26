@@ -24,12 +24,10 @@ struct NamedProcess{P<:AbstractProcess}
 end
 
 process_id(process::NamedProcess) = process.id
-process_kind(process::NamedProcess) = process_kind(process.process)
 formulation(process::NamedProcess) = formulation(process.process)
 factors(process::NamedProcess) = factors(process.process)
 participants(process::NamedProcess) = participants(process.process)
 drivers(process::NamedProcess) = drivers(process.process)
-rate_axes(process::NamedProcess) = rate_axes(process.process)
 
 function _canonical_qualifier(qualifier::NamedTuple)
     names = sort!(collect(keys(qualifier)); by=String)

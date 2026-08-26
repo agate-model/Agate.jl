@@ -1,47 +1,26 @@
 using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe
+using Agate.ModelFamilies: definition_version
 using Agate.Models: NiPiZD
-using Agate.Configuration: Population, Pool
-using Agate.Processes:
-    AbstractFormulation, Growth, Light, NutrientResponse, Smith, Monod, FrankTNorm,
-    formulation_recipe_fields
 using OceanBioME: BoxModelGrid
+using Oceananigans.Biogeochemistry: required_biogeochemical_tracers, biogeochemical_drift_velocity
 using Test
 
-
-struct MissingRecipeFields <: AbstractFormulation
-    exponent::Float64
-end
-
-struct ExplicitRecipeFields <: AbstractFormulation
-    exponent::Float64
-end
-
-Agate.Processes.formulation_recipe_fields(formulation::ExplicitRecipeFields) =
-    (exponent=formulation.exponent,)
-
-function encoded_named_value(encoded, name)
-    entry = only(item for item in encoded["entries"] if item["name"] == String(name))
-    return entry["value"]
-end
-
-function modified(document, mutation::Function)
+function modified(mutation::Function, document)
     copy = deepcopy(document)
     mutation(copy)
     return copy
 end
 
-modified(mutation::Function, document) = modified(document, mutation)
-
 function rehash!(document)
-    family = Symbol(document["model"]["family"])
-    document["recipe_hash"] = Agate.Construction._recipe_hash(family, document["recipe"])
+    family = Symbol(document["family"])
+    version = VersionNumber(document["definition_version"])
+    document["content_hash"] = Agate.Construction._recipe_hash(
+        family, version, document["realization"]
+    )
     return document
 end
 
-function rehashed(document, mutation)
-    copy = modified(document, mutation)
-    return rehash!(copy)
-end
+rehashed(mutation::Function, document) = rehash!(modified(mutation, document))
 
 explicit_json_value(::Nothing) = true
 explicit_json_value(::Union{Bool,Int,AbstractFloat,String}) = true
@@ -49,159 +28,87 @@ explicit_json_value(x::Dict{String,Any}) = all(explicit_json_value, values(x))
 explicit_json_value(x::Vector{Any}) = all(explicit_json_value, x)
 explicit_json_value(::Any) = false
 
-@testset "NiPiZD recipe serialization" begin
-    _, default_recipe = NiPiZD.construct_plus_recipe()
-    default_encoded = encode_recipe(default_recipe)
-    @test decode_recipe(default_encoded) == default_recipe
-    @test default_encoded["schema"] == "agate.model_recipe.v0.8"
+@testset "NiPiZD versioned family recipes" begin
+    family = NiPiZD.NiPiZDFamily()
+    @test definition_version(family) == v"0.1.0"
 
-    bgc, recipe = NiPiZD.construct_plus_recipe(; authored_nipizd_inputs(Float32)...)
+    direct = NiPiZD.construct(; grid=BoxModelGrid(Float32))
+    with_recipe, default_recipe = NiPiZD.construct_plus_recipe(; grid=BoxModelGrid(Float32))
+    replayed_default = NiPiZD.construct_from_recipe(default_recipe; grid=BoxModelGrid(Float32))
+    @test required_biogeochemical_tracers(direct) == required_biogeochemical_tracers(with_recipe)
+    @test required_biogeochemical_tracers(replayed_default) == required_biogeochemical_tracers(direct)
+    @test with_recipe.parameters == direct.parameters == replayed_default.parameters
+
+    inputs = authored_nipizd_inputs(Float32)
+    bgc, recipe = NiPiZD.construct_plus_recipe(; inputs...)
     manifest = nipizd_manifest(recipe; scalar_type=Float32)
-
     encoded = encode_recipe(recipe)
-    realization = encoded["recipe"]["realization"]
-    recipe_hash = encoded["recipe_hash"]
-    @test explicit_json_value(encoded)
-    bgc.parameters.palatability_matrix[1, 1] = 0f0
-    @test recipe.parameter_overrides.palatability_matrix[1, 1] == 0.8f0
-    @test encode_recipe(recipe)["recipe_hash"] == recipe_hash
     decoded = decode_recipe(encoded)
     decoded_manifest = nipizd_manifest(decoded; scalar_type=Float32)
 
-    @test Set(keys(encoded)) == Set(("schema", "model", "provenance", "recipe", "recipe_hash"))
-    @test Set(keys(encoded["recipe"])) == Set(("components", "processes", "realization"))
-    @test Set(keys(realization)) == Set((
-        "community",
+    @test Set(keys(encoded)) == Set((
+        "schema",
+        "family",
+        "definition_version",
+        "realization",
+        "provenance",
+        "content_hash",
+    ))
+    @test encoded["schema"] == "agate.model_recipe.v1"
+    @test encoded["family"] == "NiPiZD"
+    @test encoded["definition_version"] == "0.1.0"
+    @test Set(keys(encoded["realization"])) == Set((
         "population_groups",
+        "size_groups",
         "parameter_overrides",
         "sinking_tracers",
         "open_bottom",
     ))
-    growth_data = encoded["recipe"]["processes"]["growth_P"]
-    @test growth_data["factors"] == Dict(
-        "light" => Dict(
-            "kind" => "light",
-            "formulation" => "smith",
-            "drivers" => Dict("driver" => "PAR"),
-            "bindings" => Dict(
-                "alpha" => "alpha",
-                "maximum_rate" => "maximum_growth_rate",
-            ),
-        ),
-        "nutrients" => Dict(
-            "kind" => "nutrient_response",
-            "formulation" => "monod",
-            "participants" => Dict("resource" => "N"),
-            "bindings" => Dict(
-                "K" => Dict("N" => "nutrient_half_saturation"),
-            ),
-        ),
-    )
-    phytoplankton_data = encoded["recipe"]["components"]["P"]
-    @test phytoplankton_data["kind"] == "population"
-    @test phytoplankton_data["states"] == Dict("nitrogen" => "nitrogen")
-    @test !haskey(phytoplankton_data, "currency")
-
-    grazing_data = encoded["recipe"]["processes"]["grazing_Z_on_P"]
-    @test grazing_data["kind"] == "consumption"
-    @test grazing_data["participants"] == Dict("consumer" => "Z", "resource" => "P")
-    @test grazing_data["unassimilated_products"] == "D"
-    @test grazing_data["bindings"] == Dict(
-        "assimilation" => "assimilation_matrix",
-        "half_saturation" => "holling_half_saturation",
-        "maximum_rate" => "maximum_predation_rate",
-        "palatability" => "palatability_matrix",
-    )
-    mortality_data = encoded["recipe"]["processes"]["linear_mortality_P"]
-    @test mortality_data["products"] == Dict(
-        "targets" => Dict("detritus" => "D", "nutrient" => "N"),
-        "fractions" => Dict("nutrient" => "mortality_export_fraction"),
-    )
-    @test encoded["recipe"]["processes"]["remineralization_D"]["bindings"] ==
-        Dict("rate" => Dict("D" => "detritus_remineralization"))
+    @test !haskey(encoded, "model")
+    @test !haskey(encoded, "recipe")
+    @test explicit_json_value(encoded)
+    @test startswith(encoded["content_hash"], "sha256:")
+    @test length(encoded["content_hash"]) == 71
     @test encoded["provenance"]["agate"]["package"] == "Agate"
     @test encoded["provenance"]["agate"]["version"] == string(Base.pkgversion(Agate))
-    @test startswith(recipe_hash, "sha256:")
-    @test length(recipe_hash) == 71
+
+    @test recipe.family === :NiPiZD
+    @test recipe.definition_version == definition_version(family)
+    @test recipe.population_groups == (P=(:diat,), Z=(:microzoo,))
+    @test keys(recipe.group_diameters) == (:microzoo, :diat)
+    @test recipe.parameter_overrides == merge(
+        inputs.parameters, (palatability_matrix=inputs.palatability_matrix,)
+    )
+    @test !recipe.open_bottom
+    @test recipe.sinking_tracers == inputs.sinking_tracers
     @test decoded == recipe
     @test decoded_manifest == manifest
     @test decoded_manifest.sinking_tracers.D isa Float32
 
-    reordered_growth = Growth(;
-        populations=:P,
-        factors=(
-            nutrients=NutrientResponse(
-                Monod(); resource=:N, bindings=(K=:nutrient_half_saturation,)
-            ),
-            light=Light(
-                Smith(); driver=:PAR, bindings=(maximum_rate=:maximum_growth_rate,)
-            ),
-        ),
-    )
-    reordered_processes = merge(recipe.processes, (growth_P=reordered_growth,))
-    reordered_recipe = Agate.Construction.ProcessModelRecipe(
-        recipe.family,
-        recipe.components,
-        reordered_processes,
-        recipe.population_groups,
-        recipe.community,
-        recipe.parameter_overrides,
-        recipe.sinking_tracers,
-        recipe.open_bottom,
-    )
-    @test encode_recipe(reordered_recipe)["recipe_hash"] == recipe_hash
+    # Captured inputs are isolated from the constructed runtime model.
+    recipe_hash = encoded["content_hash"]
+    bgc.parameters.palatability_matrix[1, 1] = 0f0
+    @test recipe.parameter_overrides.palatability_matrix[1, 1] == 0.8f0
+    @test encode_recipe(recipe)["content_hash"] == recipe_hash
 
-    structured_pool_recipe = Agate.Construction.ProcessModelRecipe(
-        recipe.family,
-        merge(recipe.components, (POM=Pool(:nitrogen; size_structure=[0.5, 5.0, 50.0]),)),
-        recipe.processes,
-        recipe.population_groups,
-        recipe.community,
-        recipe.parameter_overrides,
-        recipe.sinking_tracers,
-        recipe.open_bottom,
-    )
-    structured_pool = encode_recipe(structured_pool_recipe)["recipe"]["components"]["POM"]
-    @test structured_pool["kind"] == "pool"
-    @test structured_pool["size_structure"]["diameters"] == [0.5, 5.0, 50.0]
-    @test !haskey(structured_pool, "sinking")
+    replayed = NiPiZD.construct_from_recipe(decoded; grid=BoxModelGrid(Float32))
+    @test replayed.parameters == decoded_manifest.parameters
+    @test required_biogeochemical_tracers(replayed) == decoded_manifest.tracer_order
+    original_drift = biogeochemical_drift_velocity(bgc, Val(:D))
+    replayed_drift = biogeochemical_drift_velocity(replayed, Val(:D))
+    @test replayed_drift.w.data == original_drift.w.data
 
-    multistate_recipe = Agate.Construction.ProcessModelRecipe(
-        recipe.family,
-        merge(
-            recipe.components,
-            (P=Population(; states=(carbon=:carbon, nitrogen=:nitrogen)),),
-        ),
-        recipe.processes,
-        recipe.population_groups,
-        recipe.community,
-        recipe.parameter_overrides,
-        recipe.sinking_tracers,
-        recipe.open_bottom,
-    )
-    multistate_population = Agate.Construction._component_recipe_data(
-        :P, multistate_recipe.components.P, multistate_recipe
-    )
-    @test multistate_population["states"] ==
-        Dict("carbon" => "carbon", "nitrogen" => "nitrogen")
-
-    @test formulation_recipe_fields(FrankTNorm()) == NamedTuple()
-    @test_throws ArgumentError Agate.Construction._validated_formulation_recipe_fields(
-        MissingRecipeFields(2.0)
-    )
-    @test Agate.Construction._validated_formulation_recipe_fields(
-        ExplicitRecipeFields(2.0)
-    ) == (exponent=2.0,)
-
-    sinking = (D=2.5 / 86400,)
+    # Identical ordered inputs produce deterministic scientific identity independent of runtime precision.
     _, recipe_f32 = NiPiZD.construct_plus_recipe(;
-        grid=BoxModelGrid(Float32), sinking_tracers=sinking, open_bottom=false
+        grid=BoxModelGrid(Float32), sinking_tracers=(D=2.5 / 86400,), open_bottom=false
     )
     _, recipe_f64 = NiPiZD.construct_plus_recipe(;
-        grid=BoxModelGrid(Float64), sinking_tracers=sinking, open_bottom=false
+        grid=BoxModelGrid(Float64), sinking_tracers=(D=2.5 / 86400,), open_bottom=false
     )
+    encoded_f32 = encode_recipe(recipe_f32)
+    encoded_f64 = encode_recipe(recipe_f64)
     @test recipe_f32 == recipe_f64
-    @test encode_recipe(recipe_f32)["recipe_hash"] == encode_recipe(recipe_f64)["recipe_hash"]
+    @test encoded_f32 == encoded_f64
 
     manifest_f32 = nipizd_manifest(recipe_f32; grid=BoxModelGrid(Float32))
     manifest_f64 = nipizd_manifest(recipe_f32; grid=BoxModelGrid(Float64))
@@ -221,48 +128,66 @@ explicit_json_value(::Any) = false
     )
     @test_throws ArgumentError encode_recipe(nonfinite_recipe)
 
-    version_mismatch = modified(
-        encoded, x -> (x["provenance"]["agate"]["version"] = "0.9.0")
-    )
-    warned = @test_logs (:warn, r"Agate version differs") decode_recipe(version_mismatch)
-    @test warned == recipe
-
-    component_tamper = modified(encoded) do x
-        x["recipe"]["components"]["P"]["states"]["nitrogen"] = "carbon"
+    version_warning = modified(encoded) do x
+        x["provenance"]["agate"]["version"] = "0.9.0"
     end
-    @test_throws ArgumentError decode_recipe(component_tamper)
+    @test_logs (:warn, r"Agate version differs") decode_recipe(version_warning)
 
-    binding_tamper = modified(encoded) do x
-        x["recipe"]["processes"]["growth_P"]["factors"]["light"]["bindings"][
-            "maximum_rate"
-        ] = "tampered_parameter"
+    stale_hash = modified(encoded) do x
+        x["realization"]["open_bottom"] = !x["realization"]["open_bottom"]
     end
-    @test_throws ArgumentError decode_recipe(binding_tamper)
+    @test_throws ArgumentError decode_recipe(stale_hash)
 
-    self_consistent_wrong_contract = rehash!(deepcopy(binding_tamper))
-    @test_throws ArgumentError decode_recipe(self_consistent_wrong_contract)
+    unknown_family = rehashed(encoded) do x
+        x["family"] = "UnknownModel"
+    end
+    @test_throws ArgumentError decode_recipe(unknown_family)
 
-    invalid_schema = modified(encoded, x -> (x["schema"] = "agate.model_recipe.invalid"))
-    @test_throws ArgumentError decode_recipe(invalid_schema)
+    missing_version = modified(encoded) do x
+        delete!(x, "definition_version")
+    end
+    @test_throws ArgumentError decode_recipe(missing_version)
 
-    invalid_documents = (
-        modified(encoded, x -> (x["extra"] = true)),
-        rehashed(encoded, x -> delete!(x["recipe"]["realization"], "open_bottom")),
-        rehashed(encoded, x -> (x["model"]["family"] = "UnknownModel")),
-        rehashed(encoded, x -> (x["recipe"]["realization"]["scalar_type"] = "Float32")),
-        rehashed(encoded, x -> (
-            encoded_named_value(
-                x["recipe"]["realization"]["parameter_overrides"], :linear_mortality
-            )["law"] = "unknown"
-        )),
-        rehashed(encoded, x -> (
-            encoded_named_value(
-                x["recipe"]["realization"]["parameter_overrides"], :palatability_matrix
-            )[2] = [0.3]
-        )),
+    mismatched_version = rehashed(encoded) do x
+        x["definition_version"] = "0.1.1"
+    end
+    @test_throws ArgumentError decode_recipe(mismatched_version)
+
+    bumped_recipe = Agate.Construction.ProcessModelRecipe(
+        recipe.family,
+        v"0.1.1",
+        recipe.population_groups,
+        recipe.group_diameters,
+        recipe.parameter_overrides,
+        recipe.sinking_tracers,
+        recipe.open_bottom,
     )
+    @test encode_recipe(bumped_recipe)["content_hash"] != encoded["content_hash"]
+    @test_throws ArgumentError NiPiZD.construct_from_recipe(bumped_recipe)
+    @test required_biogeochemical_tracers(NiPiZD.construct()) ==
+          (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
 
-    for document in invalid_documents
+    invalid_schema = modified(encoded) do x
+        x["schema"] = "agate.model_recipe.invalid"
+    end
+    invalid_realization = rehashed(encoded) do x
+        pop!(x["realization"]["size_groups"])
+    end
+    invalid_law = rehashed(encoded) do x
+        override = only(
+            entry for entry in x["realization"]["parameter_overrides"]
+            if entry["name"] == "linear_mortality"
+        )
+        override["value"]["law"] = "unknown"
+    end
+    invalid_matrix = rehashed(encoded) do x
+        override = only(
+            entry for entry in x["realization"]["parameter_overrides"]
+            if entry["name"] == "palatability_matrix"
+        )
+        override["value"][2] = [0.3]
+    end
+    for document in (invalid_schema, invalid_realization, invalid_law, invalid_matrix)
         @test_throws ArgumentError decode_recipe(document)
     end
     @test_throws ArgumentError decode_recipe("not a recipe document")

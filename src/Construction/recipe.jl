@@ -1,6 +1,7 @@
-using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
+using ..ModelFamilies: AbstractModelFamily, definition_version
 using ..Parameters: DerivedDefault, parameter_definitions, parameter_directory
-using ..Configuration: normalize_diameters
+using ..Configuration:
+    PFTSpecification, build_plankton_community, normalize_diameters
 
 """Return the stable recipe-family identifier for a model family."""
 function family_id(family::AbstractModelFamily)
@@ -12,19 +13,19 @@ function registered_family(::Val{family}) where {family}
     throw(ArgumentError("Unsupported recipe model family $(repr(String(family)))."))
 end
 
-"""Canonical component/process recipe captured before runtime realization.
+"""Versioned registered-family recipe captured before runtime realization.
 
-`ProcessModelRecipe` stores the scientific component/process definition together with
-subgroup realization and authored overrides. Runtime precision, architecture, host fields,
-parameter materialization, topology maps, and compiled equations are derived on replay.
+`ProcessModelRecipe` stores only the registered family identity, its exact scientific
+`definition_version`, and canonical construction inputs. Components, processes, parameter
+definitions, runtime precision, host fields, and compiled equations are supplied by the
+loaded family implementation when the recipe is replayed.
 """
-struct ProcessModelRecipe{C,P,G,CM,PO,S}
+struct ProcessModelRecipe{G,D,P,S}
     family::Symbol
-    components::C
-    processes::P
+    definition_version::VersionNumber
     population_groups::G
-    community::CM
-    parameter_overrides::PO
+    group_diameters::D
+    parameter_overrides::P
     sinking_tracers::S
     open_bottom::Bool
 end
@@ -73,58 +74,35 @@ function _structural_isequal(a, b)
     return isequal(a, b)
 end
 
-function _recipe_isequal(a, b)
-    a === b && return true
-
-    if a isa Bool || b isa Bool
-        return a isa Bool && b isa Bool && isequal(a, b)
-    elseif a isa Number || b isa Number
-        return a isa Number && b isa Number && isequal(a, b)
-    elseif a isa AbstractArray || b isa AbstractArray
-        a isa AbstractArray && b isa AbstractArray || return false
-        axes(a) == axes(b) || return false
-        return all(_recipe_isequal(a[i], b[i]) for i in eachindex(a, b))
-    elseif a isa NamedTuple || b isa NamedTuple
-        a isa NamedTuple && b isa NamedTuple || return false
-        keys(a) == keys(b) || return false
-        return all(_recipe_isequal(getproperty(a, k), getproperty(b, k)) for k in keys(a))
-    elseif a isa Tuple || b isa Tuple
-        a isa Tuple && b isa Tuple || return false
-        length(a) == length(b) || return false
-        return all(_recipe_isequal(a[i], b[i]) for i in eachindex(a))
-    end
-
-    Ta, Tb = typeof(a), typeof(b)
-    if isstructtype(Ta) && isstructtype(Tb) && fieldcount(Ta) > 0 &&
-       Base.typename(Ta) === Base.typename(Tb) && fieldcount(Ta) == fieldcount(Tb)
-        return all(_recipe_isequal(getfield(a, i), getfield(b, i)) for i in 1:fieldcount(Ta))
-    end
-
-    return Ta === Tb && isequal(a, b)
-end
-
 function Base.:(==)(a::ProcessModelRecipe, b::ProcessModelRecipe)
-    return all(
-        _recipe_isequal(getfield(a, i), getfield(b, i))
-        for i in 1:fieldcount(typeof(a))
-    )
+    a.family === b.family || return false
+    a.definition_version == b.definition_version || return false
+    return _encode_realization(a) == _encode_realization(b)
 end
 
 function Base.:(==)(a::ModelManifest, b::ModelManifest)
     return _structural_isequal(a, b)
 end
 
-function _normalize_recipe_community(community::NamedTuple)
-    groups = keys(community)
-    values = ntuple(length(groups)) do i
-        spec = getproperty(community, groups[i])
-        diameter_specification = normalize_diameters(spec.diameters).specification
-        return (; spec..., diameters=diameter_specification)
+function _canonical_group_diameters(community::NamedTuple)
+    names = keys(community)
+    values = ntuple(length(names)) do i
+        spec = getproperty(community, names[i])
+        normalize_diameters(spec.diameters).specification
     end
-    return NamedTuple{groups}(values)
+    return NamedTuple{names}(values)
 end
 
-"""Capture a component/process recipe before runtime realization."""
+function _recipe_community(recipe::ProcessModelRecipe)
+    names = keys(recipe.group_diameters)
+    pft = PFTSpecification()
+    base = NamedTuple{names}(ntuple(length(names)) do i
+        (; diameters=getproperty(recipe.group_diameters, names[i]), pft)
+    end)
+    return build_plankton_community(base)
+end
+
+"""Capture canonical family construction inputs for durable replay."""
 function capture_process_model_recipe(
     family::AbstractModelFamily;
     population_groups::NamedTuple,
@@ -137,20 +115,62 @@ function capture_process_model_recipe(
     family_id_value isa Symbol || throw(
         ArgumentError("family_id must return a Symbol; got $(typeof(family_id_value)).")
     )
+    version = definition_version(family)
+    version isa VersionNumber || throw(
+        ArgumentError("definition_version must return a VersionNumber; got $(typeof(version)).")
+    )
     return ProcessModelRecipe(
         family_id_value,
-        deepcopy(default_components(family)),
-        deepcopy(default_processes(family)),
+        version,
         deepcopy(population_groups),
-        deepcopy(_normalize_recipe_community(community)),
+        deepcopy(_canonical_group_diameters(community)),
         deepcopy(parameter_overrides),
         deepcopy(sinking_tracers),
         open_bottom,
     )
 end
 
-"""Return the registered model family used to replay `recipe`."""
-replay_family(recipe::ProcessModelRecipe) = registered_family(Val(recipe.family))
+_family_realization(inputs::NamedTuple) = (;
+    population_groups=inputs.population_groups,
+    community=inputs.community,
+    parameter_overrides=inputs.parameter_overrides,
+    sinking_tracers=inputs.sinking_tracers,
+    open_bottom=inputs.open_bottom,
+)
+
+_family_realization(recipe::ProcessModelRecipe) = (;
+    population_groups=recipe.population_groups,
+    community=_recipe_community(recipe),
+    parameter_overrides=recipe.parameter_overrides,
+    sinking_tracers=recipe.sinking_tracers,
+    open_bottom=recipe.open_bottom,
+)
+
+_capture_family_recipe(inputs::NamedTuple) =
+    capture_process_model_recipe(inputs.family; _family_realization(inputs)...)
+
+function _validated_recipe_family(family_id_value::Symbol, version::VersionNumber)
+    family = registered_family(Val(family_id_value))
+    loaded_family_id = family_id(family)
+    loaded_family_id === family_id_value || throw(
+        ArgumentError(
+            "Registered recipe family $(repr(family_id_value)) resolves to family id " *
+            "$(repr(loaded_family_id))."
+        )
+    )
+    loaded_version = definition_version(family)
+    version == loaded_version || throw(
+        ArgumentError(
+            "Recipe definition_version $version does not match loaded " *
+            "$family_id_value definition_version $loaded_version."
+        )
+    )
+    return family
+end
+
+"""Return the registered model family used to replay `recipe` after identity/version checks."""
+replay_family(recipe::ProcessModelRecipe) =
+    _validated_recipe_family(recipe.family, recipe.definition_version)
 
 """Capture the resolved deterministic state of a constructed model."""
 function capture_model_manifest(

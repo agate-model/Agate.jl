@@ -39,18 +39,12 @@ kernel. Parameterized nodes bind their formulation-local slots directly to model
 names with `bindings=(...)`. Omitted slots bind by the same name; a `Symbol` explicitly renames
 or shares one parameter, while a one-level qualifier map handles repeated slots such as
 source-specific remineralization. External process and factor extensions use the same concrete
-formulation-object and binding protocol without built-in registration. `formulation_tag` supplies
-one-way semantic identity for recipes; it is not used to construct formulations during authoring.
-Stateless formulations serialize generically. A formulation that carries scientific structural state
-defines `formulation_recipe_fields`; omission fails loudly so implementation fields cannot silently
-enter or disappear from durable recipe identity.
+formulation-object and binding protocol without built-in registration. Durable recipes identify a
+registered family and its version rather than serializing process or formulation objects.
 
 ```@docs
 Agate.Processes.AbstractProcess
 Agate.Processes.AbstractFormulation
-Agate.Processes.formulation_tag
-Agate.Processes.formulation_recipe_fields
-Agate.Processes.factor_kind
 Agate.Processes.AbstractFactor
 Agate.Processes.Growth
 Agate.Processes.Light
@@ -100,7 +94,7 @@ Agate.Compilation.compile_model_tendencies
 
 ## Named families, recipes, and replay
 
-Named model families add stable code identity and durable recipe replay around the same definition-driven process compiler. `ProcessModelRecipe` is the `agate.model_recipe.v0.8` scientific representation for component/process families. `ModelManifest` records the resolved execution state.
+Named model families add stable code identity and durable recipe replay around the same definition-driven process compiler. `ProcessModelRecipe` is the `agate.model_recipe.v1` family/version/realization document: it records the registered family, exact `definition_version`, canonical population/size realization, parameter overrides, sinking choices, and bottom state. The loaded family supplies the canonical component/process definition on replay. `ModelManifest` records the resolved execution state.
 
 ```@docs
 Agate.Construction.ProcessModelRecipe
@@ -116,6 +110,7 @@ Agate.Construction.decode_recipe
 Agate.Construction.export_recipe
 Agate.Construction.import_recipe
 Agate.ModelFamilies.AbstractModelFamily
+Agate.ModelFamilies.definition_version
 Agate.Parameters.parameter_definitions
 Agate.Parameters.parameter_directory
 Agate.Parameters.parameter_spec

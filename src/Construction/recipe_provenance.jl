@@ -6,7 +6,7 @@ const _PACKAGE_PROVENANCE_KEYS = ("package", "version", "repository", "commit")
 function _git_output(cmd::Cmd)
     try
         value = strip(read(pipeline(cmd, stderr=devnull), String))
-        return isempty(value) ? nothing : value
+        return isempty(value) ? nothing : String(value)
     catch
         return nothing
     end
@@ -61,8 +61,13 @@ function _canonical_json(x)
     return JSON.json(x)
 end
 
-function _recipe_hash(family::Symbol, data)
-    content = Dict{String,Any}("family" => String(family), "recipe" => data)
+function _recipe_hash(family::Symbol, definition_version::VersionNumber, realization)
+    content = Dict{String,Any}(
+        "schema" => PROCESS_MODEL_RECIPE_SCHEMA,
+        "family" => String(family),
+        "definition_version" => string(definition_version),
+        "realization" => realization,
+    )
     return "sha256:" * bytes2hex(sha256(_canonical_json(content)))
 end
 

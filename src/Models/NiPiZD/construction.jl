@@ -81,16 +81,15 @@ function _construction_inputs(;
         (parameter_overrides = merge(parameter_overrides, (; palatability_matrix)))
     assimilation_matrix === nothing ||
         (parameter_overrides = merge(parameter_overrides, (; assimilation_matrix)))
-    recipe = Construction.capture_process_model_recipe(
-        family;
+    return (;
+        family,
         population_groups=community_inputs.component_groups,
         community=community_inputs.community,
         parameter_overrides,
         sinking_tracers,
         open_bottom,
+        execution=(; grid, scalar_type, arch),
     )
-
-    return (; recipe, execution=(; grid, scalar_type, arch))
 end
 
 """
@@ -158,8 +157,7 @@ bgc = NiPiZD.construct(;
 ```
 """
 function construct(; kwargs...)
-    inputs = _construction_inputs(; kwargs...)
-    return Construction.construct(inputs.recipe; inputs.execution...)
+    return Construction._construct_family(_construction_inputs(; kwargs...))
 end
 
 """
@@ -182,14 +180,14 @@ end
 """
     construct_plus_recipe(; kw...) -> bgc, recipe
 
-Construct NiPiZD and return the model together with its authored scientific recipe.
-The recipe records canonical components, named processes, parameter bindings, subgroup
-realization, authored parameter overrides, sinking configuration, and
-open-bottom state. Runtime grid, architecture, scalar precision, and compiled equations
-are derived when the recipe is realized.
+Construct NiPiZD and return the model together with its versioned family recipe.
+The recipe records the registered family version, subgroup size realization, authored
+parameter overrides, sinking configuration, and open-bottom state. Runtime grid,
+architecture, scalar precision, components, processes, and compiled equations are supplied
+when the recipe is realized.
 """
 function construct_plus_recipe(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
-    bgc = Construction.construct(inputs.recipe; inputs.execution...)
-    return bgc, inputs.recipe
+    recipe = Construction._capture_family_recipe(inputs)
+    return Construction._construct_family(inputs), recipe
 end

@@ -960,24 +960,15 @@ end
 
 function _construct_registered_model(
     family::AbstractModelFamily,
-    recipe::ProcessModelRecipe;
+    realization::NamedTuple;
     grid=nothing,
     arch=nothing,
     scalar_type=nothing,
     build_manifest::Bool=false,
 )
-    definition = ModelDefinition(;
-        components=recipe.components,
-        processes=recipe.processes,
-        parameters=parameter_definitions(family),
-    )
     return _construct_process_definition(
-        definition;
-        population_groups=recipe.population_groups,
-        community=recipe.community,
-        parameter_overrides=recipe.parameter_overrides,
-        sinking_tracers=recipe.sinking_tracers,
-        open_bottom=recipe.open_bottom,
+        ModelDefinition(family);
+        realization...,
         grid,
         arch,
         scalar_type,
@@ -986,6 +977,31 @@ function _construct_registered_model(
         manifest_family=family,
     )
 end
+
+function _construct_family(inputs::NamedTuple)
+    bgc, _ = _construct_registered_model(
+        inputs.family, _family_realization(inputs); inputs.execution...
+    )
+    return bgc
+end
+
+function _construct_recipe(
+    recipe::ProcessModelRecipe;
+    grid=nothing,
+    arch=nothing,
+    scalar_type=nothing,
+    build_manifest::Bool=false,
+)
+    return _construct_registered_model(
+        replay_family(recipe),
+        _family_realization(recipe);
+        grid,
+        arch,
+        scalar_type,
+        build_manifest,
+    )
+end
+
 
 """
     construct(definition::ModelDefinition; kwargs...) -> bgc
@@ -1022,23 +1038,17 @@ function construct(
 end
 
 
-"""Realize a component/process recipe in the supplied execution environment."""
+"""Replay a versioned family recipe in the supplied execution environment."""
 function construct(
     recipe::ProcessModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
 )
-    family = replay_family(recipe)
-    bgc, _ = _construct_registered_model(
-        family, recipe; grid, arch, scalar_type, build_manifest=false
-    )
+    bgc, _ = _construct_recipe(recipe; grid, arch, scalar_type)
     return bgc
 end
 
-"""Realize a component/process recipe and return its resolved manifest."""
+"""Replay a versioned family recipe and return its resolved manifest."""
 function construct_plus_manifest(
     recipe::ProcessModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
 )
-    family = replay_family(recipe)
-    return _construct_registered_model(
-        family, recipe; grid, arch, scalar_type, build_manifest=true
-    )
+    return _construct_recipe(recipe; grid, arch, scalar_type, build_manifest=true)
 end
