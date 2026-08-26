@@ -5,7 +5,8 @@ using ForwardDiff
 using Agate.Library.Allometry:
     assimilation_efficiency_matrix_binary_axes, palatability_matrix_allometric_axes,
     resolve_diameter_indexed_vector
-using Agate.Library.Nutrients: frank_tnorm, liebig_minimum
+using Agate.Library.Nutrients:
+    frank_tnorm, liebig_minimum, normalized_droop_limitation, quota_uptake_regulation
 using Agate.Library.Photosynthesis:
     frank_nutrient_limitation, geider_light_limitation, geider_light_response,
     liebig_nutrient_limitation
@@ -88,4 +89,35 @@ end
     @test isfinite(frank)
     @test frank < liebig
 
+end
+
+
+@testset "Droop quota kernels" begin
+    qmin, qmax = 0.1, 0.2
+    reference = 1.0
+
+    @test normalized_droop_limitation(0.05, reference, qmin, qmax) == 0.0
+    @test normalized_droop_limitation(qmin, reference, qmin, qmax) == 0.0
+    @test normalized_droop_limitation(qmax, reference, qmin, qmax) == 1.0
+    @test normalized_droop_limitation(0.3, reference, qmin, qmax) == 1.0
+    @test normalized_droop_limitation(0.15, reference, qmin, qmax) ≈ 2 / 3
+    @test normalized_droop_limitation(0.0, 0.0, qmin, qmax) == 0.0
+
+    @test quota_uptake_regulation(0.05, reference, qmin, qmax, 2.0) == 1.0
+    @test quota_uptake_regulation(qmin, reference, qmin, qmax, 2.0) == 1.0
+    @test quota_uptake_regulation(qmax, reference, qmin, qmax, 2.0) == 0.0
+    @test quota_uptake_regulation(0.3, reference, qmin, qmax, 2.0) == 0.0
+    @test quota_uptake_regulation(0.15, reference, qmin, qmax, 2.0) ≈ 0.75
+    @test quota_uptake_regulation(0.0, 0.0, qmin, qmax, 2.0) == 0.0
+
+    @test 0.0 <= normalized_droop_limitation(0.15, reference, qmin, qmax) <= 1.0
+    @test 0.0 <= quota_uptake_regulation(0.15, reference, qmin, qmax, 2.0) <= 1.0
+    derivative = ForwardDiff.derivative(
+        internal -> normalized_droop_limitation(internal, reference, qmin, qmax), 0.15
+    )
+    @test 0 < derivative < Inf
+
+    T = Float32
+    @test normalized_droop_limitation(T(0.15), one(T), T(qmin), T(qmax)) isa T
+    @test quota_uptake_regulation(T(0.15), one(T), T(qmin), T(qmax), T(2)) isa T
 end

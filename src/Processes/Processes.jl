@@ -13,12 +13,13 @@ using ..Library.Temperature: q10_temperature_factor
 using ..Library.Remineralization: linear_remineralization
 
 export AbstractProcess, AbstractFormulation, AbstractFactor, AbstractStoichiometry
-export Smith, Geider, Monod, Liebig, FrankTNorm, Q10
+export Smith, Geider, Monod, NormalizedDroop, QuotaRegulatedMonod, Liebig, FrankTNorm, Q10
 export IdealizedGrazing, PreferentialGrazing, HeterotrophicConsumption
 export LinearMortality, QuadraticMortality, LinearRemineralization
 export Light, Nutrients, Temperature
 export FixedStoichiometry
-export Growth, NutrientResponse, Consumption, Mortality, Products, Remineralization
+export Growth, NutrientResponse, QuotaResponse, NutrientUptake
+export Consumption, Mortality, Products, Remineralization
 export ModelDefinition, NormalizedModelDefinition, NamedProcess
 export ParameterSlot
 export ParameterBinding

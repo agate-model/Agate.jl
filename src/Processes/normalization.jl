@@ -80,6 +80,17 @@ parameter_slots(::Geider) = (
     ParameterSlot(:chlorophyll_to_carbon_ratio, (:population,)),
 )
 parameter_slots(::Monod) = (ParameterSlot(:K, (:population,); qualify=:resource),)
+parameter_slots(::NormalizedDroop) = (
+    ParameterSlot(:minimum_quota, (:population,)),
+    ParameterSlot(:maximum_quota, (:population,)),
+)
+parameter_slots(::QuotaRegulatedMonod) = (
+    ParameterSlot(:maximum_rate, (:population,)),
+    ParameterSlot(:K, (:population,)),
+    ParameterSlot(:minimum_quota, (:population,)),
+    ParameterSlot(:maximum_quota, (:population,)),
+    ParameterSlot(:hill, (:population,)),
+)
 parameter_slots(::Liebig) = ()
 parameter_slots(::FrankTNorm) = (ParameterSlot(:sharpness),)
 parameter_slots(::Q10) = (
@@ -323,13 +334,23 @@ function _validated_factor_children(factor::AbstractFactor)
     all(child -> child isa AbstractFactor, values(children)) || throw(
         ArgumentError("factor children for $(typeof(factor)) must be process factors"),
     )
+    if factor isa Nutrients
+        responses = values(children)
+        all_external = all(response -> response isa NutrientResponse, responses)
+        all_internal = all(response -> response isa QuotaResponse, responses)
+        all_external || all_internal || throw(ArgumentError(
+            "nutrient `responses` must be either all NutrientResponse or all QuotaResponse factors",
+        ))
+    end
     return children
 end
 
 function _factor_component_references(factor::AbstractFactor)
-    references = Symbol[
-        input.component for input in factor_inputs(factor) if input isa FactorComponent
-    ]
+    references = Symbol[]
+    for input in factor_inputs(factor)
+        input isa FactorComponent && push!(references, input.component)
+        input isa FactorPopulationState && push!(references, input.reference.population)
+    end
     for child in values(_validated_factor_children(factor))
         append!(references, _factor_component_references(child))
     end
@@ -364,16 +385,39 @@ function _scalar_pool(components, name::Symbol, id::Symbol, label::AbstractStrin
     return pool
 end
 
-function _population_state(components, name::Symbol, id::Symbol, label::AbstractString)
+function _population_state(
+    components, name::Symbol, state, id::Symbol, label::AbstractString
+)
+    hasproperty(components, name) || throw(
+        ArgumentError("process :$id $label references unknown population :$name"),
+    )
     population = getproperty(components, name)
     population isa Population || throw(
         ArgumentError("process :$id $label :$name must be a Population"),
     )
     state_names = keys(states(population))
-    length(state_names) == 1 || throw(
-        ArgumentError("process :$id $label :$name requires explicit state selection"),
+    if isnothing(state)
+        length(state_names) == 1 || throw(
+            ArgumentError("process :$id $label :$name requires explicit state selection"),
+        )
+        state = only(state_names)
+    end
+    state isa Symbol || throw(ArgumentError("process :$id $label state must be a Symbol"))
+    state in state_names || throw(
+        ArgumentError("process :$id $label :$name has no state :$state"),
     )
-    return PopulationStateRef(name, only(state_names))
+    return PopulationStateRef(name, state)
+end
+
+_population_state(components, name::Symbol, id::Symbol, label::AbstractString) =
+    _population_state(components, name, nothing, id, label)
+
+function _population_state(
+    components, reference::PopulationStateRef, id::Symbol, label::AbstractString
+)
+    return _population_state(
+        components, reference.population, reference.state, id, label
+    )
 end
 
 _state_currency(components, ref::PopulationStateRef) =
@@ -436,7 +480,7 @@ function _growth_facts(id::Symbol, process::Growth, components::NamedTuple)
         "process :$id growth must declare exactly one factor that owns the maximum_rate slot",
     ))
     population_states = Tuple(
-        _population_state(components, population, id, "population")
+        _population_state(components, population, process.state, id, "population")
         for population in process.populations
     )
 
@@ -452,33 +496,96 @@ function _growth_facts(id::Symbol, process::Growth, components::NamedTuple)
         _validate_state_currencies!(components, population_states, reference, id, "population state")
         route = (mode=:single_resource, factor=factor_name, source=nutrient_factor.resource)
     else
-        process.source isa Symbol || throw(
-            ArgumentError("process :$id multi-resource growth requires a source component"),
-        )
-        process.stoichiometry isa FixedStoichiometry || throw(
-            ArgumentError("process :$id multi-resource growth requires FixedStoichiometry"),
-        )
-        reference = process.stoichiometry.reference
-        source = _scalar_pool(components, process.source, id, "growth source")
-        _require_currency(currency(source), reference, id, "growth source :$(process.source)")
-        _validate_state_currencies!(components, population_states, reference, id, "population state")
-        for (target_currency, response) in pairs(nutrient_factor.responses)
-            resource = _scalar_pool(
-                components, response.resource, id, "nutrient response :$target_currency resource",
+        responses = values(_validated_factor_children(nutrient_factor))
+        quota_routing = all(response -> response isa QuotaResponse, responses)
+        if quota_routing
+            length(process.populations) == 1 || throw(ArgumentError(
+                "process :$id quota growth requires exactly one logical population",
+            ))
+            process.source isa Symbol || throw(
+                ArgumentError("process :$id quota growth requires a source component"),
             )
-            _require_currency(
-                currency(resource), target_currency, id,
-                "nutrient response :$target_currency resource :$(response.resource)",
+            isnothing(process.stoichiometry) || throw(ArgumentError(
+                "process :$id quota growth uses independent NutrientUptake processes; omit fixed stoichiometry",
+            ))
+            reference_state = only(population_states)
+            reference_currency = _state_currency(components, reference_state)
+            source = _scalar_pool(components, process.source, id, "growth source")
+            _require_currency(currency(source), reference_currency, id, "growth source :$(process.source)")
+            population = only(process.populations)
+            for (target_currency, response) in pairs(nutrient_factor.responses)
+                target = _population_state(components, response.target, id, "quota response target")
+                reference = _population_state(components, response.reference, id, "quota response reference")
+                target.population === population && reference.population === population || throw(
+                    ArgumentError(
+                        "process :$id quota response :$target_currency must reference growth population :$population",
+                    ),
+                )
+                actual_target_currency = _state_currency(components, target)
+                _require_currency(
+                    actual_target_currency, target_currency, id,
+                    "quota response :$target_currency target state",
+                )
+                _require_currency(
+                    _state_currency(components, reference), reference_currency, id,
+                    "quota response :$target_currency reference state",
+                )
+            end
+            route = (mode=:quota, factor=factor_name, source=process.source)
+        else
+            process.source isa Symbol || throw(
+                ArgumentError("process :$id multi-resource growth requires a source component"),
+            )
+            process.stoichiometry isa FixedStoichiometry || throw(
+                ArgumentError("process :$id multi-resource growth requires FixedStoichiometry"),
+            )
+            reference = process.stoichiometry.reference
+            source = _scalar_pool(components, process.source, id, "growth source")
+            _require_currency(currency(source), reference, id, "growth source :$(process.source)")
+            _validate_state_currencies!(components, population_states, reference, id, "population state")
+            for (target_currency, response) in pairs(nutrient_factor.responses)
+                resource = _scalar_pool(
+                    components, response.resource, id, "nutrient response :$target_currency resource",
+                )
+                _require_currency(
+                    currency(resource), target_currency, id,
+                    "nutrient response :$target_currency resource :$(response.resource)",
+                )
+            end
+            route = (
+                mode=:multi_resource, factor=factor_name, source=process.source,
+                stoichiometry=process.stoichiometry,
             )
         end
-        route = (
-            mode=:multi_resource, factor=factor_name, source=process.source,
-            stoichiometry=process.stoichiometry,
-        )
     end
     return (;
         population_states, routing=route, maximum_rate_factor=only(rate_owners),
     )
+end
+
+function _nutrient_uptake_facts(
+    id::Symbol, process::NutrientUptake, components::NamedTuple
+)
+    target = _population_state(
+        components, process.population, process.target_state, id, "uptake target"
+    )
+    reference = _population_state(
+        components, process.population, process.reference_state, id, "uptake reference"
+    )
+    target.state === reference.state && throw(ArgumentError(
+        "process :$id nutrient uptake target and reference states must be distinct",
+    ))
+    resource = _scalar_pool(components, process.resource, id, "nutrient uptake resource")
+    _require_currency(
+        currency(resource), _state_currency(components, target), id,
+        "nutrient uptake resource :$(process.resource)",
+    )
+    required = Tuple(slot.name for slot in parameter_slots(process.formulation))
+    missing = Tuple(name for name in required if !hasproperty(process.bindings, name))
+    isempty(missing) || throw(ArgumentError(
+        "process :$id nutrient uptake requires explicit bindings for slots $missing",
+    ))
+    return (; target, reference, resource=process.resource)
 end
 
 function _consumption_facts(id::Symbol, process::Consumption, components::NamedTuple)
@@ -538,6 +645,8 @@ end
 _normalized_process_facts(::Symbol, ::AbstractProcess, ::NamedTuple) = NamedTuple()
 _normalized_process_facts(id::Symbol, process::Growth, components::NamedTuple) =
     _growth_facts(id, process, components)
+_normalized_process_facts(id::Symbol, process::NutrientUptake, components::NamedTuple) =
+    _nutrient_uptake_facts(id, process, components)
 _normalized_process_facts(id::Symbol, process::Consumption, components::NamedTuple) =
     _consumption_facts(id, process, components)
 _normalized_process_facts(id::Symbol, process::Mortality, components::NamedTuple) =

@@ -7,6 +7,8 @@ abstract type AbstractFormulation end
 struct Smith <: AbstractFormulation end
 struct Geider <: AbstractFormulation end
 struct Monod <: AbstractFormulation end
+struct NormalizedDroop <: AbstractFormulation end
+struct QuotaRegulatedMonod <: AbstractFormulation end
 struct Liebig <: AbstractFormulation end
 
 """Differentiable Frank t-norm nutrient-combination formulation."""
@@ -109,6 +111,29 @@ end
 
 authored_parameter_bindings(factor::NutrientResponse) = factor.bindings
 
+"""Internal cellular-quota response used by quota-limited growth.
+
+`target` identifies the internal nutrient inventory and `reference` identifies the
+biomass inventory used to form the cellular quota.
+"""
+struct QuotaResponse{F<:NormalizedDroop} <: AbstractFactor
+    formulation::F
+    target::PopulationStateRef
+    reference::PopulationStateRef
+    bindings::NamedTuple
+end
+
+function QuotaResponse(
+    formulation::NormalizedDroop;
+    target::PopulationStateRef,
+    reference::PopulationStateRef,
+    bindings::NamedTuple=NamedTuple(),
+)
+    return QuotaResponse(formulation, target, reference, _canonical_bindings(bindings))
+end
+
+authored_parameter_bindings(factor::QuotaResponse) = factor.bindings
+
 """Temperature-dependent multiplicative process-rate factor."""
 struct Temperature{F<:Q10} <: AbstractFactor
     formulation::F
@@ -130,9 +155,12 @@ function _canonical_responses(responses::NamedTuple)
     return NamedTuple{names_tuple}(Tuple(getproperty(responses, name) for name in names))
 end
 
-"""Multi-resource nutrient factor with formulation-owned response composition.
+"""Multi-response nutrient factor with formulation-owned response composition.
 
-When paired with `FixedStoichiometry`, response names identify target currencies.
+External `NutrientResponse` children identify resource currencies for fixed-stoichiometry
+growth. Internal `QuotaResponse` children identify cellular quota currencies and affect
+growth rate without transferring those nutrients. A normalized model uses one response
+category consistently within each `Nutrients` factor.
 """
 struct Nutrients{F<:Union{Liebig,FrankTNorm},R<:NamedTuple} <: AbstractFactor
     formulation::F
@@ -143,9 +171,11 @@ struct Nutrients{F<:Union{Liebig,FrankTNorm},R<:NamedTuple} <: AbstractFactor
         formulation::F, responses::R, bindings::NamedTuple
     ) where {F<:Union{Liebig,FrankTNorm},R<:NamedTuple}
         isempty(responses) && throw(ArgumentError("nutrient `responses` cannot be empty"))
-        all(response -> response isa NutrientResponse, values(responses)) || throw(
-            ArgumentError("nutrient `responses` values must be NutrientResponse factors"),
-        )
+        all(
+            response -> response isa Union{NutrientResponse,QuotaResponse}, values(responses)
+        ) || throw(ArgumentError(
+            "nutrient `responses` values must be NutrientResponse or QuotaResponse factors",
+        ))
         return new{F,R}(formulation, responses, bindings)
     end
 end
@@ -174,10 +204,19 @@ struct FactorComponent <: AbstractFactorInput
     component::Symbol
 end
 
+"""Setup-only read of one prognostic population state required by a factor."""
+struct FactorPopulationState <: AbstractFactorInput
+    reference::PopulationStateRef
+end
+
 factor_inputs(::AbstractFactor) = ()
 factor_inputs(factor::Light) = (FactorDriver(factor.driver),)
 factor_inputs(factor::Temperature) = (FactorDriver(factor.driver),)
 factor_inputs(factor::NutrientResponse) = (FactorComponent(factor.resource),)
+factor_inputs(factor::QuotaResponse) = (
+    FactorPopulationState(factor.target),
+    FactorPopulationState(factor.reference),
+)
 
 factor_children(::AbstractFactor) = NamedTuple()
 factor_children(factor::Nutrients) = factor.responses
@@ -310,21 +349,24 @@ function _canonical_factors(factors::NamedTuple; allow_empty::Bool=false)
 end
 
 """Population growth process whose named top-level factors multiply."""
-struct Growth{F<:NamedTuple,S,T} <: AbstractProcess
+struct Growth{F<:NamedTuple,S,T,U} <: AbstractProcess
     populations::Tuple
     factors::F
     source::S
     stoichiometry::T
+    state::U
 
-    function Growth(populations::Tuple, factors::NamedTuple, source, stoichiometry)
+    function Growth(populations::Tuple, factors::NamedTuple, source, stoichiometry, state)
         canonical = _canonical_factors(factors)
         isnothing(source) || source isa Symbol ||
             throw(ArgumentError("growth `source` must be a Symbol"))
         isnothing(stoichiometry) || stoichiometry isa AbstractStoichiometry || throw(
             ArgumentError("growth `stoichiometry` must be an AbstractStoichiometry"),
         )
-        return new{typeof(canonical),typeof(source),typeof(stoichiometry)}(
-            populations, canonical, source, stoichiometry
+        isnothing(state) || state isa Symbol ||
+            throw(ArgumentError("growth `state` must be a Symbol"))
+        return new{typeof(canonical),typeof(source),typeof(stoichiometry),typeof(state)}(
+            populations, canonical, source, stoichiometry, state
         )
     end
 end
@@ -334,10 +376,41 @@ function Growth(;
     factors::NamedTuple,
     source=nothing,
     stoichiometry=nothing,
+    state=nothing,
 )
     population_refs = _canonical_participants(:populations, populations)
-    return Growth(population_refs, factors, source, stoichiometry)
+    return Growth(population_refs, factors, source, stoichiometry, state)
 end
+
+"""Independent external nutrient uptake into one population inventory state.
+
+The `reference` state scales uptake capacity but is not itself transferred. Parameter
+bindings are explicit because quota bounds are commonly shared with `QuotaResponse`.
+"""
+struct NutrientUptake{F<:QuotaRegulatedMonod} <: AbstractProcess
+    formulation::F
+    population::Symbol
+    target_state::Symbol
+    reference_state::Symbol
+    resource::Symbol
+    bindings::NamedTuple
+end
+
+function NutrientUptake(
+    formulation::QuotaRegulatedMonod;
+    population::Symbol,
+    target_state::Symbol,
+    reference_state::Symbol,
+    resource::Symbol,
+    bindings::NamedTuple,
+)
+    return NutrientUptake(
+        formulation, population, target_state, reference_state, resource,
+        _canonical_bindings(bindings),
+    )
+end
+
+authored_parameter_bindings(process::NutrientUptake) = process.bindings
 
 """Canonical consumer-resource process with optional factors and unassimilated products."""
 struct Consumption{F<:Union{IdealizedGrazing,PreferentialGrazing,HeterotrophicConsumption},A<:NamedTuple,P} <: AbstractProcess
@@ -438,6 +511,9 @@ function participants(process::Growth)
     isnothing(process.source) && return base
     return merge(base, (source=(process.source,),))
 end
+participants(process::NutrientUptake) = (
+    population=(process.population,), resource=(process.resource,)
+)
 participants(process::Consumption) = (consumer=process.consumers, resource=process.resources)
 participants(process::Mortality) = (population=process.populations,)
 participants(process::Remineralization) =

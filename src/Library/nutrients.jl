@@ -3,6 +3,7 @@
 module Nutrients
 
 export monod_limitation, liebig_minimum, frank_tnorm
+export normalized_droop_limitation, quota_uptake_regulation
 
 """
     MonodLimitation(K)
@@ -167,6 +168,47 @@ identity is represented separately by the process-authoring layer.
         result = _frank_tnorm_pair(result, values[i], sharpness)
     end
     return result
+end
+
+"""
+    normalized_droop_limitation(internal, reference, minimum_quota, maximum_quota)
+
+Return a normalized Droop growth limitation from an internal nutrient inventory and
+reference biomass inventory. The implied quota is `internal / reference`; limitation is
+zero at or below `minimum_quota` and one at or above `maximum_quota`. Between those
+bounds, the classical Droop response `1 - minimum_quota / quota` is normalized so that
+`maximum_quota` maps exactly to one. Zero or negative reference biomass returns zero.
+"""
+@inline function normalized_droop_limitation(
+    internal, reference, minimum_quota, maximum_quota
+)
+    reference > zero(reference) || return zero(internal + reference)
+    quota = internal / reference
+    quota > minimum_quota || return zero(quota)
+    quota >= maximum_quota && return one(quota)
+    response = (one(quota) - minimum_quota / quota) /
+               (one(quota) - minimum_quota / maximum_quota)
+    return min(one(response), max(zero(response), response))
+end
+
+"""
+    quota_uptake_regulation(internal, reference, minimum_quota, maximum_quota, hill)
+
+Return the bounded cellular-capacity factor used to regulate external nutrient uptake.
+The response is one at or below `minimum_quota`, declines with normalized quota according
+to `hill`, and is zero at or above `maximum_quota`. Zero or negative reference biomass
+returns zero so an absent population has no uptake capacity.
+"""
+@inline function quota_uptake_regulation(
+    internal, reference, minimum_quota, maximum_quota, hill
+)
+    reference > zero(reference) || return zero(internal + reference)
+    quota = internal / reference
+    quota <= minimum_quota && return one(quota)
+    quota >= maximum_quota && return zero(quota)
+    normalized = (quota - minimum_quota) / (maximum_quota - minimum_quota)
+    response = one(normalized) - normalized^hill
+    return min(one(response), max(zero(response), response))
 end
 
 end # module
