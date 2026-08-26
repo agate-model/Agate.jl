@@ -7,8 +7,22 @@ using Agate.Configuration:
 using Agate.ModelFamilies: default_components
 using Agate.Parameters: Parameter, ConstantDefault
 using Agate.Processes:
-    ModelDefinition, Remineralization, LinearRemineralization,
+    AbstractFormulation, AbstractProcess, ModelDefinition, ParameterSlot,
     normalize_model, resolve_parameter_applicability
+
+import Agate.Processes: authored_parameter_bindings, parameter_slots, participants
+
+struct ApplicabilityProbeFormulation <: AbstractFormulation end
+
+struct ApplicabilityProbe <: AbstractProcess
+    formulation::ApplicabilityProbeFormulation
+    source::Symbol
+    bindings::NamedTuple
+end
+
+authored_parameter_bindings(process::ApplicabilityProbe) = process.bindings
+parameter_slots(::ApplicabilityProbeFormulation) = (ParameterSlot(:rate, (:source,)),)
+participants(process::ApplicabilityProbe) = (source=(process.source,),)
 
 @testset "Component authoring" begin
     population = Population(:nitrogen;
@@ -108,20 +122,12 @@ end
     @test component_indices(layout, :POM) == (3, 4, 5)
     @test component_diameters(layout, :POM) == (0.5f0, 5.0f0, 50.0f0)
 
-    process = Remineralization(
-        LinearRemineralization();
-        sources=:POM,
-        destination=:N,
-        bindings=(rate=:pom_remineralization,),
-    )
-    parameter = Parameter(ConstantDefault(0.1))
-    definition = normalize_model(
-        ModelDefinition(;
-            components,
-            processes=(remineralization_POM=process,),
-            parameters=(pom_remineralization=parameter,),
-        ),
-    )
+    process = ApplicabilityProbe(ApplicabilityProbeFormulation(), :POM, (rate=:pom_rate,))
+    definition = normalize_model(ModelDefinition(;
+        components,
+        processes=(pom_probe=process,),
+        parameters=(pom_rate=Parameter(ConstantDefault(0.1)),),
+    ))
     applicability = only(resolve_parameter_applicability(definition, layout))
     @test applicability.axis_components == ((:POM,),)
     @test applicability.axis_classes == ((:POM_1, :POM_2, :POM_3),)

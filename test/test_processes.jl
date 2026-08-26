@@ -294,6 +294,13 @@ end
             ("process :remineralization", "remineralization source :D", "currency"),
         ),
         (
+            "structured Remineralization source",
+            one_process(:remineralization, Agate.Processes.Remineralization(
+                Agate.Processes.LinearRemineralization(); sources=:D, destination=:N
+            ), (D=Pool(:nitrogen; size_structure=[1.0]), N=Pool(:nitrogen))),
+            ("process :remineralization", "source :D", "scalar Pool"),
+        ),
+        (
             "structured Remineralization destination",
             one_process(:remineralization, Agate.Processes.Remineralization(
                 Agate.Processes.LinearRemineralization(); sources=:D, destination=:N
@@ -523,7 +530,7 @@ end
     missing_qualifier = ModelDefinition(;
         components=(D=components.D, E=components.E),
         processes=(
-            remineralization=Remineralization(
+            remineralization=Agate.Processes.Remineralization(
                 Agate.Processes.LinearRemineralization();
                 sources=(:D, :E),
                 destination=:D,
