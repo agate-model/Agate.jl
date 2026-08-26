@@ -20,7 +20,6 @@ export describe
 import Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
 
-using ..Runtime: TracerIndex
 
 @inline function preview_list(xs; n::Int=12)
     m = length(xs)
@@ -66,20 +65,10 @@ function parameter_names(bgc)::Vector{Symbol}
     return collect(propertynames(params))
 end
 
-function _tracer_index(bgc)
-    hasproperty(bgc, :tracers) || return nothing
-    tracers = getproperty(bgc, :tracers)
-    hasproperty(tracers, :idx) || return nothing
-    return getproperty(tracers, :idx)
-end
-
-
 function _model_metadata(bgc)
     hasproperty(bgc, :metadata) || return nothing
     return getproperty(bgc, :metadata)
 end
-_all_tracer_symbols(::TracerIndex{TR,GS,AF,NG}) where {TR,GS,AF,NG} = collect(TR)
-_plankton_group_symbols(::TracerIndex{TR,GS,AF,NG}) where {TR,GS,AF,NG} = collect(GS)
 
 """    plankton_groups(bgc) -> NamedTuple
 
@@ -89,24 +78,11 @@ of physical prognostic state tracers. Group order follows the realized model lay
 """
 function plankton_groups(bgc)
     metadata = _model_metadata(bgc)
-    if metadata !== nothing
-        names = keys(metadata.group_classes)
-        return NamedTuple{names}(Tuple(collect(classes) for classes in values(metadata.group_classes)))
-    end
-
-    idx = _tracer_index(bgc)
-    idx isa TracerIndex || return NamedTuple()
-    all_tracers = _all_tracer_symbols(idx)
-    groups = _plankton_group_symbols(idx)
-    isempty(groups) && return NamedTuple()
-
-    pairs = Pair{Symbol,Vector{Symbol}}[]
-    for (i, group) in enumerate(groups)
-        first_index = idx.group_bases[i]
-        n_tracers = idx.group_counts[i]
-        push!(pairs, group => all_tracers[first_index:(first_index + n_tracers - 1)])
-    end
-    return (; pairs...)
+    metadata === nothing && return NamedTuple()
+    names = keys(metadata.group_classes)
+    return NamedTuple{names}(
+        Tuple(collect(classes) for classes in values(metadata.group_classes))
+    )
 end
 
 """    plankton_tracers(bgc) -> Vector{Symbol}
@@ -115,15 +91,8 @@ Return all plankton tracer symbols as a flat vector in runtime group order.
 """
 function plankton_tracers(bgc)
     metadata = _model_metadata(bgc)
-    metadata !== nothing && return collect(metadata.population_tracers)
-
-    groups = plankton_groups(bgc)
-    isempty(groups) && return Symbol[]
-    tracers = Symbol[]
-    for group_tracers in values(groups)
-        append!(tracers, group_tracers)
-    end
-    return tracers
+    metadata === nothing && return Symbol[]
+    return collect(metadata.population_tracers)
 end
 
 """    plankton_diameters(bgc) -> Vector

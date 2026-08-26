@@ -11,8 +11,6 @@ using Agate.Introspection:
     model_summary
 using Test
 
-using Agate.Construction: define_tracer_functions
-using Agate.Equations: CompiledEquation
 
 @testset "Public introspection helpers" begin
     @testset "Model-constructed instance" begin
@@ -140,14 +138,18 @@ using Agate.Equations: CompiledEquation
         @test_throws ArgumentError interaction_matrix(broken_bgc, :palatability_matrix)
     end
 
-    @testset "Generated model without groups" begin
-        parameters = (rate=1.0,)
-        tracers = (X=CompiledEquation((bgc, x, y, z, t, X) -> -bgc.parameters.rate * X),)
-        model = define_tracer_functions(parameters, tracers)(parameters)
+    @testset "Authored model without plankton groups" begin
+        components = (X=Agate.Configuration.Pool(:carbon), Y=Agate.Configuration.Pool(:carbon))
+        processes = (transfer=Agate.Processes.Remineralization(
+            Agate.Processes.LinearRemineralization();
+            sources=:X, destination=:Y, bindings=(rate=(X=:rate,),),
+        ),)
+        parameters = (rate=Agate.Parameters.Parameter(Agate.Parameters.ConstantDefault(1.0)),)
+        model = Agate.Construction.construct(Agate.Processes.ModelDefinition(; components, processes, parameters))
         groups = tracer_groups(model)
 
-        @test tracer_names(model) == [:X]
-        @test groups == (all=[:X], plankton=Symbol[], nonplankton=[:X], by_group=NamedTuple())
+        @test tracer_names(model) == [:X, :Y]
+        @test groups == (all=[:X, :Y], plankton=Symbol[], nonplankton=[:X, :Y], by_group=NamedTuple())
         @test plankton_groups(model) == NamedTuple()
         @test isempty(plankton_diameters(model))
         @test parameter_names(model) == [:rate]

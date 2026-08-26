@@ -7,10 +7,10 @@ using Agate.Construction: construct
 using Agate.Parameters: Parameter, ConstantDefault
 using Agate.Processes:
     AbstractProcess, AbstractFormulation, ModelDefinition, ParameterSlot,
-    formulation, parameter_slot_bindings, process_id, ParameterPlan, build_parameter_plan
+    formulation, parameter_slot_bindings, ParameterPlan, build_parameter_plan
 using Agate.Compilation:
-    TracerOp, RatioOp, MatParamOp, RateElement, Weight, FluxSpec,
-    parameter_operand, state_operand, _axis_position, _realize_population_state
+    InputOp, ParameterOp, RatioOp, RateElement, Weight, FluxSpec,
+    input_operand, parameter_operand, state_operand, _axis_position, _realize_population_state
 
 import Agate.Processes:
     parameter_slots, participants, process_rate,
@@ -54,9 +54,7 @@ function process_fluxes(
 ) where {P<:StateTurnover}
     process = named.process
     reference = population_state(process.population, process.reference_state)
-    reference_tracers, population_indices = _realize_population_state(
-        named, reference, layout
-    )
+    reference_tracers, population_indices = _realize_population_state(reference, layout)
     slots = parameter_slot_bindings(definition, named, (), process)
     fluxes = ()
 
@@ -65,7 +63,7 @@ function process_fluxes(
         axis_positions = (
             population=_axis_position(population_axis),
         )
-        reference_operand = TracerOp{reference_tracers[population_axis]}()
+        reference_operand = input_operand(layout, reference_tracers[population_axis])
         rate = RateElement(
             formulation(process),
             (
@@ -84,8 +82,8 @@ function process_fluxes(
                     (RatioOp(source_operand, reference_operand),)
             fluxes = (
                 fluxes...,
-                FluxSpec(process_id(named), source, rate, Weight{-1}(ratio)),
-                FluxSpec(process_id(named), destination, rate, Weight{1}(ratio)),
+                FluxSpec(source, rate, Weight{-1}(ratio)),
+                FluxSpec(destination, rate, Weight{1}(ratio)),
             )
         end
     end
@@ -135,21 +133,17 @@ function process_fluxes(
     process = named.process
     consumer_carbon = population_state(process.consumer, process.carbon_state)
     resource_carbon = population_state(process.resource, process.carbon_state)
-    consumer_tracers, consumer_indices = _realize_population_state(
-        named, consumer_carbon, layout
-    )
-    resource_tracers, resource_indices = _realize_population_state(
-        named, resource_carbon, layout
-    )
+    consumer_tracers, consumer_indices = _realize_population_state(consumer_carbon, layout)
+    resource_tracers, resource_indices = _realize_population_state(resource_carbon, layout)
     slots = parameter_slot_bindings(definition, named, (), process)
     fluxes = ()
 
     for consumer_axis in eachindex(consumer_tracers)
         consumer_index = consumer_indices[consumer_axis]
-        consumer_carbon_operand = TracerOp{consumer_tracers[consumer_axis]}()
+        consumer_carbon_operand = input_operand(layout, consumer_tracers[consumer_axis])
         for resource_axis in eachindex(resource_tracers)
             resource_index = resource_indices[resource_axis]
-            resource_carbon_operand = TracerOp{resource_tracers[resource_axis]}()
+            resource_carbon_operand = input_operand(layout, resource_tracers[resource_axis])
             axis_positions = (
                 consumer=_axis_position(consumer_axis),
                 resource=_axis_position(resource_axis),
@@ -178,17 +172,17 @@ function process_fluxes(
             fluxes = (
                 fluxes...,
                 FluxSpec(
-                    process_id(named), resource_tracers[resource_axis], rate, Weight{-1}()
+                    resource_tracers[resource_axis], rate, Weight{-1}()
                 ),
                 FluxSpec(
-                    process_id(named), consumer_tracers[consumer_axis], rate, Weight{1}()
+                    consumer_tracers[consumer_axis], rate, Weight{1}()
                 ),
                 FluxSpec(
-                    process_id(named), resource_nitrogen_tracer, rate,
+                    resource_nitrogen_tracer, rate,
                     Weight{-1}((nitrogen_ratio,)),
                 ),
                 FluxSpec(
-                    process_id(named), consumer_nitrogen_tracer, rate,
+                    consumer_nitrogen_tracer, rate,
                     Weight{1}((nitrogen_ratio,)),
                 ),
             )
@@ -237,7 +231,6 @@ end
     @test Agate.Introspection.plankton_groups(bgc) == (P=[:P_1, :P_2],)
     @test Agate.Introspection.plankton_diameters(bgc) == [1.0, 2.0]
     @test length(Agate.Introspection.plankton_tracers(bgc)) == 6
-    @test bgc.tracers.idx.plankton_base == 0
 
     values = (
         DOC=0.0, DON=0.0, DOP=0.0,
@@ -275,7 +268,7 @@ end
         sum(phosphorus_tendencies), 0; atol=10 * eps(sum(abs, phosphorus_tendencies))
     )
     @test all(
-        equation -> isbitstype(typeof(equation)), Base.values(bgc.tracer_functions)
+        equation -> isbitstype(typeof(equation)), Base.values(bgc.equations)
     )
 
     derivative = ForwardDiff.derivative(2.0) do nitrogen
@@ -338,7 +331,9 @@ end
     fluxes = process_fluxes(
         normalized.processes.consume, normalized, realization, plan
     )
-    interaction_operand = fluxes[1].rate.operands[3]
-    @test interaction_operand == MatParamOp{:state_palatability,1,1}()
+    resource_operand, consumer_operand, interaction_operand = fluxes[1].rate.operands
+    @test resource_operand == input_operand(realization, :P_carbon)
+    @test consumer_operand == input_operand(realization, :Z_carbon)
+    @test interaction_operand == ParameterOp{:state_palatability,(1,1)}()
     @test fluxes[3].weight.operands[1] isa RatioOp
 end

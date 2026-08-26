@@ -8,7 +8,8 @@ using Oceananigans.Units
 using Agate.Library.Allometry: AllometricParam, ConstantParam, PowerLaw
 using Oceananigans.Fields: ZeroField
 using Oceananigans.Biogeochemistry:
-    required_biogeochemical_tracers, biogeochemical_drift_velocity
+    required_biogeochemical_tracers, required_biogeochemical_auxiliary_fields,
+    biogeochemical_drift_velocity
 
 @testset "Public model constructors" begin
 
@@ -16,9 +17,12 @@ using Oceananigans.Biogeochemistry:
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
 
         # Guardrail for GPU compilation: tracer callables must be concretely typed.
-        @test !any(t -> t === Any, fieldtypes(typeof(bgc.tracer_functions)))
+        @test !any(t -> t === Any, fieldtypes(typeof(bgc.equations)))
 
         @test required_biogeochemical_tracers(bgc) == (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
+        @test required_biogeochemical_tracers(typeof(bgc)) == (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
+        @test required_biogeochemical_auxiliary_fields(bgc) == (:PAR,)
+        @test required_biogeochemical_auxiliary_fields(typeof(bgc)) == (:PAR,)
 
         P_1 = 0.01f0
         P_2 = 0.01f0

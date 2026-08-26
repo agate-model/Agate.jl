@@ -1,8 +1,6 @@
 using Agate.Compilation:
-    TracerOp,
-    ScalarParamOp,
-    VecParamOp,
-    MatParamOp,
+    InputOp,
+    ParameterOp,
     ComplementOp,
     OneMinusSumOp,
     process_fluxes,
@@ -10,12 +8,12 @@ using Agate.Compilation:
 using Agate.Configuration: realize_model_layout
 using Agate.ModelFamilies: default_components
 using Agate.Processes:
-    ModelDefinition, MultiplicativeFactors, Smith, Monod, normalize_model, build_parameter_plan
+    ModelDefinition, MultiplicativeFactors, Smith, Monod, driver_identities, normalize_model, build_parameter_plan
 
 @testset "Process compilation" begin
     family = Agate.Models.NiPiZD.NiPiZDFamily()
     normalized = normalize_model(ModelDefinition(family))
-    layout = default_nipizd_layout()
+    layout = default_nipizd_layout(; auxiliary_fields=driver_identities(normalized))
     plan = build_parameter_plan(normalized, layout)
 
     @testset "Growth" begin
@@ -27,9 +25,10 @@ using Agate.Processes:
         rate = fluxes[1].rate
         @test rate.formulation isa MultiplicativeFactors
         @test rate.operands == (
-            TracerOp{:P_1}(), VecParamOp{:maximum_growth_rate,3}()
+            InputOp{:P_1,5}(), ParameterOp{:maximum_growth_rate,(3,)}()
         )
         @test Tuple(typeof(factor.formulation) for factor in rate.factors) == (Smith, Monod)
+        @test rate.factors[1].operands[1] == InputOp{:PAR,7}()
     end
 
     @testset "Living-resource consumption" begin
@@ -38,13 +37,13 @@ using Agate.Processes:
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes[1:3]) ==
             ((:P_1, -1), (:Z_1, 1), (:D, 1))
         @test fluxes[1].rate.operands == (
-            TracerOp{:P_1}(),
-            TracerOp{:Z_1}(),
-            VecParamOp{:maximum_predation_rate,1}(),
-            VecParamOp{:holling_half_saturation,1}(),
-            MatParamOp{:palatability_matrix,1,1}(),
+            InputOp{:P_1,5}(),
+            InputOp{:Z_1,3}(),
+            ParameterOp{:maximum_predation_rate,(1,)}(),
+            ParameterOp{:holling_half_saturation,(1,)}(),
+            ParameterOp{:palatability_matrix,(1,1)}(),
         )
-        assimilation = MatParamOp{:assimilation_matrix,1,1}()
+        assimilation = ParameterOp{:assimilation_matrix,(1,1)}()
         @test fluxes[2].weight.operands == (assimilation,)
         @test fluxes[3].weight.operands == (ComplementOp(assimilation),)
     end
@@ -58,11 +57,11 @@ using Agate.Processes:
             (:P_2, -1), (:D, 1), (:N, 1),
         )
         @test Tuple(flux.rate.operands[1] for flux in fluxes if weight_sign(flux.weight) == -1) ==
-            (TracerOp{:P_1}(), TracerOp{:P_2}())
+            (InputOp{:P_1,5}(), InputOp{:P_2,6}())
         @test fluxes[2].weight.operands ==
-            (ComplementOp(ScalarParamOp{:mortality_export_fraction}()),)
+            (ComplementOp(ParameterOp{:mortality_export_fraction,()}()),)
         @test fluxes[3].weight.operands ==
-            (ScalarParamOp{:mortality_export_fraction}(),)
+            (ParameterOp{:mortality_export_fraction,()}(),)
     end
 
     @testset "Arbitrary product partition" begin
@@ -102,10 +101,10 @@ using Agate.Processes:
         )
         products = fluxes[2:4]
         @test Tuple(flux.target for flux in products) == (:A, :B, :R)
-        @test products[1].weight.operands == (ScalarParamOp{:fraction_a}(),)
-        @test products[2].weight.operands == (ScalarParamOp{:fraction_b}(),)
+        @test products[1].weight.operands == (ParameterOp{:fraction_a,()}(),)
+        @test products[2].weight.operands == (ParameterOp{:fraction_b,()}(),)
         @test products[3].weight.operands == (
-            OneMinusSumOp((ScalarParamOp{:fraction_a}(), ScalarParamOp{:fraction_b}())),
+            OneMinusSumOp((ParameterOp{:fraction_a,()}(), ParameterOp{:fraction_b,()}())),
         )
     end
 
@@ -115,6 +114,6 @@ using Agate.Processes:
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) ==
             ((:D, -1), (:N, 1))
         @test fluxes[1].rate.operands ==
-            (TracerOp{:D}(), ScalarParamOp{:detritus_remineralization}())
+            (InputOp{:D,2}(), ParameterOp{:detritus_remineralization,()}())
     end
 end

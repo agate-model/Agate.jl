@@ -1,6 +1,4 @@
 using Agate.Compilation: compile_model_tendencies
-using Agate.Construction: define_tracer_functions
-using Agate.Equations: CompiledEquation
 using Agate.Processes: ModelDefinition, driver_identities, normalize_model, build_parameter_plan
 
 const NIPIZD_PROCESS_TRACER_ORDER = (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
@@ -44,25 +42,16 @@ end
 
     @test compilation.drivers == (:PAR,)
     @test keys(compiled) == NIPIZD_PROCESS_TRACER_ORDER
-    @test all(equation -> equation isa CompiledEquation, values(compiled))
-    @test all(equation -> isbitstype(typeof(equation.f)), values(compiled))
+    @test all(equation -> isbitstype(typeof(equation)), values(compiled))
     @test all(
-        equation -> all(term -> isbitstype(typeof(term)), equation.f.terms), values(compiled)
+        equation -> all(term -> isbitstype(typeof(term)), equation.terms), values(compiled)
     )
 
     bgc = full_process_bgc()
-    tracer_index = Agate.Runtime.build_tracer_index(compilation.layout)
-    factory = define_tracer_functions(
-        bgc.parameters,
-        compiled;
-        auxiliary_fields=compilation.drivers,
-        tracer_index,
-    )
-    generated_bgc = factory(bgc.parameters)
-    @test !any(type -> type === Any, fieldtypes(typeof(generated_bgc.tracer_functions)))
+    @test !any(type -> type === Any, fieldtypes(typeof(bgc.equations)))
 
     generated = map(
-        target -> generated_bgc(Val(target), NIPIZD_PROCESS_ARGS...),
+        target -> getproperty(compiled, target)(bgc, NIPIZD_PROCESS_ARGS...),
         NIPIZD_PROCESS_TRACER_ORDER,
     )
     constructed = map(

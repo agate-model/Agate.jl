@@ -19,12 +19,12 @@ function process_fluxes(
         ).rate
         rate = RateElement(
             process.formulation,
-            (TracerOp{source}(), parameter_operand(rate_binding, plan)),
+            (input_operand(layout, source), parameter_operand(rate_binding, plan)),
         )
         push!(
             fluxes,
-            FluxSpec(process_id(named), source, rate, Weight{-1}()),
-            FluxSpec(process_id(named), destination, rate, Weight{1}()),
+            FluxSpec(source, rate, Weight{-1}()),
+            FluxSpec(destination, rate, Weight{1}()),
         )
     end
     return Tuple(fluxes)

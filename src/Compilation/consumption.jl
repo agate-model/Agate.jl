@@ -41,8 +41,8 @@ function _consumption_rate(
     axis_positions::NamedTuple,
 )
     operands = (
-        TracerOp{resource}(),
-        TracerOp{consumer}(),
+        input_operand(layout, resource),
+        input_operand(layout, consumer),
         parameter_operand(slots.maximum_rate, plan, axis_positions),
         parameter_operand(slots.half_saturation, plan, axis_positions),
         parameter_operand(slots.palatability, plan, axis_positions),
@@ -63,8 +63,8 @@ function _consumption_rate(
     axis_positions::NamedTuple,
 )
     operands = (
-        TracerOp{resource}(),
-        TracerOp{consumer}(),
+        input_operand(layout, resource),
+        input_operand(layout, consumer),
         parameter_operand(slots.maximum_rate, plan, axis_positions),
         parameter_operand(slots.half_saturation, plan, axis_positions),
     )
@@ -106,8 +106,8 @@ function process_fluxes(
             assimilation = parameter_operand(slots.assimilation, plan, axis_positions)
             push!(
                 fluxes,
-                FluxSpec(process_id(named), resource, rate, Weight{-1}()),
-                FluxSpec(process_id(named), consumer, rate, Weight{1}((assimilation,))),
+                FluxSpec(resource, rate, Weight{-1}()),
+                FluxSpec(consumer, rate, Weight{1}((assimilation,))),
             )
             if process.products isa Products
                 append!(

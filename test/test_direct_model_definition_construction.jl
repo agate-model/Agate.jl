@@ -111,7 +111,7 @@ end
     @test all(
         equation -> isbitstype(typeof(equation)) &&
                     all(term -> isbitstype(typeof(term)), equation.terms),
-        values(bgc.tracer_functions),
+        values(bgc.equations),
     )
 
     args = (0.0, 0.0, 0.0, 0.0, 1.0, 0.1, 0.05, 100.0)

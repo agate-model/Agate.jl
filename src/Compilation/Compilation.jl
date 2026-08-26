@@ -3,7 +3,6 @@ module Compilation
 
 using ..Configuration:
     ModelLayout, PopulationStateRef, component_classes, component_class_indices, state_tracer
-using ..Equations: CompiledEquation
 using ..Processes:
     AbstractFactor,
     Growth,
@@ -24,7 +23,6 @@ using ..Processes:
     Products,
     NormalizedModelDefinition,
     NutrientResponse,
-    LinearRemineralization,
     formulation,
     factors,
     factor_value,
@@ -32,7 +30,6 @@ using ..Processes:
     ParameterPlan,
     planned_parameter_slot,
     parameter_slot_bindings,
-    process_id,
     product_path,
     process_rate
 

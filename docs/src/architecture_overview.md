@@ -65,9 +65,8 @@ src/
 |-- ModelFamilies/         # registered family identity and canonical definitions
 |-- Parameters/            # keyed parameters, defaults, and storage policy
 |-- Construction/          # direct construction, recipes, manifests, replay
-|-- Equations/             # compiled equation wrappers
 |-- Library/               # reusable scientific formulations
-|-- Runtime/               # runtime tracer access and indexing
+|-- Runtime/               # active parameters and box-ODE utilities
 |-- Diagnostics/           # model checks and diagnostics
 |-- Models/                # bundled named model families
 `-- Introspection.jl       # model inspection utilities

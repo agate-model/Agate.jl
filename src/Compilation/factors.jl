@@ -1,24 +1,9 @@
 _factor_input_operand(input::FactorDriver, layout::ModelLayout) =
-    TracerOp{input.identity}()
+    input_operand(layout, input.identity)
 
 function _factor_input_operand(input::FactorComponent, layout::ModelLayout)
     target = _scalar_component_target(layout, input.component)
-    return TracerOp{target}()
-end
-
-function _factor_parameter_operand(
-    binding::ParameterBinding, plan::ParameterPlan, axis_positions::NamedTuple
-)
-    return parameter_operand(binding, plan, axis_positions)
-end
-
-function _factor_parameter_operands(
-    bindings::NamedTuple, plan::ParameterPlan, axis_positions::NamedTuple
-)
-    return Tuple(
-        _factor_parameter_operand(binding, plan, axis_positions)
-        for binding in values(bindings)
-    )
+    return input_operand(layout, target)
 end
 
 function _factor_element(
@@ -58,7 +43,9 @@ function _factor_element(
         factor;
         context=factor_parameter_context(factor),
     )
-    parameter_operands = _factor_parameter_operands(slots, plan, axis_positions)
+    parameter_operands = Tuple(
+        parameter_operand(binding, plan, axis_positions) for binding in values(slots)
+    )
     return FactorElement(
         formulation(factor), (input_operands..., child_operands..., parameter_operands...)
     )

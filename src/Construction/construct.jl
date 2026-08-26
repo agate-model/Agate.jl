@@ -18,7 +18,6 @@ using ..Parameters:
 using ..Configuration:
     interaction_axis_metadata, realize_model_layout, model_metadata, Population
 
-using ..Runtime: build_tracer_index
 
 using ..Processes:
     ModelDefinition, normalize_model, driver_identities, participants, formulation,
@@ -494,34 +493,18 @@ function _construct_process_definition(
     validate_realized_science(parameter_plan, resolved_parameters)
 
     runtime_parameters = runtime_parameter_values(parameter_plan, resolved_parameters)
-    tracers = compile_model_tendencies(
+    equations = compile_model_tendencies(
         normalized, layout, parameter_plan; target_order=tracer_names
     )
-    tracer_index = build_tracer_index(layout)
     interaction_axes = interaction_axis_metadata(parameter_plan)
     metadata = model_metadata(
         layout; interaction_axes, parameter_axes=parameter_plan_metadata(parameter_plan)
     )
-
-    bgc = if isnothing(sinking_tracers)
-        bgc_factory = define_tracer_functions(
-            runtime_parameters,
-            tracers;
-            auxiliary_fields,
-            tracer_index,
-        )
-        bgc_factory(runtime_parameters; metadata)
-    else
-        sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
-        bgc_factory = define_tracer_functions(
-            runtime_parameters,
-            tracers;
-            auxiliary_fields,
-            tracer_index,
-            sinking_velocities,
-        )
-        bgc_factory(runtime_parameters, sinking_velocities; metadata)
-    end
+    sinking_velocities = isnothing(sinking_tracers) ? nothing :
+        setup_velocity_fields(sinking_tracers, grid, open_bottom)
+    bgc = AgateBGC(
+        runtime_parameters, equations, auxiliary_fields, sinking_velocities, metadata
+    )
 
     manifest = if build_manifest
         isnothing(manifest_family) && throw(

@@ -9,13 +9,14 @@ end
 function _mortality_rate(
     formulation,
     rate_binding::ParameterBinding,
+    layout::ModelLayout,
     plan::ParameterPlan,
     population_axis::Int,
     population_tracer::Symbol,
 )
     axis_positions = (population=_axis_position(population_axis),)
     operands = (
-        TracerOp{population_tracer}(),
+        input_operand(layout, population_tracer),
         parameter_operand(rate_binding, plan, axis_positions),
     )
     return RateElement(formulation, operands)
@@ -36,13 +37,13 @@ function process_fluxes(
         slots = _mortality_slots(definition, named, population)
         for population_axis in eachindex(population_tracers)
             rate = _mortality_rate(
-                formulation(process), slots.rate, plan, population_axis,
+                formulation(process), slots.rate, layout, plan, population_axis,
                 population_tracers[population_axis],
             )
             push!(
                 fluxes,
                 FluxSpec(
-                    process_id(named), population_tracers[population_axis], rate, Weight{-1}()
+                    population_tracers[population_axis], rate, Weight{-1}()
                 ),
             )
             if process.products isa Products

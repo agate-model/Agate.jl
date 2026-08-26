@@ -35,7 +35,7 @@ function _growth_rate(
     axis_positions = (population=_axis_position(population_axis),)
     rate_factors = _factor_elements(definition, named, layout, plan, axis_positions)
     operands = (
-        TracerOp{population_tracer}(),
+        input_operand(layout, population_tracer),
         parameter_operand(scale_binding, plan, axis_positions),
     )
     return RateElement(formulation(named.process), operands; factors=rate_factors)
@@ -50,7 +50,7 @@ function _growth_resource_fluxes(
     rate::RateElement,
     ::NutrientResponse,
 )
-    return (FluxSpec(process_id(named), resource_target, rate, Weight{-1}()),)
+    return (FluxSpec(resource_target, rate, Weight{-1}()),)
 end
 
 function _growth_resource_fluxes(
@@ -62,7 +62,7 @@ function _growth_resource_fluxes(
     rate::RateElement,
     ::Nutrients,
 )
-    fluxes = Any[FluxSpec(process_id(named), source_target, rate, Weight{-1}())]
+    fluxes = Any[FluxSpec(source_target, rate, Weight{-1}())]
     stoichiometry = named.facts.routing.stoichiometry
     for currency in keys(resource_target)
         ratio = parameter_slot_bindings(
@@ -75,7 +75,6 @@ function _growth_resource_fluxes(
         push!(
             fluxes,
             FluxSpec(
-                process_id(named),
                 getproperty(resource_target, currency),
                 rate,
                 Weight{-1}((parameter_operand(ratio, plan),)),
@@ -92,7 +91,6 @@ function process_fluxes(
     layout::ModelLayout,
     plan::ParameterPlan,
 ) where {P<:Growth}
-    process = named.process
     nutrients = _growth_resource_factor(named)
     population_tracers = _realize_normalized_population_states(
         named.facts.population_states, layout
@@ -109,7 +107,7 @@ function process_fluxes(
             population_tracers[population_axis], scale_binding,
         )
         biomass = FluxSpec(
-            process_id(named), population_tracers[population_axis], rate, Weight{1}()
+            population_tracers[population_axis], rate, Weight{1}()
         )
         resources = _growth_resource_fluxes(
             named, definition, plan, resource_target, source_target, rate, nutrients

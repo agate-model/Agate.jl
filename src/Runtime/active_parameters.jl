@@ -69,11 +69,6 @@ end
     return getproperty(getfield(bgc_p, :bgc), name)
 end
 
-@inline function tendency_inputs(bgc_p::ParameterizedBGC, args)
-    tracer_values = TracerValues(bgc_p.bgc.tracers, args)
-    return bgc_p.parameters, tracer_values
-end
-
 @inline Adapt.adapt_structure(to, a::ActiveParameterArray) =
     ActiveParameterArray(Adapt.adapt(to, a.base), Adapt.adapt(to, a.p), Adapt.adapt(to, a.slots))
 
@@ -85,12 +80,13 @@ end
 
 
 @inline function evaluate_tendency(bgc_p::ParameterizedBGC, ::Val{tracer}, args...) where {tracer}
-    f = getfield(bgc_p.bgc.tracer_functions, tracer)
-    return f(bgc_p, args...)
+    equation = getfield(bgc_p.bgc.equations, tracer)
+    return equation(bgc_p, args...)
 end
 
-@inline function evaluate_tendency(bgc, parameters, val_name::Val, args...)
-    return evaluate_tendency(ParameterizedBGC(bgc, parameters), val_name, args...)
+@inline function evaluate_tendency(bgc, ::Val{tracer}, args...) where {tracer}
+    equation = getfield(bgc.equations, tracer)
+    return equation(bgc, args...)
 end
 
 @inline function (bgc_p::ParameterizedBGC)(val_name::Val, args...)

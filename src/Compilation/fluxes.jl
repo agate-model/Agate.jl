@@ -1,14 +1,8 @@
-"""Static setup-time operand that reads a named tracer or auxiliary field."""
-struct TracerOp{S} end
+"""Static operand that reads one pre-indexed tracer or auxiliary input."""
+struct InputOp{S,I} end
 
-"""Static setup-time operand that reads one scalar parameter."""
-struct ScalarParamOp{S} end
-
-"""Static setup-time operand that reads one vector parameter element."""
-struct VecParamOp{S,I} end
-
-"""Static setup-time operand that reads one matrix parameter element."""
-struct MatParamOp{S,I,J} end
+"""Static operand that reads one pre-indexed runtime parameter value."""
+struct ParameterOp{S,I} end
 
 """Static operand whose value is one minus another operand."""
 struct ComplementOp{O}
@@ -31,26 +25,29 @@ struct TupleOp{O}
     operands::O
 end
 
-@inline operand_value(::TracerOp{S}, bgc, args) where {S} = getproperty(bgc.tracers, S)(args)
-@inline operand_value(::ScalarParamOp{S}, bgc, args) where {S} = getproperty(bgc.parameters, S)
-@inline operand_value(::VecParamOp{S,I}, bgc, args) where {S,I} =
-    @inbounds getproperty(bgc.parameters, S)[I]
-@inline operand_value(::MatParamOp{S,I,J}, bgc, args) where {S,I,J} =
-    @inbounds getproperty(bgc.parameters, S)[I, J]
+@inline operand_value(::InputOp{S,I}, bgc, args) where {S,I} = @inbounds args[I]
+@inline operand_value(::ParameterOp{S,()}, bgc, args) where {S} = getproperty(bgc.parameters, S)
+@inline operand_value(::ParameterOp{S,I}, bgc, args) where {S,I} =
+    @inbounds getproperty(bgc.parameters, S)[I...]
+
 @inline function operand_value(op::ComplementOp, bgc, args)
     value = operand_value(op.operand, bgc, args)
     return one(value) - value
 end
+
 @inline function _operand_sum(operands::Tuple{T}, bgc, args) where {T}
     return operand_value(first(operands), bgc, args)
 end
+
 @inline function _operand_sum(operands::Tuple{T,S,Vararg{Any,N}}, bgc, args) where {T,S,N}
     return operand_value(first(operands), bgc, args) + _operand_sum(Base.tail(operands), bgc, args)
 end
+
 @inline function operand_value(op::OneMinusSumOp, bgc, args)
     total = _operand_sum(op.operands, bgc, args)
     return one(total) - total
 end
+
 @inline operand_value(op::RatioOp, bgc, args) =
     operand_value(op.numerator, bgc, args) / operand_value(op.denominator, bgc, args)
 @inline operand_value(op::TupleOp, bgc, args) = operand_values(op.operands, bgc, args)
@@ -108,6 +105,7 @@ Weight{Sign}(operands::Tuple=()) where {Sign} = Weight{Sign,typeof(operands)}(op
 @inline function weight_product(operands::Tuple{T}, bgc, args) where {T}
     return operand_value(first(operands), bgc, args)
 end
+
 @inline function weight_product(operands::Tuple{T,S,Vararg{Any,N}}, bgc, args) where {T,S,N}
     return operand_value(first(operands), bgc, args) * weight_product(Base.tail(operands), bgc, args)
 end
@@ -117,9 +115,8 @@ end
 @inline apply_weight(weight::Weight{1}, bgc, args, rate) = weight_product(weight.operands, bgc, args) * rate
 @inline apply_weight(weight::Weight{-1}, bgc, args, rate) = -weight_product(weight.operands, bgc, args) * rate
 
-"""Setup-time description of one process flux into one concrete tracer."""
+"""Setup-time description of one flux into one concrete tracer."""
 struct FluxSpec{R,W}
-    process::Symbol
     target::Symbol
     rate::R
     weight::W
@@ -138,25 +135,17 @@ end
     return apply_weight(term.weight, bgc, args, rate)
 end
 
-function parameter_operand(binding::ParameterBinding, indices::Int...)
-    rank = length(binding.axes)
-    parameter = binding.parameter
-
-    if rank == 0
-        isempty(indices) || throw(ArgumentError("scalar parameter operands do not take indices"))
-        return ScalarParamOp{parameter}()
-    elseif rank == 1
-        length(indices) == 1 || throw(ArgumentError("vector parameter operands require one index"))
-        return VecParamOp{parameter,only(indices)}()
-    elseif rank == 2
-        length(indices) == 2 || throw(ArgumentError("matrix parameter operands require two indices"))
-        i, j = indices
-        return MatParamOp{parameter,i,j}()
-    end
-    throw(ArgumentError("unsupported parameter rank $rank"))
-end
-
 @inline _axis_position(local_index::Int) = (; local_index)
+
+"""Resolve one tracer or auxiliary identity to its final positional runtime input."""
+function input_operand(layout::ModelLayout, identity::Symbol)
+    if hasproperty(layout.tracer_indices, identity)
+        return InputOp{identity,getproperty(layout.tracer_indices, identity)}()
+    elseif hasproperty(layout.auxiliary_indices, identity)
+        return InputOp{identity,getproperty(layout.auxiliary_indices, identity)}()
+    end
+    throw(ArgumentError("unknown realized tracer or auxiliary input :$identity"))
+end
 
 """Resolve one normalized parameter slot through its precomputed `ParameterPlan` mapping."""
 function parameter_operand(
@@ -165,66 +154,50 @@ function parameter_operand(
     axis_positions::NamedTuple=NamedTuple(),
 )
     rank = length(binding.axes)
-    rank == 0 && return parameter_operand(binding)
-    slot = planned_parameter_slot(plan, binding)
-    indices = ntuple(rank) do dimension
-        axis = binding.axes[dimension]
-        hasproperty(axis_positions, axis) || throw(ArgumentError(
-            "parameter :$(binding.parameter) axis :$axis has no realized runtime position",
-        ))
-        local_index = getproperty(axis_positions, axis).local_index
-        mapping = slot[dimension]
-        1 <= local_index <= length(mapping) || throw(ArgumentError(
-            "parameter :$(binding.parameter) axis :$axis local index $local_index is out of bounds",
-        ))
-        mapping[local_index]
+    indices = if rank == 0
+        ()
+    else
+        slot = planned_parameter_slot(plan, binding)
+        ntuple(rank) do dimension
+            axis = binding.axes[dimension]
+            hasproperty(axis_positions, axis) || throw(ArgumentError(
+                "parameter :$(binding.parameter) axis :$axis has no realized runtime position",
+            ))
+            local_index = getproperty(axis_positions, axis).local_index
+            mapping = slot[dimension]
+            1 <= local_index <= length(mapping) || throw(ArgumentError(
+                "parameter :$(binding.parameter) axis :$axis local index $local_index is out of bounds",
+            ))
+            mapping[local_index]
+        end
     end
-    return parameter_operand(binding, indices...)
+    return ParameterOp{binding.parameter,indices}()
 end
 
 function _scalar_component_target(layout::ModelLayout, component::Symbol)
-    hasproperty(layout.component_tracers, component) || throw(
-        ArgumentError("unknown scalar component :$component"),
-    )
     tracers = getproperty(layout.component_tracers, component)
-    length(tracers) == 1 || throw(
-        ArgumentError("component :$component must realize to one tracer"),
-    )
     return only(tracers)
 end
 
-"""Resolve one explicit population state onto static tracer operands for its ecological classes."""
+"""Resolve one explicit population state onto concrete tracer identities and class indices."""
 function _realize_population_state(
-    named::NamedProcess,
     reference::PopulationStateRef,
     layout::ModelLayout,
 )
-    population = reference.population
-    hasproperty(layout.component_classes, population) || throw(
-        ArgumentError("process :$(named.id) references unrealized population :$population"),
-    )
-    classes = component_classes(layout, population)
+    classes = component_classes(layout, reference.population)
     tracers = Tuple(state_tracer(layout, reference, i) for i in eachindex(classes))
-    return tracers, component_class_indices(layout, population)
+    return tracers, component_class_indices(layout, reference.population)
 end
 
-"""Resolve one population state read at a global ecological class index to a static tracer operand."""
+"""Resolve one population state read at a global ecological class index to a static input operand."""
 function state_operand(
     layout::ModelLayout,
     reference::PopulationStateRef,
     global_class_index::Integer,
 )
-    1 <= global_class_index <= length(layout.class_symbols) || throw(
-        ArgumentError("global ecological class index $global_class_index is out of bounds"),
-    )
     index = Int(global_class_index)
-    layout.class_populations[index] === reference.population || throw(
-        ArgumentError(
-            "ecological class :$(layout.class_symbols[index]) does not belong to population :$(reference.population)",
-        ),
-    )
     tracer = state_tracer(layout, reference, layout.component_local_indices[index])
-    return TracerOp{tracer}()
+    return input_operand(layout, tracer)
 end
 
 function _realize_normalized_population_states(references::Tuple, layout::ModelLayout)
@@ -245,21 +218,9 @@ function _target_order(fluxes::Tuple)
     return Tuple(targets)
 end
 
-function _validate_target_order(fluxes::Tuple, target_order::Tuple)
-    length(unique(target_order)) == length(target_order) || throw(
-        ArgumentError("target_order contains duplicate tracer identities"),
-    )
-    issubset(Set(_target_order(fluxes)), Set(target_order)) || throw(
-        ArgumentError("target_order must contain every flux target"),
-    )
-    return nothing
-end
-
 """Group a flat flux tuple by concrete target tracer."""
 function group_fluxes(fluxes::Tuple; target_order=nothing)
-    isempty(fluxes) && throw(ArgumentError("cannot group an empty flux tuple"))
     targets = isnothing(target_order) ? _target_order(fluxes) : Tuple(target_order)
-    _validate_target_order(fluxes, targets)
     grouped = ntuple(length(targets)) do i
         target = targets[i]
         Tuple(flux for flux in fluxes if flux_target(flux) === target)
@@ -287,15 +248,11 @@ end
     return _sum_fluxes(equation.terms, bgc, args)
 end
 
-"""Lower one target's setup-time flux tuple to a concrete compiled equation."""
+"""Lower one target's grouped setup-time flux tuple to a concrete runtime equation."""
 function compile_tendency(fluxes::Tuple)
-    isempty(fluxes) && return CompiledEquation(StaticZeroEquation())
-    target = flux_target(first(fluxes))
-    all(flux -> flux_target(flux) === target, fluxes) || throw(
-        ArgumentError("compile_tendency requires fluxes for one target tracer"),
-    )
+    isempty(fluxes) && return StaticZeroEquation()
     terms = map(flux -> FluxTerm(flux.rate, flux.weight), fluxes)
-    return CompiledEquation(StaticFluxEquation(terms))
+    return StaticFluxEquation(terms)
 end
 
 """Compile each grouped target flux tuple into a concrete tracer equation."""
@@ -322,6 +279,5 @@ function compile_model_tendencies(
     target_order::Tuple,
 )
     fluxes = model_fluxes(definition, layout, plan)
-    grouped = group_fluxes(fluxes; target_order)
-    return compile_tendencies(grouped)
+    return compile_tendencies(group_fluxes(fluxes; target_order))
 end

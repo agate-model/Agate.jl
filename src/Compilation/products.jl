@@ -92,7 +92,7 @@ function _product_fluxes(
             push!(
                 fluxes,
                 FluxSpec(
-                    process_id(named), target, rate,
+                    target, rate,
                     _product_weight(fraction, nothing, plan; suffix),
                 ),
             )
@@ -103,7 +103,7 @@ function _product_fluxes(
                 push!(
                     fluxes,
                     FluxSpec(
-                        process_id(named), target, rate,
+                        target, rate,
                         _product_weight(fraction, ratio, plan; suffix),
                     ),
                 )

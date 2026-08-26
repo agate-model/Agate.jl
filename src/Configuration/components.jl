@@ -80,7 +80,7 @@ end
 `ModelLayout` owns physical tracer positions, logical component classes, population-state
 tracers and indices, population subgroup membership, class diameters, interaction axes,
 and auxiliary input positions. It is constructed once and consumed by parameter planning,
-compilation, runtime-index setup, manifests, and host-side metadata.
+compilation, manifests, and host-side metadata.
 """
 struct ModelLayout{T<:Real,TR,TI,AF,AI,CC,CCI,CST,CSI,CT,CI,CD,PG,CS,CP,GS,GL,CL,GI,D,CO,PR}
     scalar_type::Type{T}

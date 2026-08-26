@@ -2,7 +2,6 @@ module Agate
 
 include("ModelFamilies/ModelFamilies.jl")
 include("Parameters/Parameters.jl")
-include("Equations/Equations.jl")
 include("Library/Library.jl")
 include("Configuration/Configuration.jl")
 include("Processes/Processes.jl")
@@ -21,7 +20,6 @@ export Configuration
 export Processes
 export Runtime
 export Diagnostics
-export Equations
 export Construction
 export Introspection
 

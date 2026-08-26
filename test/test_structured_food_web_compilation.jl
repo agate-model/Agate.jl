@@ -4,7 +4,7 @@ using Agate.Compilation:
     process_fluxes, group_fluxes, compile_tendencies, compile_model_tendencies
 using Agate.Configuration:
     Population, Pool, realize_model_layout, component_tracers
-using Agate.Construction: construct, define_tracer_functions
+using Agate.Construction: construct
 using Agate.Parameters: Parameter, NoDefault
 using Agate.Processes:
     ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, Smith, Monod, Q10, HeterotrophicConsumption, PreferentialGrazing,
@@ -113,11 +113,9 @@ function food_web_bgc(compilation)
         living_assimilation_matrix=T[0.4 0.5; 0.35 0.45],
     )
     drivers = driver_identities(compilation.normalized)
-    tracer_index = Agate.Runtime.build_tracer_index(compilation.layout)
-    factory = define_tracer_functions(
-        parameters, compilation.compiled; auxiliary_fields=drivers, tracer_index
+    return Agate.Construction.AgateBGC(
+        parameters, compilation.compiled, drivers, nothing, nothing
     )
-    return factory(parameters)
 end
 
 function food_web_args(::Type{T}, temperature) where {T}
@@ -158,9 +156,9 @@ end
         normalized.processes.growth_autotrophs, normalized, layout, compilation.plan
     )
 
-    @test all(equation -> isbitstype(typeof(equation.f)), values(compilation.compiled))
+    @test all(equation -> isbitstype(typeof(equation)), values(compilation.compiled))
     @test all(
-        equation -> all(term -> isbitstype(typeof(term)), equation.f.terms),
+        equation -> all(term -> isbitstype(typeof(term)), equation.terms),
         values(compilation.compiled),
     )
 

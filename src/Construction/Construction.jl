@@ -10,7 +10,7 @@ export encode_recipe, decode_recipe, export_recipe, import_recipe
 include("recipe.jl")
 include("recipe_serialization.jl")
 include("recipe_provenance.jl")
-include("generator.jl")
+include("biogeochemistry.jl")
 include("construct.jl")
 
 end

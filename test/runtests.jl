@@ -2,8 +2,7 @@ using Agate
 using Test
 
 include("test_helpers.jl")
-include("test_tracer_functions.jl")
-include("test_classrefs_and_tracer_accessors.jl")
+include("test_layout_indices.jl")
 include("test_library.jl")
 include("test_components.jl")
 include("test_processes.jl")
@@ -21,4 +20,3 @@ include("test_mass_balance.jl")
 include("test_nipizd_reference_trajectory.jl")
 include("test_introspection.jl")
 include("test_recipe_serialization.jl")
-include("test_biogeochemistry.jl")
