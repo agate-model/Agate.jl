@@ -1,7 +1,7 @@
 using Agate.Compilation: compile_model_tendencies
 using Agate.Construction: define_tracer_functions
 using Agate.Equations: CompiledEquation
-using Agate.Processes: ModelDefinition, driver_identities, normalize_model
+using Agate.Processes: ModelDefinition, driver_identities, normalize_model, build_parameter_plan
 
 const NIPIZD_PROCESS_TRACER_ORDER = (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
 const NIPIZD_PROCESS_ARGS = (
@@ -13,10 +13,11 @@ function nipizd_process_compilation(::Type{T}=Float64) where {T<:Real}
     normalized = normalize_model(ModelDefinition(family))
     drivers = driver_identities(normalized)
     layout = default_nipizd_layout(T; auxiliary_fields=drivers)
+    plan = build_parameter_plan(normalized, layout)
     compiled = compile_model_tendencies(
-        normalized, layout; target_order=NIPIZD_PROCESS_TRACER_ORDER
+        normalized, layout, plan; target_order=NIPIZD_PROCESS_TRACER_ORDER
     )
-    return (; normalized, layout, compiled, drivers)
+    return (; normalized, layout, plan, compiled, drivers)
 end
 
 function full_process_bgc()

@@ -2,6 +2,7 @@ function process_fluxes(
     named::NamedProcess{P},
     definition::NormalizedModelDefinition,
     layout::ModelLayout,
+    plan::ParameterPlan,
 ) where {P<:Remineralization}
     process = named.process
     destination = _scalar_component_target(layout, process.destination)
@@ -18,7 +19,7 @@ function process_fluxes(
         ).rate
         rate = RateElement(
             process.formulation,
-            (TracerOp{source}(), parameter_operand(rate_binding)),
+            (TracerOp{source}(), parameter_operand(rate_binding, plan)),
         )
         push!(
             fluxes,

@@ -14,11 +14,12 @@ function _product_fraction_operand(
     named::NamedProcess,
     products::Products,
     product::Symbol,
+    plan::ParameterPlan,
 )
     if product !== products.balanced
         hasproperty(products.fractions, product) || return nothing
         return parameter_operand(
-            _product_fraction_binding(definition, named, products, product)
+            _product_fraction_binding(definition, named, products, product), plan
         )
     end
 
@@ -28,7 +29,9 @@ function _product_fraction_operand(
     )
     isempty(explicit_products) && return nothing
     operands = Tuple(
-        parameter_operand(_product_fraction_binding(definition, named, products, name))
+        parameter_operand(
+            _product_fraction_binding(definition, named, products, name), plan
+        )
         for name in explicit_products
     )
     length(operands) == 1 && return ComplementOp(only(operands))
@@ -58,10 +61,11 @@ _product_operand_tuple(operand) = (operand,)
 
 function _product_weight(
     fraction,
-    ratio::Union{Nothing,ParameterBinding};
+    ratio::Union{Nothing,ParameterBinding},
+    plan::ParameterPlan;
     suffix::Tuple=(),
 )
-    ratio_operand = isnothing(ratio) ? nothing : parameter_operand(ratio)
+    ratio_operand = isnothing(ratio) ? nothing : parameter_operand(ratio, plan)
     operands = (
         _product_operand_tuple(fraction)...,
         _product_operand_tuple(ratio_operand)...,
@@ -75,12 +79,13 @@ function _product_fluxes(
     definition::NormalizedModelDefinition,
     products::Products,
     layout::ModelLayout,
+    plan::ParameterPlan,
     rate::RateElement;
     suffix::Tuple=(),
 )
     fluxes = Any[]
     for product in keys(products.targets)
-        fraction = _product_fraction_operand(definition, named, products, product)
+        fraction = _product_fraction_operand(definition, named, products, product, plan)
         targets = getproperty(products.targets, product)
         if targets isa Symbol
             target = _scalar_component_target(layout, targets)
@@ -88,7 +93,7 @@ function _product_fluxes(
                 fluxes,
                 FluxSpec(
                     process_id(named), target, rate,
-                    _product_weight(fraction, nothing; suffix),
+                    _product_weight(fraction, nothing, plan; suffix),
                 ),
             )
         else
@@ -99,7 +104,7 @@ function _product_fluxes(
                     fluxes,
                     FluxSpec(
                         process_id(named), target, rate,
-                        _product_weight(fraction, ratio; suffix),
+                        _product_weight(fraction, ratio, plan; suffix),
                     ),
                 )
             end

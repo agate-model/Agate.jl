@@ -9,35 +9,25 @@ using Oceananigans.Architectures: architecture, CPU, GPU
 using ..ModelFamilies: AbstractModelFamily
 
 using ..Parameters:
-    Parameter,
     ConstantDefault,
     DerivedDefault,
     NoDefault,
     DiameterIndexedVectorDefault,
-    derive_default,
-    parameter_spec
-
-import ..Parameters: parameter_definitions
+    derive_default
 
 using ..Configuration:
-    axis_indices, interaction_axis_metadata, realize_model_layout, model_metadata, Population
+    interaction_axis_metadata, realize_model_layout, model_metadata, Population
 
 using ..Runtime: build_tracer_index
 
 using ..Processes:
     ModelDefinition, normalize_model, driver_identities, participants, formulation,
-    uses_living_interactions, resolve_parameter_applicability, parameter_slot_bindings,
-    process_id, process_products, product_path
+    uses_living_interactions, build_parameter_plan, planned_parameter,
+    runtime_parameter_values, parameter_plan_metadata, validate_realized_science
 
 using ..Compilation: compile_model_tendencies
 
 using ..Library.Allometry: AbstractParamDef, resolve_diameter_indexed_vector
-
-struct _DefinitionParameterSource{P}
-    definitions::P
-end
-
-parameter_definitions(source::_DefinitionParameterSource) = source.definitions
 
 """Move `x` to the requested Oceananigans architecture."""
 function on_architecture(arch, x)
@@ -54,319 +44,95 @@ function architecture_array_type(arch)
     return Array
 end
 
-function _parameter_rank(definition, name::Symbol, spec)
-    spec.axes isa Symbol && return 1
-    spec.axes isa Tuple && return length(spec.axes)
-    definition === nothing && return 0
-
-    ranks = unique(Tuple(
-        length(binding.axes) for binding in definition.parameter_bindings
-        if binding.parameter === name
-    ))
-    isempty(ranks) && return 0
-    length(ranks) == 1 || throw(ArgumentError(
-        "parameter :$name is bound to slots with incompatible dimensionality $(Tuple(ranks))",
-    ))
-    return only(ranks)
-end
-
-function _local_parameter_axis_classes(definition, layout, parameter::Symbol)
-    matches = Tuple(
-        applicability.axis_classes
-        for applicability in resolve_parameter_applicability(definition, layout)
-        if applicability.binding.parameter === parameter
-    )
-    isempty(matches) && throw(
-        ArgumentError(
-            "parameter :$parameter has local storage but no resolved process applicability",
-        ),
-    )
-
-    first_axes = first(matches)
-    all(==(first_axes), matches) || throw(
-        ArgumentError(
-            "parameter :$parameter supplies incompatible process-local axes; declare explicit storage axes",
-        ),
-    )
-    return first_axes
-end
-
-function _parameter_storage_size(definition, layout, name::Symbol, spec)
-    rank = _parameter_rank(definition, name, spec)
-    rank == 0 && return ()
-
-    if spec.axes === nothing
-        (definition === nothing || layout === nothing) && throw(
-            ArgumentError(
-                "parameter :$name local storage requires a normalized model definition and component layout",
-            ),
-        )
-        local_axes = _local_parameter_axis_classes(definition, layout, name)
-        length(local_axes) == rank || throw(ArgumentError(
-            "parameter :$name local storage rank does not match its bound slot axes",
-        ))
-        return Tuple(length(axis) for axis in local_axes)
-    elseif rank == 1
-        n = spec.axes === :plankton ? length(layout.class_symbols) : length(axis_indices(layout, spec.axes))
-        return (n,)
-    end
-
-    rank == 2 || throw(ArgumentError("parameter :$name has unsupported rank $rank"))
-    row_axis, col_axis = spec.axes
-    return (length(axis_indices(layout, row_axis)), length(axis_indices(layout, col_axis)))
-end
-
-function validate_derived_parameter_result(
-    name::Symbol, spec, layout, value; definition=nothing
-)
-    T = layout.scalar_type
-    rank = _parameter_rank(definition, name, spec)
+function validate_parameter_value(parameter, value, ::Type{T}; derived::Bool=false) where {T<:Real}
+    rank = parameter.rank
+    name = parameter.name
+    shape = parameter.storage_shape
 
     if rank == 0
         value isa Bool && return nothing
-        value isa Number || throw(
-            ArgumentError(
-                "derived default :$name must be scalar; got $(typeof(value)).",
-            ),
-        )
-        typeof(value) === T || throw(
-            ArgumentError(
+        value isa Number || throw(ArgumentError(
+            "parameter :$name must be scalar; got $(typeof(value)).",
+        ))
+        if derived && typeof(value) !== T
+            throw(ArgumentError(
                 "derived default :$name must have type $(T); got $(typeof(value)). No implicit casting is performed.",
-            ),
-        )
+            ))
+        end
         return nothing
     elseif rank == 1
-        value isa AbstractVector || throw(
-            ArgumentError(
-                "derived default :$name must be a vector; got $(typeof(value)).",
-            ),
-        )
-        eltype(value) === T || throw(
-            ArgumentError(
+        value isa AbstractVector || throw(ArgumentError(
+            "parameter :$name must be a vector; got $(typeof(value)).",
+        ))
+        length(value) == only(shape) || throw(ArgumentError(
+            "parameter :$name must have length $(only(shape)) (got $(length(value))).",
+        ))
+        if derived && eltype(value) !== T
+            throw(ArgumentError(
                 "derived default :$name must have eltype $(T); got eltype $(eltype(value)). No implicit casting is performed.",
-            ),
-        )
-        expected = only(_parameter_storage_size(definition, layout, name, spec))
-        length(value) == expected || throw(
-            ArgumentError(
-                "derived default :$name must have length $expected; got $(length(value)).",
-            ),
-        )
+            ))
+        end
+        return nothing
+    elseif rank == 2
+        value isa AbstractMatrix || throw(ArgumentError(
+            "parameter :$name must be a matrix; got $(typeof(value)).",
+        ))
+        size(value) == shape || throw(ArgumentError(
+            "parameter :$name must have size $shape (got $(size(value))).",
+        ))
+        if derived && eltype(value) !== T
+            throw(ArgumentError(
+                "derived default :$name must have eltype $(T); got eltype $(eltype(value)). No implicit casting is performed.",
+            ))
+        end
         return nothing
     end
 
-    rank == 2 || throw(ArgumentError("parameter :$name has unsupported rank $rank"))
-    value isa AbstractMatrix || throw(
-        ArgumentError(
-            "derived default :$name must be a matrix; got $(typeof(value)).",
-        ),
-    )
-    eltype(value) === T || throw(
-        ArgumentError(
-            "derived default :$name must have eltype $(T); got eltype $(eltype(value)). No implicit casting is performed.",
-        ),
-    )
-
-    expected = _parameter_storage_size(definition, layout, name, spec)
-    size(value) == expected || throw(
-        ArgumentError(
-            "derived default :$name must have size $expected; got $(size(value)).",
-        ),
-    )
-    return nothing
+    throw(ArgumentError("parameter :$name has unsupported rank $rank"))
 end
 
-"""Resolve all `DerivedDefault` parameter definitions in deterministic dependency order.
-
-An explicit override of a derived parameter wins. Otherwise a derived value is computed
-when missing and recomputed whenever a dependency was explicitly overridden or was itself
-recomputed. The normalized model supplies the authoritative topological dependency order.
-"""
-function resolve_parameter_defaults(
-    source,
-    layout,
-    params::NamedTuple,
-    explicit_override_keys::Tuple{Vararg{Symbol}};
-    derivation_owner=source,
-    normalized_definition,
-)
-    definitions = parameter_definitions(source)
-    ordered = Tuple(
-        name => getproperty(definitions, name)
-        for name in normalized_definition.derived_parameter_order
-    )
-    isempty(ordered) && return params
-
-    override_set = Set{Symbol}(explicit_override_keys)
-    changed = Set{Symbol}(explicit_override_keys)
-    resolved = params
-
-    for (key, parameter) in ordered
-        provider = parameter.default
-
-        if key in override_set && hasproperty(resolved, key)
-            continue
-        end
-
-        missing_deps = Tuple(dep for dep in provider.deps if !hasproperty(resolved, dep))
-        isempty(missing_deps) || throw(
-            ArgumentError(
-                "derived default :$key is missing dependencies: " *
-                join(string.(missing_deps), ", "),
-            ),
-        )
-
-        needs_compute = !hasproperty(resolved, key)
-        needs_recompute = any(dep -> dep in changed, provider.deps)
-        if needs_compute || needs_recompute
-            value = derive_default(provider.deriver, derivation_owner, layout, resolved)
-            validate_derived_parameter_result(
-                key,
-                parameter.spec,
-                layout,
-                value;
-                definition=normalized_definition,
-            )
-            resolved = merge(resolved, NamedTuple{(key,)}((value,)))
-            push!(changed, key)
-        end
-    end
-
-    return resolved
-end
-
-function _validate_product_fractions(normalized, resolved_parameters)
-    for named in values(normalized.processes)
-        products = process_products(named.process)
-        isnothing(products) && continue
-        length(products.targets) == 1 && continue
-
-        fraction_names = keys(products.fractions)
-        fraction_values = NamedTuple{fraction_names}(Tuple(begin
-            binding = parameter_slot_bindings(
-                normalized,
-                named,
-                product_path(named.process),
-                products;
-                context=(product=product,),
-            ).fraction
-            value = getproperty(resolved_parameters, binding.parameter)
-            value isa Real || throw(ArgumentError(
-                "product fraction parameter :$(binding.parameter) for process :$(process_id(named)) must resolve to a scalar Real",
-            ))
-            zero(value) <= value <= one(value) || throw(ArgumentError(
-                "product fraction parameter :$(binding.parameter) for process :$(process_id(named)) must lie in [0, 1]; got $value",
-            ))
-            value
-        end for product in fraction_names))
-
-        independent_products = Tuple(
-            product for product in keys(products.targets)
-            if product !== products.balanced && hasproperty(fraction_values, product)
-        )
-        independent_values = Tuple(
-            getproperty(fraction_values, product) for product in independent_products
-        )
-        total = sum(independent_values)
-        balance = one(total) - total
-        zero(balance) <= balance <= one(balance) || throw(ArgumentError(
-            "product fractions for process :$(process_id(named)) leave conservative balance $balance for :$(products.balanced); expected a value in [0, 1]",
-        ))
-
-        if hasproperty(fraction_values, products.balanced)
-            supplied = getproperty(fraction_values, products.balanced)
-            tolerance = balance isa AbstractFloat ? 100 * eps(one(balance)) : zero(balance)
-            isapprox(supplied, balance; rtol=zero(balance), atol=tolerance) || throw(
-                ArgumentError(
-                    "explicit product fraction for :$(products.balanced) in process :$(process_id(named)) must agree with the conservative balance $balance; got $supplied",
-                ),
-            )
-        end
+function validate_parameter_storage(plan, values::NamedTuple, ::Type{T}) where {T<:Real}
+    for name in keys(plan.parameters)
+        validate_parameter_value(getproperty(plan.parameters, name), getproperty(values, name), T)
     end
     return nothing
 end
 
-function validate_parameter_storage(
-    source, definition, layout, params::NamedTuple, required::Tuple
-)
-    for k in required
-        spec = parameter_spec(source, k)
-        spec === nothing && throw(
-            ArgumentError(
-                "Parameter source $(typeof(source)) is missing a ParameterSpec for parameter :$k.",
-            ),
-        )
-
-        rank = _parameter_rank(definition, k, spec)
-        expected = _parameter_storage_size(definition, layout, k, spec)
-        if rank == 1
-            v = getproperty(params, k)
-            v isa AbstractVector || throw(
-                ArgumentError("parameter :$k must be a vector; got $(typeof(v))."),
-            )
-            length(v) == only(expected) || throw(
-                ArgumentError(
-                    "parameter :$k must have length $(only(expected)) (got $(length(v))).",
-                ),
-            )
-        elseif rank == 2
-            m = getproperty(params, k)
-            m isa AbstractMatrix || throw(
-                ArgumentError("parameter :$k must be a matrix; got $(typeof(m))."),
-            )
-            size(m) == expected || throw(
-                ArgumentError(
-                    "parameter :$k must have size $expected (got $(size(m))).",
-                ),
-            )
-        elseif rank != 0
-            throw(ArgumentError("parameter :$k has unsupported rank $rank"))
-        end
-    end
-
-    return nothing
-end
-
-
-function parameter_axis_names(layout, axis::Symbol, parameter_name::Symbol)
-    axis === :plankton && return layout.class_symbols
-    throw(ArgumentError("parameter :$parameter_name has unsupported vector axis :$axis."))
+function parameter_axis_names(parameter)
+    parameter.rank == 1 || throw(ArgumentError(
+        "parameter :$(parameter.name) does not have one vector storage axis",
+    ))
+    parameter.storage_axes === nothing && throw(ArgumentError(
+        "parameter :$(parameter.name) does not support NamedTuple overrides because it has no named vector axis.",
+    ))
+    return only(parameter.storage_labels)
 end
 
 function expand_named_vector_override(
-    name::Symbol, spec, default_value, user_value::NamedTuple, layout, ::Type{T}
+    parameter, default_value, user_value::NamedTuple, ::Type{T}
 ) where {T<:Real}
-    spec.axes === nothing && throw(
-        ArgumentError(
-            "parameter :$name does not support NamedTuple overrides because it has no named vector axis."
-        ),
-    )
-
-    names = parameter_axis_names(layout, spec.axes, name)
-    length(default_value) == length(names) || throw(
-        ArgumentError(
-            "parameter :$name default length $(length(default_value)) does not match axis :$(spec.axes) length $(length(names))."
-        ),
-    )
+    name = parameter.name
+    names = parameter_axis_names(parameter)
+    length(default_value) == length(names) || throw(ArgumentError(
+        "parameter :$name default length $(length(default_value)) does not match its planned axis length $(length(names)).",
+    ))
 
     expanded = copy(default_value)
     for (key, value) in pairs(user_value)
         idx = findfirst(==(key), names)
         if idx === nothing
             expected = join(string.(names), ", ")
-            throw(
-                ArgumentError(
-                    "Unknown key `$(key)` for parameter `$name`. Expected one of: $(expected)."
-                ),
-            )
+            throw(ArgumentError(
+                "Unknown key `$(key)` for parameter `$name`. Expected one of: $(expected).",
+            ))
         end
         expanded[idx] = value isa Bool ? value : T(value)
     end
     return expanded
 end
 
-function materialize_parameter_value(definition, name::Symbol, spec, value, ::Type{T}) where {T<:Real}
-    rank = _parameter_rank(definition, name, spec)
+function materialize_parameter_value(parameter, value, ::Type{T}) where {T<:Real}
+    rank = parameter.rank
     if rank == 0
         return value isa Bool ? value : T(value)
     elseif rank == 1
@@ -382,21 +148,15 @@ function materialize_parameter_value(definition, name::Symbol, spec, value, ::Ty
         copyto!(out, value)
         return out
     end
-
-    throw(ArgumentError("parameter :$name has unsupported rank $rank"))
+    throw(ArgumentError("parameter :$(parameter.name) has unsupported rank $rank"))
 end
 
-
-function validate_override_keys(where_, overrides::NamedTuple, required::Tuple, source)
-    isempty(overrides) && return nothing
-
-    required_set = Set(required)
-    for k in keys(overrides)
-        k in required_set && continue
-        parameter_spec(source, k) === nothing &&
-            throw(ArgumentError("$(where_): unknown parameter key :$k."))
+function validate_override_keys(plan, overrides::NamedTuple)
+    for key in keys(overrides)
+        hasproperty(plan.parameters, key) || throw(
+            ArgumentError("parameters: unknown parameter key :$key."),
+        )
     end
-
     return nothing
 end
 
@@ -483,130 +243,146 @@ function _process_interaction_roles(definition, population_groups::NamedTuple)
     return (consumers=consumers, prey=resources)
 end
 
-function _process_parameter_indices(definition, layout, parameter::Symbol)
-    selected = Set{Symbol}()
-    has_applicability = false
-    for applicability in resolve_parameter_applicability(definition, layout)
-        applicability.binding.parameter === parameter || continue
-        has_applicability = true
-        for axis in applicability.axis_classes, class in axis
-            class in layout.class_symbols && push!(selected, class)
-        end
-    end
-    has_applicability || return collect(eachindex(layout.class_symbols))
-    return [i for (i, class) in pairs(layout.class_symbols) if class in selected]
-end
-
 function evaluate_process_default(
-    provider::ConstantDefault, name::Symbol, spec, source, definition, layout, ::Type{T}
+    provider::ConstantDefault, parameter, ::Type{T}
 ) where {T<:Real}
     value = provider.value
     value = value isa Bool ? value : T(value)
-    rank = _parameter_rank(definition, name, spec)
+    rank = parameter.rank
     rank == 0 && return value
 
-    expected = _parameter_storage_size(definition, layout, name, spec)
+    expected = parameter.storage_shape
     if rank == 1
-        if spec.axes === :plankton
+        if parameter.storage_axes === :plankton
             result = fill(zero(value), only(expected))
-            indices = _process_parameter_indices(definition, layout, name)
-            result[indices] .= value
+            @inbounds for index in only(parameter.applicable_indices)
+                result[index] = value
+            end
             return result
         end
         return fill(value, only(expected))
     elseif rank == 2
         return fill(value, expected...)
     end
-    throw(ArgumentError("parameter :$name has unsupported rank $rank"))
+    throw(ArgumentError("parameter :$(parameter.name) has unsupported rank $rank"))
 end
 
 function evaluate_process_default(
-    provider::DiameterIndexedVectorDefault,
-    name::Symbol,
-    spec,
-    source,
-    definition,
-    layout,
-    ::Type{T},
+    provider::DiameterIndexedVectorDefault, parameter, ::Type{T}
 ) where {T<:Real}
-    _parameter_rank(definition, name, spec) == 1 || throw(
-        ArgumentError("DiameterIndexedVectorDefault requires vector parameter storage.")
+    parameter.rank == 1 || throw(
+        ArgumentError("DiameterIndexedVectorDefault requires vector parameter storage."),
     )
-    indices = _process_parameter_indices(definition, layout, name)
+    diameters = parameter.storage_diameters
+    diameters === nothing && throw(ArgumentError(
+        "parameter :$(parameter.name) has no realized diameter axis for DiameterIndexedVectorDefault",
+    ))
     default = T(provider.default)
     return resolve_diameter_indexed_vector(
-        T, layout.diameters, indices, provider.value; default
+        T, diameters, only(parameter.applicable_indices), provider.value; default
     )
 end
 
-function build_process_parameter_defaults(source, definition, layout, ::Type{T}) where {T<:Real}
+function build_process_parameter_defaults(plan, ::Type{T}) where {T<:Real}
     entries = Pair{Symbol,Any}[]
-    for (name, parameter) in pairs(parameter_definitions(source))
-        provider = parameter.default
+    for (name, parameter) in pairs(plan.parameters)
+        provider = parameter.definition.default
         (provider isa NoDefault || provider isa DerivedDefault) && continue
-        spec = parameter.spec
-        value = evaluate_process_default(provider, name, spec, source, definition, layout, T)
-        push!(entries, name => value)
+        push!(entries, name => evaluate_process_default(provider, parameter, T))
     end
     return (; entries...)
 end
 
 function materialize_process_parameter_law_override(
-    definition, layout, name::Symbol, parameter, value::AbstractParamDef, ::Type{T}
+    parameter, value::AbstractParamDef, ::Type{T}
 ) where {T<:Real}
-    spec = parameter.spec
-    provider = parameter.default
-    provider isa DiameterIndexedVectorDefault || throw(
-        ArgumentError(
-            "parameter :$name only supports parameter-law overrides with a diameter-indexed vector default provider (DiameterIndexedVectorDefault)."
-        ),
-    )
-    _parameter_rank(definition, name, spec) == 1 || throw(
-        ArgumentError("parameter :$name diameter-indexed override requires vector storage")
-    )
-    indices = _process_parameter_indices(definition, layout, name)
+    provider = parameter.definition.default
+    provider isa DiameterIndexedVectorDefault || throw(ArgumentError(
+        "parameter :$(parameter.name) only supports parameter-law overrides with a diameter-indexed vector default provider (DiameterIndexedVectorDefault).",
+    ))
+    parameter.rank == 1 || throw(ArgumentError(
+        "parameter :$(parameter.name) diameter-indexed override requires vector storage",
+    ))
+    diameters = parameter.storage_diameters
+    diameters === nothing && throw(ArgumentError(
+        "parameter :$(parameter.name) has no realized diameter axis for a diameter-indexed override",
+    ))
     return resolve_diameter_indexed_vector(
-        T, layout.diameters, indices, value; default=T(provider.default)
+        T,
+        diameters,
+        only(parameter.applicable_indices),
+        value;
+        default=T(provider.default),
     )
 end
 
 function materialize_process_parameter_overrides(
-    source,
-    definition,
-    layout,
+    plan,
     defaults::NamedTuple,
     overrides::NamedTuple,
     ::Type{T},
 ) where {T<:Real}
     isempty(overrides) && return overrides
     entries = Pair{Symbol,Any}[]
-    definitions = parameter_definitions(source)
-    for (key, value) in Base.pairs(overrides)
-        parameter = hasproperty(definitions, key) ? getproperty(definitions, key) : nothing
-        if parameter === nothing
-            push!(entries, key => value)
-            continue
-        end
-        spec = parameter.spec
+    for (key, value) in pairs(overrides)
+        parameter = planned_parameter(plan, key)
         if value isa AbstractParamDef
             push!(entries, key => materialize_process_parameter_law_override(
-                definition, layout, key, parameter, value, T
+                parameter, value, T
             ))
         elseif value isa NamedTuple
-            _parameter_rank(definition, key, spec) == 1 || throw(
-                ArgumentError("parameter :$key does not support NamedTuple overrides because it is not vector-valued.")
-            )
-            hasproperty(defaults, key) || throw(
-                ArgumentError("parameter :$key has no direct default for partial overrides.")
-            )
+            parameter.rank == 1 || throw(ArgumentError(
+                "parameter :$key does not support NamedTuple overrides because it is not vector-valued.",
+            ))
+            hasproperty(defaults, key) || throw(ArgumentError(
+                "parameter :$key has no direct default for partial overrides.",
+            ))
             push!(entries, key => expand_named_vector_override(
-                key, spec, getproperty(defaults, key), value, layout, T
+                parameter, getproperty(defaults, key), value, T
             ))
         else
-            push!(entries, key => materialize_parameter_value(definition, key, spec, value, T))
+            push!(entries, key => materialize_parameter_value(parameter, value, T))
         end
     end
     return (; entries...)
+end
+
+"""Resolve `DerivedDefault` values in the deterministic order stored by `ParameterPlan`."""
+function resolve_parameter_defaults(
+    plan,
+    layout,
+    params::NamedTuple,
+    explicit_override_keys::Tuple{Vararg{Symbol}};
+    derivation_owner,
+)
+    isempty(plan.derived_order) && return params
+    override_set = Set{Symbol}(explicit_override_keys)
+    changed = Set{Symbol}(explicit_override_keys)
+    resolved = params
+    T = layout.scalar_type
+
+    for key in plan.derived_order
+        parameter = planned_parameter(plan, key)
+        provider = parameter.definition.default
+        if key in override_set && hasproperty(resolved, key)
+            continue
+        end
+
+        missing_deps = Tuple(dep for dep in parameter.dependencies if !hasproperty(resolved, dep))
+        isempty(missing_deps) || throw(ArgumentError(
+            "derived default :$key is missing dependencies: " * join(string.(missing_deps), ", "),
+        ))
+
+        needs_compute = !hasproperty(resolved, key)
+        needs_recompute = any(dep -> dep in changed, parameter.dependencies)
+        if needs_compute || needs_recompute
+            value = derive_default(provider.deriver, derivation_owner, layout, resolved)
+            validate_parameter_value(parameter, value, T; derived=true)
+            resolved = merge(resolved, NamedTuple{(key,)}((value,)))
+            push!(changed, key)
+        end
+    end
+    return resolved
 end
 
 function _intrinsic_population_groups(components::NamedTuple)
@@ -679,8 +455,6 @@ function _construct_process_definition(
     end
 
     normalized = normalize_model(definition)
-    definitions = isnothing(normalized.parameters) ? (;) : normalized.parameters
-    parameter_source = _DefinitionParameterSource(definitions)
     isnothing(derivation_owner) && (derivation_owner = definition)
     isnothing(definition.parameters) && !isempty(normalized.parameter_bindings) && throw(
         ArgumentError(
@@ -692,73 +466,61 @@ function _construct_process_definition(
         normalized, T; population_groups, group_diameters, auxiliary_fields
     )
     tracer_names = layout.tracer_order
+    parameter_plan = build_parameter_plan(normalized, layout)
+    required = Tuple(keys(parameter_plan.parameters))
+    validate_override_keys(parameter_plan, parameter_overrides)
 
-    required = Tuple(keys(definitions))
-    validate_override_keys(
-        "parameters", parameter_overrides, required, parameter_source
-    )
-
-    parameter_defaults = build_process_parameter_defaults(parameter_source, normalized, layout, T)
+    parameter_defaults = build_process_parameter_defaults(parameter_plan, T)
     materialized_overrides = materialize_process_parameter_overrides(
-        parameter_source,
-        normalized,
-        layout,
-        parameter_defaults,
-        parameter_overrides,
-        T,
+        parameter_plan, parameter_defaults, parameter_overrides, T
     )
-    merged_parameters = merge(parameter_defaults, materialized_overrides)
     explicit_override_keys = Tuple(keys(parameter_overrides))
-    merged_parameters = resolve_parameter_defaults(
-        parameter_source,
+    resolved = resolve_parameter_defaults(
+        parameter_plan,
         layout,
-        merged_parameters,
+        merge(parameter_defaults, materialized_overrides),
         explicit_override_keys;
         derivation_owner,
-        normalized_definition=normalized,
     )
-    missing = Symbol[k for k in required if !hasproperty(merged_parameters, k)]
+    missing = Symbol[key for key in required if !hasproperty(resolved, key)]
     isempty(missing) || throw(
         ArgumentError("missing required parameters: $(join(string.(missing), ", "))")
     )
     resolved_parameters = NamedTuple{required}(
-        Tuple(getproperty(merged_parameters, key) for key in required)
+        Tuple(getproperty(resolved, key) for key in required)
     )
     reject_missing_values(resolved_parameters)
-    validate_parameter_storage(
-        parameter_source, normalized, layout, resolved_parameters, required
+    validate_parameter_storage(parameter_plan, resolved_parameters, T)
+    validate_realized_science(parameter_plan, resolved_parameters)
+
+    runtime_parameters = runtime_parameter_values(parameter_plan, resolved_parameters)
+    tracers = compile_model_tendencies(
+        normalized, layout, parameter_plan; target_order=tracer_names
     )
-    _validate_product_fractions(normalized, resolved_parameters)
-    tracers = compile_model_tendencies(normalized, layout; target_order=tracer_names)
     tracer_index = build_tracer_index(layout)
-    interaction_axes = interaction_axis_metadata(parameter_source, layout)
-    metadata = model_metadata(layout; interaction_axes)
+    interaction_axes = interaction_axis_metadata(parameter_plan)
+    metadata = model_metadata(
+        layout; interaction_axes, parameter_axes=parameter_plan_metadata(parameter_plan)
+    )
 
     bgc = if isnothing(sinking_tracers)
         bgc_factory = define_tracer_functions(
-            resolved_parameters,
+            runtime_parameters,
             tracers;
             auxiliary_fields,
             tracer_index,
         )
-        bgc_factory(
-            resolved_parameters;
-            metadata,
-        )
+        bgc_factory(runtime_parameters; metadata)
     else
         sinking_velocities = setup_velocity_fields(sinking_tracers, grid, open_bottom)
         bgc_factory = define_tracer_functions(
-            resolved_parameters,
+            runtime_parameters,
             tracers;
             auxiliary_fields,
             tracer_index,
             sinking_velocities,
         )
-        bgc_factory(
-            resolved_parameters,
-            sinking_velocities;
-            metadata,
-        )
+        bgc_factory(runtime_parameters, sinking_velocities; metadata)
     end
 
     manifest = if build_manifest
@@ -768,7 +530,9 @@ function _construct_process_definition(
         capture_model_manifest(
             manifest_family,
             resolved_parameters,
-            layout;
+            layout,
+            parameter_plan;
+            interaction_axes,
             tracer_order=tracer_names,
             auxiliary_fields,
             explicit_override_keys,

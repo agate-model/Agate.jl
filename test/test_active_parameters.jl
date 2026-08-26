@@ -176,6 +176,10 @@ end
 
 @testset "active parameter selector validation" begin
     base_bgc = ActiveParameterNiPiZD.construct()
+    for name in (:specificity, :protection, :optimum_predator_prey_ratio, :assimilation_efficiency)
+        @test !hasproperty(base_bgc.parameters, name)
+        @test !getproperty(base_bgc.metadata.parameter_axes, name).runtime_bound
+    end
 
     palatability_selectors = (
         () -> Agate.Runtime.active_parameters(base_bgc; specificity = (:Z_1,)),

@@ -2,7 +2,7 @@
 module Processes
 
 using ..Configuration: Population, Pool, PopulationStateRef, ModelLayout, currency, state_currency,
-    states, size_structure, component_classes
+    states, size_structure, component_classes, axis_indices
 using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
 using ..Parameters: Parameter, DerivedDefault, parameter_definitions
 using ..Library.Mortality: linear_loss, quadratic_loss
@@ -21,16 +21,16 @@ export FixedStoichiometry
 export Growth, NutrientResponse, Consumption, Mortality, Products, Remineralization
 export ModelDefinition, NormalizedModelDefinition, NamedProcess
 export ParameterSlot
-export ParameterBinding, ParameterApplicability
+export ParameterBinding
 export process_id, formulation, factors
 export authored_parameter_bindings
 export participants, driver_identities, normalize_model
 export parameter_slots, parameter_bindings
 export parameter_slot_bindings
-export resolve_parameter_applicability
 
 include("authoring.jl")
 include("rates.jl")
 include("normalization.jl")
+include("parameter_plan.jl")
 
 end # module Processes

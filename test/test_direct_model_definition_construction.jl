@@ -147,6 +147,8 @@ end
     definition = ModelDefinition(; components, processes, parameters)
 
     bgc = construct(definition; grid=dummy_grid(Float64))
+    @test hasproperty(bgc.parameters, :fraction_a)
+    @test !hasproperty(bgc.parameters, :fraction_b)
     args = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0)
     tendencies = map(tracer -> bgc(Val(tracer), args...), (:A, :B, :P_1))
     conservative_b = (1.0 - 0.4) * 1e-6

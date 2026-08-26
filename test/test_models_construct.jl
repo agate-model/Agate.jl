@@ -10,25 +10,6 @@ using Oceananigans.Fields: ZeroField
 using Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers, biogeochemical_drift_velocity
 
-struct ThreeInteractionMatrixSource end
-
-function Agate.Parameters.parameter_definitions(::ThreeInteractionMatrixSource)
-    return (
-        encounter_matrix=Agate.Parameters.Parameter(
-            Agate.Parameters.NoDefault();
-            axes=(:consumer, :prey),
-        ),
-        capture_efficiency_matrix=Agate.Parameters.Parameter(
-            Agate.Parameters.NoDefault();
-            axes=(:consumer, :prey),
-        ),
-        handling_time_matrix=Agate.Parameters.Parameter(
-            Agate.Parameters.NoDefault();
-            axes=(:consumer, :prey),
-        ),
-    )
-end
-
 @testset "Public model constructors" begin
 
     @testset "NiPiZD defaults" begin
@@ -95,7 +76,12 @@ end
         @test recipe.parameter_overrides.palatability_matrix[1, 1] == Float32(0.8)
 
         replayed = NiPiZD.construct_from_recipe(recipe; scalar_type=Float32)
-        @test replayed.parameters == manifest.parameters
+        @test all(
+            getproperty(replayed.parameters, name) == getproperty(manifest.parameters, name)
+            for name in keys(replayed.parameters)
+        )
+        @test !hasproperty(replayed.parameters, :specificity)
+        @test hasproperty(manifest.parameters, :specificity)
         @test manifest.interaction_matrix_sources == (
             palatability_matrix=:explicit, assimilation_matrix=:derived
         )
@@ -185,7 +171,7 @@ end
 
         growth = copy(named.parameters.maximum_growth_rate)
         predation = copy(named.parameters.maximum_predation_rate)
-        specificity = copy(named.parameters.specificity)
+        specificity = fill(Float32(0.3), length(named.metadata.class_symbols))
         growth[4] = Float32(1.2 / day)
         predation[2] = Float32(0.7 / day)
         specificity[1] = 2.0f0
@@ -230,7 +216,7 @@ end
 
     @testset "NiPiZD interaction parameter overrides" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
-        n_total = length(bgc.parameters.specificity)
+        n_total = length(bgc.metadata.class_symbols)
         n_cons = length(bgc.metadata.interaction_axes.consumers)
         n_prey = length(bgc.metadata.interaction_axes.prey)
 
@@ -283,25 +269,6 @@ end
         @test occursin("must be a matrix", sprint(showerror, err))
     end
 
-    @testset "Generic interaction matrix collection" begin
-        layout = Agate.Configuration.realize_model_layout(
-            (
-                consumer=Agate.Configuration.Population(:carbon; size_structure=Float32[10]),
-                prey=Agate.Configuration.Population(:carbon; size_structure=Float32[2, 5]),
-            );
-            scalar_type=Float32,
-            interaction_roles=(consumers=(:consumer,), prey=(:prey,)),
-        )
-        metadata = Agate.Configuration.interaction_axis_metadata(
-            ThreeInteractionMatrixSource(), layout
-        )
-        @test metadata.parameters == (
-            :encounter_matrix, :capture_efficiency_matrix, :handling_time_matrix
-        )
-        @test metadata.consumers == (:consumer_1,)
-        @test metadata.prey == (:prey_1, :prey_2)
-    end
-
     @testset "Derived interaction matrices" begin
         # If a model exposes interaction traits, overriding one of those traits
         # should regenerate the derived matrices (unless the matrix itself is
@@ -309,7 +276,7 @@ end
 
         bgc0 = NiPiZD.construct(; grid=dummy_grid(Float32))
         pal0 = bgc0.parameters.palatability_matrix
-        specificity = fill(Float32(3), length(bgc0.parameters.specificity))
+        specificity = fill(Float32(3), length(bgc0.metadata.class_symbols))
 
         bgc1 = NiPiZD.construct(;
             grid=dummy_grid(Float32), parameters=(; specificity=specificity)
@@ -330,7 +297,7 @@ end
 
     @testset "Named parameter vector overrides" begin
         bgc_default = NiPiZD.construct(; grid=dummy_grid(Float32))
-        vopt = copy(bgc_default.parameters.optimum_predator_prey_ratio)
+        vopt = fill(Float32(10), length(bgc_default.metadata.class_symbols))
         vopt[1] = 5.0f0
         vopt[2] = 5.0f0
         growth = copy(bgc_default.parameters.maximum_growth_rate)
@@ -348,10 +315,8 @@ end
             parameters=(; optimum_predator_prey_ratio=vopt, maximum_growth_rate=growth),
         )
 
-        @test bgc_named.parameters.optimum_predator_prey_ratio == vopt
+        @test !hasproperty(bgc_named.parameters, :optimum_predator_prey_ratio)
         @test bgc_named.parameters.maximum_growth_rate == growth
-        @test bgc_named.parameters.optimum_predator_prey_ratio ==
-            bgc_positional.parameters.optimum_predator_prey_ratio
         @test bgc_named.parameters.maximum_growth_rate ==
             bgc_positional.parameters.maximum_growth_rate
         @test bgc_named.parameters.palatability_matrix ==

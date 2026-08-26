@@ -7,7 +7,7 @@ using Agate.Construction: construct
 using Agate.Parameters: Parameter, ConstantDefault
 using Agate.Processes:
     AbstractProcess, AbstractFormulation, ModelDefinition, ParameterSlot,
-    formulation, parameter_slot_bindings, process_id
+    formulation, parameter_slot_bindings, process_id, ParameterPlan, build_parameter_plan
 using Agate.Compilation:
     TracerOp, RatioOp, MatParamOp, RateElement, Weight, FluxSpec,
     parameter_operand, state_operand, _axis_position, _realize_population_state
@@ -50,6 +50,7 @@ function process_fluxes(
     named::Agate.Processes.NamedProcess{P},
     definition::Agate.Processes.NormalizedModelDefinition,
     layout::Agate.Configuration.ModelLayout,
+    plan::ParameterPlan,
 ) where {P<:StateTurnover}
     process = named.process
     reference = population_state(process.population, process.reference_state)
@@ -62,14 +63,14 @@ function process_fluxes(
     for population_axis in eachindex(reference_tracers)
         population_index = population_indices[population_axis]
         axis_positions = (
-            population=_axis_position(population_axis, population_index),
+            population=_axis_position(population_axis),
         )
         reference_operand = TracerOp{reference_tracers[population_axis]}()
         rate = RateElement(
             formulation(process),
             (
                 reference_operand,
-                parameter_operand(slots.rate, layout, axis_positions),
+                parameter_operand(slots.rate, plan, axis_positions),
             ),
         )
 
@@ -129,6 +130,7 @@ function process_fluxes(
     named::Agate.Processes.NamedProcess{P},
     definition::Agate.Processes.NormalizedModelDefinition,
     layout::Agate.Configuration.ModelLayout,
+    plan::ParameterPlan,
 ) where {P<:StateInteraction}
     process = named.process
     consumer_carbon = population_state(process.consumer, process.carbon_state)
@@ -149,10 +151,10 @@ function process_fluxes(
             resource_index = resource_indices[resource_axis]
             resource_carbon_operand = TracerOp{resource_tracers[resource_axis]}()
             axis_positions = (
-                consumer=_axis_position(consumer_axis, consumer_index),
-                resource=_axis_position(resource_axis, resource_index),
+                consumer=_axis_position(consumer_axis),
+                resource=_axis_position(resource_axis),
             )
-            palatability = parameter_operand(slots.palatability, layout, axis_positions)
+            palatability = parameter_operand(slots.palatability, plan, axis_positions)
             rate = RateElement(
                 formulation(process),
                 (resource_carbon_operand, consumer_carbon_operand, palatability),
@@ -332,8 +334,9 @@ end
         components, processes=(consume=process,), parameters
     ))
     realization = Agate.Construction._realize_process_definition(normalized, Float64)
+    plan = build_parameter_plan(normalized, realization)
     fluxes = process_fluxes(
-        normalized.processes.consume, normalized, realization
+        normalized.processes.consume, normalized, realization, plan
     )
     interaction_operand = fluxes[1].rate.operands[3]
     @test interaction_operand == MatParamOp{:state_palatability,1,1}()

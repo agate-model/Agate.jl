@@ -8,7 +8,7 @@ using Agate.ModelFamilies: default_components
 using Agate.Parameters: Parameter, ConstantDefault
 using Agate.Processes:
     AbstractFormulation, AbstractProcess, ModelDefinition, ParameterSlot,
-    normalize_model, resolve_parameter_applicability
+    normalize_model, build_parameter_plan
 
 import Agate.Processes: authored_parameter_bindings, parameter_slots, participants
 
@@ -128,9 +128,9 @@ end
         processes=(pom_probe=process,),
         parameters=(pom_rate=Parameter(ConstantDefault(0.1)),),
     ))
-    applicability = only(resolve_parameter_applicability(definition, layout))
-    @test applicability.axis_components == ((:POM,),)
-    @test applicability.axis_classes == ((:POM_1, :POM_2, :POM_3),)
+    parameter = build_parameter_plan(definition, layout).parameters.pom_rate
+    @test parameter.storage_labels == ((:POM_1, :POM_2, :POM_3),)
+    @test parameter.applicable_indices == ((1, 2, 3),)
 end
 
 @testset "Direct and family population realization share layout facts" begin

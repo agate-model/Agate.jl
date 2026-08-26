@@ -160,9 +160,13 @@ function active_parameter_map!(labels, values, bgc, path::Tuple, container, sele
     entries = Pair{Symbol, Any}[]
 
     for (name, selection) in pairs(selections)
-        hasproperty(container, name) || throw(ArgumentError("Unknown active parameter path: $(path_label((path..., name)))."))
+        entry_path = (path..., name)
+        validate_runtime_active_parameter(bgc, entry_path)
+        hasproperty(container, name) || throw(ArgumentError(
+            "Runtime parameter storage is missing $(path_label(entry_path))."
+        ))
         value = getproperty(container, name)
-        slots = active_parameter_entry!(labels, values, bgc, (path..., name), value, selection, active_index)
+        slots = active_parameter_entry!(labels, values, bgc, entry_path, value, selection, active_index)
         push!(entries, name => slots)
     end
 
@@ -171,7 +175,6 @@ end
 
 function active_parameter_entry!(labels, values, bgc, path::Tuple, value, selected::Bool, active_index)
     selected || throw(ArgumentError("Boolean active parameter selections must be true."))
-    validate_runtime_active_parameter(path)
     value isa Number || throw(ArgumentError(
         "Scalar active selector for $(path_label(path)) is not supported because the stored parameter is not scalar."
     ))
@@ -179,12 +182,10 @@ function active_parameter_entry!(labels, values, bgc, path::Tuple, value, select
 end
 
 function active_parameter_entry!(labels, values, bgc, path::Tuple, value, selection::NamedTuple, active_index)
-    validate_runtime_active_parameter(path)
     return active_parameter_map!(labels, values, bgc, path, value, selection, active_index)
 end
 
 function active_parameter_entry!(labels, values, bgc, path::Tuple, value, selection::Tuple, active_index)
-    validate_runtime_active_parameter(path)
     isempty(selection) && return ()
 
     if all(item -> item isa Symbol, selection)
@@ -223,7 +224,7 @@ function vector_active_parameter_entry!(labels, values, bgc, path::Tuple, value,
 
     entries = []
     for tracer in selection
-        index = plankton_parameter_index(bgc, tracer)
+        index = parameter_label_index(bgc, only(path), 1, tracer)
         push_active_slot!(entries, labels, values, active_index, "$(path_label(path)).$(tracer)", value[index], (index,))
     end
 
@@ -237,63 +238,47 @@ function matrix_active_parameter_entry!(labels, values, bgc, path::Tuple, value,
 
     entries = []
     for (row, column) in selection
-        indices = interaction_parameter_indices(bgc, only(path), row, column)
+        indices = (parameter_label_index(bgc, only(path), 1, row), parameter_label_index(bgc, only(path), 2, column))
         push_active_slot!(entries, labels, values, active_index, "$(path_label(path))[$row, $column]", value[indices...], indices)
     end
 
     return Tuple(entries)
 end
 
-const CONSTRUCTOR_DERIVED_ACTIVE_PARAMETERS = (
-    :specificity => :palatability_matrix,
-    :protection => :palatability_matrix,
-    :optimum_predator_prey_ratio => :palatability_matrix,
-    :assimilation_efficiency => :assimilation_matrix,
-)
+function _parameter_metadata(bgc, name::Symbol)
+    metadata = getproperty(bgc, :metadata)
+    metadata === nothing && throw(ArgumentError("Model has no parameter metadata."))
+    axes = metadata.parameter_axes
+    hasproperty(axes, name) || throw(
+        ArgumentError("Unknown active parameter path: $name."),
+    )
+    return getproperty(axes, name)
+end
 
-function validate_runtime_active_parameter(path::Tuple)
+function validate_runtime_active_parameter(bgc, path::Tuple)
     length(path) == 1 || return nothing
-
     name = only(path)
-    for (derived, runtime_parameter) in CONSTRUCTOR_DERIVED_ACTIVE_PARAMETERS
-        name === derived || continue
-        throw(ArgumentError(
-            "Active parameter :$name is not currently supported because it is used to derive " *
-            "the runtime parameter :$runtime_parameter during model construction. Select :$runtime_parameter instead."
-        ))
-    end
+    metadata = _parameter_metadata(bgc, name)
+    metadata.runtime_bound && return nothing
 
-    return nothing
+    targets = metadata.derived_runtime_parameters
+    detail = isempty(targets) ? "" :
+        " It is used to derive runtime parameter" * (length(targets) == 1 ? " " : "s ") *
+        join(":" .* string.(targets), ", ") * "."
+    throw(ArgumentError(
+        "Active parameter :$name is construction-only and is not stored in the runtime BGC." * detail,
+    ))
 end
 
-function plankton_parameter_index(bgc, class::Symbol)
-    metadata = getproperty(bgc, :metadata)
-    metadata === nothing && throw(ArgumentError("Model has no plankton parameter metadata."))
-    index = findfirst(==(class), metadata.class_symbols)
-    index === nothing && throw(ArgumentError("Unknown plankton class :$class."))
+function parameter_label_index(bgc, parameter::Symbol, dimension::Int, label::Symbol)
+    metadata = _parameter_metadata(bgc, parameter)
+    1 <= dimension <= length(metadata.labels) || throw(ArgumentError(
+        "parameter :$parameter has no storage dimension $dimension",
+    ))
+    labels = metadata.labels[dimension]
+    index = findfirst(==(label), labels)
+    index === nothing && throw(ArgumentError(
+        "Unknown class :$label for parameter :$parameter; expected one of $(labels).",
+    ))
     return index
-end
-
-function interaction_parameter_indices(
-    bgc, parameter::Symbol, consumer::Symbol, prey::Symbol
-)
-    metadata = getproperty(bgc, :metadata)
-    metadata === nothing && throw(ArgumentError("Model has no interaction matrix metadata."))
-    axes = metadata.interaction_axes
-    axes === nothing && throw(ArgumentError("Model has no interaction matrix axes."))
-    parameter in axes.parameters || throw(
-        ArgumentError(":$parameter is not a consumer-by-prey interaction parameter."),
-    )
-
-    consumer_index = findfirst(==(consumer), axes.consumers)
-    prey_index = findfirst(==(prey), axes.prey)
-
-    consumer_index === nothing && throw(
-        ArgumentError("Class :$consumer is not on the consumer axis."),
-    )
-    prey_index === nothing && throw(
-        ArgumentError("Class :$prey is not on the prey axis."),
-    )
-
-    return (consumer_index, prey_index)
 end

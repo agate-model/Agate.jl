@@ -10,16 +10,17 @@ using Agate.Compilation:
 using Agate.Configuration: realize_model_layout
 using Agate.ModelFamilies: default_components
 using Agate.Processes:
-    ModelDefinition, MultiplicativeFactors, Smith, Monod, normalize_model
+    ModelDefinition, MultiplicativeFactors, Smith, Monod, normalize_model, build_parameter_plan
 
 @testset "Process compilation" begin
     family = Agate.Models.NiPiZD.NiPiZDFamily()
     normalized = normalize_model(ModelDefinition(family))
     layout = default_nipizd_layout()
+    plan = build_parameter_plan(normalized, layout)
 
     @testset "Growth" begin
         process = normalized.processes.growth_P
-        fluxes = process_fluxes(process, normalized, layout)
+        fluxes = process_fluxes(process, normalized, layout, plan)
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) ==
             ((:P_1, 1), (:N, -1), (:P_2, 1), (:N, -1))
 
@@ -33,7 +34,7 @@ using Agate.Processes:
 
     @testset "Living-resource consumption" begin
         process = normalized.processes.grazing_Z_on_P
-        fluxes = process_fluxes(process, normalized, layout)
+        fluxes = process_fluxes(process, normalized, layout, plan)
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes[1:3]) ==
             ((:P_1, -1), (:Z_1, 1), (:D, 1))
         @test fluxes[1].rate.operands == (
@@ -50,7 +51,7 @@ using Agate.Processes:
 
     @testset "Mortality" begin
         process = normalized.processes.linear_mortality_P
-        fluxes = process_fluxes(process, normalized, layout)
+        fluxes = process_fluxes(process, normalized, layout, plan)
 
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) == (
             (:P_1, -1), (:D, 1), (:N, 1),
@@ -95,8 +96,9 @@ using Agate.Processes:
             population_groups=(P=(:P,),),
             group_diameters=(P=realization.group_diameters.P,),
         )
+        partition_plan = build_parameter_plan(normalized_partition, partition_layout)
         fluxes = process_fluxes(
-            normalized_partition.processes.partition, normalized_partition, partition_layout
+            normalized_partition.processes.partition, normalized_partition, partition_layout, partition_plan
         )
         products = fluxes[2:4]
         @test Tuple(flux.target for flux in products) == (:A, :B, :R)
@@ -109,7 +111,7 @@ using Agate.Processes:
 
     @testset "Remineralization" begin
         process = normalized.processes.remineralization_D
-        fluxes = process_fluxes(process, normalized, layout)
+        fluxes = process_fluxes(process, normalized, layout, plan)
         @test Tuple((flux.target, weight_sign(flux.weight)) for flux in fluxes) ==
             ((:D, -1), (:N, 1))
         @test fluxes[1].rate.operands ==

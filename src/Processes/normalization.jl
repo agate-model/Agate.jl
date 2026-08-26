@@ -128,13 +128,6 @@ struct ParameterBinding{P,Q,A,S}
     storage_axes::S
 end
 
-"""Concrete participant applicability of one resolved parameter binding."""
-struct ParameterApplicability{B,C,T}
-    binding::B
-    axis_components::C
-    axis_classes::T
-end
-
 _parameter_slot_source(node::Union{AbstractFormulation,AbstractStoichiometry,Products}) = node
 _parameter_slot_source(node) = formulation(node)
 
@@ -822,61 +815,4 @@ function normalize_model(definition::ModelDefinition)
         bindings,
         lookup,
     )
-end
-
-function _axis_components(
-    process::NamedProcess, binding::ParameterBinding, axis::Symbol
-)
-    qualifier = binding.qualifier
-    if qualifier isa Qualifier && qualifier.axis === axis
-        return (qualifier.value,)
-    end
-    process_participants = participants(process)
-    hasproperty(process_participants, axis) || throw(
-        ArgumentError(
-            "parameter applicability axis :$axis is not a participant role of process :$(process_id(process))",
-        ),
-    )
-    return getproperty(process_participants, axis)
-end
-
-function _axis_classes(layout::ModelLayout, components::Tuple)
-    classes = Symbol[]
-    for component in components
-        hasproperty(layout.component_classes, component) || throw(
-            ArgumentError("parameter applicability references unrealized component :$component"),
-        )
-        append!(classes, component_classes(layout, component))
-    end
-    return Tuple(classes)
-end
-
-"""Resolve each semantic parameter axis onto ecological component class identities.
-
-The result is setup-time applicability metadata. Population state multiplicity does not
-change parameter-axis length: applicability follows ecological classes rather than physical
-state tracers. Scalar qualified slots retain participant applicability when their qualifier
-names a process participant role; non-participant qualifiers such as currency do not create
-ecological axes.
-"""
-function _applicability_axes(process::NamedProcess, binding::ParameterBinding)
-    isempty(binding.axes) || return binding.axes
-    qualifier = binding.qualifier
-    qualifier isa Qualifier || return ()
-    process_participants = participants(process)
-    return hasproperty(process_participants, qualifier.axis) ? (qualifier.axis,) : ()
-end
-
-function resolve_parameter_applicability(
-    definition::NormalizedModelDefinition, layout::ModelLayout
-)
-    return map(definition.parameter_bindings) do binding
-        process = getproperty(definition.processes, binding.process)
-        applicability_axes = _applicability_axes(process, binding)
-        axis_components = map(
-            axis -> _axis_components(process, binding, axis), applicability_axes
-        )
-        axis_classes = map(components -> _axis_classes(layout, components), axis_components)
-        ParameterApplicability(binding, axis_components, axis_classes)
-    end
 end

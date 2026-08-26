@@ -59,6 +59,56 @@ parameter_definitions(::DerivedDefaultFixture) = (
         @test dir.assimilation_matrix.axes == (:consumer, :prey)
     end
 
+    @testset "Realized ParameterPlan" begin
+        family = Agate.Models.NiPiZD.NiPiZDFamily()
+        normalized = Agate.Processes.normalize_model(Agate.Processes.ModelDefinition(family))
+        layout = default_nipizd_layout()
+        plan = Agate.Processes.build_parameter_plan(normalized, layout)
+
+        growth = plan.parameters.maximum_growth_rate
+        @test (growth.rank, growth.storage_shape, growth.storage_labels) ==
+            (1, (4,), ((:Z_1, :Z_2, :P_1, :P_2),))
+        @test growth.applicable_indices == ((3, 4),)
+        @test growth.storage_diameters == layout.diameters
+        @test growth.runtime_bound
+
+        palatability = plan.parameters.palatability_matrix
+        @test (palatability.rank, palatability.storage_shape) == (2, (2, 2))
+        @test palatability.storage_labels == ((:Z_1, :Z_2), (:P_1, :P_2))
+        @test palatability.runtime_bound
+
+        specificity = plan.parameters.specificity
+        @test specificity.applicable_indices == ((1, 2, 3, 4),)
+        @test Agate.Construction.evaluate_process_default(
+            Agate.Parameters.ConstantDefault(2), specificity, Float32
+        ) == fill(2f0, 4)
+        @test !specificity.runtime_bound
+        @test :specificity ∉ plan.runtime_names
+        @test :palatability_matrix ∈ plan.runtime_names
+
+        remineralization = plan.parameters.detritus_remineralization
+        @test (remineralization.rank, remineralization.storage_shape, remineralization.storage_labels) ==
+            (0, (), ())
+
+        mortality_slots = Tuple(
+            Agate.Processes.planned_parameter_slot(plan, binding)
+            for binding in normalized.parameter_bindings if binding.parameter === :linear_mortality
+        )
+        @test length(mortality_slots) == 2
+        @test Set(mortality_slots) == Set((((1, 2),), ((3, 4),)))
+
+        metadata = Agate.Processes.parameter_plan_metadata(plan)
+        @test metadata.maximum_growth_rate.labels == growth.storage_labels
+        @test metadata.palatability_matrix.labels == palatability.storage_labels
+        @test metadata.specificity.derived_runtime_parameters == (:palatability_matrix,)
+
+        growth_binding = only(filter(normalized.parameter_bindings) do binding
+            binding.parameter === :maximum_growth_rate
+        end)
+        growth_slot = Agate.Processes.planned_parameter_slot(plan, growth_binding)
+        @test growth_slot == ((3, 4),)
+    end
+
     @testset "Derived default dependency resolution" begin
         source = DerivedDefaultFixture()
         components = (D=Agate.Configuration.Pool(:nitrogen),)
@@ -74,14 +124,14 @@ parameter_definitions(::DerivedDefaultFixture) = (
         ))
         layout = Agate.Configuration.realize_components(components; scalar_type=Float64)
 
-        defaults = Agate.Construction.build_process_parameter_defaults(
-            source, normalized, layout, Float64
-        )
+        plan = Agate.Processes.build_parameter_plan(normalized, layout)
+        @test plan.derived_order == (:middle, :top)
+        defaults = Agate.Construction.build_process_parameter_defaults(plan, Float64)
         @test defaults == (base=2.0,)
 
         resolve(overrides=(;)) = Agate.Construction.resolve_parameter_defaults(
-            source, layout, merge(defaults, overrides), Tuple(keys(overrides));
-            normalized_definition=normalized,
+            plan, layout, merge(defaults, overrides), Tuple(keys(overrides));
+            derivation_owner=source,
         )
 
         resolved = resolve()

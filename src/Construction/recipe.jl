@@ -1,5 +1,5 @@
 using ..ModelFamilies: AbstractModelFamily, definition_version
-using ..Parameters: DerivedDefault, parameter_definitions, parameter_directory
+using ..Parameters: DerivedDefault
 using ..Configuration: ModelLayout, normalize_diameters
 
 """Return the stable recipe-family identifier for a model family."""
@@ -168,7 +168,9 @@ replay_family(recipe::ProcessModelRecipe) =
 function capture_model_manifest(
     family::AbstractModelFamily,
     parameters,
-    layout::ModelLayout;
+    layout::ModelLayout,
+    parameter_plan;
+    interaction_axes,
     tracer_order::Tuple,
     auxiliary_fields::Tuple,
     explicit_override_keys::Tuple,
@@ -184,13 +186,10 @@ function capture_model_manifest(
     end
     group_tracers = NamedTuple{group_order}(group_values)
 
-    interaction_names = Tuple(
-        name for (name, spec) in pairs(parameter_directory(family)) if
-        spec.axes == (:consumer, :prey)
-    )
+    interaction_names = isnothing(interaction_axes) ? () : interaction_axes.parameters
     derived_interaction_names = Tuple(
-        name for (name, parameter) in pairs(parameter_definitions(family)) if
-        parameter.default isa DerivedDefault
+        name for name in interaction_names if
+        getproperty(parameter_plan.parameters, name).definition.default isa DerivedDefault
     )
     interaction_matrix_sources = NamedTuple{interaction_names}(
         Tuple(

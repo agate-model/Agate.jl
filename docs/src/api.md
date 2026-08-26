@@ -82,10 +82,8 @@ Agate.Configuration.AssimilationBinary
 Agate.Processes.NamedProcess
 Agate.Processes.NormalizedModelDefinition
 Agate.Processes.ParameterBinding
-Agate.Processes.ParameterApplicability
 Agate.Processes.driver_identities
 Agate.Processes.parameter_bindings
-Agate.Processes.resolve_parameter_applicability
 Agate.Processes.normalize_model
 Agate.Compilation.compile_model_tendencies
 ```

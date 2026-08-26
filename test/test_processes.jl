@@ -1,7 +1,7 @@
 using Test
 using ForwardDiff
 
-using Agate.Configuration: Population, Pool, realize_components
+using Agate.Configuration: Population, Pool
 using Agate.ModelFamilies: default_components, default_processes
 using Agate.Parameters: ConstantDefault, DerivedDefault, Parameter
 using Agate.Processes:
@@ -23,7 +23,6 @@ using Agate.Processes:
     Mortality,
     ModelDefinition,
     parameter_bindings,
-    resolve_parameter_applicability,
     driver_identities,
     formulation,
     factor_value,
@@ -423,21 +422,6 @@ end
     )
     @test map(binding_key, reordered.parameter_bindings) ==
         map(binding_key, normalized.parameter_bindings)
-
-    layout = realize_components(normalized.components)
-    applicability = resolve_parameter_applicability(normalized, layout)
-    function application(parameter, process, slot; path=())
-        return only(filter(applicability) do item
-            binding = item.binding
-            binding.parameter === parameter && binding.process === process &&
-                binding.path == path && binding.slot === slot
-        end)
-    end
-    @test application(
-        :maximum_growth_rate, :growth_P, :maximum_rate; path=(:factors, :light)
-    ).axis_classes == ((:P_1, :P_2),)
-    @test application(:palatability_matrix, :grazing_Z_on_P, :palatability).axis_classes ==
-        ((:Z_1, :Z_2), (:P_1, :P_2))
 
     invalid = ModelDefinition(;
         components=default_components(family),

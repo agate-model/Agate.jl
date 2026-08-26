@@ -1,7 +1,6 @@
 module Configuration
 
 using Adapt
-using ..Parameters: parameter_directory
 
 export Population, Pool, PopulationStateRef, population_state
 export currency, states, state_currency, size_structure

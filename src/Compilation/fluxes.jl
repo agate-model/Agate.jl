@@ -156,72 +156,30 @@ function parameter_operand(binding::ParameterBinding, indices::Int...)
     throw(ArgumentError("unsupported parameter rank $rank"))
 end
 
-@inline _axis_position(local_index::Int, plankton_index::Union{Nothing,Int}=nothing) =
-    (; local_index, plankton_index)
+@inline _axis_position(local_index::Int) = (; local_index)
 
-function _explicit_storage_index(
-    storage_axis::Symbol, position, layout::ModelLayout, parameter::Symbol
-)
-    plankton_index = position.plankton_index
-    isnothing(plankton_index) && throw(
-        ArgumentError(
-            "parameter :$parameter uses explicit storage axis :$storage_axis for a non-plankton process axis",
-        ),
-    )
-    storage_axis === :plankton && return plankton_index
-
-    storage_indices = axis_indices(layout, storage_axis)
-    storage_index = findfirst(==(plankton_index), storage_indices)
-    isnothing(storage_index) && throw(
-        ArgumentError(
-            "parameter :$parameter process class index $plankton_index is not present on storage axis :$storage_axis",
-        ),
-    )
-    return storage_index
-end
-
-"""Resolve process-local/global axis positions onto one parameter's runtime storage."""
+"""Resolve one normalized parameter slot through its precomputed `ParameterPlan` mapping."""
 function parameter_operand(
-    binding::ParameterBinding, layout::ModelLayout, axis_positions::NamedTuple
+    binding::ParameterBinding,
+    plan::ParameterPlan,
+    axis_positions::NamedTuple=NamedTuple(),
 )
     rank = length(binding.axes)
     rank == 0 && return parameter_operand(binding)
-
-    positions = Tuple(
-        begin
-            hasproperty(axis_positions, axis) || throw(
-                ArgumentError(
-                    "parameter :$(binding.parameter) axis :$axis has no realized runtime position",
-                ),
-            )
-            getproperty(axis_positions, axis)
-        end for axis in binding.axes
-    )
-
-    storage_axes = binding.storage_axes
-    if storage_axes === nothing
-        return parameter_operand(binding, Tuple(position.local_index for position in positions)...)
-    elseif rank == 1
-        storage_axes isa Symbol || throw(
-            ArgumentError(
-                "vector parameter :$(binding.parameter) must have one Symbol storage axis",
-            ),
-        )
-        index = _explicit_storage_index(storage_axes, only(positions), layout, binding.parameter)
-        return parameter_operand(binding, index)
-    elseif rank == 2
-        storage_axes isa Tuple && length(storage_axes) == 2 || throw(
-            ArgumentError(
-                "matrix parameter :$(binding.parameter) must have two storage axes",
-            ),
-        )
-        indices = ntuple(2) do i
-            _explicit_storage_index(storage_axes[i], positions[i], layout, binding.parameter)
-        end
-        return parameter_operand(binding, indices...)
+    slot = planned_parameter_slot(plan, binding)
+    indices = ntuple(rank) do dimension
+        axis = binding.axes[dimension]
+        hasproperty(axis_positions, axis) || throw(ArgumentError(
+            "parameter :$(binding.parameter) axis :$axis has no realized runtime position",
+        ))
+        local_index = getproperty(axis_positions, axis).local_index
+        mapping = slot[dimension]
+        1 <= local_index <= length(mapping) || throw(ArgumentError(
+            "parameter :$(binding.parameter) axis :$axis local index $local_index is out of bounds",
+        ))
+        mapping[local_index]
     end
-
-    throw(ArgumentError("unsupported parameter rank $rank"))
+    return parameter_operand(binding, indices...)
 end
 
 function _scalar_component_target(layout::ModelLayout, component::Symbol)
@@ -269,20 +227,13 @@ function state_operand(
     return TracerOp{tracer}()
 end
 
-function _realize_normalized_population_states(
-    references::Tuple, layout::ModelLayout
-)
-    tracer_values = Symbol[]
-    index_values = Int[]
+function _realize_normalized_population_states(references::Tuple, layout::ModelLayout)
+    tracers = Symbol[]
     for reference in references
         classes = component_classes(layout, reference.population)
-        append!(
-            tracer_values,
-            (state_tracer(layout, reference, i) for i in eachindex(classes)),
-        )
-        append!(index_values, component_class_indices(layout, reference.population))
+        append!(tracers, (state_tracer(layout, reference, i) for i in eachindex(classes)))
     end
-    return Tuple(tracer_values), Tuple(index_values)
+    return Tuple(tracers)
 end
 
 function _target_order(fluxes::Tuple)
@@ -354,10 +305,11 @@ compile_tendencies(grouped::NamedTuple) = map(compile_tendency, grouped)
 function model_fluxes(
     definition::NormalizedModelDefinition,
     layout::ModelLayout,
+    plan::ParameterPlan,
 )
     fluxes = Any[]
     for named in values(definition.processes)
-        append!(fluxes, process_fluxes(named, definition, layout))
+        append!(fluxes, process_fluxes(named, definition, layout, plan))
     end
     return Tuple(fluxes)
 end
@@ -365,10 +317,11 @@ end
 """Compile a normalized model into one static equation per requested concrete tracer."""
 function compile_model_tendencies(
     definition::NormalizedModelDefinition,
-    layout::ModelLayout;
+    layout::ModelLayout,
+    plan::ParameterPlan;
     target_order::Tuple,
 )
-    fluxes = model_fluxes(definition, layout)
+    fluxes = model_fluxes(definition, layout, plan)
     grouped = group_fluxes(fluxes; target_order)
     return compile_tendencies(grouped)
 end

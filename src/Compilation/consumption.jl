@@ -19,21 +19,13 @@ function _consumption_resources(
     resources::Tuple,
     layout::ModelLayout,
 )
-    return _consumption_resource_tracers(resources, layout), nothing
+    return _consumption_resource_tracers(resources, layout)
 end
 
-function _consumption_axis_positions(
-    consumer_axis::Int,
-    consumer_index::Int,
-    resource_axis::Int,
-    resource_index::Union{Nothing,Int},
-)
-    resource_position = isnothing(resource_index) ?
-                        _axis_position(resource_axis) :
-                        _axis_position(resource_axis, resource_index)
+function _consumption_axis_positions(consumer_axis::Int, resource_axis::Int)
     return (
-        consumer=_axis_position(consumer_axis, consumer_index),
-        resource=resource_position,
+        consumer=_axis_position(consumer_axis),
+        resource=_axis_position(resource_axis),
     )
 end
 
@@ -43,20 +35,19 @@ function _consumption_rate(
     definition::NormalizedModelDefinition,
     named::NamedProcess,
     layout::ModelLayout,
-    consumer_index::Int,
+    plan::ParameterPlan,
     consumer::Symbol,
     resource::Symbol,
-    resource_index::Int,
     axis_positions::NamedTuple,
 )
     operands = (
         TracerOp{resource}(),
         TracerOp{consumer}(),
-        parameter_operand(slots.maximum_rate, layout, axis_positions),
-        parameter_operand(slots.half_saturation, layout, axis_positions),
-        parameter_operand(slots.palatability, layout, axis_positions),
+        parameter_operand(slots.maximum_rate, plan, axis_positions),
+        parameter_operand(slots.half_saturation, plan, axis_positions),
+        parameter_operand(slots.palatability, plan, axis_positions),
     )
-    rate_factors = _factor_elements(definition, named, layout, axis_positions)
+    rate_factors = _factor_elements(definition, named, layout, plan, axis_positions)
     return RateElement(formulation, operands; factors=rate_factors)
 end
 
@@ -66,19 +57,18 @@ function _consumption_rate(
     definition::NormalizedModelDefinition,
     named::NamedProcess,
     layout::ModelLayout,
-    consumer_index::Int,
+    plan::ParameterPlan,
     consumer::Symbol,
     resource::Symbol,
-    ::Nothing,
     axis_positions::NamedTuple,
 )
     operands = (
         TracerOp{resource}(),
         TracerOp{consumer}(),
-        parameter_operand(slots.maximum_rate, layout, axis_positions),
-        parameter_operand(slots.half_saturation, layout, axis_positions),
+        parameter_operand(slots.maximum_rate, plan, axis_positions),
+        parameter_operand(slots.half_saturation, plan, axis_positions),
     )
-    rate_factors = _factor_elements(definition, named, layout, axis_positions)
+    rate_factors = _factor_elements(definition, named, layout, plan, axis_positions)
     return RateElement(formulation, operands; factors=rate_factors)
 end
 
@@ -86,41 +76,34 @@ function process_fluxes(
     named::NamedProcess{P},
     definition::NormalizedModelDefinition,
     layout::ModelLayout,
+    plan::ParameterPlan,
 ) where {P<:Consumption}
     process = named.process
     formulation = process.formulation
-    consumer_tracers, consumer_indices = _realize_normalized_population_states(
+    consumer_tracers = _realize_normalized_population_states(
         named.facts.consumer_states, layout
     )
-    resource_tracers, resource_indices = _consumption_resources(
-        formulation, named.facts.resources, layout
-    )
+    resource_tracers = _consumption_resources(formulation, named.facts.resources, layout)
     slots = parameter_slot_bindings(definition, named, (), process)
     fluxes = Any[]
 
     for consumer_axis in eachindex(consumer_tracers)
         consumer = consumer_tracers[consumer_axis]
-        consumer_index = consumer_indices[consumer_axis]
         for resource_axis in eachindex(resource_tracers)
             resource = resource_tracers[resource_axis]
-            resource_index = isnothing(resource_indices) ?
-                             nothing : resource_indices[resource_axis]
-            axis_positions = _consumption_axis_positions(
-                consumer_axis, consumer_index, resource_axis, resource_index
-            )
+            axis_positions = _consumption_axis_positions(consumer_axis, resource_axis)
             rate = _consumption_rate(
                 formulation,
                 slots,
                 definition,
                 named,
                 layout,
-                consumer_index,
+                plan,
                 consumer,
                 resource,
-                resource_index,
                 axis_positions,
             )
-            assimilation = parameter_operand(slots.assimilation, layout, axis_positions)
+            assimilation = parameter_operand(slots.assimilation, plan, axis_positions)
             push!(
                 fluxes,
                 FluxSpec(process_id(named), resource, rate, Weight{-1}()),
@@ -130,7 +113,7 @@ function process_fluxes(
                 append!(
                     fluxes,
                     _product_fluxes(
-                        named, definition, process.products, layout, rate;
+                        named, definition, process.products, layout, plan, rate;
                         suffix=(ComplementOp(assimilation),),
                     ),
                 )

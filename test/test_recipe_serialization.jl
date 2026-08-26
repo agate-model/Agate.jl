@@ -92,7 +92,12 @@ explicit_json_value(::Any) = false
     @test encode_recipe(recipe)["content_hash"] == recipe_hash
 
     replayed = NiPiZD.construct_from_recipe(decoded; grid=BoxModelGrid(Float32))
-    @test replayed.parameters == decoded_manifest.parameters
+    @test all(
+        getproperty(replayed.parameters, name) == getproperty(decoded_manifest.parameters, name)
+        for name in keys(replayed.parameters)
+    )
+    @test !hasproperty(replayed.parameters, :specificity)
+    @test hasproperty(decoded_manifest.parameters, :specificity)
     @test required_biogeochemical_tracers(replayed) == decoded_manifest.tracer_order
     original_drift = biogeochemical_drift_velocity(bgc, Val(:D))
     replayed_drift = biogeochemical_drift_velocity(replayed, Val(:D))

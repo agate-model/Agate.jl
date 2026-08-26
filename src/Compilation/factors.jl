@@ -7,16 +7,16 @@ function _factor_input_operand(input::FactorComponent, layout::ModelLayout)
 end
 
 function _factor_parameter_operand(
-    binding::ParameterBinding, layout::ModelLayout, axis_positions::NamedTuple
+    binding::ParameterBinding, plan::ParameterPlan, axis_positions::NamedTuple
 )
-    return parameter_operand(binding, layout, axis_positions)
+    return parameter_operand(binding, plan, axis_positions)
 end
 
 function _factor_parameter_operands(
-    bindings::NamedTuple, layout::ModelLayout, axis_positions::NamedTuple
+    bindings::NamedTuple, plan::ParameterPlan, axis_positions::NamedTuple
 )
     return Tuple(
-        _factor_parameter_operand(binding, layout, axis_positions)
+        _factor_parameter_operand(binding, plan, axis_positions)
         for binding in values(bindings)
     )
 end
@@ -27,6 +27,7 @@ function _factor_element(
     path::Tuple,
     factor::AbstractFactor,
     layout::ModelLayout,
+    plan::ParameterPlan,
     axis_positions::NamedTuple,
 )
     input_operands = Tuple(
@@ -43,6 +44,7 @@ function _factor_element(
                 factor_child_path(path, factor, name),
                 child,
                 layout,
+                plan,
                 axis_positions,
             )
             for (name, child) in pairs(children)
@@ -56,7 +58,7 @@ function _factor_element(
         factor;
         context=factor_parameter_context(factor),
     )
-    parameter_operands = _factor_parameter_operands(slots, layout, axis_positions)
+    parameter_operands = _factor_parameter_operands(slots, plan, axis_positions)
     return FactorElement(
         formulation(factor), (input_operands..., child_operands..., parameter_operands...)
     )
@@ -66,11 +68,12 @@ function _factor_elements(
     definition::NormalizedModelDefinition,
     named::NamedProcess,
     layout::ModelLayout,
+    plan::ParameterPlan,
     axis_positions::NamedTuple,
 )
     return Tuple(
         _factor_element(
-            definition, named, (:factors, name), factor, layout, axis_positions
+            definition, named, (:factors, name), factor, layout, plan, axis_positions
         )
         for (name, factor) in pairs(factors(named))
     )

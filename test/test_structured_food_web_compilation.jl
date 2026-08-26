@@ -8,7 +8,7 @@ using Agate.Construction: construct, define_tracer_functions
 using Agate.Parameters: Parameter, NoDefault
 using Agate.Processes:
     ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, Smith, Monod, Q10, HeterotrophicConsumption, PreferentialGrazing,
-    normalize_model, participants, driver_identities
+    normalize_model, participants, driver_identities, build_parameter_plan
 
 function food_web_parameters()
     no_default(; axes=nothing) = Parameter(NoDefault(); axes)
@@ -91,8 +91,9 @@ function food_web_compilation(::Type{T}=Float64) where {T<:Real}
         auxiliary_fields=drivers,
     )
     target_order = layout.tracer_order
-    compiled = compile_model_tendencies(normalized, layout; target_order)
-    return (; normalized, layout, compiled, target_order)
+    plan = build_parameter_plan(normalized, layout)
+    compiled = compile_model_tendencies(normalized, layout, plan; target_order)
+    return (; normalized, layout, plan, compiled, target_order)
 end
 
 function food_web_bgc(compilation)
@@ -141,12 +142,20 @@ end
     @test :M ∈ participants(normalized.processes.growth_autotrophs).population
     @test :M ∈ participants(normalized.processes.grazing_living).consumer
     @test driver_identities(normalized) == (:PAR, :temperature)
+
+    half_saturation = compilation.plan.parameters.pom_half_saturation
+    assimilation = compilation.plan.parameters.bacterial_assimilation
+    @test (half_saturation.storage_shape, half_saturation.storage_labels) ==
+        ((2,), ((:POM_1, :POM_2),))
+    @test (assimilation.storage_shape, assimilation.storage_labels) ==
+        ((1, 2), ((:B_1,), (:POM_1, :POM_2)))
+
     consumption = normalized.processes.consume_POM
     fluxes = process_fluxes(
-        consumption, normalized, layout
+        consumption, normalized, layout, compilation.plan
     )
     growth_fluxes = process_fluxes(
-        normalized.processes.growth_autotrophs, normalized, layout
+        normalized.processes.growth_autotrophs, normalized, layout, compilation.plan
     )
 
     @test all(equation -> isbitstype(typeof(equation.f)), values(compilation.compiled))

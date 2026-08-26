@@ -562,7 +562,7 @@ end
 realize_components(components::NamedTuple; kwargs...) = realize_model_layout(components; kwargs...)
 
 """Return compact host-side metadata derived from one authoritative `ModelLayout`."""
-function model_metadata(layout::ModelLayout; interaction_axes=nothing)
+function model_metadata(layout::ModelLayout; interaction_axes=nothing, parameter_axes=(;))
     group_names = keys(layout.group_indices)
     group_classes = NamedTuple{group_names}(ntuple(length(group_names)) do i
         indices = getproperty(layout.group_indices, group_names[i])
@@ -582,5 +582,6 @@ function model_metadata(layout::ModelLayout; interaction_axes=nothing)
         population_tracers,
         plankton_diameters=layout.diameters,
         interaction_axes,
+        parameter_axes,
     )
 end
