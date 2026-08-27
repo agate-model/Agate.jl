@@ -34,12 +34,9 @@ function ParameterSlot(
 end
 
 parameter_slots(::AbstractFormulation) = ()
-parameter_slots(::Smith) = (
-    ParameterSlot(:maximum_rate, (:population,)),
-    ParameterSlot(:alpha, (:population,)),
-)
+parameter_slots(::MultiplicativeFactors) = (ParameterSlot(:maximum_rate, (:population,)),)
+parameter_slots(::Smith) = (ParameterSlot(:alpha, (:population,)),)
 parameter_slots(::Geider) = (
-    ParameterSlot(:maximum_rate, (:population,)),
     ParameterSlot(:alpha, (:population,)),
     ParameterSlot(:chlorophyll_to_carbon_ratio, (:population,)),
 )

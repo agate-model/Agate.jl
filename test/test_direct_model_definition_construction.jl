@@ -19,10 +19,9 @@ function direct_npz_definition()
     processes = (
         growth_P=Growth(;
             populations=:P,
+            bindings=(maximum_rate=:maximum_growth_rate,),
             factors=(
-                light=Light(
-                    Smith(); driver=:PAR, bindings=(maximum_rate=:maximum_growth_rate,)
-                ),
+                light=Light(Smith(); driver=:PAR),
                 nutrients=NutrientResponse(
                     Monod(); resource=:N, bindings=(K=:nutrient_half_saturation,)
                 ),

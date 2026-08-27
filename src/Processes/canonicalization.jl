@@ -1,7 +1,7 @@
 """Named, validated process instance in canonical model state.
 
 `facts` contains setup-only decisions that compilation may trust, such as resolved
-population-state references, canonical product targets, and Growth routing ownership.
+population-state references, canonical product targets, and Growth resource draws.
 """
 struct NamedProcess{P<:AbstractProcess,F}
     id::Symbol
@@ -11,20 +11,6 @@ end
 
 NamedProcess(id::Symbol, process::P) where {P<:AbstractProcess} =
     NamedProcess(id, process, NamedTuple())
-
-abstract type AbstractGrowthRouting end
-
-struct SingleResourceRouting <: AbstractGrowthRouting
-    factor::Symbol
-end
-
-struct QuotaRouting <: AbstractGrowthRouting
-    factor::Symbol
-end
-
-struct MultiResourceRouting <: AbstractGrowthRouting
-    factor::Symbol
-end
 
 process_id(process::NamedProcess) = process.id
 formulation(process::NamedProcess) = formulation(process.process)
@@ -143,8 +129,7 @@ function _visit_process_slots!(uses::Vector{Any}, named::NamedProcess)
     isnothing(products) || _visit_product_slots!(uses, named, product_path(process), products)
 
     if process isa Growth && !isnothing(process.stoichiometry)
-        nutrients = getproperty(process.factors, named.facts.routing.factor)
-        for currency in keys(nutrients.responses)
+        for currency in keys(named.facts.additional_resources)
             _emit_parameter_slots!(
                 uses,
                 named,
@@ -244,42 +229,38 @@ beyond the authored process object.
 process_facts(::AbstractProcess, ::Symbol, ::NamedTuple) = NamedTuple()
 
 function process_facts(process::Growth, id::Symbol, components::NamedTuple)
-    routing = Tuple(
-        (name, factor) for (name, factor) in pairs(process.factors)
+    nutrient_factors = Tuple(
+        factor for factor in values(process.factors)
         if factor isa Union{NutrientResponse,Nutrients}
     )
-    length(routing) == 1 || throw(ArgumentError(
-        "process :$id growth must declare exactly one NutrientResponse or Nutrients routing factor",
+    length(nutrient_factors) == 1 || throw(ArgumentError(
+        "process :$id growth must declare exactly one NutrientResponse or Nutrients factor",
     ))
-    factor_name, nutrient_factor = only(routing)
-
-    rate_owners = Tuple(
-        name for (name, factor) in pairs(process.factors)
-        if any(slot -> slot.name === :maximum_rate, parameter_slots(formulation(factor)))
-    )
-    length(rate_owners) == 1 || throw(ArgumentError(
-        "process :$id growth must declare exactly one factor that owns the maximum_rate slot",
-    ))
+    nutrient_factor = only(nutrient_factors)
     population_states = Tuple(
         _resolve_population_state(components, population, process.state, id, "population")
         for population in process.populations
     )
 
-    if nutrient_factor isa NutrientResponse
+    reference_source, additional_resources = if nutrient_factor isa NutrientResponse
         isnothing(process.source) || throw(ArgumentError(
             "process :$id single-resource growth derives its source from the nutrient response; omit `source`",
         ))
         isnothing(process.stoichiometry) || throw(ArgumentError(
             "process :$id single-resource growth does not take fixed stoichiometry",
         ))
-        resource = _resolve_scalar_pool(components, nutrient_factor.resource, id, "nutrient factor resource")
+        resource = _resolve_scalar_pool(
+            components, nutrient_factor.resource, id, "nutrient factor resource"
+        )
         reference = currency(resource)
-        _validate_state_currencies(components, population_states, reference, id, "population state")
-        route = SingleResourceRouting(factor_name)
+        _validate_state_currencies(
+            components, population_states, reference, id, "population state"
+        )
+        nutrient_factor.resource, NamedTuple()
     else
         responses = values(_resolve_factor_children(nutrient_factor))
-        quota_routing = all(response -> response isa QuotaResponse, responses)
-        if quota_routing
+        quota_growth = all(response -> response isa QuotaResponse, responses)
+        if quota_growth
             length(process.populations) == 1 || throw(ArgumentError(
                 "process :$id quota growth requires exactly one logical population",
             ))
@@ -292,19 +273,24 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
             reference_state = only(population_states)
             reference_currency = _state_currency(components, reference_state)
             source = _resolve_scalar_pool(components, process.source, id, "growth source")
-            _validate_currency(currency(source), reference_currency, id, "growth source :$(process.source)")
+            _validate_currency(
+                currency(source), reference_currency, id, "growth source :$(process.source)"
+            )
             population = only(process.populations)
             for (target_currency, response) in pairs(nutrient_factor.responses)
-                target = _resolve_population_state(components, response.target, id, "quota response target")
-                reference = _resolve_population_state(components, response.reference, id, "quota response reference")
+                target = _resolve_population_state(
+                    components, response.target, id, "quota response target"
+                )
+                reference = _resolve_population_state(
+                    components, response.reference, id, "quota response reference"
+                )
                 target.population === population && reference.population === population || throw(
                     ArgumentError(
                         "process :$id quota response :$target_currency must reference growth population :$population",
                     ),
                 )
-                actual_target_currency = _state_currency(components, target)
                 _validate_currency(
-                    actual_target_currency, target_currency, id,
+                    _state_currency(components, target), target_currency, id,
                     "quota response :$target_currency target state",
                 )
                 _validate_currency(
@@ -312,7 +298,7 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
                     "quota response :$target_currency reference state",
                 )
             end
-            route = QuotaRouting(factor_name)
+            process.source, NamedTuple()
         else
             process.source isa Symbol || throw(
                 ArgumentError("process :$id multi-resource growth requires a source component"),
@@ -322,23 +308,34 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
             )
             reference = process.stoichiometry.reference
             source = _resolve_scalar_pool(components, process.source, id, "growth source")
-            _validate_currency(currency(source), reference, id, "growth source :$(process.source)")
-            _validate_state_currencies(components, population_states, reference, id, "population state")
+            _validate_currency(
+                currency(source), reference, id, "growth source :$(process.source)"
+            )
+            _validate_state_currencies(
+                components, population_states, reference, id, "population state"
+            )
             for (target_currency, response) in pairs(nutrient_factor.responses)
                 resource = _resolve_scalar_pool(
-                    components, response.resource, id, "nutrient response :$target_currency resource",
+                    components, response.resource, id,
+                    "nutrient response :$target_currency resource",
                 )
                 _validate_currency(
                     currency(resource), target_currency, id,
                     "nutrient response :$target_currency resource :$(response.resource)",
                 )
             end
-            route = MultiResourceRouting(factor_name)
+            names = Tuple(
+                currency for currency in keys(nutrient_factor.responses)
+                if currency !== reference
+            )
+            additional = NamedTuple{names}(Tuple(
+                getproperty(nutrient_factor.responses, currency).resource for currency in names
+            ))
+            process.source, additional
         end
     end
-    return (;
-        population_states, routing=route, maximum_rate_factor=only(rate_owners),
-    )
+
+    return (; population_states, reference_source, additional_resources)
 end
 
 function process_facts(

@@ -26,15 +26,13 @@ function multi_nutrient_test_model(grid; nutrient_formulation=Liebig())
     processes = (
         growth_P=Growth(;
             populations=:P,
+            bindings=(maximum_rate=:maximum_growth_rate,),
             source=:DIC,
             factors=(
                 light=Light(
                     Geider();
                     driver=:PAR,
-                    bindings=(
-                        maximum_rate=:maximum_growth_rate,
-                        alpha=:photosynthetic_slope,
-                    ),
+                    bindings=(alpha=:photosynthetic_slope,),
                 ),
                 nutrients=Nutrients(
                     nutrient_formulation;

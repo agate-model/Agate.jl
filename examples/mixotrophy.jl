@@ -22,10 +22,9 @@ components = (
 processes = (
     growth_M=Growth(;
         populations=:M,
+        bindings=(maximum_rate=:maximum_growth_rate,),
         factors=(
-            light=Light(
-                Smith(); driver=:PAR, bindings=(maximum_rate=:maximum_growth_rate,)
-            ),
+            light=Light(Smith(); driver=:PAR),
             nutrients=NutrientResponse(
                 Monod(); resource=:N, bindings=(K=:nutrient_half_saturation,)
             ),

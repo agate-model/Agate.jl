@@ -45,12 +45,13 @@ function quota_processes()
     )
     growth = Growth(;
         populations=:P,
+        bindings=(maximum_rate=:maximum_growth_rate,),
         state=:carbon,
         source=:DIC,
         factors=(
             light=Light(
                 Smith(); driver=:PAR,
-                bindings=(maximum_rate=:maximum_growth_rate, alpha=:photosynthetic_slope),
+                bindings=(alpha=:photosynthetic_slope,),
             ),
             nutrients=Nutrients(Liebig(); responses=responses),
         ),
@@ -113,6 +114,7 @@ end
     )
     growth_with(responses; state=:carbon, stoichiometry=nothing) = Growth(;
         populations=:P,
+        bindings=(maximum_rate=:maximum_growth_rate,),
         state=state,
         source=:DIC,
         stoichiometry=stoichiometry,

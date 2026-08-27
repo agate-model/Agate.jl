@@ -1,38 +1,3 @@
-_growth_resource_factor(named::NamedProcess) =
-    getproperty(named.process.factors, named.facts.routing.factor)
-
-_growth_resource_target(
-    ::QuotaRouting, ::Nutrients, ::ModelLayout
-) = nothing
-
-_growth_resource_target(
-    ::SingleResourceRouting, factor::NutrientResponse, layout::ModelLayout
-) = _scalar_component_target(layout, factor.resource)
-
-function _growth_resource_target(
-    ::MultiResourceRouting, factor::Nutrients, layout::ModelLayout
-)
-    names = keys(factor.responses)
-    targets = Tuple(
-        _scalar_component_target(layout, response.resource)
-        for response in values(factor.responses)
-    )
-    return NamedTuple{names}(targets)
-end
-
-_growth_source_target(::SingleResourceRouting, ::Growth, ::ModelLayout) = nothing
-_growth_source_target(
-    ::Union{QuotaRouting,MultiResourceRouting}, process::Growth, layout::ModelLayout
-) = _scalar_component_target(layout, process.source)
-
-function _growth_scale_binding(context::CompileContext, named::NamedProcess)
-    name = named.facts.maximum_rate_factor
-    factor = getproperty(factors(named), name)
-    return parameter_slot_bindings(
-        context.definition, named, (:factors, name), factor
-    ).maximum_rate
-end
-
 function _growth_rate(
     named::NamedProcess,
     context::CompileContext,
@@ -51,40 +16,20 @@ function _growth_rate(
 end
 
 function _growth_resource_fluxes(
-    ::SingleResourceRouting,
-    ::NamedProcess,
-    ::CompileContext,
-    resource_target,
-    source_target,
-    rate::RateElement,
-    ::NutrientResponse,
-)
-    return (FluxSpec(resource_target, rate, Weight{-1}()),)
-end
-
-function _growth_resource_fluxes(
-    ::QuotaRouting,
-    ::NamedProcess,
-    ::CompileContext,
-    resource_target,
-    source_target,
-    rate::RateElement,
-    ::Nutrients,
-)
-    return (FluxSpec(source_target, rate, Weight{-1}()),)
-end
-
-function _growth_resource_fluxes(
-    route::MultiResourceRouting,
     named::NamedProcess,
     context::CompileContext,
-    resource_target,
-    source_target,
     rate::RateElement,
-    ::Nutrients,
 )
-    fluxes = Any[FluxSpec(source_target, rate, Weight{-1}())]
-    for currency in keys(resource_target)
+    facts = named.facts
+    layout = context.layout
+    fluxes = Any[
+        FluxSpec(
+            _scalar_component_target(layout, facts.reference_source),
+            rate,
+            Weight{-1}(),
+        ),
+    ]
+    for (currency, resource) in pairs(facts.additional_resources)
         ratio = parameter_slot_bindings(
             context.definition,
             named,
@@ -95,7 +40,7 @@ function _growth_resource_fluxes(
         push!(
             fluxes,
             FluxSpec(
-                getproperty(resource_target, currency),
+                _scalar_component_target(layout, resource),
                 rate,
                 Weight{-1}((parameter_operand(ratio, context.plan),)),
             ),
@@ -108,8 +53,6 @@ end
 function process_fluxes(
     named::NamedProcess{P}, context::CompileContext
 ) where {P<:Growth}
-    route = named.facts.routing
-    nutrients = _growth_resource_factor(named)
     layout = context.layout
     population_tracers = _realize_population_states(
         named.facts.population_states, layout
@@ -117,9 +60,9 @@ function process_fluxes(
     population_classes = _realize_population_classes(
         named.facts.population_states, layout
     )
-    resource_target = _growth_resource_target(route, nutrients, layout)
-    source_target = _growth_source_target(route, named.process, layout)
-    scale_binding = _growth_scale_binding(context, named)
+    scale_binding = parameter_slot_bindings(
+        context.definition, named, (), named.process
+    ).maximum_rate
     fluxes = Any[]
 
     for population_axis in eachindex(population_tracers)
@@ -127,14 +70,11 @@ function process_fluxes(
             named, context, population_axis, population_classes[population_axis],
             population_tracers[population_axis], scale_binding,
         )
-        biomass = FluxSpec(
-            population_tracers[population_axis], rate, Weight{1}()
+        push!(
+            fluxes,
+            FluxSpec(population_tracers[population_axis], rate, Weight{1}()),
         )
-        resources = _growth_resource_fluxes(
-            route, named, context, resource_target, source_target, rate, nutrients
-        )
-        push!(fluxes, biomass)
-        append!(fluxes, resources)
+        append!(fluxes, _growth_resource_fluxes(named, context, rate))
     end
     return Tuple(fluxes)
 end

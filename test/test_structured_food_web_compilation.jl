@@ -26,14 +26,13 @@ function food_web_definition()
     processes = (
         growth_autotrophs=Growth(;
             populations=(:P, :M),
+            bindings=(maximum_rate=:maximum_growth_rate,),
             factors=(
                 temperature=temperature,
                 nutrients=NutrientResponse(
                     Monod(); resource=:N, bindings=(K=:nutrient_half_saturation,)
                 ),
-                light=Light(
-                    Smith(); driver=:PAR, bindings=(maximum_rate=:maximum_growth_rate,)
-                ),
+                light=Light(Smith(); driver=:PAR),
             ),
         ),
         consume_POM=Consumption(

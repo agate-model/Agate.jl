@@ -19,6 +19,22 @@ function _factor_input_operand(
     return input_operand(layout, tracer)
 end
 
+_factor_process_operands(
+    ::AbstractFactor, ::CompileContext, ::NamedProcess, ::NamedTuple
+) = ()
+
+function _factor_process_operands(
+    ::Light,
+    context::CompileContext,
+    named::NamedProcess,
+    axis_positions::NamedTuple,
+)
+    binding = parameter_slot_bindings(
+        context.definition, named, (), named.process
+    ).maximum_rate
+    return (parameter_operand(binding, context.plan, axis_positions),)
+end
+
 function _factor_element(
     context::CompileContext,
     named::NamedProcess,
@@ -29,6 +45,9 @@ function _factor_element(
     layout = context.layout
     input_operands = Tuple(
         _factor_input_operand(input, layout, axis_positions) for input in factor_inputs(factor)
+    )
+    process_operands = _factor_process_operands(
+        factor, context, named, axis_positions
     )
     children = factor_children(factor)
     child_operands = if isempty(children)
@@ -57,7 +76,8 @@ function _factor_element(
         parameter_operand(binding, context.plan, axis_positions) for binding in values(slots)
     )
     return FactorElement(
-        formulation(factor), (input_operands..., child_operands..., parameter_operands...)
+        formulation(factor),
+        (input_operands..., process_operands..., child_operands..., parameter_operands...),
     )
 end
 

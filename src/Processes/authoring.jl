@@ -80,7 +80,7 @@ function _canonical_participants(role::Symbol, values)
     return values
 end
 
-"""Light-dependent multiplicative factor in a process rate."""
+"""Light-dependent multiplicative factor using its enclosing process rate scale."""
 struct Light{F<:Union{Smith,Geider}} <: AbstractFactor
     formulation::F
     driver::Symbol
@@ -346,15 +346,18 @@ function _canonical_factors(factors::NamedTuple; allow_empty::Bool=false)
     return NamedTuple{names_tuple}(Tuple(getproperty(factors, name) for name in names))
 end
 
-"""Population growth process whose named top-level factors multiply."""
+"""Population growth process with one process-owned rate scale and named multiplicative factors."""
 struct Growth{F<:NamedTuple,S,T,U} <: AbstractProcess
     populations::Tuple
     factors::F
     source::S
     stoichiometry::T
     state::U
+    bindings::NamedTuple
 
-    function Growth(populations::Tuple, factors::NamedTuple, source, stoichiometry, state)
+    function Growth(
+        populations::Tuple, factors::NamedTuple, source, stoichiometry, state, bindings::NamedTuple
+    )
         canonical = _canonical_factors(factors)
         isnothing(source) || source isa Symbol ||
             throw(ArgumentError("growth `source` must be a Symbol"))
@@ -364,7 +367,7 @@ struct Growth{F<:NamedTuple,S,T,U} <: AbstractProcess
         isnothing(state) || state isa Symbol ||
             throw(ArgumentError("growth `state` must be a Symbol"))
         return new{typeof(canonical),typeof(source),typeof(stoichiometry),typeof(state)}(
-            populations, canonical, source, stoichiometry, state
+            populations, canonical, source, stoichiometry, state, _canonical_bindings(bindings)
         )
     end
 end
@@ -375,10 +378,13 @@ function Growth(;
     source=nothing,
     stoichiometry=nothing,
     state=nothing,
+    bindings::NamedTuple=NamedTuple(),
 )
     population_refs = _canonical_participants(:populations, populations)
-    return Growth(population_refs, factors, source, stoichiometry, state)
+    return Growth(population_refs, factors, source, stoichiometry, state, bindings)
 end
+
+authored_parameter_bindings(process::Growth) = process.bindings
 
 """Independent external nutrient uptake into one population inventory state.
 

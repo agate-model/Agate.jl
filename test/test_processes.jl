@@ -169,7 +169,7 @@ end
     @test_throws MethodError Mortality(Monod(), (:P,), nothing, NamedTuple())
 end
 
-@testset "Normalization owns authored structure" begin
+@testset "Canonicalization owns authored structure" begin
     single = Population(:nitrogen)
     multi = Population(; states=(carbon=:carbon, nitrogen=:nitrogen))
     light = Light(Smith(); driver=:PAR)
@@ -183,29 +183,10 @@ end
 
     cases = (
         (
-            "Growth routing",
+            "Growth nutrient factor",
             one_process(:growth, Growth(; populations=:P, factors=(light=light,)),
                         (P=single, N=Pool(:nitrogen))),
             ("process :growth", "exactly one NutrientResponse or Nutrients"),
-        ),
-        (
-            "Growth maximum-rate owner",
-            one_process(:growth, Growth(; populations=:P, factors=(nutrients=nutrient,)),
-                        (P=single, N=Pool(:nitrogen))),
-            ("process :growth", "exactly one factor that owns the maximum_rate slot"),
-        ),
-        (
-            "Growth ambiguous maximum-rate owner",
-            one_process(
-                :growth,
-                Growth(; populations=:P, factors=(
-                    first_light=light,
-                    nutrients=nutrient,
-                    second_light=Light(Smith(); driver=:PAR),
-                )),
-                (P=single, N=Pool(:nitrogen)),
-            ),
-            ("process :growth", "exactly one factor that owns the maximum_rate slot"),
         ),
         (
             "multi-resource Growth source",
