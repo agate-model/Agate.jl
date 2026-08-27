@@ -158,7 +158,7 @@ end
 
 External `NutrientResponse` children identify resource currencies for fixed-stoichiometry
 growth. Internal `QuotaResponse` children identify cellular quota currencies and affect
-growth rate without transferring those nutrients. A normalized model uses one response
+growth rate without transferring those nutrients. A canonical model uses one response
 category consistently within each `Nutrients` factor.
 """
 struct Nutrients{F<:Union{Liebig,FrankTNorm},R<:NamedTuple} <: AbstractFactor
@@ -516,3 +516,22 @@ participants(process::Consumption) = (consumer=process.consumers, resource=proce
 participants(process::Mortality) = (population=process.populations,)
 participants(process::Remineralization) =
     (source=process.sources, destination=(process.destination,))
+
+"""Author-facing scientific model definition."""
+struct ModelDefinition{C,P,A}
+    components::C
+    processes::P
+    parameters::A
+end
+
+function ModelDefinition(; components::NamedTuple, processes::NamedTuple, parameters=nothing)
+    return ModelDefinition(components, processes, parameters)
+end
+
+function ModelDefinition(family::AbstractModelFamily)
+    return ModelDefinition(;
+        components=default_components(family),
+        processes=default_processes(family),
+        parameters=parameter_definitions(family),
+    )
+end

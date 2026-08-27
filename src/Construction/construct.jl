@@ -20,7 +20,7 @@ using ..Configuration:
 
 
 using ..Processes:
-    ModelDefinition, normalize_model, driver_identities, participants, formulation,
+    ModelDefinition, canonicalize_model, driver_identities, participants, formulation,
     uses_living_interactions, build_parameter_plan, planned_parameter,
     runtime_parameter_values, parameter_plan_metadata, validate_realized_science
 
@@ -435,19 +435,19 @@ function _construct_process_definition(
         isnothing(arch) && (arch = CPU())
     end
 
-    normalized = normalize_model(definition)
+    canonical = canonicalize_model(definition)
     isnothing(derivation_owner) && (derivation_owner = definition)
-    isnothing(definition.parameters) && !isempty(normalized.parameter_bindings) && throw(
+    isnothing(definition.parameters) && !isempty(canonical.parameter_bindings) && throw(
         ArgumentError(
             "construct(definition) requires ModelDefinition.parameters for the declared process parameter slots."
         ),
     )
-    auxiliary_fields = driver_identities(normalized)
+    auxiliary_fields = driver_identities(canonical)
     layout = _realize_process_definition(
-        normalized, T; population_groups, group_diameters, auxiliary_fields
+        canonical, T; population_groups, group_diameters, auxiliary_fields
     )
     tracer_names = layout.tracer_order
-    parameter_plan = build_parameter_plan(normalized, layout)
+    parameter_plan = build_parameter_plan(canonical, layout)
     required = Tuple(keys(parameter_plan.parameters))
     validate_override_keys(parameter_plan, parameter_overrides)
 
@@ -474,7 +474,7 @@ function _construct_process_definition(
     validate_realized_science(parameter_plan, resolved_parameters)
 
     runtime_parameters = runtime_parameter_values(parameter_plan, resolved_parameters)
-    compile_context = CompileContext(normalized, layout, parameter_plan)
+    compile_context = CompileContext(canonical, layout, parameter_plan)
     equations = compile_model_tendencies(compile_context; target_order=tracer_names)
     interaction_axes = interaction_axis_metadata(parameter_plan, layout)
     metadata = model_metadata(

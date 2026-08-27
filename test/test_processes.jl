@@ -21,7 +21,7 @@ using Agate.Processes:
     driver_identities,
     formulation,
     HeterotrophicConsumption,
-    normalize_model,
+    canonicalize_model,
     participants,
     PreferentialGrazing
 
@@ -38,9 +38,9 @@ factor_inputs(::MultiDriverTestFactor) = (
     Agate.Processes.FactorDriver(:temperature),
 )
 
-function normalization_error_message(definition)
+function canonicalization_error_message(definition)
     err = try
-        normalize_model(definition)
+        canonicalize_model(definition)
         nothing
     catch caught
         caught
@@ -49,7 +49,7 @@ function normalization_error_message(definition)
     return err isa Exception ? sprint(showerror, err) : ""
 end
 
-@testset "Process authoring and normalization" begin
+@testset "Process authoring and canonicalization" begin
 
     light = Light(Smith(); driver=:PAR)
     response = NutrientResponse(Monod(); resource=:N)
@@ -71,7 +71,7 @@ end
     )
     @test participants(grazing) == (consumer=(:Z,), resource=(:P, :B))
 
-    shared_driver_model = normalize_model(
+    shared_driver_model = canonicalize_model(
         ModelDefinition(;
             components=(
                 P=Population(:nitrogen), Z=Population(:nitrogen), N=Pool(:nitrogen)
@@ -96,7 +96,7 @@ end
     )
     @test driver_identities(shared_driver_model) == (:PAR,)
 
-    multi_driver_model = normalize_model(ModelDefinition(;
+    multi_driver_model = canonicalize_model(ModelDefinition(;
         components=(P=Population(:nitrogen), N=Pool(:nitrogen)),
         processes=(growth=Growth(;
             populations=:P,
@@ -116,7 +116,7 @@ end
             factors=(nutrients=NutrientResponse(Monod(); resource=:missing),),
         ),),
     )
-    @test_throws ArgumentError normalize_model(invalid_growth)
+    @test_throws ArgumentError canonicalize_model(invalid_growth)
 
     @test_throws MethodError Light(:smith; driver=:PAR)
     @test_throws ArgumentError Growth(; populations=:P, factors=NamedTuple())
@@ -141,7 +141,7 @@ end
             ),
         ),),
     )
-    @test_throws ArgumentError normalize_model(redundant_growth_source)
+    @test_throws ArgumentError canonicalize_model(redundant_growth_source)
 
     wrong_currency = ModelDefinition(;
         components=(
@@ -162,7 +162,7 @@ end
             stoichiometry=FixedStoichiometry(; reference=:carbon),
         ),),
     )
-    @test_throws ArgumentError normalize_model(wrong_currency)
+    @test_throws ArgumentError canonicalize_model(wrong_currency)
 
     # Invalid built-in formulation combinations are rejected by their concrete objects.
     @test_throws MethodError Light(Monod(), :PAR, NamedTuple())
@@ -302,7 +302,7 @@ end
 
     for (label, definition, fragments) in cases
         @testset "$label" begin
-            message = normalization_error_message(definition)
+            message = canonicalization_error_message(definition)
             @test all(fragment -> occursin(fragment, message), fragments)
         end
     end
@@ -326,7 +326,7 @@ end
     )
     for (label, parameters, fragment) in parameter_cases
         @testset "$label" begin
-            message = normalization_error_message(ModelDefinition(;
+            message = canonicalization_error_message(ModelDefinition(;
                 components=NamedTuple(), processes=NamedTuple(), parameters
             ))
             @test occursin(fragment, message)
@@ -337,7 +337,7 @@ end
 @testset "NiPiZD parameter definition validation" begin
     family = Agate.Models.NiPiZD.NiPiZDFamily()
     for parameters in ((), (invalid=1,))
-        @test_throws ArgumentError normalize_model(ModelDefinition(;
+        @test_throws ArgumentError canonicalize_model(ModelDefinition(;
             components=default_components(family),
             processes=default_processes(family),
             parameters,
@@ -380,14 +380,14 @@ end
     @test_throws MethodError Parameter(ConstantDefault(0.1); axes=:plankton)
     @test_throws ArgumentError MetaParameter(ConstantDefault(0.1); axes=:consumer)
 
-    meta_bound_error = normalization_error_message(ModelDefinition(;
+    meta_bound_error = canonicalization_error_message(ModelDefinition(;
         components=(P=components.P, Z=components.Z),
         processes=(mortality=shared,),
         parameters=(shared_mortality=MetaParameter(ConstantDefault(0.1); axes=:plankton),),
     ))
     @test occursin("construction-only and cannot bind to a process slot", meta_bound_error)
 
-    incompatible_axes_error = normalization_error_message(ModelDefinition(;
+    incompatible_axes_error = canonicalization_error_message(ModelDefinition(;
         components=(P=components.P, Z=components.Z, D=components.D),
         processes=(
             mortality=shared,
@@ -417,7 +417,7 @@ end
         ),
         parameters=(rate=Parameter(ConstantDefault(0.1)),),
     )
-    @test_throws ArgumentError normalize_model(accidental)
+    @test_throws ArgumentError canonicalize_model(accidental)
 
     missing_qualifier = ModelDefinition(;
         components=(D=components.D, E=components.E),
@@ -431,7 +431,7 @@ end
         ),
         parameters=(remineralization_rate=Parameter(ConstantDefault(0.2)),),
     )
-    @test_throws ArgumentError normalize_model(missing_qualifier)
+    @test_throws ArgumentError canonicalize_model(missing_qualifier)
 
     unknown = ModelDefinition(;
         components=(P=components.P,),
@@ -444,7 +444,7 @@ end
         ),
         parameters=(shared_mortality=Parameter(ConstantDefault(0.1)),),
     )
-    @test_throws ArgumentError normalize_model(unknown)
+    @test_throws ArgumentError canonicalize_model(unknown)
 
     unknown_zero_slot = ModelDefinition(;
         components=(P=components.P, D=components.D),
@@ -463,7 +463,7 @@ end
         ),
         parameters=(K=Parameter(ConstantDefault(0.1)),),
     )
-    @test_throws ArgumentError normalize_model(unknown_zero_slot)
+    @test_throws ArgumentError canonicalize_model(unknown_zero_slot)
 
     single_mortality = Mortality(
         Agate.Processes.LinearMortality();
@@ -481,7 +481,7 @@ end
         ),
     )
     for (parameters, fragment) in lifecycle_cases
-        message = normalization_error_message(ModelDefinition(;
+        message = canonicalization_error_message(ModelDefinition(;
             components=(P=components.P,),
             processes=(mortality=single_mortality,),
             parameters,

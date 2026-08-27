@@ -18,7 +18,7 @@ end
 """Canonical named scientific processes for a registered model family.
 
 The keys are stable process-instance identities. Process declarations describe
-scientific topology and are normalized before runtime realization.
+scientific topology and are canonicalized before runtime realization.
 """
 function default_processes(::AbstractModelFamily)
     throw(

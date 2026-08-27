@@ -9,11 +9,11 @@ A process-defined model moves through five stages:
 1. **Definition** (`Configuration/`, `Processes/`, and `Parameters/`).
    `Population` and `Pool` components describe state identity and structure. A population owns ecological classes and may carry one or more aligned prognostic states. Named processes describe scientific transformations and bind formulation-local parameter slots directly to stable model-parameter names. The keyed parameter block owns each parameter's default and storage policy.
 
-2. **Normalization and realization** (`Processes/` and `Configuration/`).
-   Agate canonicalizes process identity and factor order, realizes ecological classes separately from concrete prognostic tracers, discovers process drivers, and resolves process-local participant axes.
+2. **Validation, canonicalization, and realization** (`Processes/` and `Configuration/`).
+   Agate validates scientific references and structural compatibility, canonicalizes process identity and factor order, realizes ecological classes separately from concrete prognostic tracers, discovers process drivers, and resolves process-local participant axes.
 
 3. **Flux compilation** (`Compilation/`).
-   A setup-time compile context carries the normalized definition, realized layout, and parameter plan through lowering. Validated Growth routing is represented by typed normalized routing variants rather than symbolic mode flags. Each named process produces generic target + rate + weight flux specifications, which are grouped by target tracer and lowered into static compiled equations with no target symbols or process metadata in runtime terms.
+   A setup-time compile context carries the canonical definition, realized layout, and parameter plan through lowering. Validated Growth routing is represented by typed canonical routing variants rather than symbolic mode flags. Each named process produces generic target + rate + weight flux specifications, which are grouped by target tracer and lowered into static compiled equations with no target symbols or process metadata in runtime terms.
 
 4. **Construction and replay** (`Construction/`).
    Direct `ModelDefinition` construction resolves defaults and overrides from the model definition. Named model families such as NiPiZD and DARWIN use the same definition-driven core while adding durable recipe/replay identity. Recipes record a registered family, its exact scientific definition version, and the canonical realization inputs required by the family constructor; replay then follows the normal family construction path.
@@ -29,7 +29,7 @@ components
 + keyed parameters
         |
         v
-normalization
+validation + canonicalization
         |
         v
 process-local topology + parameter bindings
@@ -50,10 +50,10 @@ lean runtime
 ## Custom process extension boundary
 
 Custom process implementations that need new flux topology can extend
-`Processes.normalize_process_facts` to attach setup-validated facts to an `AbstractProcess` and
+`Processes.process_facts` to attach setup-validated facts to an `AbstractProcess` and
 `Compilation.process_fluxes` to lower the resulting `NamedProcess` using the shared
-`CompileContext`. Custom processes otherwise follow the same model-definition, normalization,
-parameter-planning, construction, and runtime pipeline as built-in processes. Formulations and
+`CompileContext`. Custom processes otherwise follow the same model-definition, validation,
+canonicalization, parameter-planning, construction, and runtime pipeline as built-in processes. Formulations and
 factors use the same method-based slot/input/rate protocol.
 
 ## Scientific boundaries
@@ -69,7 +69,7 @@ Named factors are multiplicative within a process, while independent named proce
 ```text
 src/
 |-- Configuration/         # components, realization, interactions
-|-- Processes/             # process authoring, parameter schema, normalization
+|-- Processes/             # process authoring, validation, canonicalization, parameter schema
 |-- Compilation/           # runtime IR, process flux lowering, static compilation
 |-- ModelFamilies/         # registered family identity and canonical definitions
 |-- Parameters/            # keyed parameters, defaults, and storage policy

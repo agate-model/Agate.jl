@@ -75,7 +75,7 @@ function _layout_axis_classes(layout::ModelLayout, components::Tuple)
 end
 
 function _resolved_binding_axis_classes(
-    definition::NormalizedModelDefinition, layout::ModelLayout
+    definition::CanonicalModelDefinition, layout::ModelLayout
 )
     return map(definition.parameter_bindings) do binding
         process = getproperty(definition.processes, binding.process)
@@ -121,7 +121,7 @@ _planned_parameter_axes(definition, name, parameter::MetaParameter) =
 function _planned_parameter_axes(definition, name, parameter::Parameter)
     index = findfirst(binding -> binding.parameter === name, definition.parameter_bindings)
     isnothing(index) && throw(ArgumentError(
-        "Parameter :$name has no scientific slot binding after normalization",
+        "Parameter :$name has no scientific slot binding after canonicalization",
     ))
     return definition.parameter_bindings[index].axes
 end
@@ -158,7 +158,7 @@ function _storage_diameters(rank, labels, diameter_by_class)
 end
 
 
-function _runtime_binding(definition::NormalizedModelDefinition, binding::ParameterBinding)
+function _runtime_binding(definition::CanonicalModelDefinition, binding::ParameterBinding)
     binding.slot === :fraction || return true
     named = getproperty(definition.processes, binding.process)
     products = process_products(named.process)
@@ -303,7 +303,7 @@ function _quota_science_checks(definition, layout, slot_lookup)
     return Tuple(checks)
 end
 
-function _product_fraction_checks(definition::NormalizedModelDefinition)
+function _product_fraction_checks(definition::CanonicalModelDefinition)
     checks = Any[]
     for named in values(definition.processes)
         products = process_products(named.process)
@@ -322,7 +322,7 @@ function _product_fraction_checks(definition::NormalizedModelDefinition)
 end
 
 """Build the authoritative realized parameter plan after `ModelLayout` exists."""
-function build_parameter_plan(definition::NormalizedModelDefinition, layout::ModelLayout)
+function build_parameter_plan(definition::CanonicalModelDefinition, layout::ModelLayout)
     definitions = isnothing(definition.parameters) ? (;) : definition.parameters
     binding_classes = _resolved_binding_axis_classes(definition, layout)
     diameters = _diameter_by_class(layout)

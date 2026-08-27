@@ -37,8 +37,8 @@ names with `bindings=(...)`. Omitted slots bind by the same name; a `Symbol` exp
 or shares one parameter, while a one-level qualifier map handles repeated slots such as
 source-specific remineralization. Formulation and factor authoring is method-based rather than
 registry-based. Custom process topologies can extend Agate through the narrow
-`Processes.normalize_process_facts` and `Compilation.process_fluxes` hooks, keeping custom
-topology in the same normalization and construction pipeline as built-in processes. Durable recipes
+`Processes.process_facts` and `Compilation.process_fluxes` hooks, keeping custom topology in the
+same validation, canonicalization, and construction pipeline as built-in processes. Durable recipes
 identify a registered family and its version rather than serializing process or formulation objects.
 
 ```@docs
@@ -83,14 +83,14 @@ Agate.Configuration.AssimilationBinary
 ### Custom process extension
 
 Custom process implementations attach setup-validated facts with
-`Processes.normalize_process_facts` and lower a `NamedProcess` with
+`Processes.process_facts` and lower a `NamedProcess` with
 `Compilation.process_fluxes` using the shared `CompileContext`. This keeps extension code in the
-same construction pipeline as built-in processes while leaving normalization and compiler
+same construction pipeline as built-in processes while leaving canonicalization and compiler
 representation details internal to setup.
 
 ```@docs
 Agate.Processes.NamedProcess
-Agate.Processes.normalize_process_facts
+Agate.Processes.process_facts
 Agate.Compilation.CompileContext
 Agate.Compilation.process_fluxes
 ```

@@ -1,4 +1,4 @@
-"""Scientific process authoring and setup-time normalization."""
+"""Scientific process authoring and setup-time validation and canonicalization."""
 module Processes
 
 using ..Configuration: Population, Pool, PopulationStateRef, ModelLayout, currency, state_currency,
@@ -32,7 +32,8 @@ export parameter_slots
 include("authoring.jl")
 include("parameter_schema.jl")
 include("rates.jl")
-include("normalization.jl")
+include("validation.jl")
+include("canonicalization.jl")
 include("parameter_plan.jl")
 
 end # module Processes

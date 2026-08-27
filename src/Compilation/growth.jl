@@ -110,7 +110,7 @@ function process_fluxes(
     route = named.facts.routing
     nutrients = _growth_resource_factor(named)
     layout = context.layout
-    population_tracers = _realize_normalized_population_states(
+    population_tracers = _realize_population_states(
         named.facts.population_states, layout
     )
     resource_target = _growth_resource_target(route, nutrients, layout)

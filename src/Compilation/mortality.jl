@@ -29,7 +29,7 @@ function process_fluxes(
 
     for reference in named.facts.population_states
         population = reference.population
-        population_tracers = _realize_normalized_population_states((reference,), context.layout)
+        population_tracers = _realize_population_states((reference,), context.layout)
         slots = _mortality_slots(context, named, population)
         for population_axis in eachindex(population_tracers)
             rate = _mortality_rate(

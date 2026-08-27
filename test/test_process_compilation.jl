@@ -12,7 +12,7 @@ Agate.Processes.formulation(::ExtensionTransfer) = ExtensionTransferRate()
 Agate.Processes.participants(process::ExtensionTransfer) = (
     source=(process.source,), destination=(process.destination,)
 )
-Agate.Processes.normalize_process_facts(
+Agate.Processes.process_facts(
     process::ExtensionTransfer, ::Symbol, ::NamedTuple
 ) = (; source=process.source, destination=process.destination)
 Agate.Processes.process_rate(::ExtensionTransferRate, source) = source

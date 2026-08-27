@@ -5,7 +5,7 @@ using Agate.Parameters: Parameter
 using Agate.Processes:
     FixedStoichiometry, Growth, Liebig, Light, ModelDefinition, Monod, NormalizedDroop,
     NutrientResponse, Nutrients, NutrientUptake, QuotaRegulatedMonod, QuotaResponse, Smith,
-    normalize_model
+    canonicalize_model
 
 
 quota_components() = (
@@ -91,9 +91,9 @@ quota_definition() = ModelDefinition(;
     components=quota_components(), processes=quota_processes(), parameters=quota_parameters()
 )
 
-function quota_normalization_error(definition)
+function quota_canonicalization_error(definition)
     error = try
-        normalize_model(definition)
+        canonicalize_model(definition)
         nothing
     catch caught
         caught
@@ -102,7 +102,7 @@ function quota_normalization_error(definition)
     return error isa Exception ? sprint(showerror, error) : ""
 end
 
-@testset "Quota structural errors fail during normalization" begin
+@testset "Quota structural errors fail during canonicalization" begin
     components = quota_components()
     light = quota_processes().growth.factors.light
     valid_nitrogen = quota_response(
@@ -191,7 +191,7 @@ end
     )
 
     for (definition, fragments) in cases
-        message = quota_normalization_error(definition)
+        message = quota_canonicalization_error(definition)
         @test all(fragment -> occursin(fragment, message), fragments)
     end
 end

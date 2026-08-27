@@ -11,7 +11,7 @@ function _consumption_resources(
     resources::Tuple,
     layout::ModelLayout,
 )
-    return _realize_normalized_population_states(resources, layout)
+    return _realize_population_states(resources, layout)
 end
 
 function _consumption_resources(
@@ -74,7 +74,7 @@ function process_fluxes(
     process = named.process
     formulation = process.formulation
     layout = context.layout
-    consumer_tracers = _realize_normalized_population_states(
+    consumer_tracers = _realize_population_states(
         named.facts.consumer_states, layout
     )
     resource_tracers = _consumption_resources(formulation, named.facts.resources, layout)

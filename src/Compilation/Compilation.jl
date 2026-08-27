@@ -25,7 +25,7 @@ using ..Processes:
     MultiResourceRouting,
     PreferentialGrazing,
     Products,
-    NormalizedModelDefinition,
+    CanonicalModelDefinition,
     NutrientResponse,
     formulation,
     factors,

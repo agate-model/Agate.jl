@@ -1,11 +1,11 @@
 """Setup-time context shared by process lowering and static tendency compilation."""
-struct CompileContext{D<:NormalizedModelDefinition,L<:ModelLayout,P<:ParameterPlan}
+struct CompileContext{D<:CanonicalModelDefinition,L<:ModelLayout,P<:ParameterPlan}
     definition::D
     layout::L
     plan::P
 end
 
-"""Lower one normalized process to generic fluxes.
+"""Lower one canonical process to generic fluxes.
 
 Custom process implementations may extend this hook for a concrete `NamedProcess` subtype.
 """
@@ -34,7 +34,7 @@ function input_operand(layout::ModelLayout, identity::Symbol)
     return InputOp{getproperty(layout.input_indices, identity)}()
 end
 
-"""Resolve one normalized parameter slot through its precomputed `ParameterPlan` mapping."""
+"""Resolve one canonical parameter slot through its precomputed `ParameterPlan` mapping."""
 function parameter_operand(
     binding::ParameterBinding,
     plan::ParameterPlan,
@@ -66,7 +66,7 @@ function _scalar_component_target(layout::ModelLayout, component::Symbol)
     return only(tracers)
 end
 
-function _realize_normalized_population_states(references::Tuple, layout::ModelLayout)
+function _realize_population_states(references::Tuple, layout::ModelLayout)
     tracers = Symbol[]
     for reference in references
         classes = component_classes(layout, reference.population)
@@ -104,7 +104,7 @@ end
 """Compile each grouped target flux tuple into a concrete tracer equation."""
 compile_tendencies(grouped::NamedTuple) = map(compile_tendency, grouped)
 
-"""Derive all generic process fluxes for a normalized model."""
+"""Derive all generic process fluxes for a canonical model."""
 function model_fluxes(context::CompileContext)
     fluxes = Any[]
     for named in values(context.definition.processes)
@@ -113,7 +113,7 @@ function model_fluxes(context::CompileContext)
     return Tuple(fluxes)
 end
 
-"""Compile a normalized model into one static equation per requested concrete tracer."""
+"""Compile a canonical model into one static equation per requested concrete tracer."""
 function compile_model_tendencies(context::CompileContext; target_order::Tuple)
     return compile_tendencies(group_fluxes(model_fluxes(context); target_order))
 end
