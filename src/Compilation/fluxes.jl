@@ -1,16 +1,11 @@
 """Static operand that reads one pre-indexed tracer or auxiliary input."""
-struct InputOp{S,I} end
+struct InputOp{I} end
 
 """Static operand that reads one pre-indexed runtime parameter value."""
 struct ParameterOp{S,I} end
 
-"""Static operand whose value is one minus another operand."""
-struct ComplementOp{O}
-    operand::O
-end
-
 """Static operand whose value is one minus the sum of child operands."""
-struct OneMinusSumOp{O}
+struct RemainderOp{O}
     operands::O
 end
 
@@ -19,15 +14,10 @@ struct TupleOp{O}
     operands::O
 end
 
-@inline operand_value(::InputOp{S,I}, bgc, args) where {S,I} = @inbounds args[I]
+@inline operand_value(::InputOp{I}, bgc, args) where {I} = @inbounds args[I]
 @inline operand_value(::ParameterOp{S,()}, bgc, args) where {S} = getproperty(bgc.parameters, S)
 @inline operand_value(::ParameterOp{S,I}, bgc, args) where {S,I} =
     @inbounds getproperty(bgc.parameters, S)[I...]
-
-@inline function operand_value(op::ComplementOp, bgc, args)
-    value = operand_value(op.operand, bgc, args)
-    return one(value) - value
-end
 
 @inline function _operand_sum(operands::Tuple{T}, bgc, args) where {T}
     return operand_value(first(operands), bgc, args)
@@ -37,7 +27,7 @@ end
     return operand_value(first(operands), bgc, args) + _operand_sum(Base.tail(operands), bgc, args)
 end
 
-@inline function operand_value(op::OneMinusSumOp, bgc, args)
+@inline function operand_value(op::RemainderOp, bgc, args)
     total = _operand_sum(op.operands, bgc, args)
     return one(total) - total
 end
@@ -128,12 +118,10 @@ end
 
 """Resolve one tracer or auxiliary identity to its final positional runtime input."""
 function input_operand(layout::ModelLayout, identity::Symbol)
-    if hasproperty(layout.tracer_indices, identity)
-        return InputOp{identity,getproperty(layout.tracer_indices, identity)}()
-    elseif hasproperty(layout.auxiliary_indices, identity)
-        return InputOp{identity,getproperty(layout.auxiliary_indices, identity)}()
-    end
-    throw(ArgumentError("unknown realized tracer or auxiliary input :$identity"))
+    hasproperty(layout.input_indices, identity) || throw(
+        ArgumentError("unknown realized tracer or auxiliary input :$identity"),
+    )
+    return InputOp{getproperty(layout.input_indices, identity)}()
 end
 
 """Resolve one normalized parameter slot through its precomputed `ParameterPlan` mapping."""

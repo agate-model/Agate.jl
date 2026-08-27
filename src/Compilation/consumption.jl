@@ -114,7 +114,7 @@ function process_fluxes(
                     fluxes,
                     _product_fluxes(
                         named, definition, process.products, layout, plan, rate;
-                        suffix=(ComplementOp(assimilation),),
+                        suffix=(RemainderOp((assimilation,)),),
                     ),
                 )
             end

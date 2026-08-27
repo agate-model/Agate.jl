@@ -81,12 +81,11 @@ end
 tracers, class diameters, interaction axes, and auxiliary input positions. It is constructed
 once and consumed by parameter planning, compilation, manifests, and host-side metadata.
 """
-struct ModelLayout{T<:Real,TR,TI,AF,AI,CC,CST,CT,CD,CS,GI,D,CO,PR}
+struct ModelLayout{T<:Real,TR,AF,II,CC,CST,CT,CD,CS,GI,D,CO,PR}
     scalar_type::Type{T}
     tracer_order::TR
-    tracer_indices::TI
     auxiliary_fields::AF
-    auxiliary_indices::AI
+    input_indices::II
     component_classes::CC
     component_state_tracers::CST
     component_tracers::CT
@@ -449,17 +448,14 @@ function realize_model_layout(
 
     tracer_order_tuple = Tuple(tracer_order)
     _validate_auxiliary_fields(auxiliary_fields, tracer_order_tuple)
-    tracer_indices = NamedTuple{tracer_order_tuple}(Tuple(eachindex(tracer_order_tuple)))
-    auxiliary_indices = NamedTuple{auxiliary_fields}(
-        ntuple(i -> length(tracer_order_tuple) + i, length(auxiliary_fields))
-    )
+    input_names = (tracer_order_tuple..., auxiliary_fields...)
+    input_indices = NamedTuple{input_names}(Tuple(eachindex(input_names)))
 
     return ModelLayout(
         T,
         tracer_order_tuple,
-        tracer_indices,
         auxiliary_fields,
-        auxiliary_indices,
+        input_indices,
         component_classes_values,
         component_state_tracers_values,
         component_tracers_values,

@@ -34,8 +34,7 @@ function _product_fraction_operand(
         )
         for name in explicit_products
     )
-    length(operands) == 1 && return ComplementOp(only(operands))
-    return OneMinusSumOp(operands)
+    return RemainderOp(operands)
 end
 
 function _product_ratio_binding(

@@ -10,7 +10,8 @@ using Agate.Processes:
 
     input = input_operand(layout, :P_1)
     @test input isa InputOp
-    @test typeof(input).parameters[2] isa Int
+    @test only(typeof(input).parameters) isa Int
+    @test only(typeof(input_operand(layout, :PAR)).parameters) == length(layout.tracer_order) + 1
 
     growth_flux = first(process_fluxes(
         normalized.processes.growth_P, normalized, layout, plan
