@@ -1,6 +1,6 @@
 using Test
 
-using Agate.Configuration: Population, Pool, population_state, realize_components
+using Agate.Configuration: Population, Pool, population_state, realize_model_layout
 using Agate.Construction:
     ProcessModelRecipe, capture_process_model_recipe, decode_recipe, encode_recipe, replay_family
 using Agate.ModelFamilies: AbstractModelFamily
@@ -153,7 +153,7 @@ end
     @test explicit_state.processes.growth.facts.population_states ==
         (population_state(:P, :carbon),)
 
-    layout = realize_components(
+    layout = realize_model_layout(
         definition.components;
         scalar_type=Float64,
         auxiliary_fields=driver_identities(normalized),

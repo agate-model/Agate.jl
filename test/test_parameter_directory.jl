@@ -122,7 +122,7 @@ parameter_definitions(::DerivedDefaultFixture) = (
             ),),
             parameters=parameter_definitions(source),
         ))
-        layout = Agate.Configuration.realize_components(components; scalar_type=Float64)
+        layout = Agate.Configuration.realize_model_layout(components; scalar_type=Float64)
 
         plan = Agate.Processes.build_parameter_plan(normalized, layout)
         @test plan.derived_order == (:middle, :top)

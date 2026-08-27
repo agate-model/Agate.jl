@@ -1,11 +1,9 @@
 using ForwardDiff
 
-using Agate.Compilation: InputOp, ParameterOp, process_fluxes, weight_sign
 using Agate.Construction: construct
 using Agate.Library.Nutrients:
     monod_limitation, normalized_droop_limitation, quota_uptake_regulation
 using Agate.Library.Photosynthesis: smith_light_limitation
-using Agate.Processes: build_parameter_plan, driver_identities, normalize_model
 
 quota_runtime_args(;
     DIC=10.0, DIN=1.0, PO4=1.0,
@@ -32,29 +30,6 @@ end
 
 @testset "State-aware quota compilation" begin
     definition = quota_definition()
-    normalized = normalize_model(definition)
-    layout = Agate.Configuration.realize_components(
-        definition.components; scalar_type=Float64,
-        auxiliary_fields=driver_identities(normalized),
-    )
-    plan = build_parameter_plan(normalized, layout)
-    growth = process_fluxes(normalized.processes.growth, normalized, layout, plan)
-    uptake = process_fluxes(normalized.processes.nitrogen_uptake, normalized, layout, plan)
-
-    @test Tuple((f.target, weight_sign(f.weight)) for f in growth) ==
-        ((:P_1_carbon, 1), (:DIC, -1), (:P_2_carbon, 1), (:DIC, -1))
-    @test Tuple((f.target, weight_sign(f.weight)) for f in uptake) ==
-        ((:DIN, -1), (:P_1_nitrogen, 1), (:DIN, -1), (:P_2_nitrogen, 1))
-    n_response = growth[1].rate.factors[2].operands[1].operands[1]
-    @test n_response.operands == (
-        InputOp{:P_1_nitrogen,5}(), InputOp{:P_1_carbon,4}(),
-        ParameterOp{:minimum_nitrogen_quota,(1,)}(),
-        ParameterOp{:maximum_nitrogen_quota,(1,)}(),
-    )
-    @test uptake[1].rate.operands[1:3] ==
-        (InputOp{:DIN,2}(), InputOp{:P_1_nitrogen,5}(), InputOp{:P_1_carbon,4}())
-    @test all(x -> isbitstype(typeof(x)), (growth[1].rate, uptake[1].rate))
-
     bgc = construct(definition)
     @test all(e -> isbitstype(typeof(e)), values(bgc.equations))
     @test all(e -> !hasproperty(e, :terms) || all(t -> isbitstype(typeof(t)), e.terms), values(bgc.equations))

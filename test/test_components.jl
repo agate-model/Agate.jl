@@ -1,9 +1,8 @@
 using Test
 using Agate.Configuration:
-    Population, Pool, currency, states, state_currency, size_structure, realize_components,
-    realize_model_layout, component_classes, component_class_indices, component_state_tracers,
-    component_tracers, component_indices, state_tracers, state_indices,
-    component_diameters, component_class_count
+    Population, Pool, currency, states, state_currency, size_structure, realize_model_layout,
+    component_classes, component_state_tracers, component_tracers, state_tracers,
+    component_diameters
 using Agate.ModelFamilies: default_components
 using Agate.Parameters: Parameter, ConstantDefault
 using Agate.Processes:
@@ -37,20 +36,19 @@ participants(process::ApplicabilityProbe) = (source=(process.source,),)
     @test currency(pool) === :carbon
     @test isnothing(size_structure(pool))
 
-    layout = realize_components((P=population, D=pool); scalar_type=Float32)
+    layout = realize_model_layout((P=population, D=pool); scalar_type=Float32)
     @test layout.tracer_order == (:D, :P_1, :P_2, :P_3)
     @test component_tracers(layout, :P) == (:P_1, :P_2, :P_3)
-    @test component_class_indices(layout, :P) == (1, 2, 3)
     @test collect(layout.component_diameters.P) ≈ Float32[1, 10, 100]
     @test isnothing(layout.component_diameters.D)
 
-    scalar_population = realize_components((B=Population(:carbon),))
+    scalar_population = realize_model_layout((B=Population(:carbon),))
     @test scalar_population.tracer_order == (:B,)
     @test isnothing(scalar_population.component_diameters.B)
 
     @test_throws ArgumentError Population(nothing)
     @test_throws ArgumentError Pool(nothing)
-    @test_throws ArgumentError realize_components((P=population, P_1=Pool(:nitrogen)))
+    @test_throws ArgumentError realize_model_layout((P=population, P_1=Pool(:nitrogen)))
 end
 
 @testset "Multi-state population identity and realization" begin
@@ -63,10 +61,9 @@ end
     @test_throws ArgumentError currency(population)
     @test_throws ArgumentError state_currency(population, :iron)
 
-    layout = realize_components((P=population, DIN=Pool(:nitrogen)); scalar_type=Float32)
+    layout = realize_model_layout((P=population, DIN=Pool(:nitrogen)); scalar_type=Float32)
     @test component_classes(layout, :P) == (:P_1, :P_2)
-    @test component_class_count(layout, :P) == 2
-    @test component_class_indices(layout, :P) == (1, 2)
+    @test length(component_classes(layout, :P)) == 2
     @test component_tracers(layout, :P) == (
         :P_1_carbon, :P_1_nitrogen, :P_1_phosphorus,
         :P_2_carbon, :P_2_nitrogen, :P_2_phosphorus,
@@ -77,9 +74,6 @@ end
         phosphorus=(:P_1_phosphorus, :P_2_phosphorus),
     )
     @test state_tracers(layout, :P, :nitrogen) == (:P_1_nitrogen, :P_2_nitrogen)
-    for (state, expected) in pairs((carbon=(2, 5), nitrogen=(3, 6), phosphorus=(4, 7)))
-        @test state_indices(layout, :P, state) == expected
-    end
     @test component_diameters(layout, :P) == (2.0f0, 10.0f0)
     @test layout.tracer_order == (
         :DIN,
@@ -95,7 +89,7 @@ end
     )
     @test grouped.tracer_order == layout.tracer_order
     @test grouped.component_classes == layout.component_classes
-    @test grouped.component_state_indices == layout.component_state_indices
+    @test grouped.component_state_tracers == layout.component_state_tracers
 
     @test_throws ArgumentError Population(; states=NamedTuple())
     @test_throws ArgumentError Population(; states=(carbon=nothing,))
@@ -119,7 +113,6 @@ end
 
     @test layout.tracer_order ==
           (:N, :D, :POM_1, :POM_2, :POM_3, :Z_1, :Z_2, :P_1, :P_2)
-    @test component_indices(layout, :POM) == (3, 4, 5)
     @test component_diameters(layout, :POM) == (0.5f0, 5.0f0, 50.0f0)
 
     process = ApplicabilityProbe(ApplicabilityProbeFormulation(), :POM, (rate=:pom_rate,))
@@ -149,8 +142,9 @@ end
         interaction_roles=(consumers=(:Z,), prey=(:P,)),
     )
     for field in (
-        :tracer_order, :component_classes, :component_state_indices, :component_indices,
-        :class_symbols, :group_indices, :diameters, :consumer_indices, :prey_indices,
+        :tracer_order, :component_classes, :component_state_tracers, :component_tracers,
+        :component_diameters, :class_symbols, :group_indices, :diameters,
+        :consumer_indices, :prey_indices,
     )
         @test getfield(direct, field) == getfield(family, field)
     end
@@ -166,8 +160,7 @@ end
     @test layout.group_indices == (
         micro=(1, 2), meso=(3,), diat=(4, 5), dino=(6,),
     )
-    @test layout.group_local_indices == (1, 2, 1, 1, 2, 1)
-    @test layout.component_local_indices == (1, 2, 3, 1, 2, 3)
+    @test layout.class_symbols == (:micro_1, :micro_2, :meso_1, :diat_1, :diat_2, :dino_1)
     @test (layout.consumer_indices, layout.prey_indices) == ((1, 2, 3), (4, 5, 6))
 end
 

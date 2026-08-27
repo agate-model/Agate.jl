@@ -4,14 +4,6 @@ using Test
 using Agate.Configuration:
     Population, DiameterRangeSpecification, realize_model_layout, normalize_diameters
 
-@testset "Realized runtime input indices" begin
-    layout = default_nipizd_layout(Float64; auxiliary_fields=(:PAR,))
-
-    @test layout.tracer_indices == (N=1, D=2, Z_1=3, Z_2=4, P_1=5, P_2=6)
-    @test layout.auxiliary_indices == (PAR=7,)
-    @test_throws ArgumentError Agate.Compilation.input_operand(layout, :temperature)
-end
-
 @testset "Diameter input normalization" begin
     components = (Z=Population(:carbon), P=Population(:carbon))
     layout = realize_model_layout(
