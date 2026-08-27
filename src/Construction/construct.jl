@@ -16,7 +16,8 @@ using ..Parameters:
     derive_default
 
 using ..Configuration:
-    interaction_axis_metadata, realize_model_layout, model_metadata, Population
+    canonicalize_population_realization, interaction_axis_metadata, realize_model_layout,
+    model_metadata
 
 
 using ..Processes:
@@ -366,13 +367,6 @@ function resolve_parameter_defaults(
     return resolved
 end
 
-function _intrinsic_population_groups(components::NamedTuple)
-    names = Tuple(
-        name for name in keys(components) if getproperty(components, name) isa Population
-    )
-    return NamedTuple{names}(Tuple((name,) for name in names))
-end
-
 function _realize_process_definition(
     definition,
     ::Type{T};
@@ -380,23 +374,15 @@ function _realize_process_definition(
     group_diameters=nothing,
     auxiliary_fields::Tuple=(),
 ) where {T<:Real}
-    intrinsic = isnothing(population_groups) && isnothing(group_diameters)
-    xor(isnothing(population_groups), isnothing(group_diameters)) && throw(
-        ArgumentError("population_groups and group_diameters must be supplied together."),
+    population_groups, group_diameters = canonicalize_population_realization(
+        definition.components, population_groups, group_diameters
     )
-    groups = intrinsic ? _intrinsic_population_groups(definition.components) : population_groups
-    interaction_roles = _process_interaction_roles(definition, groups)
-
-    if intrinsic
-        return realize_model_layout(
-            definition.components; scalar_type=T, interaction_roles, auxiliary_fields
-        )
-    end
+    interaction_roles = _process_interaction_roles(definition, population_groups)
     return realize_model_layout(
-        definition.components;
-        scalar_type=T,
+        definition.components,
         population_groups,
-        group_diameters,
+        group_diameters;
+        scalar_type=T,
         interaction_roles,
         auxiliary_fields,
     )

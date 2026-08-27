@@ -161,15 +161,14 @@ end
 component_diameters(layout::ModelLayout, component::Symbol) =
     _component_value(layout, :component_diameters, component)
 
-function _canonical_population_realization(
+function canonicalize_population_realization(
     components::NamedTuple,
-    population_groups,
-    group_diameters;
-    intrinsic::Bool,
+    population_groups=nothing,
+    group_diameters=nothing,
 )
     population_names = _population_names(components)
 
-    if intrinsic
+    if isnothing(population_groups) && isnothing(group_diameters)
         groups = NamedTuple{population_names}(Tuple((name,) for name in population_names))
         diameters = NamedTuple{population_names}(ntuple(length(population_names)) do i
             name = population_names[i]
@@ -181,6 +180,10 @@ function _canonical_population_realization(
         end)
         return groups, diameters
     end
+
+    xor(isnothing(population_groups), isnothing(group_diameters)) && throw(
+        ArgumentError("population_groups and group_diameters must be supplied together"),
+    )
 
     population_groups isa NamedTuple || throw(
         ArgumentError("population_groups must be a NamedTuple"),
@@ -294,29 +297,17 @@ function _check_new_identities!(
     return nothing
 end
 
-"""Realize authored components and optional registered-family subgroup inputs into one `ModelLayout`.
-
-When subgroup inputs are omitted, each population's intrinsic `size_structure` is used.
-Registered families supply `population_groups` and `group_diameters`; both paths then share
-the same append/indexing pass and downstream representation.
-"""
+"""Realize canonical population/group inputs into one `ModelLayout`."""
 function realize_model_layout(
-    components::NamedTuple;
+    components::NamedTuple,
+    population_groups::NamedTuple,
+    group_diameters::NamedTuple;
     scalar_type::Type{T}=Float64,
-    population_groups=nothing,
-    group_diameters=nothing,
     interaction_roles=nothing,
     auxiliary_fields::Tuple=(),
 ) where {T<:Real}
     all(component -> component isa Union{Population,Pool}, values(components)) || throw(
         ArgumentError("all model components must be Population or Pool values"),
-    )
-    intrinsic = isnothing(population_groups) && isnothing(group_diameters)
-    xor(isnothing(population_groups), isnothing(group_diameters)) && throw(
-        ArgumentError("population_groups and group_diameters must be supplied together"),
-    )
-    population_groups, group_diameters = _canonical_population_realization(
-        components, population_groups, group_diameters; intrinsic
     )
 
     component_names = keys(components)
@@ -375,11 +366,8 @@ function realize_model_layout(
             param_compute_diameters(T, specification)
         end
         nclasses = length(group_diameters_realized)
-        classes = if intrinsic && specification === nothing && group === population
-            (population,)
-        else
-            ntuple(i -> Symbol(string(group), "_", i), nclasses)
-        end
+        classes = specification === nothing ?
+            (group,) : ntuple(i -> Symbol(string(group), "_", i), nclasses)
         state_names = keys(states(component))
         nstates = length(state_names)
         group_global_indices = Int[]
@@ -464,6 +452,28 @@ function realize_model_layout(
         Tuple(diameters),
         consumer_indices,
         prey_indices,
+    )
+end
+
+"""Canonicalize authored population realization inputs and realize one `ModelLayout`."""
+function realize_model_layout(
+    components::NamedTuple;
+    scalar_type::Type{T}=Float64,
+    population_groups=nothing,
+    group_diameters=nothing,
+    interaction_roles=nothing,
+    auxiliary_fields::Tuple=(),
+) where {T<:Real}
+    population_groups, group_diameters = canonicalize_population_realization(
+        components, population_groups, group_diameters
+    )
+    return realize_model_layout(
+        components,
+        population_groups,
+        group_diameters;
+        scalar_type=T,
+        interaction_roles,
+        auxiliary_fields,
     )
 end
 
