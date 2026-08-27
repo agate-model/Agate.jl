@@ -24,7 +24,7 @@ end
 
 @inline flux_target(flux::FluxSpec) = flux.target
 
-@inline _axis_position(local_index::Int) = (; local_index)
+@inline _axis_position(local_index::Int, class::Symbol) = (; local_index, class)
 
 """Resolve one tracer or auxiliary identity to its final positional runtime input."""
 function input_operand(layout::ModelLayout, identity::Symbol)
@@ -34,29 +34,20 @@ function input_operand(layout::ModelLayout, identity::Symbol)
     return InputOp{getproperty(layout.input_indices, identity)}()
 end
 
-"""Resolve one canonical parameter slot through its precomputed `ParameterPlan` mapping."""
+"""Resolve one canonical parameter slot directly from realized ecological class identity."""
 function parameter_operand(
     binding::ParameterBinding,
     plan::ParameterPlan,
     axis_positions::NamedTuple=NamedTuple(),
 )
     rank = length(binding.axes)
-    indices = if rank == 0
-        ()
-    else
-        slot = planned_parameter_slot(plan, binding)
-        ntuple(rank) do dimension
-            axis = binding.axes[dimension]
-            hasproperty(axis_positions, axis) || throw(ArgumentError(
-                "parameter :$(binding.parameter) axis :$axis has no realized runtime position",
-            ))
-            local_index = getproperty(axis_positions, axis).local_index
-            mapping = slot[dimension]
-            1 <= local_index <= length(mapping) || throw(ArgumentError(
-                "parameter :$(binding.parameter) axis :$axis local index $local_index is out of bounds",
-            ))
-            mapping[local_index]
-        end
+    indices = ntuple(rank) do dimension
+        axis = binding.axes[dimension]
+        hasproperty(axis_positions, axis) || throw(ArgumentError(
+            "parameter :$(binding.parameter) axis :$axis has no realized runtime position",
+        ))
+        position = getproperty(axis_positions, axis)
+        parameter_storage_index(plan, binding.parameter, dimension, position.class)
     end
     return ParameterOp{binding.parameter,indices}()
 end
@@ -73,6 +64,22 @@ function _realize_population_states(references::Tuple, layout::ModelLayout)
         append!(tracers, (state_tracer(layout, reference, i) for i in eachindex(classes)))
     end
     return Tuple(tracers)
+end
+
+function _realize_population_classes(references::Tuple, layout::ModelLayout)
+    classes = Symbol[]
+    for reference in references
+        append!(classes, component_classes(layout, reference.population))
+    end
+    return Tuple(classes)
+end
+
+function _realize_component_classes(components::Tuple, layout::ModelLayout)
+    classes = Symbol[]
+    for component in components
+        append!(classes, component_classes(layout, component))
+    end
+    return Tuple(classes)
 end
 
 function _target_order(fluxes::Tuple)

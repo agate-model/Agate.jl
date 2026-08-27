@@ -78,13 +78,13 @@ end
 """One authoritative setup-time realization of components, ecological classes, and inputs.
 
 `ModelLayout` owns physical tracer positions, logical component classes, population-state
-tracers, class diameters, interaction axes, and auxiliary input positions. It is constructed
-once and consumed by parameter planning, compilation, manifests, and host-side metadata.
+tracers, class diameters, interaction axes, and final tracer/auxiliary input positions. It is
+constructed once and consumed by parameter planning, compilation, manifests, and host-side
+metadata.
 """
-struct ModelLayout{T<:Real,TR,AF,II,CC,CST,CT,CD,CS,GI,D,CO,PR}
+struct ModelLayout{T<:Real,TR,II,CC,CST,CT,CD,CS,GI,D,CO,PR}
     scalar_type::Type{T}
     tracer_order::TR
-    auxiliary_fields::AF
     input_indices::II
     component_classes::CC
     component_state_tracers::CST
@@ -454,7 +454,6 @@ function realize_model_layout(
     return ModelLayout(
         T,
         tracer_order_tuple,
-        auxiliary_fields,
         input_indices,
         component_classes_values,
         component_state_tracers_values,

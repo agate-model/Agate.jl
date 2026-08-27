@@ -32,7 +32,7 @@ using ..Processes:
     factor_value,
     ParameterBinding,
     ParameterPlan,
-    planned_parameter_slot,
+    parameter_storage_index,
     parameter_slot_bindings,
     product_path,
     process_rate

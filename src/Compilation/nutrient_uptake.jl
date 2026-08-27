@@ -8,11 +8,14 @@ function process_fluxes(
     target_tracers = state_tracers(layout, facts.target)
     reference_tracers = state_tracers(layout, facts.reference)
     resource = _scalar_component_target(layout, facts.resource)
+    population_classes = component_classes(layout, process.population)
     slots = parameter_slot_bindings(context.definition, named, (), process)
     fluxes = Any[]
 
     for population_axis in eachindex(target_tracers)
-        axis_positions = (population=_axis_position(population_axis),)
+        axis_positions = (
+            population=_axis_position(population_axis, population_classes[population_axis]),
+        )
         operands = (
             input_operand(layout, resource),
             input_operand(layout, target_tracers[population_axis]),

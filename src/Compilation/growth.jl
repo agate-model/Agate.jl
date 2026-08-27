@@ -37,10 +37,11 @@ function _growth_rate(
     named::NamedProcess,
     context::CompileContext,
     population_axis::Int,
+    population_class::Symbol,
     population_tracer::Symbol,
     scale_binding::ParameterBinding,
 )
-    axis_positions = (population=_axis_position(population_axis),)
+    axis_positions = (population=_axis_position(population_axis, population_class),)
     rate_factors = _factor_elements(context, named, axis_positions)
     operands = (
         input_operand(context.layout, population_tracer),
@@ -113,6 +114,9 @@ function process_fluxes(
     population_tracers = _realize_population_states(
         named.facts.population_states, layout
     )
+    population_classes = _realize_population_classes(
+        named.facts.population_states, layout
+    )
     resource_target = _growth_resource_target(route, nutrients, layout)
     source_target = _growth_source_target(route, named.process, layout)
     scale_binding = _growth_scale_binding(context, named)
@@ -120,7 +124,7 @@ function process_fluxes(
 
     for population_axis in eachindex(population_tracers)
         rate = _growth_rate(
-            named, context, population_axis,
+            named, context, population_axis, population_classes[population_axis],
             population_tracers[population_axis], scale_binding,
         )
         biomass = FluxSpec(

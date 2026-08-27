@@ -22,12 +22,22 @@ function _consumption_resources(
     return _consumption_resource_tracers(resources, layout)
 end
 
-function _consumption_axis_positions(consumer_axis::Int, resource_axis::Int)
+function _consumption_axis_positions(
+    consumer_axis::Int, consumer_class::Symbol, resource_axis::Int, resource_class::Symbol
+)
     return (
-        consumer=_axis_position(consumer_axis),
-        resource=_axis_position(resource_axis),
+        consumer=_axis_position(consumer_axis, consumer_class),
+        resource=_axis_position(resource_axis, resource_class),
     )
 end
+
+_consumption_resource_classes(
+    ::PreferentialGrazing, resources::Tuple, layout::ModelLayout
+) = _realize_population_classes(resources, layout)
+
+_consumption_resource_classes(
+    ::HeterotrophicConsumption, resources::Tuple, layout::ModelLayout
+) = _realize_component_classes(resources, layout)
 
 function _consumption_rate(
     formulation::PreferentialGrazing,
@@ -77,7 +87,11 @@ function process_fluxes(
     consumer_tracers = _realize_population_states(
         named.facts.consumer_states, layout
     )
+    consumer_classes = _realize_population_classes(named.facts.consumer_states, layout)
     resource_tracers = _consumption_resources(formulation, named.facts.resources, layout)
+    resource_classes = _consumption_resource_classes(
+        formulation, named.facts.resources, layout
+    )
     slots = parameter_slot_bindings(context.definition, named, (), process)
     fluxes = Any[]
 
@@ -85,7 +99,10 @@ function process_fluxes(
         consumer = consumer_tracers[consumer_axis]
         for resource_axis in eachindex(resource_tracers)
             resource = resource_tracers[resource_axis]
-            axis_positions = _consumption_axis_positions(consumer_axis, resource_axis)
+            axis_positions = _consumption_axis_positions(
+                consumer_axis, consumer_classes[consumer_axis],
+                resource_axis, resource_classes[resource_axis],
+            )
             rate = _consumption_rate(
                 formulation, slots, context, named, consumer, resource, axis_positions
             )

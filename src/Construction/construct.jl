@@ -471,7 +471,7 @@ function _construct_process_definition(
     )
     reject_missing_values(resolved_parameters)
     validate_parameter_storage(parameter_plan, resolved_parameters, T)
-    validate_realized_science(parameter_plan, resolved_parameters)
+    validate_realized_science(canonical, layout, parameter_plan, resolved_parameters)
 
     runtime_parameters = runtime_parameter_values(parameter_plan, resolved_parameters)
     compile_context = CompileContext(canonical, layout, parameter_plan)
