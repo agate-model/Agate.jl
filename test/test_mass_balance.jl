@@ -86,29 +86,19 @@ end
     dt = 10minutes
     nsteps = Int(10day ÷ dt)
 
-    @testset "NiPiZD box model" begin
-        grid = BoxModelGrid()
-        bgc_instance = NiPiZD.construct(; grid)
-        box_model = build_box_model(bgc_instance, grid)
-        set!(box_model; N=7, P_1=0.01, P_2=0.01, Z_1=0.05, Z_2=0.05, D=0.0)
+    budgets = (total=[:N => 1, :P_1 => 1, :P_2 => 1, :Z_1 => 1, :Z_2 => 1, :D => 1],)
+    for (T, rtol) in ((Float64, 1e-12), (Float32, 1e-5))
+        @testset "NiPiZD $(T) conservation" begin
+            grid = BoxModelGrid(T)
+            bgc = NiPiZD.construct(; grid, scalar_type=T)
+            box_model = build_box_model(bgc, grid)
+            set!(box_model; N=T(7), P_1=T(0.01), P_2=T(0.01),
+                 Z_1=T(0.05), Z_2=T(0.05), D=zero(T))
 
-        budgets = (total=[:N => 1, :P_1 => 1, :P_2 => 1, :Z_1 => 1, :Z_2 => 1, :D => 1],)
-
-        result = box_model_mass_balance(box_model, budgets; dt, nsteps)
-        @test isapprox(result.initial.total, result.final.total; rtol=1e-12, atol=0.0)
-    end
-
-    @testset "NiPiZD Float32 conservation" begin
-        grid = BoxModelGrid(Float32)
-        bgc_instance = NiPiZD.construct(; grid, scalar_type=Float32)
-        box_model = build_box_model(bgc_instance, grid)
-        set!(box_model; N=7f0, P_1=0.01f0, P_2=0.01f0, Z_1=0.05f0, Z_2=0.05f0, D=0f0)
-
-        budgets = (total=[:N => 1, :P_1 => 1, :P_2 => 1, :Z_1 => 1, :Z_2 => 1, :D => 1],)
-
-        result = box_model_mass_balance(box_model, budgets; dt, nsteps)
-        @test result.initial.total isa Float32
-        @test isapprox(result.initial.total, result.final.total; rtol=1e-5, atol=0.0)
+            result = box_model_mass_balance(box_model, budgets; dt, nsteps)
+            @test result.initial.total isa T
+            @test isapprox(result.initial.total, result.final.total; rtol, atol=0.0)
+        end
     end
 
     @testset "Generic multi-nutrient conservation" begin

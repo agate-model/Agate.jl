@@ -92,9 +92,7 @@ end
     @test size(bgc.parameters.palatability_matrix) ==
           size(bgc.parameters.assimilation_matrix) == (1, 1)
     args = (0.0, 0.0, 0.0, 0.0, 1.0, 0.1, 0.05, 100.0)
-    tendencies = map(
-        tracer -> bgc(Val(tracer), args...), required_biogeochemical_tracers(bgc)
-    )
+    tendencies = values(model_tendencies(bgc, args))
     @test all(isfinite, tendencies)
     @test isapprox(sum(tendencies), 0; atol=10 * eps(sum(abs, tendencies)))
 end
@@ -176,7 +174,7 @@ end
     tracers = required_biogeochemical_tracers(bgc)
     state = Dict(:DOC => 0.0, :POC => 0.0, :DON => 0.0, :PON => 0.0, :P_1 => 1.0)
     args = (0.0, 0.0, 0.0, 0.0, (state[tracer] for tracer in tracers)...)
-    tendency = NamedTuple{tracers}(Tuple(bgc(Val(tracer), args...) for tracer in tracers))
+    tendency = model_tendencies(bgc, args; tracers)
 
     actual = (tendency.DOC, tendency.POC, tendency.DON, tendency.PON, tendency.P_1)
     expected = (0.75e-6, 0.25e-6, (0.75 * 0.2) * 1e-6, (0.25 * 0.2) * 1e-6, -1e-6)

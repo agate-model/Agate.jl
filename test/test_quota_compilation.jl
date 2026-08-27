@@ -12,22 +12,6 @@ quota_runtime_args(;
 ) = (0, 0, 0, 0, DIC, DIN, PO4, P_1_carbon, P_1_nitrogen, P_1_phosphorus,
      P_2_carbon, P_2_nitrogen, P_2_phosphorus, PAR)
 
-function quota_tendencies(bgc, args)
-    names = Tuple(Agate.Introspection.tracer_names(bgc))
-    return NamedTuple{names}(Tuple(bgc(Val(name), args...) for name in names))
-end
-
-function quota_construct_error(overrides; definition=quota_definition())
-    try
-        construct(definition; parameter_overrides=overrides)
-    catch error
-        @test error isa ArgumentError
-        return sprint(showerror, error)
-    end
-    @test false
-    return ""
-end
-
 @testset "State-aware quota compilation" begin
     definition = quota_definition()
     bgc = construct(definition)
@@ -38,7 +22,7 @@ end
     args32 = map(x -> x isa AbstractFloat ? Float32(x) : x, quota_runtime_args())
     @test bgc32(Val(:P_1_carbon), args32...) isa Float32
 
-    tendency = quota_tendencies(bgc, args)
+    tendency = model_tendencies(bgc, args)
     for (external, states) in (
         (:DIC, (:P_1_carbon, :P_2_carbon)),
         (:DIN, (:P_1_nitrogen, :P_2_nitrogen)),
@@ -59,27 +43,27 @@ end
         @test isapprox(getproperty(tendency, state), expected)
     end
 
-    no_external = quota_tendencies(bgc, quota_runtime_args(; DIN=0.0, PO4=0.0))
+    no_external = model_tendencies(bgc, quota_runtime_args(; DIN=0.0, PO4=0.0))
     @test (no_external.P_1_nitrogen, no_external.P_1_phosphorus) == (0, 0)
     @test no_external.P_1_carbon > 0
     for (kwargs, state) in (
         ((P_1_nitrogen=0.05, P_1_phosphorus=0.015), :P_1_carbon),
         ((P_1_nitrogen=0.2,), :P_1_nitrogen),
     )
-        @test getproperty(quota_tendencies(bgc, quota_runtime_args(; kwargs...)), state) == 0
+        @test getproperty(model_tendencies(bgc, quota_runtime_args(; kwargs...)), state) == 0
     end
 
     expected_growth(nitrogen, phosphorus) = 0.5 * smith_light_limitation(100.0, 0.05, 0.5) *
         min(normalized_droop_limitation(nitrogen, 1.0, 0.05, 0.2),
             normalized_droop_limitation(phosphorus, 1.0, 0.005, 0.02))
     for (nitrogen, phosphorus) in ((0.075, 0.019), (0.19, 0.008))
-        actual = quota_tendencies(
+        actual = model_tendencies(
             bgc, quota_runtime_args(; P_1_nitrogen=nitrogen, P_1_phosphorus=phosphorus)
         ).P_1_carbon
         @test isapprox(actual, expected_growth(nitrogen, phosphorus))
     end
 
-    zero = quota_tendencies(bgc, quota_runtime_args(;
+    zero = model_tendencies(bgc, quota_runtime_args(;
         P_1_carbon=0.0, P_1_nitrogen=0.1, P_1_phosphorus=0.01,
     ))
     @test all(isfinite, values(zero)) && all(iszero, values(zero))
@@ -99,7 +83,9 @@ end
         ((maximum_nitrogen_uptake=[-0.1, 0.1],), :nitrogen_uptake, :maximum_nitrogen_uptake, "-0.1"),
     )
     for (overrides, process, parameter, value) in cases
-        message = quota_construct_error(overrides)
+        message = argument_error_message(() -> construct(
+            quota_definition(); parameter_overrides=overrides
+        ))
         @test all(occursin(fragment, message) for fragment in
             ("process :$process", "path", "P_1", String(parameter), value))
     end

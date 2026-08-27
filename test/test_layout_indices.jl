@@ -27,17 +27,11 @@ using Agate.Configuration:
         (n=2, min_esd=2.0, max_esd=1.0, splitting=:log_splitting),
         (n=2, min_esd=1.0, max_esd=2.0, splitting=:unsupported),
     )
-        err = try
-            realize_model_layout(
-                (P=Population(:carbon),);
-                population_groups=(P=(:P,),), group_diameters=(P=invalid,),
-            )
-            nothing
-        catch caught
-            caught
-        end
-        @test err isa ArgumentError
-        @test occursin(bad_path, sprint(showerror, err))
+        message = argument_error_message(() -> realize_model_layout(
+            (P=Population(:carbon),);
+            population_groups=(P=(:P,),), group_diameters=(P=invalid,),
+        ))
+        @test occursin(bad_path, message)
     end
 
 end

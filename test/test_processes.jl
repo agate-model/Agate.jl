@@ -38,17 +38,6 @@ factor_inputs(::MultiDriverTestFactor) = (
     Agate.Processes.FactorDriver(:temperature),
 )
 
-function canonicalization_error_message(definition)
-    err = try
-        canonicalize_model(definition)
-        nothing
-    catch caught
-        caught
-    end
-    @test err isa ArgumentError
-    return err isa Exception ? sprint(showerror, err) : ""
-end
-
 @testset "Process authoring and canonicalization" begin
 
     light = Light(Smith(); driver=:PAR)

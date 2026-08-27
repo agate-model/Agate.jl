@@ -45,12 +45,10 @@ end
 
 @testset "ForwardDiff NiPiZD ode_problem active parameter smoke test" begin
     mu0 = 0.7 / day
-    base_bgc = ForwardDiffNiPiZD.construct(;
-        parameters=(; maximum_growth_rate=(P_1=mu0, P_2=mu0)),
-    )
+    base_bgc = nipizd_growth_fixture(; mu=mu0)
 
     active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate=(:P_1,))
-    u0 = [7.0, 1.0, 0.05, 0.05, 0.01, 0.01]
+    u0 = nipizd_u0()
     problem = Agate.Runtime.ode_problem(
         base_bgc,
         u0,

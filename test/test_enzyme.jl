@@ -4,13 +4,10 @@ using Test
 
 using Oceananigans.Units: day
 
-const EnzymeNiPiZD = Agate.Models.NiPiZD
 
 @testset "Enzyme parameterized tendency gradients" begin
     mu0 = 0.7 / day
-    base_bgc = EnzymeNiPiZD.construct(;
-        parameters=(; maximum_growth_rate=(P_1=mu0, P_2=mu0)),
-    )
+    base_bgc = nipizd_growth_fixture(; mu=mu0)
 
     active = Agate.Runtime.active_parameters(base_bgc;
         maximum_growth_rate = (:P_1,),
@@ -19,7 +16,7 @@ const EnzymeNiPiZD = Agate.Models.NiPiZD
         assimilation_matrix = ((:Z_1, :P_1),),
     )
 
-    args = (0, 0, 0, 0, 7.0, 1.0, 0.05, 0.05, 0.01, 0.01, 100.0)
+    args = nipizd_runtime_args()
 
     function diagnostic(p)
         bgc_p = Agate.Runtime.parameterized(base_bgc, p; active_parameters=active)

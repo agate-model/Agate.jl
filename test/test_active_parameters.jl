@@ -15,9 +15,7 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
 
 @testset "parameterized BGC" begin
     mu0 = 0.7 / day
-    base_bgc = ActiveParameterNiPiZD.construct(;
-        parameters=(; maximum_growth_rate=(P_1=mu0, P_2=mu0)),
-    )
+    base_bgc = nipizd_growth_fixture(; mu=mu0)
 
     active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P_1,))
     p = [mu0]
@@ -27,7 +25,7 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
         active_parameters=active_growth,
     )
 
-    args = (0, 0, 0, 0, 7.0, 1.0, 0.05, 0.05, 0.01, 0.01, 100.0)
+    args = nipizd_runtime_args()
     base_tendency = base_bgc(Val(:P_1), args...)
     active_tendency = bgc_p(Val(:P_1), args...)
 
@@ -56,10 +54,7 @@ end
 @testset "parameterized BGC OceanBioME compatibility" begin
     grid = BoxModelGrid()
     mu0 = 0.7 / day
-    base_bgc = ActiveParameterNiPiZD.construct(;
-        grid,
-        parameters=(; maximum_growth_rate=(P_1=mu0, P_2=mu0)),
-    )
+    base_bgc = nipizd_growth_fixture(; mu=mu0, grid)
 
     active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P_1,))
     p = copy(active_growth.values)
@@ -76,11 +71,9 @@ end
 
 @testset "ODE problem active parameters" begin
     mu0 = 0.7 / day
-    base_bgc = ActiveParameterNiPiZD.construct(;
-        parameters=(; maximum_growth_rate=(P_1=mu0, P_2=mu0)),
-    )
+    base_bgc = nipizd_growth_fixture(; mu=mu0)
 
-    u0 = [7.0, 1.0, 0.05, 0.05, 0.01, 0.01]
+    u0 = nipizd_u0()
     active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P_1,))
     p = [mu0]
 
@@ -160,18 +153,6 @@ end
 
     @test du_matrix[5] ≈ expected_matrix
     @test du_matrix[5] != du[5]
-end
-
-function argument_error_message(f)
-    err = try
-        f()
-        nothing
-    catch err
-        err
-    end
-
-    @test err isa ArgumentError
-    return sprint(showerror, err)
 end
 
 @testset "active parameter selector validation" begin
@@ -288,7 +269,7 @@ end
     p[3] *= 0.8
     p[4] *= 0.9
 
-    args = (0, 0, 0, 0, 7.0, 1.0, 0.05, 0.05, 0.01, 0.01, 100.0)
+    args = nipizd_runtime_args()
     named_parameterized = Agate.Runtime.parameterized(
         named_bgc, p; active_parameters=named_active
     )
@@ -298,7 +279,7 @@ end
     @test named_parameterized(Val(:diat_1), args...) ≈
           flat_parameterized(Val(:P_1), args...)
 
-    u0 = [7.0, 1.0, 0.05, 0.05, 0.01, 0.01]
+    u0 = nipizd_u0()
     function rhs(bgc, active)
         problem = Agate.Runtime.ode_problem(
             bgc,

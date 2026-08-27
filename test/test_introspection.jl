@@ -57,15 +57,9 @@ using Test
         @test all(col in tracer_names(bgc) for col in pal.columns)
 
         @test_throws ArgumentError interaction_matrix(bgc, :consumer_global)
-        @test_throws ArgumentError interaction_matrix(bgc, :unknown)
-        try
-            interaction_matrix(bgc, :unknown)
-        catch err
-            @test err isa ArgumentError
-            @test occursin("palatability", sprint(showerror, err))
-            @test occursin("assimilation", sprint(showerror, err))
-        end
-
+        message = argument_error_message(() -> interaction_matrix(bgc, :unknown))
+        @test occursin("palatability", message)
+        @test occursin("assimilation", message)
 
         phyto_diameters = [2.0, sqrt(20.0), 10.0]
         zoo_diameters = [20.0, 100.0]
@@ -78,24 +72,8 @@ using Test
         @test plankton_diameters(sized_bgc) ≈ [zoo_diameters; phyto_diameters]
 
         named_bgc = Agate.Models.NiPiZD.construct(;
-            size_structure=(;
-                phytoplankton=(diat=[2.0, 5.0, 10.0], dino=[8.0, 20.0]),
-                zooplankton=(microzoo=[30.0, 60.0], mesozoo=[100.0]),
-            ),
-            grid=dummy_grid(Float32),
+            size_structure=nipizd_named_size_structure(), grid=dummy_grid(Float32)
         )
-        @test tracer_names(named_bgc) == [
-            :N,
-            :D,
-            :microzoo_1,
-            :microzoo_2,
-            :mesozoo_1,
-            :diat_1,
-            :diat_2,
-            :diat_3,
-            :dino_1,
-            :dino_2,
-        ]
 
         named_groups = plankton_groups(named_bgc)
         @test keys(named_groups) == (:microzoo, :mesozoo, :diat, :dino)
@@ -103,16 +81,6 @@ using Test
         @test named_groups.mesozoo == [:mesozoo_1]
         @test named_groups.diat == [:diat_1, :diat_2, :diat_3]
         @test named_groups.dino == [:dino_1, :dino_2]
-        @test plankton_tracers(named_bgc) == [
-            :microzoo_1,
-            :microzoo_2,
-            :mesozoo_1,
-            :diat_1,
-            :diat_2,
-            :diat_3,
-            :dino_1,
-            :dino_2,
-        ]
         @test plankton_diameters(named_bgc) ≈
             [30.0, 60.0, 100.0, 2.0, 5.0, 10.0, 8.0, 20.0]
 

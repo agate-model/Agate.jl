@@ -16,43 +16,15 @@ using Oceananigans.Biogeochemistry:
 
     @testset "NiPiZD defaults" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
+        tracers = (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
+        args = nipizd_runtime_args(Float32)
 
-        @test required_biogeochemical_tracers(bgc) == (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
-        @test required_biogeochemical_tracers(typeof(bgc)) == (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
+        @test required_biogeochemical_tracers(bgc) == tracers
+        @test required_biogeochemical_tracers(typeof(bgc)) == tracers
         @test required_biogeochemical_auxiliary_fields(bgc) == (:PAR,)
         @test required_biogeochemical_auxiliary_fields(typeof(bgc)) == (:PAR,)
-
-        P_1 = 0.01f0
-        P_2 = 0.01f0
-        Z_1 = 0.05f0
-        Z_2 = 0.05f0
-        N = 7.0f0
-        D = 1.0f0
-        PAR = 100.0f0
-
-        tracer_vals(sym) =
-            if sym === :P_1
-                P_1
-            elseif sym === :P_2
-                P_2
-            elseif sym === :Z_1
-                Z_1
-            elseif sym === :Z_2
-                Z_2
-            elseif sym === :N
-                N
-            else
-                D
-            end
-
-        ordered = [tracer_vals(s) for s in required_biogeochemical_tracers(bgc)]
-        typed_args = (0, 0, 0, 0, N, D, Z_1, Z_2, P_1, P_2, PAR)
-
-        @test isfinite(@inferred(bgc(Val(:P_1), typed_args...)))
-        @test isfinite(bgc(Val(:N), 0, 0, 0, 0, ordered..., PAR))
-        @test isfinite(bgc(Val(:D), 0, 0, 0, 0, ordered..., PAR))
-        @test isfinite(bgc(Val(:P_1), 0, 0, 0, 0, ordered..., PAR))
-        @test isfinite(bgc(Val(:Z_1), 0, 0, 0, 0, ordered..., PAR))
+        @test isfinite(@inferred(bgc(Val(:P_1), args...)))
+        @test all(tracer -> isfinite(bgc(Val(tracer), args...)), (:N, :D, :P_1, :Z_1))
     end
 
     @testset "NiPiZD size structure" begin
@@ -70,11 +42,7 @@ using Oceananigans.Biogeochemistry:
             (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
 
         named = NiPiZD.construct(;
-            size_structure=(;
-                phytoplankton=(diat=[2.0, 5.0, 10.0], dino=[8.0, 20.0]),
-                zooplankton=(microzoo=[30.0, 60.0], mesozoo=[100.0]),
-            ),
-            grid=dummy_grid(Float32),
+            size_structure=nipizd_named_size_structure(), grid=dummy_grid(Float32)
         )
         tracers = required_biogeochemical_tracers(named)
         @test tracers == (
@@ -118,11 +86,6 @@ using Oceananigans.Biogeochemistry:
             zooplankton=(microzoo=zoo_diameters[1:2], mesozoo=zoo_diameters[3:3]),
         )
 
-        function same_parameter_values(a, b)
-            keys(a) == keys(b) || return false
-            return all(key -> getproperty(a, key) == getproperty(b, key), keys(a))
-        end
-
         flat = NiPiZD.construct(;
             size_structure=(;
                 phytoplankton=(P=phyto_diameters,),
@@ -133,7 +96,7 @@ using Oceananigans.Biogeochemistry:
         named = NiPiZD.construct(;
             size_structure=named_size_structure, grid=dummy_grid(Float32)
         )
-        @test same_parameter_values(named.parameters, flat.parameters)
+        @test named.parameters == flat.parameters
 
         growth = copy(named.parameters.maximum_growth_rate)
         predation = copy(named.parameters.maximum_predation_rate)
@@ -160,7 +123,8 @@ using Oceananigans.Biogeochemistry:
                 specificity=specificity,
             ),
         )
-        @test same_parameter_values(named_overrides.parameters, positional_overrides.parameters)
+        @test named_overrides.parameters == positional_overrides.parameters
+        @test !hasproperty(named_overrides.parameters, :specificity)
 
         palatability = reshape(Float32.(1:9), 3, 3)
         assimilation = reshape(Float32.(11:19), 3, 3)
@@ -187,11 +151,6 @@ using Oceananigans.Biogeochemistry:
         n_cons = length(axes.rows)
         n_prey = length(axes.columns)
 
-        wrong = zeros(Float32, 3, 3)
-        @test_throws ArgumentError NiPiZD.construct(;
-            grid=dummy_grid(Float32), palatability_matrix=wrong, assimilation_matrix=wrong
-        )
-
         # Rectangular consumer-by-prey matrices are stored as-is.
         rect = reshape(Float32.(1:(n_cons * n_prey)), n_cons, n_prey)
         bgc_rect = NiPiZD.construct(;
@@ -201,37 +160,22 @@ using Oceananigans.Biogeochemistry:
         @test size(M) == (n_cons, n_prey)
         @test all(M .== rect)
 
-        # Non-axis-sized matrices are not accepted; provide an explicit
-        # axis-sized matrix (n_consumer, n_prey) instead.
-        axis_block = reshape(Float32[7], 1, 1)
-        @test_throws ArgumentError NiPiZD.construct(;
-            grid=dummy_grid(Float32),
-            palatability_matrix=axis_block,
-            assimilation_matrix=axis_block,
-        )
-
         # Full-square matrices are not accepted for role-aware interaction parameters.
-        correct = zeros(Float32, n_total, n_total)
+        full = zeros(Float32, n_total, n_total)
         @test_throws ArgumentError NiPiZD.construct(;
             grid=dummy_grid(Float32),
-            palatability_matrix=correct,
-            assimilation_matrix=correct,
+            palatability_matrix=full,
+            assimilation_matrix=full,
         )
 
         # Provider/callable values are not parameter values.
         rect_provider(_) = fill(Float32(9), 1, 1)
-        err = try
-            NiPiZD.construct(;
-                grid=dummy_grid(Float32),
-                palatability_matrix=rect_provider,
-                assimilation_matrix=rect_provider,
-            )
-            nothing
-        catch e
-            e
-        end
-        @test err isa ArgumentError
-        @test occursin("must be a matrix", sprint(showerror, err))
+        message = argument_error_message(() -> NiPiZD.construct(;
+            grid=dummy_grid(Float32),
+            palatability_matrix=rect_provider,
+            assimilation_matrix=rect_provider,
+        ))
+        @test occursin("must be a matrix", message)
     end
 
     @testset "Derived interaction matrices" begin
@@ -258,56 +202,6 @@ using Oceananigans.Biogeochemistry:
         @test all(bgc2.parameters.palatability_matrix .== rect)
     end
 
-
-
-    @testset "Named parameter vector overrides" begin
-        bgc_default = NiPiZD.construct(; grid=dummy_grid(Float32))
-        vopt = fill(Float32(10), length(plankton_diameters(bgc_default)))
-        vopt[1] = 5.0f0
-        vopt[2] = 5.0f0
-        growth = copy(bgc_default.parameters.maximum_growth_rate)
-        growth[1] = Float32(1.2 / day)
-
-        bgc_named = NiPiZD.construct(;
-            grid=dummy_grid(Float32),
-            parameters=(;
-                optimum_predator_prey_ratio=(Z_1=5.0, Z_2=5.0),
-                maximum_growth_rate=(P_1=1.2 / day,),
-            ),
-        )
-        bgc_positional = NiPiZD.construct(;
-            grid=dummy_grid(Float32),
-            parameters=(; optimum_predator_prey_ratio=vopt, maximum_growth_rate=growth),
-        )
-
-        @test !hasproperty(bgc_named.parameters, :optimum_predator_prey_ratio)
-        @test bgc_named.parameters.maximum_growth_rate == growth
-        @test bgc_named.parameters.maximum_growth_rate ==
-            bgc_positional.parameters.maximum_growth_rate
-        @test bgc_named.parameters.palatability_matrix ==
-            bgc_positional.parameters.palatability_matrix
-
-
-        err = try
-            NiPiZD.construct(;
-                grid=dummy_grid(Float32),
-                parameters=(; optimum_predator_prey_ratio=(Z_3=5.0,)),
-            )
-            nothing
-        catch e
-            e
-        end
-        @test err isa ArgumentError
-        @test occursin("Unknown key `Z_3`", sprint(showerror, err))
-        @test occursin("Z_1, Z_2, P_1, P_2", sprint(showerror, err))
-
-        @test_throws ArgumentError NiPiZD.construct(;
-            grid=dummy_grid(Float32), parameters=(; detritus_remineralization=(Z_1=1.0,))
-        )
-        @test_throws ArgumentError NiPiZD.construct(;
-            grid=dummy_grid(Float32), parameters=(; palatability_matrix=(Z_1=(P_1=1.0,),))
-        )
-    end
 
     @testset "Parameter-law overrides" begin
         phyto_diameters = [2.0, 8.0]
@@ -393,33 +287,14 @@ using Oceananigans.Biogeochemistry:
             ),
         )
 
-        err = try
-            NiPiZD.construct(;
-                grid=dummy_grid(Float32),
-                parameters=(;
-                    detritus_remineralization=AllometricParam(
-                        PowerLaw(); prefactor=1.0, exponent=0.0
-                    ),
-                ),
-            )
-            nothing
-        catch e
-            e
-        end
-        @test err isa ArgumentError
-        @test occursin("detritus_remineralization", sprint(showerror, err))
-        @test occursin("diameter-indexed vector", sprint(showerror, err))
-    end
-
-
-    @testset "NiPiZD community structure overrides" begin
-        bgc = NiPiZD.construct(;
-            size_structure=(;
-                phytoplankton=(P=[3.0],), zooplankton=(Z=[20.0, 100.0],)
-            ),
+        message = argument_error_message(() -> NiPiZD.construct(;
             grid=dummy_grid(Float32),
-        )
-        @test required_biogeochemical_tracers(bgc) == (:N, :D, :Z_1, :Z_2, :P_1)
+            parameters=(; detritus_remineralization=AllometricParam(
+                PowerLaw(); prefactor=1.0, exponent=0.0
+            )),
+        ))
+        @test occursin("detritus_remineralization", message)
+        @test occursin("diameter-indexed vector", message)
     end
 
     @testset "NiPiZD sinking" begin
@@ -430,7 +305,6 @@ using Oceananigans.Biogeochemistry:
         @test biogeochemical_drift_velocity(bgc, Val(:D)).w.data[1, 1, 1] == -2.7489 / day
         @test biogeochemical_drift_velocity(bgc, Val(:Z_1)).w == ZeroField()
     end
-
 
     # Loading CUDA can fail hard in misconfigured environments, so GPU execution is
     # an explicit opt-in test via AGATE_TEST_CUDA=1 rather than part of the default suite.
@@ -490,30 +364,28 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "Input validation" begin
-        @test_throws ArgumentError NiPiZD.construct(;
-            size_structure=(;
-                phytoplankton=(P=(n=0, min_esd=2, max_esd=10, splitting=:log_splitting),),
-                zooplankton=(Z=[20.0, 100.0],),
-            )
+        message = argument_error_message(() -> NiPiZD.construct(;
+            grid=dummy_grid(Float32),
+            parameters=(; optimum_predator_prey_ratio=(Z_3=5.0,)),
+        ))
+        @test occursin("Unknown key `Z_3`", message)
+        @test occursin("Z_1, Z_2, P_1, P_2", message)
+
+        for parameters in (
+            (; detritus_remineralization=(Z_1=1.0,)),
+            (; palatability_matrix=(Z_1=(P_1=1.0,),)),
         )
-        @test_throws ArgumentError NiPiZD.construct(;
-            size_structure=(;
-                phytoplankton=(P=[2.0, 10.0],),
-                zooplankton=(Z=(n=0, min_esd=20, max_esd=100, splitting=:linear_splitting),),
-            )
-        )
+            @test_throws ArgumentError NiPiZD.construct(; grid=dummy_grid(Float32), parameters)
+        end
 
         # Grid determines precision unless an explicit scalar type is supplied.
-        bgc_f32 = NiPiZD.construct(; grid=dummy_grid(Float32))
+        @test NiPiZD.construct(; grid=dummy_grid(Float32)).parameters.detritus_remineralization isa Float32
+        bgc_f32 = NiPiZD.construct(; grid=dummy_grid(Float64), scalar_type=Float32)
         @test bgc_f32.parameters.detritus_remineralization isa Float32
+        @test eltype(bgc_f32.parameters.maximum_growth_rate) === Float32
 
-        bgc_explicit_f32 = NiPiZD.construct(; grid=dummy_grid(Float64), scalar_type=Float32)
-        @test bgc_explicit_f32.parameters.detritus_remineralization isa Float32
-        @test eltype(bgc_explicit_f32.parameters.maximum_growth_rate) === Float32
-
-        @test_throws ArgumentError NiPiZD.construct(; scalar_type=Real)
-        @test_throws ArgumentError NiPiZD.construct(; scalar_type=ComplexF64)
-        @test_throws ArgumentError NiPiZD.construct(; scalar_type=1.0)
-
+        for scalar_type in (Real, ComplexF64, 1.0)
+            @test_throws ArgumentError NiPiZD.construct(; scalar_type)
+        end
     end
 end

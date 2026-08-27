@@ -4,8 +4,7 @@ using Agate.Configuration: Population, Pool, population_state
 using Agate.Parameters: Parameter
 using Agate.Processes:
     FixedStoichiometry, Growth, Liebig, Light, ModelDefinition, Monod, NormalizedDroop,
-    NutrientResponse, Nutrients, NutrientUptake, QuotaRegulatedMonod, QuotaResponse, Smith,
-    canonicalize_model
+    NutrientResponse, Nutrients, NutrientUptake, QuotaRegulatedMonod, QuotaResponse, Smith
 
 
 quota_components() = (
@@ -91,17 +90,6 @@ quota_parameters() = (
 quota_definition() = ModelDefinition(;
     components=quota_components(), processes=quota_processes(), parameters=quota_parameters()
 )
-
-function quota_canonicalization_error(definition)
-    error = try
-        canonicalize_model(definition)
-        nothing
-    catch caught
-        caught
-    end
-    @test error isa ArgumentError
-    return error isa Exception ? sprint(showerror, error) : ""
-end
 
 @testset "Quota structural errors fail during canonicalization" begin
     components = quota_components()
@@ -193,7 +181,7 @@ end
     )
 
     for (definition, fragments) in cases
-        message = quota_canonicalization_error(definition)
+        message = canonicalization_error_message(definition)
         @test all(fragment -> occursin(fragment, message), fragments)
     end
 end

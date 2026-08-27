@@ -127,9 +127,7 @@ end
         P_1=0.05, B_1=0.03, M_1=0.02, Z_1=0.04,
     )
     args = food_web_args(bgc, state; PAR=100.0, temperature=25.0)
-    tendencies = map(
-        target -> bgc(Val(target), args...), required_biogeochemical_tracers(bgc)
-    )
+    tendencies = values(model_tendencies(bgc, args))
     @test isapprox(sum(tendencies), 0; atol=10 * eps(sum(abs, tendencies)))
 
     consumption_state = (POM_1=0.5, POM_2=0.2, B_1=0.03)
