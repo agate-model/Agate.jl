@@ -20,18 +20,6 @@ _parameter_axis_classes(bindings::Tuple, binding_classes::Tuple, name::Symbol) =
     if binding.parameter === name
 )
 
-function _binding_axis_components(
-    process::NamedProcess, binding::ParameterBinding, axis::Symbol
-)
-    qualifier = binding.qualifier
-    qualifier isa Qualifier && qualifier.axis === axis && return (qualifier.value,)
-    process_participants = participants(process)
-    hasproperty(process_participants, axis) || throw(ArgumentError(
-        "parameter applicability axis :$axis is not a participant role of process :$(process_id(process))",
-    ))
-    return getproperty(process_participants, axis)
-end
-
 function _layout_axis_classes(layout::ModelLayout, components::Tuple)
     classes = Symbol[]
     for component in components
@@ -47,13 +35,7 @@ function _resolved_binding_axis_classes(
     definition::CanonicalModelDefinition, layout::ModelLayout
 )
     return map(definition.parameter_bindings) do binding
-        process = getproperty(definition.processes, binding.process)
-        map(
-            axis -> _layout_axis_classes(
-                layout, _binding_axis_components(process, binding, axis)
-            ),
-            binding.axes,
-        )
+        map(components -> _layout_axis_classes(layout, components), binding.axis_components)
     end
 end
 
@@ -127,16 +109,6 @@ function _storage_diameters(rank, labels, diameter_by_class)
 end
 
 
-function _runtime_binding(definition::CanonicalModelDefinition, binding::ParameterBinding)
-    binding.slot === :fraction || return true
-    named = getproperty(definition.processes, binding.process)
-    products = process_products(named.process)
-    products isa Products || return true
-    binding.path == product_path(named.process) || return true
-    qualifier = binding.qualifier
-    return !(qualifier isa Qualifier && qualifier.value === products.balanced)
-end
-
 function _planned_parameter(definition, layout, name, parameter, binding_classes, diameters)
     axis_classes = _parameter_axis_classes(
         definition.parameter_bindings, binding_classes, name
@@ -153,7 +125,7 @@ function _planned_parameter(definition, layout, name, parameter, binding_classes
         labels,
         _storage_diameters(rank, labels, diameters),
         any(
-            binding -> binding.parameter === name && _runtime_binding(definition, binding),
+            binding -> binding.parameter === name && binding.runtime_bound,
             definition.parameter_bindings,
         ),
     )
@@ -247,10 +219,10 @@ function _validate_quota_bounds(
     parameter_values::NamedTuple,
     named::NamedProcess,
     path::Tuple,
-    node,
+    slot_refs::NamedTuple,
     population::Symbol,
 )
-    slots = parameter_slot_bindings(definition, named, path, node)
+    slots = _resolved_slot_bindings(definition, slot_refs)
     minimum_binding = slots.minimum_quota
     maximum_binding = slots.maximum_quota
     for class in component_classes(layout, population)
@@ -274,12 +246,12 @@ function _validate_parameter_constraint(
     parameter_values::NamedTuple,
     named::NamedProcess,
     path::Tuple,
-    node,
+    slot_refs::NamedTuple,
     population::Symbol,
     slot::Symbol,
     rule::Symbol,
 )
-    binding = getproperty(parameter_slot_bindings(definition, named, path, node), slot)
+    binding = getproperty(_resolved_slot_bindings(definition, slot_refs), slot)
     for class in component_classes(layout, population)
         value = _realized_axis_parameter_value(plan, parameter_values, binding, class)
         valid = rule === :positive ? value > zero(value) : value >= zero(value)
@@ -292,11 +264,12 @@ function _validate_parameter_constraint(
 end
 
 function _validate_quota_factor_science(
-    definition, layout, plan, parameter_values, named, path, factor
+    definition, layout, plan, parameter_values, named, path, factor, refs
 )
     if factor isa QuotaResponse
         _validate_quota_bounds(
-            definition, layout, plan, parameter_values, named, path, factor, factor.target.population
+            definition, layout, plan, parameter_values, named, path, refs.slots,
+            factor.target.population,
         )
     end
     for (name, child) in pairs(factor_children(factor))
@@ -308,6 +281,7 @@ function _validate_quota_factor_science(
             named,
             factor_child_path(path, factor, name),
             child,
+            getproperty(refs.children, name),
         )
     end
     return nothing
@@ -322,14 +296,16 @@ function _validate_quota_science(
     for named in values(definition.processes)
         for (name, factor) in pairs(factors(named))
             _validate_quota_factor_science(
-                definition, layout, plan, parameter_values, named, (:factors, name), factor
+                definition, layout, plan, parameter_values, named, (:factors, name), factor,
+                getproperty(named.binding_refs.factors, name),
             )
         end
         process = named.process
         if process isa NutrientUptake
             path = ()
             _validate_quota_bounds(
-                definition, layout, plan, parameter_values, named, path, process, process.population
+                definition, layout, plan, parameter_values, named, path,
+                named.binding_refs.process, process.population,
             )
             for (slot, rule) in (
                 (:maximum_rate, :nonnegative), (:K, :nonnegative), (:hill, :positive),
@@ -341,7 +317,7 @@ function _validate_quota_science(
                     parameter_values,
                     named,
                     path,
-                    process,
+                    named.binding_refs.process,
                     process.population,
                     slot,
                     rule,
@@ -360,13 +336,8 @@ function _validate_product_fractions(
         (isnothing(products) || length(products.targets) == 1) && continue
         names = keys(products.fractions)
         fractions = NamedTuple{names}(Tuple(begin
-            binding = parameter_slot_bindings(
-                definition,
-                named,
-                product_path(named.process),
-                products;
-                context=(product=product,),
-            ).fraction
+            refs = getproperty(named.binding_refs.products.fractions, product)
+            binding = _resolved_slot_bindings(definition, refs).fraction
             value = getproperty(parameter_values, binding.parameter)
             value isa Real || throw(ArgumentError(
                 "product fraction parameter :$(binding.parameter) for process :$(process_id(named)) must resolve to a scalar Real",

@@ -1,16 +1,20 @@
 """Named, validated process instance in canonical model state.
 
-`facts` contains setup-only decisions that compilation may trust, such as resolved
-population-state references, canonical product targets, and Growth resource draws.
+`facts` contains setup-only scientific decisions that compilation may trust. `binding_refs`
+contains dense references into the canonical model's ordered parameter-binding tuple, arranged
+alongside the process/factor/product structure so lowering never reconstructs scientific paths.
 """
-struct NamedProcess{P<:AbstractProcess,F}
+struct NamedProcess{P<:AbstractProcess,F,R}
     id::Symbol
     process::P
     facts::F
+    binding_refs::R
 end
 
 NamedProcess(id::Symbol, process::P) where {P<:AbstractProcess} =
-    NamedProcess(id, process, NamedTuple())
+    NamedProcess(id, process, NamedTuple(), NamedTuple())
+NamedProcess(id::Symbol, process::P, facts::F) where {P<:AbstractProcess,F} =
+    NamedProcess(id, process, facts, NamedTuple())
 
 process_id(process::NamedProcess) = process.id
 formulation(process::NamedProcess) = formulation(process.process)
@@ -27,11 +31,24 @@ function _resolve_slot_qualifier(slot::ParameterSlot, context::NamedTuple)
     return Qualifier(slot.qualify, value)
 end
 
+function _binding_axis_components(
+    named::NamedProcess, axes::Tuple, qualifier
+)
+    process_participants = participants(named)
+    return map(axes) do axis
+        qualifier isa Qualifier && qualifier.axis === axis && return (qualifier.value,)
+        hasproperty(process_participants, axis) || throw(ArgumentError(
+            "parameter applicability axis :$axis is not a participant role of process :$(process_id(named))",
+        ))
+        getproperty(process_participants, axis)
+    end
+end
+
 function _parameter_slot_metadata(
     named::NamedProcess,
     path::Tuple,
     slot::ParameterSlot,
-    context::NamedTuple,
+    qualifier,
 )
     all(item -> item isa Symbol, path) || throw(
         ArgumentError("parameter binding path must contain only Symbols"),
@@ -40,162 +57,172 @@ function _parameter_slot_metadata(
         process=process_id(named),
         path,
         slot=slot.name,
-        qualifier=_resolve_slot_qualifier(slot, context),
+        qualifier,
         axes=slot.axes,
+        axis_components=_binding_axis_components(named, slot.axes, qualifier),
     )
 end
 
-_qualifier_key(::Nothing) = nothing
-_qualifier_key(qualifier::Qualifier) = (qualifier.axis, qualifier.value)
-_binding_key(process::Symbol, path::Tuple, slot::Symbol, qualifier) =
-    (process, path, slot, _qualifier_key(qualifier))
-_binding_key(binding::ParameterBinding) =
-    _binding_key(binding.process, binding.path, binding.slot, binding.qualifier)
-_binding_key(metadata::NamedTuple) =
-    _binding_key(metadata.process, metadata.path, metadata.slot, metadata.qualifier)
-
 function _emit_parameter_slots!(
     uses::Vector{Any},
+    seen::Set{Any},
     named::NamedProcess,
     path::Tuple,
     node;
     context::NamedTuple=NamedTuple(),
+    runtime_bound::Bool=true,
 )
+    slots = parameter_slots(_parameter_slot_source(node))
+    names = Tuple(slot.name for slot in slots)
     bindings = _resolve_authored_bindings(node)
-    for slot in parameter_slots(_parameter_slot_source(node))
+    refs = ntuple(length(slots)) do i
+        slot = slots[i]
         qualifier = _resolve_slot_qualifier(slot, context)
-        metadata = _parameter_slot_metadata(named, path, slot, context)
+        metadata = _parameter_slot_metadata(named, path, slot, qualifier)
+        qualifier_key = isnothing(qualifier) ? nothing : (qualifier.axis, qualifier.value)
+        identity = (metadata.process, metadata.path, metadata.slot, qualifier_key)
+        identity in seen && throw(
+            ArgumentError("canonical processes declare duplicate parameter binding key $identity"),
+        )
+        push!(seen, identity)
         parameter, explicit = _resolve_binding_value(bindings, slot, qualifier)
-        push!(uses, (; metadata..., parameter, explicit))
+        push!(uses, (; metadata..., parameter, explicit, runtime_bound))
+        length(uses)
     end
-    return nothing
+    return NamedTuple{names}(refs)
 end
 
 function _visit_factor_slots!(
-    uses::Vector{Any}, named::NamedProcess, path::Tuple, factor::AbstractFactor
+    uses::Vector{Any}, seen::Set{Any}, named::NamedProcess, path::Tuple, factor::AbstractFactor
 )
-    _emit_parameter_slots!(
-        uses, named, path, factor; context=factor_parameter_context(factor)
+    slots = _emit_parameter_slots!(
+        uses, seen, named, path, factor; context=factor_parameter_context(factor)
     )
-    for (name, child) in pairs(_resolve_factor_children(factor))
+    children = _resolve_factor_children(factor)
+    names = keys(children)
+    child_refs = NamedTuple{names}(Tuple(
         _visit_factor_slots!(
-            uses, named, factor_child_path(path, factor, name), child
+            uses, seen, named, factor_child_path(path, factor, name), child
         )
-    end
-    return nothing
+        for (name, child) in pairs(children)
+    ))
+    return (; slots, children=child_refs)
 end
 
 function _visit_product_slots!(
-    uses::Vector{Any}, named::NamedProcess, path::Tuple, products::Products
+    uses::Vector{Any}, seen::Set{Any}, named::NamedProcess, path::Tuple, products::Products
 )
-    for product in keys(products.fractions)
-        _emit_parameter_slots!(uses, named, path, products; context=(product=product,))
-    end
-    stoichiometry = products.stoichiometry
-    isnothing(stoichiometry) && return nothing
-    currencies = keys(first(values(products.targets)))
-    for currency in currencies
-        currency === stoichiometry.reference && continue
+    fraction_names = keys(products.fractions)
+    fractions = NamedTuple{fraction_names}(Tuple(
         _emit_parameter_slots!(
             uses,
+            seen,
+            named,
+            path,
+            products;
+            context=(product=product,),
+            runtime_bound=product !== products.balanced,
+        )
+        for product in fraction_names
+    ))
+
+    stoichiometry = products.stoichiometry
+    isnothing(stoichiometry) && return (; fractions, stoichiometry=NamedTuple())
+    currencies = Tuple(
+        currency for currency in keys(first(values(products.targets)))
+        if currency !== stoichiometry.reference
+    )
+    ratios = NamedTuple{currencies}(Tuple(
+        _emit_parameter_slots!(
+            uses,
+            seen,
             named,
             (path..., :stoichiometry),
             stoichiometry;
             context=(currency=currency,),
         )
-    end
-    return nothing
+        for currency in currencies
+    ))
+    return (; fractions, stoichiometry=ratios)
 end
 
-function _visit_process_slots!(uses::Vector{Any}, named::NamedProcess)
+function _visit_process_slots!(uses::Vector{Any}, seen::Set{Any}, named::NamedProcess)
     process = named.process
-    if process isa Mortality
-        for population in process.populations
-            _emit_parameter_slots!(uses, named, (), process; context=(population=population,))
-        end
+    process_refs = if process isa Mortality
+        Tuple(
+            _emit_parameter_slots!(
+                uses, seen, named, (), process; context=(population=population,)
+            )
+            for population in process.populations
+        )
     elseif process isa Remineralization
-        for source in process.sources
-            _emit_parameter_slots!(uses, named, (), process; context=(source=source,))
-        end
+        Tuple(
+            _emit_parameter_slots!(
+                uses, seen, named, (), process; context=(source=source,)
+            )
+            for source in process.sources
+        )
     else
-        _emit_parameter_slots!(uses, named, (), process)
+        _emit_parameter_slots!(uses, seen, named, (), process)
     end
 
-    for (name, factor) in pairs(factors(process))
-        _visit_factor_slots!(uses, named, (:factors, name), factor)
-    end
+    process_factors = factors(process)
+    factor_names = keys(process_factors)
+    factor_refs = NamedTuple{factor_names}(Tuple(
+        _visit_factor_slots!(uses, seen, named, (:factors, name), factor)
+        for (name, factor) in pairs(process_factors)
+    ))
 
     products = process_products(process)
-    isnothing(products) || _visit_product_slots!(uses, named, product_path(process), products)
+    product_refs = isnothing(products) ? nothing :
+        _visit_product_slots!(uses, seen, named, product_path(process), products)
 
+    stoichiometry_refs = NamedTuple()
     if process isa Growth && !isnothing(process.stoichiometry)
-        for currency in keys(named.facts.additional_resources)
+        currencies = keys(named.facts.additional_resources)
+        stoichiometry_refs = NamedTuple{currencies}(Tuple(
             _emit_parameter_slots!(
                 uses,
+                seen,
                 named,
                 (:stoichiometry,),
                 process.stoichiometry;
                 context=(currency=currency,),
             )
-        end
+            for currency in currencies
+        ))
     end
-    return nothing
+    return (;
+        process=process_refs,
+        factors=factor_refs,
+        products=product_refs,
+        stoichiometry=stoichiometry_refs,
+    )
 end
 
 """Setup-time canonical scientific model definition.
 
-`parameter_bindings` is the canonical ordered contract; `parameter_lookup` is a transient
-setup cache used while lowering processes.
+`parameter_bindings` is the single ordered parameter-binding representation. Canonical
+processes carry dense references into this tuple so setup and lowering do not maintain a
+second path-key lookup representation.
 """
-struct CanonicalModelDefinition{C,P,A,D,B,L}
+struct CanonicalModelDefinition{C,P,A,D,B}
     components::C
     processes::P
     parameters::A
     driver_identities::D
     parameter_bindings::B
-    parameter_lookup::L
 end
 
 """Return the canonical external-driver identities required by a canonical model."""
 driver_identities(definition::CanonicalModelDefinition) = definition.driver_identities
 
-function _parameter_binding(
-    definition::CanonicalModelDefinition,
-    process::Symbol,
-    path::Tuple,
-    slot::Symbol,
-    qualifier,
-)
-    key = _binding_key(process, path, slot, qualifier)
-    return get(definition.parameter_lookup, key) do
-        throw(ArgumentError(
-            "no model parameter is bound to slot :$slot at process :$process path $path qualifier $qualifier",
-        ))
-    end
+function _resolved_slot_bindings(definition::CanonicalModelDefinition, refs::NamedTuple)
+    names = keys(refs)
+    return NamedTuple{names}(Tuple(
+        definition.parameter_bindings[ref] for ref in values(refs)
+    ))
 end
-
-"""Resolve all parameter slots for one scientific node from its formulation schema."""
-function parameter_slot_bindings(
-    definition::CanonicalModelDefinition,
-    named::NamedProcess,
-    path::Tuple,
-    node;
-    context::NamedTuple=NamedTuple(),
-)
-    slot_source = _parameter_slot_source(node)
-    slots = parameter_slots(slot_source)
-    names = Tuple(slot.name for slot in slots)
-    bindings = Tuple(
-        begin
-            qualifier = _resolve_slot_qualifier(slot, context)
-            _parameter_binding(
-                definition, process_id(named), path, slot.name, qualifier
-            )
-        end for slot in slots
-    )
-    return NamedTuple{names}(bindings)
-end
-
 
 _canonical_target_currencies(target::Symbol, reference::Symbol) =
     NamedTuple{(reference,)}((target,))
@@ -497,14 +524,12 @@ end
 
 function _collect_parameter_uses(processes::NamedTuple)
     uses = Any[]
-    for named in values(processes)
-        _visit_process_slots!(uses, named)
-    end
-    keys = Tuple(_binding_key(use) for use in uses)
-    length(unique(keys)) == length(keys) || throw(
-        ArgumentError("canonical processes declare duplicate parameter binding keys"),
-    )
-    return Tuple(uses)
+    seen = Set{Any}()
+    names = keys(processes)
+    refs = NamedTuple{names}(Tuple(
+        _visit_process_slots!(uses, seen, named) for named in values(processes)
+    ))
+    return Tuple(uses), refs
 end
 
 const RESERVED_PARAMETER_KEYS = (:x, :y, :z, :t)
@@ -550,13 +575,12 @@ function _resolve_parameter_definitions(definitions)
 end
 
 function _resolve_parameter_bindings(
-    processes::NamedTuple, definitions, dependency_names::Set{Symbol}
+    uses::Tuple, definitions, dependency_names::Set{Symbol}
 )
-    uses = _collect_parameter_uses(processes)
     if isnothing(definitions)
         bindings = Tuple(
             ParameterBinding(
-                use.process, use.path, use.slot, use.qualifier, use.axes, use.parameter,
+                use.axes, use.axis_components, use.parameter, use.runtime_bound,
             )
             for use in uses
         )
@@ -610,15 +634,24 @@ function _resolve_parameter_bindings(
 
     return Tuple(
         ParameterBinding(
-            use.process,
-            use.path,
-            use.slot,
-            use.qualifier,
             use.axes,
+            use.axis_components,
             use.parameter,
+            use.runtime_bound,
         )
         for use in uses
     )
+end
+
+function _attach_binding_refs(processes::NamedTuple, refs::NamedTuple)
+    names = keys(processes)
+    return NamedTuple{names}(Tuple(
+        begin
+            named = getproperty(processes, name)
+            NamedProcess(named.id, named.process, named.facts, getproperty(refs, name))
+        end
+        for name in names
+    ))
 end
 
 """Canonicalize process identity and resolve inline parameter bindings.
@@ -635,16 +668,14 @@ function canonicalize_model(definition::ModelDefinition)
         definition.processes, definition.components
     )
     parameters, dependency_names = _resolve_parameter_definitions(definition.parameters)
-    bindings = _resolve_parameter_bindings(
-        canonical_processes, parameters, dependency_names
-    )
-    lookup = Dict(_binding_key(binding) => binding for binding in bindings)
+    uses, binding_refs = _collect_parameter_uses(canonical_processes)
+    bindings = _resolve_parameter_bindings(uses, parameters, dependency_names)
+    bound_processes = _attach_binding_refs(canonical_processes, binding_refs)
     return CanonicalModelDefinition(
         definition.components,
-        canonical_processes,
+        bound_processes,
         parameters,
         _canonical_driver_identities(canonical_processes),
         bindings,
-        lookup,
     )
 end

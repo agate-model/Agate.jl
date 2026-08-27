@@ -29,17 +29,15 @@ function _factor_process_operands(
     named::NamedProcess,
     axis_positions::NamedTuple,
 )
-    binding = parameter_slot_bindings(
-        context.definition, named, (), named.process
-    ).maximum_rate
-    return (parameter_operand(binding, context.plan, axis_positions),)
+    ref = named.binding_refs.process.maximum_rate
+    return (parameter_operand(ref, context, axis_positions),)
 end
 
 function _factor_element(
     context::CompileContext,
     named::NamedProcess,
-    path::Tuple,
     factor::AbstractFactor,
+    refs,
     axis_positions::NamedTuple,
 )
     layout = context.layout
@@ -57,23 +55,16 @@ function _factor_element(
             _factor_element(
                 context,
                 named,
-                factor_child_path(path, factor, name),
                 child,
+                getproperty(refs.children, name),
                 axis_positions,
             )
             for (name, child) in pairs(children)
         )
         (TupleOp(child_factors),)
     end
-    slots = parameter_slot_bindings(
-        context.definition,
-        named,
-        path,
-        factor;
-        context=factor_parameter_context(factor),
-    )
     parameter_operands = Tuple(
-        parameter_operand(binding, context.plan, axis_positions) for binding in values(slots)
+        parameter_operand(ref, context, axis_positions) for ref in values(refs.slots)
     )
     return FactorElement(
         formulation(factor),
@@ -87,7 +78,9 @@ function _factor_elements(
     axis_positions::NamedTuple,
 )
     return Tuple(
-        _factor_element(context, named, (:factors, name), factor, axis_positions)
+        _factor_element(
+            context, named, factor, getproperty(named.binding_refs.factors, name), axis_positions
+        )
         for (name, factor) in pairs(factors(named))
     )
 end

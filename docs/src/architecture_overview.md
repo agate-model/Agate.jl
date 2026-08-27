@@ -52,8 +52,10 @@ lean runtime
 Custom process implementations that need new flux topology can extend
 `Processes.process_facts` to attach setup-validated facts to an `AbstractProcess` and
 `Compilation.process_fluxes` to lower the resulting `NamedProcess` using the shared
-`CompileContext`. Custom processes otherwise follow the same model-definition, validation,
-canonicalization, parameter-planning, construction, and runtime pipeline as built-in processes. Formulations and
+`CompileContext`. Parameterized custom processes use `Compilation.process_parameter_operands`
+to receive process-owned static operands without depending on dense binding references. Custom
+processes otherwise follow the same model-definition, validation, canonicalization,
+parameter-planning, construction, and runtime pipeline as built-in processes. Formulations and
 factors use the same method-based slot/input/rate protocol.
 
 ## Scientific boundaries
@@ -63,6 +65,8 @@ Components describe structure rather than ecological role. A `Population` owns e
 A mixotroph is an ordinary population participating in both growth and living-prey consumption. `Consumption` is the single consumer-resource process for living prey, bacterivory, mixotrophy, and material-pool consumption. Process products are expressed directly through `products=` or `unassimilated_products=`. `Products` provides conservative named allocation when one process flux has multiple destinations. Collection-valued participant roles use plural keywords such as `populations=`, `consumers=`, `resources=`, and `sources=`; each accepts either one `Symbol` or a tuple and is canonicalized to a tuple during authoring. Remineralization has one `destination=` because its current scientific contract is many sources to one destination. Bacterioplankton may consume POM and be consumed as living prey through the same consumer-resource machinery. Structured material pools use the same component-layout machinery as structured populations.
 
 Named factors are multiplicative within a process, while independent named processes add through their fluxes to a tracer equation. Products and stoichiometry map process rates into affected material and currency pools. A product may target one pool directly or a currency-to-pool mapping under `FixedStoichiometry`; setup canonicalizes both authoring forms to one product-to-currency-to-component target shape before lowering, so compilation uses the same allocation machinery for both.
+
+Parameter slots are resolved once during canonicalization. Each canonical process carries dense references into the single ordered `ParameterBinding` tuple, arranged alongside its process, factor, product, and stoichiometry structure. Lowering consumes those references directly; scientific tree paths remain setup-time validation/error context rather than a second lookup key representation.
 
 ## Source tree
 

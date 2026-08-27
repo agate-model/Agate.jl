@@ -16,10 +16,9 @@ using ..Processes:
     FactorPopulationState,
     factor_inputs,
     factor_children,
-    factor_parameter_context,
-    factor_child_path,
     HeterotrophicConsumption,
     NamedProcess,
+    process_id,
     PreferentialGrazing,
     Products,
     CanonicalModelDefinition,
@@ -29,8 +28,6 @@ using ..Processes:
     ParameterBinding,
     ParameterPlan,
     parameter_storage_index,
-    parameter_slot_bindings,
-    product_path,
     process_products,
     process_rate
 

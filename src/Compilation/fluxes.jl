@@ -52,6 +52,37 @@ function parameter_operand(
     return ParameterOp{binding.parameter,indices}()
 end
 
+
+"""Resolve one dense canonical binding reference to its static runtime parameter operand."""
+function parameter_operand(
+    ref::Int,
+    context::CompileContext,
+    axis_positions::NamedTuple=NamedTuple(),
+)
+    binding = context.definition.parameter_bindings[ref]
+    return parameter_operand(binding, context.plan, axis_positions)
+end
+
+"""Return compiled operands for the unqualified process-owned parameter slots of a custom process.
+
+This is the narrow parameterized-process extension seam: custom lowering receives semantic slot
+names mapped directly to static operands without depending on canonical binding references.
+"""
+function process_parameter_operands(
+    named::NamedProcess,
+    context::CompileContext,
+    axis_positions::NamedTuple=NamedTuple(),
+)
+    refs = named.binding_refs.process
+    refs isa NamedTuple || throw(ArgumentError(
+        "process :$(process_id(named)) has qualifier-specific parameter slots; custom lowering must resolve its setup facts explicitly",
+    ))
+    names = keys(refs)
+    return NamedTuple{names}(Tuple(
+        parameter_operand(ref, context, axis_positions) for ref in values(refs)
+    ))
+end
+
 function _scalar_component_target(layout::ModelLayout, component::Symbol)
     tracers = getproperty(layout.component_tracers, component)
     return only(tracers)

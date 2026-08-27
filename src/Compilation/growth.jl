@@ -4,13 +4,13 @@ function _growth_rate(
     population_axis::Int,
     population_class::Symbol,
     population_tracer::Symbol,
-    scale_binding::ParameterBinding,
+    scale_ref::Int,
 )
     axis_positions = (population=_axis_position(population_axis, population_class),)
     rate_factors = _factor_elements(context, named, axis_positions)
     operands = (
         input_operand(context.layout, population_tracer),
-        parameter_operand(scale_binding, context.plan, axis_positions),
+        parameter_operand(scale_ref, context, axis_positions),
     )
     return RateElement(formulation(named.process), operands; factors=rate_factors)
 end
@@ -30,19 +30,13 @@ function _growth_resource_fluxes(
         ),
     ]
     for (currency, resource) in pairs(facts.additional_resources)
-        ratio = parameter_slot_bindings(
-            context.definition,
-            named,
-            (:stoichiometry,),
-            named.process.stoichiometry;
-            context=(currency=currency,),
-        ).ratio
+        ratio_ref = getproperty(named.binding_refs.stoichiometry, currency).ratio
         push!(
             fluxes,
             FluxSpec(
                 _scalar_component_target(layout, resource),
                 rate,
-                Weight{-1}((parameter_operand(ratio, context.plan),)),
+                Weight{-1}((parameter_operand(ratio_ref, context),)),
             ),
         )
     end
@@ -60,15 +54,13 @@ function process_fluxes(
     population_classes = _realize_population_classes(
         named.facts.population_states, layout
     )
-    scale_binding = parameter_slot_bindings(
-        context.definition, named, (), named.process
-    ).maximum_rate
+    scale_ref = named.binding_refs.process.maximum_rate
     fluxes = Any[]
 
     for population_axis in eachindex(population_tracers)
         rate = _growth_rate(
             named, context, population_axis, population_classes[population_axis],
-            population_tracers[population_axis], scale_binding,
+            population_tracers[population_axis], scale_ref,
         )
         push!(
             fluxes,

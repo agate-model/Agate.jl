@@ -4,12 +4,11 @@ function process_fluxes(
     process = named.process
     facts = named.facts
     layout = context.layout
-    plan = context.plan
     target_tracers = state_tracers(layout, facts.target)
     reference_tracers = state_tracers(layout, facts.reference)
     resource = _scalar_component_target(layout, facts.resource)
     population_classes = component_classes(layout, process.population)
-    slots = parameter_slot_bindings(context.definition, named, (), process)
+    slots = named.binding_refs.process
     fluxes = Any[]
 
     for population_axis in eachindex(target_tracers)
@@ -20,11 +19,11 @@ function process_fluxes(
             input_operand(layout, resource),
             input_operand(layout, target_tracers[population_axis]),
             input_operand(layout, reference_tracers[population_axis]),
-            parameter_operand(slots.maximum_rate, plan, axis_positions),
-            parameter_operand(slots.K, plan, axis_positions),
-            parameter_operand(slots.minimum_quota, plan, axis_positions),
-            parameter_operand(slots.maximum_quota, plan, axis_positions),
-            parameter_operand(slots.hill, plan, axis_positions),
+            parameter_operand(slots.maximum_rate, context, axis_positions),
+            parameter_operand(slots.K, context, axis_positions),
+            parameter_operand(slots.minimum_quota, context, axis_positions),
+            parameter_operand(slots.maximum_quota, context, axis_positions),
+            parameter_operand(slots.hill, context, axis_positions),
         )
         rate = RateElement(formulation(process), operands)
         push!(

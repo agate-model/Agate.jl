@@ -1,18 +1,8 @@
-function _product_fraction_binding(
-    context::CompileContext,
-    named::NamedProcess,
-    products::Products,
-    product::Symbol,
-)
-    return parameter_slot_bindings(
-        context.definition,
-        named,
-        product_path(named.process),
-        products;
-        context=(product=product,),
-    ).fraction
+function _product_fraction_ref(named::NamedProcess, product::Symbol)
+    refs = named.binding_refs.products.fractions
+    hasproperty(refs, product) || return nothing
+    return getproperty(refs, product).fraction
 end
-
 function _product_fraction_operand(
     context::CompileContext,
     named::NamedProcess,
@@ -20,54 +10,40 @@ function _product_fraction_operand(
     product::Symbol,
 )
     if product !== products.balanced
-        hasproperty(products.fractions, product) || return nothing
-        return parameter_operand(
-            _product_fraction_binding(context, named, products, product), context.plan
-        )
+        ref = _product_fraction_ref(named, product)
+        isnothing(ref) && return nothing
+        return parameter_operand(ref, context)
     end
 
+    fraction_refs = named.binding_refs.products.fractions
     explicit_products = Tuple(
         name for name in keys(products.targets)
-        if name !== products.balanced && hasproperty(products.fractions, name)
+        if name !== products.balanced && hasproperty(fraction_refs, name)
     )
     isempty(explicit_products) && return nothing
     operands = Tuple(
-        parameter_operand(
-            _product_fraction_binding(context, named, products, name), context.plan
-        )
+        parameter_operand(_product_fraction_ref(named, name), context)
         for name in explicit_products
     )
     return RemainderOp(operands)
 end
 
-function _product_ratio_binding(
-    context::CompileContext,
-    named::NamedProcess,
-    products::Products,
-    currency::Symbol,
-)
+function _product_ratio_ref(named::NamedProcess, products::Products, currency::Symbol)
     stoichiometry = products.stoichiometry
     isnothing(stoichiometry) && return nothing
     currency === stoichiometry.reference && return nothing
-    return parameter_slot_bindings(
-        context.definition,
-        named,
-        (product_path(named.process)..., :stoichiometry),
-        stoichiometry;
-        context=(currency=currency,),
-    ).ratio
+    return getproperty(named.binding_refs.products.stoichiometry, currency).ratio
 end
-
 _product_operand_tuple(::Nothing) = ()
 _product_operand_tuple(operand) = (operand,)
 
 function _product_weight(
     fraction,
-    ratio::Union{Nothing,ParameterBinding},
-    plan::ParameterPlan;
+    ratio::Union{Nothing,Int},
+    context::CompileContext;
     suffix::Tuple=(),
 )
-    ratio_operand = isnothing(ratio) ? nothing : parameter_operand(ratio, plan)
+    ratio_operand = isnothing(ratio) ? nothing : parameter_operand(ratio, context)
     operands = (
         _product_operand_tuple(fraction)...,
         _product_operand_tuple(ratio_operand)...,
@@ -89,12 +65,12 @@ function _product_fluxes(
         fraction = _product_fraction_operand(context, named, products, product)
         for (currency, component) in pairs(targets)
             target = _scalar_component_target(context.layout, component)
-            ratio = _product_ratio_binding(context, named, products, currency)
+            ratio = _product_ratio_ref(named, products, currency)
             push!(
                 fluxes,
                 FluxSpec(
                     target, rate,
-                    _product_weight(fraction, ratio, context.plan; suffix),
+                    _product_weight(fraction, ratio, context; suffix),
                 ),
             )
         end

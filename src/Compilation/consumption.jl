@@ -51,9 +51,9 @@ function _consumption_rate(
     operands = (
         input_operand(context.layout, resource),
         input_operand(context.layout, consumer),
-        parameter_operand(slots.maximum_rate, context.plan, axis_positions),
-        parameter_operand(slots.half_saturation, context.plan, axis_positions),
-        parameter_operand(slots.palatability, context.plan, axis_positions),
+        parameter_operand(slots.maximum_rate, context, axis_positions),
+        parameter_operand(slots.half_saturation, context, axis_positions),
+        parameter_operand(slots.palatability, context, axis_positions),
     )
     rate_factors = _factor_elements(context, named, axis_positions)
     return RateElement(formulation, operands; factors=rate_factors)
@@ -71,8 +71,8 @@ function _consumption_rate(
     operands = (
         input_operand(context.layout, resource),
         input_operand(context.layout, consumer),
-        parameter_operand(slots.maximum_rate, context.plan, axis_positions),
-        parameter_operand(slots.half_saturation, context.plan, axis_positions),
+        parameter_operand(slots.maximum_rate, context, axis_positions),
+        parameter_operand(slots.half_saturation, context, axis_positions),
     )
     rate_factors = _factor_elements(context, named, axis_positions)
     return RateElement(formulation, operands; factors=rate_factors)
@@ -92,7 +92,7 @@ function process_fluxes(
     resource_classes = _consumption_resource_classes(
         formulation, named.facts.resources, layout
     )
-    slots = parameter_slot_bindings(context.definition, named, (), process)
+    slots = named.binding_refs.process
     fluxes = Any[]
 
     for consumer_axis in eachindex(consumer_tracers)
@@ -106,7 +106,7 @@ function process_fluxes(
             rate = _consumption_rate(
                 formulation, slots, context, named, consumer, resource, axis_positions
             )
-            assimilation = parameter_operand(slots.assimilation, context.plan, axis_positions)
+            assimilation = parameter_operand(slots.assimilation, context, axis_positions)
             push!(
                 fluxes,
                 FluxSpec(resource, rate, Weight{-1}()),

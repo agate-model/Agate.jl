@@ -1,14 +1,6 @@
-function _mortality_slots(
-    context::CompileContext, named::NamedProcess, population::Symbol
-)
-    return parameter_slot_bindings(
-        context.definition, named, (), named.process; context=(population=population,)
-    )
-end
-
 function _mortality_rate(
     formulation,
-    rate_binding::ParameterBinding,
+    rate_ref::Int,
     context::CompileContext,
     population_axis::Int,
     population_class::Symbol,
@@ -17,7 +9,7 @@ function _mortality_rate(
     axis_positions = (population=_axis_position(population_axis, population_class),)
     operands = (
         input_operand(context.layout, population_tracer),
-        parameter_operand(rate_binding, context.plan, axis_positions),
+        parameter_operand(rate_ref, context, axis_positions),
     )
     return RateElement(formulation, operands)
 end
@@ -28,11 +20,10 @@ function process_fluxes(
     process = named.process
     fluxes = Any[]
 
-    for reference in named.facts.population_states
+    for (reference, slots) in zip(named.facts.population_states, named.binding_refs.process)
         population = reference.population
         population_tracers = _realize_population_states((reference,), context.layout)
         population_classes = component_classes(context.layout, population)
-        slots = _mortality_slots(context, named, population)
         for population_axis in eachindex(population_tracers)
             rate = _mortality_rate(
                 formulation(process), slots.rate, context, population_axis,

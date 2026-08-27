@@ -6,18 +6,12 @@ function process_fluxes(
     destination = _scalar_component_target(layout, process.destination)
     fluxes = Any[]
 
-    for source_component in process.sources
+    for (source_component, slots) in zip(process.sources, named.binding_refs.process)
         source = _scalar_component_target(layout, source_component)
-        rate_binding = parameter_slot_bindings(
-            context.definition,
-            named,
-            (),
-            process;
-            context=(source=source_component,),
-        ).rate
+        rate_ref = slots.rate
         rate = RateElement(
             process.formulation,
-            (input_operand(layout, source), parameter_operand(rate_binding, context.plan)),
+            (input_operand(layout, source), parameter_operand(rate_ref, context)),
         )
         push!(
             fluxes,

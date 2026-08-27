@@ -84,8 +84,9 @@ Agate.Configuration.AssimilationBinary
 
 Custom process implementations attach setup-validated facts with
 `Processes.process_facts` and lower a `NamedProcess` with
-`Compilation.process_fluxes` using the shared `CompileContext`. This keeps extension code in the
-same construction pipeline as built-in processes while leaving canonicalization and compiler
+`Compilation.process_fluxes` using the shared `CompileContext`. Parameterized custom processes
+can obtain their process-owned compiled parameter operands through
+`Compilation.process_parameter_operands`, keeping dense binding references and canonicalization
 representation details internal to setup.
 
 ```@docs
@@ -93,6 +94,7 @@ Agate.Processes.NamedProcess
 Agate.Processes.process_facts
 Agate.Compilation.CompileContext
 Agate.Compilation.process_fluxes
+Agate.Compilation.process_parameter_operands
 ```
 
 ## Named families, recipes, and replay
