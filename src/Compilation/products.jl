@@ -78,36 +78,25 @@ end
 
 function _product_fluxes(
     named::NamedProcess,
-    products::Products,
+    product_targets::NamedTuple,
     context::CompileContext,
     rate::RateElement;
     suffix::Tuple=(),
 )
+    products = process_products(named.process)
     fluxes = Any[]
-    for product in keys(products.targets)
+    for (product, targets) in pairs(product_targets)
         fraction = _product_fraction_operand(context, named, products, product)
-        targets = getproperty(products.targets, product)
-        if targets isa Symbol
-            target = _scalar_component_target(context.layout, targets)
+        for (currency, component) in pairs(targets)
+            target = _scalar_component_target(context.layout, component)
+            ratio = _product_ratio_binding(context, named, products, currency)
             push!(
                 fluxes,
                 FluxSpec(
                     target, rate,
-                    _product_weight(fraction, nothing, context.plan; suffix),
+                    _product_weight(fraction, ratio, context.plan; suffix),
                 ),
             )
-        else
-            for (currency, component) in pairs(targets)
-                target = _scalar_component_target(context.layout, component)
-                ratio = _product_ratio_binding(context, named, products, currency)
-                push!(
-                    fluxes,
-                    FluxSpec(
-                        target, rate,
-                        _product_weight(fraction, ratio, context.plan; suffix),
-                    ),
-                )
-            end
         end
     end
     return Tuple(fluxes)

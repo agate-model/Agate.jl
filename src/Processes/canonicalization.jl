@@ -1,7 +1,7 @@
 """Named, validated process instance in canonical model state.
 
 `facts` contains setup-only decisions that compilation may trust, such as resolved
-population-state references and Growth routing ownership.
+population-state references, canonical product targets, and Growth routing ownership.
 """
 struct NamedProcess{P<:AbstractProcess,F}
     id::Symbol
@@ -212,6 +212,30 @@ function parameter_slot_bindings(
 end
 
 
+_canonical_target_currencies(target::Symbol, reference::Symbol) =
+    NamedTuple{(reference,)}((target,))
+_canonical_target_currencies(target::NamedTuple, ::Symbol) = target
+
+function _canonical_product_targets(id, products, components, reference, label)
+    names = keys(products.targets)
+    targets = NamedTuple{names}(Tuple(
+        _canonical_target_currencies(getproperty(products.targets, name), reference)
+        for name in names
+    ))
+
+    stoichiometry = products.stoichiometry
+    isnothing(stoichiometry) || _validate_currency(
+        stoichiometry.reference, reference, id, "$label stoichiometric reference"
+    )
+    for (name, currencies) in pairs(targets), (target_currency, target) in pairs(currencies)
+        pool = _resolve_scalar_pool(components, target, id, "$label product :$name target")
+        _validate_currency(
+            currency(pool), target_currency, id, "$label product :$name target :$target",
+        )
+    end
+    return targets
+end
+
 """Attach setup-validated facts to a process before compilation.
 
 Custom process implementations may extend this hook when lowering needs setup-resolved facts
@@ -365,10 +389,10 @@ function process_facts(process::Consumption, id::Symbol, components::NamedTuple)
             _validate_currency(currency(pool), reference, id, "heterotrophic resource :$resource")
         end
     end
-    isnothing(process.products) || _validate_products(
+    product_targets = isnothing(process.products) ? nothing : _canonical_product_targets(
         id, process.products, components, reference, "unassimilated products"
     )
-    return (; consumer_states, resources)
+    return (; consumer_states, resources, product_targets)
 end
 
 function process_facts(process::Mortality, id::Symbol, components::NamedTuple)
@@ -376,14 +400,18 @@ function process_facts(process::Mortality, id::Symbol, components::NamedTuple)
         _resolve_population_state(components, population, id, "mortality population")
         for population in process.populations
     )
-    if !isnothing(process.products)
+    product_targets = if isnothing(process.products)
+        nothing
+    else
         reference = _state_currency(components, first(population_states))
         _validate_state_currencies(
             components, population_states, reference, id, "mortality population state"
         )
-        _validate_products(id, process.products, components, reference, "mortality products")
+        _canonical_product_targets(
+            id, process.products, components, reference, "mortality products"
+        )
     end
-    return (; population_states)
+    return (; population_states, product_targets)
 end
 
 function process_facts(process::Remineralization, id::Symbol, components::NamedTuple)

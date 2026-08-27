@@ -42,8 +42,10 @@ function process_fluxes(
                 fluxes,
                 FluxSpec(population_tracers[population_axis], rate, Weight{-1}()),
             )
-            if process.products isa Products
-                append!(fluxes, _product_fluxes(named, process.products, context, rate))
+            if !isnothing(named.facts.product_targets)
+                append!(
+                    fluxes, _product_fluxes(named, named.facts.product_targets, context, rate)
+                )
             end
         end
     end

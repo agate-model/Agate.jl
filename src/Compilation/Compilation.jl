@@ -35,6 +35,7 @@ using ..Processes:
     parameter_storage_index,
     parameter_slot_bindings,
     product_path,
+    process_products,
     process_rate
 
 include("runtime_ir.jl")

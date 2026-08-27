@@ -136,30 +136,6 @@ function _validate_state_currencies(components, refs, expected, id, label)
     return nothing
 end
 
-function _validate_products(id, products, components, reference, label)
-    stoichiometry = products.stoichiometry
-    if isnothing(stoichiometry)
-        for (name, target) in pairs(products.targets)
-            target isa Symbol || throw(
-                ArgumentError("process :$id $label product :$name requires a scalar target"),
-            )
-            pool = _resolve_scalar_pool(components, target, id, "$label product :$name target")
-            _validate_currency(currency(pool), reference, id, "$label product :$name target :$target")
-        end
-        return nothing
-    end
-
-    _validate_currency(stoichiometry.reference, reference, id, "$label stoichiometric reference")
-    for (name, targets) in pairs(products.targets), (target_currency, target) in pairs(targets)
-        pool = _resolve_scalar_pool(components, target, id, "$label product :$name target")
-        _validate_currency(
-            currency(pool), target_currency, id, "$label product :$name target :$target",
-        )
-    end
-    return nothing
-end
-
-
 function _resolve_authored_bindings(node)
     slots = parameter_slots(_parameter_slot_source(node))
     bindings = if applicable(authored_parameter_bindings, node)

@@ -112,11 +112,11 @@ function process_fluxes(
                 FluxSpec(resource, rate, Weight{-1}()),
                 FluxSpec(consumer, rate, Weight{1}((assimilation,))),
             )
-            if process.products isa Products
+            if !isnothing(named.facts.product_targets)
                 append!(
                     fluxes,
                     _product_fluxes(
-                        named, process.products, context, rate;
+                        named, named.facts.product_targets, context, rate;
                         suffix=(RemainderOp((assimilation,)),),
                     ),
                 )
