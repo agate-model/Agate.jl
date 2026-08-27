@@ -64,9 +64,9 @@ Agate.Processes.authored_parameter_bindings
 The keyed parameter block separates runtime process parameters from construction-only inputs.
 Scientific slots and realized process applicability determine `Parameter` vector or matrix storage
 automatically, so runtime parameters never restate axes. `MetaParameter` values exist only during
-construction to feed `DerivedDefault` calculations; shaped meta-parameters declare their setup
-domain with `axes=`. Scientific slot-to-parameter relationships are authored beside the process
-or factor through `bindings=`.
+construction to feed `DerivedDefault` calculations; shaped meta-parameters use the global
+`axes=:plankton` construction domain. Scientific slot-to-parameter relationships are authored
+beside the process or factor through `bindings=`.
 
 ```@docs
 Agate.Parameters.Parameter
@@ -80,16 +80,19 @@ Agate.Configuration.PalatabilityAllometric
 Agate.Configuration.AssimilationBinary
 ```
 
-### Normalization and process compilation
+### Custom process extension
+
+Custom process implementations attach setup-validated facts with
+`Processes.normalize_process_facts` and lower a `NamedProcess` with
+`Compilation.process_fluxes` using the shared `CompileContext`. This keeps extension code in the
+same construction pipeline as built-in processes while leaving normalization and compiler
+representation details internal to setup.
 
 ```@docs
 Agate.Processes.NamedProcess
-Agate.Processes.NormalizedModelDefinition
-Agate.Processes.ParameterBinding
-Agate.Processes.driver_identities
-Agate.Processes.parameter_bindings
-Agate.Processes.normalize_model
-Agate.Compilation.compile_model_tendencies
+Agate.Processes.normalize_process_facts
+Agate.Compilation.CompileContext
+Agate.Compilation.process_fluxes
 ```
 
 ## Named families, recipes, and replay

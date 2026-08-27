@@ -19,7 +19,6 @@ struct MultiplicativeFactors <: AbstractFormulation end
 
 """Abstract supertype for named multiplicative process-rate factors."""
 abstract type AbstractFactor end
-struct IdealizedGrazing <: AbstractFormulation end
 struct PreferentialGrazing <: AbstractFormulation end
 struct HeterotrophicConsumption <: AbstractFormulation end
 struct LinearMortality <: AbstractFormulation end
@@ -222,7 +221,6 @@ factor_children(::AbstractFactor) = NamedTuple()
 factor_children(factor::Nutrients) = factor.responses
 
 factor_parameter_context(::AbstractFactor) = NamedTuple()
-factor_parameter_context(factor::NutrientResponse) = (resource=factor.resource,)
 
 factor_child_path(path::Tuple, ::AbstractFactor, name::Symbol) = (path..., name)
 factor_child_path(path::Tuple, ::Nutrients, name::Symbol) = (path..., :responses, name)
@@ -413,7 +411,7 @@ end
 authored_parameter_bindings(process::NutrientUptake) = process.bindings
 
 """Canonical consumer-resource process with optional factors and unassimilated products."""
-struct Consumption{F<:Union{IdealizedGrazing,PreferentialGrazing,HeterotrophicConsumption},A<:NamedTuple,P} <: AbstractProcess
+struct Consumption{F<:Union{PreferentialGrazing,HeterotrophicConsumption},A<:NamedTuple,P} <: AbstractProcess
     formulation::F
     consumers::Tuple
     resources::Tuple
@@ -423,7 +421,7 @@ struct Consumption{F<:Union{IdealizedGrazing,PreferentialGrazing,HeterotrophicCo
 end
 
 function Consumption(
-    formulation::Union{IdealizedGrazing,PreferentialGrazing,HeterotrophicConsumption};
+    formulation::Union{PreferentialGrazing,HeterotrophicConsumption};
     consumers,
     resources,
     factors::NamedTuple=NamedTuple(),
@@ -504,7 +502,7 @@ product_path(::Consumption) = (:unassimilated_products,)
 
 """Whether a consumer-resource formulation uses living consumer-prey interaction matrices."""
 uses_living_interactions(::AbstractFormulation) = false
-uses_living_interactions(::Union{IdealizedGrazing,PreferentialGrazing}) = true
+uses_living_interactions(::PreferentialGrazing) = true
 
 function participants(process::Growth)
     base = (population=process.populations,)

@@ -7,7 +7,7 @@ function _consumption_resource_tracers(resources::Tuple, layout::ModelLayout)
 end
 
 function _consumption_resources(
-    ::Union{IdealizedGrazing,PreferentialGrazing},
+    ::PreferentialGrazing,
     resources::Tuple,
     layout::ModelLayout,
 )
@@ -30,7 +30,7 @@ function _consumption_axis_positions(consumer_axis::Int, resource_axis::Int)
 end
 
 function _consumption_rate(
-    formulation::Union{IdealizedGrazing,PreferentialGrazing},
+    formulation::PreferentialGrazing,
     slots,
     context::CompileContext,
     named::NamedProcess,

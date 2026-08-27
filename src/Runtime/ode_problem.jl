@@ -50,7 +50,7 @@ end
     return nothing
 end
 
-struct ODEAuxiliarySource{V,E}
+struct ODEAuxiliarySource{V}
     values::V
 end
 
@@ -59,15 +59,11 @@ function ode_auxiliary_source(aux_names, auxiliary::NamedTuple)
         hasproperty(auxiliary, name) || throw(ArgumentError("Missing auxiliary value :$name."))
         return getproperty(auxiliary, name)
     end
-    return ODEAuxiliarySource{typeof(values), true}(values)
+    return ODEAuxiliarySource(values)
 end
 
-ode_auxiliary_source(aux_names, auxiliary::Tuple) = ODEAuxiliarySource{typeof(auxiliary), false}(auxiliary)
-
-@inline function ode_auxiliary_values(source::ODEAuxiliarySource{V, true}, t) where {V}
+@inline function ode_auxiliary_values(source::ODEAuxiliarySource, t)
     return map(source.values) do value
         value isa Function ? value(t) : value
     end
 end
-
-@inline ode_auxiliary_values(source::ODEAuxiliarySource{V, false}, t) where {V} = source.values

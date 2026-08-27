@@ -41,8 +41,8 @@ Parameter(default) = Parameter(ConstantDefault(default))
 """A construction-only parameter used to derive one or more runtime parameters.
 
 `MetaParameter` values are materialized during setup but are not stored in the runtime
-biogeochemistry. Shaped meta-parameters declare their construction domain with `axes`;
-omitting `axes` defines a scalar meta-parameter.
+biogeochemistry. Shaped meta-parameters use `axes=:plankton`; omitting `axes` defines a
+scalar meta-parameter.
 """
 struct MetaParameter{D<:DefaultProvider,A}
     default::D
@@ -51,15 +51,18 @@ end
 
 function MetaParameter(
     default::D;
-    axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
+    axes=nothing,
 ) where {D<:DefaultProvider}
+    (isnothing(axes) || axes === :plankton) || throw(
+        ArgumentError("MetaParameter axes must be `nothing` or `:plankton`"),
+    )
     return MetaParameter{D,typeof(axes)}(default, axes)
 end
 
 """Define a construction-only parameter with a literal constant default."""
 function MetaParameter(
     default;
-    axes::Union{Nothing,Symbol,NTuple{2,Symbol}}=nothing,
+    axes=nothing,
 )
     return MetaParameter(ConstantDefault(default); axes)
 end

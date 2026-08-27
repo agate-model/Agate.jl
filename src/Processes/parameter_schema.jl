@@ -43,7 +43,7 @@ parameter_slots(::Geider) = (
     ParameterSlot(:alpha, (:population,)),
     ParameterSlot(:chlorophyll_to_carbon_ratio, (:population,)),
 )
-parameter_slots(::Monod) = (ParameterSlot(:K, (:population,); qualify=:resource),)
+parameter_slots(::Monod) = (ParameterSlot(:K, (:population,)),)
 parameter_slots(::NormalizedDroop) = (
     ParameterSlot(:minimum_quota, (:population,)),
     ParameterSlot(:maximum_quota, (:population,)),
@@ -60,12 +60,6 @@ parameter_slots(::FrankTNorm) = (ParameterSlot(:sharpness),)
 parameter_slots(::Q10) = (
     ParameterSlot(:q10),
     ParameterSlot(:reference_temperature),
-)
-parameter_slots(::IdealizedGrazing) = (
-    ParameterSlot(:maximum_rate, (:consumer,)),
-    ParameterSlot(:half_saturation, (:consumer,)),
-    ParameterSlot(:palatability, (:consumer, :resource)),
-    ParameterSlot(:assimilation, (:consumer, :resource)),
 )
 parameter_slots(::PreferentialGrazing) = (
     ParameterSlot(:maximum_rate, (:consumer,)),

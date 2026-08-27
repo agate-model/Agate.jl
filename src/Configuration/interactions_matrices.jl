@@ -14,19 +14,3 @@ function interaction_axis_metadata(plan, layout::ModelLayout)
     isempty(names) && return nothing
     return (; parameters=names, consumers, prey)
 end
-
-"""Return global ecological-class indices for one semantic storage axis."""
-@inline axis_indices(layout::ModelLayout, axis::Symbol) =
-    if axis === :consumer
-        layout.consumer_indices
-    elseif axis === :prey
-        layout.prey_indices
-    elseif hasproperty(layout.group_indices, axis)
-        getproperty(layout.group_indices, axis)
-    else
-        throw(
-            ArgumentError(
-                "Unknown interaction axis '$axis'. Valid axes are :consumer, :prey, or an existing population subgroup symbol.",
-            ),
-        )
-    end

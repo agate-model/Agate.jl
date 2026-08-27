@@ -23,7 +23,6 @@ using ..Processes:
     SingleResourceRouting,
     QuotaRouting,
     MultiResourceRouting,
-    IdealizedGrazing,
     PreferentialGrazing,
     Products,
     NormalizedModelDefinition,
@@ -37,8 +36,6 @@ using ..Processes:
     parameter_slot_bindings,
     product_path,
     process_rate
-
-export compile_model_tendencies
 
 include("runtime_ir.jl")
 include("fluxes.jl")

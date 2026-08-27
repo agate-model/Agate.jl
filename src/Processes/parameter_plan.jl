@@ -74,20 +74,17 @@ function _layout_axis_classes(layout::ModelLayout, components::Tuple)
     return Tuple(classes)
 end
 
-function _binding_applicability_axes(process::NamedProcess, binding::ParameterBinding)
-    isempty(binding.axes) || return binding.axes
-    qualifier = binding.qualifier
-    qualifier isa Qualifier || return ()
-    return hasproperty(participants(process), qualifier.axis) ? (qualifier.axis,) : ()
-end
-
 function _resolved_binding_axis_classes(
     definition::NormalizedModelDefinition, layout::ModelLayout
 )
     return map(definition.parameter_bindings) do binding
         process = getproperty(definition.processes, binding.process)
-        axes = _binding_applicability_axes(process, binding)
-        map(axis -> _layout_axis_classes(layout, _binding_axis_components(process, binding, axis)), axes)
+        map(
+            axis -> _layout_axis_classes(
+                layout, _binding_axis_components(process, binding, axis)
+            ),
+            binding.axes,
+        )
     end
 end
 
@@ -118,15 +115,8 @@ function _union_storage_labels(layout::ModelLayout, name::Symbol, rank::Int, axi
     end
 end
 
-_explicit_axis_labels(layout::ModelLayout, axis::Symbol) =
-    axis === :plankton ? layout.class_symbols :
-    Tuple(layout.class_symbols[index] for index in axis_indices(layout, axis))
-
-_axis_tuple(::Nothing) = ()
-_axis_tuple(axis::Symbol) = (axis,)
-_axis_tuple(axes::Tuple) = axes
-
-_planned_parameter_axes(definition, name, parameter::MetaParameter) = _axis_tuple(parameter.axes)
+_planned_parameter_axes(definition, name, parameter::MetaParameter) =
+    isnothing(parameter.axes) ? () : (parameter.axes,)
 
 function _planned_parameter_axes(definition, name, parameter::Parameter)
     index = findfirst(binding -> binding.parameter === name, definition.parameter_bindings)
@@ -139,7 +129,12 @@ end
 function _parameter_storage_labels(layout, name, axes, axis_classes)
     rank = length(axes)
     rank == 0 && return ()
-    isempty(axis_classes) && return map(axis -> _explicit_axis_labels(layout, axis), axes)
+    if isempty(axis_classes)
+        axes == (:plankton,) || throw(ArgumentError(
+            "construction-only parameter :$name has unsupported explicit axes $axes",
+        ))
+        return (layout.class_symbols,)
+    end
     return _union_storage_labels(layout, name, rank, axis_classes)
 end
 

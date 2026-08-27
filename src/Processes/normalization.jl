@@ -193,9 +193,6 @@ end
 """Return the canonical external-driver identities required by a normalized model."""
 driver_identities(definition::NormalizedModelDefinition) = definition.driver_identities
 
-"""Return resolved local-slot-to-model-parameter bindings."""
-parameter_bindings(definition::NormalizedModelDefinition) = definition.parameter_bindings
-
 function _parameter_binding(
     definition::NormalizedModelDefinition,
     process::Symbol,
@@ -283,13 +280,38 @@ function _process_component_references(process::AbstractProcess)
     return Tuple(references)
 end
 
+_is_scalar_component(component::Pool) = isnothing(size_structure(component))
+_is_scalar_component(component::Population) =
+    isnothing(size_structure(component)) && length(states(component)) == 1
+
 function _scalar_pool(components, name::Symbol, id::Symbol, label::AbstractString)
     pool = getproperty(components, name)
     pool isa Pool || throw(ArgumentError("process :$id $label :$name must be a Pool"))
-    isnothing(size_structure(pool)) || throw(
+    _is_scalar_component(pool) || throw(
         ArgumentError("process :$id $label :$name must be a scalar Pool"),
     )
     return pool
+end
+
+function _validate_factor_component_inputs!(
+    id::Symbol,
+    factor::AbstractFactor,
+    components::NamedTuple,
+    path::Tuple,
+)
+    for input in factor_inputs(factor)
+        input isa FactorComponent || continue
+        component = getproperty(components, input.component)
+        _is_scalar_component(component) || throw(ArgumentError(
+            "process :$id factor path $path component :$(input.component) must be a scalar component",
+        ))
+    end
+    for (name, child) in pairs(_validated_factor_children(factor))
+        _validate_factor_component_inputs!(
+            id, child, components, factor_child_path(path, factor, name)
+        )
+    end
+    return nothing
 end
 
 function _population_state(
@@ -575,7 +597,11 @@ function _validate_process(id::Symbol, process, components::NamedTuple)
     isempty(missing) || throw(
         ArgumentError("process :$id references unknown components $missing"),
     )
-    return NamedProcess(id, process, normalize_process_facts(process, id, components))
+    facts = normalize_process_facts(process, id, components)
+    for (name, factor) in pairs(factors(process))
+        _validate_factor_component_inputs!(id, factor, components, (:factors, name))
+    end
+    return NamedProcess(id, process, facts)
 end
 
 function _canonical_processes(processes::NamedTuple, components::NamedTuple)

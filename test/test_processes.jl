@@ -20,6 +20,7 @@ using Agate.Processes:
     ModelDefinition,
     driver_identities,
     formulation,
+    HeterotrophicConsumption,
     normalize_model,
     participants,
     PreferentialGrazing
@@ -228,6 +229,20 @@ end
             ("process :growth", "nutrient factor resource", "scalar Pool"),
         ),
         (
+            "structured factor resource",
+            one_process(
+                :consume,
+                Consumption(
+                    HeterotrophicConsumption();
+                    consumers=:B,
+                    resources=:POM,
+                    factors=(limit=NutrientResponse(Monod(); resource=:POM),),
+                ),
+                (B=Population(:nitrogen), POM=Pool(:nitrogen; size_structure=[1.0])),
+            ),
+            ("process :consume", "component :POM", "scalar component"),
+        ),
+        (
             "multi-state Growth",
             one_process(:growth, Growth(;
                 populations=:P, factors=(light=light, nutrients=nutrient)
@@ -363,6 +378,7 @@ end
         bindings=(rate=:shared_mortality,),
     )
     @test_throws MethodError Parameter(ConstantDefault(0.1); axes=:plankton)
+    @test_throws ArgumentError MetaParameter(ConstantDefault(0.1); axes=:consumer)
 
     meta_bound_error = normalization_error_message(ModelDefinition(;
         components=(P=components.P, Z=components.Z),

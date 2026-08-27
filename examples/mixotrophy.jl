@@ -8,7 +8,7 @@ using Agate.Construction: construct
 using Agate.Parameters: DerivedDefault, MetaParameter, Parameter
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
-    Consumption, Growth, Light, ModelDefinition, NutrientResponse, Smith, Monod, PreferentialGrazing, normalize_model, participants
+    Consumption, Growth, Light, ModelDefinition, NutrientResponse, Smith, Monod, PreferentialGrazing, participants
 using Oceananigans.Units: day
 
 nothing #hide
@@ -74,12 +74,11 @@ parameters = (
 )
 
 definition = ModelDefinition(; components, processes, parameters)
-normalized = normalize_model(definition)
 bgc = construct(definition)
 
 println("tracers: ", tracer_names(bgc))
 println("drivers: ", auxiliary_field_names(bgc))
-println("M grows as: ", participants(normalized.processes.growth_M).population)
-println("M grazes as: ", participants(normalized.processes.grazing_M).consumer)
+println("M grows as: ", participants(processes.growth_M).population)
+println("M grazes as: ", participants(processes.grazing_M).consumer)
 
 nothing #hide

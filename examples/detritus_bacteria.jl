@@ -10,7 +10,7 @@ using Agate.Parameters: DerivedDefault, MetaParameter, Parameter
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
     Consumption, ModelDefinition, Temperature, Q10,
-    HeterotrophicConsumption, PreferentialGrazing, normalize_model, participants
+    HeterotrophicConsumption, PreferentialGrazing, participants
 using Oceananigans.Units: day
 
 nothing #hide
@@ -95,12 +95,11 @@ parameters = (
 # ## Construct and inspect
 
 definition = ModelDefinition(; components, processes, parameters)
-normalized = normalize_model(definition)
 bgc = construct(definition)
 
 println("tracers: ", tracer_names(bgc))
 println("drivers: ", auxiliary_field_names(bgc))
-println("POM consumer: ", participants(normalized.processes.consume_POM).consumer)
-println("living grazing prey: ", participants(normalized.processes.graze_bacteria).resource)
+println("POM consumer: ", participants(processes.consume_POM).consumer)
+println("living grazing prey: ", participants(processes.graze_bacteria).resource)
 
 nothing #hide
