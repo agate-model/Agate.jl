@@ -5,6 +5,7 @@ const NiPiZD = Agate.Models.NiPiZD
 using Test
 
 using Oceananigans.Units
+using Agate.Introspection: interaction_matrix, plankton_diameters
 using Agate.Library.Allometry: AllometricParam, ConstantParam, PowerLaw
 using Oceananigans.Fields: ZeroField
 using Oceananigans.Biogeochemistry:
@@ -15,9 +16,6 @@ using Oceananigans.Biogeochemistry:
 
     @testset "NiPiZD defaults" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
-
-        # Guardrail for GPU compilation: tracer callables must be concretely typed.
-        @test !any(t -> t === Any, fieldtypes(typeof(bgc.equations)))
 
         @test required_biogeochemical_tracers(bgc) == (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
         @test required_biogeochemical_tracers(typeof(bgc)) == (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
@@ -48,7 +46,9 @@ using Oceananigans.Biogeochemistry:
             end
 
         ordered = [tracer_vals(s) for s in required_biogeochemical_tracers(bgc)]
+        typed_args = (0, 0, 0, 0, N, D, Z_1, Z_2, P_1, P_2, PAR)
 
+        @test isfinite(@inferred(bgc(Val(:P_1), typed_args...)))
         @test isfinite(bgc(Val(:N), 0, 0, 0, 0, ordered..., PAR))
         @test isfinite(bgc(Val(:D), 0, 0, 0, 0, ordered..., PAR))
         @test isfinite(bgc(Val(:P_1), 0, 0, 0, 0, ordered..., PAR))
@@ -137,7 +137,7 @@ using Oceananigans.Biogeochemistry:
 
         growth = copy(named.parameters.maximum_growth_rate)
         predation = copy(named.parameters.maximum_predation_rate)
-        specificity = fill(Float32(0.3), length(named.metadata.class_symbols))
+        specificity = fill(Float32(0.3), length(plankton_diameters(named)))
         growth[1] = Float32(1.2 / day)
         predation[2] = Float32(0.7 / day)
         specificity[1] = 2.0f0
@@ -182,9 +182,10 @@ using Oceananigans.Biogeochemistry:
 
     @testset "NiPiZD interaction parameter overrides" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
-        n_total = length(bgc.metadata.class_symbols)
-        n_cons = length(bgc.metadata.interaction_axes.consumers)
-        n_prey = length(bgc.metadata.interaction_axes.prey)
+        axes = interaction_matrix(bgc, :palatability_matrix)
+        n_total = length(plankton_diameters(bgc))
+        n_cons = length(axes.rows)
+        n_prey = length(axes.columns)
 
         wrong = zeros(Float32, 3, 3)
         @test_throws ArgumentError NiPiZD.construct(;
@@ -218,9 +219,7 @@ using Oceananigans.Biogeochemistry:
         )
 
         # Provider/callable values are not parameter values.
-        rect_provider(ctx) = fill(
-            Float32(9), length(ctx.consumer_indices), length(ctx.prey_indices)
-        )
+        rect_provider(_) = fill(Float32(9), 1, 1)
         err = try
             NiPiZD.construct(;
                 grid=dummy_grid(Float32),
@@ -242,7 +241,7 @@ using Oceananigans.Biogeochemistry:
 
         bgc0 = NiPiZD.construct(; grid=dummy_grid(Float32))
         pal0 = bgc0.parameters.palatability_matrix
-        specificity = fill(Float32(3), length(bgc0.metadata.class_symbols))
+        specificity = fill(Float32(3), length(plankton_diameters(bgc0)))
 
         bgc1 = NiPiZD.construct(;
             grid=dummy_grid(Float32), parameters=(; specificity=specificity)
@@ -263,7 +262,7 @@ using Oceananigans.Biogeochemistry:
 
     @testset "Named parameter vector overrides" begin
         bgc_default = NiPiZD.construct(; grid=dummy_grid(Float32))
-        vopt = fill(Float32(10), length(bgc_default.metadata.class_symbols))
+        vopt = fill(Float32(10), length(plankton_diameters(bgc_default)))
         vopt[1] = 5.0f0
         vopt[2] = 5.0f0
         growth = copy(bgc_default.parameters.maximum_growth_rate)

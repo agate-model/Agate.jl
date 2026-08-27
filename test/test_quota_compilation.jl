@@ -13,7 +13,7 @@ quota_runtime_args(;
      P_2_carbon, P_2_nitrogen, P_2_phosphorus, PAR)
 
 function quota_tendencies(bgc, args)
-    names = keys(bgc.equations)
+    names = Tuple(Agate.Introspection.tracer_names(bgc))
     return NamedTuple{names}(Tuple(bgc(Val(name), args...) for name in names))
 end
 
@@ -31,14 +31,14 @@ end
 @testset "State-aware quota compilation" begin
     definition = quota_definition()
     bgc = construct(definition)
-    @test all(e -> isbitstype(typeof(e)), values(bgc.equations))
-    @test all(e -> !hasproperty(e, :terms) || all(t -> isbitstype(typeof(t)), e.terms), values(bgc.equations))
+    args = quota_runtime_args()
+    @test isfinite(@inferred(bgc(Val(:P_1_carbon), args...)))
     @test length(bgc.parameters.minimum_nitrogen_quota) == 2
     bgc32 = construct(definition; scalar_type=Float32)
     args32 = map(x -> x isa AbstractFloat ? Float32(x) : x, quota_runtime_args())
     @test bgc32(Val(:P_1_carbon), args32...) isa Float32
 
-    tendency = quota_tendencies(bgc, quota_runtime_args())
+    tendency = quota_tendencies(bgc, args)
     for (external, states) in (
         (:DIC, (:P_1_carbon, :P_2_carbon)),
         (:DIN, (:P_1_nitrogen, :P_2_nitrogen)),

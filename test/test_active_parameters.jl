@@ -178,7 +178,6 @@ end
     base_bgc = ActiveParameterNiPiZD.construct()
     for name in (:specificity, :protection, :optimum_predator_prey_ratio, :assimilation_efficiency)
         @test !hasproperty(base_bgc.parameters, name)
-        @test !getproperty(base_bgc.metadata.parameter_axes, name).runtime_bound
     end
 
     palatability_selectors = (

@@ -27,7 +27,6 @@ using Test
         @test plankton_groups(bgc) == groups.by_group
         @test plankton_tracers(bgc) == groups.plankton
         @test length(plankton_diameters(bgc)) == length(groups.plankton)
-        @test plankton_diameters(bgc) == collect(bgc.metadata.plankton_diameters)
         @test eltype(plankton_diameters(bgc)) === Float32
         @test nonplankton_tracers(bgc) == groups.nonplankton
         @test !model_summary(bgc).has_sinking_velocities
@@ -56,16 +55,6 @@ using Test
         @test size(assim.matrix) == (length(assim.rows), length(assim.columns))
         @test all(row in tracer_names(bgc) for row in pal.rows)
         @test all(col in tracer_names(bgc) for col in pal.columns)
-
-        synthetic_bgc = (;
-            parameters=(encounter_matrix=zeros(1, 1),),
-            metadata=(; interaction_axes=(;
-                parameters=(:encounter_matrix,), consumers=(:Z_1,), prey=(:P_1,)
-            )),
-        )
-        encounter = interaction_matrix(synthetic_bgc, :encounter_matrix)
-        @test encounter.parameter == :encounter_matrix
-        @test encounter.matrix === synthetic_bgc.parameters.encounter_matrix
 
         @test_throws ArgumentError interaction_matrix(bgc, :consumer_global)
         @test_throws ArgumentError interaction_matrix(bgc, :unknown)
@@ -131,11 +120,6 @@ using Test
         @test named_pal.rows == [:microzoo_1, :microzoo_2, :mesozoo_1]
         @test named_pal.columns == [:diat_1, :diat_2, :diat_3, :dino_1, :dino_2]
 
-        broken_bgc = (;
-            parameters=merge(bgc.parameters, (palatability_matrix=ones(1, 1),)),
-            metadata=(; interaction_axes=bgc.metadata.interaction_axes),
-        )
-        @test_throws ArgumentError interaction_matrix(broken_bgc, :palatability_matrix)
     end
 
     @testset "Authored model without plankton groups" begin

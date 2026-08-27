@@ -2,7 +2,7 @@ using Agate
 using Test
 
 using Agate.Configuration:
-    Population, DiameterRangeSpecification, realize_model_layout, normalize_diameters
+    Population, DiameterRangeSpecification, realize_model_layout, component_diameters
 
 @testset "Diameter input normalization" begin
     components = (Z=Population(:carbon), P=Population(:carbon))
@@ -15,8 +15,8 @@ using Agate.Configuration:
         ),
     )
 
-    @test layout.diameters[1:2] == (20.0, 100.0)
-    @test collect(layout.diameters[3:5]) ≈ [2.0, sqrt(20.0), 10.0]
+    @test component_diameters(layout, :Z) == (20.0, 100.0)
+    @test collect(component_diameters(layout, :P)) ≈ [2.0, sqrt(20.0), 10.0]
 
     bad_path = "population group :P diameters"
     for invalid in (
@@ -40,5 +40,4 @@ using Agate.Configuration:
         @test occursin(bad_path, sprint(showerror, err))
     end
 
-    @test normalize_diameters([1.0, 2.0]).n == 2
 end

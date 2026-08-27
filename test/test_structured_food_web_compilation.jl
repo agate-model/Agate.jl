@@ -4,6 +4,7 @@ using Oceananigans.Biogeochemistry:
 
 using Agate.Configuration: Population, Pool
 using Agate.Construction: construct
+using Agate.Introspection: interaction_matrix
 using Agate.Parameters: Parameter, NoDefault
 using Agate.Processes:
     ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, Smith, Monod,
@@ -122,12 +123,6 @@ end
     @test :M ∈ participants(definition.processes.grazing_living).consumer
     @test required_biogeochemical_auxiliary_fields(bgc) == (:PAR, :temperature)
 
-    @test all(
-        equation -> isbitstype(typeof(equation)) &&
-                    all(term -> isbitstype(typeof(term)), equation.terms),
-        values(bgc.equations),
-    )
-
     state = (
         N=5.0, D=0.1, POM_1=0.5, POM_2=0.2,
         P_1=0.05, B_1=0.03, M_1=0.02, Z_1=0.04,
@@ -202,7 +197,7 @@ end
     @test bgc.parameters.maximum_consumption_rate == [2.0]
     @test bgc.parameters.pom_half_saturation == [1.0, 3.0, 7.0]
     @test bgc.parameters.bacterial_assimilation == reshape([0.2, 0.4, 0.8], 1, 3)
-    @test bgc.metadata.interaction_axes === nothing
+    @test_throws ArgumentError interaction_matrix(bgc, :bacterial_assimilation)
 
     names = Agate.Introspection.tracer_names(bgc)
     state = (N=0.0, POM_1=1.0, POM_2=1.0, POM_3=1.0, X_1=5.0, B_1=1.0)

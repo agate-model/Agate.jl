@@ -68,19 +68,3 @@ function nipizd_manifest(
     )
     return manifest
 end
-
-"""Canonical NiPiZD population realization used by compiler-focused tests."""
-default_nipizd_realization() =
-    Agate.Models.NiPiZD._population_realization(Agate.Models.NiPiZD.DEFAULT_SIZE_STRUCTURE)
-
-function default_nipizd_layout(::Type{T}=Float64; auxiliary_fields=()) where {T<:Real}
-    family = Agate.Models.NiPiZD.NiPiZDFamily()
-    realization = default_nipizd_realization()
-    return Agate.Configuration.realize_model_layout(
-        Agate.ModelFamilies.default_components(family);
-        scalar_type=T,
-        realization...,
-        interaction_roles=(consumers=(:Z,), prey=(:P,)),
-        auxiliary_fields,
-    )
-end

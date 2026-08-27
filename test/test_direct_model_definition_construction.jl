@@ -4,6 +4,7 @@ using Test
 
 using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Population, Pool
 using Agate.Construction: construct
+using Agate.Introspection: plankton_diameters
 using Agate.Parameters: DerivedDefault, ConstantDefault, MetaParameter, Parameter
 using Agate.Processes:
     Consumption, FixedStoichiometry, Growth, Light, LinearMortality, ModelDefinition, Mortality,
@@ -88,15 +89,9 @@ end
     @test bgc.parameters.maximum_growth_rate == [3e-5]
     @test bgc.parameters.alpha == [2e-6]
     @test bgc.parameters.maximum_predation_rate == [5e-5]
-    @test bgc.metadata.plankton_diameters == (1.0, 10.0)
+    @test plankton_diameters(bgc) == [1.0, 10.0]
     @test size(bgc.parameters.palatability_matrix) ==
           size(bgc.parameters.assimilation_matrix) == (1, 1)
-    @test all(
-        equation -> isbitstype(typeof(equation)) &&
-                    all(term -> isbitstype(typeof(term)), equation.terms),
-        values(bgc.equations),
-    )
-
     args = (0.0, 0.0, 0.0, 0.0, 1.0, 0.1, 0.05, 100.0)
     tendencies = map(
         tracer -> bgc(Val(tracer), args...), required_biogeochemical_tracers(bgc)

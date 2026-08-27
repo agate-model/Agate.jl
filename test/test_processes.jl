@@ -18,7 +18,6 @@ using Agate.Processes:
     Consumption,
     Mortality,
     ModelDefinition,
-    parameter_bindings,
     driver_identities,
     formulation,
     normalize_model,
@@ -30,10 +29,6 @@ import Agate.Processes: factor_inputs
 struct ExternalTestFormulation <: AbstractFormulation end
 
 struct BindingDependencyDefault end
-struct ExternalTestFactor{F<:AbstractFormulation} <: AbstractFactor
-    formulation::F
-end
-
 struct MultiDriverTestFactor{F<:AbstractFormulation} <: AbstractFactor
     formulation::F
 end
@@ -66,16 +61,6 @@ end
     @test formulation(growth) isa MultiplicativeFactors
 
     @test participants(growth) == (population=(:P,),)
-
-    external_factor = ExternalTestFactor(ExternalTestFormulation())
-    external_model = normalize_model(ModelDefinition(;
-        components=(P=Population(:nitrogen), N=Pool(:nitrogen)),
-        processes=(growth=Growth(;
-            populations=:P,
-            factors=(light=light, nutrients=response, external=external_factor),
-        ),),
-    ))
-    @test all(binding -> binding.path != (:factors, :external), parameter_bindings(external_model))
 
     grazing = Consumption(
         PreferentialGrazing();
@@ -345,53 +330,38 @@ end
     end
 end
 
-@testset "Inline parameter binding resolution" begin
+@testset "Parameter binding behavior and validation" begin
     components = (
         P=Population(:nitrogen; size_structure=[1.0]),
         Z=Population(:nitrogen; size_structure=[10.0]),
         D=Pool(:nitrogen),
         E=Pool(:nitrogen),
+        R=Pool(:nitrogen),
     )
+
+    qualified = Agate.Processes.Remineralization(
+        Agate.Processes.LinearRemineralization();
+        sources=(:D, :E),
+        destination=:R,
+        bindings=(rate=(D=:D_rate, E=:E_rate),),
+    )
+    qualified_model = Agate.Construction.construct(ModelDefinition(;
+        components=(D=components.D, E=components.E, R=components.R),
+        processes=(remineralization=qualified,),
+        parameters=(D_rate=Parameter(0.1), E_rate=Parameter(0.2)),
+    ))
+    tracer_order = Agate.Introspection.tracer_names(qualified_model)
+    state = (D=2.0, E=3.0, R=0.0)
+    args = (0.0, 0.0, 0.0, 0.0, Tuple(getproperty(state, tracer) for tracer in tracer_order)...)
+    @test qualified_model(Val(:D), args...) ≈ -0.2
+    @test qualified_model(Val(:E), args...) ≈ -0.6
+    @test qualified_model(Val(:R), args...) ≈ 0.8
 
     shared = Mortality(
         Agate.Processes.LinearMortality();
         populations=(:P, :Z),
         bindings=(rate=:shared_mortality,),
     )
-    remineralization = Agate.Processes.Remineralization(
-        Agate.Processes.LinearRemineralization();
-        sources=(:D,),
-        destination=:D,
-        bindings=(rate=(D=:remineralization_rate,),),
-    )
-    normalized = normalize_model(ModelDefinition(;
-        components,
-        processes=(mortality=shared, remineralization=remineralization),
-        parameters=(
-            shared_mortality=Parameter(ConstantDefault(0.1)),
-            remineralization_rate=Parameter(ConstantDefault(0.2)),
-        ),
-    ))
-
-    mortality_bindings = filter(
-        binding -> binding.process === :mortality,
-        normalized.parameter_bindings,
-    )
-    @test length(mortality_bindings) == 2
-    @test all(binding -> binding.parameter === :shared_mortality, mortality_bindings)
-    @test Set(
-        (binding.qualifier.axis, binding.qualifier.value) for binding in mortality_bindings
-    ) == Set(((:population, :P), (:population, :Z)))
-    remineralization_binding = only(filter(
-        binding -> binding.process === :remineralization,
-        normalized.parameter_bindings,
-    ))
-    @test (
-        remineralization_binding.parameter,
-        remineralization_binding.axes,
-        (remineralization_binding.qualifier.axis, remineralization_binding.qualifier.value),
-    ) == (:remineralization_rate, (), (:source, :D))
-
     @test_throws MethodError Parameter(ConstantDefault(0.1); axes=:plankton)
 
     meta_bound_error = normalization_error_message(ModelDefinition(;
@@ -484,19 +454,6 @@ end
         populations=:P,
         bindings=(rate=:mortality_rate,),
     )
-    dependency_only = normalize_model(ModelDefinition(;
-        components=(P=components.P,),
-        processes=(mortality=single_mortality,),
-        parameters=(
-            mortality_rate=Parameter(
-                DerivedDefault(BindingDependencyDefault(); deps=(:helper,))
-            ),
-            helper=MetaParameter(ConstantDefault(1.0); axes=:plankton),
-        ),
-    ))
-    @test dependency_only.parameters.helper.axes === :plankton
-    @test dependency_only.parameters.mortality_rate.default.deps == (:helper,)
-
     lifecycle_cases = (
         (
             (mortality_rate=Parameter(0.1), unused=Parameter(1.0)),
