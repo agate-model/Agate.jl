@@ -1,4 +1,4 @@
-"""Mortality and loss formulations."""
+"""Mortality and loss kernels."""
 
 module Mortality
 

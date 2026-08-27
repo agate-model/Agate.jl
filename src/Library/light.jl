@@ -77,7 +77,7 @@ end
 """
     FunctionFieldPAR(field)
 
-Light module wrapping an `Oceananigans.FunctionField` that represents PAR.
+PAR provider wrapping an `Oceananigans.FunctionField`.
 
 The wrapped field is updated from the model clock by
 `update_biogeochemical_state!` and exposed as the auxiliary field `PAR`.
@@ -109,7 +109,7 @@ end
 """
     update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
 
-`Oceananigans.Biogechemistry` hook that computes and updates the irradiance field in-place.
+`Oceananigans.Biogeochemistry` hook that computes and updates the irradiance field in-place.
 """
 function update_biogeochemical_state!(model, PAR::FunctionFieldPAR)
     PAR.field.clock.time = model.clock.time

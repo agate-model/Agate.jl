@@ -1,9 +1,9 @@
-"""Registered model-family identities and their canonical scientific definitions."""
+"""Interface for named model-family identities and scientific definition hooks."""
 module ModelFamilies
 
 export AbstractModelFamily
 
-"""Registration token for a named biogeochemical model family."""
+"""Identity token for a named biogeochemical model family."""
 abstract type AbstractModelFamily end
 
 include("interface.jl")

@@ -11,7 +11,7 @@ end
 Dimensionality is structural: zero, one, or two declared axes imply scalar, vector, or
 matrix values respectively. `qualify` identifies repeated semantic instances without
 changing storage dimensionality. For a scalar slot, a qualifier that is also a process
-participant role can still provide ecological applicability without becoming a storage axis.
+participant role provides ecological applicability without becoming a storage axis.
 """
 struct ParameterSlot{A<:Tuple}
     name::Symbol
@@ -25,7 +25,7 @@ function ParameterSlot(
     qualify::Union{Nothing,Symbol}=nothing,
 )
     length(axes) <= 2 || throw(
-        ArgumentError("parameter slot axes currently support at most two dimensions"),
+        ArgumentError("parameter slot axes support at most two dimensions"),
     )
     all(axis -> axis isa Symbol, axes) || throw(
         ArgumentError("parameter slot axes must contain only Symbols"),
@@ -33,6 +33,7 @@ function ParameterSlot(
     return ParameterSlot(name, axes, qualify)
 end
 
+"""Return semantic parameter slots declared by a slot-owning scientific node."""
 parameter_slots(::AbstractFormulation) = ()
 parameter_slots(::MultiplicativeFactors) = (ParameterSlot(:maximum_rate, (:population,)),)
 parameter_slots(::Smith) = (ParameterSlot(:alpha, (:population,)),)

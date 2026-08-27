@@ -21,6 +21,8 @@ Agate.Configuration.population_state
 Agate.Configuration.size_structure
 Agate.Configuration.component_classes
 Agate.Configuration.component_state_tracers
+Agate.Configuration.component_tracers
+Agate.Configuration.component_diameters
 Agate.Configuration.state_tracers
 Agate.Configuration.state_tracer
 ```
@@ -41,21 +43,46 @@ registry-based. Custom process topologies can extend Agate through the narrow
 same validation, canonicalization, and construction pipeline as built-in processes. Durable recipes
 identify a registered family and its version rather than serializing process or formulation objects.
 
+#### Formulations
+
+```@docs
+Agate.Processes.AbstractFormulation
+Agate.Processes.Smith
+Agate.Processes.Geider
+Agate.Processes.Monod
+Agate.Processes.NormalizedDroop
+Agate.Processes.QuotaRegulatedMonod
+Agate.Processes.Liebig
+Agate.Processes.FrankTNorm
+Agate.Processes.Q10
+Agate.Processes.PreferentialGrazing
+Agate.Processes.HeterotrophicConsumption
+Agate.Processes.LinearMortality
+Agate.Processes.QuadraticMortality
+Agate.Processes.LinearRemineralization
+```
+
+#### Processes, factors, and products
+
 ```@docs
 Agate.Processes.AbstractProcess
-Agate.Processes.AbstractFormulation
 Agate.Processes.AbstractFactor
+Agate.Processes.AbstractStoichiometry
 Agate.Processes.Growth
 Agate.Processes.Light
 Agate.Processes.NutrientResponse
+Agate.Processes.QuotaResponse
 Agate.Processes.Nutrients
 Agate.Processes.Temperature
-Agate.Processes.factors
+Agate.Processes.NutrientUptake
 Agate.Processes.Consumption
 Agate.Processes.Mortality
 Agate.Processes.Products
 Agate.Processes.FixedStoichiometry
 Agate.Processes.Remineralization
+Agate.Processes.formulation
+Agate.Processes.factors
+Agate.Processes.participants
 Agate.Processes.authored_parameter_bindings
 ```
 
@@ -91,6 +118,9 @@ representation details internal to setup.
 
 ```@docs
 Agate.Processes.NamedProcess
+Agate.Processes.process_id
+Agate.Processes.ParameterSlot
+Agate.Processes.parameter_slots
 Agate.Processes.process_facts
 Agate.Compilation.CompileContext
 Agate.Compilation.process_fluxes

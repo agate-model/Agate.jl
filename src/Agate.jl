@@ -1,3 +1,4 @@
+"""Composable process-based plankton biogeochemistry for Oceananigans."""
 module Agate
 
 include("ModelFamilies/ModelFamilies.jl")

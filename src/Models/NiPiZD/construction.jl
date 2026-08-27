@@ -4,7 +4,7 @@ import ...Configuration
 import ...Construction
 
 
-function _validated_size_structure(size_structure)
+function _canonicalize_size_structure(size_structure)
     size_structure isa NamedTuple ||
         throw(ArgumentError("size_structure must be a NamedTuple"))
 
@@ -42,7 +42,7 @@ function _validated_size_structure(size_structure)
 end
 
 function _population_realization(size_structure)
-    structure = _validated_size_structure(size_structure)
+    structure = _canonicalize_size_structure(size_structure)
     group_order = (structure.consumer_groups..., structure.producer_groups...)
     group_diameters = NamedTuple{group_order}(ntuple(length(group_order)) do i
         group = group_order[i]

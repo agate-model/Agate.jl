@@ -11,6 +11,7 @@ include("recipe.jl")
 include("recipe_serialization.jl")
 include("recipe_provenance.jl")
 include("biogeochemistry.jl")
+include("parameter_realization.jl")
 include("construct.jl")
 
 end

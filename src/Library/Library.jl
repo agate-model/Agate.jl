@@ -1,7 +1,4 @@
-"""
-A library of modules to create marine biogeochemical models
-
-"""
+"""Reusable scientific kernels, forcings, and allometric utilities."""
 module Library
 
 include("Allometry/Allometry.jl")

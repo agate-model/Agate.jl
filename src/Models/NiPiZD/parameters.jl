@@ -1,13 +1,7 @@
-"""Parameter definitions for the NiPiZD model.
+"""Parameter definitions and construction-time defaults for NiPiZD.
 
-This file defines a single source of truth for:
-- keyed parameter definitions and constructor-time defaults
-
-Numeric defaults are evaluated on the host during construction and later moved to the
-target architecture with `Adapt`.
-
-Interaction matrices (`palatability_matrix`, `assimilation_matrix`) use derived
-defaults whose dependencies are declared beside their parameter definitions.
+Interaction matrices use `DerivedDefault` providers whose dependencies are declared beside
+their parameter definitions.
 """
 
 import ...Parameters:

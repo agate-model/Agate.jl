@@ -7,7 +7,7 @@ export NoDefault
 export DiameterIndexedVectorDefault
 export derive_default
 
-"""Abstract supertype for constructor-time default providers.
+"""Abstract supertype for construction-time default providers.
 
 Default providers are evaluated on the host during model construction.
 They must produce concrete numeric values (scalars, vectors, matrices) that can

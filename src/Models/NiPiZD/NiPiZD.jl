@@ -1,3 +1,4 @@
+"""Bundled NiPiZD model family."""
 module NiPiZD
 
 include("definition.jl")

@@ -1,3 +1,4 @@
+"""Bundled model-family implementations."""
 module Models
 
 # -----------------------------------------------------------------------------

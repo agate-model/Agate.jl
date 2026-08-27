@@ -1,6 +1,6 @@
 using ..ModelFamilies: AbstractModelFamily, definition_version
 using ..Parameters: DerivedDefault
-using ..Configuration: ModelLayout, normalize_diameters
+using ..Configuration: ModelLayout, canonicalize_diameters
 
 """Return the stable recipe-family identifier for a model family."""
 function family_id(family::AbstractModelFamily)
@@ -87,7 +87,7 @@ function _canonical_group_diameters(group_diameters::NamedTuple)
     names = keys(group_diameters)
     values = ntuple(length(names)) do i
         group = names[i]
-        normalize_diameters(
+        canonicalize_diameters(
             getproperty(group_diameters, group); path="population group :$group diameters"
         ).specification
     end
@@ -141,7 +141,7 @@ _family_realization(recipe::ProcessModelRecipe) = (;
 _capture_family_recipe(inputs::NamedTuple) =
     capture_process_model_recipe(inputs.family; _family_realization(inputs)...)
 
-function _validated_recipe_family(family_id_value::Symbol, version::VersionNumber)
+function _resolve_recipe_family(family_id_value::Symbol, version::VersionNumber)
     family = registered_family(Val(family_id_value))
     loaded_family_id = family_id(family)
     loaded_family_id === family_id_value || throw(
@@ -162,7 +162,7 @@ end
 
 """Return the registered model family used to replay `recipe` after identity/version checks."""
 replay_family(recipe::ProcessModelRecipe) =
-    _validated_recipe_family(recipe.family, recipe.definition_version)
+    _resolve_recipe_family(recipe.family, recipe.definition_version)
 
 """Capture the resolved deterministic state of a constructed model."""
 function capture_model_manifest(

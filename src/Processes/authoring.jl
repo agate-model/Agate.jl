@@ -4,28 +4,53 @@ abstract type AbstractProcess end
 """Abstract supertype for concrete scientific formulations."""
 abstract type AbstractFormulation end
 
+"""Smith light-limitation formulation."""
 struct Smith <: AbstractFormulation end
+
+"""Geider light-response formulation."""
 struct Geider <: AbstractFormulation end
+
+"""Monod single-resource limitation formulation."""
 struct Monod <: AbstractFormulation end
+
+"""Normalized Droop cellular-quota growth-limitation formulation."""
 struct NormalizedDroop <: AbstractFormulation end
+
+"""Monod nutrient-uptake formulation regulated by cellular quota capacity."""
 struct QuotaRegulatedMonod <: AbstractFormulation end
+
+"""Liebig minimum response-combination formulation."""
 struct Liebig <: AbstractFormulation end
 
 """Differentiable Frank t-norm nutrient-combination formulation."""
 struct FrankTNorm <: AbstractFormulation end
 
+"""Q10 temperature-response formulation."""
 struct Q10 <: AbstractFormulation end
 struct MultiplicativeFactors <: AbstractFormulation end
 
 """Abstract supertype for named multiplicative process-rate factors."""
 abstract type AbstractFactor end
+
+"""Living-prey grazing formulation with consumer-by-prey palatability and assimilation."""
 struct PreferentialGrazing <: AbstractFormulation end
+
+"""Heterotrophic resource-consumption formulation without living-prey interaction weights."""
 struct HeterotrophicConsumption <: AbstractFormulation end
+
+"""Linear population-mortality formulation."""
 struct LinearMortality <: AbstractFormulation end
+
+"""Quadratic population-mortality formulation."""
 struct QuadraticMortality <: AbstractFormulation end
+
+"""Linear source-to-destination remineralization formulation."""
 struct LinearRemineralization <: AbstractFormulation end
 
+"""Abstract supertype for process stoichiometry mappings."""
 abstract type AbstractStoichiometry end
+
+# Shared authoring canonicalizers
 
 function _canonical_bindings(bindings::NamedTuple)
     names = sort!(collect(keys(bindings)); by=String)
@@ -158,8 +183,8 @@ end
 
 External `NutrientResponse` children identify resource currencies for fixed-stoichiometry
 growth. Internal `QuotaResponse` children identify cellular quota currencies and affect
-growth rate without transferring those nutrients. A canonical model uses one response
-category consistently within each `Nutrients` factor.
+growth rate without transferring those nutrients. Each `Nutrients` factor uses one response
+category consistently.
 """
 struct Nutrients{F<:Union{Liebig,FrankTNorm},R<:NamedTuple} <: AbstractFactor
     formulation::F
@@ -224,6 +249,8 @@ factor_parameter_context(::AbstractFactor) = NamedTuple()
 
 factor_child_path(path::Tuple, ::AbstractFactor, name::Symbol) = (path..., name)
 factor_child_path(path::Tuple, ::Nutrients, name::Symbol) = (path..., :responses, name)
+
+# Product routing
 
 """Conservative allocation of one process product flux among named destinations.
 
@@ -346,7 +373,15 @@ function _canonical_factors(factors::NamedTuple; allow_empty::Bool=false)
     return NamedTuple{names_tuple}(Tuple(getproperty(factors, name) for name in names))
 end
 
-"""Population growth process with one process-owned rate scale and named multiplicative factors."""
+# Scientific processes
+
+"""Population growth process with one process-owned rate scale and named multiplicative factors.
+
+`bindings.maximum_rate` names the model parameter that sets the growth-rate scale. `source`
+identifies the reference resource removed by growth. Fixed-stoichiometry growth draws any
+additional external nutrient resources according to its stoichiometric ratios, while quota
+nutrients are transferred independently through [`NutrientUptake`](@ref).
+"""
 struct Growth{F<:NamedTuple,S,T,U} <: AbstractProcess
     populations::Tuple
     factors::F
@@ -416,7 +451,7 @@ end
 
 authored_parameter_bindings(process::NutrientUptake) = process.bindings
 
-"""Canonical consumer-resource process with optional factors and unassimilated products."""
+"""Consumer-resource process with optional factors and unassimilated products."""
 struct Consumption{F<:Union{PreferentialGrazing,HeterotrophicConsumption},A<:NamedTuple,P} <: AbstractProcess
     formulation::F
     consumers::Tuple
@@ -493,6 +528,7 @@ end
 
 authored_parameter_bindings(process::Remineralization) = process.bindings
 
+"""Return the scientific formulation carried by a process or factor."""
 formulation(::Growth) = MultiplicativeFactors()
 formulation(process::AbstractProcess) = process.formulation
 formulation(factor::AbstractFactor) = factor.formulation
@@ -510,6 +546,7 @@ product_path(::Consumption) = (:unassimilated_products,)
 uses_living_interactions(::AbstractFormulation) = false
 uses_living_interactions(::PreferentialGrazing) = true
 
+"""Return canonical participant roles for an authored scientific process."""
 function participants(process::Growth)
     base = (population=process.populations,)
     isnothing(process.source) && return base
@@ -522,6 +559,8 @@ participants(process::Consumption) = (consumer=process.consumers, resource=proce
 participants(process::Mortality) = (population=process.populations,)
 participants(process::Remineralization) =
     (source=process.sources, destination=(process.destination,))
+
+# Model definition
 
 """Author-facing scientific model definition."""
 struct ModelDefinition{C,P,A}

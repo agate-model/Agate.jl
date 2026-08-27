@@ -4,7 +4,7 @@ using ..Library.Allometry:
     palatability_matrix_allometric_axes, assimilation_efficiency_matrix_binary_axes
 
 """Return `v` when it uses the construction scalar type, otherwise throw an `ArgumentError`."""
-@inline function require_scalar_vector(
+@inline function _require_scalar_vector(
     ::Type{T}, v::AbstractVector, name::Symbol
 ) where {T<:Real}
     eltype(v) === T && return v
@@ -32,11 +32,11 @@ struct AssimilationBinary end
     return palatability_matrix_allometric_axes(
         T,
         layout.diameters;
-        optimum_predator_prey_ratio=require_scalar_vector(
+        optimum_predator_prey_ratio=_require_scalar_vector(
             T, params.optimum_predator_prey_ratio, :optimum_predator_prey_ratio
         ),
-        specificity=require_scalar_vector(T, params.specificity, :specificity),
-        protection=require_scalar_vector(T, params.protection, :protection),
+        specificity=_require_scalar_vector(T, params.specificity, :specificity),
+        protection=_require_scalar_vector(T, params.protection, :protection),
         consumer_indices=layout.consumer_indices,
         prey_indices=layout.prey_indices,
     )
@@ -51,7 +51,7 @@ end
     T = layout.scalar_type
     return assimilation_efficiency_matrix_binary_axes(
         T;
-        assimilation_efficiency=require_scalar_vector(
+        assimilation_efficiency=_require_scalar_vector(
             T, params.assimilation_efficiency, :assimilation_efficiency
         ),
         consumer_indices=layout.consumer_indices,

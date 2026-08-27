@@ -1,4 +1,4 @@
-"""Remineralization formulations."""
+"""Remineralization kernels."""
 
 module Remineralization
 

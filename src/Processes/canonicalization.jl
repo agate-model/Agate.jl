@@ -16,10 +16,13 @@ NamedProcess(id::Symbol, process::P) where {P<:AbstractProcess} =
 NamedProcess(id::Symbol, process::P, facts::F) where {P<:AbstractProcess,F} =
     NamedProcess(id, process, facts, NamedTuple())
 
+"""Return the stable identity of a canonical named process."""
 process_id(process::NamedProcess) = process.id
 formulation(process::NamedProcess) = formulation(process.process)
 factors(process::NamedProcess) = factors(process.process)
 participants(process::NamedProcess) = participants(process.process)
+
+# Dense parameter-binding reference collection
 
 function _resolve_slot_qualifier(slot::ParameterSlot, context::NamedTuple)
     isnothing(slot.qualify) && return nothing
@@ -199,6 +202,8 @@ function _visit_process_slots!(uses::Vector{Any}, seen::Set{Any}, named::NamedPr
         stoichiometry=stoichiometry_refs,
     )
 end
+
+# Canonical model state and process facts
 
 """Setup-time canonical scientific model definition.
 
@@ -448,6 +453,8 @@ function process_facts(process::Remineralization, id::Symbol, components::NamedT
     return NamedTuple()
 end
 
+# Canonical process identity and drivers
+
 function _canonicalize_process(id::Symbol, process, components::NamedTuple)
     process isa AbstractProcess || throw(
         ArgumentError("process :$id must be an AbstractProcess; got $(typeof(process))"),
@@ -496,6 +503,8 @@ function _canonical_driver_identities(processes::NamedTuple)
     return Tuple(identities)
 end
 
+
+# Parameter definition and binding resolution
 
 function _resolve_binding_value(bindings::NamedTuple, slot::ParameterSlot, qualifier)
     explicit = hasproperty(bindings, slot.name)
@@ -654,12 +663,14 @@ function _attach_binding_refs(processes::NamedTuple, refs::NamedTuple)
     ))
 end
 
+# Complete model canonicalization
+
 """Canonicalize process identity and resolve inline parameter bindings.
 
 Process instances are canonicalized by stable process ID, so declaration order does
-not change canonical scientific identity. Component ordering is preserved because it
-still participates in concrete tracer realization. Local formulation slots bind directly
-to stable model parameter names during canonicalization.
+not change canonical scientific identity. Component ordering is preserved because it determines
+concrete tracer realization. Local formulation slots bind directly to stable model parameter
+names during canonicalization.
 """
 function canonicalize_model(definition::ModelDefinition)
     all(component -> component isa Union{Population,Pool}, values(definition.components)) ||

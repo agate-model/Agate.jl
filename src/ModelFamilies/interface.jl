@@ -2,7 +2,7 @@ export default_components
 export default_processes
 export definition_version
 
-"""Canonical logical components for a registered model family.
+"""Canonical logical components for a named model family.
 
 Returns a named collection whose keys are stable model component identities and
 whose values describe intrinsic component structure.
@@ -15,7 +15,7 @@ function default_components(::AbstractModelFamily)
     )
 end
 
-"""Canonical named scientific processes for a registered model family.
+"""Canonical named scientific processes for a named model family.
 
 The keys are stable process-instance identities. Process declarations describe
 scientific topology and are canonicalized before runtime realization.
@@ -28,7 +28,7 @@ function default_processes(::AbstractModelFamily)
     )
 end
 
-"""Scientific definition version for a registered model family.
+"""Scientific definition version for a named model family.
 
 Bump this version whenever family science, defaults, derivation algorithms, or canonical
 definition structure changes in a way that should invalidate durable recipe replay.

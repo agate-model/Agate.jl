@@ -427,7 +427,7 @@ function decode_recipe(document::AbstractDict)
         ArgumentError("Recipe document.content_hash does not match the serialized recipe content.")
     )
 
-    _validated_recipe_family(family_id_value, version)
+    _resolve_recipe_family(family_id_value, version)
 
     realization = _decode_realization(realization_data, "Recipe document.realization")
     decoded = ProcessModelRecipe(

@@ -1,4 +1,4 @@
-"""Temperature-response formulations."""
+"""Temperature-response kernels."""
 
 module Temperature
 

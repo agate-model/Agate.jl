@@ -1,4 +1,4 @@
-"""Building-block functors for nutrient limitation."""
+"""Nutrient-limitation and quota-regulation kernels."""
 
 module Nutrients
 
@@ -6,80 +6,36 @@ export monod_limitation, liebig_minimum, frank_tnorm
 export normalized_droop_limitation, quota_uptake_regulation
 
 """
-    MonodLimitation(K)
+    monod_limitation(R, K)
 
-Monod (Michaelis–Menten) nutrient limitation functor.
-
-!!! formulation
-    ``R`` / (``K`` + ``R``)
-
-    where:
-    - ``R`` = nutrient concentration (e.g. N, P, Si)
-    - ``K`` = half-saturation constant
-
+Return Monod (Michaelis-Menten) nutrient limitation ``R / (K + R)``.
+The indeterminate `R == K == 0` case returns zero.
 """
-struct MonodLimitation{T}
-    K::T
-end
-
-@inline function (m::MonodLimitation)(R)
-    K = m.K
-    if K == zero(K) && R == zero(R)
-        return zero(R)
-    end
+@inline function monod_limitation(R, K)
+    K == zero(K) && R == zero(R) && return zero(R)
     return R / (K + R)
 end
 
 """
-    monod_limitation(R, K)
+    liebig_minimum(a, b, rest...)
+    liebig_minimum(values::NTuple)
 
-Monod (Michaelis–Menten) nutrient limitation.
-
-!!! formulation
-    ``R`` / (``K`` + ``R``)
-
-    where:
-    - ``R`` = nutrient concentration
-    - ``K`` = nutrient half-saturation constant
-
-# Arguments
-- `R`: nutrient concentration
-- `K`: nutrient half-saturation constant
-
-!!! tip
-    This functional form is sometimes also used for predation (≈ Holling type II).
+Return the minimum of the supplied limitation factors while preserving NaN propagation.
 """
-@inline monod_limitation(R, K) = MonodLimitation(K)(R)
-
-"""
-    LiebigMinimum()
-
-Liebig's law of the minimum: return the minimum of nutrient limitation factors.
-
-!!! formulation
-    minimum(nutrient_limitations)
-
-# Arguments
-- `nutrient_limitations`: limitation factors (e.g. γᴺ, γᴾ, γˢⁱ) provided as positional
-  arguments or as an `NTuple`.
-"""
-struct LiebigMinimum end
-
-@inline function (l::LiebigMinimum)(a, b)
-    m = ifelse(a < b, a, b)
-    return ifelse(isnan(a) | isnan(b), a + b, m)
+@inline function liebig_minimum(a, b)
+    minimum_value = ifelse(a < b, a, b)
+    return ifelse(isnan(a) | isnan(b), a + b, minimum_value)
 end
 
-@inline function (l::LiebigMinimum)(a, b, c, rest...)
-    return l(l(a, b), c, rest...)
-end
+@inline liebig_minimum(a, b, c, rest...) =
+    liebig_minimum(liebig_minimum(a, b), c, rest...)
 
-@inline function (l::LiebigMinimum)(values::Tuple{Vararg{Any,N}}) where N
-    m = values[1]
+@inline function liebig_minimum(values::Tuple{Vararg{Any,N}}) where N
+    result = values[1]
     @inbounds for i in 2:N
-        m = l(m, values[i])
+        result = liebig_minimum(result, values[i])
     end
-    return m
+    return result
 end
 
 const DEFAULT_FRANK_SHARPNESS = 50
@@ -97,27 +53,6 @@ const DEFAULT_FRANK_SHARPNESS = 50
 
     return ifelse(isnan(a) | isnan(b), a + b, result)
 end
-
-"""
-    liebig_minimum(a, b, rest...)
-    liebig_minimum(values::NTuple)
-
-Return the minimum value among the given limitation factors.
-
-!!! formulation
-    minimum(nutrient_limitations)
-
-# Arguments
-- `a, b, rest...`: limitation factors
-- `values`: an `NTuple` of limitation factors
-
-This is an explicit alias around `LiebigMinimum()` for clearer model code.
-"""
-@inline liebig_minimum(a, b) = LiebigMinimum()(a, b)
-
-@inline liebig_minimum(a, b, c, rest...) = LiebigMinimum()(a, b, c, rest...)
-
-@inline liebig_minimum(values::Tuple{Vararg{Any,N}}) where N = LiebigMinimum()(values)
 
 """
     frank_tnorm(a, b, rest...; sharpness = 50)

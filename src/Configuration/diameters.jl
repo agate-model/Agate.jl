@@ -30,40 +30,40 @@ end
 Accepted forms are an explicit vector, a `DiameterListSpecification`, a
 `DiameterRangeSpecification`, or `(n, min_esd, max_esd, splitting)` as a NamedTuple.
 """
-function normalize_diameters(diameters::AbstractVector; path::AbstractString="diameters")
+function canonicalize_diameters(diameters::AbstractVector; path::AbstractString="diameters")
     _validate_diameter_values(diameters, path)
     return (; n=length(diameters), specification=DiameterListSpecification(diameters))
 end
 
-function normalize_diameters(spec::NamedTuple; path::AbstractString="diameters")
+function canonicalize_diameters(spec::NamedTuple; path::AbstractString="diameters")
     required = (:n, :min_esd, :max_esd, :splitting)
     all(hasproperty(spec, field) for field in required) || throw(
         ArgumentError("$path must define `n`, `min_esd`, `max_esd`, and `splitting`"),
     )
-    return _normalize_diameter_range(
+    return _canonicalize_diameter_range(
         spec.n, spec.min_esd, spec.max_esd, spec.splitting; path
     )
 end
 
-function normalize_diameters(
+function canonicalize_diameters(
     spec::DiameterListSpecification; path::AbstractString="diameters"
 )
     _validate_diameter_values(spec.diameters, path)
     return (; n=length(spec.diameters), specification=spec)
 end
 
-function normalize_diameters(
+function canonicalize_diameters(
     spec::DiameterRangeSpecification; path::AbstractString="diameters"
 )
-    return _normalize_diameter_range(
+    return _canonicalize_diameter_range(
         spec.n, spec.min_diameter, spec.max_diameter, spec.splitting; path
     )
 end
 
-normalize_diameters(spec; path::AbstractString="diameters") =
+canonicalize_diameters(spec; path::AbstractString="diameters") =
     throw(ArgumentError("$path has an unsupported diameter specification $(typeof(spec))"))
 
-function _normalize_diameter_range(n, min_diameter, max_diameter, splitting; path)
+function _canonicalize_diameter_range(n, min_diameter, max_diameter, splitting; path)
     n isa Integer && !(n isa Bool) && n > 0 ||
         throw(ArgumentError("$path.n must be a positive integer; got $n"))
     min_diameter isa Real && !(min_diameter isa Bool) ||
@@ -98,13 +98,13 @@ function _normalize_diameter_range(n, min_diameter, max_diameter, splitting; pat
     )
 end
 
-function param_compute_diameters(
+function realize_diameters(
     ::Type{T}, spec::DiameterListSpecification
 ) where {T<:Real}
     return T[T(value) for value in spec.diameters]
 end
 
-function param_compute_diameters(
+function realize_diameters(
     ::Type{T}, spec::DiameterRangeSpecification
 ) where {T<:Real}
     n = Int(spec.n)

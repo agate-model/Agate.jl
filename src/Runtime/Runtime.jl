@@ -1,4 +1,4 @@
-# Runtime and diagnostic utilities.
+"""Runtime parameterization and box-ODE utilities."""
 module Runtime
 
 using Oceananigans.Biogeochemistry:

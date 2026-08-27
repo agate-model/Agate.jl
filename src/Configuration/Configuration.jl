@@ -1,3 +1,4 @@
+"""Component structure, diameter specifications, realized layouts, and interaction defaults."""
 module Configuration
 
 using Adapt
@@ -15,9 +16,9 @@ if !hasmethod(Adapt.adapt_structure, Tuple{Any,NamedTuple})
     end
 end
 
-include("community.jl")
+include("diameters.jl")
 include("components.jl")
-include("interactions_matrices.jl")
-include("interactions_derivations.jl")
+include("layout.jl")
+include("interaction_derivations.jl")
 
 end # module

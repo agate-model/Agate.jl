@@ -2,15 +2,21 @@
 
 ```@autodocs
 Modules=[Agate.Library.Allometry]
-Private = false        
-Order   = [:function]    # only functions
+Private = false
+```
+
+## Light
+
+```@autodocs
+Modules=[Agate.Library.Light]
+Private = false
 ```
 
 ## Mortality
 
 ```@autodocs
 Modules=[Agate.Library.Mortality]
-Private = false        
+Private = false
 ```
 
 ## Nutrients
@@ -24,19 +30,27 @@ Private = false
 
 ```@autodocs
 Modules=[Agate.Library.Photosynthesis]
-Private = false        
+Private = false
 ```
 
 ## Predation
 
 ```@autodocs
 Modules=[Agate.Library.Predation]
-Private = false        
+Private = false
 ```
 
 ## Remineralization
 
 ```@autodocs
 Modules=[Agate.Library.Remineralization]
-Private = false        
+Private = false
 ```
+
+## Temperature
+
+```@autodocs
+Modules=[Agate.Library.Temperature]
+Private = false
+```
+

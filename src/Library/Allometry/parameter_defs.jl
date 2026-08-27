@@ -5,7 +5,7 @@
 """
     AbstractParamDef
 
-Abstract supertype for constructor-time parameter definitions.
+Abstract supertype for construction-time parameter definitions.
 
 Concrete parameter definitions describe how scalar or size-dependent parameter
 values are materialized during model construction.

@@ -35,5 +35,6 @@ include("rates.jl")
 include("validation.jl")
 include("canonicalization.jl")
 include("parameter_plan.jl")
+include("parameter_validation.jl")
 
 end # module Processes

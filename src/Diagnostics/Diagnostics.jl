@@ -1,4 +1,4 @@
-# Lightweight diagnostic helpers.
+"""Diagnostic helpers for constructed Agate models."""
 module Diagnostics
 
 import Oceananigans: time_step!
