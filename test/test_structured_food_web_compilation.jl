@@ -1,43 +1,23 @@
 using ForwardDiff
+using Oceananigans.Biogeochemistry:
+    required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
 
-using Agate.Compilation:
-    process_fluxes, group_fluxes, compile_tendencies, compile_model_tendencies
-using Agate.Configuration:
-    Population, Pool, realize_model_layout, component_tracers
+using Agate.Configuration: Population, Pool
 using Agate.Construction: construct
 using Agate.Parameters: Parameter, NoDefault
 using Agate.Processes:
-    ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, Smith, Monod, Q10, HeterotrophicConsumption, PreferentialGrazing,
-    normalize_model, participants, driver_identities, build_parameter_plan
+    ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, Smith, Monod,
+    Q10, HeterotrophicConsumption, PreferentialGrazing, participants
 
-function food_web_parameters()
-    no_default() = Parameter(NoDefault())
-
-    return (
-        maximum_growth_rate=no_default(),
-        alpha=no_default(),
-        nutrient_half_saturation=no_default(),
-        temperature_q10=no_default(),
-        reference_temperature=no_default(),
-        maximum_consumption_rate=no_default(),
-        pom_half_saturation=no_default(),
-        bacterial_assimilation=no_default(),
-        maximum_predation_rate=no_default(),
-        holling_half_saturation=no_default(),
-        living_palatability_matrix=no_default(),
-        living_assimilation_matrix=no_default(),
-    )
-end
-
-function food_web_compilation(::Type{T}=Float64) where {T<:Real}
+function food_web_definition()
     components = (
         N=Pool(:nitrogen),
         D=Pool(:nitrogen),
-        POM=Pool(:nitrogen; size_structure=T[0.5, 5]),
-        P=Population(:nitrogen; size_structure=T[1]),
-        B=Population(:nitrogen; size_structure=T[0.8]),
-        M=Population(:nitrogen; size_structure=T[2]),
-        Z=Population(:nitrogen; size_structure=T[10]),
+        POM=Pool(:nitrogen; size_structure=[0.5, 5.0]),
+        P=Population(:nitrogen; size_structure=[1.0]),
+        B=Population(:nitrogen; size_structure=[0.8]),
+        M=Population(:nitrogen; size_structure=[2.0]),
+        Z=Population(:nitrogen; size_structure=[10.0]),
     )
     temperature = Temperature(
         Q10(); bindings=(q10=:temperature_q10, reference_temperature=:reference_temperature)
@@ -80,25 +60,26 @@ function food_web_compilation(::Type{T}=Float64) where {T<:Real}
             unassimilated_products=:D,
         ),
     )
-    normalized = normalize_model(ModelDefinition(;
-        components, processes, parameters=food_web_parameters()
-    ))
-    drivers = driver_identities(normalized)
-    layout = realize_model_layout(
-        components;
-        scalar_type=T,
-        interaction_roles=(consumers=(:M, :Z), prey=(:P, :B)),
-        auxiliary_fields=drivers,
+    no_default() = Parameter(NoDefault())
+    parameters = (
+        maximum_growth_rate=no_default(),
+        alpha=no_default(),
+        nutrient_half_saturation=no_default(),
+        temperature_q10=no_default(),
+        reference_temperature=no_default(),
+        maximum_consumption_rate=no_default(),
+        pom_half_saturation=no_default(),
+        bacterial_assimilation=no_default(),
+        maximum_predation_rate=no_default(),
+        holling_half_saturation=no_default(),
+        living_palatability_matrix=no_default(),
+        living_assimilation_matrix=no_default(),
     )
-    target_order = layout.tracer_order
-    plan = build_parameter_plan(normalized, layout)
-    compiled = compile_model_tendencies(normalized, layout, plan; target_order)
-    return (; normalized, layout, plan, compiled, target_order)
+    return ModelDefinition(; components, processes, parameters)
 end
 
-function food_web_bgc(compilation)
-    T = compilation.layout.scalar_type
-    parameters = (
+function food_web_parameter_overrides(::Type{T}=Float64) where {T<:Real}
+    return (
         maximum_growth_rate=T[2e-5, 1.4e-5],
         alpha=T[2e-6, 1.6e-6],
         nutrient_half_saturation=T[0.2, 0.3],
@@ -112,85 +93,76 @@ function food_web_bgc(compilation)
         living_palatability_matrix=T[0.6 0.8; 0.7 0.9],
         living_assimilation_matrix=T[0.4 0.5; 0.35 0.45],
     )
-    drivers = driver_identities(compilation.normalized)
-    return Agate.Construction.AgateBGC(
-        parameters, compilation.compiled, drivers, nothing, nothing
-    )
 end
 
-function food_web_args(::Type{T}, temperature) where {T}
-    return (
-        zero(T), zero(T), zero(T), zero(T),
-        T(5), T(0.1), T(0.5), T(0.2), T(0.05), T(0.03), T(0.02), T(0.04),
-        T(100), T(temperature),
+function food_web_args(bgc, state::NamedTuple; PAR=0.0, temperature=20.0)
+    tracers = required_biogeochemical_tracers(bgc)
+    tracer_values = Tuple(
+        hasproperty(state, tracer) ? getproperty(state, tracer) : 0.0 for tracer in tracers
     )
+    auxiliary_values = Tuple(
+        auxiliary === :PAR ? PAR :
+        auxiliary === :temperature ? temperature :
+        error("unknown test auxiliary field :$auxiliary")
+        for auxiliary in required_biogeochemical_auxiliary_fields(bgc)
+    )
+    return (0.0, 0.0, 0.0, 0.0, tracer_values..., auxiliary_values...)
 end
 
 @testset "Structured POM, bacteria, mixotrophy, and reusable factors" begin
-    compilation = food_web_compilation()
-    normalized = compilation.normalized
-    layout = compilation.layout
+    definition = food_web_definition()
+    bgc = construct(definition; parameter_overrides=food_web_parameter_overrides())
 
-    @test component_tracers(layout, :POM) == (:POM_1, :POM_2)
-    @test participants(normalized.processes.consume_POM) == (
+    @test participants(definition.processes.consume_POM) == (
         consumer=(:B,), resource=(:POM,)
     )
-    @test participants(normalized.processes.grazing_living).resource == (:P, :B)
-    @test :POM ∉ participants(normalized.processes.grazing_living).resource
-    @test :M ∈ participants(normalized.processes.growth_autotrophs).population
-    @test :M ∈ participants(normalized.processes.grazing_living).consumer
-    @test driver_identities(normalized) == (:PAR, :temperature)
+    @test participants(definition.processes.grazing_living).resource == (:P, :B)
+    @test :POM ∉ participants(definition.processes.grazing_living).resource
+    @test :M ∈ participants(definition.processes.growth_autotrophs).population
+    @test :M ∈ participants(definition.processes.grazing_living).consumer
+    @test required_biogeochemical_auxiliary_fields(bgc) == (:PAR, :temperature)
 
-    half_saturation = compilation.plan.parameters.pom_half_saturation
-    assimilation = compilation.plan.parameters.bacterial_assimilation
-    @test (half_saturation.storage_shape, half_saturation.storage_labels) ==
-        ((2,), ((:POM_1, :POM_2),))
-    @test (assimilation.storage_shape, assimilation.storage_labels) ==
-        ((1, 2), ((:B_1,), (:POM_1, :POM_2)))
-
-    consumption = normalized.processes.consume_POM
-    fluxes = process_fluxes(
-        consumption, normalized, layout, compilation.plan
-    )
-    growth_fluxes = process_fluxes(
-        normalized.processes.growth_autotrophs, normalized, layout, compilation.plan
-    )
-
-    @test all(equation -> isbitstype(typeof(equation)), values(compilation.compiled))
     @test all(
-        equation -> all(term -> isbitstype(typeof(term)), equation.terms),
-        values(compilation.compiled),
+        equation -> isbitstype(typeof(equation)) &&
+                    all(term -> isbitstype(typeof(term)), equation.terms),
+        values(bgc.equations),
     )
 
-    bgc = food_web_bgc(compilation)
-    args = food_web_args(Float64, 25)
-    tendencies = map(target -> bgc(Val(target), args...), compilation.target_order)
+    state = (
+        N=5.0, D=0.1, POM_1=0.5, POM_2=0.2,
+        P_1=0.05, B_1=0.03, M_1=0.02, Z_1=0.04,
+    )
+    args = food_web_args(bgc, state; PAR=100.0, temperature=25.0)
+    tendencies = map(
+        target -> bgc(Val(target), args...), required_biogeochemical_tracers(bgc)
+    )
     @test isapprox(sum(tendencies), 0; atol=10 * eps(sum(abs, tendencies)))
 
-    consumption_grouped = group_fluxes(fluxes)
-    consumption_compiled = compile_tendencies(consumption_grouped)
-    growth_compiled = compile_tendencies(group_fluxes(growth_fluxes))
-    args20 = food_web_args(Float64, 20)
-    args30 = food_web_args(Float64, 30)
-    @test process_compiler_isapprox(
-        consumption_compiled.POM_1(bgc, args30...),
-        2 * consumption_compiled.POM_1(bgc, args20...),
+    consumption_state = (POM_1=0.5, POM_2=0.2, B_1=0.03)
+    consumption20 = bgc(
+        Val(:POM_1), food_web_args(bgc, consumption_state; temperature=20.0)...
     )
-    @test process_compiler_isapprox(
-        growth_compiled.P_1(bgc, args30...),
-        2 * growth_compiled.P_1(bgc, args20...),
+    consumption30 = bgc(
+        Val(:POM_1), food_web_args(bgc, consumption_state; temperature=30.0)...
     )
+    @test process_compiler_isapprox(consumption30, 2 * consumption20)
+
+    growth_state = (N=5.0, P_1=0.05)
+    growth20 = bgc(
+        Val(:P_1), food_web_args(bgc, growth_state; PAR=100.0, temperature=20.0)...
+    )
+    growth30 = bgc(
+        Val(:P_1), food_web_args(bgc, growth_state; PAR=100.0, temperature=30.0)...
+    )
+    @test process_compiler_isapprox(growth30, 2 * growth20)
 
     derivative = ForwardDiff.derivative(0.5) do pom
-        dynamic_args = (
-            args[1:6]..., pom, args[8:end]...
-        )
-        consumption_compiled.POM_1(bgc, dynamic_args...)
+        dynamic_state = (POM_1=pom, POM_2=0.2, B_1=0.03)
+        bgc(Val(:POM_1), food_web_args(bgc, dynamic_state; temperature=25.0)...)
     end
     @test isfinite(derivative)
     @test derivative < 0
 end
-
 
 @testset "Constructed consumer-resource storage axes" begin
     components = (

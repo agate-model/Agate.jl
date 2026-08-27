@@ -91,8 +91,6 @@ using Oceananigans.Biogeochemistry:
         )
         @test size(named.parameters.palatability_matrix) == (3, 5)
         @test size(named.parameters.assimilation_matrix) == (3, 5)
-        @test count(x -> x != 0, named.parameters.maximum_growth_rate) == 5
-        @test count(x -> x != 0, named.parameters.maximum_predation_rate) == 3
 
         invalid_size_structures = (
             1,

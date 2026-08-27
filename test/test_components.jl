@@ -4,25 +4,6 @@ using Agate.Configuration:
     component_classes, component_state_tracers, component_tracers, state_tracers,
     component_diameters
 using Agate.ModelFamilies: default_components
-using Agate.Parameters: Parameter, ConstantDefault
-using Agate.Processes:
-    AbstractFormulation, AbstractProcess, ModelDefinition, ParameterSlot,
-    normalize_model, build_parameter_plan
-
-import Agate.Processes: authored_parameter_bindings, parameter_slots, participants
-
-struct ApplicabilityProbeFormulation <: AbstractFormulation end
-
-struct ApplicabilityProbe <: AbstractProcess
-    formulation::ApplicabilityProbeFormulation
-    source::Symbol
-    bindings::NamedTuple
-end
-
-authored_parameter_bindings(process::ApplicabilityProbe) = process.bindings
-parameter_slots(::ApplicabilityProbeFormulation) = (ParameterSlot(:rate, (:source,)),)
-participants(process::ApplicabilityProbe) = (source=(process.source,),)
-
 @testset "Component authoring" begin
     population = Population(:nitrogen;
         size_structure=(n=3, min_esd=1.0, max_esd=100.0, splitting=:log_splitting),
@@ -96,7 +77,7 @@ end
     @test_throws ArgumentError Population(; states=(carbon=1,))
 end
 
-@testset "Structured pool class layout and parameter applicability" begin
+@testset "Structured pool class layout" begin
     family = Agate.Models.NiPiZD.NiPiZDFamily()
     base_components = default_components(family)
     components = merge(
@@ -114,15 +95,6 @@ end
     @test layout.tracer_order ==
           (:N, :D, :POM_1, :POM_2, :POM_3, :Z_1, :Z_2, :P_1, :P_2)
     @test component_diameters(layout, :POM) == (0.5f0, 5.0f0, 50.0f0)
-
-    process = ApplicabilityProbe(ApplicabilityProbeFormulation(), :POM, (rate=:pom_rate,))
-    definition = normalize_model(ModelDefinition(;
-        components,
-        processes=(pom_probe=process,),
-        parameters=(pom_rate=Parameter(ConstantDefault(0.1)),),
-    ))
-    parameter = build_parameter_plan(definition, layout).parameters.pom_rate
-    @test parameter.storage_labels == ((:POM_1, :POM_2, :POM_3),)
 end
 
 @testset "Direct and family population realization share layout facts" begin

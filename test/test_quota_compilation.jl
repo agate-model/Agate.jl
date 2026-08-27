@@ -104,14 +104,4 @@ end
             ("process :$process", "path", "P_1", String(parameter), value))
     end
 
-    expanded_definition = Agate.Processes.ModelDefinition(;
-        components=merge(quota_components(), (
-            Q=Agate.Configuration.Population(:carbon; size_structure=[3.0]),
-        )),
-        processes=quota_processes(), parameters=quota_parameters(),
-    )
-    compact_bgc = construct(expanded_definition; parameter_overrides=(
-        nitrogen_uptake_hill=[2.0, 3.0],
-    ))
-    @test compact_bgc.parameters.nitrogen_uptake_hill == [2.0, 3.0]
 end

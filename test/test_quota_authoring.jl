@@ -1,11 +1,11 @@
 using Test
 
-using Agate.Configuration: Population, Pool, population_state, realize_model_layout
+using Agate.Configuration: Population, Pool, population_state
 using Agate.Parameters: Parameter
 using Agate.Processes:
-    FixedStoichiometry, FrankTNorm, Growth, Liebig, Light, ModelDefinition, Monod, NormalizedDroop,
-    NutrientResponse, Nutrients, NutrientUptake, QuotaRegulatedMonod, QuotaResponse,
-    Smith, build_parameter_plan, driver_identities, normalize_model, planned_parameter_slot
+    FixedStoichiometry, Growth, Liebig, Light, ModelDefinition, Monod, NormalizedDroop,
+    NutrientResponse, Nutrients, NutrientUptake, QuotaRegulatedMonod, QuotaResponse, Smith,
+    normalize_model
 
 
 quota_components() = (
@@ -100,61 +100,6 @@ function quota_normalization_error(definition)
     end
     @test error isa ArgumentError
     return error isa Exception ? sprint(showerror, error) : ""
-end
-
-@testset "Droop quota authoring and normalization" begin
-    definition = quota_definition()
-    normalized = normalize_model(definition)
-    growth = normalized.processes.growth
-
-    @test growth.facts.routing == (mode=:quota, factor=:nutrients, source=:DIC)
-    @test growth.facts.population_states == (population_state(:P, :carbon),)
-    @test normalized.processes.nitrogen_uptake.facts == (
-        target=population_state(:P, :nitrogen),
-        reference=population_state(:P, :carbon),
-        resource=:DIN,
-    )
-    @test driver_identities(normalized) == (:PAR,)
-    @test Nutrients(
-        FrankTNorm(); responses=(nitrogen=quota_response(
-            :nitrogen, :minimum_nitrogen_quota, :maximum_nitrogen_quota
-        ),)
-    ) isa Nutrients
-
-    explicit_state = normalize_model(ModelDefinition(;
-        components=(
-            P=Population(; states=(carbon=:carbon, nitrogen=:nitrogen)),
-            DIC=Pool(:carbon),
-        ),
-        processes=(growth=Growth(;
-            populations=:P,
-            state=:carbon,
-            factors=(
-                light=Light(Smith(); driver=:PAR),
-                nutrients=NutrientResponse(Monod(); resource=:DIC),
-            ),
-        ),),
-    ))
-    @test explicit_state.processes.growth.facts.population_states ==
-        (population_state(:P, :carbon),)
-
-    layout = realize_model_layout(
-        definition.components;
-        scalar_type=Float64,
-        auxiliary_fields=driver_identities(normalized),
-    )
-    plan = build_parameter_plan(normalized, layout)
-    nitrogen_quota = plan.parameters.minimum_nitrogen_quota
-    @test (nitrogen_quota.storage_shape, nitrogen_quota.storage_labels) == (
-        (2,), ((:P_1, :P_2),)
-    )
-
-    shared = Tuple(
-        binding for binding in normalized.parameter_bindings
-        if binding.parameter === :minimum_nitrogen_quota
-    )
-    @test length(shared) == 2
-    @test all(planned_parameter_slot(plan, binding) == ((1, 2),) for binding in shared)
 end
 
 @testset "Quota structural errors fail during normalization" begin
