@@ -26,6 +26,27 @@ end
 
 @inline _axis_position(local_index::Int, class::Symbol) = (; local_index, class)
 
+"""Realize participant states or components to concrete tracers and ecological positions."""
+function _realize_participants(items::Tuple, layout::ModelLayout)
+    participants = Any[]
+    local_index = 0
+    for item in items
+        is_state_reference = item isa PopulationStateRef
+        component = is_state_reference ? item.population : item
+        tracers = is_state_reference ? state_tracers(layout, item) : component_tracers(layout, item)
+        classes = component_classes(layout, component)
+        length(tracers) == length(classes) || throw(ArgumentError(
+            "participant $item must realize exactly one tracer per ecological class",
+        ))
+        for class_ordinal in eachindex(classes)
+            local_index += 1
+            position = _axis_position(local_index, classes[class_ordinal])
+            push!(participants, (; tracer=tracers[class_ordinal], position))
+        end
+    end
+    return Tuple(participants)
+end
+
 """Resolve one tracer or auxiliary identity to its final positional runtime input."""
 function input_operand(layout::ModelLayout, identity::Symbol)
     hasproperty(layout.input_indices, identity) || throw(
@@ -86,31 +107,6 @@ end
 function _scalar_component_target(layout::ModelLayout, component::Symbol)
     tracers = getproperty(layout.component_tracers, component)
     return only(tracers)
-end
-
-function _realize_population_states(references::Tuple, layout::ModelLayout)
-    tracers = Symbol[]
-    for reference in references
-        classes = component_classes(layout, reference.population)
-        append!(tracers, (state_tracer(layout, reference, i) for i in eachindex(classes)))
-    end
-    return Tuple(tracers)
-end
-
-function _realize_population_classes(references::Tuple, layout::ModelLayout)
-    classes = Symbol[]
-    for reference in references
-        append!(classes, component_classes(layout, reference.population))
-    end
-    return Tuple(classes)
-end
-
-function _realize_component_classes(components::Tuple, layout::ModelLayout)
-    classes = Symbol[]
-    for component in components
-        append!(classes, component_classes(layout, component))
-    end
-    return Tuple(classes)
 end
 
 function _target_order(fluxes::Tuple)

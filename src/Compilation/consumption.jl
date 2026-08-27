@@ -1,44 +1,3 @@
-function _consumption_resource_tracers(resources::Tuple, layout::ModelLayout)
-    tracers = Symbol[]
-    for resource in resources
-        append!(tracers, getproperty(layout.component_tracers, resource))
-    end
-    return Tuple(tracers)
-end
-
-function _consumption_resources(
-    ::PreferentialGrazing,
-    resources::Tuple,
-    layout::ModelLayout,
-)
-    return _realize_population_states(resources, layout)
-end
-
-function _consumption_resources(
-    ::HeterotrophicConsumption,
-    resources::Tuple,
-    layout::ModelLayout,
-)
-    return _consumption_resource_tracers(resources, layout)
-end
-
-function _consumption_axis_positions(
-    consumer_axis::Int, consumer_class::Symbol, resource_axis::Int, resource_class::Symbol
-)
-    return (
-        consumer=_axis_position(consumer_axis, consumer_class),
-        resource=_axis_position(resource_axis, resource_class),
-    )
-end
-
-_consumption_resource_classes(
-    ::PreferentialGrazing, resources::Tuple, layout::ModelLayout
-) = _realize_population_classes(resources, layout)
-
-_consumption_resource_classes(
-    ::HeterotrophicConsumption, resources::Tuple, layout::ModelLayout
-) = _realize_component_classes(resources, layout)
-
 function _consumption_rate(
     formulation::PreferentialGrazing,
     slots,
@@ -84,33 +43,23 @@ function process_fluxes(
     process = named.process
     formulation = process.formulation
     layout = context.layout
-    consumer_tracers = _realize_population_states(
-        named.facts.consumer_states, layout
-    )
-    consumer_classes = _realize_population_classes(named.facts.consumer_states, layout)
-    resource_tracers = _consumption_resources(formulation, named.facts.resources, layout)
-    resource_classes = _consumption_resource_classes(
-        formulation, named.facts.resources, layout
-    )
+    consumers = _realize_participants(named.facts.consumer_states, layout)
+    resources = _realize_participants(named.facts.resources, layout)
     slots = named.binding_refs.process
     fluxes = Any[]
 
-    for consumer_axis in eachindex(consumer_tracers)
-        consumer = consumer_tracers[consumer_axis]
-        for resource_axis in eachindex(resource_tracers)
-            resource = resource_tracers[resource_axis]
-            axis_positions = _consumption_axis_positions(
-                consumer_axis, consumer_classes[consumer_axis],
-                resource_axis, resource_classes[resource_axis],
-            )
+    for consumer in consumers
+        for resource in resources
+            axis_positions = (consumer=consumer.position, resource=resource.position)
             rate = _consumption_rate(
-                formulation, slots, context, named, consumer, resource, axis_positions
+                formulation, slots, context, named, consumer.tracer, resource.tracer,
+                axis_positions,
             )
             assimilation = parameter_operand(slots.assimilation, context, axis_positions)
             push!(
                 fluxes,
-                FluxSpec(resource, rate, Weight{-1}()),
-                FluxSpec(consumer, rate, Weight{1}((assimilation,))),
+                FluxSpec(resource.tracer, rate, Weight{-1}()),
+                FluxSpec(consumer.tracer, rate, Weight{1}((assimilation,))),
             )
             if !isnothing(named.facts.product_targets)
                 append!(
