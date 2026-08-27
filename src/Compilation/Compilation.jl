@@ -40,6 +40,7 @@ using ..Processes:
 
 export compile_model_tendencies
 
+include("runtime_ir.jl")
 include("fluxes.jl")
 include("factors.jl")
 include("products.jl")

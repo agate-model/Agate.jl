@@ -35,9 +35,11 @@ the model parameter system rather than the formulation object; for example
 kernel. Parameterized nodes bind their formulation-local slots directly to model-level parameter
 names with `bindings=(...)`. Omitted slots bind by the same name; a `Symbol` explicitly renames
 or shares one parameter, while a one-level qualifier map handles repeated slots such as
-source-specific remineralization. External process and factor extensions use the same concrete
-formulation-object and binding protocol without built-in registration. Durable recipes identify a
-registered family and its version rather than serializing process or formulation objects.
+source-specific remineralization. Formulation and factor authoring is method-based rather than
+registry-based. Custom process topologies can extend Agate through the narrow
+`Processes.normalize_process_facts` and `Compilation.process_fluxes` hooks, keeping custom
+topology in the same normalization and construction pipeline as built-in processes. Durable recipes
+identify a registered family and its version rather than serializing process or formulation objects.
 
 ```@docs
 Agate.Processes.AbstractProcess

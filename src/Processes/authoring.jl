@@ -111,7 +111,7 @@ end
 
 authored_parameter_bindings(factor::NutrientResponse) = factor.bindings
 
-"""Internal cellular-quota response used by quota-limited growth.
+"""Cellular-quota response used by quota-limited growth.
 
 `target` identifies the internal nutrient inventory and `reference` identifies the
 biomass inventory used to form the cellular quota.

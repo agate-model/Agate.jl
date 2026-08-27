@@ -32,6 +32,7 @@ export parameter_slots, parameter_bindings
 export parameter_slot_bindings
 
 include("authoring.jl")
+include("parameter_schema.jl")
 include("rates.jl")
 include("normalization.jl")
 include("parameter_plan.jl")

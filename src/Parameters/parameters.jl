@@ -29,7 +29,7 @@ end
 
 The stable parameter name is the key in the enclosing `parameters` NamedTuple. Scalar,
 vector, and matrix storage are inferred from the slots that bind the parameter and their
-realized process applicability, so ordinary parameters do not declare storage axes.
+realized process applicability; process slots therefore determine the storage axes.
 """
 struct Parameter{D<:DefaultProvider}
     default::D

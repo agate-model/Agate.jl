@@ -13,6 +13,5 @@ See `paper/GPU/README.md` for the exact run commands.
 
 ## Notes
 
-These scripts are not part of the package API and may depend on additional
-packages (e.g. Oceananigans, OceanBioME, CairoMakie) beyond the minimal runtime
-needed to use Agate as a library.
+Figure-reproduction scripts may require additional packages such as Oceananigans,
+OceanBioME, and CairoMakie beyond Agate's library dependencies.

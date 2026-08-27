@@ -47,6 +47,15 @@ one compiled equation per concrete tracer
 lean runtime
 ```
 
+## Custom process extension boundary
+
+Custom process implementations that need new flux topology can extend
+`Processes.normalize_process_facts` to attach setup-validated facts to an `AbstractProcess` and
+`Compilation.process_fluxes` to lower the resulting `NamedProcess` using the shared
+`CompileContext`. Custom processes otherwise follow the same model-definition, normalization,
+parameter-planning, construction, and runtime pipeline as built-in processes. Formulations and
+factors use the same method-based slot/input/rate protocol.
+
 ## Scientific boundaries
 
 Components describe structure rather than ecological role. A `Population` owns ecological classes; prognostic states are aligned inventories carried by those classes. A one-state population preserves the established tracer identity (`P_1`, `P_2`, ...), while a multi-state population realizes class-qualified state tracers such as `P_1_carbon` and `P_1_nitrogen`. Interaction and parameter axes remain ecological-class axes and therefore do not grow with state multiplicity. `population_state(:P, :nitrogen)` identifies one aligned state at setup time; compilation resolves that ecological state reference to a concrete static tracer operand, so no state-name lookup enters runtime kernels. Derived quantities such as N:C can therefore be expressed from prognostic state operands while preserving concrete/isbits compiled equations.
@@ -60,8 +69,8 @@ Named factors are multiplicative within a process, while independent named proce
 ```text
 src/
 |-- Configuration/         # components, realization, interactions
-|-- Processes/             # process definitions and normalization
-|-- Compilation/           # topology, fluxes, static lowering
+|-- Processes/             # process authoring, parameter schema, normalization
+|-- Compilation/           # runtime IR, process flux lowering, static compilation
 |-- ModelFamilies/         # registered family identity and canonical definitions
 |-- Parameters/            # keyed parameters, defaults, and storage policy
 |-- Construction/          # direct construction, recipes, manifests, replay

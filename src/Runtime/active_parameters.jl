@@ -1,6 +1,6 @@
 import Adapt
 
-"""Internal array view for one active parameter leaf.
+"""Array view for one selected active parameter leaf.
 
 `base` is the stored parameter value and `p` is the external active parameter
 vector. `slots` maps indices in `base` to entries in `p`.
@@ -28,7 +28,7 @@ end
     return a.base[indices...]
 end
 
-"""Internal parameter container that overrides selected parameter fields from `p`."""
+"""Parameter container that overrides selected parameter fields from `p`."""
 struct ActiveParameters{B,P,M}
     base::B
     p::P
