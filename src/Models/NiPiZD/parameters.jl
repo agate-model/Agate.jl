@@ -13,6 +13,7 @@ defaults whose dependencies are declared beside their parameter definitions.
 import ...Parameters:
     parameter_definitions,
     Parameter,
+    MetaParameter,
     DerivedDefault,
     DiameterIndexedVectorDefault
 
@@ -27,41 +28,34 @@ function parameter_definitions(::NiPiZDFamily)
         detritus_remineralization=Parameter(detritus_remin),
         mortality_export_fraction=Parameter(0.2),
         linear_mortality=Parameter(
-            DiameterIndexedVectorDefault(8e-7; default=0);
-            axes=:plankton,
+            DiameterIndexedVectorDefault(8e-7; default=0)
         ),
         quadratic_mortality=Parameter(
-            DiameterIndexedVectorDefault(1e-6; default=0);
-            axes=:plankton,
+            DiameterIndexedVectorDefault(1e-6; default=0)
         ),
         maximum_growth_rate=Parameter(
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=2 / 86400, exponent=-0.15);
                 default=0,
-            );
-            axes=:plankton,
+            )
         ),
         nutrient_half_saturation=Parameter(
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27);
                 default=0,
-            );
-            axes=:plankton,
+            )
         ),
         alpha=Parameter(
-            DiameterIndexedVectorDefault(0.1953 / 86400; default=0);
-            axes=:plankton,
+            DiameterIndexedVectorDefault(0.1953 / 86400; default=0)
         ),
         maximum_predation_rate=Parameter(
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=30.84 / 86400, exponent=-0.16);
                 default=0,
-            );
-            axes=:plankton,
+            )
         ),
         holling_half_saturation=Parameter(
-            DiameterIndexedVectorDefault(5.0; default=0);
-            axes=:plankton,
+            DiameterIndexedVectorDefault(5.0; default=0)
         ),
         palatability_matrix=Parameter(
             DerivedDefault(
@@ -71,28 +65,26 @@ function parameter_definitions(::NiPiZDFamily)
                     :specificity,
                     :protection,
                 ),
-            );
-            axes=(:consumer, :prey),
+            )
         ),
         assimilation_matrix=Parameter(
             DerivedDefault(
                 AssimilationBinary(); deps=(:assimilation_efficiency,)
-            );
-            axes=(:consumer, :prey),
+            )
         ),
-        optimum_predator_prey_ratio=Parameter(
+        optimum_predator_prey_ratio=MetaParameter(
             DiameterIndexedVectorDefault(10.0; default=0);
             axes=:plankton,
         ),
-        specificity=Parameter(
+        specificity=MetaParameter(
             DiameterIndexedVectorDefault(0.3; default=0);
             axes=:plankton,
         ),
-        protection=Parameter(
+        protection=MetaParameter(
             DiameterIndexedVectorDefault(0.0; default=1.0);
             axes=:plankton,
         ),
-        assimilation_efficiency=Parameter(
+        assimilation_efficiency=MetaParameter(
             DiameterIndexedVectorDefault(0.32; default=0);
             axes=:plankton,
         ),

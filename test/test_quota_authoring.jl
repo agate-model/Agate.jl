@@ -73,18 +73,18 @@ function quota_processes()
 end
 
 quota_parameters() = (
-    maximum_growth_rate=Parameter(0.5; axes=:plankton),
-    photosynthetic_slope=Parameter(0.05; axes=:plankton),
-    minimum_nitrogen_quota=Parameter(0.05; axes=:plankton),
-    maximum_nitrogen_quota=Parameter(0.2; axes=:plankton),
-    minimum_phosphorus_quota=Parameter(0.005; axes=:plankton),
-    maximum_phosphorus_quota=Parameter(0.02; axes=:plankton),
-    maximum_nitrogen_uptake=Parameter(0.1; axes=:plankton),
-    nitrogen_half_saturation=Parameter(0.2; axes=:plankton),
-    nitrogen_uptake_hill=Parameter(2.0; axes=:plankton),
-    maximum_phosphorus_uptake=Parameter(0.01; axes=:plankton),
-    phosphorus_half_saturation=Parameter(0.02; axes=:plankton),
-    phosphorus_uptake_hill=Parameter(2.0; axes=:plankton),
+    maximum_growth_rate=Parameter(0.5),
+    photosynthetic_slope=Parameter(0.05),
+    minimum_nitrogen_quota=Parameter(0.05),
+    maximum_nitrogen_quota=Parameter(0.2),
+    minimum_phosphorus_quota=Parameter(0.005),
+    maximum_phosphorus_quota=Parameter(0.02),
+    maximum_nitrogen_uptake=Parameter(0.1),
+    nitrogen_half_saturation=Parameter(0.2),
+    nitrogen_uptake_hill=Parameter(2.0),
+    maximum_phosphorus_uptake=Parameter(0.01),
+    phosphorus_half_saturation=Parameter(0.02),
+    phosphorus_uptake_hill=Parameter(2.0),
 )
 
 quota_definition() = ModelDefinition(;
@@ -148,7 +148,6 @@ end
     @test (nitrogen_quota.storage_shape, nitrogen_quota.storage_labels) == (
         (2,), ((:P_1, :P_2),)
     )
-    @test nitrogen_quota.applicable_indices == ((1, 2),)
 
     shared = Tuple(
         binding for binding in normalized.parameter_bindings

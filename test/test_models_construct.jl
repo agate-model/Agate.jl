@@ -140,7 +140,7 @@ using Oceananigans.Biogeochemistry:
         growth = copy(named.parameters.maximum_growth_rate)
         predation = copy(named.parameters.maximum_predation_rate)
         specificity = fill(Float32(0.3), length(named.metadata.class_symbols))
-        growth[4] = Float32(1.2 / day)
+        growth[1] = Float32(1.2 / day)
         predation[2] = Float32(0.7 / day)
         specificity[1] = 2.0f0
 
@@ -269,7 +269,7 @@ using Oceananigans.Biogeochemistry:
         vopt[1] = 5.0f0
         vopt[2] = 5.0f0
         growth = copy(bgc_default.parameters.maximum_growth_rate)
-        growth[3] = Float32(1.2 / day)
+        growth[1] = Float32(1.2 / day)
 
         bgc_named = NiPiZD.construct(;
             grid=dummy_grid(Float32),
@@ -344,16 +344,12 @@ using Oceananigans.Biogeochemistry:
         )
 
         expected_growth = Float32[
-            0,
-            0,
             powerlaw_value(Float32, growth_prefactor, growth_exponent, phyto_diameters[1]),
             powerlaw_value(Float32, growth_prefactor, growth_exponent, phyto_diameters[2]),
         ]
         expected_predation = Float32[
             powerlaw_value(Float32, predation_prefactor, predation_exponent, zoo_diameters[1]),
             powerlaw_value(Float32, predation_prefactor, predation_exponent, zoo_diameters[2]),
-            0,
-            0,
         ]
 
         @test bgc.parameters.maximum_growth_rate ≈ expected_growth
@@ -381,7 +377,7 @@ using Oceananigans.Biogeochemistry:
             powerlaw_value(Float32, mortality_prefactor, mortality_exponent, diameter) for
             diameter in all_diameters
         ]
-        expected_constant_growth = Float32[0, 0, 1.5 / day, 1.5 / day]
+        expected_constant_growth = Float32[1.5 / day, 1.5 / day]
 
         @test bgc_laws.parameters.linear_mortality ≈ expected_mortality
         @test bgc_laws.parameters.maximum_growth_rate == expected_constant_growth

@@ -18,7 +18,7 @@
 # ## Loading dependencies
 
 using Agate.Models: NiPiZD
-using Agate.Introspection: plankton_groups, plankton_tracers
+using Agate.Introspection: plankton_groups
 using Agate.Library.Allometry: AllometricParam, PowerLaw
 using Agate.Library.Light: FunctionFieldPAR
 using OceanBioME
@@ -67,13 +67,12 @@ default_bgc = NiPiZD.construct(;
 nothing #hide
 
 
-# The model contains one maximum-growth value for each plankton class. Select the
-# phytoplankton values so that we can plot them against the phytoplankton sizes.
+# The growth process applies only to phytoplankton, so its realized parameter storage
+# contains exactly the phytoplankton classes.
 
 phytoplankton_tracers = plankton_groups(default_bgc).P
 phytoplankton_diameters = size_structure.phytoplankton.P
-phytoplankton_indices = findall(in(phytoplankton_tracers), plankton_tracers(default_bgc))
-default_growth_rates = default_bgc.parameters.maximum_growth_rate[phytoplankton_indices]
+default_growth_rates = default_bgc.parameters.maximum_growth_rate
 nothing #hide
 
 # ## Change the built-in size relationship
@@ -93,7 +92,7 @@ shallower_bgc = NiPiZD.construct(;
     parameters=(; maximum_growth_rate=shallower_growth),
 )
 nothing #hide
-shallower_growth_rates = shallower_bgc.parameters.maximum_growth_rate[phytoplankton_indices]
+shallower_growth_rates = shallower_bgc.parameters.maximum_growth_rate
 nothing #hide
 
 # ### Compare the resulting growth rates
@@ -325,7 +324,7 @@ ward_bgc = NiPiZD.construct(;
     parameters=(; maximum_growth_rate=ward_growth),
 )
 
-ward_growth_rates = ward_bgc.parameters.maximum_growth_rate[phytoplankton_indices]
+ward_growth_rates = ward_bgc.parameters.maximum_growth_rate
 nothing #hide
 
 # ### Compare the Ward relationship with the default

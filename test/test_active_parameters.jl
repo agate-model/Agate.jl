@@ -32,8 +32,8 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
     active_tendency = bgc_p(Val(:P_1), args...)
 
     @test active_tendency ≈ base_tendency
-    @test bgc_p.parameters.maximum_growth_rate[3] == p[1]
-    @test bgc_p.parameters.maximum_growth_rate[4] == base_bgc.parameters.maximum_growth_rate[4]
+    @test bgc_p.parameters.maximum_growth_rate[1] == p[1]
+    @test bgc_p.parameters.maximum_growth_rate[2] == base_bgc.parameters.maximum_growth_rate[2]
 
     p_fast = [2mu0]
     fast_bgc = Agate.Runtime.parameterized(
@@ -224,8 +224,8 @@ end
     )
 
     selected_values(bgc) = [
-        bgc.parameters.maximum_growth_rate[3],
-        bgc.parameters.maximum_growth_rate[4],
+        bgc.parameters.maximum_growth_rate[1],
+        bgc.parameters.maximum_growth_rate[2],
         bgc.parameters.detritus_remineralization,
         bgc.parameters.palatability_matrix[1, 1],
         bgc.parameters.palatability_matrix[1, 2],

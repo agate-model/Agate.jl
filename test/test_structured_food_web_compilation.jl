@@ -11,21 +11,21 @@ using Agate.Processes:
     normalize_model, participants, driver_identities, build_parameter_plan
 
 function food_web_parameters()
-    no_default(; axes=nothing) = Parameter(NoDefault(); axes)
+    no_default() = Parameter(NoDefault())
 
     return (
-        maximum_growth_rate=no_default(; axes=:plankton),
-        alpha=no_default(; axes=:plankton),
-        nutrient_half_saturation=no_default(; axes=:plankton),
+        maximum_growth_rate=no_default(),
+        alpha=no_default(),
+        nutrient_half_saturation=no_default(),
         temperature_q10=no_default(),
         reference_temperature=no_default(),
-        maximum_consumption_rate=no_default(; axes=:plankton),
+        maximum_consumption_rate=no_default(),
         pom_half_saturation=no_default(),
         bacterial_assimilation=no_default(),
-        maximum_predation_rate=no_default(; axes=:plankton),
-        holling_half_saturation=no_default(; axes=:plankton),
-        living_palatability_matrix=no_default(; axes=(:consumer, :prey)),
-        living_assimilation_matrix=no_default(; axes=(:consumer, :prey)),
+        maximum_predation_rate=no_default(),
+        holling_half_saturation=no_default(),
+        living_palatability_matrix=no_default(),
+        living_assimilation_matrix=no_default(),
     )
 end
 
@@ -99,16 +99,16 @@ end
 function food_web_bgc(compilation)
     T = compilation.layout.scalar_type
     parameters = (
-        maximum_growth_rate=T[2e-5, 0, 1.4e-5, 0],
-        alpha=T[2e-6, 0, 1.6e-6, 0],
-        nutrient_half_saturation=T[0.2, 0, 0.3, 0],
+        maximum_growth_rate=T[2e-5, 1.4e-5],
+        alpha=T[2e-6, 1.6e-6],
+        nutrient_half_saturation=T[0.2, 0.3],
         temperature_q10=T(2),
         reference_temperature=T(20),
-        maximum_consumption_rate=T[0, 1.5e-5, 0, 0],
+        maximum_consumption_rate=T[1.5e-5],
         pom_half_saturation=T[0.15, 0.4],
         bacterial_assimilation=reshape(T[0.65, 0.75], 1, 2),
-        maximum_predation_rate=T[0, 0, 6e-5, 9e-5],
-        holling_half_saturation=T[1, 1, 0.12, 0.18],
+        maximum_predation_rate=T[6e-5, 9e-5],
+        holling_half_saturation=T[0.12, 0.18],
         living_palatability_matrix=T[0.6 0.8; 0.7 0.9],
         living_assimilation_matrix=T[0.4 0.5; 0.35 0.45],
     )
@@ -213,10 +213,7 @@ end
         ),
     )
     parameters = (
-        maximum_consumption_rate=Parameter(
-            NoDefault();
-            axes=:plankton,
-        ),
+        maximum_consumption_rate=Parameter(NoDefault()),
         pom_half_saturation=Parameter(NoDefault()),
         bacterial_assimilation=Parameter(NoDefault()),
     )
@@ -224,15 +221,16 @@ end
     bgc = construct(
         definition;
         parameter_overrides=(
-            maximum_consumption_rate=[100.0, 2.0],
+            maximum_consumption_rate=[2.0],
             pom_half_saturation=[1.0, 3.0, 7.0],
             bacterial_assimilation=reshape([0.2, 0.4, 0.8], 1, 3),
         ),
     )
 
-    @test bgc.parameters.maximum_consumption_rate == [100.0, 2.0]
+    @test bgc.parameters.maximum_consumption_rate == [2.0]
     @test bgc.parameters.pom_half_saturation == [1.0, 3.0, 7.0]
     @test bgc.parameters.bacterial_assimilation == reshape([0.2, 0.4, 0.8], 1, 3)
+    @test bgc.metadata.interaction_axes === nothing
 
     names = Agate.Introspection.tracer_names(bgc)
     state = (N=0.0, POM_1=1.0, POM_2=1.0, POM_3=1.0, X_1=5.0, B_1=1.0)

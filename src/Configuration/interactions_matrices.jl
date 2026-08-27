@@ -1,22 +1,17 @@
 """Return runtime metadata for parameters stored on canonical consumer-by-prey axes."""
-function interaction_axis_metadata(plan)
+function interaction_axis_metadata(plan, layout::ModelLayout)
+    consumers = Tuple(layout.class_symbols[index] for index in layout.consumer_indices)
+    prey = Tuple(layout.class_symbols[index] for index in layout.prey_indices)
     names = Tuple(
         name for name in keys(plan.parameters)
         if begin
             parameter = getproperty(plan.parameters, name)
-            parameter.runtime_bound && parameter.storage_axes == (:consumer, :prey)
+            parameter.runtime_bound &&
+                parameter.axes == (:consumer, :resource) &&
+                parameter.storage_labels == (consumers, prey)
         end
     )
     isempty(names) && return nothing
-
-    first_parameter = getproperty(plan.parameters, first(names))
-    consumers, prey = first_parameter.storage_labels
-    for name in Base.tail(names)
-        parameter = getproperty(plan.parameters, name)
-        parameter.storage_labels == (consumers, prey) || throw(ArgumentError(
-            "consumer-by-prey parameters do not share one realized interaction axis",
-        ))
-    end
     return (; parameters=names, consumers, prey)
 end
 

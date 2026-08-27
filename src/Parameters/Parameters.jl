@@ -1,6 +1,6 @@
-"""Keyed model parameters, defaults, storage, and construction-time resolution metadata."""
+"""Runtime parameters, construction-only meta-parameters, and setup-time defaults."""
 module Parameters
 
-include("parameter_directory.jl")
+include("parameters.jl")
 
 end

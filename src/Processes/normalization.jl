@@ -126,17 +126,15 @@ parameter_slots(::FixedStoichiometry) = (ParameterSlot(:ratio; qualify=:currency
 """Resolved setup-time mapping from one local parameter slot to model storage.
 
 The scientific-tree location and qualifier identify the local slot during compilation.
-`storage_axes=nothing` means slot-local storage; explicit axes identify the global runtime
-storage coordinate system used by the bound model parameter.
+`axes` is the authoritative semantic axis signature supplied by the formulation schema.
 """
-struct ParameterBinding{P,Q,A,S}
+struct ParameterBinding{P,Q,A}
     process::Symbol
     path::P
     slot::Symbol
     qualifier::Q
     axes::A
     parameter::Symbol
-    storage_axes::S
 end
 
 _parameter_slot_source(node::Union{AbstractFormulation,AbstractStoichiometry,Products}) = node
@@ -752,21 +750,15 @@ function _declared_parameter_uses(processes::NamedTuple)
     return Tuple(uses)
 end
 
-function _storage_rank(axes)
-    axes === nothing && return nothing
-    axes isa Symbol && return 1
-    return length(axes)
-end
-
 const RESERVED_PARAMETER_KEYS = (:x, :y, :z, :t)
 
 function _normalize_parameter_definitions(definitions)
     isnothing(definitions) && return nothing, Set{Symbol}()
     definitions isa NamedTuple || throw(
-        ArgumentError("model parameters must be a NamedTuple of Parameter values"),
+        ArgumentError("model parameters must be a NamedTuple of Parameter or MetaParameter values"),
     )
-    all(parameter -> parameter isa Parameter, values(definitions)) || throw(
-        ArgumentError("model parameters must contain only Parameter values"),
+    all(parameter -> parameter isa Union{Parameter,MetaParameter}, values(definitions)) || throw(
+        ArgumentError("model parameters must contain only Parameter or MetaParameter values"),
     )
 
     definition_names = Tuple(keys(definitions))
@@ -807,8 +799,7 @@ function _normalize_parameter_bindings(
     if isnothing(definitions)
         bindings = Tuple(
             ParameterBinding(
-                use.process, use.path, use.slot, use.qualifier,
-                use.axes, use.parameter, nothing,
+                use.process, use.path, use.slot, use.qualifier, use.axes, use.parameter,
             )
             for use in uses
         )
@@ -838,23 +829,26 @@ function _normalize_parameter_bindings(
                 "bind every shared use explicitly",
             ))
         end
-        required_ranks = unique(Tuple(length(use.axes) for use in parameter_uses))
-        length(required_ranks) == 1 || throw(ArgumentError(
-            "parameter :$parameter is bound to slots with incompatible dimensionality $(Tuple(required_ranks))",
+        required_axes = unique(Tuple(use.axes for use in parameter_uses))
+        length(required_axes) == 1 || throw(ArgumentError(
+            "parameter :$parameter is bound to slots with incompatible semantic axes $(Tuple(required_axes))",
         ))
     end
 
     for (name, parameter) in pairs(definitions)
         parameter_uses = get(by_parameter, name, Any[])
-        isempty(parameter_uses) && !(name in dependency_names) && throw(ArgumentError(
-            "parameter :$name is neither bound to a process slot nor used by a derived default",
-        ))
-        isempty(parameter_uses) && continue
-        required_rank = only(unique(Tuple(length(use.axes) for use in parameter_uses)))
-        storage_rank = _storage_rank(parameter.spec.axes)
-        isnothing(storage_rank) || storage_rank == required_rank || throw(ArgumentError(
-            "parameter :$name storage axes imply rank $storage_rank but its bound slots require rank $required_rank",
-        ))
+        if parameter isa MetaParameter
+            isempty(parameter_uses) || throw(ArgumentError(
+                "MetaParameter :$name is construction-only and cannot bind to a process slot; use Parameter for runtime process parameters",
+            ))
+            name in dependency_names || throw(ArgumentError(
+                "MetaParameter :$name must be used by at least one DerivedDefault",
+            ))
+        else
+            isempty(parameter_uses) && throw(ArgumentError(
+                "Parameter :$name is not bound to a process slot; use MetaParameter for construction-only DerivedDefault inputs",
+            ))
+        end
     end
 
     return Tuple(
@@ -865,7 +859,6 @@ function _normalize_parameter_bindings(
             use.qualifier,
             use.axes,
             use.parameter,
-            getproperty(definitions, use.parameter).spec.axes,
         )
         for use in uses
     )

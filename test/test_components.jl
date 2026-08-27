@@ -123,7 +123,6 @@ end
     ))
     parameter = build_parameter_plan(definition, layout).parameters.pom_rate
     @test parameter.storage_labels == ((:POM_1, :POM_2, :POM_3),)
-    @test parameter.applicable_indices == ((1, 2, 3),)
 end
 
 @testset "Direct and family population realization share layout facts" begin

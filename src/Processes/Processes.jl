@@ -4,7 +4,7 @@ module Processes
 using ..Configuration: Population, Pool, PopulationStateRef, ModelLayout, currency, state_currency,
     states, size_structure, component_classes, axis_indices
 using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
-using ..Parameters: Parameter, DerivedDefault, parameter_definitions
+using ..Parameters: Parameter, MetaParameter, DerivedDefault, parameter_definitions
 using ..Library.Mortality: linear_loss, quadratic_loss
 using ..Library.Predation: idealized_predation_loss, preferential_predation_loss
 using ..Library.Photosynthesis: geider_light_response, smith_light_limitation

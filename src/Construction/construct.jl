@@ -101,9 +101,6 @@ function parameter_axis_names(parameter)
     parameter.rank == 1 || throw(ArgumentError(
         "parameter :$(parameter.name) does not have one vector storage axis",
     ))
-    parameter.storage_axes === nothing && throw(ArgumentError(
-        "parameter :$(parameter.name) does not support NamedTuple overrides because it has no named vector axis.",
-    ))
     return only(parameter.storage_labels)
 end
 
@@ -252,13 +249,6 @@ function evaluate_process_default(
 
     expected = parameter.storage_shape
     if rank == 1
-        if parameter.storage_axes === :plankton
-            result = fill(zero(value), only(expected))
-            @inbounds for index in only(parameter.applicable_indices)
-                result[index] = value
-            end
-            return result
-        end
         return fill(value, only(expected))
     elseif rank == 2
         return fill(value, expected...)
@@ -278,7 +268,7 @@ function evaluate_process_default(
     ))
     default = T(provider.default)
     return resolve_diameter_indexed_vector(
-        T, diameters, only(parameter.applicable_indices), provider.value; default
+        T, diameters, Tuple(eachindex(diameters)), provider.value; default
     )
 end
 
@@ -309,7 +299,7 @@ function materialize_process_parameter_law_override(
     return resolve_diameter_indexed_vector(
         T,
         diameters,
-        only(parameter.applicable_indices),
+        Tuple(eachindex(diameters)),
         value;
         default=T(provider.default),
     )
@@ -487,7 +477,7 @@ function _construct_process_definition(
     equations = compile_model_tendencies(
         normalized, layout, parameter_plan; target_order=tracer_names
     )
-    interaction_axes = interaction_axis_metadata(parameter_plan)
+    interaction_axes = interaction_axis_metadata(parameter_plan, layout)
     metadata = model_metadata(
         layout; interaction_axes, parameter_axes=parameter_plan_metadata(parameter_plan)
     )

@@ -4,10 +4,10 @@ using Test
 
 import Agate.Parameters:
     DerivedDefault,
+    MetaParameter,
     Parameter,
     derive_default,
-    parameter_definitions,
-    parameter_directory
+    parameter_definitions
 
 struct DerivedDefaultFixture end
 struct AddOneDefault end
@@ -16,26 +16,18 @@ derive_default(::AddOneDefault, ::DerivedDefaultFixture, ::Any, params::NamedTup
     params.base + one(params.base)
 
 parameter_definitions(::DerivedDefaultFixture) = (
-    base=Parameter(2.0),
+    base=MetaParameter(2.0),
     top=Parameter(DerivedDefault(AddOneDefault(); deps=(:base,))),
 )
 
-@testset "Parameter directory" begin
+@testset "Parameter definitions and planning" begin
     @testset "NiPiZD" begin
         family = Agate.Models.NiPiZD.NiPiZDFamily()
-        dir = parameter_directory(family)
-        @test !isempty(dir)
-
-        bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
-        dir_names = Set(keys(dir))
-
-        # All constructed parameters should be declared in the directory.
-        for k in parameter_names(bgc)
-            @test k in dir_names
-        end
-
         definitions = parameter_definitions(family)
-        @test !hasproperty(dir.maximum_growth_rate, :name)
+        bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
+
+        @test all(name -> hasproperty(definitions, name), parameter_names(bgc))
+        @test definitions.maximum_growth_rate isa Parameter
         @test definitions.linear_mortality.default isa Agate.Parameters.DiameterIndexedVectorDefault
         @test definitions.palatability_matrix.default isa DerivedDefault
         @test definitions.palatability_matrix.default.deps == (
@@ -43,16 +35,12 @@ parameter_definitions(::DerivedDefaultFixture) = (
         )
         @test definitions.assimilation_matrix.default isa DerivedDefault
         @test definitions.assimilation_matrix.default.deps == (:assimilation_efficiency,)
-        @test propertynames(dir.maximum_growth_rate) == (:axes,)
-        @test dir.detritus_remineralization.axes === nothing
-        @test dir.mortality_export_fraction.axes === nothing
-        @test dir.maximum_growth_rate.axes == :plankton
-        @test definitions.maximum_growth_rate.default isa Agate.Parameters.DiameterIndexedVectorDefault
         @test definitions.maximum_growth_rate.default.default == 0
         @test definitions.linear_mortality.default.default == 0
         @test definitions.mortality_export_fraction.default.value == 0.2
-        @test dir.palatability_matrix.axes == (:consumer, :prey)
-        @test dir.assimilation_matrix.axes == (:consumer, :prey)
+        @test definitions.specificity isa MetaParameter
+        @test definitions.specificity.axes === :plankton
+        @test definitions.assimilation_efficiency isa MetaParameter
     end
 
     @testset "Realized ParameterPlan" begin
@@ -62,10 +50,9 @@ parameter_definitions(::DerivedDefaultFixture) = (
         plan = Agate.Processes.build_parameter_plan(normalized, layout)
 
         growth = plan.parameters.maximum_growth_rate
-        @test (growth.rank, growth.storage_shape, growth.storage_labels) ==
-            (1, (4,), ((:Z_1, :Z_2, :P_1, :P_2),))
-        @test growth.applicable_indices == ((3, 4),)
-        @test growth.storage_diameters == layout.diameters
+        @test (growth.rank, growth.axes, growth.storage_shape, growth.storage_labels) ==
+            (1, (:population,), (2,), ((:P_1, :P_2),))
+        @test growth.storage_diameters == layout.diameters[3:4]
         @test growth.runtime_bound
 
         palatability = plan.parameters.palatability_matrix
@@ -74,7 +61,7 @@ parameter_definitions(::DerivedDefaultFixture) = (
         @test palatability.runtime_bound
 
         specificity = plan.parameters.specificity
-        @test specificity.applicable_indices == ((1, 2, 3, 4),)
+        @test specificity.axes == (:plankton,)
         @test Agate.Construction.evaluate_process_default(
             Agate.Parameters.ConstantDefault(2), specificity, Float32
         ) == fill(2f0, 4)
@@ -86,6 +73,8 @@ parameter_definitions(::DerivedDefaultFixture) = (
         @test (remineralization.rank, remineralization.storage_shape, remineralization.storage_labels) ==
             (0, (), ())
 
+        mortality = plan.parameters.linear_mortality
+        @test mortality.storage_labels == ((:Z_1, :Z_2, :P_1, :P_2),)
         mortality_slots = Tuple(
             Agate.Processes.planned_parameter_slot(plan, binding)
             for binding in normalized.parameter_bindings if binding.parameter === :linear_mortality
@@ -101,8 +90,7 @@ parameter_definitions(::DerivedDefaultFixture) = (
         growth_binding = only(filter(normalized.parameter_bindings) do binding
             binding.parameter === :maximum_growth_rate
         end)
-        growth_slot = Agate.Processes.planned_parameter_slot(plan, growth_binding)
-        @test growth_slot == ((3, 4),)
+        @test Agate.Processes.planned_parameter_slot(plan, growth_binding) == ((1, 2),)
     end
 
     @testset "Derived default dependency resolution" begin

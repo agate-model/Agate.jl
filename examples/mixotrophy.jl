@@ -5,7 +5,7 @@
 
 using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Population, Pool
 using Agate.Construction: construct
-using Agate.Parameters: DerivedDefault, Parameter
+using Agate.Parameters: DerivedDefault, MetaParameter, Parameter
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
     Consumption, Growth, Light, ModelDefinition, NutrientResponse, Smith, Monod, PreferentialGrazing, normalize_model, participants
@@ -48,30 +48,28 @@ processes = (
 # ## Parameters
 #
 # Each NamedTuple key is the stable model parameter name. Processes and factors bind
-# their local scientific slots directly to these keys. Vector parameters use the
-# realized plankton axis, while derived interaction matrices are ordinary top-level
-# runtime parameters.
+# their local scientific slots directly to these keys, and those slots determine runtime
+# storage automatically. The interaction traits retain an explicit `:plankton` axis because
+# they are dependency-only inputs to the derived interaction matrices.
 
 parameters = (
-    maximum_growth_rate=Parameter(0.8 / day; axes=:plankton),
-    alpha=Parameter(0.08 / day; axes=:plankton),
-    nutrient_half_saturation=Parameter(0.2; axes=:plankton),
-    maximum_predation_rate=Parameter(0.4 / day; axes=:plankton),
-    holling_half_saturation=Parameter(0.15; axes=:plankton),
-    optimum_predator_prey_ratio=Parameter(4.0; axes=:plankton),
-    specificity=Parameter(0.5; axes=:plankton),
-    protection=Parameter(0.0; axes=:plankton),
-    assimilation_efficiency=Parameter(0.65; axes=:plankton),
+    maximum_growth_rate=Parameter(0.8 / day),
+    alpha=Parameter(0.08 / day),
+    nutrient_half_saturation=Parameter(0.2),
+    maximum_predation_rate=Parameter(0.4 / day),
+    holling_half_saturation=Parameter(0.15),
+    optimum_predator_prey_ratio=MetaParameter(4.0; axes=:plankton),
+    specificity=MetaParameter(0.5; axes=:plankton),
+    protection=MetaParameter(0.0; axes=:plankton),
+    assimilation_efficiency=MetaParameter(0.65; axes=:plankton),
     palatability_matrix=Parameter(
         DerivedDefault(
             PalatabilityAllometric();
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
-        );
-        axes=(:consumer, :prey),
+        )
     ),
     assimilation_matrix=Parameter(
-        DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,));
-        axes=(:consumer, :prey),
+        DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,))
     ),
 )
 

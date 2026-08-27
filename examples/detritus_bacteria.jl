@@ -6,7 +6,7 @@
 
 using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Population, Pool
 using Agate.Construction: construct
-using Agate.Parameters: DerivedDefault, Parameter
+using Agate.Parameters: DerivedDefault, MetaParameter, Parameter
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
     Consumption, ModelDefinition, Temperature, Q10,
@@ -64,33 +64,31 @@ processes = (
 
 # ## Parameters
 #
-# Each NamedTuple key is the stable model parameter name. Living-class parameters
-# use the explicit global `:plankton` storage axis.
-# POM half-saturation and bacterial assimilation omit `axes`, so their storage
-# follows the process-local POM and B-by-POM applicability directly.
+# Each NamedTuple key is the stable model parameter name. Slot-bound parameters derive
+# their storage from the process roles and realized classes, so living and POM parameters
+# need no axis declarations. The four interaction traits are dependency-only setup
+# parameters, so they retain an explicit `:plankton` axis for the derived matrices.
 
 parameters = (
-    maximum_consumption_rate=Parameter(0.8 / day; axes=:plankton),
+    maximum_consumption_rate=Parameter(0.8 / day),
     pom_half_saturation=Parameter(0.2),
     bacterial_assimilation=Parameter(0.65),
     temperature_q10=Parameter(2.0),
     reference_temperature=Parameter(20.0),
-    maximum_predation_rate=Parameter(0.6 / day; axes=:plankton),
-    holling_half_saturation=Parameter(0.1; axes=:plankton),
-    optimum_predator_prey_ratio=Parameter(12.5; axes=:plankton),
-    specificity=Parameter(0.4; axes=:plankton),
-    protection=Parameter(0.0; axes=:plankton),
-    assimilation_efficiency=Parameter(0.7; axes=:plankton),
+    maximum_predation_rate=Parameter(0.6 / day),
+    holling_half_saturation=Parameter(0.1),
+    optimum_predator_prey_ratio=MetaParameter(12.5; axes=:plankton),
+    specificity=MetaParameter(0.4; axes=:plankton),
+    protection=MetaParameter(0.0; axes=:plankton),
+    assimilation_efficiency=MetaParameter(0.7; axes=:plankton),
     living_palatability=Parameter(
         DerivedDefault(
             PalatabilityAllometric();
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
-        );
-        axes=(:consumer, :prey),
+        )
     ),
     living_assimilation=Parameter(
-        DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,));
-        axes=(:consumer, :prey),
+        DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,))
     ),
 )
 

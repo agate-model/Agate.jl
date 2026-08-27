@@ -4,7 +4,7 @@ using Test
 
 using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Population, Pool
 using Agate.Construction: construct
-using Agate.Parameters: DerivedDefault, ConstantDefault, Parameter
+using Agate.Parameters: DerivedDefault, ConstantDefault, MetaParameter, Parameter
 using Agate.Processes:
     Consumption, FixedStoichiometry, Growth, Light, LinearMortality, ModelDefinition, Mortality,
     NutrientResponse, Products, Smith, Monod, PreferentialGrazing
@@ -41,39 +41,24 @@ function direct_npz_definition()
         ),
     )
     parameters = (
-        maximum_growth_rate=Parameter(
-            ConstantDefault(2e-5);
-            axes=:plankton,
-        ),
-        alpha=Parameter(
-            ConstantDefault(2e-6);
-            axes=:plankton,
-        ),
-        nutrient_half_saturation=Parameter(
-            ConstantDefault(0.2);
-            axes=:plankton,
-        ),
-        maximum_predation_rate=Parameter(
-            ConstantDefault(5e-5);
-            axes=:plankton,
-        ),
-        holling_half_saturation=Parameter(
-            ConstantDefault(0.1);
-            axes=:plankton,
-        ),
-        optimum_predator_prey_ratio=Parameter(
+        maximum_growth_rate=Parameter(ConstantDefault(2e-5)),
+        alpha=Parameter(ConstantDefault(2e-6)),
+        nutrient_half_saturation=Parameter(ConstantDefault(0.2)),
+        maximum_predation_rate=Parameter(ConstantDefault(5e-5)),
+        holling_half_saturation=Parameter(ConstantDefault(0.1)),
+        optimum_predator_prey_ratio=MetaParameter(
             ConstantDefault(10.0);
             axes=:plankton,
         ),
-        specificity=Parameter(
+        specificity=MetaParameter(
             ConstantDefault(0.3);
             axes=:plankton,
         ),
-        protection=Parameter(
+        protection=MetaParameter(
             ConstantDefault(0.0);
             axes=:plankton,
         ),
-        assimilation_efficiency=Parameter(
+        assimilation_efficiency=MetaParameter(
             ConstantDefault(0.7);
             axes=:plankton,
         ),
@@ -81,12 +66,10 @@ function direct_npz_definition()
             DerivedDefault(
                 PalatabilityAllometric();
                 deps=(:optimum_predator_prey_ratio, :specificity, :protection),
-            );
-            axes=(:consumer, :prey),
+            )
         ),
         assimilation_matrix=Parameter(
-            DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,));
-            axes=(:consumer, :prey),
+            DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,))
         ),
     )
     return ModelDefinition(; components, processes, parameters)
@@ -97,14 +80,14 @@ end
     bgc = construct(
         definition;
         grid=dummy_grid(Float64),
-        parameter_overrides=(maximum_growth_rate=[3e-5, 0.0],),
+        parameter_overrides=(maximum_growth_rate=[3e-5],),
     )
 
     @test required_biogeochemical_tracers(bgc) == (:N, :P_1, :Z_1)
     @test required_biogeochemical_auxiliary_fields(bgc) == (:PAR,)
-    @test bgc.parameters.maximum_growth_rate == [3e-5, 0.0]
-    @test bgc.parameters.alpha == [2e-6, 0.0]
-    @test bgc.parameters.maximum_predation_rate == [0.0, 5e-5]
+    @test bgc.parameters.maximum_growth_rate == [3e-5]
+    @test bgc.parameters.alpha == [2e-6]
+    @test bgc.parameters.maximum_predation_rate == [5e-5]
     @test bgc.metadata.plankton_diameters == (1.0, 10.0)
     @test size(bgc.parameters.palatability_matrix) ==
           size(bgc.parameters.assimilation_matrix) == (1, 1)
@@ -140,7 +123,7 @@ end
         ),
     )
     parameters = (
-        linear_mortality=Parameter(ConstantDefault(1e-6); axes=:plankton),
+        linear_mortality=Parameter(ConstantDefault(1e-6)),
         fraction_a=Parameter(ConstantDefault(0.4)),
         fraction_b=Parameter(ConstantDefault(nextfloat(0.6))),
     )
@@ -190,7 +173,7 @@ end
         ),
     )
     parameters = (
-        linear_mortality=Parameter(ConstantDefault(1e-6); axes=:plankton),
+        linear_mortality=Parameter(ConstantDefault(1e-6)),
         POM_fraction=Parameter(ConstantDefault(0.25)),
         nitrogen_to_carbon=Parameter(ConstantDefault(0.2)),
     )

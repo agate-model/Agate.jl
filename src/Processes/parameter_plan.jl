@@ -1,12 +1,11 @@
 """One model parameter after layout-dependent realization."""
-struct PlannedParameter{D,A,S,L,I,M}
+struct PlannedParameter{D,A,S,L,M}
     name::Symbol
     definition::D
     rank::Int
-    storage_axes::A
+    axes::A
     storage_shape::S
     storage_labels::L
-    applicable_indices::I
     storage_diameters::M
     runtime_bound::Bool
 end
@@ -45,14 +44,6 @@ struct ParameterPlan{P,L,R,C}
     slot_lookup::L
     runtime_names::R
     science_checks::C
-end
-
-function _planned_parameter_rank(definition::NormalizedModelDefinition, name::Symbol, parameter)
-    axes = parameter.spec.axes
-    axes isa Symbol && return 1
-    axes isa Tuple && return length(axes)
-    index = findfirst(binding -> binding.parameter === name, definition.parameter_bindings)
-    return isnothing(index) ? 0 : length(definition.parameter_bindings[index].axes)
 end
 
 _parameter_axis_classes(bindings::Tuple, binding_classes::Tuple, name::Symbol) = Tuple(
@@ -100,45 +91,56 @@ function _resolved_binding_axis_classes(
     end
 end
 
-function _local_storage_labels(name::Symbol, rank::Int, axis_classes::Tuple)
+function _layout_storage_order(layout::ModelLayout)
+    labels = collect(layout.class_symbols)
+    seen = Set(labels)
+    for classes in values(layout.component_classes), class in classes
+        class in seen && continue
+        push!(labels, class)
+        push!(seen, class)
+    end
+    return Tuple(labels)
+end
+
+function _union_storage_labels(layout::ModelLayout, name::Symbol, rank::Int, axis_classes::Tuple)
     rank == 0 && return ()
-    candidates = Tuple(classes for classes in axis_classes if length(classes) == rank)
-    isempty(candidates) && throw(ArgumentError(
-        "parameter :$name has local storage but no resolved process applicability",
+    isempty(axis_classes) && throw(ArgumentError(
+        "parameter :$name has slot-derived storage but no resolved process applicability",
     ))
-    labels = first(candidates)
-    all(==(labels), candidates) || throw(ArgumentError(
-        "parameter :$name supplies incompatible process-local axes; declare explicit storage axes",
-    ))
-    return labels
+    order = _layout_storage_order(layout)
+    return ntuple(rank) do dimension
+        flat = Set(class for classes in axis_classes for class in classes[dimension])
+        labels = Tuple(label for label in order if label in flat)
+        length(labels) == length(flat) || throw(ArgumentError(
+            "parameter :$name applicability contains classes outside the realized layout",
+        ))
+        labels
+    end
 end
 
 _explicit_axis_labels(layout::ModelLayout, axis::Symbol) =
     axis === :plankton ? layout.class_symbols :
     Tuple(layout.class_symbols[index] for index in axis_indices(layout, axis))
 
-function _parameter_storage_labels(layout, name, parameter, rank, axis_classes)
-    rank == 0 && return ()
-    axes = parameter.spec.axes
-    axes === nothing && return _local_storage_labels(name, rank, axis_classes)
-    rank == 1 && return (_explicit_axis_labels(layout, axes),)
-    rank == 2 && return map(axis -> _explicit_axis_labels(layout, axis), axes)
-    throw(ArgumentError("parameter :$name has unsupported rank $rank"))
+_axis_tuple(::Nothing) = ()
+_axis_tuple(axis::Symbol) = (axis,)
+_axis_tuple(axes::Tuple) = axes
+
+_planned_parameter_axes(definition, name, parameter::MetaParameter) = _axis_tuple(parameter.axes)
+
+function _planned_parameter_axes(definition, name, parameter::Parameter)
+    index = findfirst(binding -> binding.parameter === name, definition.parameter_bindings)
+    isnothing(index) && throw(ArgumentError(
+        "Parameter :$name has no scientific slot binding after normalization",
+    ))
+    return definition.parameter_bindings[index].axes
 end
 
-function _applicable_storage_indices(storage_labels, rank, axis_classes)
+function _parameter_storage_labels(layout, name, axes, axis_classes)
+    rank = length(axes)
     rank == 0 && return ()
-    isempty(axis_classes) && return map(labels -> Tuple(eachindex(labels)), storage_labels)
-    return ntuple(rank) do dimension
-        selected = Set(
-            class for classes in axis_classes for class in classes[dimension]
-        )
-        isempty(selected) && return Tuple(eachindex(storage_labels[dimension]))
-        Tuple(
-            index for (index, label) in pairs(storage_labels[dimension])
-            if label in selected
-        )
-    end
+    isempty(axis_classes) && return map(axis -> _explicit_axis_labels(layout, axis), axes)
+    return _union_storage_labels(layout, name, rank, axis_classes)
 end
 
 function _diameter_by_class(layout::ModelLayout)
@@ -172,19 +174,19 @@ function _runtime_binding(definition::NormalizedModelDefinition, binding::Parame
 end
 
 function _planned_parameter(definition, layout, name, parameter, binding_classes, diameters)
-    rank = _planned_parameter_rank(definition, name, parameter)
     axis_classes = _parameter_axis_classes(
         definition.parameter_bindings, binding_classes, name
     )
-    labels = _parameter_storage_labels(layout, name, parameter, rank, axis_classes)
+    axes = _planned_parameter_axes(definition, name, parameter)
+    rank = length(axes)
+    labels = _parameter_storage_labels(layout, name, axes, axis_classes)
     return PlannedParameter(
         name,
         parameter,
         rank,
-        parameter.spec.axes,
+        axes,
         map(length, labels),
         labels,
-        _applicable_storage_indices(labels, rank, axis_classes),
         _storage_diameters(rank, labels, diameters),
         any(
             binding -> binding.parameter === name && _runtime_binding(definition, binding),

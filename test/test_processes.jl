@@ -1,7 +1,7 @@
 using Test
 using Agate.Configuration: Population, Pool
 using Agate.ModelFamilies: default_components, default_processes
-using Agate.Parameters: ConstantDefault, DerivedDefault, Parameter
+using Agate.Parameters: ConstantDefault, DerivedDefault, MetaParameter, Parameter
 using Agate.Processes:
     AbstractFormulation,
     AbstractFactor,
@@ -334,7 +334,7 @@ end
     end
 end
 
-@testset "NiPiZD parameter directory validation" begin
+@testset "NiPiZD parameter definition validation" begin
     family = Agate.Models.NiPiZD.NiPiZDFamily()
     for parameters in ((), (invalid=1,))
         @test_throws ArgumentError normalize_model(ModelDefinition(;
@@ -368,7 +368,7 @@ end
         components,
         processes=(mortality=shared, remineralization=remineralization),
         parameters=(
-            shared_mortality=Parameter(ConstantDefault(0.1); axes=:plankton),
+            shared_mortality=Parameter(ConstantDefault(0.1)),
             remineralization_rate=Parameter(ConstantDefault(0.2)),
         ),
     ))
@@ -392,13 +392,35 @@ end
         (remineralization_binding.qualifier.axis, remineralization_binding.qualifier.value),
     ) == (:remineralization_rate, (), (:source, :D))
 
-    @test_throws ArgumentError normalize_model(ModelDefinition(;
+    @test_throws MethodError Parameter(ConstantDefault(0.1); axes=:plankton)
+
+    meta_bound_error = normalization_error_message(ModelDefinition(;
         components=(P=components.P, Z=components.Z),
         processes=(mortality=shared,),
-        parameters=(shared_mortality=Parameter(
-            ConstantDefault(0.1); axes=(:consumer, :prey)
-        ),),
+        parameters=(shared_mortality=MetaParameter(ConstantDefault(0.1); axes=:plankton),),
     ))
+    @test occursin("construction-only and cannot bind to a process slot", meta_bound_error)
+
+    incompatible_axes_error = normalization_error_message(ModelDefinition(;
+        components=(P=components.P, Z=components.Z, D=components.D),
+        processes=(
+            mortality=shared,
+            grazing=Consumption(
+                PreferentialGrazing();
+                consumers=:Z,
+                resources=:P,
+                bindings=(maximum_rate=:shared_mortality,),
+                unassimilated_products=:D,
+            ),
+        ),
+        parameters=(
+            shared_mortality=Parameter(0.1),
+            half_saturation=Parameter(0.1),
+            palatability=Parameter(1.0),
+            assimilation=Parameter(0.7),
+        ),
+    ))
+    @test occursin("incompatible semantic axes", incompatible_axes_error)
 
     accidental = ModelDefinition(;
         components=(P=components.P, Z=components.Z),
@@ -407,7 +429,7 @@ end
                 Agate.Processes.LinearMortality(); populations=(:P, :Z)
             ),
         ),
-        parameters=(rate=Parameter(ConstantDefault(0.1); axes=:plankton),),
+        parameters=(rate=Parameter(ConstantDefault(0.1)),),
     )
     @test_throws ArgumentError normalize_model(accidental)
 
@@ -434,7 +456,7 @@ end
                 bindings=(missing=:shared_mortality,),
             ),
         ),
-        parameters=(shared_mortality=Parameter(ConstantDefault(0.1); axes=:plankton),),
+        parameters=(shared_mortality=Parameter(ConstantDefault(0.1)),),
     )
     @test_throws ArgumentError normalize_model(unknown)
 
@@ -453,38 +475,44 @@ end
                 ),
             ),
         ),
-        parameters=(K=Parameter(ConstantDefault(0.1); axes=:plankton),),
+        parameters=(K=Parameter(ConstantDefault(0.1)),),
     )
     @test_throws ArgumentError normalize_model(unknown_zero_slot)
 
+    single_mortality = Mortality(
+        Agate.Processes.LinearMortality();
+        populations=:P,
+        bindings=(rate=:mortality_rate,),
+    )
     dependency_only = normalize_model(ModelDefinition(;
         components=(P=components.P,),
-        processes=(mortality=Mortality(
-            Agate.Processes.LinearMortality();
-            populations=:P,
-            bindings=(rate=:mortality_rate,),
-        ),),
+        processes=(mortality=single_mortality,),
         parameters=(
             mortality_rate=Parameter(
-                DerivedDefault(BindingDependencyDefault(); deps=(:helper,));
-                axes=:plankton,
+                DerivedDefault(BindingDependencyDefault(); deps=(:helper,))
             ),
-            helper=Parameter(ConstantDefault(1.0)),
+            helper=MetaParameter(ConstantDefault(1.0); axes=:plankton),
         ),
     ))
-    @test dependency_only.parameters.helper.spec.axes === nothing
+    @test dependency_only.parameters.helper.axes === :plankton
     @test dependency_only.parameters.mortality_rate.default.deps == (:helper,)
 
-    @test_throws ArgumentError normalize_model(ModelDefinition(;
-        components=(P=components.P,),
-        processes=(mortality=Mortality(
-            Agate.Processes.LinearMortality();
-            populations=:P,
-            bindings=(rate=:mortality_rate,),
-        ),),
-        parameters=(
-            mortality_rate=Parameter(ConstantDefault(0.1); axes=:plankton),
-            unused=Parameter(ConstantDefault(1.0)),
+    lifecycle_cases = (
+        (
+            (mortality_rate=Parameter(0.1), unused=Parameter(1.0)),
+            "use MetaParameter for construction-only",
         ),
-    ))
+        (
+            (mortality_rate=Parameter(0.1), helper=MetaParameter(1.0)),
+            "must be used by at least one DerivedDefault",
+        ),
+    )
+    for (parameters, fragment) in lifecycle_cases
+        message = normalization_error_message(ModelDefinition(;
+            components=(P=components.P,),
+            processes=(mortality=single_mortality,),
+            parameters,
+        ))
+        @test occursin(fragment, message)
+    end
 end

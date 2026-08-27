@@ -59,13 +59,16 @@ Agate.Processes.authored_parameter_bindings
 
 ### Parameter definitions
 
-The keyed parameter block owns defaults and storage policy. Literal defaults use
-`Parameter(value; axes=...)`; explicit default-provider objects are reserved for derived,
-missing, or structure-dependent defaults. Scientific slot-to-parameter relationships are
-authored beside the process or factor through `bindings=`.
+The keyed parameter block separates runtime process parameters from construction-only inputs.
+Scientific slots and realized process applicability determine `Parameter` vector or matrix storage
+automatically, so runtime parameters never restate axes. `MetaParameter` values exist only during
+construction to feed `DerivedDefault` calculations; shaped meta-parameters declare their setup
+domain with `axes=`. Scientific slot-to-parameter relationships are authored beside the process
+or factor through `bindings=`.
 
 ```@docs
 Agate.Parameters.Parameter
+Agate.Parameters.MetaParameter
 Agate.Parameters.DefaultProvider
 Agate.Parameters.DerivedDefault
 Agate.Parameters.derive_default
@@ -107,8 +110,6 @@ Agate.Construction.import_recipe
 Agate.ModelFamilies.AbstractModelFamily
 Agate.ModelFamilies.definition_version
 Agate.Parameters.parameter_definitions
-Agate.Parameters.parameter_directory
-Agate.Parameters.parameter_spec
 Agate.ModelFamilies.default_components
 Agate.ModelFamilies.default_processes
 ```
