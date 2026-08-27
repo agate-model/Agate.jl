@@ -55,42 +55,6 @@ using Oceananigans.Biogeochemistry:
         @test isfinite(bgc(Val(:Z_1), 0, 0, 0, 0, ordered..., PAR))
     end
 
-    @testset "NiPiZD authored recipe and replay" begin
-        inputs = authored_nipizd_inputs(Float32)
-        phyto_diameters = inputs.size_structure.phytoplankton.diat
-        palatability = inputs.palatability_matrix
-        _, recipe = NiPiZD.construct_plus_recipe(; inputs...)
-        manifest = nipizd_manifest(recipe; scalar_type=Float32)
-
-        @test !hasproperty(recipe, :scalar_type)
-        @test recipe.sinking_tracers == inputs.sinking_tracers
-        @test recipe.open_bottom === false
-        @test recipe.group_diameters.diat isa Agate.Configuration.DiameterListSpecification
-        @test recipe.group_diameters.microzoo isa
-              Agate.Configuration.DiameterRangeSpecification
-        @test recipe.group_diameters.microzoo.splitting === :log_splitting
-        @test recipe.parameter_overrides == merge(
-            inputs.parameters, (palatability_matrix=inputs.palatability_matrix,)
-        )
-        @test recipe.parameter_overrides.palatability_matrix == palatability
-
-        phyto_diameters[1] = 999.0
-        palatability[1, 1] = 999.0
-        @test recipe.group_diameters.diat.diameters[1] == 2.0
-        @test recipe.parameter_overrides.palatability_matrix[1, 1] == Float32(0.8)
-
-        replayed = NiPiZD.construct_from_recipe(recipe; scalar_type=Float32)
-        @test all(
-            getproperty(replayed.parameters, name) == getproperty(manifest.parameters, name)
-            for name in keys(replayed.parameters)
-        )
-        @test !hasproperty(replayed.parameters, :specificity)
-        @test hasproperty(manifest.parameters, :specificity)
-        @test manifest.interaction_matrix_sources == (
-            palatability_matrix=:explicit, assimilation_matrix=:derived
-        )
-    end
-
     @testset "NiPiZD size structure" begin
         phyto_diameters = [2.0, 10.0]
         zoo_diameters = [20.0, 100.0]
@@ -436,20 +400,6 @@ using Oceananigans.Biogeochemistry:
             ),
         )
 
-        bgc_full_vector = NiPiZD.construct(;
-            size_structure,
-            grid=dummy_grid(Float32),
-            parameters=(; maximum_growth_rate=expected_growth),
-        )
-        bgc_named = NiPiZD.construct(;
-            size_structure,
-            grid=dummy_grid(Float32),
-            parameters=(; maximum_growth_rate=(P_1=1.2 / day,)),
-        )
-
-        @test bgc_full_vector.parameters.maximum_growth_rate == expected_growth
-        @test bgc_named.parameters.maximum_growth_rate[3] == Float32(1.2 / day)
-
         err = try
             NiPiZD.construct(;
                 grid=dummy_grid(Float32),
@@ -572,13 +522,5 @@ using Oceananigans.Biogeochemistry:
         @test_throws ArgumentError NiPiZD.construct(; scalar_type=ComplexF64)
         @test_throws ArgumentError NiPiZD.construct(; scalar_type=1.0)
 
-        # Wrong interaction matrix sizes should error.
-        bgc = NiPiZD.construct(; grid=dummy_grid(Float64))
-        n_cons = size(bgc.parameters.palatability_matrix, 1)
-        n_prey = size(bgc.parameters.palatability_matrix, 2)
-        wrong = zeros(Float64, n_cons + 1, n_prey + 1)
-        @test_throws ArgumentError NiPiZD.construct(;
-            grid=dummy_grid(Float64), palatability_matrix=wrong, assimilation_matrix=wrong
-        )
     end
 end

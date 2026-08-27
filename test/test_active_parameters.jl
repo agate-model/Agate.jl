@@ -223,14 +223,17 @@ end
         "assimilation_matrix[Z_1, P_1]",
     )
 
+    selected_values(bgc) = [
+        bgc.parameters.maximum_growth_rate[3],
+        bgc.parameters.maximum_growth_rate[4],
+        bgc.parameters.detritus_remineralization,
+        bgc.parameters.palatability_matrix[1, 1],
+        bgc.parameters.palatability_matrix[1, 2],
+        bgc.parameters.palatability_matrix[2, 1],
+        bgc.parameters.assimilation_matrix[1, 1],
+    ]
     @test length(active) == 7
-    @test active.values[1] == base_bgc.parameters.maximum_growth_rate[3]
-    @test active.values[2] == base_bgc.parameters.maximum_growth_rate[4]
-    @test active.values[3] == base_bgc.parameters.detritus_remineralization
-    @test active.values[4] == base_bgc.parameters.palatability_matrix[1, 1]
-    @test active.values[5] == base_bgc.parameters.palatability_matrix[1, 2]
-    @test active.values[6] == base_bgc.parameters.palatability_matrix[2, 1]
-    @test active.values[7] == base_bgc.parameters.assimilation_matrix[1, 1]
+    @test active.values == selected_values(base_bgc)
 
     p = copy(active.values)
     p[1] *= 2
@@ -240,13 +243,7 @@ end
 
     bgc_p = Agate.Runtime.parameterized(base_bgc, p; active_parameters = active)
 
-    @test bgc_p.parameters.maximum_growth_rate[3] == p[1]
-    @test bgc_p.parameters.maximum_growth_rate[4] == p[2]
-    @test bgc_p.parameters.detritus_remineralization == p[3]
-    @test bgc_p.parameters.palatability_matrix[1, 1] == p[4]
-    @test bgc_p.parameters.palatability_matrix[1, 2] == p[5]
-    @test bgc_p.parameters.palatability_matrix[2, 1] == p[6]
-    @test bgc_p.parameters.assimilation_matrix[1, 1] == p[7]
+    @test selected_values(bgc_p) == p
 
     @test bgc_p.parameters.palatability_matrix[2, 2] == base_bgc.parameters.palatability_matrix[2, 2]
 end

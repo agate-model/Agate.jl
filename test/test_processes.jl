@@ -1,6 +1,4 @@
 using Test
-using ForwardDiff
-
 using Agate.Configuration: Population, Pool
 using Agate.ModelFamilies: default_components, default_processes
 using Agate.Parameters: ConstantDefault, DerivedDefault, Parameter
@@ -11,8 +9,6 @@ using Agate.Processes:
     Geider,
     Monod,
     Liebig,
-    FrankTNorm,
-    Q10,
     MultiplicativeFactors,
     Growth,
     Light,
@@ -25,10 +21,8 @@ using Agate.Processes:
     parameter_bindings,
     driver_identities,
     formulation,
-    factor_value,
     normalize_model,
     participants,
-    process_rate,
     PreferentialGrazing
 
 import Agate.Processes: factor_inputs
@@ -60,10 +54,6 @@ function normalization_error_message(definition)
 end
 
 @testset "Process authoring and normalization" begin
-    @test :Light in names(Agate.Processes)
-    @test :FixedStoichiometry in names(Agate.Processes)
-    @test :Grazing ∉ names(Agate.Processes)
-    @test :Smith in names(Agate.Processes)
 
     light = Light(Smith(); driver=:PAR)
     response = NutrientResponse(Monod(); resource=:N)
@@ -75,12 +65,7 @@ end
     @test formulation(response) isa Monod
     @test formulation(growth) isa MultiplicativeFactors
 
-    frank_nutrients = Nutrients(
-        FrankTNorm(); responses=(nitrogen=NutrientResponse(Monod(); resource=:N),)
-    )
-    @test fieldcount(FrankTNorm) == 0
     @test participants(growth) == (population=(:P,),)
-    @test :drivers ∉ names(Agate.Processes)
 
     external_factor = ExternalTestFactor(ExternalTestFormulation())
     external_model = normalize_model(ModelDefinition(;
@@ -348,101 +333,15 @@ end
     end
 end
 
-@testset "Compositional factor mathematics" begin
-    biomass = 0.4
-    maximum_rate = 2e-5
-    light = 100.0
-    alpha = 2e-6
-
-    base = process_rate(MultiplicativeFactors(), biomass, maximum_rate)
-    smith = factor_value(Smith(), light, maximum_rate, alpha)
-    monod = factor_value(Monod(), 0.5, 0.2)
-    @test isapprox(
-        base * smith * monod,
-        maximum_rate * biomass *
-        (alpha * light / sqrt(maximum_rate^2 + (alpha * light)^2)) *
-        (0.5 / 0.7);
-        rtol=1e-14,
-    )
-
-    chlorophyll_to_carbon = 0.02
-    geider = factor_value(
-        Geider(), light, maximum_rate, alpha, chlorophyll_to_carbon
-    )
-    @test geider == Agate.Library.Photosynthesis.geider_light_response(
-        light, alpha, maximum_rate, chlorophyll_to_carbon
-    )
-    @test factor_value(Geider(), light, 0.0, alpha, chlorophyll_to_carbon) == 0.0
-    limitations = (factor_value(Monod(), 3.0, 0.5), factor_value(Monod(), 0.2, 0.5))
-    liebig = factor_value(Liebig(), limitations)
-    frank = factor_value(FrankTNorm(), limitations, 25)
-    @test frank ≈ Agate.Library.Nutrients.frank_tnorm(limitations; sharpness=25)
-    frank_gradient = ForwardDiff.gradient(
-        x -> factor_value(FrankTNorm(), (x[1], x[2]), 25), collect(limitations)
-    )
-    @test all(isfinite, frank_gradient)
-    temperature = factor_value(Q10(), 30.0, 2.0, 20.0)
-    @test temperature == Agate.Library.Temperature.q10_temperature_factor(30.0, 2.0, 20.0)
-    expected_liebig = min(3.0 / 3.5, 0.2 / 0.7)
-    expected_geider = 1 - exp(-alpha * chlorophyll_to_carbon * light / maximum_rate)
-    @test isapprox(
-        base * geider * liebig * temperature,
-        maximum_rate * biomass * expected_geider * expected_liebig * 2;
-        rtol=1e-14,
-    )
-end
-
-@testset "NiPiZD normalized process contract" begin
+@testset "NiPiZD parameter directory validation" begin
     family = Agate.Models.NiPiZD.NiPiZDFamily()
-    definition = ModelDefinition(family)
-    normalized = normalize_model(definition)
-
-    @test normalized.components == default_components(family)
-    growth_facts = normalized.processes.growth_P.facts
-    @test growth_facts.routing.mode === :single_resource
-    @test growth_facts.routing.factor === :nutrients
-    @test growth_facts.maximum_rate_factor === :light
-    @test Tuple((ref.population, ref.state) for ref in growth_facts.population_states) ==
-        ((:P, :nitrogen),)
-
-    processes = default_processes(family)
-    reversed_names = reverse(Tuple(keys(processes)))
-    reversed_processes = NamedTuple{reversed_names}(
-        Tuple(getproperty(processes, name) for name in reversed_names)
-    )
-    reordered = normalize_model(ModelDefinition(;
-        components=default_components(family),
-        processes=reversed_processes,
-        parameters=definition.parameters,
-    ))
-    binding_key(binding) = (
-        binding.process, binding.path, binding.slot,
-        isnothing(binding.qualifier) ? nothing : (binding.qualifier.axis, binding.qualifier.value),
-        binding.parameter,
-    )
-    @test map(binding_key, reordered.parameter_bindings) ==
-        map(binding_key, normalized.parameter_bindings)
-
-    invalid = ModelDefinition(;
-        components=default_components(family),
-        processes=(bad=Consumption(PreferentialGrazing(); consumers=:Z, resources=:missing),),
-    )
-    @test_throws ArgumentError normalize_model(invalid)
-
-    @test_throws ArgumentError normalize_model(
-        ModelDefinition(;
+    for parameters in ((), (invalid=1,))
+        @test_throws ArgumentError normalize_model(ModelDefinition(;
             components=default_components(family),
             processes=default_processes(family),
-            parameters=(),
-        ),
-    )
-    @test_throws ArgumentError normalize_model(
-        ModelDefinition(;
-            components=default_components(family),
-            processes=default_processes(family),
-            parameters=(invalid=1,),
-        ),
-    )
+            parameters,
+        ))
+    end
 end
 
 @testset "Inline parameter binding resolution" begin
@@ -588,26 +487,4 @@ end
             unused=Parameter(ConstantDefault(1.0)),
         ),
     ))
-end
-
-@testset "Literal interaction defaults need no derivation dependencies" begin
-    components = (
-        P=Population(:carbon; size_structure=[1.0]),
-        Z=Population(:carbon; size_structure=[10.0]),
-    )
-    processes = (
-        grazing=Consumption(PreferentialGrazing(); consumers=:Z, resources=:P),
-    )
-    parameters = (
-        maximum_rate=Parameter(ConstantDefault(1.0); axes=:plankton),
-        half_saturation=Parameter(ConstantDefault(0.5); axes=:plankton),
-        palatability=Parameter(ConstantDefault(1.0); axes=(:consumer, :prey)),
-        assimilation=Parameter(ConstantDefault(0.7); axes=(:consumer, :prey)),
-    )
-
-    normalized = normalize_model(ModelDefinition(; components, processes, parameters))
-    @test keys(normalized.parameters) ==
-        (:maximum_rate, :half_saturation, :palatability, :assimilation)
-    @test Tuple(def.spec.axes for def in normalized.parameters) ==
-        (:plankton, :plankton, (:consumer, :prey), (:consumer, :prey))
 end

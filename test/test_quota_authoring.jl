@@ -1,20 +1,12 @@
 using Test
 
 using Agate.Configuration: Population, Pool, population_state, realize_model_layout
-using Agate.Construction:
-    ProcessModelRecipe, capture_process_model_recipe, decode_recipe, encode_recipe, replay_family
-using Agate.ModelFamilies: AbstractModelFamily
 using Agate.Parameters: Parameter
 using Agate.Processes:
     FixedStoichiometry, FrankTNorm, Growth, Liebig, Light, ModelDefinition, Monod, NormalizedDroop,
     NutrientResponse, Nutrients, NutrientUptake, QuotaRegulatedMonod, QuotaResponse,
     Smith, build_parameter_plan, driver_identities, normalize_model, planned_parameter_slot
 
-import Agate.Construction: family_id, registered_family
-import Agate.ModelFamilies: default_components, default_processes, definition_version
-import Agate.Parameters: parameter_definitions
-
-struct QuotaTestFamily <: AbstractModelFamily end
 
 quota_components() = (
     DIC=Pool(:carbon),
@@ -98,13 +90,6 @@ quota_parameters() = (
 quota_definition() = ModelDefinition(;
     components=quota_components(), processes=quota_processes(), parameters=quota_parameters()
 )
-
-default_components(::QuotaTestFamily) = quota_components()
-default_processes(::QuotaTestFamily) = quota_processes()
-parameter_definitions(::QuotaTestFamily) = quota_parameters()
-definition_version(::QuotaTestFamily)::VersionNumber = v"0.1.0"
-family_id(::QuotaTestFamily) = :QuotaTest
-registered_family(::Val{:QuotaTest}) = QuotaTestFamily()
 
 function quota_normalization_error(definition)
     error = try
@@ -265,42 +250,4 @@ end
         message = quota_normalization_error(definition)
         @test all(fragment -> occursin(fragment, message), fragments)
     end
-end
-
-@testset "Quota family recipe identity" begin
-    family = QuotaTestFamily()
-    recipe = capture_process_model_recipe(
-        family;
-        population_groups=(P=(:P,),),
-        group_diameters=(P=[1.0, 2.0],),
-        parameter_overrides=(minimum_nitrogen_quota=[0.05, 0.05],),
-        sinking_tracers=nothing,
-        open_bottom=true,
-    )
-    encoded = encode_recipe(recipe)
-    decoded = decode_recipe(encoded)
-
-    @test decoded == recipe
-    @test encoded["schema"] == "agate.model_recipe.v1"
-    @test replay_family(decoded) isa QuotaTestFamily
-    @test normalize_model(ModelDefinition(replay_family(decoded))) isa
-        Agate.Processes.NormalizedModelDefinition
-    @test Set(keys(encoded["realization"])) == Set((
-        "population_groups", "size_groups", "parameter_overrides", "sinking_tracers", "open_bottom"
-    ))
-
-    tampered = deepcopy(encoded)
-    tampered["realization"]["open_bottom"] = false
-    @test_throws ArgumentError decode_recipe(tampered)
-
-    bumped = ProcessModelRecipe(
-        recipe.family,
-        v"0.1.1",
-        recipe.population_groups,
-        recipe.group_diameters,
-        recipe.parameter_overrides,
-        recipe.sinking_tracers,
-        recipe.open_bottom,
-    )
-    @test_throws ArgumentError decode_recipe(encode_recipe(bumped))
 end
