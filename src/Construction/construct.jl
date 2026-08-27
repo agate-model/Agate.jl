@@ -24,7 +24,7 @@ using ..Processes:
     uses_living_interactions, build_parameter_plan, planned_parameter,
     runtime_parameter_values, parameter_plan_metadata, validate_realized_science
 
-using ..Compilation: compile_model_tendencies
+using ..Compilation: CompileContext, compile_model_tendencies
 
 using ..Library.Allometry: AbstractParamDef, resolve_diameter_indexed_vector
 
@@ -474,9 +474,8 @@ function _construct_process_definition(
     validate_realized_science(parameter_plan, resolved_parameters)
 
     runtime_parameters = runtime_parameter_values(parameter_plan, resolved_parameters)
-    equations = compile_model_tendencies(
-        normalized, layout, parameter_plan; target_order=tracer_names
-    )
+    compile_context = CompileContext(normalized, layout, parameter_plan)
+    equations = compile_model_tendencies(compile_context; target_order=tracer_names)
     interaction_axes = interaction_axis_metadata(parameter_plan, layout)
     metadata = model_metadata(
         layout; interaction_axes, parameter_axes=parameter_plan_metadata(parameter_plan)

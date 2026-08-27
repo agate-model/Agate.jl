@@ -32,59 +32,53 @@ end
 function _consumption_rate(
     formulation::Union{IdealizedGrazing,PreferentialGrazing},
     slots,
-    definition::NormalizedModelDefinition,
+    context::CompileContext,
     named::NamedProcess,
-    layout::ModelLayout,
-    plan::ParameterPlan,
     consumer::Symbol,
     resource::Symbol,
     axis_positions::NamedTuple,
 )
     operands = (
-        input_operand(layout, resource),
-        input_operand(layout, consumer),
-        parameter_operand(slots.maximum_rate, plan, axis_positions),
-        parameter_operand(slots.half_saturation, plan, axis_positions),
-        parameter_operand(slots.palatability, plan, axis_positions),
+        input_operand(context.layout, resource),
+        input_operand(context.layout, consumer),
+        parameter_operand(slots.maximum_rate, context.plan, axis_positions),
+        parameter_operand(slots.half_saturation, context.plan, axis_positions),
+        parameter_operand(slots.palatability, context.plan, axis_positions),
     )
-    rate_factors = _factor_elements(definition, named, layout, plan, axis_positions)
+    rate_factors = _factor_elements(context, named, axis_positions)
     return RateElement(formulation, operands; factors=rate_factors)
 end
 
 function _consumption_rate(
     formulation::HeterotrophicConsumption,
     slots,
-    definition::NormalizedModelDefinition,
+    context::CompileContext,
     named::NamedProcess,
-    layout::ModelLayout,
-    plan::ParameterPlan,
     consumer::Symbol,
     resource::Symbol,
     axis_positions::NamedTuple,
 )
     operands = (
-        input_operand(layout, resource),
-        input_operand(layout, consumer),
-        parameter_operand(slots.maximum_rate, plan, axis_positions),
-        parameter_operand(slots.half_saturation, plan, axis_positions),
+        input_operand(context.layout, resource),
+        input_operand(context.layout, consumer),
+        parameter_operand(slots.maximum_rate, context.plan, axis_positions),
+        parameter_operand(slots.half_saturation, context.plan, axis_positions),
     )
-    rate_factors = _factor_elements(definition, named, layout, plan, axis_positions)
+    rate_factors = _factor_elements(context, named, axis_positions)
     return RateElement(formulation, operands; factors=rate_factors)
 end
 
 function process_fluxes(
-    named::NamedProcess{P},
-    definition::NormalizedModelDefinition,
-    layout::ModelLayout,
-    plan::ParameterPlan,
+    named::NamedProcess{P}, context::CompileContext
 ) where {P<:Consumption}
     process = named.process
     formulation = process.formulation
+    layout = context.layout
     consumer_tracers = _realize_normalized_population_states(
         named.facts.consumer_states, layout
     )
     resource_tracers = _consumption_resources(formulation, named.facts.resources, layout)
-    slots = parameter_slot_bindings(definition, named, (), process)
+    slots = parameter_slot_bindings(context.definition, named, (), process)
     fluxes = Any[]
 
     for consumer_axis in eachindex(consumer_tracers)
@@ -93,17 +87,9 @@ function process_fluxes(
             resource = resource_tracers[resource_axis]
             axis_positions = _consumption_axis_positions(consumer_axis, resource_axis)
             rate = _consumption_rate(
-                formulation,
-                slots,
-                definition,
-                named,
-                layout,
-                plan,
-                consumer,
-                resource,
-                axis_positions,
+                formulation, slots, context, named, consumer, resource, axis_positions
             )
-            assimilation = parameter_operand(slots.assimilation, plan, axis_positions)
+            assimilation = parameter_operand(slots.assimilation, context.plan, axis_positions)
             push!(
                 fluxes,
                 FluxSpec(resource, rate, Weight{-1}()),
@@ -113,7 +99,7 @@ function process_fluxes(
                 append!(
                     fluxes,
                     _product_fluxes(
-                        named, definition, process.products, layout, plan, rate;
+                        named, process.products, context, rate;
                         suffix=(RemainderOp((assimilation,)),),
                     ),
                 )

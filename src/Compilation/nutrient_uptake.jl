@@ -1,15 +1,14 @@
 function process_fluxes(
-    named::NamedProcess{P},
-    definition::NormalizedModelDefinition,
-    layout::ModelLayout,
-    plan::ParameterPlan,
+    named::NamedProcess{P}, context::CompileContext
 ) where {P<:NutrientUptake}
     process = named.process
     facts = named.facts
+    layout = context.layout
+    plan = context.plan
     target_tracers = state_tracers(layout, facts.target)
     reference_tracers = state_tracers(layout, facts.reference)
     resource = _scalar_component_target(layout, facts.resource)
-    slots = parameter_slot_bindings(definition, named, (), process)
+    slots = parameter_slot_bindings(context.definition, named, (), process)
     fluxes = Any[]
 
     for population_axis in eachindex(target_tracers)

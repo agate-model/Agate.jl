@@ -13,7 +13,7 @@ A process-defined model moves through five stages:
    Agate canonicalizes process identity and factor order, realizes ecological classes separately from concrete prognostic tracers, discovers process drivers, and resolves process-local participant axes.
 
 3. **Flux compilation** (`Compilation/`).
-   Each named process produces generic target + rate + weight flux specifications. Fluxes are grouped by target tracer and lowered during setup into static compiled equations with no target symbols or process metadata in runtime terms.
+   A setup-time compile context carries the normalized definition, realized layout, and parameter plan through lowering. Validated Growth routing is represented by typed normalized routing variants rather than symbolic mode flags. Each named process produces generic target + rate + weight flux specifications, which are grouped by target tracer and lowered into static compiled equations with no target symbols or process metadata in runtime terms.
 
 4. **Construction and replay** (`Construction/`).
    Direct `ModelDefinition` construction resolves defaults and overrides from the model definition. Named model families such as NiPiZD and DARWIN use the same definition-driven core while adding durable recipe/replay identity. Recipes record a registered family, its exact scientific definition version, and the canonical realization inputs required by the family constructor; replay then follows the normal family construction path.

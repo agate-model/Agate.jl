@@ -1,17 +1,15 @@
 function process_fluxes(
-    named::NamedProcess{P},
-    definition::NormalizedModelDefinition,
-    layout::ModelLayout,
-    plan::ParameterPlan,
+    named::NamedProcess{P}, context::CompileContext
 ) where {P<:Remineralization}
     process = named.process
+    layout = context.layout
     destination = _scalar_component_target(layout, process.destination)
     fluxes = Any[]
 
     for source_component in process.sources
         source = _scalar_component_target(layout, source_component)
         rate_binding = parameter_slot_bindings(
-            definition,
+            context.definition,
             named,
             (),
             process;
@@ -19,7 +17,7 @@ function process_fluxes(
         ).rate
         rate = RateElement(
             process.formulation,
-            (input_operand(layout, source), parameter_operand(rate_binding, plan)),
+            (input_operand(layout, source), parameter_operand(rate_binding, context.plan)),
         )
         push!(
             fluxes,

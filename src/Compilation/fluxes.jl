@@ -1,3 +1,10 @@
+"""Setup-time context shared by process lowering and static tendency compilation."""
+struct CompileContext{D<:NormalizedModelDefinition,L<:ModelLayout,P<:ParameterPlan}
+    definition::D
+    layout::L
+    plan::P
+end
+
 """Static operand that reads one pre-indexed tracer or auxiliary input."""
 struct InputOp{I} end
 
@@ -215,25 +222,15 @@ end
 compile_tendencies(grouped::NamedTuple) = map(compile_tendency, grouped)
 
 """Derive all generic process fluxes for a normalized model."""
-function model_fluxes(
-    definition::NormalizedModelDefinition,
-    layout::ModelLayout,
-    plan::ParameterPlan,
-)
+function model_fluxes(context::CompileContext)
     fluxes = Any[]
-    for named in values(definition.processes)
-        append!(fluxes, process_fluxes(named, definition, layout, plan))
+    for named in values(context.definition.processes)
+        append!(fluxes, process_fluxes(named, context))
     end
     return Tuple(fluxes)
 end
 
 """Compile a normalized model into one static equation per requested concrete tracer."""
-function compile_model_tendencies(
-    definition::NormalizedModelDefinition,
-    layout::ModelLayout,
-    plan::ParameterPlan;
-    target_order::Tuple,
-)
-    fluxes = model_fluxes(definition, layout, plan)
-    return compile_tendencies(group_fluxes(fluxes; target_order))
+function compile_model_tendencies(context::CompileContext; target_order::Tuple)
+    return compile_tendencies(group_fluxes(model_fluxes(context); target_order))
 end

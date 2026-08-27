@@ -1,4 +1,4 @@
-using Agate.Compilation: InputOp, ParameterOp, input_operand, process_fluxes
+using Agate.Compilation: CompileContext, InputOp, ParameterOp, input_operand, process_fluxes
 using Agate.Processes:
     ModelDefinition, driver_identities, normalize_model, build_parameter_plan
 
@@ -13,9 +13,8 @@ using Agate.Processes:
     @test only(typeof(input).parameters) isa Int
     @test only(typeof(input_operand(layout, :PAR)).parameters) == length(layout.tracer_order) + 1
 
-    growth_flux = first(process_fluxes(
-        normalized.processes.growth_P, normalized, layout, plan
-    ))
+    context = CompileContext(normalized, layout, plan)
+    growth_flux = first(process_fluxes(normalized.processes.growth_P, context))
     parameter = only(op for op in growth_flux.rate.operands if op isa ParameterOp)
     parameter_indices = typeof(parameter).parameters[2]
     @test parameter_indices isa Tuple

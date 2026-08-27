@@ -31,6 +31,20 @@ end
 NamedProcess(id::Symbol, process::P) where {P<:AbstractProcess} =
     NamedProcess(id, process, NamedTuple())
 
+abstract type AbstractGrowthRouting end
+
+struct SingleResourceRouting <: AbstractGrowthRouting
+    factor::Symbol
+end
+
+struct QuotaRouting <: AbstractGrowthRouting
+    factor::Symbol
+end
+
+struct MultiResourceRouting <: AbstractGrowthRouting
+    factor::Symbol
+end
+
 process_id(process::NamedProcess) = process.id
 formulation(process::NamedProcess) = formulation(process.process)
 factors(process::NamedProcess) = factors(process.process)
@@ -491,7 +505,7 @@ function _growth_facts(id::Symbol, process::Growth, components::NamedTuple)
         resource = _scalar_pool(components, nutrient_factor.resource, id, "nutrient factor resource")
         reference = currency(resource)
         _validate_state_currencies!(components, population_states, reference, id, "population state")
-        route = (mode=:single_resource, factor=factor_name, source=nutrient_factor.resource)
+        route = SingleResourceRouting(factor_name)
     else
         responses = values(_validated_factor_children(nutrient_factor))
         quota_routing = all(response -> response isa QuotaResponse, responses)
@@ -528,7 +542,7 @@ function _growth_facts(id::Symbol, process::Growth, components::NamedTuple)
                     "quota response :$target_currency reference state",
                 )
             end
-            route = (mode=:quota, factor=factor_name, source=process.source)
+            route = QuotaRouting(factor_name)
         else
             process.source isa Symbol || throw(
                 ArgumentError("process :$id multi-resource growth requires a source component"),
@@ -549,10 +563,7 @@ function _growth_facts(id::Symbol, process::Growth, components::NamedTuple)
                     "nutrient response :$target_currency resource :$(response.resource)",
                 )
             end
-            route = (
-                mode=:multi_resource, factor=factor_name, source=process.source,
-                stoichiometry=process.stoichiometry,
-            )
+            route = MultiResourceRouting(factor_name)
         end
     end
     return (;

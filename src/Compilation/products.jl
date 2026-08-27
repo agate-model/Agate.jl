@@ -1,25 +1,28 @@
 function _product_fraction_binding(
-    definition::NormalizedModelDefinition,
+    context::CompileContext,
     named::NamedProcess,
     products::Products,
     product::Symbol,
 )
     return parameter_slot_bindings(
-        definition, named, product_path(named.process), products; context=(product=product,)
+        context.definition,
+        named,
+        product_path(named.process),
+        products;
+        context=(product=product,),
     ).fraction
 end
 
 function _product_fraction_operand(
-    definition::NormalizedModelDefinition,
+    context::CompileContext,
     named::NamedProcess,
     products::Products,
     product::Symbol,
-    plan::ParameterPlan,
 )
     if product !== products.balanced
         hasproperty(products.fractions, product) || return nothing
         return parameter_operand(
-            _product_fraction_binding(definition, named, products, product), plan
+            _product_fraction_binding(context, named, products, product), context.plan
         )
     end
 
@@ -30,7 +33,7 @@ function _product_fraction_operand(
     isempty(explicit_products) && return nothing
     operands = Tuple(
         parameter_operand(
-            _product_fraction_binding(definition, named, products, name), plan
+            _product_fraction_binding(context, named, products, name), context.plan
         )
         for name in explicit_products
     )
@@ -38,7 +41,7 @@ function _product_fraction_operand(
 end
 
 function _product_ratio_binding(
-    definition::NormalizedModelDefinition,
+    context::CompileContext,
     named::NamedProcess,
     products::Products,
     currency::Symbol,
@@ -47,7 +50,7 @@ function _product_ratio_binding(
     isnothing(stoichiometry) && return nothing
     currency === stoichiometry.reference && return nothing
     return parameter_slot_bindings(
-        definition,
+        context.definition,
         named,
         (product_path(named.process)..., :stoichiometry),
         stoichiometry;
@@ -75,35 +78,33 @@ end
 
 function _product_fluxes(
     named::NamedProcess,
-    definition::NormalizedModelDefinition,
     products::Products,
-    layout::ModelLayout,
-    plan::ParameterPlan,
+    context::CompileContext,
     rate::RateElement;
     suffix::Tuple=(),
 )
     fluxes = Any[]
     for product in keys(products.targets)
-        fraction = _product_fraction_operand(definition, named, products, product, plan)
+        fraction = _product_fraction_operand(context, named, products, product)
         targets = getproperty(products.targets, product)
         if targets isa Symbol
-            target = _scalar_component_target(layout, targets)
+            target = _scalar_component_target(context.layout, targets)
             push!(
                 fluxes,
                 FluxSpec(
                     target, rate,
-                    _product_weight(fraction, nothing, plan; suffix),
+                    _product_weight(fraction, nothing, context.plan; suffix),
                 ),
             )
         else
             for (currency, component) in pairs(targets)
-                target = _scalar_component_target(layout, component)
-                ratio = _product_ratio_binding(definition, named, products, currency)
+                target = _scalar_component_target(context.layout, component)
+                ratio = _product_ratio_binding(context, named, products, currency)
                 push!(
                     fluxes,
                     FluxSpec(
                         target, rate,
-                        _product_weight(fraction, ratio, plan; suffix),
+                        _product_weight(fraction, ratio, context.plan; suffix),
                     ),
                 )
             end
