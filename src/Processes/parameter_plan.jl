@@ -1,5 +1,5 @@
 """One model parameter after layout-dependent realization."""
-struct PlannedParameter{D,A,S,L,I,M,P}
+struct PlannedParameter{D,A,S,L,I,M}
     name::Symbol
     definition::D
     rank::Int
@@ -8,7 +8,6 @@ struct PlannedParameter{D,A,S,L,I,M,P}
     storage_labels::L
     applicable_indices::I
     storage_diameters::M
-    dependencies::P
     runtime_bound::Bool
 end
 
@@ -41,10 +40,9 @@ struct ParameterConstraintCheck{I}
 end
 
 """Single host-side realization of parameter storage, indexing, and runtime eligibility."""
-struct ParameterPlan{P,L,O,R,C}
+struct ParameterPlan{P,L,R,C}
     parameters::P
     slot_lookup::L
-    derived_order::O
     runtime_names::R
     science_checks::C
 end
@@ -179,7 +177,6 @@ function _planned_parameter(definition, layout, name, parameter, binding_classes
         definition.parameter_bindings, binding_classes, name
     )
     labels = _parameter_storage_labels(layout, name, parameter, rank, axis_classes)
-    default = parameter.default
     return PlannedParameter(
         name,
         parameter,
@@ -189,7 +186,6 @@ function _planned_parameter(definition, layout, name, parameter, binding_classes
         labels,
         _applicable_storage_indices(labels, rank, axis_classes),
         _storage_diameters(rank, labels, diameters),
-        default isa DerivedDefault ? default.deps : (),
         any(
             binding -> binding.parameter === name && _runtime_binding(definition, binding),
             definition.parameter_bindings,
@@ -351,9 +347,7 @@ function build_parameter_plan(definition::NormalizedModelDefinition, layout::Mod
         _product_fraction_checks(definition)...,
         _quota_science_checks(definition, layout, slot_lookup)...,
     )
-    return ParameterPlan(
-        parameters, slot_lookup, definition.derived_parameter_order, runtime_names, science_checks,
-    )
+    return ParameterPlan(parameters, slot_lookup, runtime_names, science_checks)
 end
 
 planned_parameter(plan::ParameterPlan, name::Symbol) =
@@ -382,7 +376,10 @@ function parameter_plan_metadata(plan::ParameterPlan)
         parameter = getproperty(plan.parameters, names[i])
         derived_runtime_parameters = Tuple(
             target for target in plan.runtime_names
-            if names[i] in getproperty(plan.parameters, target).dependencies
+            if begin
+                default = getproperty(plan.parameters, target).definition.default
+                default isa DerivedDefault && names[i] in default.deps
+            end
         )
         (;
             rank=parameter.rank,

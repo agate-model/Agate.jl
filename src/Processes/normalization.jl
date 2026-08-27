@@ -273,11 +273,10 @@ end
 `parameter_bindings` is the canonical ordered contract; `parameter_lookup` is a transient
 setup cache used while lowering processes.
 """
-struct NormalizedModelDefinition{C,P,A,O,D,B,L}
+struct NormalizedModelDefinition{C,P,A,D,B,L}
     components::C
     processes::P
     parameters::A
-    derived_parameter_order::O
     driver_identities::D
     parameter_bindings::B
     parameter_lookup::L
@@ -762,7 +761,7 @@ end
 const RESERVED_PARAMETER_KEYS = (:x, :y, :z, :t)
 
 function _normalize_parameter_definitions(definitions)
-    isnothing(definitions) && return nothing, (), Set{Symbol}()
+    isnothing(definitions) && return nothing, Set{Symbol}()
     definitions isa NamedTuple || throw(
         ArgumentError("model parameters must be a NamedTuple of Parameter values"),
     )
@@ -779,49 +778,26 @@ function _normalize_parameter_definitions(definitions)
     end
 
     dependency_names = Set{Symbol}()
-    derived_names = Symbol[]
     for (name, parameter) in pairs(definitions)
         default = parameter.default
         default isa DerivedDefault || continue
-        push!(derived_names, name)
         for dependency in default.deps
             dependency in definition_set || throw(
                 ArgumentError(
                     "parameter :$name default depends on undeclared parameter :$dependency",
                 ),
             )
+            dependency_default = getproperty(definitions, dependency).default
+            dependency_default isa DerivedDefault && throw(
+                ArgumentError(
+                    "parameter :$name default depends on derived parameter :$dependency; " *
+                    "DerivedDefault dependencies must be non-derived parameters",
+                ),
+            )
             push!(dependency_names, dependency)
         end
     end
-
-    derived_set = Set(derived_names)
-    resolved = Set{Symbol}()
-    order = Symbol[]
-    pending = copy(derived_names)
-    while !isempty(pending)
-        remaining = Symbol[]
-        progressed = false
-        for name in pending
-            dependencies = Tuple(
-                dep for dep in getproperty(definitions, name).default.deps if dep in derived_set
-            )
-            if all(dep -> dep in resolved, dependencies)
-                push!(order, name)
-                push!(resolved, name)
-                progressed = true
-            else
-                push!(remaining, name)
-            end
-        end
-        progressed || throw(
-            ArgumentError(
-                "derived parameter defaults contain a dependency cycle among: " *
-                join(string.(Tuple(remaining)), ", "),
-            ),
-        )
-        pending = remaining
-    end
-    return definitions, Tuple(order), dependency_names
+    return definitions, dependency_names
 end
 
 function _normalize_parameter_bindings(
@@ -908,9 +884,7 @@ function normalize_model(definition::ModelDefinition)
     normalized_processes = _canonical_processes(
         definition.processes, definition.components
     )
-    parameters, derived_order, dependency_names = _normalize_parameter_definitions(
-        definition.parameters
-    )
+    parameters, dependency_names = _normalize_parameter_definitions(definition.parameters)
     bindings = _normalize_parameter_bindings(
         normalized_processes, parameters, dependency_names
     )
@@ -919,7 +893,6 @@ function normalize_model(definition::ModelDefinition)
         definition.components,
         normalized_processes,
         parameters,
-        derived_order,
         _canonical_driver_identities(normalized_processes),
         bindings,
         lookup,

@@ -346,40 +346,32 @@ function materialize_process_parameter_overrides(
     return (; entries...)
 end
 
-"""Resolve `DerivedDefault` values in the deterministic order stored by `ParameterPlan`."""
+"""Resolve one-level `DerivedDefault` values from already-materialized parameters."""
 function resolve_parameter_defaults(
     plan,
     layout,
-    params::NamedTuple,
-    explicit_override_keys::Tuple{Vararg{Symbol}};
+    params::NamedTuple;
     derivation_owner,
 )
-    isempty(plan.derived_order) && return params
-    override_set = Set{Symbol}(explicit_override_keys)
-    changed = Set{Symbol}(explicit_override_keys)
     resolved = params
     T = layout.scalar_type
 
-    for key in plan.derived_order
-        parameter = planned_parameter(plan, key)
+    for (key, parameter) in pairs(plan.parameters)
         provider = parameter.definition.default
-        if key in override_set && hasproperty(resolved, key)
-            continue
-        end
+        provider isa DerivedDefault || continue
+        hasproperty(resolved, key) && continue
 
-        missing_deps = Tuple(dep for dep in parameter.dependencies if !hasproperty(resolved, dep))
+        missing_deps = Tuple(dep for dep in provider.deps if !hasproperty(params, dep))
         isempty(missing_deps) || throw(ArgumentError(
             "derived default :$key is missing dependencies: " * join(string.(missing_deps), ", "),
         ))
+        dependencies = NamedTuple{provider.deps}(
+            Tuple(getproperty(params, dep) for dep in provider.deps)
+        )
 
-        needs_compute = !hasproperty(resolved, key)
-        needs_recompute = any(dep -> dep in changed, parameter.dependencies)
-        if needs_compute || needs_recompute
-            value = derive_default(provider.deriver, derivation_owner, layout, resolved)
-            validate_parameter_value(parameter, value, T; derived=true)
-            resolved = merge(resolved, NamedTuple{(key,)}((value,)))
-            push!(changed, key)
-        end
+        value = derive_default(provider.deriver, derivation_owner, layout, dependencies)
+        validate_parameter_value(parameter, value, T; derived=true)
+        resolved = merge(resolved, NamedTuple{(key,)}((value,)))
     end
     return resolved
 end
@@ -477,8 +469,7 @@ function _construct_process_definition(
     resolved = resolve_parameter_defaults(
         parameter_plan,
         layout,
-        merge(parameter_defaults, materialized_overrides),
-        explicit_override_keys;
+        merge(parameter_defaults, materialized_overrides);
         derivation_owner,
     )
     missing = Symbol[key for key in required if !hasproperty(resolved, key)]

@@ -11,17 +11,13 @@ import Agate.Parameters:
 
 struct DerivedDefaultFixture end
 struct AddOneDefault end
-struct DoubleDefault end
 
 derive_default(::AddOneDefault, ::DerivedDefaultFixture, ::Any, params::NamedTuple) =
     params.base + one(params.base)
-derive_default(::DoubleDefault, ::DerivedDefaultFixture, ::Any, params::NamedTuple) =
-    2 * params.middle
 
 parameter_definitions(::DerivedDefaultFixture) = (
     base=Parameter(2.0),
-    top=Parameter(DerivedDefault(DoubleDefault(); deps=(:middle,))),
-    middle=Parameter(DerivedDefault(AddOneDefault(); deps=(:base,))),
+    top=Parameter(DerivedDefault(AddOneDefault(); deps=(:base,))),
 )
 
 @testset "Parameter directory" begin
@@ -125,25 +121,16 @@ parameter_definitions(::DerivedDefaultFixture) = (
         layout = Agate.Configuration.realize_model_layout(components; scalar_type=Float64)
 
         plan = Agate.Processes.build_parameter_plan(normalized, layout)
-        @test plan.derived_order == (:middle, :top)
         defaults = Agate.Construction.build_process_parameter_defaults(plan, Float64)
         @test defaults == (base=2.0,)
 
         resolve(overrides=(;)) = Agate.Construction.resolve_parameter_defaults(
-            plan, layout, merge(defaults, overrides), Tuple(keys(overrides));
-            derivation_owner=source,
+            plan, layout, merge(defaults, overrides); derivation_owner=source
         )
 
-        resolved = resolve()
-        @test (resolved.base, resolved.middle, resolved.top) == (2.0, 3.0, 6.0)
-
-        resolved_base = resolve((base=4.0,))
-        @test (resolved_base.middle, resolved_base.top) == (5.0, 10.0)
-
-        resolved_middle = resolve((middle=9.0,))
-        @test (resolved_middle.middle, resolved_middle.top) == (9.0, 18.0)
-
-        resolved_top = resolve((base=4.0, top=99.0))
-        @test (resolved_top.middle, resolved_top.top) == (5.0, 99.0)
+        @test resolve() == (base=2.0, top=3.0)
+        @test resolve((base=4.0,)) == (base=4.0, top=5.0)
+        @test resolve((top=99.0,)) == (base=2.0, top=99.0)
+        @test resolve((base=4.0, top=99.0)) == (base=4.0, top=99.0)
     end
 end

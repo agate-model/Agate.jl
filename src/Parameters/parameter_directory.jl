@@ -78,8 +78,8 @@ end
 """Derive a parameter default from other resolved parameters during construction.
 
 `deriver` is a setup-time strategy object implementing [`derive_default`](@ref).
-`deps` names the parameter definitions that must be resolved before this default and
-whose explicit overrides trigger recomputation.
+`deps` names ordinary (non-derived) parameter definitions available to the derivation.
+Derived defaults are evaluated once after direct defaults and explicit overrides are materialized.
 """
 struct DerivedDefault{D,P<:Tuple} <: DefaultProvider
     deriver::D
@@ -99,10 +99,10 @@ end
 
 """Compute a value for a [`DerivedDefault`](@ref) provider.
 
-Concrete derivers receive the owning model source, construction context, and all
-parameter values resolved so far. The owner is a registered model family for named
-models and the authored `ModelDefinition` for direct construction. Derivation runs on
-the host during model construction.
+Concrete derivers receive the owning model source, construction context, and a
+`NamedTuple` containing exactly the dependencies declared by `deps`. The owner is a
+registered model family for named models and the authored `ModelDefinition` for direct
+construction. Derivation runs on the host during model construction.
 """
 function derive_default(deriver, owner, context, params::NamedTuple)
     throw(ArgumentError("derive_default is not implemented for $(typeof(deriver))."))

@@ -315,12 +315,13 @@ end
             "depends on undeclared parameter :missing",
         ),
         (
-            "dependency cycle",
+            "derived dependency",
             (
                 a=Parameter(DerivedDefault(BindingDependencyDefault(); deps=(:b,))),
-                b=Parameter(DerivedDefault(BindingDependencyDefault(); deps=(:a,))),
+                b=Parameter(DerivedDefault(BindingDependencyDefault(); deps=(:base,))),
+                base=Parameter(ConstantDefault(1.0)),
             ),
-            "dependency cycle",
+            "depends on derived parameter :b",
         ),
     )
     for (label, parameters, fragment) in parameter_cases
@@ -465,15 +466,14 @@ end
         ),),
         parameters=(
             mortality_rate=Parameter(
-                DerivedDefault(BindingDependencyDefault(); deps=(:middle,));
+                DerivedDefault(BindingDependencyDefault(); deps=(:helper,));
                 axes=:plankton,
             ),
-            middle=Parameter(DerivedDefault(BindingDependencyDefault(); deps=(:helper,))),
             helper=Parameter(ConstantDefault(1.0)),
         ),
     ))
     @test dependency_only.parameters.helper.spec.axes === nothing
-    @test dependency_only.derived_parameter_order == (:middle, :mortality_rate)
+    @test dependency_only.parameters.mortality_rate.default.deps == (:helper,)
 
     @test_throws ArgumentError normalize_model(ModelDefinition(;
         components=(P=components.P,),
