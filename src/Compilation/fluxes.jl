@@ -14,12 +14,6 @@ struct OneMinusSumOp{O}
     operands::O
 end
 
-"""Static operand that divides one resolved operand value by another."""
-struct RatioOp{N,D}
-    numerator::N
-    denominator::D
-end
-
 """Static operand that evaluates a tuple of child operands."""
 struct TupleOp{O}
     operands::O
@@ -47,9 +41,6 @@ end
     total = _operand_sum(op.operands, bgc, args)
     return one(total) - total
 end
-
-@inline operand_value(op::RatioOp, bgc, args) =
-    operand_value(op.numerator, bgc, args) / operand_value(op.denominator, bgc, args)
 @inline operand_value(op::TupleOp, bgc, args) = operand_values(op.operands, bgc, args)
 
 @inline operand_values(::Tuple{}, bgc, args) = ()
@@ -99,8 +90,6 @@ struct Weight{Sign,O}
 end
 
 Weight{Sign}(operands::Tuple=()) where {Sign} = Weight{Sign,typeof(operands)}(operands)
-
-@inline weight_sign(::Weight{Sign}) where {Sign} = Sign
 
 @inline function weight_product(operands::Tuple{T}, bgc, args) where {T}
     return operand_value(first(operands), bgc, args)
@@ -177,27 +166,6 @@ end
 function _scalar_component_target(layout::ModelLayout, component::Symbol)
     tracers = getproperty(layout.component_tracers, component)
     return only(tracers)
-end
-
-"""Resolve one explicit population state onto concrete tracer identities and class indices."""
-function _realize_population_state(
-    reference::PopulationStateRef,
-    layout::ModelLayout,
-)
-    classes = component_classes(layout, reference.population)
-    tracers = Tuple(state_tracer(layout, reference, i) for i in eachindex(classes))
-    return tracers, component_class_indices(layout, reference.population)
-end
-
-"""Resolve one population state read at a global ecological class index to a static input operand."""
-function state_operand(
-    layout::ModelLayout,
-    reference::PopulationStateRef,
-    global_class_index::Integer,
-)
-    index = Int(global_class_index)
-    tracer = state_tracer(layout, reference, layout.component_local_indices[index])
-    return input_operand(layout, tracer)
 end
 
 function _realize_normalized_population_states(references::Tuple, layout::ModelLayout)

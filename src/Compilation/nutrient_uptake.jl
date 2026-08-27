@@ -6,8 +6,8 @@ function process_fluxes(
 ) where {P<:NutrientUptake}
     process = named.process
     facts = named.facts
-    target_tracers, _ = _realize_population_state(facts.target, layout)
-    reference_tracers, _ = _realize_population_state(facts.reference, layout)
+    target_tracers = state_tracers(layout, facts.target)
+    reference_tracers = state_tracers(layout, facts.reference)
     resource = _scalar_component_target(layout, facts.resource)
     slots = parameter_slot_bindings(definition, named, (), process)
     fluxes = Any[]

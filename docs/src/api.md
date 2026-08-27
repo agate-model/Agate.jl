@@ -19,7 +19,6 @@ Agate.Configuration.states
 Agate.Configuration.state_currency
 Agate.Configuration.population_state
 Agate.Configuration.size_structure
-Agate.Configuration.realize_components
 Agate.Configuration.component_classes
 Agate.Configuration.component_state_tracers
 Agate.Configuration.state_tracers

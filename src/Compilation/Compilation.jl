@@ -2,7 +2,7 @@
 module Compilation
 
 using ..Configuration:
-    ModelLayout, PopulationStateRef, component_classes, component_class_indices, state_tracer
+    ModelLayout, component_classes, state_tracer, state_tracers
 using ..Processes:
     AbstractFactor,
     Growth,

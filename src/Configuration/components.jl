@@ -78,29 +78,20 @@ end
 """One authoritative setup-time realization of components, ecological classes, and inputs.
 
 `ModelLayout` owns physical tracer positions, logical component classes, population-state
-tracers and indices, population subgroup membership, class diameters, interaction axes,
-and auxiliary input positions. It is constructed once and consumed by parameter planning,
-compilation, manifests, and host-side metadata.
+tracers, class diameters, interaction axes, and auxiliary input positions. It is constructed
+once and consumed by parameter planning, compilation, manifests, and host-side metadata.
 """
-struct ModelLayout{T<:Real,TR,TI,AF,AI,CC,CCI,CST,CSI,CT,CI,CD,PG,CS,CP,GS,GL,CL,GI,D,CO,PR}
+struct ModelLayout{T<:Real,TR,TI,AF,AI,CC,CST,CT,CD,CS,GI,D,CO,PR}
     scalar_type::Type{T}
     tracer_order::TR
     tracer_indices::TI
     auxiliary_fields::AF
     auxiliary_indices::AI
     component_classes::CC
-    component_class_indices::CCI
     component_state_tracers::CST
-    component_state_indices::CSI
     component_tracers::CT
-    component_indices::CI
     component_diameters::CD
-    population_groups::PG
     class_symbols::CS
-    class_populations::CP
-    group_symbols::GS
-    group_local_indices::GL
-    component_local_indices::CL
     group_indices::GI
     diameters::D
     consumer_indices::CO
@@ -131,25 +122,13 @@ end
 component_classes(layout::ModelLayout, component::Symbol) =
     _component_value(layout, :component_classes, component)
 
-"""Return global ecological-class positions for a population, or `nothing` for a pool."""
-component_class_indices(layout::ModelLayout, component::Symbol) =
-    _component_value(layout, :component_class_indices, component)
-
 """Return the state-to-tracer mapping for a population, or `nothing` for a pool."""
 component_state_tracers(layout::ModelLayout, component::Symbol) =
     _component_value(layout, :component_state_tracers, component)
 
-"""Return the state-to-physical-index mapping for a population, or `nothing` for a pool."""
-component_state_indices(layout::ModelLayout, component::Symbol) =
-    _component_value(layout, :component_state_indices, component)
-
 """Return flattened concrete tracer identities realized by one logical component."""
 component_tracers(layout::ModelLayout, component::Symbol) =
     _component_value(layout, :component_tracers, component)
-
-"""Return physical tracer positions realized by one logical component."""
-component_indices(layout::ModelLayout, component::Symbol) =
-    _component_value(layout, :component_indices, component)
 
 """Return concrete tracers for one population state."""
 function state_tracers(layout::ModelLayout, component::Symbol, state::Symbol)
@@ -179,28 +158,9 @@ function state_tracer(
     return tracers[Int(class_ordinal)]
 end
 
-"""Return precomputed physical tracer positions for one population state."""
-function state_indices(layout::ModelLayout, component::Symbol, state::Symbol)
-    mapping = component_state_indices(layout, component)
-    mapping isa NamedTuple || throw(
-        ArgumentError("component :$component does not expose population states"),
-    )
-    hasproperty(mapping, state) || throw(
-        ArgumentError("component :$component has no realized state :$state"),
-    )
-    return getproperty(mapping, state)
-end
-
-state_indices(layout::ModelLayout, reference::PopulationStateRef) =
-    state_indices(layout, reference.population, reference.state)
-
 """Return class diameters for one component, or `nothing` for a scalar pool."""
 component_diameters(layout::ModelLayout, component::Symbol) =
     _component_value(layout, :component_diameters, component)
-
-"""Return the number of ecological classes realized by one logical component."""
-component_class_count(layout::ModelLayout, component::Symbol) =
-    length(component_classes(layout, component))
 
 function _canonical_population_realization(
     components::NamedTuple,
@@ -365,19 +325,11 @@ function realize_model_layout(
     pool_names = _pool_names(components)
 
     classes_by_component = Dict{Symbol,Vector{Symbol}}(name => Symbol[] for name in component_names)
-    class_indices_by_component = Dict{Symbol,Any}(name => nothing for name in component_names)
     tracers_by_component = Dict{Symbol,Vector{Symbol}}(name => Symbol[] for name in component_names)
-    indices_by_component = Dict{Symbol,Vector{Int}}(name => Int[] for name in component_names)
     diameters_by_component = Dict{Symbol,Any}(name => nothing for name in component_names)
     state_tracers_by_component = Dict{Symbol,Any}(name => nothing for name in component_names)
-    state_indices_by_component = Dict{Symbol,Any}(name => nothing for name in component_names)
 
     state_tracer_vectors = Dict{Symbol,Dict{Symbol,Vector{Symbol}}}()
-    state_index_vectors = Dict{Symbol,Dict{Symbol,Vector{Int}}}()
-    ecological_indices_by_population = Dict{Symbol,Vector{Int}}(
-        name => Int[] for name in population_names
-    )
-    component_local_counts = Dict{Symbol,Int}(name => 0 for name in population_names)
 
     tracer_order = Symbol[]
     seen_classes = Set{Symbol}()
@@ -393,14 +345,12 @@ function realize_model_layout(
         for tracer in classes
             push!(tracer_order, tracer)
             push!(tracers_by_component[name], tracer)
-            push!(indices_by_component[name], length(tracer_order))
         end
     end
 
     for population in population_names
         state_names = keys(states(getproperty(components, population)))
         state_tracer_vectors[population] = Dict(state => Symbol[] for state in state_names)
-        state_index_vectors[population] = Dict(state => Int[] for state in state_names)
         groups = getproperty(population_groups, population)
         has_diameters = any(group -> getproperty(group_diameters, group) !== nothing, groups)
         diameters_by_component[population] = has_diameters ? T[] : nothing
@@ -412,10 +362,6 @@ function realize_model_layout(
     end
 
     class_symbols = Symbol[]
-    class_populations = Symbol[]
-    group_symbols = Symbol[]
-    group_local_indices = Int[]
-    component_local_indices = Int[]
     diameters = T[]
     group_index_values = Vector{Any}(undef, length(keys(group_diameters)))
     group_names = keys(group_diameters)
@@ -449,15 +395,9 @@ function realize_model_layout(
             )
 
             push!(class_symbols, class)
-            push!(class_populations, population)
-            push!(group_symbols, group)
-            push!(group_local_indices, group_local)
-            component_local_counts[population] += 1
-            push!(component_local_indices, component_local_counts[population])
             push!(diameters, group_diameters_realized[group_local])
             global_class_index = length(class_symbols)
             push!(group_global_indices, global_class_index)
-            push!(ecological_indices_by_population[population], global_class_index)
             push!(classes_by_component[population], class)
             population_diameters = diameters_by_component[population]
             population_diameters === nothing ||
@@ -466,11 +406,8 @@ function realize_model_layout(
             for (state_position, state) in pairs(state_names)
                 tracer = physical_tracers[state_position]
                 push!(tracer_order, tracer)
-                physical_index = length(tracer_order)
                 push!(tracers_by_component[population], tracer)
-                push!(indices_by_component[population], physical_index)
                 push!(state_tracer_vectors[population][state], tracer)
-                push!(state_index_vectors[population][state], physical_index)
             end
         end
         group_index_values[group_position] = Tuple(group_global_indices)
@@ -492,12 +429,6 @@ function realize_model_layout(
         state_tracers_by_component[population] = NamedTuple{state_names}(
             Tuple(Tuple(state_tracer_vectors[population][state]) for state in state_names)
         )
-        state_indices_by_component[population] = NamedTuple{state_names}(
-            Tuple(Tuple(state_index_vectors[population][state]) for state in state_names)
-        )
-        class_indices_by_component[population] = Tuple(
-            ecological_indices_by_population[population]
-        )
         population_diameters = diameters_by_component[population]
         population_diameters === nothing ||
             (diameters_by_component[population] = Tuple(population_diameters))
@@ -506,20 +437,11 @@ function realize_model_layout(
     component_classes_values = NamedTuple{component_names}(
         Tuple(Tuple(classes_by_component[name]) for name in component_names)
     )
-    component_class_indices_values = NamedTuple{component_names}(
-        Tuple(class_indices_by_component[name] for name in component_names)
-    )
     component_state_tracers_values = NamedTuple{component_names}(
         Tuple(state_tracers_by_component[name] for name in component_names)
     )
-    component_state_indices_values = NamedTuple{component_names}(
-        Tuple(state_indices_by_component[name] for name in component_names)
-    )
     component_tracers_values = NamedTuple{component_names}(
         Tuple(Tuple(tracers_by_component[name]) for name in component_names)
-    )
-    component_indices_values = NamedTuple{component_names}(
-        Tuple(Tuple(indices_by_component[name]) for name in component_names)
     )
     component_diameters_values = NamedTuple{component_names}(
         Tuple(diameters_by_component[name] for name in component_names)
@@ -539,27 +461,16 @@ function realize_model_layout(
         auxiliary_fields,
         auxiliary_indices,
         component_classes_values,
-        component_class_indices_values,
         component_state_tracers_values,
-        component_state_indices_values,
         component_tracers_values,
-        component_indices_values,
         component_diameters_values,
-        population_groups,
         Tuple(class_symbols),
-        Tuple(class_populations),
-        Tuple(group_symbols),
-        Tuple(group_local_indices),
-        Tuple(component_local_indices),
         group_indices,
         Tuple(diameters),
         consumer_indices,
         prey_indices,
     )
 end
-
-"""Convenience realization for direct component definitions."""
-realize_components(components::NamedTuple; kwargs...) = realize_model_layout(components; kwargs...)
 
 """Return compact host-side metadata derived from one authoritative `ModelLayout`."""
 function model_metadata(layout::ModelLayout; interaction_axes=nothing, parameter_axes=(;))

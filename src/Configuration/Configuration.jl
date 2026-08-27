@@ -4,10 +4,9 @@ using Adapt
 
 export Population, Pool, PopulationStateRef, population_state
 export currency, states, state_currency, size_structure
-export realize_components
 export component_classes, component_state_tracers
-export component_tracers, component_indices, state_tracers, state_tracer, state_indices
-export component_diameters, component_class_count
+export component_tracers, state_tracers, state_tracer
+export component_diameters
 export PalatabilityAllometric, AssimilationBinary
 
 if !hasmethod(Adapt.adapt_structure, Tuple{Any,NamedTuple})
