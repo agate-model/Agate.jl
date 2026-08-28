@@ -44,10 +44,10 @@ end
 
     base = getfield(ap, :base)
     p = getfield(ap, :p)
-    map = getfield(ap, :map)
+    active_map = getfield(ap, :map)
 
-    if hasproperty(map, name)
-        selector = getproperty(map, name)
+    if hasproperty(active_map, name)
+        selector = getproperty(active_map, name)
         value = getproperty(base, name)
         selector isa Integer && return p[selector]
         selector isa NamedTuple && return ActiveParameters(value, p, selector)
@@ -130,9 +130,9 @@ function active_parameters(bgc; kwargs...)
     active_index = Ref(1)
     labels = String[]
     values = Any[]
-    map = active_parameter_map!(labels, values, bgc, (), bgc.parameters, (; kwargs...), active_index)
+    active_map = active_parameter_map!(labels, values, bgc, (), bgc.parameters, (; kwargs...), active_index)
     active_values = isempty(values) ? Float64[] : collect(promote(values...))
-    return ActiveParameterSet(map, Tuple(labels), active_values)
+    return ActiveParameterSet(active_map, Tuple(labels), active_values)
 end
 
 """
@@ -147,8 +147,8 @@ provided, it should be the [`ActiveParameterSet`](@ref) returned by
 [`active_parameters`](@ref).
 """
 function parameterized(bgc, p; active_parameters=nothing)
-    map = active_parameters === nothing ? (;) : active_parameters.map
-    parameters = ActiveParameters(bgc.parameters, p, map)
+    active_map = active_parameters === nothing ? (;) : active_parameters.map
+    parameters = ActiveParameters(bgc.parameters, p, active_map)
     return ParameterizedBGC(bgc, parameters)
 end
 

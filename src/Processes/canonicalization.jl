@@ -53,9 +53,6 @@ function _parameter_slot_metadata(
     slot::ParameterSlot,
     qualifier,
 )
-    all(item -> item isa Symbol, path) || throw(
-        ArgumentError("parameter binding path must contain only Symbols"),
-    )
     return (;
         process=process_id(named),
         path,
@@ -97,9 +94,7 @@ end
 function _visit_factor_slots!(
     uses::Vector{Any}, seen::Set{Any}, named::NamedProcess, path::Tuple, factor::AbstractFactor
 )
-    slots = _emit_parameter_slots!(
-        uses, seen, named, path, factor; context=factor_parameter_context(factor)
-    )
+    slots = _emit_parameter_slots!(uses, seen, named, path, factor)
     children = _resolve_factor_children(factor)
     names = keys(children)
     child_refs = NamedTuple{names}(Tuple(
@@ -388,9 +383,9 @@ function process_facts(
         "nutrient uptake resource :$(process.resource)",
     )
     required = Tuple(slot.name for slot in parameter_slots(process.formulation))
-    missing = Tuple(name for name in required if !hasproperty(process.bindings, name))
-    isempty(missing) || throw(ArgumentError(
-        "process :$id nutrient uptake requires explicit bindings for slots $missing",
+    missing_names = Tuple(name for name in required if !hasproperty(process.bindings, name))
+    isempty(missing_names) || throw(ArgumentError(
+        "process :$id nutrient uptake requires explicit bindings for slots $missing_names",
     ))
     return (; target, reference, resource=process.resource)
 end
@@ -460,12 +455,12 @@ function _canonicalize_process(id::Symbol, process, components::NamedTuple)
         ArgumentError("process :$id must be an AbstractProcess; got $(typeof(process))"),
     )
     component_names = keys(components)
-    missing = unique(Tuple(
+    missing_names = unique(Tuple(
         reference for reference in _collect_process_component_references(process)
         if !(reference in component_names)
     ))
-    isempty(missing) || throw(
-        ArgumentError("process :$id references unknown components $missing"),
+    isempty(missing_names) || throw(
+        ArgumentError("process :$id references unknown components $missing_names"),
     )
     facts = process_facts(process, id, components)
     for (name, factor) in pairs(factors(process))
@@ -541,8 +536,6 @@ function _collect_parameter_uses(processes::NamedTuple)
     return Tuple(uses), refs
 end
 
-const RESERVED_PARAMETER_KEYS = (:x, :y, :z, :t)
-
 function _resolve_parameter_definitions(definitions)
     isnothing(definitions) && return nothing, Set{Symbol}()
     definitions isa NamedTuple || throw(
@@ -552,13 +545,7 @@ function _resolve_parameter_definitions(definitions)
         ArgumentError("model parameters must contain only Parameter or MetaParameter values"),
     )
 
-    definition_names = Tuple(keys(definitions))
-    definition_set = Set(definition_names)
-    for name in definition_names
-        name in RESERVED_PARAMETER_KEYS && throw(
-            ArgumentError("model parameters declare reserved parameter name :$name"),
-        )
-    end
+    definition_set = Set(keys(definitions))
 
     dependency_names = Set{Symbol}()
     for (name, parameter) in pairs(definitions)

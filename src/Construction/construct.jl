@@ -24,7 +24,7 @@ function on_architecture(arch, x)
     arch === nothing && return x
     arch isa CPU && return x
 
-    return Base.invokelatest(Adapt.adapt, architecture_array_type(arch), x)
+    return adapt(architecture_array_type(arch), x)
 end
 
 """Return the preferred array storage type for `arch`."""
@@ -173,9 +173,9 @@ function _construct_process_definition(
         merge(parameter_defaults, materialized_overrides);
         derivation_owner,
     )
-    missing = Symbol[key for key in required if !hasproperty(resolved, key)]
-    isempty(missing) || throw(
-        ArgumentError("missing required parameters: $(join(string.(missing), ", "))")
+    missing_names = Symbol[key for key in required if !hasproperty(resolved, key)]
+    isempty(missing_names) || throw(
+        ArgumentError("missing required parameters: $(join(string.(missing_names), ", "))")
     )
     resolved_parameters = NamedTuple{required}(
         Tuple(getproperty(resolved, key) for key in required)

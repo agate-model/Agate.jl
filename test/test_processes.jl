@@ -290,7 +290,6 @@ end
     end
 
     parameter_cases = (
-        ("reserved parameter", (x=Parameter(ConstantDefault(1.0)),), "reserved parameter name :x"),
         (
             "unknown dependency",
             (a=Parameter(DerivedDefault(BindingDependencyDefault(); deps=(:missing,))),),
@@ -450,15 +449,15 @@ end
     single_mortality = Mortality(
         Agate.Processes.LinearMortality();
         populations=:P,
-        bindings=(rate=:mortality_rate,),
+        bindings=(rate=:x,),
     )
     lifecycle_cases = (
         (
-            (mortality_rate=Parameter(0.1), unused=Parameter(1.0)),
+            (x=Parameter(0.1), unused=Parameter(1.0)),
             "use MetaParameter for construction-only",
         ),
         (
-            (mortality_rate=Parameter(0.1), helper=MetaParameter(1.0)),
+            (x=Parameter(0.1), helper=MetaParameter(1.0)),
             "must be used by at least one DerivedDefault",
         ),
     )

@@ -55,12 +55,12 @@ abstract type AbstractStoichiometry end
 function _canonical_bindings(bindings::NamedTuple)
     names = sort!(collect(keys(bindings)); by=String)
     names_tuple = Tuple(names)
-    values = Tuple(begin
+    binding_values = Tuple(begin
         value = getproperty(bindings, name)
         if value isa Symbol
             value
         elseif value isa NamedTuple
-            all(entry -> entry isa Symbol, Base.values(value)) || throw(
+            all(entry -> entry isa Symbol, values(value)) || throw(
                 ArgumentError(
                     "binding map for :$name must map qualifier values to parameter Symbols"
                 ),
@@ -75,7 +75,7 @@ function _canonical_bindings(bindings::NamedTuple)
             ))
         end
     end for name in names)
-    return NamedTuple{names_tuple}(values)
+    return NamedTuple{names_tuple}(binding_values)
 end
 
 """Return setup-only authored model-parameter bindings for one slot-owning node."""
@@ -244,8 +244,6 @@ factor_inputs(factor::QuotaResponse) = (
 
 factor_children(::AbstractFactor) = NamedTuple()
 factor_children(factor::Nutrients) = factor.responses
-
-factor_parameter_context(::AbstractFactor) = NamedTuple()
 
 factor_child_path(path::Tuple, ::AbstractFactor, name::Symbol) = (path..., name)
 factor_child_path(path::Tuple, ::Nutrients, name::Symbol) = (path..., :responses, name)
