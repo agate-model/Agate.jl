@@ -13,10 +13,10 @@
 
 using Agate
 using Agate.Introspection: tracer_groups
-using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
+using Oceananigans.Fields: FunctionField
 using Oceananigans.Units
 using CairoMakie
 
@@ -65,8 +65,8 @@ end
 end
 
 #plots
-t_range = 0.0:days:(365.0 * days)  # Time range from 0 to 365 days 
-z_range = -200.0:10.0:0.0  # Depth range from -200m to 0m 
+t_range = 0.0:days:(365.0 * days)  # Time range from 0 to 365 days
+z_range = -200.0:10.0:0.0  # Depth range from -200m to 0m
 x, y, z = 0.0, 0.0, 0.0
 κₜ_values = [diffusivity(x, y, z, t) for t in t_range, z in z_range]
 PAR_values = [seasonal_PAR(x, y, z, t) for t in t_range, z in z_range]
@@ -83,15 +83,16 @@ fig_forcing
 # ## Physical model
 
 grid = RectilinearGrid(; size=(1, 1, 20), extent=(20meters, 20meters, 200meters))
+clock = Clock(; time=zero(grid))
+PAR = FunctionField{Center,Center,Center}(seasonal_PAR, grid; clock)
+light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
 nothing #hide
 
-bgc_model = Biogeochemistry(
-    bgc; light_attenuation=FunctionFieldPAR(; grid, PAR_f=seasonal_PAR)
-)
+bgc_model = Biogeochemistry(bgc; light_attenuation)
 nothing #hide
 
 full_model = NonhydrostaticModel(grid;
-    clock=Clock(; time=0.0),
+    clock,
     timestepper=:QuasiAdamsBashforth2,
     closure=ScalarDiffusivity(
         VerticallyImplicitTimeDiscretization(); ν=diffusivity, κ=diffusivity

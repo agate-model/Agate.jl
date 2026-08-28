@@ -2,14 +2,15 @@ using Agate
 using Test
 using Adapt
 
-using Agate.Library.Light: FunctionFieldPAR
-using OceanBioME: Biogeochemistry, BoxModel, BoxModelGrid
+using OceanBioME:
+    Biogeochemistry, BoxModel, BoxModelGrid, PrescribedPhotosyntheticallyActiveRadiation
 
 using Oceananigans.Biogeochemistry:
     biogeochemical_drift_velocity,
     required_biogeochemical_auxiliary_fields,
     required_biogeochemical_tracers
 using Oceananigans.Units: day
+using Oceananigans.Fields: ConstantField
 
 const ActiveParameterNiPiZD = Agate.Models.NiPiZD
 
@@ -60,10 +61,10 @@ end
     p = copy(active_growth.values)
     bgc_p = Agate.Runtime.parameterized(base_bgc, p; active_parameters=active_growth)
 
-    light_attenuation = FunctionFieldPAR(; grid)
+    light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(ConstantField(100.0))
     bgc_model = Biogeochemistry(bgc_p; light_attenuation)
 
-    box_model = BoxModel(; biogeochemistry=bgc_model)
+    box_model = BoxModel(; grid, biogeochemistry=bgc_model)
 
     @test !isnothing(box_model)
 end

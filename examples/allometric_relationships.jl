@@ -1,7 +1,7 @@
 # # [Allometric parameters] (@id allometric_relationships_example)
 
-# Many plankton traits depend on organism size (allometry). Agate uses this to calculate the parameter 
-# values of relevant parameters for each plankton size in the model. 
+# Many plankton traits depend on organism size (allometry). Agate uses this to calculate the parameter
+# values of relevant parameters for each plankton size in the model.
 #
 # We will first look at the  default [Agate.jl-NiPiZD](@ref NiPiZD) relationship for maximum growth rate. We change
 # only its exponent, compare the growth rates that Agate assigns to each phytoplankton
@@ -20,10 +20,10 @@
 using Agate.Models: NiPiZD
 using Agate.Introspection: plankton_groups
 using Agate.Library.Allometry: AllometricParam, PowerLaw
-using Agate.Library.Light: FunctionFieldPAR
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
+using Oceananigans.Fields: ConstantField
 using Oceananigans.Units
 using CairoMakie
 
@@ -143,10 +143,9 @@ slope_fig
 
 function run_growth_experiment(bgc, phytoplankton_tracers, filename)
     grid = BoxModelGrid()
-    constant_PAR = t -> 100.0
-    light_attenuation = FunctionFieldPAR(; grid, PAR_f=constant_PAR)
+    light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(ConstantField(100.0))
     bgc_model = Biogeochemistry(bgc; light_attenuation)
-    model = BoxModel(; biogeochemistry=bgc_model)
+    model = BoxModel(; grid, biogeochemistry=bgc_model)
 
     phytoplankton_initial_conditions = (;
         (tracer => 0.01 for tracer in phytoplankton_tracers)...

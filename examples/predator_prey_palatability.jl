@@ -21,6 +21,7 @@ using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
+using Oceananigans.Fields: FunctionField
 using Oceananigans.Units
 using CairoMakie
 
@@ -115,9 +116,12 @@ matrix_fig
 # ## Run each configuration in a box model
 
 function run_box_model(bgc, filename)
-    light_attenuation = FunctionFieldPAR(; grid=BoxModelGrid())
+    grid = BoxModelGrid()
+    clock = Clock(; time=zero(grid))
+    PAR = FunctionField{Center,Center,Center}(CyclicalPAR(-10), grid; clock)
+    light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
     bgc_model = Biogeochemistry(bgc; light_attenuation)
-    full_model = BoxModel(; biogeochemistry=bgc_model)
+    full_model = BoxModel(; grid, clock, biogeochemistry=bgc_model)
 
     set!(full_model; N=7.0, P_1=0.01, Z_1=0.01, P_2=0.1, Z_2=0.01, D=0.01)
 

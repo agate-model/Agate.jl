@@ -7,6 +7,9 @@ Private = false
 
 ## Light
 
+Agate provides reusable light formulations. Gridded PAR fields and their Oceananigans
+integration are provided by OceanBioME's `PrescribedPhotosyntheticallyActiveRadiation`.
+
 ```@autodocs
 Modules=[Agate.Library.Light]
 Private = false

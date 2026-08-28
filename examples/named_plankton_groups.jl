@@ -22,10 +22,10 @@
 
 using Agate
 using Agate.Introspection: tracer_names
-using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
+using Oceananigans.Fields: ConstantField
 using Oceananigans.Units
 using CairoMakie
 
@@ -72,10 +72,9 @@ high_PAR = 100.0
 
 function run_light_treatment(bgc, PAR, filename)
     grid = BoxModelGrid()
-    constant_PAR = t -> PAR
-    light_attenuation = FunctionFieldPAR(; grid, PAR_f=constant_PAR)
+    light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(ConstantField(PAR))
     bgc_model = Biogeochemistry(bgc; light_attenuation)
-    full_model = BoxModel(; biogeochemistry=bgc_model)
+    full_model = BoxModel(; grid, biogeochemistry=bgc_model)
 
     set!(
         full_model;

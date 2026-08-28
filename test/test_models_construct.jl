@@ -12,6 +12,8 @@ using Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers, required_biogeochemical_auxiliary_fields,
     biogeochemical_drift_velocity
 
+@inline gpu_smoke_PAR(x, y, z, t) = 100f0 * exp(0.2f0 * z)
+
 @testset "Public model constructors" begin
 
     @testset "NiPiZD defaults" begin
@@ -311,11 +313,12 @@ using Oceananigans.Biogeochemistry:
     if lowercase(get(ENV, "AGATE_TEST_CUDA", "0")) in ("1", "true", "yes")
         @testset "GPU smoke test" begin
             @eval using CUDA
-            @eval using Agate.Library.Light: CyclicalPAR, FunctionFieldPAR
-            @eval using OceanBioME: Biogeochemistry
-            @eval using Oceananigans: RectilinearGrid, NonhydrostaticModel, set!, time_step!
+            @eval using OceanBioME: Biogeochemistry, PrescribedPhotosyntheticallyActiveRadiation
+            @eval using Oceananigans: RectilinearGrid, NonhydrostaticModel, Clock, Center
+            @eval using Oceananigans: set!, time_step!
+            @eval using Oceananigans.Fields: FunctionField
             @eval using Oceananigans.Architectures: GPU, array_type
-            @eval using Oceananigans.Grids: Periodic, Flat, Bounded
+            @eval using Oceananigans.Grids: Periodic, Bounded
 
             cuda_functional = CUDA.functional()
             @test cuda_functional
@@ -330,9 +333,10 @@ using Oceananigans.Biogeochemistry:
 
                 grid = RectilinearGrid(
                     GPU(), Float32;
-                    topology=(Periodic, Flat, Bounded),
-                    size=(4, 4),
-                    x=(0f0, 4f0),
+                    topology=(Periodic, Periodic, Bounded),
+                    size=(2, 2, 4),
+                    x=(0f0, 2f0),
+                    y=(0f0, 2f0),
                     z=(-4f0, 0f0),
                 )
                 sinking_rate = 2.5f0 / 86400f0
@@ -345,9 +349,11 @@ using Oceananigans.Biogeochemistry:
                 @test any(==(-sinking_rate), Array(parent(drift)))
                 @test biogeochemical_drift_velocity(bgc_sinking, Val(:Z_1)).w == ZeroField()
 
-                light_attenuation = FunctionFieldPAR(; grid, PAR_f=CyclicalPAR())
+                clock = Clock(; time=zero(grid))
+                PAR = FunctionField{Center,Center,Center}(gpu_smoke_PAR, grid; clock)
+                light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
                 bgc_model = Biogeochemistry(bgc_sinking; light_attenuation)
-                model = NonhydrostaticModel(grid; biogeochemistry=bgc_model)
+                model = NonhydrostaticModel(grid; clock, biogeochemistry=bgc_model)
                 set!(
                     model;
                     N=7f0,

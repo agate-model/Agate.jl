@@ -1,7 +1,8 @@
 using Agate
-using Agate.Library.Light: FunctionFieldPAR
-using OceanBioME: Biogeochemistry, BoxModelGrid, BoxModel
+using OceanBioME:
+    Biogeochemistry, BoxModelGrid, BoxModel, PrescribedPhotosyntheticallyActiveRadiation
 using Oceananigans: set!, time_step!
+using Oceananigans.Fields: ConstantField
 using Oceananigans.Units: day
 using Test
 
@@ -39,9 +40,8 @@ end
 
     grid = BoxModelGrid()
     bgc = NiPiZDReference.construct()
-    bgc_model = Biogeochemistry(
-        bgc; light_attenuation=FunctionFieldPAR(; grid, PAR_f=t -> 100.0)
-    )
+    light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(ConstantField(100.0))
+    bgc_model = Biogeochemistry(bgc; light_attenuation)
     box_model = BoxModel(; biogeochemistry=bgc_model)
     set!(box_model; NIPIZD_REFERENCE_INITIAL...)
 

@@ -2,7 +2,6 @@ using Agate
 
 const NiPiZD = Agate.Models.NiPiZD
 
-using Agate.Library.Light: FunctionFieldPAR
 using Agate.Diagnostics: box_model_mass_balance
 using Agate.Configuration: Population, Pool
 using Agate.Construction: construct
@@ -14,6 +13,7 @@ using Agate.Processes:
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
+using Oceananigans.Fields: ConstantField
 using Oceananigans.Units: day, minutes
 
 function multi_nutrient_test_model(grid; nutrient_formulation=Liebig())
@@ -79,9 +79,8 @@ end
 
 @testset "mass_balance" begin
     function build_box_model(bgc_instance, grid)
-        bgc_model = Biogeochemistry(
-            bgc_instance; light_attenuation=FunctionFieldPAR(; grid)
-        )
+        light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(ConstantField(100.0))
+        bgc_model = Biogeochemistry(bgc_instance; light_attenuation)
         return BoxModel(; biogeochemistry=bgc_model, grid)
     end
 
