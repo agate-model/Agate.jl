@@ -3,7 +3,7 @@ using ..Parameters:
     DerivedDefault,
     NoDefault,
     DiameterIndexedVectorDefault,
-    derive_default
+    _derive_parameter_default
 
 using ..Processes: planned_parameter
 
@@ -266,7 +266,9 @@ function resolve_derived_parameter_defaults(
             Tuple(getproperty(params, dep) for dep in provider.deps)
         )
 
-        value = derive_default(provider.deriver, derivation_owner, layout, dependencies)
+        value = _derive_parameter_default(
+            provider.deriver, derivation_owner, layout, parameter, dependencies
+        )
         validate_parameter_value(parameter, value, T; derived=true)
         resolved = merge(resolved, NamedTuple{(key,)}((value,)))
     end

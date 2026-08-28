@@ -101,6 +101,9 @@ function derive_default(deriver, owner, context, params::NamedTuple)
     throw(ArgumentError("derive_default is not implemented for $(typeof(deriver))."))
 end
 
+@inline _derive_parameter_default(deriver, owner, context, parameter, params::NamedTuple) =
+    derive_default(deriver, owner, context, params)
+
 """Indicates that a parameter has no default value.
 
 The parameter must be supplied by an override before construction can complete.

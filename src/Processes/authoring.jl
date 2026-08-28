@@ -102,6 +102,9 @@ function _canonical_participants(role::Symbol, values)
     all(value -> value isa Symbol, values) || throw(
         ArgumentError("participant `$role` must contain only Symbols"),
     )
+    allunique(values) || throw(
+        ArgumentError("participant `$role` must not contain duplicates"),
+    )
     return values
 end
 

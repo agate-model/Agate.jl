@@ -115,6 +115,21 @@ factor_inputs(::MultiDriverTestFactor) = (
     @test_throws ArgumentError Consumption(PreferentialGrazing(); consumers=(), resources=:P)
     @test_throws ArgumentError Consumption(PreferentialGrazing(); consumers=:Z, resources=(:P, 1))
 
+    for build_process in (
+        () -> Growth(;
+            populations=(:P, :P), factors=(light=Light(Smith(); driver=:PAR),)
+        ),
+        () -> Consumption(
+            PreferentialGrazing(); consumers=(:Z, :Z), resources=:P
+        ),
+        () -> Mortality(Agate.Processes.LinearMortality(); populations=(:P, :P)),
+        () -> Agate.Processes.Remineralization(
+            Agate.Processes.LinearRemineralization(); sources=(:D, :D), destination=:N
+        ),
+    )
+        @test_throws ArgumentError build_process()
+    end
+
     redundant_growth_source = ModelDefinition(;
         components=(
             P=Population(:nitrogen),
