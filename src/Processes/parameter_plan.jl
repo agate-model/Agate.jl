@@ -124,10 +124,7 @@ function _planned_parameter(definition, layout, name, parameter, binding_classes
         map(length, labels),
         labels,
         _storage_diameters(rank, labels, diameters),
-        any(
-            binding -> binding.parameter === name && binding.runtime_bound,
-            definition.parameter_bindings,
-        ),
+        parameter isa Parameter,
     )
 end
 

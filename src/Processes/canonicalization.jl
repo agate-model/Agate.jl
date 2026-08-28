@@ -73,7 +73,6 @@ function _emit_parameter_slots!(
     path::Tuple,
     node;
     context::NamedTuple=NamedTuple(),
-    runtime_bound::Bool=true,
 )
     slots = parameter_slots(_parameter_slot_source(node))
     names = Tuple(slot.name for slot in slots)
@@ -89,7 +88,7 @@ function _emit_parameter_slots!(
         )
         push!(seen, identity)
         parameter, explicit = _resolve_binding_value(bindings, slot, qualifier)
-        push!(uses, (; metadata..., parameter, explicit, runtime_bound))
+        push!(uses, (; metadata..., parameter, explicit))
         length(uses)
     end
     return NamedTuple{names}(refs)
@@ -124,7 +123,6 @@ function _visit_product_slots!(
             path,
             products;
             context=(product=product,),
-            runtime_bound=product !== products.balanced,
         )
         for product in fraction_names
     ))
@@ -152,19 +150,21 @@ end
 function _visit_process_slots!(uses::Vector{Any}, seen::Set{Any}, named::NamedProcess)
     process = named.process
     process_refs = if process isa Mortality
-        Tuple(
+        names = process.populations
+        NamedTuple{names}(Tuple(
             _emit_parameter_slots!(
                 uses, seen, named, (), process; context=(population=population,)
             )
-            for population in process.populations
-        )
+            for population in names
+        ))
     elseif process isa Remineralization
-        Tuple(
+        names = process.sources
+        NamedTuple{names}(Tuple(
             _emit_parameter_slots!(
                 uses, seen, named, (), process; context=(source=source,)
             )
-            for source in process.sources
-        )
+            for source in names
+        ))
     else
         _emit_parameter_slots!(uses, seen, named, (), process)
     end
@@ -469,7 +469,7 @@ function _canonicalize_process(id::Symbol, process, components::NamedTuple)
     )
     facts = process_facts(process, id, components)
     for (name, factor) in pairs(factors(process))
-        _validate_factor_component_inputs(id, factor, components, (:factors, name))
+        _validate_factor_for_process(id, process, factor, components, (:factors, name))
     end
     return NamedProcess(id, process, facts)
 end
@@ -588,9 +588,7 @@ function _resolve_parameter_bindings(
 )
     if isnothing(definitions)
         bindings = Tuple(
-            ParameterBinding(
-                use.axes, use.axis_components, use.parameter, use.runtime_bound,
-            )
+            ParameterBinding(use.axes, use.axis_components, use.parameter)
             for use in uses
         )
         return bindings
@@ -642,12 +640,7 @@ function _resolve_parameter_bindings(
     end
 
     return Tuple(
-        ParameterBinding(
-            use.axes,
-            use.axis_components,
-            use.parameter,
-            use.runtime_bound,
-        )
+        ParameterBinding(use.axes, use.axis_components, use.parameter)
         for use in uses
     )
 end

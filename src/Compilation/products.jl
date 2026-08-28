@@ -3,27 +3,21 @@ function _product_fraction_ref(named::NamedProcess, product::Symbol)
     hasproperty(refs, product) || return nothing
     return getproperty(refs, product).fraction
 end
+
 function _product_fraction_operand(
     context::CompileContext,
     named::NamedProcess,
     products::Products,
     product::Symbol,
 )
-    if product !== products.balanced
-        ref = _product_fraction_ref(named, product)
-        isnothing(ref) && return nothing
-        return parameter_operand(ref, context)
-    end
+    ref = _product_fraction_ref(named, product)
+    isnothing(ref) || return parameter_operand(ref, context)
 
     fraction_refs = named.binding_refs.products.fractions
-    explicit_products = Tuple(
-        name for name in keys(products.targets)
-        if name !== products.balanced && hasproperty(fraction_refs, name)
-    )
-    isempty(explicit_products) && return nothing
+    isempty(fraction_refs) && return nothing
     operands = Tuple(
-        parameter_operand(_product_fraction_ref(named, name), context)
-        for name in explicit_products
+        parameter_operand(getproperty(fraction_refs, name).fraction, context)
+        for name in keys(fraction_refs)
     )
     return RemainderOp(operands)
 end

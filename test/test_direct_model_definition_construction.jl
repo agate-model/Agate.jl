@@ -123,18 +123,18 @@ end
 
     bgc = construct(definition; grid=dummy_grid(Float64))
     @test hasproperty(bgc.parameters, :fraction_a)
-    @test !hasproperty(bgc.parameters, :fraction_b)
+    @test hasproperty(bgc.parameters, :fraction_b)
     args = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0)
     tendencies = map(tracer -> bgc(Val(tracer), args...), (:A, :B, :P_1))
-    conservative_b = (1.0 - 0.4) * 1e-6
-    @test tendencies[2] == conservative_b
-    @test tendencies[2] != nextfloat(0.6) * 1e-6
+    @test tendencies[1] == 0.4e-6
+    @test tendencies[2] == nextfloat(0.6) * 1e-6
     @test isapprox(sum(tendencies), 0; atol=10 * eps(sum(abs, tendencies)))
-    @test_throws ArgumentError construct(
-        definition;
-        grid=dummy_grid(Float64),
-        parameter_overrides=(fraction_b=0.5,),
-    )
+
+    for overrides in ((fraction_b=0.5,), (fraction_a=1.1,))
+        @test_throws ArgumentError construct(
+            definition; grid=dummy_grid(Float64), parameter_overrides=overrides
+        )
+    end
 end
 
 @testset "Multi-currency products" begin
@@ -170,6 +170,7 @@ end
         nitrogen_to_carbon=Parameter(ConstantDefault(0.2)),
     )
     bgc = construct(ModelDefinition(; components, processes, parameters); grid=dummy_grid(Float64))
+    @test hasproperty(bgc.parameters, :POM_fraction)
 
     tracers = required_biogeochemical_tracers(bgc)
     state = Dict(:DOC => 0.0, :POC => 0.0, :DON => 0.0, :PON => 0.0, :P_1 => 1.0)

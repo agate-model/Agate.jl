@@ -81,16 +81,14 @@ parameter_slots(::FixedStoichiometry) = (ParameterSlot(:ratio; qualify=:currency
 
 """Resolved setup-time mapping from one local parameter slot to model storage.
 
-`axes` is the authoritative semantic axis signature supplied by the formulation schema,
-while `axis_components` records the already-resolved participant components that determine
-realized ecological applicability. `runtime_bound` distinguishes parameters used by compiled
-kernels from setup-only bindings such as an explicitly authored conservative balance.
+`axes` is the authoritative semantic axis signature supplied by the formulation schema, while
+`axis_components` records the already-resolved participant components that determine realized
+ecological applicability.
 """
 struct ParameterBinding{A,C}
     axes::A
     axis_components::C
     parameter::Symbol
-    runtime_bound::Bool
 end
 
 _parameter_slot_source(node::Union{AbstractFormulation,AbstractStoichiometry,Products}) = node

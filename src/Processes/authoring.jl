@@ -105,7 +105,7 @@ function _canonical_participants(role::Symbol, values)
     return values
 end
 
-"""Light-dependent multiplicative factor using its enclosing process rate scale."""
+"""Light-dependent multiplicative Growth factor using the Growth rate scale."""
 struct Light{F<:Union{Smith,Geider}} <: AbstractFactor
     formulation::F
     driver::Symbol
@@ -258,17 +258,15 @@ Each product target may be either one component Symbol or a named currency-to-co
 mapping. Multi-currency products require `FixedStoichiometry`; every product then declares
 the same currencies and the stoichiometric reference currency must be present.
 
-For `N` products, specify either `N - 1` named fractions or all `N` fractions. One product
-weight is always computed conservatively as `1 - sum(other fractions)`. When one fraction
-is omitted, that product is the conservative balance. When all fractions are supplied, one
-product is deterministically used as the conservative closure; its supplied fraction is a
-consistency constraint rather than an independent runtime weight. A single product requires
-no fractions.
+For `N` products, specify either `N - 1` named fractions or all `N` fractions. When one
+fraction is omitted, that product receives the exact conservative remainder
+`1 - sum(supplied fractions)`. When all fractions are supplied, every authored value is used
+directly and setup requires their sum to equal one within floating-point tolerance. A single
+product requires no fractions.
 """
-struct Products{T,F,B,S}
+struct Products{T,F,S}
     targets::T
     fractions::F
-    balanced::B
     stoichiometry::S
 end
 
@@ -336,14 +334,7 @@ function Products(
         nfractions == 0 || throw(
             ArgumentError("single-product allocations do not take fractions"),
         )
-        balanced = only(keys(canonical_targets))
-    elseif nfractions == nproducts - 1
-        balanced = only(
-            name for name in keys(canonical_targets) if !(name in keys(canonical_fractions))
-        )
-    elseif nfractions == nproducts
-        balanced = last(keys(canonical_targets))
-    else
+    elseif !(nfractions in (nproducts - 1, nproducts))
         throw(ArgumentError(
             "products has $nproducts destinations but $nfractions fractions; specify either " *
             "$(nproducts - 1) fractions (the omitted product receives the balance) or all " *
@@ -351,7 +342,7 @@ function Products(
         ))
     end
 
-    return Products(canonical_targets, canonical_fractions, balanced, stoichiometry)
+    return Products(canonical_targets, canonical_fractions, stoichiometry)
 end
 
 Products(destination::Symbol) = Products((product=destination,))

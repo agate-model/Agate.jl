@@ -134,7 +134,7 @@ function _validate_product_fractions(
         products = process_products(named.process)
         (isnothing(products) || length(products.targets) == 1) && continue
         names = keys(products.fractions)
-        fractions = NamedTuple{names}(Tuple(begin
+        fractions = Tuple(begin
             refs = getproperty(named.binding_refs.products.fractions, product)
             binding = _resolved_slot_bindings(definition, refs).fraction
             value = getproperty(parameter_values, binding.parameter)
@@ -145,22 +145,18 @@ function _validate_product_fractions(
                 "product fraction parameter :$(binding.parameter) for process :$(process_id(named)) must lie in [0, 1]; got $value",
             ))
             value
-        end for product in names))
+        end for product in names)
 
-        independent = Tuple(
-            getproperty(fractions, product) for product in names if product !== products.balanced
-        )
-        total = sum(independent)
-        balance = one(total) - total
-        zero(balance) <= balance <= one(balance) || throw(ArgumentError(
-            "product fractions for process :$(process_id(named)) leave conservative balance $balance for :$(products.balanced); expected a value in [0, 1]",
-        ))
-
-        if hasproperty(fractions, products.balanced)
-            supplied = getproperty(fractions, products.balanced)
-            tolerance = balance isa AbstractFloat ? 100 * eps(one(balance)) : zero(balance)
-            isapprox(supplied, balance; rtol=zero(balance), atol=tolerance) || throw(ArgumentError(
-                "explicit product fraction for :$(products.balanced) in process :$(process_id(named)) must agree with the conservative balance $balance; got $supplied",
+        total = sum(fractions)
+        if length(names) == length(products.targets)
+            tolerance = total isa AbstractFloat ? 100 * eps(one(total)) : zero(total)
+            isapprox(total, one(total); rtol=zero(total), atol=tolerance) || throw(ArgumentError(
+                "explicit product fractions for process :$(process_id(named)) must sum to 1; got $total",
+            ))
+        else
+            remainder = one(total) - total
+            zero(remainder) <= remainder <= one(remainder) || throw(ArgumentError(
+                "product fractions for process :$(process_id(named)) leave conservative remainder $remainder; expected a value in [0, 1]",
             ))
         end
     end

@@ -61,12 +61,16 @@ function _resolve_scalar_pool(components, name::Symbol, id::Symbol, label::Abstr
     return pool
 end
 
-function _validate_factor_component_inputs(
+function _validate_factor_for_process(
     id::Symbol,
+    process::AbstractProcess,
     factor::AbstractFactor,
     components::NamedTuple,
     path::Tuple,
 )
+    factor isa Light && !(process isa Growth) && throw(ArgumentError(
+        "process :$id factor path $path uses Light, which is only valid for Growth processes",
+    ))
     for input in factor_inputs(factor)
         input isa FactorComponent || continue
         component = getproperty(components, input.component)
@@ -75,8 +79,8 @@ function _validate_factor_component_inputs(
         ))
     end
     for (name, child) in pairs(_resolve_factor_children(factor))
-        _validate_factor_component_inputs(
-            id, child, components, factor_child_path(path, factor, name)
+        _validate_factor_for_process(
+            id, process, child, components, factor_child_path(path, factor, name)
         )
     end
     return nothing

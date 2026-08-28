@@ -213,6 +213,18 @@ end
             ("process :consume", "component :POM", "scalar component"),
         ),
         (
+            "Light factor process compatibility",
+            one_process(
+                :consume,
+                Consumption(
+                    PreferentialGrazing();
+                    consumers=:Z, resources=:P, factors=(light=light,),
+                ),
+                (Z=single, P=single),
+            ),
+            ("process :consume", "Light", "Growth"),
+        ),
+        (
             "multi-state Growth",
             one_process(:growth, Growth(;
                 populations=:P, factors=(light=light, nutrients=nutrient)

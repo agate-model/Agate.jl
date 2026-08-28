@@ -95,7 +95,7 @@ function process_parameter_operands(
     axis_positions::NamedTuple=NamedTuple(),
 )
     refs = named.binding_refs.process
-    refs isa NamedTuple || throw(ArgumentError(
+    all(ref -> ref isa Int, values(refs)) || throw(ArgumentError(
         "process :$(process_id(named)) has qualifier-specific parameter slots; custom lowering must resolve its setup facts explicitly",
     ))
     names = keys(refs)

@@ -6,7 +6,8 @@ function process_fluxes(
     destination = _scalar_component_target(layout, process.destination)
     fluxes = Any[]
 
-    for (source_component, slots) in zip(process.sources, named.binding_refs.process)
+    for source_component in process.sources
+        slots = getproperty(named.binding_refs.process, source_component)
         source = _scalar_component_target(layout, source_component)
         rate_ref = slots.rate
         rate = RateElement(

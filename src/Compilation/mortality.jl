@@ -18,7 +18,8 @@ function process_fluxes(
     process = named.process
     fluxes = Any[]
 
-    for (reference, slots) in zip(named.facts.population_states, named.binding_refs.process)
+    for reference in named.facts.population_states
+        slots = getproperty(named.binding_refs.process, reference.population)
         for participant in _realize_participants((reference,), context.layout)
             rate = _mortality_rate(formulation(process), slots.rate, context, participant)
             push!(fluxes, FluxSpec(participant.tracer, rate, Weight{-1}()))
