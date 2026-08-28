@@ -1,0 +1,12 @@
+steps:
+  - label: ":gpu: Julia 1.10 GPU tests"
+    key: "gpu-tests"
+    agents:
+      queue: "GPU"
+    env:
+      AGATE_TEST_CUDA: "1"
+    commands:
+      - nvidia-smi
+      - julia --version
+      - julia --project=. --color=yes -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
+    timeout_in_minutes: 30
