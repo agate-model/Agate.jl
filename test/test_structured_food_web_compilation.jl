@@ -30,7 +30,8 @@ function food_web_definition()
             factors=(
                 temperature=temperature,
                 nutrients=NutrientResponse(
-                    Monod(); resource=:N, bindings=(K=:nutrient_half_saturation,)
+                    Monod(); resource=:N,
+                    bindings=(half_saturation=:nutrient_half_saturation,)
                 ),
                 light=Light(Smith(); driver=:PAR),
             ),

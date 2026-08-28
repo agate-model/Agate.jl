@@ -1,95 +1,10 @@
 using Test
 
 using Agate.Configuration: Population, Pool, population_state
-using Agate.Parameters: Parameter
 using Agate.Processes:
-    FixedStoichiometry, Growth, Liebig, Light, ModelDefinition, Monod, NormalizedDroop,
-    NutrientResponse, Nutrients, NutrientUptake, QuotaRegulatedMonod, QuotaResponse, Smith
+    FixedStoichiometry, Growth, Liebig, ModelDefinition, Monod, NormalizedDroop,
+    NutrientResponse, Nutrients, QuotaResponse
 
-
-quota_components() = (
-    DIC=Pool(:carbon),
-    DIN=Pool(:nitrogen),
-    PO4=Pool(:phosphorus),
-    P=Population(;
-        states=(carbon=:carbon, nitrogen=:nitrogen, phosphorus=:phosphorus),
-        size_structure=[1.0, 2.0],
-    ),
-)
-
-quota_response(state, minimum, maximum) = QuotaResponse(
-    NormalizedDroop();
-    target=population_state(:P, state),
-    reference=population_state(:P, :carbon),
-    bindings=(minimum_quota=minimum, maximum_quota=maximum),
-)
-
-quota_uptake(state, resource, bindings) = NutrientUptake(
-    QuotaRegulatedMonod();
-    population=:P,
-    target_state=state,
-    reference_state=:carbon,
-    resource=resource,
-    bindings=bindings,
-)
-
-function quota_processes()
-    responses = (
-        nitrogen=quota_response(
-            :nitrogen, :minimum_nitrogen_quota, :maximum_nitrogen_quota
-        ),
-        phosphorus=quota_response(
-            :phosphorus, :minimum_phosphorus_quota, :maximum_phosphorus_quota
-        ),
-    )
-    growth = Growth(;
-        populations=:P,
-        bindings=(maximum_rate=:maximum_growth_rate,),
-        state=:carbon,
-        source=:DIC,
-        factors=(
-            light=Light(
-                Smith(); driver=:PAR,
-                bindings=(alpha=:photosynthetic_slope,),
-            ),
-            nutrients=Nutrients(Liebig(); responses=responses),
-        ),
-    )
-    nitrogen_uptake = quota_uptake(:nitrogen, :DIN, (
-        maximum_rate=:maximum_nitrogen_uptake,
-        K=:nitrogen_half_saturation,
-        minimum_quota=:minimum_nitrogen_quota,
-        maximum_quota=:maximum_nitrogen_quota,
-        hill=:nitrogen_uptake_hill,
-    ))
-    phosphorus_uptake = quota_uptake(:phosphorus, :PO4, (
-        maximum_rate=:maximum_phosphorus_uptake,
-        K=:phosphorus_half_saturation,
-        minimum_quota=:minimum_phosphorus_quota,
-        maximum_quota=:maximum_phosphorus_quota,
-        hill=:phosphorus_uptake_hill,
-    ))
-    return (; growth, nitrogen_uptake, phosphorus_uptake)
-end
-
-quota_parameters() = (
-    maximum_growth_rate=Parameter(0.5),
-    photosynthetic_slope=Parameter(0.05),
-    minimum_nitrogen_quota=Parameter(0.05),
-    maximum_nitrogen_quota=Parameter(0.2),
-    minimum_phosphorus_quota=Parameter(0.005),
-    maximum_phosphorus_quota=Parameter(0.02),
-    maximum_nitrogen_uptake=Parameter(0.1),
-    nitrogen_half_saturation=Parameter(0.2),
-    nitrogen_uptake_hill=Parameter(2.0),
-    maximum_phosphorus_uptake=Parameter(0.01),
-    phosphorus_half_saturation=Parameter(0.02),
-    phosphorus_uptake_hill=Parameter(2.0),
-)
-
-quota_definition() = ModelDefinition(;
-    components=quota_components(), processes=quota_processes(), parameters=quota_parameters()
-)
 
 @testset "Quota structural errors fail during canonicalization" begin
     components = quota_components()

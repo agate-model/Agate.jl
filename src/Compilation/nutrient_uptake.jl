@@ -17,7 +17,7 @@ function process_fluxes(
             input_operand(layout, participant.tracer),
             input_operand(layout, reference_tracers[participant.position.local_index]),
             parameter_operand(slots.maximum_rate, context, axis_positions),
-            parameter_operand(slots.K, context, axis_positions),
+            parameter_operand(slots.half_saturation, context, axis_positions),
             parameter_operand(slots.minimum_quota, context, axis_positions),
             parameter_operand(slots.maximum_quota, context, axis_positions),
             parameter_operand(slots.hill, context, axis_positions),

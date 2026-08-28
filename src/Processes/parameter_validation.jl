@@ -107,7 +107,9 @@ function _validate_quota_science(
                 named.binding_refs.process, process.population,
             )
             for (slot, rule) in (
-                (:maximum_rate, :nonnegative), (:K, :nonnegative), (:hill, :positive),
+                (:maximum_rate, :nonnegative),
+                (:half_saturation, :nonnegative),
+                (:hill, :positive),
             )
                 _validate_parameter_constraint(
                     definition,

@@ -457,7 +457,7 @@ end
                 ),
             ),
         ),
-        parameters=(K=Parameter(ConstantDefault(0.1)),),
+        parameters=(half_saturation=Parameter(ConstantDefault(0.1)),),
     )
     @test_throws ArgumentError canonicalize_model(unknown_zero_slot)
 

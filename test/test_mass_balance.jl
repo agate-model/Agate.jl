@@ -40,10 +40,12 @@ function multi_nutrient_test_model(grid; nutrient_formulation=Liebig())
                              (sharpness=:frank_sharpness,) : NamedTuple(),
                     responses=(
                         nitrogen=NutrientResponse(
-                            Monod(); resource=:DIN, bindings=(K=:half_saturation_DIN,)
+                            Monod(); resource=:DIN,
+                            bindings=(half_saturation=:half_saturation_DIN,)
                         ),
                         phosphorus=NutrientResponse(
-                            Monod(); resource=:PO4, bindings=(K=:half_saturation_PO4,)
+                            Monod(); resource=:PO4,
+                            bindings=(half_saturation=:half_saturation_PO4,)
                         ),
                     ),
                 ),

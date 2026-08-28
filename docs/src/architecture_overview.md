@@ -16,7 +16,13 @@ A process-defined model moves through five stages:
    A setup-time compile context carries the canonical definition, realized layout, and parameter plan through lowering. Parameter operands resolve ecological class identity directly against realized storage labels during setup, so only final static indices enter runtime terms. Participant states and one-tracer-per-class components are realized through one shared tracer + ecological-position traversal, which is reused by one-axis and two-axis process lowering. Growth canonicalization resolves one reference resource draw plus any additional stoichiometric resource draws, so lowering follows one resource-transfer rule regardless of the authored nutrient-response form. Growth also owns its maximum-rate binding; Smith and Geider light factors consume that resolved process scale rather than declaring a second parameter slot. Each named process produces generic target + rate + weight flux specifications, which are grouped by target tracer and lowered into static compiled equations with no target symbols or process metadata in runtime terms.
 
 4. **Construction and replay** (`Construction/`).
-   Direct `ModelDefinition` construction resolves defaults and overrides from the model definition. Named model families such as NiPiZD and DARWIN use the same definition-driven core while adding durable recipe/replay identity. Recipes record a registered family, its exact scientific definition version, and the canonical realization inputs required by the family constructor; replay then follows the normal family construction path.
+   Direct `ModelDefinition` construction resolves defaults and overrides from the model
+   definition. Bundled families such as NiPiZD and external registered families such as
+   DARWIN in AgateRegistry.jl use the same definition-driven core while adding durable
+   recipe/replay identity. Recipes record a registered family, its exact scientific
+   definition version, and the
+   canonical realization inputs required by the family constructor; replay then follows the
+   normal family construction path.
 
 5. **Runtime and inspection** (`Runtime/`, `Diagnostics/`, and `Introspection.jl`).
    Runtime kernels evaluate lean compiled terms with resolved tracer and parameter indices. Diagnostics and introspection expose the realized model without reinterpreting the model definition.

@@ -33,6 +33,95 @@ end
 canonicalization_error_message(definition) =
     argument_error_message(() -> Agate.Processes.canonicalize_model(definition))
 
+# Shared quota-model fixture used by authoring, compilation, and AD tests.
+quota_components() = (
+    DIC=Agate.Configuration.Pool(:carbon),
+    DIN=Agate.Configuration.Pool(:nitrogen),
+    PO4=Agate.Configuration.Pool(:phosphorus),
+    P=Agate.Configuration.Population(;
+        states=(carbon=:carbon, nitrogen=:nitrogen, phosphorus=:phosphorus),
+        size_structure=[1.0, 2.0],
+    ),
+)
+
+quota_response(state, minimum, maximum) = Agate.Processes.QuotaResponse(
+    Agate.Processes.NormalizedDroop();
+    target=Agate.Configuration.population_state(:P, state),
+    reference=Agate.Configuration.population_state(:P, :carbon),
+    bindings=(minimum_quota=minimum, maximum_quota=maximum),
+)
+
+quota_uptake(state, resource, bindings) = Agate.Processes.NutrientUptake(
+    Agate.Processes.QuotaRegulatedMonod();
+    population=:P,
+    target_state=state,
+    reference_state=:carbon,
+    resource=resource,
+    bindings=bindings,
+)
+
+function quota_processes()
+    responses = (
+        nitrogen=quota_response(
+            :nitrogen, :minimum_nitrogen_quota, :maximum_nitrogen_quota
+        ),
+        phosphorus=quota_response(
+            :phosphorus, :minimum_phosphorus_quota, :maximum_phosphorus_quota
+        ),
+    )
+    growth = Agate.Processes.Growth(;
+        populations=:P,
+        bindings=(maximum_rate=:maximum_growth_rate,),
+        state=:carbon,
+        source=:DIC,
+        factors=(
+            light=Agate.Processes.Light(
+                Agate.Processes.Smith(); driver=:PAR,
+                bindings=(alpha=:photosynthetic_slope,),
+            ),
+            nutrients=Agate.Processes.Nutrients(
+                Agate.Processes.Liebig(); responses=responses
+            ),
+        ),
+    )
+    nitrogen_uptake = quota_uptake(:nitrogen, :DIN, (
+        maximum_rate=:maximum_nitrogen_uptake,
+        half_saturation=:nitrogen_half_saturation,
+        minimum_quota=:minimum_nitrogen_quota,
+        maximum_quota=:maximum_nitrogen_quota,
+        hill=:nitrogen_uptake_hill,
+    ))
+    phosphorus_uptake = quota_uptake(:phosphorus, :PO4, (
+        maximum_rate=:maximum_phosphorus_uptake,
+        half_saturation=:phosphorus_half_saturation,
+        minimum_quota=:minimum_phosphorus_quota,
+        maximum_quota=:maximum_phosphorus_quota,
+        hill=:phosphorus_uptake_hill,
+    ))
+    return (; growth, nitrogen_uptake, phosphorus_uptake)
+end
+
+quota_parameters() = (
+    maximum_growth_rate=Agate.Parameters.Parameter(0.5),
+    photosynthetic_slope=Agate.Parameters.Parameter(0.05),
+    minimum_nitrogen_quota=Agate.Parameters.Parameter(0.05),
+    maximum_nitrogen_quota=Agate.Parameters.Parameter(0.2),
+    minimum_phosphorus_quota=Agate.Parameters.Parameter(0.005),
+    maximum_phosphorus_quota=Agate.Parameters.Parameter(0.02),
+    maximum_nitrogen_uptake=Agate.Parameters.Parameter(0.1),
+    nitrogen_half_saturation=Agate.Parameters.Parameter(0.2),
+    nitrogen_uptake_hill=Agate.Parameters.Parameter(2.0),
+    maximum_phosphorus_uptake=Agate.Parameters.Parameter(0.01),
+    phosphorus_half_saturation=Agate.Parameters.Parameter(0.02),
+    phosphorus_uptake_hill=Agate.Parameters.Parameter(2.0),
+)
+
+quota_definition() = Agate.Processes.ModelDefinition(;
+    components=quota_components(),
+    processes=quota_processes(),
+    parameters=quota_parameters(),
+)
+
 nipizd_named_size_structure() = (;
     phytoplankton=(diat=[2.0, 5.0, 10.0], dino=[8.0, 20.0]),
     zooplankton=(microzoo=[30.0, 60.0], mesozoo=[100.0]),

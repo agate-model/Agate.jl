@@ -34,11 +34,11 @@ quota_runtime_args(;
     end
     @test all(>(0), (tendency.P_1_carbon, tendency.P_1_nitrogen, tendency.P_1_phosphorus))
     reference = 1.0
-    for (state, internal, maximum_rate, K, minimum, maximum) in (
+    for (state, internal, maximum_rate, half_saturation, minimum, maximum) in (
         (:P_1_nitrogen, 0.1, 0.1, 0.2, 0.05, 0.2),
         (:P_1_phosphorus, 0.01, 0.01, 0.02, 0.005, 0.02),
     )
-        expected = maximum_rate * reference * monod_limitation(1.0, K) *
+        expected = maximum_rate * reference * monod_limitation(1.0, half_saturation) *
                    quota_uptake_regulation(internal, reference, minimum, maximum, 2.0)
         @test isapprox(getproperty(tendency, state), expected)
     end
@@ -63,10 +63,10 @@ quota_runtime_args(;
         @test isapprox(actual, expected_growth(nitrogen, phosphorus))
     end
 
-    zero = model_tendencies(bgc, quota_runtime_args(;
+    zero_biomass = model_tendencies(bgc, quota_runtime_args(;
         P_1_carbon=0.0, P_1_nitrogen=0.1, P_1_phosphorus=0.01,
     ))
-    @test all(isfinite, values(zero)) && all(iszero, values(zero))
+    @test all(isfinite, values(zero_biomass)) && all(iszero, values(zero_biomass))
     carbon_growth(nitrogen) = bgc(Val(:P_1_carbon), quota_runtime_args(;
         P_1_nitrogen=nitrogen, P_1_phosphorus=0.018,
     )...)

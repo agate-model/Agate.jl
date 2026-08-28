@@ -26,7 +26,7 @@ processes = (
         factors=(
             light=Light(Smith(); driver=:PAR),
             nutrients=NutrientResponse(
-                Monod(); resource=:N, bindings=(K=:nutrient_half_saturation,)
+                Monod(); resource=:N, bindings=(half_saturation=:nutrient_half_saturation,)
             ),
         ),
     ),
