@@ -341,8 +341,8 @@ using Oceananigans.Biogeochemistry:
                 )
                 drift = biogeochemical_drift_velocity(bgc_sinking, Val(:D)).w
 
-                @test parent(drift.data) isa array_type(GPU())
-                @test any(==(-sinking_rate), Array(parent(drift.data)))
+                @test parent(drift) isa array_type(GPU())
+                @test any(==(-sinking_rate), Array(parent(drift)))
                 @test biogeochemical_drift_velocity(bgc_sinking, Val(:Z_1)).w == ZeroField()
 
                 light_attenuation = FunctionFieldPAR(; grid, PAR_f=CyclicalPAR())

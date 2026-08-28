@@ -27,6 +27,23 @@ function on_architecture(arch, x)
     return adapt(architecture_array_type(arch), x)
 end
 
+function on_architecture(
+    arch, bgc::AgateBGC{PT,EQ,SV,MD,AF}
+) where {PT,EQ,SV,MD,AF}
+    arch === nothing && return bgc
+    arch isa CPU && return bgc
+
+    to = architecture_array_type(arch)
+    # Move runtime storage while retaining metadata on the host-side object.
+    return AgateBGC(
+        adapt(to, bgc.parameters),
+        adapt(to, bgc.equations),
+        AF,
+        adapt(to, bgc.sinking_velocities),
+        bgc.metadata,
+    )
+end
+
 """Return the preferred array storage type for `arch`."""
 function architecture_array_type(arch)
     arch isa CPU && return Array

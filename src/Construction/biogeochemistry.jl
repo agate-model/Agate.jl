@@ -24,13 +24,18 @@ function AgateBGC(parameters, equations::NamedTuple, auxiliary_fields::Tuple, si
     }(parameters, equations, sinking_velocities, metadata)
 end
 
-@inline function Adapt.adapt_structure(to, bgc::AgateBGC{PT,EQ,SV,MD,AF}) where {PT,EQ,SV,MD,AF}
+@inline function Adapt.adapt_structure(
+    to, bgc::AgateBGC{PT,EQ,SV,MD,AF}
+) where {PT,EQ,SV,MD,AF}
+    # `metadata` is host-side introspection/setup state. Device kernel copies must not
+    # carry Symbol-valued metadata because GPU kernel arguments must be bitstypes.
+    adapted_metadata = to === identity ? bgc.metadata : nothing
     return AgateBGC(
         Adapt.adapt(to, bgc.parameters),
         Adapt.adapt(to, bgc.equations),
         AF,
         Adapt.adapt(to, bgc.sinking_velocities),
-        Adapt.adapt(to, bgc.metadata),
+        adapted_metadata,
     )
 end
 
