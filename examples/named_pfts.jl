@@ -1,4 +1,4 @@
-# # [Comparing phytoplankton light strategies] (@id named_plankton_groups_example)
+# # [Comparing phytoplankton light strategies] (@id named_pfts_example)
 
 # Plankton are highly diverse, and representing some of this diversity can be
 # important in ecosystem models. One important axis of variation is adaptation to
@@ -33,7 +33,7 @@ nothing #hide
 
 # ## Ecosystem model
 
-# Named groups are defined separately for the phytoplankton and zooplankton roles. Both
+# Named PFTs are defined separately for the phytoplankton and zooplankton roles. Both
 # phytoplankton types use the same diameter so their different behavior comes from the trait
 # overrides rather than from size-dependent defaults.
 
@@ -56,7 +56,7 @@ parameters = (;
 bgc = Agate.Models.NiPiZD.construct(; size_structure, parameters)
 nothing #hide
 
-# The named groups are realized as deterministic tracer names.
+# The named PFTs are realized as deterministic tracer names.
 
 println(tracer_names(bgc))
 
@@ -100,8 +100,8 @@ function run_light_treatment(bgc, PAR, filename)
     return filename
 end
 
-low_filename = run_light_treatment(bgc, low_PAR, "named_groups_low_light.jld2")
-high_filename = run_light_treatment(bgc, high_PAR, "named_groups_high_light.jld2")
+low_filename = run_light_treatment(bgc, low_PAR, "named_pfts_low_light.jld2")
+high_filename = run_light_treatment(bgc, high_PAR, "named_pfts_high_light.jld2")
 
 nothing #hide
 
@@ -153,6 +153,6 @@ end
 
 Label(fig[0, 1:2], "Contrasting responses to low and high light"; fontsize=20)
 
-save("named_plankton_groups.png", fig; px_per_unit=1)
+save("named_pfts.png", fig; px_per_unit=1)
 
 fig

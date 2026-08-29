@@ -58,8 +58,8 @@ explicit_json_value(::Any) = false
     @test encoded["family"] == "NiPiZD"
     @test encoded["definition_version"] == "0.1.0"
     @test Set(keys(encoded["realization"])) == Set((
-        "population_groups",
-        "size_groups",
+        "plankton_pfts",
+        "pft_size_structures",
         "parameter_overrides",
         "sinking_tracers",
         "open_bottom",
@@ -74,14 +74,18 @@ explicit_json_value(::Any) = false
 
     @test recipe.family === :NiPiZD
     @test recipe.definition_version == definition_version(family)
-    @test recipe.population_groups == (P=(:diat,), Z=(:microzoo,))
-    @test keys(recipe.group_diameters) == (:microzoo, :diat)
+    @test recipe.plankton_pfts == (P=(:diat,), Z=(:microzoo,))
+    @test keys(recipe.pft_size_structures) == (:microzoo, :diat)
     @test recipe.parameter_overrides == merge(
         inputs.parameters, (palatability_matrix=inputs.palatability_matrix,)
     )
     @test !recipe.open_bottom
     @test recipe.sinking_tracers == inputs.sinking_tracers
     @test decoded == recipe
+    @test manifest.pft_size_classes == (
+        microzoo=(:microzoo_1, :microzoo_2),
+        diat=(:diat_1, :diat_2),
+    )
     @test decoded_manifest == manifest
     @test decoded_manifest.sinking_tracers.D isa Float32
 
@@ -158,11 +162,11 @@ explicit_json_value(::Any) = false
     end
     @test_throws ArgumentError decode_recipe(mismatched_version)
 
-    bumped_recipe = Agate.Construction.ProcessModelRecipe(
+    bumped_recipe = Agate.Construction.ModelRecipe(
         recipe.family,
         v"0.1.1",
-        recipe.population_groups,
-        recipe.group_diameters,
+        recipe.plankton_pfts,
+        recipe.pft_size_structures,
         recipe.parameter_overrides,
         recipe.sinking_tracers,
         recipe.open_bottom,
@@ -176,7 +180,7 @@ explicit_json_value(::Any) = false
         x["schema"] = "agate.model_recipe.invalid"
     end
     invalid_realization = rehashed(encoded) do x
-        pop!(x["realization"]["size_groups"])
+        pop!(x["realization"]["pft_size_structures"])
     end
     invalid_law = rehashed(encoded) do x
         override = only(

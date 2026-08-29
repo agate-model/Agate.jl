@@ -3,9 +3,9 @@ module Configuration
 
 using Adapt
 
-export Population, Pool
-export currency, states, reference_state, variable_states, state_element, size_structure
-export component_classes, component_state_tracers
+export Plankton, Pool
+export element, states, reference_state, variable_states, state_element, size_structure
+export component_entities, component_state_tracers
 export component_tracers, state_tracers, state_tracer
 export component_diameters
 export PalatabilityAllometric, AssimilationBinary

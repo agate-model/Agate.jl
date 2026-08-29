@@ -24,24 +24,25 @@ end
 
 @inline flux_target(flux::FluxSpec) = flux.target
 
-@inline _axis_position(local_index::Int, class::Symbol) = (; local_index, class)
+@inline _axis_position(axis_index::Int, entity::Symbol, component_index::Int) =
+    (; axis_index, entity, component_index)
 
 """Realize participant states or components to concrete tracers and ecological positions."""
 function _realize_participants(items::Tuple, layout::ModelLayout)
     participants = Any[]
-    local_index = 0
+    axis_index = 0
     for item in items
-        is_state_reference = item isa PopulationStateRef
-        component = is_state_reference ? item.population : item
+        is_state_reference = item isa PlanktonStateRef
+        component = is_state_reference ? item.plankton : item
         tracers = is_state_reference ? state_tracers(layout, item) : component_tracers(layout, item)
-        classes = component_classes(layout, component)
-        length(tracers) == length(classes) || throw(ArgumentError(
-            "participant $item must realize exactly one tracer per ecological class",
+        entities = component_entities(layout, component)
+        length(tracers) == length(entities) || throw(ArgumentError(
+            "participant $item must realize exactly one tracer per realized entity",
         ))
-        for class_ordinal in eachindex(classes)
-            local_index += 1
-            position = _axis_position(local_index, classes[class_ordinal])
-            push!(participants, (; tracer=tracers[class_ordinal], position))
+        for component_index in eachindex(entities)
+            axis_index += 1
+            position = _axis_position(axis_index, entities[component_index], component_index)
+            push!(participants, (; tracer=tracers[component_index], component, component_index, position))
         end
     end
     return Tuple(participants)
@@ -55,7 +56,7 @@ function input_operand(layout::ModelLayout, identity::Symbol)
     return InputOp{getproperty(layout.input_indices, identity)}()
 end
 
-"""Resolve one canonical parameter slot directly from realized ecological class identity."""
+"""Resolve one canonical parameter slot directly from realized entity identity."""
 function parameter_operand(
     binding::ParameterBinding,
     plan::ParameterPlan,
@@ -68,7 +69,7 @@ function parameter_operand(
             "parameter :$(binding.parameter) axis :$axis has no realized runtime position",
         ))
         position = getproperty(axis_positions, axis)
-        parameter_storage_index(plan, binding.parameter, dimension, position.class)
+        parameter_storage_index(plan, binding.parameter, dimension, position.entity)
     end
     return ParameterOp{binding.parameter,indices}()
 end

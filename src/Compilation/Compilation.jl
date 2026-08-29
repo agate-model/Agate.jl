@@ -3,8 +3,8 @@ module Compilation
 
 using ..Configuration:
     ModelLayout,
-    PopulationStateRef,
-    component_classes,
+    PlanktonStateRef,
+    component_entities,
     component_tracers,
     state_tracer,
     state_tracers
@@ -19,9 +19,9 @@ using ..Processes:
     NutrientUptake,
     FactorDriver,
     FactorComponent,
-    FactorPopulationState,
+    FactorPlanktonState,
     factor_inputs,
-    factor_children,
+    factor_subfactors,
     HeterotrophicConsumption,
     NamedProcess,
     process_id,

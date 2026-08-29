@@ -1,5 +1,5 @@
 using ...ModelFamilies: AbstractModelFamily
-using ...Configuration: Population, Pool
+using ...Configuration: Plankton, Pool
 using ...Processes:
     Growth, Light, NutrientResponse, Consumption, Mortality, Products, Remineralization,
     Smith, Monod, PreferentialGrazing, LinearMortality, QuadraticMortality,
@@ -21,12 +21,12 @@ const DEFAULT_SIZE_STRUCTURE = (
 )
 
 const NIPIZD_COMPONENTS = (
-    P=Population(;
+    P=Plankton(;
         states=:nitrogen,
         reference_state=:nitrogen,
         size_structure=DEFAULT_SIZE_STRUCTURE.phytoplankton.P,
     ),
-    Z=Population(;
+    Z=Plankton(;
         states=:nitrogen,
         reference_state=:nitrogen,
         size_structure=DEFAULT_SIZE_STRUCTURE.zooplankton.Z,
@@ -40,7 +40,7 @@ default_components(::NiPiZDFamily) = NIPIZD_COMPONENTS
 
 const NIPIZD_PROCESSES = (
     growth_P=Growth(;
-        populations=:P,
+        plankton=:P,
         bindings=(maximum_rate=:maximum_growth_rate,),
         factors=(
             light=Light(Smith(); driver=:PAR),
@@ -63,7 +63,7 @@ const NIPIZD_PROCESSES = (
     ),
     linear_mortality_P=Mortality(
         LinearMortality();
-        populations=:P,
+        plankton=:P,
         bindings=(rate=:linear_mortality,),
         products=Products(
             (detritus=:D, nutrient=:N);
@@ -72,7 +72,7 @@ const NIPIZD_PROCESSES = (
     ),
     linear_mortality_Z=Mortality(
         LinearMortality();
-        populations=:Z,
+        plankton=:Z,
         bindings=(rate=:linear_mortality,),
         products=Products(
             (detritus=:D, nutrient=:N);
@@ -81,7 +81,7 @@ const NIPIZD_PROCESSES = (
     ),
     quadratic_mortality_Z=Mortality(
         QuadraticMortality();
-        populations=:Z,
+        plankton=:Z,
         bindings=(rate=:quadratic_mortality,),
         products=Products(
             (detritus=:D, nutrient=:N);

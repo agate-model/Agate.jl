@@ -15,52 +15,52 @@ struct ParameterPlan{P}
     parameters::P
 end
 
-_parameter_axis_classes(bindings::Tuple, binding_classes::Tuple, name::Symbol) = Tuple(
-    classes for (binding, classes) in zip(bindings, binding_classes)
+_parameter_axis_entities(bindings::Tuple, binding_entities::Tuple, name::Symbol) = Tuple(
+    entities for (binding, entities) in zip(bindings, binding_entities)
     if binding.parameter === name
 )
 
-function _layout_axis_classes(layout::ModelLayout, components::Tuple)
-    classes = Symbol[]
+function _layout_axis_entities(layout::ModelLayout, components::Tuple)
+    entities = Symbol[]
     for component in components
-        hasproperty(layout.component_classes, component) || throw(ArgumentError(
+        hasproperty(layout.component_entities, component) || throw(ArgumentError(
             "parameter applicability references unrealized component :$component",
         ))
-        append!(classes, component_classes(layout, component))
+        append!(entities, component_entities(layout, component))
     end
-    return Tuple(classes)
+    return Tuple(entities)
 end
 
-function _resolved_binding_axis_classes(
+function _resolved_binding_axis_entities(
     definition::CanonicalModelDefinition, layout::ModelLayout
 )
     return map(definition.parameter_bindings) do binding
-        map(components -> _layout_axis_classes(layout, components), binding.axis_components)
+        map(components -> _layout_axis_entities(layout, components), binding.axis_components)
     end
 end
 
 function _layout_storage_order(layout::ModelLayout)
-    labels = collect(layout.class_symbols)
+    labels = collect(layout.size_classes)
     seen = Set(labels)
-    for classes in values(layout.component_classes), class in classes
-        class in seen && continue
-        push!(labels, class)
-        push!(seen, class)
+    for entities in values(layout.component_entities), entity in entities
+        entity in seen && continue
+        push!(labels, entity)
+        push!(seen, entity)
     end
     return Tuple(labels)
 end
 
-function _union_storage_labels(layout::ModelLayout, name::Symbol, rank::Int, axis_classes::Tuple)
+function _union_storage_labels(layout::ModelLayout, name::Symbol, rank::Int, axis_entities::Tuple)
     rank == 0 && return ()
-    isempty(axis_classes) && throw(ArgumentError(
+    isempty(axis_entities) && throw(ArgumentError(
         "parameter :$name has slot-derived storage but no resolved process applicability",
     ))
     order = _layout_storage_order(layout)
     return ntuple(rank) do dimension
-        flat = Set(class for classes in axis_classes for class in classes[dimension])
+        flat = Set(entity for entities in axis_entities for entity in entities[dimension])
         labels = Tuple(label for label in order if label in flat)
         length(labels) == length(flat) || throw(ArgumentError(
-            "parameter :$name applicability contains classes outside the realized layout",
+            "parameter :$name applicability contains entities outside the realized layout",
         ))
         labels
     end
@@ -77,45 +77,45 @@ function _planned_parameter_axes(definition, name, parameter::Parameter)
     return definition.parameter_bindings[index].axes
 end
 
-function _parameter_storage_labels(layout, name, axes, axis_classes)
+function _parameter_storage_labels(layout, name, axes, axis_entities)
     rank = length(axes)
     rank == 0 && return ()
-    if isempty(axis_classes)
+    if isempty(axis_entities)
         axes == (:plankton,) || throw(ArgumentError(
             "construction-only parameter :$name has unsupported explicit axes $axes",
         ))
-        return (layout.class_symbols,)
+        return (layout.size_classes,)
     end
-    return _union_storage_labels(layout, name, rank, axis_classes)
+    return _union_storage_labels(layout, name, rank, axis_entities)
 end
 
-function _diameter_by_class(layout::ModelLayout)
-    values = Dict{Symbol,Any}(zip(layout.class_symbols, layout.diameters))
-    for component in keys(layout.component_classes)
+function _diameter_by_entity(layout::ModelLayout)
+    values = Dict{Symbol,Any}(zip(layout.size_classes, layout.size_class_diameters))
+    for component in keys(layout.component_entities)
         diameters = getproperty(layout.component_diameters, component)
         isnothing(diameters) && continue
-        for (class, diameter) in zip(getproperty(layout.component_classes, component), diameters)
-            values[class] = diameter
+        for (entity, diameter) in zip(getproperty(layout.component_entities, component), diameters)
+            values[entity] = diameter
         end
     end
     return values
 end
 
-function _storage_diameters(rank, labels, diameter_by_class)
+function _storage_diameters(rank, labels, diameter_by_entity)
     rank == 1 || return nothing
     axis = only(labels)
-    all(label -> haskey(diameter_by_class, label), axis) || return nothing
-    return Tuple(diameter_by_class[label] for label in axis)
+    all(label -> haskey(diameter_by_entity, label), axis) || return nothing
+    return Tuple(diameter_by_entity[label] for label in axis)
 end
 
 
-function _planned_parameter(definition, layout, name, parameter, binding_classes, diameters)
-    axis_classes = _parameter_axis_classes(
-        definition.parameter_bindings, binding_classes, name
+function _planned_parameter(definition, layout, name, parameter, binding_entities, diameters)
+    axis_entities = _parameter_axis_entities(
+        definition.parameter_bindings, binding_entities, name
     )
     axes = _planned_parameter_axes(definition, name, parameter)
     rank = length(axes)
-    labels = _parameter_storage_labels(layout, name, axes, axis_classes)
+    labels = _parameter_storage_labels(layout, name, axes, axis_entities)
     return PlannedParameter(
         name,
         parameter,
@@ -131,13 +131,13 @@ end
 """Build the authoritative realized parameter plan after `ModelLayout` exists."""
 function build_parameter_plan(definition::CanonicalModelDefinition, layout::ModelLayout)
     definitions = isnothing(definition.parameters) ? (;) : definition.parameters
-    binding_classes = _resolved_binding_axis_classes(definition, layout)
-    diameters = _diameter_by_class(layout)
+    binding_entities = _resolved_binding_axis_entities(definition, layout)
+    diameters = _diameter_by_entity(layout)
     names = keys(definitions)
     parameters = NamedTuple{names}(ntuple(length(names)) do i
         name = names[i]
         _planned_parameter(
-            definition, layout, name, getproperty(definitions, name), binding_classes, diameters
+            definition, layout, name, getproperty(definitions, name), binding_entities, diameters
         )
     end)
     return ParameterPlan(parameters)
@@ -147,18 +147,18 @@ planned_parameter(plan::ParameterPlan, name::Symbol) =
     hasproperty(plan.parameters, name) ? getproperty(plan.parameters, name) :
     throw(ArgumentError("unknown parameter :$name"))
 
-"""Resolve one ecological class directly to its realized parameter-storage index."""
+"""Resolve one realized entity directly to its realized parameter-storage index."""
 function parameter_storage_index(
-    plan::ParameterPlan, name::Symbol, dimension::Int, class::Symbol
+    plan::ParameterPlan, name::Symbol, dimension::Int, entity::Symbol
 )
     parameter = planned_parameter(plan, name)
     1 <= dimension <= parameter.rank || throw(ArgumentError(
         "parameter :$name has no realized storage dimension $dimension",
     ))
     labels = parameter.storage_labels[dimension]
-    index = findfirst(==(class), labels)
+    index = findfirst(==(entity), labels)
     isnothing(index) && throw(ArgumentError(
-        "parameter :$name ecological class :$class is not present on realized storage dimension $dimension",
+        "parameter :$name realized entity :$entity is not present on realized storage dimension $dimension",
     ))
     return index
 end
@@ -198,8 +198,8 @@ end
 
 """Return host metadata for runtime parameters stored on canonical consumer-by-prey axes."""
 function interaction_axis_metadata(plan::ParameterPlan, layout::ModelLayout)
-    consumers = Tuple(layout.class_symbols[index] for index in layout.consumer_indices)
-    prey = Tuple(layout.class_symbols[index] for index in layout.prey_indices)
+    consumers = Tuple(layout.size_classes[index] for index in layout.consumer_indices)
+    prey = Tuple(layout.size_classes[index] for index in layout.prey_indices)
     names = Tuple(
         name for name in keys(plan.parameters)
         if begin

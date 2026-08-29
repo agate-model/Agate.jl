@@ -4,19 +4,19 @@ function _growth_rate(
     participant,
     scale_ref::Int,
 )
-    axis_positions = (population=participant.position,)
-    rate_factors = _factor_elements(context, named, axis_positions)
+    axis_positions = (plankton=participant.position,)
+    rate_factors = _factor_ops(context, named, axis_positions)
     operands = (
         input_operand(context.layout, participant.tracer),
         parameter_operand(scale_ref, context, axis_positions),
     )
-    return RateElement(formulation(named.process), operands; factors=rate_factors)
+    return RateOp(formulation(named.process), operands; factors=rate_factors)
 end
 
 function _growth_resource_fluxes(
     named::NamedProcess,
     context::CompileContext,
-    rate::RateElement,
+    rate::RateOp,
 )
     facts = named.facts
     layout = context.layout
@@ -27,8 +27,8 @@ function _growth_resource_fluxes(
             Weight{-1}(),
         ),
     ]
-    for (currency, resource) in pairs(facts.additional_resources)
-        ratio_ref = getproperty(named.binding_refs.stoichiometry, currency).ratio
+    for (element, resource) in pairs(facts.additional_resources)
+        ratio_ref = getproperty(named.binding_refs.stoichiometry, element).ratio
         push!(
             fluxes,
             FluxSpec(
@@ -46,7 +46,7 @@ function process_fluxes(
     named::NamedProcess{P}, context::CompileContext
 ) where {P<:Growth}
     layout = context.layout
-    participants = _realize_participants(named.facts.population_states, layout)
+    participants = _realize_participants(named.facts.plankton_states, layout)
     scale_ref = named.binding_refs.process.maximum_rate
     fluxes = Any[]
 

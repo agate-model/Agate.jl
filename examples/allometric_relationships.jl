@@ -18,7 +18,7 @@
 # ## Loading dependencies
 
 using Agate.Models: NiPiZD
-using Agate.Introspection: plankton_groups
+using Agate.Introspection: pfts
 using Agate.Library.Allometry: AllometricParam, PowerLaw
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -30,8 +30,8 @@ using CairoMakie
 # ## Choose the plankton sizes
 
 # We use five phytoplankton sizes so that the effect of size on growth is easy to see.
-# The numbers below are cell diameters in μm. Here `P` is the phytoplankton group and `Z`
-# is the zooplankton group. The chosen sizes also span the rise and fall in growth rate
+# The numbers below are cell diameters in μm. Here `P` is the phytoplankton PFT and `Z`
+# is the zooplankton PFT. The chosen sizes also span the rise and fall in growth rate
 # described by Ward et al. later in the example. In the box-model experiments, zooplankton
 # starts at zero so that the first few days mainly show phytoplankton growth.
 
@@ -68,9 +68,9 @@ nothing #hide
 
 
 # The growth process applies only to phytoplankton, so its realized parameter storage
-# contains exactly the phytoplankton classes.
+# contains exactly the phytoplankton SizeClasses.
 
-phytoplankton_tracers = plankton_groups(default_bgc).P
+phytoplankton_tracers = pfts(default_bgc).P
 phytoplankton_diameters = size_structure.phytoplankton.P
 default_growth_rates = default_bgc.parameters.maximum_growth_rate
 nothing #hide
@@ -100,7 +100,7 @@ nothing #hide
 # Before running a simulation, compare the values that the two relationships give each
 # phytoplankton size:
 #
-# `relationship + coefficients → construct → one parameter value for each size class`.
+# `relationship + coefficients → construct → one parameter value for each SizeClass`.
 
 slope_fig = Figure(; size=(700, 440), fontsize=14)
 slope_ax = Axis(
@@ -201,7 +201,7 @@ nothing #hide
 
 # #### Plot the comparison
 
-# Finally, plot each phytoplankton size class so the effect of the changed allometric
+# Finally, plot each phytoplankton SizeClass so the effect of the changed allometric
 # slope can be compared through time.
 
 function plot_growth_comparison(

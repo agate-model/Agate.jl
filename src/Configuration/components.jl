@@ -1,26 +1,26 @@
-"""Population state described by intrinsic component properties.
+"""Plankton state described by intrinsic component properties.
 
 Ecological function is supplied by process participation. `states` names every prognostic
-state carried by the population, while `reference_state` identifies the state used as its
+state carried by the plankton, while `reference_state` identifies the state used as its
 biological reference basis. Elemental bookkeeping is inferred centrally by [`state_element`](@ref);
 non-elemental states such as `:chlorophyll` return `nothing`.
 
 """
-struct Population{ST<:Tuple,S}
+struct Plankton{ST<:Tuple,S}
     states::ST
     reference_state::Symbol
     size_structure::S
 
-    function Population(states::ST, reference_state::Symbol, size_structure::S) where {ST<:Tuple,S}
-        isempty(states) && throw(ArgumentError("Population must define at least one state."))
+    function Plankton(states::ST, reference_state::Symbol, size_structure::S) where {ST<:Tuple,S}
+        isempty(states) && throw(ArgumentError("Plankton must define at least one state."))
         all(state -> state isa Symbol, states) || throw(
-            ArgumentError("Population `states` must contain only Symbols."),
+            ArgumentError("Plankton `states` must contain only Symbols."),
         )
         length(unique(states)) == length(states) || throw(
-            ArgumentError("Population state identities must be unique."),
+            ArgumentError("Plankton state identities must be unique."),
         )
         reference_state in states || throw(
-            ArgumentError("Population `reference_state` must be one of its declared states."),
+            ArgumentError("Plankton `reference_state` must be one of its declared states."),
         )
         return new{ST,S}(states, reference_state, size_structure)
     end
@@ -29,43 +29,37 @@ end
 function _canonical_states(states)
     states isa Symbol && return (states,)
     states isa Tuple || throw(
-        ArgumentError("Population `states` must be a Symbol or Tuple of Symbols."),
+        ArgumentError("Plankton `states` must be a Symbol or Tuple of Symbols."),
     )
     return states
 end
 
-function Population(; states, reference_state, size_structure=nothing)
+function Plankton(; states, reference_state, size_structure=nothing)
     reference_state isa Symbol || throw(
-        ArgumentError("Population `reference_state` must be a Symbol."),
+        ArgumentError("Plankton `reference_state` must be a Symbol."),
     )
-    return Population(_canonical_states(states), reference_state, size_structure)
+    return Plankton(_canonical_states(states), reference_state, size_structure)
 end
 
-"""Material-pool state described by intrinsic component properties."""
-struct Pool{C,S}
-    currency::C
-    size_structure::S
+"""Scalar material-pool state described by its conserved Element."""
+struct Pool
+    element::Symbol
 end
 
-function Pool(currency; size_structure=nothing)
-    isnothing(currency) && throw(ArgumentError("Pool currency must be specified."))
-    return Pool(currency, size_structure)
-end
-
-"""Reference one named prognostic state carried by a logical population."""
-struct PopulationStateRef
-    population::Symbol
+"""Reference one named prognostic state carried by a logical plankton."""
+struct PlanktonStateRef
+    plankton::Symbol
     state::Symbol
 end
 
-"""Return all prognostic state identities for a population."""
-@inline states(component::Population) = component.states
+"""Return all prognostic state identities for a plankton."""
+@inline states(component::Plankton) = component.states
 
-"""Return the population state used as its biological reference basis."""
-@inline reference_state(component::Population) = component.reference_state
+"""Return the plankton state used as its biological reference basis."""
+@inline reference_state(component::Plankton) = component.reference_state
 
-"""Return all prognostic population states other than the reference state."""
-@inline variable_states(component::Population) = Tuple(
+"""Return all prognostic plankton states other than the reference state."""
+@inline variable_states(component::Plankton) = Tuple(
     state for state in component.states if state !== component.reference_state
 )
 
@@ -77,13 +71,13 @@ Element identity is the additive elemental inventory represented by the state's 
 not the chemical composition of the represented material. Canonical elemental state names map to
 themselves; other states remain non-elemental until an explicit mapping API is introduced.
 """
-function state_element(component::Population, state::Symbol)
-    state in component.states || throw(ArgumentError("Population has no state :$state."))
+function state_element(component::Plankton, state::Symbol)
+    state in component.states || throw(ArgumentError("Plankton has no state :$state."))
     return state in _ELEMENTAL_STATES ? state : nothing
 end
 
-"""Return the conserved-material currency represented by a material Pool."""
-@inline currency(component::Pool) = component.currency
+"""Return the conserved-material element represented by a material Pool."""
+@inline element(component::Pool) = component.element
 
 """Return the intrinsic size-structure specification for `component`."""
-@inline size_structure(component::Union{Population,Pool}) = component.size_structure
+@inline size_structure(component::Plankton) = component.size_structure

@@ -22,14 +22,14 @@ struct PalatabilityAllometric end
 """Derive consumer-by-prey assimilation from binary efficiency traits."""
 struct AssimilationBinary end
 
-function _class_indices(
+function _size_class_indices(
     layout::ModelLayout, labels::Tuple, parameter_name::Symbol, axis_name::Symbol
 )
     return map(labels) do label
-        index = findfirst(==(label), layout.class_symbols)
+        index = findfirst(==(label), layout.size_classes)
         isnothing(index) && throw(ArgumentError(
-            "derived default :$parameter_name $axis_name class :$label is not a " *
-            "realized population class",
+            "derived default :$parameter_name $axis_name SizeClass :$label is not a " *
+            "realized plankton SizeClass",
         ))
         index
     end
@@ -39,7 +39,7 @@ end
     T = layout.scalar_type
     return palatability_matrix_allometric_axes(
         T,
-        layout.diameters;
+        layout.size_class_diameters;
         optimum_predator_prey_ratio=_require_scalar_vector(
             T, params.optimum_predator_prey_ratio, :optimum_predator_prey_ratio
         ),
@@ -89,8 +89,8 @@ end
     return _derive_palatability(
         layout,
         params,
-        _class_indices(layout, consumer_labels, parameter.name, :consumer),
-        _class_indices(layout, prey_labels, parameter.name, :prey),
+        _size_class_indices(layout, consumer_labels, parameter.name, :consumer),
+        _size_class_indices(layout, prey_labels, parameter.name, :prey),
     )
 end
 
@@ -105,7 +105,7 @@ end
     return _derive_assimilation(
         layout,
         params,
-        _class_indices(layout, consumer_labels, parameter.name, :consumer),
+        _size_class_indices(layout, consumer_labels, parameter.name, :consumer),
         eachindex(resource_labels),
     )
 end

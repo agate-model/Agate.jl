@@ -229,7 +229,7 @@ end
     @test bgc_p.parameters.palatability_matrix[2, 2] == base_bgc.parameters.palatability_matrix[2, 2]
 end
 
-@testset "named-group runtime active parameters" begin
+@testset "named-PFT runtime active parameters" begin
     named_bgc = ActiveParameterNiPiZD.construct(;
         size_structure=(;
             phytoplankton=(diat=[2.0], dino=[10.0]),

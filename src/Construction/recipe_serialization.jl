@@ -7,12 +7,12 @@ using ..Library.Allometry:
     allometric_relationship_identifier,
     allometric_relationship_from_identifier
 
-const PROCESS_MODEL_RECIPE_SCHEMA = "agate.model_recipe.v1"
+const MODEL_RECIPE_SCHEMA = "agate.model_recipe.v1"
 const _RECIPE_DOCUMENT_KEYS = (
     "schema", "family", "definition_version", "realization", "provenance", "content_hash"
 )
 const _REALIZATION_KEYS = (
-    "population_groups", "size_groups", "parameter_overrides", "sinking_tracers", "open_bottom"
+    "plankton_pfts", "pft_size_structures", "parameter_overrides", "sinking_tracers", "open_bottom"
 )
 const _SUPPORTED_SPLITTING = (:linear_splitting, :log_splitting)
 
@@ -288,86 +288,84 @@ function _decode_diameter_specification(x, path)
     throw(ArgumentError("$path has unsupported diameter kind $(repr(kind))."))
 end
 
-function _encode_population_groups(population_groups::NamedTuple)
+function _encode_plankton_pfts(plankton_pfts::NamedTuple)
     return Any[
         Dict{String,Any}(
-            "population" => String(population),
-            "groups" => Any[String(group) for group in groups],
+            "plankton" => String(plankton),
+            "pfts" => Any[String(pft) for pft in pfts],
         )
-        for (population, groups) in pairs(population_groups)
+        for (plankton, pfts) in pairs(plankton_pfts)
     ]
 end
 
-function _decode_population_groups(x, path)
+function _decode_plankton_pfts(x, path)
     x isa AbstractVector || throw(ArgumentError("$path must be an array."))
-    populations = Symbol[]
+    plankton_names = Symbol[]
     values = Any[]
     for (i, item) in pairs(x)
         item_path = "$path[$i]"
-        item = _complete_object(item, ("population", "groups"), item_path)
-        population = _symbol(item["population"], "$item_path.population")
-        population in populations && throw(
-            ArgumentError("$path contains duplicate population $(repr(population)).")
+        item = _complete_object(item, ("plankton", "pfts"), item_path)
+        plankton = _symbol(item["plankton"], "$item_path.plankton")
+        plankton in plankton_names && throw(
+            ArgumentError("$path contains duplicate plankton $(repr(plankton)).")
         )
-        groups_raw = item["groups"]
-        groups_raw isa AbstractVector || throw(ArgumentError("$item_path.groups must be an array."))
-        isempty(groups_raw) && throw(ArgumentError("$item_path.groups cannot be empty."))
-        groups = Tuple(
-            _symbol(group, "$item_path.groups[$j]") for (j, group) in pairs(groups_raw)
+        pfts_raw = item["pfts"]
+        pfts_raw isa AbstractVector || throw(ArgumentError("$item_path.pfts must be an array."))
+        isempty(pfts_raw) && throw(ArgumentError("$item_path.pfts cannot be empty."))
+        pfts = Tuple(_symbol(pft, "$item_path.pfts[$j]") for (j, pft) in pairs(pfts_raw))
+        length(unique(pfts)) == length(pfts) || throw(
+            ArgumentError("$item_path.pfts contains duplicate PFT names.")
         )
-        length(unique(groups)) == length(groups) || throw(
-            ArgumentError("$item_path.groups contains duplicate group names.")
-        )
-        push!(populations, population)
-        push!(values, groups)
+        push!(plankton_names, plankton)
+        push!(values, pfts)
     end
-    return NamedTuple{Tuple(populations)}(Tuple(values))
+    return NamedTuple{Tuple(plankton_names)}(Tuple(values))
 end
 
-function _encode_group_diameters(group_diameters::NamedTuple)
+function _encode_pft_size_structures(pft_size_structures::NamedTuple)
     return Any[
         Dict{String,Any}(
-            "group" => String(group),
+            "pft" => String(pft),
             "diameters" => _encode_diameter_specification(specification),
         )
-        for (group, specification) in pairs(group_diameters)
+        for (pft, specification) in pairs(pft_size_structures)
     ]
 end
 
-function _decode_group_diameters(x, path)
+function _decode_pft_size_structures(x, path)
     x isa AbstractVector || throw(ArgumentError("$path must be an array."))
-    groups = Symbol[]
+    pfts = Symbol[]
     specifications = Any[]
     for (i, item) in pairs(x)
         item_path = "$path[$i]"
-        item = _complete_object(item, ("group", "diameters"), item_path)
-        group = _symbol(item["group"], "$item_path.group")
-        group in groups && throw(ArgumentError("$path contains duplicate group $(repr(group))."))
-        push!(groups, group)
+        item = _complete_object(item, ("pft", "diameters"), item_path)
+        pft = _symbol(item["pft"], "$item_path.pft")
+        pft in pfts && throw(ArgumentError("$path contains duplicate PFT $(repr(pft))."))
+        push!(pfts, pft)
         push!(
             specifications,
             _decode_diameter_specification(item["diameters"], "$item_path.diameters"),
         )
     end
-    return NamedTuple{Tuple(groups)}(Tuple(specifications))
+    return NamedTuple{Tuple(pfts)}(Tuple(specifications))
 end
 
-function _validate_realization(population_groups::NamedTuple, group_diameters::NamedTuple)
-    referenced = Symbol[group for groups in values(population_groups) for group in groups]
+function _validate_realization(plankton_pfts::NamedTuple, pft_size_structures::NamedTuple)
+    referenced = Symbol[pft for pfts in values(plankton_pfts) for pft in pfts]
     length(unique(referenced)) == length(referenced) || throw(
-        ArgumentError("Recipe population realization assigns one size group more than once.")
+        ArgumentError("Recipe plankton realization assigns one PFT more than once.")
     )
-    Set(referenced) == Set(keys(group_diameters)) || throw(
-        ArgumentError("Recipe size groups must match the groups assigned to populations exactly.")
+    Set(referenced) == Set(keys(pft_size_structures)) || throw(
+        ArgumentError("Recipe PFT size structures must match the PFTs assigned to plankton exactly.")
     )
     return nothing
 end
 
-function _encode_realization(recipe::ProcessModelRecipe)
-    _validate_realization(recipe.population_groups, recipe.group_diameters)
+function _encode_realization(recipe::ModelRecipe)
+    _validate_realization(recipe.plankton_pfts, recipe.pft_size_structures)
     return Dict{String,Any}(
-        "population_groups" => _encode_population_groups(recipe.population_groups),
-        "size_groups" => _encode_group_diameters(recipe.group_diameters),
+        "plankton_pfts" => _encode_plankton_pfts(recipe.plankton_pfts),
+        "pft_size_structures" => _encode_pft_size_structures(recipe.pft_size_structures),
         "parameter_overrides" => _encode_parameter_overrides(recipe.parameter_overrides),
         "sinking_tracers" => isnothing(recipe.sinking_tracers) ? nothing :
                              _encode_parameter_overrides(recipe.sinking_tracers),
@@ -377,11 +375,11 @@ end
 
 function _decode_realization(x, path)
     realization = _complete_object(x, _REALIZATION_KEYS, path)
-    population_groups = _decode_population_groups(
-        realization["population_groups"], "$path.population_groups"
+    plankton_pfts = _decode_plankton_pfts(
+        realization["plankton_pfts"], "$path.plankton_pfts"
     )
-    group_diameters = _decode_group_diameters(realization["size_groups"], "$path.size_groups")
-    _validate_realization(population_groups, group_diameters)
+    pft_size_structures = _decode_pft_size_structures(realization["pft_size_structures"], "$path.pft_size_structures")
+    _validate_realization(plankton_pfts, pft_size_structures)
     parameter_overrides = _decode_parameter_overrides(
         realization["parameter_overrides"], "$path.parameter_overrides"
     )
@@ -390,14 +388,14 @@ function _decode_realization(x, path)
                           realization["sinking_tracers"], "$path.sinking_tracers"
                       )
     open_bottom = _boolean(realization["open_bottom"], "$path.open_bottom")
-    return (; population_groups, group_diameters, parameter_overrides, sinking_tracers, open_bottom)
+    return (; plankton_pfts, pft_size_structures, parameter_overrides, sinking_tracers, open_bottom)
 end
 
 """Encode a versioned family recipe with a scientific content hash and package provenance."""
-function encode_recipe(recipe::ProcessModelRecipe)
+function encode_recipe(recipe::ModelRecipe)
     realization = _encode_realization(recipe)
     return Dict{String,Any}(
-        "schema" => PROCESS_MODEL_RECIPE_SCHEMA,
+        "schema" => MODEL_RECIPE_SCHEMA,
         "family" => String(recipe.family),
         "definition_version" => string(recipe.definition_version),
         "realization" => realization,
@@ -410,10 +408,10 @@ end
 function decode_recipe(document::AbstractDict)
     document = _complete_object(document, _RECIPE_DOCUMENT_KEYS, "Recipe document")
     schema = _string(document["schema"], "Recipe document.schema")
-    schema == PROCESS_MODEL_RECIPE_SCHEMA || throw(
+    schema == MODEL_RECIPE_SCHEMA || throw(
         ArgumentError(
             "Unsupported Agate recipe schema $(repr(schema)); supported schema is " *
-            "$(repr(PROCESS_MODEL_RECIPE_SCHEMA))."
+            "$(repr(MODEL_RECIPE_SCHEMA))."
         )
     )
 
@@ -430,11 +428,11 @@ function decode_recipe(document::AbstractDict)
     _resolve_recipe_family(family_id_value, version)
 
     realization = _decode_realization(realization_data, "Recipe document.realization")
-    decoded = ProcessModelRecipe(
+    decoded = ModelRecipe(
         family_id_value,
         version,
-        realization.population_groups,
-        realization.group_diameters,
+        realization.plankton_pfts,
+        realization.pft_size_structures,
         realization.parameter_overrides,
         realization.sinking_tracers,
         realization.open_bottom,
@@ -449,7 +447,7 @@ function decode_recipe(document)
 end
 
 """Write a recipe document to `path` as pretty-printed JSON."""
-function export_recipe(path::AbstractString, recipe::ProcessModelRecipe)
+function export_recipe(path::AbstractString, recipe::ModelRecipe)
     open(path, "w") do io
         JSON.json(io, encode_recipe(recipe); pretty=4, omit_empty=false)
         println(io)

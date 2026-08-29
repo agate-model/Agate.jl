@@ -1,12 +1,12 @@
 """Abstract supertype for canonical diameter specifications."""
 abstract type AbstractDiameterSpecification end
 
-"""A canonical diameter specification defined by explicit class diameters."""
+"""A canonical diameter specification defined by explicit SizeClass diameters."""
 struct DiameterListSpecification{V<:AbstractVector} <: AbstractDiameterSpecification
     diameters::V
 end
 
-"""A canonical diameter specification defined by a class count, bounds, and spacing rule."""
+"""A canonical diameter specification defined by a SizeClass count, bounds, and spacing rule."""
 struct DiameterRangeSpecification{I<:Integer,T1,T2} <: AbstractDiameterSpecification
     n::I
     min_diameter::T1
@@ -15,7 +15,7 @@ struct DiameterRangeSpecification{I<:Integer,T1,T2} <: AbstractDiameterSpecifica
 end
 
 function _validate_diameter_values(values, path::AbstractString)
-    isempty(values) && throw(ArgumentError("$path must define at least one size class"))
+    isempty(values) && throw(ArgumentError("$path must define at least one SizeClass"))
     for (i, value) in pairs(values)
         value isa Real && !(value isa Bool) ||
             throw(ArgumentError("$path[$i] must be a real number"))

@@ -41,36 +41,36 @@ end
 end
 
 """One multiplicative factor attached to a canonical process rate."""
-struct FactorElement{F,O}
+struct FactorOp{F,O}
     formulation::F
     operands::O
 end
 
-@inline function factor_element_value(factor::FactorElement, bgc, args)
+@inline function factor_op_value(factor::FactorOp, bgc, args)
     values = operand_values(factor.operands, bgc, args)
     return factor_value(factor.formulation, values...)
 end
 
-@inline operand_value(factor::FactorElement, bgc, args) =
-    factor_element_value(factor, bgc, args)
+@inline operand_value(factor::FactorOp, bgc, args) =
+    factor_op_value(factor, bgc, args)
 
 @inline apply_rate_factors(::Tuple{}, bgc, args, rate) = rate
 @inline function apply_rate_factors(factors::Tuple, bgc, args, rate)
-    value = factor_element_value(first(factors), bgc, args)
+    value = factor_op_value(first(factors), bgc, args)
     return apply_rate_factors(Base.tail(factors), bgc, args, rate * value)
 end
 
 """Canonical runtime process rate: formulation plus static operand tuple."""
-struct RateElement{F,O,X}
+struct RateOp{F,O,X}
     formulation::F
     operands::O
     factors::X
 end
 
-RateElement(formulation, operands::Tuple; factors=()) =
-    RateElement{typeof(formulation),typeof(operands),typeof(factors)}(formulation, operands, factors)
+RateOp(formulation, operands::Tuple; factors=()) =
+    RateOp{typeof(formulation),typeof(operands),typeof(factors)}(formulation, operands, factors)
 
-@inline function (rate::RateElement)(bgc, args)
+@inline function (rate::RateOp)(bgc, args)
     values = operand_values(rate.operands, bgc, args)
     value = process_rate(rate.formulation, values...)
     return apply_rate_factors(rate.factors, bgc, args, value)

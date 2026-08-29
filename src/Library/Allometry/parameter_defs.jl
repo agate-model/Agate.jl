@@ -15,14 +15,14 @@ abstract type AbstractParamDef end
 """
     ConstantParam(value)
 
-Parameter definition whose value is constant across all size classes.
+Parameter definition whose value is constant across all SizeClasses.
 
 !!! formulation
     ```math
     p(d_i) = p_0
     ```
 
-    where ``p_0`` is `value` and ``d_i`` is any class diameter.
+    where ``p_0`` is `value` and ``d_i`` is any SizeClass diameter.
 """
 struct ConstantParam{T} <: AbstractParamDef
     value::T
@@ -134,7 +134,7 @@ Resolve a scalar, boolean, or explicit parameter definition at one diameter.
 # Arguments
 - `T`: target scalar type.
 - `value`: scalar, boolean, `ConstantParam`, or `AllometricParam`.
-- `diameter`: class diameter used by allometric definitions.
+- `diameter`: SizeClass diameter used by allometric definitions.
 """
 @inline resolve_param(::Type{T}, x, diameter) where {T<:Real} = T(x)
 
@@ -198,7 +198,7 @@ Resolve a scalar or parameter definition over a subset of diameters.
     \\end{cases}
     ```
 
-    This is useful for parameters that apply only to selected model classes,
+    This is useful for parameters that apply only to selected model SizeClasses,
     such as producer-only growth rates or consumer-only grazing rates.
 
 # Arguments

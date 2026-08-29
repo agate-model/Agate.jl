@@ -9,7 +9,7 @@ using Oceananigans.Architectures: architecture, CPU, GPU
 using ..ModelFamilies: AbstractModelFamily
 
 using ..Configuration:
-    canonicalize_population_realization, realize_model_layout, model_metadata
+    canonicalize_plankton_realization, realize_model_layout, model_metadata
 
 using ..Processes:
     ModelDefinition, canonicalize_model, driver_identities, participants, formulation,
@@ -81,18 +81,18 @@ function convert_sinking_tracers(::Type{T}, sinking_tracers::NamedTuple) where {
 end
 
 
-function _groups_for_components(population_groups::NamedTuple, components::Tuple)
-    groups = Symbol[]
+function _pfts_for_components(plankton_pfts::NamedTuple, components::Tuple)
+    pfts = Symbol[]
     for component in components
-        hasproperty(population_groups, component) || continue
-        for group in getproperty(population_groups, component)
-            group in groups || push!(groups, group)
+        hasproperty(plankton_pfts, component) || continue
+        for pft in getproperty(plankton_pfts, component)
+            pft in pfts || push!(pfts, pft)
         end
     end
-    return Tuple(groups)
+    return Tuple(pfts)
 end
 
-function _process_interaction_roles(definition, population_groups::NamedTuple)
+function _process_interaction_roles(definition, plankton_pfts::NamedTuple)
     consumer_components = Symbol[]
     resource_components = Symbol[]
     for named in values(definition.processes)
@@ -103,8 +103,8 @@ function _process_interaction_roles(definition, population_groups::NamedTuple)
         hasproperty(process_participants, :resource) &&
             append!(resource_components, process_participants.resource)
     end
-    consumers = _groups_for_components(population_groups, Tuple(unique(consumer_components)))
-    resources = _groups_for_components(population_groups, Tuple(unique(resource_components)))
+    consumers = _pfts_for_components(plankton_pfts, Tuple(unique(consumer_components)))
+    resources = _pfts_for_components(plankton_pfts, Tuple(unique(resource_components)))
     isempty(consumers) && isempty(resources) && return nothing
     return (consumers=consumers, prey=resources)
 end
@@ -112,18 +112,18 @@ end
 function _realize_process_definition(
     definition,
     ::Type{T};
-    population_groups=nothing,
-    group_diameters=nothing,
+    plankton_pfts=nothing,
+    pft_size_structures=nothing,
     auxiliary_fields::Tuple=(),
 ) where {T<:Real}
-    population_groups, group_diameters = canonicalize_population_realization(
-        definition.components, population_groups, group_diameters
+    plankton_pfts, pft_size_structures = canonicalize_plankton_realization(
+        definition.components, plankton_pfts, pft_size_structures
     )
-    interaction_roles = _process_interaction_roles(definition, population_groups)
+    interaction_roles = _process_interaction_roles(definition, plankton_pfts)
     return realize_model_layout(
         definition.components,
-        population_groups,
-        group_diameters;
+        plankton_pfts,
+        pft_size_structures;
         scalar_type=T,
         interaction_roles,
         auxiliary_fields,
@@ -132,8 +132,8 @@ end
 
 function _construct_process_definition(
     definition::ModelDefinition;
-    population_groups=nothing,
-    group_diameters=nothing,
+    plankton_pfts=nothing,
+    pft_size_structures=nothing,
     parameter_overrides::NamedTuple=(;),
     sinking_tracers=nothing,
     open_bottom::Bool=true,
@@ -172,7 +172,7 @@ function _construct_process_definition(
     )
     auxiliary_fields = driver_identities(canonical)
     layout = _realize_process_definition(
-        canonical, T; population_groups, group_diameters, auxiliary_fields
+        canonical, T; plankton_pfts, pft_size_structures, auxiliary_fields
     )
     tracer_names = layout.tracer_order
     parameter_plan = build_parameter_plan(canonical, layout)
@@ -266,7 +266,7 @@ function _construct_family(inputs::NamedTuple)
 end
 
 function _construct_recipe(
-    recipe::ProcessModelRecipe;
+    recipe::ModelRecipe;
     grid=nothing,
     arch=nothing,
     scalar_type=nothing,
@@ -287,7 +287,7 @@ end
     construct(definition::ModelDefinition; kwargs...) -> bgc
 
 Construct a model directly from authored components, named processes, and parameter
-definitions. Population and pool size structures are realized from the definition,
+definitions. Plankton size structures are realized from the definition,
 process participation determines interaction axes and required auxiliary drivers, and
 runtime tracer equations are compiled during setup.
 
@@ -320,7 +320,7 @@ end
 
 """Replay a versioned family recipe in the supplied execution environment."""
 function construct(
-    recipe::ProcessModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
+    recipe::ModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
 )
     bgc, _ = _construct_recipe(recipe; grid, arch, scalar_type)
     return bgc
@@ -328,7 +328,7 @@ end
 
 """Replay a versioned family recipe and return its resolved manifest."""
 function construct_plus_manifest(
-    recipe::ProcessModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
+    recipe::ModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
 )
     return _construct_recipe(recipe; grid, arch, scalar_type, build_manifest=true)
 end

@@ -1,11 +1,11 @@
 """Scientific process authoring and setup-time validation and canonicalization."""
 module Processes
 
-using ..Configuration: Population, Pool, PopulationStateRef, ModelLayout, currency, state_element,
-    states, reference_state, size_structure, component_classes
+using ..Configuration: Plankton, Pool, PlanktonStateRef, ModelLayout, element, state_element,
+    states, reference_state, size_structure, component_entities
 using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
 using ..Parameters: Parameter, MetaParameter, DerivedDefault, parameter_definitions
-using ..Library.Mortality: linear_loss, quadratic_loss
+using ..Library.Mortality: linear_loss
 using ..Library.Predation: preferential_predation_loss
 using ..Library.Photosynthesis: geider_light_response, smith_light_limitation
 using ..Library.Nutrients:

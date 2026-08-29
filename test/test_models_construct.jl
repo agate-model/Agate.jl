@@ -33,14 +33,14 @@ using Oceananigans.Biogeochemistry:
         phyto_diameters = [2.0, 10.0]
         zoo_diameters = [20.0, 100.0]
 
-        default_groups = NiPiZD.construct(;
+        default_size_structure = NiPiZD.construct(;
             size_structure=(;
                 phytoplankton=(P=phyto_diameters,),
                 zooplankton=(Z=zoo_diameters,),
             ),
             grid=dummy_grid(Float32),
         )
-        @test required_biogeochemical_tracers(default_groups) ==
+        @test required_biogeochemical_tracers(default_size_structure) ==
             (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
 
         named = NiPiZD.construct(;
@@ -80,7 +80,7 @@ using Oceananigans.Biogeochemistry:
         end
     end
 
-    @testset "NiPiZD grouped parameter semantics" begin
+    @testset "NiPiZD PFT parameter semantics" begin
         phyto_diameters = [2.0, 5.0, 10.0]
         zoo_diameters = [30.0, 60.0, 100.0]
         named_size_structure = (;

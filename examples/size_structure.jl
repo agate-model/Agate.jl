@@ -25,13 +25,13 @@ nothing #hide
 # ## Ecosystem model
 
 # The plankton size structure is configured separately for phytoplankton and
-# zooplankton. Here, phytoplankton are split into three classes spanning 1 to
+# zooplankton. Here, phytoplankton are split into three SizeClasses spanning 1 to
 # 10 μm equivalent spherical diameter (ESD), using logarithmic spacing.
 phyto_size_structure = (n=3, min_esd=1, max_esd=10, splitting=:log_splitting)
 nothing #hide
 
 # Alternatively, an explicit array can be used.
-# This zooplankton size structure also defines three classes, specifying the ESD of each class directly.
+# This zooplankton size structure also defines three SizeClasses, specifying the ESD of each SizeClass directly.
 zoo_size_structure = [10.0, 32.0, 100.0]
 
 size_structure = (;

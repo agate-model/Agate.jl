@@ -10,7 +10,7 @@ function process_fluxes(
         slots = getproperty(named.binding_refs.process, source_component)
         source = _scalar_component_target(layout, source_component)
         rate_ref = slots.rate
-        rate = RateElement(
+        rate = RateOp(
             process.formulation,
             (input_operand(layout, source), parameter_operand(rate_ref, context)),
         )

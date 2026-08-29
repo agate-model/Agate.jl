@@ -3,8 +3,8 @@ module Construction
 
 import Oceananigans
 export construct, construct_plus_manifest
-export ProcessModelRecipe, ModelManifest
-export capture_process_model_recipe
+export ModelRecipe, ModelManifest
+export capture_model_recipe
 export encode_recipe, decode_recipe, export_recipe, import_recipe
 
 include("recipe.jl")

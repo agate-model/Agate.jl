@@ -1,30 +1,30 @@
-function _resolve_factor_children(factor::AbstractFactor)
-    children = factor_children(factor)
-    children isa NamedTuple || throw(
-        ArgumentError("factor children for $(typeof(factor)) must be a NamedTuple"),
+function _resolve_factor_subfactors(factor::AbstractFactor)
+    subfactors = factor_subfactors(factor)
+    subfactors isa NamedTuple || throw(
+        ArgumentError("factor subfactors for $(typeof(factor)) must be a NamedTuple"),
     )
-    all(child -> child isa AbstractFactor, values(children)) || throw(
-        ArgumentError("factor children for $(typeof(factor)) must be process factors"),
+    all(subfactor -> subfactor isa AbstractFactor, values(subfactors)) || throw(
+        ArgumentError("factor subfactors for $(typeof(factor)) must be process factors"),
     )
     if factor isa Nutrients
-        responses = values(children)
+        responses = values(subfactors)
         all_external = all(response -> response isa NutrientResponse, responses)
         all_internal = all(response -> response isa QuotaResponse, responses)
         all_external || all_internal || throw(ArgumentError(
             "nutrient `responses` must be either all NutrientResponse or all QuotaResponse factors",
         ))
     end
-    return children
+    return subfactors
 end
 
 function _collect_factor_component_references(factor::AbstractFactor)
     references = Symbol[]
     for input in factor_inputs(factor)
         input isa FactorComponent && push!(references, input.component)
-        input isa FactorPopulationState && push!(references, input.reference.population)
+        input isa FactorPlanktonState && push!(references, input.reference.plankton)
     end
-    for child in values(_resolve_factor_children(factor))
-        append!(references, _collect_factor_component_references(child))
+    for subfactor in values(_resolve_factor_subfactors(factor))
+        append!(references, _collect_factor_component_references(subfactor))
     end
     return Tuple(references)
 end
@@ -48,16 +48,13 @@ function _collect_process_component_references(process::AbstractProcess)
     return Tuple(references)
 end
 
-_is_scalar_component(component::Pool) = isnothing(size_structure(component))
-_is_scalar_component(component::Population) =
+_is_scalar_component(::Pool) = true
+_is_scalar_component(component::Plankton) =
     isnothing(size_structure(component)) && length(states(component)) == 1
 
-function _resolve_scalar_pool(components, name::Symbol, id::Symbol, label::AbstractString)
+function _resolve_pool(components, name::Symbol, id::Symbol, label::AbstractString)
     pool = getproperty(components, name)
     pool isa Pool || throw(ArgumentError("process :$id $label :$name must be a Pool"))
-    _is_scalar_component(pool) || throw(
-        ArgumentError("process :$id $label :$name must be a scalar Pool"),
-    )
     return pool
 end
 
@@ -81,65 +78,82 @@ function _validate_factor_for_process(
             "process :$id factor path $path component :$(input.component) must be a scalar component",
         ))
     end
-    for (name, child) in pairs(_resolve_factor_children(factor))
+    for (name, subfactor) in pairs(_resolve_factor_subfactors(factor))
         _validate_factor_for_process(
-            id, process, child, components, factor_child_path(path, factor, name)
+            id, process, subfactor, components, factor_subfactor_path(path, factor, name)
         )
     end
     return nothing
 end
 
-function _population_component(components, name::Symbol, id::Symbol, label::AbstractString)
+function _plankton_component(components, name::Symbol, id::Symbol, label::AbstractString)
     hasproperty(components, name) || throw(
-        ArgumentError("process :$id $label references unknown population :$name"),
+        ArgumentError("process :$id $label references unknown plankton :$name"),
     )
-    population = getproperty(components, name)
-    population isa Population || throw(
-        ArgumentError("process :$id $label :$name must be a Population"),
+    plankton = getproperty(components, name)
+    plankton isa Plankton || throw(
+        ArgumentError("process :$id $label :$name must be a Plankton"),
     )
-    return population
+    return plankton
 end
 
-function _resolve_population_state(
-    components, name::Symbol, state, id::Symbol, label::AbstractString
+function _resolve_plankton_state(
+    components, name::Symbol, state::Symbol, id::Symbol, label::AbstractString
 )
-    population = _population_component(components, name, id, label)
-    state_names = states(population)
-    if isnothing(state)
-        length(state_names) == 1 || throw(
-            ArgumentError("process :$id $label :$name requires explicit state semantics for a multi-state Population"),
-        )
-        state = only(state_names)
-    end
-    state isa Symbol || throw(ArgumentError("process :$id $label state must be a Symbol"))
-    state in state_names || throw(
+    plankton = _plankton_component(components, name, id, label)
+    state in states(plankton) || throw(
         ArgumentError("process :$id $label :$name has no state :$state"),
     )
-    return PopulationStateRef(name, state)
+    return PlanktonStateRef(name, state)
 end
-
-_resolve_population_state(components, name::Symbol, id::Symbol, label::AbstractString) =
-    _resolve_population_state(components, name, nothing, id, label)
 
 function _resolve_reference_state(components, name::Symbol, id::Symbol, label::AbstractString)
-    population = _population_component(components, name, id, label)
-    return PopulationStateRef(name, reference_state(population))
+    plankton = _plankton_component(components, name, id, label)
+    return PlanktonStateRef(name, reference_state(plankton))
 end
 
-_state_element(components, ref::PopulationStateRef) =
-    state_element(getproperty(components, ref.population), ref.state)
+function _plankton_state_refs(components, name::Symbol, id::Symbol, label::AbstractString)
+    plankton = _plankton_component(components, name, id, label)
+    return Tuple(PlanktonStateRef(name, state) for state in states(plankton))
+end
 
-function _validate_currency(actual, expected, id::Symbol, label::AbstractString)
+function _plankton_state_elements(components, name::Symbol, id::Symbol, label::AbstractString)
+    plankton = _plankton_component(components, name, id, label)
+    names = states(plankton)
+    return NamedTuple{names}(Tuple(state_element(plankton, state) for state in names))
+end
+
+function _plankton_element_states(components, name::Symbol, id::Symbol, label::AbstractString)
+    plankton = _plankton_component(components, name, id, label)
+    element_names = Symbol[]
+    refs = PlanktonStateRef[]
+    for state in states(plankton)
+        state_element_value = state_element(plankton, state)
+        isnothing(state_element_value) && continue
+        state_element_value in element_names && throw(ArgumentError(
+            "process :$id $label :$name has multiple states for element :$state_element_value; " *
+            "explicit same-element state mappings are not yet enabled",
+        ))
+        push!(element_names, state_element_value)
+        push!(refs, PlanktonStateRef(name, state))
+    end
+    return NamedTuple{Tuple(element_names)}(Tuple(refs))
+end
+
+_state_element(components, ref::PlanktonStateRef) =
+    state_element(getproperty(components, ref.plankton), ref.state)
+
+function _validate_element(actual, expected, id::Symbol, label::AbstractString)
     actual === expected || throw(
-        ArgumentError("process :$id $label has currency :$actual, expected :$expected"),
+        ArgumentError("process :$id $label has element $(repr(actual)), expected $(repr(expected))"),
     )
 end
 
 function _validate_state_elements(components, refs, expected, id, label)
     for ref in refs
-        _validate_currency(
+        _validate_element(
             _state_element(components, ref), expected, id,
-            "$label :$(ref.population).$(ref.state)",
+            "$label :$(ref.plankton).$(ref.state)",
         )
     end
     return nothing

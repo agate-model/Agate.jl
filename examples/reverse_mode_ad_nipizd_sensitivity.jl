@@ -32,7 +32,7 @@ nothing #hide
 
 const BGC = NiPiZD.construct()
 const TRACER_NAMES = Tuple(required_biogeochemical_tracers(BGC))
-const PLANKTON_GROUPS = Agate.Introspection.plankton_groups(BGC)
+const PLANKTON_PFTS = Agate.Introspection.pfts(BGC)
 
 function tracer_index(tracer::Symbol)
     index = findfirst(==(tracer), TRACER_NAMES)
@@ -40,7 +40,7 @@ function tracer_index(tracer::Symbol)
     return index
 end
 
-const PHYTOPLANKTON = PLANKTON_GROUPS.P
+const PHYTOPLANKTON = PLANKTON_PFTS.P
 const PHYTOPLANKTON_INDICES = tracer_index.(PHYTOPLANKTON)
 
 const ACTIVE = Agate.Runtime.active_parameters(BGC;

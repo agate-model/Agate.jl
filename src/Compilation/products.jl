@@ -22,11 +22,11 @@ function _product_fraction_operand(
     return RemainderOp(operands)
 end
 
-function _product_ratio_ref(named::NamedProcess, products::Products, currency::Symbol)
+function _product_ratio_ref(named::NamedProcess, products::Products, element::Symbol)
     stoichiometry = products.stoichiometry
     isnothing(stoichiometry) && return nothing
-    currency === stoichiometry.reference && return nothing
-    return getproperty(named.binding_refs.products.stoichiometry, currency).ratio
+    element === stoichiometry.reference_element && return nothing
+    return getproperty(named.binding_refs.products.stoichiometry, element).ratio
 end
 _product_operand_tuple(::Nothing) = ()
 _product_operand_tuple(operand) = (operand,)
@@ -50,16 +50,16 @@ function _product_fluxes(
     named::NamedProcess,
     product_targets::NamedTuple,
     context::CompileContext,
-    rate::RateElement;
+    rate::RateOp;
     suffix::Tuple=(),
 )
     products = process_products(named.process)
     fluxes = Any[]
     for (product, targets) in pairs(product_targets)
         fraction = _product_fraction_operand(context, named, products, product)
-        for (currency, component) in pairs(targets)
+        for (element, component) in pairs(targets)
             target = _scalar_component_target(context.layout, component)
-            ratio = _product_ratio_ref(named, products, currency)
+            ratio = _product_ratio_ref(named, products, element)
             push!(
                 fluxes,
                 FluxSpec(
@@ -68,6 +68,28 @@ function _product_fluxes(
                 ),
             )
         end
+    end
+    return Tuple(fluxes)
+end
+
+
+function _product_fluxes_for_element(
+    named::NamedProcess,
+    product_targets::NamedTuple,
+    context::CompileContext,
+    rate::RateOp,
+    element::Symbol;
+    suffix::Tuple=(),
+)
+    products = process_products(named.process)
+    fluxes = Any[]
+    for (product, targets) in pairs(product_targets)
+        fraction = _product_fraction_operand(context, named, products, product)
+        target = _scalar_component_target(context.layout, getproperty(targets, element))
+        push!(
+            fluxes,
+            FluxSpec(target, rate, _product_weight(fraction, nothing, context; suffix)),
+        )
     end
     return Tuple(fluxes)
 end

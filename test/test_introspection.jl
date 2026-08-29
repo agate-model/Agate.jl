@@ -2,7 +2,7 @@ using Agate
 using Agate.Introspection:
     tracer_names,
     parameter_names,
-    plankton_groups,
+    pfts,
     plankton_tracers,
     plankton_diameters,
     nonplankton_tracers,
@@ -20,11 +20,11 @@ using Test
 
         groups = tracer_groups(bgc)
         @test groups.all == tracer_names(bgc)
-        @test groups.by_group.Z == [:Z_1, :Z_2]
-        @test groups.by_group.P == [:P_1, :P_2]
+        @test groups.by_pft.Z == [:Z_1, :Z_2]
+        @test groups.by_pft.P == [:P_1, :P_2]
         @test groups.plankton == [:Z_1, :Z_2, :P_1, :P_2]
         @test groups.nonplankton == [:N, :D]
-        @test plankton_groups(bgc) == groups.by_group
+        @test pfts(bgc) == groups.by_pft
         @test plankton_tracers(bgc) == groups.plankton
         @test length(plankton_diameters(bgc)) == length(groups.plankton)
         @test eltype(plankton_diameters(bgc)) === Float32
@@ -75,12 +75,12 @@ using Test
             size_structure=nipizd_named_size_structure(), grid=dummy_grid(Float32)
         )
 
-        named_groups = plankton_groups(named_bgc)
-        @test keys(named_groups) == (:microzoo, :mesozoo, :diat, :dino)
-        @test named_groups.microzoo == [:microzoo_1, :microzoo_2]
-        @test named_groups.mesozoo == [:mesozoo_1]
-        @test named_groups.diat == [:diat_1, :diat_2, :diat_3]
-        @test named_groups.dino == [:dino_1, :dino_2]
+        named_pfts = pfts(named_bgc)
+        @test keys(named_pfts) == (:microzoo, :mesozoo, :diat, :dino)
+        @test named_pfts.microzoo == [:microzoo_1, :microzoo_2]
+        @test named_pfts.mesozoo == [:mesozoo_1]
+        @test named_pfts.diat == [:diat_1, :diat_2, :diat_3]
+        @test named_pfts.dino == [:dino_1, :dino_2]
         @test plankton_diameters(named_bgc) ≈
             [30.0, 60.0, 100.0, 2.0, 5.0, 10.0, 8.0, 20.0]
 
@@ -90,7 +90,7 @@ using Test
 
     end
 
-    @testset "Authored model without plankton groups" begin
+    @testset "Authored model without plankton PFTs" begin
         components = (X=Agate.Configuration.Pool(:carbon), Y=Agate.Configuration.Pool(:carbon))
         processes = (transfer=Agate.Processes.Remineralization(
             Agate.Processes.LinearRemineralization();
@@ -101,8 +101,8 @@ using Test
         groups = tracer_groups(model)
 
         @test tracer_names(model) == [:X, :Y]
-        @test groups == (all=[:X, :Y], plankton=Symbol[], nonplankton=[:X, :Y], by_group=NamedTuple())
-        @test plankton_groups(model) == NamedTuple()
+        @test groups == (all=[:X, :Y], plankton=Symbol[], nonplankton=[:X, :Y], by_pft=NamedTuple())
+        @test pfts(model) == NamedTuple()
         @test isempty(plankton_diameters(model))
         @test parameter_names(model) == [:rate]
         @test_throws ArgumentError interaction_matrix(model, :palatability_matrix)

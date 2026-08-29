@@ -125,7 +125,7 @@ Build a consumer-by-prey palatability matrix from allometric traits.
 
 # Arguments
 - `T`: scalar type used for the output matrix and trait values.
-- `diameters`: full ordered diameter collection indexed by model class.
+- `diameters`: full ordered diameter collection indexed by model SizeClass.
 - `optimum_predator_prey_ratio`: full vector of predator optimum ratios.
 - `specificity`: full vector of predator specificity parameters.
 - `protection`: full vector of prey protection parameters.

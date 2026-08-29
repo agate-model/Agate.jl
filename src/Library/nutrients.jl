@@ -132,7 +132,7 @@ end
 Return the bounded cellular-capacity factor used to regulate external nutrient uptake.
 The response is one at or below `minimum_quota`, declines with normalized quota according
 to `hill`, and is zero at or above `maximum_quota`. Zero or negative reference biomass
-returns zero so an absent population has no uptake capacity.
+returns zero so an absent plankton has no uptake capacity.
 """
 @inline function quota_uptake_regulation(
     internal, reference, minimum_quota, maximum_quota, hill

@@ -95,15 +95,15 @@ function _visit_factor_slots!(
     uses::Vector{Any}, seen::Set{Any}, named::NamedProcess, path::Tuple, factor::AbstractFactor
 )
     slots = _emit_parameter_slots!(uses, seen, named, path, factor)
-    children = _resolve_factor_children(factor)
-    names = keys(children)
-    child_refs = NamedTuple{names}(Tuple(
+    subfactors = _resolve_factor_subfactors(factor)
+    names = keys(subfactors)
+    subfactor_refs = NamedTuple{names}(Tuple(
         _visit_factor_slots!(
-            uses, seen, named, factor_child_path(path, factor, name), child
+            uses, seen, named, factor_subfactor_path(path, factor, name), subfactor
         )
-        for (name, child) in pairs(children)
+        for (name, subfactor) in pairs(subfactors)
     ))
-    return (; slots, children=child_refs)
+    return (; slots, subfactors=subfactor_refs)
 end
 
 function _visit_product_slots!(
@@ -124,20 +124,20 @@ function _visit_product_slots!(
 
     stoichiometry = products.stoichiometry
     isnothing(stoichiometry) && return (; fractions, stoichiometry=NamedTuple())
-    currencies = Tuple(
-        currency for currency in keys(first(values(products.targets)))
-        if currency !== stoichiometry.reference
+    elements = Tuple(
+        element for element in keys(first(values(products.targets)))
+        if element !== stoichiometry.reference_element
     )
-    ratios = NamedTuple{currencies}(Tuple(
+    ratios = NamedTuple{elements}(Tuple(
         _emit_parameter_slots!(
             uses,
             seen,
             named,
             (path..., :stoichiometry),
             stoichiometry;
-            context=(currency=currency,),
+            context=(element=element,),
         )
-        for currency in currencies
+        for element in elements
     ))
     return (; fractions, stoichiometry=ratios)
 end
@@ -145,12 +145,12 @@ end
 function _visit_process_slots!(uses::Vector{Any}, seen::Set{Any}, named::NamedProcess)
     process = named.process
     process_refs = if process isa Mortality
-        names = process.populations
+        names = process.plankton
         NamedTuple{names}(Tuple(
             _emit_parameter_slots!(
-                uses, seen, named, (), process; context=(population=population,)
+                uses, seen, named, (), process; context=(plankton=plankton,)
             )
-            for population in names
+            for plankton in names
         ))
     elseif process isa Remineralization
         names = process.sources
@@ -177,17 +177,17 @@ function _visit_process_slots!(uses::Vector{Any}, seen::Set{Any}, named::NamedPr
 
     stoichiometry_refs = NamedTuple()
     if process isa Growth && !isnothing(process.stoichiometry)
-        currencies = keys(named.facts.additional_resources)
-        stoichiometry_refs = NamedTuple{currencies}(Tuple(
+        elements = keys(named.facts.additional_resources)
+        stoichiometry_refs = NamedTuple{elements}(Tuple(
             _emit_parameter_slots!(
                 uses,
                 seen,
                 named,
                 (:stoichiometry,),
                 process.stoichiometry;
-                context=(currency=currency,),
+                context=(element=element,),
             )
-            for currency in currencies
+            for element in elements
         ))
     end
     return (;
@@ -224,28 +224,78 @@ function _resolved_slot_bindings(definition::CanonicalModelDefinition, refs::Nam
     ))
 end
 
-_canonical_target_currencies(target::Symbol, reference::Symbol) =
-    NamedTuple{(reference,)}((target,))
-_canonical_target_currencies(target::NamedTuple, ::Symbol) = target
+_canonical_target_elements(target::Symbol, reference_element::Symbol) =
+    NamedTuple{(reference_element,)}((target,))
+_canonical_target_elements(target::NamedTuple, _) = target
 
-function _canonical_product_targets(id, products, components, reference, label)
+function _canonical_product_targets(id, products, components, reference_element, label)
+    isnothing(reference_element) && any(target -> target isa Symbol, values(products.targets)) &&
+        throw(ArgumentError(
+            "process :$id $label uses scalar product targets but its reference state has no element",
+        ))
     names = keys(products.targets)
     targets = NamedTuple{names}(Tuple(
-        _canonical_target_currencies(getproperty(products.targets, name), reference)
+        _canonical_target_elements(getproperty(products.targets, name), reference_element)
         for name in names
     ))
 
-    stoichiometry = products.stoichiometry
-    isnothing(stoichiometry) || _validate_currency(
-        stoichiometry.reference, reference, id, "$label stoichiometric reference"
-    )
-    for (name, currencies) in pairs(targets), (target_currency, target) in pairs(currencies)
-        pool = _resolve_scalar_pool(components, target, id, "$label product :$name target")
-        _validate_currency(
-            currency(pool), target_currency, id, "$label product :$name target :$target",
+    for (name, elements) in pairs(targets), (target_element, target) in pairs(elements)
+        pool = _resolve_pool(components, target, id, "$label product :$name target")
+        _validate_element(
+            element(pool), target_element, id, "$label product :$name target :$target",
         )
     end
     return targets
+end
+
+function _product_transfer_mode(
+    id::Symbol,
+    products::Products,
+    product_targets::NamedTuple,
+    source_elements::Tuple,
+    reference_element,
+    label::AbstractString,
+)
+    target_elements = Tuple(keys(first(values(product_targets))))
+    stoichiometry = products.stoichiometry
+    if isnothing(stoichiometry)
+        sort(collect(target_elements); by=String) == sort(collect(source_elements); by=String) ||
+            throw(ArgumentError(
+                "process :$id $label product elements $target_elements must match the source " *
+                "elemental states $source_elements when FixedStoichiometry is omitted",
+            ))
+        return :state
+    end
+
+    isnothing(reference_element) && throw(ArgumentError(
+        "process :$id $label cannot use FixedStoichiometry because its reference state has no element",
+    ))
+    _validate_element(
+        stoichiometry.reference_element,
+        reference_element,
+        id,
+        "$label stoichiometric reference",
+    )
+    source_elements == (reference_element,) || throw(ArgumentError(
+        "process :$id $label with multiple elemental states uses their prognostic inventories " *
+        "directly; omit FixedStoichiometry and route each source element explicitly",
+    ))
+    return :stoichiometric
+end
+
+function _matching_element_sets(
+    element_states::NamedTuple, id::Symbol, label::AbstractString
+)
+    isempty(element_states) && return ()
+    first_elements = Tuple(keys(first(values(element_states))))
+    for (name, states_for_element) in pairs(element_states)
+        elements = Tuple(keys(states_for_element))
+        sort(collect(elements); by=String) == sort(collect(first_elements); by=String) || throw(ArgumentError(
+            "process :$id $label :$name has elemental states $elements; expected $first_elements " *
+            "so one shared Products mapping can route every participant",
+        ))
+    end
+    return first_elements
 end
 
 """Attach setup-validated facts to a process before compilation.
@@ -254,17 +304,6 @@ Custom process implementations may extend this hook when lowering needs setup-re
 beyond the authored process object.
 """
 process_facts(::AbstractProcess, ::Symbol, ::NamedTuple) = NamedTuple()
-
-function _require_single_state_growth(components, populations, id)
-    multi_state = Tuple(
-        population for population in populations
-        if length(states(getproperty(components, population))) > 1
-    )
-    isempty(multi_state) || throw(ArgumentError(
-        "process :$id multi-state Growth requires quota responses; populations $multi_state have variable states",
-    ))
-    return nothing
-end
 
 function process_facts(process::Growth, id::Symbol, components::NamedTuple)
     nutrient_factors = Tuple(
@@ -275,34 +314,32 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
         "process :$id growth must declare exactly one NutrientResponse or Nutrients factor",
     ))
     nutrient_factor = only(nutrient_factors)
-    population_states = Tuple(
-        _resolve_reference_state(components, population, id, "population")
-        for population in process.populations
+    plankton_states = Tuple(
+        _resolve_reference_state(components, plankton, id, "plankton")
+        for plankton in process.plankton
     )
 
     reference_source, additional_resources = if nutrient_factor isa NutrientResponse
-        _require_single_state_growth(components, process.populations, id)
         isnothing(process.source) || throw(ArgumentError(
             "process :$id single-resource growth derives its source from the nutrient response; omit `source`",
         ))
         isnothing(process.stoichiometry) || throw(ArgumentError(
             "process :$id single-resource growth does not take fixed stoichiometry",
         ))
-        resource = _resolve_scalar_pool(
+        resource = _resolve_pool(
             components, nutrient_factor.resource, id, "nutrient factor resource"
         )
-        reference = currency(resource)
+        reference = element(resource)
         _validate_state_elements(
-            components, population_states, reference, id, "population state"
+            components, plankton_states, reference, id, "plankton state"
         )
         nutrient_factor.resource, NamedTuple()
     else
-        responses = values(_resolve_factor_children(nutrient_factor))
+        responses = values(_resolve_factor_subfactors(nutrient_factor))
         quota_growth = all(response -> response isa QuotaResponse, responses)
-        quota_growth || _require_single_state_growth(components, process.populations, id)
         if quota_growth
-            length(process.populations) == 1 || throw(ArgumentError(
-                "process :$id quota growth requires exactly one logical population",
+            length(process.plankton) == 1 || throw(ArgumentError(
+                "process :$id quota growth requires exactly one logical plankton",
             ))
             process.source isa Symbol || throw(
                 ArgumentError("process :$id quota growth requires a source component"),
@@ -310,18 +347,18 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
             isnothing(process.stoichiometry) || throw(ArgumentError(
                 "process :$id quota growth uses independent NutrientUptake processes; omit fixed stoichiometry",
             ))
-            reference_state = only(population_states)
-            reference_currency = _state_element(components, reference_state)
-            source = _resolve_scalar_pool(components, process.source, id, "growth source")
-            _validate_currency(
-                currency(source), reference_currency, id, "growth source :$(process.source)"
+            reference_state = only(plankton_states)
+            reference_element = _state_element(components, reference_state)
+            source = _resolve_pool(components, process.source, id, "growth source")
+            _validate_element(
+                element(source), reference_element, id, "growth source :$(process.source)"
             )
-            population = only(process.populations)
+            plankton = only(process.plankton)
             for (target_element, response) in pairs(nutrient_factor.responses)
-                target = _resolve_population_state(
-                    components, population, response.variable_state, id, "quota response variable state"
+                target = _resolve_plankton_state(
+                    components, plankton, response.variable_state, id, "quota response variable state"
                 )
-                _validate_currency(
+                _validate_element(
                     _state_element(components, target), target_element, id,
                     "quota response :$target_element variable state",
                 )
@@ -334,53 +371,53 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
             process.stoichiometry isa FixedStoichiometry || throw(
                 ArgumentError("process :$id multi-resource growth requires FixedStoichiometry"),
             )
-            reference = process.stoichiometry.reference
-            source = _resolve_scalar_pool(components, process.source, id, "growth source")
-            _validate_currency(
-                currency(source), reference, id, "growth source :$(process.source)"
+            reference = process.stoichiometry.reference_element
+            source = _resolve_pool(components, process.source, id, "growth source")
+            _validate_element(
+                element(source), reference, id, "growth source :$(process.source)"
             )
             _validate_state_elements(
-                components, population_states, reference, id, "population state"
+                components, plankton_states, reference, id, "plankton state"
             )
-            for (target_currency, response) in pairs(nutrient_factor.responses)
-                resource = _resolve_scalar_pool(
+            for (target_element, response) in pairs(nutrient_factor.responses)
+                resource = _resolve_pool(
                     components, response.resource, id,
-                    "nutrient response :$target_currency resource",
+                    "nutrient response :$target_element resource",
                 )
-                _validate_currency(
-                    currency(resource), target_currency, id,
-                    "nutrient response :$target_currency resource :$(response.resource)",
+                _validate_element(
+                    element(resource), target_element, id,
+                    "nutrient response :$target_element resource :$(response.resource)",
                 )
             end
             names = Tuple(
-                currency for currency in keys(nutrient_factor.responses)
-                if currency !== reference
+                element for element in keys(nutrient_factor.responses)
+                if element !== reference
             )
             additional = NamedTuple{names}(Tuple(
-                getproperty(nutrient_factor.responses, currency).resource for currency in names
+                getproperty(nutrient_factor.responses, element).resource for element in names
             ))
             process.source, additional
         end
     end
 
-    return (; population_states, reference_source, additional_resources)
+    return (; plankton_states, reference_source, additional_resources)
 end
 
 function process_facts(
     process::NutrientUptake, id::Symbol, components::NamedTuple
 )
-    target = _resolve_population_state(
-        components, process.population, process.target_state, id, "uptake target"
+    target = _resolve_plankton_state(
+        components, process.plankton, process.target_state, id, "uptake target"
     )
     reference = _resolve_reference_state(
-        components, process.population, id, "uptake reference"
+        components, process.plankton, id, "uptake reference"
     )
     target.state === reference.state && throw(ArgumentError(
         "process :$id nutrient uptake target and reference states must be distinct",
     ))
-    resource = _resolve_scalar_pool(components, process.resource, id, "nutrient uptake resource")
-    _validate_currency(
-        currency(resource), _state_element(components, target), id,
+    resource = _resolve_pool(components, process.resource, id, "nutrient uptake resource")
+    _validate_element(
+        element(resource), _state_element(components, target), id,
         "nutrient uptake resource :$(process.resource)",
     )
     required = Tuple(slot.name for slot in parameter_slots(process.formulation))
@@ -393,58 +430,180 @@ end
 
 function process_facts(process::Consumption, id::Symbol, components::NamedTuple)
     consumer_states = Tuple(
-        _resolve_population_state(components, consumer, id, "consumer") for consumer in process.consumers
+        _resolve_reference_state(components, consumer, id, "consumer")
+        for consumer in process.consumers
     )
-    reference = _state_element(components, first(consumer_states))
-    _validate_state_elements(components, consumer_states, reference, id, "consumer state")
+    reference_element = _state_element(components, first(consumer_states))
+    isnothing(reference_element) && throw(ArgumentError(
+        "process :$id consumption requires an elemental consumer reference state",
+    ))
+    _validate_state_elements(
+        components, consumer_states, reference_element, id, "consumer reference state"
+    )
+    consumer_element_states = NamedTuple{process.consumers}(Tuple(
+        _plankton_element_states(components, consumer, id, "consumer")
+        for consumer in process.consumers
+    ))
 
     if uses_living_interactions(process.formulation)
         resources = Tuple(
-            _resolve_population_state(components, resource, id, "living resource")
+            _resolve_reference_state(components, resource, id, "living resource")
             for resource in process.resources
         )
-        _validate_state_elements(components, resources, reference, id, "resource state")
-    else
-        resources = process.resources
-        for resource in resources
-            pool = getproperty(components, resource)
-            pool isa Pool || throw(
-                ArgumentError("process :$id heterotrophic resource :$resource must be a Pool"),
-            )
-            _validate_currency(currency(pool), reference, id, "heterotrophic resource :$resource")
+        _validate_state_elements(
+            components, resources, reference_element, id, "resource reference state"
+        )
+        resource_state_sets = NamedTuple{process.resources}(Tuple(
+            _plankton_state_refs(components, resource, id, "living resource")
+            for resource in process.resources
+        ))
+        resource_state_elements = NamedTuple{process.resources}(Tuple(
+            _plankton_state_elements(components, resource, id, "living resource")
+            for resource in process.resources
+        ))
+        resource_element_states = NamedTuple{process.resources}(Tuple(
+            _plankton_element_states(components, resource, id, "living resource")
+            for resource in process.resources
+        ))
+
+        for (resource, element_states) in pairs(resource_element_states)
+            for source_element in keys(element_states), (consumer, consumer_states) in pairs(consumer_element_states)
+                hasproperty(consumer_states, source_element) || throw(ArgumentError(
+                    "process :$id consumer :$consumer has no state for resource :$resource " *
+                    "element :$source_element required by elemental assimilation",
+                ))
+            end
         end
+
+        product_targets, product_mode = if isnothing(process.products)
+            nothing, nothing
+        else
+            source_elements = _matching_element_sets(
+                resource_element_states, id, "living resource"
+            )
+            targets = _canonical_product_targets(
+                id, process.products, components, reference_element, "unassimilated products"
+            )
+            mode = _product_transfer_mode(
+                id,
+                process.products,
+                targets,
+                source_elements,
+                reference_element,
+                "unassimilated products",
+            )
+            targets, mode
+        end
+        return (;
+            consumer_states,
+            consumer_element_states,
+            resources,
+            resource_state_sets,
+            resource_state_elements,
+            resource_element_states,
+            reference_element,
+            product_targets,
+            product_mode,
+        )
     end
-    product_targets = isnothing(process.products) ? nothing : _canonical_product_targets(
-        id, process.products, components, reference, "unassimilated products"
+
+    resources = process.resources
+    for resource in resources
+        pool = getproperty(components, resource)
+        pool isa Pool || throw(
+            ArgumentError("process :$id heterotrophic resource :$resource must be a Pool"),
+        )
+        _validate_element(
+            element(pool), reference_element, id, "heterotrophic resource :$resource"
+        )
+    end
+    product_targets, product_mode = if isnothing(process.products)
+        nothing, nothing
+    else
+        targets = _canonical_product_targets(
+            id, process.products, components, reference_element, "unassimilated products"
+        )
+        mode = _product_transfer_mode(
+            id,
+            process.products,
+            targets,
+            (reference_element,),
+            reference_element,
+            "unassimilated products",
+        )
+        targets, mode
+    end
+    return (;
+        consumer_states,
+        consumer_element_states,
+        resources,
+        resource_state_sets=NamedTuple(),
+        resource_state_elements=NamedTuple(),
+        resource_element_states=NamedTuple(),
+        reference_element,
+        product_targets,
+        product_mode,
     )
-    return (; consumer_states, resources, product_targets)
 end
 
 function process_facts(process::Mortality, id::Symbol, components::NamedTuple)
-    population_states = Tuple(
-        _resolve_population_state(components, population, id, "mortality population")
-        for population in process.populations
+    plankton_states = Tuple(
+        _resolve_reference_state(components, plankton, id, "mortality plankton")
+        for plankton in process.plankton
     )
-    product_targets = if isnothing(process.products)
-        nothing
+    state_sets = NamedTuple{process.plankton}(Tuple(
+        _plankton_state_refs(components, plankton, id, "mortality plankton")
+        for plankton in process.plankton
+    ))
+    state_elements = NamedTuple{process.plankton}(Tuple(
+        _plankton_state_elements(components, plankton, id, "mortality plankton")
+        for plankton in process.plankton
+    ))
+    element_states = NamedTuple{process.plankton}(Tuple(
+        _plankton_element_states(components, plankton, id, "mortality plankton")
+        for plankton in process.plankton
+    ))
+
+    product_targets, product_mode = if isnothing(process.products)
+        nothing, nothing
     else
-        reference = _state_element(components, first(population_states))
+        reference_element = _state_element(components, first(plankton_states))
+        isnothing(reference_element) && throw(ArgumentError(
+            "process :$id mortality products require an elemental reference state",
+        ))
         _validate_state_elements(
-            components, population_states, reference, id, "mortality population state"
+            components, plankton_states, reference_element, id, "mortality reference state"
         )
-        _canonical_product_targets(
-            id, process.products, components, reference, "mortality products"
+        source_elements = _matching_element_sets(element_states, id, "mortality plankton")
+        targets = _canonical_product_targets(
+            id, process.products, components, reference_element, "mortality products"
         )
+        mode = _product_transfer_mode(
+            id,
+            process.products,
+            targets,
+            source_elements,
+            reference_element,
+            "mortality products",
+        )
+        targets, mode
     end
-    return (; population_states, product_targets)
+    return (;
+        plankton_states,
+        state_sets,
+        state_elements,
+        element_states,
+        product_targets,
+        product_mode,
+    )
 end
 
 function process_facts(process::Remineralization, id::Symbol, components::NamedTuple)
-    destination = _resolve_scalar_pool(components, process.destination, id, "remineralization destination")
-    reference = currency(destination)
+    destination = _resolve_pool(components, process.destination, id, "remineralization destination")
+    reference = element(destination)
     for source in process.sources
-        pool = _resolve_scalar_pool(components, source, id, "remineralization source")
-        _validate_currency(currency(pool), reference, id, "remineralization source :$source")
+        pool = _resolve_pool(components, source, id, "remineralization source")
+        _validate_element(element(pool), reference, id, "remineralization source :$source")
     end
     return NamedTuple()
 end
@@ -484,8 +643,8 @@ function _collect_driver_identities!(identities::Vector{Symbol}, factor::Abstrac
         input isa FactorDriver || continue
         input.identity in identities || push!(identities, input.identity)
     end
-    for child in values(_resolve_factor_children(factor))
-        _collect_driver_identities!(identities, child)
+    for subfactor in values(_resolve_factor_subfactors(factor))
+        _collect_driver_identities!(identities, subfactor)
     end
     return nothing
 end
@@ -654,8 +813,8 @@ concrete tracer realization. Local formulation slots bind directly to stable mod
 names during canonicalization.
 """
 function canonicalize_model(definition::ModelDefinition)
-    all(component -> component isa Union{Population,Pool}, values(definition.components)) ||
-        throw(ArgumentError("model components must be Population or Pool values"))
+    all(component -> component isa Union{Plankton,Pool}, values(definition.components)) ||
+        throw(ArgumentError("model components must be Plankton or Pool values"))
     canonical_processes = _canonical_processes(
         definition.processes, definition.components
     )

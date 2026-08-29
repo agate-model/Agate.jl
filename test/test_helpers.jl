@@ -38,7 +38,7 @@ quota_components() = (
     DIC=Agate.Configuration.Pool(:carbon),
     DIN=Agate.Configuration.Pool(:nitrogen),
     PO4=Agate.Configuration.Pool(:phosphorus),
-    P=Agate.Configuration.Population(;
+    P=Agate.Configuration.Plankton(;
         states=(:carbon, :nitrogen, :phosphorus),
         reference_state=:carbon,
         size_structure=[1.0, 2.0],
@@ -53,7 +53,7 @@ quota_response(state, minimum, maximum) = Agate.Processes.QuotaResponse(
 
 quota_uptake(state, resource, bindings) = Agate.Processes.NutrientUptake(
     Agate.Processes.QuotaRegulatedMonod();
-    population=:P,
+    plankton=:P,
     target_state=state,
     resource=resource,
     bindings=bindings,
@@ -69,7 +69,7 @@ function quota_processes()
         ),
     )
     growth = Agate.Processes.Growth(;
-        populations=:P,
+        plankton=:P,
         bindings=(maximum_rate=:maximum_growth_rate,),
         source=:DIC,
         factors=(
@@ -168,7 +168,7 @@ function authored_nipizd_inputs(::Type{T}=Float32) where {T<:AbstractFloat}
 end
 
 function nipizd_manifest(
-    recipe::Agate.Construction.ProcessModelRecipe;
+    recipe::Agate.Construction.ModelRecipe;
     grid=OceanBioME.BoxModelGrid(),
     arch=nothing,
     scalar_type=nothing,

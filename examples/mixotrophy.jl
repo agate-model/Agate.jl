@@ -1,9 +1,9 @@
 # # [Model with mixotrophy] (@id mixotrophy)
 #
 # A mixotroph does not need a special component type. `M` is an ordinary
-# `Population` that participates in both growth and grazing.
+# `Plankton` that participates in both growth and grazing.
 
-using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Population, Pool
+using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Plankton, Pool
 using Agate.Construction: construct
 using Agate.Parameters: DerivedDefault, MetaParameter, Parameter
 using Agate.Introspection: auxiliary_field_names, tracer_names
@@ -15,13 +15,13 @@ nothing #hide
 
 components = (
     N=Pool(:nitrogen),
-    P=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
-    M=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[4.0]),
+    P=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
+    M=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[4.0]),
 )
 
 processes = (
     growth_M=Growth(;
-        populations=:M,
+        plankton=:M,
         bindings=(maximum_rate=:maximum_growth_rate,),
         factors=(
             light=Light(Smith(); driver=:PAR),
@@ -77,7 +77,7 @@ bgc = construct(definition)
 
 println("tracers: ", tracer_names(bgc))
 println("drivers: ", auxiliary_field_names(bgc))
-println("M grows as: ", participants(processes.growth_M).population)
+println("M grows as: ", participants(processes.growth_M).plankton)
 println("M grazes as: ", participants(processes.grazing_M).consumer)
 
 nothing #hide

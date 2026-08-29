@@ -274,7 +274,7 @@ function parameter_label_index(bgc, parameter::Symbol, dimension::Int, label::Sy
     labels = metadata.labels[dimension]
     index = findfirst(==(label), labels)
     index === nothing && throw(ArgumentError(
-        "Unknown class :$label for parameter :$parameter; expected one of $(labels).",
+        "Unknown realized entity :$label for parameter :$parameter; expected one of $(labels).",
     ))
     return index
 end

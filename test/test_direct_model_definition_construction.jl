@@ -2,7 +2,7 @@ using Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
 using Test
 
-using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Population, Pool
+using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Plankton, Pool
 using Agate.Construction: construct
 using Agate.Introspection: plankton_diameters
 using Agate.Parameters: DerivedDefault, ConstantDefault, MetaParameter, Parameter
@@ -13,12 +13,12 @@ using Agate.Processes:
 function direct_npz_definition()
     components = (
         N=Pool(:nitrogen),
-        P=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
-        Z=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
+        P=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
+        Z=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
     )
     processes = (
         growth_P=Growth(;
-            populations=:P,
+            plankton=:P,
             bindings=(maximum_rate=:maximum_growth_rate,),
             factors=(
                 light=Light(Smith(); driver=:PAR),
@@ -100,10 +100,10 @@ end
 
 @testset "Process-local interaction defaults" begin
     components = (
-        P1=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
-        P2=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[4.0]),
-        Z1=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
-        Z2=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[20.0]),
+        P1=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
+        P2=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[4.0]),
+        Z1=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
+        Z2=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[20.0]),
     )
     common_bindings = (
         maximum_rate=:maximum_predation_rate,
@@ -162,14 +162,14 @@ end
 
 @testset "Explicit product fractions" begin
     components = (
-        P=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
+        P=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
         A=Pool(:nitrogen),
         B=Pool(:nitrogen),
     )
     processes = (
         mortality_P=Mortality(
             LinearMortality();
-            populations=:P,
+            plankton=:P,
             bindings=(rate=:linear_mortality,),
             products=Products(
                 (a=:A, b=:B);
@@ -200,22 +200,22 @@ end
     end
 end
 
-@testset "Multi-currency products" begin
+@testset "Multi-element products" begin
     components = (
-        P=Population(; states=:carbon, reference_state=:carbon, size_structure=[1.0]),
+        P=Plankton(; states=:carbon, reference_state=:carbon, size_structure=[1.0]),
         DOC=Pool(:carbon),
         POC=Pool(:carbon),
         DON=Pool(:nitrogen),
         PON=Pool(:nitrogen),
     )
     stoichiometry = FixedStoichiometry(;
-        reference=:carbon,
+        reference_element=:carbon,
         bindings=(ratio=(nitrogen=:nitrogen_to_carbon,),),
     )
     processes = (
         mortality_P=Mortality(
             LinearMortality();
-            populations=:P,
+            plankton=:P,
             bindings=(rate=:linear_mortality,),
             products=Products(
                 (

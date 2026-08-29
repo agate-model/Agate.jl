@@ -38,7 +38,7 @@ nothing #hide
 # (`Vopt = 10`).
 #
 # Instead, we will change that optimum to `Vopt = 5` for the two
-# zooplankton consumers. Vector parameters can be overridden by plankton class
+# zooplankton consumers. Vector parameters can be overridden by plankton SizeClass
 # name, so only the relevant entries need to be supplied. Omitted entries are
 # filled from the model defaults.
 

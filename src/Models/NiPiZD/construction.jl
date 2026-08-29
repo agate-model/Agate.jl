@@ -24,37 +24,37 @@ function _canonicalize_size_structure(size_structure)
     zooplankton isa NamedTuple ||
         throw(ArgumentError("size_structure.zooplankton must be a NamedTuple"))
     isempty(phytoplankton) &&
-        throw(ArgumentError("size_structure.phytoplankton must define at least one group"))
+        throw(ArgumentError("size_structure.phytoplankton must define at least one PFT"))
     isempty(zooplankton) &&
-        throw(ArgumentError("size_structure.zooplankton must define at least one group"))
+        throw(ArgumentError("size_structure.zooplankton must define at least one PFT"))
 
-    producer_groups = keys(phytoplankton)
-    consumer_groups = keys(zooplankton)
-    duplicate_groups = [group for group in producer_groups if group in consumer_groups]
-    isempty(duplicate_groups) || throw(
+    producer_pfts = keys(phytoplankton)
+    consumer_pfts = keys(zooplankton)
+    duplicate_pfts = [pft for pft in producer_pfts if pft in consumer_pfts]
+    isempty(duplicate_pfts) || throw(
         ArgumentError(
-            "plankton group names must be unique across roles; " *
-            "duplicated groups: $(collect(duplicate_groups))",
+            "plankton PFT names must be unique across roles; " *
+            "duplicated PFTs: $(collect(duplicate_pfts))",
         ),
     )
 
-    return (; phytoplankton, zooplankton, producer_groups, consumer_groups)
+    return (; phytoplankton, zooplankton, producer_pfts, consumer_pfts)
 end
 
-function _population_realization(size_structure)
+function _plankton_realization(size_structure)
     structure = _canonicalize_size_structure(size_structure)
-    group_order = (structure.consumer_groups..., structure.producer_groups...)
-    group_diameters = NamedTuple{group_order}(ntuple(length(group_order)) do i
-        group = group_order[i]
-        diameters = if group in structure.consumer_groups
-            getproperty(structure.zooplankton, group)
+    pft_order = (structure.consumer_pfts..., structure.producer_pfts...)
+    pft_size_structures = NamedTuple{pft_order}(ntuple(length(pft_order)) do i
+        pft = pft_order[i]
+        diameters = if pft in structure.consumer_pfts
+            getproperty(structure.zooplankton, pft)
         else
-            getproperty(structure.phytoplankton, group)
+            getproperty(structure.phytoplankton, pft)
         end
         diameters
     end)
-    population_groups = (P=structure.producer_groups, Z=structure.consumer_groups)
-    return (; population_groups, group_diameters)
+    plankton_pfts = (P=structure.producer_pfts, Z=structure.consumer_pfts)
+    return (; plankton_pfts, pft_size_structures)
 end
 
 function _construction_inputs(;
@@ -69,7 +69,7 @@ function _construction_inputs(;
     open_bottom::Bool=true,
 )
     family = NiPiZDFamily()
-    realization = _population_realization(size_structure)
+    realization = _plankton_realization(size_structure)
 
     parameter_overrides = parameters
     palatability_matrix === nothing ||
@@ -78,8 +78,8 @@ function _construction_inputs(;
         (parameter_overrides = merge(parameter_overrides, (; assimilation_matrix)))
     return (;
         family,
-        population_groups=realization.population_groups,
-        group_diameters=realization.group_diameters,
+        plankton_pfts=realization.plankton_pfts,
+        pft_size_structures=realization.pft_size_structures,
         parameter_overrides,
         sinking_tracers,
         open_bottom,
@@ -93,7 +93,7 @@ end
 Construct a size-structured NiPiZD ecosystem model.
 
 The NiPiZD model contains phytoplankton and zooplankton roles. `size_structure` defines
-the groups within each role; the defaults are `P` and `Z`.
+the PFTs within each role; the defaults are `P` and `Z`.
 
 In addition to plankton, the NiPiZD definition includes idealized nutrient (`N`) and
 detritus (`D`) cycling. The returned biogeochemistry instance includes a photosynthetically
@@ -104,20 +104,20 @@ vectors and interaction matrices (e.g. palatability and assimilation efficiency)
 may override interaction matrices explicitly with `palatability_matrix` and/or
 `assimilation_matrix`.
 
-Each group size structure may be a NamedTuple range, for example
+Each PFT size structure may be a NamedTuple range, for example
 `(n=3, min_esd=1, max_esd=10, splitting=:log_splitting)`, or an explicit
-diameter vector such as `[1.0, 3.2, 10.0]`. Groups are supplied as
-`size_structure=(phytoplankton=(...), zooplankton=(...))` and classes use
-`<group>_<index>` tracer names, such as `P_1` or `diat_1`.
+diameter vector such as `[1.0, 3.2, 10.0]`. PFTs are supplied as
+`size_structure=(phytoplankton=(...), zooplankton=(...))` and SizeClasses use
+`<pft>_<index>` identities, such as `P_1` or `diat_1`.
 
 Keywords
 --------
-- `size_structure`: phytoplankton and zooplankton groups, supplied as a NamedTuple with
-  `phytoplankton` and `zooplankton` fields. Defaults to `P` and `Z` groups with two size classes
+- `size_structure`: phytoplankton and zooplankton PFTs, supplied as a NamedTuple with
+  `phytoplankton` and `zooplankton` fields. Defaults to `P` and `Z` PFTs with two SizeClasses
   each.
-- `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set). Vector parameters may be supplied positionally, as partial NamedTuple overrides keyed by realized plankton tracer name (for example `P_1`, `diat_1`, or `microzoo_1`), or as allometric definitions for diameter-indexed plankton vectors.
-- `palatability_matrix=nothing`: optional palatability matrix override. Must be an explicit rectangular matrix with rows ordered by realized zooplankton classes and columns ordered by realized phytoplankton classes.
-- `assimilation_matrix=nothing`: optional assimilation matrix override with the same consumer-by-prey class ordering as `palatability_matrix`.
+- `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set). Vector parameters may be supplied positionally, as partial NamedTuple overrides keyed by realized plankton SizeClass identity (for example `P_1`, `diat_1`, or `microzoo_1`), or as allometric definitions for diameter-indexed plankton vectors.
+- `palatability_matrix=nothing`: optional palatability matrix override. Must be an explicit rectangular matrix with rows ordered by realized zooplankton SizeClasses and columns ordered by realized phytoplankton SizeClasses.
+- `assimilation_matrix=nothing`: optional assimilation matrix override with the same consumer-by-prey SizeClass ordering as `palatability_matrix`.
 - `grid=BoxModelGrid()`: grid used for architecture inference and default scalar-type selection
 - `scalar_type=nothing`: explicit runtime scalar type. When omitted, construction uses `eltype(grid)` or `Float64` if no grid is supplied
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
@@ -161,7 +161,7 @@ end
 Replay a NiPiZD recipe in the supplied runtime environment.
 """
 function construct_from_recipe(
-    recipe::Construction.ProcessModelRecipe; grid=BoxModelGrid(), arch=nothing, scalar_type=nothing
+    recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing, scalar_type=nothing
 )
     recipe.family == :NiPiZD || throw(
         ArgumentError(
@@ -176,7 +176,7 @@ end
     construct_plus_recipe(; kw...) -> bgc, recipe
 
 Construct NiPiZD and return the model together with its versioned family recipe.
-The recipe records the registered family version, subgroup size realization, authored
+The recipe records the registered family version, PFT size realization, authored
 parameter overrides, sinking configuration, and open-bottom state. Runtime grid,
 architecture, scalar precision, components, processes, and compiled equations are supplied
 when the recipe is realized.

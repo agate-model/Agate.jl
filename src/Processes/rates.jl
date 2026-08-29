@@ -1,6 +1,8 @@
-"""Evaluate the canonical scientific rate for a mortality formulation."""
-@inline process_rate(::LinearMortality, biomass, coefficient) = linear_loss(biomass, coefficient)
-@inline process_rate(::QuadraticMortality, biomass, coefficient) = quadratic_loss(biomass, coefficient)
+"""Evaluate one state-specific mortality flux from a shared reference-state intensity."""
+@inline process_rate(::LinearMortality, inventory, reference, coefficient) =
+    linear_loss(inventory, coefficient)
+@inline process_rate(::QuadraticMortality, inventory, reference, coefficient) =
+    coefficient * reference * inventory
 @inline factor_value(::Smith, light, maximum_rate, alpha) =
     smith_light_limitation(light, alpha, maximum_rate)
 
@@ -22,7 +24,7 @@
 @inline factor_value(::Q10, temperature, q10, reference_temperature) =
     q10_temperature_factor(temperature, q10, reference_temperature)
 
-"""Evaluate the unmodified population-growth scale before sibling factors."""
+"""Evaluate the unmodified plankton-growth scale before sibling factors."""
 @inline process_rate(::MultiplicativeFactors, biomass, maximum_rate) =
     maximum_rate * biomass
 
@@ -63,6 +65,22 @@ end
     return preferential_predation_loss(
         resource, consumer, maximum_rate, half_saturation, palatability
     )
+end
+
+"""Evaluate loss of one prey state using the reference-state grazing intensity."""
+@inline function process_rate(
+    ::PreferentialGrazing,
+    inventory,
+    reference_resource,
+    consumer,
+    maximum_rate,
+    half_saturation,
+    palatability,
+)
+    half_saturation == zero(half_saturation) && reference_resource == zero(reference_resource) &&
+        return zero(maximum_rate * inventory * consumer)
+    return maximum_rate * palatability * inventory /
+           (half_saturation + reference_resource) * consumer
 end
 
 """Evaluate one linear source remineralization rate."""

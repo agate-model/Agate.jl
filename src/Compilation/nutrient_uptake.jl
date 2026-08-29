@@ -11,18 +11,18 @@ function process_fluxes(
     fluxes = Any[]
 
     for participant in participants
-        axis_positions = (population=participant.position,)
+        axis_positions = (plankton=participant.position,)
         operands = (
             input_operand(layout, resource),
             input_operand(layout, participant.tracer),
-            input_operand(layout, reference_tracers[participant.position.local_index]),
+            input_operand(layout, reference_tracers[participant.component_index]),
             parameter_operand(slots.maximum_rate, context, axis_positions),
             parameter_operand(slots.half_saturation, context, axis_positions),
             parameter_operand(slots.minimum_quota, context, axis_positions),
             parameter_operand(slots.maximum_quota, context, axis_positions),
             parameter_operand(slots.hill, context, axis_positions),
         )
-        rate = RateElement(formulation(process), operands)
+        rate = RateOp(formulation(process), operands)
         push!(
             fluxes,
             FluxSpec(resource, rate, Weight{-1}()),

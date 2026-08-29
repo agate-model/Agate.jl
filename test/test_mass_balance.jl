@@ -3,7 +3,7 @@ using Agate
 const NiPiZD = Agate.Models.NiPiZD
 
 using Agate.Diagnostics: box_model_mass_balance
-using Agate.Configuration: Population, Pool
+using Agate.Configuration: Plankton, Pool
 using Agate.Construction: construct
 using Agate.Parameters: ConstantDefault, Parameter
 using Agate.Processes:
@@ -18,14 +18,14 @@ using Oceananigans.Units: day, minutes
 
 function multi_nutrient_test_model(grid; nutrient_formulation=Liebig())
     components = (
-        P=Population(; states=:carbon, reference_state=:carbon, size_structure=[1.0]),
+        P=Plankton(; states=:carbon, reference_state=:carbon, size_structure=[1.0]),
         DIC=Pool(:carbon),
         DIN=Pool(:nitrogen),
         PO4=Pool(:phosphorus),
     )
     processes = (
         growth_P=Growth(;
-            populations=:P,
+            plankton=:P,
             bindings=(maximum_rate=:maximum_growth_rate,),
             source=:DIC,
             factors=(
@@ -51,7 +51,7 @@ function multi_nutrient_test_model(grid; nutrient_formulation=Liebig())
                 ),
             ),
             stoichiometry=FixedStoichiometry(;
-                reference=:carbon,
+                reference_element=:carbon,
                 bindings=(
                     ratio=(
                         nitrogen=:nitrogen_to_carbon,

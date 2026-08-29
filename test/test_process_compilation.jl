@@ -31,7 +31,7 @@ function Agate.Compilation.process_fluxes(
     source = only(component_tracers(context.layout, named.facts.source))
     destination = only(component_tracers(context.layout, named.facts.destination))
     parameters = process_parameter_operands(named, context)
-    rate = Agate.Compilation.RateElement(
+    rate = Agate.Compilation.RateOp(
         ExtensionTransferRate(), (input_operand(context.layout, source), parameters.rate)
     )
     return (

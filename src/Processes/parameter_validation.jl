@@ -2,12 +2,12 @@ function _realized_axis_parameter_value(
     plan::ParameterPlan,
     parameter_values::NamedTuple,
     binding::ParameterBinding,
-    class::Symbol,
+    entity::Symbol,
 )
     length(binding.axes) == 1 || throw(ArgumentError(
-        "parameter :$(binding.parameter) must have exactly one ecological storage axis for class-local validation",
+        "parameter :$(binding.parameter) must have exactly one ecological storage axis for entity-local validation",
     ))
-    index = parameter_storage_index(plan, binding.parameter, 1, class)
+    index = parameter_storage_index(plan, binding.parameter, 1, entity)
     return getproperty(parameter_values, binding.parameter)[index]
 end
 
@@ -19,15 +19,15 @@ function _validate_quota_bounds(
     named::NamedProcess,
     path::Tuple,
     slot_refs::NamedTuple,
-    population::Symbol,
+    plankton::Symbol,
 )
     slots = _resolved_slot_bindings(definition, slot_refs)
     minimum_binding = slots.minimum_quota
     maximum_binding = slots.maximum_quota
-    for class in component_classes(layout, population)
-        minimum = _realized_axis_parameter_value(plan, parameter_values, minimum_binding, class)
-        maximum = _realized_axis_parameter_value(plan, parameter_values, maximum_binding, class)
-        context = "process :$(process_id(named)) path $path ecological class :$class"
+    for entity in component_entities(layout, plankton)
+        minimum = _realized_axis_parameter_value(plan, parameter_values, minimum_binding, entity)
+        maximum = _realized_axis_parameter_value(plan, parameter_values, maximum_binding, entity)
+        context = "process :$(process_id(named)) path $path realized entity :$entity"
         minimum > zero(minimum) || throw(ArgumentError(
             "$context parameter :$(minimum_binding.parameter) must be > 0; got $minimum",
         ))
@@ -46,16 +46,16 @@ function _validate_parameter_constraint(
     named::NamedProcess,
     path::Tuple,
     slot_refs::NamedTuple,
-    population::Symbol,
+    plankton::Symbol,
     slot::Symbol,
     rule::Symbol,
 )
     binding = getproperty(_resolved_slot_bindings(definition, slot_refs), slot)
-    for class in component_classes(layout, population)
-        value = _realized_axis_parameter_value(plan, parameter_values, binding, class)
+    for entity in component_entities(layout, plankton)
+        value = _realized_axis_parameter_value(plan, parameter_values, binding, entity)
         valid = rule === :positive ? value > zero(value) : value >= zero(value)
         valid || throw(ArgumentError(
-            "process :$(process_id(named)) path $path ecological class :$class " *
+            "process :$(process_id(named)) path $path realized entity :$entity " *
             "parameter :$(binding.parameter) must be $(rule === :positive ? "> 0" : ">= 0"); got $value",
         ))
     end
@@ -68,19 +68,19 @@ function _validate_quota_factor_science(
     if factor isa QuotaResponse
         _validate_quota_bounds(
             definition, layout, plan, parameter_values, named, path, refs.slots,
-            only(named.facts.population_states).population,
+            only(named.facts.plankton_states).plankton,
         )
     end
-    for (name, child) in pairs(factor_children(factor))
+    for (name, subfactor) in pairs(factor_subfactors(factor))
         _validate_quota_factor_science(
             definition,
             layout,
             plan,
             parameter_values,
             named,
-            factor_child_path(path, factor, name),
-            child,
-            getproperty(refs.children, name),
+            factor_subfactor_path(path, factor, name),
+            subfactor,
+            getproperty(refs.subfactors, name),
         )
     end
     return nothing
@@ -104,7 +104,7 @@ function _validate_quota_science(
             path = ()
             _validate_quota_bounds(
                 definition, layout, plan, parameter_values, named, path,
-                named.binding_refs.process, process.population,
+                named.binding_refs.process, process.plankton,
             )
             for (slot, rule) in (
                 (:maximum_rate, :nonnegative),
@@ -119,7 +119,7 @@ function _validate_quota_science(
                     named,
                     path,
                     named.binding_refs.process,
-                    process.population,
+                    process.plankton,
                     slot,
                     rule,
                 )

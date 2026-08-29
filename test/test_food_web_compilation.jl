@@ -2,7 +2,7 @@ using ForwardDiff
 using Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
 
-using Agate.Configuration: Population, Pool
+using Agate.Configuration: Plankton, Pool
 using Agate.Construction: construct
 using Agate.Introspection: interaction_matrix
 using Agate.Parameters: Parameter, NoDefault
@@ -14,18 +14,18 @@ function food_web_definition()
     components = (
         N=Pool(:nitrogen),
         D=Pool(:nitrogen),
-        POM=Pool(:nitrogen; size_structure=[0.5, 5.0]),
-        P=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
-        B=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[0.8]),
-        M=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[2.0]),
-        Z=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
+        POM=Pool(:nitrogen),
+        P=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
+        B=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[0.8]),
+        M=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[2.0]),
+        Z=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
     )
     temperature = Temperature(
         Q10(); bindings=(q10=:temperature_q10, reference_temperature=:reference_temperature)
     )
     processes = (
         growth_autotrophs=Growth(;
-            populations=(:P, :M),
+            plankton=(:P, :M),
             bindings=(maximum_rate=:maximum_growth_rate,),
             factors=(
                 temperature=temperature,
@@ -87,8 +87,8 @@ function food_web_parameter_overrides(::Type{T}=Float64) where {T<:Real}
         temperature_q10=T(2),
         reference_temperature=T(20),
         maximum_consumption_rate=T[1.5e-5],
-        pom_half_saturation=T[0.15, 0.4],
-        bacterial_assimilation=reshape(T[0.65, 0.75], 1, 2),
+        pom_half_saturation=T[0.15],
+        bacterial_assimilation=reshape(T[0.65], 1, 1),
         maximum_predation_rate=T[6e-5, 9e-5],
         holling_half_saturation=T[0.12, 0.18],
         living_palatability_matrix=T[0.6 0.8; 0.7 0.9],
@@ -110,7 +110,7 @@ function food_web_args(bgc, state::NamedTuple; PAR=0.0, temperature=20.0)
     return (0.0, 0.0, 0.0, 0.0, tracer_values..., auxiliary_values...)
 end
 
-@testset "Structured POM, bacteria, mixotrophy, and reusable factors" begin
+@testset "POM, bacteria, mixotrophy, and reusable factors" begin
     definition = food_web_definition()
     bgc = construct(definition; parameter_overrides=food_web_parameter_overrides())
 
@@ -119,24 +119,24 @@ end
     )
     @test participants(definition.processes.grazing_living).resource == (:P, :B)
     @test :POM ∉ participants(definition.processes.grazing_living).resource
-    @test :M ∈ participants(definition.processes.growth_autotrophs).population
+    @test :M ∈ participants(definition.processes.growth_autotrophs).plankton
     @test :M ∈ participants(definition.processes.grazing_living).consumer
     @test required_biogeochemical_auxiliary_fields(bgc) == (:PAR, :temperature)
 
     state = (
-        N=5.0, D=0.1, POM_1=0.5, POM_2=0.2,
+        N=5.0, D=0.1, POM=0.5,
         P_1=0.05, B_1=0.03, M_1=0.02, Z_1=0.04,
     )
     args = food_web_args(bgc, state; PAR=100.0, temperature=25.0)
     tendencies = values(model_tendencies(bgc, args))
     @test isapprox(sum(tendencies), 0; atol=10 * eps(sum(abs, tendencies)))
 
-    consumption_state = (POM_1=0.5, POM_2=0.2, B_1=0.03)
+    consumption_state = (POM=0.5, B_1=0.03)
     consumption20 = bgc(
-        Val(:POM_1), food_web_args(bgc, consumption_state; temperature=20.0)...
+        Val(:POM), food_web_args(bgc, consumption_state; temperature=20.0)...
     )
     consumption30 = bgc(
-        Val(:POM_1), food_web_args(bgc, consumption_state; temperature=30.0)...
+        Val(:POM), food_web_args(bgc, consumption_state; temperature=30.0)...
     )
     @test process_compiler_isapprox(consumption30, 2 * consumption20)
 
@@ -150,25 +150,27 @@ end
     @test process_compiler_isapprox(growth30, 2 * growth20)
 
     derivative = ForwardDiff.derivative(0.5) do pom
-        dynamic_state = (POM_1=pom, POM_2=0.2, B_1=0.03)
-        bgc(Val(:POM_1), food_web_args(bgc, dynamic_state; temperature=25.0)...)
+        dynamic_state = (POM=pom, B_1=0.03)
+        bgc(Val(:POM), food_web_args(bgc, dynamic_state; temperature=25.0)...)
     end
     @test isfinite(derivative)
     @test derivative < 0
 end
 
-@testset "Constructed consumer-resource storage axes" begin
+@testset "Multi-resource consumer storage axes" begin
     components = (
         N=Pool(:nitrogen),
-        POM=Pool(:nitrogen; size_structure=[0.5, 1.0, 2.0]),
-        X=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[0.4]),
-        B=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[0.8]),
+        POM_1=Pool(:nitrogen),
+        POM_2=Pool(:nitrogen),
+        POM_3=Pool(:nitrogen),
+        X=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[0.4]),
+        B=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[0.8]),
     )
     processes = (
         consume_POM=Consumption(
             HeterotrophicConsumption();
             consumers=:B,
-            resources=:POM,
+            resources=(:POM_1, :POM_2, :POM_3),
             bindings=(
                 maximum_rate=:maximum_consumption_rate,
                 half_saturation=:pom_half_saturation,

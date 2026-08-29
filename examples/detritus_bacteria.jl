@@ -1,10 +1,10 @@
 # # [Model with bacterioplankton] (@id detritus_bacteria)
 #
-# Material pools and living prey are separate concepts. Here a structured POM
-# pool is consumed by heterotrophic bacterioplankton `B`, while zooplankton `Z`
-# graze the living bacterial population. A Q10 factor modifies POM consumption.
+# Material pools and living prey are separate concepts. Here a POM pool is
+# consumed by heterotrophic bacterioplankton `B`, while zooplankton `Z`
+# graze the living bacterial plankton. A Q10 factor modifies POM consumption.
 
-using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Population, Pool
+using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Plankton, Pool
 using Agate.Construction: construct
 using Agate.Parameters: DerivedDefault, MetaParameter, Parameter
 using Agate.Introspection: auxiliary_field_names, tracer_names
@@ -17,14 +17,14 @@ nothing #hide
 
 # ## Components
 #
-# `POM` expands into two material tracers. `B` and `Z` are ordinary living
-# populations; their ecological roles are supplied by the processes below.
+# `POM` is one material inventory. `B` and `Z` are ordinary living plankton;
+# their ecological roles are supplied by the processes below.
 
 components = (
     N=Pool(:nitrogen),
-    POM=Pool(:nitrogen; size_structure=[0.5, 5.0]),
-    B=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[0.8]),
-    Z=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
+    POM=Pool(:nitrogen),
+    B=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[0.8]),
+    Z=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
 )
 
 processes = (
@@ -65,7 +65,7 @@ processes = (
 # ## Parameters
 #
 # Each NamedTuple key is the stable model parameter name. Slot-bound parameters derive
-# their storage from the process roles and realized classes, so living and POM parameters
+# their storage from the process roles and realized entities, so process parameters
 # need no axis declarations. The four interaction traits are dependency-only setup
 # parameters, so they retain an explicit `:plankton` axis for the derived matrices.
 

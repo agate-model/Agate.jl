@@ -8,7 +8,7 @@ module Introspection
 export tracer_names
 export auxiliary_field_names
 export parameter_names
-export plankton_groups
+export pfts
 export plankton_tracers
 export plankton_diameters
 export nonplankton_tracers
@@ -70,36 +70,36 @@ function _model_metadata(bgc)
     return getproperty(bgc, :metadata)
 end
 
-"""    plankton_groups(bgc) -> NamedTuple
+"""    pfts(bgc) -> NamedTuple
 
-Return a `NamedTuple` mapping plankton group symbols to ecological class symbols.
-For multi-state populations each size class appears once, independent of the number
-of physical prognostic state tracers. Group order follows the realized model layout.
+Return a `NamedTuple` mapping plankton PFT symbols to realized SizeClass symbols.
+For multi-state plankton each SizeClass appears once, independent of the number
+of physical prognostic state tracers. PFT order follows the realized model layout.
 """
-function plankton_groups(bgc)
+function pfts(bgc)
     metadata = _model_metadata(bgc)
     metadata === nothing && return NamedTuple()
-    names = keys(metadata.group_classes)
+    names = keys(metadata.pft_size_classes)
     return NamedTuple{names}(
-        Tuple(collect(classes) for classes in values(metadata.group_classes))
+        Tuple(collect(size_classes) for size_classes in values(metadata.pft_size_classes))
     )
 end
 
 """    plankton_tracers(bgc) -> Vector{Symbol}
 
-Return all plankton tracer symbols as a flat vector in runtime group order.
+Return all plankton tracer symbols as a flat vector in runtime PFT/SizeClass order.
 """
 function plankton_tracers(bgc)
     metadata = _model_metadata(bgc)
     metadata === nothing && return Symbol[]
-    return collect(metadata.population_tracers)
+    return collect(metadata.plankton_tracers)
 end
 
 """    plankton_diameters(bgc) -> Vector
 
-Return the equivalent spherical diameters for realized plankton ecological classes.
-The ordering follows the flattened values of `plankton_groups(bgc)`, with one diameter
-per size class even when each class carries multiple prognostic state tracers. Models
+Return the equivalent spherical diameters for realized plankton SizeClasses.
+The ordering follows the flattened values of `pfts(bgc)`, with one diameter
+per SizeClass even when each SizeClass carries multiple prognostic state tracers. Models
 without plankton diameter metadata return an empty vector.
 """
 function plankton_diameters(bgc)
@@ -110,7 +110,7 @@ end
 
 """    nonplankton_tracers(bgc) -> Vector{Symbol}
 
-Return the tracer symbols that are not part of a plankton group.
+Return the tracer symbols that are not part of a plankton PFT.
 """
 function nonplankton_tracers(bgc)
     plankton = Set(plankton_tracers(bgc))
@@ -126,7 +126,7 @@ function tracer_groups(bgc)
         all=tracer_names(bgc),
         plankton=plankton_tracers(bgc),
         nonplankton=nonplankton_tracers(bgc),
-        by_group=plankton_groups(bgc),
+        by_pft=pfts(bgc),
     )
 end
 
@@ -170,7 +170,7 @@ end
 
 """    interaction_matrix(bgc, parameter::Symbol) -> NamedTuple
 
-Return a consumer-by-prey parameter matrix with ecological class labels.
+Return a consumer-by-prey parameter matrix with SizeClass labels.
 
 `parameter` is the canonical model parameter identity, for example
 `:palatability_matrix` or `:assimilation_matrix`. The returned `NamedTuple` contains

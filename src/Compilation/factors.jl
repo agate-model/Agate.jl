@@ -9,13 +9,13 @@ function _factor_input_operand(
 end
 
 function _factor_input_operand(
-    input::FactorPopulationState, layout::ModelLayout, axis_positions::NamedTuple
+    input::FactorPlanktonState, layout::ModelLayout, axis_positions::NamedTuple
 )
-    hasproperty(axis_positions, :population) || throw(ArgumentError(
-        "population-state factor input requires a realized :population axis position",
+    hasproperty(axis_positions, :plankton) || throw(ArgumentError(
+        "plankton-state factor input requires a realized :plankton axis position",
     ))
-    local_index = axis_positions.population.local_index
-    tracer = state_tracer(layout, input.reference, local_index)
+    component_index = axis_positions.plankton.component_index
+    tracer = state_tracer(layout, input.reference, component_index)
     return input_operand(layout, tracer)
 end
 
@@ -25,9 +25,9 @@ _factor_process_operands(
 
 _factor_inputs(factor::AbstractFactor, ::NamedProcess) = factor_inputs(factor)
 function _factor_inputs(factor::QuotaResponse, named::NamedProcess)
-    reference = only(named.facts.population_states)
-    variable = PopulationStateRef(reference.population, factor.variable_state)
-    return (FactorPopulationState(variable), FactorPopulationState(reference))
+    reference = only(named.facts.plankton_states)
+    variable = PlanktonStateRef(reference.plankton, factor.variable_state)
+    return (FactorPlanktonState(variable), FactorPlanktonState(reference))
 end
 
 function _factor_process_operands(
@@ -40,7 +40,7 @@ function _factor_process_operands(
     return (parameter_operand(ref, context, axis_positions),)
 end
 
-function _factor_element(
+function _factor_op(
     context::CompileContext,
     named::NamedProcess,
     factor::AbstractFactor,
@@ -54,38 +54,38 @@ function _factor_element(
     process_operands = _factor_process_operands(
         factor, context, named, axis_positions
     )
-    children = factor_children(factor)
-    child_operands = if isempty(children)
+    subfactors = factor_subfactors(factor)
+    subfactor_operands = if isempty(subfactors)
         ()
     else
-        child_factors = Tuple(
-            _factor_element(
+        subfactor_ops = Tuple(
+            _factor_op(
                 context,
                 named,
-                child,
-                getproperty(refs.children, name),
+                subfactor,
+                getproperty(refs.subfactors, name),
                 axis_positions,
             )
-            for (name, child) in pairs(children)
+            for (name, subfactor) in pairs(subfactors)
         )
-        (TupleOp(child_factors),)
+        (TupleOp(subfactor_ops),)
     end
     parameter_operands = Tuple(
         parameter_operand(ref, context, axis_positions) for ref in values(refs.slots)
     )
-    return FactorElement(
+    return FactorOp(
         formulation(factor),
-        (input_operands..., process_operands..., child_operands..., parameter_operands...),
+        (input_operands..., process_operands..., subfactor_operands..., parameter_operands...),
     )
 end
 
-function _factor_elements(
+function _factor_ops(
     context::CompileContext,
     named::NamedProcess,
     axis_positions::NamedTuple,
 )
     return Tuple(
-        _factor_element(
+        _factor_op(
             context, named, factor, getproperty(named.binding_refs.factors, name), axis_positions
         )
         for (name, factor) in pairs(factors(named))

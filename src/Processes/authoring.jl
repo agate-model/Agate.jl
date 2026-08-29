@@ -38,10 +38,10 @@ struct PreferentialGrazing <: AbstractFormulation end
 """Heterotrophic resource-consumption formulation without living-prey interaction weights."""
 struct HeterotrophicConsumption <: AbstractFormulation end
 
-"""Linear population-mortality formulation."""
+"""Linear plankton-mortality formulation."""
 struct LinearMortality <: AbstractFormulation end
 
-"""Quadratic population-mortality formulation."""
+"""Quadratic plankton-mortality formulation."""
 struct QuadraticMortality <: AbstractFormulation end
 
 """Linear source-to-destination remineralization formulation."""
@@ -81,17 +81,17 @@ end
 """Return setup-only authored model-parameter bindings for one slot-owning node."""
 function authored_parameter_bindings end
 
-"""Fixed conversion from one reference currency to process target currencies.
+"""Fixed conversion from one reference element to process target elements.
 
-Each bound ratio is the amount of its target currency per unit reference currency.
+Each bound ratio is the amount of its target element per unit reference element.
 """
 struct FixedStoichiometry <: AbstractStoichiometry
-    reference::Symbol
+    reference_element::Symbol
     bindings::NamedTuple
 end
 
-FixedStoichiometry(; reference::Symbol, bindings::NamedTuple=NamedTuple()) =
-    FixedStoichiometry(reference, _canonical_bindings(bindings))
+FixedStoichiometry(; reference_element::Symbol, bindings::NamedTuple=NamedTuple()) =
+    FixedStoichiometry(reference_element, _canonical_bindings(bindings))
 
 authored_parameter_bindings(stoichiometry::FixedStoichiometry) = stoichiometry.bindings
 
@@ -141,7 +141,7 @@ authored_parameter_bindings(factor::NutrientResponse) = factor.bindings
 """Cellular-quota response used by quota-limited growth.
 
 `variable_state` identifies the internal inventory whose quota varies relative to the
-Growth population's intrinsic reference state.
+Growth plankton's intrinsic reference state.
 """
 struct QuotaResponse{F<:NormalizedDroop} <: AbstractFactor
     formulation::F
@@ -182,8 +182,8 @@ end
 
 """Multi-response nutrient factor with formulation-owned response composition.
 
-External `NutrientResponse` children identify resource currencies for fixed-stoichiometry
-growth. Internal `QuotaResponse` children identify cellular quota currencies and affect
+External `NutrientResponse` subfactors identify resource elements for fixed-stoichiometry
+growth. Internal `QuotaResponse` subfactors identify cellular quota elements and affect
 growth rate without transferring those nutrients. Each `Nutrients` factor uses one response
 category consistently.
 """
@@ -229,9 +229,9 @@ struct FactorComponent <: AbstractFactorInput
     component::Symbol
 end
 
-"""Setup-only read of one prognostic population state required by a factor."""
-struct FactorPopulationState <: AbstractFactorInput
-    reference::PopulationStateRef
+"""Setup-only read of one prognostic plankton state required by a factor."""
+struct FactorPlanktonState <: AbstractFactorInput
+    reference::PlanktonStateRef
 end
 
 factor_inputs(::AbstractFactor) = ()
@@ -240,19 +240,20 @@ factor_inputs(factor::Temperature) = (FactorDriver(factor.driver),)
 factor_inputs(factor::NutrientResponse) = (FactorComponent(factor.resource),)
 factor_inputs(::QuotaResponse) = ()
 
-factor_children(::AbstractFactor) = NamedTuple()
-factor_children(factor::Nutrients) = factor.responses
+factor_subfactors(::AbstractFactor) = NamedTuple()
+factor_subfactors(factor::Nutrients) = factor.responses
 
-factor_child_path(path::Tuple, ::AbstractFactor, name::Symbol) = (path..., name)
-factor_child_path(path::Tuple, ::Nutrients, name::Symbol) = (path..., :responses, name)
+factor_subfactor_path(path::Tuple, ::AbstractFactor, name::Symbol) = (path..., name)
+factor_subfactor_path(path::Tuple, ::Nutrients, name::Symbol) = (path..., :responses, name)
 
 # Product routing
 
 """Conservative allocation of one process product flux among named destinations.
 
-Each product target may be either one component Symbol or a named currency-to-component
-mapping. Multi-currency products require `FixedStoichiometry`; every product then declares
-the same currencies and the stoichiometric reference currency must be present.
+Each product target may be either one component Symbol or a named element-to-component
+mapping. A multi-element mapping without `FixedStoichiometry` routes prognostic elemental
+states directly. `FixedStoichiometry` derives multi-element products from a one-element source;
+every product then declares the same elements and includes the stoichiometric reference element.
 
 For `N` products, specify either `N - 1` named fractions or all `N` fractions. When one
 fraction is omitted, that product receives the exact conservative remainder
@@ -269,11 +270,11 @@ end
 function _canonical_product_target(target)
     target isa Symbol && return target
     target isa NamedTuple || throw(
-        ArgumentError("product targets must be component Symbols or currency-to-component mappings"),
+        ArgumentError("product targets must be component Symbols or element-to-component mappings"),
     )
-    isempty(target) && throw(ArgumentError("multi-currency product targets cannot be empty"))
+    isempty(target) && throw(ArgumentError("multi-element product targets cannot be empty"))
     all(component -> component isa Symbol, values(target)) || throw(
-        ArgumentError("multi-currency product targets must map currencies to component Symbols"),
+        ArgumentError("multi-element product targets must map elements to component Symbols"),
     )
     names = sort!(collect(keys(target)); by=String)
     return NamedTuple{Tuple(names)}(Tuple(getproperty(target, name) for name in names))
@@ -294,21 +295,23 @@ function Products(
 
     nested = first(canonical_target_values) isa NamedTuple
     all(target -> (target isa NamedTuple) == nested, canonical_target_values) || throw(
-        ArgumentError("product targets cannot mix scalar and multi-currency destinations"),
+        ArgumentError("product targets cannot mix scalar and multi-element destinations"),
     )
     if nested
-        stoichiometry isa FixedStoichiometry || throw(
-            ArgumentError("multi-currency products require FixedStoichiometry"),
+        elements = keys(first(canonical_target_values))
+        all(target -> keys(target) == elements, canonical_target_values) || throw(
+            ArgumentError("multi-element products must declare the same elements"),
         )
-        currencies = keys(first(canonical_target_values))
-        all(target -> keys(target) == currencies, canonical_target_values) || throw(
-            ArgumentError("multi-currency products must declare the same currencies"),
-        )
-        stoichiometry.reference in currencies || throw(
-            ArgumentError(
-                "multi-currency products must include stoichiometric reference currency :$(stoichiometry.reference)"
-            ),
-        )
+        if !isnothing(stoichiometry)
+            stoichiometry isa FixedStoichiometry || throw(
+                ArgumentError("product stoichiometry must be FixedStoichiometry"),
+            )
+            stoichiometry.reference_element in elements || throw(
+                ArgumentError(
+                    "multi-element products must include stoichiometric reference element :$(stoichiometry.reference_element)"
+                ),
+            )
+        end
     elseif !isnothing(stoichiometry)
         throw(ArgumentError("scalar product targets do not take stoichiometry"))
     end
@@ -362,7 +365,7 @@ end
 
 # Scientific processes
 
-"""Population growth process with one process-owned rate scale and named multiplicative factors.
+"""Plankton growth process with one process-owned rate scale and named multiplicative factors.
 
 `bindings.maximum_rate` names the model parameter that sets the growth-rate scale. `source`
 identifies the reference resource removed by growth. Fixed-stoichiometry growth draws any
@@ -370,14 +373,14 @@ additional external nutrient resources according to its stoichiometric ratios, w
 nutrients are transferred independently through [`NutrientUptake`](@ref).
 """
 struct Growth{F<:NamedTuple,S,T} <: AbstractProcess
-    populations::Tuple
+    plankton::Tuple
     factors::F
     source::S
     stoichiometry::T
     bindings::NamedTuple
 
     function Growth(
-        populations::Tuple, factors::NamedTuple, source, stoichiometry, bindings::NamedTuple
+        plankton::Tuple, factors::NamedTuple, source, stoichiometry, bindings::NamedTuple
     )
         canonical = _canonical_factors(factors)
         isnothing(source) || source isa Symbol ||
@@ -386,32 +389,32 @@ struct Growth{F<:NamedTuple,S,T} <: AbstractProcess
             ArgumentError("growth `stoichiometry` must be an AbstractStoichiometry"),
         )
         return new{typeof(canonical),typeof(source),typeof(stoichiometry)}(
-            populations, canonical, source, stoichiometry, _canonical_bindings(bindings)
+            plankton, canonical, source, stoichiometry, _canonical_bindings(bindings)
         )
     end
 end
 
 function Growth(;
-    populations,
+    plankton,
     factors::NamedTuple,
     source=nothing,
     stoichiometry=nothing,
     bindings::NamedTuple=NamedTuple(),
 )
-    population_refs = _canonical_participants(:populations, populations)
-    return Growth(population_refs, factors, source, stoichiometry, bindings)
+    plankton_refs = _canonical_participants(:plankton, plankton)
+    return Growth(plankton_refs, factors, source, stoichiometry, bindings)
 end
 
 authored_parameter_bindings(process::Growth) = process.bindings
 
-"""Independent external nutrient uptake into one population inventory state.
+"""Independent external nutrient uptake into one plankton inventory state.
 
-The population reference state scales uptake capacity but is not itself transferred. Parameter
+The plankton reference state scales uptake capacity but is not itself transferred. Parameter
 bindings are explicit because quota bounds are commonly shared with `QuotaResponse`.
 """
 struct NutrientUptake{F<:QuotaRegulatedMonod} <: AbstractProcess
     formulation::F
-    population::Symbol
+    plankton::Symbol
     target_state::Symbol
     resource::Symbol
     bindings::NamedTuple
@@ -419,13 +422,13 @@ end
 
 function NutrientUptake(
     formulation::QuotaRegulatedMonod;
-    population::Symbol,
+    plankton::Symbol,
     target_state::Symbol,
     resource::Symbol,
     bindings::NamedTuple,
 )
     return NutrientUptake(
-        formulation, population, target_state, resource, _canonical_bindings(bindings),
+        formulation, plankton, target_state, resource, _canonical_bindings(bindings),
     )
 end
 
@@ -460,24 +463,24 @@ end
 
 authored_parameter_bindings(process::Consumption) = process.bindings
 
-"""Population mortality process with optional products."""
+"""Plankton mortality process with optional products."""
 struct Mortality{F<:Union{LinearMortality,QuadraticMortality},P} <: AbstractProcess
     formulation::F
-    populations::Tuple
+    plankton::Tuple
     products::P
     bindings::NamedTuple
 end
 
 function Mortality(
     formulation::Union{LinearMortality,QuadraticMortality};
-    populations,
+    plankton,
     products=nothing,
     bindings::NamedTuple=NamedTuple(),
 )
-    population_refs = _canonical_participants(:populations, populations)
+    plankton_refs = _canonical_participants(:plankton, plankton)
     product_spec = _canonical_products(products)
     return Mortality(
-        formulation, population_refs, product_spec, _canonical_bindings(bindings)
+        formulation, plankton_refs, product_spec, _canonical_bindings(bindings)
     )
 end
 
@@ -528,15 +531,15 @@ uses_living_interactions(::PreferentialGrazing) = true
 
 """Return canonical participant roles for an authored scientific process."""
 function participants(process::Growth)
-    base = (population=process.populations,)
+    base = (plankton=process.plankton,)
     isnothing(process.source) && return base
     return merge(base, (source=(process.source,),))
 end
 participants(process::NutrientUptake) = (
-    population=(process.population,), resource=(process.resource,)
+    plankton=(process.plankton,), resource=(process.resource,)
 )
 participants(process::Consumption) = (consumer=process.consumers, resource=process.resources)
-participants(process::Mortality) = (population=process.populations,)
+participants(process::Mortality) = (plankton=process.plankton,)
 participants(process::Remineralization) =
     (source=process.sources, destination=(process.destination,))
 

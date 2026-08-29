@@ -12,15 +12,15 @@ Agate.Processes.ModelDefinition
 ### Components
 
 ```@docs
-Agate.Configuration.Population
+Agate.Configuration.Plankton
 Agate.Configuration.Pool
-Agate.Configuration.currency
+Agate.Configuration.element
 Agate.Configuration.states
 Agate.Configuration.reference_state
 Agate.Configuration.variable_states
 Agate.Configuration.state_element
 Agate.Configuration.size_structure
-Agate.Configuration.component_classes
+Agate.Configuration.component_entities
 Agate.Configuration.component_state_tracers
 Agate.Configuration.component_tracers
 Agate.Configuration.component_diameters
@@ -130,13 +130,13 @@ Agate.Compilation.process_parameter_operands
 
 ## Named families, recipes, and replay
 
-Named model families add stable code identity and durable recipe replay around the same definition-driven process compiler. `ProcessModelRecipe` is the `agate.model_recipe.v1` family/version/realization document: it records the registered family, exact `definition_version`, canonical population/size realization, parameter overrides, sinking choices, and bottom state. The loaded family supplies the canonical component/process definition on replay. `ModelManifest` records the resolved execution state.
+Named model families add stable code identity and durable recipe replay around the same definition-driven process compiler. `ModelRecipe` is the `agate.model_recipe.v1` family/version/realization document: it records the registered family, exact `definition_version`, canonical plankton/size realization, parameter overrides, sinking choices, and bottom state. The loaded family supplies the canonical component/process definition on replay. `ModelManifest` records the resolved execution state.
 
 ```@docs
-Agate.Construction.ProcessModelRecipe
+Agate.Construction.ModelRecipe
 Agate.Construction.ModelManifest
 Agate.Construction.construct_plus_manifest
-Agate.Construction.capture_process_model_recipe
+Agate.Construction.capture_model_recipe
 Agate.Construction.replay_family
 Agate.Construction.resolve_construction_scalar_type
 Agate.Construction.family_id
@@ -160,7 +160,7 @@ Agate.Introspection.describe
 Agate.Introspection.tracer_names
 Agate.Introspection.auxiliary_field_names
 Agate.Introspection.parameter_names
-Agate.Introspection.plankton_groups
+Agate.Introspection.pfts
 Agate.Introspection.plankton_tracers
 Agate.Introspection.plankton_diameters
 Agate.Introspection.nonplankton_tracers

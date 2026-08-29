@@ -35,23 +35,23 @@ end
 
 """Return semantic parameter slots declared by a slot-owning scientific node."""
 parameter_slots(::AbstractFormulation) = ()
-parameter_slots(::MultiplicativeFactors) = (ParameterSlot(:maximum_rate, (:population,)),)
-parameter_slots(::Smith) = (ParameterSlot(:alpha, (:population,)),)
+parameter_slots(::MultiplicativeFactors) = (ParameterSlot(:maximum_rate, (:plankton,)),)
+parameter_slots(::Smith) = (ParameterSlot(:alpha, (:plankton,)),)
 parameter_slots(::Geider) = (
-    ParameterSlot(:alpha, (:population,)),
-    ParameterSlot(:chlorophyll_to_carbon_ratio, (:population,)),
+    ParameterSlot(:alpha, (:plankton,)),
+    ParameterSlot(:chlorophyll_to_carbon_ratio, (:plankton,)),
 )
-parameter_slots(::Monod) = (ParameterSlot(:half_saturation, (:population,)),)
+parameter_slots(::Monod) = (ParameterSlot(:half_saturation, (:plankton,)),)
 parameter_slots(::NormalizedDroop) = (
-    ParameterSlot(:minimum_quota, (:population,)),
-    ParameterSlot(:maximum_quota, (:population,)),
+    ParameterSlot(:minimum_quota, (:plankton,)),
+    ParameterSlot(:maximum_quota, (:plankton,)),
 )
 parameter_slots(::QuotaRegulatedMonod) = (
-    ParameterSlot(:maximum_rate, (:population,)),
-    ParameterSlot(:half_saturation, (:population,)),
-    ParameterSlot(:minimum_quota, (:population,)),
-    ParameterSlot(:maximum_quota, (:population,)),
-    ParameterSlot(:hill, (:population,)),
+    ParameterSlot(:maximum_rate, (:plankton,)),
+    ParameterSlot(:half_saturation, (:plankton,)),
+    ParameterSlot(:minimum_quota, (:plankton,)),
+    ParameterSlot(:maximum_quota, (:plankton,)),
+    ParameterSlot(:hill, (:plankton,)),
 )
 parameter_slots(::Liebig) = ()
 parameter_slots(::FrankTNorm) = (ParameterSlot(:sharpness),)
@@ -70,14 +70,14 @@ parameter_slots(::HeterotrophicConsumption) = (
     ParameterSlot(:half_saturation, (:resource,)),
     ParameterSlot(:assimilation, (:consumer, :resource)),
 )
-parameter_slots(::LinearMortality) = (ParameterSlot(:rate, (:population,); qualify=:population),)
-parameter_slots(::QuadraticMortality) = (ParameterSlot(:rate, (:population,); qualify=:population),)
+parameter_slots(::LinearMortality) = (ParameterSlot(:rate, (:plankton,); qualify=:plankton),)
+parameter_slots(::QuadraticMortality) = (ParameterSlot(:rate, (:plankton,); qualify=:plankton),)
 parameter_slots(::LinearRemineralization) = (
     ParameterSlot(:rate; qualify=:source),
 )
 parameter_slots(products::Products) = length(products.targets) == 1 ? () :
     (ParameterSlot(:fraction; qualify=:product),)
-parameter_slots(::FixedStoichiometry) = (ParameterSlot(:ratio; qualify=:currency),)
+parameter_slots(::FixedStoichiometry) = (ParameterSlot(:ratio; qualify=:element),)
 
 """Resolved setup-time mapping from one local parameter slot to model storage.
 
