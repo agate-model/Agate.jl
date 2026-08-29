@@ -186,8 +186,8 @@ end
 
 External `NutrientResponse` subfactors read environmental resource Pools, while internal
 `QuotaResponse` subfactors read prognostic cellular states. Both modify process rate only;
-material transfer is owned by the process itself. Each `Nutrients` factor uses one response
-category consistently.
+material transfer is owned by the process itself, so external and internal responses may be
+combined within one `Nutrients` factor.
 """
 struct Nutrients{F<:Union{Liebig,FrankTNorm},R<:NamedTuple} <: AbstractFactor
     formulation::F

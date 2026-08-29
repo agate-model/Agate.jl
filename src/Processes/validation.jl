@@ -6,22 +6,7 @@ function _resolve_factor_subfactors(factor::AbstractFactor)
     all(subfactor -> subfactor isa AbstractFactor, values(subfactors)) || throw(
         ArgumentError("factor subfactors for $(typeof(factor)) must be process factors"),
     )
-    if factor isa Nutrients
-        responses = values(subfactors)
-        all_external = all(response -> response isa NutrientResponse, responses)
-        all_internal = all(response -> response isa QuotaResponse, responses)
-        all_external || all_internal || throw(ArgumentError(
-            "nutrient `responses` must be either all NutrientResponse or all QuotaResponse factors",
-        ))
-    end
     return subfactors
-end
-
-function _factor_contains(factor::AbstractFactor, ::Type{T}) where {T<:AbstractFactor}
-    factor isa T && return true
-    return any(
-        subfactor -> _factor_contains(subfactor, T), values(_resolve_factor_subfactors(factor))
-    )
 end
 
 function _collect_factor_component_references(factor::AbstractFactor)
@@ -81,12 +66,17 @@ function _factor_element(
         "process :$id factor path $path uses QuotaResponse, which is only valid for Growth processes",
     ))
     length(process.plankton) == 1 || throw(ArgumentError(
-        "process :$id quota growth requires exactly one logical plankton",
+        "process :$id QuotaResponse requires Growth with exactly one logical plankton",
     ))
+    plankton_name = only(process.plankton)
     target = _resolve_plankton_state(
-        components, only(process.plankton), factor.variable_state, id,
-        "quota response variable state",
+        components, plankton_name, factor.variable_state, id, "quota response variable state",
     )
+    reference = _resolve_reference_state(components, plankton_name, id, "quota response plankton")
+    target.state === reference.state && throw(ArgumentError(
+        "process :$id quota response variable state :$(factor.variable_state) must differ from " *
+        "reference state :$(reference.state)",
+    ))
     target_element = _state_element(components, target)
     isnothing(target_element) && throw(ArgumentError(
         "process :$id quota response variable state :$(factor.variable_state) must represent an Element",

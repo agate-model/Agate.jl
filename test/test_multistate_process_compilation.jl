@@ -6,16 +6,8 @@ using Agate.Processes:
     Consumption, FixedStoichiometry, Growth, LinearMortality, Monod, Mortality, ModelDefinition,
     NutrientResponse, PreferentialGrazing, Products
 
-function _test_tendencies(model, state::NamedTuple, expected::NamedTuple)
-    names = Agate.Introspection.tracer_names(model)
-    args = (0.0, 0.0, 0.0, 0.0, Tuple(getproperty(state, name) for name in names)...)
-    for (tracer, tendency) in pairs(expected)
-        @test model(Val(tracer), args...) ≈ tendency
-    end
-end
-
 @testset "Multi-state process semantics" begin
-    @testset "non-quota growth permits physiological states" begin
+    @testset "growth permits non-elemental physiological states" begin
         definition = ModelDefinition(;
             components=(
                 P=Plankton(;
@@ -42,7 +34,7 @@ end
             ),
         )
         model = Agate.Construction.construct(definition)
-        _test_tendencies(
+        test_tendencies(
             model,
             (P_carbon=2.0, P_chlorophyll=1.0, DIC=1.0),
             (P_carbon=0.5, P_chlorophyll=0.0, DIC=-0.5),
@@ -80,14 +72,14 @@ end
             ),
         )
         model = Agate.Construction.construct(definition)
-        _test_tendencies(
+        test_tendencies(
             model,
             (P=2.0, DIC=10.0, DIN=10.0),
             (P=1.0, DIC=-1.0, DIN=-0.2),
         )
     end
 
-    @testset "non-quota growth rejects additional elemental states" begin
+    @testset "growth leaves independently prognostic elemental states unchanged" begin
         definition = ModelDefinition(;
             components=(
                 P=Plankton(; states=(:carbon, :nitrogen), reference_state=:carbon),
@@ -97,13 +89,26 @@ end
                 growth=Growth(;
                     plankton=:P,
                     reference_resource=:DIC,
-                    factors=(nutrients=NutrientResponse(Monod(); resource=:DIC),),
+                    bindings=(maximum_rate=:maximum_growth_rate,),
+                    factors=(
+                        carbon=NutrientResponse(
+                            Monod(); resource=:DIC,
+                            bindings=(half_saturation=:half_saturation,),
+                        ),
+                    ),
                 ),
             ),
+            parameters=(
+                maximum_growth_rate=Parameter(0.5),
+                half_saturation=Parameter(0.0),
+            ),
         )
-        message = canonicalization_error_message(definition)
-        @test occursin("additional elemental states (:nitrogen,)", message)
-        @test occursin("NutrientUptake", message)
+        model = Agate.Construction.construct(definition)
+        test_tendencies(
+            model,
+            (DIC=10.0, P_carbon=2.0, P_nitrogen=0.3),
+            (DIC=-1.0, P_carbon=1.0, P_nitrogen=0.0),
+        )
     end
 
     @testset "mortality transfers every prognostic state" begin
@@ -140,7 +145,7 @@ end
             DOC=1.0,
             DON=0.2,
         )
-        _test_tendencies(model, state, expected)
+        test_tendencies(model, state, expected)
     end
 
     @testset "grazing transfers elemental states and removes physiological states" begin
@@ -195,6 +200,6 @@ end
             DOC=0.5,
             DON=0.1,
         )
-        _test_tendencies(model, state, expected)
+        test_tendencies(model, state, expected)
     end
 end

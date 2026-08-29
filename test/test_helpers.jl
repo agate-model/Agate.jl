@@ -141,6 +141,14 @@ function nipizd_growth_fixture(; mu=0.7 / day, kwargs...)
     )
 end
 
+function test_tendencies(model, state::NamedTuple, expected::NamedTuple)
+    names = Agate.Introspection.tracer_names(model)
+    args = (0.0, 0.0, 0.0, 0.0, Tuple(getproperty(state, name) for name in names)...)
+    for (tracer, tendency) in pairs(expected)
+        @test model(Val(tracer), args...) ≈ tendency
+    end
+end
+
 function model_tendencies(bgc, args; tracers=Tuple(Agate.Introspection.tracer_names(bgc)))
     return NamedTuple{tracers}(Tuple(bgc(Val(tracer), args...) for tracer in tracers))
 end

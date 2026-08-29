@@ -305,25 +305,6 @@ beyond the authored process object.
 """
 process_facts(::AbstractProcess, ::Symbol, ::NamedTuple) = NamedTuple()
 
-function _validate_nonquota_growth_states(
-    process::Growth, id::Symbol, components::NamedTuple
-)
-    for plankton_name in process.plankton
-        plankton = _plankton_component(components, plankton_name, id, "growth plankton")
-        reference = reference_state(plankton)
-        unmanaged = Tuple(
-            state for state in states(plankton)
-            if state !== reference && state_element(plankton, state) !== nothing
-        )
-        isempty(unmanaged) || throw(ArgumentError(
-            "process :$id non-quota growth does not update additional elemental states " *
-            "$(unmanaged) for plankton :$plankton_name; use quota responses with " *
-            "NutrientUptake for independently prognostic elemental inventories",
-        ))
-    end
-    return nothing
-end
-
 function process_facts(process::Growth, id::Symbol, components::NamedTuple)
     plankton_states = Tuple(
         _resolve_reference_state(components, plankton, id, "plankton")
@@ -348,20 +329,9 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
     )
 
     has_stoichiometry = !isnothing(process.stoichiometry)
-    quota_growth = any(
-        factor -> _factor_contains(factor, QuotaResponse), values(process.factors)
-    )
-    if quota_growth
-        (has_stoichiometry || !isempty(process.additional_resources)) && throw(ArgumentError(
-            "process :$id quota growth uses NutrientUptake for prognostic elemental inventories; " *
-            "omit `additional_resources` and fixed stoichiometry",
-        ))
-    else
-        has_stoichiometry == !isempty(process.additional_resources) || throw(ArgumentError(
-            "process :$id `additional_resources` and FixedStoichiometry must be provided together",
-        ))
-        _validate_nonquota_growth_states(process, id, components)
-    end
+    has_stoichiometry == !isempty(process.additional_resources) || throw(ArgumentError(
+        "process :$id `additional_resources` and FixedStoichiometry must be provided together",
+    ))
 
     if has_stoichiometry
         _validate_element(
@@ -379,6 +349,17 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
                 element(resource), target_element, id,
                 "growth additional resource :$target_element component :$resource_name",
             )
+            for plankton_name in process.plankton
+                explicit_elements = _plankton_element_states(
+                    components, plankton_name, id, "growth plankton"
+                )
+                target_element in keys(explicit_elements) && throw(ArgumentError(
+                    "process :$id growth additional resource :$target_element conflicts with " *
+                    "explicit prognostic state :$(getproperty(explicit_elements, target_element).state) " *
+                    "for plankton :$plankton_name; explicit elemental states must be updated by " *
+                    "explicit state-changing processes",
+                ))
+            end
         end
     end
 

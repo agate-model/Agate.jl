@@ -74,6 +74,59 @@ quota_runtime_args(;
     @test isfinite(derivative) && derivative > 0
 end
 
+
+@testset "Hybrid explicit and implicit elemental growth" begin
+    components = merge(quota_components(), (
+        P=Agate.Configuration.Plankton(;
+            states=(:carbon, :nitrogen), reference_state=:carbon
+        ),
+    ))
+    quota = quota_processes()
+    growth = Agate.Processes.Growth(;
+        plankton=:P,
+        reference_resource=:DIC,
+        additional_resources=(phosphorus=:PO4,),
+        stoichiometry=Agate.Processes.FixedStoichiometry(;
+            reference_element=:carbon,
+            bindings=(ratio=(phosphorus=:phosphorus_to_carbon,),),
+        ),
+        bindings=quota.growth.bindings,
+        factors=(nutrients=Agate.Processes.Nutrients(
+            Agate.Processes.Liebig();
+            responses=(
+                nitrogen=quota.growth.factors.nutrients.responses.nitrogen,
+                phosphorus=Agate.Processes.NutrientResponse(
+                    Agate.Processes.Monod(); resource=:PO4,
+                    bindings=(half_saturation=:phosphorus_half_saturation,),
+                ),
+            ),
+        ),),
+    )
+    parameters = (
+        maximum_growth_rate=Agate.Parameters.Parameter(0.5),
+        phosphorus_to_carbon=Agate.Parameters.Parameter(0.1),
+        phosphorus_half_saturation=Agate.Parameters.Parameter(0.0),
+        minimum_nitrogen_quota=Agate.Parameters.Parameter(0.1),
+        maximum_nitrogen_quota=Agate.Parameters.Parameter(0.2),
+        maximum_nitrogen_uptake=Agate.Parameters.Parameter(0.2),
+        nitrogen_half_saturation=Agate.Parameters.Parameter(0.0),
+        nitrogen_uptake_hill=Agate.Parameters.Parameter(1.0),
+    )
+    bgc = construct(Agate.Processes.ModelDefinition(;
+        components, processes=(growth=growth, nitrogen_uptake=quota.nitrogen_uptake), parameters
+    ))
+
+    growth_rate, uptake_rate = 2 / 3, 0.2
+    test_tendencies(
+        bgc,
+        (DIC=10.0, DIN=10.0, PO4=10.0, P_carbon=2.0, P_nitrogen=0.3),
+        (
+            DIC=-growth_rate, DIN=-uptake_rate, PO4=-0.1 * growth_rate,
+            P_carbon=growth_rate, P_nitrogen=uptake_rate,
+        ),
+    )
+end
+
 @testset "Realized quota parameter validation" begin
     cases = (
         ((minimum_nitrogen_quota=[0.0, 0.05],), :growth, :minimum_nitrogen_quota, "0.0"),
