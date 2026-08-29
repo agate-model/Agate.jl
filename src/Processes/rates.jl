@@ -53,35 +53,13 @@ end
     return maximum_rate * factor_value(Monod(), resource, half_saturation) * consumer
 end
 
-"""Evaluate one preferential consumer-by-resource grazing rate."""
-@inline function process_rate(
-    ::PreferentialGrazing,
-    resource,
-    consumer,
-    maximum_rate,
-    half_saturation,
-    palatability,
-)
-    return preferential_predation_loss(
-        resource, consumer, maximum_rate, half_saturation, palatability
-    )
-end
-
 """Evaluate loss of one prey state using the reference-state grazing intensity."""
-@inline function process_rate(
+@inline process_rate(
     ::PreferentialGrazing,
-    inventory,
-    reference_resource,
-    consumer,
-    maximum_rate,
-    half_saturation,
-    palatability,
+    inventory, reference, consumer, maximum_rate, half_saturation, palatability,
+) = preferential_predation_loss(
+    inventory, reference, consumer, maximum_rate, half_saturation, palatability
 )
-    half_saturation == zero(half_saturation) && reference_resource == zero(reference_resource) &&
-        return zero(maximum_rate * inventory * consumer)
-    return maximum_rate * palatability * inventory /
-           (half_saturation + reference_resource) * consumer
-end
 
 """Evaluate one linear source remineralization rate."""
 @inline process_rate(::LinearRemineralization, source, coefficient) =

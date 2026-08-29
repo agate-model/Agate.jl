@@ -15,15 +15,21 @@ The indeterminate `P == K == 0` case returns zero.
 end
 
 """
-    preferential_predation_loss(P, Z, maximum_grazing_rate, half_saturation, palatability)
+    preferential_predation_loss(
+        inventory, reference_inventory, consumer, maximum_grazing_rate,
+        half_saturation, palatability
+    )
 
-Return preferential predation loss from prey `P` to predator `Z`:
-`maximum_grazing_rate * palatability * holling_type_ii(P, half_saturation) * Z`.
+Return preferential grazing loss from one prey-state `inventory`, using
+`reference_inventory` to determine the shared grazing intensity.
 """
 @inline function preferential_predation_loss(
-    P, Z, maximum_grazing_rate, half_saturation, palatability
+    inventory, reference_inventory, consumer, maximum_grazing_rate, half_saturation, palatability
 )
-    return maximum_grazing_rate * palatability * holling_type_ii(P, half_saturation) * Z
+    half_saturation == zero(half_saturation) && reference_inventory == zero(reference_inventory) &&
+        return zero(maximum_grazing_rate * inventory * consumer)
+    return maximum_grazing_rate * palatability * inventory /
+           (half_saturation + reference_inventory) * consumer
 end
 
 end # module

@@ -12,7 +12,7 @@ using Agate.Library.Predation: holling_type_ii, preferential_predation_loss
 
 @testset "Library" begin
     @test holling_type_ii(1.0, 1.0) == 0.5
-    @test preferential_predation_loss(1.0, 0.5, 0.1, 0.2, 0.8) ≈ 1 / 30
+    @test preferential_predation_loss(0.2, 1.0, 0.5, 0.1, 0.2, 0.8) ≈ 1 / 150
 end
 
 @testset "Allometry accepts realized diameter tuples" begin
