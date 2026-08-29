@@ -5,7 +5,7 @@ using Agate.Configuration:
     component_tracers, state_tracers, component_diameters
 using Agate.ModelFamilies: default_components
 @testset "Component authoring" begin
-    population = Population(:nitrogen;
+    population = Population(; states=:nitrogen, reference_state=:nitrogen,
         size_structure=(n=3, min_esd=1.0, max_esd=100.0, splitting=:log_splitting),
     )
     pool = Pool(:carbon)
@@ -23,11 +23,13 @@ using Agate.ModelFamilies: default_components
     @test collect(component_diameters(layout, :P)) ≈ Float32[1, 10, 100]
     @test isnothing(component_diameters(layout, :D))
 
-    scalar_population = realize_model_layout((B=Population(:carbon),))
+    scalar_population = realize_model_layout((
+        B=Population(; states=:carbon, reference_state=:carbon),
+    ))
     @test component_tracers(scalar_population, :B) == (:B,)
     @test isnothing(component_diameters(scalar_population, :B))
 
-    @test_throws ArgumentError Population(nothing)
+    @test_throws ArgumentError Population(; states=nothing, reference_state=:carbon)
     @test_throws ArgumentError Pool(nothing)
     @test_throws ArgumentError realize_model_layout((P=population, P_1=Pool(:nitrogen)))
 end

@@ -13,8 +13,8 @@ using Agate.Processes:
 function direct_npz_definition()
     components = (
         N=Pool(:nitrogen),
-        P=Population(:nitrogen; size_structure=[1.0]),
-        Z=Population(:nitrogen; size_structure=[10.0]),
+        P=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
+        Z=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
     )
     processes = (
         growth_P=Growth(;
@@ -100,10 +100,10 @@ end
 
 @testset "Process-local interaction defaults" begin
     components = (
-        P1=Population(:nitrogen; size_structure=[1.0]),
-        P2=Population(:nitrogen; size_structure=[4.0]),
-        Z1=Population(:nitrogen; size_structure=[10.0]),
-        Z2=Population(:nitrogen; size_structure=[20.0]),
+        P1=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
+        P2=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[4.0]),
+        Z1=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
+        Z2=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[20.0]),
     )
     common_bindings = (
         maximum_rate=:maximum_predation_rate,
@@ -162,7 +162,7 @@ end
 
 @testset "Explicit product fractions" begin
     components = (
-        P=Population(:nitrogen; size_structure=[1.0]),
+        P=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
         A=Pool(:nitrogen),
         B=Pool(:nitrogen),
     )
@@ -202,7 +202,7 @@ end
 
 @testset "Multi-currency products" begin
     components = (
-        P=Population(:carbon; size_structure=[1.0]),
+        P=Population(; states=:carbon, reference_state=:carbon, size_structure=[1.0]),
         DOC=Pool(:carbon),
         POC=Pool(:carbon),
         DON=Pool(:nitrogen),

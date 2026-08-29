@@ -21,8 +21,16 @@ const DEFAULT_SIZE_STRUCTURE = (
 )
 
 const NIPIZD_COMPONENTS = (
-    P=Population(:nitrogen; size_structure=DEFAULT_SIZE_STRUCTURE.phytoplankton.P),
-    Z=Population(:nitrogen; size_structure=DEFAULT_SIZE_STRUCTURE.zooplankton.Z),
+    P=Population(;
+        states=:nitrogen,
+        reference_state=:nitrogen,
+        size_structure=DEFAULT_SIZE_STRUCTURE.phytoplankton.P,
+    ),
+    Z=Population(;
+        states=:nitrogen,
+        reference_state=:nitrogen,
+        size_structure=DEFAULT_SIZE_STRUCTURE.zooplankton.Z,
+    ),
     N=Pool(:nitrogen),
     D=Pool(:nitrogen),
 )

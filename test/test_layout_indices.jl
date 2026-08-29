@@ -5,7 +5,10 @@ using Agate.Configuration:
     Population, DiameterRangeSpecification, realize_model_layout, component_diameters
 
 @testset "Diameter input normalization" begin
-    components = (Z=Population(:carbon), P=Population(:carbon))
+    components = (
+        Z=Population(; states=:carbon, reference_state=:carbon),
+        P=Population(; states=:carbon, reference_state=:carbon),
+    )
     layout = realize_model_layout(
         components;
         population_groups=(Z=(:Z,), P=(:P,)),
@@ -28,7 +31,7 @@ using Agate.Configuration:
         (n=2, min_esd=1.0, max_esd=2.0, splitting=:unsupported),
     )
         message = argument_error_message(() -> realize_model_layout(
-            (P=Population(:carbon),);
+            (P=Population(; states=:carbon, reference_state=:carbon),);
             population_groups=(P=(:P,),), group_diameters=(P=invalid,),
         ))
         @test occursin(bad_path, message)

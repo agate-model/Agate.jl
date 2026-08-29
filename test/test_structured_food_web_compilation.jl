@@ -15,10 +15,10 @@ function food_web_definition()
         N=Pool(:nitrogen),
         D=Pool(:nitrogen),
         POM=Pool(:nitrogen; size_structure=[0.5, 5.0]),
-        P=Population(:nitrogen; size_structure=[1.0]),
-        B=Population(:nitrogen; size_structure=[0.8]),
-        M=Population(:nitrogen; size_structure=[2.0]),
-        Z=Population(:nitrogen; size_structure=[10.0]),
+        P=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
+        B=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[0.8]),
+        M=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[2.0]),
+        Z=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
     )
     temperature = Temperature(
         Q10(); bindings=(q10=:temperature_q10, reference_temperature=:reference_temperature)
@@ -161,8 +161,8 @@ end
     components = (
         N=Pool(:nitrogen),
         POM=Pool(:nitrogen; size_structure=[0.5, 1.0, 2.0]),
-        X=Population(:nitrogen; size_structure=[0.4]),
-        B=Population(:nitrogen; size_structure=[0.8]),
+        X=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[0.4]),
+        B=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[0.8]),
     )
     processes = (
         consume_POM=Consumption(

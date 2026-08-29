@@ -63,7 +63,9 @@ factor_inputs(::MultiDriverTestFactor) = (
     shared_driver_model = canonicalize_model(
         ModelDefinition(;
             components=(
-                P=Population(:nitrogen), Z=Population(:nitrogen), N=Pool(:nitrogen)
+                P=Population(; states=:nitrogen, reference_state=:nitrogen),
+                Z=Population(; states=:nitrogen, reference_state=:nitrogen),
+                N=Pool(:nitrogen),
             ),
             processes=(
                 growth_Z=Growth(;
@@ -86,7 +88,7 @@ factor_inputs(::MultiDriverTestFactor) = (
     @test driver_identities(shared_driver_model) == (:PAR,)
 
     multi_driver_model = canonicalize_model(ModelDefinition(;
-        components=(P=Population(:nitrogen), N=Pool(:nitrogen)),
+        components=(P=Population(; states=:nitrogen, reference_state=:nitrogen), N=Pool(:nitrogen)),
         processes=(growth=Growth(;
             populations=:P,
             factors=(
@@ -99,7 +101,7 @@ factor_inputs(::MultiDriverTestFactor) = (
     @test driver_identities(multi_driver_model) == (:PAR, :temperature, :wind)
 
     invalid_growth = ModelDefinition(;
-        components=(P=Population(:nitrogen),),
+        components=(P=Population(; states=:nitrogen, reference_state=:nitrogen),),
         processes=(growth=Growth(;
             populations=:P,
             factors=(nutrients=NutrientResponse(Monod(); resource=:missing),),
@@ -132,7 +134,7 @@ factor_inputs(::MultiDriverTestFactor) = (
 
     redundant_growth_source = ModelDefinition(;
         components=(
-            P=Population(:nitrogen),
+            P=Population(; states=:nitrogen, reference_state=:nitrogen),
             N=Pool(:nitrogen),
             D=Pool(:nitrogen),
         ),
@@ -149,7 +151,7 @@ factor_inputs(::MultiDriverTestFactor) = (
 
     wrong_currency = ModelDefinition(;
         components=(
-            P=Population(:carbon),
+            P=Population(; states=:carbon, reference_state=:carbon),
             DIC=Pool(:carbon),
             DIN=Pool(:phosphorus),
         ),
@@ -174,7 +176,7 @@ factor_inputs(::MultiDriverTestFactor) = (
 end
 
 @testset "Canonicalization owns authored structure" begin
-    single = Population(:nitrogen)
+    single = Population(; states=:nitrogen, reference_state=:nitrogen)
     multi = Population(; states=(:carbon, :nitrogen), reference_state=:carbon)
     light = Light(Smith(); driver=:PAR)
     nutrient = NutrientResponse(Monod(); resource=:N)
@@ -196,14 +198,18 @@ end
             "multi-resource Growth source",
             one_process(:growth, Growth(;
                 populations=:P, factors=(light=light, nutrients=multi_nutrient)
-            ), (P=Population(:carbon), N=Pool(:nitrogen))),
+            ), (P=Population(; states=:carbon, reference_state=:carbon), N=Pool(:nitrogen))),
             ("process :growth", "requires a source component"),
         ),
         (
             "multi-resource Growth stoichiometry",
             one_process(:growth, Growth(;
                 populations=:P, source=:DIC, factors=(light=light, nutrients=multi_nutrient)
-            ), (P=Population(:carbon), DIC=Pool(:carbon), N=Pool(:nitrogen))),
+            ), (
+                P=Population(; states=:carbon, reference_state=:carbon),
+                DIC=Pool(:carbon),
+                N=Pool(:nitrogen),
+            )),
             ("process :growth", "requires FixedStoichiometry"),
         ),
         (
@@ -223,7 +229,10 @@ end
                     resources=:POM,
                     factors=(limit=NutrientResponse(Monod(); resource=:POM),),
                 ),
-                (B=Population(:nitrogen), POM=Pool(:nitrogen; size_structure=[1.0])),
+                (
+                    B=Population(; states=:nitrogen, reference_state=:nitrogen),
+                    POM=Pool(:nitrogen; size_structure=[1.0]),
+                ),
             ),
             ("process :consume", "component :POM", "scalar component"),
         ),
@@ -250,7 +259,7 @@ end
             "multi-state Consumption",
             one_process(:consume, Consumption(
                 PreferentialGrazing(); consumers=:Z, resources=:P
-            ), (Z=multi, P=Population(:carbon))),
+            ), (Z=multi, P=Population(; states=:carbon, reference_state=:carbon))),
             ("process :consume", "explicit state semantics"),
         ),
         (
@@ -343,8 +352,8 @@ end
 
 @testset "Parameter binding behavior and validation" begin
     components = (
-        P=Population(:nitrogen; size_structure=[1.0]),
-        Z=Population(:nitrogen; size_structure=[10.0]),
+        P=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
+        Z=Population(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
         D=Pool(:nitrogen),
         E=Pool(:nitrogen),
         R=Pool(:nitrogen),

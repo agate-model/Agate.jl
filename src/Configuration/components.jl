@@ -5,7 +5,6 @@ state carried by the population, while `reference_state` identifies the state us
 biological reference basis. Elemental bookkeeping is inferred centrally by [`state_element`](@ref);
 non-elemental states such as `:chlorophyll` return `nothing`.
 
-A one-state population may be authored with its reference state as the positional argument.
 """
 struct Population{ST<:Tuple,S}
     states::ST
@@ -33,13 +32,6 @@ function _canonical_states(states)
         ArgumentError("Population `states` must be a Symbol or Tuple of Symbols."),
     )
     return states
-end
-
-function Population(reference_state; size_structure=nothing)
-    reference_state isa Symbol || throw(
-        ArgumentError("Population reference state must be a Symbol."),
-    )
-    return Population((reference_state,), reference_state, size_structure)
 end
 
 function Population(; states, reference_state, size_structure=nothing)
