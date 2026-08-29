@@ -28,7 +28,7 @@ struct FrankTNorm <: AbstractFormulation end
 """Q10 temperature-response formulation."""
 struct Q10 <: AbstractFormulation end
 
-"""Growth formulation with a base maximum rate modified by named multiplicative factors."""
+"""Growth formulation with a base maximum rate and optional multiplicative factors."""
 struct FactorizedGrowth <: AbstractFormulation end
 
 """Abstract supertype for named multiplicative process-rate factors."""
@@ -357,19 +357,16 @@ _canonical_products(::Nothing) = nothing
 _canonical_products(products::Products) = products
 _canonical_products(destination::Symbol) = Products(destination)
 
-function _canonical_factors(factors::NamedTuple; allow_empty::Bool=false)
-    isempty(factors) && !allow_empty && throw(ArgumentError("process `factors` cannot be empty"))
+function _canonical_factors(factors::NamedTuple)
     all(factor -> factor isa AbstractFactor, values(factors)) || throw(
         ArgumentError("process `factors` values must be process factors"),
     )
-    names = sort!(collect(keys(factors)); by=String)
-    names_tuple = Tuple(names)
-    return NamedTuple{names_tuple}(Tuple(getproperty(factors, name) for name in names))
+    return _canonical_namedtuple(factors)
 end
 
 # Scientific processes
 
-"""Plankton growth process with explicit material inputs and named multiplicative factors.
+"""Plankton growth process with explicit material inputs and optional multiplicative factors.
 
 `bindings.maximum_rate` names the model parameter that sets the growth-rate scale.
 `reference_resource` supplies the Element represented by the plankton `reference_state`.
@@ -388,8 +385,8 @@ end
 
 function Growth(;
     plankton,
-    factors::NamedTuple,
     reference_resource::Symbol,
+    factors::NamedTuple=NamedTuple(),
     additional_resources::NamedTuple=NamedTuple(),
     stoichiometry=nothing,
     bindings::NamedTuple=NamedTuple(),
@@ -459,7 +456,7 @@ function Consumption(
 )
     consumer_refs = _canonical_participants(:consumers, consumers)
     resource_refs = _canonical_participants(:resources, resources)
-    canonical = _canonical_factors(factors; allow_empty=true)
+    canonical = _canonical_factors(factors)
     products = _canonical_products(unassimilated_products)
     return Consumption(
         formulation, consumer_refs, resource_refs, canonical, products, _canonical_bindings(bindings)

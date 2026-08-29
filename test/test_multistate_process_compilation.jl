@@ -7,6 +7,25 @@ using Agate.Processes:
     NutrientResponse, PreferentialGrazing, Products
 
 @testset "Multi-state process semantics" begin
+    @testset "growth factors are optional" begin
+        definition = ModelDefinition(;
+            components=(
+                P=Plankton(; states=:carbon, reference_state=:carbon),
+                DIC=Pool(:carbon),
+            ),
+            processes=(
+                growth=Growth(;
+                    plankton=:P,
+                    reference_resource=:DIC,
+                    bindings=(maximum_rate=:maximum_growth_rate,),
+                ),
+            ),
+            parameters=(maximum_growth_rate=Parameter(0.5),),
+        )
+        model = Agate.Construction.construct(definition)
+        test_tendencies(model, (P=2.0, DIC=10.0), (P=1.0, DIC=-1.0))
+    end
+
     @testset "growth permits non-elemental physiological states" begin
         definition = ModelDefinition(;
             components=(

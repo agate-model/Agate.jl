@@ -119,7 +119,7 @@ factor_inputs(::MultiDriverTestFactor) = (
     @test_throws ArgumentError canonicalize_model(invalid_growth)
 
     @test_throws MethodError Light(:smith; driver=:PAR)
-    @test_throws ArgumentError Growth(; plankton=:P, reference_resource=:N, factors=NamedTuple())
+    @test isempty(Growth(; plankton=:P, reference_resource=:N).factors)
     @test_throws ArgumentError Growth(;
         plankton=(), reference_resource=:N, factors=(light=Light(Smith(); driver=:PAR),)
     )
