@@ -35,7 +35,7 @@ end
 
 """Return semantic parameter slots declared by a slot-owning scientific node."""
 parameter_slots(::AbstractFormulation) = ()
-parameter_slots(::MultiplicativeFactors) = (ParameterSlot(:maximum_rate, (:plankton,)),)
+parameter_slots(::FactorizedGrowth) = (ParameterSlot(:maximum_rate, (:plankton,)),)
 parameter_slots(::Smith) = (ParameterSlot(:alpha, (:plankton,)),)
 parameter_slots(::Geider) = (
     ParameterSlot(:alpha, (:plankton,)),

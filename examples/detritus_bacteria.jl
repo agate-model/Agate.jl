@@ -4,9 +4,9 @@
 # consumed by heterotrophic bacterioplankton `B`, while zooplankton `Z`
 # graze the living bacterial plankton. A Q10 factor modifies POM consumption.
 
-using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Plankton, Pool
+using Agate.Configuration: ConsumerAssimilation, AllometricPalatability, Plankton, Pool
 using Agate.Construction: construct
-using Agate.Parameters: DerivedDefault, MetaParameter, Parameter
+using Agate.Parameters: DerivedDefault, ConstructionParameter, Parameter
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
     Consumption, ModelDefinition, Temperature, Q10,
@@ -77,18 +77,18 @@ parameters = (
     reference_temperature=Parameter(20.0),
     maximum_predation_rate=Parameter(0.6 / day),
     holling_half_saturation=Parameter(0.1),
-    optimum_predator_prey_ratio=MetaParameter(12.5; axes=:plankton),
-    specificity=MetaParameter(0.4; axes=:plankton),
-    protection=MetaParameter(0.0; axes=:plankton),
-    assimilation_efficiency=MetaParameter(0.7; axes=:plankton),
+    optimum_predator_prey_ratio=ConstructionParameter(12.5; axes=:plankton),
+    specificity=ConstructionParameter(0.4; axes=:plankton),
+    protection=ConstructionParameter(0.0; axes=:plankton),
+    assimilation_efficiency=ConstructionParameter(0.7; axes=:plankton),
     living_palatability=Parameter(
         DerivedDefault(
-            PalatabilityAllometric();
+            AllometricPalatability();
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
         )
     ),
     living_assimilation=Parameter(
-        DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,))
+        DerivedDefault(ConsumerAssimilation(); deps=(:assimilation_efficiency,))
     ),
 )
 

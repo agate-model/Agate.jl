@@ -3,7 +3,7 @@ using Test
 using ForwardDiff
 
 using Agate.Library.Allometry:
-    assimilation_efficiency_matrix_binary_axes, palatability_matrix_allometric_axes,
+    consumer_assimilation_matrix_axes, palatability_matrix_allometric_axes,
     resolve_diameter_indexed_vector
 using Agate.Library.Nutrients:
     frank_tnorm, liebig_minimum, normalized_droop_limitation, quota_uptake_regulation
@@ -26,7 +26,7 @@ end
         consumer_indices=(2,),
         prey_indices=(1, 2),
     ) == [1.0 0.5]
-    @test assimilation_efficiency_matrix_binary_axes(
+    @test consumer_assimilation_matrix_axes(
         Float64; assimilation_efficiency=[0.2, 0.8], consumer_indices=(2,), prey_indices=(1, 2)
     ) == [0.8 0.8]
 end

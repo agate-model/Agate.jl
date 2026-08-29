@@ -7,13 +7,13 @@ their parameter definitions.
 import ...Parameters:
     parameter_definitions,
     Parameter,
-    MetaParameter,
+    ConstructionParameter,
     DerivedDefault,
     DiameterIndexedVectorDefault
 
 using ...Library.Allometry: AllometricParam, PowerLaw
 
-using ...Configuration: PalatabilityAllometric, AssimilationBinary
+using ...Configuration: AllometricPalatability, ConsumerAssimilation
 
 function parameter_definitions(::NiPiZDFamily)
     detritus_remin = 0.1213 / 86400
@@ -53,7 +53,7 @@ function parameter_definitions(::NiPiZDFamily)
         ),
         palatability_matrix=Parameter(
             DerivedDefault(
-                PalatabilityAllometric();
+                AllometricPalatability();
                 deps=(
                     :optimum_predator_prey_ratio,
                     :specificity,
@@ -63,22 +63,22 @@ function parameter_definitions(::NiPiZDFamily)
         ),
         assimilation_matrix=Parameter(
             DerivedDefault(
-                AssimilationBinary(); deps=(:assimilation_efficiency,)
+                ConsumerAssimilation(); deps=(:assimilation_efficiency,)
             )
         ),
-        optimum_predator_prey_ratio=MetaParameter(
+        optimum_predator_prey_ratio=ConstructionParameter(
             DiameterIndexedVectorDefault(10.0; default=0);
             axes=:plankton,
         ),
-        specificity=MetaParameter(
+        specificity=ConstructionParameter(
             DiameterIndexedVectorDefault(0.3; default=0);
             axes=:plankton,
         ),
-        protection=MetaParameter(
+        protection=ConstructionParameter(
             DiameterIndexedVectorDefault(0.0; default=1.0);
             axes=:plankton,
         ),
-        assimilation_efficiency=MetaParameter(
+        assimilation_efficiency=ConstructionParameter(
             DiameterIndexedVectorDefault(0.32; default=0);
             axes=:plankton,
         ),

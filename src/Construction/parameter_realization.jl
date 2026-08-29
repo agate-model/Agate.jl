@@ -7,7 +7,7 @@ using ..Parameters:
 
 using ..Processes: planned_parameter
 
-using ..Library.Allometry: AbstractParamDef, resolve_diameter_indexed_vector
+using ..Library.Allometry: AbstractParamDef, AllometricParam, resolve_diameter_indexed_vector
 
 function validate_parameter_value(parameter, value, ::Type{T}; derived::Bool=false) where {T<:Real}
     rank = parameter.rank
@@ -163,8 +163,24 @@ function materialize_parameter_default(
     throw(ArgumentError("parameter :$(parameter.name) has unsupported rank $rank"))
 end
 
+function _require_allometric_diameters(parameter, diameters, value, indices)
+    value isa AllometricParam || return nothing
+    labels = only(parameter.storage_labels)
+    missing = Tuple(
+        labels[i] for i in indices
+        if !(diameters[i] isa Real && isfinite(diameters[i]) && diameters[i] > zero(diameters[i]))
+    )
+    isempty(missing) || throw(ArgumentError(
+        "parameter :$(parameter.name) uses an allometric definition but has no diameter metadata for unsized PFT entities $missing; provide a size structure or an explicit value for those PFTs",
+    ))
+    return nothing
+end
+
 function materialize_parameter_default(
-    provider::DiameterIndexedVectorDefault, parameter, ::Type{T}
+    provider::DiameterIndexedVectorDefault,
+    parameter,
+    ::Type{T};
+    overridden_labels::Tuple=(),
 ) where {T<:Real}
     parameter.rank == 1 || throw(
         ArgumentError("DiameterIndexedVectorDefault requires vector parameter storage."),
@@ -173,18 +189,36 @@ function materialize_parameter_default(
     diameters === nothing && throw(ArgumentError(
         "parameter :$(parameter.name) has no realized diameter axis for DiameterIndexedVectorDefault",
     ))
+    labels = only(parameter.storage_labels)
+    indices = Tuple(i for i in eachindex(labels) if labels[i] ∉ overridden_labels)
+    _require_allometric_diameters(parameter, diameters, provider.value, indices)
     default = T(provider.default)
-    return resolve_diameter_indexed_vector(
-        T, diameters, Tuple(eachindex(diameters)), provider.value; default
-    )
+    return resolve_diameter_indexed_vector(T, diameters, indices, provider.value; default)
 end
 
-function materialize_parameter_defaults(plan, ::Type{T}) where {T<:Real}
+function materialize_parameter_defaults(
+    plan, ::Type{T}, overrides::NamedTuple=(;)
+) where {T<:Real}
     entries = Pair{Symbol,Any}[]
     for (name, parameter) in pairs(plan.parameters)
         provider = parameter.definition.default
         (provider isa NoDefault || provider isa DerivedDefault) && continue
-        push!(entries, name => materialize_parameter_default(provider, parameter, T))
+        override = hasproperty(overrides, name) ? getproperty(overrides, name) : nothing
+        override !== nothing && !(override isa NamedTuple) && continue
+        if provider isa DiameterIndexedVectorDefault && override isa NamedTuple
+            labels = parameter_axis_names(parameter)
+            for key in keys(override)
+                key in labels || throw(ArgumentError(
+                    "Unknown key `$(key)` for parameter `$name`. Expected one of: $(join(string.(labels), ", ")).",
+                ))
+            end
+            value = materialize_parameter_default(
+                provider, parameter, T; overridden_labels=Tuple(keys(override))
+            )
+            push!(entries, name => value)
+        else
+            push!(entries, name => materialize_parameter_default(provider, parameter, T))
+        end
     end
     return (; entries...)
 end
@@ -203,10 +237,12 @@ function materialize_parameter_law_override(
     diameters === nothing && throw(ArgumentError(
         "parameter :$(parameter.name) has no realized diameter axis for a diameter-indexed override",
     ))
+    indices = Tuple(eachindex(diameters))
+    _require_allometric_diameters(parameter, diameters, value, indices)
     return resolve_diameter_indexed_vector(
         T,
         diameters,
-        Tuple(eachindex(diameters)),
+        indices,
         value;
         default=T(provider.default),
     )

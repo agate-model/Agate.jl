@@ -77,7 +77,7 @@ function quota_processes()
                 Agate.Processes.Smith(); driver=:PAR,
                 bindings=(alpha=:photosynthetic_slope,),
             ),
-            nutrients=Agate.Processes.Nutrients(
+            nutrients=Agate.Processes.NutrientLimitation(
                 Agate.Processes.Liebig(); responses=responses
             ),
         ),
@@ -158,7 +158,7 @@ function authored_nipizd_inputs(::Type{T}=Float32) where {T<:AbstractFloat}
         size_structure=(;
             phytoplankton=(diat=T[2, 8],),
             zooplankton=(;
-                microzoo=(n=2, min_esd=T(30), max_esd=T(90), splitting=:log_splitting),
+                microzoo=(n=2, min_esd=T(30), max_esd=T(90), spacing=:log),
             ),
         ),
         scalar_type=T,

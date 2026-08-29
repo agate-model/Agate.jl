@@ -6,7 +6,7 @@ using Agate.Configuration:
 using Agate.ModelFamilies: default_components
 @testset "Component authoring" begin
     plankton = Plankton(; states=:nitrogen, reference_state=:nitrogen,
-        size_structure=(n=3, min_esd=1.0, max_esd=100.0, splitting=:log_splitting),
+        size_structure=(n=3, min_esd=1.0, max_esd=100.0, spacing=:log),
     )
     pool = Pool(:carbon)
 

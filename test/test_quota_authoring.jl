@@ -3,7 +3,7 @@ using Test
 using Agate.Configuration: Plankton, Pool
 using Agate.Processes:
     FixedStoichiometry, Growth, Liebig, ModelDefinition, Monod, NormalizedDroop,
-    NutrientResponse, Nutrients, QuotaResponse
+    NutrientResponse, NutrientLimitation, QuotaResponse
 
 
 @testset "Quota structural errors fail during canonicalization" begin
@@ -23,7 +23,7 @@ using Agate.Processes:
         additional_resources=additional_resources,
         bindings=(maximum_rate=:maximum_growth_rate,),
         stoichiometry=stoichiometry,
-        factors=(light=light, nutrients=Nutrients(Liebig(); responses=responses)),
+        factors=(light=light, nutrients=NutrientLimitation(Liebig(); responses=responses)),
     )
     definition_with(processes; components=components) = ModelDefinition(;
         components=components, processes=processes, parameters=quota_parameters()

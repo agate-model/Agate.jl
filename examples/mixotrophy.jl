@@ -3,9 +3,9 @@
 # A mixotroph does not need a special component type. `M` is an ordinary
 # `Plankton` that participates in both growth and grazing.
 
-using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Plankton, Pool
+using Agate.Configuration: ConsumerAssimilation, AllometricPalatability, Plankton, Pool
 using Agate.Construction: construct
-using Agate.Parameters: DerivedDefault, MetaParameter, Parameter
+using Agate.Parameters: DerivedDefault, ConstructionParameter, Parameter
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
     Consumption, Growth, Light, ModelDefinition, NutrientResponse, Smith, Monod, PreferentialGrazing, participants
@@ -58,18 +58,18 @@ parameters = (
     nutrient_half_saturation=Parameter(0.2),
     maximum_predation_rate=Parameter(0.4 / day),
     holling_half_saturation=Parameter(0.15),
-    optimum_predator_prey_ratio=MetaParameter(4.0; axes=:plankton),
-    specificity=MetaParameter(0.5; axes=:plankton),
-    protection=MetaParameter(0.0; axes=:plankton),
-    assimilation_efficiency=MetaParameter(0.65; axes=:plankton),
+    optimum_predator_prey_ratio=ConstructionParameter(4.0; axes=:plankton),
+    specificity=ConstructionParameter(0.5; axes=:plankton),
+    protection=ConstructionParameter(0.0; axes=:plankton),
+    assimilation_efficiency=ConstructionParameter(0.65; axes=:plankton),
     palatability_matrix=Parameter(
         DerivedDefault(
-            PalatabilityAllometric();
+            AllometricPalatability();
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
         )
     ),
     assimilation_matrix=Parameter(
-        DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,))
+        DerivedDefault(ConsumerAssimilation(); deps=(:assimilation_efficiency,))
     ),
 )
 

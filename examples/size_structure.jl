@@ -27,7 +27,7 @@ nothing #hide
 # The plankton size structure is configured separately for phytoplankton and
 # zooplankton. Here, phytoplankton are split into three SizeClasses spanning 1 to
 # 10 μm equivalent spherical diameter (ESD), using logarithmic spacing.
-phyto_size_structure = (n=3, min_esd=1, max_esd=10, splitting=:log_splitting)
+phyto_size_structure = (n=3, min_esd=1, max_esd=10, spacing=:log)
 nothing #hide
 
 # Alternatively, an explicit array can be used.

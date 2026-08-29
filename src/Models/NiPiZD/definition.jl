@@ -16,8 +16,8 @@ registered_family(::Val{:NiPiZD}) = NiPiZDFamily()
 definition_version(::NiPiZDFamily)::VersionNumber = v"0.1.0"
 
 const DEFAULT_SIZE_STRUCTURE = (
-    phytoplankton=(P=(n=2, min_esd=2, max_esd=10, splitting=:log_splitting),),
-    zooplankton=(Z=(n=2, min_esd=20, max_esd=100, splitting=:linear_splitting),),
+    phytoplankton=(P=(n=2, min_esd=2, max_esd=10, spacing=:log),),
+    zooplankton=(Z=(n=2, min_esd=20, max_esd=100, spacing=:linear),),
 )
 
 const NIPIZD_COMPONENTS = (

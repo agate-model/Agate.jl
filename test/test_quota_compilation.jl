@@ -91,7 +91,7 @@ end
             bindings=(ratio=(phosphorus=:phosphorus_to_carbon,),),
         ),
         bindings=quota.growth.bindings,
-        factors=(nutrients=Agate.Processes.Nutrients(
+        factors=(nutrients=Agate.Processes.NutrientLimitation(
             Agate.Processes.Liebig();
             responses=(
                 nitrogen=quota.growth.factors.nutrients.responses.nitrogen,

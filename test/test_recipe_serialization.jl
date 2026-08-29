@@ -82,12 +82,29 @@ explicit_json_value(::Any) = false
     @test !recipe.open_bottom
     @test recipe.sinking_tracers == inputs.sinking_tracers
     @test decoded == recipe
-    @test manifest.pft_size_classes == (
+    @test manifest.pft_entities == (
         diat=(:diat_1, :diat_2),
         microzoo=(:microzoo_1, :microzoo_2),
     )
     @test decoded_manifest == manifest
     @test decoded_manifest.sinking_tracers.D isa Float32
+
+    unsized_recipe = Agate.Construction.ModelRecipe(
+        recipe.family,
+        recipe.definition_version,
+        recipe.plankton_pfts,
+        (diat=nothing, microzoo=recipe.pft_size_structures.microzoo),
+        recipe.parameter_overrides,
+        recipe.sinking_tracers,
+        recipe.open_bottom,
+    )
+    encoded_unsized = encode_recipe(unsized_recipe)
+    diat_size = only(
+        entry for entry in encoded_unsized["realization"]["pft_size_structures"]
+        if entry["pft"] == "diat"
+    )
+    @test diat_size["diameters"] === nothing
+    @test decode_recipe(encoded_unsized) == unsized_recipe
 
     # Captured inputs are isolated from the constructed runtime model.
     recipe_hash = encoded["content_hash"]

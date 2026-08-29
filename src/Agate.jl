@@ -13,6 +13,8 @@ include("Construction/Construction.jl")
 include("Models/Models.jl")
 include("Introspection.jl")
 
+using .Processes: ModelDefinition
+
 export Library
 export Models
 export ModelFamilies
@@ -23,5 +25,6 @@ export Runtime
 export Diagnostics
 export Construction
 export Introspection
+export ModelDefinition
 
 end # module

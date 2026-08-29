@@ -6,7 +6,7 @@
 
 ```@docs
 Agate.Construction.construct
-Agate.Processes.ModelDefinition
+Agate.ModelDefinition
 ```
 
 ### Components
@@ -33,7 +33,7 @@ Agate.Configuration.state_tracer
 Formulations are authored as concrete scientific objects, for example `Light(Smith(); driver=:PAR)`
 and `Consumption(HeterotrophicConsumption(); ...)`. Numerical scientific parameters belong to
 the model parameter system rather than the formulation object; for example
-`Nutrients(FrankTNorm(); ...)` uses the Frank t-norm's declared `sharpness` parameter slot.
+`NutrientLimitation(FrankTNorm(); ...)` uses the Frank t-norm's declared `sharpness` parameter slot.
 `FrankTNorm()` names the formulation; `Agate.Library.Nutrients.frank_tnorm` is the numerical
 kernel. Parameterized nodes bind their formulation-local slots directly to model-level parameter
 names with `bindings=(...)`. Omitted slots bind by the same name; a `Symbol` explicitly renames
@@ -73,7 +73,7 @@ Agate.Processes.Growth
 Agate.Processes.Light
 Agate.Processes.NutrientResponse
 Agate.Processes.QuotaResponse
-Agate.Processes.Nutrients
+Agate.Processes.NutrientLimitation
 Agate.Processes.Temperature
 Agate.Processes.NutrientUptake
 Agate.Processes.Consumption
@@ -91,21 +91,21 @@ Agate.Processes.authored_parameter_bindings
 
 The keyed parameter block separates runtime process parameters from construction-only inputs.
 Scientific slots and realized process applicability determine `Parameter` vector or matrix storage
-automatically, so runtime parameters never restate axes. `MetaParameter` values exist only during
-construction to feed `DerivedDefault` calculations; shaped meta-parameters use the global
+automatically, so runtime parameters never restate axes. `ConstructionParameter` values exist only during
+construction to feed `DerivedDefault` calculations; shaped construction parameters use the global
 `axes=:plankton` construction domain. Scientific slot-to-parameter relationships are authored
 beside the process or factor through `bindings=`.
 
 ```@docs
 Agate.Parameters.Parameter
-Agate.Parameters.MetaParameter
+Agate.Parameters.ConstructionParameter
 Agate.Parameters.DefaultProvider
 Agate.Parameters.DerivedDefault
 Agate.Parameters.derive_default
 Agate.Parameters.NoDefault
 Agate.Parameters.DiameterIndexedVectorDefault
-Agate.Configuration.PalatabilityAllometric
-Agate.Configuration.AssimilationBinary
+Agate.Configuration.AllometricPalatability
+Agate.Configuration.ConsumerAssimilation
 ```
 
 ### Custom process extension

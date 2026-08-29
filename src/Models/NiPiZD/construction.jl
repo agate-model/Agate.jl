@@ -41,6 +41,14 @@ function _canonicalize_size_structure(size_structure)
     return (; phytoplankton, zooplankton, producer_pfts, consumer_pfts)
 end
 
+@inline function _constructor_size_structure(specification)
+    if specification isa NamedTuple && hasproperty(specification, :n)
+        n = specification.n
+        n isa Integer && !(n isa Bool) && n == 0 && return nothing
+    end
+    return specification
+end
+
 function _plankton_realization(size_structure)
     structure = _canonicalize_size_structure(size_structure)
     pft_order = (structure.producer_pfts..., structure.consumer_pfts...)
@@ -51,7 +59,7 @@ function _plankton_realization(size_structure)
         else
             getproperty(structure.phytoplankton, pft)
         end
-        diameters
+        _constructor_size_structure(diameters)
     end)
     plankton_pfts = (P=structure.producer_pfts, Z=structure.consumer_pfts)
     return (; plankton_pfts, pft_size_structures)
@@ -105,8 +113,10 @@ may override interaction matrices explicitly with `palatability_matrix` and/or
 `assimilation_matrix`.
 
 Each PFT size structure may be a NamedTuple range, for example
-`(n=3, min_esd=1, max_esd=10, splitting=:log_splitting)`, or an explicit
-diameter vector such as `[1.0, 3.2, 10.0]`. PFTs are supplied as
+`(n=3, min_esd=1, max_esd=10, spacing=:log)`, or an explicit
+diameter vector such as `[1.0, 3.2, 10.0]`. At this high-level constructor boundary,
+`(n=0,)` means that the PFT is not subdivided into SizeClasses; `n=1` still means one
+actual SizeClass with a defined diameter. PFTs are supplied as
 `size_structure=(phytoplankton=(...), zooplankton=(...))` and SizeClasses use
 `<pft>_<index>` identities, such as `P_1` or `diat_1`.
 

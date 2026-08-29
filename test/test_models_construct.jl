@@ -43,6 +43,59 @@ using Oceananigans.Biogeochemistry:
         @test required_biogeochemical_tracers(default_size_structure) ==
             (:N, :D, :P_1, :P_2, :Z_1, :Z_2)
 
+        unsized = (;
+            phytoplankton=(P=(n=0,),),
+            zooplankton=(Z=(n=0,),),
+        )
+        allometric_message = argument_error_message(() -> NiPiZD.construct(;
+            size_structure=unsized, grid=dummy_grid(Float32)
+        ))
+        @test occursin("maximum_growth_rate", allometric_message)
+        @test occursin("no diameter metadata", allometric_message)
+
+        palatability_message = argument_error_message(() -> NiPiZD.construct(;
+            size_structure=unsized,
+            grid=dummy_grid(Float32),
+            parameters=(;
+                maximum_growth_rate=(P=2 / day,),
+                nutrient_half_saturation=(P=0.2,),
+                maximum_predation_rate=(Z=1 / day,),
+            ),
+        ))
+        @test occursin("AllometricPalatability", palatability_message)
+        @test occursin("unsized PFT entity", palatability_message)
+
+        unsized_bgc = NiPiZD.construct(;
+            size_structure=unsized,
+            grid=dummy_grid(Float32),
+            parameters=(;
+                maximum_growth_rate=(P=2 / day,),
+                nutrient_half_saturation=(P=0.2,),
+                maximum_predation_rate=(Z=1 / day,),
+            ),
+            palatability_matrix=reshape(Float32[0.5], 1, 1),
+        )
+        @test required_biogeochemical_tracers(unsized_bgc) == (:N, :D, :P, :Z)
+        @test plankton_diameters(unsized_bgc) == [nothing, nothing]
+
+        mixed_bgc = NiPiZD.construct(;
+            size_structure=(;
+                phytoplankton=(plain=(n=0,), sized=[5.0]),
+                zooplankton=(Z=[20.0],),
+            ),
+            grid=dummy_grid(Float32),
+            parameters=(;
+                maximum_growth_rate=(plain=2 / day,),
+                nutrient_half_saturation=(plain=0.2,),
+            ),
+            palatability_matrix=reshape(Float32[0.5, 0.5], 1, 2),
+        )
+        @test required_biogeochemical_tracers(mixed_bgc) ==
+              (:N, :D, :plain, :sized_1, :Z_1)
+        @test mixed_bgc.parameters.maximum_growth_rate[1] ≈ Float32(2 / day)
+        @test isfinite(mixed_bgc.parameters.maximum_growth_rate[2])
+        @test plankton_diameters(mixed_bgc) == [nothing, Float32(5), Float32(20)]
+
         named = NiPiZD.construct(;
             size_structure=nipizd_named_size_structure(), grid=dummy_grid(Float32)
         )

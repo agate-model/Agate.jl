@@ -116,7 +116,7 @@ function _validate_factor_for_process(
             subfactor,
             components,
             factor_subfactor_path(path, factor, name);
-            expected_element=factor isa Nutrients ? name : nothing,
+            expected_element=factor isa NutrientLimitation ? name : nothing,
         )
     end
     return nothing

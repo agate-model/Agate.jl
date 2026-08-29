@@ -31,14 +31,14 @@ end
 
 """Resolved deterministic scientific state produced by model construction.
 
-`ModelManifest` records the fully materialized parameters, expanded PFT SizeClasses and
+`ModelManifest` records the fully materialized parameters, realized PFT entities and
 tracer ordering, interaction sources, sinking configuration, and scalar type. It is
 an in-memory record of the constructed model state; durable replay is defined by the
 corresponding recipe representation.
 """
 struct ModelManifest{P,G,TR,A,D,I,S,T<:Real}
     parameters::P
-    pft_size_classes::G
+    pft_entities::G
     tracer_order::TR
     auxiliary_fields::A
     plankton_diameters::D
@@ -187,7 +187,7 @@ function capture_model_manifest(
         indices = getproperty(layout.pft_indices, pft)
         return Tuple(layout.size_classes[index] for index in indices)
     end
-    pft_size_classes = NamedTuple{pft_order}(pft_values)
+    pft_entities = NamedTuple{pft_order}(pft_values)
 
     interaction_names = isnothing(interaction_axes) ? () : interaction_axes.parameters
     derived_interaction_names = Tuple(
@@ -204,10 +204,13 @@ function capture_model_manifest(
 
     return ModelManifest(
         deepcopy(parameters),
-        pft_size_classes,
+        pft_entities,
         tracer_order,
         auxiliary_fields,
-        Tuple(layout.size_class_diameters),
+        Tuple(
+            isfinite(diameter) && diameter > zero(diameter) ? diameter : nothing
+            for diameter in layout.size_class_diameters
+        ),
         deepcopy(interaction_matrix_sources),
         deepcopy(sinking_tracers),
         open_bottom,

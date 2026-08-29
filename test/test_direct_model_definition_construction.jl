@@ -2,10 +2,10 @@ using Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
 using Test
 
-using Agate.Configuration: AssimilationBinary, PalatabilityAllometric, Plankton, Pool
+using Agate.Configuration: ConsumerAssimilation, AllometricPalatability, Plankton, Pool
 using Agate.Construction: construct
 using Agate.Introspection: plankton_diameters
-using Agate.Parameters: DerivedDefault, ConstantDefault, MetaParameter, Parameter
+using Agate.Parameters: DerivedDefault, ConstantDefault, ConstructionParameter, Parameter
 using Agate.Processes:
     Consumption, FixedStoichiometry, Growth, Light, LinearMortality, ModelDefinition, Mortality,
     NutrientResponse, Products, Smith, Monod, PreferentialGrazing
@@ -48,30 +48,30 @@ function direct_npz_definition()
         nutrient_half_saturation=Parameter(ConstantDefault(0.2)),
         maximum_predation_rate=Parameter(ConstantDefault(5e-5)),
         holling_half_saturation=Parameter(ConstantDefault(0.1)),
-        optimum_predator_prey_ratio=MetaParameter(
+        optimum_predator_prey_ratio=ConstructionParameter(
             ConstantDefault(10.0);
             axes=:plankton,
         ),
-        specificity=MetaParameter(
+        specificity=ConstructionParameter(
             ConstantDefault(0.3);
             axes=:plankton,
         ),
-        protection=MetaParameter(
+        protection=ConstructionParameter(
             ConstantDefault(0.0);
             axes=:plankton,
         ),
-        assimilation_efficiency=MetaParameter(
+        assimilation_efficiency=ConstructionParameter(
             ConstantDefault(0.7);
             axes=:plankton,
         ),
         palatability_matrix=Parameter(
             DerivedDefault(
-                PalatabilityAllometric();
+                AllometricPalatability();
                 deps=(:optimum_predator_prey_ratio, :specificity, :protection),
             )
         ),
         assimilation_matrix=Parameter(
-            DerivedDefault(AssimilationBinary(); deps=(:assimilation_efficiency,))
+            DerivedDefault(ConsumerAssimilation(); deps=(:assimilation_efficiency,))
         ),
     )
     return ModelDefinition(; components, processes, parameters)
@@ -138,16 +138,16 @@ end
         palatability_other=Parameter(0.5),
         assimilation_other=Parameter(0.5),
         palatability_local=Parameter(DerivedDefault(
-            PalatabilityAllometric();
+            AllometricPalatability();
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
         )),
         assimilation_local=Parameter(DerivedDefault(
-            AssimilationBinary(); deps=(:assimilation_efficiency,)
+            ConsumerAssimilation(); deps=(:assimilation_efficiency,)
         )),
-        optimum_predator_prey_ratio=MetaParameter(10.0; axes=:plankton),
-        specificity=MetaParameter(0.3; axes=:plankton),
-        protection=MetaParameter(0.0; axes=:plankton),
-        assimilation_efficiency=MetaParameter(0.5; axes=:plankton),
+        optimum_predator_prey_ratio=ConstructionParameter(10.0; axes=:plankton),
+        specificity=ConstructionParameter(0.3; axes=:plankton),
+        protection=ConstructionParameter(0.0; axes=:plankton),
+        assimilation_efficiency=ConstructionParameter(0.5; axes=:plankton),
     )
     bgc = construct(
         ModelDefinition(; components, processes, parameters);

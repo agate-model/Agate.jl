@@ -25,7 +25,7 @@
     q10_temperature_factor(temperature, q10, reference_temperature)
 
 """Evaluate the unmodified plankton-growth scale before sibling factors."""
-@inline process_rate(::MultiplicativeFactors, biomass, maximum_rate) =
+@inline process_rate(::FactorizedGrowth, biomass, maximum_rate) =
     maximum_rate * biomass
 
 """Evaluate one quota-regulated external nutrient uptake rate."""

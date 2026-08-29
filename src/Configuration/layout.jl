@@ -80,7 +80,11 @@ function state_tracer(
     return tracers[Int(entity_index)]
 end
 
-"""Return entity diameters for one component, or `nothing` when no diameter structure is defined."""
+"""Return entity diameter metadata for one component.
+
+Returns `nothing` when none of its PFTs are sized; mixed components return one entry per
+realized entity with `nothing` for unsized PFT entities.
+"""
 component_diameters(layout::ModelLayout, component::Symbol) =
     _component_value(layout, :component_diameters, component)
 
@@ -149,8 +153,10 @@ function canonicalize_plankton_realization(
     pft_names = Tuple(assigned)
     canonical_size_structures = NamedTuple{pft_names}(ntuple(length(pft_names)) do i
         pft = pft_names[i]
-        canonicalize_diameters(
-            getproperty(pft_size_structures, pft); path="plankton PFT :$pft size_structure"
+        structure = getproperty(pft_size_structures, pft)
+        isnothing(structure) && return nothing
+        return canonicalize_diameters(
+            structure; path="plankton PFT :$pft size_structure"
         ).specification
     end)
     return canonical_pfts, canonical_size_structures
@@ -253,7 +259,7 @@ function realize_model_layout(
         state_tracer_vectors[plankton] = Dict(state => Symbol[] for state in state_names)
         pfts = getproperty(plankton_pfts, plankton)
         has_diameters = any(pft -> getproperty(pft_size_structures, pft) !== nothing, pfts)
-        diameters_by_component[plankton] = has_diameters ? T[] : nothing
+        diameters_by_component[plankton] = has_diameters ? Union{Nothing,T}[] : nothing
     end
 
     pft_owner = Dict{Symbol,Symbol}()
@@ -299,8 +305,10 @@ function realize_model_layout(
             push!(pft_global_indices, global_size_class_index)
             push!(entities_by_component[plankton], size_class)
             plankton_diameters = diameters_by_component[plankton]
-            plankton_diameters === nothing ||
-                push!(plankton_diameters, realized_diameters[pft_local])
+            plankton_diameters === nothing || push!(
+                plankton_diameters,
+                specification === nothing ? nothing : realized_diameters[pft_local],
+            )
 
             for (state_position, state) in pairs(state_names)
                 tracer = physical_tracers[state_position]
@@ -392,7 +400,7 @@ end
 """Return compact host-side metadata derived from one authoritative `ModelLayout`."""
 function model_metadata(layout::ModelLayout; interaction_axes=nothing, parameter_axes=(;))
     pft_names = keys(layout.pft_indices)
-    pft_size_classes = NamedTuple{pft_names}(ntuple(length(pft_names)) do i
+    pft_entities = NamedTuple{pft_names}(ntuple(length(pft_names)) do i
         indices = getproperty(layout.pft_indices, pft_names[i])
         Tuple(layout.size_classes[index] for index in indices)
     end)
@@ -405,10 +413,12 @@ function model_metadata(layout::ModelLayout; interaction_axes=nothing, parameter
         tracer for tracer in layout.tracer_order if tracer in plankton_tracer_set
     )
     return (;
-        pft_size_classes,
-        size_classes=layout.size_classes,
+        pft_entities,
         plankton_tracers,
-        plankton_diameters=layout.size_class_diameters,
+        plankton_diameters=Tuple(
+            isfinite(diameter) && diameter > zero(diameter) ? diameter : nothing
+            for diameter in layout.size_class_diameters
+        ),
         interaction_axes,
         parameter_axes,
     )

@@ -66,7 +66,7 @@ function _union_storage_labels(layout::ModelLayout, name::Symbol, rank::Int, axi
     end
 end
 
-_planned_parameter_axes(definition, name, parameter::MetaParameter) =
+_planned_parameter_axes(definition, name, parameter::ConstructionParameter) =
     isnothing(parameter.axes) ? () : (parameter.axes,)
 
 function _planned_parameter_axes(definition, name, parameter::Parameter)
@@ -90,7 +90,10 @@ function _parameter_storage_labels(layout, name, axes, axis_entities)
 end
 
 function _diameter_by_entity(layout::ModelLayout)
-    values = Dict{Symbol,Any}(zip(layout.size_classes, layout.size_class_diameters))
+    values = Dict{Symbol,Any}(
+        entity => (isfinite(diameter) && diameter > zero(diameter) ? diameter : nothing)
+        for (entity, diameter) in zip(layout.size_classes, layout.size_class_diameters)
+    )
     for component in keys(layout.component_entities)
         diameters = getproperty(layout.component_diameters, component)
         isnothing(diameters) && continue

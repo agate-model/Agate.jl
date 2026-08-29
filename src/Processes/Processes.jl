@@ -4,7 +4,7 @@ module Processes
 using ..Configuration: Plankton, Pool, PlanktonStateRef, ModelLayout, element, state_element,
     states, reference_state, size_structure, component_entities
 using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
-using ..Parameters: Parameter, MetaParameter, DerivedDefault, parameter_definitions
+using ..Parameters: Parameter, ConstructionParameter, DerivedDefault, parameter_definitions
 using ..Library.Mortality: linear_loss
 using ..Library.Predation: preferential_predation_loss
 using ..Library.Photosynthesis: geider_light_response, smith_light_limitation
@@ -18,7 +18,7 @@ export AbstractProcess, AbstractFormulation, AbstractFactor, AbstractStoichiomet
 export Smith, Geider, Monod, NormalizedDroop, QuotaRegulatedMonod, Liebig, FrankTNorm, Q10
 export PreferentialGrazing, HeterotrophicConsumption
 export LinearMortality, QuadraticMortality, LinearRemineralization
-export Light, Nutrients, Temperature
+export Light, NutrientLimitation, Temperature
 export FixedStoichiometry
 export Growth, NutrientResponse, QuotaResponse, NutrientUptake
 export Consumption, Mortality, Products, Remineralization

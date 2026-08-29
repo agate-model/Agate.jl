@@ -179,7 +179,9 @@ function _construct_process_definition(
     required = Tuple(keys(parameter_plan.parameters))
     validate_override_keys(parameter_plan, parameter_overrides)
 
-    parameter_defaults = materialize_parameter_defaults(parameter_plan, T)
+    parameter_defaults = materialize_parameter_defaults(
+        parameter_plan, T, parameter_overrides
+    )
     materialized_overrides = materialize_parameter_overrides(
         parameter_plan, parameter_defaults, parameter_overrides, T
     )

@@ -14,7 +14,7 @@ const _RECIPE_DOCUMENT_KEYS = (
 const _REALIZATION_KEYS = (
     "plankton_pfts", "pft_size_structures", "parameter_overrides", "sinking_tracers", "open_bottom"
 )
-const _SUPPORTED_SPLITTING = (:linear_splitting, :log_splitting)
+const _SUPPORTED_SPACING = (:linear, :log)
 
 function _check_keys(x, allowed, path)
     x isa AbstractDict || throw(ArgumentError("$path must be an object."))
@@ -234,6 +234,8 @@ function _decode_parameter_overrides(x, path)
     return _decode_named_parameter_values(x, path)
 end
 
+_encode_diameter_specification(::Nothing) = nothing
+
 function _encode_diameter_specification(spec::DiameterListSpecification)
     return Dict{String,Any}(
         "kind" => "list",
@@ -247,12 +249,13 @@ function _encode_diameter_specification(spec::DiameterRangeSpecification)
         "n" => Int(spec.n),
         "min_esd" => _finite_float(float(spec.min_diameter)),
         "max_esd" => _finite_float(float(spec.max_diameter)),
-        "splitting" => String(spec.splitting),
+        "spacing" => String(spec.spacing),
     )
 end
 
 function _decode_diameter_specification(x, path)
-    x isa AbstractDict || throw(ArgumentError("$path must be an object."))
+    x === nothing && return nothing
+    x isa AbstractDict || throw(ArgumentError("$path must be an object or null."))
     kind = _string(_required(x, "kind", path), "$path.kind")
     if kind == "list"
         _complete_object(x, ("kind", "diameters"), path)
@@ -267,10 +270,10 @@ function _decode_diameter_specification(x, path)
         end
         return DiameterListSpecification(diameters)
     elseif kind == "range"
-        _complete_object(x, ("kind", "n", "min_esd", "max_esd", "splitting"), path)
-        splitting = _symbol(x["splitting"], "$path.splitting")
-        splitting in _SUPPORTED_SPLITTING || throw(
-            ArgumentError("$path.splitting has unsupported splitting method $(repr(splitting)).")
+        _complete_object(x, ("kind", "n", "min_esd", "max_esd", "spacing"), path)
+        spacing = _symbol(x["spacing"], "$path.spacing")
+        spacing in _SUPPORTED_SPACING || throw(
+            ArgumentError("$path.spacing has unsupported spacing method $(repr(spacing)).")
         )
         min_esd = x["min_esd"]
         max_esd = x["max_esd"]
@@ -282,7 +285,7 @@ function _decode_diameter_specification(x, path)
             _count(x["n"], "$path.n"),
             _finite_float(float(min_esd)),
             _finite_float(float(max_esd)),
-            splitting,
+            spacing,
         )
     end
     throw(ArgumentError("$path has unsupported diameter kind $(repr(kind))."))

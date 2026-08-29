@@ -1,6 +1,6 @@
 export DefaultProvider
 export Parameter
-export MetaParameter
+export ConstructionParameter
 export parameter_definitions
 export DerivedDefault
 export NoDefault
@@ -40,37 +40,37 @@ Parameter(default) = Parameter(ConstantDefault(default))
 
 """A construction-only parameter used to derive one or more runtime parameters.
 
-`MetaParameter` values are materialized during setup but are not stored in the runtime
-biogeochemistry. Shaped meta-parameters use `axes=:plankton`; omitting `axes` defines a
-scalar meta-parameter.
+`ConstructionParameter` values are materialized during setup but are not stored in the runtime
+biogeochemistry. Shaped construction parameters use `axes=:plankton`; omitting `axes` defines a
+scalar construction parameter.
 """
-struct MetaParameter{D<:DefaultProvider,A}
+struct ConstructionParameter{D<:DefaultProvider,A}
     default::D
     axes::A
 end
 
-function MetaParameter(
+function ConstructionParameter(
     default::D;
     axes=nothing,
 ) where {D<:DefaultProvider}
     (isnothing(axes) || axes === :plankton) || throw(
-        ArgumentError("MetaParameter axes must be `nothing` or `:plankton`"),
+        ArgumentError("ConstructionParameter axes must be `nothing` or `:plankton`"),
     )
-    return MetaParameter{D,typeof(axes)}(default, axes)
+    return ConstructionParameter{D,typeof(axes)}(default, axes)
 end
 
 """Define a construction-only parameter with a literal constant default."""
-function MetaParameter(
+function ConstructionParameter(
     default;
     axes=nothing,
 )
-    return MetaParameter(ConstantDefault(default); axes)
+    return ConstructionParameter(ConstantDefault(default); axes)
 end
 
 """Derive a parameter default from other resolved parameters during construction.
 
 `deriver` is a setup-time strategy object implementing [`derive_default`](@ref).
-`deps` names ordinary runtime parameters and/or construction-only [`MetaParameter`](@ref)
+`deps` names ordinary runtime parameters and/or construction-only [`ConstructionParameter`](@ref)
 values available to the derivation. Derived defaults are evaluated once after direct
 defaults and explicit overrides are materialized.
 """
@@ -114,7 +114,7 @@ struct NoDefault <: DefaultProvider end
 
 The provider materializes `value` over the parameter's realized storage labels. For
 slot-bound [`Parameter`](@ref) values those labels come from process applicability; for a
-[`MetaParameter`](@ref) they come from its explicit construction axis.
+[`ConstructionParameter`](@ref) they come from its explicit construction axis.
 """
 struct DiameterIndexedVectorDefault{V,T} <: DefaultProvider
     value::V

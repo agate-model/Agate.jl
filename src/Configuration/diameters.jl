@@ -11,7 +11,7 @@ struct DiameterRangeSpecification{I<:Integer,T1,T2} <: AbstractDiameterSpecifica
     n::I
     min_diameter::T1
     max_diameter::T2
-    splitting::Symbol
+    spacing::Symbol
 end
 
 function _validate_diameter_values(values, path::AbstractString)
@@ -28,7 +28,7 @@ end
 """Canonicalize and validate one public diameter input.
 
 Accepted forms are an explicit vector, a `DiameterListSpecification`, a
-`DiameterRangeSpecification`, or `(n, min_esd, max_esd, splitting)` as a NamedTuple.
+`DiameterRangeSpecification`, or `(n, min_esd, max_esd, spacing)` as a NamedTuple.
 """
 function canonicalize_diameters(diameters::AbstractVector; path::AbstractString="diameters")
     _validate_diameter_values(diameters, path)
@@ -36,12 +36,12 @@ function canonicalize_diameters(diameters::AbstractVector; path::AbstractString=
 end
 
 function canonicalize_diameters(spec::NamedTuple; path::AbstractString="diameters")
-    required = (:n, :min_esd, :max_esd, :splitting)
+    required = (:n, :min_esd, :max_esd, :spacing)
     all(hasproperty(spec, field) for field in required) || throw(
-        ArgumentError("$path must define `n`, `min_esd`, `max_esd`, and `splitting`"),
+        ArgumentError("$path must define `n`, `min_esd`, `max_esd`, and `spacing`"),
     )
     return _canonicalize_diameter_range(
-        spec.n, spec.min_esd, spec.max_esd, spec.splitting; path
+        spec.n, spec.min_esd, spec.max_esd, spec.spacing; path
     )
 end
 
@@ -56,14 +56,14 @@ function canonicalize_diameters(
     spec::DiameterRangeSpecification; path::AbstractString="diameters"
 )
     return _canonicalize_diameter_range(
-        spec.n, spec.min_diameter, spec.max_diameter, spec.splitting; path
+        spec.n, spec.min_diameter, spec.max_diameter, spec.spacing; path
     )
 end
 
 canonicalize_diameters(spec; path::AbstractString="diameters") =
     throw(ArgumentError("$path has an unsupported diameter specification $(typeof(spec))"))
 
-function _canonicalize_diameter_range(n, min_diameter, max_diameter, splitting; path)
+function _canonicalize_diameter_range(n, min_diameter, max_diameter, spacing; path)
     n isa Integer && !(n isa Bool) && n > 0 ||
         throw(ArgumentError("$path.n must be a positive integer; got $n"))
     min_diameter isa Real && !(min_diameter isa Bool) ||
@@ -85,15 +85,15 @@ function _canonicalize_diameter_range(n, min_diameter, max_diameter, splitting; 
     max_diameter >= min_diameter || throw(
         ArgumentError("$path requires min_esd <= max_esd; got $min_diameter > $max_diameter")
     )
-    splitting in (:log_splitting, :linear_splitting) || throw(
+    spacing in (:log, :linear) || throw(
         ArgumentError(
-            "$path.splitting must be :log_splitting or :linear_splitting; got $(repr(splitting))",
+            "$path.spacing must be :log or :linear; got $(repr(spacing))",
         ),
     )
     return (;
         n=Int(n),
         specification=DiameterRangeSpecification(
-            Int(n), min_diameter, max_diameter, splitting
+            Int(n), min_diameter, max_diameter, spacing
         ),
     )
 end
@@ -112,7 +112,7 @@ function realize_diameters(
     max_d = T(spec.max_diameter)
     n == 1 && return T[min_d]
 
-    if spec.splitting === :log_splitting
+    if spec.spacing === :log
         log_min = log(min_d)
         step = (log(max_d) - log_min) / T(n - 1)
         return T[exp(log_min + T(i - 1) * step) for i in 1:n]

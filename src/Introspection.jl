@@ -72,22 +72,23 @@ end
 
 """    pfts(bgc) -> NamedTuple
 
-Return a `NamedTuple` mapping plankton PFT symbols to realized SizeClass symbols.
-For multi-state plankton each SizeClass appears once, independent of the number
-of physical prognostic state tracers. PFT order follows the realized model layout.
+Return a `NamedTuple` mapping plankton PFT symbols to realized entity symbols.
+An unsized PFT realizes one entity named by the PFT; a sized PFT realizes one or more
+SizeClasses. Each entity appears once independent of the number of physical prognostic
+state tracers. PFT order follows the realized model layout.
 """
 function pfts(bgc)
     metadata = _model_metadata(bgc)
     metadata === nothing && return NamedTuple()
-    names = keys(metadata.pft_size_classes)
+    names = keys(metadata.pft_entities)
     return NamedTuple{names}(
-        Tuple(collect(size_classes) for size_classes in values(metadata.pft_size_classes))
+        Tuple(collect(entities) for entities in values(metadata.pft_entities))
     )
 end
 
 """    plankton_tracers(bgc) -> Vector{Symbol}
 
-Return all plankton tracer symbols as a flat vector in runtime PFT/SizeClass order.
+Return all plankton tracer symbols as a flat vector in runtime PFT/entity order.
 """
 function plankton_tracers(bgc)
     metadata = _model_metadata(bgc)
@@ -97,10 +98,11 @@ end
 
 """    plankton_diameters(bgc) -> Vector
 
-Return the equivalent spherical diameters for realized plankton SizeClasses.
-The ordering follows the flattened values of `pfts(bgc)`, with one diameter
-per SizeClass even when each SizeClass carries multiple prognostic state tracers. Models
-without plankton diameter metadata return an empty vector.
+Return diameter metadata for realized plankton entities.
+The ordering follows the flattened values of `pfts(bgc)`, with one entry per realized
+entity even when it carries multiple prognostic state tracers. Sized entities return their
+equivalent spherical diameter; unsized PFT entities return `nothing`. Models without
+plankton return an empty vector.
 """
 function plankton_diameters(bgc)
     metadata = _model_metadata(bgc)

@@ -1,7 +1,7 @@
 using Test
 using Agate.Configuration: Plankton, Pool
 using Agate.ModelFamilies: default_components, default_processes
-using Agate.Parameters: ConstantDefault, DerivedDefault, MetaParameter, Parameter
+using Agate.Parameters: ConstantDefault, DerivedDefault, ConstructionParameter, Parameter
 using Agate.Processes:
     AbstractFormulation,
     AbstractFactor,
@@ -9,10 +9,10 @@ using Agate.Processes:
     Geider,
     Monod,
     Liebig,
-    MultiplicativeFactors,
+    FactorizedGrowth,
     Growth,
     Light,
-    Nutrients,
+    NutrientLimitation,
     NutrientResponse,
     FixedStoichiometry,
     Consumption,
@@ -39,6 +39,7 @@ factor_inputs(::MultiDriverTestFactor) = (
 )
 
 @testset "Process authoring and canonicalization" begin
+    @test Agate.ModelDefinition === ModelDefinition
 
     light = Light(Smith(); driver=:PAR)
     response = NutrientResponse(Monod(); resource=:N)
@@ -49,7 +50,7 @@ factor_inputs(::MultiDriverTestFactor) = (
     )
     @test formulation(light) isa Smith
     @test formulation(response) isa Monod
-    @test formulation(growth) isa MultiplicativeFactors
+    @test formulation(growth) isa FactorizedGrowth
 
     @test participants(growth) == (plankton=(:P,), resource=(:N,))
 
@@ -166,7 +167,7 @@ factor_inputs(::MultiDriverTestFactor) = (
             additional_resources=(nitrogen=:DIN,),
             factors=(
                 light=Light(Geider(); driver=:PAR),
-                nutrients=Nutrients(
+                nutrients=NutrientLimitation(
                     Liebig();
                     responses=(nitrogen=NutrientResponse(Monod(); resource=:DIN),),
                 ),
@@ -337,14 +338,14 @@ end
         bindings=(rate=:shared_mortality,),
     )
     @test_throws MethodError Parameter(ConstantDefault(0.1); axes=:plankton)
-    @test_throws ArgumentError MetaParameter(ConstantDefault(0.1); axes=:consumer)
+    @test_throws ArgumentError ConstructionParameter(ConstantDefault(0.1); axes=:consumer)
 
-    meta_bound_error = canonicalization_error_message(ModelDefinition(;
+    construction_bound_error = canonicalization_error_message(ModelDefinition(;
         components=(P=components.P, Z=components.Z),
         processes=(mortality=shared,),
-        parameters=(shared_mortality=MetaParameter(ConstantDefault(0.1); axes=:plankton),),
+        parameters=(shared_mortality=ConstructionParameter(ConstantDefault(0.1); axes=:plankton),),
     ))
-    @test occursin("construction-only and cannot bind to a process slot", meta_bound_error)
+    @test occursin("construction-only and cannot bind to a process slot", construction_bound_error)
 
     incompatible_axes_error = canonicalization_error_message(ModelDefinition(;
         components=(P=components.P, Z=components.Z, D=components.D),
@@ -413,7 +414,7 @@ end
                 reference_resource=:D,
                 factors=(
                     light=Light(Smith(); driver=:PAR),
-                    nutrients=Nutrients(
+                    nutrients=NutrientLimitation(
                         Liebig();
                         responses=(nitrogen=NutrientResponse(Monod(); resource=:D),),
                         bindings=(missing=:shared_mortality,),
@@ -433,10 +434,10 @@ end
     lifecycle_cases = (
         (
             (x=Parameter(0.1), unused=Parameter(1.0)),
-            "use MetaParameter for construction-only",
+            "use ConstructionParameter for construction-only",
         ),
         (
-            (x=Parameter(0.1), helper=MetaParameter(1.0)),
+            (x=Parameter(0.1), helper=ConstructionParameter(1.0)),
             "must be used by at least one DerivedDefault",
         ),
     )

@@ -8,7 +8,7 @@ export element, states, reference_state, variable_states, state_element, size_st
 export component_entities, component_state_tracers
 export component_tracers, state_tracers, state_tracer
 export component_diameters
-export PalatabilityAllometric, AssimilationBinary
+export AllometricPalatability, ConsumerAssimilation
 
 if !hasmethod(Adapt.adapt_structure, Tuple{Any,NamedTuple})
     @inline function Adapt.adapt_structure(to, nt::NamedTuple{names}) where {names}

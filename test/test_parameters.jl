@@ -4,7 +4,7 @@ using Test
 
 import Agate.Parameters:
     DerivedDefault,
-    MetaParameter,
+    ConstructionParameter,
     Parameter,
     derive_default,
     parameter_definitions
@@ -24,7 +24,7 @@ function derived_default_definition()
         bindings=(rate=(D=:top,),),
     ),)
     parameters = (
-        base=MetaParameter(2.0),
+        base=ConstructionParameter(2.0),
         top=Parameter(DerivedDefault(AddOneDefault(); deps=(:base,))),
     )
     return Agate.Processes.ModelDefinition(; components, processes, parameters)
@@ -39,8 +39,8 @@ end
         @test all(name -> hasproperty(definitions, name), parameter_names(bgc))
         @test definitions.maximum_growth_rate isa Parameter
         @test definitions.palatability_matrix.default isa DerivedDefault
-        @test definitions.specificity isa MetaParameter
-        @test definitions.assimilation_efficiency isa MetaParameter
+        @test definitions.specificity isa ConstructionParameter
+        @test definitions.assimilation_efficiency isa ConstructionParameter
     end
 
     @testset "Derived default dependency resolution" begin

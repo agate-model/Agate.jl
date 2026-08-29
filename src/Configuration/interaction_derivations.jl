@@ -1,7 +1,7 @@
 import ..Parameters: derive_default, _derive_parameter_default
 
 using ..Library.Allometry:
-    palatability_matrix_allometric_axes, assimilation_efficiency_matrix_binary_axes
+    palatability_matrix_allometric_axes, consumer_assimilation_matrix_axes
 
 """Return `v` when it uses the construction scalar type, otherwise throw an `ArgumentError`."""
 @inline function _require_scalar_vector(
@@ -17,10 +17,10 @@ using ..Library.Allometry:
 end
 
 """Derive consumer-by-prey palatability from allometric trait vectors."""
-struct PalatabilityAllometric end
+struct AllometricPalatability end
 
-"""Derive consumer-by-prey assimilation from binary efficiency traits."""
-struct AssimilationBinary end
+"""Derive consumer-by-prey assimilation from consumer-specific efficiency traits."""
+struct ConsumerAssimilation end
 
 function _size_class_indices(
     layout::ModelLayout, labels::Tuple, parameter_name::Symbol, axis_name::Symbol
@@ -35,7 +35,23 @@ function _size_class_indices(
     end
 end
 
+function _require_palatability_diameters(layout::ModelLayout, consumers, prey)
+    seen = Set{Int}()
+    for index in (consumers..., prey...)
+        index in seen && continue
+        push!(seen, index)
+        diameter = layout.size_class_diameters[index]
+        isfinite(diameter) && diameter > zero(diameter) && continue
+        entity = layout.size_classes[index]
+        throw(ArgumentError(
+            "AllometricPalatability requires diameter metadata for unsized PFT entity :$entity; provide a size structure or an explicit palatability matrix",
+        ))
+    end
+    return nothing
+end
+
 @inline function _derive_palatability(layout::ModelLayout, params, consumers, prey)
+    _require_palatability_diameters(layout, consumers, prey)
     T = layout.scalar_type
     return palatability_matrix_allometric_axes(
         T,
@@ -52,7 +68,7 @@ end
 
 @inline function _derive_assimilation(layout::ModelLayout, params, consumers, prey)
     T = layout.scalar_type
-    return assimilation_efficiency_matrix_binary_axes(
+    return consumer_assimilation_matrix_axes(
         T;
         assimilation_efficiency=_require_scalar_vector(
             T, params.assimilation_efficiency, :assimilation_efficiency
@@ -63,7 +79,7 @@ end
 end
 
 @inline function derive_default(
-    ::PalatabilityAllometric, ::Any, layout::ModelLayout, params::NamedTuple
+    ::AllometricPalatability, ::Any, layout::ModelLayout, params::NamedTuple
 )
     return _derive_palatability(
         layout, params, layout.consumer_indices, layout.prey_indices
@@ -71,7 +87,7 @@ end
 end
 
 @inline function derive_default(
-    ::AssimilationBinary, ::Any, layout::ModelLayout, params::NamedTuple
+    ::ConsumerAssimilation, ::Any, layout::ModelLayout, params::NamedTuple
 )
     return _derive_assimilation(
         layout, params, layout.consumer_indices, layout.prey_indices
@@ -79,7 +95,7 @@ end
 end
 
 @inline function _derive_parameter_default(
-    ::PalatabilityAllometric,
+    ::AllometricPalatability,
     ::Any,
     layout::ModelLayout,
     parameter,
@@ -95,7 +111,7 @@ end
 end
 
 @inline function _derive_parameter_default(
-    ::AssimilationBinary,
+    ::ConsumerAssimilation,
     ::Any,
     layout::ModelLayout,
     parameter,

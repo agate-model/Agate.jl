@@ -161,7 +161,7 @@ function palatability_matrix_allometric_axes(
 end
 
 """
-    assimilation_efficiency_matrix_binary_axes(T; assimilation_efficiency,
+    consumer_assimilation_matrix_axes(T; assimilation_efficiency,
                                                consumer_indices, prey_indices)
 
 Build a consumer-by-prey assimilation-efficiency matrix.
@@ -181,7 +181,7 @@ Build a consumer-by-prey assimilation-efficiency matrix.
 - `consumer_indices`: source indices for matrix rows.
 - `prey_indices`: source indices for matrix columns.
 """
-function assimilation_efficiency_matrix_binary_axes(
+function consumer_assimilation_matrix_axes(
     ::Type{T};
     assimilation_efficiency::AbstractVector{T},
     consumer_indices,

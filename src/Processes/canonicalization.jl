@@ -662,10 +662,10 @@ end
 function _resolve_parameter_definitions(definitions)
     isnothing(definitions) && return nothing, Set{Symbol}()
     definitions isa NamedTuple || throw(
-        ArgumentError("model parameters must be a NamedTuple of Parameter or MetaParameter values"),
+        ArgumentError("model parameters must be a NamedTuple of Parameter or ConstructionParameter values"),
     )
-    all(parameter -> parameter isa Union{Parameter,MetaParameter}, values(definitions)) || throw(
-        ArgumentError("model parameters must contain only Parameter or MetaParameter values"),
+    all(parameter -> parameter isa Union{Parameter,ConstructionParameter}, values(definitions)) || throw(
+        ArgumentError("model parameters must contain only Parameter or ConstructionParameter values"),
     )
 
     definition_set = Set(keys(definitions))
@@ -735,16 +735,16 @@ function _resolve_parameter_bindings(
 
     for (name, parameter) in pairs(definitions)
         parameter_uses = get(by_parameter, name, Any[])
-        if parameter isa MetaParameter
+        if parameter isa ConstructionParameter
             isempty(parameter_uses) || throw(ArgumentError(
-                "MetaParameter :$name is construction-only and cannot bind to a process slot; use Parameter for runtime process parameters",
+                "ConstructionParameter :$name is construction-only and cannot bind to a process slot; use Parameter for runtime process parameters",
             ))
             name in dependency_names || throw(ArgumentError(
-                "MetaParameter :$name must be used by at least one DerivedDefault",
+                "ConstructionParameter :$name must be used by at least one DerivedDefault",
             ))
         else
             isempty(parameter_uses) && throw(ArgumentError(
-                "Parameter :$name is not bound to a process slot; use MetaParameter for construction-only DerivedDefault inputs",
+                "Parameter :$name is not bound to a process slot; use ConstructionParameter for construction-only DerivedDefault inputs",
             ))
         end
     end

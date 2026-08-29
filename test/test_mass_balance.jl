@@ -7,7 +7,7 @@ using Agate.Configuration: Plankton, Pool
 using Agate.Construction: construct
 using Agate.Parameters: ConstantDefault, Parameter
 using Agate.Processes:
-    FixedStoichiometry, Growth, Light, ModelDefinition, Nutrients, NutrientResponse,
+    FixedStoichiometry, Growth, Light, ModelDefinition, NutrientLimitation, NutrientResponse,
     Geider, Liebig, FrankTNorm, Monod
 
 using OceanBioME
@@ -35,7 +35,7 @@ function multi_nutrient_test_model(grid; nutrient_formulation=Liebig())
                     driver=:PAR,
                     bindings=(alpha=:photosynthetic_slope,),
                 ),
-                nutrients=Nutrients(
+                nutrients=NutrientLimitation(
                     nutrient_formulation;
                     bindings=nutrient_formulation isa FrankTNorm ?
                              (sharpness=:frank_sharpness,) : NamedTuple(),

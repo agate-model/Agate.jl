@@ -27,7 +27,9 @@ struct FrankTNorm <: AbstractFormulation end
 
 """Q10 temperature-response formulation."""
 struct Q10 <: AbstractFormulation end
-struct MultiplicativeFactors <: AbstractFormulation end
+
+"""Growth formulation with a base maximum rate modified by named multiplicative factors."""
+struct FactorizedGrowth <: AbstractFormulation end
 
 """Abstract supertype for named multiplicative process-rate factors."""
 abstract type AbstractFactor end
@@ -187,14 +189,14 @@ end
 External `NutrientResponse` subfactors read environmental resource Pools, while internal
 `QuotaResponse` subfactors read prognostic cellular states. Both modify process rate only;
 material transfer is owned by the process itself, so external and internal responses may be
-combined within one `Nutrients` factor.
+combined within one `NutrientLimitation` factor.
 """
-struct Nutrients{F<:Union{Liebig,FrankTNorm},R<:NamedTuple} <: AbstractFactor
+struct NutrientLimitation{F<:Union{Liebig,FrankTNorm},R<:NamedTuple} <: AbstractFactor
     formulation::F
     responses::R
     bindings::NamedTuple
 
-    function Nutrients(
+    function NutrientLimitation(
         formulation::F, responses::R, bindings::NamedTuple
     ) where {F<:Union{Liebig,FrankTNorm},R<:NamedTuple}
         isempty(responses) && throw(ArgumentError("nutrient `responses` cannot be empty"))
@@ -207,17 +209,17 @@ struct Nutrients{F<:Union{Liebig,FrankTNorm},R<:NamedTuple} <: AbstractFactor
     end
 end
 
-function Nutrients(
+function NutrientLimitation(
     formulation::Union{Liebig,FrankTNorm};
     responses::NamedTuple,
     bindings::NamedTuple=NamedTuple(),
 )
-    return Nutrients(
+    return NutrientLimitation(
         formulation, _canonical_namedtuple(responses), _canonical_bindings(bindings)
     )
 end
 
-authored_parameter_bindings(factor::Nutrients) = factor.bindings
+authored_parameter_bindings(factor::NutrientLimitation) = factor.bindings
 
 abstract type AbstractFactorInput end
 
@@ -243,10 +245,10 @@ factor_inputs(factor::NutrientResponse) = (FactorComponent(factor.resource),)
 factor_inputs(::QuotaResponse) = ()
 
 factor_subfactors(::AbstractFactor) = NamedTuple()
-factor_subfactors(factor::Nutrients) = factor.responses
+factor_subfactors(factor::NutrientLimitation) = factor.responses
 
 factor_subfactor_path(path::Tuple, ::AbstractFactor, name::Symbol) = (path..., name)
-factor_subfactor_path(path::Tuple, ::Nutrients, name::Symbol) = (path..., :responses, name)
+factor_subfactor_path(path::Tuple, ::NutrientLimitation, name::Symbol) = (path..., :responses, name)
 
 # Product routing
 
@@ -515,7 +517,7 @@ end
 authored_parameter_bindings(process::Remineralization) = process.bindings
 
 """Return the scientific formulation carried by a process or factor."""
-formulation(::Growth) = MultiplicativeFactors()
+formulation(::Growth) = FactorizedGrowth()
 formulation(process::AbstractProcess) = process.formulation
 formulation(factor::AbstractFactor) = factor.formulation
 
