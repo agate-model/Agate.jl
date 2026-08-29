@@ -65,13 +65,17 @@ function _resolve_pool(components, name::Symbol, id::Symbol, label::AbstractStri
     return pool
 end
 
-function _validate_quota_response(
-    id::Symbol,
-    process::AbstractProcess,
-    response::QuotaResponse,
-    components::NamedTuple,
-    expected_element,
-    path::Tuple,
+function _factor_element(
+    id::Symbol, process::AbstractProcess, factor::NutrientResponse, components, path::Tuple
+)
+    resource = _resolve_pool(
+        components, factor.resource, id, "factor path $path nutrient resource"
+    )
+    return element(resource)
+end
+
+function _factor_element(
+    id::Symbol, process::AbstractProcess, factor::QuotaResponse, components, path::Tuple
 )
     process isa Growth || throw(ArgumentError(
         "process :$id factor path $path uses QuotaResponse, which is only valid for Growth processes",
@@ -80,17 +84,14 @@ function _validate_quota_response(
         "process :$id quota growth requires exactly one logical plankton",
     ))
     target = _resolve_plankton_state(
-        components, only(process.plankton), response.variable_state, id,
+        components, only(process.plankton), factor.variable_state, id,
         "quota response variable state",
     )
     target_element = _state_element(components, target)
     isnothing(target_element) && throw(ArgumentError(
-        "process :$id quota response variable state :$(response.variable_state) must represent an Element",
+        "process :$id quota response variable state :$(factor.variable_state) must represent an Element",
     ))
-    isnothing(expected_element) || _validate_element(
-        target_element, expected_element, id, "quota response :$expected_element variable state"
-    )
-    return nothing
+    return target_element
 end
 
 function _validate_factor_for_process(
@@ -98,38 +99,18 @@ function _validate_factor_for_process(
     process::AbstractProcess,
     factor::AbstractFactor,
     components::NamedTuple,
-    path::Tuple,
+    path::Tuple;
+    expected_element=nothing,
 )
     factor isa Light && !(process isa Growth) && throw(ArgumentError(
         "process :$id factor path $path uses Light, which is only valid for Growth processes",
     ))
     subfactors = _resolve_factor_subfactors(factor)
-    if factor isa NutrientResponse
-        _resolve_pool(components, factor.resource, id, "factor path $path nutrient resource")
-    elseif factor isa QuotaResponse
-        _validate_quota_response(id, process, factor, components, nothing, path)
-    elseif factor isa Nutrients
-        external = all(response -> response isa NutrientResponse, values(subfactors))
-        if external
-            for (response_element, response) in pairs(subfactors)
-                resource = _resolve_pool(
-                    components, response.resource, id,
-                    "factor path $path nutrient response :$response_element resource",
-                )
-                _validate_element(
-                    element(resource),
-                    response_element,
-                    id,
-                    "factor path $path nutrient response :$response_element resource :$(response.resource)",
-                )
-            end
-        else
-            for (response_element, response) in pairs(subfactors)
-                _validate_quota_response(
-                    id, process, response, components, response_element, path
-                )
-            end
-        end
+    if factor isa Union{NutrientResponse,QuotaResponse}
+        factor_element = _factor_element(id, process, factor, components, path)
+        isnothing(expected_element) || _validate_element(
+            factor_element, expected_element, id, "factor path $path response element"
+        )
     end
     for input in factor_inputs(factor)
         input isa FactorComponent || continue
@@ -140,7 +121,12 @@ function _validate_factor_for_process(
     end
     for (name, subfactor) in pairs(subfactors)
         _validate_factor_for_process(
-            id, process, subfactor, components, factor_subfactor_path(path, factor, name)
+            id,
+            process,
+            subfactor,
+            components,
+            factor_subfactor_path(path, factor, name);
+            expected_element=factor isa Nutrients ? name : nothing,
         )
     end
     return nothing

@@ -18,16 +18,16 @@ function _growth_resource_fluxes(
     context::CompileContext,
     rate::RateOp,
 )
-    facts = named.facts
+    process = named.process
     layout = context.layout
     fluxes = Any[
         FluxSpec(
-            _scalar_component_target(layout, facts.reference_resource),
+            _scalar_component_target(layout, process.reference_resource),
             rate,
             Weight{-1}(),
         ),
     ]
-    for (element, resource) in pairs(facts.additional_resources)
+    for (element, resource) in pairs(process.additional_resources)
         ratio_ref = getproperty(named.binding_refs.stoichiometry, element).ratio
         push!(
             fluxes,

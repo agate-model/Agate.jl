@@ -177,10 +177,9 @@ end
 
 authored_parameter_bindings(factor::Temperature) = factor.bindings
 
-function _canonical_responses(responses::NamedTuple)
-    names = sort!(collect(keys(responses)); by=String)
-    names_tuple = Tuple(names)
-    return NamedTuple{names_tuple}(Tuple(getproperty(responses, name) for name in names))
+function _canonical_namedtuple(values::NamedTuple)
+    names = sort!(collect(keys(values)); by=String)
+    return NamedTuple{Tuple(names)}(Tuple(getproperty(values, name) for name in names))
 end
 
 """Multi-response nutrient factor with formulation-owned response composition.
@@ -214,7 +213,7 @@ function Nutrients(
     bindings::NamedTuple=NamedTuple(),
 )
     return Nutrients(
-        formulation, _canonical_responses(responses), _canonical_bindings(bindings)
+        formulation, _canonical_namedtuple(responses), _canonical_bindings(bindings)
     )
 end
 
@@ -383,35 +382,6 @@ struct Growth{F<:NamedTuple,R<:NamedTuple,S} <: AbstractProcess
     additional_resources::R
     stoichiometry::S
     bindings::NamedTuple
-
-    function Growth(
-        plankton::Tuple,
-        factors::NamedTuple,
-        reference_resource::Symbol,
-        additional_resources::NamedTuple,
-        stoichiometry,
-        bindings::NamedTuple,
-    )
-        canonical_factors = _canonical_factors(factors)
-        all(resource -> resource isa Symbol, values(additional_resources)) || throw(
-            ArgumentError("growth `additional_resources` values must be Pool Symbols"),
-        )
-        resource_names = sort!(collect(keys(additional_resources)); by=String)
-        canonical_resources = NamedTuple{Tuple(resource_names)}(Tuple(
-            getproperty(additional_resources, name) for name in resource_names
-        ))
-        isnothing(stoichiometry) || stoichiometry isa FixedStoichiometry || throw(
-            ArgumentError("growth `stoichiometry` must be FixedStoichiometry"),
-        )
-        return new{typeof(canonical_factors),typeof(canonical_resources),typeof(stoichiometry)}(
-            plankton,
-            canonical_factors,
-            reference_resource,
-            canonical_resources,
-            stoichiometry,
-            _canonical_bindings(bindings),
-        )
-    end
 end
 
 function Growth(;
@@ -422,14 +392,19 @@ function Growth(;
     stoichiometry=nothing,
     bindings::NamedTuple=NamedTuple(),
 )
-    plankton_refs = _canonical_participants(:plankton, plankton)
+    all(resource -> resource isa Symbol, values(additional_resources)) || throw(
+        ArgumentError("growth `additional_resources` values must be Pool Symbols"),
+    )
+    isnothing(stoichiometry) || stoichiometry isa FixedStoichiometry || throw(
+        ArgumentError("growth `stoichiometry` must be FixedStoichiometry"),
+    )
     return Growth(
-        plankton_refs,
-        factors,
+        _canonical_participants(:plankton, plankton),
+        _canonical_factors(factors),
         reference_resource,
-        additional_resources,
+        _canonical_namedtuple(additional_resources),
         stoichiometry,
-        bindings,
+        _canonical_bindings(bindings),
     )
 end
 

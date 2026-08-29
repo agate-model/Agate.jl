@@ -55,7 +55,10 @@ using Agate.Processes:
     cases = (
         (definition_with((growth=mixed,)), ("all NutrientResponse", "all QuotaResponse")),
         (definition_with((growth=unknown_state,)), ("no state :missing",)),
-        (definition_with((growth=fixed_quota_growth,)), ("independent NutrientUptake",)),
+        (
+            definition_with((growth=fixed_quota_growth,)),
+            ("uses NutrientUptake for prognostic elemental inventories",),
+        ),
         (definition_with((uptake=incomplete_uptake,)), ("requires explicit bindings",)),
         (
             definition_with((uptake=wrong_element_uptake,)),

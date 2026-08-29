@@ -142,7 +142,7 @@ factor_inputs(::MultiDriverTestFactor) = (
         @test_throws ArgumentError build_process()
     end
 
-    rate_only_growth = canonicalize_model(ModelDefinition(;
+    @test_nowarn canonicalize_model(ModelDefinition(;
         components=(
             P=Plankton(; states=:nitrogen, reference_state=:nitrogen),
             N=Pool(:nitrogen),
@@ -153,7 +153,6 @@ factor_inputs(::MultiDriverTestFactor) = (
             factors=(light=Light(Smith(); driver=:PAR),),
         ),),
     ))
-    @test rate_only_growth.processes.growth.facts.reference_resource === :N
 
     wrong_element = ModelDefinition(;
         components=(
@@ -189,7 +188,7 @@ end
         components, processes=NamedTuple{(id,)}((process,))
     )
 
-    fixed_growth = canonicalize_model(one_process(
+    @test_nowarn canonicalize_model(one_process(
         :growth,
         Growth(;
             plankton=:P,
@@ -204,7 +203,6 @@ end
             N=Pool(:nitrogen),
         ),
     ))
-    @test fixed_growth.processes.growth.facts.additional_resources == (nitrogen=:N,)
 
     cases = (
         (
@@ -219,7 +217,7 @@ end
                 DIC=Pool(:carbon),
                 N=Pool(:nitrogen),
             )),
-            ("process :growth", "additional_resources", "FixedStoichiometry"),
+            ("process :growth", "additional_resources", "FixedStoichiometry", "together"),
         ),
         (
             "Growth stoichiometry requires additional resources",
@@ -232,7 +230,7 @@ end
                 P=Plankton(; states=:carbon, reference_state=:carbon),
                 DIC=Pool(:carbon),
             )),
-            ("process :growth", "FixedStoichiometry", "additional_resources"),
+            ("process :growth", "FixedStoichiometry", "additional_resources", "together"),
         ),
         (
             "Light factor process compatibility",

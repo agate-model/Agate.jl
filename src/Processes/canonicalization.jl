@@ -177,7 +177,7 @@ function _visit_process_slots!(uses::Vector{Any}, seen::Set{Any}, named::NamedPr
 
     stoichiometry_refs = NamedTuple()
     if process isa Growth && !isnothing(process.stoichiometry)
-        elements = keys(named.facts.additional_resources)
+        elements = keys(process.additional_resources)
         stoichiometry_refs = NamedTuple{elements}(Tuple(
             _emit_parameter_slots!(
                 uses,
@@ -347,38 +347,28 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
         "growth reference resource :$(process.reference_resource)",
     )
 
+    has_stoichiometry = !isnothing(process.stoichiometry)
     quota_growth = any(
         factor -> _factor_contains(factor, QuotaResponse), values(process.factors)
     )
     if quota_growth
-        isempty(process.additional_resources) || throw(ArgumentError(
-            "process :$id quota growth uses independent NutrientUptake processes for " *
-            "prognostic elemental inventories; omit `additional_resources`",
-        ))
-        isnothing(process.stoichiometry) || throw(ArgumentError(
-            "process :$id quota growth uses independent NutrientUptake processes for " *
-            "prognostic elemental inventories; omit fixed stoichiometry",
+        (has_stoichiometry || !isempty(process.additional_resources)) && throw(ArgumentError(
+            "process :$id quota growth uses NutrientUptake for prognostic elemental inventories; " *
+            "omit `additional_resources` and fixed stoichiometry",
         ))
     else
+        has_stoichiometry == !isempty(process.additional_resources) || throw(ArgumentError(
+            "process :$id `additional_resources` and FixedStoichiometry must be provided together",
+        ))
         _validate_nonquota_growth_states(process, id, components)
     end
 
-    additional_resources = process.additional_resources
-    if isempty(additional_resources)
-        isnothing(process.stoichiometry) || throw(ArgumentError(
-            "process :$id FixedStoichiometry requires `additional_resources`",
-        ))
-    else
-        process.stoichiometry isa FixedStoichiometry || throw(ArgumentError(
-            "process :$id `additional_resources` requires FixedStoichiometry",
-        ))
+    if has_stoichiometry
         _validate_element(
-            process.stoichiometry.reference_element,
-            reference_element,
-            id,
+            process.stoichiometry.reference_element, reference_element, id,
             "growth stoichiometric reference",
         )
-        for (target_element, resource_name) in pairs(additional_resources)
+        for (target_element, resource_name) in pairs(process.additional_resources)
             target_element === reference_element && throw(ArgumentError(
                 "process :$id `additional_resources` must not repeat reference element :$reference_element",
             ))
@@ -386,19 +376,13 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
                 components, resource_name, id, "growth additional resource :$target_element"
             )
             _validate_element(
-                element(resource),
-                target_element,
-                id,
+                element(resource), target_element, id,
                 "growth additional resource :$target_element component :$resource_name",
             )
         end
     end
 
-    return (;
-        plankton_states,
-        reference_resource=process.reference_resource,
-        additional_resources,
-    )
+    return (; plankton_states)
 end
 
 function process_facts(
