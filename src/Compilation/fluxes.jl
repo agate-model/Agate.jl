@@ -122,6 +122,13 @@ end
 """Group a flat flux tuple by concrete target tracer."""
 function group_fluxes(fluxes::Tuple; target_order=nothing)
     targets = isnothing(target_order) ? _target_order(fluxes) : Tuple(target_order)
+    if !isnothing(target_order)
+        unknown = Tuple(target for target in _target_order(fluxes) if !(target in targets))
+        isempty(unknown) || throw(ArgumentError(
+            "process lowering produced fluxes for unrealized targets $unknown; " *
+            "targets must be concrete tracers in the realized layout",
+        ))
+    end
     grouped = ntuple(length(targets)) do i
         target = targets[i]
         Tuple(flux for flux in fluxes if flux_target(flux) === target)

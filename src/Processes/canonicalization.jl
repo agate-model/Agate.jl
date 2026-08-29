@@ -74,7 +74,8 @@ function _emit_parameter_slots!(
     slots = parameter_slots(_parameter_slot_source(node))
     names = Tuple(slot.name for slot in slots)
     bindings = _resolve_authored_bindings(node)
-    refs = ntuple(length(slots)) do i
+    refs = Vector{Int}(undef, length(slots))
+    for i in eachindex(slots)
         slot = slots[i]
         qualifier = _resolve_slot_qualifier(slot, context)
         metadata = _parameter_slot_metadata(named, path, slot, qualifier)
@@ -86,9 +87,9 @@ function _emit_parameter_slots!(
         push!(seen, identity)
         parameter, explicit = _resolve_binding_value(bindings, slot, qualifier)
         push!(uses, (; metadata..., parameter, explicit))
-        length(uses)
+        refs[i] = length(uses)
     end
-    return NamedTuple{names}(refs)
+    return NamedTuple{names}(Tuple(refs))
 end
 
 function _visit_factor_slots!(

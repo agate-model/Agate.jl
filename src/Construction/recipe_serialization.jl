@@ -24,9 +24,9 @@ function _check_keys(x, allowed, path)
     return x
 end
 
-function _complete_object(x, keys, path)
-    x = _check_keys(x, keys, path)
-    for key in keys
+function _complete_object(x, required_keys, path)
+    x = _check_keys(x, required_keys, path)
+    for key in required_keys
         _required(x, key, path)
     end
     return x

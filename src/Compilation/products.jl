@@ -7,7 +7,6 @@ end
 function _product_fraction_operand(
     context::CompileContext,
     named::NamedProcess,
-    products::Products,
     product::Symbol,
 )
     ref = _product_fraction_ref(named, product)
@@ -56,7 +55,7 @@ function _product_fluxes(
     products = process_products(named.process)
     fluxes = Any[]
     for (product, targets) in pairs(product_targets)
-        fraction = _product_fraction_operand(context, named, products, product)
+        fraction = _product_fraction_operand(context, named, product)
         for (element, component) in pairs(targets)
             target = _scalar_component_target(context.layout, component)
             ratio = _product_ratio_ref(named, products, element)
@@ -84,7 +83,7 @@ function _product_fluxes_for_element(
     products = process_products(named.process)
     fluxes = Any[]
     for (product, targets) in pairs(product_targets)
-        fraction = _product_fraction_operand(context, named, products, product)
+        fraction = _product_fraction_operand(context, named, product)
         target = _scalar_component_target(context.layout, getproperty(targets, element))
         push!(
             fluxes,

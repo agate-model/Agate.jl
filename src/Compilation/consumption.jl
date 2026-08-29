@@ -157,7 +157,7 @@ end
 function process_fluxes(
     named::NamedProcess{P}, context::CompileContext
 ) where {P<:Consumption}
-    formulation = named.process.formulation
+    form = named.process.formulation
     layout = context.layout
     consumers = _realize_participants(named.facts.consumer_states, layout)
     resources = _realize_participants(named.facts.resources, layout)
@@ -166,7 +166,7 @@ function process_fluxes(
 
     for consumer in consumers, resource in resources
         axis_positions = (consumer=consumer.position, resource=resource.position)
-        if formulation isa PreferentialGrazing
+        if form isa PreferentialGrazing
             _living_consumption_fluxes!(
                 fluxes, named, context, consumer, resource, slots, axis_positions
             )

@@ -3,11 +3,11 @@ function _mortality_rate(
     rate_ref::Int,
     context::CompileContext,
     participant,
-    state_tracer::Symbol,
+    tracer::Symbol,
 )
     axis_positions = (plankton=participant.position,)
     operands = (
-        input_operand(context.layout, state_tracer),
+        input_operand(context.layout, tracer),
         input_operand(context.layout, participant.tracer),
         parameter_operand(rate_ref, context, axis_positions),
     )

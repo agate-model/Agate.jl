@@ -15,7 +15,6 @@ end
 @inline Base.size(a::ActiveParameterArray) = size(a.base)
 @inline Base.axes(a::ActiveParameterArray) = axes(a.base)
 @inline Base.eachindex(a::ActiveParameterArray) = eachindex(a.base)
-@inline Base.IndexStyle(::Type{<:ActiveParameterArray}) = IndexLinear()
 
 @inline function Base.eltype(::Type{<:ActiveParameterArray{B,P}}) where {B,P}
     return promote_type(eltype(B), eltype(P))
@@ -178,7 +177,10 @@ function active_parameter_entry!(labels, values, bgc, path::Tuple, value, select
 end
 
 function active_parameter_entry!(labels, values, bgc, path::Tuple, value, selection::NamedTuple, active_index)
-    return active_parameter_map!(labels, values, bgc, path, value, selection, active_index)
+    throw(ArgumentError(
+        "Nested active-parameter selections are not supported for $(path_label(path)); " *
+        "select the flat runtime parameter directly.",
+    ))
 end
 
 function active_parameter_entry!(labels, values, bgc, path::Tuple, value, selection::Tuple, active_index)
@@ -252,7 +254,9 @@ function _parameter_metadata(bgc, name::Symbol)
 end
 
 function validate_runtime_active_parameter(bgc, path::Tuple)
-    length(path) == 1 || return nothing
+    length(path) == 1 || throw(ArgumentError(
+        "Nested active-parameter paths are not supported; runtime parameter storage is flat.",
+    ))
     name = only(path)
     metadata = _parameter_metadata(bgc, name)
     metadata.runtime_bound && return nothing

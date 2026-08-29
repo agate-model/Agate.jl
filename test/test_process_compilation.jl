@@ -29,7 +29,9 @@ function Agate.Compilation.process_fluxes(
     named::Agate.Processes.NamedProcess{P}, context::CompileContext
 ) where {P<:ExtensionTransfer}
     source = only(component_tracers(context.layout, named.facts.source))
-    destination = only(component_tracers(context.layout, named.facts.destination))
+    destination = Agate.Processes.process_id(named) === :invalid_transfer ?
+                  :not_a_realized_tracer :
+                  only(component_tracers(context.layout, named.facts.destination))
     parameters = process_parameter_operands(named, context)
     rate = Agate.Compilation.RateOp(
         ExtensionTransferRate(), (input_operand(context.layout, source), parameters.rate)
@@ -41,16 +43,19 @@ function Agate.Compilation.process_fluxes(
 end
 
 @testset "Custom process extension" begin
-    definition = ModelDefinition(;
-        components=(source=Agate.Configuration.Pool(:carbon), sink=Agate.Configuration.Pool(:carbon)),
-        processes=(
-            transfer=ExtensionTransfer(
-                :source, :sink; bindings=(rate=:transfer_rate,)
-            ),
-        ),
-        parameters=(transfer_rate=Parameter(0.5),),
-    )
+    components = (source=Agate.Configuration.Pool(:carbon), sink=Agate.Configuration.Pool(:carbon))
+    parameters = (transfer_rate=Parameter(0.5),)
+    transfer = ExtensionTransfer(:source, :sink; bindings=(rate=:transfer_rate,))
+
+    definition = ModelDefinition(; components, processes=(transfer=transfer,), parameters)
     bgc = Agate.Construction.construct(definition)
     @test bgc(Val(:source), 0, 0, 0, 0, 2.0, 1.0) == -1.0
     @test bgc(Val(:sink), 0, 0, 0, 0, 2.0, 1.0) == 1.0
+
+    invalid_definition = ModelDefinition(;
+        components, processes=(invalid_transfer=transfer,), parameters
+    )
+    message = argument_error_message(() -> Agate.Construction.construct(invalid_definition))
+    @test occursin("unrealized targets", message)
+    @test occursin(":not_a_realized_tracer", message)
 end

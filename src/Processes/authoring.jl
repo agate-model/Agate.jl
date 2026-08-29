@@ -7,7 +7,11 @@ abstract type AbstractFormulation end
 """Smith light-limitation formulation."""
 struct Smith <: AbstractFormulation end
 
-"""Geider light-response formulation."""
+"""Geider light-response formulation.
+
+This factor regulates Growth rate using chlorophyll-to-carbon information; it does not itself
+synthesize a prognostic non-elemental state such as `:chlorophyll`.
+"""
 struct Geider <: AbstractFormulation end
 
 """Monod single-resource limitation formulation."""

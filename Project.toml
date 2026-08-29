@@ -3,27 +3,27 @@ uuid = "41889b7c-c35c-4f16-abd7-94b299d9fd29"
 version = "0.12.0"
 
 [deps]
-JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 OceanBioME = "a49af516-9db8-4be4-be45-1dad61c5a376"
 Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
 [compat]
-Enzyme = "0.13, 0.14"
-JSON = "1"
 Adapt = "3, 4"
 CUDA = "5"
+Enzyme = "0.13, 0.14"
 ForwardDiff = "1"
+JSON = "1"
 OceanBioME = "0.16, 0.18"
 Oceananigans = "0.101.1, 0.102, 0.105, 0.106, 0.107, 0.108, 0.109, 0.110"
 SciMLBase = "2"
 julia = "1.10"
 
 [extras]
-Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 

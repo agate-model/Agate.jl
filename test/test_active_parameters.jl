@@ -184,6 +184,11 @@ end
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = ((:P_1, :P_2, :extra),))
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; detritus_remineralization = false)
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; not_a_parameter = true)
+
+    nested_message = argument_error_message(() ->
+        Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate=(P_1=true,))
+    )
+    @test occursin("Nested active-parameter selections are not supported", nested_message)
 end
 
 
