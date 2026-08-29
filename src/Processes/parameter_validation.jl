@@ -68,7 +68,7 @@ function _validate_quota_factor_science(
     if factor isa QuotaResponse
         _validate_quota_bounds(
             definition, layout, plan, parameter_values, named, path, refs.slots,
-            factor.target.population,
+            only(named.facts.population_states).population,
         )
     end
     for (name, child) in pairs(factor_children(factor))

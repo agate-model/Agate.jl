@@ -3,8 +3,8 @@ module Configuration
 
 using Adapt
 
-export Population, Pool, PopulationStateRef, population_state
-export currency, states, state_currency, size_structure
+export Population, Pool
+export currency, states, reference_state, variable_states, state_element, size_structure
 export component_classes, component_state_tracers
 export component_tracers, state_tracers, state_tracer
 export component_diameters

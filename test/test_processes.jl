@@ -175,7 +175,7 @@ end
 
 @testset "Canonicalization owns authored structure" begin
     single = Population(:nitrogen)
-    multi = Population(; states=(carbon=:carbon, nitrogen=:nitrogen))
+    multi = Population(; states=(:carbon, :nitrogen), reference_state=:carbon)
     light = Light(Smith(); driver=:PAR)
     nutrient = NutrientResponse(Monod(); resource=:N)
     multi_nutrient = Nutrients(
@@ -244,21 +244,21 @@ end
             one_process(:growth, Growth(;
                 populations=:P, factors=(light=light, nutrients=nutrient)
             ), (P=multi, N=Pool(:carbon))),
-            ("process :growth", "explicit state selection"),
+            ("process :growth", "multi-state Growth requires quota responses"),
         ),
         (
             "multi-state Consumption",
             one_process(:consume, Consumption(
                 PreferentialGrazing(); consumers=:Z, resources=:P
             ), (Z=multi, P=Population(:carbon))),
-            ("process :consume", "explicit state selection"),
+            ("process :consume", "explicit state semantics"),
         ),
         (
             "multi-state Mortality",
             one_process(:mortality, Mortality(
                 Agate.Processes.LinearMortality(); populations=:P
             ), (P=multi,)),
-            ("process :mortality", "explicit state selection"),
+            ("process :mortality", "explicit state semantics"),
         ),
         (
             "Mortality participant type",

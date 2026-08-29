@@ -12,6 +12,7 @@ using ..Processes:
     AbstractFactor,
     Growth,
     Light,
+    QuotaResponse,
     Consumption,
     Mortality,
     Remineralization,

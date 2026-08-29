@@ -23,6 +23,13 @@ _factor_process_operands(
     ::AbstractFactor, ::CompileContext, ::NamedProcess, ::NamedTuple
 ) = ()
 
+_factor_inputs(factor::AbstractFactor, ::NamedProcess) = factor_inputs(factor)
+function _factor_inputs(factor::QuotaResponse, named::NamedProcess)
+    reference = only(named.facts.population_states)
+    variable = PopulationStateRef(reference.population, factor.variable_state)
+    return (FactorPopulationState(variable), FactorPopulationState(reference))
+end
+
 function _factor_process_operands(
     ::Light,
     context::CompileContext,
@@ -42,7 +49,7 @@ function _factor_element(
 )
     layout = context.layout
     input_operands = Tuple(
-        _factor_input_operand(input, layout, axis_positions) for input in factor_inputs(factor)
+        _factor_input_operand(input, layout, axis_positions) for input in _factor_inputs(factor, named)
     )
     process_operands = _factor_process_operands(
         factor, context, named, axis_positions

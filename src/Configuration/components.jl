@@ -1,33 +1,52 @@
 """Population state described by intrinsic component properties.
 
-Ecological function is supplied by process participation. `states` maps each
-prognostic state identity to the conserved-material currency it represents,
-while `size_structure` describes the shared ecological class realization.
-A one-state population is authored with its currency as the positional argument.
+Ecological function is supplied by process participation. `states` names every prognostic
+state carried by the population, while `reference_state` identifies the state used as its
+biological reference basis. Elemental bookkeeping is inferred centrally by [`state_element`](@ref);
+non-elemental states such as `:chlorophyll` return `nothing`.
+
+A one-state population may be authored with its reference state as the positional argument.
 """
-struct Population{ST<:NamedTuple,S}
+struct Population{ST<:Tuple,S}
     states::ST
+    reference_state::Symbol
     size_structure::S
 
-    function Population(states::ST, size_structure::S) where {ST<:NamedTuple,S}
+    function Population(states::ST, reference_state::Symbol, size_structure::S) where {ST<:Tuple,S}
         isempty(states) && throw(ArgumentError("Population must define at least one state."))
-        all(value -> value isa Symbol, values(states)) || throw(
-            ArgumentError("Population state currencies must be Symbols."),
+        all(state -> state isa Symbol, states) || throw(
+            ArgumentError("Population `states` must contain only Symbols."),
         )
-        return new{ST,S}(states, size_structure)
+        length(unique(states)) == length(states) || throw(
+            ArgumentError("Population state identities must be unique."),
+        )
+        reference_state in states || throw(
+            ArgumentError("Population `reference_state` must be one of its declared states."),
+        )
+        return new{ST,S}(states, reference_state, size_structure)
     end
 end
 
-function Population(currency; size_structure=nothing)
-    currency isa Symbol || throw(ArgumentError("Population currency must be a Symbol."))
-    return Population(NamedTuple{(currency,)}((currency,)), size_structure)
+function _canonical_states(states)
+    states isa Symbol && return (states,)
+    states isa Tuple || throw(
+        ArgumentError("Population `states` must be a Symbol or Tuple of Symbols."),
+    )
+    return states
 end
 
-function Population(; states, size_structure=nothing)
-    states isa NamedTuple || throw(
-        ArgumentError("Population states must be a NamedTuple mapping state names to currencies."),
+function Population(reference_state; size_structure=nothing)
+    reference_state isa Symbol || throw(
+        ArgumentError("Population reference state must be a Symbol."),
     )
-    return Population(states, size_structure)
+    return Population((reference_state,), reference_state, size_structure)
+end
+
+function Population(; states, reference_state, size_structure=nothing)
+    reference_state isa Symbol || throw(
+        ArgumentError("Population `reference_state` must be a Symbol."),
+    )
+    return Population(_canonical_states(states), reference_state, size_structure)
 end
 
 """Material-pool state described by intrinsic component properties."""
@@ -47,31 +66,32 @@ struct PopulationStateRef
     state::Symbol
 end
 
-"""Construct a setup-time reference to one population prognostic state."""
-@inline population_state(population::Symbol, state::Symbol) = PopulationStateRef(population, state)
-
-"""Return the prognostic state-to-currency mapping for a population."""
+"""Return all prognostic state identities for a population."""
 @inline states(component::Population) = component.states
 
-"""Return the currency represented by one named population state."""
-function state_currency(component::Population, state::Symbol)
-    hasproperty(component.states, state) || throw(
-        ArgumentError("Population has no state :$state."),
-    )
-    return getproperty(component.states, state)
+"""Return the population state used as its biological reference basis."""
+@inline reference_state(component::Population) = component.reference_state
+
+"""Return all prognostic population states other than the reference state."""
+@inline variable_states(component::Population) = Tuple(
+    state for state in component.states if state !== component.reference_state
+)
+
+const _ELEMENTAL_STATES = (:carbon, :nitrogen, :phosphorus, :iron, :silicon)
+
+"""Return the conserved Element represented by `state`, or `nothing` for a non-elemental state.
+
+Element identity is the additive elemental inventory represented by the state's numerical value,
+not the chemical composition of the represented material. Canonical elemental state names map to
+themselves; other states remain non-elemental until an explicit mapping API is introduced.
+"""
+function state_element(component::Population, state::Symbol)
+    state in component.states || throw(ArgumentError("Population has no state :$state."))
+    return state in _ELEMENTAL_STATES ? state : nothing
 end
 
-"""Return the conserved-material currency represented by a single-state component."""
+"""Return the conserved-material currency represented by a material Pool."""
 @inline currency(component::Pool) = component.currency
-function currency(component::Population)
-    length(component.states) == 1 || throw(
-        ArgumentError(
-            "multi-state Population has no unique currency; use state_currency(population, state)",
-        ),
-    )
-    return only(values(component.states))
-end
 
 """Return the intrinsic size-structure specification for `component`."""
 @inline size_structure(component::Union{Population,Pool}) = component.size_structure
-

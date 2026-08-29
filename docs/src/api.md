@@ -16,8 +16,9 @@ Agate.Configuration.Population
 Agate.Configuration.Pool
 Agate.Configuration.currency
 Agate.Configuration.states
-Agate.Configuration.state_currency
-Agate.Configuration.population_state
+Agate.Configuration.reference_state
+Agate.Configuration.variable_states
+Agate.Configuration.state_element
 Agate.Configuration.size_structure
 Agate.Configuration.component_classes
 Agate.Configuration.component_state_tracers

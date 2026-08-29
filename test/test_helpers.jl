@@ -39,15 +39,15 @@ quota_components() = (
     DIN=Agate.Configuration.Pool(:nitrogen),
     PO4=Agate.Configuration.Pool(:phosphorus),
     P=Agate.Configuration.Population(;
-        states=(carbon=:carbon, nitrogen=:nitrogen, phosphorus=:phosphorus),
+        states=(:carbon, :nitrogen, :phosphorus),
+        reference_state=:carbon,
         size_structure=[1.0, 2.0],
     ),
 )
 
 quota_response(state, minimum, maximum) = Agate.Processes.QuotaResponse(
     Agate.Processes.NormalizedDroop();
-    target=Agate.Configuration.population_state(:P, state),
-    reference=Agate.Configuration.population_state(:P, :carbon),
+    variable_state=state,
     bindings=(minimum_quota=minimum, maximum_quota=maximum),
 )
 
@@ -55,7 +55,6 @@ quota_uptake(state, resource, bindings) = Agate.Processes.NutrientUptake(
     Agate.Processes.QuotaRegulatedMonod();
     population=:P,
     target_state=state,
-    reference_state=:carbon,
     resource=resource,
     bindings=bindings,
 )
@@ -72,7 +71,6 @@ function quota_processes()
     growth = Agate.Processes.Growth(;
         populations=:P,
         bindings=(maximum_rate=:maximum_growth_rate,),
-        state=:carbon,
         source=:DIC,
         factors=(
             light=Agate.Processes.Light(

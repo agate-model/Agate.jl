@@ -34,6 +34,7 @@ println(tracer_names(bgc))
 nothing #hide
 ```
 
+The bundled NiPiZD family is assembled from the same component/process compiler used by direct `ModelDefinition` construction. [Model with mixotrophy](@ref mixotrophy) introduces defining a model directly from components, named processes, and a keyed parameter block.
 
 Next, we define a light field using Oceananigans and wrap it with OceanBioME's
 prescribed-PAR interface. Here we use Agate's seasonal PAR helper at 10 m depth:

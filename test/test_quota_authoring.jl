@@ -1,6 +1,6 @@
 using Test
 
-using Agate.Configuration: Population, Pool, population_state
+using Agate.Configuration: Population, Pool
 using Agate.Processes:
     FixedStoichiometry, Growth, Liebig, ModelDefinition, Monod, NormalizedDroop,
     NutrientResponse, Nutrients, QuotaResponse
@@ -15,10 +15,9 @@ using Agate.Processes:
     valid_phosphorus = quota_response(
         :phosphorus, :minimum_phosphorus_quota, :maximum_phosphorus_quota
     )
-    growth_with(responses; state=:carbon, stoichiometry=nothing) = Growth(;
+    growth_with(responses; stoichiometry=nothing) = Growth(;
         populations=:P,
         bindings=(maximum_rate=:maximum_growth_rate,),
-        state=state,
         source=:DIC,
         stoichiometry=stoichiometry,
         factors=(light=light, nutrients=Nutrients(Liebig(); responses=responses)),
@@ -34,8 +33,7 @@ using Agate.Processes:
     unknown_state = growth_with((
         nitrogen=QuotaResponse(
             NormalizedDroop();
-            target=population_state(:P, :missing),
-            reference=population_state(:P, :carbon),
+            variable_state=:missing,
             bindings=(
                 minimum_quota=:minimum_nitrogen_quota,
                 maximum_quota=:maximum_nitrogen_quota,
@@ -43,21 +41,6 @@ using Agate.Processes:
         ),
         phosphorus=valid_phosphorus,
     ))
-    mismatched_population = growth_with((
-        nitrogen=QuotaResponse(
-            NormalizedDroop();
-            target=population_state(:P, :nitrogen),
-            reference=population_state(:Q, :carbon),
-            bindings=(
-                minimum_quota=:minimum_nitrogen_quota,
-                maximum_quota=:maximum_nitrogen_quota,
-            ),
-        ),
-        phosphorus=valid_phosphorus,
-    ))
-    missing_growth_state = growth_with(
-        (nitrogen=valid_nitrogen, phosphorus=valid_phosphorus); state=nothing
-    )
     fixed_quota_growth = growth_with(
         (nitrogen=valid_nitrogen, phosphorus=valid_phosphorus);
         stoichiometry=FixedStoichiometry(; reference=:carbon),
@@ -73,13 +56,6 @@ using Agate.Processes:
     cases = (
         (definition_with((growth=mixed,)), ("all NutrientResponse", "all QuotaResponse")),
         (definition_with((growth=unknown_state,)), ("no state :missing",)),
-        (
-            definition_with((growth=mismatched_population,); components=merge(components, (
-                Q=Population(; states=(carbon=:carbon,), size_structure=[1.0, 2.0]),
-            ))),
-            ("growth population :P",),
-        ),
-        (definition_with((growth=missing_growth_state,)), ("explicit state selection",)),
         (definition_with((growth=fixed_quota_growth,)), ("independent NutrientUptake",)),
         (definition_with((uptake=incomplete_uptake,)), ("requires explicit bindings",)),
         (
@@ -99,4 +75,9 @@ using Agate.Processes:
         message = canonicalization_error_message(definition)
         @test all(fragment -> occursin(fragment, message), fragments)
     end
+
+    canonical = Agate.Processes.canonicalize_model(quota_definition())
+    @test only(canonical.processes.growth.facts.population_states).state === :carbon
+    @test canonical.processes.nitrogen_uptake.facts.reference.state === :carbon
+    @test canonical.processes.growth.process.factors.nutrients.responses.nitrogen.variable_state === :nitrogen
 end

@@ -262,7 +262,7 @@ function realize_model_layout(
     end
 
     for population in population_names
-        state_names = keys(states(getproperty(components, population)))
+        state_names = states(getproperty(components, population))
         state_tracer_vectors[population] = Dict(state => Symbol[] for state in state_names)
         groups = getproperty(population_groups, population)
         has_diameters = any(group -> getproperty(group_diameters, group) !== nothing, groups)
@@ -291,7 +291,7 @@ function realize_model_layout(
         nclasses = length(group_diameters_realized)
         classes = specification === nothing ?
             (group,) : ntuple(i -> Symbol(string(group), "_", i), nclasses)
-        state_names = keys(states(component))
+        state_names = states(component)
         nstates = length(state_names)
         group_global_indices = Int[]
 
@@ -335,7 +335,7 @@ function realize_model_layout(
 
     for population in population_names
         component = getproperty(components, population)
-        state_names = keys(states(component))
+        state_names = states(component)
         state_tracers_by_component[population] = NamedTuple{state_names}(
             Tuple(Tuple(state_tracer_vectors[population][state]) for state in state_names)
         )

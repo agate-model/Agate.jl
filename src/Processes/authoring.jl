@@ -140,23 +140,21 @@ authored_parameter_bindings(factor::NutrientResponse) = factor.bindings
 
 """Cellular-quota response used by quota-limited growth.
 
-`target` identifies the internal nutrient inventory and `reference` identifies the
-biomass inventory used to form the cellular quota.
+`variable_state` identifies the internal inventory whose quota varies relative to the
+Growth population's intrinsic reference state.
 """
 struct QuotaResponse{F<:NormalizedDroop} <: AbstractFactor
     formulation::F
-    target::PopulationStateRef
-    reference::PopulationStateRef
+    variable_state::Symbol
     bindings::NamedTuple
 end
 
 function QuotaResponse(
     formulation::NormalizedDroop;
-    target::PopulationStateRef,
-    reference::PopulationStateRef,
+    variable_state::Symbol,
     bindings::NamedTuple=NamedTuple(),
 )
-    return QuotaResponse(formulation, target, reference, _canonical_bindings(bindings))
+    return QuotaResponse(formulation, variable_state, _canonical_bindings(bindings))
 end
 
 authored_parameter_bindings(factor::QuotaResponse) = factor.bindings
@@ -240,10 +238,7 @@ factor_inputs(::AbstractFactor) = ()
 factor_inputs(factor::Light) = (FactorDriver(factor.driver),)
 factor_inputs(factor::Temperature) = (FactorDriver(factor.driver),)
 factor_inputs(factor::NutrientResponse) = (FactorComponent(factor.resource),)
-factor_inputs(factor::QuotaResponse) = (
-    FactorPopulationState(factor.target),
-    FactorPopulationState(factor.reference),
-)
+factor_inputs(::QuotaResponse) = ()
 
 factor_children(::AbstractFactor) = NamedTuple()
 factor_children(factor::Nutrients) = factor.responses
@@ -374,16 +369,15 @@ identifies the reference resource removed by growth. Fixed-stoichiometry growth 
 additional external nutrient resources according to its stoichiometric ratios, while quota
 nutrients are transferred independently through [`NutrientUptake`](@ref).
 """
-struct Growth{F<:NamedTuple,S,T,U} <: AbstractProcess
+struct Growth{F<:NamedTuple,S,T} <: AbstractProcess
     populations::Tuple
     factors::F
     source::S
     stoichiometry::T
-    state::U
     bindings::NamedTuple
 
     function Growth(
-        populations::Tuple, factors::NamedTuple, source, stoichiometry, state, bindings::NamedTuple
+        populations::Tuple, factors::NamedTuple, source, stoichiometry, bindings::NamedTuple
     )
         canonical = _canonical_factors(factors)
         isnothing(source) || source isa Symbol ||
@@ -391,10 +385,8 @@ struct Growth{F<:NamedTuple,S,T,U} <: AbstractProcess
         isnothing(stoichiometry) || stoichiometry isa AbstractStoichiometry || throw(
             ArgumentError("growth `stoichiometry` must be an AbstractStoichiometry"),
         )
-        isnothing(state) || state isa Symbol ||
-            throw(ArgumentError("growth `state` must be a Symbol"))
-        return new{typeof(canonical),typeof(source),typeof(stoichiometry),typeof(state)}(
-            populations, canonical, source, stoichiometry, state, _canonical_bindings(bindings)
+        return new{typeof(canonical),typeof(source),typeof(stoichiometry)}(
+            populations, canonical, source, stoichiometry, _canonical_bindings(bindings)
         )
     end
 end
@@ -404,25 +396,23 @@ function Growth(;
     factors::NamedTuple,
     source=nothing,
     stoichiometry=nothing,
-    state=nothing,
     bindings::NamedTuple=NamedTuple(),
 )
     population_refs = _canonical_participants(:populations, populations)
-    return Growth(population_refs, factors, source, stoichiometry, state, bindings)
+    return Growth(population_refs, factors, source, stoichiometry, bindings)
 end
 
 authored_parameter_bindings(process::Growth) = process.bindings
 
 """Independent external nutrient uptake into one population inventory state.
 
-The `reference` state scales uptake capacity but is not itself transferred. Parameter
+The population reference state scales uptake capacity but is not itself transferred. Parameter
 bindings are explicit because quota bounds are commonly shared with `QuotaResponse`.
 """
 struct NutrientUptake{F<:QuotaRegulatedMonod} <: AbstractProcess
     formulation::F
     population::Symbol
     target_state::Symbol
-    reference_state::Symbol
     resource::Symbol
     bindings::NamedTuple
 end
@@ -431,13 +421,11 @@ function NutrientUptake(
     formulation::QuotaRegulatedMonod;
     population::Symbol,
     target_state::Symbol,
-    reference_state::Symbol,
     resource::Symbol,
     bindings::NamedTuple,
 )
     return NutrientUptake(
-        formulation, population, target_state, reference_state, resource,
-        _canonical_bindings(bindings),
+        formulation, population, target_state, resource, _canonical_bindings(bindings),
     )
 end
 

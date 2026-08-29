@@ -255,6 +255,17 @@ beyond the authored process object.
 """
 process_facts(::AbstractProcess, ::Symbol, ::NamedTuple) = NamedTuple()
 
+function _require_single_state_growth(components, populations, id)
+    multi_state = Tuple(
+        population for population in populations
+        if length(states(getproperty(components, population))) > 1
+    )
+    isempty(multi_state) || throw(ArgumentError(
+        "process :$id multi-state Growth requires quota responses; populations $multi_state have variable states",
+    ))
+    return nothing
+end
+
 function process_facts(process::Growth, id::Symbol, components::NamedTuple)
     nutrient_factors = Tuple(
         factor for factor in values(process.factors)
@@ -265,11 +276,12 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
     ))
     nutrient_factor = only(nutrient_factors)
     population_states = Tuple(
-        _resolve_population_state(components, population, process.state, id, "population")
+        _resolve_reference_state(components, population, id, "population")
         for population in process.populations
     )
 
     reference_source, additional_resources = if nutrient_factor isa NutrientResponse
+        _require_single_state_growth(components, process.populations, id)
         isnothing(process.source) || throw(ArgumentError(
             "process :$id single-resource growth derives its source from the nutrient response; omit `source`",
         ))
@@ -280,13 +292,14 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
             components, nutrient_factor.resource, id, "nutrient factor resource"
         )
         reference = currency(resource)
-        _validate_state_currencies(
+        _validate_state_elements(
             components, population_states, reference, id, "population state"
         )
         nutrient_factor.resource, NamedTuple()
     else
         responses = values(_resolve_factor_children(nutrient_factor))
         quota_growth = all(response -> response isa QuotaResponse, responses)
+        quota_growth || _require_single_state_growth(components, process.populations, id)
         if quota_growth
             length(process.populations) == 1 || throw(ArgumentError(
                 "process :$id quota growth requires exactly one logical population",
@@ -298,31 +311,19 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
                 "process :$id quota growth uses independent NutrientUptake processes; omit fixed stoichiometry",
             ))
             reference_state = only(population_states)
-            reference_currency = _state_currency(components, reference_state)
+            reference_currency = _state_element(components, reference_state)
             source = _resolve_scalar_pool(components, process.source, id, "growth source")
             _validate_currency(
                 currency(source), reference_currency, id, "growth source :$(process.source)"
             )
             population = only(process.populations)
-            for (target_currency, response) in pairs(nutrient_factor.responses)
+            for (target_element, response) in pairs(nutrient_factor.responses)
                 target = _resolve_population_state(
-                    components, response.target, id, "quota response target"
-                )
-                reference = _resolve_population_state(
-                    components, response.reference, id, "quota response reference"
-                )
-                target.population === population && reference.population === population || throw(
-                    ArgumentError(
-                        "process :$id quota response :$target_currency must reference growth population :$population",
-                    ),
+                    components, population, response.variable_state, id, "quota response variable state"
                 )
                 _validate_currency(
-                    _state_currency(components, target), target_currency, id,
-                    "quota response :$target_currency target state",
-                )
-                _validate_currency(
-                    _state_currency(components, reference), reference_currency, id,
-                    "quota response :$target_currency reference state",
+                    _state_element(components, target), target_element, id,
+                    "quota response :$target_element variable state",
                 )
             end
             process.source, NamedTuple()
@@ -338,7 +339,7 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
             _validate_currency(
                 currency(source), reference, id, "growth source :$(process.source)"
             )
-            _validate_state_currencies(
+            _validate_state_elements(
                 components, population_states, reference, id, "population state"
             )
             for (target_currency, response) in pairs(nutrient_factor.responses)
@@ -371,15 +372,15 @@ function process_facts(
     target = _resolve_population_state(
         components, process.population, process.target_state, id, "uptake target"
     )
-    reference = _resolve_population_state(
-        components, process.population, process.reference_state, id, "uptake reference"
+    reference = _resolve_reference_state(
+        components, process.population, id, "uptake reference"
     )
     target.state === reference.state && throw(ArgumentError(
         "process :$id nutrient uptake target and reference states must be distinct",
     ))
     resource = _resolve_scalar_pool(components, process.resource, id, "nutrient uptake resource")
     _validate_currency(
-        currency(resource), _state_currency(components, target), id,
+        currency(resource), _state_element(components, target), id,
         "nutrient uptake resource :$(process.resource)",
     )
     required = Tuple(slot.name for slot in parameter_slots(process.formulation))
@@ -394,15 +395,15 @@ function process_facts(process::Consumption, id::Symbol, components::NamedTuple)
     consumer_states = Tuple(
         _resolve_population_state(components, consumer, id, "consumer") for consumer in process.consumers
     )
-    reference = _state_currency(components, first(consumer_states))
-    _validate_state_currencies(components, consumer_states, reference, id, "consumer state")
+    reference = _state_element(components, first(consumer_states))
+    _validate_state_elements(components, consumer_states, reference, id, "consumer state")
 
     if uses_living_interactions(process.formulation)
         resources = Tuple(
             _resolve_population_state(components, resource, id, "living resource")
             for resource in process.resources
         )
-        _validate_state_currencies(components, resources, reference, id, "resource state")
+        _validate_state_elements(components, resources, reference, id, "resource state")
     else
         resources = process.resources
         for resource in resources
@@ -427,8 +428,8 @@ function process_facts(process::Mortality, id::Symbol, components::NamedTuple)
     product_targets = if isnothing(process.products)
         nothing
     else
-        reference = _state_currency(components, first(population_states))
-        _validate_state_currencies(
+        reference = _state_element(components, first(population_states))
+        _validate_state_elements(
             components, population_states, reference, id, "mortality population state"
         )
         _canonical_product_targets(

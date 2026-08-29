@@ -71,6 +71,9 @@ function _validate_factor_for_process(
     factor isa Light && !(process isa Growth) && throw(ArgumentError(
         "process :$id factor path $path uses Light, which is only valid for Growth processes",
     ))
+    factor isa QuotaResponse && !(process isa Growth) && throw(ArgumentError(
+        "process :$id factor path $path uses QuotaResponse, which is only valid for Growth processes",
+    ))
     for input in factor_inputs(factor)
         input isa FactorComponent || continue
         component = getproperty(components, input.component)
@@ -86,9 +89,7 @@ function _validate_factor_for_process(
     return nothing
 end
 
-function _resolve_population_state(
-    components, name::Symbol, state, id::Symbol, label::AbstractString
-)
+function _population_component(components, name::Symbol, id::Symbol, label::AbstractString)
     hasproperty(components, name) || throw(
         ArgumentError("process :$id $label references unknown population :$name"),
     )
@@ -96,10 +97,17 @@ function _resolve_population_state(
     population isa Population || throw(
         ArgumentError("process :$id $label :$name must be a Population"),
     )
-    state_names = keys(states(population))
+    return population
+end
+
+function _resolve_population_state(
+    components, name::Symbol, state, id::Symbol, label::AbstractString
+)
+    population = _population_component(components, name, id, label)
+    state_names = states(population)
     if isnothing(state)
         length(state_names) == 1 || throw(
-            ArgumentError("process :$id $label :$name requires explicit state selection"),
+            ArgumentError("process :$id $label :$name requires explicit state semantics for a multi-state Population"),
         )
         state = only(state_names)
     end
@@ -113,16 +121,13 @@ end
 _resolve_population_state(components, name::Symbol, id::Symbol, label::AbstractString) =
     _resolve_population_state(components, name, nothing, id, label)
 
-function _resolve_population_state(
-    components, reference::PopulationStateRef, id::Symbol, label::AbstractString
-)
-    return _resolve_population_state(
-        components, reference.population, reference.state, id, label
-    )
+function _resolve_reference_state(components, name::Symbol, id::Symbol, label::AbstractString)
+    population = _population_component(components, name, id, label)
+    return PopulationStateRef(name, reference_state(population))
 end
 
-_state_currency(components, ref::PopulationStateRef) =
-    state_currency(getproperty(components, ref.population), ref.state)
+_state_element(components, ref::PopulationStateRef) =
+    state_element(getproperty(components, ref.population), ref.state)
 
 function _validate_currency(actual, expected, id::Symbol, label::AbstractString)
     actual === expected || throw(
@@ -130,10 +135,10 @@ function _validate_currency(actual, expected, id::Symbol, label::AbstractString)
     )
 end
 
-function _validate_state_currencies(components, refs, expected, id, label)
+function _validate_state_elements(components, refs, expected, id, label)
     for ref in refs
         _validate_currency(
-            _state_currency(components, ref), expected, id,
+            _state_element(components, ref), expected, id,
             "$label :$(ref.population).$(ref.state)",
         )
     end

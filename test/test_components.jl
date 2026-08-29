@@ -1,8 +1,8 @@
 using Test
 using Agate.Configuration:
-    Population, Pool, currency, states, state_currency, size_structure, realize_model_layout,
-    component_classes, component_state_tracers, component_tracers, state_tracers,
-    component_diameters
+    Population, Pool, currency, states, reference_state, variable_states, state_element,
+    size_structure, realize_model_layout, component_classes, component_state_tracers,
+    component_tracers, state_tracers, component_diameters
 using Agate.ModelFamilies: default_components
 @testset "Component authoring" begin
     population = Population(:nitrogen;
@@ -10,9 +10,10 @@ using Agate.ModelFamilies: default_components
     )
     pool = Pool(:carbon)
 
-    @test currency(population) === :nitrogen
-    @test states(population) == (nitrogen=:nitrogen,)
-    @test state_currency(population, :nitrogen) === :nitrogen
+    @test states(population) == (:nitrogen,)
+    @test reference_state(population) === :nitrogen
+    @test isempty(variable_states(population))
+    @test state_element(population, :nitrogen) === :nitrogen
     @test size_structure(population).n == 3
     @test currency(pool) === :carbon
     @test isnothing(size_structure(pool))
@@ -33,13 +34,15 @@ end
 
 @testset "Multi-state population identity and realization" begin
     population = Population(;
-        states=(carbon=:carbon, nitrogen=:nitrogen, phosphorus=:phosphorus),
+        states=(:carbon, :nitrogen, :phosphorus),
+        reference_state=:carbon,
         size_structure=[2.0, 10.0],
     )
-    @test states(population) == (carbon=:carbon, nitrogen=:nitrogen, phosphorus=:phosphorus)
-    @test state_currency(population, :nitrogen) === :nitrogen
-    @test_throws ArgumentError currency(population)
-    @test_throws ArgumentError state_currency(population, :iron)
+    @test states(population) == (:carbon, :nitrogen, :phosphorus)
+    @test reference_state(population) === :carbon
+    @test variable_states(population) == (:nitrogen, :phosphorus)
+    @test state_element(population, :nitrogen) === :nitrogen
+    @test_throws ArgumentError state_element(population, :iron)
 
     layout = realize_model_layout((P=population, DIN=Pool(:nitrogen)); scalar_type=Float32)
     @test component_classes(layout, :P) == (:P_1, :P_2)
@@ -66,9 +69,22 @@ end
     @test component_state_tracers(grouped, :P) == component_state_tracers(layout, :P)
     @test component_diameters(grouped, :P) == component_diameters(layout, :P)
 
-    @test_throws ArgumentError Population(; states=NamedTuple())
-    @test_throws ArgumentError Population(; states=(carbon=nothing,))
-    @test_throws ArgumentError Population(; states=(carbon=1,))
+    @test_throws ArgumentError Population(; states=(:carbon,), reference_state=nothing)
+    @test_throws ArgumentError Population(; states=(), reference_state=:carbon)
+    @test_throws ArgumentError Population(; states=(:carbon, :carbon), reference_state=:carbon)
+    @test_throws ArgumentError Population(; states=(:carbon, 1), reference_state=:carbon)
+    @test_throws ArgumentError Population(; states=(:nitrogen,), reference_state=:carbon)
+
+    photoacclimating = Population(;
+        states=(:carbon, :nitrogen, :chlorophyll),
+        reference_state=:carbon,
+    )
+    @test variable_states(photoacclimating) == (:nitrogen, :chlorophyll)
+    @test Tuple(state_element(photoacclimating, state) for state in states(photoacclimating)) ==
+        (:carbon, :nitrogen, nothing)
+
+    abundance = Population(; states=:abundance, reference_state=:abundance)
+    @test isnothing(state_element(abundance, reference_state(abundance)))
 end
 
 @testset "Structured pool class layout" begin
@@ -94,5 +110,9 @@ end
     @test keys(components) == (:P, :Z, :N, :D)
     @test components.P isa Population
     @test components.Z isa Population
-    @test all(currency(getproperty(components, name)) === :nitrogen for name in keys(components))
+    @test all(
+        state_element(getproperty(components, name), reference_state(getproperty(components, name))) === :nitrogen
+        for name in (:P, :Z)
+    )
+    @test all(currency(getproperty(components, name)) === :nitrogen for name in (:N, :D))
 end
