@@ -70,8 +70,8 @@ function quota_processes()
     )
     growth = Agate.Processes.Growth(;
         plankton=:P,
+        reference_resource=:DIC,
         bindings=(maximum_rate=:maximum_growth_rate,),
-        source=:DIC,
         factors=(
             light=Agate.Processes.Light(
                 Agate.Processes.Smith(); driver=:PAR,

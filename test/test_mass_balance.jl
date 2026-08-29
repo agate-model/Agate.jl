@@ -26,8 +26,9 @@ function multi_nutrient_test_model(grid; nutrient_formulation=Liebig())
     processes = (
         growth_P=Growth(;
             plankton=:P,
+            reference_resource=:DIC,
+            additional_resources=(nitrogen=:DIN, phosphorus=:PO4),
             bindings=(maximum_rate=:maximum_growth_rate,),
-            source=:DIC,
             factors=(
                 light=Light(
                     Geider();

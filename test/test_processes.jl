@@ -44,13 +44,14 @@ factor_inputs(::MultiDriverTestFactor) = (
     response = NutrientResponse(Monod(); resource=:N)
     growth = Growth(;
         plankton=:P,
+        reference_resource=:N,
         factors=(light=light, nutrients=response),
     )
     @test formulation(light) isa Smith
     @test formulation(response) isa Monod
     @test formulation(growth) isa MultiplicativeFactors
 
-    @test participants(growth) == (plankton=(:P,),)
+    @test participants(growth) == (plankton=(:P,), resource=(:N,))
 
     grazing = Consumption(
         PreferentialGrazing();
@@ -70,6 +71,7 @@ factor_inputs(::MultiDriverTestFactor) = (
             processes=(
                 growth_Z=Growth(;
                     plankton=:Z,
+                    reference_resource=:N,
                     factors=(
                         light=Light(Smith(); driver=:PAR),
                         nutrients=NutrientResponse(Monod(); resource=:N),
@@ -77,6 +79,7 @@ factor_inputs(::MultiDriverTestFactor) = (
                 ),
                 growth_P=Growth(;
                     plankton=:P,
+                    reference_resource=:N,
                     factors=(
                         light=Light(Smith(); driver=:PAR),
                         nutrients=NutrientResponse(Monod(); resource=:N),
@@ -91,6 +94,7 @@ factor_inputs(::MultiDriverTestFactor) = (
         components=(P=Plankton(; states=:nitrogen, reference_state=:nitrogen), N=Pool(:nitrogen)),
         processes=(growth=Growth(;
             plankton=:P,
+            reference_resource=:N,
             factors=(
                 light=Light(Smith(); driver=:PAR),
                 nutrients=NutrientResponse(Monod(); resource=:N),
@@ -101,25 +105,31 @@ factor_inputs(::MultiDriverTestFactor) = (
     @test driver_identities(multi_driver_model) == (:PAR, :temperature, :wind)
 
     invalid_growth = ModelDefinition(;
-        components=(P=Plankton(; states=:nitrogen, reference_state=:nitrogen),),
+        components=(
+            P=Plankton(; states=:nitrogen, reference_state=:nitrogen),
+            N=Pool(:nitrogen),
+        ),
         processes=(growth=Growth(;
             plankton=:P,
+            reference_resource=:N,
             factors=(nutrients=NutrientResponse(Monod(); resource=:missing),),
         ),),
     )
     @test_throws ArgumentError canonicalize_model(invalid_growth)
 
     @test_throws MethodError Light(:smith; driver=:PAR)
-    @test_throws ArgumentError Growth(; plankton=:P, factors=NamedTuple())
+    @test_throws ArgumentError Growth(; plankton=:P, reference_resource=:N, factors=NamedTuple())
     @test_throws ArgumentError Growth(;
-        plankton=(), factors=(light=Light(Smith(); driver=:PAR),)
+        plankton=(), reference_resource=:N, factors=(light=Light(Smith(); driver=:PAR),)
     )
     @test_throws ArgumentError Consumption(PreferentialGrazing(); consumers=(), resources=:P)
     @test_throws ArgumentError Consumption(PreferentialGrazing(); consumers=:Z, resources=(:P, 1))
 
     for build_process in (
         () -> Growth(;
-            plankton=(:P, :P), factors=(light=Light(Smith(); driver=:PAR),)
+            plankton=(:P, :P),
+            reference_resource=:N,
+            factors=(light=Light(Smith(); driver=:PAR),)
         ),
         () -> Consumption(
             PreferentialGrazing(); consumers=(:Z, :Z), resources=:P
@@ -132,22 +142,18 @@ factor_inputs(::MultiDriverTestFactor) = (
         @test_throws ArgumentError build_process()
     end
 
-    redundant_growth_source = ModelDefinition(;
+    rate_only_growth = canonicalize_model(ModelDefinition(;
         components=(
             P=Plankton(; states=:nitrogen, reference_state=:nitrogen),
             N=Pool(:nitrogen),
-            D=Pool(:nitrogen),
         ),
         processes=(growth=Growth(;
             plankton=:P,
-            source=:D,
-            factors=(
-                light=Light(Smith(); driver=:PAR),
-                nutrients=NutrientResponse(Monod(); resource=:N),
-            ),
+            reference_resource=:N,
+            factors=(light=Light(Smith(); driver=:PAR),),
         ),),
-    )
-    @test_throws ArgumentError canonicalize_model(redundant_growth_source)
+    ))
+    @test rate_only_growth.processes.growth.facts.reference_resource === :N
 
     wrong_element = ModelDefinition(;
         components=(
@@ -157,7 +163,8 @@ factor_inputs(::MultiDriverTestFactor) = (
         ),
         processes=(growth=Growth(;
             plankton=:P,
-            source=:DIC,
+            reference_resource=:DIC,
+            additional_resources=(nitrogen=:DIN,),
             factors=(
                 light=Light(Geider(); driver=:PAR),
                 nutrients=Nutrients(
@@ -177,40 +184,55 @@ end
 
 @testset "Canonicalization owns authored structure" begin
     single = Plankton(; states=:nitrogen, reference_state=:nitrogen)
-    multi = Plankton(; states=(:carbon, :nitrogen), reference_state=:carbon)
     light = Light(Smith(); driver=:PAR)
-    nutrient = NutrientResponse(Monod(); resource=:N)
-    multi_nutrient = Nutrients(
-        Liebig(); responses=(nitrogen=NutrientResponse(Monod(); resource=:N),)
-    )
     one_process(id, process, components) = ModelDefinition(;
         components, processes=NamedTuple{(id,)}((process,))
     )
 
+    fixed_growth = canonicalize_model(one_process(
+        :growth,
+        Growth(;
+            plankton=:P,
+            reference_resource=:DIC,
+            additional_resources=(nitrogen=:N,),
+            stoichiometry=FixedStoichiometry(; reference_element=:carbon),
+            factors=(light=light,),
+        ),
+        (
+            P=Plankton(; states=:carbon, reference_state=:carbon),
+            DIC=Pool(:carbon),
+            N=Pool(:nitrogen),
+        ),
+    ))
+    @test fixed_growth.processes.growth.facts.additional_resources == (nitrogen=:N,)
+
     cases = (
         (
-            "Growth nutrient factor",
-            one_process(:growth, Growth(; plankton=:P, factors=(light=light,)),
-                        (P=single, N=Pool(:nitrogen))),
-            ("process :growth", "exactly one NutrientResponse or Nutrients"),
-        ),
-        (
-            "multi-resource Growth source",
+            "Growth additional resources require stoichiometry",
             one_process(:growth, Growth(;
-                plankton=:P, factors=(light=light, nutrients=multi_nutrient)
-            ), (P=Plankton(; states=:carbon, reference_state=:carbon), N=Pool(:nitrogen))),
-            ("process :growth", "requires a source component"),
-        ),
-        (
-            "multi-resource Growth stoichiometry",
-            one_process(:growth, Growth(;
-                plankton=:P, source=:DIC, factors=(light=light, nutrients=multi_nutrient)
+                plankton=:P,
+                reference_resource=:DIC,
+                additional_resources=(nitrogen=:N,),
+                factors=(light=light,),
             ), (
                 P=Plankton(; states=:carbon, reference_state=:carbon),
                 DIC=Pool(:carbon),
                 N=Pool(:nitrogen),
             )),
-            ("process :growth", "requires FixedStoichiometry"),
+            ("process :growth", "additional_resources", "FixedStoichiometry"),
+        ),
+        (
+            "Growth stoichiometry requires additional resources",
+            one_process(:growth, Growth(;
+                plankton=:P,
+                reference_resource=:DIC,
+                stoichiometry=FixedStoichiometry(; reference_element=:carbon),
+                factors=(light=light,),
+            ), (
+                P=Plankton(; states=:carbon, reference_state=:carbon),
+                DIC=Pool(:carbon),
+            )),
+            ("process :growth", "FixedStoichiometry", "additional_resources"),
         ),
         (
             "Light factor process compatibility",
@@ -390,6 +412,7 @@ end
         processes=(
             growth=Growth(;
                 plankton=:P,
+                reference_resource=:D,
                 factors=(
                     light=Light(Smith(); driver=:PAR),
                     nutrients=Nutrients(

@@ -41,6 +41,7 @@ default_components(::NiPiZDFamily) = NIPIZD_COMPONENTS
 const NIPIZD_PROCESSES = (
     growth_P=Growth(;
         plankton=:P,
+        reference_resource=:N,
         bindings=(maximum_rate=:maximum_growth_rate,),
         factors=(
             light=Light(Smith(); driver=:PAR),

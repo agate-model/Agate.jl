@@ -3,7 +3,7 @@ using Test
 using Agate.Configuration: Plankton, Pool
 using Agate.Parameters: Parameter
 using Agate.Processes:
-    Consumption, Growth, LinearMortality, Monod, Mortality, ModelDefinition,
+    Consumption, FixedStoichiometry, Growth, LinearMortality, Monod, Mortality, ModelDefinition,
     NutrientResponse, PreferentialGrazing, Products
 
 function _test_tendencies(model, state::NamedTuple, expected::NamedTuple)
@@ -26,6 +26,7 @@ end
             processes=(
                 growth=Growth(;
                     plankton=:P,
+                    reference_resource=:DIC,
                     bindings=(maximum_rate=:maximum_growth_rate,),
                     factors=(
                         nutrients=NutrientResponse(
@@ -48,6 +49,44 @@ end
         )
     end
 
+    @testset "fixed-stoichiometry transfer is process-owned" begin
+        definition = ModelDefinition(;
+            components=(
+                P=Plankton(; states=:carbon, reference_state=:carbon),
+                DIC=Pool(:carbon),
+                DIN=Pool(:nitrogen),
+            ),
+            processes=(
+                growth=Growth(;
+                    plankton=:P,
+                    reference_resource=:DIC,
+                    additional_resources=(nitrogen=:DIN,),
+                    stoichiometry=FixedStoichiometry(;
+                        reference_element=:carbon,
+                        bindings=(ratio=(nitrogen=:nitrogen_to_carbon,),),
+                    ),
+                    bindings=(maximum_rate=:maximum_growth_rate,),
+                    factors=(
+                        carbon=NutrientResponse(
+                            Monod(); resource=:DIC, bindings=(half_saturation=:half_saturation,)
+                        ),
+                    ),
+                ),
+            ),
+            parameters=(
+                maximum_growth_rate=Parameter(0.5),
+                half_saturation=Parameter(0.0),
+                nitrogen_to_carbon=Parameter(0.2),
+            ),
+        )
+        model = Agate.Construction.construct(definition)
+        _test_tendencies(
+            model,
+            (P=2.0, DIC=10.0, DIN=10.0),
+            (P=1.0, DIC=-1.0, DIN=-0.2),
+        )
+    end
+
     @testset "non-quota growth rejects additional elemental states" begin
         definition = ModelDefinition(;
             components=(
@@ -57,6 +96,7 @@ end
             processes=(
                 growth=Growth(;
                     plankton=:P,
+                    reference_resource=:DIC,
                     factors=(nutrients=NutrientResponse(Monod(); resource=:DIC),),
                 ),
             ),

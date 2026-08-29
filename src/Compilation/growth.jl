@@ -22,7 +22,7 @@ function _growth_resource_fluxes(
     layout = context.layout
     fluxes = Any[
         FluxSpec(
-            _scalar_component_target(layout, facts.reference_source),
+            _scalar_component_target(layout, facts.reference_resource),
             rate,
             Weight{-1}(),
         ),

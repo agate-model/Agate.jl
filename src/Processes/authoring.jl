@@ -123,7 +123,10 @@ end
 
 authored_parameter_bindings(factor::Light) = factor.bindings
 
-"""Single-resource multiplicative nutrient factor used by processes such as growth."""
+"""Single-resource multiplicative nutrient-rate factor.
+
+The factor reads an environmental Pool but does not define process material transfer.
+"""
 struct NutrientResponse{F<:Monod} <: AbstractFactor
     formulation::F
     resource::Symbol
@@ -182,9 +185,9 @@ end
 
 """Multi-response nutrient factor with formulation-owned response composition.
 
-External `NutrientResponse` subfactors identify resource elements for fixed-stoichiometry
-growth. Internal `QuotaResponse` subfactors identify cellular quota elements and affect
-growth rate without transferring those nutrients. Each `Nutrients` factor uses one response
+External `NutrientResponse` subfactors read environmental resource Pools, while internal
+`QuotaResponse` subfactors read prognostic cellular states. Both modify process rate only;
+material transfer is owned by the process itself. Each `Nutrients` factor uses one response
 category consistently.
 """
 struct Nutrients{F<:Union{Liebig,FrankTNorm},R<:NamedTuple} <: AbstractFactor
@@ -365,31 +368,48 @@ end
 
 # Scientific processes
 
-"""Plankton growth process with one process-owned rate scale and named multiplicative factors.
+"""Plankton growth process with explicit material inputs and named multiplicative factors.
 
-`bindings.maximum_rate` names the model parameter that sets the growth-rate scale. `source`
-identifies the reference resource removed by growth. Fixed-stoichiometry growth draws any
-additional external nutrient resources according to its stoichiometric ratios, while quota
-nutrients are transferred independently through [`NutrientUptake`](@ref).
+`bindings.maximum_rate` names the model parameter that sets the growth-rate scale.
+`reference_resource` supplies the Element represented by the plankton `reference_state`.
+`additional_resources` maps additional Elements to external Pools consumed according to
+`FixedStoichiometry`. Factors modify growth rate only; independently prognostic elemental
+states are supplied through [`NutrientUptake`](@ref).
 """
-struct Growth{F<:NamedTuple,S,T} <: AbstractProcess
+struct Growth{F<:NamedTuple,R<:NamedTuple,S} <: AbstractProcess
     plankton::Tuple
     factors::F
-    source::S
-    stoichiometry::T
+    reference_resource::Symbol
+    additional_resources::R
+    stoichiometry::S
     bindings::NamedTuple
 
     function Growth(
-        plankton::Tuple, factors::NamedTuple, source, stoichiometry, bindings::NamedTuple
+        plankton::Tuple,
+        factors::NamedTuple,
+        reference_resource::Symbol,
+        additional_resources::NamedTuple,
+        stoichiometry,
+        bindings::NamedTuple,
     )
-        canonical = _canonical_factors(factors)
-        isnothing(source) || source isa Symbol ||
-            throw(ArgumentError("growth `source` must be a Symbol"))
-        isnothing(stoichiometry) || stoichiometry isa AbstractStoichiometry || throw(
-            ArgumentError("growth `stoichiometry` must be an AbstractStoichiometry"),
+        canonical_factors = _canonical_factors(factors)
+        all(resource -> resource isa Symbol, values(additional_resources)) || throw(
+            ArgumentError("growth `additional_resources` values must be Pool Symbols"),
         )
-        return new{typeof(canonical),typeof(source),typeof(stoichiometry)}(
-            plankton, canonical, source, stoichiometry, _canonical_bindings(bindings)
+        resource_names = sort!(collect(keys(additional_resources)); by=String)
+        canonical_resources = NamedTuple{Tuple(resource_names)}(Tuple(
+            getproperty(additional_resources, name) for name in resource_names
+        ))
+        isnothing(stoichiometry) || stoichiometry isa FixedStoichiometry || throw(
+            ArgumentError("growth `stoichiometry` must be FixedStoichiometry"),
+        )
+        return new{typeof(canonical_factors),typeof(canonical_resources),typeof(stoichiometry)}(
+            plankton,
+            canonical_factors,
+            reference_resource,
+            canonical_resources,
+            stoichiometry,
+            _canonical_bindings(bindings),
         )
     end
 end
@@ -397,12 +417,20 @@ end
 function Growth(;
     plankton,
     factors::NamedTuple,
-    source=nothing,
+    reference_resource::Symbol,
+    additional_resources::NamedTuple=NamedTuple(),
     stoichiometry=nothing,
     bindings::NamedTuple=NamedTuple(),
 )
     plankton_refs = _canonical_participants(:plankton, plankton)
-    return Growth(plankton_refs, factors, source, stoichiometry, bindings)
+    return Growth(
+        plankton_refs,
+        factors,
+        reference_resource,
+        additional_resources,
+        stoichiometry,
+        bindings,
+    )
 end
 
 authored_parameter_bindings(process::Growth) = process.bindings
@@ -531,9 +559,8 @@ uses_living_interactions(::PreferentialGrazing) = true
 
 """Return canonical participant roles for an authored scientific process."""
 function participants(process::Growth)
-    base = (plankton=process.plankton,)
-    isnothing(process.source) && return base
-    return merge(base, (source=(process.source,),))
+    resources = (process.reference_resource, Tuple(values(process.additional_resources))...)
+    return (plankton=process.plankton, resource=resources)
 end
 participants(process::NutrientUptake) = (
     plankton=(process.plankton,), resource=(process.resource,)

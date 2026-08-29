@@ -325,103 +325,80 @@ function _validate_nonquota_growth_states(
 end
 
 function process_facts(process::Growth, id::Symbol, components::NamedTuple)
-    nutrient_factors = Tuple(
-        factor for factor in values(process.factors)
-        if factor isa Union{NutrientResponse,Nutrients}
-    )
-    length(nutrient_factors) == 1 || throw(ArgumentError(
-        "process :$id growth must declare exactly one NutrientResponse or Nutrients factor",
-    ))
-    nutrient_factor = only(nutrient_factors)
     plankton_states = Tuple(
         _resolve_reference_state(components, plankton, id, "plankton")
         for plankton in process.plankton
     )
+    reference_element = _state_element(components, first(plankton_states))
+    isnothing(reference_element) && throw(ArgumentError(
+        "process :$id growth reference state must represent an Element",
+    ))
+    _validate_state_elements(
+        components, plankton_states, reference_element, id, "plankton reference state"
+    )
 
-    reference_source, additional_resources = if nutrient_factor isa NutrientResponse
-        _validate_nonquota_growth_states(process, id, components)
-        isnothing(process.source) || throw(ArgumentError(
-            "process :$id single-resource growth derives its source from the nutrient response; omit `source`",
+    reference_resource = _resolve_pool(
+        components, process.reference_resource, id, "growth reference resource"
+    )
+    _validate_element(
+        element(reference_resource),
+        reference_element,
+        id,
+        "growth reference resource :$(process.reference_resource)",
+    )
+
+    quota_growth = any(
+        factor -> _factor_contains(factor, QuotaResponse), values(process.factors)
+    )
+    if quota_growth
+        isempty(process.additional_resources) || throw(ArgumentError(
+            "process :$id quota growth uses independent NutrientUptake processes for " *
+            "prognostic elemental inventories; omit `additional_resources`",
         ))
         isnothing(process.stoichiometry) || throw(ArgumentError(
-            "process :$id single-resource growth does not take fixed stoichiometry",
+            "process :$id quota growth uses independent NutrientUptake processes for " *
+            "prognostic elemental inventories; omit fixed stoichiometry",
         ))
-        resource = _resolve_pool(
-            components, nutrient_factor.resource, id, "nutrient factor resource"
-        )
-        reference = element(resource)
-        _validate_state_elements(
-            components, plankton_states, reference, id, "plankton state"
-        )
-        nutrient_factor.resource, NamedTuple()
     else
-        responses = values(_resolve_factor_subfactors(nutrient_factor))
-        quota_growth = all(response -> response isa QuotaResponse, responses)
-        if quota_growth
-            length(process.plankton) == 1 || throw(ArgumentError(
-                "process :$id quota growth requires exactly one logical plankton",
+        _validate_nonquota_growth_states(process, id, components)
+    end
+
+    additional_resources = process.additional_resources
+    if isempty(additional_resources)
+        isnothing(process.stoichiometry) || throw(ArgumentError(
+            "process :$id FixedStoichiometry requires `additional_resources`",
+        ))
+    else
+        process.stoichiometry isa FixedStoichiometry || throw(ArgumentError(
+            "process :$id `additional_resources` requires FixedStoichiometry",
+        ))
+        _validate_element(
+            process.stoichiometry.reference_element,
+            reference_element,
+            id,
+            "growth stoichiometric reference",
+        )
+        for (target_element, resource_name) in pairs(additional_resources)
+            target_element === reference_element && throw(ArgumentError(
+                "process :$id `additional_resources` must not repeat reference element :$reference_element",
             ))
-            process.source isa Symbol || throw(
-                ArgumentError("process :$id quota growth requires a source component"),
+            resource = _resolve_pool(
+                components, resource_name, id, "growth additional resource :$target_element"
             )
-            isnothing(process.stoichiometry) || throw(ArgumentError(
-                "process :$id quota growth uses independent NutrientUptake processes; omit fixed stoichiometry",
-            ))
-            reference_state = only(plankton_states)
-            reference_element = _state_element(components, reference_state)
-            source = _resolve_pool(components, process.source, id, "growth source")
             _validate_element(
-                element(source), reference_element, id, "growth source :$(process.source)"
+                element(resource),
+                target_element,
+                id,
+                "growth additional resource :$target_element component :$resource_name",
             )
-            plankton = only(process.plankton)
-            for (target_element, response) in pairs(nutrient_factor.responses)
-                target = _resolve_plankton_state(
-                    components, plankton, response.variable_state, id, "quota response variable state"
-                )
-                _validate_element(
-                    _state_element(components, target), target_element, id,
-                    "quota response :$target_element variable state",
-                )
-            end
-            process.source, NamedTuple()
-        else
-            _validate_nonquota_growth_states(process, id, components)
-            process.source isa Symbol || throw(
-                ArgumentError("process :$id multi-resource growth requires a source component"),
-            )
-            process.stoichiometry isa FixedStoichiometry || throw(
-                ArgumentError("process :$id multi-resource growth requires FixedStoichiometry"),
-            )
-            reference = process.stoichiometry.reference_element
-            source = _resolve_pool(components, process.source, id, "growth source")
-            _validate_element(
-                element(source), reference, id, "growth source :$(process.source)"
-            )
-            _validate_state_elements(
-                components, plankton_states, reference, id, "plankton state"
-            )
-            for (target_element, response) in pairs(nutrient_factor.responses)
-                resource = _resolve_pool(
-                    components, response.resource, id,
-                    "nutrient response :$target_element resource",
-                )
-                _validate_element(
-                    element(resource), target_element, id,
-                    "nutrient response :$target_element resource :$(response.resource)",
-                )
-            end
-            names = Tuple(
-                element for element in keys(nutrient_factor.responses)
-                if element !== reference
-            )
-            additional = NamedTuple{names}(Tuple(
-                getproperty(nutrient_factor.responses, element).resource for element in names
-            ))
-            process.source, additional
         end
     end
 
-    return (; plankton_states, reference_source, additional_resources)
+    return (;
+        plankton_states,
+        reference_resource=process.reference_resource,
+        additional_resources,
+    )
 end
 
 function process_facts(

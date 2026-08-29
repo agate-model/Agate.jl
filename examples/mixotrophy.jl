@@ -22,6 +22,7 @@ components = (
 processes = (
     growth_M=Growth(;
         plankton=:M,
+        reference_resource=:N,
         bindings=(maximum_rate=:maximum_growth_rate,),
         factors=(
             light=Light(Smith(); driver=:PAR),

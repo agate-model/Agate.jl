@@ -26,6 +26,7 @@ function food_web_definition()
     processes = (
         growth_autotrophs=Growth(;
             plankton=(:P, :M),
+            reference_resource=:N,
             bindings=(maximum_rate=:maximum_growth_rate,),
             factors=(
                 temperature=temperature,

@@ -17,8 +17,8 @@ using Agate.Processes:
     )
     growth_with(responses; stoichiometry=nothing) = Growth(;
         plankton=:P,
+        reference_resource=:DIC,
         bindings=(maximum_rate=:maximum_growth_rate,),
-        source=:DIC,
         stoichiometry=stoichiometry,
         factors=(light=light, nutrients=Nutrients(Liebig(); responses=responses)),
     )
