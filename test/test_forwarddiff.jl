@@ -22,7 +22,7 @@ using Oceananigans.Units: day
         P_2 = T(0.01)
         PAR = T(100.0)
 
-        return bgc(Val(:P_1), 0, 0, 0, 0, N, D, Z_1, Z_2, P_1, P_2, PAR)
+        return bgc(Val(:P_1), 0, 0, 0, 0, N, D, P_1, P_2, Z_1, Z_2, PAR)
     end
 
     mu0 = 0.7 / day
@@ -48,6 +48,7 @@ end
     base_bgc = nipizd_growth_fixture(; mu=mu0)
 
     active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate=(:P_1,))
+    p1_index = findfirst(==(:P_1), Agate.Introspection.tracer_names(base_bgc))
     u0 = nipizd_u0()
     problem = Agate.Runtime.ode_problem(
         base_bgc,
@@ -63,7 +64,7 @@ end
         u = T.(u0)
         du = similar(u)
         problem.f(du, u, [mu], zero(T))
-        return du[5]
+        return du[p1_index]
     end
 
     dP_1_dmu = ForwardDiff.derivative(p_1_tendency_with_active_growth_rate, mu0)

@@ -13,11 +13,13 @@ using Agate.Configuration:
         components;
         plankton_pfts=(Z=(:Z,), P=(:P,)),
         pft_size_structures=(
-            Z=DiameterRangeSpecification(2, 20.0, 100.0, :linear_splitting),
             P=(n=3, min_esd=2.0, max_esd=10.0, splitting=:log_splitting),
+            Z=DiameterRangeSpecification(2, 20.0, 100.0, :linear_splitting),
         ),
     )
 
+    @test keys(layout.pft_indices) == (:Z, :P)
+    @test layout.size_classes == (:Z_1, :Z_2, :P_1, :P_2, :P_3)
     @test component_diameters(layout, :Z) == (20.0, 100.0)
     @test collect(component_diameters(layout, :P)) ≈ [2.0, sqrt(20.0), 10.0]
 

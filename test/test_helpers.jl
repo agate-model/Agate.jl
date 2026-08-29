@@ -126,7 +126,7 @@ nipizd_named_size_structure() = (;
 )
 
 nipizd_test_state(::Type{T}=Float64) where {T<:AbstractFloat} = (;
-    N=T(7), D=T(1), Z_1=T(0.05), Z_2=T(0.05), P_1=T(0.01), P_2=T(0.01),
+    N=T(7), D=T(1), P_1=T(0.01), P_2=T(0.01), Z_1=T(0.05), Z_2=T(0.05),
 )
 
 nipizd_u0(::Type{T}=Float64) where {T<:AbstractFloat} = collect(values(nipizd_test_state(T)))

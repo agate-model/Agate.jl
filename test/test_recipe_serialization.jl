@@ -75,7 +75,7 @@ explicit_json_value(::Any) = false
     @test recipe.family === :NiPiZD
     @test recipe.definition_version == definition_version(family)
     @test recipe.plankton_pfts == (P=(:diat,), Z=(:microzoo,))
-    @test keys(recipe.pft_size_structures) == (:microzoo, :diat)
+    @test keys(recipe.pft_size_structures) == (:diat, :microzoo)
     @test recipe.parameter_overrides == merge(
         inputs.parameters, (palatability_matrix=inputs.palatability_matrix,)
     )
@@ -83,8 +83,8 @@ explicit_json_value(::Any) = false
     @test recipe.sinking_tracers == inputs.sinking_tracers
     @test decoded == recipe
     @test manifest.pft_size_classes == (
-        microzoo=(:microzoo_1, :microzoo_2),
         diat=(:diat_1, :diat_2),
+        microzoo=(:microzoo_1, :microzoo_2),
     )
     @test decoded_manifest == manifest
     @test decoded_manifest.sinking_tracers.D isa Float32
@@ -174,7 +174,7 @@ explicit_json_value(::Any) = false
     @test encode_recipe(bumped_recipe)["content_hash"] != encoded["content_hash"]
     @test_throws ArgumentError NiPiZD.construct_from_recipe(bumped_recipe)
     @test required_biogeochemical_tracers(NiPiZD.construct()) ==
-          (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
+          (:N, :D, :P_1, :P_2, :Z_1, :Z_2)
 
     invalid_schema = modified(encoded) do x
         x["schema"] = "agate.model_recipe.invalid"

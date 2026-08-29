@@ -425,14 +425,17 @@ function decode_recipe(document::AbstractDict)
         ArgumentError("Recipe document.content_hash does not match the serialized recipe content.")
     )
 
-    _resolve_recipe_family(family_id_value, version)
+    family = _resolve_recipe_family(family_id_value, version)
 
     realization = _decode_realization(realization_data, "Recipe document.realization")
+    plankton_pfts, pft_size_structures = _canonical_recipe_realization(
+        family, realization.plankton_pfts, realization.pft_size_structures
+    )
     decoded = ModelRecipe(
         family_id_value,
         version,
-        realization.plankton_pfts,
-        realization.pft_size_structures,
+        plankton_pfts,
+        pft_size_structures,
         realization.parameter_overrides,
         realization.sinking_tracers,
         realization.open_bottom,

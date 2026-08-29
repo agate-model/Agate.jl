@@ -18,7 +18,7 @@ using Oceananigans.Biogeochemistry:
 
     @testset "NiPiZD defaults" begin
         bgc = NiPiZD.construct(; grid=dummy_grid(Float32))
-        tracers = (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
+        tracers = (:N, :D, :P_1, :P_2, :Z_1, :Z_2)
         args = nipizd_runtime_args(Float32)
 
         @test required_biogeochemical_tracers(bgc) == tracers
@@ -41,7 +41,7 @@ using Oceananigans.Biogeochemistry:
             grid=dummy_grid(Float32),
         )
         @test required_biogeochemical_tracers(default_size_structure) ==
-            (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
+            (:N, :D, :P_1, :P_2, :Z_1, :Z_2)
 
         named = NiPiZD.construct(;
             size_structure=nipizd_named_size_structure(), grid=dummy_grid(Float32)
@@ -50,14 +50,14 @@ using Oceananigans.Biogeochemistry:
         @test tracers == (
             :N,
             :D,
-            :microzoo_1,
-            :microzoo_2,
-            :mesozoo_1,
             :diat_1,
             :diat_2,
             :diat_3,
             :dino_1,
             :dino_2,
+            :microzoo_1,
+            :microzoo_2,
+            :mesozoo_1,
         )
         @test size(named.parameters.palatability_matrix) == (3, 5)
         @test size(named.parameters.assimilation_matrix) == (3, 5)
@@ -105,7 +105,9 @@ using Oceananigans.Biogeochemistry:
         specificity = fill(Float32(0.3), length(plankton_diameters(named)))
         growth[1] = Float32(1.2 / day)
         predation[2] = Float32(0.7 / day)
-        specificity[1] = 2.0f0
+        # Construction-only `axes=:plankton` vectors use the full canonical
+        # PFT/SizeClass order: diat_1, diat_2, dino_1, microzoo_1, ...
+        specificity[4] = 2.0f0
 
         named_overrides = NiPiZD.construct(;
             size_structure=named_size_structure,
@@ -265,7 +267,7 @@ using Oceananigans.Biogeochemistry:
             ),
         )
 
-        all_diameters = [zoo_diameters; phyto_diameters]
+        all_diameters = [phyto_diameters; zoo_diameters]
         expected_mortality = Float32[
             powerlaw_value(Float32, mortality_prefactor, mortality_exponent, diameter) for
             diameter in all_diameters
@@ -375,7 +377,7 @@ using Oceananigans.Biogeochemistry:
             parameters=(; optimum_predator_prey_ratio=(Z_3=5.0,)),
         ))
         @test occursin("Unknown key `Z_3`", message)
-        @test occursin("Z_1, Z_2, P_1, P_2", message)
+        @test occursin("P_1, P_2, Z_1, Z_2", message)
 
         for parameters in (
             (; detritus_remineralization=(Z_1=1.0,)),

@@ -16,13 +16,13 @@ using Test
     @testset "Model-constructed instance" begin
         bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
 
-        @test tracer_names(bgc) == [:N, :D, :Z_1, :Z_2, :P_1, :P_2]
+        @test tracer_names(bgc) == [:N, :D, :P_1, :P_2, :Z_1, :Z_2]
 
         groups = tracer_groups(bgc)
         @test groups.all == tracer_names(bgc)
         @test groups.by_pft.Z == [:Z_1, :Z_2]
         @test groups.by_pft.P == [:P_1, :P_2]
-        @test groups.plankton == [:Z_1, :Z_2, :P_1, :P_2]
+        @test groups.plankton == [:P_1, :P_2, :Z_1, :Z_2]
         @test groups.nonplankton == [:N, :D]
         @test pfts(bgc) == groups.by_pft
         @test plankton_tracers(bgc) == groups.plankton
@@ -68,21 +68,21 @@ using Test
                 phytoplankton=(P=phyto_diameters,), zooplankton=(Z=zoo_diameters,)
             )
         )
-        @test plankton_tracers(sized_bgc) == [:Z_1, :Z_2, :P_1, :P_2, :P_3]
-        @test plankton_diameters(sized_bgc) ≈ [zoo_diameters; phyto_diameters]
+        @test plankton_tracers(sized_bgc) == [:P_1, :P_2, :P_3, :Z_1, :Z_2]
+        @test plankton_diameters(sized_bgc) ≈ [phyto_diameters; zoo_diameters]
 
         named_bgc = Agate.Models.NiPiZD.construct(;
             size_structure=nipizd_named_size_structure(), grid=dummy_grid(Float32)
         )
 
         named_pfts = pfts(named_bgc)
-        @test keys(named_pfts) == (:microzoo, :mesozoo, :diat, :dino)
+        @test keys(named_pfts) == (:diat, :dino, :microzoo, :mesozoo)
         @test named_pfts.microzoo == [:microzoo_1, :microzoo_2]
         @test named_pfts.mesozoo == [:mesozoo_1]
         @test named_pfts.diat == [:diat_1, :diat_2, :diat_3]
         @test named_pfts.dino == [:dino_1, :dino_2]
         @test plankton_diameters(named_bgc) ≈
-            [30.0, 60.0, 100.0, 2.0, 5.0, 10.0, 8.0, 20.0]
+            [2.0, 5.0, 10.0, 8.0, 20.0, 30.0, 60.0, 100.0]
 
         named_pal = interaction_matrix(named_bgc, :palatability_matrix)
         @test named_pal.rows == [:microzoo_1, :microzoo_2, :mesozoo_1]

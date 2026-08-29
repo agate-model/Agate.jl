@@ -40,8 +40,30 @@ end
                 half_saturation=Parameter(1.0),
             ),
         )
-        @test Agate.Processes.canonicalize_model(definition) isa
-              Agate.Processes.CanonicalModelDefinition
+        model = Agate.Construction.construct(definition)
+        _test_tendencies(
+            model,
+            (P_carbon=2.0, P_chlorophyll=1.0, DIC=1.0),
+            (P_carbon=0.5, P_chlorophyll=0.0, DIC=-0.5),
+        )
+    end
+
+    @testset "non-quota growth rejects additional elemental states" begin
+        definition = ModelDefinition(;
+            components=(
+                P=Plankton(; states=(:carbon, :nitrogen), reference_state=:carbon),
+                DIC=Pool(:carbon),
+            ),
+            processes=(
+                growth=Growth(;
+                    plankton=:P,
+                    factors=(nutrients=NutrientResponse(Monod(); resource=:DIC),),
+                ),
+            ),
+        )
+        message = canonicalization_error_message(definition)
+        @test occursin("additional elemental states (:nitrogen,)", message)
+        @test occursin("NutrientUptake", message)
     end
 
     @testset "mortality transfers every prognostic state" begin

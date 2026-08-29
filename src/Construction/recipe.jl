@@ -1,6 +1,6 @@
-using ..ModelFamilies: AbstractModelFamily, definition_version
+using ..ModelFamilies: AbstractModelFamily, definition_version, default_components
 using ..Parameters: DerivedDefault
-using ..Configuration: ModelLayout, canonicalize_diameters
+using ..Configuration: ModelLayout, canonicalize_plankton_realization
 
 """Return the stable recipe-family identifier for a model family."""
 function family_id(family::AbstractModelFamily)
@@ -83,16 +83,16 @@ function Base.:(==)(a::ModelManifest, b::ModelManifest)
     return _structural_isequal(a, b)
 end
 
-function _canonical_pft_size_structures(pft_size_structures::NamedTuple)
-    names = keys(pft_size_structures)
-    values = ntuple(length(names)) do i
-        pft = names[i]
-        canonicalize_diameters(
-            getproperty(pft_size_structures, pft); path="plankton PFT :$pft size_structure"
-        ).specification
-    end
-    return NamedTuple{names}(values)
+function _canonical_recipe_realization(
+    family::AbstractModelFamily,
+    plankton_pfts::NamedTuple,
+    pft_size_structures::NamedTuple,
+)
+    return canonicalize_plankton_realization(
+        default_components(family), plankton_pfts, pft_size_structures
+    )
 end
+
 
 """Capture canonical family construction inputs for durable replay."""
 function capture_model_recipe(
@@ -111,11 +111,14 @@ function capture_model_recipe(
     version isa VersionNumber || throw(
         ArgumentError("definition_version must return a VersionNumber; got $(typeof(version)).")
     )
+    plankton_pfts, pft_size_structures = _canonical_recipe_realization(
+        family, plankton_pfts, pft_size_structures
+    )
     return ModelRecipe(
         family_id_value,
         version,
         deepcopy(plankton_pfts),
-        deepcopy(_canonical_pft_size_structures(pft_size_structures)),
+        deepcopy(pft_size_structures),
         deepcopy(parameter_overrides),
         deepcopy(sinking_tracers),
         open_bottom,

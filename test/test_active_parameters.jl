@@ -87,6 +87,10 @@ end
         auxiliary=(; PAR=100.0),
     )
 
+    tracer_names = Agate.Introspection.tracer_names(base_bgc)
+    p1_index = findfirst(==(:P_1), tracer_names)
+    n_index = findfirst(==(:N), tracer_names)
+
     du = similar(u0)
     problem.f(du, u0, p, 0.0)
 
@@ -96,13 +100,13 @@ end
         active_parameters=active_growth,
     )(Val(:P_1), 0, 0, 0, 0.0, u0..., 100.0)
 
-    @test du[5] ≈ expected
+    @test du[p1_index] ≈ expected
 
     p_fast = [2mu0]
     du_fast = similar(u0)
     problem.f(du_fast, u0, p_fast, 0.0)
 
-    @test du_fast[5] != du[5]
+    @test du_fast[p1_index] != du[p1_index]
 
     p_scalar = [mu0, 2base_bgc.parameters.detritus_remineralization]
     active_scalar = Agate.Runtime.active_parameters(base_bgc;
@@ -127,7 +131,7 @@ end
         active_parameters=active_scalar,
     )(Val(:N), 0, 0, 0, 0.0, u0..., 100.0)
 
-    @test du_scalar[1] ≈ expected_scalar
+    @test du_scalar[n_index] ≈ expected_scalar
 
     active_matrix = Agate.Runtime.active_parameters(base_bgc;
         maximum_growth_rate = (:P_1,),
@@ -152,8 +156,8 @@ end
         active_parameters=active_matrix,
     )(Val(:P_1), 0, 0, 0, 0.0, u0..., 100.0)
 
-    @test du_matrix[5] ≈ expected_matrix
-    @test du_matrix[5] != du[5]
+    @test du_matrix[p1_index] ≈ expected_matrix
+    @test du_matrix[p1_index] != du[p1_index]
 end
 
 @testset "active parameter selector validation" begin

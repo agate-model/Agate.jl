@@ -43,7 +43,7 @@ end
 
 function _plankton_realization(size_structure)
     structure = _canonicalize_size_structure(size_structure)
-    pft_order = (structure.consumer_pfts..., structure.producer_pfts...)
+    pft_order = (structure.producer_pfts..., structure.consumer_pfts...)
     pft_size_structures = NamedTuple{pft_order}(ntuple(length(pft_order)) do i
         pft = pft_order[i]
         diameters = if pft in structure.consumer_pfts

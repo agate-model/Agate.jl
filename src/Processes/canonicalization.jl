@@ -305,6 +305,25 @@ beyond the authored process object.
 """
 process_facts(::AbstractProcess, ::Symbol, ::NamedTuple) = NamedTuple()
 
+function _validate_nonquota_growth_states(
+    process::Growth, id::Symbol, components::NamedTuple
+)
+    for plankton_name in process.plankton
+        plankton = _plankton_component(components, plankton_name, id, "growth plankton")
+        reference = reference_state(plankton)
+        unmanaged = Tuple(
+            state for state in states(plankton)
+            if state !== reference && state_element(plankton, state) !== nothing
+        )
+        isempty(unmanaged) || throw(ArgumentError(
+            "process :$id non-quota growth does not update additional elemental states " *
+            "$(unmanaged) for plankton :$plankton_name; use quota responses with " *
+            "NutrientUptake for independently prognostic elemental inventories",
+        ))
+    end
+    return nothing
+end
+
 function process_facts(process::Growth, id::Symbol, components::NamedTuple)
     nutrient_factors = Tuple(
         factor for factor in values(process.factors)
@@ -320,6 +339,7 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
     )
 
     reference_source, additional_resources = if nutrient_factor isa NutrientResponse
+        _validate_nonquota_growth_states(process, id, components)
         isnothing(process.source) || throw(ArgumentError(
             "process :$id single-resource growth derives its source from the nutrient response; omit `source`",
         ))
@@ -365,6 +385,7 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
             end
             process.source, NamedTuple()
         else
+            _validate_nonquota_growth_states(process, id, components)
             process.source isa Symbol || throw(
                 ArgumentError("process :$id multi-resource growth requires a source component"),
             )
@@ -808,9 +829,9 @@ end
 """Canonicalize process identity and resolve inline parameter bindings.
 
 Process instances are canonicalized by stable process ID, so declaration order does
-not change canonical scientific identity. Component ordering is preserved because it determines
-concrete tracer realization. Local formulation slots bind directly to stable model parameter
-names during canonicalization.
+not change canonical scientific identity. Component order is preserved within component kinds;
+`ModelLayout` realizes scalar Pools first and then Plankton in authored component order. Local
+formulation slots bind directly to stable model parameter names during canonicalization.
 """
 function canonicalize_model(definition::ModelDefinition)
     all(component -> component isa Union{Plankton,Pool}, values(definition.components)) ||

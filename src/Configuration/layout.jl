@@ -146,7 +146,7 @@ function canonicalize_plankton_realization(
     )
 
     canonical_pfts = NamedTuple{plankton_names}(pft_values)
-    pft_names = keys(pft_size_structures)
+    pft_names = Tuple(assigned)
     canonical_size_structures = NamedTuple{pft_names}(ntuple(length(pft_names)) do i
         pft = pft_names[i]
         canonicalize_diameters(
@@ -263,8 +263,10 @@ function realize_model_layout(
 
     size_classes = Symbol[]
     size_class_diameters = T[]
-    pft_index_values = Vector{Any}(undef, length(keys(pft_size_structures)))
-    pft_names = keys(pft_size_structures)
+    pft_names = Tuple(
+        pft for plankton in plankton_names for pft in getproperty(plankton_pfts, plankton)
+    )
+    pft_index_values = Vector{Any}(undef, length(pft_names))
 
     for (pft_position, pft) in pairs(pft_names)
         plankton = pft_owner[pft]
