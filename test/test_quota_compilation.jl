@@ -5,13 +5,6 @@ using Agate.Library.Nutrients:
     monod_limitation, normalized_droop_limitation, quota_uptake_regulation
 using Agate.Library.Photosynthesis: smith_light_limitation
 
-quota_runtime_args(;
-    DIC=10.0, DIN=1.0, PO4=1.0,
-    P_1_carbon=1.0, P_1_nitrogen=0.1, P_1_phosphorus=0.01,
-    P_2_carbon=0.0, P_2_nitrogen=0.0, P_2_phosphorus=0.0, PAR=100.0,
-) = (0, 0, 0, 0, DIC, DIN, PO4, P_1_carbon, P_1_nitrogen, P_1_phosphorus,
-     P_2_carbon, P_2_nitrogen, P_2_phosphorus, PAR)
-
 @testset "State-aware quota compilation" begin
     definition = quota_definition()
     bgc = construct(definition)

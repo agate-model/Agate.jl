@@ -1,7 +1,5 @@
 using Agate
 
-const NiPiZD = Agate.Models.NiPiZD
-
 using Agate.Diagnostics: box_model_mass_balance
 using Agate.Configuration: Plankton, Pool
 using Agate.Construction: construct
@@ -92,7 +90,7 @@ end
     for (T, rtol) in ((Float64, 1e-12), (Float32, 1e-5))
         @testset "NiPiZD $(T) conservation" begin
             grid = BoxModelGrid(T)
-            bgc = NiPiZD.construct(; grid, scalar_type=T)
+            bgc = Agate.Models.NiPiZD.construct(; grid, scalar_type=T)
             box_model = build_box_model(bgc, grid)
             set!(box_model; N=T(7), P_1=T(0.01), P_2=T(0.01),
                  Z_1=T(0.05), Z_2=T(0.05), D=zero(T))
@@ -101,6 +99,37 @@ end
             @test result.initial.total isa T
             @test isapprox(result.initial.total, result.final.total; rtol, atol=0.0)
         end
+    end
+
+    @testset "Quota model elemental conservation" begin
+        grid = BoxModelGrid()
+        bgc_instance = construct(quota_definition(); grid)
+        box_model = build_box_model(bgc_instance, grid)
+        set!(
+            box_model;
+            DIC=10.0,
+            DIN=1.0,
+            PO4=1.0,
+            P_1_carbon=1.0,
+            P_1_nitrogen=0.1,
+            P_1_phosphorus=0.01,
+            P_2_carbon=0.5,
+            P_2_nitrogen=0.075,
+            P_2_phosphorus=0.0075,
+        )
+
+        quota_budgets = (
+            carbon=[:DIC => 1, :P_1_carbon => 1, :P_2_carbon => 1],
+            nitrogen=[:DIN => 1, :P_1_nitrogen => 1, :P_2_nitrogen => 1],
+            phosphorus=[:PO4 => 1, :P_1_phosphorus => 1, :P_2_phosphorus => 1],
+        )
+
+        # The shared quota fixture uses rates in inverse seconds, so integrate over a
+        # short interval rather than the multi-day NiPiZD conservation horizon.
+        result = box_model_mass_balance(box_model, quota_budgets; dt=0.01, nsteps=100)
+        @test isapprox(result.initial.carbon, result.final.carbon; rtol=1e-10)
+        @test isapprox(result.initial.nitrogen, result.final.nitrogen; rtol=1e-10)
+        @test isapprox(result.initial.phosphorus, result.final.phosphorus; rtol=1e-10)
     end
 
     @testset "Generic multi-nutrient conservation" begin

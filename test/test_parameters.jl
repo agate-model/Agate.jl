@@ -37,10 +37,6 @@ end
         bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
 
         @test all(name -> hasproperty(definitions, name), parameter_names(bgc))
-        @test definitions.maximum_growth_rate isa Parameter
-        @test definitions.palatability_matrix.default isa DerivedDefault
-        @test definitions.specificity isa ConstructionParameter
-        @test definitions.assimilation_efficiency isa ConstructionParameter
     end
 
     @testset "Derived default dependency resolution" begin

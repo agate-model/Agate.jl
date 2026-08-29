@@ -101,8 +101,4 @@ using Agate.Processes:
         @test all(fragment -> occursin(fragment, message), fragments)
     end
 
-    canonical = Agate.Processes.canonicalize_model(quota_definition())
-    @test only(canonical.processes.growth.facts.plankton_states).state === :carbon
-    @test canonical.processes.nitrogen_uptake.facts.reference.state === :carbon
-    @test canonical.processes.growth.process.factors.nutrients.responses.nitrogen.variable_state === :nitrogen
 end

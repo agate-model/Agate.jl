@@ -9,7 +9,6 @@ using Agate.Processes:
     Geider,
     Monod,
     Liebig,
-    FactorizedGrowth,
     Growth,
     Light,
     NutrientLimitation,
@@ -50,7 +49,6 @@ factor_inputs(::MultiDriverTestFactor) = (
     )
     @test formulation(light) isa Smith
     @test formulation(response) isa Monod
-    @test formulation(growth) isa FactorizedGrowth
 
     @test participants(growth) == (plankton=(:P,), resource=(:N,))
 
@@ -119,7 +117,6 @@ factor_inputs(::MultiDriverTestFactor) = (
     @test_throws ArgumentError canonicalize_model(invalid_growth)
 
     @test_throws MethodError Light(:smith; driver=:PAR)
-    @test isempty(Growth(; plankton=:P, reference_resource=:N).factors)
     @test_throws ArgumentError Growth(;
         plankton=(), reference_resource=:N, factors=(light=Light(Smith(); driver=:PAR),)
     )

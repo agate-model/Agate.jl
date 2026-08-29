@@ -25,10 +25,11 @@ function _validate_diameter_values(values, path::AbstractString)
     return nothing
 end
 
-"""Canonicalize and validate one public diameter input.
+"""Canonicalize and validate one diameter input.
 
-Accepted forms are an explicit vector, a `DiameterListSpecification`, a
-`DiameterRangeSpecification`, or `(n, min_esd, max_esd, spacing)` as a NamedTuple.
+Authoring uses an explicit vector or `(n, min_esd, max_esd, spacing)` NamedTuple. Canonical
+`DiameterListSpecification` and `DiameterRangeSpecification` values are also accepted for
+internal reuse and recipe replay.
 """
 function canonicalize_diameters(diameters::AbstractVector; path::AbstractString="diameters")
     _validate_diameter_values(diameters, path)

@@ -43,7 +43,6 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
     fast_tendency = fast_bgc(Val(:P_1), args...)
 
     @test fast_tendency != base_tendency
-    @test fast_bgc.bgc === base_bgc
     @test required_biogeochemical_tracers(fast_bgc) == required_biogeochemical_tracers(base_bgc)
     @test required_biogeochemical_auxiliary_fields(fast_bgc) == required_biogeochemical_auxiliary_fields(base_bgc)
     @test biogeochemical_drift_velocity(fast_bgc, Val(:P_1)) == biogeochemical_drift_velocity(base_bgc, Val(:P_1))

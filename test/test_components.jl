@@ -49,7 +49,6 @@ end
 
     layout = realize_model_layout((P=plankton, DIN=Pool(:nitrogen)); scalar_type=Float32)
     @test component_entities(layout, :P) == (:P_1, :P_2)
-    @test length(component_entities(layout, :P)) == 2
     @test component_tracers(layout, :P) == (
         :P_1_carbon, :P_1_nitrogen, :P_1_phosphorus,
         :P_2_carbon, :P_2_nitrogen, :P_2_phosphorus,

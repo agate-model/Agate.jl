@@ -2,7 +2,7 @@ using Agate
 using Test
 
 using Agate.Configuration:
-    Plankton, DiameterRangeSpecification, realize_model_layout, component_diameters
+    Plankton, realize_model_layout, component_entities, component_diameters
 
 @testset "Size-structure input normalization" begin
     components = (
@@ -14,12 +14,12 @@ using Agate.Configuration:
         plankton_pfts=(Z=(:Z,), P=(:P,)),
         pft_size_structures=(
             P=(n=3, min_esd=2.0, max_esd=10.0, spacing=:log),
-            Z=DiameterRangeSpecification(2, 20.0, 100.0, :linear),
+            Z=(n=2, min_esd=20.0, max_esd=100.0, spacing=:linear),
         ),
     )
 
-    @test keys(layout.pft_indices) == (:Z, :P)
-    @test layout.size_classes == (:Z_1, :Z_2, :P_1, :P_2, :P_3)
+    @test component_entities(layout, :Z) == (:Z_1, :Z_2)
+    @test component_entities(layout, :P) == (:P_1, :P_2, :P_3)
     @test component_diameters(layout, :Z) == (20.0, 100.0)
     @test collect(component_diameters(layout, :P)) ≈ [2.0, sqrt(20.0), 10.0]
 
@@ -29,8 +29,7 @@ using Agate.Configuration:
         plankton_pfts=(P=(:small, :large),),
         pft_size_structures=(small=nothing, large=nothing),
     )
-    @test unsized.size_classes == (:small, :large)
-    @test unsized.pft_indices == (small=(1,), large=(2,))
+    @test component_entities(unsized, :P) == (:small, :large)
     @test component_diameters(unsized, :P) === nothing
 
     one_size_class = realize_model_layout(
@@ -38,7 +37,7 @@ using Agate.Configuration:
         plankton_pfts=(P=(:P,),),
         pft_size_structures=(P=(n=1, min_esd=5.0, max_esd=5.0, spacing=:log),),
     )
-    @test one_size_class.size_classes == (:P_1,)
+    @test component_entities(one_size_class, :P) == (:P_1,)
     @test component_diameters(one_size_class, :P) == (5.0,)
 
     mixed = realize_model_layout(
@@ -46,7 +45,7 @@ using Agate.Configuration:
         plankton_pfts=(P=(:plain, :sized),),
         pft_size_structures=(plain=nothing, sized=[5.0]),
     )
-    @test mixed.size_classes == (:plain, :sized_1)
+    @test component_entities(mixed, :P) == (:plain, :sized_1)
     @test component_diameters(mixed, :P) == (nothing, 5.0)
 
     bad_path = "plankton PFT :P size_structure"

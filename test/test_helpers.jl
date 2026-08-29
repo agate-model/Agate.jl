@@ -120,6 +120,13 @@ quota_definition() = Agate.Processes.ModelDefinition(;
     parameters=quota_parameters(),
 )
 
+quota_runtime_args(;
+    DIC=10.0, DIN=1.0, PO4=1.0,
+    P_1_carbon=1.0, P_1_nitrogen=0.1, P_1_phosphorus=0.01,
+    P_2_carbon=0.0, P_2_nitrogen=0.0, P_2_phosphorus=0.0, PAR=100.0,
+) = (0, 0, 0, 0, DIC, DIN, PO4, P_1_carbon, P_1_nitrogen, P_1_phosphorus,
+     P_2_carbon, P_2_nitrogen, P_2_phosphorus, PAR)
+
 nipizd_named_size_structure() = (;
     phytoplankton=(diat=[2.0, 5.0, 10.0], dino=[8.0, 20.0]),
     zooplankton=(microzoo=[30.0, 60.0], mesozoo=[100.0]),

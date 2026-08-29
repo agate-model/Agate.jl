@@ -187,9 +187,10 @@ end
 """Multi-response nutrient factor with formulation-owned response composition.
 
 External `NutrientResponse` subfactors read environmental resource Pools, while internal
-`QuotaResponse` subfactors read prognostic cellular states. Both modify process rate only;
-material transfer is owned by the process itself, so external and internal responses may be
-combined within one `NutrientLimitation` factor.
+`QuotaResponse` subfactors read prognostic cellular states. Each `responses` key is the Element
+identity represented by that response (for example, `nitrogen=...`). Both modify process rate
+only; material transfer is owned by the process itself, so external and internal responses may
+be combined within one `NutrientLimitation` factor.
 """
 struct NutrientLimitation{F<:Union{Liebig,FrankTNorm},R<:NamedTuple} <: AbstractFactor
     formulation::F
@@ -436,7 +437,11 @@ end
 
 authored_parameter_bindings(process::NutrientUptake) = process.bindings
 
-"""Consumer-resource process with optional factors and unassimilated products."""
+"""Consumer-resource process with optional factors and unassimilated products.
+
+When one living-prey consumption process routes multi-element unassimilated products from
+multiple resources, those resources currently must expose the same prognostic Element set.
+"""
 struct Consumption{F<:Union{PreferentialGrazing,HeterotrophicConsumption},A<:NamedTuple,P} <: AbstractProcess
     formulation::F
     consumers::Tuple
@@ -465,7 +470,11 @@ end
 
 authored_parameter_bindings(process::Consumption) = process.bindings
 
-"""Plankton mortality process with optional products."""
+"""Plankton mortality process with optional products.
+
+When one mortality process routes multi-element products from multiple plankton, those
+plankton currently must expose the same prognostic Element set.
+"""
 struct Mortality{F<:Union{LinearMortality,QuadraticMortality},P} <: AbstractProcess
     formulation::F
     plankton::Tuple
