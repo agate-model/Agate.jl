@@ -137,7 +137,6 @@ External family packages subtype `AbstractModelFamily`, provide `default_compone
 ```@docs
 Agate.Construction.ModelRecipe
 Agate.Construction.ModelManifest
-Agate.Construction.construct
 Agate.Construction.construct_plus_manifest
 Agate.Construction.capture_model_recipe
 Agate.Construction.recipe_schema
