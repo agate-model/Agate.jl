@@ -142,7 +142,7 @@ beside the process or factor through `bindings=`.
 ```@docs
 Agate.Parameters.Parameter
 Agate.Parameters.ConstructionParameter
-Agate.Parameters.DefaultProvider
+Agate.Parameters.AbstractDefaultProvider
 Agate.Parameters.DerivedDefault
 Agate.Parameters.derive_default
 Agate.Parameters.NoDefault

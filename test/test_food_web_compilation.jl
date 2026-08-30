@@ -149,6 +149,11 @@ end
         Val(:P_1), food_web_args(bgc, growth_state; PAR=100.0, temperature=30.0)...
     )
     @test process_compiler_isapprox(growth30, 2 * growth20)
+    direct_growth20 = 0.05 * 2e-5 *
+        Agate.Processes.factor_value(Q10(), 20.0, 2.0, 20.0) *
+        Agate.Processes.factor_value(Monod(), 5.0, 0.2) *
+        Agate.Processes.factor_value(Smith(), 100.0, 2e-5, 2e-6)
+    @test process_compiler_isapprox(growth20, direct_growth20)
 
     derivative = ForwardDiff.derivative(0.5) do pom
         dynamic_state = (POM=pom, B_1=0.03)
@@ -158,7 +163,7 @@ end
     @test derivative < 0
 end
 
-@testset "Multi-resource consumer storage axes" begin
+@testset "Multi-resource consumer pairwise capacity and storage axes" begin
     components = (
         N=Pool(:nitrogen),
         POM_1=Pool(:nitrogen),

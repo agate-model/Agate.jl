@@ -28,6 +28,12 @@ explicit_json_value(x::Dict{String,Any}) = all(explicit_json_value, values(x))
 explicit_json_value(x::Vector{Any}) = all(explicit_json_value, x)
 explicit_json_value(::Any) = false
 
+@testset "Recipe provenance does not retain URL credentials" begin
+    url = "https://user:token@example.com/org/repo.git?access_token=secret#fragment"
+    sanitized = Agate.Construction._sanitize_repository_url(url)
+    @test !any(secret -> occursin(secret, sanitized), ("user", "token", "secret"))
+end
+
 @testset "NiPiZD versioned family recipes" begin
     family = NiPiZD.NiPiZDFamily()
     @test definition_version(family) == v"0.1.0"

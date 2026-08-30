@@ -139,6 +139,22 @@ end
                 bgc_instance = multi_nutrient_test_model(grid; nutrient_formulation)
                 if nutrient_formulation isa FrankTNorm
                     @test bgc_instance.parameters.frank_sharpness == 25
+                    state = (DIC=2.0, DIN=7.0, PO4=3.0, P_1=0.01)
+                    tracers = Tuple(
+                        getproperty(state, name)
+                        for name in Agate.Introspection.tracer_names(bgc_instance)
+                    )
+                    args = (0, 0, 0, 0, tracers..., 100.0)
+                    limitations = (
+                        Agate.Processes.factor_value(Monod(), state.DIN, 0.5),
+                        Agate.Processes.factor_value(Monod(), state.PO4, 0.5),
+                    )
+                    light = Agate.Processes.factor_value(
+                        Geider(), 100.0, 2 / 86400, 0.1 / 86400, 0.02
+                    )
+                    nutrients = Agate.Processes.factor_value(FrankTNorm(), limitations, 25)
+                    @test bgc_instance(Val(:P_1), args...) ≈
+                          state.P_1 * (2 / 86400) * light * nutrients
                 end
                 box_model = build_box_model(bgc_instance, grid)
                 set!(box_model; DIC=2.0, DIN=7.0, PO4=3.0, P_1=0.01)

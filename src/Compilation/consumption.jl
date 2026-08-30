@@ -155,8 +155,8 @@ function _heterotrophic_consumption_fluxes!(
 end
 
 function process_fluxes(
-    named::CanonicalProcess{P}, context::CompileContext
-) where {P<:Consumption}
+    named::CanonicalProcess{Process}, context::CompileContext
+) where {Process<:Consumption}
     form = named.process.formulation
     layout = context.layout
     consumers = _realize_participants(named.semantic_facts.consumer_states, layout)

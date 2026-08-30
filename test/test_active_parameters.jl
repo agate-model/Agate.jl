@@ -46,6 +46,7 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
     @test required_biogeochemical_tracers(fast_bgc) == required_biogeochemical_tracers(base_bgc)
     @test required_biogeochemical_auxiliary_fields(fast_bgc) == required_biogeochemical_auxiliary_fields(base_bgc)
     @test biogeochemical_drift_velocity(fast_bgc, Val(:P_1)) == biogeochemical_drift_velocity(base_bgc, Val(:P_1))
+    @test Agate.Introspection.tracer_groups(fast_bgc) == Agate.Introspection.tracer_groups(base_bgc)
 
     adapted_bgc = Adapt.adapt(identity, fast_bgc)
     @test adapted_bgc(Val(:P_1), args...) ≈ fast_tendency
@@ -157,6 +158,10 @@ end
 
     @test du_matrix[p1_index] ≈ expected_matrix
     @test du_matrix[p1_index] != du[p1_index]
+
+    @test_throws ArgumentError Agate.Runtime.ode_problem(
+        base_bgc, u0[1:end-1], (0.0, day); auxiliary=(; PAR=100.0)
+    )
 end
 
 @testset "active parameter selector validation" begin
@@ -184,6 +189,18 @@ end
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = ((:P_1, :P_2, :extra),))
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; detritus_remineralization = false)
     @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; not_a_parameter = true)
+    @test_throws ArgumentError Agate.Runtime.active_parameters(
+        base_bgc; maximum_growth_rate=(:P_1, :P_1)
+    )
+    @test_throws ArgumentError Agate.Runtime.active_parameters(
+        base_bgc; palatability_matrix=((:Z_1, :P_1), (:Z_1, :P_1))
+    )
+
+    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate=(:P_1,))
+    @test_throws ArgumentError Agate.Runtime.parameterized(base_bgc, [1.0])
+    @test_throws ArgumentError Agate.Runtime.parameterized(
+        base_bgc, [1.0, 2.0]; active_parameters=active_growth
+    )
 
     nested_message = argument_error_message(() ->
         Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate=(P_1=true,))
@@ -235,6 +252,10 @@ end
     @test selected_values(bgc_p) == p
 
     @test bgc_p.parameters.palatability_matrix[2, 2] == base_bgc.parameters.palatability_matrix[2, 2]
+    active_interaction = Agate.Introspection.interaction_matrix(bgc_p, :palatability_matrix)
+    @test (active_interaction.rows, active_interaction.columns) ==
+          ([:Z_1, :Z_2], [:P_1, :P_2])
+    @test active_interaction.matrix[1, 1] == p[4]
 end
 
 @testset "named-PFT runtime active parameters" begin

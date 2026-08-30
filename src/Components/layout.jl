@@ -4,17 +4,28 @@
 tracers, entity diameters, and final tracer/auxiliary input positions. Parameter-specific axes
 are realized later by `ParameterPlan`.
 """
-struct ModelLayout{T<:Real,TR,II,CC,CST,CT,CD,CS,GI,D}
-    scalar_type::Type{T}
-    tracer_order::TR
-    input_indices::II
-    component_entities::CC
-    component_state_tracers::CST
-    component_tracers::CT
-    component_diameters::CD
-    size_classes::CS
-    pft_indices::GI
-    size_class_diameters::D
+struct ModelLayout{
+    ScalarType<:Real,
+    TracerOrder,
+    InputIndices,
+    ComponentEntities,
+    ComponentStateTracers,
+    ComponentTracers,
+    ComponentDiameters,
+    SizeClasses,
+    PFTIndices,
+    SizeClassDiameters,
+}
+    scalar_type::Type{ScalarType}
+    tracer_order::TracerOrder
+    input_indices::InputIndices
+    component_entities::ComponentEntities
+    component_state_tracers::ComponentStateTracers
+    component_tracers::ComponentTracers
+    component_diameters::ComponentDiameters
+    size_classes::SizeClasses
+    pft_indices::PFTIndices
+    size_class_diameters::SizeClassDiameters
 end
 
 _plankton_names(components::NamedTuple) = Tuple(
@@ -24,7 +35,7 @@ _pool_names(components::NamedTuple) = Tuple(
     name for name in keys(components) if getproperty(components, name) isa Pool
 )
 
-@inline _unspecified_diameter(::Type{T}) where {T<:AbstractFloat} = T(NaN)
+@inline _unspecified_diameter(::Type{FT}) where {FT<:AbstractFloat} = FT(NaN)
 @inline _unspecified_diameter(::Type{T}) where {T<:Real} = zero(T)
 
 @inline function _plankton_state_tracer(size_class::Symbol, state::Symbol, nstates::Int)

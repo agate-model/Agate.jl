@@ -2,15 +2,15 @@
 abstract type AbstractDiameterSpecification end
 
 """A canonical diameter specification defined by explicit SizeClass diameters."""
-struct DiameterListSpecification{V<:AbstractVector} <: AbstractDiameterSpecification
-    diameters::V
+struct DiameterListSpecification{Diameters<:AbstractVector} <: AbstractDiameterSpecification
+    diameters::Diameters
 end
 
 """A canonical diameter specification defined by a SizeClass count, bounds, and spacing rule."""
-struct DiameterRangeSpecification{I<:Integer,T1,T2} <: AbstractDiameterSpecification
-    n::I
-    min_diameter::T1
-    max_diameter::T2
+struct DiameterRangeSpecification{Count<:Integer,MinDiameter,MaxDiameter} <: AbstractDiameterSpecification
+    n::Count
+    min_diameter::MinDiameter
+    max_diameter::MaxDiameter
     spacing::Symbol
 end
 

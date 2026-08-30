@@ -1,31 +1,31 @@
 """Lean static runtime IR used by compiled process tendencies."""
 
 """Static operand that reads one pre-indexed tracer or auxiliary input."""
-struct InputOp{I} end
+struct InputOp{Index} end
 
 """Static operand that reads one pre-indexed runtime parameter value."""
-struct ParameterOp{S,I} end
+struct ParameterOp{Name,Indices} end
 
 """Static operand whose value is one minus the sum of child operands."""
-struct ComplementOp{O}
-    operands::O
+struct ComplementOp{Operands}
+    operands::Operands
 end
 
 """Static operand that evaluates a tuple of child operands."""
-struct TupleOp{O}
-    operands::O
+struct TupleOp{Operands}
+    operands::Operands
 end
 
-@inline operand_value(::InputOp{I}, bgc, args) where {I} = @inbounds args[I]
-@inline operand_value(::ParameterOp{S,()}, bgc, args) where {S} = getproperty(bgc.parameters, S)
-@inline operand_value(::ParameterOp{S,I}, bgc, args) where {S,I} =
-    @inbounds getproperty(bgc.parameters, S)[I...]
+@inline operand_value(::InputOp{Index}, bgc, args) where {Index} = @inbounds args[Index]
+@inline operand_value(::ParameterOp{Name,()}, bgc, args) where {Name} = getproperty(bgc.parameters, Name)
+@inline operand_value(::ParameterOp{Name,Indices}, bgc, args) where {Name,Indices} =
+    @inbounds getproperty(bgc.parameters, Name)[Indices...]
 
-@inline function _operand_sum(operands::Tuple{T}, bgc, args) where {T}
+@inline function _operand_sum(operands::Tuple{T1}, bgc, args) where {T1}
     return operand_value(first(operands), bgc, args)
 end
 
-@inline function _operand_sum(operands::Tuple{T,S,Vararg{Any,N}}, bgc, args) where {T,S,N}
+@inline function _operand_sum(operands::Tuple{T1,T2,Vararg{Any,N}}, bgc, args) where {T1,T2,N}
     return operand_value(first(operands), bgc, args) + _operand_sum(Base.tail(operands), bgc, args)
 end
 
@@ -41,9 +41,9 @@ end
 end
 
 """One multiplicative factor attached to a canonical process rate."""
-struct FactorOp{F,O}
-    formulation::F
-    operands::O
+struct FactorOp{Formulation,Operands}
+    formulation::Formulation
+    operands::Operands
 end
 
 @inline function factor_op_value(factor::FactorOp, bgc, args)
@@ -61,10 +61,10 @@ end
 end
 
 """Canonical runtime process rate: formulation plus static operand tuple."""
-struct RateOp{F,O,X}
-    formulation::F
-    operands::O
-    factors::X
+struct RateOp{Formulation,Operands,Factors}
+    formulation::Formulation
+    operands::Operands
+    factors::Factors
 end
 
 RateOp(formulation, operands::Tuple; factors=()) =
@@ -77,17 +77,17 @@ RateOp(formulation, operands::Tuple; factors=()) =
 end
 
 """Static multiplicative flux weight with sign encoded in the type."""
-struct Weight{Sign,O}
-    operands::O
+struct Weight{Sign,Operands}
+    operands::Operands
 end
 
 Weight{Sign}(operands::Tuple=()) where {Sign} = Weight{Sign,typeof(operands)}(operands)
 
-@inline function weight_product(operands::Tuple{T}, bgc, args) where {T}
+@inline function weight_product(operands::Tuple{T1}, bgc, args) where {T1}
     return operand_value(first(operands), bgc, args)
 end
 
-@inline function weight_product(operands::Tuple{T,S,Vararg{Any,N}}, bgc, args) where {T,S,N}
+@inline function weight_product(operands::Tuple{T1,T2,Vararg{Any,N}}, bgc, args) where {T1,T2,N}
     return operand_value(first(operands), bgc, args) * weight_product(Base.tail(operands), bgc, args)
 end
 
@@ -97,9 +97,9 @@ end
 @inline apply_weight(weight::Weight{-1}, bgc, args, rate) = -weight_product(weight.operands, bgc, args) * rate
 
 """Lean runtime flux term containing only its scientific rate and weight."""
-struct FluxTerm{R,W}
-    rate::R
-    weight::W
+struct FluxTerm{Rate,FluxWeight}
+    rate::Rate
+    weight::FluxWeight
 end
 
 @inline function (term::FluxTerm)(bgc, args)
@@ -107,19 +107,19 @@ end
     return apply_weight(term.weight, bgc, args, rate)
 end
 
-struct StaticFluxEquation{T}
-    terms::T
+struct StaticFluxEquation{Terms}
+    terms::Terms
 end
 
 struct StaticZeroEquation end
 
 @inline (::StaticZeroEquation)(bgc, x, y, z, t, args...) = zero(first(args))
 
-@inline function _sum_fluxes(terms::Tuple{T}, bgc, args) where {T}
+@inline function _sum_fluxes(terms::Tuple{T1}, bgc, args) where {T1}
     return first(terms)(bgc, args)
 end
 
-@inline function _sum_fluxes(terms::Tuple{T,S,Vararg{Any,N}}, bgc, args) where {T,S,N}
+@inline function _sum_fluxes(terms::Tuple{T1,T2,Vararg{Any,N}}, bgc, args) where {T1,T2,N}
     return first(terms)(bgc, args) + _sum_fluxes(Base.tail(terms), bgc, args)
 end
 

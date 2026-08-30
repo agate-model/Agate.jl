@@ -1,9 +1,7 @@
 using ForwardDiff
 
 using Agate.Construction: construct
-using Agate.Library.Nutrients:
-    monod_limitation, normalized_droop_limitation, quota_uptake_regulation
-using Agate.Library.Photosynthesis: smith_light_limitation
+using Agate.Library.Nutrients: monod_limitation, quota_uptake_regulation
 
 @testset "State-aware quota compilation" begin
     definition = quota_definition()
@@ -46,9 +44,15 @@ using Agate.Library.Photosynthesis: smith_light_limitation
         @test getproperty(model_tendencies(bgc, quota_runtime_args(; kwargs...)), state) == 0
     end
 
-    expected_growth(nitrogen, phosphorus) = 0.5 * smith_light_limitation(100.0, 0.05, 0.5) *
-        min(normalized_droop_limitation(nitrogen, 1.0, 0.05, 0.2),
-            normalized_droop_limitation(phosphorus, 1.0, 0.005, 0.02))
+    function expected_growth(nitrogen, phosphorus)
+        light = Agate.Processes.factor_value(Agate.Processes.Smith(), 100.0, 0.5, 0.05)
+        droop = Agate.Processes.NormalizedDroop()
+        quotas = (
+            Agate.Processes.factor_value(droop, nitrogen, 1.0, 0.05, 0.2),
+            Agate.Processes.factor_value(droop, phosphorus, 1.0, 0.005, 0.02),
+        )
+        return 0.5 * light * Agate.Processes.factor_value(Agate.Processes.Liebig(), quotas)
+    end
     for (nitrogen, phosphorus) in ((0.075, 0.019), (0.19, 0.008))
         actual = model_tendencies(
             bgc, quota_runtime_args(; P_1_nitrogen=nitrogen, P_1_phosphorus=phosphorus)

@@ -1,13 +1,15 @@
 """Setup-time context shared by process lowering and static tendency compilation."""
-struct CompileContext{D<:CanonicalModelDefinition,L<:ModelLayout,P<:ParameterPlan}
-    definition::D
-    layout::L
-    plan::P
+struct CompileContext{
+    Definition<:CanonicalModelDefinition,Layout<:ModelLayout,Plan<:ParameterPlan
+}
+    definition::Definition
+    layout::Layout
+    plan::Plan
 end
 
 """Lower one canonical process to generic fluxes.
 
-Custom process implementations may extend this hook through `CanonicalProcess{P}` for a concrete process type.
+Custom process implementations may extend this hook through `CanonicalProcess{Process}` for a concrete process type.
 """
 function process_fluxes(named::CanonicalProcess, context::CompileContext)
     throw(ArgumentError(
@@ -16,10 +18,10 @@ function process_fluxes(named::CanonicalProcess, context::CompileContext)
 end
 
 """Setup-time description of one flux into one concrete tracer."""
-struct FluxSpec{R,W}
+struct FluxSpec{Rate,FluxWeight}
     target::Symbol
-    rate::R
-    weight::W
+    rate::Rate
+    weight::FluxWeight
 end
 
 @inline flux_target(flux::FluxSpec) = flux.target

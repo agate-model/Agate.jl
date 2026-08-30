@@ -154,7 +154,7 @@ function _interaction_parameter_metadata(bgc, kind::Symbol)
         ArgumentError("Interaction parameter :$kind is missing from runtime parameters."),
     )
     matrix = getproperty(bgc.parameters, kind)
-    matrix isa AbstractMatrix || throw(
+    applicable(size, matrix) && length(size(matrix)) == 2 || throw(
         ArgumentError("Interaction parameter :$kind is not stored as a matrix."),
     )
     return matrix, metadata

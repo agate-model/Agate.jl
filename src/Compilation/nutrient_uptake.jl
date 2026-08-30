@@ -1,6 +1,6 @@
 function process_fluxes(
-    named::CanonicalProcess{P}, context::CompileContext
-) where {P<:NutrientUptake}
+    named::CanonicalProcess{Process}, context::CompileContext
+) where {Process<:NutrientUptake}
     process = named.process
     semantic_facts = named.semantic_facts
     layout = context.layout

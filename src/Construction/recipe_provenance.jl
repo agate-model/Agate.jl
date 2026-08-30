@@ -26,6 +26,14 @@ function _git_implementation_is_clean(root)
     end
 end
 
+_sanitize_repository_url(::Nothing) = nothing
+function _sanitize_repository_url(repository::AbstractString)
+    url = String(repository)
+    occursin("://", url) || return url
+    url = replace(url, r"^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]+@" => s"\1")
+    return replace(url, r"[?#].*$" => "")
+end
+
 function _package_provenance(mod::Module)
     root = Base.moduleroot(mod)
     record = Dict{String,Any}("package" => String(nameof(root)))
@@ -34,7 +42,9 @@ function _package_provenance(mod::Module)
 
     package_root = Base.pkgdir(root)
     isnothing(package_root) && return record
-    repository = _git_output(`git -C $package_root config --get remote.origin.url`)
+    repository = _sanitize_repository_url(
+        _git_output(`git -C $package_root config --get remote.origin.url`)
+    )
     commit = _git_implementation_is_clean(package_root) ?
              _git_output(`git -C $package_root rev-parse HEAD`) : nothing
     isnothing(repository) || (record["repository"] = repository)

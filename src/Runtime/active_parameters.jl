@@ -5,10 +5,10 @@ import Adapt
 `base` is the stored parameter value and `p` is the external active parameter
 vector. `slots` maps indices in `base` to entries in `p`.
 """
-struct ActiveParameterArray{B,P,S}
-    base::B
-    p::P
-    slots::S
+struct ActiveParameterArray{BaseArray,ActiveVector,Slots}
+    base::BaseArray
+    p::ActiveVector
+    slots::Slots
 end
 
 @inline Base.length(a::ActiveParameterArray) = length(a.base)
@@ -16,8 +16,8 @@ end
 @inline Base.axes(a::ActiveParameterArray) = axes(a.base)
 @inline Base.eachindex(a::ActiveParameterArray) = eachindex(a.base)
 
-@inline function Base.eltype(::Type{<:ActiveParameterArray{B,P}}) where {B,P}
-    return promote_type(eltype(B), eltype(P))
+@inline function Base.eltype(::Type{<:ActiveParameterArray{BaseArray,ActiveVector}}) where {BaseArray,ActiveVector}
+    return promote_type(eltype(BaseArray), eltype(ActiveVector))
 end
 
 @inline function Base.getindex(a::ActiveParameterArray, indices::Vararg{Int,N}) where {N}
@@ -28,10 +28,10 @@ end
 end
 
 """Parameter container that overrides selected parameter fields from `p`."""
-struct ActiveParameters{B,P,M}
-    base::B
-    p::P
-    map::M
+struct ActiveParameters{BaseParameters,ActiveVector,ActiveMap}
+    base::BaseParameters
+    p::ActiveVector
+    map::ActiveMap
 end
 
 @inline Base.propertynames(ap::ActiveParameters) = propertynames(ap.base)
@@ -57,9 +57,14 @@ end
 end
 
 """Oceananigans/OceanBioME-compatible BGC wrapper with external active parameters."""
-struct ParameterizedBGC{B,P} <: AbstractContinuousFormBiogeochemistry
-    bgc::B
-    parameters::P
+struct ParameterizedBGC{BGC,Parameters} <: AbstractContinuousFormBiogeochemistry
+    bgc::BGC
+    parameters::Parameters
+end
+
+@inline function Base.propertynames(bgc_p::ParameterizedBGC, private::Bool=false)
+    names = propertynames(getfield(bgc_p, :bgc), private)
+    return private ? (:bgc, names...) : names
 end
 
 @inline Base.getproperty(bgc_p::ParameterizedBGC, name::Symbol) = begin
@@ -78,13 +83,13 @@ end
     ParameterizedBGC(Adapt.adapt(to, bgc_p.bgc), Adapt.adapt(to, bgc_p.parameters))
 
 
-@inline function evaluate_tendency(bgc_p::ParameterizedBGC, ::Val{tracer}, args...) where {tracer}
-    equation = getfield(bgc_p.bgc.equations, tracer)
+@inline function evaluate_tendency(bgc_p::ParameterizedBGC, ::Val{Tracer}, args...) where {Tracer}
+    equation = getfield(bgc_p.bgc.equations, Tracer)
     return equation(bgc_p, args...)
 end
 
-@inline function evaluate_tendency(bgc, ::Val{tracer}, args...) where {tracer}
-    equation = getfield(bgc.equations, tracer)
+@inline function evaluate_tendency(bgc, ::Val{Tracer}, args...) where {Tracer}
+    equation = getfield(bgc.equations, Tracer)
     return equation(bgc, args...)
 end
 
@@ -97,10 +102,10 @@ end
 Returned by [`active_parameters`](@ref). `labels` names the flat-vector entries,
 and `values` stores the corresponding values from the BGC used to create the set.
 """
-struct ActiveParameterSet{M,V}
-    map::M
+struct ActiveParameterSet{Map,Values}
+    map::Map
     labels::Tuple{Vararg{String}}
-    values::V
+    values::Values
 end
 
 Base.length(active::ActiveParameterSet) = length(active.values)
@@ -146,9 +151,35 @@ provided, it should be the [`ActiveParameterSet`](@ref) returned by
 [`active_parameters`](@ref).
 """
 function parameterized(bgc, p; active_parameters=nothing)
+    validate_active_parameter_vector(p, active_parameters)
     active_map = active_parameters === nothing ? (;) : active_parameters.map
     parameters = ActiveParameters(bgc.parameters, p, active_map)
     return ParameterizedBGC(bgc, parameters)
+end
+
+function validate_active_parameter_vector(p, active_parameters)
+    nactive = active_parameters === nothing ? 0 : length(active_parameters)
+
+    if p === nothing
+        nactive == 0 || throw(ArgumentError(
+            "`p` must be provided when `active_parameters` selects $nactive parameter$(nactive == 1 ? "" : "s")."
+        ))
+        return nothing
+    end
+
+    p isa AbstractVector || throw(ArgumentError(
+        "`p` must be a flat AbstractVector; got $(typeof(p))."
+    ))
+    if nactive == 0
+        isempty(p) || throw(ArgumentError(
+            "`p` is non-empty but no active parameters were selected."
+        ))
+    elseif length(p) != nactive
+        throw(ArgumentError(
+            "`p` has length $(length(p)); expected $nactive active parameter$(nactive == 1 ? "" : "s")."
+        ))
+    end
+    return nothing
 end
 
 function active_parameter_map!(labels, values, bgc, path::Tuple, container, selections::NamedTuple, active_index)
@@ -216,6 +247,9 @@ is_pair_selection(item) = item isa Tuple && length(item) == 2 && item[1] isa Sym
 path_label(path::Tuple) = join(string.(path), ".")
 
 function vector_active_parameter_entry!(labels, values, bgc, path::Tuple, value, selection::Tuple, active_index)
+    allunique(selection) || throw(ArgumentError(
+        "Vector active selector for $(path_label(path)) contains duplicate entities."
+    ))
     value isa AbstractVector || throw(ArgumentError(
         "Vector active selector for $(path_label(path)) is not supported because the stored parameter is not a vector."
     ))
@@ -230,6 +264,9 @@ function vector_active_parameter_entry!(labels, values, bgc, path::Tuple, value,
 end
 
 function matrix_active_parameter_entry!(labels, values, bgc, path::Tuple, value, selection::Tuple, active_index)
+    allunique(selection) || throw(ArgumentError(
+        "Matrix active selector for $(path_label(path)) contains duplicate row-column pairs."
+    ))
     value isa AbstractMatrix || throw(ArgumentError(
         "Matrix active selector for $(path_label(path)) is not supported because the stored parameter is not a matrix."
     ))

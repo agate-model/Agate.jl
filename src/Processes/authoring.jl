@@ -38,10 +38,18 @@ struct FactorizedGrowth <: AbstractFormulation end
 """Abstract supertype for named multiplicative process-rate factors."""
 abstract type AbstractFactor end
 
-"""Living-prey grazing formulation with consumer-by-prey palatability and assimilation."""
+"""Living-prey grazing formulation with pairwise consumer-resource capacity.
+
+`maximum_rate` is a per-consumer rate applied independently to each declared prey edge, so
+each edge receives the full per-consumer rate.
+"""
 struct PreferentialGrazing <: AbstractFormulation end
 
-"""Heterotrophic resource-consumption formulation without living-prey interaction weights."""
+"""Heterotrophic resource-consumption formulation with pairwise consumer-resource capacity.
+
+`maximum_rate` is a per-consumer rate applied independently to each declared resource edge, so
+each edge receives the full per-consumer rate.
+"""
 struct HeterotrophicConsumption <: AbstractFormulation end
 
 """Linear plankton-mortality formulation."""
@@ -115,8 +123,8 @@ function _canonical_participants(role::Symbol, values)
 end
 
 """Light-dependent multiplicative Growth factor using the Growth rate scale."""
-struct Light{F<:Union{Smith,Geider}} <: AbstractFactor
-    formulation::F
+struct Light{Formulation<:Union{Smith,Geider}} <: AbstractFactor
+    formulation::Formulation
     driver::Symbol
     bindings::NamedTuple
 end
@@ -133,8 +141,8 @@ authored_parameter_bindings(factor::Light) = factor.bindings
 
 The factor reads an environmental Pool but does not define process material transfer.
 """
-struct NutrientResponse{F<:Monod} <: AbstractFactor
-    formulation::F
+struct NutrientResponse{Formulation<:Monod} <: AbstractFactor
+    formulation::Formulation
     resource::Symbol
     bindings::NamedTuple
 end
@@ -152,8 +160,8 @@ authored_parameter_bindings(factor::NutrientResponse) = factor.bindings
 `variable_state` identifies the internal inventory whose quota varies relative to the
 Growth plankton's intrinsic reference state.
 """
-struct QuotaResponse{F<:NormalizedDroop} <: AbstractFactor
-    formulation::F
+struct QuotaResponse{Formulation<:NormalizedDroop} <: AbstractFactor
+    formulation::Formulation
     variable_state::Symbol
     bindings::NamedTuple
 end
@@ -169,8 +177,8 @@ end
 authored_parameter_bindings(factor::QuotaResponse) = factor.bindings
 
 """Temperature-dependent multiplicative process-rate factor."""
-struct Temperature{F<:Q10} <: AbstractFactor
-    formulation::F
+struct Temperature{Formulation<:Q10} <: AbstractFactor
+    formulation::Formulation
     driver::Symbol
     bindings::NamedTuple
 end
@@ -196,21 +204,23 @@ identity represented by that response (for example, `nitrogen=...`). Both modify
 only; material transfer is owned by the process itself, so external and internal responses may
 be combined within one `NutrientLimitation` factor.
 """
-struct NutrientLimitation{F<:Union{Liebig,FrankTNorm},R<:NamedTuple} <: AbstractFactor
-    formulation::F
-    responses::R
+struct NutrientLimitation{
+    Formulation<:Union{Liebig,FrankTNorm},Responses<:NamedTuple
+} <: AbstractFactor
+    formulation::Formulation
+    responses::Responses
     bindings::NamedTuple
 
     function NutrientLimitation(
-        formulation::F, responses::R, bindings::NamedTuple
-    ) where {F<:Union{Liebig,FrankTNorm},R<:NamedTuple}
+        formulation::Formulation, responses::Responses, bindings::NamedTuple
+    ) where {Formulation<:Union{Liebig,FrankTNorm},Responses<:NamedTuple}
         isempty(responses) && throw(ArgumentError("nutrient `responses` cannot be empty"))
         all(
             response -> response isa Union{NutrientResponse,QuotaResponse}, values(responses)
         ) || throw(ArgumentError(
             "nutrient `responses` values must be NutrientResponse or QuotaResponse factors",
         ))
-        return new{F,R}(formulation, responses, bindings)
+        return new{Formulation,Responses}(formulation, responses, bindings)
     end
 end
 
@@ -270,10 +280,10 @@ fraction is omitted, that product receives the exact conservative remainder
 directly and setup requires their sum to equal one within floating-point tolerance. A single
 product requires no fractions.
 """
-struct Products{T,F,S}
-    destinations::T
-    fractions::F
-    stoichiometry::S
+struct Products{Destinations,Fractions,Stoichiometry}
+    destinations::Destinations
+    fractions::Fractions
+    stoichiometry::Stoichiometry
 end
 
 function _canonical_product_destination(destination)
@@ -379,12 +389,12 @@ end
 `FixedStoichiometry`. Factors modify growth rate only; independently prognostic elemental
 states are supplied through [`NutrientUptake`](@ref).
 """
-struct Growth{F<:NamedTuple,R<:NamedTuple,S} <: AbstractProcess
+struct Growth{Factors<:NamedTuple,AdditionalResources<:NamedTuple,Stoichiometry} <: AbstractProcess
     plankton::Tuple
-    factors::F
+    factors::Factors
     reference_resource::Symbol
-    additional_resources::R
-    stoichiometry::S
+    additional_resources::AdditionalResources
+    stoichiometry::Stoichiometry
     bindings::NamedTuple
 end
 
@@ -419,8 +429,8 @@ authored_parameter_bindings(process::Growth) = process.bindings
 The plankton reference state scales uptake capacity but is not itself transferred. Parameter
 bindings are explicit because quota bounds are commonly shared with `QuotaResponse`.
 """
-struct NutrientUptake{F<:QuotaRegulatedMonod} <: AbstractProcess
-    formulation::F
+struct NutrientUptake{Formulation<:QuotaRegulatedMonod} <: AbstractProcess
+    formulation::Formulation
     plankton::Symbol
     target_state::Symbol
     resource::Symbol
@@ -443,15 +453,21 @@ authored_parameter_bindings(process::NutrientUptake) = process.bindings
 
 """Consumer-resource process with optional factors and unassimilated products.
 
-When one living-prey consumption process routes multi-element unassimilated products from
-multiple resources, those resources currently must expose the same prognostic Element set.
+The formulation `maximum_rate` is pairwise capacity: one consumer's rate is applied
+independently to each declared consumer-resource edge. When one living-prey consumption process
+routes multi-element unassimilated products from multiple resources, those resources currently
+must expose the same prognostic Element set.
 """
-struct Consumption{F<:Union{PreferentialGrazing,HeterotrophicConsumption},A<:NamedTuple,P} <: AbstractProcess
-    formulation::F
+struct Consumption{
+    Formulation<:Union{PreferentialGrazing,HeterotrophicConsumption},
+    Factors<:NamedTuple,
+    ProductRouting,
+} <: AbstractProcess
+    formulation::Formulation
     consumers::Tuple
     resources::Tuple
-    factors::A
-    products::P
+    factors::Factors
+    products::ProductRouting
     bindings::NamedTuple
 end
 
@@ -479,10 +495,10 @@ authored_parameter_bindings(process::Consumption) = process.bindings
 When one mortality process routes multi-element products from multiple plankton, those
 plankton currently must expose the same prognostic Element set.
 """
-struct Mortality{F<:Union{LinearMortality,QuadraticMortality},P} <: AbstractProcess
-    formulation::F
+struct Mortality{Formulation<:Union{LinearMortality,QuadraticMortality},ProductRouting} <: AbstractProcess
+    formulation::Formulation
     plankton::Tuple
-    products::P
+    products::ProductRouting
     bindings::NamedTuple
 end
 
@@ -502,8 +518,8 @@ end
 authored_parameter_bindings(process::Mortality) = process.bindings
 
 """Source-to-destination remineralization process."""
-struct Remineralization{F<:LinearRemineralization} <: AbstractProcess
-    formulation::F
+struct Remineralization{Formulation<:LinearRemineralization} <: AbstractProcess
+    formulation::Formulation
     sources::Tuple
     destination::Symbol
     bindings::NamedTuple
@@ -560,10 +576,10 @@ participants(process::Remineralization) =
 # Model definition
 
 """Author-facing scientific model definition."""
-struct ModelDefinition{C,P,A}
-    components::C
-    processes::P
-    parameters::A
+struct ModelDefinition{ComponentMap,ProcessMap,ParameterDefinitions}
+    components::ComponentMap
+    processes::ProcessMap
+    parameters::ParameterDefinitions
 end
 
 function ModelDefinition(; components::NamedTuple, processes::NamedTuple, parameters=nothing)

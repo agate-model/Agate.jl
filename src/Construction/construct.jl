@@ -26,8 +26,8 @@ function on_architecture(arch, x)
 end
 
 function on_architecture(
-    arch, bgc::AgateBGC{PT,EQ,SV,MD,AF}
-) where {PT,EQ,SV,MD,AF}
+    arch, bgc::AgateBGC{Parameters,Equations,SinkingVelocities,Metadata,AuxiliaryFields}
+) where {Parameters,Equations,SinkingVelocities,Metadata,AuxiliaryFields}
     arch === nothing && return bgc
     arch isa CPU && return bgc
 
@@ -36,7 +36,7 @@ function on_architecture(
     return AgateBGC(
         adapt(to, bgc.parameters),
         adapt(to, bgc.equations),
-        AF,
+        AuxiliaryFields,
         adapt(to, bgc.sinking_velocities),
         bgc.metadata,
     )
@@ -79,6 +79,30 @@ function convert_sinking_tracers(::Type{T}, sinking_tracers::NamedTuple) where {
     )
 end
 
+function validate_sinking_tracers(sinking_tracers, layout)
+    isnothing(sinking_tracers) && return nothing
+    sinking_tracers isa NamedTuple || throw(ArgumentError(
+        "sinking_tracers must be a NamedTuple mapping realized tracer names to nonnegative finite speeds."
+    ))
+
+    realized = Set(layout.tracer_order)
+    for (tracer, speed) in pairs(sinking_tracers)
+        tracer in realized || throw(ArgumentError(
+            "Unknown sinking tracer :$tracer; expected a realized tracer in $(layout.tracer_order)."
+        ))
+        speed isa Real && !(speed isa Bool) || throw(ArgumentError(
+            "Sinking speed for :$tracer must be a real number; got $(repr(speed))."
+        ))
+        isfinite(speed) || throw(ArgumentError(
+            "Sinking speed for :$tracer must be finite; got $(repr(speed))."
+        ))
+        speed >= zero(speed) || throw(ArgumentError(
+            "Sinking speed for :$tracer must be nonnegative; got $(repr(speed))."
+        ))
+    end
+    return nothing
+end
+
 """Normalize named-family `(n=0,)` shorthand to one implicit SizeClass (`nothing`)."""
 @inline function normalize_pft_size_structure(specification)
     specification isa NamedTuple || return specification
@@ -117,7 +141,6 @@ function _construct_process_definition(
         grid = BoxModelGrid()
     end
     T = resolve_construction_scalar_type(grid, scalar_type)
-    sinking_tracers = convert_sinking_tracers(T, sinking_tracers)
 
     if !isnothing(grid)
         arch_grid = architecture(grid)
@@ -143,6 +166,9 @@ function _construct_process_definition(
     layout = _realize_process_definition(
         canonical, T; plankton_pfts, auxiliary_fields
     )
+    validate_sinking_tracers(sinking_tracers, layout)
+    sinking_tracers = convert_sinking_tracers(T, sinking_tracers)
+    validate_sinking_tracers(sinking_tracers, layout)
     tracer_names = layout.tracer_order
     parameter_plan = build_parameter_plan(canonical, layout)
     required = Tuple(keys(parameter_plan.parameters))

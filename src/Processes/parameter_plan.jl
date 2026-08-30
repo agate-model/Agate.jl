@@ -1,18 +1,18 @@
 """One model parameter after layout-dependent realization."""
-struct PlannedParameter{D,A,S,L,M}
+struct PlannedParameter{Definition,Axes,StorageShape,StorageLabels,StorageDiameters}
     name::Symbol
-    definition::D
+    definition::Definition
     rank::Int
-    axes::A
-    storage_shape::S
-    storage_labels::L
-    storage_diameters::M
+    axes::Axes
+    storage_shape::StorageShape
+    storage_labels::StorageLabels
+    storage_diameters::StorageDiameters
     runtime_bound::Bool
 end
 
 """Single host-side realization of parameter storage and runtime eligibility."""
-struct ParameterPlan{P}
-    parameters::P
+struct ParameterPlan{Parameters}
+    parameters::Parameters
 end
 
 _parameter_axis_entities(bindings::Tuple, binding_entities::Tuple, name::Symbol) = Tuple(

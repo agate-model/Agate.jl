@@ -11,11 +11,11 @@ import Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers
 
 """Concrete Oceananigans biogeochemistry built from static compiled equations."""
-struct AgateBGC{PT,EQ,SV,MD,AF} <: AbstractContinuousFormBiogeochemistry
-    parameters::PT
-    equations::EQ
-    sinking_velocities::SV
-    metadata::MD
+struct AgateBGC{Parameters,Equations,SinkingVelocities,Metadata,AuxiliaryFields} <: AbstractContinuousFormBiogeochemistry
+    parameters::Parameters
+    equations::Equations
+    sinking_velocities::SinkingVelocities
+    metadata::Metadata
 end
 
 function AgateBGC(parameters, equations::NamedTuple, auxiliary_fields::Tuple, sinking_velocities, metadata)
@@ -25,15 +25,15 @@ function AgateBGC(parameters, equations::NamedTuple, auxiliary_fields::Tuple, si
 end
 
 @inline function Adapt.adapt_structure(
-    to, bgc::AgateBGC{PT,EQ,SV,MD,AF}
-) where {PT,EQ,SV,MD,AF}
+    to, bgc::AgateBGC{Parameters,Equations,SinkingVelocities,Metadata,AuxiliaryFields}
+) where {Parameters,Equations,SinkingVelocities,Metadata,AuxiliaryFields}
     # `metadata` is host-side introspection/setup state. Device kernel copies must not
     # carry Symbol-valued metadata because GPU kernel arguments must be bitstypes.
     adapted_metadata = to === identity ? bgc.metadata : nothing
     return AgateBGC(
         Adapt.adapt(to, bgc.parameters),
         Adapt.adapt(to, bgc.equations),
-        AF,
+        AuxiliaryFields,
         Adapt.adapt(to, bgc.sinking_velocities),
         adapted_metadata,
     )
@@ -45,20 +45,22 @@ end
     required_biogeochemical_tracers(bgc.bgc)
 
 @inline function required_biogeochemical_tracers(
-    ::Type{<:AgateBGC{PT,EQ}}
-) where {PT,EQ<:NamedTuple}
-    return fieldnames(EQ)
+    ::Type{<:AgateBGC{Parameters,Equations}}
+) where {Parameters,Equations<:NamedTuple}
+    return fieldnames(Equations)
 end
 
-@inline required_biogeochemical_auxiliary_fields(::AgateBGC{PT,EQ,SV,MD,AF}) where {PT,EQ,SV,MD,AF} = AF
+@inline required_biogeochemical_auxiliary_fields(
+    ::AgateBGC{Parameters,Equations,SinkingVelocities,Metadata,AuxiliaryFields}
+) where {Parameters,Equations,SinkingVelocities,Metadata,AuxiliaryFields} = AuxiliaryFields
 
 @inline required_biogeochemical_auxiliary_fields(bgc::ParameterizedBGC) =
     required_biogeochemical_auxiliary_fields(bgc.bgc)
 
 @inline function required_biogeochemical_auxiliary_fields(
-    ::Type{<:AgateBGC{PT,EQ,SV,MD,AF}}
-) where {PT,EQ,SV,MD,AF}
-    return AF
+    ::Type{<:AgateBGC{Parameters,Equations,SinkingVelocities,Metadata,AuxiliaryFields}}
+) where {Parameters,Equations,SinkingVelocities,Metadata,AuxiliaryFields}
+    return AuxiliaryFields
 end
 
 @inline function (bgc::AgateBGC)(val_name::Val, args...)
@@ -69,14 +71,14 @@ end
     return biogeochemical_drift_velocity(bgc.bgc, val_name)
 end
 
-@inline function biogeochemical_drift_velocity(bgc::AgateBGC, ::Val{tracer}) where {tracer}
+@inline function biogeochemical_drift_velocity(bgc::AgateBGC, ::Val{Tracer}) where {Tracer}
     sv = bgc.sinking_velocities
     if sv === nothing
         return (u=ZeroField(), v=ZeroField(), w=ZeroField())
     end
 
-    if hasproperty(sv, tracer)
-        return (u=ZeroField(), v=ZeroField(), w=getproperty(sv, tracer))
+    if hasproperty(sv, Tracer)
+        return (u=ZeroField(), v=ZeroField(), w=getproperty(sv, Tracer))
     end
 
     return (u=ZeroField(), v=ZeroField(), w=ZeroField())

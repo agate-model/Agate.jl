@@ -1,4 +1,4 @@
-export DefaultProvider
+export AbstractDefaultProvider
 export Parameter
 export ConstructionParameter
 export parameter_definitions
@@ -13,7 +13,7 @@ Default providers are evaluated on the host during model construction.
 They must produce concrete numeric values (scalars, vectors, matrices) that can
 later be moved to a GPU architecture via `Adapt`.
 """
-abstract type DefaultProvider end
+abstract type AbstractDefaultProvider end
 
 """A literal parameter default.
 
@@ -21,8 +21,8 @@ Scalar parameters use the literal value directly after conversion to the constru
 scalar type. Vector and matrix parameters fill their resolved storage extent with the
 literal value.
 """
-struct ConstantDefault{T} <: DefaultProvider
-    value::T
+struct ConstantDefault{Value} <: AbstractDefaultProvider
+    value::Value
 end
 
 """A runtime model parameter whose storage is determined by scientific process slots.
@@ -31,8 +31,8 @@ The stable parameter name is the key in the enclosing `parameters` NamedTuple. S
 vector, and matrix storage are inferred from the slots that bind the parameter and their
 realized process applicability; process slots therefore determine the storage axes.
 """
-struct Parameter{D<:DefaultProvider}
-    default::D
+struct Parameter{Default<:AbstractDefaultProvider}
+    default::Default
 end
 
 """Define a runtime parameter with a literal constant default."""
@@ -44,19 +44,19 @@ Parameter(default) = Parameter(ConstantDefault(default))
 biogeochemistry. Shaped construction parameters use `axes=:plankton`; omitting `axes` defines a
 scalar construction parameter.
 """
-struct ConstructionParameter{D<:DefaultProvider,A}
-    default::D
-    axes::A
+struct ConstructionParameter{Default<:AbstractDefaultProvider,Axes}
+    default::Default
+    axes::Axes
 end
 
 function ConstructionParameter(
-    default::D;
+    default::Default;
     axes=nothing,
-) where {D<:DefaultProvider}
+) where {Default<:AbstractDefaultProvider}
     (isnothing(axes) || axes === :plankton) || throw(
         ArgumentError("ConstructionParameter axes must be `nothing` or `:plankton`"),
     )
-    return ConstructionParameter{D,typeof(axes)}(default, axes)
+    return ConstructionParameter{Default,typeof(axes)}(default, axes)
 end
 
 """Define a construction-only parameter with a literal constant default."""
@@ -75,9 +75,9 @@ runtime parameters and/or construction-only [`ConstructionParameter`](@ref)
 values available to the derivation. Derived defaults are evaluated once after direct
 defaults and explicit overrides are materialized.
 """
-struct DerivedDefault{D,P<:Tuple} <: DefaultProvider
-    deriver::D
-    deps::P
+struct DerivedDefault{Deriver,Dependencies<:Tuple} <: AbstractDefaultProvider
+    deriver::Deriver
+    deps::Dependencies
 end
 
 function DerivedDefault(deriver; deps=())
@@ -109,7 +109,7 @@ end
 
 The parameter must be supplied by an override before construction can complete.
 """
-struct NoDefault <: DefaultProvider end
+struct NoDefault <: AbstractDefaultProvider end
 
 """Default provider for a diameter-indexed vector parameter.
 
@@ -117,9 +117,9 @@ The provider materializes `value` over the parameter's realized storage labels. 
 slot-bound [`Parameter`](@ref) values those labels come from process applicability; for a
 [`ConstructionParameter`](@ref) they come from its explicit construction axis.
 """
-struct DiameterIndexedVectorDefault{V,T} <: DefaultProvider
-    value::V
-    default::T
+struct DiameterIndexedVectorDefault{Value,Fallback} <: AbstractDefaultProvider
+    value::Value
+    default::Fallback
 end
 
 DiameterIndexedVectorDefault(value; default) = DiameterIndexedVectorDefault(value, default)

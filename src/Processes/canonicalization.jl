@@ -4,16 +4,18 @@
 contains dense references into the canonical model's ordered parameter-binding tuple, arranged
 alongside the process/factor/product structure so lowering never reconstructs scientific paths.
 """
-struct CanonicalProcess{P<:AbstractProcess,F,R}
+struct CanonicalProcess{Process<:AbstractProcess,SemanticFacts,BindingRefs}
     id::Symbol
-    process::P
-    semantic_facts::F
-    binding_refs::R
+    process::Process
+    semantic_facts::SemanticFacts
+    binding_refs::BindingRefs
 end
 
-CanonicalProcess(id::Symbol, process::P) where {P<:AbstractProcess} =
+CanonicalProcess(id::Symbol, process::Process) where {Process<:AbstractProcess} =
     CanonicalProcess(id, process, NamedTuple(), NamedTuple())
-CanonicalProcess(id::Symbol, process::P, semantic_facts::F) where {P<:AbstractProcess,F} =
+CanonicalProcess(
+    id::Symbol, process::Process, semantic_facts::SemanticFacts
+) where {Process<:AbstractProcess,SemanticFacts} =
     CanonicalProcess(id, process, semantic_facts, NamedTuple())
 
 """Return the stable identity of a canonical process."""
@@ -207,12 +209,14 @@ end
 processes carry dense references into this tuple so setup and lowering do not maintain a
 second path-key lookup representation.
 """
-struct CanonicalModelDefinition{C,P,A,D,B}
-    components::C
-    processes::P
-    parameters::A
-    driver_identities::D
-    parameter_bindings::B
+struct CanonicalModelDefinition{
+    ComponentMap,ProcessMap,ParameterDefinitions,DriverIdentities,ParameterBindings
+}
+    components::ComponentMap
+    processes::ProcessMap
+    parameters::ParameterDefinitions
+    driver_identities::DriverIdentities
+    parameter_bindings::ParameterBindings
 end
 
 """Return the canonical external-driver identities required by a canonical model."""

@@ -13,9 +13,9 @@ matrix values respectively. `qualify` identifies repeated semantic instances wit
 changing storage dimensionality. For a scalar slot, a qualifier that is also a process
 participant role provides ecological applicability without becoming a storage axis.
 """
-struct ParameterSlot{A<:Tuple}
+struct ParameterSlot{Axes<:Tuple}
     name::Symbol
-    axes::A
+    axes::Axes
     qualify::Union{Nothing,Symbol}
 end
 
@@ -85,9 +85,9 @@ parameter_slots(::FixedStoichiometry) = (ParameterSlot(:ratio; qualify=:element)
 `axis_components` records the already-resolved participant components that determine realized
 ecological applicability.
 """
-struct ParameterBinding{A,C}
-    axes::A
-    axis_components::C
+struct ParameterBinding{Axes,AxisComponents}
+    axes::Axes
+    axis_components::AxisComponents
     parameter::Symbol
 end
 

@@ -1,6 +1,6 @@
 function process_fluxes(
-    named::CanonicalProcess{P}, context::CompileContext
-) where {P<:Remineralization}
+    named::CanonicalProcess{Process}, context::CompileContext
+) where {Process<:Remineralization}
     process = named.process
     layout = context.layout
     destination = _scalar_component_target(layout, process.destination)

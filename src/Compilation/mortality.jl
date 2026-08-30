@@ -15,8 +15,8 @@ function _mortality_rate(
 end
 
 function process_fluxes(
-    named::CanonicalProcess{P}, context::CompileContext
-) where {P<:Mortality}
+    named::CanonicalProcess{Process}, context::CompileContext
+) where {Process<:Mortality}
     process = named.process
     layout = context.layout
     fluxes = Any[]

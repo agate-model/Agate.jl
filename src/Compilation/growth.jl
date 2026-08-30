@@ -43,8 +43,8 @@ end
 
 """Derive biomass-gain and resource-loss fluxes for factorized growth."""
 function process_fluxes(
-    named::CanonicalProcess{P}, context::CompileContext
-) where {P<:Growth}
+    named::CanonicalProcess{Process}, context::CompileContext
+) where {Process<:Growth}
     layout = context.layout
     participants = _realize_participants(named.semantic_facts.plankton_states, layout)
     scale_ref = named.binding_refs.process.maximum_rate

@@ -8,8 +8,8 @@ function family_id(family::AbstractModelFamily)
 end
 
 """Return the registered model-family token identified by `family`."""
-function registered_family(::Val{family}) where {family}
-    throw(ArgumentError("Unsupported recipe model family $(repr(String(family)))."))
+function registered_family(::Val{Family}) where {Family}
+    throw(ArgumentError("Unsupported recipe model family $(repr(String(Family)))."))
 end
 
 """Versioned registered-family recipe captured before runtime realization.
@@ -19,12 +19,12 @@ end
 part of recipe identity. Components, processes, parameter definitions, runtime precision, host
 fields, and compiled equations are supplied by the loaded family implementation on replay.
 """
-struct ModelRecipe{G,P,S}
+struct ModelRecipe{PlanktonPFTs,ParameterOverrides,SinkingTracers}
     family::Symbol
     definition_version::VersionNumber
-    plankton_pfts::G
-    parameter_overrides::P
-    sinking_tracers::S
+    plankton_pfts::PlanktonPFTs
+    parameter_overrides::ParameterOverrides
+    sinking_tracers::SinkingTracers
     open_bottom::Bool
 end
 
@@ -35,16 +35,25 @@ tracer ordering, interaction sources, sinking configuration, and scalar type. It
 an in-memory record of the constructed model state; durable replay is defined by the
 corresponding recipe representation.
 """
-struct ModelManifest{P,G,TR,A,D,I,S,T<:Real}
-    parameters::P
-    pft_entities::G
-    tracer_order::TR
-    auxiliary_fields::A
-    plankton_diameters::D
-    interaction_matrix_sources::I
-    sinking_tracers::S
+struct ModelManifest{
+    Parameters,
+    PFTEntities,
+    TracerOrder,
+    AuxiliaryFields,
+    PlanktonDiameters,
+    InteractionMatrixSources,
+    SinkingTracers,
+    ScalarType<:Real,
+}
+    parameters::Parameters
+    pft_entities::PFTEntities
+    tracer_order::TracerOrder
+    auxiliary_fields::AuxiliaryFields
+    plankton_diameters::PlanktonDiameters
+    interaction_matrix_sources::InteractionMatrixSources
+    sinking_tracers::SinkingTracers
     open_bottom::Bool
-    scalar_type::Type{T}
+    scalar_type::Type{ScalarType}
 end
 
 function _structural_isequal(a, b)

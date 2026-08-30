@@ -353,6 +353,10 @@ using Oceananigans.Biogeochemistry:
         @test biogeochemical_drift_velocity(bgc, Val(:P_2)).w.data[1, 1, 1] == -0.5 / day
         @test biogeochemical_drift_velocity(bgc, Val(:D)).w.data[1, 1, 1] == -2.7489 / day
         @test biogeochemical_drift_velocity(bgc, Val(:Z_1)).w == ZeroField()
+
+        for invalid in ((not_a_tracer=1.0,), (D=-1.0,), (D=Inf,), (D=true,))
+            @test_throws ArgumentError NiPiZD.construct(; sinking_tracers=invalid)
+        end
     end
 
     # Loading CUDA can fail hard in misconfigured environments, so GPU execution is

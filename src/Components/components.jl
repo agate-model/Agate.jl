@@ -6,12 +6,14 @@ biological reference basis. Elemental bookkeeping is inferred centrally by [`sta
 non-elemental states such as `:chlorophyll` return `nothing`.
 
 """
-struct Plankton{ST<:Tuple,S}
-    states::ST
+struct Plankton{States<:Tuple,SizeStructure}
+    states::States
     reference_state::Symbol
-    size_structure::S
+    size_structure::SizeStructure
 
-    function Plankton(states::ST, reference_state::Symbol, size_structure::S) where {ST<:Tuple,S}
+    function Plankton(
+        states::States, reference_state::Symbol, size_structure::SizeStructure
+    ) where {States<:Tuple,SizeStructure}
         isempty(states) && throw(ArgumentError("Plankton must define at least one state."))
         all(state -> state isa Symbol, states) || throw(
             ArgumentError("Plankton `states` must contain only Symbols."),
@@ -22,7 +24,7 @@ struct Plankton{ST<:Tuple,S}
         reference_state in states || throw(
             ArgumentError("Plankton `reference_state` must be one of its declared states."),
         )
-        return new{ST,S}(states, reference_state, size_structure)
+        return new{States,SizeStructure}(states, reference_state, size_structure)
     end
 end
 

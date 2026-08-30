@@ -3,6 +3,14 @@
     linear_loss(inventory, coefficient)
 @inline process_rate(::QuadraticMortality, inventory, reference, coefficient) =
     coefficient * reference * inventory
+
+"""Evaluate a factor from its authoritative semantic operand order.
+
+Compiled factor lowering assembles operands to this contract; direct/compiled parity tests cover
+every built-in factor formulation.
+"""
+function factor_value end
+
 @inline factor_value(::Smith, light, maximum_rate, alpha) =
     smith_light_limitation(light, alpha, maximum_rate)
 
