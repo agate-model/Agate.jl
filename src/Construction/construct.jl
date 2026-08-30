@@ -73,8 +73,9 @@ end
 
 convert_sinking_tracers(::Type{T}, ::Nothing) where {T<:Real} = nothing
 function convert_sinking_tracers(::Type{T}, sinking_tracers::NamedTuple) where {T<:Real}
-    return NamedTuple{keys(sinking_tracers)}(
-        Tuple(convert(T, velocity) for velocity in values(sinking_tracers))
+    names = Tuple(sort!(collect(keys(sinking_tracers)); by=String))
+    return NamedTuple{names}(
+        Tuple(convert(T, getproperty(sinking_tracers, name)) for name in names)
     )
 end
 

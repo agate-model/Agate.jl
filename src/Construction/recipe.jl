@@ -15,9 +15,9 @@ end
 """Versioned registered-family recipe captured before runtime realization.
 
 `ModelRecipe` stores only the registered family identity, its exact scientific
-`definition_version`, and canonical construction inputs. Components, processes, parameter
-definitions, runtime precision, host fields, and compiled equations are supplied by the
-loaded family implementation when the recipe is replayed.
+`definition_version`, and canonical construction inputs. Named mapping insertion order is not
+part of recipe identity. Components, processes, parameter definitions, runtime precision, host
+fields, and compiled equations are supplied by the loaded family implementation on replay.
 """
 struct ModelRecipe{G,P,S}
     family::Symbol

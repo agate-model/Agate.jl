@@ -669,7 +669,11 @@ function _resolve_parameter_definitions(definitions)
         ArgumentError("model parameters must contain only Parameter or ConstructionParameter values"),
     )
 
-    definition_set = Set(keys(definitions))
+    names = Tuple(sort!(collect(keys(definitions)); by=String))
+    definitions = NamedTuple{names}(
+        Tuple(getproperty(definitions, name) for name in names)
+    )
+    definition_set = Set(names)
 
     dependency_names = Set{Symbol}()
     for (name, parameter) in pairs(definitions)
@@ -771,9 +775,9 @@ end
 
 """Canonicalize process identity and resolve inline parameter bindings.
 
-Process instances are canonicalized by stable process ID, so declaration order does
-not change canonical scientific identity. Component order is preserved within component kinds;
-`ModelLayout` realizes scalar Pools first and then Plankton in authored component order. Local
+Process instances and parameter definitions are canonicalized by stable identity, so their
+declaration order does not change canonical scientific identity. Component order is preserved
+within component kinds because `ModelLayout` exposes concrete runtime tracer order. Local
 formulation slots bind directly to stable model parameter names during canonicalization.
 """
 function canonicalize_model(definition::ModelDefinition)

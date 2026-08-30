@@ -88,10 +88,19 @@ explicit_json_value(::Any) = false
 
     mapping_a = (P=(small=[2.0, 1.0], large=[3.0]), Z=(Z=[10.0],))
     mapping_b = (Z=(Z=[10.0],), P=(large=[3.0], small=[1.0, 2.0]))
-    recipe_a = Agate.Construction.capture_model_recipe(family; plankton_pfts=mapping_a)
-    recipe_b = Agate.Construction.capture_model_recipe(family; plankton_pfts=mapping_b)
+    overrides_a = (alpha=(small_2=0.3,), maximum_growth_rate=(large_1=1.0e-5, small_1=2.0e-5))
+    overrides_b = (maximum_growth_rate=(small_1=2.0e-5, large_1=1.0e-5), alpha=(small_2=0.3,))
+    sinking_a = (large_1=0.1, D=2.0)
+    sinking_b = (D=2.0, large_1=0.1)
+    recipe_a = Agate.Construction.capture_model_recipe(
+        family; plankton_pfts=mapping_a, parameter_overrides=overrides_a, sinking_tracers=sinking_a
+    )
+    recipe_b = Agate.Construction.capture_model_recipe(
+        family; plankton_pfts=mapping_b, parameter_overrides=overrides_b, sinking_tracers=sinking_b
+    )
     @test recipe_a == recipe_b
     @test encode_recipe(recipe_a)["content_hash"] == encode_recipe(recipe_b)["content_hash"]
+    @test nipizd_manifest(recipe_a) == nipizd_manifest(recipe_b)
 
     @test manifest.pft_entities == (
         diat=(:diat_1, :diat_2),
@@ -130,7 +139,7 @@ explicit_json_value(::Any) = false
     replayed_drift = biogeochemical_drift_velocity(replayed, Val(:D))
     @test replayed_drift.w.data == original_drift.w.data
 
-    # Identical ordered inputs produce deterministic scientific identity independent of runtime precision.
+    # Identical scientific inputs produce deterministic identity independent of runtime precision.
     _, recipe_f32 = NiPiZD.construct_plus_recipe(;
         grid=BoxModelGrid(Float32), sinking_tracers=(D=2.5 / 86400,), open_bottom=false
     )
@@ -205,18 +214,10 @@ explicit_json_value(::Any) = false
         pop!(x["realization"]["plankton_pfts"])
     end
     invalid_law = rehashed(encoded) do x
-        override = only(
-            entry for entry in x["realization"]["parameter_overrides"]
-            if entry["name"] == "linear_mortality"
-        )
-        override["value"]["law"] = "unknown"
+        x["realization"]["parameter_overrides"]["linear_mortality"]["law"] = "unknown"
     end
     invalid_matrix = rehashed(encoded) do x
-        override = only(
-            entry for entry in x["realization"]["parameter_overrides"]
-            if entry["name"] == "palatability_matrix"
-        )
-        override["value"][2] = [0.3]
+        x["realization"]["parameter_overrides"]["palatability_matrix"][2] = [0.3]
     end
     for document in (invalid_schema, invalid_realization, invalid_law, invalid_matrix)
         @test_throws ArgumentError decode_recipe(document)

@@ -101,13 +101,16 @@ end
 _encode_parameter_value(x::AbstractFloat) = _finite_float(x)
 _encode_parameter_value(x::Symbol) = Dict{String,Any}("kind" => "symbol", "value" => String(x))
 
+function _encode_named_parameter_values(values::NamedTuple)
+    return Dict{String,Any}(
+        String(name) => _encode_parameter_value(value) for (name, value) in pairs(values)
+    )
+end
+
 function _encode_parameter_value(x::NamedTuple)
     return Dict{String,Any}(
         "kind" => "named",
-        "entries" => Any[
-            Dict{String,Any}("name" => String(name), "value" => _encode_parameter_value(value))
-            for (name, value) in pairs(x)
-        ],
+        "values" => _encode_named_parameter_values(x),
     )
 end
 
@@ -173,19 +176,16 @@ function _decoded_parameter_array(values, path)
     return T[decoded...]
 end
 
-function _decode_named_parameter_values(entries, path)
-    entries isa AbstractVector || throw(ArgumentError("$path must be an array."))
-    names = Symbol[]
-    values = Any[]
-    for (i, entry) in pairs(entries)
-        entry_path = "$path[$i]"
-        entry = _complete_object(entry, ("name", "value"), entry_path)
-        name = _symbol(entry["name"], "$entry_path.name")
-        name in names && throw(ArgumentError("$path contains duplicate name $(repr(name))."))
-        push!(names, name)
-        push!(values, _decode_parameter_value(entry["value"], "$entry_path.value"))
-    end
-    return NamedTuple{Tuple(names)}(Tuple(values))
+function _decode_named_parameter_values(mapping, path)
+    mapping isa AbstractDict || throw(ArgumentError("$path must be an object."))
+    keys_sorted = sort!(String[
+        _string(key, "$path key") for key in keys(mapping)
+    ])
+    names = Tuple(Symbol(key) for key in keys_sorted)
+    values = Tuple(
+        _decode_parameter_value(mapping[key], "$path.$key") for key in keys_sorted
+    )
+    return NamedTuple{names}(values)
 end
 
 function _decode_parameter_value(x, path)
@@ -220,22 +220,16 @@ function _decode_parameter_value(x, path)
         _complete_object(x, ("kind", "value"), path)
         return _symbol(x["value"], "$path.value")
     elseif kind == "named"
-        _complete_object(x, ("kind", "entries"), path)
-        return _decode_named_parameter_values(x["entries"], "$path.entries")
+        _complete_object(x, ("kind", "values"), path)
+        return _decode_named_parameter_values(x["values"], "$path.values")
     end
     throw(ArgumentError("$path has unsupported parameter value kind $(repr(kind))."))
 end
 
-function _encode_parameter_overrides(overrides::NamedTuple)
-    return Any[
-        Dict{String,Any}("name" => String(name), "value" => _encode_parameter_value(value))
-        for (name, value) in pairs(overrides)
-    ]
-end
+_encode_parameter_overrides(overrides::NamedTuple) =
+    _encode_named_parameter_values(overrides)
 
-function _decode_parameter_overrides(x, path)
-    return _decode_named_parameter_values(x, path)
-end
+_decode_parameter_overrides(x, path) = _decode_named_parameter_values(x, path)
 
 _encode_diameter_specification(::Nothing) = nothing
 
