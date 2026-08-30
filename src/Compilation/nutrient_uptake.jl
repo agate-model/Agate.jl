@@ -1,0 +1,33 @@
+function process_fluxes(
+    named::CanonicalProcess{Process}, context::CompileContext
+) where {Process<:NutrientUptake}
+    process = named.process
+    semantic_facts = named.semantic_facts
+    layout = context.layout
+    participants = _realize_participants((semantic_facts.target,), layout)
+    reference_tracers = state_tracers(layout, semantic_facts.reference)
+    resource = _scalar_component_target(layout, semantic_facts.resource)
+    slots = named.binding_refs.process
+    fluxes = Any[]
+
+    for participant in participants
+        axis_positions = (plankton=participant.position,)
+        operands = (
+            input_operand(layout, resource),
+            input_operand(layout, participant.tracer),
+            input_operand(layout, reference_tracers[participant.component_index]),
+            parameter_operand(slots.maximum_rate, context, axis_positions),
+            parameter_operand(slots.half_saturation, context, axis_positions),
+            parameter_operand(slots.minimum_quota, context, axis_positions),
+            parameter_operand(slots.maximum_quota, context, axis_positions),
+            parameter_operand(slots.hill, context, axis_positions),
+        )
+        rate = RateOp(formulation(process), operands)
+        push!(
+            fluxes,
+            FluxSpec(resource, rate, Weight{-1}()),
+            FluxSpec(participant.tracer, rate, Weight{1}()),
+        )
+    end
+    return Tuple(fluxes)
+end

@@ -72,7 +72,17 @@ AGATE_TEST_CUDA=1 julia --project=. -e 'using Pkg; Pkg.test()'
 
 The default test suite does not load CUDA.
 
-We follow the [Blue](https://github.com/JuliaDiff/BlueStyle) style guide for Julia. To automatically format all Julia files in the project you can use the JuliaFormatter. Once you have installed it (`add JuliaFormatter`) run:
+We follow the [Blue](https://github.com/JuliaDiff/BlueStyle) style guide for Julia.
+
+### Type-parameter naming
+
+Use semantic type-parameter names on persistent domain/runtime structs (for example
+`CanonicalProcess{Process, SemanticFacts, BindingRefs}`). Use `T` for one genuinely generic
+type, `T1`, `T2`, ... when generic types differ only by position, and `N` for counts or
+arities. Reserve `FT` for parameters constrained to floating-point types. Name compile-time
+value parameters by their role, such as `Name`, `Index`, or `Sign`.
+
+To automatically format all Julia files in the project you can use the JuliaFormatter. Once you have installed it (`add JuliaFormatter`) run:
 
 ```Julia
 using JuliaFormatter

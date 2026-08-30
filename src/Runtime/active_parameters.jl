@@ -1,24 +1,23 @@
 import Adapt
 
-"""Internal array view for one active parameter leaf.
+"""Array view for one selected active parameter leaf.
 
 `base` is the stored parameter value and `p` is the external active parameter
 vector. `slots` maps indices in `base` to entries in `p`.
 """
-struct ActiveParameterArray{B,P,S}
-    base::B
-    p::P
-    slots::S
+struct ActiveParameterArray{BaseArray,ActiveVector,Slots}
+    base::BaseArray
+    p::ActiveVector
+    slots::Slots
 end
 
 @inline Base.length(a::ActiveParameterArray) = length(a.base)
 @inline Base.size(a::ActiveParameterArray) = size(a.base)
 @inline Base.axes(a::ActiveParameterArray) = axes(a.base)
 @inline Base.eachindex(a::ActiveParameterArray) = eachindex(a.base)
-@inline Base.IndexStyle(::Type{<:ActiveParameterArray}) = IndexLinear()
 
-@inline function Base.eltype(::Type{<:ActiveParameterArray{B,P}}) where {B,P}
-    return promote_type(eltype(B), eltype(P))
+@inline function Base.eltype(::Type{<:ActiveParameterArray{BaseArray,ActiveVector}}) where {BaseArray,ActiveVector}
+    return promote_type(eltype(BaseArray), eltype(ActiveVector))
 end
 
 @inline function Base.getindex(a::ActiveParameterArray, indices::Vararg{Int,N}) where {N}
@@ -28,11 +27,11 @@ end
     return a.base[indices...]
 end
 
-"""Internal parameter container that overrides selected parameter fields from `p`."""
-struct ActiveParameters{B,P,M}
-    base::B
-    p::P
-    map::M
+"""Parameter container that overrides selected parameter fields from `p`."""
+struct ActiveParameters{BaseParameters,ActiveVector,ActiveMap}
+    base::BaseParameters
+    p::ActiveVector
+    map::ActiveMap
 end
 
 @inline Base.propertynames(ap::ActiveParameters) = propertynames(ap.base)
@@ -44,10 +43,10 @@ end
 
     base = getfield(ap, :base)
     p = getfield(ap, :p)
-    map = getfield(ap, :map)
+    active_map = getfield(ap, :map)
 
-    if hasproperty(map, name)
-        selector = getproperty(map, name)
+    if hasproperty(active_map, name)
+        selector = getproperty(active_map, name)
         value = getproperty(base, name)
         selector isa Integer && return p[selector]
         selector isa NamedTuple && return ActiveParameters(value, p, selector)
@@ -58,20 +57,20 @@ end
 end
 
 """Oceananigans/OceanBioME-compatible BGC wrapper with external active parameters."""
-struct ParameterizedBGC{B,P} <: AbstractContinuousFormBiogeochemistry
-    bgc::B
-    parameters::P
+struct ParameterizedBGC{BGC,Parameters} <: AbstractContinuousFormBiogeochemistry
+    bgc::BGC
+    parameters::Parameters
+end
+
+@inline function Base.propertynames(bgc_p::ParameterizedBGC, private::Bool=false)
+    names = propertynames(getfield(bgc_p, :bgc), private)
+    return private ? (:bgc, names...) : names
 end
 
 @inline Base.getproperty(bgc_p::ParameterizedBGC, name::Symbol) = begin
     name === :bgc && return getfield(bgc_p, :bgc)
     name === :parameters && return getfield(bgc_p, :parameters)
     return getproperty(getfield(bgc_p, :bgc), name)
-end
-
-@inline function tendency_inputs(bgc_p::ParameterizedBGC, args)
-    tracer_values = TracerValues(bgc_p.bgc.tracers, args)
-    return bgc_p.parameters, tracer_values
 end
 
 @inline Adapt.adapt_structure(to, a::ActiveParameterArray) =
@@ -84,13 +83,14 @@ end
     ParameterizedBGC(Adapt.adapt(to, bgc_p.bgc), Adapt.adapt(to, bgc_p.parameters))
 
 
-@inline function evaluate_tendency(bgc_p::ParameterizedBGC, ::Val{tracer}, args...) where {tracer}
-    f = getfield(bgc_p.bgc.tracer_functions, tracer)
-    return f(bgc_p, args...)
+@inline function evaluate_tendency(bgc_p::ParameterizedBGC, ::Val{Tracer}, args...) where {Tracer}
+    equation = getfield(bgc_p.bgc.equations, Tracer)
+    return equation(bgc_p, args...)
 end
 
-@inline function evaluate_tendency(bgc, parameters, val_name::Val, args...)
-    return evaluate_tendency(ParameterizedBGC(bgc, parameters), val_name, args...)
+@inline function evaluate_tendency(bgc, ::Val{Tracer}, args...) where {Tracer}
+    equation = getfield(bgc.equations, Tracer)
+    return equation(bgc, args...)
 end
 
 @inline function (bgc_p::ParameterizedBGC)(val_name::Val, args...)
@@ -102,10 +102,10 @@ end
 Returned by [`active_parameters`](@ref). `labels` names the flat-vector entries,
 and `values` stores the corresponding values from the BGC used to create the set.
 """
-struct ActiveParameterSet{M,V}
-    map::M
+struct ActiveParameterSet{Map,Values}
+    map::Map
     labels::Tuple{Vararg{String}}
-    values::V
+    values::Values
 end
 
 Base.length(active::ActiveParameterSet) = length(active.values)
@@ -123,9 +123,7 @@ active = active_parameters(
     bgc;
     maximum_growth_rate = (:P_1, :P_2),
     detritus_remineralization = true,
-    interactions = (;
-        palatability = ((:Z_1, :P_1), (:Z_1, :P_2)),
-    ),
+    palatability_matrix = ((:Z_1, :P_1), (:Z_1, :P_2)),
 )
 
 θ = copy(active.values)
@@ -136,9 +134,9 @@ function active_parameters(bgc; kwargs...)
     active_index = Ref(1)
     labels = String[]
     values = Any[]
-    map = active_parameter_map!(labels, values, bgc, (), bgc.parameters, (; kwargs...), active_index)
+    active_map = active_parameter_map!(labels, values, bgc, (), bgc.parameters, (; kwargs...), active_index)
     active_values = isempty(values) ? Float64[] : collect(promote(values...))
-    return ActiveParameterSet(map, Tuple(labels), active_values)
+    return ActiveParameterSet(active_map, Tuple(labels), active_values)
 end
 
 """
@@ -153,18 +151,48 @@ provided, it should be the [`ActiveParameterSet`](@ref) returned by
 [`active_parameters`](@ref).
 """
 function parameterized(bgc, p; active_parameters=nothing)
-    map = active_parameters === nothing ? (;) : active_parameters.map
-    parameters = ActiveParameters(bgc.parameters, p, map)
+    validate_active_parameter_vector(p, active_parameters)
+    active_map = active_parameters === nothing ? (;) : active_parameters.map
+    parameters = ActiveParameters(bgc.parameters, p, active_map)
     return ParameterizedBGC(bgc, parameters)
+end
+
+function validate_active_parameter_vector(p, active_parameters)
+    nactive = active_parameters === nothing ? 0 : length(active_parameters)
+
+    if p === nothing
+        nactive == 0 || throw(ArgumentError(
+            "`p` must be provided when `active_parameters` selects $nactive parameter$(nactive == 1 ? "" : "s")."
+        ))
+        return nothing
+    end
+
+    p isa AbstractVector || throw(ArgumentError(
+        "`p` must be a flat AbstractVector; got $(typeof(p))."
+    ))
+    if nactive == 0
+        isempty(p) || throw(ArgumentError(
+            "`p` is non-empty but no active parameters were selected."
+        ))
+    elseif length(p) != nactive
+        throw(ArgumentError(
+            "`p` has length $(length(p)); expected $nactive active parameter$(nactive == 1 ? "" : "s")."
+        ))
+    end
+    return nothing
 end
 
 function active_parameter_map!(labels, values, bgc, path::Tuple, container, selections::NamedTuple, active_index)
     entries = Pair{Symbol, Any}[]
 
     for (name, selection) in pairs(selections)
-        hasproperty(container, name) || throw(ArgumentError("Unknown active parameter path: $(path_label((path..., name)))."))
+        entry_path = (path..., name)
+        validate_runtime_active_parameter(bgc, entry_path)
+        hasproperty(container, name) || throw(ArgumentError(
+            "Runtime parameter storage is missing $(path_label(entry_path))."
+        ))
         value = getproperty(container, name)
-        slots = active_parameter_entry!(labels, values, bgc, (path..., name), value, selection, active_index)
+        slots = active_parameter_entry!(labels, values, bgc, entry_path, value, selection, active_index)
         push!(entries, name => slots)
     end
 
@@ -173,7 +201,6 @@ end
 
 function active_parameter_entry!(labels, values, bgc, path::Tuple, value, selected::Bool, active_index)
     selected || throw(ArgumentError("Boolean active parameter selections must be true."))
-    validate_runtime_active_parameter(path)
     value isa Number || throw(ArgumentError(
         "Scalar active selector for $(path_label(path)) is not supported because the stored parameter is not scalar."
     ))
@@ -181,12 +208,13 @@ function active_parameter_entry!(labels, values, bgc, path::Tuple, value, select
 end
 
 function active_parameter_entry!(labels, values, bgc, path::Tuple, value, selection::NamedTuple, active_index)
-    validate_runtime_active_parameter(path)
-    return active_parameter_map!(labels, values, bgc, path, value, selection, active_index)
+    throw(ArgumentError(
+        "Nested active-parameter selections are not supported for $(path_label(path)); " *
+        "select the flat runtime parameter directly.",
+    ))
 end
 
 function active_parameter_entry!(labels, values, bgc, path::Tuple, value, selection::Tuple, active_index)
-    validate_runtime_active_parameter(path)
     isempty(selection) && return ()
 
     if all(item -> item isa Symbol, selection)
@@ -219,13 +247,16 @@ is_pair_selection(item) = item isa Tuple && length(item) == 2 && item[1] isa Sym
 path_label(path::Tuple) = join(string.(path), ".")
 
 function vector_active_parameter_entry!(labels, values, bgc, path::Tuple, value, selection::Tuple, active_index)
+    allunique(selection) || throw(ArgumentError(
+        "Vector active selector for $(path_label(path)) contains duplicate entities."
+    ))
     value isa AbstractVector || throw(ArgumentError(
         "Vector active selector for $(path_label(path)) is not supported because the stored parameter is not a vector."
     ))
 
     entries = []
     for tracer in selection
-        index = plankton_parameter_index(bgc, tracer)
+        index = parameter_label_index(bgc, only(path), 1, tracer)
         push_active_slot!(entries, labels, values, active_index, "$(path_label(path)).$(tracer)", value[index], (index,))
     end
 
@@ -233,68 +264,58 @@ function vector_active_parameter_entry!(labels, values, bgc, path::Tuple, value,
 end
 
 function matrix_active_parameter_entry!(labels, values, bgc, path::Tuple, value, selection::Tuple, active_index)
+    allunique(selection) || throw(ArgumentError(
+        "Matrix active selector for $(path_label(path)) contains duplicate row-column pairs."
+    ))
     value isa AbstractMatrix || throw(ArgumentError(
         "Matrix active selector for $(path_label(path)) is not supported because the stored parameter is not a matrix."
     ))
 
     entries = []
     for (row, column) in selection
-        indices = interaction_parameter_indices(bgc, row, column)
+        indices = (parameter_label_index(bgc, only(path), 1, row), parameter_label_index(bgc, only(path), 2, column))
         push_active_slot!(entries, labels, values, active_index, "$(path_label(path))[$row, $column]", value[indices...], indices)
     end
 
     return Tuple(entries)
 end
 
-const CONSTRUCTOR_DERIVED_ACTIVE_PARAMETERS = (
-    :palatability_matrix => ":interactions.palatability",
-    :assimilation_matrix => ":interactions.assimilation",
-    :specificity => ":interactions.palatability",
-    :protection => ":interactions.palatability",
-    :optimum_predator_prey_ratio => ":interactions.palatability",
-    :assimilation_efficiency => ":interactions.assimilation",
-)
+function _parameter_metadata(bgc, name::Symbol)
+    metadata = getproperty(bgc, :metadata)
+    metadata === nothing && throw(ArgumentError("Model has no parameter metadata."))
+    axes = metadata.parameter_axes
+    hasproperty(axes, name) || throw(
+        ArgumentError("Unknown active parameter path: $name."),
+    )
+    return getproperty(axes, name)
+end
 
-function validate_runtime_active_parameter(path::Tuple)
-    length(path) == 1 || return nothing
-
+function validate_runtime_active_parameter(bgc, path::Tuple)
+    length(path) == 1 || throw(ArgumentError(
+        "Nested active-parameter paths are not supported; runtime parameter storage is flat.",
+    ))
     name = only(path)
-    for (derived, runtime_path) in CONSTRUCTOR_DERIVED_ACTIVE_PARAMETERS
-        name === derived || continue
-        throw(ArgumentError(
-            "Active parameter :$name is not currently supported because it is used to derive " *
-            "the runtime parameter $runtime_path during model construction. Select $runtime_path instead."
-        ))
-    end
+    metadata = _parameter_metadata(bgc, name)
+    metadata.runtime_bound && return nothing
 
-    return nothing
+    targets = metadata.derived_runtime_parameters
+    detail = isempty(targets) ? "" :
+        " It is used to derive runtime parameter" * (length(targets) == 1 ? " " : "s ") *
+        join(":" .* string.(targets), ", ") * "."
+    throw(ArgumentError(
+        "Active parameter :$name is construction-only and is not stored in the runtime BGC." * detail,
+    ))
 end
 
-function plankton_parameter_index(bgc, tracer::Symbol)
-    tracer_names = Tuple(keys(bgc.tracer_functions))
-    pos = findfirst(==(tracer), tracer_names)
-    pos === nothing && throw(ArgumentError("Unknown tracer :$tracer."))
-
-    plankton_base = bgc.tracers.idx.plankton_base
-    plankton_base == 0 && throw(ArgumentError("Model has no plankton parameter axis."))
-
-    parameter_index = pos - plankton_base + 1
-    parameter_index >= 1 || throw(ArgumentError("Tracer :$tracer is not a plankton tracer."))
-    return parameter_index
-end
-
-function interaction_parameter_indices(bgc, consumer::Symbol, prey::Symbol)
-    hasproperty(bgc.parameters, :interactions) || throw(ArgumentError("Model has no interaction matrix axes."))
-
-    interactions = bgc.parameters.interactions
-    consumer_global = plankton_parameter_index(bgc, consumer)
-    prey_global = plankton_parameter_index(bgc, prey)
-
-    consumer_index = interactions.global_to_consumer[consumer_global]
-    prey_index = interactions.global_to_prey[prey_global]
-
-    consumer_index > 0 || throw(ArgumentError("Tracer :$consumer is not on the consumer axis."))
-    prey_index > 0 || throw(ArgumentError("Tracer :$prey is not on the prey axis."))
-
-    return (consumer_index, prey_index)
+function parameter_label_index(bgc, parameter::Symbol, dimension::Int, label::Symbol)
+    metadata = _parameter_metadata(bgc, parameter)
+    1 <= dimension <= length(metadata.labels) || throw(ArgumentError(
+        "parameter :$parameter has no storage dimension $dimension",
+    ))
+    labels = metadata.labels[dimension]
+    index = findfirst(==(label), labels)
+    index === nothing && throw(ArgumentError(
+        "Unknown realized entity :$label for parameter :$parameter; expected one of $(labels).",
+    ))
+    return index
 end

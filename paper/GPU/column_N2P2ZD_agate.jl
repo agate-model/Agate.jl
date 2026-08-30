@@ -1,5 +1,4 @@
 using Agate
-using Agate.Library.Light
 using Agate.Introspection: tracer_names
 using Agate.Models: NiPiZD
 using OceanBioME
@@ -44,17 +43,18 @@ bgc_instance = NiPiZD.construct(; grid)
 
 tracer_syms = Tuple(tracer_names(bgc_instance))
 
-# Build light attenuation on the column grid
-light_attenuation = FunctionFieldPAR(; grid, PAR_f=PAR_f)
+# Build light attenuation on the column grid using OceanBioME's prescribed-PAR interface.
+clock = Clock(; time=zero(grid))
+PAR = FunctionField{Center,Center,Center}(PAR_f, grid; clock)
+light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
 
 biogeochemistry = Biogeochemistry(bgc_instance; light_attenuation)
 
-clock = Clock(; time=0.0)
 T = FunctionField{Center,Center,Center}(temp, grid; clock)
 S = ConstantField(35)
 
-model = NonhydrostaticModel(;
-    grid,
+model = NonhydrostaticModel(
+    grid;
     clock,
     tracers=tracer_syms,
     timestepper=:QuasiAdamsBashforth2,

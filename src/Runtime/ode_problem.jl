@@ -10,14 +10,15 @@ function ode_problem(
     auxiliary=(;),
     coordinates=(0, 0, 0),
 )
+    validate_active_parameter_vector(p, active_parameters)
     active_map = active_parameters === nothing ? (;) : active_parameters.map
-    if !isempty(active_map) && p === nothing
-        throw(ArgumentError("`p` must be provided when `active_parameters` is non-empty."))
-    end
 
     aux_names = required_biogeochemical_auxiliary_fields(bgc)
     aux_source = ode_auxiliary_source(aux_names, auxiliary)
     tracer_names = required_biogeochemical_tracers(bgc)
+    length(u0) == length(tracer_names) || throw(ArgumentError(
+        "`u0` has length $(length(u0)); expected $(length(tracer_names)) values for tracers $(tracer_names)."
+    ))
 
     if isempty(active_map)
         parameterized_bgc = ParameterizedBGC(bgc, bgc.parameters)
@@ -50,8 +51,8 @@ end
     return nothing
 end
 
-struct ODEAuxiliarySource{V,E}
-    values::V
+struct ODEAuxiliarySource{Values}
+    values::Values
 end
 
 function ode_auxiliary_source(aux_names, auxiliary::NamedTuple)
@@ -59,15 +60,11 @@ function ode_auxiliary_source(aux_names, auxiliary::NamedTuple)
         hasproperty(auxiliary, name) || throw(ArgumentError("Missing auxiliary value :$name."))
         return getproperty(auxiliary, name)
     end
-    return ODEAuxiliarySource{typeof(values), true}(values)
+    return ODEAuxiliarySource(values)
 end
 
-ode_auxiliary_source(aux_names, auxiliary::Tuple) = ODEAuxiliarySource{typeof(auxiliary), false}(auxiliary)
-
-@inline function ode_auxiliary_values(source::ODEAuxiliarySource{V, true}, t) where {V}
+@inline function ode_auxiliary_values(source::ODEAuxiliarySource, t)
     return map(source.values) do value
         value isa Function ? value(t) : value
     end
 end
-
-@inline ode_auxiliary_values(source::ODEAuxiliarySource{V, false}, t) where {V} = source.values

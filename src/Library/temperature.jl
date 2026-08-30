@@ -1,41 +1,23 @@
-"""Temperature-response functors."""
+"""Temperature-response kernels."""
 
 module Temperature
 
 export q10_temperature_factor
 
 """
-    Q10Temperature(Q10)
-
-Q₁₀ formulation of temperature sensitivity.
-
-!!! formulation
-    Q10 ^ (T / 10)
-
-where:
-- `Q10` = temperature coefficient (typically ≈ 2–3)
-- `T` = temperature (°C)
-"""
-struct Q10Temperature{T}
-    Q10::T
-end
-
-@inline (q::Q10Temperature)(T) = q.Q10^(T / 10)
-
-"""
     q10_temperature_factor(T, Q10)
+    q10_temperature_factor(T, Q10, reference_temperature)
 
-Compute the Q₁₀ temperature factor.
-
-!!! formulation
-    Q10 ^ (T / 10)
-
-This is a thin, inlined alias around `Q10Temperature(Q10)(T)`.
+Compute the Q10 temperature factor relative to a reference temperature. The
+two-argument form uses a reference temperature of zero.
 
 # Arguments
-- `T`: temperature (°C)
-- `Q10`: Q₁₀ coefficient
+- `T`: temperature in degrees Celsius
+- `Q10`: Q10 coefficient
+- `reference_temperature`: reference temperature in degrees Celsius
 """
-@inline q10_temperature_factor(T, Q10) = Q10Temperature(Q10)(T)
+@inline q10_temperature_factor(T, Q10, reference_temperature) =
+    Q10^((T - reference_temperature) / 10)
+@inline q10_temperature_factor(T, Q10) = q10_temperature_factor(T, Q10, zero(T))
 
 end # module

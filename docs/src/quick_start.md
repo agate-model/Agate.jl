@@ -13,6 +13,7 @@ using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
+using Oceananigans.Fields: FunctionField
 using Oceananigans.Units
 using CairoMakie
 ```
@@ -33,10 +34,16 @@ println(tracer_names(bgc))
 nothing #hide
 ```
 
-Next, we define a light function, here we use a default seasonal PAR curve:
+The bundled NiPiZD family is assembled from the same component/process compiler used by direct `ModelDefinition` construction. [Model with mixotrophy](@ref mixotrophy) introduces defining a model directly from components, named processes, and a keyed parameter block.
+
+Next, we define a light field using Oceananigans and wrap it with OceanBioME's
+prescribed-PAR interface. Here we use Agate's seasonal PAR helper at 10 m depth:
 
 ```@example quickstart
-light_attenuation = FunctionFieldPAR(; grid=BoxModelGrid())
+grid = BoxModelGrid()
+clock = Clock(; time=zero(grid))
+PAR = FunctionField{Center,Center,Center}(CyclicalPAR(-10), grid; clock)
+light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
 nothing #hide
 ```
 
@@ -47,7 +54,7 @@ These two models are then combined using OceanBioME.jl
 bgc_model = Biogeochemistry(bgc; light_attenuation=light_attenuation)
 nothing #hide
 
-full_model = BoxModel(; biogeochemistry=bgc_model)
+full_model = BoxModel(; grid, clock, biogeochemistry=bgc_model)
 nothing #hide
 ```
 

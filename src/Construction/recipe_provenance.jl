@@ -6,7 +6,7 @@ const _PACKAGE_PROVENANCE_KEYS = ("package", "version", "repository", "commit")
 function _git_output(cmd::Cmd)
     try
         value = strip(read(pipeline(cmd, stderr=devnull), String))
-        return isempty(value) ? nothing : value
+        return isempty(value) ? nothing : String(value)
     catch
         return nothing
     end
@@ -26,6 +26,14 @@ function _git_implementation_is_clean(root)
     end
 end
 
+_sanitize_repository_url(::Nothing) = nothing
+function _sanitize_repository_url(repository::AbstractString)
+    url = String(repository)
+    occursin("://", url) || return url
+    url = replace(url, r"^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]+@" => s"\1")
+    return replace(url, r"[?#].*$" => "")
+end
+
 function _package_provenance(mod::Module)
     root = Base.moduleroot(mod)
     record = Dict{String,Any}("package" => String(nameof(root)))
@@ -34,7 +42,9 @@ function _package_provenance(mod::Module)
 
     package_root = Base.pkgdir(root)
     isnothing(package_root) && return record
-    repository = _git_output(`git -C $package_root config --get remote.origin.url`)
+    repository = _sanitize_repository_url(
+        _git_output(`git -C $package_root config --get remote.origin.url`)
+    )
     commit = _git_implementation_is_clean(package_root) ?
              _git_output(`git -C $package_root rev-parse HEAD`) : nothing
     isnothing(repository) || (record["repository"] = repository)
@@ -45,7 +55,7 @@ end
 function _recipe_provenance(recipe::ModelRecipe)
     agate = Base.moduleroot(@__MODULE__)
     provenance = Dict{String,Any}("agate" => _package_provenance(agate))
-    provider = Base.moduleroot(parentmodule(typeof(recipe_factory(Val(recipe.family)))))
+    provider = Base.moduleroot(parentmodule(typeof(registered_family(Val(recipe.family)))))
     provider === agate || (provenance["provider"] = _package_provenance(provider))
     return provenance
 end
@@ -61,8 +71,13 @@ function _canonical_json(x)
     return JSON.json(x)
 end
 
-function _recipe_hash(recipe::ModelRecipe, data)
-    content = Dict{String,Any}("family" => String(recipe.family), "recipe" => data)
+function _recipe_hash(family::Symbol, definition_version::VersionNumber, realization)
+    content = Dict{String,Any}(
+        "schema" => MODEL_RECIPE_SCHEMA,
+        "family" => String(family),
+        "definition_version" => string(definition_version),
+        "realization" => realization,
+    )
     return "sha256:" * bytes2hex(sha256(_canonical_json(content)))
 end
 

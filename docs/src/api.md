@@ -1,5 +1,204 @@
 # API reference
 
+## Direct model construction
+
+`ModelDefinition` is the scientific model-definition container. Direct construction realizes intrinsic component size structure, resolves process-owned parameter slots and required drivers, and compiles runtime tracer equations during setup.
+
+```@docs
+Agate.Construction.construct
+Agate.ModelDefinition
+```
+
+### Backend lifecycle
+
+Construction separates scientific meaning, realized topology, labelled parameter storage, and
+runtime execution. After `ParameterPlan`, parameter-value realization and equation compilation are
+independent setup branches: compilation uses canonical bindings plus the realized layout and plan,
+not the materialized parameter values. The branches meet when `AgateBGC` is assembled.
+
+```text
+                       ModelDefinition
+        authored components / processes / parameters
+                              |
+                              v
+                 CanonicalModelDefinition
+            validated scientific semantics
+                              |
+                              v
+                       ModelLayout
+            realized entities / tracers / topology
+                              |
+                              v
+                      ParameterPlan
+          axes / labels / parameter storage plan
+                       /             \
+                      /               \
+                     v                 v
+       resolved parameter values    CompileContext
+                     |                 |
+                     v                 v
+       runtime parameter values     FluxSpec tuple
+                     |                 |
+                     |                 v
+                     |          static tendency IR
+                     |                 |
+                      \               /
+                       \             /
+                        v           v
+                           AgateBGC
+```
+
+Canonicalization establishes scientific meaning. Model realization establishes named topology.
+Parameter planning establishes labelled storage. Runtime indices and array positions implement
+those named structures; they do not define scientific identity.
+
+### Components
+
+```@docs
+Agate.Components.Plankton
+Agate.Components.Pool
+Agate.Components.element
+Agate.Components.states
+Agate.Components.reference_state
+Agate.Components.variable_states
+Agate.Components.state_element
+Agate.Components.size_structure
+Agate.Components.component_entities
+Agate.Components.component_state_tracers
+Agate.Components.component_tracers
+Agate.Components.component_diameters
+Agate.Components.state_tracers
+Agate.Components.state_tracer
+```
+
+### Processes and factors
+
+Formulations are authored as concrete scientific objects, for example `Light(Smith(); driver=:PAR)`
+and `Consumption(HeterotrophicConsumption(); ...)`. Numerical scientific parameters belong to
+the model parameter system rather than the formulation object; for example
+`NutrientLimitation(FrankTNorm(); ...)` uses the Frank t-norm's declared `sharpness` parameter slot.
+`FrankTNorm()` names the formulation; `Agate.Library.Nutrients.frank_tnorm` is the numerical
+kernel. Parameterized nodes bind their formulation-local slots directly to model-level parameter
+names with `bindings=(...)`. Omitted slots bind by the same name; a `Symbol` explicitly renames
+or shares one parameter, while a one-level qualifier map handles repeated slots such as
+source-specific remineralization. Formulation and factor authoring is method-based rather than
+registry-based. Custom process topologies can extend Agate through the narrow
+`Processes.process_facts` and `Compilation.process_fluxes` hooks, keeping custom topology in the
+same validation, canonicalization, and construction pipeline as built-in processes. Durable recipes
+identify a registered family and its version rather than serializing process or formulation objects.
+
+#### Formulations
+
+```@docs
+Agate.Processes.AbstractFormulation
+Agate.Processes.Smith
+Agate.Processes.Geider
+Agate.Processes.Monod
+Agate.Processes.NormalizedDroop
+Agate.Processes.QuotaRegulatedMonod
+Agate.Processes.Liebig
+Agate.Processes.FrankTNorm
+Agate.Processes.Q10
+Agate.Processes.PreferentialGrazing
+Agate.Processes.HeterotrophicConsumption
+Agate.Processes.LinearMortality
+Agate.Processes.QuadraticMortality
+Agate.Processes.LinearRemineralization
+```
+
+#### Processes, factors, and products
+
+```@docs
+Agate.Processes.AbstractProcess
+Agate.Processes.AbstractFactor
+Agate.Processes.AbstractStoichiometry
+Agate.Processes.Growth
+Agate.Processes.Light
+Agate.Processes.NutrientResponse
+Agate.Processes.QuotaResponse
+Agate.Processes.NutrientLimitation
+Agate.Processes.Temperature
+Agate.Processes.NutrientUptake
+Agate.Processes.Consumption
+Agate.Processes.Mortality
+Agate.Processes.Products
+Agate.Processes.FixedStoichiometry
+Agate.Processes.Remineralization
+Agate.Processes.formulation
+Agate.Processes.factors
+Agate.Processes.participants
+Agate.Processes.authored_parameter_bindings
+```
+
+### Parameter definitions
+
+The keyed parameter block separates runtime process parameters from construction-only inputs.
+Scientific slots and realized process applicability determine `Parameter` vector or matrix storage
+automatically, so runtime parameters never restate axes. `ConstructionParameter` values exist only during
+construction to feed `DerivedDefault` calculations; shaped construction parameters use the global
+`axes=:plankton` construction domain. Scientific slot-to-parameter relationships are authored
+beside the process or factor through `bindings=`.
+
+```@docs
+Agate.Parameters.Parameter
+Agate.Parameters.ConstructionParameter
+Agate.Parameters.AbstractDefaultProvider
+Agate.Parameters.DerivedDefault
+Agate.Parameters.derive_default
+Agate.Parameters.NoDefault
+Agate.Parameters.DiameterIndexedVectorDefault
+Agate.Parameters.AllometricPalatability
+Agate.Parameters.ConsumerAssimilation
+```
+
+### Custom process extension
+
+Custom process implementations attach setup-validated semantic facts with
+`Processes.process_facts` and lower a `CanonicalProcess` with
+`Compilation.process_fluxes` using the shared `CompileContext`. Parameterized custom processes
+can obtain their process-owned compiled parameter operands through
+`Compilation.process_parameter_operands`, keeping dense binding references and canonicalization
+representation details internal to setup.
+
+```@docs
+Agate.Processes.CanonicalProcess
+Agate.Processes.process_id
+Agate.Processes.ParameterSlot
+Agate.Processes.parameter_slots
+Agate.Processes.process_facts
+Agate.Compilation.CompileContext
+Agate.Compilation.process_fluxes
+Agate.Compilation.process_parameter_operands
+```
+
+## Named families, recipes, and replay
+
+Named model families add stable code identity and durable recipe replay around the same definition-driven process compiler. `ModelRecipe` is the `agate.model_recipe.v1` family/version/realization document: it records the registered family, exact `definition_version`, canonical plankton/size realization, parameter overrides, sinking choices, and bottom state. Named scientific mappings are serialized as mappings, so key insertion order does not change recipe equality or the scientific content hash. The loaded family supplies the canonical component/process definition on replay. `ModelManifest` records the resolved execution state.
+
+External family packages subtype `AbstractModelFamily`, provide `default_components`, `default_processes`, `definition_version`, and `parameter_definitions`, and register durable recipe identity through `family_id` and `registered_family`. Their user-facing constructors translate family-specific keywords into the nested `plankton_pfts` mapping and parameter overrides, then call `Construction.construct(family; ...)`. `normalize_pft_size_structure` provides the shared named-family `(n=0,)` shorthand without weakening core size validation. Recipes are captured with `capture_model_recipe`, the durable schema identifier is available through `recipe_schema`, and replay uses `construct(recipe)` or `construct_plus_manifest(recipe)`.
+
+```@docs
+Agate.Construction.ModelRecipe
+Agate.Construction.ModelManifest
+Agate.Construction.construct_plus_manifest
+Agate.Construction.capture_model_recipe
+Agate.Construction.recipe_schema
+Agate.Construction.normalize_pft_size_structure
+Agate.Construction.replay_family
+Agate.Construction.resolve_construction_scalar_type
+Agate.Construction.family_id
+Agate.Construction.registered_family
+Agate.Construction.encode_recipe
+Agate.Construction.decode_recipe
+Agate.Construction.export_recipe
+Agate.Construction.import_recipe
+Agate.ModelFamilies.AbstractModelFamily
+Agate.ModelFamilies.definition_version
+Agate.Parameters.parameter_definitions
+Agate.ModelFamilies.default_components
+Agate.ModelFamilies.default_processes
+```
+
 ## Introspection
 
 ```@docs
@@ -8,7 +207,7 @@ Agate.Introspection.describe
 Agate.Introspection.tracer_names
 Agate.Introspection.auxiliary_field_names
 Agate.Introspection.parameter_names
-Agate.Introspection.plankton_groups
+Agate.Introspection.pfts
 Agate.Introspection.plankton_tracers
 Agate.Introspection.plankton_diameters
 Agate.Introspection.nonplankton_tracers
@@ -23,76 +222,9 @@ using Agate
 using Agate.Introspection
 
 bgc = Agate.Models.NiPiZD.construct()
-pal = interaction_matrix(bgc, :palatability)
+pal = interaction_matrix(bgc, :palatability_matrix)
 
-pal.rows     # consumer labels
-pal.columns  # prey labels
-pal.matrix   # consumer-by-prey matrix
-```
-
-## Construction API
-
-### Recipes and low-level construction records
-
-Model users normally work through the model-family constructors (`construct`,
-`construct_plus_recipe`, and `construct_from_recipe`). The manifest API below is a
-lower-level resolved-state record used for diagnostics, model-family development, and
-semantic replay tests across explicit execution environments.
-
-`ModelRecipe` uses the `agate.model_recipe.v2` schema and records scientific construction
-semantics only. Fresh model inputs canonicalize to a recipe, and loaded recipes enter the
-same `construct_factory(recipe; ...)` realization path. Scalar precision is resolved from
-the execution environment (or an explicit `scalar_type` override) and is recorded on
-`ModelManifest`, not on the recipe.
-
-```@docs
-Agate.Construction.ModelRecipe
-Agate.Construction.ModelManifest
-Agate.Construction.construct_factory
-Agate.Construction.construct_factory_plus_manifest
-Agate.Construction.encode_recipe
-Agate.Construction.decode_recipe
-Agate.Construction.export_recipe
-Agate.Construction.import_recipe
-```
-
-### External model-family API
-
-Extension hooks are imported explicitly by packages that define model families.
-
-```@docs
-Agate.Construction.capture_model_recipe
-Agate.Construction.replay_factory
-Agate.Construction.resolve_construction_scalar_type
-Agate.Construction.recipe_family
-Agate.Construction.recipe_factory
-Agate.Factories.AbstractBGCFactory
-Agate.Factories.parameter_definitions
-Agate.Factories.parameter_directory
-Agate.Factories.parameter_spec
-Agate.Factories.ParameterSpec
-Agate.Factories.ParameterDefinition
-Agate.Factories.DefaultProvider
-Agate.Factories.ConstDefault
-Agate.Factories.NoDefault
-Agate.Factories.FillDefault
-Agate.Factories.DiameterIndexedVectorDefault
-Agate.Factories.DiameterIndexedMaterialization
-Agate.Factories.default_community
-Agate.Factories.default_plankton_dynamics
-Agate.Factories.default_biogeochem_dynamics
-Agate.Configuration.AbstractMatrixDeriver
-Agate.Configuration.MatrixDefinition
-Agate.Configuration.matrix_definitions
-Agate.Configuration.derive_matrix
-Agate.Configuration.derivation_deps
-```
-
-### Plankton communities and interactions
-
-```@docs
-Agate.Configuration.PFTSpecification
-Agate.Configuration.build_plankton_community
-Agate.Configuration.PalatabilityAllometric
-Agate.Configuration.AssimilationBinary
+pal.rows
+pal.columns
+pal.matrix
 ```

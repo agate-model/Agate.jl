@@ -16,7 +16,7 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 using Oceananigans.Units: day
 
 const NiPiZD = Agate.Models.NiPiZD
-const TRACERS = (:N, :D, :Z_1, :Z_2, :P_1, :P_2)
+const TRACERS = (:N, :D, :P_1, :P_2, :Z_1, :Z_2)
 nothing #hide
 
 # ## Static model and active parameter
@@ -37,7 +37,7 @@ const ACTIVE = Agate.Runtime.active_parameters(BGC; maximum_growth_rate=(:P_1,))
 # We define a small standalone ODE through Agate.jl's SciML problem helper.
 
 function initial_conditions(::Type{T}) where {T}
-    return T[7.0, 1.0, 0.05, 0.05, 0.01, 0.01]
+    return T[7.0, 1.0, 0.01, 0.01, 0.05, 0.05]
 end
 
 constant_PAR(::Type{T}) where {T} = T(100.0)
@@ -67,13 +67,13 @@ nothing #hide
 function p_1_trajectory(theta; saveat=range(0.0, 365day; length=366))
     sol = solve_nipizd(theta; saveat=saveat)
     values = reduce(hcat, sol.u)
-    return vec(values[5, :])
+    return vec(values[3, :])
 end
 
 function p_1_solution(mu; saveat=range(0.0, 365day; length=366))
     sol = solve_nipizd([mu]; saveat=saveat)
     values = reduce(hcat, sol.u)
-    return vec(values[5, :])
+    return vec(values[3, :])
 end
 nothing #hide
 

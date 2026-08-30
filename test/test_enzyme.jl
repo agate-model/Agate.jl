@@ -4,24 +4,19 @@ using Test
 
 using Oceananigans.Units: day
 
-const EnzymeNiPiZD = Agate.Models.NiPiZD
 
 @testset "Enzyme parameterized tendency gradients" begin
     mu0 = 0.7 / day
-    base_bgc = EnzymeNiPiZD.construct(;
-        parameters=(; maximum_growth_rate=(P_1=mu0, P_2=mu0)),
-    )
+    base_bgc = nipizd_growth_fixture(; mu=mu0)
 
     active = Agate.Runtime.active_parameters(base_bgc;
         maximum_growth_rate = (:P_1,),
         detritus_remineralization = true,
-        interactions = (;
-            palatability = ((:Z_1, :P_1),),
-            assimilation = ((:Z_1, :P_1),),
-        ),
+        palatability_matrix = ((:Z_1, :P_1),),
+        assimilation_matrix = ((:Z_1, :P_1),),
     )
 
-    args = (0, 0, 0, 0, 7.0, 1.0, 0.05, 0.05, 0.01, 0.01, 100.0)
+    args = nipizd_runtime_args()
 
     function diagnostic(p)
         bgc_p = Agate.Runtime.parameterized(base_bgc, p; active_parameters=active)
@@ -50,4 +45,19 @@ const EnzymeNiPiZD = Agate.Models.NiPiZD
         fd = (diagnostic(p_plus) - diagnostic(p_minus)) / (2δ)
         @test isapprox(grad[i], fd; rtol=1e-4, atol=1e-10)
     end
+end
+
+@testset "Enzyme quota uptake tendency gradient" begin
+    bgc = Agate.Construction.construct(quota_definition())
+    active = Agate.Runtime.active_parameters(bgc; maximum_nitrogen_uptake=(:P_1,))
+    args = quota_runtime_args()
+    diagnostic(p) = Agate.Runtime.parameterized(
+        bgc, p; active_parameters=active
+    )(Val(:P_1_nitrogen), args...)
+    gradient = zeros(length(active.values))
+    Enzyme.autodiff(
+        Enzyme.set_runtime_activity(Enzyme.Reverse), Enzyme.Const(diagnostic), Enzyme.Active,
+        Enzyme.Duplicated(copy(active.values), gradient),
+    )
+    @test length(gradient) == 1 && isfinite(only(gradient)) && !iszero(only(gradient))
 end

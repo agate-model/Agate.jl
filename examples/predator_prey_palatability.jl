@@ -21,6 +21,7 @@ using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
+using Oceananigans.Fields: FunctionField
 using Oceananigans.Units
 using CairoMakie
 
@@ -29,7 +30,7 @@ nothing #hide
 # ## Construct the ecosystem configurations
 
 default_bgc = Agate.Models.NiPiZD.construct()
-default_pal = interaction_matrix(default_bgc, :palatability)
+default_pal = interaction_matrix(default_bgc, :palatability_matrix)
 nothing #hide
 
 # The default configuration uses the model's allometric palatability calculation.
@@ -37,14 +38,14 @@ nothing #hide
 # (`Vopt = 10`).
 #
 # Instead, we will change that optimum to `Vopt = 5` for the two
-# zooplankton consumers. Vector parameters can be overridden by plankton class
+# zooplankton consumers. Vector parameters can be overridden by plankton SizeClass
 # name, so only the relevant entries need to be supplied. Omitted entries are
 # filled from the model defaults.
 
 vopt_bgc = Agate.Models.NiPiZD.construct(;
     parameters=(; optimum_predator_prey_ratio=(Z_1=5.0, Z_2=5.0))
 )
-vopt_pal = interaction_matrix(vopt_bgc, :palatability)
+vopt_pal = interaction_matrix(vopt_bgc, :palatability_matrix)
 nothing #hide
 
 # Another option is to provide the palatability matrix directly. This is useful
@@ -54,7 +55,7 @@ nothing #hide
 custom_bgc = Agate.Models.NiPiZD.construct(;
     palatability_matrix=[0.0 1.0; 1.0 0.0]
 )
-custom_pal = interaction_matrix(custom_bgc, :palatability)
+custom_pal = interaction_matrix(custom_bgc, :palatability_matrix)
 
 nothing #hide
 
@@ -115,9 +116,12 @@ matrix_fig
 # ## Run each configuration in a box model
 
 function run_box_model(bgc, filename)
-    light_attenuation = FunctionFieldPAR(; grid=BoxModelGrid())
+    grid = BoxModelGrid()
+    clock = Clock(; time=zero(grid))
+    PAR = FunctionField{Center,Center,Center}(CyclicalPAR(-10), grid; clock)
+    light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
     bgc_model = Biogeochemistry(bgc; light_attenuation)
-    full_model = BoxModel(; biogeochemistry=bgc_model)
+    full_model = BoxModel(; grid, clock, biogeochemistry=bgc_model)
 
     set!(full_model; N=7.0, P_1=0.01, Z_1=0.01, P_2=0.1, Z_2=0.01, D=0.01)
 

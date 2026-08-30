@@ -10,7 +10,7 @@ A Julia library to build flexible and composable aquatic ecosystems.
 
 ## Note on maintenance and development
 
-Agate.jl is currently under active development. While we welcome contributions, please be aware that the API and functionality may change as we continue to improve the package. We recommend checking the documentation and release notes regularly for updates.
+Agate.jl is currently under active development. The development documentation and release notes describe the current API and behavior.
 
 ## Documentation
 

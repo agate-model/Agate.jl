@@ -4,7 +4,7 @@
 #     This example uses [Oceananigans.jl](https://clima.github.io/OceananigansDocumentation/stable/) and [OceanBioME.jl](https://oceanbiome.github.io/OceanBioME.jl/stable/).
 #     We recommend familiarizing yourself with their user interface if you intend to make changes to the physical model setup.
 
-# This example changes the number of plankton and the size structure of the [Agate.jl-NiPiZD](@ref NiPiZD) model. 
+# This example changes the number of plankton and the size structure of the [Agate.jl-NiPiZD](@ref NiPiZD) model.
 
 # ## Loading dependencies
 # The example uses Agate.jl, Oceananigans.jl, and OceanBioME.jl for the ecosystem simulation.
@@ -16,6 +16,7 @@ using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
+using Oceananigans.Fields: FunctionField
 using Oceananigans.Units
 using CairoMakie
 
@@ -24,13 +25,13 @@ nothing #hide
 # ## Ecosystem model
 
 # The plankton size structure is configured separately for phytoplankton and
-# zooplankton. Here, phytoplankton are split into three classes spanning 1 to
+# zooplankton. Here, phytoplankton are split into three SizeClasses spanning 1 to
 # 10 μm equivalent spherical diameter (ESD), using logarithmic spacing.
-phyto_size_structure = (n=3, min_esd=1, max_esd=10, splitting=:log_splitting)
+phyto_size_structure = (n=3, min_esd=1, max_esd=10, spacing=:log)
 nothing #hide
 
 # Alternatively, an explicit array can be used.
-# This zooplankton size structure also defines three classes, specifying the ESD of each class directly.
+# This zooplankton size structure also defines three SizeClasses, specifying the ESD of each SizeClass directly.
 zoo_size_structure = [10.0, 32.0, 100.0]
 
 size_structure = (;
@@ -56,13 +57,16 @@ end
 # Next, we define the light model and combine it with the Agate.jl ecosystem model using OceanBioME.jl.
 # The `BoxModelGrid` represents a well-mixed zero-dimensional water column.
 
-light_attenuation = FunctionFieldPAR(; grid=BoxModelGrid())
+grid = BoxModelGrid()
+clock = Clock(; time=zero(grid))
+PAR = FunctionField{Center,Center,Center}(CyclicalPAR(-10), grid; clock)
+light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
 nothing #hide
 
 bgc_model = Biogeochemistry(bgc; light_attenuation)
 nothing #hide
 
-full_model = BoxModel(; biogeochemistry=bgc_model)
+full_model = BoxModel(; grid, clock, biogeochemistry=bgc_model)
 nothing #hide
 
 # ## Initial conditions

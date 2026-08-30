@@ -1,6 +1,6 @@
 # # [Exporting a model definition] (@id export_model_recipe)
 
-# Recipes allow model definitions be exported and replayed.
+# Recipes record versioned family construction inputs for export and replay.
 
 using Agate.Construction: export_recipe, import_recipe
 using Agate.Models: NiPiZD
@@ -17,15 +17,15 @@ grid = BoxModelGrid()
 bgc, recipe = NiPiZD.construct_plus_recipe(;
     grid,
     size_structure=(;
-        phytoplankton=(P=(n=3, min_esd=1.0, max_esd=10.0, splitting=:log_splitting),),
-        zooplankton=(Z=(n=2, min_esd=20.0, max_esd=100.0, splitting=:linear_splitting),),
+        phytoplankton=(P=(n=3, min_esd=1.0, max_esd=10.0, spacing=:log),),
+        zooplankton=(Z=(n=2, min_esd=20.0, max_esd=100.0, spacing=:linear),),
     ),
 )
 
 recipe_path = tempname() * ".json"
 export_recipe(recipe_path, recipe)
 
-# The JSON also records a SHA-256 recipe fingerprint and package provenance. Git
+# The JSON records the family definition version, a SHA-256 content fingerprint, and package provenance. Git
 # repository and commit information are included when the implementation matches a checkout.
 
 println("Wrote model recipe to ", recipe_path)

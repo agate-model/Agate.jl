@@ -2,73 +2,64 @@ using Agate
 using Agate.Introspection:
     tracer_names,
     parameter_names,
-    plankton_groups,
+    pfts,
     plankton_tracers,
     plankton_diameters,
     nonplankton_tracers,
     tracer_groups,
-    interaction_matrix
+    interaction_matrix,
+    model_summary
 using Test
+
 
 @testset "Public introspection helpers" begin
     @testset "Model-constructed instance" begin
         bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
 
-        @test tracer_names(bgc) == [:N, :D, :Z_1, :Z_2, :P_1, :P_2]
+        @test tracer_names(bgc) == [:N, :D, :P_1, :P_2, :Z_1, :Z_2]
 
         groups = tracer_groups(bgc)
         @test groups.all == tracer_names(bgc)
-        @test groups.by_group.Z == [:Z_1, :Z_2]
-        @test groups.by_group.P == [:P_1, :P_2]
-        @test groups.plankton == [:Z_1, :Z_2, :P_1, :P_2]
+        @test groups.by_pft.Z == [:Z_1, :Z_2]
+        @test groups.by_pft.P == [:P_1, :P_2]
+        @test groups.plankton == [:P_1, :P_2, :Z_1, :Z_2]
         @test groups.nonplankton == [:N, :D]
-        @test plankton_groups(bgc) == groups.by_group
+        @test pfts(bgc) == groups.by_pft
         @test plankton_tracers(bgc) == groups.plankton
         @test length(plankton_diameters(bgc)) == length(groups.plankton)
-        @test plankton_diameters(bgc) == collect(bgc.plankton_diameters)
         @test eltype(plankton_diameters(bgc)) === Float32
         @test nonplankton_tracers(bgc) == groups.nonplankton
+        @test !model_summary(bgc).has_sinking_velocities
+        sinking_bgc = Agate.Models.NiPiZD.construct(; sinking_tracers=(D=1.0,))
+        @test model_summary(sinking_bgc).has_sinking_velocities
 
         pars = parameter_names(bgc)
         @test !isempty(pars)
         @test :data ∉ pars
+        @test :palatability_matrix in pars
+        @test :assimilation_matrix in pars
+        @test :interactions ∉ pars
 
-        pal = interaction_matrix(bgc, :palatability)
-        assim = interaction_matrix(bgc, :assimilation)
+        pal = interaction_matrix(bgc, :palatability_matrix)
+        assim = interaction_matrix(bgc, :assimilation_matrix)
 
-        @test pal.kind == :palatability
-        @test assim.kind == :assimilation
+        @test pal.parameter == :palatability_matrix
+        @test assim.parameter == :assimilation_matrix
         @test pal.rows == [:Z_1, :Z_2]
         @test pal.columns == [:P_1, :P_2]
         @test assim.rows == pal.rows
         @test assim.columns == pal.columns
         @test pal.row_axis == :consumer
-        @test pal.column_axis == :prey
+        @test pal.column_axis == :resource
         @test size(pal.matrix) == (length(pal.rows), length(pal.columns))
         @test size(assim.matrix) == (length(assim.rows), length(assim.columns))
         @test all(row in tracer_names(bgc) for row in pal.rows)
         @test all(col in tracer_names(bgc) for col in pal.columns)
 
-        synthetic_bgc = (;
-            parameters=(;
-                interactions=(; encounter=zeros(1, 1), consumer_global=[1], prey_global=[1]),
-            ),
-            tracers=bgc.tracers,
-        )
-        encounter = interaction_matrix(synthetic_bgc, :encounter)
-        @test encounter.kind == :encounter
-        @test encounter.matrix === synthetic_bgc.parameters.interactions.encounter
-
         @test_throws ArgumentError interaction_matrix(bgc, :consumer_global)
-        @test_throws ArgumentError interaction_matrix(bgc, :unknown)
-        try
-            interaction_matrix(bgc, :unknown)
-        catch err
-            @test err isa ArgumentError
-            @test occursin("palatability", sprint(showerror, err))
-            @test occursin("assimilation", sprint(showerror, err))
-        end
-
+        message = argument_error_message(() -> interaction_matrix(bgc, :unknown))
+        @test occursin("palatability", message)
+        @test occursin("assimilation", message)
 
         phyto_diameters = [2.0, sqrt(20.0), 10.0]
         zoo_diameters = [20.0, 100.0]
@@ -77,78 +68,43 @@ using Test
                 phytoplankton=(P=phyto_diameters,), zooplankton=(Z=zoo_diameters,)
             )
         )
-        @test plankton_tracers(sized_bgc) == [:Z_1, :Z_2, :P_1, :P_2, :P_3]
-        @test plankton_diameters(sized_bgc) ≈ [zoo_diameters; phyto_diameters]
+        @test plankton_tracers(sized_bgc) == [:P_1, :P_2, :P_3, :Z_1, :Z_2]
+        @test plankton_diameters(sized_bgc) ≈ [phyto_diameters; zoo_diameters]
 
         named_bgc = Agate.Models.NiPiZD.construct(;
-            size_structure=(;
-                phytoplankton=(diat=[2.0, 5.0, 10.0], dino=[8.0, 20.0]),
-                zooplankton=(microzoo=[30.0, 60.0], mesozoo=[100.0]),
-            ),
-            grid=dummy_grid(Float32),
+            size_structure=nipizd_named_size_structure(), grid=dummy_grid(Float32)
         )
-        @test tracer_names(named_bgc) == [
-            :N,
-            :D,
-            :microzoo_1,
-            :microzoo_2,
-            :mesozoo_1,
-            :diat_1,
-            :diat_2,
-            :diat_3,
-            :dino_1,
-            :dino_2,
-        ]
 
-        named_groups = plankton_groups(named_bgc)
-        @test keys(named_groups) == (:microzoo, :mesozoo, :diat, :dino)
-        @test named_groups.microzoo == [:microzoo_1, :microzoo_2]
-        @test named_groups.mesozoo == [:mesozoo_1]
-        @test named_groups.diat == [:diat_1, :diat_2, :diat_3]
-        @test named_groups.dino == [:dino_1, :dino_2]
-        @test plankton_tracers(named_bgc) == [
-            :microzoo_1,
-            :microzoo_2,
-            :mesozoo_1,
-            :diat_1,
-            :diat_2,
-            :diat_3,
-            :dino_1,
-            :dino_2,
-        ]
+        named_pfts = pfts(named_bgc)
+        @test keys(named_pfts) == (:diat, :dino, :mesozoo, :microzoo)
+        @test named_pfts.microzoo == [:microzoo_1, :microzoo_2]
+        @test named_pfts.mesozoo == [:mesozoo_1]
+        @test named_pfts.diat == [:diat_1, :diat_2, :diat_3]
+        @test named_pfts.dino == [:dino_1, :dino_2]
         @test plankton_diameters(named_bgc) ≈
-            [30.0, 60.0, 100.0, 2.0, 5.0, 10.0, 8.0, 20.0]
+            [2.0, 5.0, 10.0, 8.0, 20.0, 100.0, 30.0, 60.0]
 
-        named_pal = interaction_matrix(named_bgc, :palatability)
-        @test named_pal.rows == [:microzoo_1, :microzoo_2, :mesozoo_1]
+        named_pal = interaction_matrix(named_bgc, :palatability_matrix)
+        @test named_pal.rows == [:mesozoo_1, :microzoo_1, :microzoo_2]
         @test named_pal.columns == [:diat_1, :diat_2, :diat_3, :dino_1, :dino_2]
 
-        params = bgc.parameters
-        interactions = params.interactions
-        interaction_names = propertynames(interactions)
-        broken_interactions = NamedTuple{interaction_names}(
-            map(interaction_names) do name
-                name === :palatability ? ones(1, 1) : getproperty(interactions, name)
-            end,
-        )
-        broken_bgc = (; parameters=(; interactions=broken_interactions), tracers=bgc.tracers)
-        @test_throws ArgumentError interaction_matrix(broken_bgc, :palatability)
     end
 
-    @testset "Generated model (define_tracer_functions)" begin
-        model = AgateNPZD(parameters)
-        @test tracer_names(model) == [:N, :D, :P, :Z]
-        @test plankton_groups(model) == NamedTuple()
-        @test plankton_tracers(model) == Symbol[]
-        @test isempty(plankton_diameters(model))
-        @test nonplankton_tracers(model) == tracer_names(model)
-
+    @testset "Authored model without plankton PFTs" begin
+        components = (X=Agate.Components.Pool(:carbon), Y=Agate.Components.Pool(:carbon))
+        processes = (transfer=Agate.Processes.Remineralization(
+            Agate.Processes.LinearRemineralization();
+            sources=:X, destination=:Y, bindings=(rate=(X=:rate,),),
+        ),)
+        parameters = (rate=Agate.Parameters.Parameter(Agate.Parameters.ConstantDefault(1.0)),)
+        model = Agate.Construction.construct(Agate.Processes.ModelDefinition(; components, processes, parameters))
         groups = tracer_groups(model)
-        @test groups.all == tracer_names(model)
-        @test groups.by_group == NamedTuple()
-        @test groups.plankton == Symbol[]
-        @test groups.nonplankton == tracer_names(model)
-        @test !isempty(parameter_names(model))
-        @test_throws ArgumentError interaction_matrix(model, :palatability)
+
+        @test tracer_names(model) == [:X, :Y]
+        @test groups == (all=[:X, :Y], plankton=Symbol[], nonplankton=[:X, :Y], by_pft=NamedTuple())
+        @test pfts(model) == NamedTuple()
+        @test isempty(plankton_diameters(model))
+        @test parameter_names(model) == [:rate]
+        @test_throws ArgumentError interaction_matrix(model, :palatability_matrix)
     end
 end

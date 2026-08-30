@@ -1,10 +1,4 @@
-"""Small test-only helpers.
-
-These exist to keep unit tests independent of specific Oceananigans grid
-constructors. In Agate, **grid element type decides precision**, so tests can
-use a minimal grid object that exposes `eltype(::grid)` and
-`Oceananigans.Architectures.architecture(::grid)`.
-"""
+"""Small test-only helpers shared across the behavioral suite."""
 
 import OceanBioME
 import Oceananigans.Architectures: architecture, CPU
@@ -12,14 +6,10 @@ import Oceananigans.Architectures: architecture, CPU
 using Agate.Library.Allometry: AllometricParam, ConstantParam, PowerLaw
 using Oceananigans.Units: day
 
-"""A minimal grid stand-in for testing constructor precision/architecture inference.
+const PROCESS_COMPILER_RTOL = 1e-12
+process_compiler_isapprox(x, y) =
+    isapprox(x, y; rtol=PROCESS_COMPILER_RTOL, atol=10eps(max(abs(x), abs(y))))
 
-`Oceananigans` determines the active architecture from the grid. For CPU architectures,
-`architecture(grid)` is typically a singleton like `CPU()`, but GPU architectures
-carry backend state (e.g. a CUDA backend) and are not nullary-constructible.
-
-This test grid therefore stores an *architecture instance* and returns it directly.
-"""
 struct DummyGrid{T,Arch}
     arch::Arch
 end
@@ -27,16 +17,155 @@ end
 Base.eltype(::DummyGrid{T,Arch}) where {T,Arch} = T
 architecture(g::DummyGrid) = g.arch
 
-"""Construct a `DummyGrid` that behaves like an Oceananigans grid."""
 dummy_grid(::Type{T}; arch=CPU()) where {T<:AbstractFloat} = DummyGrid{T,typeof(arch)}(arch)
 
+function argument_error_message(f)
+    error = try
+        f()
+        nothing
+    catch caught
+        caught
+    end
+    @test error isa ArgumentError
+    return error isa Exception ? sprint(showerror, error) : ""
+end
+
+canonicalization_error_message(definition) =
+    argument_error_message(() -> Agate.Processes.canonicalize_model(definition))
+
+# Shared quota-model fixture used by authoring, compilation, and AD tests.
+quota_components() = (
+    DIC=Agate.Components.Pool(:carbon),
+    DIN=Agate.Components.Pool(:nitrogen),
+    PO4=Agate.Components.Pool(:phosphorus),
+    P=Agate.Components.Plankton(;
+        states=(:carbon, :nitrogen, :phosphorus),
+        reference_state=:carbon,
+        size_structure=[1.0, 2.0],
+    ),
+)
+
+quota_response(state, minimum, maximum) = Agate.Processes.QuotaResponse(
+    Agate.Processes.NormalizedDroop();
+    variable_state=state,
+    bindings=(minimum_quota=minimum, maximum_quota=maximum),
+)
+
+quota_uptake(state, resource, bindings) = Agate.Processes.NutrientUptake(
+    Agate.Processes.QuotaRegulatedMonod();
+    plankton=:P,
+    target_state=state,
+    resource=resource,
+    bindings=bindings,
+)
+
+function quota_processes()
+    responses = (
+        nitrogen=quota_response(
+            :nitrogen, :minimum_nitrogen_quota, :maximum_nitrogen_quota
+        ),
+        phosphorus=quota_response(
+            :phosphorus, :minimum_phosphorus_quota, :maximum_phosphorus_quota
+        ),
+    )
+    growth = Agate.Processes.Growth(;
+        plankton=:P,
+        reference_resource=:DIC,
+        bindings=(maximum_rate=:maximum_growth_rate,),
+        factors=(
+            light=Agate.Processes.Light(
+                Agate.Processes.Smith(); driver=:PAR,
+                bindings=(alpha=:photosynthetic_slope,),
+            ),
+            nutrients=Agate.Processes.NutrientLimitation(
+                Agate.Processes.Liebig(); responses=responses
+            ),
+        ),
+    )
+    nitrogen_uptake = quota_uptake(:nitrogen, :DIN, (
+        maximum_rate=:maximum_nitrogen_uptake,
+        half_saturation=:nitrogen_half_saturation,
+        minimum_quota=:minimum_nitrogen_quota,
+        maximum_quota=:maximum_nitrogen_quota,
+        hill=:nitrogen_uptake_hill,
+    ))
+    phosphorus_uptake = quota_uptake(:phosphorus, :PO4, (
+        maximum_rate=:maximum_phosphorus_uptake,
+        half_saturation=:phosphorus_half_saturation,
+        minimum_quota=:minimum_phosphorus_quota,
+        maximum_quota=:maximum_phosphorus_quota,
+        hill=:phosphorus_uptake_hill,
+    ))
+    return (; growth, nitrogen_uptake, phosphorus_uptake)
+end
+
+quota_parameters() = (
+    maximum_growth_rate=Agate.Parameters.Parameter(0.5),
+    photosynthetic_slope=Agate.Parameters.Parameter(0.05),
+    minimum_nitrogen_quota=Agate.Parameters.Parameter(0.05),
+    maximum_nitrogen_quota=Agate.Parameters.Parameter(0.2),
+    minimum_phosphorus_quota=Agate.Parameters.Parameter(0.005),
+    maximum_phosphorus_quota=Agate.Parameters.Parameter(0.02),
+    maximum_nitrogen_uptake=Agate.Parameters.Parameter(0.1),
+    nitrogen_half_saturation=Agate.Parameters.Parameter(0.2),
+    nitrogen_uptake_hill=Agate.Parameters.Parameter(2.0),
+    maximum_phosphorus_uptake=Agate.Parameters.Parameter(0.01),
+    phosphorus_half_saturation=Agate.Parameters.Parameter(0.02),
+    phosphorus_uptake_hill=Agate.Parameters.Parameter(2.0),
+)
+
+quota_definition() = Agate.Processes.ModelDefinition(;
+    components=quota_components(),
+    processes=quota_processes(),
+    parameters=quota_parameters(),
+)
+
+quota_runtime_args(;
+    DIC=10.0, DIN=1.0, PO4=1.0,
+    P_1_carbon=1.0, P_1_nitrogen=0.1, P_1_phosphorus=0.01,
+    P_2_carbon=0.0, P_2_nitrogen=0.0, P_2_phosphorus=0.0, PAR=100.0,
+) = (0, 0, 0, 0, DIC, DIN, PO4, P_1_carbon, P_1_nitrogen, P_1_phosphorus,
+     P_2_carbon, P_2_nitrogen, P_2_phosphorus, PAR)
+
+nipizd_named_size_structure() = (;
+    phytoplankton=(diat=[2.0, 5.0, 10.0], dino=[8.0, 20.0]),
+    zooplankton=(microzoo=[30.0, 60.0], mesozoo=[100.0]),
+)
+
+nipizd_test_state(::Type{T}=Float64) where {T<:AbstractFloat} = (;
+    N=T(7), D=T(1), P_1=T(0.01), P_2=T(0.01), Z_1=T(0.05), Z_2=T(0.05),
+)
+
+nipizd_u0(::Type{T}=Float64) where {T<:AbstractFloat} = collect(values(nipizd_test_state(T)))
+
+function nipizd_runtime_args(::Type{T}=Float64; PAR=100) where {T<:AbstractFloat}
+    return (0, 0, 0, 0, values(nipizd_test_state(T))..., T(PAR))
+end
+
+function nipizd_growth_fixture(; mu=0.7 / day, kwargs...)
+    return Agate.Models.NiPiZD.construct(;
+        parameters=(; maximum_growth_rate=(P_1=mu, P_2=mu)), kwargs...
+    )
+end
+
+function test_tendencies(model, state::NamedTuple, expected::NamedTuple)
+    names = Agate.Introspection.tracer_names(model)
+    args = (0.0, 0.0, 0.0, 0.0, Tuple(getproperty(state, name) for name in names)...)
+    for (tracer, tendency) in pairs(expected)
+        @test model(Val(tracer), args...) ≈ tendency
+    end
+end
+
+function model_tendencies(bgc, args; tracers=Tuple(Agate.Introspection.tracer_names(bgc)))
+    return NamedTuple{tracers}(Tuple(bgc(Val(tracer), args...) for tracer in tracers))
+end
 
 function authored_nipizd_inputs(::Type{T}=Float32) where {T<:AbstractFloat}
     return (;
         size_structure=(;
             phytoplankton=(diat=T[2, 8],),
             zooplankton=(;
-                microzoo=(n=2, min_esd=T(30), max_esd=T(90), splitting=:log_splitting),
+                microzoo=(n=2, min_esd=T(30), max_esd=T(90), spacing=:log),
             ),
         ),
         scalar_type=T,
@@ -53,96 +182,14 @@ function authored_nipizd_inputs(::Type{T}=Float32) where {T<:AbstractFloat}
     )
 end
 
-function nipizd_recipe_manifest(; kwargs...)
-    inputs = Agate.Models.NiPiZD._construction_inputs(; kwargs...)
-    _, manifest = Agate.Construction.construct_factory_plus_manifest(
-        inputs.recipe; inputs.execution...
-    )
-    return inputs.recipe, manifest
-end
-
 function nipizd_manifest(
     recipe::Agate.Construction.ModelRecipe;
     grid=OceanBioME.BoxModelGrid(),
     arch=nothing,
     scalar_type=nothing,
 )
-    _, manifest = Agate.Construction.construct_factory_plus_manifest(
+    _, manifest = Agate.Construction.construct_plus_manifest(
         recipe; grid, arch, scalar_type
     )
     return manifest
-end
-
-const MULTI_NUTRIENT_COUPLINGS = (
-    Agate.Tendencies.nutrient_coupling(
-        :DIN,
-        :half_saturation_DIN;
-        stoichiometry=:nitrogen_to_carbon,
-        remineralization=((:DON, :organic_remineralization), (:PON, :organic_remineralization)),
-    ),
-    Agate.Tendencies.nutrient_coupling(
-        :PO4,
-        :half_saturation_PO4;
-        stoichiometry=:phosphorus_to_carbon,
-        remineralization=((:DOP, :organic_remineralization), (:POP, :organic_remineralization)),
-    ),
-)
-
-function multi_nutrient_config(limitation)
-    return Agate.Tendencies.TendencyConfig(;
-        growth=:smith,
-        organic_cycling=:dom_pom,
-        nutrient_limitation=limitation,
-        nutrients=MULTI_NUTRIENT_COUPLINGS,
-    )
-end
-
-const MULTI_NUTRIENT_LIEBIG = multi_nutrient_config(:liebig)
-const MULTI_NUTRIENT_FRANK = multi_nutrient_config(Agate.Library.Nutrients.FrankTNorm(50))
-
-function multi_nutrient_test_model()
-    interactions = (consumer_global=Int[], prey_global=Int[], global_to_prey=[0])
-    parameters = (
-        organic_remineralization=0.1213 / 86400,
-        nitrogen_to_carbon=16 / 106,
-        phosphorus_to_carbon=1 / 106,
-        DOM_POM_fractionation=0.5,
-        linear_mortality=[8e-7],
-        quadratic_mortality=[0.0],
-        maximum_growth_rate=[2 / 86400],
-        half_saturation_DIN=[0.5],
-        half_saturation_PO4=[0.5],
-        alpha=[0.1 / 86400],
-        maximum_predation_rate=[0.0],
-        interactions=interactions,
-    )
-    config = MULTI_NUTRIENT_LIEBIG
-    organic(target, fraction, stoichiometry=:one) = Agate.Tendencies.organic_matter_tendency(
-        config; target, remineralization=:organic_remineralization, fraction, stoichiometry
-    )
-    tracers = (
-        DIC=Agate.Tendencies.inorganic_tendency(
-            config;
-            target=:DIC,
-            remineralization=((:DOC, :organic_remineralization), (:POC, :organic_remineralization)),
-            stoichiometry=:one,
-        ),
-        DIN=Agate.Tendencies.inorganic_tendency(config; target=:DIN),
-        PO4=Agate.Tendencies.inorganic_tendency(config; target=:PO4),
-        DOC=organic(:DOC, :DOM),
-        POC=organic(:POC, :POM),
-        DON=organic(:DON, :DOM, :nitrogen_to_carbon),
-        PON=organic(:PON, :POM, :nitrogen_to_carbon),
-        DOP=organic(:DOP, :DOM, :phosphorus_to_carbon),
-        POP=organic(:POP, :POM, :phosphorus_to_carbon),
-        P_1=Agate.Tendencies.phytoplankton_tendency(config; plankton_idx=1),
-    )
-    community = (group_symbols=(:P,), group_indices=(P=1:1,))
-    tracer_index = Agate.Runtime.build_tracer_index(
-        community, keys(tracers), (:PAR,); n_biogeochem_tracers=9
-    )
-    factory = Agate.Construction.define_tracer_functions(
-        parameters, tracers; tracer_index
-    )
-    return factory(parameters)
 end
