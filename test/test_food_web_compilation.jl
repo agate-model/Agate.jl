@@ -198,7 +198,8 @@ end
     @test bgc.parameters.maximum_consumption_rate == [2.0]
     @test bgc.parameters.pom_half_saturation == [1.0, 3.0, 7.0]
     @test bgc.parameters.bacterial_assimilation == reshape([0.2, 0.4, 0.8], 1, 3)
-    @test_throws ArgumentError interaction_matrix(bgc, :bacterial_assimilation)
+    bacterial_axes = interaction_matrix(bgc, :bacterial_assimilation)
+    @test (bacterial_axes.rows, bacterial_axes.columns) == ([:B_1], [:POM_1, :POM_2, :POM_3])
 
     names = Agate.Introspection.tracer_names(bgc)
     state = (N=0.0, POM_1=1.0, POM_2=1.0, POM_3=1.0, X_1=5.0, B_1=1.0)

@@ -153,7 +153,6 @@ function capture_model_manifest(
     parameters,
     layout::ModelLayout,
     parameter_plan;
-    interaction_axes,
     tracer_order::Tuple,
     auxiliary_fields::Tuple,
     explicit_override_keys::Tuple,
@@ -169,7 +168,10 @@ function capture_model_manifest(
     end
     pft_entities = NamedTuple{pft_order}(pft_values)
 
-    interaction_names = isnothing(interaction_axes) ? () : interaction_axes.parameters
+    interaction_names = Tuple(
+        name for (name, parameter) in pairs(parameter_plan.parameters)
+        if parameter.runtime_bound && parameter.axes == (:consumer, :resource)
+    )
     derived_interaction_names = Tuple(
         name for name in interaction_names if
         getproperty(parameter_plan.parameters, name).definition.default isa DerivedDefault

@@ -191,27 +191,11 @@ function parameter_plan_metadata(plan::ParameterPlan)
         )
         (;
             rank=parameter.rank,
+            axes=parameter.axes,
             shape=parameter.storage_shape,
             labels=parameter.storage_labels,
             runtime_bound=parameter.runtime_bound,
             derived_runtime_parameters,
         )
     end)
-end
-
-"""Return host metadata for runtime parameters stored on canonical consumer-by-prey axes."""
-function interaction_axis_metadata(plan::ParameterPlan, layout::ModelLayout)
-    consumers = Tuple(layout.size_classes[index] for index in layout.consumer_indices)
-    prey = Tuple(layout.size_classes[index] for index in layout.prey_indices)
-    names = Tuple(
-        name for name in keys(plan.parameters)
-        if begin
-            parameter = getproperty(plan.parameters, name)
-            parameter.runtime_bound &&
-                parameter.axes == (:consumer, :resource) &&
-                parameter.storage_labels == (consumers, prey)
-        end
-    )
-    isempty(names) && return nothing
-    return (; parameters=names, consumers, prey)
 end

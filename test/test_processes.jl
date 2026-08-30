@@ -35,6 +35,7 @@ end
 factor_inputs(::MultiDriverTestFactor) = (
     Agate.Processes.FactorDriver(:wind),
     Agate.Processes.FactorDriver(:temperature),
+    Agate.Processes.FactorComponent(:P),
 )
 
 @testset "Process authoring and canonicalization" begin
@@ -90,7 +91,7 @@ factor_inputs(::MultiDriverTestFactor) = (
     @test driver_identities(shared_driver_model) == (:PAR,)
 
     multi_driver_model = canonicalize_model(ModelDefinition(;
-        components=(P=Plankton(; states=:nitrogen, reference_state=:nitrogen), N=Pool(:nitrogen)),
+        components=(P=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]), N=Pool(:nitrogen)),
         processes=(growth=Growth(;
             plankton=:P,
             reference_resource=:N,

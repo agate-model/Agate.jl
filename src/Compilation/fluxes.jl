@@ -107,6 +107,9 @@ end
 
 function _scalar_component_target(layout::ModelLayout, component::Symbol)
     tracers = getproperty(layout.component_tracers, component)
+    length(tracers) == 1 || throw(ArgumentError(
+        "component :$component must realize exactly one tracer; got $(length(tracers))",
+    ))
     return only(tracers)
 end
 

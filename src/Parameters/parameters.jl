@@ -69,8 +69,9 @@ end
 
 """Derive a parameter default from other resolved parameters during construction.
 
-`deriver` is a setup-time strategy object implementing [`derive_default`](@ref).
-`deps` names ordinary runtime parameters and/or construction-only [`ConstructionParameter`](@ref)
+`deriver` is a setup-time strategy object. Custom derivers implement [`derive_default`](@ref);
+built-in context-sensitive providers may also use realized parameter metadata. `deps` names ordinary
+runtime parameters and/or construction-only [`ConstructionParameter`](@ref)
 values available to the derivation. Derived defaults are evaluated once after direct
 defaults and explicit overrides are materialized.
 """

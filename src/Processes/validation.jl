@@ -40,10 +40,6 @@ function _collect_process_component_references(process::AbstractProcess)
     return Tuple(references)
 end
 
-_is_scalar_component(::Pool) = true
-_is_scalar_component(component::Plankton) =
-    isnothing(size_structure(component)) && length(states(component)) == 1
-
 function _resolve_pool(components, name::Symbol, id::Symbol, label::AbstractString)
     pool = getproperty(components, name)
     pool isa Pool || throw(ArgumentError("process :$id $label :$name must be a Pool"))
@@ -101,13 +97,6 @@ function _validate_factor_for_process(
         isnothing(expected_element) || _validate_element(
             factor_element, expected_element, id, "factor path $path response element"
         )
-    end
-    for input in factor_inputs(factor)
-        input isa FactorComponent || continue
-        component = getproperty(components, input.component)
-        _is_scalar_component(component) || throw(ArgumentError(
-            "process :$id factor path $path component :$(input.component) must be a scalar component",
-        ))
     end
     for (name, subfactor) in pairs(subfactors)
         _validate_factor_for_process(

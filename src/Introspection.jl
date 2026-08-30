@@ -132,23 +132,24 @@ function tracer_groups(bgc)
     )
 end
 
-function _interaction_axes(bgc)
+function _interaction_parameter_names(bgc)
     metadata = _model_metadata(bgc)
-    metadata === nothing && throw(ArgumentError("No interaction matrix metadata found for this model."))
-    axes = metadata.interaction_axes
-    axes === nothing && throw(ArgumentError("No interaction matrices found for this model."))
-    return axes
+    metadata === nothing && return ()
+    return Tuple(
+        name for (name, parameter) in pairs(metadata.parameter_axes)
+        if parameter.runtime_bound && parameter.axes == (:consumer, :resource)
+    )
 end
 
-function _require_interaction_parameter(bgc, kind::Symbol, axes)
-    kind in axes.parameters || begin
-        available_text = isempty(axes.parameters) ? "none" : join(string.(axes.parameters), ", ")
-        throw(
-            ArgumentError(
-                "Unknown interaction matrix parameter: $kind. Available parameters are: $available_text."
-            ),
-        )
+function _interaction_parameter_metadata(bgc, kind::Symbol)
+    available = _interaction_parameter_names(bgc)
+    kind in available || begin
+        available_text = isempty(available) ? "none" : join(string.(available), ", ")
+        throw(ArgumentError(
+            "Unknown interaction matrix parameter: $kind. Available parameters are: $available_text."
+        ))
     end
+    metadata = getproperty(_model_metadata(bgc).parameter_axes, kind)
     hasproperty(bgc.parameters, kind) || throw(
         ArgumentError("Interaction parameter :$kind is missing from runtime parameters."),
     )
@@ -156,7 +157,7 @@ function _require_interaction_parameter(bgc, kind::Symbol, axes)
     matrix isa AbstractMatrix || throw(
         ArgumentError("Interaction parameter :$kind is not stored as a matrix."),
     )
-    return matrix
+    return matrix, metadata
 end
 
 function _require_interaction_shape(matrix, rows, columns, kind::Symbol)
@@ -172,17 +173,16 @@ end
 
 """    interaction_matrix(bgc, parameter::Symbol) -> NamedTuple
 
-Return a consumer-by-prey parameter matrix with SizeClass labels.
+Return a consumer-by-resource parameter matrix with realized entity labels.
 
 `parameter` is the canonical model parameter identity, for example
-`:palatability_matrix` or `:assimilation_matrix`. The returned `NamedTuple` contains
+`:palatability_matrix` or `:assimilation_matrix`. Each matrix uses the axes and labels of that
+parameter rather than one model-global interaction topology. The returned `NamedTuple` contains
 `parameter`, `matrix`, `rows`, `columns`, `row_axis`, and `column_axis`.
 """
 function interaction_matrix(bgc, parameter::Symbol)
-    axes = _interaction_axes(bgc)
-    matrix = _require_interaction_parameter(bgc, parameter, axes)
-    rows = collect(axes.consumers)
-    columns = collect(axes.prey)
+    matrix, metadata = _interaction_parameter_metadata(bgc, parameter)
+    rows, columns = map(collect, metadata.labels)
     _require_interaction_shape(matrix, rows, columns, parameter)
 
     return (
@@ -190,8 +190,8 @@ function interaction_matrix(bgc, parameter::Symbol)
         matrix=matrix,
         rows=rows,
         columns=columns,
-        row_axis=:consumer,
-        column_axis=:prey,
+        row_axis=metadata.axes[1],
+        column_axis=metadata.axes[2],
     )
 end
 

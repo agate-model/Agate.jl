@@ -50,7 +50,7 @@ using Test
         @test assim.rows == pal.rows
         @test assim.columns == pal.columns
         @test pal.row_axis == :consumer
-        @test pal.column_axis == :prey
+        @test pal.column_axis == :resource
         @test size(pal.matrix) == (length(pal.rows), length(pal.columns))
         @test size(assim.matrix) == (length(assim.rows), length(assim.columns))
         @test all(row in tracer_names(bgc) for row in pal.rows)

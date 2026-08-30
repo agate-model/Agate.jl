@@ -12,10 +12,8 @@ using ..Configuration:
     canonicalize_plankton_realization, realize_model_layout, model_metadata
 
 using ..Processes:
-    ModelDefinition, canonicalize_model, driver_identities, participants, formulation,
-    uses_living_interactions, build_parameter_plan,
-    runtime_parameter_values, parameter_plan_metadata, interaction_axis_metadata,
-    validate_realized_parameters
+    ModelDefinition, canonicalize_model, driver_identities, build_parameter_plan,
+    runtime_parameter_values, parameter_plan_metadata, validate_realized_parameters
 
 using ..Compilation: CompileContext, compile_model_tendencies
 
@@ -89,34 +87,6 @@ end
 end
 
 
-function _pfts_for_components(plankton_pfts::NamedTuple, components::Tuple)
-    pfts = Symbol[]
-    for component in components
-        hasproperty(plankton_pfts, component) || continue
-        for pft in keys(getproperty(plankton_pfts, component))
-            pft in pfts || push!(pfts, pft)
-        end
-    end
-    return Tuple(pfts)
-end
-
-function _process_interaction_roles(definition, plankton_pfts::NamedTuple)
-    consumer_components = Symbol[]
-    resource_components = Symbol[]
-    for named in values(definition.processes)
-        uses_living_interactions(formulation(named.process)) || continue
-        process_participants = participants(named)
-        hasproperty(process_participants, :consumer) &&
-            append!(consumer_components, process_participants.consumer)
-        hasproperty(process_participants, :resource) &&
-            append!(resource_components, process_participants.resource)
-    end
-    consumers = _pfts_for_components(plankton_pfts, Tuple(unique(consumer_components)))
-    resources = _pfts_for_components(plankton_pfts, Tuple(unique(resource_components)))
-    isempty(consumers) && isempty(resources) && return nothing
-    return (consumers=consumers, prey=resources)
-end
-
 function _realize_process_definition(
     definition,
     ::Type{T};
@@ -124,13 +94,8 @@ function _realize_process_definition(
     auxiliary_fields::Tuple=(),
 ) where {T<:Real}
     plankton_pfts = canonicalize_plankton_realization(definition.components, plankton_pfts)
-    interaction_roles = _process_interaction_roles(definition, plankton_pfts)
     return realize_model_layout(
-        definition.components,
-        plankton_pfts;
-        scalar_type=T,
-        interaction_roles,
-        auxiliary_fields,
+        definition.components, plankton_pfts; scalar_type=T, auxiliary_fields
     )
 end
 
@@ -209,9 +174,8 @@ function _construct_process_definition(
     runtime_parameters = runtime_parameter_values(parameter_plan, resolved_parameters)
     compile_context = CompileContext(canonical, layout, parameter_plan)
     equations = compile_model_tendencies(compile_context; target_order=tracer_names)
-    interaction_axes = interaction_axis_metadata(parameter_plan, layout)
     metadata = model_metadata(
-        layout; interaction_axes, parameter_axes=parameter_plan_metadata(parameter_plan)
+        layout; parameter_axes=parameter_plan_metadata(parameter_plan)
     )
     sinking_velocities = isnothing(sinking_tracers) ? nothing :
         setup_velocity_fields(sinking_tracers, grid, open_bottom)
@@ -228,7 +192,6 @@ function _construct_process_definition(
             resolved_parameters,
             layout,
             parameter_plan;
-            interaction_axes,
             tracer_order=tracer_names,
             auxiliary_fields,
             explicit_override_keys,

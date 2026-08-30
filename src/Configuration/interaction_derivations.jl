@@ -1,4 +1,4 @@
-import ..Parameters: derive_default, _derive_parameter_default
+import ..Parameters: _derive_parameter_default
 
 using ..Library.Allometry:
     palatability_matrix_allometric_axes, consumer_assimilation_matrix_axes
@@ -75,22 +75,6 @@ end
         ),
         consumer_indices=consumers,
         prey_indices=prey,
-    )
-end
-
-@inline function derive_default(
-    ::AllometricPalatability, ::Any, layout::ModelLayout, params::NamedTuple
-)
-    return _derive_palatability(
-        layout, params, layout.consumer_indices, layout.prey_indices
-    )
-end
-
-@inline function derive_default(
-    ::ConsumerAssimilation, ::Any, layout::ModelLayout, params::NamedTuple
-)
-    return _derive_assimilation(
-        layout, params, layout.consumer_indices, layout.prey_indices
     )
 end
 

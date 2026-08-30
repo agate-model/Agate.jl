@@ -159,6 +159,10 @@ end
           size(bgc.parameters.assimilation_local) == (1, 1)
     @test bgc.parameters.palatability_local[1, 1] ≈ 26.0^-0.3
     @test bgc.parameters.assimilation_local[1, 1] == 0.7
+    other = Agate.Introspection.interaction_matrix(bgc, :palatability_other)
+    local_matrix = Agate.Introspection.interaction_matrix(bgc, :palatability_local)
+    @test (other.rows, other.columns, local_matrix.rows, local_matrix.columns) ==
+          ([:Z1_1], [:P1_1], [:Z2_1], [:P2_1])
 end
 
 @testset "Explicit product fractions" begin

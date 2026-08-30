@@ -1,11 +1,10 @@
 """One authoritative setup-time realization of components, realized entities, and inputs.
 
 `ModelLayout` owns physical tracer positions, logical component entities, plankton-state
-tracers, entity diameters, interaction axes, and final tracer/auxiliary input positions. It is
-constructed once and consumed by parameter planning, compilation, manifests, and host-side
-metadata.
+tracers, entity diameters, and final tracer/auxiliary input positions. Parameter-specific axes
+are realized later by `ParameterPlan`.
 """
-struct ModelLayout{T<:Real,TR,II,CC,CST,CT,CD,CS,GI,D,CO,PR}
+struct ModelLayout{T<:Real,TR,II,CC,CST,CT,CD,CS,GI,D}
     scalar_type::Type{T}
     tracer_order::TR
     input_indices::II
@@ -16,8 +15,6 @@ struct ModelLayout{T<:Real,TR,II,CC,CST,CT,CD,CS,GI,D,CO,PR}
     size_classes::CS
     pft_indices::GI
     size_class_diameters::D
-    consumer_indices::CO
-    prey_indices::PR
 end
 
 _plankton_names(components::NamedTuple) = Tuple(
@@ -150,25 +147,6 @@ function canonicalize_plankton_realization(
     return NamedTuple{plankton_names}(values)
 end
 
-function _role_indices(role, role_name::Symbol, pft_indices::NamedTuple, nsizeclasses::Int)
-    role === nothing && return Tuple(1:nsizeclasses)
-    (role isa Tuple || role isa AbstractVector{Symbol}) || throw(
-        ArgumentError("$role_name roles must be a collection of plankton PFT Symbols"),
-    )
-    requested = Set{Symbol}(role)
-    for pft in requested
-        hasproperty(pft_indices, pft) || throw(
-            ArgumentError("unknown plankton PFT :$pft in $role_name roles"),
-        )
-    end
-    indices = Int[]
-    for pft in keys(pft_indices)
-        pft in requested || continue
-        append!(indices, getproperty(pft_indices, pft))
-    end
-    return Tuple(indices)
-end
-
 function _validate_auxiliary_fields(auxiliary_fields::Tuple, tracer_order::Tuple)
     all(field -> field isa Symbol, auxiliary_fields) || throw(
         ArgumentError("auxiliary_fields entries must be Symbols"),
@@ -210,7 +188,6 @@ function realize_model_layout(
     components::NamedTuple,
     plankton_pfts::NamedTuple;
     scalar_type::Type{T}=Float64,
-    interaction_roles=nothing,
     auxiliary_fields::Tuple=(),
 ) where {T<:Real}
     all(component -> component isa Union{Plankton,Pool}, values(components)) || throw(
@@ -306,14 +283,6 @@ function realize_model_layout(
     end
 
     pft_indices = NamedTuple{pft_names}(Tuple(pft_index_values))
-    roles = isnothing(interaction_roles) ? (consumers=nothing, prey=nothing) : interaction_roles
-    hasproperty(roles, :consumers) && hasproperty(roles, :prey) || throw(
-        ArgumentError("interaction_roles must define :consumers and :prey"),
-    )
-    consumer_indices = _role_indices(
-        roles.consumers, :consumers, pft_indices, length(size_classes)
-    )
-    prey_indices = _role_indices(roles.prey, :prey, pft_indices, length(size_classes))
 
     for plankton in plankton_names
         component = getproperty(components, plankton)
@@ -355,8 +324,6 @@ function realize_model_layout(
         Tuple(size_classes),
         pft_indices,
         Tuple(size_class_diameters),
-        consumer_indices,
-        prey_indices,
     )
 end
 
@@ -365,7 +332,6 @@ function realize_model_layout(
     components::NamedTuple;
     scalar_type::Type{T}=Float64,
     plankton_pfts=nothing,
-    interaction_roles=nothing,
     auxiliary_fields::Tuple=(),
 ) where {T<:Real}
     plankton_pfts = canonicalize_plankton_realization(components, plankton_pfts)
@@ -373,13 +339,12 @@ function realize_model_layout(
         components,
         plankton_pfts;
         scalar_type=T,
-        interaction_roles,
         auxiliary_fields,
     )
 end
 
 """Return compact host-side metadata derived from one authoritative `ModelLayout`."""
-function model_metadata(layout::ModelLayout; interaction_axes=nothing, parameter_axes=(;))
+function model_metadata(layout::ModelLayout; parameter_axes=(;))
     pft_names = keys(layout.pft_indices)
     pft_entities = NamedTuple{pft_names}(ntuple(length(pft_names)) do i
         indices = getproperty(layout.pft_indices, pft_names[i])
@@ -400,7 +365,6 @@ function model_metadata(layout::ModelLayout; interaction_axes=nothing, parameter
             isfinite(diameter) && diameter > zero(diameter) ? diameter : nothing
             for diameter in layout.size_class_diameters
         ),
-        interaction_axes,
         parameter_axes,
     )
 end
