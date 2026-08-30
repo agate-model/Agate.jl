@@ -7,9 +7,9 @@ end
 
 """Lower one canonical process to generic fluxes.
 
-Custom process implementations may extend this hook for a concrete `NamedProcess` subtype.
+Custom process implementations may extend this hook through `CanonicalProcess{P}` for a concrete process type.
 """
-function process_fluxes(named::NamedProcess, context::CompileContext)
+function process_fluxes(named::CanonicalProcess, context::CompileContext)
     throw(ArgumentError(
         "no compiler lowering is defined for process type $(typeof(named.process))",
     ))
@@ -91,13 +91,13 @@ This is the narrow parameterized-process extension seam: custom lowering receive
 names mapped directly to static operands without depending on canonical binding references.
 """
 function process_parameter_operands(
-    named::NamedProcess,
+    named::CanonicalProcess,
     context::CompileContext,
     axis_positions::NamedTuple=NamedTuple(),
 )
     refs = named.binding_refs.process
     all(ref -> ref isa Int, values(refs)) || throw(ArgumentError(
-        "process :$(process_id(named)) has qualifier-specific parameter slots; custom lowering must resolve its setup facts explicitly",
+        "process :$(process_id(named)) has qualifier-specific parameter slots; custom lowering must resolve its semantic facts explicitly",
     ))
     names = keys(refs)
     return NamedTuple{names}(Tuple(

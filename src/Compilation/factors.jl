@@ -20,12 +20,12 @@ function _factor_input_operand(
 end
 
 _factor_process_operands(
-    ::AbstractFactor, ::CompileContext, ::NamedProcess, ::NamedTuple
+    ::AbstractFactor, ::CompileContext, ::CanonicalProcess, ::NamedTuple
 ) = ()
 
-_factor_inputs(factor::AbstractFactor, ::NamedProcess) = factor_inputs(factor)
-function _factor_inputs(factor::QuotaResponse, named::NamedProcess)
-    reference = only(named.facts.plankton_states)
+_factor_inputs(factor::AbstractFactor, ::CanonicalProcess) = factor_inputs(factor)
+function _factor_inputs(factor::QuotaResponse, named::CanonicalProcess)
+    reference = only(named.semantic_facts.plankton_states)
     variable = PlanktonStateRef(reference.plankton, factor.variable_state)
     return (FactorPlanktonState(variable), FactorPlanktonState(reference))
 end
@@ -33,7 +33,7 @@ end
 function _factor_process_operands(
     ::Light,
     context::CompileContext,
-    named::NamedProcess,
+    named::CanonicalProcess,
     axis_positions::NamedTuple,
 )
     ref = named.binding_refs.process.maximum_rate
@@ -42,7 +42,7 @@ end
 
 function _factor_op(
     context::CompileContext,
-    named::NamedProcess,
+    named::CanonicalProcess,
     factor::AbstractFactor,
     refs,
     axis_positions::NamedTuple,
@@ -81,7 +81,7 @@ end
 
 function _factor_ops(
     context::CompileContext,
-    named::NamedProcess,
+    named::CanonicalProcess,
     axis_positions::NamedTuple,
 )
     return Tuple(

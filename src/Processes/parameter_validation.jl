@@ -16,7 +16,7 @@ function _validate_quota_bounds(
     layout::ModelLayout,
     plan::ParameterPlan,
     parameter_values::NamedTuple,
-    named::NamedProcess,
+    named::CanonicalProcess,
     path::Tuple,
     slot_refs::NamedTuple,
     plankton::Symbol,
@@ -43,7 +43,7 @@ function _validate_parameter_constraint(
     layout::ModelLayout,
     plan::ParameterPlan,
     parameter_values::NamedTuple,
-    named::NamedProcess,
+    named::CanonicalProcess,
     path::Tuple,
     slot_refs::NamedTuple,
     plankton::Symbol,
@@ -68,7 +68,7 @@ function _validate_quota_factor_science(
     if factor isa QuotaResponse
         _validate_quota_bounds(
             definition, layout, plan, parameter_values, named, path, refs.slots,
-            only(named.facts.plankton_states).plankton,
+            only(named.semantic_facts.plankton_states).plankton,
         )
     end
     for (name, subfactor) in pairs(factor_subfactors(factor))

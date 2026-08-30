@@ -1,26 +1,26 @@
-"""Named, validated process instance in canonical model state.
+"""Validated process instance in canonical model state.
 
-`facts` contains setup-only scientific decisions that compilation may trust. `binding_refs`
+`semantic_facts` contains setup-only scientific decisions that compilation may trust. `binding_refs`
 contains dense references into the canonical model's ordered parameter-binding tuple, arranged
 alongside the process/factor/product structure so lowering never reconstructs scientific paths.
 """
-struct NamedProcess{P<:AbstractProcess,F,R}
+struct CanonicalProcess{P<:AbstractProcess,F,R}
     id::Symbol
     process::P
-    facts::F
+    semantic_facts::F
     binding_refs::R
 end
 
-NamedProcess(id::Symbol, process::P) where {P<:AbstractProcess} =
-    NamedProcess(id, process, NamedTuple(), NamedTuple())
-NamedProcess(id::Symbol, process::P, facts::F) where {P<:AbstractProcess,F} =
-    NamedProcess(id, process, facts, NamedTuple())
+CanonicalProcess(id::Symbol, process::P) where {P<:AbstractProcess} =
+    CanonicalProcess(id, process, NamedTuple(), NamedTuple())
+CanonicalProcess(id::Symbol, process::P, semantic_facts::F) where {P<:AbstractProcess,F} =
+    CanonicalProcess(id, process, semantic_facts, NamedTuple())
 
-"""Return the stable identity of a canonical named process."""
-process_id(process::NamedProcess) = process.id
-formulation(process::NamedProcess) = formulation(process.process)
-factors(process::NamedProcess) = factors(process.process)
-participants(process::NamedProcess) = participants(process.process)
+"""Return the stable identity of a canonical process."""
+process_id(process::CanonicalProcess) = process.id
+formulation(process::CanonicalProcess) = formulation(process.process)
+factors(process::CanonicalProcess) = factors(process.process)
+participants(process::CanonicalProcess) = participants(process.process)
 
 # Dense parameter-binding reference collection
 
@@ -35,7 +35,7 @@ function _resolve_slot_qualifier(slot::ParameterSlot, context::NamedTuple)
 end
 
 function _binding_axis_components(
-    named::NamedProcess, axes::Tuple, qualifier
+    named::CanonicalProcess, axes::Tuple, qualifier
 )
     process_participants = participants(named)
     return map(axes) do axis
@@ -48,7 +48,7 @@ function _binding_axis_components(
 end
 
 function _parameter_slot_metadata(
-    named::NamedProcess,
+    named::CanonicalProcess,
     path::Tuple,
     slot::ParameterSlot,
     qualifier,
@@ -66,7 +66,7 @@ end
 function _emit_parameter_slots!(
     uses::Vector{Any},
     seen::Set{Any},
-    named::NamedProcess,
+    named::CanonicalProcess,
     path::Tuple,
     node;
     context::NamedTuple=NamedTuple(),
@@ -93,7 +93,7 @@ function _emit_parameter_slots!(
 end
 
 function _visit_factor_slots!(
-    uses::Vector{Any}, seen::Set{Any}, named::NamedProcess, path::Tuple, factor::AbstractFactor
+    uses::Vector{Any}, seen::Set{Any}, named::CanonicalProcess, path::Tuple, factor::AbstractFactor
 )
     slots = _emit_parameter_slots!(uses, seen, named, path, factor)
     subfactors = _resolve_factor_subfactors(factor)
@@ -108,7 +108,7 @@ function _visit_factor_slots!(
 end
 
 function _visit_product_slots!(
-    uses::Vector{Any}, seen::Set{Any}, named::NamedProcess, path::Tuple, products::Products
+    uses::Vector{Any}, seen::Set{Any}, named::CanonicalProcess, path::Tuple, products::Products
 )
     fraction_names = keys(products.fractions)
     fractions = NamedTuple{fraction_names}(Tuple(
@@ -143,7 +143,7 @@ function _visit_product_slots!(
     return (; fractions, stoichiometry=ratios)
 end
 
-function _visit_process_slots!(uses::Vector{Any}, seen::Set{Any}, named::NamedProcess)
+function _visit_process_slots!(uses::Vector{Any}, seen::Set{Any}, named::CanonicalProcess)
     process = named.process
     process_refs = if process isa Mortality
         names = process.plankton
@@ -199,7 +199,7 @@ function _visit_process_slots!(uses::Vector{Any}, seen::Set{Any}, named::NamedPr
     )
 end
 
-# Canonical model state and process facts
+# Canonical model state and process semantic facts
 
 """Setup-time canonical scientific model definition.
 
@@ -299,7 +299,7 @@ function _matching_element_sets(
     return first_elements
 end
 
-"""Attach setup-validated facts to a process before compilation.
+"""Attach setup-validated semantic facts to a process before compilation.
 
 Custom process implementations may extend this hook when lowering needs setup-resolved facts
 beyond the authored process object.
@@ -586,11 +586,11 @@ function _canonicalize_process(id::Symbol, process, components::NamedTuple)
     isempty(missing_names) || throw(
         ArgumentError("process :$id references unknown components $missing_names"),
     )
-    facts = process_facts(process, id, components)
+    semantic_facts = process_facts(process, id, components)
     for (name, factor) in pairs(factors(process))
         _validate_factor_for_process(id, process, factor, components, (:factors, name))
     end
-    return NamedProcess(id, process, facts)
+    return CanonicalProcess(id, process, semantic_facts)
 end
 
 function _canonical_processes(processes::NamedTuple, components::NamedTuple)
@@ -765,7 +765,7 @@ function _attach_binding_refs(processes::NamedTuple, refs::NamedTuple)
     return NamedTuple{names}(Tuple(
         begin
             named = getproperty(processes, name)
-            NamedProcess(named.id, named.process, named.facts, getproperty(refs, name))
+            CanonicalProcess(named.id, named.process, named.semantic_facts, getproperty(refs, name))
         end
         for name in names
     ))

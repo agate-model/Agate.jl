@@ -30,34 +30,46 @@ A process-defined model moves through five stages:
 The central data flow is:
 
 ```text
-components
-+ named processes
-+ keyed parameters
-        |
-        v
-validation + canonicalization
-        |
-        v
-process-local topology + parameter bindings
-        |
-        v
-generic target + rate + weight fluxes
-        |
-        v
-setup-time grouping / static lowering
-        |
-        v
-one compiled equation per concrete tracer
-        |
-        v
-lean runtime
+                       ModelDefinition
+        authored components / processes / parameters
+                              |
+                              v
+                 CanonicalModelDefinition
+            validated scientific semantics
+                              |
+                              v
+                       ModelLayout
+            realized entities / tracers / topology
+                              |
+                              v
+                      ParameterPlan
+          axes / labels / parameter storage plan
+                       /             \
+                      /               \
+                     v                 v
+       resolved parameter values    CompileContext
+                     |                 |
+                     v                 v
+       runtime parameter values     FluxSpec tuple
+                     |                 |
+                     |                 v
+                     |          static tendency IR
+                     |                 |
+                      \               /
+                       \             /
+                        v           v
+                           AgateBGC
 ```
+
+Canonicalization establishes scientific meaning. Model realization establishes named topology.
+Parameter planning establishes labelled storage. Runtime indices and array positions implement
+those named structures; they do not define scientific identity.
 
 ## Custom process extension boundary
 
 Custom process implementations that need new flux topology can extend
-`Processes.process_facts` to attach setup-validated facts to an `AbstractProcess` and
-`Compilation.process_fluxes` to lower the resulting `NamedProcess` using the shared
+`Processes.process_facts` to attach setup-validated semantic facts to an `AbstractProcess` and
+`Compilation.process_fluxes` to lower the resulting `CanonicalProcess` using the shared
 `CompileContext`. Parameterized custom processes use `Compilation.process_parameter_operands`
 to receive process-owned static operands without depending on dense binding references. Custom
 processes otherwise follow the same model-definition, validation, canonicalization,

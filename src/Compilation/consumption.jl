@@ -2,7 +2,7 @@ function _consumption_rate(
     formulation::PreferentialGrazing,
     slots,
     context::CompileContext,
-    named::NamedProcess,
+    named::CanonicalProcess,
     inventory::Symbol,
     reference_resource::Symbol,
     consumer::Symbol,
@@ -24,7 +24,7 @@ function _consumption_rate(
     formulation::HeterotrophicConsumption,
     slots,
     context::CompileContext,
-    named::NamedProcess,
+    named::CanonicalProcess,
     consumer::Symbol,
     resource::Symbol,
     axis_positions::NamedTuple,
@@ -47,19 +47,19 @@ function _append_unassimilated_products!(
     assimilation,
     element,
 )
-    isnothing(named.facts.product_targets) && return nothing
-    suffix = (RemainderOp((assimilation,)),)
-    if named.facts.product_mode === :state
+    isnothing(named.semantic_facts.product_targets) && return nothing
+    suffix = (ComplementOp((assimilation,)),)
+    if named.semantic_facts.product_mode === :state
         append!(
             fluxes,
             _product_fluxes_for_element(
-                named, named.facts.product_targets, context, rate, element; suffix
+                named, named.semantic_facts.product_targets, context, rate, element; suffix
             ),
         )
     else
         append!(
             fluxes,
-            _product_fluxes(named, named.facts.product_targets, context, rate; suffix),
+            _product_fluxes(named, named.semantic_facts.product_targets, context, rate; suffix),
         )
     end
     return nothing
@@ -67,7 +67,7 @@ end
 
 function _living_consumption_fluxes!(
     fluxes,
-    named::NamedProcess,
+    named::CanonicalProcess,
     context::CompileContext,
     consumer,
     resource,
@@ -75,10 +75,10 @@ function _living_consumption_fluxes!(
     axis_positions,
 )
     layout = context.layout
-    state_refs = getproperty(named.facts.resource_state_sets, resource.component)
-    state_elements = getproperty(named.facts.resource_state_elements, resource.component)
+    state_refs = getproperty(named.semantic_facts.resource_state_sets, resource.component)
+    state_elements = getproperty(named.semantic_facts.resource_state_elements, resource.component)
     consumer_element_states = getproperty(
-        named.facts.consumer_element_states, consumer.component
+        named.semantic_facts.consumer_element_states, consumer.component
     )
     assimilation = parameter_operand(slots.assimilation, context, axis_positions)
 
@@ -102,8 +102,8 @@ function _living_consumption_fluxes!(
         consumer_tracer = state_tracer(layout, consumer_ref, consumer.component_index)
         push!(fluxes, FluxSpec(consumer_tracer, rate, Weight{1}((assimilation,))))
 
-        if named.facts.product_mode === :stoichiometric &&
-           state_element_value !== named.facts.reference_element
+        if named.semantic_facts.product_mode === :stoichiometric &&
+           state_element_value !== named.semantic_facts.reference_element
             continue
         end
         _append_unassimilated_products!(
@@ -115,7 +115,7 @@ end
 
 function _heterotrophic_consumption_fluxes!(
     fluxes,
-    named::NamedProcess,
+    named::CanonicalProcess,
     context::CompileContext,
     consumer,
     resource,
@@ -134,9 +134,9 @@ function _heterotrophic_consumption_fluxes!(
     )
     assimilation = parameter_operand(slots.assimilation, context, axis_positions)
     consumer_element_states = getproperty(
-        named.facts.consumer_element_states, consumer.component
+        named.semantic_facts.consumer_element_states, consumer.component
     )
-    consumer_ref = getproperty(consumer_element_states, named.facts.reference_element)
+    consumer_ref = getproperty(consumer_element_states, named.semantic_facts.reference_element)
     consumer_tracer = state_tracer(layout, consumer_ref, consumer.component_index)
     push!(
         fluxes,
@@ -149,18 +149,18 @@ function _heterotrophic_consumption_fluxes!(
         context,
         rate,
         assimilation,
-        named.facts.reference_element,
+        named.semantic_facts.reference_element,
     )
     return nothing
 end
 
 function process_fluxes(
-    named::NamedProcess{P}, context::CompileContext
+    named::CanonicalProcess{P}, context::CompileContext
 ) where {P<:Consumption}
     form = named.process.formulation
     layout = context.layout
-    consumers = _realize_participants(named.facts.consumer_states, layout)
-    resources = _realize_participants(named.facts.resources, layout)
+    consumers = _realize_participants(named.semantic_facts.consumer_states, layout)
+    resources = _realize_participants(named.semantic_facts.resources, layout)
     slots = named.binding_refs.process
     fluxes = Any[]
 

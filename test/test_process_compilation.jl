@@ -26,12 +26,12 @@ Agate.Processes.process_facts(
 Agate.Processes.process_rate(::ExtensionTransferRate, source, rate) = source * rate
 
 function Agate.Compilation.process_fluxes(
-    named::Agate.Processes.NamedProcess{P}, context::CompileContext
+    named::Agate.Processes.CanonicalProcess{P}, context::CompileContext
 ) where {P<:ExtensionTransfer}
-    source = only(component_tracers(context.layout, named.facts.source))
+    source = only(component_tracers(context.layout, named.semantic_facts.source))
     destination = Agate.Processes.process_id(named) === :invalid_transfer ?
                   :not_a_realized_tracer :
-                  only(component_tracers(context.layout, named.facts.destination))
+                  only(component_tracers(context.layout, named.semantic_facts.destination))
     parameters = process_parameter_operands(named, context)
     rate = Agate.Compilation.RateOp(
         ExtensionTransferRate(), (input_operand(context.layout, source), parameters.rate)

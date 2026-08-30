@@ -7,7 +7,7 @@ struct InputOp{I} end
 struct ParameterOp{S,I} end
 
 """Static operand whose value is one minus the sum of child operands."""
-struct RemainderOp{O}
+struct ComplementOp{O}
     operands::O
 end
 
@@ -29,7 +29,7 @@ end
     return operand_value(first(operands), bgc, args) + _operand_sum(Base.tail(operands), bgc, args)
 end
 
-@inline function operand_value(op::RemainderOp, bgc, args)
+@inline function operand_value(op::ComplementOp, bgc, args)
     total = _operand_sum(op.operands, bgc, args)
     return one(total) - total
 end

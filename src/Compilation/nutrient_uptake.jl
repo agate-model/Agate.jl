@@ -1,12 +1,12 @@
 function process_fluxes(
-    named::NamedProcess{P}, context::CompileContext
+    named::CanonicalProcess{P}, context::CompileContext
 ) where {P<:NutrientUptake}
     process = named.process
-    facts = named.facts
+    semantic_facts = named.semantic_facts
     layout = context.layout
-    participants = _realize_participants((facts.target,), layout)
-    reference_tracers = state_tracers(layout, facts.reference)
-    resource = _scalar_component_target(layout, facts.resource)
+    participants = _realize_participants((semantic_facts.target,), layout)
+    reference_tracers = state_tracers(layout, semantic_facts.reference)
+    resource = _scalar_component_target(layout, semantic_facts.resource)
     slots = named.binding_refs.process
     fluxes = Any[]
 

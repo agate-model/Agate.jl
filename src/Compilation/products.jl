@@ -1,4 +1,4 @@
-function _product_fraction_ref(named::NamedProcess, product::Symbol)
+function _product_fraction_ref(named::CanonicalProcess, product::Symbol)
     refs = named.binding_refs.products.fractions
     hasproperty(refs, product) || return nothing
     return getproperty(refs, product).fraction
@@ -6,7 +6,7 @@ end
 
 function _product_fraction_operand(
     context::CompileContext,
-    named::NamedProcess,
+    named::CanonicalProcess,
     product::Symbol,
 )
     ref = _product_fraction_ref(named, product)
@@ -18,10 +18,10 @@ function _product_fraction_operand(
         parameter_operand(getproperty(fraction_refs, name).fraction, context)
         for name in keys(fraction_refs)
     )
-    return RemainderOp(operands)
+    return ComplementOp(operands)
 end
 
-function _product_ratio_ref(named::NamedProcess, products::Products, element::Symbol)
+function _product_ratio_ref(named::CanonicalProcess, products::Products, element::Symbol)
     stoichiometry = products.stoichiometry
     isnothing(stoichiometry) && return nothing
     element === stoichiometry.reference_element && return nothing
@@ -46,7 +46,7 @@ function _product_weight(
 end
 
 function _product_fluxes(
-    named::NamedProcess,
+    named::CanonicalProcess,
     product_targets::NamedTuple,
     context::CompileContext,
     rate::RateOp;
@@ -73,7 +73,7 @@ end
 
 
 function _product_fluxes_for_element(
-    named::NamedProcess,
+    named::CanonicalProcess,
     product_targets::NamedTuple,
     context::CompileContext,
     rate::RateOp,

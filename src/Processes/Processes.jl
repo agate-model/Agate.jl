@@ -22,7 +22,7 @@ export Light, NutrientLimitation, Temperature
 export FixedStoichiometry
 export Growth, NutrientResponse, QuotaResponse, NutrientUptake
 export Consumption, Mortality, Products, Remineralization
-export ModelDefinition, NamedProcess
+export ModelDefinition, CanonicalProcess
 export ParameterSlot
 export process_id, formulation, factors
 export authored_parameter_bindings

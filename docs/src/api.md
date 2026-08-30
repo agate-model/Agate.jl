@@ -9,6 +9,49 @@ Agate.Construction.construct
 Agate.ModelDefinition
 ```
 
+### Backend lifecycle
+
+Construction separates scientific meaning, realized topology, labelled parameter storage, and
+runtime execution. After `ParameterPlan`, parameter-value realization and equation compilation are
+independent setup branches: compilation uses canonical bindings plus the realized layout and plan,
+not the materialized parameter values. The branches meet when `AgateBGC` is assembled.
+
+```text
+                       ModelDefinition
+        authored components / processes / parameters
+                              |
+                              v
+                 CanonicalModelDefinition
+            validated scientific semantics
+                              |
+                              v
+                       ModelLayout
+            realized entities / tracers / topology
+                              |
+                              v
+                      ParameterPlan
+          axes / labels / parameter storage plan
+                       /             \
+                      /               \
+                     v                 v
+       resolved parameter values    CompileContext
+                     |                 |
+                     v                 v
+       runtime parameter values     FluxSpec tuple
+                     |                 |
+                     |                 v
+                     |          static tendency IR
+                     |                 |
+                      \               /
+                       \             /
+                        v           v
+                           AgateBGC
+```
+
+Canonicalization establishes scientific meaning. Model realization establishes named topology.
+Parameter planning establishes labelled storage. Runtime indices and array positions implement
+those named structures; they do not define scientific identity.
+
 ### Components
 
 ```@docs
@@ -110,15 +153,15 @@ Agate.Configuration.ConsumerAssimilation
 
 ### Custom process extension
 
-Custom process implementations attach setup-validated facts with
-`Processes.process_facts` and lower a `NamedProcess` with
+Custom process implementations attach setup-validated semantic facts with
+`Processes.process_facts` and lower a `CanonicalProcess` with
 `Compilation.process_fluxes` using the shared `CompileContext`. Parameterized custom processes
 can obtain their process-owned compiled parameter operands through
 `Compilation.process_parameter_operands`, keeping dense binding references and canonicalization
 representation details internal to setup.
 
 ```@docs
-Agate.Processes.NamedProcess
+Agate.Processes.CanonicalProcess
 Agate.Processes.process_id
 Agate.Processes.ParameterSlot
 Agate.Processes.parameter_slots

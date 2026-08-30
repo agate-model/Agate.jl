@@ -1,5 +1,5 @@
 function process_fluxes(
-    named::NamedProcess{P}, context::CompileContext
+    named::CanonicalProcess{P}, context::CompileContext
 ) where {P<:Remineralization}
     process = named.process
     layout = context.layout

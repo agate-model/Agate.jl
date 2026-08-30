@@ -15,16 +15,16 @@ function _mortality_rate(
 end
 
 function process_fluxes(
-    named::NamedProcess{P}, context::CompileContext
+    named::CanonicalProcess{P}, context::CompileContext
 ) where {P<:Mortality}
     process = named.process
     layout = context.layout
     fluxes = Any[]
 
-    for reference in named.facts.plankton_states
+    for reference in named.semantic_facts.plankton_states
         slots = getproperty(named.binding_refs.process, reference.plankton)
-        state_refs = getproperty(named.facts.state_sets, reference.plankton)
-        state_elements = getproperty(named.facts.state_elements, reference.plankton)
+        state_refs = getproperty(named.semantic_facts.state_sets, reference.plankton)
+        state_elements = getproperty(named.semantic_facts.state_elements, reference.plankton)
         for participant in _realize_participants((reference,), layout)
             for state_ref in state_refs
                 tracer = state_tracer(layout, state_ref, participant.component_index)
@@ -33,15 +33,15 @@ function process_fluxes(
                 )
                 push!(fluxes, FluxSpec(tracer, rate, Weight{-1}()))
 
-                isnothing(named.facts.product_targets) && continue
+                isnothing(named.semantic_facts.product_targets) && continue
                 state_element_value = getproperty(state_elements, state_ref.state)
                 isnothing(state_element_value) && continue
-                if named.facts.product_mode === :state
+                if named.semantic_facts.product_mode === :state
                     append!(
                         fluxes,
                         _product_fluxes_for_element(
                             named,
-                            named.facts.product_targets,
+                            named.semantic_facts.product_targets,
                             context,
                             rate,
                             state_element_value,
@@ -50,7 +50,7 @@ function process_fluxes(
                 elseif state_element_value === _state_element_for_reference(named, reference)
                     append!(
                         fluxes,
-                        _product_fluxes(named, named.facts.product_targets, context, rate),
+                        _product_fluxes(named, named.semantic_facts.product_targets, context, rate),
                     )
                 end
             end
@@ -59,7 +59,7 @@ function process_fluxes(
     return Tuple(fluxes)
 end
 
-function _state_element_for_reference(named::NamedProcess, reference::PlanktonStateRef)
-    state_elements = getproperty(named.facts.state_elements, reference.plankton)
+function _state_element_for_reference(named::CanonicalProcess, reference::PlanktonStateRef)
+    state_elements = getproperty(named.semantic_facts.state_elements, reference.plankton)
     return getproperty(state_elements, reference.state)
 end

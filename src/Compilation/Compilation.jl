@@ -23,7 +23,7 @@ using ..Processes:
     factor_inputs,
     factor_subfactors,
     HeterotrophicConsumption,
-    NamedProcess,
+    CanonicalProcess,
     process_id,
     PreferentialGrazing,
     Products,
