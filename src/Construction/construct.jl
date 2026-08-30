@@ -93,7 +93,7 @@ function _pfts_for_components(plankton_pfts::NamedTuple, components::Tuple)
     pfts = Symbol[]
     for component in components
         hasproperty(plankton_pfts, component) || continue
-        for pft in getproperty(plankton_pfts, component)
+        for pft in keys(getproperty(plankton_pfts, component))
             pft in pfts || push!(pfts, pft)
         end
     end
@@ -121,17 +121,13 @@ function _realize_process_definition(
     definition,
     ::Type{T};
     plankton_pfts=nothing,
-    pft_size_structures=nothing,
     auxiliary_fields::Tuple=(),
 ) where {T<:Real}
-    plankton_pfts, pft_size_structures = canonicalize_plankton_realization(
-        definition.components, plankton_pfts, pft_size_structures
-    )
+    plankton_pfts = canonicalize_plankton_realization(definition.components, plankton_pfts)
     interaction_roles = _process_interaction_roles(definition, plankton_pfts)
     return realize_model_layout(
         definition.components,
-        plankton_pfts,
-        pft_size_structures;
+        plankton_pfts;
         scalar_type=T,
         interaction_roles,
         auxiliary_fields,
@@ -141,7 +137,6 @@ end
 function _construct_process_definition(
     definition::ModelDefinition;
     plankton_pfts=nothing,
-    pft_size_structures=nothing,
     parameter_overrides::NamedTuple=(;),
     sinking_tracers=nothing,
     open_bottom::Bool=true,
@@ -180,7 +175,7 @@ function _construct_process_definition(
     )
     auxiliary_fields = driver_identities(canonical)
     layout = _realize_process_definition(
-        canonical, T; plankton_pfts, pft_size_structures, auxiliary_fields
+        canonical, T; plankton_pfts, auxiliary_fields
     )
     tracer_names = layout.tracer_order
     parameter_plan = build_parameter_plan(canonical, layout)
@@ -288,20 +283,19 @@ end
 
 """
     construct(family::AbstractModelFamily;
-              plankton_pfts, pft_size_structures, parameter_overrides=(;),
+              plankton_pfts, parameter_overrides=(;),
               sinking_tracers=nothing, open_bottom=true, grid=nothing,
               arch=nothing, scalar_type=nothing) -> bgc
 
 Construct a registered model family from its resolved family realization. This is the
 supported construction seam for external family packages after their own user-facing
-constructor syntax has been translated into `plankton_pfts`, `pft_size_structures`, and
+constructor syntax has been translated into the nested `plankton_pfts` mapping and
 parameter overrides. Runtime grid, architecture, and scalar precision remain execution
 choices.
 """
 function construct(
     family::AbstractModelFamily;
     plankton_pfts::NamedTuple,
-    pft_size_structures::NamedTuple,
     parameter_overrides::NamedTuple=(;),
     sinking_tracers=nothing,
     open_bottom::Bool=true,
@@ -309,9 +303,7 @@ function construct(
     arch=nothing,
     scalar_type=nothing,
 )
-    realization = (;
-        plankton_pfts, pft_size_structures, parameter_overrides, sinking_tracers, open_bottom
-    )
+    realization = (; plankton_pfts, parameter_overrides, sinking_tracers, open_bottom)
     bgc, _ = _construct_registered_model(family, realization; grid, arch, scalar_type)
     return bgc
 end

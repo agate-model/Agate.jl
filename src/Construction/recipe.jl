@@ -19,11 +19,10 @@ end
 definitions, runtime precision, host fields, and compiled equations are supplied by the
 loaded family implementation when the recipe is replayed.
 """
-struct ModelRecipe{G,D,P,S}
+struct ModelRecipe{G,P,S}
     family::Symbol
     definition_version::VersionNumber
     plankton_pfts::G
-    pft_size_structures::D
     parameter_overrides::P
     sinking_tracers::S
     open_bottom::Bool
@@ -86,11 +85,8 @@ end
 function _canonical_recipe_realization(
     family::AbstractModelFamily,
     plankton_pfts::NamedTuple,
-    pft_size_structures::NamedTuple,
 )
-    return canonicalize_plankton_realization(
-        default_components(family), plankton_pfts, pft_size_structures
-    )
+    return canonicalize_plankton_realization(default_components(family), plankton_pfts)
 end
 
 
@@ -98,7 +94,6 @@ end
 function capture_model_recipe(
     family::AbstractModelFamily;
     plankton_pfts::NamedTuple,
-    pft_size_structures::NamedTuple,
     parameter_overrides::NamedTuple=(;),
     sinking_tracers=nothing,
     open_bottom::Bool=true,
@@ -111,14 +106,11 @@ function capture_model_recipe(
     version isa VersionNumber || throw(
         ArgumentError("definition_version must return a VersionNumber; got $(typeof(version)).")
     )
-    plankton_pfts, pft_size_structures = _canonical_recipe_realization(
-        family, plankton_pfts, pft_size_structures
-    )
+    plankton_pfts = _canonical_recipe_realization(family, plankton_pfts)
     return ModelRecipe(
         family_id_value,
         version,
         deepcopy(plankton_pfts),
-        deepcopy(pft_size_structures),
         deepcopy(parameter_overrides),
         deepcopy(sinking_tracers),
         open_bottom,
@@ -127,7 +119,6 @@ end
 
 _family_realization(recipe::ModelRecipe) = (;
     plankton_pfts=recipe.plankton_pfts,
-    pft_size_structures=recipe.pft_size_structures,
     parameter_overrides=recipe.parameter_overrides,
     sinking_tracers=recipe.sinking_tracers,
     open_bottom=recipe.open_bottom,

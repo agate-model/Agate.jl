@@ -108,9 +108,9 @@ using Oceananigans.Biogeochemistry:
             :diat_3,
             :dino_1,
             :dino_2,
+            :mesozoo_1,
             :microzoo_1,
             :microzoo_2,
-            :mesozoo_1,
         )
         @test size(named.parameters.palatability_matrix) == (3, 5)
         @test size(named.parameters.assimilation_matrix) == (3, 5)
@@ -142,26 +142,16 @@ using Oceananigans.Biogeochemistry:
             zooplankton=(microzoo=zoo_diameters[1:2], mesozoo=zoo_diameters[3:3]),
         )
 
-        flat = NiPiZD.construct(;
-            size_structure=(;
-                phytoplankton=(P=phyto_diameters,),
-                zooplankton=(Z=zoo_diameters,),
-            ),
-            grid=dummy_grid(Float32),
-        )
         named = NiPiZD.construct(;
             size_structure=named_size_structure, grid=dummy_grid(Float32)
         )
-        @test named.parameters == flat.parameters
-
         growth = copy(named.parameters.maximum_growth_rate)
         predation = copy(named.parameters.maximum_predation_rate)
         specificity = fill(Float32(0.3), length(plankton_diameters(named)))
         growth[1] = Float32(1.2 / day)
-        predation[2] = Float32(0.7 / day)
-        # Construction-only `axes=:plankton` vectors use the full canonical
-        # PFT/SizeClass order: diat_1, diat_2, dino_1, microzoo_1, ...
-        specificity[4] = 2.0f0
+        predation[3] = Float32(0.7 / day)
+        # Canonical PFT/SizeClass order is identity-based: diat, dino, mesozoo, microzoo.
+        specificity[5] = 2.0f0
 
         named_overrides = NiPiZD.construct(;
             size_structure=named_size_structure,

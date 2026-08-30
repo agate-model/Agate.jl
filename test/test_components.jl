@@ -63,8 +63,7 @@ end
     explicit_pft_layout = realize_model_layout(
         (P=plankton, DIN=Pool(:nitrogen));
         scalar_type=Float32,
-        plankton_pfts=(P=(:P,),),
-        pft_size_structures=(P=[2.0, 10.0],),
+        plankton_pfts=(P=(P=[2.0, 10.0],),),
     )
     @test component_entities(explicit_pft_layout, :P) == component_entities(layout, :P)
     @test component_tracers(explicit_pft_layout, :P) == component_tracers(layout, :P)

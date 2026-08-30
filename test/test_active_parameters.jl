@@ -288,8 +288,13 @@ end
     @test named_parameterized(Val(:diat_1), args...) ≈
           flat_parameterized(Val(:P_1), args...)
 
-    u0 = nipizd_u0()
-    function rhs(bgc, active)
+    named_to_flat = (
+        N=:N, D=:D, diat_1=:P_1, dino_1=:P_2, microzoo_1=:Z_1, mesozoo_1=:Z_2,
+    )
+    reference_state = nipizd_test_state()
+    function rhs(bgc, active, state_name=identity)
+        tracers = Tuple(Agate.Introspection.tracer_names(bgc))
+        u0 = [getproperty(reference_state, state_name(tracer)) for tracer in tracers]
         problem = Agate.Runtime.ode_problem(
             bgc,
             u0,
@@ -300,8 +305,10 @@ end
         )
         du = similar(u0)
         problem.f(du, u0, p, 0.0)
-        return du
+        return Dict(zip(tracers, du))
     end
 
-    @test rhs(named_bgc, named_active) ≈ rhs(flat_bgc, flat_active)
+    named_rhs = rhs(named_bgc, named_active, name -> getproperty(named_to_flat, name))
+    flat_rhs = rhs(flat_bgc, flat_active)
+    @test all(named_rhs[named] ≈ flat_rhs[flat] for (named, flat) in pairs(named_to_flat))
 end

@@ -1,6 +1,5 @@
 using OceanBioME: BoxModelGrid
 
-import ...Configuration
 import ...Construction
 
 
@@ -38,23 +37,20 @@ function _canonicalize_size_structure(size_structure)
         ),
     )
 
-    return (; phytoplankton, zooplankton, producer_pfts, consumer_pfts)
+    return (; phytoplankton, zooplankton)
 end
 
 function _plankton_realization(size_structure)
     structure = _canonicalize_size_structure(size_structure)
-    pft_order = (structure.producer_pfts..., structure.consumer_pfts...)
-    pft_size_structures = NamedTuple{pft_order}(ntuple(length(pft_order)) do i
-        pft = pft_order[i]
-        diameters = if pft in structure.consumer_pfts
-            getproperty(structure.zooplankton, pft)
-        else
-            getproperty(structure.phytoplankton, pft)
-        end
-        Construction.normalize_pft_size_structure(diameters)
-    end)
-    plankton_pfts = (P=structure.producer_pfts, Z=structure.consumer_pfts)
-    return (; plankton_pfts, pft_size_structures)
+    phytoplankton = NamedTuple{keys(structure.phytoplankton)}(Tuple(
+        Construction.normalize_pft_size_structure(value)
+        for value in values(structure.phytoplankton)
+    ))
+    zooplankton = NamedTuple{keys(structure.zooplankton)}(Tuple(
+        Construction.normalize_pft_size_structure(value)
+        for value in values(structure.zooplankton)
+    ))
+    return (P=phytoplankton, Z=zooplankton)
 end
 
 function _construction_inputs(;
@@ -77,8 +73,7 @@ function _construction_inputs(;
     assimilation_matrix === nothing ||
         (parameter_overrides = merge(parameter_overrides, (; assimilation_matrix)))
     realization = (;
-        plankton_pfts=plankton_realization.plankton_pfts,
-        pft_size_structures=plankton_realization.pft_size_structures,
+        plankton_pfts=plankton_realization,
         parameter_overrides,
         sinking_tracers,
         open_bottom,
@@ -105,11 +100,13 @@ may override interaction matrices explicitly with `palatability_matrix` and/or
 
 Each PFT size structure may be a NamedTuple range, for example
 `(n=3, min_esd=1, max_esd=10, spacing=:log)`, or an explicit
-diameter vector such as `[1.0, 3.2, 10.0]`. At this high-level constructor boundary,
+diameter vector such as `[1.0, 3.2, 10.0]`; explicit vectors are canonicalized by ascending
+diameter before SizeClass identities are assigned. At this high-level constructor boundary,
 `(n=0,)` means that the PFT realizes one implicit SizeClass, named by the PFT, without
 diameter metadata; `n=1` still means one explicit SizeClass with a defined diameter. PFTs
-are supplied as `size_structure=(phytoplankton=(...), zooplankton=(...))`; explicit
-SizeClasses use `<pft>_<index>` identities, such as `P_1` or `diat_1`.
+are supplied as `size_structure=(phytoplankton=(...), zooplankton=(...))`; PFT mapping order
+is canonicalized by identity rather than authored key order. Explicit SizeClasses use
+`<pft>_<index>` identities, such as `P_1` or `diat_1`.
 
 Keywords
 --------

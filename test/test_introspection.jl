@@ -76,16 +76,16 @@ using Test
         )
 
         named_pfts = pfts(named_bgc)
-        @test keys(named_pfts) == (:diat, :dino, :microzoo, :mesozoo)
+        @test keys(named_pfts) == (:diat, :dino, :mesozoo, :microzoo)
         @test named_pfts.microzoo == [:microzoo_1, :microzoo_2]
         @test named_pfts.mesozoo == [:mesozoo_1]
         @test named_pfts.diat == [:diat_1, :diat_2, :diat_3]
         @test named_pfts.dino == [:dino_1, :dino_2]
         @test plankton_diameters(named_bgc) ≈
-            [2.0, 5.0, 10.0, 8.0, 20.0, 30.0, 60.0, 100.0]
+            [2.0, 5.0, 10.0, 8.0, 20.0, 100.0, 30.0, 60.0]
 
         named_pal = interaction_matrix(named_bgc, :palatability_matrix)
-        @test named_pal.rows == [:microzoo_1, :microzoo_2, :mesozoo_1]
+        @test named_pal.rows == [:mesozoo_1, :microzoo_1, :microzoo_2]
         @test named_pal.columns == [:diat_1, :diat_2, :diat_3, :dino_1, :dino_2]
 
     end

@@ -11,10 +11,9 @@ using Agate.Configuration:
     )
     layout = realize_model_layout(
         components;
-        plankton_pfts=(Z=(:Z,), P=(:P,)),
-        pft_size_structures=(
-            P=(n=3, min_esd=2.0, max_esd=10.0, spacing=:log),
-            Z=(n=2, min_esd=20.0, max_esd=100.0, spacing=:linear),
+        plankton_pfts=(
+            Z=(Z=(n=2, min_esd=20.0, max_esd=100.0, spacing=:linear),),
+            P=(P=(n=3, min_esd=2.0, max_esd=10.0, spacing=:log),),
         ),
     )
 
@@ -26,24 +25,26 @@ using Agate.Configuration:
 
     unsized = realize_model_layout(
         (P=Plankton(; states=:carbon, reference_state=:carbon),);
-        plankton_pfts=(P=(:small, :large),),
-        pft_size_structures=(small=nothing, large=nothing),
+        plankton_pfts=(P=(small=nothing, large=nothing),),
     )
-    @test component_entities(unsized, :P) == (:small, :large)
+    @test component_entities(unsized, :P) == (:large, :small)
     @test component_diameters(unsized, :P) === nothing
+    reordered = realize_model_layout(
+        (P=Plankton(; states=:carbon, reference_state=:carbon),);
+        plankton_pfts=(P=(large=nothing, small=nothing),),
+    )
+    @test component_entities(reordered, :P) == component_entities(unsized, :P)
 
     one_size_class = realize_model_layout(
         (P=Plankton(; states=:carbon, reference_state=:carbon),);
-        plankton_pfts=(P=(:P,),),
-        pft_size_structures=(P=(n=1, min_esd=5.0, max_esd=5.0, spacing=:log),),
+        plankton_pfts=(P=(P=(n=1, min_esd=5.0, max_esd=5.0, spacing=:log),),),
     )
     @test component_entities(one_size_class, :P) == (:P_1,)
     @test component_diameters(one_size_class, :P) == (5.0,)
 
     mixed = realize_model_layout(
         (P=Plankton(; states=:carbon, reference_state=:carbon),);
-        plankton_pfts=(P=(:plain, :sized),),
-        pft_size_structures=(plain=nothing, sized=[5.0]),
+        plankton_pfts=(P=(plain=nothing, sized=[5.0]),),
     )
     @test component_entities(mixed, :P) == (:plain, :sized_1)
     @test component_diameters(mixed, :P) == (nothing, 5.0)
@@ -59,7 +60,7 @@ using Agate.Configuration:
     )
         message = argument_error_message(() -> realize_model_layout(
             (P=Plankton(; states=:carbon, reference_state=:carbon),);
-            plankton_pfts=(P=(:P,),), pft_size_structures=(P=invalid,),
+            plankton_pfts=(P=(P=invalid,),),
         ))
         @test occursin(bad_path, message)
     end

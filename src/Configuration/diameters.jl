@@ -27,14 +27,19 @@ end
 
 """Canonicalize and validate one diameter input.
 
-Authoring uses an explicit vector or `(n, min_esd, max_esd, spacing)` NamedTuple. Canonical
-`DiameterListSpecification` and `DiameterRangeSpecification` values are also accepted for
-internal reuse and recipe replay.
+Authoring uses an explicit vector or `(n, min_esd, max_esd, spacing)` NamedTuple. Explicit
+vectors are canonicalized by ascending diameter so authored vector order does not define
+SizeClass identity. Canonical `DiameterListSpecification` and `DiameterRangeSpecification`
+values are also accepted for internal reuse and recipe replay.
 """
-function canonicalize_diameters(diameters::AbstractVector; path::AbstractString="diameters")
+function _canonicalize_diameter_list(diameters, path::AbstractString)
     _validate_diameter_values(diameters, path)
-    return (; n=length(diameters), specification=DiameterListSpecification(diameters))
+    ordered = sort(collect(diameters))
+    return (; n=length(ordered), specification=DiameterListSpecification(ordered))
 end
+
+canonicalize_diameters(diameters::AbstractVector; path::AbstractString="diameters") =
+    _canonicalize_diameter_list(diameters, path)
 
 function canonicalize_diameters(spec::NamedTuple; path::AbstractString="diameters")
     required = (:n, :min_esd, :max_esd, :spacing)
@@ -49,8 +54,7 @@ end
 function canonicalize_diameters(
     spec::DiameterListSpecification; path::AbstractString="diameters"
 )
-    _validate_diameter_values(spec.diameters, path)
-    return (; n=length(spec.diameters), specification=spec)
+    return _canonicalize_diameter_list(spec.diameters, path)
 end
 
 function canonicalize_diameters(

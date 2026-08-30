@@ -91,32 +91,27 @@ component_diameters(layout::ModelLayout, component::Symbol) =
 function canonicalize_plankton_realization(
     components::NamedTuple,
     plankton_pfts=nothing,
-    pft_size_structures=nothing,
 )
     plankton_names = _plankton_names(components)
 
-    if isnothing(plankton_pfts) && isnothing(pft_size_structures)
-        pfts = NamedTuple{plankton_names}(Tuple((name,) for name in plankton_names))
-        size_structures = NamedTuple{plankton_names}(ntuple(length(plankton_names)) do i
-            name = plankton_names[i]
-            structure = size_structure(getproperty(components, name))
-            isnothing(structure) && return nothing
-            return canonicalize_diameters(
-                structure; path="component :$name size_structure"
-            ).specification
-        end)
-        return pfts, size_structures
+    if isnothing(plankton_pfts)
+        values = ntuple(length(plankton_names)) do i
+            plankton = plankton_names[i]
+            structure = size_structure(getproperty(components, plankton))
+            specification = if isnothing(structure)
+                nothing
+            else
+                canonicalize_diameters(
+                    structure; path="component :$plankton size_structure"
+                ).specification
+            end
+            NamedTuple{(plankton,)}((specification,))
+        end
+        return NamedTuple{plankton_names}(values)
     end
-
-    xor(isnothing(plankton_pfts), isnothing(pft_size_structures)) && throw(
-        ArgumentError("plankton_pfts and pft_size_structures must be supplied together"),
-    )
 
     plankton_pfts isa NamedTuple || throw(
         ArgumentError("plankton_pfts must be a NamedTuple"),
-    )
-    pft_size_structures isa NamedTuple || throw(
-        ArgumentError("pft_size_structures must be a NamedTuple"),
     )
     Set(keys(plankton_pfts)) == Set(plankton_names) || throw(
         ArgumentError(
@@ -124,42 +119,35 @@ function canonicalize_plankton_realization(
         ),
     )
 
-    assigned = Symbol[]
-    pft_values = ntuple(length(plankton_names)) do i
+    assigned = Set{Symbol}()
+    values = ntuple(length(plankton_names)) do i
         plankton = plankton_names[i]
-        pfts = getproperty(plankton_pfts, plankton)
-        pfts isa Tuple || throw(
-            ArgumentError("plankton component :$plankton PFT realization must be a tuple"),
+        authored = getproperty(plankton_pfts, plankton)
+        authored isa NamedTuple || throw(
+            ArgumentError("plankton component :$plankton PFT realization must be a NamedTuple"),
         )
-        isempty(pfts) && throw(
+        isempty(authored) && throw(
             ArgumentError("plankton component :$plankton must realize at least one PFT"),
         )
-        for pft in pfts
-            pft isa Symbol || throw(
-                ArgumentError("plankton component :$plankton PFT identities must be Symbols"),
-            )
+
+        # PFT identity, not authored mapping order, determines canonical realization order.
+        pfts = Tuple(sort!(collect(keys(authored)); by=String))
+        specifications = ntuple(length(pfts)) do j
+            pft = pfts[j]
             pft in assigned && throw(
                 ArgumentError("plankton PFT :$pft is assigned more than once"),
             )
             push!(assigned, pft)
+            structure = getproperty(authored, pft)
+            isnothing(structure) && return nothing
+            return canonicalize_diameters(
+                structure; path="plankton PFT :$pft size_structure"
+            ).specification
         end
-        pfts
+        return NamedTuple{pfts}(specifications)
     end
-    Set(assigned) == Set(keys(pft_size_structures)) || throw(
-        ArgumentError("plankton_pfts and pft_size_structures must contain the same PFTs"),
-    )
 
-    canonical_pfts = NamedTuple{plankton_names}(pft_values)
-    pft_names = Tuple(assigned)
-    canonical_size_structures = NamedTuple{pft_names}(ntuple(length(pft_names)) do i
-        pft = pft_names[i]
-        structure = getproperty(pft_size_structures, pft)
-        isnothing(structure) && return nothing
-        return canonicalize_diameters(
-            structure; path="plankton PFT :$pft size_structure"
-        ).specification
-    end)
-    return canonical_pfts, canonical_size_structures
+    return NamedTuple{plankton_names}(values)
 end
 
 function _role_indices(role, role_name::Symbol, pft_indices::NamedTuple, nsizeclasses::Int)
@@ -220,8 +208,7 @@ end
 """Realize canonical plankton/PFT inputs into one `ModelLayout` with at least one SizeClass per PFT."""
 function realize_model_layout(
     components::NamedTuple,
-    plankton_pfts::NamedTuple,
-    pft_size_structures::NamedTuple;
+    plankton_pfts::NamedTuple;
     scalar_type::Type{T}=Float64,
     interaction_roles=nothing,
     auxiliary_fields::Tuple=(),
@@ -258,67 +245,64 @@ function realize_model_layout(
         state_names = states(getproperty(components, plankton))
         state_tracer_vectors[plankton] = Dict(state => Symbol[] for state in state_names)
         pfts = getproperty(plankton_pfts, plankton)
-        has_diameters = any(pft -> getproperty(pft_size_structures, pft) !== nothing, pfts)
+        has_diameters = any(specification -> specification !== nothing, values(pfts))
         diameters_by_component[plankton] = has_diameters ? Union{Nothing,T}[] : nothing
-    end
-
-    pft_owner = Dict{Symbol,Symbol}()
-    for plankton in plankton_names, pft in getproperty(plankton_pfts, plankton)
-        pft_owner[pft] = plankton
     end
 
     size_classes = Symbol[]
     size_class_diameters = T[]
     pft_names = Tuple(
-        pft for plankton in plankton_names for pft in getproperty(plankton_pfts, plankton)
+        pft for plankton in plankton_names for pft in keys(getproperty(plankton_pfts, plankton))
     )
     pft_index_values = Vector{Any}(undef, length(pft_names))
+    pft_position = 0
 
-    for (pft_position, pft) in pairs(pft_names)
-        plankton = pft_owner[pft]
+    for plankton in plankton_names
         component = getproperty(components, plankton)
-        specification = getproperty(pft_size_structures, pft)
-        realized_diameters = if specification === nothing
-            T[_unspecified_diameter(T)]
-        else
-            realize_diameters(T, specification)
-        end
-        nsizeclasses = length(realized_diameters)
-        # Even without diameter metadata, every PFT contributes one implicit SizeClass.
-        realized_size_classes = specification === nothing ?
-            (pft,) : ntuple(i -> Symbol(string(pft), "_", i), nsizeclasses)
-        state_names = states(component)
-        nstates = length(state_names)
-        pft_global_indices = Int[]
-
-        for pft_local in eachindex(realized_size_classes)
-            size_class = realized_size_classes[pft_local]
-            physical_tracers = Tuple(
-                _plankton_state_tracer(size_class, state, nstates) for state in state_names
-            )
-            _check_new_identities!(
-                pft, (size_class,), physical_tracers, seen_entities, seen_tracers
-            )
-
-            push!(size_classes, size_class)
-            push!(size_class_diameters, realized_diameters[pft_local])
-            global_size_class_index = length(size_classes)
-            push!(pft_global_indices, global_size_class_index)
-            push!(entities_by_component[plankton], size_class)
-            plankton_diameters = diameters_by_component[plankton]
-            plankton_diameters === nothing || push!(
-                plankton_diameters,
-                specification === nothing ? nothing : realized_diameters[pft_local],
-            )
-
-            for (state_position, state) in pairs(state_names)
-                tracer = physical_tracers[state_position]
-                push!(tracer_order, tracer)
-                push!(tracers_by_component[plankton], tracer)
-                push!(state_tracer_vectors[plankton][state], tracer)
+        for (pft, specification) in pairs(getproperty(plankton_pfts, plankton))
+            pft_position += 1
+            realized_diameters = if specification === nothing
+                T[_unspecified_diameter(T)]
+            else
+                realize_diameters(T, specification)
             end
+            nsizeclasses = length(realized_diameters)
+            # Even without diameter metadata, every PFT contributes one implicit SizeClass.
+            realized_size_classes = specification === nothing ?
+                (pft,) : ntuple(i -> Symbol(string(pft), "_", i), nsizeclasses)
+            state_names = states(component)
+            nstates = length(state_names)
+            pft_global_indices = Int[]
+
+            for pft_local in eachindex(realized_size_classes)
+                size_class = realized_size_classes[pft_local]
+                physical_tracers = Tuple(
+                    _plankton_state_tracer(size_class, state, nstates) for state in state_names
+                )
+                _check_new_identities!(
+                    pft, (size_class,), physical_tracers, seen_entities, seen_tracers
+                )
+
+                push!(size_classes, size_class)
+                push!(size_class_diameters, realized_diameters[pft_local])
+                global_size_class_index = length(size_classes)
+                push!(pft_global_indices, global_size_class_index)
+                push!(entities_by_component[plankton], size_class)
+                plankton_diameters = diameters_by_component[plankton]
+                plankton_diameters === nothing || push!(
+                    plankton_diameters,
+                    specification === nothing ? nothing : realized_diameters[pft_local],
+                )
+
+                for (state_position, state) in pairs(state_names)
+                    tracer = physical_tracers[state_position]
+                    push!(tracer_order, tracer)
+                    push!(tracers_by_component[plankton], tracer)
+                    push!(state_tracer_vectors[plankton][state], tracer)
+                end
+            end
+            pft_index_values[pft_position] = Tuple(pft_global_indices)
         end
-        pft_index_values[pft_position] = Tuple(pft_global_indices)
     end
 
     pft_indices = NamedTuple{pft_names}(Tuple(pft_index_values))
@@ -381,17 +365,13 @@ function realize_model_layout(
     components::NamedTuple;
     scalar_type::Type{T}=Float64,
     plankton_pfts=nothing,
-    pft_size_structures=nothing,
     interaction_roles=nothing,
     auxiliary_fields::Tuple=(),
 ) where {T<:Real}
-    plankton_pfts, pft_size_structures = canonicalize_plankton_realization(
-        components, plankton_pfts, pft_size_structures
-    )
+    plankton_pfts = canonicalize_plankton_realization(components, plankton_pfts)
     return realize_model_layout(
         components,
-        plankton_pfts,
-        pft_size_structures;
+        plankton_pfts;
         scalar_type=T,
         interaction_roles,
         auxiliary_fields,

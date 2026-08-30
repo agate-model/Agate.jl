@@ -35,7 +35,6 @@ explicit_json_value(::Any) = false
     with_recipe, default_recipe = NiPiZD.construct_plus_recipe(; grid=BoxModelGrid(Float32))
     family_constructed = Agate.Construction.construct(family;
         plankton_pfts=default_recipe.plankton_pfts,
-        pft_size_structures=default_recipe.pft_size_structures,
         grid=BoxModelGrid(Float32))
     replayed_default = NiPiZD.construct_from_recipe(default_recipe; grid=BoxModelGrid(Float32))
     @test required_biogeochemical_tracers(direct) == required_biogeochemical_tracers(with_recipe)
@@ -63,7 +62,6 @@ explicit_json_value(::Any) = false
     @test encoded["definition_version"] == "0.1.0"
     @test Set(keys(encoded["realization"])) == Set((
         "plankton_pfts",
-        "pft_size_structures",
         "parameter_overrides",
         "sinking_tracers",
         "open_bottom",
@@ -78,14 +76,23 @@ explicit_json_value(::Any) = false
 
     @test recipe.family === :NiPiZD
     @test recipe.definition_version == definition_version(family)
-    @test recipe.plankton_pfts == (P=(:diat,), Z=(:microzoo,))
-    @test keys(recipe.pft_size_structures) == (:diat, :microzoo)
+    @test keys(recipe.plankton_pfts) == (:P, :Z)
+    @test keys(recipe.plankton_pfts.P) == (:diat,)
+    @test keys(recipe.plankton_pfts.Z) == (:microzoo,)
     @test recipe.parameter_overrides == merge(
         inputs.parameters, (palatability_matrix=inputs.palatability_matrix,)
     )
     @test !recipe.open_bottom
     @test recipe.sinking_tracers == inputs.sinking_tracers
     @test decoded == recipe
+
+    mapping_a = (P=(small=[2.0, 1.0], large=[3.0]), Z=(Z=[10.0],))
+    mapping_b = (Z=(Z=[10.0],), P=(large=[3.0], small=[1.0, 2.0]))
+    recipe_a = Agate.Construction.capture_model_recipe(family; plankton_pfts=mapping_a)
+    recipe_b = Agate.Construction.capture_model_recipe(family; plankton_pfts=mapping_b)
+    @test recipe_a == recipe_b
+    @test encode_recipe(recipe_a)["content_hash"] == encode_recipe(recipe_b)["content_hash"]
+
     @test manifest.pft_entities == (
         diat=(:diat_1, :diat_2),
         microzoo=(:microzoo_1, :microzoo_2),
@@ -96,18 +103,13 @@ explicit_json_value(::Any) = false
     unsized_recipe = Agate.Construction.ModelRecipe(
         recipe.family,
         recipe.definition_version,
-        recipe.plankton_pfts,
-        (diat=nothing, microzoo=recipe.pft_size_structures.microzoo),
+        merge(recipe.plankton_pfts, (P=(diat=nothing,),)),
         recipe.parameter_overrides,
         recipe.sinking_tracers,
         recipe.open_bottom,
     )
     encoded_unsized = encode_recipe(unsized_recipe)
-    diat_size = only(
-        entry for entry in encoded_unsized["realization"]["pft_size_structures"]
-        if entry["pft"] == "diat"
-    )
-    @test diat_size["diameters"] === nothing
+    @test encoded_unsized["realization"]["plankton_pfts"]["P"]["diat"] === nothing
     @test decode_recipe(encoded_unsized) == unsized_recipe
 
     # Captured inputs are isolated from the constructed runtime model.
@@ -187,7 +189,6 @@ explicit_json_value(::Any) = false
         recipe.family,
         v"0.1.1",
         recipe.plankton_pfts,
-        recipe.pft_size_structures,
         recipe.parameter_overrides,
         recipe.sinking_tracers,
         recipe.open_bottom,
@@ -201,7 +202,7 @@ explicit_json_value(::Any) = false
         x["schema"] = "agate.model_recipe.invalid"
     end
     invalid_realization = rehashed(encoded) do x
-        pop!(x["realization"]["pft_size_structures"])
+        pop!(x["realization"]["plankton_pfts"])
     end
     invalid_law = rehashed(encoded) do x
         override = only(

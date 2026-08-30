@@ -15,7 +15,7 @@ const _RECIPE_DOCUMENT_KEYS = (
     "schema", "family", "definition_version", "realization", "provenance", "content_hash"
 )
 const _REALIZATION_KEYS = (
-    "plankton_pfts", "pft_size_structures", "parameter_overrides", "sinking_tracers", "open_bottom"
+    "plankton_pfts", "parameter_overrides", "sinking_tracers", "open_bottom"
 )
 const _SUPPORTED_SPACING = (:linear, :log)
 
@@ -295,83 +295,63 @@ function _decode_diameter_specification(x, path)
 end
 
 function _encode_plankton_pfts(plankton_pfts::NamedTuple)
-    return Any[
-        Dict{String,Any}(
-            "plankton" => String(plankton),
-            "pfts" => Any[String(pft) for pft in pfts],
+    assigned = Set{Symbol}()
+    for (plankton, pfts) in pairs(plankton_pfts)
+        pfts isa NamedTuple || throw(
+            ArgumentError("Recipe plankton :$plankton PFT realization must be a NamedTuple.")
+        )
+        isempty(pfts) && throw(ArgumentError("Recipe plankton :$plankton must define a PFT."))
+        for pft in keys(pfts)
+            pft in assigned && throw(
+                ArgumentError("Recipe plankton realization assigns PFT :$pft more than once.")
+            )
+            push!(assigned, pft)
+        end
+    end
+    return Dict{String,Any}(
+        String(plankton) => Dict{String,Any}(
+            String(pft) => _encode_diameter_specification(specification)
+            for (pft, specification) in pairs(pfts)
         )
         for (plankton, pfts) in pairs(plankton_pfts)
-    ]
+    )
 end
 
 function _decode_plankton_pfts(x, path)
-    x isa AbstractVector || throw(ArgumentError("$path must be an array."))
+    x isa AbstractDict || throw(ArgumentError("$path must be an object."))
     plankton_names = Symbol[]
-    values = Any[]
-    for (i, item) in pairs(x)
-        item_path = "$path[$i]"
-        item = _complete_object(item, ("plankton", "pfts"), item_path)
-        plankton = _symbol(item["plankton"], "$item_path.plankton")
-        plankton in plankton_names && throw(
-            ArgumentError("$path contains duplicate plankton $(repr(plankton)).")
+    plankton_values = Any[]
+    assigned = Set{Symbol}()
+    for (plankton_key, pfts_raw) in pairs(x)
+        plankton = Symbol(plankton_key)
+        pfts_raw isa AbstractDict || throw(
+            ArgumentError("$path.$plankton_key must be an object.")
         )
-        pfts_raw = item["pfts"]
-        pfts_raw isa AbstractVector || throw(ArgumentError("$item_path.pfts must be an array."))
-        isempty(pfts_raw) && throw(ArgumentError("$item_path.pfts cannot be empty."))
-        pfts = Tuple(_symbol(pft, "$item_path.pfts[$j]") for (j, pft) in pairs(pfts_raw))
-        length(unique(pfts)) == length(pfts) || throw(
-            ArgumentError("$item_path.pfts contains duplicate PFT names.")
-        )
+        isempty(pfts_raw) && throw(ArgumentError("$path.$plankton_key cannot be empty."))
+
+        pft_names = Symbol[]
+        specifications = Any[]
+        for (pft_key, specification) in pairs(pfts_raw)
+            pft = Symbol(pft_key)
+            pft in assigned && throw(
+                ArgumentError("$path assigns PFT $(repr(pft)) more than once.")
+            )
+            push!(assigned, pft)
+            push!(pft_names, pft)
+            push!(
+                specifications,
+                _decode_diameter_specification(specification, "$path.$plankton_key.$pft_key"),
+            )
+        end
         push!(plankton_names, plankton)
-        push!(values, pfts)
+        push!(plankton_values, NamedTuple{Tuple(pft_names)}(Tuple(specifications)))
     end
-    return NamedTuple{Tuple(plankton_names)}(Tuple(values))
-end
-
-function _encode_pft_size_structures(pft_size_structures::NamedTuple)
-    return Any[
-        Dict{String,Any}(
-            "pft" => String(pft),
-            "diameters" => _encode_diameter_specification(specification),
-        )
-        for (pft, specification) in pairs(pft_size_structures)
-    ]
-end
-
-function _decode_pft_size_structures(x, path)
-    x isa AbstractVector || throw(ArgumentError("$path must be an array."))
-    pfts = Symbol[]
-    specifications = Any[]
-    for (i, item) in pairs(x)
-        item_path = "$path[$i]"
-        item = _complete_object(item, ("pft", "diameters"), item_path)
-        pft = _symbol(item["pft"], "$item_path.pft")
-        pft in pfts && throw(ArgumentError("$path contains duplicate PFT $(repr(pft))."))
-        push!(pfts, pft)
-        push!(
-            specifications,
-            _decode_diameter_specification(item["diameters"], "$item_path.diameters"),
-        )
-    end
-    return NamedTuple{Tuple(pfts)}(Tuple(specifications))
-end
-
-function _validate_realization(plankton_pfts::NamedTuple, pft_size_structures::NamedTuple)
-    referenced = Symbol[pft for pfts in values(plankton_pfts) for pft in pfts]
-    length(unique(referenced)) == length(referenced) || throw(
-        ArgumentError("Recipe plankton realization assigns one PFT more than once.")
-    )
-    Set(referenced) == Set(keys(pft_size_structures)) || throw(
-        ArgumentError("Recipe PFT size structures must match the PFTs assigned to plankton exactly.")
-    )
-    return nothing
+    return NamedTuple{Tuple(plankton_names)}(Tuple(plankton_values))
 end
 
 function _encode_realization(recipe::ModelRecipe)
-    _validate_realization(recipe.plankton_pfts, recipe.pft_size_structures)
     return Dict{String,Any}(
         "plankton_pfts" => _encode_plankton_pfts(recipe.plankton_pfts),
-        "pft_size_structures" => _encode_pft_size_structures(recipe.pft_size_structures),
         "parameter_overrides" => _encode_parameter_overrides(recipe.parameter_overrides),
         "sinking_tracers" => isnothing(recipe.sinking_tracers) ? nothing :
                              _encode_parameter_overrides(recipe.sinking_tracers),
@@ -384,8 +364,6 @@ function _decode_realization(x, path)
     plankton_pfts = _decode_plankton_pfts(
         realization["plankton_pfts"], "$path.plankton_pfts"
     )
-    pft_size_structures = _decode_pft_size_structures(realization["pft_size_structures"], "$path.pft_size_structures")
-    _validate_realization(plankton_pfts, pft_size_structures)
     parameter_overrides = _decode_parameter_overrides(
         realization["parameter_overrides"], "$path.parameter_overrides"
     )
@@ -394,7 +372,7 @@ function _decode_realization(x, path)
                           realization["sinking_tracers"], "$path.sinking_tracers"
                       )
     open_bottom = _boolean(realization["open_bottom"], "$path.open_bottom")
-    return (; plankton_pfts, pft_size_structures, parameter_overrides, sinking_tracers, open_bottom)
+    return (; plankton_pfts, parameter_overrides, sinking_tracers, open_bottom)
 end
 
 """Encode a versioned family recipe with a scientific content hash and package provenance."""
@@ -434,14 +412,11 @@ function decode_recipe(document::AbstractDict)
     family = _resolve_recipe_family(family_id_value, version)
 
     realization = _decode_realization(realization_data, "Recipe document.realization")
-    plankton_pfts, pft_size_structures = _canonical_recipe_realization(
-        family, realization.plankton_pfts, realization.pft_size_structures
-    )
+    plankton_pfts = _canonical_recipe_realization(family, realization.plankton_pfts)
     decoded = ModelRecipe(
         family_id_value,
         version,
         plankton_pfts,
-        pft_size_structures,
         realization.parameter_overrides,
         realization.sinking_tracers,
         realization.open_bottom,
