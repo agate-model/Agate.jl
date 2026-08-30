@@ -106,10 +106,10 @@ may override interaction matrices explicitly with `palatability_matrix` and/or
 Each PFT size structure may be a NamedTuple range, for example
 `(n=3, min_esd=1, max_esd=10, spacing=:log)`, or an explicit
 diameter vector such as `[1.0, 3.2, 10.0]`. At this high-level constructor boundary,
-`(n=0,)` means that the PFT is not subdivided into SizeClasses; `n=1` still means one
-actual SizeClass with a defined diameter. PFTs are supplied as
-`size_structure=(phytoplankton=(...), zooplankton=(...))` and SizeClasses use
-`<pft>_<index>` identities, such as `P_1` or `diat_1`.
+`(n=0,)` means that the PFT realizes one implicit SizeClass, named by the PFT, without
+diameter metadata; `n=1` still means one explicit SizeClass with a defined diameter. PFTs
+are supplied as `size_structure=(phytoplankton=(...), zooplankton=(...))`; explicit
+SizeClasses use `<pft>_<index>` identities, such as `P_1` or `diat_1`.
 
 Keywords
 --------

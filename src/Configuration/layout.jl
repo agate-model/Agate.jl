@@ -80,10 +80,10 @@ function state_tracer(
     return tracers[Int(entity_index)]
 end
 
-"""Return entity diameter metadata for one component.
+"""Return SizeClass diameter metadata for one component.
 
-Returns `nothing` when none of its PFTs are sized; mixed components return one entry per
-realized entity with `nothing` for unsized PFT entities.
+Every PFT contributes at least one SizeClass. Implicit singleton SizeClasses have no diameter
+metadata; returns `nothing` when all classes are implicit.
 """
 component_diameters(layout::ModelLayout, component::Symbol) =
     _component_value(layout, :component_diameters, component)
@@ -217,7 +217,7 @@ function _check_new_identities!(
     return nothing
 end
 
-"""Realize canonical plankton/PFT inputs into one `ModelLayout`."""
+"""Realize canonical plankton/PFT inputs into one `ModelLayout` with at least one SizeClass per PFT."""
 function realize_model_layout(
     components::NamedTuple,
     plankton_pfts::NamedTuple,
@@ -284,6 +284,7 @@ function realize_model_layout(
             realize_diameters(T, specification)
         end
         nsizeclasses = length(realized_diameters)
+        # Even without diameter metadata, every PFT contributes one implicit SizeClass.
         realized_size_classes = specification === nothing ?
             (pft,) : ntuple(i -> Symbol(string(pft), "_", i), nsizeclasses)
         state_names = states(component)

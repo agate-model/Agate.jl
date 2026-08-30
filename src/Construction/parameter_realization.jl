@@ -171,7 +171,7 @@ function _require_allometric_diameters(parameter, diameters, value, indices)
         if !(diameters[i] isa Real && isfinite(diameters[i]) && diameters[i] > zero(diameters[i]))
     )
     isempty(missing) || throw(ArgumentError(
-        "parameter :$(parameter.name) uses an allometric definition but has no diameter metadata for unsized PFT entities $missing; provide a size structure or an explicit value for those PFTs",
+        "parameter :$(parameter.name) uses an allometric definition but has no diameter metadata for SizeClasses $missing; provide an explicit size structure or explicit values for those SizeClasses",
     ))
     return nothing
 end

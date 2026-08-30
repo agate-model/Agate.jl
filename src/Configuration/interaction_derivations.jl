@@ -44,7 +44,7 @@ function _require_palatability_diameters(layout::ModelLayout, consumers, prey)
         isfinite(diameter) && diameter > zero(diameter) && continue
         entity = layout.size_classes[index]
         throw(ArgumentError(
-            "AllometricPalatability requires diameter metadata for unsized PFT entity :$entity; provide a size structure or an explicit palatability matrix",
+            "AllometricPalatability requires diameter metadata for SizeClass :$entity; provide an explicit size structure or an explicit palatability matrix",
         ))
     end
     return nothing

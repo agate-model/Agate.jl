@@ -63,7 +63,7 @@ using Oceananigans.Biogeochemistry:
             ),
         ))
         @test occursin("AllometricPalatability", palatability_message)
-        @test occursin("unsized PFT entity", palatability_message)
+        @test occursin("diameter metadata for SizeClass", palatability_message)
 
         unsized_bgc = NiPiZD.construct(;
             size_structure=unsized,
@@ -356,10 +356,11 @@ using Oceananigans.Biogeochemistry:
     end
 
     @testset "NiPiZD sinking" begin
-        sinking_tracers = (P_1=0.2551 / day, P_2=0.2551 / day, D=2.7489 / day)
+        sinking_tracers = (P_1=0.1 / day, P_2=0.5 / day, D=2.7489 / day)
         bgc = NiPiZD.construct(; sinking_tracers)
 
-        @test biogeochemical_drift_velocity(bgc, Val(:P_1)).w.data[1, 1, 1] == -0.2551 / day
+        @test biogeochemical_drift_velocity(bgc, Val(:P_1)).w.data[1, 1, 1] == -0.1 / day
+        @test biogeochemical_drift_velocity(bgc, Val(:P_2)).w.data[1, 1, 1] == -0.5 / day
         @test biogeochemical_drift_velocity(bgc, Val(:D)).w.data[1, 1, 1] == -2.7489 / day
         @test biogeochemical_drift_velocity(bgc, Val(:Z_1)).w == ZeroField()
     end

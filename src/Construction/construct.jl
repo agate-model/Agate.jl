@@ -80,7 +80,7 @@ function convert_sinking_tracers(::Type{T}, sinking_tracers::NamedTuple) where {
     )
 end
 
-"""Normalize named-family `(n=0,)` shorthand to an unsized PFT (`nothing`)."""
+"""Normalize named-family `(n=0,)` shorthand to one implicit SizeClass (`nothing`)."""
 @inline function normalize_pft_size_structure(specification)
     specification isa NamedTuple || return specification
     keys(specification) == (:n,) || return specification

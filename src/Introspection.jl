@@ -72,10 +72,10 @@ end
 
 """    pfts(bgc) -> NamedTuple
 
-Return a `NamedTuple` mapping plankton PFT symbols to realized entity symbols.
-An unsized PFT realizes one entity named by the PFT; a sized PFT realizes one or more
-SizeClasses. Each entity appears once independent of the number of physical prognostic
-state tracers. PFT order follows the realized model layout.
+Return a `NamedTuple` mapping plankton PFT symbols to realized SizeClass symbols.
+Every PFT has at least one SizeClass: without explicit size structure it has one implicit class
+named by the PFT; explicit structures use `<pft>_<index>`. Each class appears once independent
+of prognostic-state multiplicity. PFT order follows the realized model layout.
 """
 function pfts(bgc)
     metadata = _model_metadata(bgc)
@@ -88,7 +88,7 @@ end
 
 """    plankton_tracers(bgc) -> Vector{Symbol}
 
-Return all plankton tracer symbols as a flat vector in runtime PFT/entity order.
+Return all plankton tracer symbols as a flat vector in runtime PFT/SizeClass order.
 """
 function plankton_tracers(bgc)
     metadata = _model_metadata(bgc)
@@ -98,11 +98,11 @@ end
 
 """    plankton_diameters(bgc) -> Vector
 
-Return diameter metadata for realized plankton entities.
-The ordering follows the flattened values of `pfts(bgc)`, with one entry per realized
-entity even when it carries multiple prognostic state tracers. Sized entities return their
-equivalent spherical diameter; unsized PFT entities return `nothing`. Models without
-plankton return an empty vector.
+Return diameter metadata for realized plankton SizeClasses.
+The ordering follows the flattened values of `pfts(bgc)`, with one entry per SizeClass even
+when it carries multiple prognostic state tracers. Explicit SizeClasses return their
+equivalent spherical diameter; implicit singleton SizeClasses return `nothing`. Models
+without plankton return an empty vector.
 """
 function plankton_diameters(bgc)
     metadata = _model_metadata(bgc)
