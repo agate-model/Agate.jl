@@ -3,9 +3,9 @@
 # A mixotroph does not need a special component type. `M` is an ordinary
 # `Plankton` that participates in both growth and grazing.
 
-using Agate.Configuration: ConsumerAssimilation, AllometricPalatability, Plankton, Pool
+using Agate.Components: Plankton, Pool
+using Agate.Parameters: AllometricPalatability, ConsumerAssimilation, ConstructionParameter, DerivedDefault, Parameter
 using Agate.Construction: construct
-using Agate.Parameters: DerivedDefault, ConstructionParameter, Parameter
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
     Consumption, Growth, Light, ModelDefinition, NutrientResponse, Smith, Monod, PreferentialGrazing, participants

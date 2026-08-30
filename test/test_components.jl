@@ -1,5 +1,5 @@
 using Test
-using Agate.Configuration:
+using Agate.Components:
     Plankton, Pool, element, states, reference_state, variable_states, state_element,
     size_structure, realize_model_layout, component_entities, component_state_tracers,
     component_tracers, state_tracers, component_diameters

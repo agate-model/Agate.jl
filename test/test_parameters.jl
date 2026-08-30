@@ -16,7 +16,7 @@ derive_default(
 ) = params.base + one(params.base)
 
 function derived_default_definition()
-    components = (D=Agate.Configuration.Pool(:nitrogen), N=Agate.Configuration.Pool(:nitrogen))
+    components = (D=Agate.Components.Pool(:nitrogen), N=Agate.Components.Pool(:nitrogen))
     processes = (remineralization=Agate.Processes.Remineralization(
         Agate.Processes.LinearRemineralization();
         sources=:D,

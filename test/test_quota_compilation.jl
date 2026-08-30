@@ -70,7 +70,7 @@ end
 
 @testset "Hybrid explicit and implicit elemental growth" begin
     components = merge(quota_components(), (
-        P=Agate.Configuration.Plankton(;
+        P=Agate.Components.Plankton(;
             states=(:carbon, :nitrogen), reference_state=:carbon
         ),
     ))

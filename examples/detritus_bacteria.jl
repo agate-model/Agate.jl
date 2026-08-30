@@ -4,9 +4,9 @@
 # consumed by heterotrophic bacterioplankton `B`, while zooplankton `Z`
 # graze the living bacterial plankton. A Q10 factor modifies POM consumption.
 
-using Agate.Configuration: ConsumerAssimilation, AllometricPalatability, Plankton, Pool
+using Agate.Components: Plankton, Pool
+using Agate.Parameters: AllometricPalatability, ConsumerAssimilation, ConstructionParameter, DerivedDefault, Parameter
 using Agate.Construction: construct
-using Agate.Parameters: DerivedDefault, ConstructionParameter, Parameter
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
     Consumption, ModelDefinition, Temperature, Q10,

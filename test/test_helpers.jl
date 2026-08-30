@@ -35,10 +35,10 @@ canonicalization_error_message(definition) =
 
 # Shared quota-model fixture used by authoring, compilation, and AD tests.
 quota_components() = (
-    DIC=Agate.Configuration.Pool(:carbon),
-    DIN=Agate.Configuration.Pool(:nitrogen),
-    PO4=Agate.Configuration.Pool(:phosphorus),
-    P=Agate.Configuration.Plankton(;
+    DIC=Agate.Components.Pool(:carbon),
+    DIN=Agate.Components.Pool(:nitrogen),
+    PO4=Agate.Components.Pool(:phosphorus),
+    P=Agate.Components.Plankton(;
         states=(:carbon, :nitrogen, :phosphorus),
         reference_state=:carbon,
         size_structure=[1.0, 2.0],

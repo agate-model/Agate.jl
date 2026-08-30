@@ -1,6 +1,6 @@
 using ..ModelFamilies: AbstractModelFamily, definition_version, default_components
 using ..Parameters: DerivedDefault
-using ..Configuration: ModelLayout, canonicalize_plankton_realization
+using ..Components: ModelLayout, canonicalize_plankton_realization
 
 """Return the stable recipe-family identifier for a model family."""
 function family_id(family::AbstractModelFamily)

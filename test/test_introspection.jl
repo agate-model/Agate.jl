@@ -91,7 +91,7 @@ using Test
     end
 
     @testset "Authored model without plankton PFTs" begin
-        components = (X=Agate.Configuration.Pool(:carbon), Y=Agate.Configuration.Pool(:carbon))
+        components = (X=Agate.Components.Pool(:carbon), Y=Agate.Components.Pool(:carbon))
         processes = (transfer=Agate.Processes.Remineralization(
             Agate.Processes.LinearRemineralization();
             sources=:X, destination=:Y, bindings=(rate=(X=:rate,),),

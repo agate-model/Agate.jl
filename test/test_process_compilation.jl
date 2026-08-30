@@ -1,7 +1,7 @@
 using Agate.Compilation: CompileContext, input_operand, process_parameter_operands
 using Agate.Processes: ModelDefinition
 using Agate.Parameters: Parameter
-using Agate.Configuration: component_tracers
+using Agate.Components: component_tracers
 
 struct ExtensionTransfer <: Agate.Processes.AbstractProcess
     source::Symbol
@@ -43,7 +43,7 @@ function Agate.Compilation.process_fluxes(
 end
 
 @testset "Custom process extension" begin
-    components = (source=Agate.Configuration.Pool(:carbon), sink=Agate.Configuration.Pool(:carbon))
+    components = (source=Agate.Components.Pool(:carbon), sink=Agate.Components.Pool(:carbon))
     parameters = (transfer_rate=Parameter(0.5),)
     transfer = ExtensionTransfer(:source, :sink; bindings=(rate=:transfer_rate,))
 

@@ -1,7 +1,7 @@
 using Agate
 
 using Agate.Diagnostics: box_model_mass_balance
-using Agate.Configuration: Plankton, Pool
+using Agate.Components: Plankton, Pool
 using Agate.Construction: construct
 using Agate.Parameters: ConstantDefault, Parameter
 using Agate.Processes:

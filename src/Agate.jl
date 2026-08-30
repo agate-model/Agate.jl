@@ -1,10 +1,11 @@
 """Composable process-based plankton biogeochemistry for Oceananigans."""
 module Agate
 
+include("compat.jl")
 include("ModelFamilies/ModelFamilies.jl")
-include("Parameters/Parameters.jl")
 include("Library/Library.jl")
-include("Configuration/Configuration.jl")
+include("Components/Components.jl")
+include("Parameters/Parameters.jl")
 include("Processes/Processes.jl")
 include("Runtime/Runtime.jl")
 include("Compilation/Compilation.jl")
@@ -19,7 +20,7 @@ export Library
 export Models
 export ModelFamilies
 export Parameters
-export Configuration
+export Components
 export Processes
 export Runtime
 export Diagnostics

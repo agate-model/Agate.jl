@@ -2,10 +2,10 @@ using Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
 using Test
 
-using Agate.Configuration: ConsumerAssimilation, AllometricPalatability, Plankton, Pool
+using Agate.Components: Plankton, Pool
+using Agate.Parameters: AllometricPalatability, ConsumerAssimilation, ConstantDefault, ConstructionParameter, DerivedDefault, Parameter
 using Agate.Construction: construct
 using Agate.Introspection: plankton_diameters
-using Agate.Parameters: DerivedDefault, ConstantDefault, ConstructionParameter, Parameter
 using Agate.Processes:
     Consumption, FixedStoichiometry, Growth, Light, LinearMortality, ModelDefinition, Mortality,
     NutrientResponse, Products, Smith, Monod, PreferentialGrazing

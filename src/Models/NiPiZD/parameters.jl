@@ -13,7 +13,7 @@ import ...Parameters:
 
 using ...Library.Allometry: AllometricParam, PowerLaw
 
-using ...Configuration: AllometricPalatability, ConsumerAssimilation
+using ...Parameters: AllometricPalatability, ConsumerAssimilation
 
 function parameter_definitions(::NiPiZDFamily)
     detritus_remin = 0.1213 / 86400

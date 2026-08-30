@@ -1,4 +1,4 @@
-import ..Parameters: _derive_parameter_default
+using ..Components: ModelLayout
 
 using ..Library.Allometry:
     palatability_matrix_allometric_axes, consumer_assimilation_matrix_axes

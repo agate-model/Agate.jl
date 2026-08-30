@@ -6,10 +6,10 @@ Agate separates scientific model definition from setup-time compilation and runt
 
 A process-defined model moves through five stages:
 
-1. **Definition** (`Configuration/`, `Processes/`, and `Parameters/`).
+1. **Definition** (`Components/`, `Processes/`, and `Parameters/`).
    `Plankton` describes prognostic state identity and structural realization, while `Pool` describes one scalar elemental material inventory. A plankton realizes PFTs, each with one or more SizeClasses, and carries one or more aligned prognostic states per realized SizeClass. Named processes describe scientific transformations and bind formulation-local parameter slots directly to stable model-parameter names. The keyed parameter block owns each parameter's default and storage policy.
 
-2. **Validation, canonicalization, and realization** (`Processes/` and `Configuration/`).
+2. **Validation, canonicalization, and realization** (`Processes/` and `Components/`).
    Agate validates scientific references and structural compatibility, canonicalizes process identity and factor order, canonicalizes intrinsic or family plankton realization once before layout construction, realizes each PFT into one or more SizeClasses separately from concrete prognostic tracers, discovers process drivers, and resolves process-local participant axes.
 
 3. **Flux compilation** (`Compilation/`).
@@ -94,11 +94,12 @@ Parameter slots are resolved once during canonicalization. Each canonical proces
 
 ```text
 src/
-|-- Configuration/         # components, diameter specs, realized layout, interactions
+|-- compat.jl           # package-level dependency compatibility
+|-- Components/         # component authoring, diameter specs, realized topology
 |-- Processes/             # authoring, canonicalization, parameter planning, authored validation, parameter validation
 |-- Compilation/           # runtime IR, process flux lowering, static compilation
 |-- ModelFamilies/         # named family interface and definition/version hooks
-|-- Parameters/            # keyed parameters, defaults, and storage policy
+|-- Parameters/            # parameter definitions, defaults, derivations, and storage policy
 |-- Construction/          # parameter realization, construction, recipes, manifests, replay
 |-- Library/               # scientific kernels, forcings, and allometric utilities
 |-- Runtime/               # active parameters and box-ODE utilities

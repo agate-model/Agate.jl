@@ -1,7 +1,7 @@
 """Setup-time process-flux realization and static tendency compilation."""
 module Compilation
 
-using ..Configuration:
+using ..Components:
     ModelLayout,
     PlanktonStateRef,
     component_entities,

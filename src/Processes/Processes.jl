@@ -1,7 +1,7 @@
 """Scientific process authoring and setup-time validation and canonicalization."""
 module Processes
 
-using ..Configuration: Plankton, Pool, PlanktonStateRef, ModelLayout, element, state_element,
+using ..Components: Plankton, Pool, PlanktonStateRef, ModelLayout, element, state_element,
     states, reference_state, component_entities
 using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
 using ..Parameters: Parameter, ConstructionParameter, DerivedDefault, parameter_definitions

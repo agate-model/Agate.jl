@@ -8,7 +8,7 @@ using Oceananigans.Architectures: architecture, CPU, GPU
 
 using ..ModelFamilies: AbstractModelFamily
 
-using ..Configuration:
+using ..Components:
     canonicalize_plankton_realization, realize_model_layout, model_metadata
 
 using ..Processes:

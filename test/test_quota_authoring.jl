@@ -1,6 +1,6 @@
 using Test
 
-using Agate.Configuration: Plankton, Pool
+using Agate.Components: Plankton, Pool
 using Agate.Processes:
     FixedStoichiometry, Growth, Liebig, ModelDefinition, Monod, NormalizedDroop,
     NutrientResponse, NutrientLimitation, QuotaResponse

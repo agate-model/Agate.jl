@@ -55,20 +55,20 @@ those named structures; they do not define scientific identity.
 ### Components
 
 ```@docs
-Agate.Configuration.Plankton
-Agate.Configuration.Pool
-Agate.Configuration.element
-Agate.Configuration.states
-Agate.Configuration.reference_state
-Agate.Configuration.variable_states
-Agate.Configuration.state_element
-Agate.Configuration.size_structure
-Agate.Configuration.component_entities
-Agate.Configuration.component_state_tracers
-Agate.Configuration.component_tracers
-Agate.Configuration.component_diameters
-Agate.Configuration.state_tracers
-Agate.Configuration.state_tracer
+Agate.Components.Plankton
+Agate.Components.Pool
+Agate.Components.element
+Agate.Components.states
+Agate.Components.reference_state
+Agate.Components.variable_states
+Agate.Components.state_element
+Agate.Components.size_structure
+Agate.Components.component_entities
+Agate.Components.component_state_tracers
+Agate.Components.component_tracers
+Agate.Components.component_diameters
+Agate.Components.state_tracers
+Agate.Components.state_tracer
 ```
 
 ### Processes and factors
@@ -147,8 +147,8 @@ Agate.Parameters.DerivedDefault
 Agate.Parameters.derive_default
 Agate.Parameters.NoDefault
 Agate.Parameters.DiameterIndexedVectorDefault
-Agate.Configuration.AllometricPalatability
-Agate.Configuration.ConsumerAssimilation
+Agate.Parameters.AllometricPalatability
+Agate.Parameters.ConsumerAssimilation
 ```
 
 ### Custom process extension

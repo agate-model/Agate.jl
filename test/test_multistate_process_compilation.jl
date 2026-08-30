@@ -1,6 +1,6 @@
 using Test
 
-using Agate.Configuration: Plankton, Pool
+using Agate.Components: Plankton, Pool
 using Agate.Parameters: Parameter
 using Agate.Processes:
     Consumption, FixedStoichiometry, Growth, LinearMortality, Monod, Mortality, ModelDefinition,

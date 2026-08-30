@@ -1,6 +1,6 @@
 using JSON
 
-using ..Configuration: DiameterListSpecification, DiameterRangeSpecification
+using ..Components: DiameterListSpecification, DiameterRangeSpecification
 using ..Library.Allometry:
     ConstantParam,
     AllometricParam,

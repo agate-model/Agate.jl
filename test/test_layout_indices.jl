@@ -1,7 +1,7 @@
 using Agate
 using Test
 
-using Agate.Configuration:
+using Agate.Components:
     Plankton, realize_model_layout, component_entities, component_diameters
 
 @testset "Size-structure input normalization" begin

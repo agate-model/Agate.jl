@@ -1,5 +1,5 @@
 using Test
-using Agate.Configuration: Plankton, Pool
+using Agate.Components: Plankton, Pool
 using Agate.ModelFamilies: default_components, default_processes
 using Agate.Parameters: ConstantDefault, DerivedDefault, ConstructionParameter, Parameter
 using Agate.Processes:

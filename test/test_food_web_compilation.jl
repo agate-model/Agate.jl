@@ -2,7 +2,7 @@ using ForwardDiff
 using Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
 
-using Agate.Configuration: Plankton, Pool
+using Agate.Components: Plankton, Pool
 using Agate.Construction: construct
 using Agate.Introspection: interaction_matrix
 using Agate.Parameters: Parameter, NoDefault

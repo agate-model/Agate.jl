@@ -1,5 +1,5 @@
 using ...ModelFamilies: AbstractModelFamily
-using ...Configuration: Plankton, Pool
+using ...Components: Plankton, Pool
 using ...Processes:
     Growth, Light, NutrientResponse, Consumption, Mortality, Products, Remineralization,
     Smith, Monod, PreferentialGrazing, LinearMortality, QuadraticMortality,
