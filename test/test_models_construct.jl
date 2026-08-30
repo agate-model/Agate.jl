@@ -80,7 +80,7 @@ using Oceananigans.Biogeochemistry:
 
         mixed_bgc = NiPiZD.construct(;
             size_structure=(;
-                phytoplankton=(plain=(n=0,), sized=[5.0]),
+                phytoplankton=(plain=(n=0,), sized=(n=1, min_esd=5.0, max_esd=5.0, spacing=:log)),
                 zooplankton=(Z=[20.0],),
             ),
             grid=dummy_grid(Float32),
@@ -127,6 +127,7 @@ using Oceananigans.Biogeochemistry:
             (; phytoplankton=(;), zooplankton=(microzoo=[30.0],)),
             (; phytoplankton=(shared=[2.0],), zooplankton=(shared=[30.0],)),
             (; phytoplankton=(diat=Float64[],), zooplankton=(microzoo=[30.0],)),
+            (; phytoplankton=(diat=(n=0, min_esd=1.0, max_esd=2.0, spacing=:log),), zooplankton=(microzoo=[30.0],)),
         )
         for size_structure in invalid_size_structures
             @test_throws ArgumentError NiPiZD.construct(; size_structure)

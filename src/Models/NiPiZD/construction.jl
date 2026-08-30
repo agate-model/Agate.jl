@@ -41,14 +41,6 @@ function _canonicalize_size_structure(size_structure)
     return (; phytoplankton, zooplankton, producer_pfts, consumer_pfts)
 end
 
-@inline function _constructor_size_structure(specification)
-    if specification isa NamedTuple && hasproperty(specification, :n)
-        n = specification.n
-        n isa Integer && !(n isa Bool) && n == 0 && return nothing
-    end
-    return specification
-end
-
 function _plankton_realization(size_structure)
     structure = _canonicalize_size_structure(size_structure)
     pft_order = (structure.producer_pfts..., structure.consumer_pfts...)
@@ -59,7 +51,7 @@ function _plankton_realization(size_structure)
         else
             getproperty(structure.phytoplankton, pft)
         end
-        _constructor_size_structure(diameters)
+        Construction.normalize_pft_size_structure(diameters)
     end)
     plankton_pfts = (P=structure.producer_pfts, Z=structure.consumer_pfts)
     return (; plankton_pfts, pft_size_structures)
@@ -77,22 +69,21 @@ function _construction_inputs(;
     open_bottom::Bool=true,
 )
     family = NiPiZDFamily()
-    realization = _plankton_realization(size_structure)
+    plankton_realization = _plankton_realization(size_structure)
 
     parameter_overrides = parameters
     palatability_matrix === nothing ||
         (parameter_overrides = merge(parameter_overrides, (; palatability_matrix)))
     assimilation_matrix === nothing ||
         (parameter_overrides = merge(parameter_overrides, (; assimilation_matrix)))
-    return (;
-        family,
-        plankton_pfts=realization.plankton_pfts,
-        pft_size_structures=realization.pft_size_structures,
+    realization = (;
+        plankton_pfts=plankton_realization.plankton_pfts,
+        pft_size_structures=plankton_realization.pft_size_structures,
         parameter_overrides,
         sinking_tracers,
         open_bottom,
-        execution=(; grid, scalar_type, arch),
     )
+    return (; family, realization, execution=(; grid, scalar_type, arch))
 end
 
 """
@@ -162,7 +153,8 @@ bgc = NiPiZD.construct(;
 ```
 """
 function construct(; kwargs...)
-    return Construction._construct_family(_construction_inputs(; kwargs...))
+    inputs = _construction_inputs(; kwargs...)
+    return Construction.construct(inputs.family; inputs.realization..., inputs.execution...)
 end
 
 """
@@ -193,6 +185,7 @@ when the recipe is realized.
 """
 function construct_plus_recipe(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
-    recipe = Construction._capture_family_recipe(inputs)
-    return Construction._construct_family(inputs), recipe
+    recipe = Construction.capture_model_recipe(inputs.family; inputs.realization...)
+    bgc = Construction.construct(inputs.family; inputs.realization..., inputs.execution...)
+    return bgc, recipe
 end

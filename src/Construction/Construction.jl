@@ -4,7 +4,8 @@ module Construction
 import Oceananigans
 export construct, construct_plus_manifest
 export ModelRecipe, ModelManifest
-export capture_model_recipe
+export capture_model_recipe, recipe_schema
+export normalize_pft_size_structure
 export encode_recipe, decode_recipe, export_recipe, import_recipe
 
 include("recipe.jl")

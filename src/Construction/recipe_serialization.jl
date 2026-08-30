@@ -8,6 +8,9 @@ using ..Library.Allometry:
     allometric_relationship_from_identifier
 
 const MODEL_RECIPE_SCHEMA = "agate.model_recipe.v1"
+
+"""Return the durable model-recipe schema identifier supported by this Agate version."""
+recipe_schema() = MODEL_RECIPE_SCHEMA
 const _RECIPE_DOCUMENT_KEYS = (
     "schema", "family", "definition_version", "realization", "provenance", "content_hash"
 )

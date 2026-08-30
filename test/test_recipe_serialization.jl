@@ -31,13 +31,17 @@ explicit_json_value(::Any) = false
 @testset "NiPiZD versioned family recipes" begin
     family = NiPiZD.NiPiZDFamily()
     @test definition_version(family) == v"0.1.0"
-
     direct = NiPiZD.construct(; grid=BoxModelGrid(Float32))
     with_recipe, default_recipe = NiPiZD.construct_plus_recipe(; grid=BoxModelGrid(Float32))
+    family_constructed = Agate.Construction.construct(family;
+        plankton_pfts=default_recipe.plankton_pfts,
+        pft_size_structures=default_recipe.pft_size_structures,
+        grid=BoxModelGrid(Float32))
     replayed_default = NiPiZD.construct_from_recipe(default_recipe; grid=BoxModelGrid(Float32))
     @test required_biogeochemical_tracers(direct) == required_biogeochemical_tracers(with_recipe)
     @test required_biogeochemical_tracers(replayed_default) == required_biogeochemical_tracers(direct)
-    @test with_recipe.parameters == direct.parameters == replayed_default.parameters
+    @test required_biogeochemical_tracers(family_constructed) == required_biogeochemical_tracers(direct)
+    @test family_constructed.parameters == with_recipe.parameters == direct.parameters == replayed_default.parameters
 
     inputs = authored_nipizd_inputs(Float32)
     bgc, recipe = NiPiZD.construct_plus_recipe(; inputs...)
@@ -54,7 +58,7 @@ explicit_json_value(::Any) = false
         "provenance",
         "content_hash",
     ))
-    @test encoded["schema"] == "agate.model_recipe.v1"
+    @test encoded["schema"] == Agate.Construction.recipe_schema() == "agate.model_recipe.v1"
     @test encoded["family"] == "NiPiZD"
     @test encoded["definition_version"] == "0.1.0"
     @test Set(keys(encoded["realization"])) == Set((

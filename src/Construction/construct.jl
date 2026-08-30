@@ -80,6 +80,14 @@ function convert_sinking_tracers(::Type{T}, sinking_tracers::NamedTuple) where {
     )
 end
 
+"""Normalize named-family `(n=0,)` shorthand to an unsized PFT (`nothing`)."""
+@inline function normalize_pft_size_structure(specification)
+    specification isa NamedTuple || return specification
+    keys(specification) == (:n,) || return specification
+    n = specification.n
+    return n isa Integer && !(n isa Bool) && n == 0 ? nothing : specification
+end
+
 
 function _pfts_for_components(plankton_pfts::NamedTuple, components::Tuple)
     pfts = Symbol[]
@@ -260,13 +268,6 @@ function _construct_registered_model(
     )
 end
 
-function _construct_family(inputs::NamedTuple)
-    bgc, _ = _construct_registered_model(
-        inputs.family, _family_realization(inputs); inputs.execution...
-    )
-    return bgc
-end
-
 function _construct_recipe(
     recipe::ModelRecipe;
     grid=nothing,
@@ -284,6 +285,36 @@ function _construct_recipe(
     )
 end
 
+
+"""
+    construct(family::AbstractModelFamily;
+              plankton_pfts, pft_size_structures, parameter_overrides=(;),
+              sinking_tracers=nothing, open_bottom=true, grid=nothing,
+              arch=nothing, scalar_type=nothing) -> bgc
+
+Construct a registered model family from its resolved family realization. This is the
+supported construction seam for external family packages after their own user-facing
+constructor syntax has been translated into `plankton_pfts`, `pft_size_structures`, and
+parameter overrides. Runtime grid, architecture, and scalar precision remain execution
+choices.
+"""
+function construct(
+    family::AbstractModelFamily;
+    plankton_pfts::NamedTuple,
+    pft_size_structures::NamedTuple,
+    parameter_overrides::NamedTuple=(;),
+    sinking_tracers=nothing,
+    open_bottom::Bool=true,
+    grid=nothing,
+    arch=nothing,
+    scalar_type=nothing,
+)
+    realization = (;
+        plankton_pfts, pft_size_structures, parameter_overrides, sinking_tracers, open_bottom
+    )
+    bgc, _ = _construct_registered_model(family, realization; grid, arch, scalar_type)
+    return bgc
+end
 
 """
     construct(definition::ModelDefinition; kwargs...) -> bgc

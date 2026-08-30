@@ -125,14 +125,6 @@ function capture_model_recipe(
     )
 end
 
-_family_realization(inputs::NamedTuple) = (;
-    plankton_pfts=inputs.plankton_pfts,
-    pft_size_structures=inputs.pft_size_structures,
-    parameter_overrides=inputs.parameter_overrides,
-    sinking_tracers=inputs.sinking_tracers,
-    open_bottom=inputs.open_bottom,
-)
-
 _family_realization(recipe::ModelRecipe) = (;
     plankton_pfts=recipe.plankton_pfts,
     pft_size_structures=recipe.pft_size_structures,
@@ -140,9 +132,6 @@ _family_realization(recipe::ModelRecipe) = (;
     sinking_tracers=recipe.sinking_tracers,
     open_bottom=recipe.open_bottom,
 )
-
-_capture_family_recipe(inputs::NamedTuple) =
-    capture_model_recipe(inputs.family; _family_realization(inputs)...)
 
 function _resolve_recipe_family(family_id_value::Symbol, version::VersionNumber)
     family = registered_family(Val(family_id_value))
