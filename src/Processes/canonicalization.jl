@@ -126,7 +126,7 @@ function _visit_product_slots!(
     stoichiometry = products.stoichiometry
     isnothing(stoichiometry) && return (; fractions, stoichiometry=NamedTuple())
     elements = Tuple(
-        element for element in keys(first(values(products.targets)))
+        element for element in keys(first(values(products.destinations)))
         if element !== stoichiometry.reference_element
     )
     ratios = NamedTuple{elements}(Tuple(
@@ -230,13 +230,13 @@ _canonical_target_elements(target::Symbol, reference_element::Symbol) =
 _canonical_target_elements(target::NamedTuple, _) = target
 
 function _canonical_product_targets(id, products, components, reference_element, label)
-    isnothing(reference_element) && any(target -> target isa Symbol, values(products.targets)) &&
+    isnothing(reference_element) && any(destination -> destination isa Symbol, values(products.destinations)) &&
         throw(ArgumentError(
-            "process :$id $label uses scalar product targets but its reference state has no element",
+            "process :$id $label uses scalar product destinations but its reference state has no element",
         ))
-    names = keys(products.targets)
+    names = keys(products.destinations)
     targets = NamedTuple{names}(Tuple(
-        _canonical_target_elements(getproperty(products.targets, name), reference_element)
+        _canonical_target_elements(getproperty(products.destinations, name), reference_element)
         for name in names
     ))
 

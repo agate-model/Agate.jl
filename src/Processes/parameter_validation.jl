@@ -134,7 +134,7 @@ function _validate_product_fractions(
 )
     for named in values(definition.processes)
         products = process_products(named.process)
-        (isnothing(products) || length(products.targets) == 1) && continue
+        (isnothing(products) || length(products.destinations) == 1) && continue
         names = keys(products.fractions)
         fractions = Tuple(begin
             refs = getproperty(named.binding_refs.products.fractions, product)
@@ -150,7 +150,7 @@ function _validate_product_fractions(
         end for product in names)
 
         total = sum(fractions)
-        if length(names) == length(products.targets)
+        if length(names) == length(products.destinations)
             tolerance = total isa AbstractFloat ? 100 * eps(one(total)) : zero(total)
             isapprox(total, one(total); rtol=zero(total), atol=tolerance) || throw(ArgumentError(
                 "explicit product fractions for process :$(process_id(named)) must sum to 1; got $total",

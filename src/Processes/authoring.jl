@@ -259,7 +259,7 @@ factor_subfactor_path(path::Tuple, ::NutrientLimitation, name::Symbol) = (path..
 
 """Conservative allocation of one process product flux among named destinations.
 
-Each product target may be either one component Symbol or a named element-to-component
+Each product destination may be either one component Symbol or a named element-to-component
 mapping. A multi-element mapping without `FixedStoichiometry` routes prognostic elemental
 states directly. `FixedStoichiometry` derives multi-element products from a one-element source;
 every product then declares the same elements and includes the stoichiometric reference element.
@@ -271,44 +271,44 @@ directly and setup requires their sum to equal one within floating-point toleran
 product requires no fractions.
 """
 struct Products{T,F,S}
-    targets::T
+    destinations::T
     fractions::F
     stoichiometry::S
 end
 
-function _canonical_product_target(target)
-    target isa Symbol && return target
-    target isa NamedTuple || throw(
-        ArgumentError("product targets must be component Symbols or element-to-component mappings"),
+function _canonical_product_destination(destination)
+    destination isa Symbol && return destination
+    destination isa NamedTuple || throw(
+        ArgumentError("product destinations must be component Symbols or element-to-component mappings"),
     )
-    isempty(target) && throw(ArgumentError("multi-element product targets cannot be empty"))
-    all(component -> component isa Symbol, values(target)) || throw(
-        ArgumentError("multi-element product targets must map elements to component Symbols"),
+    isempty(destination) && throw(ArgumentError("multi-element product destinations cannot be empty"))
+    all(component -> component isa Symbol, values(destination)) || throw(
+        ArgumentError("multi-element product destinations must map elements to component Symbols"),
     )
-    names = sort!(collect(keys(target)); by=String)
-    return NamedTuple{Tuple(names)}(Tuple(getproperty(target, name) for name in names))
+    names = sort!(collect(keys(destination)); by=String)
+    return NamedTuple{Tuple(names)}(Tuple(getproperty(destination, name) for name in names))
 end
 
 function Products(
-    targets::NamedTuple;
+    destinations::NamedTuple;
     fractions::NamedTuple=NamedTuple(),
     stoichiometry=nothing,
 )
-    isempty(targets) && throw(ArgumentError("products `targets` cannot be empty"))
+    isempty(destinations) && throw(ArgumentError("product destinations cannot be empty"))
 
-    target_names = sort!(collect(keys(targets)); by=String)
-    canonical_target_values = Tuple(
-        _canonical_product_target(getproperty(targets, name)) for name in target_names
+    destination_names = sort!(collect(keys(destinations)); by=String)
+    canonical_destination_values = Tuple(
+        _canonical_product_destination(getproperty(destinations, name)) for name in destination_names
     )
-    canonical_targets = NamedTuple{Tuple(target_names)}(canonical_target_values)
+    canonical_destinations = NamedTuple{Tuple(destination_names)}(canonical_destination_values)
 
-    nested = first(canonical_target_values) isa NamedTuple
-    all(target -> (target isa NamedTuple) == nested, canonical_target_values) || throw(
-        ArgumentError("product targets cannot mix scalar and multi-element destinations"),
+    nested = first(canonical_destination_values) isa NamedTuple
+    all(destination -> (destination isa NamedTuple) == nested, canonical_destination_values) || throw(
+        ArgumentError("product destinations cannot mix scalar and multi-element destinations"),
     )
     if nested
-        elements = keys(first(canonical_target_values))
-        all(target -> keys(target) == elements, canonical_target_values) || throw(
+        elements = keys(first(canonical_destination_values))
+        all(destination -> keys(destination) == elements, canonical_destination_values) || throw(
             ArgumentError("multi-element products must declare the same elements"),
         )
         if !isnothing(stoichiometry)
@@ -322,12 +322,12 @@ function Products(
             )
         end
     elseif !isnothing(stoichiometry)
-        throw(ArgumentError("scalar product targets do not take stoichiometry"))
+        throw(ArgumentError("scalar product destinations do not take stoichiometry"))
     end
 
     fraction_names = sort!(collect(keys(fractions)); by=String)
-    all(name -> name in keys(canonical_targets), fraction_names) || throw(
-        ArgumentError("product `fractions` must be keyed by product names declared in `targets`"),
+    all(name -> name in keys(canonical_destinations), fraction_names) || throw(
+        ArgumentError("product `fractions` must be keyed by product names declared in destinations"),
     )
     all(value -> value isa Symbol, values(fractions)) || throw(
         ArgumentError("product `fractions` values must be parameter Symbols"),
@@ -336,7 +336,7 @@ function Products(
         Tuple(getproperty(fractions, name) for name in fraction_names)
     )
 
-    nproducts = length(canonical_targets)
+    nproducts = length(canonical_destinations)
     nfractions = length(canonical_fractions)
     if nproducts == 1
         nfractions == 0 || throw(
@@ -350,7 +350,7 @@ function Products(
         ))
     end
 
-    return Products(canonical_targets, canonical_fractions, stoichiometry)
+    return Products(canonical_destinations, canonical_fractions, stoichiometry)
 end
 
 Products(destination::Symbol) = Products((product=destination,))

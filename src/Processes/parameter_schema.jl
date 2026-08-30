@@ -75,7 +75,7 @@ parameter_slots(::QuadraticMortality) = (ParameterSlot(:rate, (:plankton,); qual
 parameter_slots(::LinearRemineralization) = (
     ParameterSlot(:rate; qualify=:source),
 )
-parameter_slots(products::Products) = length(products.targets) == 1 ? () :
+parameter_slots(products::Products) = length(products.destinations) == 1 ? () :
     (ParameterSlot(:fraction; qualify=:product),)
 parameter_slots(::FixedStoichiometry) = (ParameterSlot(:ratio; qualify=:element),)
 

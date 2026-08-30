@@ -23,7 +23,7 @@ end
 
 function _collect_product_component_references(products::Products)
     return Tuple(Iterators.flatten(
-        target isa Symbol ? (target,) : Tuple(values(target)) for target in values(products.targets)
+        destination isa Symbol ? (destination,) : Tuple(values(destination)) for destination in values(products.destinations)
     ))
 end
 
