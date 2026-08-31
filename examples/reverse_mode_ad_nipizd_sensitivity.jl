@@ -181,8 +181,14 @@ plots = diagnostic_plots(reference_values, scaled_sensitivities, sensitivity_ord
 # The reference trajectory shows the simulated total phytoplankton biomass used
 # for the endpoint sensitivity calculation.
 
-plots.trajectory
+save("reverse_mode_ad_nipizd_sensitivity-trajectory.png", plots.trajectory) #hide
+nothing #hide
+
+# ![](reverse_mode_ad_nipizd_sensitivity-trajectory.png)
 
 # The scaled sensitivities rank active parameters by `|θᵢ ∂J/∂θᵢ|`.
 
-plots.scaled_sensitivities
+save("reverse_mode_ad_nipizd_sensitivity-scaled_sensitivities.png", plots.scaled_sensitivities) #hide
+nothing #hide
+
+# ![](reverse_mode_ad_nipizd_sensitivity-scaled_sensitivities.png)
