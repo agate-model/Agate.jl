@@ -8,7 +8,7 @@ export component_tracers, state_tracers, state_tracer
 export component_diameters
 
 include("diameters.jl")
-include("components.jl")
+include("component_types.jl")
 include("layout.jl")
 
 end # module
