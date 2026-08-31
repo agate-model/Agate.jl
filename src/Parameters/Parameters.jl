@@ -3,7 +3,7 @@ module Parameters
 
 export AllometricPalatability, ConsumerAssimilation
 
-include("parameters.jl")
+include("parameter_types.jl")
 include("interaction_derivations.jl")
 
 end
