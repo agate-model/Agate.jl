@@ -254,12 +254,14 @@ struct FactorPlanktonState <: AbstractFactorInput
     reference::PlanktonStateRef
 end
 
+"""Return the ordered semantic inputs read by a factor before its parameter slots."""
 factor_inputs(::AbstractFactor) = ()
 factor_inputs(factor::Light) = (FactorDriver(factor.driver),)
 factor_inputs(factor::Temperature) = (FactorDriver(factor.driver),)
 factor_inputs(factor::NutrientResponse) = (FactorComponent(factor.resource),)
 factor_inputs(::QuotaResponse) = ()
 
+"""Return named child factors composed by a factor."""
 factor_subfactors(::AbstractFactor) = NamedTuple()
 factor_subfactors(factor::NutrientLimitation) = factor.responses
 
@@ -424,6 +426,11 @@ function Growth(;
 end
 
 authored_parameter_bindings(process::Growth) = process.bindings
+
+"""Return whether `factor` is scientifically applicable to `process`."""
+factor_applicable(::AbstractProcess, ::AbstractFactor) = true
+factor_applicable(::AbstractProcess, ::Union{Light,QuotaResponse}) = false
+factor_applicable(::Growth, ::Union{Light,QuotaResponse}) = true
 
 """Independent external nutrient uptake into one plankton inventory state.
 

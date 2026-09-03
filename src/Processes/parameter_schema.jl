@@ -33,6 +33,7 @@ function ParameterSlot(
     all(axis -> axis isa Symbol, axes) || throw(
         ArgumentError("parameter slot axes must contain only Symbols"),
     )
+    allunique(axes) || throw(ArgumentError("parameter slot axes must be unique"))
     domain in (:finite, :nonnegative, :positive, :unit_interval) || throw(
         ArgumentError("parameter slot domain must be :finite, :nonnegative, :positive, or :unit_interval"),
     )

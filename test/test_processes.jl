@@ -18,12 +18,19 @@ struct ExternalTestFormulation <: AbstractFormulation end
 struct BindingDependencyDefault end
 struct MultiDriverTestFactor{F<:AbstractFormulation} <: AbstractFactor
     formulation::F
+    bindings::NamedTuple
 end
+MultiDriverTestFactor(formulation) = MultiDriverTestFactor(formulation, (scale=:environment_scale,))
+Agate.Processes.authored_parameter_bindings(factor::MultiDriverTestFactor) = factor.bindings
+Agate.Processes.parameter_slots(::ExternalTestFormulation) =
+    (Agate.Processes.ParameterSlot(:scale; domain=:positive),)
 factor_inputs(::MultiDriverTestFactor) = (
     Agate.Processes.FactorDriver(:wind),
     Agate.Processes.FactorDriver(:temperature),
     Agate.Processes.FactorComponent(:P),
 )
+Agate.Processes.factor_value(::ExternalTestFormulation, wind, temperature, biomass, scale) =
+    scale * (wind + 2temperature + 3biomass)
 
 @testset "Process authoring and canonicalization" begin
     @test Agate.ModelDefinition === ModelDefinition
@@ -77,19 +84,18 @@ factor_inputs(::MultiDriverTestFactor) = (
     )
     @test driver_identities(shared_driver_model) == (:PAR,)
 
-    multi_driver_model = canonicalize_model(ModelDefinition(;
+    multi_driver_definition = ModelDefinition(;
         components=(P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]), N=Pool(:nitrogen)),
         processes=(growth=Growth(;
-            plankton=:P,
-            reference_resource=:N,
-            factors=(
-                light=Light(Smith(); driver=:PAR),
-                nutrients=NutrientResponse(Monod(); resource=:N),
-                environment=MultiDriverTestFactor(ExternalTestFormulation()),
-            ),
+            plankton=:P, reference_resource=:N,
+            factors=(environment=MultiDriverTestFactor(ExternalTestFormulation()),),
         ),),
-    ))
-    @test driver_identities(multi_driver_model) == (:PAR, :temperature, :wind)
+        parameters=(maximum_rate=Parameter(1.0), environment_scale=Parameter(0.5)),
+    )
+    multi_driver_model = canonicalize_model(multi_driver_definition)
+    @test driver_identities(multi_driver_model) == (:temperature, :wind)
+    multi_driver_bgc = Agate.Construction.construct(multi_driver_definition)
+    @test multi_driver_bgc(Val(:P_1), 0, 0, 0, 0, 2.0, 1.0, 2.0, 3.0) == 5.0
 
     invalid_growth = ModelDefinition(;
         components=(
@@ -162,9 +168,16 @@ factor_inputs(::MultiDriverTestFactor) = (
     )
     @test_throws ArgumentError canonicalize_model(wrong_element)
 
-    # Invalid built-in formulation combinations are rejected by their concrete objects.
+    # Invalid built-in formulation combinations are rejected by their concrete objects or factor contract.
     @test_throws MethodError Light(Monod(), :PAR, NamedTuple())
     @test_throws MethodError Mortality(Monod(), (:P,), nothing, NamedTuple())
+    @test_throws ArgumentError canonicalize_model(ModelDefinition(;
+        components=(
+            P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
+            Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
+        ),
+        processes=(grazing=Consumption(PreferentialGrazing(); consumers=:Z, resources=:P, factors=(light=Light(Smith(); driver=:PAR),)),),
+    ))
 end
 
 @testset "Built-in parameter domains" begin
@@ -179,6 +192,7 @@ end
         name === :reference_temperature ? :finite :
         name in (:assimilation, :fraction) ? :unit_interval : :nonnegative
     @test all(slot.domain === expected(slot.name) for node in nodes for slot in parameter_slots(node))
+    @test_throws ArgumentError Agate.Processes.ParameterSlot(:x, (:consumer, :consumer))
 end
 
 @testset "Canonicalization owns authored structure" begin
@@ -242,7 +256,7 @@ end
                 ),
                 (Z=single, P=single),
             ),
-            ("process :consume", "Light", "Growth"),
+            ("process :consume", "Light", "Consumption", "not applicable"),
         ),
         (
             "Mortality participant type",
@@ -391,6 +405,14 @@ end
         parameters=(remineralization_rate=Parameter(ConstantDefault(0.2)),),
     )
     @test_throws ArgumentError canonicalize_model(missing_qualifier)
+    @test_throws ArgumentError canonicalize_model(ModelDefinition(;
+        components=(D=components.D, E=components.E, R=components.R),
+        processes=(remineralization=Agate.Processes.Remineralization(
+            Agate.Processes.LinearRemineralization(); sources=(:D, :E), destination=:R,
+            bindings=(rate=(D=:D_rate, E=:E_rate, extra=:D_rate),),
+        ),),
+        parameters=(D_rate=Parameter(0.1), E_rate=Parameter(0.2)),
+    ))
 
     unknown = ModelDefinition(;
         components=(P=components.P,),

@@ -1,5 +1,5 @@
 """One model parameter after layout-dependent realization."""
-struct PlannedParameter{Definition,Axes,StorageShape,StorageLabels,StorageDiameters}
+struct PlannedParameter{Definition,Axes,StorageShape,StorageLabels,StorageDiameters,Applicability}
     name::Symbol
     definition::Definition
     rank::Int
@@ -7,6 +7,7 @@ struct PlannedParameter{Definition,Axes,StorageShape,StorageLabels,StorageDiamet
     storage_shape::StorageShape
     storage_labels::StorageLabels
     storage_diameters::StorageDiameters
+    applicability::Applicability
     runtime_bound::Bool
 end
 
@@ -88,6 +89,16 @@ function _parameter_storage_labels(layout, name, axes, axis_entities)
     return _union_storage_labels(layout, name, rank, axis_entities)
 end
 
+function _parameter_applicability(rank::Int, axis_entities::Tuple)
+    rank == 2 || return ()
+    edges = Tuple{Symbol,Symbol}[]
+    for entities in axis_entities, row in entities[1], column in entities[2]
+        edge = (row, column)
+        edge in edges || push!(edges, edge)
+    end
+    return Tuple(edges)
+end
+
 function _diameter_by_entity(layout::ModelLayout)
     values = Dict{Symbol,Any}(
         entity => (isfinite(diameter) && diameter > zero(diameter) ? diameter : nothing)
@@ -126,6 +137,7 @@ function _planned_parameter(definition, layout, name, parameter, binding_entitie
         map(length, labels),
         labels,
         _storage_diameters(rank, labels, diameters),
+        _parameter_applicability(rank, axis_entities),
         parameter isa Parameter,
     )
 end
@@ -197,6 +209,7 @@ function parameter_plan_metadata(definition::CanonicalModelDefinition, plan::Par
             axes=parameter.axes,
             shape=parameter.storage_shape,
             labels=parameter.storage_labels,
+            applicability=parameter.applicability,
             domains,
             runtime_bound=parameter.runtime_bound,
             derived_runtime_parameters,

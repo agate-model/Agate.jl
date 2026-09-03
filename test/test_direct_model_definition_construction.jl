@@ -99,70 +99,36 @@ end
     @test isapprox(sum(tendencies), 0; atol=10 * eps(sum(abs, tendencies)))
 end
 
-@testset "Process-local interaction defaults" begin
+@testset "Process-local interaction defaults and modeled edges" begin
     components = (
         P1=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
         P2=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[4.0]),
         Z1=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]),
         Z2=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[20.0]),
     )
-    common_bindings = (
-        maximum_rate=:maximum_predation_rate,
-        half_saturation=:half_saturation,
-    )
+    common = (maximum_rate=:maximum_predation_rate, half_saturation=:half_saturation, palatability=:palatability_shared)
     processes = (
-        grazing_other=Consumption(
-            PreferentialGrazing();
-            consumers=:Z1,
-            resources=:P1,
-            bindings=(;
-                common_bindings...,
-                palatability=:palatability_other,
-                assimilation=:assimilation_other,
-            ),
-        ),
-        grazing_local=Consumption(
-            PreferentialGrazing();
-            consumers=:Z2,
-            resources=:P2,
-            bindings=(;
-                common_bindings...,
-                palatability=:palatability_local,
-                assimilation=:assimilation_local,
-            ),
-        ),
+        a=Consumption(PreferentialGrazing(); consumers=:Z1, resources=:P1, bindings=(; common..., assimilation=:assimilation_other)),
+        b=Consumption(PreferentialGrazing(); consumers=:Z2, resources=:P2, bindings=(; common..., assimilation=:assimilation_local)),
     )
     parameters = (
-        maximum_predation_rate=Parameter(1.0),
-        half_saturation=Parameter(1.0),
-        palatability_other=Parameter(0.5),
-        assimilation_other=Parameter(0.5),
-        palatability_local=Parameter(DerivedDefault(
-            AllometricPalatability();
-            deps=(:optimum_predator_prey_ratio, :specificity, :protection),
-        )),
-        assimilation_local=Parameter(DerivedDefault(
-            ConsumerAssimilation(); deps=(:assimilation_efficiency,)
-        )),
-        optimum_predator_prey_ratio=ConstructionParameter(10.0; axes=:plankton),
-        specificity=ConstructionParameter(0.3; axes=:plankton),
-        protection=ConstructionParameter(0.0; axes=:plankton),
+        maximum_predation_rate=Parameter(1.0), half_saturation=Parameter(1.0),
+        palatability_shared=Parameter(0.5), assimilation_other=Parameter(0.5),
+        assimilation_local=Parameter(DerivedDefault(ConsumerAssimilation(); deps=(:assimilation_efficiency,))),
         assimilation_efficiency=ConstructionParameter(0.5; axes=:plankton),
     )
     bgc = construct(
         ModelDefinition(; components, processes, parameters);
-        grid=dummy_grid(Float64),
         parameter_overrides=(assimilation_efficiency=[0.0, 0.0, 0.6, 0.7],),
     )
 
-    @test size(bgc.parameters.palatability_local) ==
-          size(bgc.parameters.assimilation_local) == (1, 1)
-    @test bgc.parameters.palatability_local[1, 1] ≈ 26.0^-0.3
-    @test bgc.parameters.assimilation_local[1, 1] == 0.7
-    other = Agate.Introspection.interaction_matrix(bgc, :palatability_other)
-    local_matrix = Agate.Introspection.interaction_matrix(bgc, :palatability_local)
-    @test (other.rows, other.columns, local_matrix.rows, local_matrix.columns) ==
-          ([:Z1_1], [:P1_1], [:Z2_1], [:P2_1])
+    @test bgc.parameters.assimilation_local == fill(0.7, 1, 1)
+    shared = Agate.Introspection.interaction_matrix(bgc, :palatability_shared)
+    @test (size(shared.matrix), Set(shared.edges)) ==
+          ((2, 2), Set(((:Z1_1, :P1_1), (:Z2_1, :P2_1))))
+    @test_throws ArgumentError Agate.Runtime.active_parameters(
+        bgc; palatability_shared=((:Z1_1, :P2_1),)
+    )
 end
 
 @testset "Explicit product fractions" begin

@@ -88,8 +88,8 @@ function _emit_parameter_slots!(
             ArgumentError("canonical processes declare duplicate parameter binding key $identity"),
         )
         push!(seen, identity)
-        parameter, explicit = _resolve_binding_value(bindings, slot, qualifier)
-        push!(uses, (; metadata..., parameter, explicit))
+        parameter, explicit, binding_qualifiers = _resolve_binding_value(bindings, slot, qualifier)
+        push!(uses, (; metadata..., parameter, explicit, binding_qualifiers))
         refs[i] = length(uses)
     end
     return NamedTuple{names}(Tuple(refs))
@@ -633,7 +633,10 @@ end
 function _resolve_binding_value(bindings::NamedTuple, slot::ParameterSlot, qualifier)
     explicit = hasproperty(bindings, slot.name)
     value = explicit ? getproperty(bindings, slot.name) : slot.name
-    value isa Symbol && return value, explicit
+    !isnothing(slot.qualify) && isnothing(qualifier) && throw(ArgumentError(
+        "parameter slot :$(slot.name) requires qualifier :$(slot.qualify), but no qualifier context was resolved",
+    ))
+    value isa Symbol && return value, explicit, nothing
 
     value isa NamedTuple || throw(ArgumentError(
         "binding :$(slot.name) must be a parameter Symbol or one-level qualifier NamedTuple",
@@ -652,7 +655,7 @@ function _resolve_binding_value(bindings::NamedTuple, slot::ParameterSlot, quali
     parameter isa Symbol || throw(ArgumentError(
         "binding :$(slot.name) qualifier :$qualifier_value must map to a parameter Symbol",
     ))
-    return parameter, true
+    return parameter, true, keys(value)
 end
 
 function _collect_parameter_uses(processes::NamedTuple)
@@ -710,6 +713,15 @@ _parameter_binding(use) = ParameterBinding(
 function _resolve_parameter_bindings(
     uses::Tuple, definitions, dependency_names::Set{Symbol}
 )
+    for use in uses
+        isnothing(use.binding_qualifiers) && continue
+        consumed = Tuple(other.qualifier.value for other in uses if
+            other.process === use.process && other.path == use.path &&
+            other.slot === use.slot && other.qualifier isa Qualifier)
+        extra = Tuple(key for key in use.binding_qualifiers if !(key in consumed))
+        isempty(extra) || throw(ArgumentError("binding :$(use.slot) has unused qualifier entries $extra"))
+    end
+
     if isnothing(definitions)
         bindings = Tuple(_parameter_binding(use) for use in uses)
         return bindings

@@ -1,3 +1,11 @@
+function _resolve_factor_inputs(factor::AbstractFactor)
+    inputs = factor_inputs(factor)
+    inputs isa Tuple && all(input -> input isa AbstractFactorInput, inputs) || throw(
+        ArgumentError("factor inputs for $(typeof(factor)) must be a Tuple of factor inputs"),
+    )
+    return inputs
+end
+
 function _resolve_factor_subfactors(factor::AbstractFactor)
     subfactors = factor_subfactors(factor)
     subfactors isa NamedTuple || throw(
@@ -11,7 +19,7 @@ end
 
 function _collect_factor_component_references(factor::AbstractFactor)
     references = Symbol[]
-    for input in factor_inputs(factor)
+    for input in _resolve_factor_inputs(factor)
         input isa FactorComponent && push!(references, input.component)
         input isa FactorPlanktonState && push!(references, input.reference.plankton)
     end
@@ -56,11 +64,8 @@ function _factor_element(
 end
 
 function _factor_element(
-    id::Symbol, process::AbstractProcess, factor::QuotaResponse, components, path::Tuple
+    id::Symbol, process::Growth, factor::QuotaResponse, components, path::Tuple
 )
-    process isa Growth || throw(ArgumentError(
-        "process :$id factor path $path uses QuotaResponse, which is only valid for Growth processes",
-    ))
     length(process.plankton) == 1 || throw(ArgumentError(
         "process :$id QuotaResponse requires Growth with exactly one logical plankton",
     ))
@@ -88,8 +93,8 @@ function _validate_factor_for_process(
     path::Tuple;
     expected_element=nothing,
 )
-    factor isa Light && !(process isa Growth) && throw(ArgumentError(
-        "process :$id factor path $path uses Light, which is only valid for Growth processes",
+    factor_applicable(process, factor) || throw(ArgumentError(
+        "process :$id factor path $path $(typeof(factor)) is not applicable to $(typeof(process))",
     ))
     subfactors = _resolve_factor_subfactors(factor)
     if factor isa Union{NutrientResponse,QuotaResponse}
