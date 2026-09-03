@@ -29,6 +29,12 @@ end
     @test consumer_assimilation_matrix_axes(
         Float64; assimilation_efficiency=[0.2, 0.8], consumer_indices=(2,), prey_indices=(1, 2)
     ) == [0.8 0.8]
+    @test_throws ArgumentError resolve_diameter_indexed_vector(
+        Float64, diameters, (true,), 3.0; default=0.0
+    )
+    @test_throws ArgumentError consumer_assimilation_matrix_axes(
+        Float64; assimilation_efficiency=[0.2, 0.8], consumer_indices=(2,), prey_indices=(3,)
+    )
 end
 
 @testset "Library scalar genericity" begin

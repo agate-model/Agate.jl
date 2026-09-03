@@ -26,7 +26,8 @@ end
 
 @inline flux_target(flux::FluxSpec) = flux.target
 
-@inline _axis_position(entity::Symbol, component_index::Int) = (; entity, component_index)
+@inline _axis_position(entity::Symbol, component::Symbol, component_index::Int) =
+    (; entity, component, component_index)
 
 """Realize participant states or components to concrete tracers and ecological positions."""
 function _realize_participants(items::Tuple, layout::ModelLayout)
@@ -40,7 +41,7 @@ function _realize_participants(items::Tuple, layout::ModelLayout)
             "participant $item must realize exactly one tracer per realized entity",
         ))
         for component_index in eachindex(entities)
-            position = _axis_position(entities[component_index], component_index)
+            position = _axis_position(entities[component_index], component, component_index)
             push!(participants, (; tracer=tracers[component_index], component, component_index, position))
         end
     end

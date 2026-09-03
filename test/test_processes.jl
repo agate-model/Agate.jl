@@ -1,5 +1,5 @@
 using Test
-using Agate.Components: Plankton, Pool
+using Agate.Components: Plankton, Pool, PlanktonStateRef
 using Agate.ModelFamilies: default_components, default_processes
 using Agate.Parameters: ConstantDefault, DerivedDefault, ConstructionParameter, Parameter
 using Agate.Processes:
@@ -9,7 +9,7 @@ using Agate.Processes:
     FixedStoichiometry, Consumption, Mortality, Products, ModelDefinition,
     driver_identities, formulation, HeterotrophicConsumption, LinearMortality,
     QuadraticMortality, LinearRemineralization, canonicalize_model, participants,
-    PreferentialGrazing, parameter_slots
+    PreferentialGrazing, parameter_slots, FactorPlanktonState
 
 import Agate.Processes: factor_inputs
 
@@ -18,19 +18,23 @@ struct ExternalTestFormulation <: AbstractFormulation end
 struct BindingDependencyDefault end
 struct MultiDriverTestFactor{F<:AbstractFormulation} <: AbstractFactor
     formulation::F
+    state_plankton::Symbol
     bindings::NamedTuple
 end
-MultiDriverTestFactor(formulation) = MultiDriverTestFactor(formulation, (scale=:environment_scale,))
+MultiDriverTestFactor(formulation; state_plankton=:P) =
+    MultiDriverTestFactor(formulation, state_plankton, (scale=:environment_scale,))
 Agate.Processes.authored_parameter_bindings(factor::MultiDriverTestFactor) = factor.bindings
 Agate.Processes.parameter_slots(::ExternalTestFormulation) =
     (Agate.Processes.ParameterSlot(:scale; domain=:positive),)
-factor_inputs(::MultiDriverTestFactor) = (
+factor_inputs(factor::MultiDriverTestFactor) = (
     Agate.Processes.FactorDriver(:wind),
     Agate.Processes.FactorDriver(:temperature),
     Agate.Processes.FactorComponent(:P),
+    FactorPlanktonState(PlanktonStateRef(factor.state_plankton, :nitrogen)),
 )
-Agate.Processes.factor_value(::ExternalTestFormulation, wind, temperature, biomass, scale) =
-    scale * (wind + 2temperature + 3biomass)
+Agate.Processes.factor_value(
+    ::ExternalTestFormulation, wind, temperature, biomass, state, scale
+) = scale * (wind + 2temperature + 2biomass + state)
 
 @testset "Process authoring and canonicalization" begin
     @test Agate.ModelDefinition === ModelDefinition
@@ -96,6 +100,15 @@ Agate.Processes.factor_value(::ExternalTestFormulation, wind, temperature, bioma
     @test driver_identities(multi_driver_model) == (:temperature, :wind)
     multi_driver_bgc = Agate.Construction.construct(multi_driver_definition)
     @test multi_driver_bgc(Val(:P_1), 0, 0, 0, 0, 2.0, 1.0, 2.0, 3.0) == 5.0
+
+    @test_throws ArgumentError Agate.Construction.construct(ModelDefinition(;
+        components=shared_driver_model.components,
+        processes=(growth=Growth(;
+            plankton=:P, reference_resource=:N,
+            factors=(environment=MultiDriverTestFactor(ExternalTestFormulation(); state_plankton=:Z),),
+        ),),
+        parameters=multi_driver_definition.parameters,
+    ))
 
     invalid_growth = ModelDefinition(;
         components=(

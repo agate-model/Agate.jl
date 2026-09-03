@@ -249,7 +249,10 @@ struct FactorComponent <: AbstractFactorInput
     component::Symbol
 end
 
-"""Setup-only read of one prognostic plankton state required by a factor."""
+"""Setup-only read of one prognostic state from the factor's current logical plankton.
+
+`reference.plankton` must match the logical plankton at the realized `:plankton` axis position.
+"""
 struct FactorPlanktonState <: AbstractFactorInput
     reference::PlanktonStateRef
 end

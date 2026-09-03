@@ -14,7 +14,7 @@ abstract type AbstractParamDef end
 
 @inline function _validate_indices(indices, n::Integer, name::Symbol=:indices)
     for index in indices
-        index isa Integer && 1 <= index <= n || throw(
+        index isa Integer && !(index isa Bool) && 1 <= index <= n || throw(
             ArgumentError("$name must contain indices in 1:$n; got $index"),
         )
     end

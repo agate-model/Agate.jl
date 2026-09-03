@@ -195,9 +195,9 @@ function consumer_assimilation_matrix_axes(
     consumer_indices,
     prey_indices,
 ) where {T<:Real}
-    _validate_indices(
-        consumer_indices, length(assimilation_efficiency), :consumer_indices
-    )
+    n = length(assimilation_efficiency)
+    _validate_indices(consumer_indices, n, :consumer_indices)
+    _validate_indices(prey_indices, n, :prey_indices)
     nr = length(consumer_indices)
     nc = length(prey_indices)
     M = zeros(T, nr, nc)

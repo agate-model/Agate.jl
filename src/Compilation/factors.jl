@@ -14,8 +14,12 @@ function _factor_input_operand(
     hasproperty(axis_positions, :plankton) || throw(ArgumentError(
         "plankton-state factor input requires a realized :plankton axis position",
     ))
-    component_index = axis_positions.plankton.component_index
-    tracer = state_tracer(layout, input.reference, component_index)
+    position = axis_positions.plankton
+    position.component === input.reference.plankton || throw(ArgumentError(
+        "plankton-state factor input :$(input.reference.plankton).$(input.reference.state) " *
+        "must reference the current logical plankton :$(position.component)",
+    ))
+    tracer = state_tracer(layout, input.reference, position.component_index)
     return input_operand(layout, tracer)
 end
 
