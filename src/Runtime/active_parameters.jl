@@ -151,13 +151,13 @@ provided, it should be the [`ActiveParameterSet`](@ref) returned by
 [`active_parameters`](@ref).
 """
 function parameterized(bgc, p; active_parameters=nothing)
-    validate_active_parameter_vector(p, active_parameters)
+    validate_active_parameters(bgc, p, active_parameters)
     active_map = active_parameters === nothing ? (;) : active_parameters.map
     parameters = ActiveParameters(bgc.parameters, p, active_map)
     return ParameterizedBGC(bgc, parameters)
 end
 
-function validate_active_parameter_vector(p, active_parameters)
+function validate_active_parameters(bgc, p, active_parameters)
     nactive = active_parameters === nothing ? 0 : length(active_parameters)
 
     if p === nothing
@@ -178,6 +178,20 @@ function validate_active_parameter_vector(p, active_parameters)
         throw(ArgumentError(
             "`p` has length $(length(p)); expected $nactive active parameter$(nactive == 1 ? "" : "s")."
         ))
+    end
+
+    isnothing(active_parameters) && return nothing
+    checked = p isa Array ? p : collect(p)
+    for (name, selection) in pairs(active_parameters.map)
+        domains = _parameter_metadata(bgc, name).domains
+        indices = selection isa Integer ? (selection,) : Tuple(slot.active_index for slot in selection)
+        for index in indices, domain in domains
+            parameter_domain_valid(checked[index], domain) && continue
+            throw(ArgumentError(
+                "active parameter $(active_parameters.labels[index]) must satisfy " *
+                "domain :$domain; got $(checked[index])",
+            ))
+        end
     end
     return nothing
 end

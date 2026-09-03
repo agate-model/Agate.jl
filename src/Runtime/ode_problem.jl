@@ -10,7 +10,7 @@ function ode_problem(
     auxiliary=(;),
     coordinates=(0, 0, 0),
 )
-    validate_active_parameter_vector(p, active_parameters)
+    validate_active_parameters(bgc, p, active_parameters)
     active_map = active_parameters === nothing ? (;) : active_parameters.map
 
     aux_names = required_biogeochemical_auxiliary_fields(bgc)

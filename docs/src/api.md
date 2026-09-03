@@ -207,6 +207,7 @@ Agate.Introspection.describe
 Agate.Introspection.tracer_names
 Agate.Introspection.auxiliary_field_names
 Agate.Introspection.parameter_names
+Agate.Introspection.parameter_domains
 Agate.Introspection.pfts
 Agate.Introspection.plankton_tracers
 Agate.Introspection.plankton_diameters

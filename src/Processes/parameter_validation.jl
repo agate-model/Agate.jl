@@ -1,81 +1,62 @@
-function _realized_axis_parameter_value(
-    plan::ParameterPlan,
-    parameter_values::NamedTuple,
-    binding::ParameterBinding,
-    entity::Symbol,
+@inline function parameter_domain_valid(value, domain::Symbol)
+    value isa Real && !(value isa Bool) && isfinite(value) || return false
+    domain === :finite && return true
+    domain === :nonnegative && return value >= zero(value)
+    domain === :positive && return value > zero(value)
+    domain === :unit_interval && return zero(value) <= value <= one(value)
+    return false
+end
+
+_parameter_entries(value::Number) = (value,)
+_parameter_entries(value) = value
+
+function _validate_parameter_domains(
+    definition::CanonicalModelDefinition, parameter_values::NamedTuple
 )
-    length(binding.axes) == 1 || throw(ArgumentError(
-        "parameter :$(binding.parameter) must have exactly one ecological storage axis for entity-local validation",
-    ))
-    index = parameter_storage_index(plan, binding.parameter, 1, entity)
-    return getproperty(parameter_values, binding.parameter)[index]
+    for binding in definition.parameter_bindings
+        value = getproperty(parameter_values, binding.parameter)
+        for entry in _parameter_entries(value)
+            parameter_domain_valid(entry, binding.domain) && continue
+            throw(ArgumentError(
+                "process :$(binding.process) path $(binding.path) slot :$(binding.slot) " *
+                "parameter :$(binding.parameter) must satisfy domain :$(binding.domain); got $entry",
+            ))
+        end
+    end
+    return nothing
 end
 
 function _validate_quota_bounds(
     definition::CanonicalModelDefinition,
-    layout::ModelLayout,
-    plan::ParameterPlan,
     parameter_values::NamedTuple,
     named::CanonicalProcess,
     path::Tuple,
     slot_refs::NamedTuple,
-    plankton::Symbol,
 )
     slots = _resolved_slot_bindings(definition, slot_refs)
     minimum_binding = slots.minimum_quota
     maximum_binding = slots.maximum_quota
-    for entity in component_entities(layout, plankton)
-        minimum = _realized_axis_parameter_value(plan, parameter_values, minimum_binding, entity)
-        maximum = _realized_axis_parameter_value(plan, parameter_values, maximum_binding, entity)
-        context = "process :$(process_id(named)) path $path realized entity :$entity"
-        minimum > zero(minimum) || throw(ArgumentError(
-            "$context parameter :$(minimum_binding.parameter) must be > 0; got $minimum",
-        ))
-        maximum > minimum || throw(ArgumentError(
-            "$context parameter :$(maximum_binding.parameter) must be greater than :$(minimum_binding.parameter)=$minimum; got $maximum",
+    minimum_values = _parameter_entries(getproperty(parameter_values, minimum_binding.parameter))
+    maximum_values = _parameter_entries(getproperty(parameter_values, maximum_binding.parameter))
+    for (minimum, maximum) in zip(minimum_values, maximum_values)
+        maximum > minimum && continue
+        throw(ArgumentError(
+            "process :$(process_id(named)) path $path parameter :$(maximum_binding.parameter) " *
+            "must be greater than :$(minimum_binding.parameter)=$minimum; got $maximum",
         ))
     end
     return nothing
 end
 
-function _validate_parameter_constraint(
-    definition::CanonicalModelDefinition,
-    layout::ModelLayout,
-    plan::ParameterPlan,
-    parameter_values::NamedTuple,
-    named::CanonicalProcess,
-    path::Tuple,
-    slot_refs::NamedTuple,
-    plankton::Symbol,
-    slot::Symbol,
-    rule::Symbol,
+function _validate_quota_factor_bounds(
+    definition, parameter_values, named, path, factor, refs
 )
-    binding = getproperty(_resolved_slot_bindings(definition, slot_refs), slot)
-    for entity in component_entities(layout, plankton)
-        value = _realized_axis_parameter_value(plan, parameter_values, binding, entity)
-        valid = rule === :positive ? value > zero(value) : value >= zero(value)
-        valid || throw(ArgumentError(
-            "process :$(process_id(named)) path $path realized entity :$entity " *
-            "parameter :$(binding.parameter) must be $(rule === :positive ? "> 0" : ">= 0"); got $value",
-        ))
-    end
-    return nothing
-end
-
-function _validate_quota_factor_science(
-    definition, layout, plan, parameter_values, named, path, factor, refs
-)
-    if factor isa QuotaResponse
-        _validate_quota_bounds(
-            definition, layout, plan, parameter_values, named, path, refs.slots,
-            only(named.semantic_facts.plankton_states).plankton,
-        )
-    end
+    factor isa QuotaResponse && _validate_quota_bounds(
+        definition, parameter_values, named, path, refs.slots,
+    )
     for (name, subfactor) in pairs(factor_subfactors(factor))
-        _validate_quota_factor_science(
+        _validate_quota_factor_bounds(
             definition,
-            layout,
-            plan,
             parameter_values,
             named,
             factor_subfactor_path(path, factor, name),
@@ -86,45 +67,17 @@ function _validate_quota_factor_science(
     return nothing
 end
 
-function _validate_quota_science(
-    definition::CanonicalModelDefinition,
-    layout::ModelLayout,
-    plan::ParameterPlan,
-    parameter_values::NamedTuple,
-)
+function _validate_quota_bounds(definition, parameter_values)
     for named in values(definition.processes)
         for (name, factor) in pairs(factors(named))
-            _validate_quota_factor_science(
-                definition, layout, plan, parameter_values, named, (:factors, name), factor,
+            _validate_quota_factor_bounds(
+                definition, parameter_values, named, (:factors, name), factor,
                 getproperty(named.binding_refs.factors, name),
             )
         end
-        process = named.process
-        if process isa NutrientUptake
-            path = ()
-            _validate_quota_bounds(
-                definition, layout, plan, parameter_values, named, path,
-                named.binding_refs.process, process.plankton,
-            )
-            for (slot, rule) in (
-                (:maximum_rate, :nonnegative),
-                (:half_saturation, :nonnegative),
-                (:hill, :positive),
-            )
-                _validate_parameter_constraint(
-                    definition,
-                    layout,
-                    plan,
-                    parameter_values,
-                    named,
-                    path,
-                    named.binding_refs.process,
-                    process.plankton,
-                    slot,
-                    rule,
-                )
-            end
-        end
+        named.process isa NutrientUptake && _validate_quota_bounds(
+            definition, parameter_values, named, (), named.binding_refs.process,
+        )
     end
     return nothing
 end
@@ -139,14 +92,7 @@ function _validate_product_fractions(
         fractions = Tuple(begin
             refs = getproperty(named.binding_refs.products.fractions, product)
             binding = _resolved_slot_bindings(definition, refs).fraction
-            value = getproperty(parameter_values, binding.parameter)
-            value isa Real || throw(ArgumentError(
-                "product fraction parameter :$(binding.parameter) for process :$(process_id(named)) must resolve to a scalar Real",
-            ))
-            zero(value) <= value <= one(value) || throw(ArgumentError(
-                "product fraction parameter :$(binding.parameter) for process :$(process_id(named)) must lie in [0, 1]; got $value",
-            ))
-            value
+            getproperty(parameter_values, binding.parameter)
         end for product in names)
 
         total = sum(fractions)
@@ -165,14 +111,12 @@ function _validate_product_fractions(
     return nothing
 end
 
-"""Validate numeric scientific constraints on fully realized parameter values."""
+"""Validate formulation-owned scientific domains on fully realized parameter values."""
 function validate_realized_parameters(
-    definition::CanonicalModelDefinition,
-    layout::ModelLayout,
-    plan::ParameterPlan,
-    parameter_values::NamedTuple,
+    definition::CanonicalModelDefinition, parameter_values::NamedTuple
 )
+    _validate_parameter_domains(definition, parameter_values)
+    _validate_quota_bounds(definition, parameter_values)
     _validate_product_fractions(definition, parameter_values)
-    _validate_quota_science(definition, layout, plan, parameter_values)
     return nothing
 end

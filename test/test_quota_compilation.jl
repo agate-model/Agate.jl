@@ -124,20 +124,10 @@ end
     )
 end
 
-@testset "Realized quota parameter validation" begin
-    cases = (
-        ((minimum_nitrogen_quota=[0.0, 0.05],), :growth, :minimum_nitrogen_quota, "0.0"),
-        ((maximum_nitrogen_quota=[0.04, 0.2],), :growth, :maximum_nitrogen_quota, "0.04"),
-        ((nitrogen_uptake_hill=[0.0, 2.0],), :nitrogen_uptake, :nitrogen_uptake_hill, "0.0"),
-        ((nitrogen_half_saturation=[-0.1, 0.2],), :nitrogen_uptake, :nitrogen_half_saturation, "-0.1"),
-        ((maximum_nitrogen_uptake=[-0.1, 0.1],), :nitrogen_uptake, :maximum_nitrogen_uptake, "-0.1"),
-    )
-    for (overrides, process, parameter, value) in cases
-        message = argument_error_message(() -> construct(
-            quota_definition(); parameter_overrides=overrides
-        ))
-        @test all(occursin(fragment, message) for fragment in
-            ("process :$process", "path", "P_1", String(parameter), value))
-    end
-
+@testset "Realized quota ordering" begin
+    message = argument_error_message(() -> construct(
+        quota_definition(); parameter_overrides=(maximum_nitrogen_quota=[0.04, 0.2],)
+    ))
+    @test all(occursin(fragment, message) for fragment in
+        ("process :growth", "maximum_nitrogen_quota", "minimum_nitrogen_quota", "0.04"))
 end

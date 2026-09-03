@@ -61,6 +61,7 @@ function _parameter_slot_metadata(
         slot=slot.name,
         qualifier,
         axes=slot.axes,
+        domain=slot.domain,
         axis_components=_binding_axis_components(named, slot.axes, qualifier),
     )
 end
@@ -702,14 +703,15 @@ function _resolve_parameter_definitions(definitions)
     return definitions, dependency_names
 end
 
+_parameter_binding(use) = ParameterBinding(
+    use.process, use.path, use.slot, use.axes, use.axis_components, use.parameter, use.domain
+)
+
 function _resolve_parameter_bindings(
     uses::Tuple, definitions, dependency_names::Set{Symbol}
 )
     if isnothing(definitions)
-        bindings = Tuple(
-            ParameterBinding(use.axes, use.axis_components, use.parameter)
-            for use in uses
-        )
+        bindings = Tuple(_parameter_binding(use) for use in uses)
         return bindings
     end
 
@@ -758,10 +760,7 @@ function _resolve_parameter_bindings(
         end
     end
 
-    return Tuple(
-        ParameterBinding(use.axes, use.axis_components, use.parameter)
-        for use in uses
-    )
+    return Tuple(_parameter_binding(use) for use in uses)
 end
 
 function _attach_binding_refs(processes::NamedTuple, refs::NamedTuple)

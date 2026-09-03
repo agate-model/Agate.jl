@@ -8,6 +8,7 @@ module Introspection
 export tracer_names
 export auxiliary_field_names
 export parameter_names
+export parameter_domains
 export pfts
 export plankton_tracers
 export plankton_diameters
@@ -130,6 +131,14 @@ function tracer_groups(bgc)
         nonplankton=nonplankton_tracers(bgc),
         by_pft=pfts(bgc),
     )
+end
+
+"""Return the scientific domain constraints declared for one realized parameter."""
+function parameter_domains(bgc, name::Symbol)
+    metadata = _model_metadata(bgc)
+    metadata === nothing && throw(ArgumentError("Model has no parameter metadata."))
+    hasproperty(metadata.parameter_axes, name) || throw(ArgumentError("Unknown parameter :$name."))
+    return getproperty(metadata.parameter_axes, name).domains
 end
 
 function _interaction_parameter_names(bgc)

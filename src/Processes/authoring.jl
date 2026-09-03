@@ -41,7 +41,8 @@ abstract type AbstractFactor end
 """Living-prey grazing formulation with pairwise consumer-resource capacity.
 
 `maximum_rate` is a per-consumer rate applied independently to each declared prey edge, so
-each edge receives the full per-consumer rate.
+each edge receives the full per-consumer rate. `palatability` is a nonnegative interaction weight,
+not a probability.
 """
 struct PreferentialGrazing <: AbstractFormulation end
 

@@ -2,6 +2,7 @@ using Agate
 using Agate.Introspection:
     tracer_names,
     parameter_names,
+    parameter_domains,
     pfts,
     plankton_tracers,
     plankton_diameters,
@@ -39,6 +40,7 @@ using Test
         @test :palatability_matrix in pars
         @test :assimilation_matrix in pars
         @test :interactions ∉ pars
+        @test parameter_domains(bgc, :assimilation_matrix) == (:unit_interval,)
 
         pal = interaction_matrix(bgc, :palatability_matrix)
         assim = interaction_matrix(bgc, :assimilation_matrix)

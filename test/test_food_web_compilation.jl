@@ -113,6 +113,22 @@ end
 
 @testset "POM, bacteria, mixotrophy, and reusable factors" begin
     definition = food_web_definition()
+    valid = food_web_parameter_overrides()
+    for (name, value, domain, shown) in (
+        (:maximum_growth_rate, [NaN, 1.4e-5], :nonnegative, "NaN"),
+        (:maximum_growth_rate, [-1.0, 1.4e-5], :nonnegative, "-1.0"),
+        (:reference_temperature, Inf, :finite, "Inf"),
+        (:temperature_q10, 0.0, :positive, "0.0"),
+        (:living_palatability_matrix, [NaN 0.8; 0.7 0.9], :nonnegative, "NaN"),
+        (:living_assimilation_matrix, [-0.1 0.5; 0.35 0.45], :unit_interval, "-0.1"),
+        (:living_assimilation_matrix, [1.1 0.5; 0.35 0.45], :unit_interval, "1.1"),
+    )
+        overrides = merge(valid, NamedTuple{(name,)}((value,)))
+        message = argument_error_message(() -> construct(definition; parameter_overrides=overrides))
+        @test all(occursin(fragment, message) for fragment in
+            ("process :", "parameter :$name", "domain :$domain", shown))
+    end
+
     bgc = construct(definition; parameter_overrides=food_web_parameter_overrides())
 
     @test participants(definition.processes.consume_POM) == (

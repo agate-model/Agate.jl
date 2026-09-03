@@ -170,11 +170,6 @@ end
         @test import_recipe(path) == recipe
     end
 
-    _, nonfinite_recipe = NiPiZD.construct_plus_recipe(;
-        scalar_type=Float32, palatability_matrix=Float32[NaN 0.9; 0.3 0.7]
-    )
-    @test_throws ArgumentError encode_recipe(nonfinite_recipe)
-
     version_warning = modified(encoded) do x
         x["provenance"]["agate"]["version"] = "0.9.0"
     end

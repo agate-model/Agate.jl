@@ -201,6 +201,9 @@ end
     @test_throws ArgumentError Agate.Runtime.parameterized(
         base_bgc, [1.0, 2.0]; active_parameters=active_growth
     )
+    @test_throws ArgumentError Agate.Runtime.parameterized(
+        base_bgc, [-1.0]; active_parameters=active_growth
+    )
 
     nested_message = argument_error_message(() ->
         Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate=(P_1=true,))

@@ -196,13 +196,13 @@ function _construct_process_definition(
     )
     reject_missing_parameter_values(resolved_parameters)
     validate_parameter_storage(parameter_plan, resolved_parameters, T)
-    validate_realized_parameters(canonical, layout, parameter_plan, resolved_parameters)
+    validate_realized_parameters(canonical, resolved_parameters)
 
     runtime_parameters = runtime_parameter_values(parameter_plan, resolved_parameters)
     compile_context = CompileContext(canonical, layout, parameter_plan)
     equations = compile_model_tendencies(compile_context; target_order=tracer_names)
     metadata = model_metadata(
-        layout; parameter_axes=parameter_plan_metadata(parameter_plan)
+        layout; parameter_axes=parameter_plan_metadata(canonical, parameter_plan)
     )
     sinking_velocities = isnothing(sinking_tracers) ? nothing :
         setup_velocity_fields(sinking_tracers, grid, open_bottom)

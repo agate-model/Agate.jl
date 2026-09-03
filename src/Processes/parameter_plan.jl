@@ -68,7 +68,6 @@ end
 
 _planned_parameter_axes(definition, name, parameter::ConstructionParameter) =
     isnothing(parameter.axes) ? () : (parameter.axes,)
-
 function _planned_parameter_axes(definition, name, parameter::Parameter)
     index = findfirst(binding -> binding.parameter === name, definition.parameter_bindings)
     isnothing(index) && throw(ArgumentError(
@@ -177,7 +176,7 @@ function runtime_parameter_values(plan::ParameterPlan, values::NamedTuple)
 end
 
 """Compact host metadata used by introspection and active-parameter selection."""
-function parameter_plan_metadata(plan::ParameterPlan)
+function parameter_plan_metadata(definition::CanonicalModelDefinition, plan::ParameterPlan)
     names = keys(plan.parameters)
     runtime_parameter_names = _runtime_parameter_names(plan)
     return NamedTuple{names}(ntuple(length(names)) do i
@@ -189,11 +188,16 @@ function parameter_plan_metadata(plan::ParameterPlan)
                 default isa DerivedDefault && names[i] in default.deps
             end
         )
+        domains = Tuple(unique([
+            binding.domain for binding in definition.parameter_bindings
+            if binding.parameter === names[i]
+        ]))
         (;
             rank=parameter.rank,
             axes=parameter.axes,
             shape=parameter.storage_shape,
             labels=parameter.storage_labels,
+            domains,
             runtime_bound=parameter.runtime_bound,
             derived_runtime_parameters,
         )

@@ -3,26 +3,13 @@ using Agate.Components: Plankton, Pool
 using Agate.ModelFamilies: default_components, default_processes
 using Agate.Parameters: ConstantDefault, DerivedDefault, ConstructionParameter, Parameter
 using Agate.Processes:
-    AbstractFormulation,
-    AbstractFactor,
-    Smith,
-    Geider,
-    Monod,
-    Liebig,
-    Growth,
-    Light,
-    NutrientLimitation,
-    NutrientResponse,
-    FixedStoichiometry,
-    Consumption,
-    Mortality,
-    ModelDefinition,
-    driver_identities,
-    formulation,
-    HeterotrophicConsumption,
-    canonicalize_model,
-    participants,
-    PreferentialGrazing
+    AbstractFactor, AbstractFormulation, FactorizedGrowth, Smith, Geider, Monod,
+    NormalizedDroop, QuotaRegulatedMonod, Liebig, FrankTNorm, Q10, Growth, Light,
+    NutrientLimitation, Temperature, NutrientResponse, QuotaResponse, NutrientUptake,
+    FixedStoichiometry, Consumption, Mortality, Products, ModelDefinition,
+    driver_identities, formulation, HeterotrophicConsumption, LinearMortality,
+    QuadraticMortality, LinearRemineralization, canonicalize_model, participants,
+    PreferentialGrazing, parameter_slots
 
 import Agate.Processes: factor_inputs
 
@@ -178,6 +165,20 @@ factor_inputs(::MultiDriverTestFactor) = (
     # Invalid built-in formulation combinations are rejected by their concrete objects.
     @test_throws MethodError Light(Monod(), :PAR, NamedTuple())
     @test_throws MethodError Mortality(Monod(), (:P,), nothing, NamedTuple())
+end
+
+@testset "Built-in parameter domains" begin
+    nodes = (
+        FactorizedGrowth(), Smith(), Geider(), Monod(), NormalizedDroop(),
+        QuotaRegulatedMonod(), FrankTNorm(), Q10(), PreferentialGrazing(),
+        HeterotrophicConsumption(), LinearMortality(), QuadraticMortality(),
+        LinearRemineralization(), Products((a=:A, b=:B); fractions=(a=:fraction_a,)),
+        FixedStoichiometry(; reference_element=:carbon),
+    )
+    expected(name) = name in (:minimum_quota, :maximum_quota, :hill, :sharpness, :q10) ? :positive :
+        name === :reference_temperature ? :finite :
+        name in (:assimilation, :fraction) ? :unit_interval : :nonnegative
+    @test all(slot.domain === expected(slot.name) for node in nodes for slot in parameter_slots(node))
 end
 
 @testset "Canonicalization owns authored structure" begin

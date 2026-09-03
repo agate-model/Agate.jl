@@ -16,7 +16,7 @@ ExtensionTransfer(source::Symbol, destination::Symbol; bindings::NamedTuple) =
 Agate.Processes.formulation(::ExtensionTransfer) = ExtensionTransferRate()
 Agate.Processes.authored_parameter_bindings(process::ExtensionTransfer) = process.bindings
 Agate.Processes.parameter_slots(::ExtensionTransferRate) =
-    (Agate.Processes.ParameterSlot(:rate),)
+    (Agate.Processes.ParameterSlot(:rate; domain=:positive),)
 Agate.Processes.participants(process::ExtensionTransfer) = (
     source=(process.source,), destination=(process.destination,)
 )
@@ -51,6 +51,9 @@ end
     bgc = Agate.Construction.construct(definition)
     @test bgc(Val(:source), 0, 0, 0, 0, 2.0, 1.0) == -1.0
     @test bgc(Val(:sink), 0, 0, 0, 0, 2.0, 1.0) == 1.0
+    @test_throws ArgumentError Agate.Construction.construct(
+        definition; parameter_overrides=(transfer_rate=0.0,)
+    )
 
     invalid_definition = ModelDefinition(;
         components, processes=(invalid_transfer=transfer,), parameters
