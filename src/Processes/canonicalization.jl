@@ -175,6 +175,10 @@ function _resolve_parameter_bindings(
         length(required_axes) == 1 || throw(ArgumentError(
             "parameter :$parameter is bound to slots with incompatible semantic axes $(Tuple(required_axes))",
         ))
+        required_domains = unique(Tuple(use.domain for use in parameter_uses))
+        length(required_domains) == 1 || throw(ArgumentError(
+            "parameter :$parameter is bound to slots with incompatible scientific domains $(Tuple(required_domains))",
+        ))
     end
 
     for (name, parameter) in pairs(definitions)

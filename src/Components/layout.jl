@@ -357,7 +357,7 @@ function realize_model_layout(
 end
 
 """Return compact host-side metadata derived from one authoritative `ModelLayout`."""
-function model_metadata(layout::ModelLayout; parameter_axes=(;))
+function model_metadata(layout::ModelLayout; parameter_axes=(;), parameter_constraints=())
     pft_names = keys(layout.pft_indices)
     pft_entities = NamedTuple{pft_names}(ntuple(length(pft_names)) do i
         indices = getproperty(layout.pft_indices, pft_names[i])
@@ -376,5 +376,6 @@ function model_metadata(layout::ModelLayout; parameter_axes=(;))
         plankton_tracers,
         plankton_diameters=Tuple(diameter_metadata(diameter) for diameter in layout.size_class_diameters),
         parameter_axes,
+        parameter_constraints,
     )
 end

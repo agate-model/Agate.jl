@@ -26,9 +26,67 @@ function _validate_parameter_domains(
     return nothing
 end
 
-function _validate_quota_bounds(
+"""One fully realized runtime parameter entry used by a coupled scientific constraint."""
+struct ParameterValueRef{Parameter,Indices}
+    indices::Indices
+end
+
+ParameterValueRef(parameter::Symbol, indices) = ParameterValueRef{parameter,typeof(indices)}(indices)
+_parameter_name(::ParameterValueRef{Parameter}) where {Parameter} = Parameter
+
+struct OrderedParameterConstraint{Lower,Upper,Path}
+    lower::Lower
+    upper::Upper
+    process::Symbol
+    path::Path
+    entity::Symbol
+end
+
+struct ProductFractionConstraint{Terms}
+    terms::Terms
+    process::Symbol
+end
+
+@inline function _parameter_value(parameters, reference::ParameterValueRef{Parameter}) where {Parameter}
+    value = getproperty(parameters, Parameter)
+    isempty(reference.indices) && return value
+    return value[reference.indices...]
+end
+
+function _validate_parameter_constraint(parameters, constraint::OrderedParameterConstraint)
+    minimum = _parameter_value(parameters, constraint.lower)
+    maximum = _parameter_value(parameters, constraint.upper)
+    maximum > minimum && return nothing
+    throw(ArgumentError(
+        "process :$(constraint.process) path $(constraint.path) entity :$(constraint.entity) " *
+        "parameter :$(_parameter_name(constraint.upper)) must be greater than " *
+        ":$(_parameter_name(constraint.lower))=$minimum; got $maximum",
+    ))
+end
+
+function _validate_parameter_constraint(parameters, constraint::ProductFractionConstraint)
+    fractions = map(reference -> _parameter_value(parameters, reference), constraint.terms)
+    total = sum(fractions)
+    zero(total) <= total <= one(total) && return nothing
+    throw(ArgumentError(
+        "product fractions for process :$(constraint.process) sum to $total; expected a value " *
+        "in [0, 1] so the omitted product receives a conservative remainder",
+    ))
+end
+
+"""Validate coupled formulation constraints against any runtime-compatible parameter container."""
+function validate_parameter_constraints(parameters, constraints::Tuple)
+    for constraint in constraints
+        _validate_parameter_constraint(parameters, constraint)
+    end
+    return nothing
+end
+
+function _append_quota_constraints!(
+    constraints,
     definition::CanonicalModelDefinition,
-    parameter_values::NamedTuple,
+    layout::ModelLayout,
+    plan::ParameterPlan,
     named::CanonicalProcess,
     path::Tuple,
     slot_refs::NamedTuple,
@@ -36,28 +94,40 @@ function _validate_quota_bounds(
     slots = _resolved_slot_bindings(definition, slot_refs)
     minimum_binding = slots.minimum_quota
     maximum_binding = slots.maximum_quota
-    minimum_values = _parameter_entries(getproperty(parameter_values, minimum_binding.parameter))
-    maximum_values = _parameter_entries(getproperty(parameter_values, maximum_binding.parameter))
-    for (minimum, maximum) in zip(minimum_values, maximum_values)
-        maximum > minimum && continue
-        throw(ArgumentError(
-            "process :$(process_id(named)) path $path parameter :$(maximum_binding.parameter) " *
-            "must be greater than :$(minimum_binding.parameter)=$minimum; got $maximum",
+    minimum_entities = _layout_axis_entities(layout, only(minimum_binding.axis_components))
+    maximum_entities = _layout_axis_entities(layout, only(maximum_binding.axis_components))
+    minimum_entities == maximum_entities || throw(ArgumentError(
+        "quota bounds for process :$(process_id(named)) path $path resolve to different plankton entities",
+    ))
+
+    for entity in minimum_entities
+        minimum = ParameterValueRef(
+            minimum_binding.parameter,
+            (parameter_storage_index(plan, minimum_binding.parameter, 1, entity),),
+        )
+        maximum = ParameterValueRef(
+            maximum_binding.parameter,
+            (parameter_storage_index(plan, maximum_binding.parameter, 1, entity),),
+        )
+        push!(constraints, OrderedParameterConstraint(
+            minimum, maximum, process_id(named), path, entity,
         ))
     end
     return nothing
 end
 
-function _validate_quota_factor_bounds(
-    definition, parameter_values, named, path, factor, refs
+function _append_quota_factor_constraints!(
+    constraints, definition, layout, plan, named, path, factor, refs
 )
-    factor isa QuotaResponse && _validate_quota_bounds(
-        definition, parameter_values, named, path, refs.slots,
+    factor isa QuotaResponse && _append_quota_constraints!(
+        constraints, definition, layout, plan, named, path, refs.slots,
     )
     for (name, subfactor) in pairs(factor_subfactors(factor))
-        _validate_quota_factor_bounds(
+        _append_quota_factor_constraints!(
+            constraints,
             definition,
-            parameter_values,
+            layout,
+            plan,
             named,
             factor_subfactor_path(path, factor, name),
             subfactor,
@@ -67,56 +137,49 @@ function _validate_quota_factor_bounds(
     return nothing
 end
 
-function _validate_quota_bounds(definition, parameter_values)
+function _append_product_constraints!(constraints, definition, named)
+    products = process_products(named.process)
+    (isnothing(products) || length(products.destinations) == 1) && return nothing
+    terms = Tuple(begin
+        refs = getproperty(named.binding_refs.products.fractions, product)
+        binding = _resolved_slot_bindings(definition, refs).fraction
+        ParameterValueRef(binding.parameter, ())
+    end for product in keys(products.fractions))
+    push!(constraints, ProductFractionConstraint(terms, process_id(named)))
+    return nothing
+end
+
+"""Build layout-resolved coupled scientific constraints once during model setup."""
+function parameter_constraints(
+    definition::CanonicalModelDefinition, layout::ModelLayout, plan::ParameterPlan
+)
+    constraints = Any[]
     for named in values(definition.processes)
         for (name, factor) in pairs(factors(named))
-            _validate_quota_factor_bounds(
-                definition, parameter_values, named, (:factors, name), factor,
+            _append_quota_factor_constraints!(
+                constraints,
+                definition,
+                layout,
+                plan,
+                named,
+                (:factors, name),
+                factor,
                 getproperty(named.binding_refs.factors, name),
             )
         end
-        named.process isa NutrientUptake && _validate_quota_bounds(
-            definition, parameter_values, named, (), named.binding_refs.process,
+        named.process isa NutrientUptake && _append_quota_constraints!(
+            constraints, definition, layout, plan, named, (), named.binding_refs.process,
         )
+        _append_product_constraints!(constraints, definition, named)
     end
-    return nothing
+    return Tuple(constraints)
 end
 
-function _validate_product_fractions(
-    definition::CanonicalModelDefinition, parameter_values::NamedTuple
-)
-    for named in values(definition.processes)
-        products = process_products(named.process)
-        (isnothing(products) || length(products.destinations) == 1) && continue
-        names = keys(products.fractions)
-        fractions = Tuple(begin
-            refs = getproperty(named.binding_refs.products.fractions, product)
-            binding = _resolved_slot_bindings(definition, refs).fraction
-            getproperty(parameter_values, binding.parameter)
-        end for product in names)
-
-        total = sum(fractions)
-        if length(names) == length(products.destinations)
-            tolerance = total isa AbstractFloat ? 100 * eps(one(total)) : zero(total)
-            isapprox(total, one(total); rtol=zero(total), atol=tolerance) || throw(ArgumentError(
-                "explicit product fractions for process :$(process_id(named)) must sum to 1; got $total",
-            ))
-        else
-            remainder = one(total) - total
-            zero(remainder) <= remainder <= one(remainder) || throw(ArgumentError(
-                "product fractions for process :$(process_id(named)) leave conservative remainder $remainder; expected a value in [0, 1]",
-            ))
-        end
-    end
-    return nothing
-end
-
-"""Validate formulation-owned scientific domains on fully realized parameter values."""
+"""Validate formulation-owned scientific domains and coupled constraints on realized values."""
 function validate_realized_parameters(
-    definition::CanonicalModelDefinition, parameter_values::NamedTuple
+    definition::CanonicalModelDefinition, parameter_values::NamedTuple, constraints::Tuple
 )
     _validate_parameter_domains(definition, parameter_values)
-    _validate_quota_bounds(definition, parameter_values)
-    _validate_product_fractions(definition, parameter_values)
+    validate_parameter_constraints(parameter_values, constraints)
     return nothing
 end

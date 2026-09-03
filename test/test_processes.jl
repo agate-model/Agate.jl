@@ -192,6 +192,7 @@ end
         name === :reference_temperature ? :finite :
         name in (:assimilation, :fraction) ? :unit_interval : :nonnegative
     @test all(slot.domain === expected(slot.name) for node in nodes for slot in parameter_slots(node))
+    @test_throws ArgumentError Products((a=:A, b=:B); fractions=(a=:fa, b=:fb))
     @test_throws ArgumentError Agate.Processes.ParameterSlot(:x, (:consumer, :consumer))
 end
 
@@ -380,6 +381,14 @@ end
         ),
     ))
     @test occursin("incompatible semantic axes", incompatible_axes_error)
+
+    @test_throws ArgumentError canonicalize_model(ModelDefinition(;
+        components=(P=components.P, Z=components.Z),
+        processes=(grazing=Consumption(PreferentialGrazing(); consumers=:Z, resources=:P,
+            bindings=(palatability=:shared_interaction, assimilation=:shared_interaction)),),
+        parameters=(maximum_rate=Parameter(0.1), half_saturation=Parameter(0.1),
+                    shared_interaction=Parameter(0.7)),
+    ))
 
     accidental = ModelDefinition(;
         components=(P=components.P, Z=components.Z),

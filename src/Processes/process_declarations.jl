@@ -7,11 +7,10 @@ mapping. A multi-element mapping without `FixedStoichiometry` routes prognostic 
 states directly. `FixedStoichiometry` derives multi-element products from a one-element source;
 every product then declares the same elements and includes the stoichiometric reference element.
 
-For `N` products, specify either `N - 1` named fractions or all `N` fractions. When one
-fraction is omitted, that product receives the exact conservative remainder
-`1 - sum(supplied fractions)`. When all fractions are supplied, every authored value is used
-directly and setup requires their sum to equal one within floating-point tolerance. A single
-product requires no fractions.
+For `N` products, specify `N - 1` named fractions. The omitted product receives the exact
+conservative remainder `1 - sum(supplied fractions)`. This removes one redundant routing
+degree of freedom while preserving exact closure by construction. A single product requires
+no fractions.
 """
 struct Products{Destinations,Fractions,Stoichiometry}
     destinations::Destinations
@@ -85,11 +84,10 @@ function Products(
         nfractions == 0 || throw(
             ArgumentError("single-product allocations do not take fractions"),
         )
-    elseif !(nfractions in (nproducts - 1, nproducts))
+    elseif nfractions != nproducts - 1
         throw(ArgumentError(
-            "products has $nproducts destinations but $nfractions fractions; specify either " *
-            "$(nproducts - 1) fractions (the omitted product receives the balance) or all " *
-            "$nproducts fractions explicitly",
+            "products has $nproducts destinations but $nfractions fractions; specify exactly " *
+            "$(nproducts - 1) fractions so the omitted product receives the conservative balance",
         ))
     end
 

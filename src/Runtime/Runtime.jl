@@ -6,7 +6,7 @@ using Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields,
     required_biogeochemical_tracers
 
-using ..Processes: parameter_domain_valid
+using ..Processes: parameter_domain_valid, validate_parameter_constraints
 
 export parameterized
 export ode_problem

@@ -154,13 +154,13 @@ provided, it should be the [`ActiveParameterSet`](@ref) returned by
 [`active_parameters`](@ref).
 """
 function parameterized(bgc, p; active_parameters=nothing)
-    validate_active_parameters(p, active_parameters)
+    validate_active_parameters(bgc, p, active_parameters)
     active_map = active_parameters === nothing ? (;) : active_parameters.map
     parameters = ActiveParameters(bgc.parameters, p, active_map)
     return ParameterizedBGC(bgc, parameters)
 end
 
-function validate_active_parameters(p, active_parameters)
+function validate_active_parameters(bgc, p, active_parameters)
     nactive = active_parameters === nothing ? 0 : length(active_parameters)
 
     if p === nothing
@@ -196,6 +196,11 @@ function validate_active_parameters(p, active_parameters)
             ))
         end
     end
+
+    metadata = getproperty(bgc, :metadata)
+    constraints = hasproperty(metadata, :parameter_constraints) ? metadata.parameter_constraints : ()
+    parameters = ActiveParameters(bgc.parameters, checked, active_parameters.map)
+    validate_parameter_constraints(parameters, constraints)
     return nothing
 end
 
