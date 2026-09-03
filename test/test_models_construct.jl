@@ -184,6 +184,10 @@ using Oceananigans.Biogeochemistry:
         )
         @test explicit_interactions.parameters.palatability_matrix == palatability
         @test explicit_interactions.parameters.assimilation_matrix == assimilation
+        @test_throws ArgumentError NiPiZD.construct(;
+            size_structure=named_size_structure, parameters=(palatability_matrix=palatability,),
+            palatability_matrix=palatability,
+        )
 
         @test_throws ArgumentError NiPiZD.construct(;
             size_structure=named_size_structure,

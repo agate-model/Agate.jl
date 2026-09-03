@@ -86,7 +86,8 @@ end
     dt = 10minutes
     nsteps = Int(10day ÷ dt)
 
-    budgets = (total=[:N => 1, :P_1 => 1, :P_2 => 1, :Z_1 => 1, :Z_2 => 1, :D => 1],)
+    budgets = (total=[:N => 1, :P_1 => 1, :P_2 => 1, :Z_1 => 1, :Z_2 => 1, :D => 1],
+               detritus=[:D => 1])
     for (T, rtol) in ((Float64, 1e-12), (Float32, 1e-5))
         @testset "NiPiZD $(T) conservation" begin
             grid = BoxModelGrid(T)
@@ -95,8 +96,10 @@ end
             set!(box_model; N=T(7), P_1=T(0.01), P_2=T(0.01),
                  Z_1=T(0.05), Z_2=T(0.05), D=zero(T))
 
+            T === Float64 && @test_throws ArgumentError box_model_mass_balance(box_model, budgets; dt, nsteps=-1)
             result = box_model_mass_balance(box_model, budgets; dt, nsteps)
             @test result.initial.total isa T
+            @test ismissing(result.relative_drift.detritus)
             @test isapprox(result.initial.total, result.final.total; rtol, atol=0.0)
         end
     end

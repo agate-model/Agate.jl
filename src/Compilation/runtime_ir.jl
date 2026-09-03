@@ -1,4 +1,8 @@
-"""Lean static runtime IR used by compiled process tendencies."""
+"""Lean static runtime IR used by compiled process tendencies.
+
+Leaf operands encode indices and parameter names in their types and therefore carry no fields.
+Composite operands carry child nodes because their structure is assembled at setup time.
+"""
 
 """Static operand that reads one pre-indexed tracer or auxiliary input."""
 struct InputOp{Index} end

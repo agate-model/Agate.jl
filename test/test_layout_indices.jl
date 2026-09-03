@@ -57,6 +57,8 @@ using Agate.Components:
         (n=2, min_esd=0.0, max_esd=2.0, spacing=:log),
         (n=2, min_esd=2.0, max_esd=1.0, spacing=:log),
         (n=2, min_esd=1.0, max_esd=2.0, spacing=:unsupported),
+        (n=1, min_esd=1.0, max_esd=2.0, spacing=:log),
+        (n=2, min_esd=1.0, max_esd=2.0, spacing=:log, extra=true),
     )
         message = argument_error_message(() -> realize_model_layout(
             (P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),);

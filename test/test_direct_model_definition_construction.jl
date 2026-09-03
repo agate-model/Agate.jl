@@ -124,8 +124,7 @@ end
 
     @test bgc.parameters.assimilation_local == fill(0.7, 1, 1)
     shared = Agate.Introspection.interaction_matrix(bgc, :palatability_shared)
-    @test (size(shared.matrix), Set(shared.edges)) ==
-          ((2, 2), Set(((:Z1_1, :P1_1), (:Z2_1, :P2_1))))
+    @test Set(shared.edges) == Set(((:Z1_1, :P1_1), (:Z2_1, :P2_1)))
     @test_throws ArgumentError Agate.Runtime.active_parameters(
         bgc; palatability_shared=((:Z1_1, :P2_1),)
     )

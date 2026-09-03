@@ -34,6 +34,7 @@ end
 @testset "Library scalar genericity" begin
     T = Float32
 
+    @test Agate.Library.Allometry.allometric_scaling_power(T(1), T(-0.1), T(2)) isa T
     @test Agate.Library.Nutrients.monod_limitation(T(1), T(0.5)) isa T
     @test frank_tnorm(T(0.2), T(0.4)) isa T
     @test frank_tnorm(T(0.2), T(0.4); sharpness=50.0) isa T

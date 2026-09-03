@@ -35,8 +35,10 @@ _pool_names(components::NamedTuple) = Tuple(
     name for name in keys(components) if getproperty(components, name) isa Pool
 )
 
-@inline _unspecified_diameter(::Type{FT}) where {FT<:AbstractFloat} = FT(NaN)
-@inline _unspecified_diameter(::Type{T}) where {T<:Real} = zero(T)
+@inline _missing_diameter_sentinel(::Type{FT}) where {FT<:AbstractFloat} = FT(NaN)
+@inline _missing_diameter_sentinel(::Type{T}) where {T<:Real} = zero(T)
+@inline diameter_metadata(diameter::Real) =
+    isfinite(diameter) && diameter > zero(diameter) ? diameter : nothing
 
 @inline function _plankton_state_tracer(size_class::Symbol, state::Symbol, nstates::Int)
     return nstates == 1 ? size_class : Symbol(string(size_class), "_", state)
@@ -250,7 +252,7 @@ function realize_model_layout(
         for (pft, specification) in pairs(getproperty(plankton_pfts, plankton))
             pft_position += 1
             realized_diameters = if specification === nothing
-                T[_unspecified_diameter(T)]
+                T[_missing_diameter_sentinel(T)]
             else
                 realize_diameters(T, specification)
             end
@@ -372,10 +374,7 @@ function model_metadata(layout::ModelLayout; parameter_axes=(;))
     return (;
         pft_entities,
         plankton_tracers,
-        plankton_diameters=Tuple(
-            isfinite(diameter) && diameter > zero(diameter) ? diameter : nothing
-            for diameter in layout.size_class_diameters
-        ),
+        plankton_diameters=Tuple(diameter_metadata(diameter) for diameter in layout.size_class_diameters),
         parameter_axes,
     )
 end

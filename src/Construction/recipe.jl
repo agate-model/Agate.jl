@@ -1,6 +1,6 @@
 using ..ModelFamilies: AbstractModelFamily, definition_version, default_components
 using ..Parameters: DerivedDefault
-using ..Components: ModelLayout, canonicalize_plankton_realization
+using ..Components: ModelLayout, canonicalize_plankton_realization, diameter_metadata
 
 """Return the stable recipe-family identifier for a model family."""
 function family_id(family::AbstractModelFamily)
@@ -190,10 +190,7 @@ function capture_model_manifest(
         pft_entities,
         tracer_order,
         auxiliary_fields,
-        Tuple(
-            isfinite(diameter) && diameter > zero(diameter) ? diameter : nothing
-            for diameter in layout.size_class_diameters
-        ),
+        Tuple(diameter_metadata(diameter) for diameter in layout.size_class_diameters),
         deepcopy(interaction_matrix_sources),
         deepcopy(sinking_tracers),
         open_bottom,

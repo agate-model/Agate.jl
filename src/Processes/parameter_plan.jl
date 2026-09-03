@@ -101,7 +101,7 @@ end
 
 function _diameter_by_entity(layout::ModelLayout)
     values = Dict{Symbol,Any}(
-        entity => (isfinite(diameter) && diameter > zero(diameter) ? diameter : nothing)
+        entity => diameter_metadata(diameter)
         for (entity, diameter) in zip(layout.size_classes, layout.size_class_diameters)
     )
     for component in keys(layout.component_entities)

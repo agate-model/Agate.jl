@@ -122,14 +122,15 @@ end
 
 """    tracer_groups(bgc) -> NamedTuple
 
-Return a structural grouping summary of the constructed tracer layout.
+Return a structural grouping summary of the constructed tracer layout. `entities_by_pft`
+contains realized SizeClass identities; `plankton` contains physical plankton tracers.
 """
 function tracer_groups(bgc)
     return (
         all=tracer_names(bgc),
         plankton=plankton_tracers(bgc),
         nonplankton=nonplankton_tracers(bgc),
-        by_pft=pfts(bgc),
+        entities_by_pft=pfts(bgc),
     )
 end
 

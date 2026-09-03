@@ -68,10 +68,14 @@ function _construction_inputs(;
     plankton_realization = _plankton_realization(size_structure)
 
     parameter_overrides = parameters
-    palatability_matrix === nothing ||
-        (parameter_overrides = merge(parameter_overrides, (; palatability_matrix)))
-    assimilation_matrix === nothing ||
-        (parameter_overrides = merge(parameter_overrides, (; assimilation_matrix)))
+    for (name, value) in ((:palatability_matrix, palatability_matrix),
+                          (:assimilation_matrix, assimilation_matrix))
+        value === nothing && continue
+        hasproperty(parameter_overrides, name) && throw(ArgumentError(
+            "parameter :$name cannot be supplied through both `parameters` and `$name`",
+        ))
+        parameter_overrides = merge(parameter_overrides, NamedTuple{(name,)}((value,)))
+    end
     realization = (;
         plankton_pfts=plankton_realization,
         parameter_overrides,
@@ -116,6 +120,7 @@ Keywords
 - `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set). Vector parameters may be supplied positionally, as partial NamedTuple overrides keyed by realized plankton SizeClass identity (for example `P_1`, `diat_1`, or `microzoo_1`), or as allometric definitions for diameter-indexed plankton vectors.
 - `palatability_matrix=nothing`: optional palatability matrix override. Must be an explicit rectangular matrix with rows ordered by realized zooplankton SizeClasses and columns ordered by realized phytoplankton SizeClasses.
 - `assimilation_matrix=nothing`: optional assimilation matrix override with the same consumer-by-prey SizeClass ordering as `palatability_matrix`.
+  Interaction matrices must be supplied either here or through `parameters`, not both.
 - `grid=BoxModelGrid()`: grid used for architecture inference and default scalar-type selection
 - `scalar_type=nothing`: explicit runtime scalar type. When omitted, construction uses `eltype(grid)` or `Float64` if no grid is supplied
 - `arch=nothing`: override the architecture (usually inferred from `grid`)

@@ -1,4 +1,4 @@
-using ..Components: ModelLayout
+using ..Components: ModelLayout, diameter_metadata
 
 using ..Library.Allometry:
     palatability_matrix_allometric_axes, consumer_assimilation_matrix_axes
@@ -40,8 +40,7 @@ function _require_palatability_diameters(layout::ModelLayout, consumers, prey)
     for index in (consumers..., prey...)
         index in seen && continue
         push!(seen, index)
-        diameter = layout.size_class_diameters[index]
-        isfinite(diameter) && diameter > zero(diameter) && continue
+        diameter_metadata(layout.size_class_diameters[index]) === nothing || continue
         entity = layout.size_classes[index]
         throw(ArgumentError(
             "AllometricPalatability requires diameter metadata for SizeClass :$entity; provide an explicit size structure or an explicit palatability matrix",

@@ -49,6 +49,7 @@ end
         @test resolved_top((base=4.0,)) == 5.0
         @test resolved_top((top=99.0,)) == 99.0
         @test resolved_top((base=4.0, top=99.0)) == 99.0
+        @test_throws ArgumentError resolved_top((top=nothing,))
         @test !hasproperty(
             Agate.Construction.construct(definition).parameters, :base
         )
