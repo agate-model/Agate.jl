@@ -13,8 +13,8 @@ using Agate.Processes:
 function direct_npz_definition()
     components = (
         N=Pool(:nitrogen),
-        P=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
-        Z=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
+        P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
+        Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]),
     )
     processes = (
         growth_P=Growth(;
@@ -101,10 +101,10 @@ end
 
 @testset "Process-local interaction defaults" begin
     components = (
-        P1=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
-        P2=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[4.0]),
-        Z1=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
-        Z2=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[20.0]),
+        P1=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
+        P2=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[4.0]),
+        Z1=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]),
+        Z2=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[20.0]),
     )
     common_bindings = (
         maximum_rate=:maximum_predation_rate,
@@ -167,7 +167,7 @@ end
 
 @testset "Explicit product fractions" begin
     components = (
-        P=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
+        P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
         A=Pool(:nitrogen),
         B=Pool(:nitrogen),
     )
@@ -207,7 +207,7 @@ end
 
 @testset "Multi-element products" begin
     components = (
-        P=Plankton(; states=:carbon, reference_state=:carbon, size_structure=[1.0]),
+        P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon, size_structure=[1.0]),
         DOC=Pool(:carbon),
         POC=Pool(:carbon),
         DON=Pool(:nitrogen),

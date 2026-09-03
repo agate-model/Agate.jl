@@ -64,8 +64,8 @@ factor_inputs(::MultiDriverTestFactor) = (
     shared_driver_model = canonicalize_model(
         ModelDefinition(;
             components=(
-                P=Plankton(; states=:nitrogen, reference_state=:nitrogen),
-                Z=Plankton(; states=:nitrogen, reference_state=:nitrogen),
+                P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
+                Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
                 N=Pool(:nitrogen),
             ),
             processes=(
@@ -91,7 +91,7 @@ factor_inputs(::MultiDriverTestFactor) = (
     @test driver_identities(shared_driver_model) == (:PAR,)
 
     multi_driver_model = canonicalize_model(ModelDefinition(;
-        components=(P=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]), N=Pool(:nitrogen)),
+        components=(P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]), N=Pool(:nitrogen)),
         processes=(growth=Growth(;
             plankton=:P,
             reference_resource=:N,
@@ -106,7 +106,7 @@ factor_inputs(::MultiDriverTestFactor) = (
 
     invalid_growth = ModelDefinition(;
         components=(
-            P=Plankton(; states=:nitrogen, reference_state=:nitrogen),
+            P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
             N=Pool(:nitrogen),
         ),
         processes=(growth=Growth(;
@@ -143,7 +143,7 @@ factor_inputs(::MultiDriverTestFactor) = (
 
     @test_nowarn canonicalize_model(ModelDefinition(;
         components=(
-            P=Plankton(; states=:nitrogen, reference_state=:nitrogen),
+            P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
             N=Pool(:nitrogen),
         ),
         processes=(growth=Growth(;
@@ -155,7 +155,7 @@ factor_inputs(::MultiDriverTestFactor) = (
 
     wrong_element = ModelDefinition(;
         components=(
-            P=Plankton(; states=:carbon, reference_state=:carbon),
+            P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
             DIC=Pool(:carbon),
             DIN=Pool(:phosphorus),
         ),
@@ -181,7 +181,7 @@ factor_inputs(::MultiDriverTestFactor) = (
 end
 
 @testset "Canonicalization owns authored structure" begin
-    single = Plankton(; states=:nitrogen, reference_state=:nitrogen)
+    single = Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen)
     light = Light(Smith(); driver=:PAR)
     one_process(id, process, components) = ModelDefinition(;
         components, processes=NamedTuple{(id,)}((process,))
@@ -197,7 +197,7 @@ end
             factors=(light=light,),
         ),
         (
-            P=Plankton(; states=:carbon, reference_state=:carbon),
+            P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
             DIC=Pool(:carbon),
             N=Pool(:nitrogen),
         ),
@@ -212,7 +212,7 @@ end
                 additional_resources=(nitrogen=:N,),
                 factors=(light=light,),
             ), (
-                P=Plankton(; states=:carbon, reference_state=:carbon),
+                P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
                 DIC=Pool(:carbon),
                 N=Pool(:nitrogen),
             )),
@@ -226,7 +226,7 @@ end
                 stoichiometry=FixedStoichiometry(; reference_element=:carbon),
                 factors=(light=light,),
             ), (
-                P=Plankton(; states=:carbon, reference_state=:carbon),
+                P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
                 DIC=Pool(:carbon),
             )),
             ("process :growth", "FixedStoichiometry", "additional_resources", "together"),
@@ -305,8 +305,8 @@ end
 
 @testset "Parameter binding behavior and validation" begin
     components = (
-        P=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
-        Z=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
+        P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
+        Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]),
         D=Pool(:nitrogen),
         E=Pool(:nitrogen),
         R=Pool(:nitrogen),

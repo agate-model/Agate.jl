@@ -10,7 +10,7 @@ using Agate.Processes:
     @testset "growth factors are optional" begin
         definition = ModelDefinition(;
             components=(
-                P=Plankton(; states=:carbon, reference_state=:carbon),
+                P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
                 DIC=Pool(:carbon),
             ),
             processes=(
@@ -30,7 +30,7 @@ using Agate.Processes:
         definition = ModelDefinition(;
             components=(
                 P=Plankton(;
-                    states=(:carbon, :chlorophyll), reference_state=:carbon
+                    states=(carbon=:carbon, chlorophyll=nothing), reference_state=:carbon
                 ),
                 DIC=Pool(:carbon),
             ),
@@ -63,7 +63,7 @@ using Agate.Processes:
     @testset "fixed-stoichiometry transfer is process-owned" begin
         definition = ModelDefinition(;
             components=(
-                P=Plankton(; states=:carbon, reference_state=:carbon),
+                P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
                 DIC=Pool(:carbon),
                 DIN=Pool(:nitrogen),
             ),
@@ -101,7 +101,7 @@ using Agate.Processes:
     @testset "growth leaves independently prognostic elemental states unchanged" begin
         definition = ModelDefinition(;
             components=(
-                P=Plankton(; states=(:carbon, :nitrogen), reference_state=:carbon),
+                P=Plankton(; states=(biomass=:carbon, reserve_n=:nitrogen), reference_state=:biomass),
                 DIC=Pool(:carbon),
             ),
             processes=(
@@ -125,15 +125,15 @@ using Agate.Processes:
         model = Agate.Construction.construct(definition)
         test_tendencies(
             model,
-            (DIC=10.0, P_carbon=2.0, P_nitrogen=0.3),
-            (DIC=-1.0, P_carbon=1.0, P_nitrogen=0.0),
+            (DIC=10.0, P_biomass=2.0, P_reserve_n=0.3),
+            (DIC=-1.0, P_biomass=1.0, P_reserve_n=0.0),
         )
     end
 
     @testset "mortality transfers every prognostic state" begin
         components = (
             P=Plankton(;
-                states=(:carbon, :nitrogen, :chlorophyll), reference_state=:carbon
+                states=(carbon=:carbon, nitrogen=:nitrogen, chlorophyll=nothing), reference_state=:carbon
             ),
             DOC=Pool(:carbon),
             DON=Pool(:nitrogen),
@@ -171,9 +171,9 @@ using Agate.Processes:
         definition = ModelDefinition(;
             components=(
                 P=Plankton(;
-                    states=(:carbon, :nitrogen, :chlorophyll), reference_state=:carbon
+                    states=(carbon=:carbon, nitrogen=:nitrogen, chlorophyll=nothing), reference_state=:carbon
                 ),
-                Z=Plankton(; states=(:carbon, :nitrogen), reference_state=:carbon),
+                Z=Plankton(; states=(carbon=:carbon, nitrogen=:nitrogen), reference_state=:carbon),
                 DOC=Pool(:carbon),
                 DON=Pool(:nitrogen),
             ),

@@ -16,7 +16,7 @@ using Oceananigans.Units: day, minutes
 
 function multi_nutrient_test_model(grid; nutrient_formulation=Liebig())
     components = (
-        P=Plankton(; states=:carbon, reference_state=:carbon, size_structure=[1.0]),
+        P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon, size_structure=[1.0]),
         DIC=Pool(:carbon),
         DIN=Pool(:nitrogen),
         PO4=Pool(:phosphorus),

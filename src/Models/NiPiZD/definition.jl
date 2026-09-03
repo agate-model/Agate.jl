@@ -22,12 +22,12 @@ const DEFAULT_SIZE_STRUCTURE = (
 
 const NIPIZD_COMPONENTS = (
     P=Plankton(;
-        states=:nitrogen,
+        states=(nitrogen=:nitrogen,),
         reference_state=:nitrogen,
         size_structure=DEFAULT_SIZE_STRUCTURE.phytoplankton.P,
     ),
     Z=Plankton(;
-        states=:nitrogen,
+        states=(nitrogen=:nitrogen,),
         reference_state=:nitrogen,
         size_structure=DEFAULT_SIZE_STRUCTURE.zooplankton.Z,
     ),

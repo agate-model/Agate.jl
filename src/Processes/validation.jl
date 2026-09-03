@@ -150,19 +150,13 @@ end
 
 function _plankton_element_states(components, name::Symbol, id::Symbol, label::AbstractString)
     plankton = _plankton_component(components, name, id, label)
-    element_names = Symbol[]
-    refs = PlanktonStateRef[]
-    for state in states(plankton)
-        state_element_value = state_element(plankton, state)
-        isnothing(state_element_value) && continue
-        state_element_value in element_names && throw(ArgumentError(
-            "process :$id $label :$name has multiple states for element :$state_element_value; " *
-            "explicit same-element state mappings are not yet enabled",
-        ))
-        push!(element_names, state_element_value)
-        push!(refs, PlanktonStateRef(name, state))
-    end
-    return NamedTuple{Tuple(element_names)}(Tuple(refs))
+    element_states = Tuple(
+        (state_element(plankton, state), PlanktonStateRef(name, state))
+        for state in states(plankton) if !isnothing(state_element(plankton, state))
+    )
+    return NamedTuple{Tuple(first(pair) for pair in element_states)}(
+        Tuple(last(pair) for pair in element_states)
+    )
 end
 
 _state_element(components, ref::PlanktonStateRef) =

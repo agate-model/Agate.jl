@@ -15,8 +15,8 @@ nothing #hide
 
 components = (
     N=Pool(:nitrogen),
-    P=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
-    M=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[4.0]),
+    P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
+    M=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[4.0]),
 )
 
 processes = (

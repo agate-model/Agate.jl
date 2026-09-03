@@ -15,10 +15,10 @@ function food_web_definition()
         N=Pool(:nitrogen),
         D=Pool(:nitrogen),
         POM=Pool(:nitrogen),
-        P=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
-        B=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[0.8]),
-        M=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[2.0]),
-        Z=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
+        P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
+        B=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.8]),
+        M=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[2.0]),
+        Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]),
     )
     temperature = Temperature(
         Q10(); bindings=(q10=:temperature_q10, reference_temperature=:reference_temperature)
@@ -169,8 +169,8 @@ end
         POM_1=Pool(:nitrogen),
         POM_2=Pool(:nitrogen),
         POM_3=Pool(:nitrogen),
-        X=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[0.4]),
-        B=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[0.8]),
+        X=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.4]),
+        B=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.8]),
     )
     processes = (
         consume_POM=Consumption(

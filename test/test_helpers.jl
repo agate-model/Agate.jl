@@ -39,7 +39,7 @@ quota_components() = (
     DIN=Agate.Components.Pool(:nitrogen),
     PO4=Agate.Components.Pool(:phosphorus),
     P=Agate.Components.Plankton(;
-        states=(:carbon, :nitrogen, :phosphorus),
+        states=(carbon=:carbon, nitrogen=:nitrogen, phosphorus=:phosphorus),
         reference_state=:carbon,
         size_structure=[1.0, 2.0],
     ),
