@@ -15,9 +15,10 @@ end
 """Versioned registered-family recipe captured before runtime realization.
 
 `ModelRecipe` stores only the registered family identity, its exact scientific
-`definition_version`, and canonical construction inputs. Named mapping insertion order is not
-part of recipe identity. Components, processes, parameter definitions, runtime precision, host
-fields, and compiled equations are supplied by the loaded family implementation on replay.
+`definition_version`, and canonical construction inputs. `==`, `isequal`, `hash`, and content
+hashing share that scientific identity; named mapping insertion order is ignored. Components,
+processes, parameter definitions, runtime precision, host fields, and compiled equations are
+supplied by the loaded family implementation on replay.
 """
 struct ModelRecipe{PlanktonPFTs,ParameterOverrides,SinkingTracers}
     family::Symbol
@@ -31,9 +32,8 @@ end
 """Resolved deterministic scientific state produced by model construction.
 
 `ModelManifest` records the fully materialized parameters, realized PFT entities and
-tracer ordering, interaction sources, sinking configuration, and scalar type. It is
-an in-memory record of the constructed model state; durable replay is defined by the
-corresponding recipe representation.
+tracer ordering, interaction sources, sinking configuration, and scalar type. Equality and hashing use this
+resolved scientific content; durable replay is defined by the corresponding recipe representation.
 """
 struct ModelManifest{
     Parameters,
@@ -56,40 +56,32 @@ struct ModelManifest{
     scalar_type::Type{ScalarType}
 end
 
-function _structural_isequal(a, b)
-    a === b && return true
-    typeof(a) === typeof(b) || return false
+_recipe_identity(family::Symbol, definition_version::VersionNumber, realization) = (;
+    family, definition_version, realization
+)
+_recipe_identity(recipe::ModelRecipe) = _recipe_identity(
+    recipe.family, recipe.definition_version, _encode_realization(recipe)
+)
 
-    if a isa Number || a isa AbstractString || a isa Symbol || a isa Char
-        return isequal(a, b)
-    elseif a isa AbstractArray
-        axes(a) == axes(b) || return false
-        return all(_structural_isequal(a[i], b[i]) for i in eachindex(a, b))
-    elseif a isa NamedTuple
-        keys(a) == keys(b) || return false
-        return all(_structural_isequal(getproperty(a, k), getproperty(b, k)) for k in keys(a))
-    elseif a isa Tuple
-        length(a) == length(b) || return false
-        return all(_structural_isequal(a[i], b[i]) for i in eachindex(a))
-    elseif isstructtype(typeof(a)) && fieldcount(typeof(a)) > 0
-        return all(
-            _structural_isequal(getfield(a, i), getfield(b, i))
-            for i in 1:fieldcount(typeof(a))
-        )
-    end
+_manifest_identity(manifest::ModelManifest) = (;
+    parameters=manifest.parameters,
+    pft_entities=manifest.pft_entities,
+    tracer_order=manifest.tracer_order,
+    auxiliary_fields=manifest.auxiliary_fields,
+    plankton_diameters=manifest.plankton_diameters,
+    interaction_matrix_sources=manifest.interaction_matrix_sources,
+    sinking_tracers=manifest.sinking_tracers,
+    open_bottom=manifest.open_bottom,
+    scalar_type=manifest.scalar_type,
+)
 
-    return isequal(a, b)
-end
+Base.:(==)(a::ModelRecipe, b::ModelRecipe) = isequal(_recipe_identity(a), _recipe_identity(b))
+Base.isequal(a::ModelRecipe, b::ModelRecipe) = isequal(_recipe_identity(a), _recipe_identity(b))
+Base.hash(recipe::ModelRecipe, h::UInt) = hash(_recipe_identity(recipe), h)
 
-function Base.:(==)(a::ModelRecipe, b::ModelRecipe)
-    a.family === b.family || return false
-    a.definition_version == b.definition_version || return false
-    return _encode_realization(a) == _encode_realization(b)
-end
-
-function Base.:(==)(a::ModelManifest, b::ModelManifest)
-    return _structural_isequal(a, b)
-end
+Base.:(==)(a::ModelManifest, b::ModelManifest) = isequal(_manifest_identity(a), _manifest_identity(b))
+Base.isequal(a::ModelManifest, b::ModelManifest) = isequal(_manifest_identity(a), _manifest_identity(b))
+Base.hash(manifest::ModelManifest, h::UInt) = hash(_manifest_identity(manifest), h)
 
 function _canonical_recipe_realization(
     family::AbstractModelFamily,

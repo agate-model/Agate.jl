@@ -72,11 +72,12 @@ function _canonical_json(x)
 end
 
 function _recipe_hash(family::Symbol, definition_version::VersionNumber, realization)
+    identity = _recipe_identity(family, definition_version, realization)
     content = Dict{String,Any}(
         "schema" => MODEL_RECIPE_SCHEMA,
-        "family" => String(family),
-        "definition_version" => string(definition_version),
-        "realization" => realization,
+        "family" => String(identity.family),
+        "definition_version" => string(identity.definition_version),
+        "realization" => identity.realization,
     )
     return "sha256:" * bytes2hex(sha256(_canonical_json(content)))
 end

@@ -104,9 +104,20 @@ end
     recipe_b = Agate.Construction.capture_model_recipe(
         family; plankton_pfts=mapping_b, parameter_overrides=overrides_b, sinking_tracers=sinking_b
     )
-    @test recipe_a == recipe_b
+    @test recipe_a == recipe_b && isequal(recipe_a, recipe_b)
+    @test hash(recipe_a) == hash(recipe_b)
+    @test Dict(recipe_a => :same)[recipe_b] === :same
     @test encode_recipe(recipe_a)["content_hash"] == encode_recipe(recipe_b)["content_hash"]
-    @test nipizd_manifest(recipe_a) == nipizd_manifest(recipe_b)
+
+    manifest_a, manifest_b = nipizd_manifest(recipe_a), nipizd_manifest(recipe_b)
+    @test manifest_a == manifest_b && isequal(manifest_a, manifest_b)
+    @test hash(manifest_a) == hash(manifest_b)
+    @test manifest_b in Set([manifest_a])
+
+    direct_multi = Agate.Construction.construct(Agate.ModelDefinition(family); plankton_pfts=mapping_a)
+    family_multi = Agate.Construction.construct(family; plankton_pfts=mapping_a)
+    @test Agate.Introspection.pfts(direct_multi) == Agate.Introspection.pfts(family_multi)
+    @test required_biogeochemical_tracers(direct_multi) == required_biogeochemical_tracers(family_multi)
 
     @test manifest.pft_entities == (
         diat=(:diat_1, :diat_2),
