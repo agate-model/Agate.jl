@@ -43,8 +43,8 @@ canonicalize_diameters(diameters::AbstractVector; path::AbstractString="diameter
 
 function canonicalize_diameters(spec::NamedTuple; path::AbstractString="diameters")
     required = (:n, :min_esd, :max_esd, :spacing)
-    all(hasproperty(spec, field) for field in required) || throw(
-        ArgumentError("$path must define `n`, `min_esd`, `max_esd`, and `spacing`"),
+    issetequal(keys(spec), required) || throw(
+        ArgumentError("$path must define exactly `n`, `min_esd`, `max_esd`, and `spacing`"),
     )
     return _canonicalize_diameter_range(
         spec.n, spec.min_esd, spec.max_esd, spec.spacing; path
@@ -90,6 +90,9 @@ function _canonicalize_diameter_range(n, min_diameter, max_diameter, spacing; pa
     max_diameter >= min_diameter || throw(
         ArgumentError("$path requires min_esd <= max_esd; got $min_diameter > $max_diameter")
     )
+    n == 1 && max_diameter != min_diameter && throw(ArgumentError(
+        "$path with n=1 requires min_esd == max_esd; got $min_diameter and $max_diameter",
+    ))
     spacing in (:log, :linear) || throw(
         ArgumentError(
             "$path.spacing must be :log or :linear; got $(repr(spacing))",

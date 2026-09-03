@@ -75,7 +75,7 @@ end
 @testset "Hybrid explicit and implicit elemental growth" begin
     components = merge(quota_components(), (
         P=Agate.Components.Plankton(;
-            states=(:carbon, :nitrogen), reference_state=:carbon
+            states=(carbon=:carbon, nitrogen=:nitrogen), reference_state=:carbon
         ),
     ))
     quota = quota_processes()
@@ -124,20 +124,30 @@ end
     )
 end
 
-@testset "Realized quota parameter validation" begin
-    cases = (
-        ((minimum_nitrogen_quota=[0.0, 0.05],), :growth, :minimum_nitrogen_quota, "0.0"),
-        ((maximum_nitrogen_quota=[0.04, 0.2],), :growth, :maximum_nitrogen_quota, "0.04"),
-        ((nitrogen_uptake_hill=[0.0, 2.0],), :nitrogen_uptake, :nitrogen_uptake_hill, "0.0"),
-        ((nitrogen_half_saturation=[-0.1, 0.2],), :nitrogen_uptake, :nitrogen_half_saturation, "-0.1"),
-        ((maximum_nitrogen_uptake=[-0.1, 0.1],), :nitrogen_uptake, :maximum_nitrogen_uptake, "-0.1"),
-    )
-    for (overrides, process, parameter, value) in cases
-        message = argument_error_message(() -> construct(
-            quota_definition(); parameter_overrides=overrides
-        ))
-        @test all(occursin(fragment, message) for fragment in
-            ("process :$process", "path", "P_1", String(parameter), value))
-    end
+@testset "Realized quota ordering" begin
+    message = argument_error_message(() -> construct(
+        quota_definition(); parameter_overrides=(maximum_nitrogen_quota=[0.04, 0.2],)
+    ))
+    @test all(occursin(fragment, message) for fragment in
+        ("process :growth", "maximum_nitrogen_quota", "minimum_nitrogen_quota", "0.04"))
 
+    plankton(d) = Agate.Components.Plankton(;
+        states=(carbon=:carbon, nitrogen=:nitrogen), reference_state=:carbon, size_structure=[d])
+    components = (DIN=Agate.Components.Pool(:nitrogen), P1=plankton(1.0), P2=plankton(2.0))
+    common = (maximum_rate=:rate, half_saturation=:half_saturation,
+              minimum_quota=:minimum_quota, hill=:hill)
+    uptake(P, maximum) = quota_uptake(:nitrogen, :DIN, (; common..., maximum_quota=maximum); plankton=P)
+    definition = Agate.Processes.ModelDefinition(;
+        components,
+        processes=(P1=uptake(:P1, :maximum_P1), P2=uptake(:P2, :maximum_P2)),
+        parameters=(rate=Agate.Parameters.Parameter(1.0), half_saturation=Agate.Parameters.Parameter(1.0),
+                    minimum_quota=Agate.Parameters.Parameter(0.1), maximum_P1=Agate.Parameters.Parameter(0.2),
+                    maximum_P2=Agate.Parameters.Parameter(0.4), hill=Agate.Parameters.Parameter(1.0)),
+    )
+    valid = (minimum_quota=[0.1, 0.3], maximum_P1=[0.2], maximum_P2=[0.4])
+    bgc = construct(definition; parameter_overrides=valid)
+    @test_throws ArgumentError construct(
+        definition; parameter_overrides=merge(valid, (maximum_P2=[0.2],)))
+    active = Agate.Runtime.active_parameters(bgc; minimum_quota=(:P2_1,), maximum_P2=(:P2_1,))
+    @test_throws ArgumentError Agate.Runtime.parameterized(bgc, [0.5, 0.4]; active_parameters=active)
 end

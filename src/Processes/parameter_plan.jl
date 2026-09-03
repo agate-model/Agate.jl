@@ -1,5 +1,5 @@
 """One model parameter after layout-dependent realization."""
-struct PlannedParameter{Definition,Axes,StorageShape,StorageLabels,StorageDiameters}
+struct PlannedParameter{Definition,Axes,StorageShape,StorageLabels,StorageDiameters,Applicability}
     name::Symbol
     definition::Definition
     rank::Int
@@ -7,6 +7,7 @@ struct PlannedParameter{Definition,Axes,StorageShape,StorageLabels,StorageDiamet
     storage_shape::StorageShape
     storage_labels::StorageLabels
     storage_diameters::StorageDiameters
+    applicability::Applicability
     runtime_bound::Bool
 end
 
@@ -68,7 +69,6 @@ end
 
 _planned_parameter_axes(definition, name, parameter::ConstructionParameter) =
     isnothing(parameter.axes) ? () : (parameter.axes,)
-
 function _planned_parameter_axes(definition, name, parameter::Parameter)
     index = findfirst(binding -> binding.parameter === name, definition.parameter_bindings)
     isnothing(index) && throw(ArgumentError(
@@ -89,9 +89,19 @@ function _parameter_storage_labels(layout, name, axes, axis_entities)
     return _union_storage_labels(layout, name, rank, axis_entities)
 end
 
+function _parameter_applicability(rank::Int, axis_entities::Tuple)
+    rank == 2 || return ()
+    edges = Tuple{Symbol,Symbol}[]
+    for entities in axis_entities, row in entities[1], column in entities[2]
+        edge = (row, column)
+        edge in edges || push!(edges, edge)
+    end
+    return Tuple(edges)
+end
+
 function _diameter_by_entity(layout::ModelLayout)
     values = Dict{Symbol,Any}(
-        entity => (isfinite(diameter) && diameter > zero(diameter) ? diameter : nothing)
+        entity => diameter_metadata(diameter)
         for (entity, diameter) in zip(layout.size_classes, layout.size_class_diameters)
     )
     for component in keys(layout.component_entities)
@@ -127,6 +137,7 @@ function _planned_parameter(definition, layout, name, parameter, binding_entitie
         map(length, labels),
         labels,
         _storage_diameters(rank, labels, diameters),
+        _parameter_applicability(rank, axis_entities),
         parameter isa Parameter,
     )
 end
@@ -177,7 +188,7 @@ function runtime_parameter_values(plan::ParameterPlan, values::NamedTuple)
 end
 
 """Compact host metadata used by introspection and active-parameter selection."""
-function parameter_plan_metadata(plan::ParameterPlan)
+function parameter_plan_metadata(definition::CanonicalModelDefinition, plan::ParameterPlan)
     names = keys(plan.parameters)
     runtime_parameter_names = _runtime_parameter_names(plan)
     return NamedTuple{names}(ntuple(length(names)) do i
@@ -189,11 +200,17 @@ function parameter_plan_metadata(plan::ParameterPlan)
                 default isa DerivedDefault && names[i] in default.deps
             end
         )
+        domains = Tuple(unique([
+            binding.domain for binding in definition.parameter_bindings
+            if binding.parameter === names[i]
+        ]))
         (;
             rank=parameter.rank,
             axes=parameter.axes,
             shape=parameter.storage_shape,
             labels=parameter.storage_labels,
+            applicability=parameter.applicability,
+            domains,
             runtime_bound=parameter.runtime_bound,
             derived_runtime_parameters,
         )

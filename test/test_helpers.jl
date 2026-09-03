@@ -39,7 +39,7 @@ quota_components() = (
     DIN=Agate.Components.Pool(:nitrogen),
     PO4=Agate.Components.Pool(:phosphorus),
     P=Agate.Components.Plankton(;
-        states=(:carbon, :nitrogen, :phosphorus),
+        states=(carbon=:carbon, nitrogen=:nitrogen, phosphorus=:phosphorus),
         reference_state=:carbon,
         size_structure=[1.0, 2.0],
     ),
@@ -51,9 +51,9 @@ quota_response(state, minimum, maximum) = Agate.Processes.QuotaResponse(
     bindings=(minimum_quota=minimum, maximum_quota=maximum),
 )
 
-quota_uptake(state, resource, bindings) = Agate.Processes.NutrientUptake(
+quota_uptake(state, resource, bindings; plankton=:P) = Agate.Processes.NutrientUptake(
     Agate.Processes.QuotaRegulatedMonod();
-    plankton=:P,
+    plankton,
     target_state=state,
     resource=resource,
     bindings=bindings,

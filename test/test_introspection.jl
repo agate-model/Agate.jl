@@ -2,6 +2,7 @@ using Agate
 using Agate.Introspection:
     tracer_names,
     parameter_names,
+    parameter_domains,
     pfts,
     plankton_tracers,
     plankton_diameters,
@@ -20,11 +21,11 @@ using Test
 
         groups = tracer_groups(bgc)
         @test groups.all == tracer_names(bgc)
-        @test groups.by_pft.Z == [:Z_1, :Z_2]
-        @test groups.by_pft.P == [:P_1, :P_2]
+        @test groups.entities_by_pft.Z == [:Z_1, :Z_2]
+        @test groups.entities_by_pft.P == [:P_1, :P_2]
         @test groups.plankton == [:P_1, :P_2, :Z_1, :Z_2]
         @test groups.nonplankton == [:N, :D]
-        @test pfts(bgc) == groups.by_pft
+        @test pfts(bgc) == groups.entities_by_pft
         @test plankton_tracers(bgc) == groups.plankton
         @test length(plankton_diameters(bgc)) == length(groups.plankton)
         @test eltype(plankton_diameters(bgc)) === Float32
@@ -39,6 +40,7 @@ using Test
         @test :palatability_matrix in pars
         @test :assimilation_matrix in pars
         @test :interactions ∉ pars
+        @test parameter_domains(bgc, :assimilation_matrix) == (:unit_interval,)
 
         pal = interaction_matrix(bgc, :palatability_matrix)
         assim = interaction_matrix(bgc, :assimilation_matrix)
@@ -101,7 +103,8 @@ using Test
         groups = tracer_groups(model)
 
         @test tracer_names(model) == [:X, :Y]
-        @test groups == (all=[:X, :Y], plankton=Symbol[], nonplankton=[:X, :Y], by_pft=NamedTuple())
+        @test (groups.all, groups.plankton, groups.nonplankton, groups.entities_by_pft) ==
+              ([:X, :Y], Symbol[], [:X, :Y], NamedTuple())
         @test pfts(model) == NamedTuple()
         @test isempty(plankton_diameters(model))
         @test parameter_names(model) == [:rate]

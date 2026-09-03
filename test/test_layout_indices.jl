@@ -6,8 +6,8 @@ using Agate.Components:
 
 @testset "Size-structure input normalization" begin
     components = (
-        Z=Plankton(; states=:carbon, reference_state=:carbon),
-        P=Plankton(; states=:carbon, reference_state=:carbon),
+        Z=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
+        P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
     )
     layout = realize_model_layout(
         components;
@@ -24,26 +24,26 @@ using Agate.Components:
 
 
     unsized = realize_model_layout(
-        (P=Plankton(; states=:carbon, reference_state=:carbon),);
+        (P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),);
         plankton_pfts=(P=(small=nothing, large=nothing),),
     )
     @test component_entities(unsized, :P) == (:large, :small)
     @test component_diameters(unsized, :P) === nothing
     reordered = realize_model_layout(
-        (P=Plankton(; states=:carbon, reference_state=:carbon),);
+        (P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),);
         plankton_pfts=(P=(large=nothing, small=nothing),),
     )
     @test component_entities(reordered, :P) == component_entities(unsized, :P)
 
     one_size_class = realize_model_layout(
-        (P=Plankton(; states=:carbon, reference_state=:carbon),);
+        (P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),);
         plankton_pfts=(P=(P=(n=1, min_esd=5.0, max_esd=5.0, spacing=:log),),),
     )
     @test component_entities(one_size_class, :P) == (:P_1,)
     @test component_diameters(one_size_class, :P) == (5.0,)
 
     mixed = realize_model_layout(
-        (P=Plankton(; states=:carbon, reference_state=:carbon),);
+        (P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),);
         plankton_pfts=(P=(plain=nothing, sized=[5.0]),),
     )
     @test component_entities(mixed, :P) == (:plain, :sized_1)
@@ -57,9 +57,11 @@ using Agate.Components:
         (n=2, min_esd=0.0, max_esd=2.0, spacing=:log),
         (n=2, min_esd=2.0, max_esd=1.0, spacing=:log),
         (n=2, min_esd=1.0, max_esd=2.0, spacing=:unsupported),
+        (n=1, min_esd=1.0, max_esd=2.0, spacing=:log),
+        (n=2, min_esd=1.0, max_esd=2.0, spacing=:log, extra=true),
     )
         message = argument_error_message(() -> realize_model_layout(
-            (P=Plankton(; states=:carbon, reference_state=:carbon),);
+            (P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),);
             plankton_pfts=(P=(P=invalid,),),
         ))
         @test occursin(bad_path, message)

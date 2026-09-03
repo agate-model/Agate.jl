@@ -175,7 +175,7 @@ using Oceananigans.Biogeochemistry:
         @test !hasproperty(named_overrides.parameters, :specificity)
 
         palatability = reshape(Float32.(1:9), 3, 3)
-        assimilation = reshape(Float32.(11:19), 3, 3)
+        assimilation = reshape(Float32.(11:19) ./ 20, 3, 3)
         explicit_interactions = NiPiZD.construct(;
             size_structure=named_size_structure,
             grid=dummy_grid(Float32),
@@ -184,6 +184,10 @@ using Oceananigans.Biogeochemistry:
         )
         @test explicit_interactions.parameters.palatability_matrix == palatability
         @test explicit_interactions.parameters.assimilation_matrix == assimilation
+        @test_throws ArgumentError NiPiZD.construct(;
+            size_structure=named_size_structure, parameters=(palatability_matrix=palatability,),
+            palatability_matrix=palatability,
+        )
 
         @test_throws ArgumentError NiPiZD.construct(;
             size_structure=named_size_structure,
@@ -201,12 +205,12 @@ using Oceananigans.Biogeochemistry:
 
         # Rectangular consumer-by-prey matrices are stored as-is.
         rect = reshape(Float32.(1:(n_cons * n_prey)), n_cons, n_prey)
+        assimilation = rect ./ (length(rect) + 1)
         bgc_rect = NiPiZD.construct(;
-            grid=dummy_grid(Float32), palatability_matrix=rect, assimilation_matrix=rect
+            grid=dummy_grid(Float32), palatability_matrix=rect, assimilation_matrix=assimilation
         )
-        M = bgc_rect.parameters.palatability_matrix
-        @test size(M) == (n_cons, n_prey)
-        @test all(M .== rect)
+        @test bgc_rect.parameters.palatability_matrix == rect
+        @test bgc_rect.parameters.assimilation_matrix == assimilation
 
         # Full-square matrices are not accepted for role-aware interaction parameters.
         full = zeros(Float32, n_total, n_total)

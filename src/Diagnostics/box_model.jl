@@ -16,7 +16,10 @@ function box_model_budget(box_model, terms; location::NTuple{3,Int}=(1, 1, 1))
     i, j, k = location
     pairs_iter = terms isa NamedTuple ? pairs(terms) : terms
     first_term = iterate(pairs_iter)
-    first_term === nothing && return 0.0
+    if first_term === nothing
+        first_field = first(values(box_model.fields))
+        return zero(eltype(first_field.data))
+    end
 
     ((tracer, weight), state) = first_term
     fld = getproperty(box_model.fields, tracer)
@@ -40,7 +43,8 @@ Advance `box_model` forward `nsteps` with timestep `dt` and return a NamedTuple:
 `(initial=..., final=..., drift=..., relative_drift=...)`
 
 where each of `initial`, `final`, `drift`, and `relative_drift` is a NamedTuple with the
-same keys as `budgets`.
+same keys as `budgets`. `relative_drift` is `missing` when the corresponding initial budget
+is zero.
 
 `budgets` is a NamedTuple mapping budget names to a `terms` specification accepted by
 `box_model_budget`.
@@ -50,6 +54,7 @@ This function does not depend on `Test` and can be used for lightweight model di
 function box_model_mass_balance(
     box_model, budgets::NamedTuple; dt, nsteps::Integer, location::NTuple{3,Int}=(1, 1, 1)
 )
+    nsteps >= 0 || throw(ArgumentError("nsteps must be nonnegative; got $nsteps"))
     initial = map(terms -> box_model_budget(box_model, terms; location), budgets)
 
     for _ in 1:nsteps
@@ -58,7 +63,7 @@ function box_model_mass_balance(
 
     final = map(terms -> box_model_budget(box_model, terms; location), budgets)
     drift = map((a, b) -> b - a, initial, final)
-    relative_drift = map((a, b) -> a == 0 ? (b - a) : (b - a) / a, initial, final)
+    relative_drift = map((a, b) -> iszero(a) ? missing : (b - a) / a, initial, final)
 
     return (; initial, final, drift, relative_drift)
 end

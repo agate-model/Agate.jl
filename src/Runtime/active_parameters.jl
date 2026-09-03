@@ -102,10 +102,11 @@ end
 Returned by [`active_parameters`](@ref). `labels` names the flat-vector entries,
 and `values` stores the corresponding values from the BGC used to create the set.
 """
-struct ActiveParameterSet{Map,Values}
+struct ActiveParameterSet{Map,Values,Domains}
     map::Map
     labels::Tuple{Vararg{String}}
     values::Values
+    domains::Domains
 end
 
 Base.length(active::ActiveParameterSet) = length(active.values)
@@ -136,7 +137,9 @@ function active_parameters(bgc; kwargs...)
     values = Any[]
     active_map = active_parameter_map!(labels, values, bgc, (), bgc.parameters, (; kwargs...), active_index)
     active_values = isempty(values) ? Float64[] : collect(promote(values...))
-    return ActiveParameterSet(active_map, Tuple(labels), active_values)
+    names = keys(active_map)
+    domains = NamedTuple{names}(map(name -> _parameter_metadata(bgc, name).domains, names))
+    return ActiveParameterSet(active_map, Tuple(labels), active_values, domains)
 end
 
 """
@@ -151,13 +154,13 @@ provided, it should be the [`ActiveParameterSet`](@ref) returned by
 [`active_parameters`](@ref).
 """
 function parameterized(bgc, p; active_parameters=nothing)
-    validate_active_parameter_vector(p, active_parameters)
+    validate_active_parameters(bgc, p, active_parameters)
     active_map = active_parameters === nothing ? (;) : active_parameters.map
     parameters = ActiveParameters(bgc.parameters, p, active_map)
     return ParameterizedBGC(bgc, parameters)
 end
 
-function validate_active_parameter_vector(p, active_parameters)
+function validate_active_parameters(bgc, p, active_parameters)
     nactive = active_parameters === nothing ? 0 : length(active_parameters)
 
     if p === nothing
@@ -179,6 +182,25 @@ function validate_active_parameter_vector(p, active_parameters)
             "`p` has length $(length(p)); expected $nactive active parameter$(nactive == 1 ? "" : "s")."
         ))
     end
+
+    isnothing(active_parameters) && return nothing
+    checked = p isa Array ? p : collect(p)
+    for (name, selection) in pairs(active_parameters.map)
+        domains = getproperty(active_parameters.domains, name)
+        indices = selection isa Integer ? (selection,) : Tuple(slot.active_index for slot in selection)
+        for index in indices, domain in domains
+            parameter_domain_valid(checked[index], domain) && continue
+            throw(ArgumentError(
+                "active parameter $(active_parameters.labels[index]) must satisfy " *
+                "domain :$domain; got $(checked[index])",
+            ))
+        end
+    end
+
+    metadata = getproperty(bgc, :metadata)
+    constraints = hasproperty(metadata, :parameter_constraints) ? metadata.parameter_constraints : ()
+    parameters = ActiveParameters(bgc.parameters, checked, active_parameters.map)
+    validate_parameter_constraints(parameters, constraints)
     return nothing
 end
 
@@ -272,7 +294,11 @@ function matrix_active_parameter_entry!(labels, values, bgc, path::Tuple, value,
     ))
 
     entries = []
+    metadata = _parameter_metadata(bgc, only(path))
     for (row, column) in selection
+        (row, column) in metadata.applicability || throw(ArgumentError(
+            "Interaction ($row, $column) is not modeled for parameter :$(only(path))."
+        ))
         indices = (parameter_label_index(bgc, only(path), 1, row), parameter_label_index(bgc, only(path), 2, column))
         push_active_slot!(entries, labels, values, active_index, "$(path_label(path))[$row, $column]", value[indices...], indices)
     end

@@ -23,7 +23,7 @@ Download Julia by following instructions at https://julialang.org/downloads/.
 Clone this repository and change your current working directory to this project:
 
 ```bash
-https://github.com/agate-model/Agate.jl.git
+git clone https://github.com/agate-model/Agate.jl.git
 cd Agate.jl
 ```
 

@@ -1,28 +1,15 @@
 using Test
-using Agate.Components: Plankton, Pool
+using Agate.Components: Plankton, Pool, PlanktonStateRef
 using Agate.ModelFamilies: default_components, default_processes
 using Agate.Parameters: ConstantDefault, DerivedDefault, ConstructionParameter, Parameter
 using Agate.Processes:
-    AbstractFormulation,
-    AbstractFactor,
-    Smith,
-    Geider,
-    Monod,
-    Liebig,
-    Growth,
-    Light,
-    NutrientLimitation,
-    NutrientResponse,
-    FixedStoichiometry,
-    Consumption,
-    Mortality,
-    ModelDefinition,
-    driver_identities,
-    formulation,
-    HeterotrophicConsumption,
-    canonicalize_model,
-    participants,
-    PreferentialGrazing
+    AbstractFactor, AbstractFormulation, FactorizedGrowth, Smith, Geider, Monod,
+    NormalizedDroop, QuotaRegulatedMonod, Liebig, FrankTNorm, Q10, Growth, Light,
+    NutrientLimitation, Temperature, NutrientResponse, QuotaResponse, NutrientUptake,
+    FixedStoichiometry, Consumption, Mortality, Products, ModelDefinition,
+    driver_identities, formulation, HeterotrophicConsumption, LinearMortality,
+    QuadraticMortality, LinearRemineralization, canonicalize_model, participants,
+    PreferentialGrazing, parameter_slots, FactorPlanktonState
 
 import Agate.Processes: factor_inputs
 
@@ -31,12 +18,23 @@ struct ExternalTestFormulation <: AbstractFormulation end
 struct BindingDependencyDefault end
 struct MultiDriverTestFactor{F<:AbstractFormulation} <: AbstractFactor
     formulation::F
+    state_plankton::Symbol
+    bindings::NamedTuple
 end
-factor_inputs(::MultiDriverTestFactor) = (
+MultiDriverTestFactor(formulation; state_plankton=:P) =
+    MultiDriverTestFactor(formulation, state_plankton, (scale=:environment_scale,))
+Agate.Processes.authored_parameter_bindings(factor::MultiDriverTestFactor) = factor.bindings
+Agate.Processes.parameter_slots(::ExternalTestFormulation) =
+    (Agate.Processes.ParameterSlot(:scale; domain=:positive),)
+factor_inputs(factor::MultiDriverTestFactor) = (
     Agate.Processes.FactorDriver(:wind),
     Agate.Processes.FactorDriver(:temperature),
     Agate.Processes.FactorComponent(:P),
+    FactorPlanktonState(PlanktonStateRef(factor.state_plankton, :nitrogen)),
 )
+Agate.Processes.factor_value(
+    ::ExternalTestFormulation, wind, temperature, biomass, state, scale
+) = scale * (wind + 2temperature + 2biomass + state)
 
 @testset "Process authoring and canonicalization" begin
     @test Agate.ModelDefinition === ModelDefinition
@@ -64,8 +62,8 @@ factor_inputs(::MultiDriverTestFactor) = (
     shared_driver_model = canonicalize_model(
         ModelDefinition(;
             components=(
-                P=Plankton(; states=:nitrogen, reference_state=:nitrogen),
-                Z=Plankton(; states=:nitrogen, reference_state=:nitrogen),
+                P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
+                Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
                 N=Pool(:nitrogen),
             ),
             processes=(
@@ -90,23 +88,31 @@ factor_inputs(::MultiDriverTestFactor) = (
     )
     @test driver_identities(shared_driver_model) == (:PAR,)
 
-    multi_driver_model = canonicalize_model(ModelDefinition(;
-        components=(P=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]), N=Pool(:nitrogen)),
+    multi_driver_definition = ModelDefinition(;
+        components=(P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]), N=Pool(:nitrogen)),
         processes=(growth=Growth(;
-            plankton=:P,
-            reference_resource=:N,
-            factors=(
-                light=Light(Smith(); driver=:PAR),
-                nutrients=NutrientResponse(Monod(); resource=:N),
-                environment=MultiDriverTestFactor(ExternalTestFormulation()),
-            ),
+            plankton=:P, reference_resource=:N,
+            factors=(environment=MultiDriverTestFactor(ExternalTestFormulation()),),
         ),),
+        parameters=(maximum_rate=Parameter(1.0), environment_scale=Parameter(0.5)),
+    )
+    multi_driver_model = canonicalize_model(multi_driver_definition)
+    @test driver_identities(multi_driver_model) == (:temperature, :wind)
+    multi_driver_bgc = Agate.Construction.construct(multi_driver_definition)
+    @test multi_driver_bgc(Val(:P_1), 0, 0, 0, 0, 2.0, 1.0, 2.0, 3.0) == 5.0
+
+    @test_throws ArgumentError Agate.Construction.construct(ModelDefinition(;
+        components=shared_driver_model.components,
+        processes=(growth=Growth(;
+            plankton=:P, reference_resource=:N,
+            factors=(environment=MultiDriverTestFactor(ExternalTestFormulation(); state_plankton=:Z),),
+        ),),
+        parameters=multi_driver_definition.parameters,
     ))
-    @test driver_identities(multi_driver_model) == (:PAR, :temperature, :wind)
 
     invalid_growth = ModelDefinition(;
         components=(
-            P=Plankton(; states=:nitrogen, reference_state=:nitrogen),
+            P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
             N=Pool(:nitrogen),
         ),
         processes=(growth=Growth(;
@@ -143,7 +149,7 @@ factor_inputs(::MultiDriverTestFactor) = (
 
     @test_nowarn canonicalize_model(ModelDefinition(;
         components=(
-            P=Plankton(; states=:nitrogen, reference_state=:nitrogen),
+            P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
             N=Pool(:nitrogen),
         ),
         processes=(growth=Growth(;
@@ -155,7 +161,7 @@ factor_inputs(::MultiDriverTestFactor) = (
 
     wrong_element = ModelDefinition(;
         components=(
-            P=Plankton(; states=:carbon, reference_state=:carbon),
+            P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
             DIC=Pool(:carbon),
             DIN=Pool(:phosphorus),
         ),
@@ -175,13 +181,36 @@ factor_inputs(::MultiDriverTestFactor) = (
     )
     @test_throws ArgumentError canonicalize_model(wrong_element)
 
-    # Invalid built-in formulation combinations are rejected by their concrete objects.
+    # Invalid built-in formulation combinations are rejected by their concrete objects or factor contract.
     @test_throws MethodError Light(Monod(), :PAR, NamedTuple())
     @test_throws MethodError Mortality(Monod(), (:P,), nothing, NamedTuple())
+    @test_throws ArgumentError canonicalize_model(ModelDefinition(;
+        components=(
+            P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
+            Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
+        ),
+        processes=(grazing=Consumption(PreferentialGrazing(); consumers=:Z, resources=:P, factors=(light=Light(Smith(); driver=:PAR),)),),
+    ))
+end
+
+@testset "Built-in parameter domains" begin
+    nodes = (
+        FactorizedGrowth(), Smith(), Geider(), Monod(), NormalizedDroop(),
+        QuotaRegulatedMonod(), FrankTNorm(), Q10(), PreferentialGrazing(),
+        HeterotrophicConsumption(), LinearMortality(), QuadraticMortality(),
+        LinearRemineralization(), Products((a=:A, b=:B); fractions=(a=:fraction_a,)),
+        FixedStoichiometry(; reference_element=:carbon),
+    )
+    expected(name) = name in (:minimum_quota, :maximum_quota, :hill, :sharpness, :q10) ? :positive :
+        name === :reference_temperature ? :finite :
+        name in (:assimilation, :fraction) ? :unit_interval : :nonnegative
+    @test all(slot.domain === expected(slot.name) for node in nodes for slot in parameter_slots(node))
+    @test_throws ArgumentError Products((a=:A, b=:B); fractions=(a=:fa, b=:fb))
+    @test_throws ArgumentError Agate.Processes.ParameterSlot(:x, (:consumer, :consumer))
 end
 
 @testset "Canonicalization owns authored structure" begin
-    single = Plankton(; states=:nitrogen, reference_state=:nitrogen)
+    single = Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen)
     light = Light(Smith(); driver=:PAR)
     one_process(id, process, components) = ModelDefinition(;
         components, processes=NamedTuple{(id,)}((process,))
@@ -197,7 +226,7 @@ end
             factors=(light=light,),
         ),
         (
-            P=Plankton(; states=:carbon, reference_state=:carbon),
+            P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
             DIC=Pool(:carbon),
             N=Pool(:nitrogen),
         ),
@@ -212,7 +241,7 @@ end
                 additional_resources=(nitrogen=:N,),
                 factors=(light=light,),
             ), (
-                P=Plankton(; states=:carbon, reference_state=:carbon),
+                P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
                 DIC=Pool(:carbon),
                 N=Pool(:nitrogen),
             )),
@@ -226,7 +255,7 @@ end
                 stoichiometry=FixedStoichiometry(; reference_element=:carbon),
                 factors=(light=light,),
             ), (
-                P=Plankton(; states=:carbon, reference_state=:carbon),
+                P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
                 DIC=Pool(:carbon),
             )),
             ("process :growth", "FixedStoichiometry", "additional_resources", "together"),
@@ -241,7 +270,7 @@ end
                 ),
                 (Z=single, P=single),
             ),
-            ("process :consume", "Light", "Growth"),
+            ("process :consume", "Light", "Consumption", "not applicable"),
         ),
         (
             "Mortality participant type",
@@ -305,8 +334,8 @@ end
 
 @testset "Parameter binding behavior and validation" begin
     components = (
-        P=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[1.0]),
-        Z=Plankton(; states=:nitrogen, reference_state=:nitrogen, size_structure=[10.0]),
+        P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
+        Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]),
         D=Pool(:nitrogen),
         E=Pool(:nitrogen),
         R=Pool(:nitrogen),
@@ -366,6 +395,14 @@ end
     ))
     @test occursin("incompatible semantic axes", incompatible_axes_error)
 
+    @test_throws ArgumentError canonicalize_model(ModelDefinition(;
+        components=(P=components.P, Z=components.Z),
+        processes=(grazing=Consumption(PreferentialGrazing(); consumers=:Z, resources=:P,
+            bindings=(palatability=:shared_interaction, assimilation=:shared_interaction)),),
+        parameters=(maximum_rate=Parameter(0.1), half_saturation=Parameter(0.1),
+                    shared_interaction=Parameter(0.7)),
+    ))
+
     accidental = ModelDefinition(;
         components=(P=components.P, Z=components.Z),
         processes=(
@@ -390,6 +427,14 @@ end
         parameters=(remineralization_rate=Parameter(ConstantDefault(0.2)),),
     )
     @test_throws ArgumentError canonicalize_model(missing_qualifier)
+    @test_throws ArgumentError canonicalize_model(ModelDefinition(;
+        components=(D=components.D, E=components.E, R=components.R),
+        processes=(remineralization=Agate.Processes.Remineralization(
+            Agate.Processes.LinearRemineralization(); sources=(:D, :E), destination=:R,
+            bindings=(rate=(D=:D_rate, E=:E_rate, extra=:D_rate),),
+        ),),
+        parameters=(D_rate=Parameter(0.1), E_rate=Parameter(0.2)),
+    ))
 
     unknown = ModelDefinition(;
         components=(P=components.P,),

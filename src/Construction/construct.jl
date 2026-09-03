@@ -13,7 +13,8 @@ using ..Components:
 
 using ..Processes:
     ModelDefinition, canonicalize_model, driver_identities, build_parameter_plan,
-    runtime_parameter_values, parameter_plan_metadata, validate_realized_parameters
+    runtime_parameter_values, parameter_plan_metadata, parameter_constraints,
+    validate_realized_parameters
 
 using ..Compilation: CompileContext, compile_model_tendencies
 
@@ -196,13 +197,16 @@ function _construct_process_definition(
     )
     reject_missing_parameter_values(resolved_parameters)
     validate_parameter_storage(parameter_plan, resolved_parameters, T)
-    validate_realized_parameters(canonical, layout, parameter_plan, resolved_parameters)
+    constraints = parameter_constraints(canonical, layout, parameter_plan)
+    validate_realized_parameters(canonical, resolved_parameters, constraints)
 
     runtime_parameters = runtime_parameter_values(parameter_plan, resolved_parameters)
     compile_context = CompileContext(canonical, layout, parameter_plan)
     equations = compile_model_tendencies(compile_context; target_order=tracer_names)
     metadata = model_metadata(
-        layout; parameter_axes=parameter_plan_metadata(parameter_plan)
+        layout;
+        parameter_axes=parameter_plan_metadata(canonical, parameter_plan),
+        parameter_constraints=constraints,
     )
     sinking_velocities = isnothing(sinking_tracers) ? nothing :
         setup_velocity_fields(sinking_tracers, grid, open_bottom)
@@ -302,9 +306,10 @@ end
     construct(definition::ModelDefinition; kwargs...) -> bgc
 
 Construct a model directly from authored components, named processes, and parameter
-definitions. Plankton size structures are realized from the definition,
-process participation determines interaction axes and required auxiliary drivers, and
-runtime tracer equations are compiled during setup.
+definitions. `plankton_pfts` optionally replaces each logical plankton component's intrinsic
+size structure with the same named PFT realization vocabulary used by registered families.
+Process participation determines interaction axes and required auxiliary drivers, and runtime
+tracer equations are compiled during setup.
 
 `parameter_overrides` supplies concrete parameter values over the defaults declared in
 `definition.parameters`, including explicit axis-sized interaction matrices. Runtime grid,
@@ -313,6 +318,7 @@ scientific definition.
 """
 function construct(
     definition::ModelDefinition;
+    plankton_pfts=nothing,
     parameter_overrides::NamedTuple=(;),
     sinking_tracers=nothing,
     open_bottom::Bool=true,
@@ -322,6 +328,7 @@ function construct(
 )
     bgc, _ = _construct_process_definition(
         definition;
+        plankton_pfts,
         parameter_overrides,
         sinking_tracers,
         open_bottom,

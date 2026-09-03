@@ -55,9 +55,10 @@ Evaluate a power-law allometric scaling against spherical cell volume.
 - `diameter`: cell equivalent spherical diameter.
 """
 @inline function allometric_scaling_power(a::Real, b::Real, diameter::Real)
-    r = diameter / 2
-    volume = (4 / 3) * π * r^3
-    return a * volume^b
+    T = promote_type(typeof(float(a)), typeof(float(b)), typeof(float(diameter)))
+    r = T(diameter) / T(2)
+    volume = (T(4) / T(3)) * T(π) * r^T(3)
+    return T(a) * volume^T(b)
 end
 
 """
@@ -143,6 +144,13 @@ function palatability_matrix_allometric_axes(
     prey_indices,
     palatability_fn=allometric_palatability_unimodal_protection,
 ) where {T<:Real}
+    n = length(diameters)
+    for (name, values) in ((:optimum_predator_prey_ratio, optimum_predator_prey_ratio),
+                           (:specificity, specificity), (:protection, protection))
+        length(values) == n || throw(ArgumentError("$name must match diameters length $n"))
+    end
+    _validate_indices(consumer_indices, n, :consumer_indices)
+    _validate_indices(prey_indices, n, :prey_indices)
     nr = length(consumer_indices)
     nc = length(prey_indices)
     M = zeros(T, nr, nc)
@@ -187,6 +195,9 @@ function consumer_assimilation_matrix_axes(
     consumer_indices,
     prey_indices,
 ) where {T<:Real}
+    n = length(assimilation_efficiency)
+    _validate_indices(consumer_indices, n, :consumer_indices)
+    _validate_indices(prey_indices, n, :prey_indices)
     nr = length(consumer_indices)
     nc = length(prey_indices)
     M = zeros(T, nr, nc)

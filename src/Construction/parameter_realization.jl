@@ -114,9 +114,12 @@ function materialize_parameter_value(parameter, value, ::Type{T}) where {T<:Real
 end
 
 function validate_override_keys(plan, overrides::NamedTuple)
-    for key in keys(overrides)
+    for (key, value) in pairs(overrides)
         hasproperty(plan.parameters, key) || throw(
             ArgumentError("parameters: unknown parameter key :$key."),
+        )
+        value === nothing && throw(
+            ArgumentError("parameter :$key cannot be overridden with `nothing`."),
         )
     end
     return nothing
@@ -166,12 +169,15 @@ end
 function _require_allometric_diameters(parameter, diameters, value, indices)
     value isa AllometricParam || return nothing
     labels = only(parameter.storage_labels)
-    missing = Tuple(
+    missing_labels = Tuple(
         labels[i] for i in indices
-        if !(diameters[i] isa Real && isfinite(diameters[i]) && diameters[i] > zero(diameters[i]))
+        if !(
+            diameters[i] isa Real && isfinite(diameters[i]) &&
+            diameters[i] > zero(diameters[i])
+        )
     )
-    isempty(missing) || throw(ArgumentError(
-        "parameter :$(parameter.name) uses an allometric definition but has no diameter metadata for SizeClasses $missing; provide an explicit size structure or explicit values for those SizeClasses",
+    isempty(missing_labels) || throw(ArgumentError(
+        "parameter :$(parameter.name) uses an allometric definition but has no diameter metadata for SizeClasses $missing_labels; provide an explicit size structure or explicit values for those SizeClasses",
     ))
     return nothing
 end

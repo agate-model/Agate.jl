@@ -151,14 +151,16 @@ Agate.Parameters.AllometricPalatability
 Agate.Parameters.ConsumerAssimilation
 ```
 
-### Custom process extension
+### Custom process and factor extension
 
 Custom process implementations attach setup-validated semantic facts with
 `Processes.process_facts` and lower a `CanonicalProcess` with
 `Compilation.process_fluxes` using the shared `CompileContext`. Parameterized custom processes
-can obtain their process-owned compiled parameter operands through
-`Compilation.process_parameter_operands`, keeping dense binding references and canonicalization
-representation details internal to setup.
+obtain process-owned operands through `Compilation.process_parameter_operands`. Custom factors
+declare ordered inputs with `Processes.factor_inputs`, optional child factors and parameter slots,
+and evaluate that semantic operand order through `Processes.factor_value`;
+`Processes.factor_applicable` may restrict which processes accept the factor. Extension hooks are
+called through their fully-qualified module names.
 
 ```@docs
 Agate.Processes.CanonicalProcess
@@ -166,6 +168,13 @@ Agate.Processes.process_id
 Agate.Processes.ParameterSlot
 Agate.Processes.parameter_slots
 Agate.Processes.process_facts
+Agate.Processes.FactorDriver
+Agate.Processes.FactorComponent
+Agate.Processes.FactorPlanktonState
+Agate.Processes.factor_inputs
+Agate.Processes.factor_subfactors
+Agate.Processes.factor_applicable
+Agate.Processes.factor_value
 Agate.Compilation.CompileContext
 Agate.Compilation.process_fluxes
 Agate.Compilation.process_parameter_operands
@@ -207,6 +216,7 @@ Agate.Introspection.describe
 Agate.Introspection.tracer_names
 Agate.Introspection.auxiliary_field_names
 Agate.Introspection.parameter_names
+Agate.Introspection.parameter_domains
 Agate.Introspection.pfts
 Agate.Introspection.plankton_tracers
 Agate.Introspection.plankton_diameters

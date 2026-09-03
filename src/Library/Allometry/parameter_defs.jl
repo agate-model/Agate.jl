@@ -12,6 +12,15 @@ values are materialized during model construction.
 """
 abstract type AbstractParamDef end
 
+@inline function _validate_indices(indices, n::Integer, name::Symbol=:indices)
+    for index in indices
+        index isa Integer && !(index isa Bool) && 1 <= index <= n || throw(
+            ArgumentError("$name must contain indices in 1:$n; got $index"),
+        )
+    end
+    return nothing
+end
+
 """
     ConstantParam(value)
 
@@ -215,7 +224,9 @@ function resolve_diameter_indexed_vector(
     value;
     default::T,
 ) where {T<:Real}
-    out = fill(default, length(diameters))
+    n = length(diameters)
+    _validate_indices(indices, n)
+    out = fill(default, n)
     @inbounds for i in indices
         out[i] = resolve_param(T, value, diameters[i])
     end

@@ -8,6 +8,7 @@ module Introspection
 export tracer_names
 export auxiliary_field_names
 export parameter_names
+export parameter_domains
 export pfts
 export plankton_tracers
 export plankton_diameters
@@ -121,15 +122,24 @@ end
 
 """    tracer_groups(bgc) -> NamedTuple
 
-Return a structural grouping summary of the constructed tracer layout.
+Return a structural grouping summary of the constructed tracer layout. `entities_by_pft`
+contains realized SizeClass identities; `plankton` contains physical plankton tracers.
 """
 function tracer_groups(bgc)
     return (
         all=tracer_names(bgc),
         plankton=plankton_tracers(bgc),
         nonplankton=nonplankton_tracers(bgc),
-        by_pft=pfts(bgc),
+        entities_by_pft=pfts(bgc),
     )
+end
+
+"""Return the scientific domain constraints declared for one realized parameter."""
+function parameter_domains(bgc, name::Symbol)
+    metadata = _model_metadata(bgc)
+    metadata === nothing && throw(ArgumentError("Model has no parameter metadata."))
+    hasproperty(metadata.parameter_axes, name) || throw(ArgumentError("Unknown parameter :$name."))
+    return getproperty(metadata.parameter_axes, name).domains
 end
 
 function _interaction_parameter_names(bgc)
@@ -178,7 +188,8 @@ Return a consumer-by-resource parameter matrix with realized entity labels.
 `parameter` is the canonical model parameter identity, for example
 `:palatability_matrix` or `:assimilation_matrix`. Each matrix uses the axes and labels of that
 parameter rather than one model-global interaction topology. The returned `NamedTuple` contains
-`parameter`, `matrix`, `rows`, `columns`, `row_axis`, and `column_axis`.
+`parameter`, `matrix`, `rows`, `columns`, `edges`, `row_axis`, and `column_axis`. `edges`
+contains only modeled interactions; the dense matrix may include additional storage cells.
 """
 function interaction_matrix(bgc, parameter::Symbol)
     matrix, metadata = _interaction_parameter_metadata(bgc, parameter)
@@ -190,6 +201,7 @@ function interaction_matrix(bgc, parameter::Symbol)
         matrix=matrix,
         rows=rows,
         columns=columns,
+        edges=collect(metadata.applicability),
         row_axis=metadata.axes[1],
         column_axis=metadata.axes[2],
     )

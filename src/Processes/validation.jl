@@ -1,3 +1,11 @@
+function _resolve_factor_inputs(factor::AbstractFactor)
+    inputs = factor_inputs(factor)
+    inputs isa Tuple && all(input -> input isa AbstractFactorInput, inputs) || throw(
+        ArgumentError("factor inputs for $(typeof(factor)) must be a Tuple of factor inputs"),
+    )
+    return inputs
+end
+
 function _resolve_factor_subfactors(factor::AbstractFactor)
     subfactors = factor_subfactors(factor)
     subfactors isa NamedTuple || throw(
@@ -11,7 +19,7 @@ end
 
 function _collect_factor_component_references(factor::AbstractFactor)
     references = Symbol[]
-    for input in factor_inputs(factor)
+    for input in _resolve_factor_inputs(factor)
         input isa FactorComponent && push!(references, input.component)
         input isa FactorPlanktonState && push!(references, input.reference.plankton)
     end
@@ -56,11 +64,8 @@ function _factor_element(
 end
 
 function _factor_element(
-    id::Symbol, process::AbstractProcess, factor::QuotaResponse, components, path::Tuple
+    id::Symbol, process::Growth, factor::QuotaResponse, components, path::Tuple
 )
-    process isa Growth || throw(ArgumentError(
-        "process :$id factor path $path uses QuotaResponse, which is only valid for Growth processes",
-    ))
     length(process.plankton) == 1 || throw(ArgumentError(
         "process :$id QuotaResponse requires Growth with exactly one logical plankton",
     ))
@@ -88,8 +93,8 @@ function _validate_factor_for_process(
     path::Tuple;
     expected_element=nothing,
 )
-    factor isa Light && !(process isa Growth) && throw(ArgumentError(
-        "process :$id factor path $path uses Light, which is only valid for Growth processes",
+    factor_applicable(process, factor) || throw(ArgumentError(
+        "process :$id factor path $path $(typeof(factor)) is not applicable to $(typeof(process))",
     ))
     subfactors = _resolve_factor_subfactors(factor)
     if factor isa Union{NutrientResponse,QuotaResponse}
@@ -150,19 +155,13 @@ end
 
 function _plankton_element_states(components, name::Symbol, id::Symbol, label::AbstractString)
     plankton = _plankton_component(components, name, id, label)
-    element_names = Symbol[]
-    refs = PlanktonStateRef[]
-    for state in states(plankton)
-        state_element_value = state_element(plankton, state)
-        isnothing(state_element_value) && continue
-        state_element_value in element_names && throw(ArgumentError(
-            "process :$id $label :$name has multiple states for element :$state_element_value; " *
-            "explicit same-element state mappings are not yet enabled",
-        ))
-        push!(element_names, state_element_value)
-        push!(refs, PlanktonStateRef(name, state))
-    end
-    return NamedTuple{Tuple(element_names)}(Tuple(refs))
+    element_states = Tuple(
+        (state_element(plankton, state), PlanktonStateRef(name, state))
+        for state in states(plankton) if !isnothing(state_element(plankton, state))
+    )
+    return NamedTuple{Tuple(first(pair) for pair in element_states)}(
+        Tuple(last(pair) for pair in element_states)
+    )
 end
 
 _state_element(components, ref::PlanktonStateRef) =

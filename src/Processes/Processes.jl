@@ -2,7 +2,7 @@
 module Processes
 
 using ..Components: Plankton, Pool, PlanktonStateRef, ModelLayout, element, state_element,
-    states, reference_state, component_entities
+    states, reference_state, component_entities, diameter_metadata
 using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
 using ..Parameters: Parameter, ConstructionParameter, DerivedDefault, parameter_definitions
 using ..Library.Mortality: linear_loss
@@ -29,10 +29,13 @@ export authored_parameter_bindings
 export participants
 export parameter_slots
 
-include("authoring.jl")
+include("factor_vocabulary.jl")
+include("process_declarations.jl")
 include("parameter_schema.jl")
 include("rates.jl")
 include("validation.jl")
+include("canonical_bindings.jl")
+include("canonical_semantics.jl")
 include("canonicalization.jl")
 include("parameter_plan.jl")
 include("parameter_validation.jl")
