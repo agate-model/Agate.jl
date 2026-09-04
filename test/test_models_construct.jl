@@ -27,6 +27,7 @@ using Oceananigans.Biogeochemistry:
         @test required_biogeochemical_auxiliary_fields(typeof(bgc)) == (:PAR,)
         @test isfinite(@inferred(bgc(Val(:P_1), args...)))
         @test all(tracer -> isfinite(bgc(Val(tracer), args...)), (:N, :D, :P_1, :Z_1))
+        @test iszero(bgc(Val(:T), args...))
     end
 
     @testset "NiPiZD size structure" begin
