@@ -31,6 +31,7 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
     active_tendency = bgc_p(Val(:P_1), args...)
 
     @test active_tendency ≈ base_tendency
+    @test iszero(bgc_p(Val(:T), args...))
     @test bgc_p.parameters.maximum_growth_rate[1] == p[1]
     @test bgc_p.parameters.maximum_growth_rate[2] == base_bgc.parameters.maximum_growth_rate[2]
 

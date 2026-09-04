@@ -83,14 +83,18 @@ end
     ParameterizedBGC(Adapt.adapt(to, bgc_p.bgc), Adapt.adapt(to, bgc_p.parameters))
 
 
-@inline function evaluate_tendency(bgc_p::ParameterizedBGC, ::Val{Tracer}, args...) where {Tracer}
+@inline function evaluate_tendency(
+    bgc_p::ParameterizedBGC, ::Val{Tracer}, x, y, z, t, args...
+) where {Tracer}
+    hasfield(typeof(bgc_p.bgc.equations), Tracer) || return zero(t)
     equation = getfield(bgc_p.bgc.equations, Tracer)
-    return equation(bgc_p, args...)
+    return equation(bgc_p, x, y, z, t, args...)
 end
 
-@inline function evaluate_tendency(bgc, ::Val{Tracer}, args...) where {Tracer}
+@inline function evaluate_tendency(bgc, ::Val{Tracer}, x, y, z, t, args...) where {Tracer}
+    hasfield(typeof(bgc.equations), Tracer) || return zero(t)
     equation = getfield(bgc.equations, Tracer)
-    return equation(bgc, args...)
+    return equation(bgc, x, y, z, t, args...)
 end
 
 @inline function (bgc_p::ParameterizedBGC)(val_name::Val, args...)
