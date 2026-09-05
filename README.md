@@ -1,75 +1,66 @@
 # Agate.jl
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/agate-model/Agate.jl/blob/main/LICENSE)
-[![Documentation](https://img.shields.io/badge/docs-dev-blue)](https://agate-model.github.io/Agate.jl/dev/)
-[![Build Status](https://github.com/agate-model/AGATE.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/agate-model/Agate.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://agate-model.github.io/Agate.jl/dev/)
+[![Build Status](https://github.com/agate-model/Agate.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/agate-model/Agate.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
-## Aquatic Gcm-Agnostic Tunable Ecosystems
+## Aquatic GCM-Agnostic Tunable Ecosystems
 
-A Julia library to build flexible and composable aquatic ecosystems.
+**Agate.jl builds flexible and composable aquatic ecosystem models for [Oceananigans.jl](https://github.com/CliMA/Oceananigans.jl) and [OceanBioME.jl](https://github.com/OceanBioME/OceanBioME.jl).**
 
-## Note on maintenance and development
+## Installation
 
-Agate.jl is currently under active development. The development documentation and release notes describe the current API and behavior.
+Agate is registered in the Julia General registry and requires Julia 1.10 or later.
+
+Install it from the Julia package manager:
+
+```julia
+julia> ]
+pkg> add Agate
+```
+
+or:
+
+```julia
+using Pkg
+Pkg.add("Agate")
+```
+
+Then load Agate with:
+
+```julia
+using Agate
+```
+
+## Examples
+
+The documentation includes examples covering:
+
+* [Size-structured plankton communities](https://agate-model.github.io/Agate.jl/dev/generated/size_structure/)
+* [Plankton functional types with different light strategies](https://agate-model.github.io/Agate.jl/dev/generated/named_pfts/)
+* [Allometric parameter relationships](https://agate-model.github.io/Agate.jl/dev/generated/allometric_relationships/)
+* [Predator-prey palatability](https://agate-model.github.io/Agate.jl/dev/generated/predator_prey_palatability/)
+* [Models with mixotrophy](https://agate-model.github.io/Agate.jl/dev/generated/mixotrophy/)
+* [Models with bacterioplankton and detritus consumption](https://agate-model.github.io/Agate.jl/dev/generated/detritus_bacteria/)
+* [Forward-mode automatic differentiation](https://agate-model.github.io/Agate.jl/dev/generated/forward_mode_ad_nipizd_sensitivity/)
+* [Reverse-mode automatic differentiation](https://agate-model.github.io/Agate.jl/dev/generated/reverse_mode_ad_nipizd_sensitivity/)
+* [Exporting and replaying model definitions](https://agate-model.github.io/Agate.jl/dev/generated/export_model_recipe/)
 
 ## Documentation
 
-  - [**DEV**](https://agate-model.github.io/Agate.jl/dev/) — *documentation of the in-development version.*
+The full documentation is available at:
 
-## Getting started
+**[agate-model.github.io/Agate.jl/dev/](https://agate-model.github.io/Agate.jl/dev/)**
 
-Download Julia by following instructions at https://julialang.org/downloads/.
+Useful starting points include:
 
-Clone this repository and change your current working directory to this project:
+* [Quick start](https://agate-model.github.io/Agate.jl/dev/quick_start/)
+* [Agate.jl-NiPiZD](https://agate-model.github.io/Agate.jl/dev/nipizd/)
+* [Defining a model with mixotrophy](https://agate-model.github.io/Agate.jl/dev/generated/mixotrophy/)
+* [API reference](https://agate-model.github.io/Agate.jl/dev/api/)
 
-```bash
-git clone https://github.com/agate-model/Agate.jl.git
-cd Agate.jl
-```
+## Development and contributing
 
-To activate the project (this takes a while as it installs all the packages):
+Agate is under active development with breaking changes still expected.
 
-```bash
-julia --project -e 'using Pkg; Pkg.instantiate()'
-```
-
-You can then use the package interactively, in the terminal:
-
-```bash
-julia --project=.
-```
-
-To run an example script:
-
-```bash
-julia --project <path to script>
-```
-
-To use the package in a Jupyter notebook run:
-
-```Julia
-using Pkg
-Pkg.activate("<path to Agate.jl repo>")
-```
-
-## Development
-
-We follow the [Blue](https://github.com/JuliaDiff/BlueStyle) style guide for Julia. To automatically format all Julia files in the project you can use the JuliaFormatter. Once you have installed it (`add JuliaFormatter`) run:
-
-```Julia
-using JuliaFormatter
-
-format(".")
-```
-
-To update project dependencies:
-
-```Julia
-] add <package>
-```
-
-To run tests:
-
-```Julia
-] test
-```
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, formatting, and contribution guidelines.
