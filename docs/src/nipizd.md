@@ -1,6 +1,6 @@
 ### [Agate.jl-NiPiZD model](@id NiPiZD)
 
-NiPiZD uses two phytoplankton SizeClasses (`2` and `10` μm) and two zooplankton SizeClasses
+NiPiZD defaults to two phytoplankton size classes (`2` and `10` μm) and two zooplankton size classes
 (`20` and `100` μm) by default. The default predator:prey diameter ratio is `10`, and living-prey
 grazing uses `PreferentialGrazing(switching_exponent=1)`, so each consumer shares one maximum
 ingestion capacity across its prey community.
