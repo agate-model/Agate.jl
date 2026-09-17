@@ -28,6 +28,23 @@ using Oceananigans.Biogeochemistry:
         @test isfinite(@inferred(bgc(Val(:P_1), args...)))
         @test all(tracer -> isfinite(bgc(Val(tracer), args...)), (:N, :D, :P_1, :Z_1))
         @test iszero(bgc(Val(:T), args...))
+
+        expected_growth = Float32[
+            PowerLaw()(
+                (prefactor=Float32(1 / day), exponent=-0.15f0), Float32(diameter)
+            ) for diameter in (2, 10)
+        ]
+        expected_predation = Float32[
+            PowerLaw()(
+                (prefactor=Float32(21.9 / day), exponent=-0.16f0), Float32(diameter)
+            ) for diameter in (20, 100)
+        ]
+        @test bgc.parameters.maximum_growth_rate ≈ expected_growth
+        @test bgc.parameters.maximum_predation_rate ≈ expected_predation
+        @test all(rate -> rate ≈ Float32(0.02 / day), bgc.parameters.linear_mortality)
+        @test all(iszero, bgc.parameters.quadratic_mortality)
+        @test all(K -> K ≈ Float32(16 / 106), bgc.parameters.holling_half_saturation)
+        @test all(efficiency -> efficiency ≈ 0.7f0, bgc.parameters.assimilation_matrix)
     end
 
     @testset "NiPiZD size structure" begin

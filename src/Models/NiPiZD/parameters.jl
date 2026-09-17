@@ -22,14 +22,14 @@ function parameter_definitions(::NiPiZDFamily)
         detritus_remineralization=Parameter(detritus_remin),
         mortality_export_fraction=Parameter(0.2),
         linear_mortality=Parameter(
-            DiameterIndexedVectorDefault(8e-7; default=0)
+            DiameterIndexedVectorDefault(0.02 / 86400; default=0)
         ),
         quadratic_mortality=Parameter(
-            DiameterIndexedVectorDefault(1e-6; default=0)
+            DiameterIndexedVectorDefault(0.0; default=0)
         ),
         maximum_growth_rate=Parameter(
             DiameterIndexedVectorDefault(
-                AllometricParam(PowerLaw(); prefactor=2 / 86400, exponent=-0.15);
+                AllometricParam(PowerLaw(); prefactor=1 / 86400, exponent=-0.15);
                 default=0,
             )
         ),
@@ -44,12 +44,12 @@ function parameter_definitions(::NiPiZDFamily)
         ),
         maximum_predation_rate=Parameter(
             DiameterIndexedVectorDefault(
-                AllometricParam(PowerLaw(); prefactor=30.84 / 86400, exponent=-0.16);
+                AllometricParam(PowerLaw(); prefactor=21.9 / 86400, exponent=-0.16);
                 default=0,
             )
         ),
         holling_half_saturation=Parameter(
-            DiameterIndexedVectorDefault(5.0; default=0)
+            DiameterIndexedVectorDefault(16 / 106; default=0)
         ),
         palatability_matrix=Parameter(
             DerivedDefault(
@@ -79,7 +79,7 @@ function parameter_definitions(::NiPiZDFamily)
             axes=:plankton,
         ),
         assimilation_efficiency=ConstructionParameter(
-            DiameterIndexedVectorDefault(0.32; default=0);
+            DiameterIndexedVectorDefault(0.7; default=0);
             axes=:plankton,
         ),
     )
