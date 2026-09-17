@@ -7,6 +7,8 @@ function _consumption_rate(
     reference_resource::Symbol,
     consumer::Symbol,
     axis_positions::NamedTuple,
+    reference_resources,
+    palatabilities,
 )
     operands = (
         input_operand(context.layout, inventory),
@@ -15,6 +17,8 @@ function _consumption_rate(
         parameter_operand(slots.maximum_rate, context, axis_positions),
         parameter_operand(slots.half_saturation, context, axis_positions),
         parameter_operand(slots.palatability, context, axis_positions),
+        reference_resources,
+        palatabilities,
     )
     rate_factors = _factor_ops(context, named, axis_positions)
     return RateOp(formulation, operands; factors=rate_factors)
@@ -73,6 +77,8 @@ function _living_consumption_fluxes!(
     resource,
     slots,
     axis_positions,
+    reference_resources,
+    palatabilities,
 )
     layout = context.layout
     state_refs = getproperty(named.semantic_facts.resource_state_sets, resource.component)
@@ -93,6 +99,8 @@ function _living_consumption_fluxes!(
             resource.tracer,
             consumer.tracer,
             axis_positions,
+            reference_resources,
+            palatabilities,
         )
         push!(fluxes, FluxSpec(resource_tracer, rate, Weight{-1}()))
 
@@ -164,13 +172,36 @@ function process_fluxes(
     slots = named.binding_refs.process
     fluxes = Any[]
 
-    for consumer in consumers, resource in resources
-        axis_positions = (consumer=consumer.position, resource=resource.position)
-        if form isa PreferentialGrazing
-            _living_consumption_fluxes!(
-                fluxes, named, context, consumer, resource, slots, axis_positions
-            )
-        else
+    if form isa PreferentialGrazing
+        for consumer in consumers
+            reference_resources = TupleOp(Tuple(
+                input_operand(layout, resource.tracer) for resource in resources
+            ))
+            palatabilities = TupleOp(Tuple(
+                parameter_operand(
+                    slots.palatability,
+                    context,
+                    (consumer=consumer.position, resource=resource.position),
+                ) for resource in resources
+            ))
+            for resource in resources
+                axis_positions = (consumer=consumer.position, resource=resource.position)
+                _living_consumption_fluxes!(
+                    fluxes,
+                    named,
+                    context,
+                    consumer,
+                    resource,
+                    slots,
+                    axis_positions,
+                    reference_resources,
+                    palatabilities,
+                )
+            end
+        end
+    else
+        for consumer in consumers, resource in resources
+            axis_positions = (consumer=consumer.position, resource=resource.position)
             _heterotrophic_consumption_fluxes!(
                 fluxes, named, context, consumer, resource, slots, axis_positions
             )

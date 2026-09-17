@@ -189,10 +189,10 @@ authored_parameter_bindings(process::NutrientUptake) = process.bindings
 
 """Consumer-resource process with optional factors and unassimilated products.
 
-The formulation `maximum_rate` is pairwise capacity: one consumer's rate is applied
-independently to each declared consumer-resource edge. When one living-prey consumption process
-routes multi-element unassimilated products from multiple resources, those resources currently
-must expose the same prognostic Element set.
+For `PreferentialGrazing`, `maximum_rate` is one consumer-level ingestion capacity shared across
+all declared prey. `HeterotrophicConsumption` retains pairwise consumer-resource capacity. When
+one living-prey consumption process routes multi-element unassimilated products from multiple
+resources, those resources currently must expose the same prognostic Element set.
 """
 struct Consumption{
     Formulation<:Union{PreferentialGrazing,HeterotrophicConsumption},

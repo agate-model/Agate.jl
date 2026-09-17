@@ -232,3 +232,62 @@ end
     end
     @test isapprox(sum(bgc(Val(name), args...) for name in names), 0.0; atol=1e-14)
 end
+
+@testset "Preferential grazing shares consumer capacity across prey" begin
+    grazing_model = switching_exponent -> construct(
+        ModelDefinition(;
+            components=(
+                P=Plankton(;
+                    states=(nitrogen=:nitrogen,),
+                    reference_state=:nitrogen,
+                    size_structure=[1.0, 2.0],
+                ),
+                Z=Plankton(;
+                    states=(nitrogen=:nitrogen,),
+                    reference_state=:nitrogen,
+                    size_structure=[10.0],
+                ),
+            ),
+            processes=(
+                grazing=Consumption(
+                    PreferentialGrazing(; switching_exponent);
+                    consumers=:Z,
+                    resources=:P,
+                    bindings=(
+                        maximum_rate=:maximum_rate,
+                        half_saturation=:half_saturation,
+                        palatability=:palatability,
+                        assimilation=:assimilation,
+                    ),
+                ),
+            ),
+            parameters=(
+                maximum_rate=Parameter(NoDefault()),
+                half_saturation=Parameter(NoDefault()),
+                palatability=Parameter(NoDefault()),
+                assimilation=Parameter(NoDefault()),
+            ),
+        );
+        parameter_overrides=(
+            maximum_rate=[1.0],
+            half_saturation=[1.0],
+            palatability=reshape([1.0, 1.0], 1, 2),
+            assimilation=reshape([1.0, 1.0], 1, 2),
+        ),
+    )
+    prey_losses = (model, p1, p2) -> begin
+        args = food_web_args(model, (P_1=p1, P_2=p2, Z_1=1.0))
+        return (-model(Val(:P_1), args...), -model(Val(:P_2), args...))
+    end
+
+    proportional = grazing_model(1)
+    concentrated = prey_losses(proportional, 1.0, 0.0)
+    split = prey_losses(proportional, 0.5, 0.5)
+    @test sum(concentrated) ≈ sum(split)
+    @test sum(split) ≈ 0.5
+    @test sum(split) <= 1.0
+
+    switched = prey_losses(grazing_model(2), 0.75, 0.25)
+    @test sum(switched) ≈ 0.5
+    @test switched[1] / switched[2] ≈ 9.0
+end

@@ -58,6 +58,8 @@ Agate.Processes.factor_value(
         unassimilated_products=:D,
     )
     @test participants(grazing) == (consumer=(:Z,), resource=(:P, :B))
+    @test PreferentialGrazing().switching_exponent == 1
+    @test_throws ArgumentError PreferentialGrazing(; switching_exponent=0)
 
     shared_driver_model = canonicalize_model(
         ModelDefinition(;
