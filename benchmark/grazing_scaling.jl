@@ -9,7 +9,7 @@ using Oceananigans.Grids: Periodic, Bounded
 const NiPiZD = Agate.Models.NiPiZD
 const USE_GPU = "--gpu" in ARGS
 const QUICK = "--quick" in ARGS
-const PFT_COUNTS = QUICK ? (2, 4) : (2, 4, 8, 16)
+const PFT_COUNTS = QUICK ? (2, 4) : (2, 4, 8)
 const ARCH = USE_GPU ? GPU() : CPU()
 const FLOAT = Float32
 
@@ -85,14 +85,25 @@ function benchmark_case(n)
     return BenchmarkTools.median(trial).time * 1e-9
 end
 
-backend_name = USE_GPU ? "GPU" : "CPU"
-println("Agate NiPiZD grazing/PFT scaling benchmark ($backend_name)")
-println("grid = ", size(benchmark_grid()), ", Float32, complete time_step!, advection=nothing")
-println("P/Z\tedges\tmedian_ms\trelative_to_2P2Z")
+function main()
+    backend_name = USE_GPU ? "GPU" : "CPU"
+    println("Agate NiPiZD grazing/PFT scaling benchmark ($backend_name)")
+    println("grid = ", size(benchmark_grid()), ", Float32, complete time_step!, advection=nothing")
+    println("P/Z\tedges\tmedian_ms\trelative_to_2P2Z")
 
-base = nothing
-for n in PFT_COUNTS
-    seconds = benchmark_case(n)
-    base === nothing && (base = seconds)
-    println(n, "/", n, '\t', n * n, '\t', round(1e3 * seconds; digits=4), '\t', round(seconds / base; digits=3))
+    base = nothing
+    for n in PFT_COUNTS
+        seconds = benchmark_case(n)
+        isnothing(base) && (base = seconds)
+        println(
+            n, "/", n, '\t',
+            n * n, '\t',
+            round(1e3 * seconds; digits=4), '\t',
+            round(seconds / base; digits=3),
+        )
+    end
+
+    return nothing
 end
+
+main()
