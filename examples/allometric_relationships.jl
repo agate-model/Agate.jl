@@ -46,13 +46,13 @@ nothing #hide
 # has the form `prefactor × V^exponent`, where `V` is spherical cell volume calculated
 # from diameter. The prefactor sets the overall scale, while the exponent controls how
 # strongly the value changes with size.
-# NiPiZD's defaults are `2 / day` and `-0.15`. We write them explicitly here so that the
+# NiPiZD's defaults are `1 / day` and `-0.15`. We write them explicitly here so that the
 # change in the next section is easy to follow. `AllometricParam` combines the relationship
 # with its coefficients so that it can be supplied as a model parameter.
 
 default_growth = AllometricParam(
     PowerLaw();
-    prefactor=2 / day,
+    prefactor=1 / day,
     exponent=-0.15,
 )
 nothing #hide
@@ -83,7 +83,7 @@ nothing #hide
 
 shallower_growth = AllometricParam(
     PowerLaw();
-    prefactor=2 / day,
+    prefactor=1 / day,
     exponent=-0.05,
 )
 
