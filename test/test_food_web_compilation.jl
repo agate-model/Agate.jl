@@ -234,12 +234,12 @@ end
 end
 
 @testset "Preferential grazing shares consumer capacity across prey" begin
-    function grazing_model(formulation)
+    function grazing_model(formulation; half_saturation=1.0)
         overrides = merge(
             food_web_parameter_overrides(),
             (
                 maximum_predation_rate=[0.0, 1.0],
-                holling_half_saturation=[1.0, 1.0],
+                holling_half_saturation=fill(half_saturation, 2),
                 living_palatability_matrix=[0.0 0.0; 0.8 0.8],
                 living_assimilation_matrix=ones(2, 2),
             ),
@@ -260,4 +260,9 @@ end
     switched = prey_losses(switching, 0.75, 0.25)
     @test sum(switched) ≈ expected_total
     @test switched[1] / switched[2] ≈ 9.0
+
+    zero_proportional = grazing_model(PreferentialGrazing(); half_saturation=0.0)
+    zero_switching = grazing_model(PreferentialGrazing(; switching_exponent=2); half_saturation=0.0)
+    @test prey_losses(zero_proportional, 0.0, 0.0) == (0.0, 0.0)
+    @test prey_losses(zero_switching, 0.0, 0.0) == (0.0, 0.0)
 end

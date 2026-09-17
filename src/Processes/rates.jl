@@ -61,25 +61,25 @@ end
     return maximum_rate * factor_value(Monod(), resource, half_saturation) * consumer
 end
 
-"""Evaluate loss of one prey state using the reference-state grazing intensity."""
+"""Evaluate proportional loss of one prey state from a shared consumer grazing capacity."""
 @inline process_rate(
     ::PreferentialGrazing,
     inventory,
-    reference,
     consumer,
     maximum_rate,
     half_saturation,
     palatability,
-    palatable_reference_biomass,
-) = preferential_predation_loss(
+    total_palatable_biomass,
+) = proportional_predation_loss(
     inventory,
     consumer,
     maximum_rate,
     half_saturation,
     palatability,
-    palatable_reference_biomass,
+    total_palatable_biomass,
 )
 
+"""Evaluate switching loss of one prey state from a shared consumer grazing capacity."""
 @inline process_rate(
     formulation::PreferentialGrazing,
     inventory,
@@ -88,16 +88,16 @@ end
     maximum_rate,
     half_saturation,
     palatability,
-    palatable_reference_biomass,
+    total_palatable_biomass,
     switching_weight_sum,
-) = preferential_predation_loss(
+) = switching_predation_loss(
     inventory,
     reference,
     consumer,
     maximum_rate,
     half_saturation,
     palatability,
-    palatable_reference_biomass,
+    total_palatable_biomass,
     switching_weight_sum,
     formulation.switching_exponent,
 )

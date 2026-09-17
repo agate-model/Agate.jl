@@ -22,9 +22,9 @@ end
 
 """Static scalar reduction ``sum((value * weight)^Exponent)`` over paired operands.
 
-The reduction stays inside the runtime IR instead of materializing a tuple of evaluated
-prey values for every consumer-resource edge. This keeps generated grazing expressions
-compact as the number of plankton functional types increases.
+The reduction stays inside the runtime IR instead of embedding a fully expanded tuple
+reduction in every consumer-resource edge. This keeps generated grazing expressions compact
+as the number of plankton functional types increases.
 """
 struct ProductPowerSumOp{Exponent,Values,Weights}
     values::Values

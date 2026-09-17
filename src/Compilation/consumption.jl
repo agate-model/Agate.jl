@@ -9,15 +9,20 @@ function _consumption_rate(
     axis_positions::NamedTuple,
     shared_operands::Tuple,
 )
-    operands = (
-        input_operand(context.layout, inventory),
-        input_operand(context.layout, reference_resource),
+    inventory_operand = input_operand(context.layout, inventory)
+    common_operands = (
         input_operand(context.layout, consumer),
         parameter_operand(slots.maximum_rate, context, axis_positions),
         parameter_operand(slots.half_saturation, context, axis_positions),
         parameter_operand(slots.palatability, context, axis_positions),
         shared_operands...,
     )
+    reference_operands = if formulation.switching_exponent == 1
+        ()
+    else
+        (input_operand(context.layout, reference_resource),)
+    end
+    operands = (inventory_operand, reference_operands..., common_operands...)
     rate_factors = _factor_ops(context, named, axis_positions)
     return RateOp(formulation, operands; factors=rate_factors)
 end
@@ -183,15 +188,15 @@ function process_fluxes(
             # Keep consumer-level prey reductions as scalar IR nodes. Materializing the full
             # evaluated prey/palatability tuples in every edge rate causes generated-code
             # growth to become pathological for richer food webs.
-            palatable_reference_biomass = ProductPowerSumOp{1}(reference_resources, palatabilities)
+            total_palatable_biomass = ProductPowerSumOp{1}(reference_resources, palatabilities)
             switching_exponent = form.switching_exponent
             shared_operands = if switching_exponent == 1
-                (palatable_reference_biomass,)
+                (total_palatable_biomass,)
             else
                 switching_weight_sum = ProductPowerSumOp{switching_exponent}(
                     reference_resources, palatabilities
                 )
-                (palatable_reference_biomass, switching_weight_sum)
+                (total_palatable_biomass, switching_weight_sum)
             end
 
             for resource in resources

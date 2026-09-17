@@ -1,7 +1,7 @@
 """Predation and grazing kernels."""
 module Predation
 
-export holling_type_ii, preferential_predation_loss
+export holling_type_ii, proportional_predation_loss, switching_predation_loss
 
 """
     holling_type_ii(P, K)
@@ -15,52 +15,54 @@ The indeterminate `P == K == 0` case returns zero.
 end
 
 """
-    preferential_predation_loss(
+    proportional_predation_loss(
         inventory, consumer, maximum_grazing_rate, half_saturation,
-        palatability, palatable_reference_biomass
+        palatability, total_palatable_biomass
     )
 
-Return proportional-allocation prey loss for shared-capacity grazing. `palatable_reference_biomass` is the
-consumer-level sum ``sum(p_j R_j)`` supplied as a scalar runtime-IR reduction.
+Return proportional-allocation prey loss for shared-capacity grazing.
+`total_palatable_biomass` is the consumer-level sum ``sum(p_j R_j)`` supplied as a scalar
+runtime-IR reduction.
 """
-@inline function preferential_predation_loss(
+@inline function proportional_predation_loss(
     inventory,
     consumer,
     maximum_grazing_rate,
     half_saturation,
     palatability,
-    palatable_reference_biomass,
+    total_palatable_biomass,
 )
-    half_saturation == zero(half_saturation) && palatable_reference_biomass == zero(palatable_reference_biomass) &&
+    half_saturation == zero(half_saturation) &&
+        total_palatable_biomass == zero(total_palatable_biomass) &&
         return zero(maximum_grazing_rate * inventory * consumer)
     return maximum_grazing_rate * palatability * inventory /
-           (half_saturation + palatable_reference_biomass) * consumer
+           (half_saturation + total_palatable_biomass) * consumer
 end
 
 """
-    preferential_predation_loss(
+    switching_predation_loss(
         inventory, reference_inventory, consumer, maximum_grazing_rate,
-        half_saturation, palatability, palatable_reference_biomass,
+        half_saturation, palatability, total_palatable_biomass,
         switching_weight_sum, switching_exponent
     )
 
 Return switching prey loss for shared-capacity grazing. The two consumer-level reductions are
-provided as scalars so edge rates do not materialize or repeatedly traverse prey-value tuples.
+provided as scalar runtime-IR nodes so edge expressions stay compact as food-web size increases.
 """
-@inline function preferential_predation_loss(
+@inline function switching_predation_loss(
     inventory,
     reference_inventory,
     consumer,
     maximum_grazing_rate,
     half_saturation,
     palatability,
-    palatable_reference_biomass,
+    total_palatable_biomass,
     switching_weight_sum,
     switching_exponent,
 )
     reference_inventory == zero(reference_inventory) &&
         return zero(maximum_grazing_rate * inventory * consumer)
-    saturation = holling_type_ii(palatable_reference_biomass, half_saturation)
+    saturation = holling_type_ii(total_palatable_biomass, half_saturation)
     switching_weight_sum == zero(switching_weight_sum) &&
         return zero(maximum_grazing_rate * inventory * consumer)
     allocation = (palatability * reference_inventory)^switching_exponent / switching_weight_sum

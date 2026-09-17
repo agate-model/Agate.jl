@@ -1,3 +1,13 @@
+# generator=scripts/generate_nipizd_reference.jl
+# agate_version=0.14.0
+# nipizd_definition_version=0.2.0
+# julia_version=unrecorded_in_original_generation
+# constructor=Agate.Models.NiPiZD.construct_plus_recipe()
+# forcing=constant_PAR_100.0
+# dt_seconds=1800.0
+# save_interval_seconds=21600.0
+# initial_conditions=N=7.0,D=0.01,Z_1=0.01,Z_2=0.02,P_1=0.01,P_2=0.1
+# tracer_order=N,D,Z_1,Z_2,P_1,P_2
 time_days,total_nitrogen,N,D,Z_1,Z_2,P_1,P_2
 0.0,7.149999999999999,7.0,0.01,0.01,0.02,0.01,0.1
 0.25,7.1499999999999995,6.97754435384367,0.012132555631477299,0.009881060790776863,0.019775370109982024,0.014425042867481067,0.11624161675661207
