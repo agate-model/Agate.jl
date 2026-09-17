@@ -63,6 +63,24 @@ end
 
 """Evaluate loss of one prey state using the reference-state grazing intensity."""
 @inline process_rate(
+    ::PreferentialGrazing,
+    inventory,
+    reference,
+    consumer,
+    maximum_rate,
+    half_saturation,
+    palatability,
+    palatable_biomass,
+) = preferential_predation_loss(
+    inventory,
+    consumer,
+    maximum_rate,
+    half_saturation,
+    palatability,
+    palatable_biomass,
+)
+
+@inline process_rate(
     formulation::PreferentialGrazing,
     inventory,
     reference,
@@ -70,8 +88,8 @@ end
     maximum_rate,
     half_saturation,
     palatability,
-    reference_inventories,
-    palatabilities,
+    palatable_biomass,
+    switching_weight_sum,
 ) = preferential_predation_loss(
     inventory,
     reference,
@@ -79,8 +97,8 @@ end
     maximum_rate,
     half_saturation,
     palatability,
-    reference_inventories,
-    palatabilities,
+    palatable_biomass,
+    switching_weight_sum,
     formulation.switching_exponent,
 )
 

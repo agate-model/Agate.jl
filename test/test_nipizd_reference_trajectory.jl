@@ -24,6 +24,11 @@ const NIPIZD_REFERENCE_ATOL = 1e-14
 reference_path = joinpath(
     @__DIR__, "reference", "nipizd_definition_v0.2.0_reference.csv"
 )
+isfile(reference_path) || error(
+    "NiPiZD reference trajectory is missing at $reference_path. " *
+    "Generate it with `julia --project=. scripts/generate_nipizd_reference.jl` " *
+    "and commit the generated CSV."
+)
 reference_rows = filter(
     row -> !isempty(row) && !startswith(row, '#'),
     readlines(reference_path),

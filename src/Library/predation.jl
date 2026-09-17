@@ -14,45 +14,38 @@ The indeterminate `P == K == 0` case returns zero.
     return P / (K + P)
 end
 
-@inline _palatable_biomass(
-    reference_inventories::Tuple{R}, palatabilities::Tuple{P}
-) where {R,P} = first(reference_inventories) * first(palatabilities)
-
-@inline function _palatable_biomass(
-    reference_inventories::Tuple{R1,R2,Vararg{Any,N}},
-    palatabilities::Tuple{P1,P2,Vararg{Any,N}},
-) where {R1,R2,P1,P2,N}
-    return first(reference_inventories) * first(palatabilities) + _palatable_biomass(
-        Base.tail(reference_inventories), Base.tail(palatabilities)
+"""
+    preferential_predation_loss(
+        inventory, consumer, maximum_grazing_rate, half_saturation,
+        palatability, palatable_biomass
     )
-end
 
-@inline _switching_weight_sum(
-    reference_inventories::Tuple{R}, palatabilities::Tuple{P}, switching_exponent
-) where {R,P} =
-    (first(reference_inventories) * first(palatabilities))^switching_exponent
-
-@inline function _switching_weight_sum(
-    reference_inventories::Tuple{R1,R2,Vararg{Any,N}},
-    palatabilities::Tuple{P1,P2,Vararg{Any,N}},
-    switching_exponent,
-) where {R1,R2,P1,P2,N}
-    current = (first(reference_inventories) * first(palatabilities))^switching_exponent
-    return current + _switching_weight_sum(
-        Base.tail(reference_inventories), Base.tail(palatabilities), switching_exponent
-    )
+Return proportional-allocation prey loss for shared-capacity grazing. `palatable_biomass` is the
+consumer-level sum ``sum(p_j R_j)`` supplied as a scalar runtime-IR reduction.
+"""
+@inline function preferential_predation_loss(
+    inventory,
+    consumer,
+    maximum_grazing_rate,
+    half_saturation,
+    palatability,
+    palatable_biomass,
+)
+    half_saturation == zero(half_saturation) && palatable_biomass == zero(palatable_biomass) &&
+        return zero(maximum_grazing_rate * inventory * consumer)
+    return maximum_grazing_rate * palatability * inventory /
+           (half_saturation + palatable_biomass) * consumer
 end
 
 """
     preferential_predation_loss(
         inventory, reference_inventory, consumer, maximum_grazing_rate,
-        half_saturation, palatability, reference_inventories, palatabilities,
-        switching_exponent
+        half_saturation, palatability, palatable_biomass,
+        switching_weight_sum, switching_exponent
     )
 
-Return the loss from one prey state when a consumer shares one maximum ingestion capacity across
-all prey. Consumer-level saturation depends on total palatable reference biomass. A switching
-exponent of one uses the algebraically simplified proportional-allocation path.
+Return switching prey loss for shared-capacity grazing. The two consumer-level reductions are
+provided as scalars so edge rates do not materialize or repeatedly traverse prey-value tuples.
 """
 @inline function preferential_predation_loss(
     inventory,
@@ -61,26 +54,16 @@ exponent of one uses the algebraically simplified proportional-allocation path.
     maximum_grazing_rate,
     half_saturation,
     palatability,
-    reference_inventories::Tuple,
-    palatabilities::Tuple,
+    palatable_biomass,
+    switching_weight_sum,
     switching_exponent,
 )
-    palatable_biomass = _palatable_biomass(reference_inventories, palatabilities)
-    if switching_exponent == one(switching_exponent)
-        half_saturation == zero(half_saturation) && palatable_biomass == zero(palatable_biomass) &&
-            return zero(maximum_grazing_rate * inventory * consumer)
-        return maximum_grazing_rate * palatability * inventory /
-               (half_saturation + palatable_biomass) * consumer
-    end
-
     reference_inventory == zero(reference_inventory) &&
         return zero(maximum_grazing_rate * inventory * consumer)
     saturation = holling_type_ii(palatable_biomass, half_saturation)
-    weights = _switching_weight_sum(
-        reference_inventories, palatabilities, switching_exponent
-    )
-    weights == zero(weights) && return zero(maximum_grazing_rate * inventory * consumer)
-    allocation = (palatability * reference_inventory)^switching_exponent / weights
+    switching_weight_sum == zero(switching_weight_sum) &&
+        return zero(maximum_grazing_rate * inventory * consumer)
+    allocation = (palatability * reference_inventory)^switching_exponent / switching_weight_sum
     return maximum_grazing_rate * consumer * saturation * allocation *
            inventory / reference_inventory
 end

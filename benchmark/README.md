@@ -18,6 +18,6 @@ Run the same benchmark on an NVIDIA GPU:
 julia --project=benchmark benchmark/grazing_scaling.jl --gpu
 ```
 
-Use `--quick` for a short CI/development smoke benchmark (2P/2Z and 4P/4Z only). The full benchmark uses 2, 4, 8, and 16 matched phytoplankton/zooplankton size classes.
+Use `--quick` for a short CI/development smoke benchmark (2P/2Z and 4P/4Z only). The default benchmark uses 2, 4, and 8 matched phytoplankton/zooplankton size classes. Use `--extended` to add 16P/16Z; this is intentionally opt-in because pathological compiler scaling can make that case memory-intensive.
 
-The benchmark measures complete Oceananigans time steps rather than the scalar Agate rate helper. This intentionally includes the actual tracer-tendency execution strategy used by Oceananigans and therefore detects whether repeated shared-food expressions remain a practical scaling bottleneck after compiler optimization/fusion.
+The benchmark reports both model construction plus the first warm time step and the median warm time-step cost. It measures complete Oceananigans time steps rather than the scalar Agate rate helper, so it captures the generated-code and runtime scaling users actually experience.

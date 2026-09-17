@@ -9,7 +9,9 @@ using Oceananigans.Grids: Periodic, Bounded
 const NiPiZD = Agate.Models.NiPiZD
 const USE_GPU = "--gpu" in ARGS
 const QUICK = "--quick" in ARGS
-const PFT_COUNTS = QUICK ? (2, 4) : (2, 4, 8)
+const EXTENDED = "--extended" in ARGS
+QUICK && EXTENDED && error("Use at most one of --quick and --extended")
+const PFT_COUNTS = QUICK ? (2, 4) : (EXTENDED ? (2, 4, 8, 16) : (2, 4, 8))
 const ARCH = USE_GPU ? GPU() : CPU()
 const FLOAT = Float32
 
@@ -76,28 +78,31 @@ function timed_step!(model)
 end
 
 function benchmark_case(n)
+    start_ns = time_ns()
     model = build_model(n)
-
-    # Compile/warm once outside the measurement.
+    # Compile/warm once outside the steady-state measurement.
     timed_step!(model)
+    build_warm_seconds = (time_ns() - start_ns) * 1e-9
 
     trial = @benchmark timed_step!($model) samples=(QUICK ? 5 : 10) evals=1
-    return BenchmarkTools.median(trial).time * 1e-9
+    median_seconds = BenchmarkTools.median(trial).time * 1e-9
+    return build_warm_seconds, median_seconds
 end
 
 function main()
     backend_name = USE_GPU ? "GPU" : "CPU"
     println("Agate NiPiZD grazing/PFT scaling benchmark ($backend_name)")
     println("grid = ", size(benchmark_grid()), ", Float32, complete time_step!, advection=nothing")
-    println("P/Z\tedges\tmedian_ms\trelative_to_2P2Z")
+    println("P/Z\tedges\tbuild+warm_s\tmedian_ms\trelative_to_2P2Z")
 
     base = nothing
     for n in PFT_COUNTS
-        seconds = benchmark_case(n)
+        build_warm_seconds, seconds = benchmark_case(n)
         isnothing(base) && (base = seconds)
         println(
             n, "/", n, '\t',
             n * n, '\t',
+            round(build_warm_seconds; digits=3), '\t',
             round(1e3 * seconds; digits=4), '\t',
             round(seconds / base; digits=3),
         )

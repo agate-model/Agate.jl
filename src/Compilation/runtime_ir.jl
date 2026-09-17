@@ -20,6 +20,20 @@ struct TupleOp{Operands}
     operands::Operands
 end
 
+"""Static scalar reduction ``sum((value * weight)^Exponent)`` over paired operands.
+
+The reduction stays inside the runtime IR instead of materializing a tuple of evaluated
+prey values for every consumer-resource edge. This keeps generated grazing expressions
+compact as the number of plankton functional types increases.
+"""
+struct WeightedPowerSumOp{Exponent,Values,Weights}
+    values::Values
+    weights::Weights
+end
+
+WeightedPowerSumOp{Exponent}(values::Tuple, weights::Tuple) where {Exponent} =
+    WeightedPowerSumOp{Exponent,typeof(values),typeof(weights)}(values, weights)
+
 @inline operand_value(::InputOp{Index}, bgc, args) where {Index} = @inbounds args[Index]
 @inline operand_value(::ParameterOp{Name,()}, bgc, args) where {Name} = getproperty(bgc.parameters, Name)
 @inline operand_value(::ParameterOp{Name,Indices}, bgc, args) where {Name,Indices} =
@@ -38,6 +52,43 @@ end
     return one(total) - total
 end
 @inline operand_value(op::TupleOp, bgc, args) = operand_values(op.operands, bgc, args)
+
+@inline _weighted_power(value, weight, ::Val{1}) = value * weight
+@inline _weighted_power(value, weight, ::Val{Exponent}) where {Exponent} =
+    (value * weight)^Exponent
+
+@inline function _weighted_power_sum(
+    values::Tuple{V}, weights::Tuple{W}, bgc, args, exponent
+) where {V,W}
+    return _weighted_power(
+        operand_value(first(values), bgc, args),
+        operand_value(first(weights), bgc, args),
+        exponent,
+    )
+end
+
+@inline function _weighted_power_sum(
+    values::Tuple{V1,V2,Vararg{Any,N}},
+    weights::Tuple{W1,W2,Vararg{Any,N}},
+    bgc,
+    args,
+    exponent,
+) where {V1,V2,W1,W2,N}
+    current = _weighted_power(
+        operand_value(first(values), bgc, args),
+        operand_value(first(weights), bgc, args),
+        exponent,
+    )
+    return current + _weighted_power_sum(
+        Base.tail(values), Base.tail(weights), bgc, args, exponent
+    )
+end
+
+Base.@noinline function operand_value(
+    op::WeightedPowerSumOp{Exponent}, bgc, args
+) where {Exponent}
+    return _weighted_power_sum(op.values, op.weights, bgc, args, Val(Exponent))
+end
 
 @inline operand_values(::Tuple{}, bgc, args) = ()
 @inline function operand_values(operands::Tuple, bgc, args)
