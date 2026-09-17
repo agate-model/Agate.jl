@@ -10,7 +10,7 @@ using Agate.Processes:
     ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, Smith, Monod,
     Q10, HeterotrophicConsumption, PreferentialGrazing, participants
 
-function food_web_definition()
+function food_web_definition(; grazing=PreferentialGrazing())
     components = (
         N=Pool(:nitrogen),
         D=Pool(:nitrogen),
@@ -50,7 +50,7 @@ function food_web_definition()
             unassimilated_products=:D,
         ),
         grazing_living=Consumption(
-            PreferentialGrazing();
+            grazing;
             consumers=(:M, :Z),
             resources=(:P, :B),
             bindings=(
@@ -234,60 +234,30 @@ end
 end
 
 @testset "Preferential grazing shares consumer capacity across prey" begin
-    grazing_model = switching_exponent -> construct(
-        ModelDefinition(;
-            components=(
-                P=Plankton(;
-                    states=(nitrogen=:nitrogen,),
-                    reference_state=:nitrogen,
-                    size_structure=[1.0, 2.0],
-                ),
-                Z=Plankton(;
-                    states=(nitrogen=:nitrogen,),
-                    reference_state=:nitrogen,
-                    size_structure=[10.0],
-                ),
+    function grazing_model(formulation)
+        overrides = merge(
+            food_web_parameter_overrides(),
+            (
+                maximum_predation_rate=[0.0, 1.0],
+                holling_half_saturation=[1.0, 1.0],
+                living_palatability_matrix=[0.0 0.0; 0.8 0.8],
+                living_assimilation_matrix=ones(2, 2),
             ),
-            processes=(
-                grazing=Consumption(
-                    PreferentialGrazing(; switching_exponent);
-                    consumers=:Z,
-                    resources=:P,
-                    bindings=(
-                        maximum_rate=:maximum_rate,
-                        half_saturation=:half_saturation,
-                        palatability=:palatability,
-                        assimilation=:assimilation,
-                    ),
-                ),
-            ),
-            parameters=(
-                maximum_rate=Parameter(NoDefault()),
-                half_saturation=Parameter(NoDefault()),
-                palatability=Parameter(NoDefault()),
-                assimilation=Parameter(NoDefault()),
-            ),
-        );
-        parameter_overrides=(
-            maximum_rate=[1.0],
-            half_saturation=[1.0],
-            palatability=reshape([1.0, 1.0], 1, 2),
-            assimilation=reshape([1.0, 1.0], 1, 2),
-        ),
-    )
-    prey_losses = (model, p1, p2) -> begin
-        args = food_web_args(model, (P_1=p1, P_2=p2, Z_1=1.0))
-        return (-model(Val(:P_1), args...), -model(Val(:P_2), args...))
+        )
+        return construct(food_web_definition(; grazing=formulation); parameter_overrides=overrides)
+    end
+    prey_losses = (model, p, b) -> begin
+        args = food_web_args(model, (P_1=p, B_1=b, Z_1=1.0))
+        return (-model(Val(:P_1), args...), -model(Val(:B_1), args...))
     end
 
-    proportional = grazing_model(1)
-    concentrated = prey_losses(proportional, 1.0, 0.0)
-    split = prey_losses(proportional, 0.5, 0.5)
-    @test sum(concentrated) ≈ sum(split)
-    @test sum(split) ≈ 0.5
-    @test sum(split) <= 1.0
+    expected_total = 0.8 / (1.0 + 0.8)
+    proportional = grazing_model(PreferentialGrazing())
+    @test sum(prey_losses(proportional, 1.0, 0.0)) ≈ expected_total
+    @test sum(prey_losses(proportional, 0.5, 0.5)) ≈ expected_total
 
-    switched = prey_losses(grazing_model(2), 0.75, 0.25)
-    @test sum(switched) ≈ 0.5
+    switching = grazing_model(PreferentialGrazing(; switching_exponent=2))
+    switched = prey_losses(switching, 0.75, 0.25)
+    @test sum(switched) ≈ expected_total
     @test switched[1] / switched[2] ≈ 9.0
 end

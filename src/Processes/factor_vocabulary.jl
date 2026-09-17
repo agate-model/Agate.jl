@@ -41,22 +41,25 @@ abstract type AbstractFactor end
 """Living-prey grazing with one consumer-level ingestion capacity shared across prey.
 
 `switching_exponent=1` allocates grazing proportionally to palatable prey biomass, while larger
-positive exponents increasingly favor abundant palatable prey. `palatability` is a nonnegative
-interaction weight, not a probability.
+positive integer exponents increasingly favor abundant palatable prey. `palatability` is a
+nonnegative interaction weight, not a probability.
 """
-struct PreferentialGrazing{T<:Real} <: AbstractFormulation
+struct PreferentialGrazing{T<:Integer} <: AbstractFormulation
     switching_exponent::T
-    function PreferentialGrazing(switching_exponent::T) where {T<:Real}
-        isfinite(switching_exponent) && switching_exponent > zero(switching_exponent) || throw(
-            ArgumentError("`switching_exponent` must be a positive finite real number"),
+    function PreferentialGrazing(switching_exponent::T) where {T<:Integer}
+        switching_exponent isa Bool && throw(
+            ArgumentError("`switching_exponent` must be a positive integer"),
+        )
+        switching_exponent > zero(switching_exponent) || throw(
+            ArgumentError("`switching_exponent` must be a positive integer"),
         )
         return new{T}(switching_exponent)
     end
 end
 
 function PreferentialGrazing(; switching_exponent=1)
-    switching_exponent isa Real || throw(
-        ArgumentError("`switching_exponent` must be a positive finite real number"),
+    switching_exponent isa Integer || throw(
+        ArgumentError("`switching_exponent` must be a positive integer"),
     )
     return PreferentialGrazing(switching_exponent)
 end

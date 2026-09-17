@@ -179,7 +179,7 @@ using Agate.Processes:
             ),
             processes=(
                 grazing=Consumption(
-                    PreferentialGrazing();
+                    PreferentialGrazing(; switching_exponent=2);
                     consumers=:Z,
                     resources=:P,
                     bindings=(

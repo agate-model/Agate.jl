@@ -85,18 +85,5 @@ exponent of one uses the algebraically simplified proportional-allocation path.
            inventory / reference_inventory
 end
 
-@inline preferential_predation_loss(
-    inventory, reference_inventory, consumer, maximum_grazing_rate, half_saturation, palatability
-) = preferential_predation_loss(
-    inventory,
-    reference_inventory,
-    consumer,
-    maximum_grazing_rate,
-    half_saturation,
-    palatability,
-    (reference_inventory,),
-    (palatability,),
-    1,
-)
 
 end # module
