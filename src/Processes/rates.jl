@@ -70,14 +70,14 @@ end
     maximum_rate,
     half_saturation,
     palatability,
-    palatable_biomass,
+    palatable_reference_biomass,
 ) = preferential_predation_loss(
     inventory,
     consumer,
     maximum_rate,
     half_saturation,
     palatability,
-    palatable_biomass,
+    palatable_reference_biomass,
 )
 
 @inline process_rate(
@@ -88,7 +88,7 @@ end
     maximum_rate,
     half_saturation,
     palatability,
-    palatable_biomass,
+    palatable_reference_biomass,
     switching_weight_sum,
 ) = preferential_predation_loss(
     inventory,
@@ -97,7 +97,7 @@ end
     maximum_rate,
     half_saturation,
     palatability,
-    palatable_biomass,
+    palatable_reference_biomass,
     switching_weight_sum,
     formulation.switching_exponent,
 )

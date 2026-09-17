@@ -183,15 +183,15 @@ function process_fluxes(
             # Keep consumer-level prey reductions as scalar IR nodes. Materializing the full
             # evaluated prey/palatability tuples in every edge rate causes generated-code
             # growth to become pathological for richer food webs.
-            palatable_biomass = WeightedPowerSumOp{1}(reference_resources, palatabilities)
+            palatable_reference_biomass = ProductPowerSumOp{1}(reference_resources, palatabilities)
             switching_exponent = form.switching_exponent
             shared_operands = if switching_exponent == 1
-                (palatable_biomass,)
+                (palatable_reference_biomass,)
             else
-                switching_weights = WeightedPowerSumOp{switching_exponent}(
+                switching_weight_sum = ProductPowerSumOp{switching_exponent}(
                     reference_resources, palatabilities
                 )
-                (palatable_biomass, switching_weights)
+                (palatable_reference_biomass, switching_weight_sum)
             end
 
             for resource in resources
