@@ -64,8 +64,8 @@ end
     substrate_preference,
     total_substrate_availability,
 )
-    normalized_substrate = substrate_preference * resource / half_saturation
-    return maximum_rate * consumer * normalized_substrate /
+    substrate_availability = substrate_preference * resource / half_saturation
+    return maximum_rate * consumer * substrate_availability /
            (one(total_substrate_availability) + total_substrate_availability)
 end
 

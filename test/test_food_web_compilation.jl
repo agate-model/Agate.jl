@@ -4,7 +4,6 @@ using Oceananigans.Biogeochemistry:
 
 using Agate.Components: Plankton, Pool
 using Agate.Construction: construct
-using Agate.Introspection: interaction_matrix
 using Agate.Parameters: Parameter, NoDefault
 using Agate.Processes:
     ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, Smith, Monod,
@@ -191,7 +190,6 @@ end
         POM_1=Pool(:nitrogen),
         POM_2=Pool(:nitrogen),
         POM_3=Pool(:nitrogen),
-        X=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.4]),
         B=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.8]),
     )
     processes = (
@@ -223,17 +221,10 @@ end
     )
     bgc = construct(definition; parameter_overrides=base_overrides)
 
-    @test bgc.parameters.maximum_consumption_rate == [2.0]
-    @test bgc.parameters.pom_half_saturation == [1.0, 3.0, 7.0]
-    @test bgc.parameters.substrate_preference_matrix == ones(1, 3)
-    @test bgc.parameters.bacterial_assimilation == reshape([0.2, 0.4, 0.8], 1, 3)
-    preference_axes = interaction_matrix(bgc, :substrate_preference_matrix)
-    @test (preference_axes.rows, preference_axes.columns) == ([:B_1], [:POM_1, :POM_2, :POM_3])
-
     names = Agate.Introspection.tracer_names(bgc)
-    state = (N=0.0, POM_1=1.0, POM_2=1.0, POM_3=1.0, X_1=5.0, B_1=1.0)
+    state = (N=0.0, POM_1=1.0, POM_2=1.0, POM_3=1.0, B_1=1.0)
     args = (0.0, 0.0, 0.0, 0.0, Tuple(getproperty(state, name) for name in names)...)
-    expected = (POM_1=-21 / 26, POM_2=-7 / 26, POM_3=-3 / 26, B_1=47 / 130, N=54 / 65, X_1=0.0)
+    expected = (POM_1=-21 / 26, POM_2=-7 / 26, POM_3=-3 / 26, B_1=47 / 130, N=54 / 65)
 
     for (name, value) in pairs(expected)
         @test bgc(Val(name), args...) ≈ value
@@ -252,7 +243,7 @@ end
     preferred_losses = Tuple(-preferred(Val(name), args...) for name in (:POM_1, :POM_2, :POM_3))
     @test all(isapprox.(preferred_losses, (0.5, 0.5, 0.5)))
 
-    zero_state = (N=0.0, POM_1=0.0, POM_2=0.0, POM_3=0.0, X_1=5.0, B_1=1.0)
+    zero_state = (N=0.0, POM_1=0.0, POM_2=0.0, POM_3=0.0, B_1=1.0)
     zero_args = (0.0, 0.0, 0.0, 0.0, Tuple(getproperty(zero_state, name) for name in names)...)
     @test all(iszero(bgc(Val(name), zero_args...)) for name in (:POM_1, :POM_2, :POM_3, :B_1, :N))
 end

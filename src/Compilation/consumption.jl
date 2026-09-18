@@ -223,7 +223,7 @@ function process_fluxes(
             resource_operands = Tuple(
                 input_operand(layout, resource.tracer) for resource in resources
             )
-            normalized_preferences = Tuple(begin
+            substrate_affinities = Tuple(begin
                 axis_positions = (consumer=consumer.position, resource=resource.position)
                 QuotientOp(
                     parameter_operand(slots.substrate_preference, context, axis_positions),
@@ -231,7 +231,7 @@ function process_fluxes(
                 )
             end for resource in resources)
             total_substrate_availability = ProductPowerSumOp{1}(
-                resource_operands, normalized_preferences
+                resource_operands, substrate_affinities
             )
             shared_operands = (total_substrate_availability,)
 
