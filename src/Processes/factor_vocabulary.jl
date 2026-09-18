@@ -64,10 +64,10 @@ function PreferentialGrazing(; switching_exponent=1)
     return PreferentialGrazing(switching_exponent)
 end
 
-"""Heterotrophic resource-consumption formulation with pairwise consumer-resource capacity.
+"""Heterotrophic consumption of substitutable substrates with shared consumer capacity.
 
-`maximum_rate` is a per-consumer rate applied independently to each declared resource edge, so
-each edge receives the full per-consumer rate.
+`maximum_rate` is one per-consumer uptake capacity shared across all declared substrates.
+`substrate_preference` controls the relative accessibility of each consumer-resource pair.
 """
 struct HeterotrophicConsumption <: AbstractFormulation end
 

@@ -35,12 +35,15 @@ function _consumption_rate(
     consumer::Symbol,
     resource::Symbol,
     axis_positions::NamedTuple,
+    shared_operands::Tuple,
 )
     operands = (
         input_operand(context.layout, resource),
         input_operand(context.layout, consumer),
         parameter_operand(slots.maximum_rate, context, axis_positions),
         parameter_operand(slots.half_saturation, context, axis_positions),
+        parameter_operand(slots.substrate_preference, context, axis_positions),
+        shared_operands...,
     )
     rate_factors = _factor_ops(context, named, axis_positions)
     return RateOp(formulation, operands; factors=rate_factors)
@@ -130,6 +133,7 @@ function _heterotrophic_consumption_fluxes!(
     resource,
     slots,
     axis_positions,
+    shared_operands::Tuple,
 )
     layout = context.layout
     rate = _consumption_rate(
@@ -140,6 +144,7 @@ function _heterotrophic_consumption_fluxes!(
         consumer.tracer,
         resource.tracer,
         axis_positions,
+        shared_operands,
     )
     assimilation = parameter_operand(slots.assimilation, context, axis_positions)
     consumer_element_states = getproperty(
@@ -214,11 +219,35 @@ function process_fluxes(
             end
         end
     else
-        for consumer in consumers, resource in resources
-            axis_positions = (consumer=consumer.position, resource=resource.position)
-            _heterotrophic_consumption_fluxes!(
-                fluxes, named, context, consumer, resource, slots, axis_positions
+        for consumer in consumers
+            resource_operands = Tuple(
+                input_operand(layout, resource.tracer) for resource in resources
             )
+            normalized_preferences = Tuple(begin
+                axis_positions = (consumer=consumer.position, resource=resource.position)
+                QuotientOp(
+                    parameter_operand(slots.substrate_preference, context, axis_positions),
+                    parameter_operand(slots.half_saturation, context, axis_positions),
+                )
+            end for resource in resources)
+            total_substrate_availability = ProductPowerSumOp{1}(
+                resource_operands, normalized_preferences
+            )
+            shared_operands = (total_substrate_availability,)
+
+            for resource in resources
+                axis_positions = (consumer=consumer.position, resource=resource.position)
+                _heterotrophic_consumption_fluxes!(
+                    fluxes,
+                    named,
+                    context,
+                    consumer,
+                    resource,
+                    slots,
+                    axis_positions,
+                    shared_operands,
+                )
+            end
         end
     end
     return Tuple(fluxes)

@@ -23,8 +23,8 @@ end
 """Static scalar reduction ``sum((value * weight)^Exponent)`` over paired operands.
 
 The reduction stays inside the runtime IR instead of embedding a fully expanded tuple
-reduction in every consumer-resource edge. This keeps generated grazing expressions compact
-as the number of plankton functional types increases.
+reduction in every consumer-resource edge. This keeps generated consumption expressions
+compact as the number of resources increases.
 """
 struct ProductPowerSumOp{Exponent,Values,Weights}
     values::Values
@@ -33,6 +33,12 @@ end
 
 ProductPowerSumOp{Exponent}(values::Tuple, weights::Tuple) where {Exponent} =
     ProductPowerSumOp{Exponent,typeof(values),typeof(weights)}(values, weights)
+
+"""Static operand that divides one child operand by another."""
+struct QuotientOp{Numerator,Denominator}
+    numerator::Numerator
+    denominator::Denominator
+end
 
 @inline operand_value(::InputOp{Index}, bgc, args) where {Index} = @inbounds args[Index]
 @inline operand_value(::ParameterOp{Name,()}, bgc, args) where {Name} = getproperty(bgc.parameters, Name)
@@ -89,6 +95,9 @@ Base.@noinline function operand_value(
 ) where {Exponent}
     return _product_power_sum(op.values, op.weights, bgc, args, Val(Exponent))
 end
+
+@inline operand_value(op::QuotientOp, bgc, args) =
+    operand_value(op.numerator, bgc, args) / operand_value(op.denominator, bgc, args)
 
 @inline operand_values(::Tuple{}, bgc, args) = ()
 @inline function operand_values(operands::Tuple, bgc, args)

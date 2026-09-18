@@ -54,11 +54,19 @@ function factor_value end
            )
 end
 
-"""Evaluate one heterotrophic consumer-by-resource uptake rate."""
+"""Evaluate one substrate uptake rate from a shared heterotrophic consumer capacity."""
 @inline function process_rate(
-    ::HeterotrophicConsumption, resource, consumer, maximum_rate, half_saturation
+    ::HeterotrophicConsumption,
+    resource,
+    consumer,
+    maximum_rate,
+    half_saturation,
+    substrate_preference,
+    total_substrate_availability,
 )
-    return maximum_rate * factor_value(Monod(), resource, half_saturation) * consumer
+    normalized_substrate = substrate_preference * resource / half_saturation
+    return maximum_rate * consumer * normalized_substrate /
+           (one(total_substrate_availability) + total_substrate_availability)
 end
 
 """Evaluate proportional loss of one prey state from a shared consumer grazing capacity."""
