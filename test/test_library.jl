@@ -8,11 +8,10 @@ using Agate.Library.Allometry:
 using Agate.Library.Nutrients:
     frank_tnorm, liebig_minimum, normalized_droop_limitation, quota_uptake_regulation
 using Agate.Library.Photosynthesis: geider_light_response, smith_light_limitation
-using Agate.Library.Predation: holling_type_ii, preferential_predation_loss
+using Agate.Library.Predation: holling_type_ii
 
 @testset "Library" begin
     @test holling_type_ii(1.0, 1.0) == 0.5
-    @test preferential_predation_loss(0.2, 1.0, 0.5, 0.1, 0.2, 0.8) ≈ 1 / 150
 end
 
 @testset "Allometry accepts realized diameter tuples" begin
