@@ -13,7 +13,7 @@ struct NiPiZDFamily <: AbstractModelFamily end
 
 family_id(::NiPiZDFamily) = :NiPiZD
 registered_family(::Val{:NiPiZD}) = NiPiZDFamily()
-definition_version(::NiPiZDFamily)::VersionNumber = v"0.1.0"
+definition_version(::NiPiZDFamily)::VersionNumber = v"0.2.0"
 
 const DEFAULT_SIZE_STRUCTURE = (
     phytoplankton=(P=(n=2, min_esd=2, max_esd=10, spacing=:log),),

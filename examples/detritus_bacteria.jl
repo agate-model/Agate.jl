@@ -35,6 +35,7 @@ processes = (
         bindings=(
             maximum_rate=:maximum_consumption_rate,
             half_saturation=:pom_half_saturation,
+            substrate_preference=:substrate_preference,
             assimilation=:bacterial_assimilation,
         ),
         factors=(
@@ -72,6 +73,7 @@ processes = (
 parameters = (
     maximum_consumption_rate=Parameter(0.8 / day),
     pom_half_saturation=Parameter(0.2),
+    substrate_preference=Parameter(1.0),
     bacterial_assimilation=Parameter(0.65),
     temperature_q10=Parameter(2.0),
     reference_temperature=Parameter(20.0),

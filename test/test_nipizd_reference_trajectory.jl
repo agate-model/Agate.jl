@@ -22,7 +22,12 @@ const NIPIZD_REFERENCE_RTOL = 1e-12
 const NIPIZD_REFERENCE_ATOL = 1e-14
 
 reference_path = joinpath(
-    @__DIR__, "reference", "nipizd_v0.11.0_production_reference.csv"
+    @__DIR__, "reference", "nipizd_definition_v0.2.0_reference.csv"
+)
+isfile(reference_path) || error(
+    "NiPiZD reference trajectory is missing at $reference_path. " *
+    "Generate it with `julia --project=. scripts/generate_nipizd_reference.jl` " *
+    "and commit the generated CSV."
 )
 reference_rows = filter(
     row -> !isempty(row) && !startswith(row, '#'),
@@ -34,7 +39,7 @@ reference = map(reference_rows[2:end]) do row
     return NamedTuple{Tuple(header)}(Tuple(values))
 end
 
-@testset "NiPiZD v0.11 production trajectory" begin
+@testset "NiPiZD definition v0.2.0 reference trajectory" begin
     @test Tuple(header) == (:time_days, :total_nitrogen, NIPIZD_REFERENCE_TRACERS...)
     @test [row.time_days for row in reference] == collect(0.0:0.25:60.0)
 

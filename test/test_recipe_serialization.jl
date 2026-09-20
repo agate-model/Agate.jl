@@ -36,7 +36,7 @@ end
 
 @testset "NiPiZD versioned family recipes" begin
     family = NiPiZD.NiPiZDFamily()
-    @test definition_version(family) == v"0.1.0"
+    @test definition_version(family) == v"0.2.0"
     direct = NiPiZD.construct(; grid=BoxModelGrid(Float32))
     with_recipe, default_recipe = NiPiZD.construct_plus_recipe(; grid=BoxModelGrid(Float32))
     family_constructed = Agate.Construction.construct(family;
@@ -65,7 +65,7 @@ end
     ))
     @test encoded["schema"] == Agate.Construction.recipe_schema() == "agate.model_recipe.v1"
     @test encoded["family"] == "NiPiZD"
-    @test encoded["definition_version"] == "0.1.0"
+    @test encoded["definition_version"] == "0.2.0"
     @test Set(keys(encoded["realization"])) == Set((
         "plankton_pfts",
         "parameter_overrides",
@@ -200,13 +200,13 @@ end
     @test_throws ArgumentError decode_recipe(missing_version)
 
     mismatched_version = rehashed(encoded) do x
-        x["definition_version"] = "0.1.1"
+        x["definition_version"] = "0.2.1"
     end
     @test_throws ArgumentError decode_recipe(mismatched_version)
 
     bumped_recipe = Agate.Construction.ModelRecipe(
         recipe.family,
-        v"0.1.1",
+        v"0.2.1",
         recipe.plankton_pfts,
         recipe.parameter_overrides,
         recipe.sinking_tracers,

@@ -38,18 +38,36 @@ struct FactorizedGrowth <: AbstractFormulation end
 """Abstract supertype for named multiplicative process-rate factors."""
 abstract type AbstractFactor end
 
-"""Living-prey grazing formulation with pairwise consumer-resource capacity.
+"""Living-prey grazing with one consumer-level ingestion capacity shared across prey.
 
-`maximum_rate` is a per-consumer rate applied independently to each declared prey edge, so
-each edge receives the full per-consumer rate. `palatability` is a nonnegative interaction weight,
-not a probability.
+`switching_exponent=1` allocates grazing proportionally to palatable prey biomass, while larger
+positive integer exponents increasingly favor abundant palatable prey. `palatability` is a
+nonnegative interaction weight, not a probability.
 """
-struct PreferentialGrazing <: AbstractFormulation end
+struct PreferentialGrazing{T<:Integer} <: AbstractFormulation
+    switching_exponent::T
+    function PreferentialGrazing(switching_exponent::T) where {T<:Integer}
+        switching_exponent isa Bool && throw(
+            ArgumentError("`switching_exponent` must be a positive integer"),
+        )
+        switching_exponent > zero(switching_exponent) || throw(
+            ArgumentError("`switching_exponent` must be a positive integer"),
+        )
+        return new{T}(switching_exponent)
+    end
+end
 
-"""Heterotrophic resource-consumption formulation with pairwise consumer-resource capacity.
+function PreferentialGrazing(; switching_exponent=1)
+    switching_exponent isa Integer || throw(
+        ArgumentError("`switching_exponent` must be a positive integer"),
+    )
+    return PreferentialGrazing(switching_exponent)
+end
 
-`maximum_rate` is a per-consumer rate applied independently to each declared resource edge, so
-each edge receives the full per-consumer rate.
+"""Heterotrophic consumption of substitutable substrates with shared consumer capacity.
+
+`maximum_rate` is one per-consumer uptake capacity shared across all declared substrates.
+`substrate_preference` controls the relative accessibility of each consumer-resource pair.
 """
 struct HeterotrophicConsumption <: AbstractFormulation end
 

@@ -6,7 +6,7 @@ using ..Components: Plankton, Pool, PlanktonStateRef, ModelLayout, element, stat
 using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
 using ..Parameters: Parameter, ConstructionParameter, DerivedDefault, parameter_definitions
 using ..Library.Mortality: linear_loss
-using ..Library.Predation: preferential_predation_loss
+using ..Library.Predation: proportional_predation_loss, switching_predation_loss
 using ..Library.Photosynthesis: geider_light_response, smith_light_limitation
 using ..Library.Nutrients:
     frank_tnorm, liebig_minimum, monod_limitation, normalized_droop_limitation,

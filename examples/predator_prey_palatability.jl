@@ -35,7 +35,9 @@ nothing #hide
 
 # The default configuration uses the model's allometric palatability calculation.
 # By default, predators prefer prey that are 10 times smaller than themselves
-# (`Vopt = 10`).
+# (`Vopt = 10`). Palatability contributes to the consumer's total effective food
+# concentration and to allocation of its shared ingestion capacity among prey.
+# NiPiZD uses proportional allocation (`switching_exponent = 1`) by default.
 #
 # Instead, we will change that optimum to `Vopt = 5` for the two
 # zooplankton consumers. Vector parameters can be overridden by plankton SizeClass

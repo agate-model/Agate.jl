@@ -20,6 +20,26 @@ struct TupleOp{Operands}
     operands::Operands
 end
 
+"""Static scalar reduction ``sum((value * weight)^Exponent)`` over paired operands.
+
+The reduction stays inside the runtime IR instead of embedding a fully expanded tuple
+reduction in every consumer-resource edge. This keeps generated consumption expressions
+compact as the number of resources increases.
+"""
+struct ProductPowerSumOp{Exponent,Values,Weights}
+    values::Values
+    weights::Weights
+end
+
+ProductPowerSumOp{Exponent}(values::Tuple, weights::Tuple) where {Exponent} =
+    ProductPowerSumOp{Exponent,typeof(values),typeof(weights)}(values, weights)
+
+"""Static operand that divides one child operand by another."""
+struct QuotientOp{Numerator,Denominator}
+    numerator::Numerator
+    denominator::Denominator
+end
+
 @inline operand_value(::InputOp{Index}, bgc, args) where {Index} = @inbounds args[Index]
 @inline operand_value(::ParameterOp{Name,()}, bgc, args) where {Name} = getproperty(bgc.parameters, Name)
 @inline operand_value(::ParameterOp{Name,Indices}, bgc, args) where {Name,Indices} =
@@ -38,6 +58,46 @@ end
     return one(total) - total
 end
 @inline operand_value(op::TupleOp, bgc, args) = operand_values(op.operands, bgc, args)
+
+@inline _product_power(value, weight, ::Val{1}) = value * weight
+@inline _product_power(value, weight, ::Val{Exponent}) where {Exponent} =
+    (value * weight)^Exponent
+
+@inline function _product_power_sum(
+    values::Tuple{V}, weights::Tuple{W}, bgc, args, exponent
+) where {V,W}
+    return _product_power(
+        operand_value(first(values), bgc, args),
+        operand_value(first(weights), bgc, args),
+        exponent,
+    )
+end
+
+@inline function _product_power_sum(
+    values::Tuple{V1,V2,Vararg{Any,N}},
+    weights::Tuple{W1,W2,Vararg{Any,N}},
+    bgc,
+    args,
+    exponent,
+) where {V1,V2,W1,W2,N}
+    current = _product_power(
+        operand_value(first(values), bgc, args),
+        operand_value(first(weights), bgc, args),
+        exponent,
+    )
+    return current + _product_power_sum(
+        Base.tail(values), Base.tail(weights), bgc, args, exponent
+    )
+end
+
+Base.@noinline function operand_value(
+    op::ProductPowerSumOp{Exponent}, bgc, args
+) where {Exponent}
+    return _product_power_sum(op.values, op.weights, bgc, args, Val(Exponent))
+end
+
+@inline operand_value(op::QuotientOp, bgc, args) =
+    operand_value(op.numerator, bgc, args) / operand_value(op.denominator, bgc, args)
 
 @inline operand_values(::Tuple{}, bgc, args) = ()
 @inline function operand_values(operands::Tuple, bgc, args)

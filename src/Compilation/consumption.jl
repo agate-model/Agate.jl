@@ -7,15 +7,22 @@ function _consumption_rate(
     reference_resource::Symbol,
     consumer::Symbol,
     axis_positions::NamedTuple,
+    shared_operands::Tuple,
 )
-    operands = (
-        input_operand(context.layout, inventory),
-        input_operand(context.layout, reference_resource),
+    inventory_operand = input_operand(context.layout, inventory)
+    common_operands = (
         input_operand(context.layout, consumer),
         parameter_operand(slots.maximum_rate, context, axis_positions),
         parameter_operand(slots.half_saturation, context, axis_positions),
         parameter_operand(slots.palatability, context, axis_positions),
+        shared_operands...,
     )
+    reference_operands = if formulation.switching_exponent == 1
+        ()
+    else
+        (input_operand(context.layout, reference_resource),)
+    end
+    operands = (inventory_operand, reference_operands..., common_operands...)
     rate_factors = _factor_ops(context, named, axis_positions)
     return RateOp(formulation, operands; factors=rate_factors)
 end
@@ -28,12 +35,15 @@ function _consumption_rate(
     consumer::Symbol,
     resource::Symbol,
     axis_positions::NamedTuple,
+    shared_operands::Tuple,
 )
     operands = (
         input_operand(context.layout, resource),
         input_operand(context.layout, consumer),
         parameter_operand(slots.maximum_rate, context, axis_positions),
         parameter_operand(slots.half_saturation, context, axis_positions),
+        parameter_operand(slots.substrate_preference, context, axis_positions),
+        shared_operands...,
     )
     rate_factors = _factor_ops(context, named, axis_positions)
     return RateOp(formulation, operands; factors=rate_factors)
@@ -73,6 +83,7 @@ function _living_consumption_fluxes!(
     resource,
     slots,
     axis_positions,
+    shared_operands::Tuple,
 )
     layout = context.layout
     state_refs = getproperty(named.semantic_facts.resource_state_sets, resource.component)
@@ -93,6 +104,7 @@ function _living_consumption_fluxes!(
             resource.tracer,
             consumer.tracer,
             axis_positions,
+            shared_operands,
         )
         push!(fluxes, FluxSpec(resource_tracer, rate, Weight{-1}()))
 
@@ -121,6 +133,7 @@ function _heterotrophic_consumption_fluxes!(
     resource,
     slots,
     axis_positions,
+    shared_operands::Tuple,
 )
     layout = context.layout
     rate = _consumption_rate(
@@ -131,6 +144,7 @@ function _heterotrophic_consumption_fluxes!(
         consumer.tracer,
         resource.tracer,
         axis_positions,
+        shared_operands,
     )
     assimilation = parameter_operand(slots.assimilation, context, axis_positions)
     consumer_element_states = getproperty(
@@ -164,16 +178,76 @@ function process_fluxes(
     slots = named.binding_refs.process
     fluxes = Any[]
 
-    for consumer in consumers, resource in resources
-        axis_positions = (consumer=consumer.position, resource=resource.position)
-        if form isa PreferentialGrazing
-            _living_consumption_fluxes!(
-                fluxes, named, context, consumer, resource, slots, axis_positions
+    if form isa PreferentialGrazing
+        for consumer in consumers
+            reference_resources = Tuple(
+                input_operand(layout, resource.tracer) for resource in resources
             )
-        else
-            _heterotrophic_consumption_fluxes!(
-                fluxes, named, context, consumer, resource, slots, axis_positions
+            palatabilities = Tuple(
+                parameter_operand(
+                    slots.palatability,
+                    context,
+                    (consumer=consumer.position, resource=resource.position),
+                ) for resource in resources
             )
+            # Keep consumer-level prey reductions as scalar IR nodes. Materializing the full
+            # evaluated prey/palatability tuples in every edge rate causes generated-code
+            # growth to become pathological for richer food webs.
+            total_palatable_biomass = ProductPowerSumOp{1}(reference_resources, palatabilities)
+            switching_exponent = form.switching_exponent
+            shared_operands = if switching_exponent == 1
+                (total_palatable_biomass,)
+            else
+                switching_weight_sum = ProductPowerSumOp{switching_exponent}(
+                    reference_resources, palatabilities
+                )
+                (total_palatable_biomass, switching_weight_sum)
+            end
+
+            for resource in resources
+                axis_positions = (consumer=consumer.position, resource=resource.position)
+                _living_consumption_fluxes!(
+                    fluxes,
+                    named,
+                    context,
+                    consumer,
+                    resource,
+                    slots,
+                    axis_positions,
+                    shared_operands,
+                )
+            end
+        end
+    else
+        for consumer in consumers
+            resource_operands = Tuple(
+                input_operand(layout, resource.tracer) for resource in resources
+            )
+            substrate_affinities = Tuple(begin
+                axis_positions = (consumer=consumer.position, resource=resource.position)
+                QuotientOp(
+                    parameter_operand(slots.substrate_preference, context, axis_positions),
+                    parameter_operand(slots.half_saturation, context, axis_positions),
+                )
+            end for resource in resources)
+            total_substrate_availability = ProductPowerSumOp{1}(
+                resource_operands, substrate_affinities
+            )
+            shared_operands = (total_substrate_availability,)
+
+            for resource in resources
+                axis_positions = (consumer=consumer.position, resource=resource.position)
+                _heterotrophic_consumption_fluxes!(
+                    fluxes,
+                    named,
+                    context,
+                    consumer,
+                    resource,
+                    slots,
+                    axis_positions,
+                    shared_operands,
+                )
+            end
         end
     end
     return Tuple(fluxes)

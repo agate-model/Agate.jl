@@ -54,19 +54,60 @@ function factor_value end
            )
 end
 
-"""Evaluate one heterotrophic consumer-by-resource uptake rate."""
+"""Evaluate one substrate uptake rate from a shared heterotrophic consumer capacity."""
 @inline function process_rate(
-    ::HeterotrophicConsumption, resource, consumer, maximum_rate, half_saturation
+    ::HeterotrophicConsumption,
+    resource,
+    consumer,
+    maximum_rate,
+    half_saturation,
+    substrate_preference,
+    total_substrate_availability,
 )
-    return maximum_rate * factor_value(Monod(), resource, half_saturation) * consumer
+    substrate_availability = substrate_preference * resource / half_saturation
+    return maximum_rate * consumer * substrate_availability /
+           (one(total_substrate_availability) + total_substrate_availability)
 end
 
-"""Evaluate loss of one prey state using the reference-state grazing intensity."""
+"""Evaluate proportional loss of one prey state from a shared consumer grazing capacity."""
 @inline process_rate(
     ::PreferentialGrazing,
-    inventory, reference, consumer, maximum_rate, half_saturation, palatability,
-) = preferential_predation_loss(
-    inventory, reference, consumer, maximum_rate, half_saturation, palatability
+    inventory,
+    consumer,
+    maximum_rate,
+    half_saturation,
+    palatability,
+    total_palatable_biomass,
+) = proportional_predation_loss(
+    inventory,
+    consumer,
+    maximum_rate,
+    half_saturation,
+    palatability,
+    total_palatable_biomass,
+)
+
+"""Evaluate switching loss of one prey state from a shared consumer grazing capacity."""
+@inline process_rate(
+    formulation::PreferentialGrazing,
+    inventory,
+    reference,
+    consumer,
+    maximum_rate,
+    half_saturation,
+    palatability,
+    total_palatable_biomass,
+    switching_weight_sum,
+) = switching_predation_loss(
+    inventory,
+    reference,
+    consumer,
+    maximum_rate,
+    half_saturation,
+    palatability,
+    total_palatable_biomass,
+    switching_weight_sum,
+    formulation.switching_exponent,
 )
 
 """Evaluate one linear source remineralization rate."""

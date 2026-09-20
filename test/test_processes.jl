@@ -201,10 +201,11 @@ end
         LinearRemineralization(), Products((a=:A, b=:B); fractions=(a=:fraction_a,)),
         FixedStoichiometry(; reference_element=:carbon),
     )
-    expected(name) = name in (:minimum_quota, :maximum_quota, :hill, :sharpness, :q10) ? :positive :
+    expected(node, name) = node isa HeterotrophicConsumption && name === :half_saturation ? :positive :
+        name in (:minimum_quota, :maximum_quota, :hill, :sharpness, :q10) ? :positive :
         name === :reference_temperature ? :finite :
         name in (:assimilation, :fraction) ? :unit_interval : :nonnegative
-    @test all(slot.domain === expected(slot.name) for node in nodes for slot in parameter_slots(node))
+    @test all(slot.domain === expected(node, slot.name) for node in nodes for slot in parameter_slots(node))
     @test_throws ArgumentError Products((a=:A, b=:B); fractions=(a=:fa, b=:fb))
     @test_throws ArgumentError Agate.Processes.ParameterSlot(:x, (:consumer, :consumer))
 end

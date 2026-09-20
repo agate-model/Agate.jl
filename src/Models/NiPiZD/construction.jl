@@ -148,7 +148,7 @@ using Agate.Library.Allometry: AllometricParam, PowerLaw
 bgc = NiPiZD.construct(;
     parameters=(;
         maximum_growth_rate=AllometricParam(
-            PowerLaw(); prefactor=2 / day, exponent=-0.15
+            PowerLaw(); prefactor=1 / day, exponent=-0.15
         ),
     ),
 )

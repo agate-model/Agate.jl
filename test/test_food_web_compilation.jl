@@ -4,13 +4,12 @@ using Oceananigans.Biogeochemistry:
 
 using Agate.Components: Plankton, Pool
 using Agate.Construction: construct
-using Agate.Introspection: interaction_matrix
 using Agate.Parameters: Parameter, NoDefault
 using Agate.Processes:
     ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, Smith, Monod,
     Q10, HeterotrophicConsumption, PreferentialGrazing, participants
 
-function food_web_definition()
+function food_web_definition(; grazing=PreferentialGrazing())
     components = (
         N=Pool(:nitrogen),
         D=Pool(:nitrogen),
@@ -44,13 +43,14 @@ function food_web_definition()
             bindings=(
                 maximum_rate=:maximum_consumption_rate,
                 half_saturation=:pom_half_saturation,
+                substrate_preference=:substrate_preference_matrix,
                 assimilation=:bacterial_assimilation,
             ),
             factors=(temperature=temperature,),
             unassimilated_products=:D,
         ),
         grazing_living=Consumption(
-            PreferentialGrazing();
+            grazing;
             consumers=(:M, :Z),
             resources=(:P, :B),
             bindings=(
@@ -71,6 +71,7 @@ function food_web_definition()
         reference_temperature=no_default(),
         maximum_consumption_rate=no_default(),
         pom_half_saturation=no_default(),
+        substrate_preference_matrix=no_default(),
         bacterial_assimilation=no_default(),
         maximum_predation_rate=no_default(),
         holling_half_saturation=no_default(),
@@ -89,6 +90,7 @@ function food_web_parameter_overrides(::Type{T}=Float64) where {T<:Real}
         reference_temperature=T(20),
         maximum_consumption_rate=T[1.5e-5],
         pom_half_saturation=T[0.15],
+        substrate_preference_matrix=reshape(T[1.0], 1, 1),
         bacterial_assimilation=reshape(T[0.65], 1, 1),
         maximum_predation_rate=T[6e-5, 9e-5],
         holling_half_saturation=T[0.12, 0.18],
@@ -156,6 +158,9 @@ end
         Val(:POM), food_web_args(bgc, consumption_state; temperature=30.0)...
     )
     @test process_compiler_isapprox(consumption30, 2 * consumption20)
+    direct_consumption20 = -1.5e-5 * 0.03 *
+        Agate.Processes.factor_value(Monod(), 0.5, 0.15)
+    @test process_compiler_isapprox(consumption20, direct_consumption20)
 
     growth_state = (N=5.0, P_1=0.05)
     growth20 = bgc(
@@ -179,13 +184,12 @@ end
     @test derivative < 0
 end
 
-@testset "Multi-resource consumer pairwise capacity and storage axes" begin
+@testset "Multi-resource heterotrophs share capacity across substrates" begin
     components = (
         N=Pool(:nitrogen),
         POM_1=Pool(:nitrogen),
         POM_2=Pool(:nitrogen),
         POM_3=Pool(:nitrogen),
-        X=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.4]),
         B=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.8]),
     )
     processes = (
@@ -196,6 +200,7 @@ end
             bindings=(
                 maximum_rate=:maximum_consumption_rate,
                 half_saturation=:pom_half_saturation,
+                substrate_preference=:substrate_preference_matrix,
                 assimilation=:bacterial_assimilation,
             ),
             unassimilated_products=:N,
@@ -204,31 +209,75 @@ end
     parameters = (
         maximum_consumption_rate=Parameter(NoDefault()),
         pom_half_saturation=Parameter(NoDefault()),
+        substrate_preference_matrix=Parameter(NoDefault()),
         bacterial_assimilation=Parameter(NoDefault()),
     )
     definition = ModelDefinition(; components, processes, parameters)
-    bgc = construct(
-        definition;
-        parameter_overrides=(
-            maximum_consumption_rate=[2.0],
-            pom_half_saturation=[1.0, 3.0, 7.0],
-            bacterial_assimilation=reshape([0.2, 0.4, 0.8], 1, 3),
-        ),
+    base_overrides = (
+        maximum_consumption_rate=[2.0],
+        pom_half_saturation=[1.0, 3.0, 7.0],
+        substrate_preference_matrix=ones(1, 3),
+        bacterial_assimilation=reshape([0.2, 0.4, 0.8], 1, 3),
     )
-
-    @test bgc.parameters.maximum_consumption_rate == [2.0]
-    @test bgc.parameters.pom_half_saturation == [1.0, 3.0, 7.0]
-    @test bgc.parameters.bacterial_assimilation == reshape([0.2, 0.4, 0.8], 1, 3)
-    bacterial_axes = interaction_matrix(bgc, :bacterial_assimilation)
-    @test (bacterial_axes.rows, bacterial_axes.columns) == ([:B_1], [:POM_1, :POM_2, :POM_3])
+    bgc = construct(definition; parameter_overrides=base_overrides)
 
     names = Agate.Introspection.tracer_names(bgc)
-    state = (N=0.0, POM_1=1.0, POM_2=1.0, POM_3=1.0, X_1=5.0, B_1=1.0)
+    state = (N=0.0, POM_1=1.0, POM_2=1.0, POM_3=1.0, B_1=1.0)
     args = (0.0, 0.0, 0.0, 0.0, Tuple(getproperty(state, name) for name in names)...)
-    expected = (POM_1=-1.0, POM_2=-0.5, POM_3=-0.25, B_1=0.6, N=1.15, X_1=0.0)
+    expected = (POM_1=-21 / 26, POM_2=-7 / 26, POM_3=-3 / 26, B_1=47 / 130, N=54 / 65)
 
     for (name, value) in pairs(expected)
         @test bgc(Val(name), args...) ≈ value
     end
+    total_uptake = -sum(bgc(Val(name), args...) for name in (:POM_1, :POM_2, :POM_3))
+    @test total_uptake < 2.0
     @test isapprox(sum(bgc(Val(name), args...) for name in names), 0.0; atol=1e-14)
+
+    preferred = construct(
+        definition;
+        parameter_overrides=merge(
+            base_overrides,
+            (substrate_preference_matrix=reshape([1.0, 3.0, 7.0], 1, 3),),
+        ),
+    )
+    preferred_losses = Tuple(-preferred(Val(name), args...) for name in (:POM_1, :POM_2, :POM_3))
+    @test all(isapprox.(preferred_losses, (0.5, 0.5, 0.5)))
+
+    zero_state = (N=0.0, POM_1=0.0, POM_2=0.0, POM_3=0.0, B_1=1.0)
+    zero_args = (0.0, 0.0, 0.0, 0.0, Tuple(getproperty(zero_state, name) for name in names)...)
+    @test all(iszero(bgc(Val(name), zero_args...)) for name in (:POM_1, :POM_2, :POM_3, :B_1, :N))
+end
+
+@testset "Preferential grazing shares consumer capacity across prey" begin
+    function grazing_model(formulation; half_saturation=1.0)
+        overrides = merge(
+            food_web_parameter_overrides(),
+            (
+                maximum_predation_rate=[0.0, 1.0],
+                holling_half_saturation=fill(half_saturation, 2),
+                living_palatability_matrix=[0.0 0.0; 0.8 0.8],
+                living_assimilation_matrix=ones(2, 2),
+            ),
+        )
+        return construct(food_web_definition(; grazing=formulation); parameter_overrides=overrides)
+    end
+    prey_losses = (model, p, b) -> begin
+        args = food_web_args(model, (P_1=p, B_1=b, Z_1=1.0))
+        return (-model(Val(:P_1), args...), -model(Val(:B_1), args...))
+    end
+
+    expected_total = 0.8 / (1.0 + 0.8)
+    proportional = grazing_model(PreferentialGrazing())
+    @test sum(prey_losses(proportional, 1.0, 0.0)) ≈ expected_total
+    @test sum(prey_losses(proportional, 0.5, 0.5)) ≈ expected_total
+
+    switching = grazing_model(PreferentialGrazing(; switching_exponent=2))
+    switched = prey_losses(switching, 0.75, 0.25)
+    @test sum(switched) ≈ expected_total
+    @test switched[1] / switched[2] ≈ 9.0
+
+    zero_proportional = grazing_model(PreferentialGrazing(); half_saturation=0.0)
+    zero_switching = grazing_model(PreferentialGrazing(; switching_exponent=2); half_saturation=0.0)
+    @test prey_losses(zero_proportional, 0.0, 0.0) == (0.0, 0.0)
+    @test prey_losses(zero_switching, 0.0, 0.0) == (0.0, 0.0)
 end
