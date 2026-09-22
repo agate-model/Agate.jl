@@ -19,7 +19,7 @@ struct FrankenLOBSTERFamily <: AbstractModelFamily end
 
 family_id(::FrankenLOBSTERFamily) = :FrankenLOBSTER
 registered_family(::Val{:FrankenLOBSTER}) = FrankenLOBSTERFamily()
-definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.2.0"
+definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.3.0"
 
 """LOBSTER3-like default living-community size structure."""
 const DEFAULT_SIZE_STRUCTURE = (
@@ -103,10 +103,11 @@ const FRANKENLOBSTER_PROCESSES = (
         ),
         unassimilated_products=:inorganic_waste,
     ),
-    grazing_Z_on_P=Consumption(
+    # One grazing process shares each zooplankton ingestion capacity across all living prey.
+    grazing_Z_on_living=Consumption(
         PreferentialGrazing();
         consumers=:Z,
-        resources=:P,
+        resources=(:P, :B),
         bindings=(
             maximum_rate=:maximum_predation_rate,
             half_saturation=:grazing_half_saturation,

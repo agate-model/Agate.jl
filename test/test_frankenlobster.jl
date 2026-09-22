@@ -88,6 +88,8 @@ end
 
     @test required_biogeochemical_tracers(plankton) ==
         (:nano_1, :pico_1, :meso_1, :micro_1, :heterotroph_1, :heterotroph_2)
+    @test size(plankton.runtime.parameters.palatability_matrix) == (2, 4)
+    @test size(plankton.runtime.parameters.assimilation_matrix) == (2, 4)
 end
 
 @testset "FrankenLOBSTER NPD nitrate/ammonium growth bridge" begin
@@ -153,8 +155,8 @@ end
             zooplankton_mortality_rate=(Z_1=0.0, Z_2=0.0),
             maximum_predation_rate=(Z_1=1.0, Z_2=0.0),
             grazing_half_saturation=(Z_1=1.0, Z_2=1.0),
-            palatability_matrix=[1.0 0.0; 0.0 0.0],
-            assimilation_matrix=[0.5 0.0; 0.0 0.0],
+            palatability_matrix=[1.0 0.0 0.0; 0.0 0.0 0.0],
+            assimilation_matrix=[0.5 0.0 0.0; 0.0 0.0 0.0],
         ),
     )
     bgc = _frankenlobster_npd(plankton)
@@ -171,6 +173,38 @@ end
     @test z ≈ 1 / 3
     @test waste ≈ 1 / 3
     @test p + z + waste ≈ 0.0 atol=1e-14
+end
+
+
+@testset "FrankenLOBSTER Z shares one ingestion capacity across P and B prey" begin
+    plankton = FrankenLOBSTER._construct_plankton(;
+        grid=dummy_grid(Float64),
+        parameters=(
+            maximum_growth_rate=(P_1=0.0, P_2=0.0),
+            phytoplankton_mortality_rate=(P_1=0.0, P_2=0.0),
+            zooplankton_mortality_rate=(Z_1=0.0, Z_2=0.0),
+            bacterioplankton_mortality_rate=(B_1=0.0,),
+            bacterial_maximum_uptake_rate=(B_1=0.0,),
+            maximum_predation_rate=(Z_1=1.0, Z_2=0.0),
+            grazing_half_saturation=(Z_1=1.0, Z_2=1.0),
+            palatability_matrix=[1.0 0.0 1.0; 0.0 0.0 0.0],
+            assimilation_matrix=[0.5 0.0 0.25; 0.0 0.0 0.0],
+        ),
+    )
+    bgc = _frankenlobster_npd(plankton)
+    fields = _frankenlobster_fields(; P_1=1.0, B_1=1.0, Z_1=1.0)
+    auxiliary_fields = (PAR=_cell(1.0),)
+    clock = (; time=0.0)
+    grid = dummy_grid(Float64)
+
+    p = bgc(1, 1, 1, grid, Val(:P_1), clock, fields, auxiliary_fields)
+    b = bgc(1, 1, 1, grid, Val(:B_1), clock, fields, auxiliary_fields)
+    z = bgc(1, 1, 1, grid, Val(:Z_1), clock, fields, auxiliary_fields)
+    waste = solid_waste(1, 1, 1, grid, plankton, bgc, fields, auxiliary_fields)
+
+    @test [p, b, z, waste] ≈ [-1 / 3, -1 / 3, 1 / 4, 5 / 12]
+    @test -(p + b) ≈ 2 / 3
+    @test p + b + z + waste ≈ 0.0 atol=1e-14
 end
 
 
