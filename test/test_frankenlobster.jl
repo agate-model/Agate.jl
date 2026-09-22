@@ -58,6 +58,11 @@ end
     @test plankton.runtime.metadata.plankton_diameters ==
         (0.6f0, 1.2f0, 6.0f0, 12.0f0, 0.6f0)
 
+    nitrate_K = plankton.runtime.parameters.nitrate_half_saturation
+    ammonium_K = plankton.runtime.parameters.ammonium_half_saturation
+    @test ammonium_K ≈ 0.5f0 .* nitrate_K
+    @test nitrate_K[1] < nitrate_K[2]
+
     adapted = Adapt.adapt(identity, plankton)
     @test (
         required_biogeochemical_tracers(adapted),
