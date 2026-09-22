@@ -67,7 +67,8 @@ end
 """Heterotrophic consumption of substitutable substrates with shared consumer capacity.
 
 `maximum_rate` is one per-consumer uptake capacity shared across all declared substrates.
-`substrate_preference` controls the relative accessibility of each consumer-resource pair.
+`half_saturation` and `substrate_preference` are consumer-resource properties, allowing consumers
+to differ in affinity and relative accessibility for the same substrate.
 """
 struct HeterotrophicConsumption <: AbstractFormulation end
 

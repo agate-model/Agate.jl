@@ -3,7 +3,8 @@ import ...Parameters:
     Parameter,
     ConstructionParameter,
     DerivedDefault,
-    DiameterIndexedVectorDefault
+    DiameterIndexedVectorDefault,
+    ConsumerResourceFromConsumer
 
 using ...Library.Allometry: AllometricParam, PowerLaw
 using ...Parameters: AllometricPalatability, ConsumerAssimilation
@@ -27,6 +28,16 @@ function parameter_definitions(::FrankenLOBSTERFamily)
         PowerLaw(); prefactor=0.5 * 0.028154, exponent=0.65
     )
 
+    # Supplied LOBSTER3 heterotroph coefficients (Follett/Zakem/DARWIN family):
+    # mu_max = 1.836 * V^0.28 / day and
+    # K_DOM = k * mu_max * Qmin / Vmax = 0.04284 * V^0.65.
+    bacterial_maximum_uptake = AllometricParam(
+        PowerLaw(); prefactor=1.836 / day, exponent=0.28
+    )
+    bacterial_dom_half_saturation = AllometricParam(
+        PowerLaw(); prefactor=0.04284, exponent=0.65
+    )
+
     return (
         maximum_growth_rate=Parameter(
             DiameterIndexedVectorDefault(maximum_growth; default=0)
@@ -41,6 +52,17 @@ function parameter_definitions(::FrankenLOBSTERFamily)
         nitrate_ammonia_inhibition=Parameter(3.0),
         phytoplankton_mortality_rate=Parameter(5.8e-7),
         zooplankton_mortality_rate=Parameter(2.31e-6),
+        bacterial_maximum_uptake_rate=Parameter(
+            DiameterIndexedVectorDefault(bacterial_maximum_uptake; default=0)
+        ),
+        bacterial_dom_half_saturation=Parameter(
+            DerivedDefault(
+                ConsumerResourceFromConsumer(); deps=(:bacterial_dom_affinity_trait,)
+            )
+        ),
+        bacterial_substrate_preference=Parameter(1.0),
+        bacterial_assimilation=Parameter(0.1),
+        bacterioplankton_mortality_rate=Parameter(5.8e-7),
         maximum_predation_rate=Parameter(
             DiameterIndexedVectorDefault(
                 AllometricParam(PowerLaw(); prefactor=15.9 / day, exponent=-0.16);
@@ -70,6 +92,10 @@ function parameter_definitions(::FrankenLOBSTERFamily)
         ),
         assimilation_efficiency=ConstructionParameter(
             DiameterIndexedVectorDefault(0.7; default=0); axes=:plankton
+        ),
+        bacterial_dom_affinity_trait=ConstructionParameter(
+            DiameterIndexedVectorDefault(bacterial_dom_half_saturation; default=0);
+            axes=:plankton,
         ),
     )
 end

@@ -8,6 +8,7 @@ using ...Processes:
     Products,
     Monod,
     PreferentialGrazing,
+    HeterotrophicConsumption,
     QuadraticMortality
 
 import ...ModelFamilies: default_components, default_processes, definition_version
@@ -18,7 +19,7 @@ struct FrankenLOBSTERFamily <: AbstractModelFamily end
 
 family_id(::FrankenLOBSTERFamily) = :FrankenLOBSTER
 registered_family(::Val{:FrankenLOBSTER}) = FrankenLOBSTERFamily()
-definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.1.0"
+definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.2.0"
 
 """LOBSTER3-like default living-community size structure."""
 const DEFAULT_SIZE_STRUCTURE = (
@@ -29,13 +30,14 @@ const DEFAULT_SIZE_STRUCTURE = (
 
 # NO3, NH4, and DOM are OceanBioME-owned state in FrankenLOBSTER. They are represented
 # here so Agate processes can use the same named resource identities when compiling the
-# living-community equations. `solid_waste` is an exchange accumulator rather than a field:
-# its compiled tendency is reported to the surrounding NPD detritus component.
+# living-community equations. `solid_waste` and `inorganic_waste` are exchange
+# accumulators rather than fields; their compiled tendencies are reported to NPD.
 const FRANKENLOBSTER_COMPONENTS = (
     NO₃=Pool(:nitrogen),
     NH₄=Pool(:nitrogen),
     DOM=Pool(:nitrogen),
     solid_waste=Pool(:nitrogen),
+    inorganic_waste=Pool(:nitrogen),
     P=Plankton(;
         states=(nitrogen=:nitrogen,),
         reference_state=:nitrogen,
@@ -89,6 +91,18 @@ const FRANKENLOBSTER_PROCESSES = (
             ),
         ),
     ),
+    consumption_B_on_DOM=Consumption(
+        HeterotrophicConsumption();
+        consumers=:B,
+        resources=:DOM,
+        bindings=(
+            maximum_rate=:bacterial_maximum_uptake_rate,
+            half_saturation=:bacterial_dom_half_saturation,
+            substrate_preference=:bacterial_substrate_preference,
+            assimilation=:bacterial_assimilation,
+        ),
+        unassimilated_products=:inorganic_waste,
+    ),
     grazing_Z_on_P=Consumption(
         PreferentialGrazing();
         consumers=:Z,
@@ -111,6 +125,12 @@ const FRANKENLOBSTER_PROCESSES = (
         QuadraticMortality();
         plankton=:Z,
         bindings=(rate=:zooplankton_mortality_rate,),
+        products=Products(:solid_waste),
+    ),
+    mortality_B=Mortality(
+        QuadraticMortality();
+        plankton=:B,
+        bindings=(rate=:bacterioplankton_mortality_rate,),
         products=Products(:solid_waste),
     ),
 )

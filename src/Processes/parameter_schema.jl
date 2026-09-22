@@ -78,7 +78,7 @@ parameter_slots(::PreferentialGrazing) = (
 )
 parameter_slots(::HeterotrophicConsumption) = (
     ParameterSlot(:maximum_rate, (:consumer,); domain=:nonnegative),
-    ParameterSlot(:half_saturation, (:resource,); domain=:positive),
+    ParameterSlot(:half_saturation, (:consumer, :resource); domain=:positive),
     ParameterSlot(:substrate_preference, (:consumer, :resource); domain=:nonnegative),
     ParameterSlot(:assimilation, (:consumer, :resource); domain=:unit_interval),
 )

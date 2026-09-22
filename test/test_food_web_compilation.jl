@@ -89,7 +89,7 @@ function food_web_parameter_overrides(::Type{T}=Float64) where {T<:Real}
         temperature_q10=T(2),
         reference_temperature=T(20),
         maximum_consumption_rate=T[1.5e-5],
-        pom_half_saturation=T[0.15],
+        pom_half_saturation=reshape(T[0.15], 1, 1),
         substrate_preference_matrix=reshape(T[1.0], 1, 1),
         bacterial_assimilation=reshape(T[0.65], 1, 1),
         maximum_predation_rate=T[6e-5, 9e-5],
@@ -184,6 +184,43 @@ end
     @test derivative < 0
 end
 
+@testset "Heterotroph affinity is consumer-resource specific" begin
+    definition = ModelDefinition(;
+        components=(
+            DOM=Pool(:nitrogen),
+            B=Plankton(;
+                states=(nitrogen=:nitrogen,), reference_state=:nitrogen,
+                size_structure=[0.4, 0.8],
+            ),
+        ),
+        processes=(
+            uptake=Consumption(
+                HeterotrophicConsumption();
+                consumers=:B, resources=:DOM,
+                bindings=(
+                    maximum_rate=:mu, half_saturation=:K,
+                    substrate_preference=:preference, assimilation=:assimilation,
+                ),
+            ),
+        ),
+        parameters=(
+            mu=Parameter(NoDefault()), K=Parameter(NoDefault()),
+            preference=Parameter(NoDefault()), assimilation=Parameter(NoDefault()),
+        ),
+    )
+    bgc = construct(
+        definition;
+        parameter_overrides=(
+            mu=[1.0, 1.0], K=reshape([1.0, 3.0], 2, 1),
+            preference=ones(2, 1), assimilation=ones(2, 1),
+        ),
+    )
+    args = food_web_args(bgc, (DOM=1.0, B_1=1.0, B_2=1.0))
+
+    @test [bgc(Val(:B_1), args...), bgc(Val(:B_2), args...), bgc(Val(:DOM), args...)] ≈
+        [0.5, 0.25, -0.75]
+end
+
 @testset "Multi-resource heterotrophs share capacity across substrates" begin
     components = (
         N=Pool(:nitrogen),
@@ -215,7 +252,7 @@ end
     definition = ModelDefinition(; components, processes, parameters)
     base_overrides = (
         maximum_consumption_rate=[2.0],
-        pom_half_saturation=[1.0, 3.0, 7.0],
+        pom_half_saturation=reshape([1.0, 3.0, 7.0], 1, 3),
         substrate_preference_matrix=ones(1, 3),
         bacterial_assimilation=reshape([0.2, 0.4, 0.8], 1, 3),
     )

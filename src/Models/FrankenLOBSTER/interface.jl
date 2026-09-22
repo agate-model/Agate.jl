@@ -8,16 +8,12 @@ import Oceananigans.Biogeochemistry:
 
 using OceanBioME.Models.NutrientsPlanktonDetritusModels:
     NutrientsPlanktonDetritus
-using OceanBioME.Models.NutrientsPlanktonDetritusModels.NutrientsModels:
-    Nutrients,
-    NitrateAmmonia
-
 import OceanBioME.Models.NutrientsPlanktonDetritusModels:
     dissolved_waste,
-    inorganic_nitrogen_waste,
     inorganic_waste,
     nutrient_uptake,
     solid_waste
+import OceanBioME.Models.NutrientsPlanktonDetritusModels.DetritusModels: grazing
 
 """Internal OceanBioME plankton component backed by a compiled Agate realization.
 
@@ -25,12 +21,14 @@ import OceanBioME.Models.NutrientsPlanktonDetritusModels:
 compiled accumulators reported through NPD hooks rather than registered as prognostic fields.
 OceanBioME-owned external fields are the remaining tracer identities in the compiled runtime.
 """
-struct FrankenLOBSTERPlankton{Runtime,OwnedTracers,ExchangeTracers}
+struct FrankenLOBSTERPlankton{Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers}
     runtime::Runtime
 end
 
-FrankenLOBSTERPlankton(runtime, owned::Tuple, exchange::Tuple=()) =
-    FrankenLOBSTERPlankton{typeof(runtime),owned,exchange}(runtime)
+function FrankenLOBSTERPlankton(runtime, owned::Tuple, exchange::Tuple=())
+    owned_type = mapreduce(name -> typeof(Val(name)), (A, B) -> Union{A,B}, owned)
+    return FrankenLOBSTERPlankton{typeof(runtime),owned,owned_type,exchange}(runtime)
+end
 
 @inline required_biogeochemical_tracers(
     ::FrankenLOBSTERPlankton{Runtime,OwnedTracers}
@@ -44,8 +42,8 @@ FrankenLOBSTERPlankton(runtime, owned::Tuple, exchange::Tuple=()) =
     biogeochemical_drift_velocity(plankton.runtime, tracer)
 
 @inline function external_tracers(
-    ::FrankenLOBSTERPlankton{Runtime,OwnedTracers,ExchangeTracers}
-) where {Runtime,OwnedTracers,ExchangeTracers}
+    ::FrankenLOBSTERPlankton{Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers}
+) where {Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers}
     return Tuple(
         tracer for tracer in required_biogeochemical_tracers(Runtime)
         if tracer ∉ OwnedTracers && tracer ∉ ExchangeTracers
@@ -53,13 +51,13 @@ FrankenLOBSTERPlankton(runtime, owned::Tuple, exchange::Tuple=()) =
 end
 
 @inline exchange_tracers(
-    ::FrankenLOBSTERPlankton{Runtime,OwnedTracers,ExchangeTracers}
-) where {Runtime,OwnedTracers,ExchangeTracers} = ExchangeTracers
+    ::FrankenLOBSTERPlankton{Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers}
+) where {Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers} = ExchangeTracers
 
 @inline function adapt_structure(
     to,
-    plankton::FrankenLOBSTERPlankton{Runtime,OwnedTracers,ExchangeTracers},
-) where {Runtime,OwnedTracers,ExchangeTracers}
+    plankton::FrankenLOBSTERPlankton{Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers},
+) where {Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers}
     return FrankenLOBSTERPlankton(adapt(to, plankton.runtime), OwnedTracers, ExchangeTracers)
 end
 
@@ -73,12 +71,12 @@ end
 
 @inline function _runtime_tracer_value(
     ::Val{Tracer},
-    plankton::FrankenLOBSTERPlankton{Runtime,OwnedTracers,ExchangeTracers},
+    plankton::FrankenLOBSTERPlankton{Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers},
     i,
     j,
     k,
     fields,
-) where {Tracer,Runtime,OwnedTracers,ExchangeTracers}
+) where {Tracer,Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers}
     Tracer in ExchangeTracers && return _exchange_zero(plankton, i, j, k, fields)
     return @inbounds getproperty(fields, Tracer)[i, j, k]
 end
@@ -120,14 +118,25 @@ end
 
 @inline _zero_clock(grid) = (; time=zero(eltype(grid)))
 
-# NPD plankton contract. The generic tendency method is used for arbitrary living-tracer
-# names; exact nitrate/ammonium intersections below preserve OceanBioME nutrient dispatch.
+# Restrict the NPD call overload to the concrete union of Agate-owned living tracer
+# Val types encoded in the plankton wrapper. OceanBioME-owned nutrient, detritus,
+# carbon, and oxygen tracers therefore keep their native NPD dispatch unchanged.
 @inline function (
     bgc::NutrientsPlanktonDetritus{FT,NUT,PLA}
-)(i, j, k, grid, tracer::Val, clock, fields, auxiliary_fields) where {
-    FT,NUT,PLA<:FrankenLOBSTERPlankton
+)(i, j, k, grid, tracer::OwnedTracerType, clock, fields, auxiliary_fields) where {
+    FT,
+    NUT,
+    Runtime,
+    OwnedTracers,
+    OwnedTracerType,
+    ExchangeTracers,
+    PLA<:FrankenLOBSTERPlankton{
+        Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers
+    },
 }
-    return _agate_tendency(bgc.plankton, tracer, i, j, k, clock, fields, auxiliary_fields)
+    return _agate_tendency(
+        bgc.plankton, tracer, i, j, k, clock, fields, auxiliary_fields
+    )
 end
 
 @inline nutrient_uptake(
@@ -180,41 +189,33 @@ end
     j,
     k,
     grid,
-    ::FrankenLOBSTERPlankton,
-    ::NutrientsPlanktonDetritus{FT},
+    plankton::FrankenLOBSTERPlankton,
+    bgc::NutrientsPlanktonDetritus,
     fields,
     auxiliary_fields,
-) where FT = zero(FT)
+) = _agate_tendency(
+    plankton,
+    Val(:inorganic_waste),
+    i,
+    j,
+    k,
+    _zero_clock(grid),
+    fields,
+    auxiliary_fields,
+)
 
-@inline function (
-    bgc::NutrientsPlanktonDetritus{FT,NUT,PLA}
-)(i, j, k, grid, tracer::Val{:NO₃}, clock, fields, auxiliary_fields) where {
-    FT,
-    NUT<:Nutrients{<:NitrateAmmonia},
-    PLA<:FrankenLOBSTERPlankton,
-}
-    nitrification = @inbounds fields.NH₄[i, j, k] * bgc.nutrients.nitrogen.nitrification_rate
-    return nitrification - nutrient_uptake(
-        i, j, k, grid, tracer, bgc.plankton, bgc, fields, auxiliary_fields
-    )
-end
-
-@inline function (
-    bgc::NutrientsPlanktonDetritus{FT,NUT,PLA}
-)(i, j, k, grid, tracer::Val{:NH₄}, clock, fields, auxiliary_fields) where {
-    FT,
-    NUT<:Nutrients{<:NitrateAmmonia},
-    PLA<:FrankenLOBSTERPlankton,
-}
-    nitrification = @inbounds fields.NH₄[i, j, k] * bgc.nutrients.nitrogen.nitrification_rate
-    regenerated =
-        inorganic_nitrogen_waste(
-            i, j, k, grid, bgc.plankton, bgc, fields, auxiliary_fields
-        ) +
-        inorganic_nitrogen_waste(
-            i, j, k, grid, bgc.detritus, bgc, fields, auxiliary_fields
-        )
-    return regenerated - nutrient_uptake(
-        i, j, k, grid, tracer, bgc.plankton, bgc, fields, auxiliary_fields
-    ) - nitrification
-end
+# NPD's organic-matter components call `grazing` for biological removal. The hook is
+# resource-generic on the Agate side; DOM is the first active FrankenLOBSTER substrate.
+@inline grazing(
+    i,
+    j,
+    k,
+    grid,
+    ::Val{:DOM},
+    plankton::FrankenLOBSTERPlankton,
+    bgc::NutrientsPlanktonDetritus{FT},
+    fields,
+    auxiliary_fields,
+) where FT = -_agate_tendency(
+    plankton, Val(:DOM), i, j, k, _zero_clock(grid), fields, auxiliary_fields
+)

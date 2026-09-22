@@ -63,5 +63,5 @@ function _construct_plankton(;
     )
 
     owned = runtime.metadata.plankton_tracers
-    return FrankenLOBSTERPlankton(runtime, owned, (:solid_waste,))
+    return FrankenLOBSTERPlankton(runtime, owned, (:solid_waste, :inorganic_waste))
 end
