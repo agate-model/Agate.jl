@@ -1,4 +1,5 @@
 using OceanBioME: BoxModelGrid
+using OceanBioME.Models.NutrientsPlanktonDetritusModels: LOBSTER
 using ...Construction
 
 const _SIZE_ROLES = (:phytoplankton, :zooplankton, :bacterioplankton)
@@ -50,6 +51,7 @@ function _construct_plankton(;
     size_structure=DEFAULT_SIZE_STRUCTURE,
     grid=BoxModelGrid(),
     parameters::NamedTuple=(;),
+    phytoplankton_chlorophyll_ratio=1.31,
     scalar_type=nothing,
     arch=nothing,
 )
@@ -63,5 +65,47 @@ function _construct_plankton(;
     )
 
     owned = runtime.metadata.plankton_tracers
-    return FrankenLOBSTERPlankton(runtime, owned, (:solid_waste, :inorganic_waste))
+    phytoplankton = runtime.metadata.pft_entities.P
+    chlorophyll_ratio = convert(eltype(grid), phytoplankton_chlorophyll_ratio)
+    return FrankenLOBSTERPlankton(
+        runtime,
+        owned,
+        (:solid_waste, :inorganic_waste);
+        phytoplankton_tracers=phytoplankton,
+        chlorophyll_ratio,
+    )
+end
+
+"""
+    construct(; kw...) -> biogeochemistry
+
+Construct the coupled FrankenLOBSTER model. Agate owns the realized P/Z/B living community
+and its biological exchange fluxes; OceanBioME LOBSTER owns nitrate/ammonium, DOM/POM,
+remineralization, particle sinking, light, and optional carbon/oxygen components.
+
+`size_structure` and `parameters` configure the Agate living community. Remaining keyword
+arguments are forwarded to `OceanBioME.Models.NutrientsPlanktonDetritusModels.LOBSTER`.
+"""
+function construct(;
+    size_structure=DEFAULT_SIZE_STRUCTURE,
+    parameters::NamedTuple=(;),
+    phytoplankton_chlorophyll_ratio=1.31,
+    grid=BoxModelGrid(),
+    open_bottom::Bool=true,
+    kwargs...
+)
+    plankton = _construct_plankton(;
+        size_structure,
+        parameters,
+        phytoplankton_chlorophyll_ratio,
+        grid,
+    )
+
+    return LOBSTER(
+        grid;
+        limiting_nutrients=(:nitrate, :ammonia),
+        plankton,
+        open_bottom,
+        kwargs...
+    )
 end

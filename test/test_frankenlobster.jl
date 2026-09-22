@@ -2,22 +2,34 @@ using Test
 using Adapt
 using Oceananigans.Architectures: CPU
 using Oceananigans.Grids: RectilinearGrid
+using Oceananigans.Fields: ConstantField
 using Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields,
     required_biogeochemical_tracers
 
+using OceanBioME:
+    chlorophyll,
+    conserved_tracers,
+    PrescribedPhotosyntheticallyActiveRadiation
 using OceanBioME.Models.NutrientsPlanktonDetritusModels:
+    CarbonateSystem,
     DissolvedParticulate,
     InstantRemineralisationDetritus,
-    NutrientsPlanktonDetritus
+    NutrientsPlanktonDetritus,
+    Oxygen
 using OceanBioME.Models.NutrientsPlanktonDetritusModels.NutrientsModels:
     Nutrients,
     NitrateAmmonia
 using OceanBioME.Models.NutrientsPlanktonDetritusModels:
+    dissolved_waste,
+    inorganic_waste,
     nutrient_uptake,
     solid_waste
 
 const FrankenLOBSTER = Agate.Models.FrankenLOBSTER
+
+_prescribed_light(value=100.0) =
+    PrescribedPhotosyntheticallyActiveRadiation(ConstantField(value))
 
 _cell(value) = fill(value, 1, 1, 1)
 
@@ -67,6 +79,12 @@ end
     ammonium_K = plankton.runtime.parameters.ammonium_half_saturation
     @test ammonium_K ≈ 0.5f0 .* nitrate_K
     @test nitrate_K[1] < nitrate_K[2]
+    @test plankton.chlorophyll_ratio == 1.31f0
+
+    chlorophyll_field = chlorophyll(
+        plankton, (tracers=(P_1=_cell(1.0f0), P_2=_cell(2.0f0)),)
+    )
+    @test chlorophyll_field[1, 1, 1] ≈ 3.0f0 * 1.31f0
 
     adapted = Adapt.adapt(identity, plankton)
     @test (
@@ -92,9 +110,64 @@ end
     @test size(plankton.runtime.parameters.assimilation_matrix) == (2, 4)
 end
 
+@testset "FrankenLOBSTER public coupled constructor" begin
+    grid = RectilinearGrid(CPU(); size=(1, 1, 1), extent=(1, 1, 1))
+    bgc = FrankenLOBSTER.construct(;
+        grid,
+        light_attenuation=_prescribed_light(),
+        inorganic_carbon=CarbonateSystem(),
+        oxygen=Oxygen(),
+        phytoplankton_chlorophyll_ratio=2.0,
+    )
+    npd = bgc.underlying_biogeochemistry
+
+    @test required_biogeochemical_tracers(bgc) == (
+        :NO₃, :NH₄, :P_1, :P_2, :Z_1, :Z_2, :B_1,
+        :DOM, :sPOM, :bPOM, :DIC, :Alk, :O₂,
+    )
+    @test required_biogeochemical_auxiliary_fields(bgc) == (:PAR,)
+    @test npd.plankton.chlorophyll_ratio == 2.0
+
+    groups = conserved_tracers(bgc)
+    @test groups.nitrogen.P_1 == 1.0
+    @test groups.nitrogen.B_1 == 1.0
+    @test groups.carbon.P_1 == 106 / 16
+    @test groups.carbon.B_1 == 106 / 16
+    @test groups.carbon.DOM == 106 / 16
+end
+
+@testset "FrankenLOBSTER public constructor accepts arbitrary living communities" begin
+    grid = RectilinearGrid(CPU(); size=(1, 1, 1), extent=(1, 1, 1))
+    bgc = FrankenLOBSTER.construct(;
+        grid,
+        light_attenuation=_prescribed_light(),
+        size_structure=(
+            phytoplankton=(pico=[0.5], nano=[2.0]),
+            zooplankton=(micro=[8.0], meso=[20.0]),
+            bacterioplankton=(heterotroph=[0.8, 1.6],),
+        ),
+    )
+    npd = bgc.underlying_biogeochemistry
+
+    @test required_biogeochemical_tracers(bgc) == (
+        :NO₃, :NH₄, :nano_1, :pico_1, :meso_1, :micro_1,
+        :heterotroph_1, :heterotroph_2, :DOM, :sPOM, :bPOM,
+    )
+    @test size(npd.plankton.runtime.parameters.palatability_matrix) == (2, 4)
+    @test size(npd.plankton.runtime.parameters.assimilation_matrix) == (2, 4)
+
+    chlorophyll_field = chlorophyll(
+        npd.plankton, (tracers=(nano_1=_cell(1.0), pico_1=_cell(2.0)),)
+    )
+    @test chlorophyll_field[1, 1, 1] ≈ 3.0 * 1.31
+end
+
 @testset "FrankenLOBSTER NPD nitrate/ammonium growth bridge" begin
-    plankton = FrankenLOBSTER._construct_plankton(;
-        grid=dummy_grid(Float64),
+    grid = dummy_grid(Float64)
+    coupled = FrankenLOBSTER.construct(;
+        grid,
+        light_attenuation=_prescribed_light(),
+        nutrients=Nutrients(; nitrogen=NitrateAmmonia(; nitrification_rate=0.1)),
         parameters=(
             maximum_growth_rate=(P_1=1.0, P_2=1.0),
             nitrate_half_saturation=(P_1=1.0, P_2=1.0),
@@ -106,11 +179,11 @@ end
             maximum_predation_rate=(Z_1=0.0, Z_2=0.0),
         ),
     )
-    bgc = _frankenlobster_npd(plankton; nitrification_rate=0.1)
+    bgc = coupled.underlying_biogeochemistry
+    plankton = bgc.plankton
     fields = _frankenlobster_fields(; P_1=2.0)
     auxiliary_fields = (PAR=_cell(1.0),)
     clock = (; time=0.0)
-    grid = dummy_grid(Float64)
 
     @test bgc(1, 1, 1, grid, Val(:P_1), clock, fields, auxiliary_fields) ≈ 0.75
     @test nutrient_uptake(
@@ -119,6 +192,9 @@ end
     @test nutrient_uptake(
         1, 1, 1, grid, Val(:NH₄), plankton, bgc, fields, auxiliary_fields
     ) ≈ 0.5
+    @test nutrient_uptake(
+        1, 1, 1, grid, plankton, bgc, fields, auxiliary_fields
+    ) ≈ 0.75
     @test bgc(1, 1, 1, grid, Val(:NO₃), clock, fields, auxiliary_fields) ≈ -0.15
     @test bgc(1, 1, 1, grid, Val(:NH₄), clock, fields, auxiliary_fields) ≈ -0.6
 end
@@ -231,8 +307,17 @@ end
 
 @testset "FrankenLOBSTER DOM uptake closes through bacterial growth and regeneration" begin
     grid = RectilinearGrid(CPU(); size=(1, 1, 1), extent=(1, 1, 1))
-    plankton = FrankenLOBSTER._construct_plankton(;
+    detritus = DissolvedParticulate(
+        grid;
+        dissolved_remineralisation_rate=0.0,
+        particulate_remineralisation_rate=(0.0, 0.0),
+        sinking_speeds=(0.0, 0.0),
+    )
+    coupled = FrankenLOBSTER.construct(;
         grid,
+        light_attenuation=_prescribed_light(),
+        nutrients=Nutrients(; nitrogen=NitrateAmmonia(; nitrification_rate=0.0)),
+        detritus,
         parameters=(
             maximum_growth_rate=(P_1=0.0, P_2=0.0),
             phytoplankton_mortality_rate=(P_1=0.0, P_2=0.0),
@@ -245,13 +330,8 @@ end
             bacterioplankton_mortality_rate=(B_1=0.0,),
         ),
     )
-    detritus = DissolvedParticulate(
-        grid;
-        dissolved_remineralisation_rate=0.0,
-        particulate_remineralisation_rate=(0.0, 0.0),
-        sinking_speeds=(0.0, 0.0),
-    )
-    bgc = _frankenlobster_npd(plankton; detritus)
+    bgc = coupled.underlying_biogeochemistry
+    plankton = bgc.plankton
     fields = _frankenlobster_fields(; DOM=3.0, B_1=2.0)
     auxiliary_fields = (PAR=_cell(1.0),)
     clock = (; time=0.0)
@@ -261,6 +341,12 @@ end
     nh4 = bgc(1, 1, 1, grid, Val(:NH₄), clock, fields, auxiliary_fields)
 
     @test [dom, b_gain, nh4] ≈ [-3.0, 0.75, 2.25]
+    @test inorganic_waste(
+        1, 1, 1, grid, plankton, bgc, fields, auxiliary_fields
+    ) ≈ 2.25
+    @test dissolved_waste(
+        1, 1, 1, grid, plankton, bgc, fields, auxiliary_fields
+    ) == 0.0
     @test dom + b_gain + nh4 ≈ 0.0 atol=1e-14
     @test bgc(1, 1, 1, grid, Val(:sPOM), clock, fields, auxiliary_fields) == 0.0
     @test bgc(1, 1, 1, grid, Val(:bPOM), clock, fields, auxiliary_fields) == 0.0

@@ -1,6 +1,8 @@
 using Adapt: adapt
 import Adapt: adapt_structure
 
+import OceanBioME: chlorophyll
+
 import Oceananigans.Biogeochemistry:
     biogeochemical_drift_velocity,
     required_biogeochemical_auxiliary_fields,
@@ -12,7 +14,8 @@ import OceanBioME.Models.NutrientsPlanktonDetritusModels:
     dissolved_waste,
     inorganic_waste,
     nutrient_uptake,
-    solid_waste
+    solid_waste,
+    chlorophyll_ratio
 import OceanBioME.Models.NutrientsPlanktonDetritusModels.DetritusModels: grazing
 
 """Internal OceanBioME plankton component backed by a compiled Agate realization.
@@ -21,13 +24,22 @@ import OceanBioME.Models.NutrientsPlanktonDetritusModels.DetritusModels: grazing
 compiled accumulators reported through NPD hooks rather than registered as prognostic fields.
 OceanBioME-owned external fields are the remaining tracer identities in the compiled runtime.
 """
-struct FrankenLOBSTERPlankton{Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers}
+struct FrankenLOBSTERPlankton{Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers,PhytoplanktonTracers,ChlorophyllRatio}
     runtime::Runtime
+    chlorophyll_ratio::ChlorophyllRatio
 end
 
-function FrankenLOBSTERPlankton(runtime, owned::Tuple, exchange::Tuple=())
+function FrankenLOBSTERPlankton(
+    runtime,
+    owned::Tuple,
+    exchange::Tuple=();
+    phytoplankton_tracers=runtime.metadata.pft_entities.P,
+    chlorophyll_ratio=1.31,
+)
     owned_type = mapreduce(name -> typeof(Val(name)), (A, B) -> Union{A,B}, owned)
-    return FrankenLOBSTERPlankton{typeof(runtime),owned,owned_type,exchange}(runtime)
+    return FrankenLOBSTERPlankton{
+        typeof(runtime),owned,owned_type,exchange,phytoplankton_tracers,typeof(chlorophyll_ratio)
+    }(runtime, chlorophyll_ratio)
 end
 
 @inline required_biogeochemical_tracers(
@@ -54,11 +66,31 @@ end
     ::FrankenLOBSTERPlankton{Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers}
 ) where {Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers} = ExchangeTracers
 
+@inline phytoplankton_tracers(
+    ::FrankenLOBSTERPlankton{Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers,PhytoplanktonTracers}
+) where {Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers,PhytoplanktonTracers} = PhytoplanktonTracers
+
+@inline chlorophyll_ratio(plankton::FrankenLOBSTERPlankton) = plankton.chlorophyll_ratio
+
+@inline function chlorophyll(plankton::FrankenLOBSTERPlankton, model)
+    tracers = phytoplankton_tracers(plankton)
+    biomass = mapreduce(name -> getproperty(model.tracers, name), +, tracers)
+    return plankton.chlorophyll_ratio * biomass
+end
+
 @inline function adapt_structure(
     to,
-    plankton::FrankenLOBSTERPlankton{Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers},
-) where {Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers}
-    return FrankenLOBSTERPlankton(adapt(to, plankton.runtime), OwnedTracers, ExchangeTracers)
+    plankton::FrankenLOBSTERPlankton{
+        Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers,PhytoplanktonTracers
+    },
+) where {Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers,PhytoplanktonTracers}
+    return FrankenLOBSTERPlankton(
+        adapt(to, plankton.runtime),
+        OwnedTracers,
+        ExchangeTracers;
+        phytoplankton_tracers=PhytoplanktonTracers,
+        chlorophyll_ratio=adapt(to, plankton.chlorophyll_ratio),
+    )
 end
 
 # Static OceanBioME field -> Agate positional-runtime bridge. AgateBGC already type-encodes
@@ -152,6 +184,23 @@ end
 ) = -_agate_tendency(
     plankton, tracer, i, j, k, _zero_clock(grid), fields, auxiliary_fields
 )
+
+@inline nutrient_uptake(
+    i,
+    j,
+    k,
+    grid,
+    plankton::FrankenLOBSTERPlankton,
+    bgc,
+    fields,
+    auxiliary_fields,
+) =
+    nutrient_uptake(
+        i, j, k, grid, Val(:NO₃), plankton, bgc, fields, auxiliary_fields
+    ) +
+    nutrient_uptake(
+        i, j, k, grid, Val(:NH₄), plankton, bgc, fields, auxiliary_fields
+    )
 
 @inline solid_waste(
     i,
