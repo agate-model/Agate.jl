@@ -34,7 +34,7 @@ _prescribed_light(value=100.0) =
 _cell(value) = fill(value, 1, 1, 1)
 
 function _frankenlobster_fields(; NO₃=1.0, NH₄=1.0, DOM=0.0, sPOM=0.0, bPOM=0.0,
-                                P_1=0.0, P_2=0.0, Z_1=0.0, Z_2=0.0, B_1=0.0)
+                                P_1=0.0, P_2=0.0, Z_1=0.0, Z_2=0.0, H_1=0.0)
     return (
         NO₃=_cell(NO₃),
         NH₄=_cell(NH₄),
@@ -45,7 +45,7 @@ function _frankenlobster_fields(; NO₃=1.0, NH₄=1.0, DOM=0.0, sPOM=0.0, bPOM=
         P_2=_cell(P_2),
         Z_1=_cell(Z_1),
         Z_2=_cell(Z_2),
-        B_1=_cell(B_1),
+        H_1=_cell(H_1),
     )
 end
 
@@ -65,12 +65,12 @@ end
     )
 
     @test ownership == (
-        (:P_1, :P_2, :Z_1, :Z_2, :B_1),
+        (:P_1, :P_2, :Z_1, :Z_2, :H_1),
         (:NO₃, :NH₄, :DOM),
         (:solid_waste, :inorganic_waste),
     )
     @test required_biogeochemical_tracers(plankton.runtime) ==
-        (:NO₃, :NH₄, :DOM, :solid_waste, :inorganic_waste, :P_1, :P_2, :Z_1, :Z_2, :B_1)
+        (:NO₃, :NH₄, :DOM, :solid_waste, :inorganic_waste, :P_1, :P_2, :Z_1, :Z_2, :H_1)
     @test required_biogeochemical_auxiliary_fields(plankton) == (:PAR,)
     @test plankton.runtime.metadata.plankton_diameters ==
         (0.6f0, 1.2f0, 6.0f0, 12.0f0, 0.6f0)
@@ -94,7 +94,7 @@ end
     ) == ownership
 end
 
-@testset "FrankenLOBSTER arbitrary P/Z/B realization" begin
+@testset "FrankenLOBSTER arbitrary P/Z/H realization" begin
     plankton = FrankenLOBSTER._construct_plankton(;
         size_structure=(
             phytoplankton=(pico=[0.5], nano=[2.0]),
@@ -122,7 +122,7 @@ end
     npd = bgc.underlying_biogeochemistry
 
     @test required_biogeochemical_tracers(bgc) == (
-        :NO₃, :NH₄, :P_1, :P_2, :Z_1, :Z_2, :B_1,
+        :NO₃, :NH₄, :P_1, :P_2, :Z_1, :Z_2, :H_1,
         :DOM, :sPOM, :bPOM, :DIC, :Alk, :O₂,
     )
     @test required_biogeochemical_auxiliary_fields(bgc) == (:PAR,)
@@ -130,9 +130,9 @@ end
 
     groups = conserved_tracers(bgc)
     @test groups.nitrogen.P_1 == 1.0
-    @test groups.nitrogen.B_1 == 1.0
+    @test groups.nitrogen.H_1 == 1.0
     @test groups.carbon.P_1 == 106 / 16
-    @test groups.carbon.B_1 == 106 / 16
+    @test groups.carbon.H_1 == 106 / 16
     @test groups.carbon.DOM == 106 / 16
 end
 
@@ -252,15 +252,15 @@ end
 end
 
 
-@testset "FrankenLOBSTER Z shares one ingestion capacity across P and B prey" begin
+@testset "FrankenLOBSTER Z shares one ingestion capacity across P and H prey" begin
     plankton = FrankenLOBSTER._construct_plankton(;
         grid=dummy_grid(Float64),
         parameters=(
             maximum_growth_rate=(P_1=0.0, P_2=0.0),
             phytoplankton_mortality_rate=(P_1=0.0, P_2=0.0),
             zooplankton_mortality_rate=(Z_1=0.0, Z_2=0.0),
-            bacterioplankton_mortality_rate=(B_1=0.0,),
-            bacterial_maximum_uptake_rate=(B_1=0.0,),
+            bacterioplankton_mortality_rate=(H_1=0.0,),
+            bacterial_maximum_uptake_rate=(H_1=0.0,),
             maximum_predation_rate=(Z_1=1.0, Z_2=0.0),
             grazing_half_saturation=(Z_1=1.0, Z_2=1.0),
             palatability_matrix=[1.0 0.0 1.0; 0.0 0.0 0.0],
@@ -268,19 +268,19 @@ end
         ),
     )
     bgc = _frankenlobster_npd(plankton)
-    fields = _frankenlobster_fields(; P_1=1.0, B_1=1.0, Z_1=1.0)
+    fields = _frankenlobster_fields(; P_1=1.0, H_1=1.0, Z_1=1.0)
     auxiliary_fields = (PAR=_cell(1.0),)
     clock = (; time=0.0)
     grid = dummy_grid(Float64)
 
     p = bgc(1, 1, 1, grid, Val(:P_1), clock, fields, auxiliary_fields)
-    b = bgc(1, 1, 1, grid, Val(:B_1), clock, fields, auxiliary_fields)
+    h = bgc(1, 1, 1, grid, Val(:H_1), clock, fields, auxiliary_fields)
     z = bgc(1, 1, 1, grid, Val(:Z_1), clock, fields, auxiliary_fields)
     waste = solid_waste(1, 1, 1, grid, plankton, bgc, fields, auxiliary_fields)
 
-    @test [p, b, z, waste] ≈ [-1 / 3, -1 / 3, 1 / 4, 5 / 12]
-    @test -(p + b) ≈ 2 / 3
-    @test p + b + z + waste ≈ 0.0 atol=1e-14
+    @test [p, h, z, waste] ≈ [-1 / 3, -1 / 3, 1 / 4, 5 / 12]
+    @test -(p + h) ≈ 2 / 3
+    @test p + h + z + waste ≈ 0.0 atol=1e-14
 end
 
 
@@ -289,7 +289,7 @@ end
         size_structure=(
             phytoplankton=(P=[0.6, 1.2],),
             zooplankton=(Z=[6.0, 12.0],),
-            bacterioplankton=(B=[0.4, 0.8],),
+            bacterioplankton=(H=[0.4, 0.8],),
         ),
         grid=dummy_grid(Float64),
     )
@@ -323,34 +323,34 @@ end
             phytoplankton_mortality_rate=(P_1=0.0, P_2=0.0),
             zooplankton_mortality_rate=(Z_1=0.0, Z_2=0.0),
             maximum_predation_rate=(Z_1=0.0, Z_2=0.0),
-            bacterial_maximum_uptake_rate=(B_1=2.0,),
+            bacterial_maximum_uptake_rate=(H_1=2.0,),
             bacterial_dom_half_saturation=reshape([1.0], 1, 1),
             bacterial_substrate_preference=reshape([1.0], 1, 1),
             bacterial_assimilation=reshape([0.25], 1, 1),
-            bacterioplankton_mortality_rate=(B_1=0.0,),
+            bacterioplankton_mortality_rate=(H_1=0.0,),
         ),
     )
     bgc = coupled.underlying_biogeochemistry
     plankton = bgc.plankton
-    fields = _frankenlobster_fields(; DOM=3.0, B_1=2.0)
+    fields = _frankenlobster_fields(; DOM=3.0, H_1=2.0)
     auxiliary_fields = (PAR=_cell(1.0),)
     clock = (; time=0.0)
 
-    b_gain = bgc(1, 1, 1, grid, Val(:B_1), clock, fields, auxiliary_fields)
+    h_gain = bgc(1, 1, 1, grid, Val(:H_1), clock, fields, auxiliary_fields)
     dom = bgc(1, 1, 1, grid, Val(:DOM), clock, fields, auxiliary_fields)
     nh4 = bgc(1, 1, 1, grid, Val(:NH₄), clock, fields, auxiliary_fields)
 
-    @test [dom, b_gain, nh4] ≈ [-3.0, 0.75, 2.25]
+    @test [dom, h_gain, nh4] ≈ [-3.0, 0.75, 2.25]
     @test inorganic_waste(
         1, 1, 1, grid, plankton, bgc, fields, auxiliary_fields
     ) ≈ 2.25
     @test dissolved_waste(
         1, 1, 1, grid, plankton, bgc, fields, auxiliary_fields
     ) == 0.0
-    @test dom + b_gain + nh4 ≈ 0.0 atol=1e-14
+    @test dom + h_gain + nh4 ≈ 0.0 atol=1e-14
     @test bgc(1, 1, 1, grid, Val(:sPOM), clock, fields, auxiliary_fields) == 0.0
     @test bgc(1, 1, 1, grid, Val(:bPOM), clock, fields, auxiliary_fields) == 0.0
 
-    zero_fields = _frankenlobster_fields(; DOM=0.0, B_1=2.0)
+    zero_fields = _frankenlobster_fields(; DOM=0.0, H_1=2.0)
     @test bgc(1, 1, 1, grid, Val(:DOM), clock, zero_fields, auxiliary_fields) == 0.0
 end

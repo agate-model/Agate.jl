@@ -19,13 +19,13 @@ struct FrankenLOBSTERFamily <: AbstractModelFamily end
 
 family_id(::FrankenLOBSTERFamily) = :FrankenLOBSTER
 registered_family(::Val{:FrankenLOBSTER}) = FrankenLOBSTERFamily()
-definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.4.0"
+definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.5.0"
 
 """LOBSTER3-like default living-community size structure."""
 const DEFAULT_SIZE_STRUCTURE = (
     phytoplankton=(P=(n=2, min_esd=0.6, max_esd=1.2, spacing=:linear),),
     zooplankton=(Z=(n=2, min_esd=6.0, max_esd=12.0, spacing=:linear),),
-    bacterioplankton=(B=(n=1, min_esd=0.6, max_esd=0.6, spacing=:linear),),
+    bacterioplankton=(H=(n=1, min_esd=0.6, max_esd=0.6, spacing=:linear),),
 )
 
 # NO3, NH4, and DOM are OceanBioME-owned state in FrankenLOBSTER. They are represented
@@ -48,10 +48,10 @@ const FRANKENLOBSTER_COMPONENTS = (
         reference_state=:nitrogen,
         size_structure=DEFAULT_SIZE_STRUCTURE.zooplankton.Z,
     ),
-    B=Plankton(;
+    H=Plankton(;
         states=(nitrogen=:nitrogen,),
         reference_state=:nitrogen,
-        size_structure=DEFAULT_SIZE_STRUCTURE.bacterioplankton.B,
+        size_structure=DEFAULT_SIZE_STRUCTURE.bacterioplankton.H,
     ),
 )
 
@@ -91,9 +91,9 @@ const FRANKENLOBSTER_PROCESSES = (
             ),
         ),
     ),
-    consumption_B_on_DOM=Consumption(
+    consumption_H_on_DOM=Consumption(
         HeterotrophicConsumption();
-        consumers=:B,
+        consumers=:H,
         resources=:DOM,
         bindings=(
             maximum_rate=:bacterial_maximum_uptake_rate,
@@ -107,7 +107,7 @@ const FRANKENLOBSTER_PROCESSES = (
     grazing_Z_on_living=Consumption(
         PreferentialGrazing();
         consumers=:Z,
-        resources=(:P, :B),
+        resources=(:P, :H),
         bindings=(
             maximum_rate=:maximum_predation_rate,
             half_saturation=:grazing_half_saturation,
@@ -128,9 +128,9 @@ const FRANKENLOBSTER_PROCESSES = (
         bindings=(rate=:zooplankton_mortality_rate,),
         products=Products(:solid_waste),
     ),
-    mortality_B=Mortality(
+    mortality_H=Mortality(
         QuadraticMortality();
-        plankton=:B,
+        plankton=:H,
         bindings=(rate=:bacterioplankton_mortality_rate,),
         products=Products(:solid_waste),
     ),

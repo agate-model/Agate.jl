@@ -39,13 +39,13 @@ function _plankton_realization(size_structure)
         Construction.normalize_pft_size_structure(value)
         for value in values(getproperty(structure, role))
     ))
-    return (P=normalize(:phytoplankton), Z=normalize(:zooplankton), B=normalize(:bacterioplankton))
+    return (P=normalize(:phytoplankton), Z=normalize(:zooplankton), H=normalize(:bacterioplankton))
 end
 
 """Construct the internal Agate-generated plankton component consumed by LOBSTER.
 
 The compiled Agate runtime retains OceanBioME-owned resource identities as inputs, while the
-returned plankton component registers only realized P/Z/B tracers as living prognostic state.
+returned plankton component registers only realized P/Z/H tracers as living prognostic state.
 """
 function _construct_plankton(;
     size_structure=DEFAULT_SIZE_STRUCTURE,
@@ -79,7 +79,7 @@ end
 """
     construct(; kw...) -> biogeochemistry
 
-Construct the coupled FrankenLOBSTER model. Agate owns the realized P/Z/B living community
+Construct the coupled FrankenLOBSTER model. Agate owns the realized P/Z/H living community
 and its biological exchange fluxes; OceanBioME LOBSTER owns nitrate/ammonium, DOM/POM,
 remineralization, particle sinking, light, and optional carbon/oxygen components.
 

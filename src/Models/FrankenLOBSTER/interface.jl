@@ -20,7 +20,7 @@ import OceanBioME.Models.NutrientsPlanktonDetritusModels.DetritusModels: grazing
 
 """Internal OceanBioME plankton component backed by a compiled Agate realization.
 
-`OwnedTracers` are living P/Z/B tracers registered by NPD and `ExchangeTracers` are
+`OwnedTracers` are living P/Z/H tracers registered by NPD and `ExchangeTracers` are
 compiled accumulators reported through NPD hooks rather than registered as prognostic fields.
 OceanBioME-owned external fields are the remaining tracer identities in the compiled runtime.
 """
@@ -36,7 +36,7 @@ function FrankenLOBSTERPlankton(
     phytoplankton_tracers=runtime.metadata.pft_entities.P,
     chlorophyll_ratio=1.31,
 )
-    owned_type = mapreduce(name -> typeof(Val(name)), (A, B) -> Union{A,B}, owned)
+    owned_type = mapreduce(name -> typeof(Val(name)), (T1, T2) -> Union{T1,T2}, owned)
     return FrankenLOBSTERPlankton{
         typeof(runtime),owned,owned_type,exchange,phytoplankton_tracers,typeof(chlorophyll_ratio)
     }(runtime, chlorophyll_ratio)
