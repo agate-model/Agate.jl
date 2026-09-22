@@ -1,5 +1,14 @@
 using ...ModelFamilies: AbstractModelFamily
 using ...Components: Plankton, Pool
+using ...Processes:
+    Growth,
+    NutrientResponse,
+    Consumption,
+    Mortality,
+    Products,
+    Monod,
+    PreferentialGrazing,
+    QuadraticMortality
 
 import ...ModelFamilies: default_components, default_processes, definition_version
 import ...Construction: family_id, registered_family
@@ -20,11 +29,13 @@ const DEFAULT_SIZE_STRUCTURE = (
 
 # NO3, NH4, and DOM are OceanBioME-owned state in FrankenLOBSTER. They are represented
 # here so Agate processes can use the same named resource identities when compiling the
-# living-community equations. The plankton adapter exposes only P/Z/B as owned tracers.
+# living-community equations. `solid_waste` is an exchange accumulator rather than a field:
+# its compiled tendency is reported to the surrounding NPD detritus component.
 const FRANKENLOBSTER_COMPONENTS = (
     NO₃=Pool(:nitrogen),
     NH₄=Pool(:nitrogen),
     DOM=Pool(:nitrogen),
+    solid_waste=Pool(:nitrogen),
     P=Plankton(;
         states=(nitrogen=:nitrogen,),
         reference_state=:nitrogen,
@@ -45,9 +56,64 @@ const FRANKENLOBSTER_COMPONENTS = (
 """Canonical logical components for FrankenLOBSTER."""
 default_components(::FrankenLOBSTERFamily) = FRANKENLOBSTER_COMPONENTS
 
-# Cycle 1 establishes the construction/integration boundary. Scientific process definitions
-# are added in the following cycles without changing the adapter ownership contract.
-const FRANKENLOBSTER_PROCESSES = (;)
+const _LIGHT_FACTOR = SaturatingLight()
+
+# Splitting nitrate and ammonium growth into two ordinary Growth processes keeps material
+# transfer explicit: each nutrient is removed by exactly the flux that enters phytoplankton.
+# Nitrate alone carries the standard LOBSTER ammonium-inhibition factor.
+const FRANKENLOBSTER_PROCESSES = (
+    nitrate_growth_P=Growth(;
+        plankton=:P,
+        reference_resource=:NO₃,
+        bindings=(maximum_rate=:maximum_growth_rate,),
+        factors=(
+            light=_LIGHT_FACTOR,
+            nutrient=NutrientResponse(
+                Monod();
+                resource=:NO₃,
+                bindings=(half_saturation=:nitrate_half_saturation,),
+            ),
+            ammonium_inhibition=AmmoniumInhibition(),
+        ),
+    ),
+    ammonium_growth_P=Growth(;
+        plankton=:P,
+        reference_resource=:NH₄,
+        bindings=(maximum_rate=:maximum_growth_rate,),
+        factors=(
+            light=_LIGHT_FACTOR,
+            nutrient=NutrientResponse(
+                Monod();
+                resource=:NH₄,
+                bindings=(half_saturation=:ammonium_half_saturation,),
+            ),
+        ),
+    ),
+    grazing_Z_on_P=Consumption(
+        PreferentialGrazing();
+        consumers=:Z,
+        resources=:P,
+        bindings=(
+            maximum_rate=:maximum_predation_rate,
+            half_saturation=:grazing_half_saturation,
+            palatability=:palatability_matrix,
+            assimilation=:assimilation_matrix,
+        ),
+        unassimilated_products=:solid_waste,
+    ),
+    mortality_P=Mortality(
+        QuadraticMortality();
+        plankton=:P,
+        bindings=(rate=:phytoplankton_mortality_rate,),
+        products=Products(:solid_waste),
+    ),
+    mortality_Z=Mortality(
+        QuadraticMortality();
+        plankton=:Z,
+        bindings=(rate=:zooplankton_mortality_rate,),
+        products=Products(:solid_waste),
+    ),
+)
 
 """Canonical named scientific processes for FrankenLOBSTER."""
 default_processes(::FrankenLOBSTERFamily) = FRANKENLOBSTER_PROCESSES

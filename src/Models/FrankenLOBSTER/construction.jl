@@ -1,6 +1,4 @@
 using OceanBioME: BoxModelGrid
-using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
-
 using ...Construction
 
 const _SIZE_ROLES = (:phytoplankton, :zooplankton, :bacterioplankton)
@@ -51,6 +49,7 @@ returned plankton component registers only realized P/Z/B tracers as living prog
 function _construct_plankton(;
     size_structure=DEFAULT_SIZE_STRUCTURE,
     grid=BoxModelGrid(),
+    parameters::NamedTuple=(;),
     scalar_type=nothing,
     arch=nothing,
 )
@@ -58,13 +57,11 @@ function _construct_plankton(;
         FrankenLOBSTERFamily();
         plankton_pfts=_plankton_realization(size_structure),
         grid,
+        parameter_overrides=parameters,
         scalar_type,
         arch,
     )
 
-    all_tracers = required_biogeochemical_tracers(runtime)
     owned = runtime.metadata.plankton_tracers
-    external = Tuple(tracer for tracer in all_tracers if !(tracer in owned))
-
-    return FrankenLOBSTERPlankton(runtime, owned, external)
+    return FrankenLOBSTERPlankton(runtime, owned, (:solid_waste,))
 end
