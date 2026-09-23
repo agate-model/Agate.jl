@@ -31,19 +31,25 @@ function _construct_plankton(;
     scalar_type=nothing,
     arch=nothing,
 )
+    realization = _plankton_realization(size_structure)
     runtime = Construction.construct(
         FrankenLOBSTERFamily();
-        plankton_pfts=_plankton_realization(size_structure),
+        plankton_pfts=realization,
         grid,
         parameter_overrides=parameters,
         scalar_type,
         arch,
     )
+    phytoplankton_tracers = Tuple(
+        tracer
+        for pft in keys(realization.P)
+        for tracer in getproperty(runtime.metadata.pft_entities, pft)
+    )
     return FrankenLOBSTERPlankton(
         runtime,
         runtime.metadata.plankton_tracers,
         (:solid_waste, :inorganic_waste);
-        phytoplankton_tracers=runtime.metadata.pft_entities.P,
+        phytoplankton_tracers,
         chlorophyll_ratio=convert(eltype(grid), phytoplankton_chlorophyll_ratio),
     )
 end

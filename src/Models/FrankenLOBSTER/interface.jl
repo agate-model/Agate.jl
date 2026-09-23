@@ -22,7 +22,7 @@ end
 
 function FrankenLOBSTERPlankton(
     runtime, owned::Tuple, exchange::Tuple=();
-    phytoplankton_tracers=runtime.metadata.pft_entities.P,
+    phytoplankton_tracers,
     chlorophyll_ratio=1.31,
 )
     owned_type = mapreduce(name -> typeof(Val(name)), (A, B) -> Union{A,B}, owned)

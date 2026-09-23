@@ -85,6 +85,10 @@ end
           (:nano_1, :pico_1, :meso_1, :micro_1, :heterotroph_1, :heterotroph_2)
     @test size(plankton.runtime.parameters.palatability_matrix) == (2, 4)
     @test size(plankton.runtime.parameters.assimilation_matrix) == (2, 4)
+    chlorophyll_field = chlorophyll(
+        plankton, (tracers=(nano_1=_cell(2.0), pico_1=_cell(1.0)),)
+    )
+    @test chlorophyll_field[1, 1, 1] ≈ 1.31 * 3.0
 end
 
 @testset "FrankenLOBSTER nitrate-only phytoplankton growth" begin
