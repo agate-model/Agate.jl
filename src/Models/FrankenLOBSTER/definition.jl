@@ -2,10 +2,12 @@ using ...ModelFamilies: AbstractModelFamily
 using ...Components: Plankton, Pool
 using ...Processes:
     Growth,
+    Light,
     NutrientResponse,
     Consumption,
     Mortality,
     Products,
+    Smith,
     Monod,
     PreferentialGrazing,
     HeterotrophicConsumption,
@@ -19,7 +21,7 @@ struct FrankenLOBSTERFamily <: AbstractModelFamily end
 
 family_id(::FrankenLOBSTERFamily) = :FrankenLOBSTER
 registered_family(::Val{:FrankenLOBSTER}) = FrankenLOBSTERFamily()
-definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.5.0"
+definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.6.0"
 
 """LOBSTER3-like default living-community size structure."""
 const DEFAULT_SIZE_STRUCTURE = (
@@ -28,10 +30,9 @@ const DEFAULT_SIZE_STRUCTURE = (
     bacterioplankton=(H=(n=1, min_esd=0.6, max_esd=0.6, spacing=:linear),),
 )
 
-# NO3, NH4, and DOM are OceanBioME-owned state in FrankenLOBSTER. They are represented
-# here so Agate processes can use the same named resource identities when compiling the
-# living-community equations. `solid_waste` and `inorganic_waste` are exchange
-# accumulators rather than fields; their compiled tendencies are reported to NPD.
+# NO3, NH4, and DOM are OceanBioME-owned state used by the compiled living-community
+# equations. Waste pools are exchange accumulators reported through NPD hooks rather than
+# prognostic fields owned by Agate.
 const FRANKENLOBSTER_COMPONENTS = (
     NO₃=Pool(:nitrogen),
     NH₄=Pool(:nitrogen),
@@ -55,39 +56,22 @@ const FRANKENLOBSTER_COMPONENTS = (
     ),
 )
 
-"""Canonical logical components for FrankenLOBSTER."""
 default_components(::FrankenLOBSTERFamily) = FRANKENLOBSTER_COMPONENTS
 
-const _LIGHT_FACTOR = SaturatingLight()
-
-# Splitting nitrate and ammonium growth into two ordinary Growth processes keeps material
-# transfer explicit: each nutrient is removed by exactly the flux that enters phytoplankton.
-# Nitrate alone carries the standard LOBSTER ammonium-inhibition factor.
 const FRANKENLOBSTER_PROCESSES = (
+    # v0.15 deliberately uses nitrate-only phytoplankton growth. Shared-capacity NO3/NH4
+    # acquisition is deferred to a follow-up rather than giving the two N sources separate
+    # maximum growth capacities.
     nitrate_growth_P=Growth(;
         plankton=:P,
         reference_resource=:NO₃,
         bindings=(maximum_rate=:maximum_growth_rate,),
         factors=(
-            light=_LIGHT_FACTOR,
+            light=Light(Smith(); driver=:PAR),
             nutrient=NutrientResponse(
                 Monod();
                 resource=:NO₃,
                 bindings=(half_saturation=:nitrate_half_saturation,),
-            ),
-            ammonium_inhibition=AmmoniumInhibition(),
-        ),
-    ),
-    ammonium_growth_P=Growth(;
-        plankton=:P,
-        reference_resource=:NH₄,
-        bindings=(maximum_rate=:maximum_growth_rate,),
-        factors=(
-            light=_LIGHT_FACTOR,
-            nutrient=NutrientResponse(
-                Monod();
-                resource=:NH₄,
-                bindings=(half_saturation=:ammonium_half_saturation,),
             ),
         ),
     ),
@@ -103,7 +87,6 @@ const FRANKENLOBSTER_PROCESSES = (
         ),
         unassimilated_products=:inorganic_waste,
     ),
-    # One grazing process shares each zooplankton ingestion capacity across all living prey.
     grazing_Z_on_living=Consumption(
         PreferentialGrazing();
         consumers=:Z,
@@ -136,5 +119,4 @@ const FRANKENLOBSTER_PROCESSES = (
     ),
 )
 
-"""Canonical named scientific processes for FrankenLOBSTER."""
 default_processes(::FrankenLOBSTERFamily) = FRANKENLOBSTER_PROCESSES

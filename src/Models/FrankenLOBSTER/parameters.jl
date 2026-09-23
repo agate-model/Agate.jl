@@ -14,18 +14,13 @@ function parameter_definitions(::FrankenLOBSTERFamily)
     day = 86400
 
     # For the canonical P diameters (< 3 um), the supplied LOBSTER3 implementation uses
-    # mu = 1.2066 * V^0.28 / day. Its nitrate half-saturation construction combines
-    # k * mu * Qmin / Vmax, which reduces to 0.028154 * V^0.65 in this size regime.
-    # Following the DARWIN formulation used by Zakem et al. (2018), ammonium affinity
-    # is twice nitrate affinity, represented as K_NH4 = 0.5 K_NO3 at every cell size.
+    # mu = 1.2066 * V^0.28 / day. Its nitrate half-saturation construction reduces to
+    # 0.028154 * V^0.65. The supplied Smith/analytical-light slope is 0.1953 / day.
     maximum_growth = AllometricParam(
         PowerLaw(); prefactor=1.2066 / day, exponent=0.28
     )
     nitrate_half_saturation = AllometricParam(
         PowerLaw(); prefactor=0.028154, exponent=0.65
-    )
-    ammonium_half_saturation = AllometricParam(
-        PowerLaw(); prefactor=0.5 * 0.028154, exponent=0.65
     )
 
     # Supplied LOBSTER3 heterotroph coefficients (Follett/Zakem/DARWIN family):
@@ -45,11 +40,7 @@ function parameter_definitions(::FrankenLOBSTERFamily)
         nitrate_half_saturation=Parameter(
             DiameterIndexedVectorDefault(nitrate_half_saturation; default=0)
         ),
-        ammonium_half_saturation=Parameter(
-            DiameterIndexedVectorDefault(ammonium_half_saturation; default=0)
-        ),
-        light_half_saturation=Parameter(55.0),
-        nitrate_ammonia_inhibition=Parameter(3.0),
+        alpha=Parameter(DiameterIndexedVectorDefault(0.1953 / day; default=0)),
         phytoplankton_mortality_rate=Parameter(5.8e-7),
         zooplankton_mortality_rate=Parameter(2.31e-6),
         bacterial_maximum_uptake_rate=Parameter(
