@@ -155,16 +155,14 @@ end
 
 # The NPD call overload is restricted to the realized Agate-owned living tracer union, so
 # OceanBioME nutrient/detritus/carbon/oxygen tracers keep their native dispatch.
-@inline function (
-    bgc::NutrientsPlanktonDetritus{FT,NUT,PLA}
-)(i, j, k, grid, tracer::OwnedTracerType, clock, fields, auxiliary_fields) where {
-    FT,NUT,Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers,
-    PLA<:FrankenLOBSTERPlankton{Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers}
-}
-    return _agate_tendency(
-        bgc.plankton, tracer, i, j, k, clock.time, fields, auxiliary_fields
-    )
-end
+@inline (bgc::NutrientsPlanktonDetritus{<:Any,<:Any,PLA})(
+    i, j, k, grid, tracer::OwnedTracerType, clock, fields, auxiliary_fields
+) where {
+    Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers,
+    PLA<:FrankenLOBSTERPlankton{Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers},
+} = _agate_tendency(
+    bgc.plankton, tracer, i, j, k, clock.time, fields, auxiliary_fields
+)
 
 @inline nutrient_uptake(
     i, j, k, grid, ::Val{:NO₃}, plankton::FrankenLOBSTERPlankton,
