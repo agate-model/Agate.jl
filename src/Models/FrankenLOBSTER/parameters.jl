@@ -7,7 +7,7 @@ import ...Parameters:
     ConsumerResourceFromConsumer
 
 using ...Library.Allometry: AllometricParam, PowerLaw
-using ...Parameters: AllometricPalatability, ConsumerAssimilation
+using ...Parameters: AllometricPalatability
 
 """LOBSTER3-like defaults expressed through Agate size-trait machinery."""
 function parameter_definitions(::FrankenLOBSTERFamily)
@@ -64,25 +64,15 @@ function parameter_definitions(::FrankenLOBSTERFamily)
         palatability_matrix=Parameter(
             DerivedDefault(
                 AllometricPalatability();
-                deps=(:optimum_predator_prey_ratio, :specificity, :protection),
+                deps=(:optimum_predator_prey_ratio, :specificity),
             )
         ),
-        assimilation_matrix=Parameter(
-            DerivedDefault(
-                ConsumerAssimilation(); deps=(:assimilation_efficiency,)
-            )
-        ),
+        assimilation_matrix=Parameter(0.7),
         optimum_predator_prey_ratio=ConstructionParameter(
             DiameterIndexedVectorDefault(10.0; default=0); axes=:plankton
         ),
         specificity=ConstructionParameter(
             DiameterIndexedVectorDefault(0.3; default=0); axes=:plankton
-        ),
-        protection=ConstructionParameter(
-            DiameterIndexedVectorDefault(0.0; default=1.0); axes=:plankton
-        ),
-        assimilation_efficiency=ConstructionParameter(
-            DiameterIndexedVectorDefault(0.7; default=0); axes=:plankton
         ),
         bacterial_dom_affinity_trait=ConstructionParameter(
             DiameterIndexedVectorDefault(bacterial_dom_half_saturation; default=0);

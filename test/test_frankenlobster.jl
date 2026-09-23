@@ -69,13 +69,16 @@ end
             zooplankton=(micro=[8.0], meso=[20.0]),
             bacterioplankton=(heterotroph=[0.4, 0.8],),
         ),
+        sinking_tracers=(nano_1=0.1,),
     )
     plankton = coupled.underlying_biogeochemistry.plankton
 
     @test required_biogeochemical_tracers(plankton) ==
           (:nano_1, :pico_1, :meso_1, :micro_1, :heterotroph_1, :heterotroph_2)
     @test size(plankton.runtime.parameters.palatability_matrix) == (2, 4)
-    @test size(plankton.runtime.parameters.assimilation_matrix) == (2, 4)
+    @test length(unique(plankton.runtime.parameters.palatability_matrix)) > 1
+    @test plankton.runtime.parameters.assimilation_matrix == fill(0.7, 2, 4)
+    @test hasproperty(plankton.runtime.sinking_velocities, :nano_1)
 
     volume(d) = pi / 6 * d^3
     @test plankton.runtime.parameters.bacterial_maximum_uptake_rate ≈

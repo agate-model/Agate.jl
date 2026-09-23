@@ -30,6 +30,8 @@ function _construct_plankton(;
     phytoplankton_chlorophyll_ratio=1.31,
     scalar_type=nothing,
     arch=nothing,
+    sinking_tracers=nothing,
+    open_bottom::Bool=true,
 )
     realization = _plankton_realization(size_structure)
     runtime = Construction.construct(
@@ -37,6 +39,8 @@ function _construct_plankton(;
         plankton_pfts=realization,
         grid,
         parameter_overrides=parameters,
+        sinking_tracers,
+        open_bottom,
         scalar_type,
         arch,
     )
@@ -60,11 +64,13 @@ function construct(;
     parameters::NamedTuple=(;),
     phytoplankton_chlorophyll_ratio=1.31,
     grid=BoxModelGrid(),
+    sinking_tracers=nothing,
     open_bottom::Bool=true,
     kwargs...,
 )
     plankton = _construct_plankton(;
-        size_structure, parameters, phytoplankton_chlorophyll_ratio, grid
+        size_structure, parameters, phytoplankton_chlorophyll_ratio, grid,
+        sinking_tracers, open_bottom,
     )
     return LOBSTER(
         grid;

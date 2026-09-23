@@ -16,7 +16,7 @@ using ..Library.Allometry:
     )
 end
 
-"""Derive consumer-by-prey palatability from allometric trait vectors."""
+"""Derive consumer-by-prey palatability from size traits, with optional prey protection."""
 struct AllometricPalatability end
 
 """Derive consumer-by-prey assimilation from consumer-specific efficiency traits."""
@@ -60,6 +60,9 @@ end
 @inline function _derive_palatability(layout::ModelLayout, params, consumers, prey)
     _require_palatability_diameters(layout, consumers, prey)
     T = layout.scalar_type
+    protection = hasproperty(params, :protection) ?
+        _require_scalar_vector(T, params.protection, :protection) :
+        zeros(T, length(layout.size_classes))
     return palatability_matrix_allometric_axes(
         T,
         layout.size_class_diameters;
@@ -67,7 +70,7 @@ end
             T, params.optimum_predator_prey_ratio, :optimum_predator_prey_ratio
         ),
         specificity=_require_scalar_vector(T, params.specificity, :specificity),
-        protection=_require_scalar_vector(T, params.protection, :protection),
+        protection,
         consumer_indices=consumers,
         prey_indices=prey,
     )

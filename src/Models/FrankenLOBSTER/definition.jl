@@ -21,7 +21,7 @@ struct FrankenLOBSTERFamily <: AbstractModelFamily end
 
 family_id(::FrankenLOBSTERFamily) = :FrankenLOBSTER
 registered_family(::Val{:FrankenLOBSTER}) = FrankenLOBSTERFamily()
-definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.6.0"
+definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.7.0"
 
 """LOBSTER3-like default living-community size structure."""
 const DEFAULT_SIZE_STRUCTURE = (
