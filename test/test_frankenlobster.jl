@@ -92,7 +92,7 @@ end
 end
 
 @testset "FrankenLOBSTER nitrate-only phytoplankton growth" begin
-    grid = dummy_grid(Float64)
+    grid = RectilinearGrid(CPU(); size=(1, 1, 1), extent=(1, 1, 1))
     coupled = FrankenLOBSTER.construct(;
         grid,
         light_attenuation=_prescribed_light(),
@@ -127,7 +127,7 @@ end
 end
 
 @testset "FrankenLOBSTER Z shares one capacity across P and H" begin
-    grid = dummy_grid(Float64)
+    grid = RectilinearGrid(CPU(); size=(1, 1, 1), extent=(1, 1, 1))
     coupled = FrankenLOBSTER.construct(;
         grid,
         light_attenuation=_prescribed_light(),
