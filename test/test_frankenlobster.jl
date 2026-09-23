@@ -7,7 +7,8 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 using OceanBioME:
     chlorophyll, conserved_tracers, PrescribedPhotosyntheticallyActiveRadiation
 using OceanBioME.Models.NutrientsPlanktonDetritusModels:
-    CarbonateSystem, DissolvedParticulate, ExplicitCalciumCarbonate, Oxygen,
+    CarbonateSystem, DissolvedParticulate, ExplicitCalciumCarbonate, Oxygen
+using OceanBioME.Models.NutrientsPlanktonDetritusModels.InorganicCarbonModels:
     biological_calcium_carbonate_dissolution,
     biological_calcium_carbonate_precipitation,
     particulate_calcium_carbonate_production

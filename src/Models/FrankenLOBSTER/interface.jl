@@ -9,16 +9,17 @@ import Oceananigans.Biogeochemistry:
 
 using OceanBioME.Models.NutrientsPlanktonDetritusModels: NutrientsPlanktonDetritus
 import OceanBioME.Models.NutrientsPlanktonDetritusModels:
-    biological_calcium_carbonate_dissolution,
-    biological_calcium_carbonate_precipitation,
     carbon_ratio,
     dissolved_waste,
     inorganic_waste,
     nutrient_uptake,
-    particulate_calcium_carbonate_production,
     solid_waste,
     chlorophyll_ratio,
     iron_ratio
+import OceanBioME.Models.NutrientsPlanktonDetritusModels.InorganicCarbonModels:
+    biological_calcium_carbonate_dissolution,
+    biological_calcium_carbonate_precipitation,
+    particulate_calcium_carbonate_production
 import OceanBioME.Models.NutrientsPlanktonDetritusModels.DetritusModels: grazing
 
 """OceanBioME plankton component backed by one compiled Agate FrankenLOBSTER runtime."""
