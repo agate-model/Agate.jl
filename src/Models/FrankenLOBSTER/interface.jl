@@ -9,26 +9,49 @@ import Oceananigans.Biogeochemistry:
 
 using OceanBioME.Models.NutrientsPlanktonDetritusModels: NutrientsPlanktonDetritus
 import OceanBioME.Models.NutrientsPlanktonDetritusModels:
-    dissolved_waste, inorganic_waste, nutrient_uptake, solid_waste, chlorophyll_ratio, iron_ratio
+    biological_calcium_carbonate_dissolution,
+    biological_calcium_carbonate_precipitation,
+    carbon_ratio,
+    dissolved_waste,
+    inorganic_waste,
+    nutrient_uptake,
+    particulate_calcium_carbonate_production,
+    solid_waste,
+    chlorophyll_ratio,
+    iron_ratio
 import OceanBioME.Models.NutrientsPlanktonDetritusModels.DetritusModels: grazing
 
 """OceanBioME plankton component backed by one compiled Agate FrankenLOBSTER runtime."""
 struct FrankenLOBSTERPlankton{
-    Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers,PhytoplanktonTracers,ChlorophyllRatio
+    Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers,PhytoplanktonTracers,
+    ProcessDiagnostics,ChlorophyllRatio,CarbonRatio,RainRatio,GutDissolution
 }
     runtime::Runtime
+    process_diagnostics::ProcessDiagnostics
     chlorophyll_ratio::ChlorophyllRatio
+    carbon_ratio::CarbonRatio
+    calcium_carbonate_rain_ratio::RainRatio
+    zooplankton_calcium_carbonate_dissolution::GutDissolution
 end
 
 function FrankenLOBSTERPlankton(
     runtime, owned::Tuple, exchange::Tuple=();
     phytoplankton_tracers,
+    process_diagnostics,
     chlorophyll_ratio=1.31,
+    carbon_ratio=FRANKENLOBSTER_CARBON_RATIO,
+    calcium_carbonate_rain_ratio=FRANKENLOBSTER_CALCIUM_CARBONATE_RAIN_RATIO,
+    zooplankton_calcium_carbonate_dissolution=FRANKENLOBSTER_ZOOPLANKTON_CALCIUM_CARBONATE_DISSOLUTION,
 )
     owned_type = mapreduce(name -> typeof(Val(name)), (A, B) -> Union{A,B}, owned)
     return FrankenLOBSTERPlankton{
-        typeof(runtime),owned,owned_type,exchange,phytoplankton_tracers,typeof(chlorophyll_ratio)
-    }(runtime, chlorophyll_ratio)
+        typeof(runtime),owned,owned_type,exchange,phytoplankton_tracers,
+        typeof(process_diagnostics),typeof(chlorophyll_ratio),typeof(carbon_ratio),
+        typeof(calcium_carbonate_rain_ratio),typeof(zooplankton_calcium_carbonate_dissolution)
+    }(
+        runtime, process_diagnostics, chlorophyll_ratio, carbon_ratio,
+        calcium_carbonate_rain_ratio, zooplankton_calcium_carbonate_dissolution
+    )
 end
 
 @inline required_biogeochemical_tracers(
@@ -54,7 +77,12 @@ end
     biogeochemical_drift_velocity(plankton.runtime, tracer)
 
 @inline chlorophyll_ratio(plankton::FrankenLOBSTERPlankton) = plankton.chlorophyll_ratio
+@inline carbon_ratio(
+    plankton::FrankenLOBSTERPlankton, ::NutrientsPlanktonDetritus{FT}
+) where FT = convert(FT, plankton.carbon_ratio)
 
+# P-specific calcite is supplied through the ExplicitCalciumCarbonate hooks below;
+# CarbonateSystem therefore keeps OceanBioME's default implicit rain ratio.
 const FRANKENLOBSTER_IRON_TO_NITROGEN = 4.6375e-5
 
 @inline iron_ratio(
@@ -74,7 +102,13 @@ end
     return FrankenLOBSTERPlankton(
         adapt(to, plankton.runtime), O, E;
         phytoplankton_tracers=P,
+        process_diagnostics=adapt(to, plankton.process_diagnostics),
         chlorophyll_ratio=adapt(to, plankton.chlorophyll_ratio),
+        carbon_ratio=adapt(to, plankton.carbon_ratio),
+        calcium_carbonate_rain_ratio=adapt(to, plankton.calcium_carbonate_rain_ratio),
+        zooplankton_calcium_carbonate_dissolution=adapt(
+            to, plankton.zooplankton_calcium_carbonate_dissolution
+        ),
     )
 end
 
@@ -168,6 +202,83 @@ end
 ) = _exchange_tendency(
     plankton, Val(:inorganic_waste), i, j, k, grid, fields, auxiliary_fields
 )
+
+@inline function _process_tendency(
+    plankton::FrankenLOBSTERPlankton, ::Val{Process}, ::Val{Tracer},
+    i, j, k, t, fields, auxiliary_fields,
+) where {Process,Tracer}
+    equations = getproperty(plankton.process_diagnostics, Process)
+    hasfield(typeof(equations), Tracer) || return zero(t)
+    equation = getfield(equations, Tracer)
+    tracer_values = _runtime_tracer_values(plankton, i, j, k, fields)
+    auxiliary_values = _runtime_auxiliary_values(plankton, i, j, k, auxiliary_fields)
+    x = zero(t)
+    return equation(plankton.runtime, x, x, x, t, tracer_values..., auxiliary_values...)
+end
+
+@inline function _phytoplankton_process_tendency(
+    plankton::FrankenLOBSTERPlankton{R,O,T,E,P}, process::Val,
+    i, j, k, grid, fields, auxiliary_fields,
+) where {R,O,T,E,P}
+    t = zero(eltype(grid))
+    return mapreduce(
+        tracer -> _process_tendency(
+            plankton, process, Val(tracer), i, j, k, t, fields, auxiliary_fields
+        ),
+        +,
+        P,
+    )
+end
+
+@inline function biological_calcium_carbonate_precipitation(
+    i, j, k, grid, plankton::FrankenLOBSTERPlankton,
+    bgc::NutrientsPlanktonDetritus, fields, auxiliary_fields,
+)
+    retained_growth =
+        _phytoplankton_process_tendency(
+            plankton, Val(:nitrate_growth_P), i, j, k, grid, fields, auxiliary_fields
+        ) +
+        _phytoplankton_process_tendency(
+            plankton, Val(:ammonium_growth_P), i, j, k, grid, fields, auxiliary_fields
+        )
+    return plankton.calcium_carbonate_rain_ratio * plankton.carbon_ratio * retained_growth
+end
+
+@inline function _phytoplankton_loss(
+    plankton, process, i, j, k, grid, fields, auxiliary_fields
+)
+    return -_phytoplankton_process_tendency(
+        plankton, process, i, j, k, grid, fields, auxiliary_fields
+    )
+end
+
+@inline function particulate_calcium_carbonate_production(
+    i, j, k, grid, plankton::FrankenLOBSTERPlankton,
+    bgc::NutrientsPlanktonDetritus, fields, auxiliary_fields,
+)
+    grazing_loss = _phytoplankton_loss(
+        plankton, Val(:grazing_Z_on_living), i, j, k, grid, fields, auxiliary_fields
+    )
+    mortality_loss = _phytoplankton_loss(
+        plankton, Val(:mortality_P), i, j, k, grid, fields, auxiliary_fields
+    )
+    particulate_grazing =
+        (one(plankton.zooplankton_calcium_carbonate_dissolution) -
+         plankton.zooplankton_calcium_carbonate_dissolution) * grazing_loss
+    return plankton.calcium_carbonate_rain_ratio * plankton.carbon_ratio *
+           (particulate_grazing + mortality_loss)
+end
+
+@inline function biological_calcium_carbonate_dissolution(
+    i, j, k, grid, plankton::FrankenLOBSTERPlankton,
+    bgc::NutrientsPlanktonDetritus, fields, auxiliary_fields,
+)
+    grazing_loss = _phytoplankton_loss(
+        plankton, Val(:grazing_Z_on_living), i, j, k, grid, fields, auxiliary_fields
+    )
+    return plankton.calcium_carbonate_rain_ratio * plankton.carbon_ratio *
+           plankton.zooplankton_calcium_carbonate_dissolution * grazing_loss
+end
 
 # DissolvedParticulate uses `grazing` for biological removal from organic-matter pools.
 @inline grazing(

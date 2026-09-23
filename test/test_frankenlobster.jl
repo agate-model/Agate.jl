@@ -7,7 +7,10 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 using OceanBioME:
     chlorophyll, conserved_tracers, PrescribedPhotosyntheticallyActiveRadiation
 using OceanBioME.Models.NutrientsPlanktonDetritusModels:
-    CarbonateSystem, DissolvedParticulate, Oxygen
+    CarbonateSystem, DissolvedParticulate, ExplicitCalciumCarbonate, Oxygen,
+    biological_calcium_carbonate_dissolution,
+    biological_calcium_carbonate_precipitation,
+    particulate_calcium_carbonate_production
 using OceanBioME.Models.NutrientsPlanktonDetritusModels.NutrientsModels:
     Nutrients, NitrateAmmonia, Fe
 using OceanBioME.Models.NutrientsPlanktonDetritusModels: nutrient_uptake
@@ -20,16 +23,18 @@ _cell(value) = fill(value, 1, 1, 1)
 
 function _frankenlobster_fields(;
     NO₃=1.0, NH₄=1.0, Fe=1.0, T=20.0, DOM=0.0, sPOM=0.0, bPOM=0.0,
+    DIC=2000.0, Alk=2300.0, CaCO₃=0.0, S=35.0,
     P_1=0.0, P_2=0.0, Z_1=0.0, Z_2=0.0, H_1=0.0,
 )
     return (
         NO₃=_cell(NO₃), NH₄=_cell(NH₄), Fe=_cell(Fe), T=_cell(T), DOM=_cell(DOM),
-        sPOM=_cell(sPOM), bPOM=_cell(bPOM),
+        sPOM=_cell(sPOM), bPOM=_cell(bPOM), DIC=_cell(DIC), Alk=_cell(Alk),
+        CaCO₃=_cell(CaCO₃), S=_cell(S),
         P_1=_cell(P_1), P_2=_cell(P_2), Z_1=_cell(Z_1), Z_2=_cell(Z_2), H_1=_cell(H_1),
     )
 end
 
-function _controlled_frankenlobster(grid)
+function _controlled_frankenlobster(grid; parameter_overrides=(;), kwargs...)
     detritus = DissolvedParticulate(
         grid;
         dissolved_remineralisation_rate=0.0,
@@ -41,7 +46,7 @@ function _controlled_frankenlobster(grid)
         light_attenuation=_prescribed_light(),
         nutrients=Nutrients(; nitrogen=NitrateAmmonia(; nitrification_rate=0.0), iron=Fe),
         detritus,
-        parameters=(
+        parameters=merge((
             maximum_growth_rate=(P_1=1.0, P_2=1.0),
             nitrate_half_saturation=(P_1=1.0, P_2=1.0),
             ammonium_half_saturation=(P_1=1.0, P_2=1.0),
@@ -59,7 +64,8 @@ function _controlled_frankenlobster(grid)
             bacterial_substrate_preference=reshape([1.0], 1, 1),
             bacterial_assimilation=reshape([0.25], 1, 1),
             bacterioplankton_mortality_rate=(H_1=0.0,),
-        ),
+        ), parameter_overrides),
+        kwargs...,
     )
 end
 
@@ -112,7 +118,10 @@ end
     @test groups.nitrogen.nano_1 == groups.nitrogen.heterotroph_1 == 1.0
     @test groups.iron.nano_1 == groups.iron.heterotroph_1 == 4.6375e-5
     @test !hasproperty(groups.nitrogen, :T) && !hasproperty(groups.iron, :T)
-    @test groups.carbon.nano_1 == groups.carbon.heterotroph_1 == groups.carbon.DOM == 106 / 16
+    @test groups.carbon.nano_1 == groups.carbon.heterotroph_1 == groups.carbon.DOM == 6.56
+    @test plankton.carbon_ratio == 6.56
+    @test plankton.calcium_carbonate_rain_ratio == 0.1
+    @test plankton.zooplankton_calcium_carbonate_dissolution == 0.3
 end
 
 @testset "FrankenLOBSTER coupled nutrient and DOM exchange" begin
@@ -173,4 +182,86 @@ end
     @test [tendency(:DOM, dom_fields), tendency(:H_1, dom_fields), tendency(:NH₄, dom_fields)] ≈
           [-3.0, 0.75, 2.25]
     @test [tendency(:sPOM, dom_fields), tendency(:bPOM, dom_fields)] == [0.0, 0.0]
+end
+
+
+@testset "FrankenLOBSTER P-specific calcite routing" begin
+    grid = RectilinearGrid(CPU(); size=(1, 1, 1), extent=(1, 1, 1))
+    auxiliary_fields = (PAR=_cell(1.0), Ω=_cell(1.0))
+
+    calcite_flux(hook, bgc, fields) = hook(
+        1, 1, 1, grid, bgc.plankton, bgc, fields, auxiliary_fields
+    )
+    calcite_fluxes(bgc, fields) = [
+        calcite_flux(hook, bgc, fields) for hook in (
+            biological_calcium_carbonate_precipitation,
+            particulate_calcium_carbonate_production,
+            biological_calcium_carbonate_dissolution,
+        )
+    ]
+    calcite_scale = 0.1 * 6.56
+
+    growth_fields = _frankenlobster_fields(; NO₃=1.0, NH₄=0.0, Fe=1e12, P_1=2.0)
+    explicit_carbon() = ExplicitCalciumCarbonate(
+        grid;
+        calcium_carbonate_dissolution_rate=0.0,
+        calcium_carbonate_precipitation_rate=0.0,
+        calcium_carbonate_sinking_speed=0.0,
+    )
+    explicit_bgc = _controlled_frankenlobster(
+        grid; inorganic_carbon=explicit_carbon()
+    ).underlying_biogeochemistry
+    zero_calcite_bgc = _controlled_frankenlobster(
+        grid; inorganic_carbon=explicit_carbon(), calcium_carbonate_rain_ratio=0.0
+    ).underlying_biogeochemistry
+    retained_growth = explicit_bgc(
+        1, 1, 1, grid, Val(:P_1), (; time=0.0), growth_fields, auxiliary_fields
+    )
+    @test calcite_fluxes(explicit_bgc, growth_fields) ≈ [calcite_scale * retained_growth, 0.0, 0.0]
+
+    carbonate_tendency(bgc, tracer) = bgc(
+        1, 1, 1, grid, Val(tracer), (; time=0.0), growth_fields, auxiliary_fields
+    )
+    precipitation = calcite_flux(
+        biological_calcium_carbonate_precipitation, explicit_bgc, growth_fields
+    )
+    @test [
+        carbonate_tendency(explicit_bgc, :DIC) - carbonate_tendency(zero_calcite_bgc, :DIC),
+        carbonate_tendency(explicit_bgc, :Alk) - carbonate_tendency(zero_calcite_bgc, :Alk),
+        carbonate_tendency(explicit_bgc, :CaCO₃),
+    ] ≈ [-precipitation, -2precipitation, 0.0]
+
+    grazing_bgc = _controlled_frankenlobster(
+        grid;
+        parameter_overrides=(
+            maximum_growth_rate=(P_1=0.0, P_2=0.0),
+            maximum_predation_rate=(Z_1=1.0, Z_2=0.0),
+            zooplankton_excretion_rate=(Z_1=0.0, Z_2=0.0),
+        ),
+    ).underlying_biogeochemistry
+    grazing_fields = _frankenlobster_fields(; P_1=2.0, Z_1=1.0)
+    grazed_P = -grazing_bgc(
+        1, 1, 1, grid, Val(:P_1), (; time=0.0), grazing_fields, auxiliary_fields
+    )
+    @test calcite_fluxes(grazing_bgc, grazing_fields) ≈
+          [0.0, calcite_scale * 0.7 * grazed_P, calcite_scale * 0.3 * grazed_P]
+
+    mortality_bgc = _controlled_frankenlobster(
+        grid;
+        parameter_overrides=(
+            maximum_growth_rate=(P_1=0.0, P_2=0.0),
+            phytoplankton_mortality_rate=(P_1=1.0, P_2=0.0),
+            zooplankton_excretion_rate=(Z_1=0.0, Z_2=0.0),
+            zooplankton_mortality_rate=(Z_1=1.0, Z_2=0.0),
+            bacterioplankton_mortality_rate=(H_1=1.0,),
+        ),
+    ).underlying_biogeochemistry
+    mortality_fields = _frankenlobster_fields(; P_1=2.0)
+    dead_P = -mortality_bgc(
+        1, 1, 1, grid, Val(:P_1), (; time=0.0), mortality_fields, auxiliary_fields
+    )
+    @test calcite_fluxes(mortality_bgc, mortality_fields) ≈ [0.0, calcite_scale * dead_P, 0.0]
+    @test calcite_fluxes(
+        mortality_bgc, _frankenlobster_fields(; Z_1=2.0, H_1=2.0)
+    ) == zeros(3)
 end

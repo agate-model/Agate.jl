@@ -9,6 +9,11 @@ import ...Parameters:
 using ...Library.Allometry: AllometricParam, PowerLaw
 using ...Parameters: AllometricPalatability
 
+
+const FRANKENLOBSTER_CARBON_RATIO = 6.56
+const FRANKENLOBSTER_CALCIUM_CARBONATE_RAIN_RATIO = 0.1
+const FRANKENLOBSTER_ZOOPLANKTON_CALCIUM_CARBONATE_DISSOLUTION = 0.3
+
 """LOBSTER3-like defaults expressed through Agate size-trait machinery."""
 function parameter_definitions(::FrankenLOBSTERFamily)
     day = 86400

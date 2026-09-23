@@ -131,7 +131,11 @@ end
             ("process :", "parameter :$name", "domain :$domain", shown))
     end
 
-    bgc = construct(definition; parameter_overrides=food_web_parameter_overrides())
+    bgc = construct(
+        definition;
+        parameter_overrides=food_web_parameter_overrides(),
+        diagnostic_processes=(:grazing_living,),
+    )
 
     @test participants(definition.processes.consume_POM) == (
         consumer=(:B,), resource=(:POM,)
@@ -141,6 +145,11 @@ end
     @test :M ∈ participants(definition.processes.growth_autotrophs).plankton
     @test :M ∈ participants(definition.processes.grazing_living).consumer
     @test required_biogeochemical_auxiliary_fields(bgc) == (:PAR, :temperature)
+
+    grazing_state = (P_1=0.05, Z_1=0.04)
+    grazing_args = food_web_args(bgc, grazing_state)
+    grazing_P = bgc.metadata.process_diagnostics.grazing_living.P_1(bgc, grazing_args...)
+    @test process_compiler_isapprox(grazing_P, bgc(Val(:P_1), grazing_args...))
 
     state = (
         N=5.0, D=0.1, POM=0.5,

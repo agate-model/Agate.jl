@@ -16,7 +16,7 @@ using ..Processes:
     runtime_parameter_values, parameter_plan_metadata, parameter_constraints,
     validate_realized_parameters
 
-using ..Compilation: CompileContext, compile_model_tendencies
+using ..Compilation: CompileContext, compile_model_tendencies, compile_process_diagnostics
 
 """Move `x` to the requested Oceananigans architecture."""
 function on_architecture(arch, x)
@@ -135,6 +135,7 @@ function _construct_process_definition(
     arch=nothing,
     scalar_type=nothing,
     build_manifest::Bool=false,
+    diagnostic_processes::Tuple=(),
     derivation_owner=nothing,
     manifest_family=nothing,
 )
@@ -203,10 +204,14 @@ function _construct_process_definition(
     runtime_parameters = runtime_parameter_values(parameter_plan, resolved_parameters)
     compile_context = CompileContext(canonical, layout, parameter_plan)
     equations = compile_model_tendencies(compile_context; target_order=tracer_names)
-    metadata = model_metadata(
-        layout;
-        parameter_axes=parameter_plan_metadata(canonical, parameter_plan),
-        parameter_constraints=constraints,
+    process_diagnostics = compile_process_diagnostics(compile_context, diagnostic_processes)
+    metadata = merge(
+        model_metadata(
+            layout;
+            parameter_axes=parameter_plan_metadata(canonical, parameter_plan),
+            parameter_constraints=constraints,
+        ),
+        (; process_diagnostics),
     )
     sinking_velocities = isnothing(sinking_tracers) ? nothing :
         setup_velocity_fields(sinking_tracers, grid, open_bottom)
@@ -244,6 +249,7 @@ function _construct_registered_model(
     arch=nothing,
     scalar_type=nothing,
     build_manifest::Bool=false,
+    diagnostic_processes::Tuple=(),
 )
     return _construct_process_definition(
         ModelDefinition(family);
@@ -252,6 +258,7 @@ function _construct_registered_model(
         arch,
         scalar_type,
         build_manifest,
+        diagnostic_processes,
         derivation_owner=family,
         manifest_family=family,
     )
@@ -284,8 +291,9 @@ end
 Construct a registered model family from its resolved family realization. This is the
 supported construction seam for external family packages after their own user-facing
 constructor syntax has been translated into the nested `plankton_pfts` mapping and
-parameter overrides. Runtime grid, architecture, and scalar precision remain execution
-choices.
+parameter overrides. `diagnostic_processes` optionally retains compiled equations for selected
+named processes so coupled components can reuse process-specific fluxes without re-lowering them.
+Runtime grid, architecture, and scalar precision remain execution choices.
 """
 function construct(
     family::AbstractModelFamily;
@@ -296,9 +304,12 @@ function construct(
     grid=nothing,
     arch=nothing,
     scalar_type=nothing,
+    diagnostic_processes::Tuple=(),
 )
     realization = (; plankton_pfts, parameter_overrides, sinking_tracers, open_bottom)
-    bgc, _ = _construct_registered_model(family, realization; grid, arch, scalar_type)
+    bgc, _ = _construct_registered_model(
+        family, realization; grid, arch, scalar_type, diagnostic_processes
+    )
     return bgc
 end
 
@@ -314,7 +325,8 @@ tracer equations are compiled during setup.
 `parameter_overrides` supplies concrete parameter values over the defaults declared in
 `definition.parameters`, including explicit axis-sized interaction matrices. Runtime grid,
 architecture, and scalar precision remain execution choices rather than part of the
-scientific definition.
+scientific definition. `diagnostic_processes` optionally retains compiled equations for selected
+named processes for setup-time coupling to process-specific diagnostics.
 """
 function construct(
     definition::ModelDefinition;
@@ -325,6 +337,7 @@ function construct(
     grid=nothing,
     arch=nothing,
     scalar_type=nothing,
+    diagnostic_processes::Tuple=(),
 )
     bgc, _ = _construct_process_definition(
         definition;
@@ -335,6 +348,7 @@ function construct(
         grid,
         arch,
         scalar_type,
+        diagnostic_processes,
     )
     return bgc
 end
