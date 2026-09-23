@@ -117,15 +117,20 @@ end
 `bindings.maximum_rate` names the model parameter that sets the growth-rate scale.
 `reference_resource` supplies the Element represented by the plankton `reference_state`.
 `additional_resources` maps additional Elements to external Pools consumed according to
-`FixedStoichiometry`. Factors modify growth rate only; independently prognostic elemental
-states are supplied through [`NutrientUptake`](@ref).
+`FixedStoichiometry`. Factors modify gross growth rate only. Optional `products` route the
+`product_fraction` of gross growth before biomass retention while resource uptake remains gross;
+the retained biomass fraction is the exact complement. Independently prognostic elemental states
+are supplied through [`NutrientUptake`](@ref).
 """
-struct Growth{Factors<:NamedTuple,AdditionalResources<:NamedTuple,Stoichiometry} <: AbstractProcess
+struct Growth{
+    Factors<:NamedTuple,AdditionalResources<:NamedTuple,Stoichiometry,ProductRouting
+} <: AbstractProcess
     plankton::Tuple
     factors::Factors
     reference_resource::Symbol
     additional_resources::AdditionalResources
     stoichiometry::Stoichiometry
+    products::ProductRouting
     bindings::NamedTuple
 end
 
@@ -135,6 +140,7 @@ function Growth(;
     factors::NamedTuple=NamedTuple(),
     additional_resources::NamedTuple=NamedTuple(),
     stoichiometry=nothing,
+    products=nothing,
     bindings::NamedTuple=NamedTuple(),
 )
     all(resource -> resource isa Symbol, values(additional_resources)) || throw(
@@ -149,6 +155,7 @@ function Growth(;
         reference_resource,
         _canonical_namedtuple(additional_resources),
         stoichiometry,
+        _canonical_products(products),
         _canonical_bindings(bindings),
     )
 end
@@ -289,8 +296,8 @@ factors(::AbstractProcess) = NamedTuple()
 factors(process::Union{Growth,Consumption}) = process.factors
 
 process_products(::AbstractProcess) = nothing
-process_products(process::Union{Consumption,Mortality}) = process.products
-product_path(::Mortality) = (:products,)
+process_products(process::Union{Growth,Consumption,Mortality}) = process.products
+product_path(::Union{Growth,Mortality}) = (:products,)
 product_path(::Consumption) = (:unassimilated_products,)
 
 """Whether a consumer-resource formulation uses living consumer-prey interaction matrices."""

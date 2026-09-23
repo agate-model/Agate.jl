@@ -51,6 +51,7 @@ function _controlled_frankenlobster(grid)
             reference_temperature=20.0,
             alpha=(P_1=1.0, P_2=1.0),
             phytoplankton_mortality_rate=(P_1=0.0, P_2=0.0),
+            zooplankton_excretion_rate=(Z_1=1.0, Z_2=1.0),
             zooplankton_mortality_rate=(Z_1=0.0, Z_2=0.0),
             maximum_predation_rate=(Z_1=0.0, Z_2=0.0),
             bacterial_maximum_uptake_rate=(H_1=2.0,),
@@ -88,6 +89,10 @@ end
     @test plankton.runtime.parameters.iron_half_saturation == fill(2e-4, 2)
     @test plankton.runtime.parameters.temperature_q10 == 1.88
     @test plankton.runtime.parameters.reference_temperature == 20.0
+    @test plankton.runtime.parameters.phytoplankton_exudation_fraction == fill(0.05, 2)
+    @test plankton.runtime.parameters.ammonium_fraction_of_exudate == 0.75
+    @test plankton.runtime.parameters.zooplankton_excretion_rate == fill(5.8e-7, 2)
+    @test plankton.runtime.parameters.ammonium_fraction_of_zooplankton_excretion == 0.5
     @test hasproperty(plankton.runtime.sinking_velocities, :nano_1)
 
     volume(d) = pi / 6 * d^3
@@ -128,24 +133,41 @@ end
     light_scale = inv(sqrt(2.0))
     nitrate_only = _frankenlobster_fields(; NO₃=1.0, NH₄=0.0, Fe=1e12, P_1=2.0)
     ammonium_only = _frankenlobster_fields(; NO₃=0.0, NH₄=1.0, Fe=1e12, P_1=2.0)
-    @test tendency(:P_1, nitrate_only) ≈ light_scale
-    @test tendency(:P_1, ammonium_only) ≈ light_scale
-    @test uptake(:NO₃, nitrate_only) ≈ light_scale
+    gross_nitrate_growth = uptake(:NO₃, nitrate_only)
+    @test gross_nitrate_growth ≈ light_scale
+    @test tendency(:P_1, nitrate_only) ≈ 0.95 * gross_nitrate_growth
+    @test tendency(:NO₃, nitrate_only) ≈ -gross_nitrate_growth
+    @test tendency(:NH₄, nitrate_only) ≈ 0.0375 * gross_nitrate_growth
+    @test tendency(:DOM, nitrate_only) ≈ 0.0125 * gross_nitrate_growth
+    nitrate_closure = sum(
+        tendency(tracer, nitrate_only) for tracer in (:NO₃, :P_1, :NH₄, :DOM)
+    )
+    @test isapprox(nitrate_closure, 0; atol=10eps(gross_nitrate_growth))
+
+    @test tendency(:P_1, ammonium_only) ≈ 0.95 * light_scale
     @test uptake(:NH₄, ammonium_only) ≈ light_scale
 
     mixed = _frankenlobster_fields(; NO₃=10.0, NH₄=10.0, Fe=1e12, P_1=2.0)
-    @test tendency(:P_1, mixed) ≈ sqrt(2.0)
+    @test tendency(:P_1, mixed) ≈ 0.95 * sqrt(2.0)
     mixed_uptake = uptake(:NO₃, mixed) + uptake(:NH₄, mixed)
     @test mixed_uptake ≈ total_uptake(mixed)
     @test mixed_uptake ≈ sqrt(2.0)
-    @test uptake(:NO₃, mixed) < uptake(:NO₃, _frankenlobster_fields(; NO₃=10.0, NH₄=0.0, Fe=1e12, P_1=2.0))
+    nitrate_without_ammonium = _frankenlobster_fields(; NO₃=10.0, NH₄=0.0, Fe=1e12, P_1=2.0)
+    @test uptake(:NO₃, mixed) < uptake(:NO₃, nitrate_without_ammonium)
 
     iron_limited = _frankenlobster_fields(; NO₃=100.0, NH₄=0.0, Fe=1.0, P_1=2.0)
-    @test tendency(:P_1, iron_limited) ≈ light_scale
+    @test tendency(:P_1, iron_limited) ≈ 0.95 * light_scale
     @test uptake(:Fe, iron_limited) ≈ light_scale * 4.6375e-5
 
     warm = _frankenlobster_fields(; NO₃=1.0, NH₄=0.0, Fe=1e12, T=30.0, P_1=2.0)
     @test tendency(:P_1, warm) ≈ 2 * tendency(:P_1, nitrate_only)
+
+    excretion_fields = _frankenlobster_fields(; Z_1=2.0)
+    @test [
+        tendency(:Z_1, excretion_fields),
+        tendency(:NH₄, excretion_fields),
+        tendency(:DOM, excretion_fields),
+    ] ≈ [-2.0, 1.0, 1.0]
 
     dom_fields = _frankenlobster_fields(; DOM=3.0, H_1=2.0)
     @test [tendency(:DOM, dom_fields), tendency(:H_1, dom_fields), tendency(:NH₄, dom_fields)] ≈

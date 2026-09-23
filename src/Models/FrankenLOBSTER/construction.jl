@@ -52,7 +52,7 @@ function _construct_plankton(;
     return FrankenLOBSTERPlankton(
         runtime,
         runtime.metadata.plankton_tracers,
-        (:solid_waste, :inorganic_waste);
+        (:solid_waste, :inorganic_waste, :dissolved_waste);
         phytoplankton_tracers,
         chlorophyll_ratio=convert(eltype(grid), phytoplankton_chlorophyll_ratio),
     )

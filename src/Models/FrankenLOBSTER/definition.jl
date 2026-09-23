@@ -11,6 +11,7 @@ using ...Processes:
     Q10,
     PreferentialGrazing,
     HeterotrophicConsumption,
+    LinearMortality,
     QuadraticMortality
 
 import ...ModelFamilies: default_components, default_processes, definition_version
@@ -21,7 +22,7 @@ struct FrankenLOBSTERFamily <: AbstractModelFamily end
 
 family_id(::FrankenLOBSTERFamily) = :FrankenLOBSTER
 registered_family(::Val{:FrankenLOBSTER}) = FrankenLOBSTERFamily()
-definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.8.0"
+definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.9.0"
 
 """LOBSTER3-like default living-community size structure."""
 const DEFAULT_SIZE_STRUCTURE = (
@@ -41,6 +42,7 @@ const FRANKENLOBSTER_COMPONENTS = (
     DOM=Pool(:nitrogen),
     solid_waste=Pool(:nitrogen),
     inorganic_waste=Pool(:nitrogen),
+    dissolved_waste=Pool(:nitrogen),
     P=Plankton(;
         states=(nitrogen=:nitrogen,),
         reference_state=:nitrogen,
@@ -85,14 +87,28 @@ const FRANKENLOBSTER_PROCESSES = (
     nitrate_growth_P=Growth(;
         plankton=:P,
         reference_resource=:NO₃,
-        bindings=(maximum_rate=:maximum_growth_rate,),
+        bindings=(
+            maximum_rate=:maximum_growth_rate,
+            product_fraction=:phytoplankton_exudation_fraction,
+        ),
         factors=merge(_P_GROWTH_FACTORS, (nutrients=_nitrogen_source_factor(:NO₃),)),
+        products=Products(
+            (dissolved=:dissolved_waste, inorganic=:inorganic_waste);
+            fractions=(inorganic=:ammonium_fraction_of_exudate,),
+        ),
     ),
     ammonium_growth_P=Growth(;
         plankton=:P,
         reference_resource=:NH₄,
-        bindings=(maximum_rate=:maximum_growth_rate,),
+        bindings=(
+            maximum_rate=:maximum_growth_rate,
+            product_fraction=:phytoplankton_exudation_fraction,
+        ),
         factors=merge(_P_GROWTH_FACTORS, (nutrients=_nitrogen_source_factor(:NH₄),)),
+        products=Products(
+            (dissolved=:dissolved_waste, inorganic=:inorganic_waste);
+            fractions=(inorganic=:ammonium_fraction_of_exudate,),
+        ),
     ),
     consumption_H_on_DOM=Consumption(
         HeterotrophicConsumption();
@@ -117,6 +133,15 @@ const FRANKENLOBSTER_PROCESSES = (
             assimilation=:assimilation_matrix,
         ),
         unassimilated_products=:solid_waste,
+    ),
+    excretion_Z=Mortality(
+        LinearMortality();
+        plankton=:Z,
+        bindings=(rate=:zooplankton_excretion_rate,),
+        products=Products(
+            (dissolved=:dissolved_waste, inorganic=:inorganic_waste);
+            fractions=(inorganic=:ammonium_fraction_of_zooplankton_excretion,),
+        ),
     ),
     mortality_P=Mortality(
         QuadraticMortality();

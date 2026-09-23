@@ -165,7 +165,24 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
         end
     end
 
-    return (; plankton_states)
+    product_targets = if isnothing(process.products)
+        nothing
+    else
+        targets = _canonical_product_targets(
+            id, process.products, components, reference_element, "growth products"
+        )
+        _product_transfer_mode(
+            id,
+            process.products,
+            targets,
+            (reference_element,),
+            reference_element,
+            "growth products",
+        )
+        targets
+    end
+
+    return (; plankton_states, product_targets)
 end
 
 function process_facts(

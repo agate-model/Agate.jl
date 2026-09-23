@@ -156,9 +156,11 @@ end
 ) = _exchange_tendency(plankton, Val(:solid_waste), i, j, k, grid, fields, auxiliary_fields)
 
 @inline dissolved_waste(
-    i, j, k, grid, ::FrankenLOBSTERPlankton,
-    ::NutrientsPlanktonDetritus{FT}, fields, auxiliary_fields,
-) where FT = zero(FT)
+    i, j, k, grid, plankton::FrankenLOBSTERPlankton,
+    bgc::NutrientsPlanktonDetritus, fields, auxiliary_fields,
+) = _exchange_tendency(
+    plankton, Val(:dissolved_waste), i, j, k, grid, fields, auxiliary_fields
+)
 
 @inline inorganic_waste(
     i, j, k, grid, plankton::FrankenLOBSTERPlankton,

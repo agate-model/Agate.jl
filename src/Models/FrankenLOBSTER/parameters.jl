@@ -51,7 +51,11 @@ function parameter_definitions(::FrankenLOBSTERFamily)
         temperature_q10=Parameter(1.88),
         reference_temperature=Parameter(20.0),
         alpha=Parameter(DiameterIndexedVectorDefault(0.1953 / day; default=0)),
+        phytoplankton_exudation_fraction=Parameter(0.05),
+        ammonium_fraction_of_exudate=Parameter(0.75),
         phytoplankton_mortality_rate=Parameter(5.8e-7),
+        zooplankton_excretion_rate=Parameter(5.8e-7),
+        ammonium_fraction_of_zooplankton_excretion=Parameter(0.5),
         zooplankton_mortality_rate=Parameter(2.31e-6),
         bacterial_maximum_uptake_rate=Parameter(
             DiameterIndexedVectorDefault(bacterial_maximum_uptake; default=0)

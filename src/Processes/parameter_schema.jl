@@ -45,6 +45,11 @@ parameter_slots(::AbstractFormulation) = ()
 parameter_slots(::FactorizedGrowth) = (
     ParameterSlot(:maximum_rate, (:plankton,); domain=:nonnegative),
 )
+parameter_slots(process::Growth) = isnothing(process.products) ?
+    parameter_slots(FactorizedGrowth()) : (
+        parameter_slots(FactorizedGrowth())...,
+        ParameterSlot(:product_fraction, (:plankton,); domain=:unit_interval),
+    )
 parameter_slots(::Smith) = (ParameterSlot(:alpha, (:plankton,); domain=:nonnegative),)
 parameter_slots(::Geider) = (
     ParameterSlot(:alpha, (:plankton,); domain=:nonnegative),
@@ -113,6 +118,8 @@ struct ParameterBinding{Axes,AxisComponents}
     domain::Symbol
 end
 
-_parameter_slot_source(node::Union{AbstractFormulation,AbstractStoichiometry,Products}) = node
+_parameter_slot_source(
+    node::Union{AbstractFormulation,AbstractStoichiometry,Products,Growth}
+) = node
 _parameter_slot_source(node) = formulation(node)
 
