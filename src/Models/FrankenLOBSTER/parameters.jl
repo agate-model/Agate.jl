@@ -22,6 +22,9 @@ function parameter_definitions(::FrankenLOBSTERFamily)
     nitrate_half_saturation = AllometricParam(
         PowerLaw(); prefactor=0.028154, exponent=0.65
     )
+    ammonium_half_saturation = AllometricParam(
+        PowerLaw(); prefactor=0.5 * 0.028154, exponent=0.65
+    )
 
     # Supplied LOBSTER3 heterotroph coefficients (Follett/Zakem/DARWIN family):
     # mu_max = 1.836 * V^0.28 / day and
@@ -40,6 +43,13 @@ function parameter_definitions(::FrankenLOBSTERFamily)
         nitrate_half_saturation=Parameter(
             DiameterIndexedVectorDefault(nitrate_half_saturation; default=0)
         ),
+        ammonium_half_saturation=Parameter(
+            DiameterIndexedVectorDefault(ammonium_half_saturation; default=0)
+        ),
+        iron_half_saturation=Parameter(2e-4),
+        ammonium_inhibition=Parameter(3.0),
+        temperature_q10=Parameter(1.88),
+        reference_temperature=Parameter(20.0),
         alpha=Parameter(DiameterIndexedVectorDefault(0.1953 / day; default=0)),
         phytoplankton_mortality_rate=Parameter(5.8e-7),
         zooplankton_mortality_rate=Parameter(2.31e-6),

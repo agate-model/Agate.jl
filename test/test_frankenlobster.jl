@@ -9,7 +9,7 @@ using OceanBioME:
 using OceanBioME.Models.NutrientsPlanktonDetritusModels:
     CarbonateSystem, DissolvedParticulate, Oxygen
 using OceanBioME.Models.NutrientsPlanktonDetritusModels.NutrientsModels:
-    Nutrients, NitrateAmmonia
+    Nutrients, NitrateAmmonia, Fe
 using OceanBioME.Models.NutrientsPlanktonDetritusModels: nutrient_uptake
 
 const FrankenLOBSTER = Agate.Models.FrankenLOBSTER
@@ -19,11 +19,11 @@ _prescribed_light(value=100.0) =
 _cell(value) = fill(value, 1, 1, 1)
 
 function _frankenlobster_fields(;
-    NO₃=1.0, NH₄=1.0, DOM=0.0, sPOM=0.0, bPOM=0.0,
+    NO₃=1.0, NH₄=1.0, Fe=1.0, T=20.0, DOM=0.0, sPOM=0.0, bPOM=0.0,
     P_1=0.0, P_2=0.0, Z_1=0.0, Z_2=0.0, H_1=0.0,
 )
     return (
-        NO₃=_cell(NO₃), NH₄=_cell(NH₄), DOM=_cell(DOM),
+        NO₃=_cell(NO₃), NH₄=_cell(NH₄), Fe=_cell(Fe), T=_cell(T), DOM=_cell(DOM),
         sPOM=_cell(sPOM), bPOM=_cell(bPOM),
         P_1=_cell(P_1), P_2=_cell(P_2), Z_1=_cell(Z_1), Z_2=_cell(Z_2), H_1=_cell(H_1),
     )
@@ -39,11 +39,16 @@ function _controlled_frankenlobster(grid)
     return FrankenLOBSTER.construct(;
         grid,
         light_attenuation=_prescribed_light(),
-        nutrients=Nutrients(; nitrogen=NitrateAmmonia(; nitrification_rate=0.0)),
+        nutrients=Nutrients(; nitrogen=NitrateAmmonia(; nitrification_rate=0.0), iron=Fe),
         detritus,
         parameters=(
             maximum_growth_rate=(P_1=1.0, P_2=1.0),
             nitrate_half_saturation=(P_1=1.0, P_2=1.0),
+            ammonium_half_saturation=(P_1=1.0, P_2=1.0),
+            iron_half_saturation=(P_1=1.0, P_2=1.0),
+            ammonium_inhibition=0.1,
+            temperature_q10=2.0,
+            reference_temperature=20.0,
             alpha=(P_1=1.0, P_2=1.0),
             phytoplankton_mortality_rate=(P_1=0.0, P_2=0.0),
             zooplankton_mortality_rate=(Z_1=0.0, Z_2=0.0),
@@ -78,6 +83,11 @@ end
     @test size(plankton.runtime.parameters.palatability_matrix) == (2, 4)
     @test length(unique(plankton.runtime.parameters.palatability_matrix)) > 1
     @test plankton.runtime.parameters.assimilation_matrix == fill(0.7, 2, 4)
+    @test plankton.runtime.parameters.ammonium_half_saturation ≈
+          0.5 .* plankton.runtime.parameters.nitrate_half_saturation
+    @test plankton.runtime.parameters.iron_half_saturation == fill(2e-4, 2)
+    @test plankton.runtime.parameters.temperature_q10 == 1.88
+    @test plankton.runtime.parameters.reference_temperature == 20.0
     @test hasproperty(plankton.runtime.sinking_velocities, :nano_1)
 
     volume(d) = pi / 6 * d^3
@@ -92,38 +102,53 @@ end
     @test chlorophyll_field[1, 1, 1] ≈ 1.31 * 3.0
 
     tracers = required_biogeochemical_tracers(coupled)
-    @test all(t -> t in tracers, (:DOM, :sPOM, :bPOM, :DIC, :Alk, :O₂))
+    @test all(t -> t in tracers, (:NO₃, :NH₄, :Fe, :T, :DOM, :sPOM, :bPOM, :DIC, :Alk, :O₂))
     groups = conserved_tracers(coupled)
     @test groups.nitrogen.nano_1 == groups.nitrogen.heterotroph_1 == 1.0
+    @test groups.iron.nano_1 == groups.iron.heterotroph_1 == 4.6375e-5
+    @test !hasproperty(groups.nitrogen, :T) && !hasproperty(groups.iron, :T)
     @test groups.carbon.nano_1 == groups.carbon.heterotroph_1 == groups.carbon.DOM == 106 / 16
 end
 
-@testset "FrankenLOBSTER coupled nitrate and DOM exchange" begin
+@testset "FrankenLOBSTER coupled nutrient and DOM exchange" begin
     grid = RectilinearGrid(CPU(); size=(1, 1, 1), extent=(1, 1, 1))
     bgc = _controlled_frankenlobster(grid).underlying_biogeochemistry
     auxiliary_fields = (PAR=_cell(1.0),)
     clock = (; time=0.0)
 
-    growth_fields = _frankenlobster_fields(; P_1=2.0)
-    growth = inv(sqrt(2.0))
-    @test bgc(1, 1, 1, grid, Val(:P_1), clock, growth_fields, auxiliary_fields) ≈ growth
-    @test nutrient_uptake(
-        1, 1, 1, grid, Val(:NO₃), bgc.plankton, bgc, growth_fields, auxiliary_fields
-    ) ≈ growth
-    @test nutrient_uptake(
-        1, 1, 1, grid, Val(:NH₄), bgc.plankton, bgc, growth_fields, auxiliary_fields
-    ) == 0.0
-    @test nutrient_uptake(
-        1, 1, 1, grid, bgc.plankton, bgc, growth_fields, auxiliary_fields
-    ) ≈ growth
+    tendency(tracer, fields) =
+        bgc(1, 1, 1, grid, Val(tracer), clock, fields, auxiliary_fields)
+    uptake(tracer, fields) = nutrient_uptake(
+        1, 1, 1, grid, Val(tracer), bgc.plankton, bgc, fields, auxiliary_fields
+    )
+    total_uptake(fields) = nutrient_uptake(
+        1, 1, 1, grid, bgc.plankton, bgc, fields, auxiliary_fields
+    )
+
+    light_scale = inv(sqrt(2.0))
+    nitrate_only = _frankenlobster_fields(; NO₃=1.0, NH₄=0.0, Fe=1e12, P_1=2.0)
+    ammonium_only = _frankenlobster_fields(; NO₃=0.0, NH₄=1.0, Fe=1e12, P_1=2.0)
+    @test tendency(:P_1, nitrate_only) ≈ light_scale
+    @test tendency(:P_1, ammonium_only) ≈ light_scale
+    @test uptake(:NO₃, nitrate_only) ≈ light_scale
+    @test uptake(:NH₄, ammonium_only) ≈ light_scale
+
+    mixed = _frankenlobster_fields(; NO₃=10.0, NH₄=10.0, Fe=1e12, P_1=2.0)
+    @test tendency(:P_1, mixed) ≈ sqrt(2.0)
+    mixed_uptake = uptake(:NO₃, mixed) + uptake(:NH₄, mixed)
+    @test mixed_uptake ≈ total_uptake(mixed)
+    @test mixed_uptake ≈ sqrt(2.0)
+    @test uptake(:NO₃, mixed) < uptake(:NO₃, _frankenlobster_fields(; NO₃=10.0, NH₄=0.0, Fe=1e12, P_1=2.0))
+
+    iron_limited = _frankenlobster_fields(; NO₃=100.0, NH₄=0.0, Fe=1.0, P_1=2.0)
+    @test tendency(:P_1, iron_limited) ≈ light_scale
+    @test uptake(:Fe, iron_limited) ≈ light_scale * 4.6375e-5
+
+    warm = _frankenlobster_fields(; NO₃=1.0, NH₄=0.0, Fe=1e12, T=30.0, P_1=2.0)
+    @test tendency(:P_1, warm) ≈ 2 * tendency(:P_1, nitrate_only)
 
     dom_fields = _frankenlobster_fields(; DOM=3.0, H_1=2.0)
-    h = bgc(1, 1, 1, grid, Val(:H_1), clock, dom_fields, auxiliary_fields)
-    dom = bgc(1, 1, 1, grid, Val(:DOM), clock, dom_fields, auxiliary_fields)
-    nh4 = bgc(1, 1, 1, grid, Val(:NH₄), clock, dom_fields, auxiliary_fields)
-    @test [dom, h, nh4] ≈ [-3.0, 0.75, 2.25]
-    @test [
-        bgc(1, 1, 1, grid, Val(:sPOM), clock, dom_fields, auxiliary_fields),
-        bgc(1, 1, 1, grid, Val(:bPOM), clock, dom_fields, auxiliary_fields),
-    ] == [0.0, 0.0]
+    @test [tendency(:DOM, dom_fields), tendency(:H_1, dom_fields), tendency(:NH₄, dom_fields)] ≈
+          [-3.0, 0.75, 2.25]
+    @test [tendency(:sPOM, dom_fields), tendency(:bPOM, dom_fields)] == [0.0, 0.0]
 end

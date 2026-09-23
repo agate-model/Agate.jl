@@ -9,7 +9,7 @@ import Oceananigans.Biogeochemistry:
 
 using OceanBioME.Models.NutrientsPlanktonDetritusModels: NutrientsPlanktonDetritus
 import OceanBioME.Models.NutrientsPlanktonDetritusModels:
-    dissolved_waste, inorganic_waste, nutrient_uptake, solid_waste, chlorophyll_ratio
+    dissolved_waste, inorganic_waste, nutrient_uptake, solid_waste, chlorophyll_ratio, iron_ratio
 import OceanBioME.Models.NutrientsPlanktonDetritusModels.DetritusModels: grazing
 
 """OceanBioME plankton component backed by one compiled Agate FrankenLOBSTER runtime."""
@@ -35,6 +35,17 @@ end
     ::FrankenLOBSTERPlankton{Runtime,OwnedTracers}
 ) where {Runtime,OwnedTracers} = OwnedTracers
 
+@inline required_biogeochemical_tracers(
+    npd::NutrientsPlanktonDetritus{FT,NUT,PLA}
+) where {FT,NUT,PLA<:FrankenLOBSTERPlankton} = (
+    required_biogeochemical_tracers(npd.nutrients)...,
+    required_biogeochemical_tracers(npd.plankton)...,
+    required_biogeochemical_tracers(npd.detritus)...,
+    required_biogeochemical_tracers(npd.inorganic_carbon)...,
+    required_biogeochemical_tracers(npd.oxygen)...,
+    :T,
+)
+
 @inline required_biogeochemical_auxiliary_fields(
     ::FrankenLOBSTERPlankton{Runtime}
 ) where {Runtime} = required_biogeochemical_auxiliary_fields(Runtime)
@@ -43,6 +54,12 @@ end
     biogeochemical_drift_velocity(plankton.runtime, tracer)
 
 @inline chlorophyll_ratio(plankton::FrankenLOBSTERPlankton) = plankton.chlorophyll_ratio
+
+const FRANKENLOBSTER_IRON_TO_NITROGEN = 4.6375e-5
+
+@inline iron_ratio(
+    ::FrankenLOBSTERPlankton, ::NutrientsPlanktonDetritus{FT}
+) where FT = convert(FT, FRANKENLOBSTER_IRON_TO_NITROGEN)
 
 @inline function chlorophyll(
     plankton::FrankenLOBSTERPlankton{R,O,T,E,P}, model
@@ -119,18 +136,18 @@ end
     bgc::NutrientsPlanktonDetritus, fields, auxiliary_fields,
 ) = -_exchange_tendency(plankton, Val(:NO₃), i, j, k, grid, fields, auxiliary_fields)
 
-# Ammonium remains OceanBioME state for regeneration/nitrification but is not a
-# FrankenLOBSTER phytoplankton substrate in this release.
 @inline nutrient_uptake(
-    i, j, k, grid, ::Val{:NH₄}, ::FrankenLOBSTERPlankton,
-    ::NutrientsPlanktonDetritus{FT}, fields, auxiliary_fields,
-) where FT = zero(FT)
+    i, j, k, grid, ::Val{:NH₄}, plankton::FrankenLOBSTERPlankton,
+    bgc::NutrientsPlanktonDetritus, fields, auxiliary_fields,
+) = -_exchange_tendency(plankton, Val(:NH₄), i, j, k, grid, fields, auxiliary_fields)
 
 @inline nutrient_uptake(
     i, j, k, grid, plankton::FrankenLOBSTERPlankton,
     bgc::NutrientsPlanktonDetritus, fields, auxiliary_fields,
 ) = nutrient_uptake(
     i, j, k, grid, Val(:NO₃), plankton, bgc, fields, auxiliary_fields
+) + nutrient_uptake(
+    i, j, k, grid, Val(:NH₄), plankton, bgc, fields, auxiliary_fields
 )
 
 @inline solid_waste(

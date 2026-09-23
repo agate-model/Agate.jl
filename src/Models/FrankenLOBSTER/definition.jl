@@ -3,12 +3,12 @@ using ...Components: Plankton, Pool
 using ...Processes:
     Growth,
     Light,
-    NutrientResponse,
     Consumption,
     Mortality,
     Products,
     Smith,
-    Monod,
+    Temperature,
+    Q10,
     PreferentialGrazing,
     HeterotrophicConsumption,
     QuadraticMortality
@@ -21,7 +21,7 @@ struct FrankenLOBSTERFamily <: AbstractModelFamily end
 
 family_id(::FrankenLOBSTERFamily) = :FrankenLOBSTER
 registered_family(::Val{:FrankenLOBSTER}) = FrankenLOBSTERFamily()
-definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.7.0"
+definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.8.0"
 
 """LOBSTER3-like default living-community size structure."""
 const DEFAULT_SIZE_STRUCTURE = (
@@ -30,12 +30,14 @@ const DEFAULT_SIZE_STRUCTURE = (
     bacterioplankton=(H=(n=1, min_esd=0.6, max_esd=0.6, spacing=:linear),),
 )
 
-# NO3, NH4, and DOM are OceanBioME-owned state used by the compiled living-community
-# equations. Waste pools are exchange accumulators reported through NPD hooks rather than
-# prognostic fields owned by Agate.
+# NO3, NH4, Fe, T, and DOM are OceanBioME/Oceananigans-owned state used by the compiled
+# living-community equations. Waste pools are exchange accumulators reported through NPD hooks
+# rather than prognostic fields owned by Agate.
 const FRANKENLOBSTER_COMPONENTS = (
     NO₃=Pool(:nitrogen),
     NH₄=Pool(:nitrogen),
+    Fe=Pool(:iron),
+    T=Pool(:temperature),
     DOM=Pool(:nitrogen),
     solid_waste=Pool(:nitrogen),
     inorganic_waste=Pool(:nitrogen),
@@ -58,22 +60,39 @@ const FRANKENLOBSTER_COMPONENTS = (
 
 default_components(::FrankenLOBSTERFamily) = FRANKENLOBSTER_COMPONENTS
 
+const _P_GROWTH_FACTORS = (
+    light=Light(Smith(); driver=:PAR),
+    temperature=Temperature(
+        Q10();
+        component=:T,
+        bindings=(q10=:temperature_q10, reference_temperature=:reference_temperature),
+    ),
+)
+
+function _nitrogen_source_factor(source)
+    return NitrogenIronSourceResponse(
+        source;
+        bindings=(
+            nitrate_half_saturation=:nitrate_half_saturation,
+            ammonium_half_saturation=:ammonium_half_saturation,
+            iron_half_saturation=:iron_half_saturation,
+            ammonium_inhibition=:ammonium_inhibition,
+        ),
+    )
+end
+
 const FRANKENLOBSTER_PROCESSES = (
-    # v0.15 deliberately uses nitrate-only phytoplankton growth. Shared-capacity NO3/NH4
-    # acquisition is deferred to a follow-up rather than giving the two N sources separate
-    # maximum growth capacities.
     nitrate_growth_P=Growth(;
         plankton=:P,
         reference_resource=:NO₃,
         bindings=(maximum_rate=:maximum_growth_rate,),
-        factors=(
-            light=Light(Smith(); driver=:PAR),
-            nutrient=NutrientResponse(
-                Monod();
-                resource=:NO₃,
-                bindings=(half_saturation=:nitrate_half_saturation,),
-            ),
-        ),
+        factors=merge(_P_GROWTH_FACTORS, (nutrients=_nitrogen_source_factor(:NO₃),)),
+    ),
+    ammonium_growth_P=Growth(;
+        plankton=:P,
+        reference_resource=:NH₄,
+        bindings=(maximum_rate=:maximum_growth_rate,),
+        factors=merge(_P_GROWTH_FACTORS, (nutrients=_nitrogen_source_factor(:NH₄),)),
     ),
     consumption_H_on_DOM=Consumption(
         HeterotrophicConsumption();

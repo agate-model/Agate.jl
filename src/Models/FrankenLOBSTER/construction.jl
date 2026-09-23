@@ -74,7 +74,7 @@ function construct(;
     )
     return LOBSTER(
         grid;
-        limiting_nutrients=(:nitrate, :ammonia),
+        limiting_nutrients=(:nitrate, :ammonia, :iron),
         plankton,
         open_bottom,
         kwargs...,

@@ -196,17 +196,29 @@ end
 
 authored_parameter_bindings(factor::QuotaResponse) = factor.bindings
 
-"""Temperature-dependent multiplicative process-rate factor."""
-struct Temperature{Formulation<:Q10} <: AbstractFactor
+"""Temperature-dependent multiplicative process-rate factor.
+
+By default temperature is read from an external driver named `:temperature`. Pass `component`
+instead to read a scalar model component such as an Oceananigans temperature tracer.
+"""
+struct Temperature{Formulation<:Q10,Driver,Component} <: AbstractFactor
     formulation::Formulation
-    driver::Symbol
+    driver::Driver
+    component::Component
     bindings::NamedTuple
 end
 
 function Temperature(
-    formulation::Q10; driver::Symbol=:temperature, bindings::NamedTuple=NamedTuple()
+    formulation::Q10;
+    driver::Union{Nothing,Symbol}=nothing,
+    component::Union{Nothing,Symbol}=nothing,
+    bindings::NamedTuple=NamedTuple(),
 )
-    return Temperature(formulation, driver, _canonical_bindings(bindings))
+    isnothing(driver) || isnothing(component) || throw(
+        ArgumentError("Temperature accepts either `driver` or `component`, not both"),
+    )
+    isnothing(driver) && isnothing(component) && (driver = :temperature)
+    return Temperature(formulation, driver, component, _canonical_bindings(bindings))
 end
 
 authored_parameter_bindings(factor::Temperature) = factor.bindings
@@ -279,7 +291,8 @@ end
 """Return the ordered semantic inputs read by a factor before its parameter slots."""
 factor_inputs(::AbstractFactor) = ()
 factor_inputs(factor::Light) = (FactorDriver(factor.driver),)
-factor_inputs(factor::Temperature) = (FactorDriver(factor.driver),)
+factor_inputs(factor::Temperature) = isnothing(factor.component) ?
+    (FactorDriver(factor.driver),) : (FactorComponent(factor.component),)
 factor_inputs(factor::NutrientResponse) = (FactorComponent(factor.resource),)
 factor_inputs(::QuotaResponse) = ()
 
