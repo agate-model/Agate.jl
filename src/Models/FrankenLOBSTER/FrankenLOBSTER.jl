@@ -7,6 +7,6 @@ include("parameters.jl")
 include("interface.jl")
 include("construction.jl")
 
-export construct
+export construct, construct_plus_recipe, construct_from_recipe
 
 end # module

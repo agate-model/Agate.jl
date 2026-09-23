@@ -72,25 +72,37 @@ end
 
 @testset "FrankenLOBSTER public arbitrary community" begin
     grid = RectilinearGrid(CPU(); size=(1, 1, 1), extent=(1, 1, 1))
-    coupled = FrankenLOBSTER.construct(;
-        grid,
+    coupling = (;
         light_attenuation=_prescribed_light(),
         inorganic_carbon=CarbonateSystem(),
         oxygen=Oxygen(),
+    )
+    coupled, recipe = FrankenLOBSTER.construct_plus_recipe(;
+        grid,
+        coupling...,
         size_structure=(
             phytoplankton=(pico=[0.5], nano=[2.0]),
             zooplankton=(micro=[8.0], meso=[20.0]),
             bacterioplankton=(heterotroph=[0.4, 0.8],),
         ),
+        parameters=(;
+            assimilation_matrix=fill(0.65, 2, 4),
+            maximum_growth_rate=(nano_1=1.0e-5,),
+        ),
+        phytoplankton_chlorophyll_ratio=1.5,
+        calcium_carbonate_rain_ratio=0.2,
         sinking_tracers=(nano_1=0.1,),
+        open_bottom=false,
     )
+    decoded = Agate.Construction.decode_recipe(Agate.Construction.encode_recipe(recipe))
+    replayed = FrankenLOBSTER.construct_from_recipe(decoded; grid, coupling...)
     plankton = coupled.underlying_biogeochemistry.plankton
 
     @test required_biogeochemical_tracers(plankton) ==
           (:nano_1, :pico_1, :meso_1, :micro_1, :heterotroph_1, :heterotroph_2)
     @test size(plankton.runtime.parameters.palatability_matrix) == (2, 4)
     @test length(unique(plankton.runtime.parameters.palatability_matrix)) > 1
-    @test plankton.runtime.parameters.assimilation_matrix == fill(0.7, 2, 4)
+    @test plankton.runtime.parameters.assimilation_matrix == fill(0.65, 2, 4)
     @test plankton.runtime.parameters.ammonium_half_saturation ≈
           0.5 .* plankton.runtime.parameters.nitrate_half_saturation
     @test plankton.runtime.parameters.iron_half_saturation == fill(2e-4, 2)
@@ -111,7 +123,7 @@ end
     chlorophyll_field = chlorophyll(
         plankton, (tracers=(nano_1=_cell(2.0), pico_1=_cell(1.0)),)
     )
-    @test chlorophyll_field[1, 1, 1] ≈ 1.31 * 3.0
+    @test chlorophyll_field[1, 1, 1] ≈ 1.5 * 3.0
 
     tracers = required_biogeochemical_tracers(coupled)
     @test all(t -> t in tracers, (:NO₃, :NH₄, :Fe, :T, :DOM, :sPOM, :bPOM, :DIC, :Alk, :O₂))
@@ -121,8 +133,39 @@ end
     @test !hasproperty(groups.nitrogen, :T) && !hasproperty(groups.iron, :T)
     @test groups.carbon.nano_1 == groups.carbon.heterotroph_1 == groups.carbon.DOM == 6.56
     @test plankton.carbon_ratio == 6.56
-    @test plankton.calcium_carbonate_rain_ratio == 0.1
+    @test plankton.calcium_carbonate_rain_ratio == 0.2
     @test plankton.zooplankton_calcium_carbonate_dissolution == 0.3
+
+    replayed_plankton = replayed.underlying_biogeochemistry.plankton
+    @test recipe.family === :FrankenLOBSTER
+    @test recipe.definition_version == v"0.11.0"
+    @test decoded == recipe
+    @test recipe.parameter_overrides.calcium_carbonate_rain_ratio == 0.2
+    @test recipe.parameter_overrides.phytoplankton_chlorophyll_ratio == 1.5
+    @test recipe.sinking_tracers == (nano_1=0.1,)
+    @test !recipe.open_bottom
+    @test required_biogeochemical_tracers(replayed) == required_biogeochemical_tracers(coupled)
+    @test replayed_plankton.runtime.parameters == plankton.runtime.parameters
+    @test Agate.Construction.construct(decoded; grid).parameters == plankton.runtime.parameters
+    @test replayed_plankton.chlorophyll_ratio == plankton.chlorophyll_ratio
+    @test replayed_plankton.calcium_carbonate_rain_ratio == plankton.calcium_carbonate_rain_ratio
+    @test hasproperty(replayed_plankton.runtime.sinking_velocities, :nano_1)
+end
+
+@testset "FrankenLOBSTER default recipe replay" begin
+    grid = RectilinearGrid(CPU(); size=(1, 1, 1), extent=(1, 1, 1))
+    coupling = (; light_attenuation=_prescribed_light(), inorganic_carbon=CarbonateSystem())
+    direct, recipe = FrankenLOBSTER.construct_plus_recipe(; grid, coupling...)
+    replayed = FrankenLOBSTER.construct_from_recipe(recipe; grid, coupling...)
+
+    direct_plankton = direct.underlying_biogeochemistry.plankton
+    replayed_plankton = replayed.underlying_biogeochemistry.plankton
+    @test isempty(recipe.parameter_overrides)
+    @test required_biogeochemical_tracers(replayed) == required_biogeochemical_tracers(direct)
+    @test replayed_plankton.runtime.parameters == direct_plankton.runtime.parameters
+    @test replayed_plankton.carbon_ratio == direct_plankton.carbon_ratio == 6.56
+    @test replayed_plankton.calcium_carbonate_rain_ratio ==
+          direct_plankton.calcium_carbonate_rain_ratio == 0.1
 end
 
 @testset "FrankenLOBSTER coupled nutrient and DOM exchange" begin

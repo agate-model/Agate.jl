@@ -270,14 +270,22 @@ function _construct_recipe(
     arch=nothing,
     scalar_type=nothing,
     build_manifest::Bool=false,
+    diagnostic_processes::Tuple=(),
 )
+    family = replay_family(recipe)
+    realization = _family_realization(recipe)
+    runtime_overrides = recipe_runtime_parameter_overrides(
+        family, realization.parameter_overrides
+    )
+    realization = merge(realization, (; parameter_overrides=runtime_overrides))
     return _construct_registered_model(
-        replay_family(recipe),
-        _family_realization(recipe);
+        family,
+        realization;
         grid,
         arch,
         scalar_type,
         build_manifest,
+        diagnostic_processes,
     )
 end
 
@@ -356,9 +364,13 @@ end
 
 """Replay a versioned family recipe in the supplied execution environment."""
 function construct(
-    recipe::ModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
+    recipe::ModelRecipe;
+    grid=nothing,
+    arch=nothing,
+    scalar_type=nothing,
+    diagnostic_processes::Tuple=(),
 )
-    bgc, _ = _construct_recipe(recipe; grid, arch, scalar_type)
+    bgc, _ = _construct_recipe(recipe; grid, arch, scalar_type, diagnostic_processes)
     return bgc
 end
 

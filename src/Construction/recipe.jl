@@ -12,6 +12,13 @@ function registered_family(::Val{Family}) where {Family}
     throw(ArgumentError("Unsupported recipe model family $(repr(String(Family)))."))
 end
 
+"""Return the subset of recipe parameter overrides consumed by runtime process construction.
+
+Registered families may retain additional family-level scientific settings in a recipe while
+keeping them outside the process parameter system. The default is to replay every override.
+"""
+recipe_runtime_parameter_overrides(::AbstractModelFamily, overrides::NamedTuple) = overrides
+
 """Versioned registered-family recipe captured before runtime realization.
 
 `ModelRecipe` stores only the registered family identity, its exact scientific
