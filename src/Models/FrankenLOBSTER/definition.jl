@@ -61,7 +61,7 @@ const FRANKENLOBSTER_COMPONENTS = (
 default_components(::FrankenLOBSTERFamily) = FRANKENLOBSTER_COMPONENTS
 
 const _P_GROWTH_FACTORS = (
-    light=Light(Smith(); driver=:PAR),
+    light=Light(Smith(); driver=:PAR, bindings=(alpha=:alpha,)),
     temperature=Temperature(
         Q10();
         component=:T,
