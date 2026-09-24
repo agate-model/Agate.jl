@@ -29,7 +29,7 @@ end
 const _CONTROLLED = (
     maximum_growth_rate=(P_1=1.0, P_2=1.0), nitrate_half_saturation=(P_1=1.0, P_2=1.0),
     ammonia_half_saturation=(P_1=1.0, P_2=1.0), nitrate_ammonia_inhibition=0.1,
-    light_half_saturation=1.0, temperature_q10=2.0, reference_temperature=20.0,
+    light_half_saturation=(P_1=1.0, P_2=1.0), temperature_q10=2.0, reference_temperature=20.0,
     phytoplankton_mortality_rate=(P_1=0.0, P_2=0.0), maximum_predation_rate=(Z_1=0.0, Z_2=0.0),
     zooplankton_excretion_rate=(Z_1=1.0, Z_2=1.0), zooplankton_mortality_rate=(Z_1=0.0, Z_2=0.0),
     bacterial_maximum_uptake_rate=(H_1=2.0,), bacterial_dom_half_saturation=reshape([1.0], 1, 1),
