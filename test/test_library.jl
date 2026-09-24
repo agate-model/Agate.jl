@@ -43,27 +43,13 @@ end
 
 @testset "Split power-law allometry" begin
     law = SplitPowerLaw()
-    coeffs = (
-        prefactor=1.2066,
-        breakpoint=3.0,
-        small_exponent=0.28,
-        large_exponent=-0.15,
-    )
-
-    small = 1.2
-    large = 6.0
-    at_break = allometric_scaling_power(
-        coeffs.prefactor, coeffs.small_exponent, coeffs.breakpoint
-    )
-
-    @test law(coeffs, small) ≈ allometric_scaling_power(
-        coeffs.prefactor, coeffs.small_exponent, small
-    )
-    @test law(coeffs, coeffs.breakpoint) ≈ at_break
-    @test law(coeffs, large) ≈ at_break *
-        (large / coeffs.breakpoint)^(3 * coeffs.large_exponent)
-    @test resolve_param(Float32, AllometricParam(law; coeffs...), large) isa Float32
-    @test_throws ArgumentError law(merge(coeffs, (breakpoint=0.0,)), large)
+    c = (prefactor=1.2066, breakpoint=3.0, small_exponent=0.28, large_exponent=-0.15)
+    at_break = allometric_scaling_power(c.prefactor, c.small_exponent, c.breakpoint)
+    @test law(c, 1.2) ≈ allometric_scaling_power(c.prefactor, c.small_exponent, 1.2)
+    @test law(c, c.breakpoint) ≈ at_break
+    @test law(c, 6.0) ≈ at_break * (6 / c.breakpoint)^(3 * c.large_exponent)
+    @test resolve_param(Float32, AllometricParam(law; c...), 6.0) isa Float32
+    @test_throws ArgumentError law(merge(c, (breakpoint=0.0,)), 6.0)
 end
 
 @testset "Library scalar genericity" begin

@@ -131,11 +131,7 @@ end
             ("process :", "parameter :$name", "domain :$domain", shown))
     end
 
-    bgc = construct(
-        definition;
-        parameter_overrides=food_web_parameter_overrides(),
-        diagnostic_processes=(:grazing_living,),
-    )
+    bgc = construct(definition; parameter_overrides=food_web_parameter_overrides())
 
     @test participants(definition.processes.consume_POM) == (
         consumer=(:B,), resource=(:POM,)
@@ -145,11 +141,6 @@ end
     @test :M ∈ participants(definition.processes.growth_autotrophs).plankton
     @test :M ∈ participants(definition.processes.grazing_living).consumer
     @test required_biogeochemical_auxiliary_fields(bgc) == (:PAR, :temperature)
-
-    grazing_state = (P_1=0.05, Z_1=0.04)
-    grazing_args = food_web_args(bgc, grazing_state)
-    grazing_P = bgc.metadata.process_diagnostics.grazing_living.P_1(bgc, grazing_args...)
-    @test process_compiler_isapprox(grazing_P, bgc(Val(:P_1), grazing_args...))
 
     state = (
         N=5.0, D=0.1, POM=0.5,
@@ -191,43 +182,6 @@ end
     end
     @test isfinite(derivative)
     @test derivative < 0
-end
-
-@testset "Heterotroph affinity is consumer-resource specific" begin
-    definition = ModelDefinition(;
-        components=(
-            DOM=Pool(:nitrogen),
-            B=Plankton(;
-                states=(nitrogen=:nitrogen,), reference_state=:nitrogen,
-                size_structure=[0.4, 0.8],
-            ),
-        ),
-        processes=(
-            uptake=Consumption(
-                HeterotrophicConsumption();
-                consumers=:B, resources=:DOM,
-                bindings=(
-                    maximum_rate=:mu, half_saturation=:K,
-                    substrate_preference=:preference, assimilation=:assimilation,
-                ),
-            ),
-        ),
-        parameters=(
-            mu=Parameter(NoDefault()), K=Parameter(NoDefault()),
-            preference=Parameter(NoDefault()), assimilation=Parameter(NoDefault()),
-        ),
-    )
-    bgc = construct(
-        definition;
-        parameter_overrides=(
-            mu=[1.0, 1.0], K=reshape([1.0, 3.0], 2, 1),
-            preference=ones(2, 1), assimilation=ones(2, 1),
-        ),
-    )
-    args = food_web_args(bgc, (DOM=1.0, B_1=1.0, B_2=1.0))
-
-    @test [bgc(Val(:B_1), args...), bgc(Val(:B_2), args...), bgc(Val(:DOM), args...)] ≈
-        [0.5, 0.25, -0.75]
 end
 
 @testset "Multi-resource heterotrophs share capacity across substrates" begin

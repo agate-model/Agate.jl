@@ -24,30 +24,21 @@ import OceanBioME.Models.NutrientsPlanktonDetritusModels.DetritusModels: grazing
 """OceanBioME plankton component backed by one compiled Agate FrankenLOBSTER runtime."""
 struct FrankenLOBSTERPlankton{
     Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers,PhytoplanktonTracers,
-    ProcessDiagnostics,T,
+    ProcessDiagnostics,Traits,
 }
     runtime::Runtime
     process_diagnostics::ProcessDiagnostics
-    chlorophyll_ratio::T
-    carbon_ratio::T
-    calcium_carbonate_rain_ratio::T
-    zooplankton_calcium_carbonate_dissolution::T
+    traits::Traits
 end
 
 function FrankenLOBSTERPlankton(
-    runtime, owned::Tuple, exchange::Tuple;
-    phytoplankton_tracers, process_diagnostics, chlorophyll_ratio, carbon_ratio,
-    calcium_carbonate_rain_ratio, zooplankton_calcium_carbonate_dissolution,
+    runtime, owned::Tuple, exchange::Tuple; phytoplankton_tracers, process_diagnostics, traits,
 )
     owned_type = mapreduce(name -> typeof(Val(name)), (A, B) -> Union{A,B}, owned)
-    T = typeof(chlorophyll_ratio)
     return FrankenLOBSTERPlankton{
         typeof(runtime),owned,owned_type,exchange,phytoplankton_tracers,
-        typeof(process_diagnostics),T,
-    }(
-        runtime, process_diagnostics, chlorophyll_ratio, carbon_ratio,
-        calcium_carbonate_rain_ratio, zooplankton_calcium_carbonate_dissolution,
-    )
+        typeof(process_diagnostics),typeof(traits),
+    }(runtime, process_diagnostics, traits)
 end
 
 @inline required_biogeochemical_tracers(
@@ -72,18 +63,16 @@ end
 @inline biogeochemical_drift_velocity(plankton::FrankenLOBSTERPlankton, tracer::Val) =
     biogeochemical_drift_velocity(plankton.runtime, tracer)
 
-@inline chlorophyll_ratio(plankton::FrankenLOBSTERPlankton) = plankton.chlorophyll_ratio
-@inline carbon_ratio(
-    plankton::FrankenLOBSTERPlankton, ::NutrientsPlanktonDetritus{FT}
-) where FT = convert(FT, plankton.carbon_ratio)
+@inline chlorophyll_ratio(plankton::FrankenLOBSTERPlankton) =
+    plankton.traits.phytoplankton_chlorophyll_ratio
+@inline carbon_ratio(plankton::FrankenLOBSTERPlankton, ::NutrientsPlanktonDetritus{FT}) where FT =
+    convert(FT, plankton.traits.carbon_ratio)
 
-# P-specific calcite is supplied through the ExplicitCalciumCarbonate hooks below;
-# CarbonateSystem therefore keeps OceanBioME's default implicit rain ratio.
 @inline function chlorophyll(
     plankton::FrankenLOBSTERPlankton{R,O,T,E,P}, model
 ) where {R,O,T,E,P}
-    biomass = mapreduce(name -> getproperty(model.tracers, name), +, P)
-    return plankton.chlorophyll_ratio * biomass
+    return plankton.traits.phytoplankton_chlorophyll_ratio *
+           mapreduce(name -> getproperty(model.tracers, name), +, P)
 end
 
 @inline function adapt_structure(
@@ -93,12 +82,7 @@ end
         adapt(to, plankton.runtime), O, E;
         phytoplankton_tracers=P,
         process_diagnostics=adapt(to, plankton.process_diagnostics),
-        chlorophyll_ratio=adapt(to, plankton.chlorophyll_ratio),
-        carbon_ratio=adapt(to, plankton.carbon_ratio),
-        calcium_carbonate_rain_ratio=adapt(to, plankton.calcium_carbonate_rain_ratio),
-        zooplankton_calcium_carbonate_dissolution=adapt(
-            to, plankton.zooplankton_calcium_carbonate_dissolution
-        ),
+        traits=adapt(to, plankton.traits),
     )
 end
 
@@ -187,82 +171,58 @@ end
     plankton, Val(:inorganic_waste), i, j, k, grid, fields, auxiliary_fields
 )
 
-@inline function _process_tendency(
-    plankton::FrankenLOBSTERPlankton, ::Val{Process}, ::Val{Tracer},
-    i, j, k, t, fields, auxiliary_fields,
-) where {Process,Tracer}
+@inline function _phytoplankton_process_tendency(
+    plankton::FrankenLOBSTERPlankton{R,O,T,E,P}, ::Val{Process},
+    i, j, k, grid, fields, auxiliary_fields,
+) where {R,O,T,E,P,Process}
     equations = getproperty(plankton.process_diagnostics, Process)
-    hasfield(typeof(equations), Tracer) || return zero(t)
-    equation = getfield(equations, Tracer)
     tracer_values = _runtime_tracer_values(plankton, i, j, k, fields)
     auxiliary_values = _runtime_auxiliary_values(plankton, i, j, k, auxiliary_fields)
-    x = zero(t)
-    return equation(plankton.runtime, x, x, x, t, tracer_values..., auxiliary_values...)
-end
-
-@inline function _phytoplankton_process_tendency(
-    plankton::FrankenLOBSTERPlankton{R,O,T,E,P}, process::Val,
-    i, j, k, grid, fields, auxiliary_fields,
-) where {R,O,T,E,P}
     t = zero(eltype(grid))
-    return mapreduce(
-        tracer -> _process_tendency(
-            plankton, process, Val(tracer), i, j, k, t, fields, auxiliary_fields
-        ),
-        +,
-        P,
-    )
-end
-
-@inline function biological_calcium_carbonate_precipitation(
-    i, j, k, grid, plankton::FrankenLOBSTERPlankton,
-    bgc::NutrientsPlanktonDetritus, fields, auxiliary_fields,
-)
-    retained_growth =
-        _phytoplankton_process_tendency(
-            plankton, Val(:nitrate_growth_P), i, j, k, grid, fields, auxiliary_fields
-        ) +
-        _phytoplankton_process_tendency(
-            plankton, Val(:ammonia_growth_P), i, j, k, grid, fields, auxiliary_fields
+    return mapreduce(+, P; init=zero(t)) do tracer
+        hasfield(typeof(equations), tracer) || return zero(t)
+        x = zero(t)
+        getfield(equations, tracer)(
+            plankton.runtime, x, x, x, t, tracer_values..., auxiliary_values...
         )
-    return plankton.calcium_carbonate_rain_ratio * plankton.carbon_ratio * retained_growth
+    end
 end
 
-@inline function _phytoplankton_loss(
-    plankton, process, i, j, k, grid, fields, auxiliary_fields
-)
-    return -_phytoplankton_process_tendency(
-        plankton, process, i, j, k, grid, fields, auxiliary_fields
+@inline _calcite_scale(plankton) =
+    plankton.traits.calcium_carbonate_rain_ratio * plankton.traits.carbon_ratio
+
+@inline biological_calcium_carbonate_precipitation(
+    i, j, k, grid, plankton::FrankenLOBSTERPlankton,
+    ::NutrientsPlanktonDetritus, fields, auxiliary_fields,
+) = _calcite_scale(plankton) * (
+    _phytoplankton_process_tendency(
+        plankton, Val(:nitrate_growth_P), i, j, k, grid, fields, auxiliary_fields
+    ) + _phytoplankton_process_tendency(
+        plankton, Val(:ammonia_growth_P), i, j, k, grid, fields, auxiliary_fields
     )
-end
+)
 
 @inline function particulate_calcium_carbonate_production(
     i, j, k, grid, plankton::FrankenLOBSTERPlankton,
-    bgc::NutrientsPlanktonDetritus, fields, auxiliary_fields,
+    ::NutrientsPlanktonDetritus, fields, auxiliary_fields,
 )
-    grazing_loss = _phytoplankton_loss(
+    grazing = -_phytoplankton_process_tendency(
         plankton, Val(:grazing_Z_on_living), i, j, k, grid, fields, auxiliary_fields
     )
-    mortality_loss = _phytoplankton_loss(
+    mortality = -_phytoplankton_process_tendency(
         plankton, Val(:mortality_P), i, j, k, grid, fields, auxiliary_fields
     )
-    particulate_grazing =
-        (one(plankton.zooplankton_calcium_carbonate_dissolution) -
-         plankton.zooplankton_calcium_carbonate_dissolution) * grazing_loss
-    return plankton.calcium_carbonate_rain_ratio * plankton.carbon_ratio *
-           (particulate_grazing + mortality_loss)
+    dissolved = plankton.traits.zooplankton_calcium_carbonate_dissolution
+    return _calcite_scale(plankton) * ((one(dissolved) - dissolved) * grazing + mortality)
 end
 
-@inline function biological_calcium_carbonate_dissolution(
+@inline biological_calcium_carbonate_dissolution(
     i, j, k, grid, plankton::FrankenLOBSTERPlankton,
-    bgc::NutrientsPlanktonDetritus, fields, auxiliary_fields,
-)
-    grazing_loss = _phytoplankton_loss(
+    ::NutrientsPlanktonDetritus, fields, auxiliary_fields,
+) = _calcite_scale(plankton) * plankton.traits.zooplankton_calcium_carbonate_dissolution *
+    -_phytoplankton_process_tendency(
         plankton, Val(:grazing_Z_on_living), i, j, k, grid, fields, auxiliary_fields
     )
-    return plankton.calcium_carbonate_rain_ratio * plankton.carbon_ratio *
-           plankton.zooplankton_calcium_carbonate_dissolution * grazing_loss
-end
 
 # DissolvedParticulate uses `grazing` for biological removal from organic-matter pools.
 @inline grazing(

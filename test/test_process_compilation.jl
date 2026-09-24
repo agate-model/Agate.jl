@@ -67,25 +67,12 @@ end
     components = (
         N=Agate.Components.Pool(:nitrogen), DOM=Agate.Components.Pool(:nitrogen),
         NH4=Agate.Components.Pool(:nitrogen),
-        P=Agate.Components.Plankton(;
-            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]
-        ),
+        P=Agate.Components.Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
     )
-    growth = Agate.Processes.Growth(;
-        plankton=:P, reference_resource=:N,
+    process = Agate.Processes.Growth(; plankton=:P, reference_resource=:N,
         bindings=(maximum_rate=:mu, product_fraction=:exudation),
-        products=Agate.Processes.Products(
-            (dissolved=:DOM, inorganic=:NH4); fractions=(inorganic=:inorganic_share,)
-        ),
-    )
-    parameters = (
-        mu=Parameter(2.0), exudation=Parameter(0.2), inorganic_share=Parameter(0.75)
-    )
-    bgc = Agate.Construction.construct(
-        ModelDefinition(; components, processes=(; growth), parameters); grid=dummy_grid(Float64)
-    )
-    test_tendencies(
-        bgc, (N=10.0, DOM=0.0, NH4=0.0, P_1=3.0),
-        (N=-6.0, P_1=4.8, NH4=0.9, DOM=0.3),
-    )
+        products=Agate.Processes.Products((dissolved=:DOM, inorganic=:NH4); fractions=(inorganic=:share,)))
+    parameters = (mu=Parameter(2.0), exudation=Parameter(0.2), share=Parameter(0.75))
+    bgc = Agate.Construction.construct(ModelDefinition(; components, processes=(growth=process,), parameters))
+    test_tendencies(bgc, (N=10.0, DOM=0.0, NH4=0.0, P_1=3.0), (N=-6.0, P_1=4.8, NH4=0.9, DOM=0.3))
 end

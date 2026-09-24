@@ -158,25 +158,17 @@ function model_fluxes(context::CompileContext)
     return Tuple(fluxes)
 end
 
-"""Compile one named canonical process into static equations for the tracers it affects."""
-function compile_process_tendencies(context::CompileContext, process::Symbol)
-    hasproperty(context.definition.processes, process) || throw(ArgumentError(
-        "unknown diagnostic process :$process",
-    ))
-    named = getproperty(context.definition.processes, process)
-    return compile_tendencies(group_fluxes(process_fluxes(named, context)))
-end
-
 """Compile selected named processes into reusable process-specific diagnostic equations."""
 function compile_process_diagnostics(context::CompileContext, processes::Tuple)
     length(unique(processes)) == length(processes) || throw(ArgumentError(
         "diagnostic_processes must contain unique process names",
     ))
-    all(process -> process isa Symbol, processes) || throw(ArgumentError(
-        "diagnostic_processes must be a tuple of process-name Symbols",
-    ))
+    all(process -> process isa Symbol && hasproperty(context.definition.processes, process), processes) ||
+        throw(ArgumentError("diagnostic_processes must name existing processes"))
     return NamedTuple{processes}(Tuple(
-        compile_process_tendencies(context, process) for process in processes
+        compile_tendencies(group_fluxes(process_fluxes(
+            getproperty(context.definition.processes, process), context
+        ))) for process in processes
     ))
 end
 

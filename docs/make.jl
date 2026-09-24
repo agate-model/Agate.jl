@@ -26,7 +26,6 @@ examples = [
     "Predator-prey palatability" => "predator_prey_palatability",
     "Comparing phytoplankton light strategies" => "named_pfts",
     "Allometric parameters" => "allometric_relationships",
-    "Shared predation and phytoplankton exclusion" => "follett_shared_predation",
     "Exporting a model definition" => "export_model_recipe",
 ]
 
