@@ -1,5 +1,3 @@
-using OceanBioME: BoxModelGrid
-using OceanBioME.Models.NutrientsPlanktonDetritusModels: LOBSTER
 using ...Construction
 
 const _SIZE_ROLES = (:phytoplankton, :zooplankton, :bacterioplankton)
@@ -92,7 +90,16 @@ function _plankton_realization(size_structure)
     return (P=normalize(:phytoplankton), Z=normalize(:zooplankton), H=normalize(:bacterioplankton))
 end
 
-function _wrap_plankton(runtime, realization, parameters, grid)
+_resolved_scalar_type(grid) = isnothing(grid) ? Float64 : eltype(grid)
+
+function _require_sinking_grid(sinking_tracers, grid)
+    !isnothing(sinking_tracers) && isnothing(grid) && throw(ArgumentError(
+        "grid is required when `sinking_tracers` are configured"
+    ))
+    return nothing
+end
+
+function _wrap_plankton(runtime, realization, parameters, ::Type{T}) where T
     coupling = _coupling_values(parameters)
     phytoplankton_tracers = Tuple(
         tracer for pft in keys(realization.P)
@@ -104,18 +111,23 @@ function _wrap_plankton(runtime, realization, parameters, grid)
         (:solid_waste, :inorganic_waste, :dissolved_waste);
         phytoplankton_tracers,
         process_diagnostics=runtime.metadata.process_diagnostics,
-        chlorophyll_ratio=convert(eltype(grid), coupling.phytoplankton_chlorophyll_ratio),
-        carbon_ratio=convert(eltype(grid), coupling.carbon_ratio),
-        calcium_carbonate_rain_ratio=convert(eltype(grid), coupling.calcium_carbonate_rain_ratio),
+        chlorophyll_ratio=convert(T, coupling.phytoplankton_chlorophyll_ratio),
+        carbon_ratio=convert(T, coupling.carbon_ratio),
+        calcium_carbonate_rain_ratio=convert(T, coupling.calcium_carbonate_rain_ratio),
         zooplankton_calcium_carbonate_dissolution=convert(
-            eltype(grid), coupling.zooplankton_calcium_carbonate_dissolution
+            T, coupling.zooplankton_calcium_carbonate_dissolution
         ),
     )
 end
 
 function _construct_plankton(
-    realization, parameters, grid; sinking_tracers=nothing, open_bottom=true
+    realization,
+    parameters;
+    grid=nothing,
+    sinking_tracers=nothing,
+    open_bottom=true,
 )
+    _require_sinking_grid(sinking_tracers, grid)
     runtime = Construction.construct(
         FrankenLOBSTERFamily();
         plankton_pfts=realization,
@@ -125,17 +137,7 @@ function _construct_plankton(
         open_bottom,
         diagnostic_processes=_CALCITE_DIAGNOSTIC_PROCESSES,
     )
-    return _wrap_plankton(runtime, realization, parameters, grid)
-end
-
-function _coupled(plankton, grid, open_bottom; kwargs...)
-    return LOBSTER(
-        grid;
-        limiting_nutrients=(:nitrate, :ammonia, :iron),
-        plankton,
-        open_bottom,
-        kwargs...,
-    )
+    return _wrap_plankton(runtime, realization, parameters, _resolved_scalar_type(grid))
 end
 
 function _inputs(
@@ -153,7 +155,7 @@ function _inputs(
                                       sinking_tracers, open_bottom)
 end
 
-"""Construct coupled FrankenLOBSTER: Agate living ecology inside OceanBioME LOBSTER."""
+"""Construct the Agate living-plankton component for composition with OceanBioME `LOBSTER`."""
 function construct(;
     size_structure=DEFAULT_SIZE_STRUCTURE,
     parameters::NamedTuple=(;),
@@ -162,21 +164,21 @@ function construct(;
     calcium_carbonate_rain_ratio=FRANKENLOBSTER_CALCIUM_CARBONATE_RAIN_RATIO,
     zooplankton_calcium_carbonate_dissolution=
         FRANKENLOBSTER_ZOOPLANKTON_CALCIUM_CARBONATE_DISSOLUTION,
-    grid=BoxModelGrid(),
+    grid=nothing,
     sinking_tracers=nothing,
     open_bottom::Bool=true,
-    kwargs...,
 )
     realization, parameters, _ = _inputs(
         size_structure, parameters, sinking_tracers, open_bottom;
         phytoplankton_chlorophyll_ratio, carbon_ratio, calcium_carbonate_rain_ratio,
         zooplankton_calcium_carbonate_dissolution,
     )
-    plankton = _construct_plankton(realization, parameters, grid; sinking_tracers, open_bottom)
-    return _coupled(plankton, grid, open_bottom; kwargs...)
+    return _construct_plankton(
+        realization, parameters; grid, sinking_tracers, open_bottom,
+    )
 end
 
-"""Construct FrankenLOBSTER and return the coupled model with its versioned family recipe."""
+"""Construct FrankenLOBSTER plankton and capture its versioned Agate family recipe."""
 function construct_plus_recipe(;
     size_structure=DEFAULT_SIZE_STRUCTURE,
     parameters::NamedTuple=(;),
@@ -185,10 +187,9 @@ function construct_plus_recipe(;
     calcium_carbonate_rain_ratio=FRANKENLOBSTER_CALCIUM_CARBONATE_RAIN_RATIO,
     zooplankton_calcium_carbonate_dissolution=
         FRANKENLOBSTER_ZOOPLANKTON_CALCIUM_CARBONATE_DISSOLUTION,
-    grid=BoxModelGrid(),
+    grid=nothing,
     sinking_tracers=nothing,
     open_bottom::Bool=true,
-    kwargs...,
 )
     realization, parameters, recipe_inputs = _inputs(
         size_structure, parameters, sinking_tracers, open_bottom;
@@ -196,19 +197,25 @@ function construct_plus_recipe(;
         zooplankton_calcium_carbonate_dissolution,
     )
     recipe = Construction.capture_model_recipe(FrankenLOBSTERFamily(); recipe_inputs...)
-    plankton = _construct_plankton(realization, parameters, grid; sinking_tracers, open_bottom)
-    return _coupled(plankton, grid, open_bottom; kwargs...), recipe
+    plankton = _construct_plankton(
+        realization, parameters; grid, sinking_tracers, open_bottom,
+    )
+    return plankton, recipe
 end
 
-"""Replay a FrankenLOBSTER recipe with caller-owned OceanBioME coupling configuration."""
-function construct_from_recipe(recipe::Construction.ModelRecipe; grid=BoxModelGrid(), kwargs...)
+"""Replay a FrankenLOBSTER recipe into the Agate living-plankton component."""
+function construct(recipe::Construction.ModelRecipe; grid=nothing)
     recipe.family == :FrankenLOBSTER || throw(ArgumentError(
-        "FrankenLOBSTER.construct_from_recipe requires a FrankenLOBSTER recipe; " *
-        "got $(recipe.family)"
+        "FrankenLOBSTER.construct requires a FrankenLOBSTER recipe; got $(recipe.family)"
     ))
+    _require_sinking_grid(recipe.sinking_tracers, grid)
     runtime = Construction.construct(
-        recipe; grid, diagnostic_processes=_CALCITE_DIAGNOSTIC_PROCESSES
+        recipe; grid, diagnostic_processes=_CALCITE_DIAGNOSTIC_PROCESSES,
     )
-    plankton = _wrap_plankton(runtime, recipe.plankton_pfts, recipe.parameter_overrides, grid)
-    return _coupled(plankton, grid, recipe.open_bottom; kwargs...)
+    return _wrap_plankton(
+        runtime,
+        recipe.plankton_pfts,
+        recipe.parameter_overrides,
+        _resolved_scalar_type(grid),
+    )
 end

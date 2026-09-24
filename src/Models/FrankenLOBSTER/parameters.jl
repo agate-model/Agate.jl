@@ -52,7 +52,6 @@ function parameter_definitions(::FrankenLOBSTERFamily)
         ammonium_half_saturation=Parameter(
             DiameterIndexedVectorDefault(ammonium_half_saturation; default=0)
         ),
-        iron_half_saturation=Parameter(2e-4),
         ammonium_inhibition=Parameter(3.0),
         temperature_q10=Parameter(1.88),
         reference_temperature=Parameter(20.0),

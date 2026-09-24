@@ -14,8 +14,7 @@ import OceanBioME.Models.NutrientsPlanktonDetritusModels:
     inorganic_waste,
     nutrient_uptake,
     solid_waste,
-    chlorophyll_ratio,
-    iron_ratio
+    chlorophyll_ratio
 import OceanBioME.Models.NutrientsPlanktonDetritusModels.InorganicCarbonModels:
     biological_calcium_carbonate_dissolution,
     biological_calcium_carbonate_precipitation,
@@ -84,12 +83,6 @@ end
 
 # P-specific calcite is supplied through the ExplicitCalciumCarbonate hooks below;
 # CarbonateSystem therefore keeps OceanBioME's default implicit rain ratio.
-const FRANKENLOBSTER_IRON_TO_NITROGEN = 4.6375e-5
-
-@inline iron_ratio(
-    ::FrankenLOBSTERPlankton, ::NutrientsPlanktonDetritus{FT}
-) where FT = convert(FT, FRANKENLOBSTER_IRON_TO_NITROGEN)
-
 @inline function chlorophyll(
     plankton::FrankenLOBSTERPlankton{R,O,T,E,P}, model
 ) where {R,O,T,E,P}

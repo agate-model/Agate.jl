@@ -22,7 +22,7 @@ struct FrankenLOBSTERFamily <: AbstractModelFamily end
 
 family_id(::FrankenLOBSTERFamily) = :FrankenLOBSTER
 registered_family(::Val{:FrankenLOBSTER}) = FrankenLOBSTERFamily()
-definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.11.0"
+definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.12.0"
 
 """LOBSTER3-like default living-community size structure."""
 const DEFAULT_SIZE_STRUCTURE = (
@@ -31,13 +31,12 @@ const DEFAULT_SIZE_STRUCTURE = (
     bacterioplankton=(H=(n=1, min_esd=0.6, max_esd=0.6, spacing=:linear),),
 )
 
-# NO3, NH4, Fe, T, and DOM are OceanBioME/Oceananigans-owned state used by the compiled
+# NO3, NH4, T, and DOM are OceanBioME/Oceananigans-owned state used by the compiled
 # living-community equations. Waste pools are exchange accumulators reported through NPD hooks
 # rather than prognostic fields owned by Agate.
 const FRANKENLOBSTER_COMPONENTS = (
     NO₃=Pool(:nitrogen),
     NH₄=Pool(:nitrogen),
-    Fe=Pool(:iron),
     T=Pool(:temperature),
     DOM=Pool(:nitrogen),
     solid_waste=Pool(:nitrogen),
@@ -72,12 +71,11 @@ const _P_GROWTH_FACTORS = (
 )
 
 function _nitrogen_source_factor(source)
-    return NitrogenIronSourceResponse(
+    return NitrogenSourceResponse(
         source;
         bindings=(
             nitrate_half_saturation=:nitrate_half_saturation,
             ammonium_half_saturation=:ammonium_half_saturation,
-            iron_half_saturation=:iron_half_saturation,
             ammonium_inhibition=:ammonium_inhibition,
         ),
     )

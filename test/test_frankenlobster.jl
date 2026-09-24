@@ -7,13 +7,13 @@ using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 using OceanBioME:
     chlorophyll, conserved_tracers, PrescribedPhotosyntheticallyActiveRadiation
 using OceanBioME.Models.NutrientsPlanktonDetritusModels:
-    CarbonateSystem, DissolvedParticulate, ExplicitCalciumCarbonate, Oxygen
+    CarbonateSystem, DissolvedParticulate, ExplicitCalciumCarbonate, LOBSTER, Oxygen
 using OceanBioME.Models.NutrientsPlanktonDetritusModels.InorganicCarbonModels:
     biological_calcium_carbonate_dissolution,
     biological_calcium_carbonate_precipitation,
     particulate_calcium_carbonate_production
 using OceanBioME.Models.NutrientsPlanktonDetritusModels.NutrientsModels:
-    Nutrients, NitrateAmmonia, Fe
+    Nutrients, NitrateAmmonia
 using OceanBioME.Models.NutrientsPlanktonDetritusModels: nutrient_uptake
 
 const FrankenLOBSTER = Agate.Models.FrankenLOBSTER
@@ -23,35 +23,34 @@ _prescribed_light(value=100.0) =
 _cell(value) = fill(value, 1, 1, 1)
 
 function _frankenlobster_fields(;
-    NO₃=1.0, NH₄=1.0, Fe=1.0, T=20.0, DOM=0.0, sPOM=0.0, bPOM=0.0,
+    NO₃=1.0, NH₄=1.0, T=20.0, DOM=0.0, sPOM=0.0, bPOM=0.0,
     DIC=2000.0, Alk=2300.0, CaCO₃=0.0, S=35.0,
     P_1=0.0, P_2=0.0, Z_1=0.0, Z_2=0.0, H_1=0.0,
 )
     return (
-        NO₃=_cell(NO₃), NH₄=_cell(NH₄), Fe=_cell(Fe), T=_cell(T), DOM=_cell(DOM),
+        NO₃=_cell(NO₃), NH₄=_cell(NH₄), T=_cell(T), DOM=_cell(DOM),
         sPOM=_cell(sPOM), bPOM=_cell(bPOM), DIC=_cell(DIC), Alk=_cell(Alk),
         CaCO₃=_cell(CaCO₃), S=_cell(S),
         P_1=_cell(P_1), P_2=_cell(P_2), Z_1=_cell(Z_1), Z_2=_cell(Z_2), H_1=_cell(H_1),
     )
 end
 
-function _controlled_frankenlobster(grid; parameter_overrides=(;), kwargs...)
+function _controlled_frankenlobster(
+    grid; parameter_overrides=(;), calcium_carbonate_rain_ratio=0.1, kwargs...
+)
     detritus = DissolvedParticulate(
         grid;
         dissolved_remineralisation_rate=0.0,
         particulate_remineralisation_rate=(0.0, 0.0),
         sinking_speeds=(0.0, 0.0),
     )
-    return FrankenLOBSTER.construct(;
+    plankton = FrankenLOBSTER.construct(;
         grid,
-        light_attenuation=_prescribed_light(),
-        nutrients=Nutrients(; nitrogen=NitrateAmmonia(; nitrification_rate=0.0), iron=Fe),
-        detritus,
+        calcium_carbonate_rain_ratio,
         parameters=merge((
             maximum_growth_rate=(P_1=1.0, P_2=1.0),
             nitrate_half_saturation=(P_1=1.0, P_2=1.0),
             ammonium_half_saturation=(P_1=1.0, P_2=1.0),
-            iron_half_saturation=(P_1=1.0, P_2=1.0),
             ammonium_inhibition=0.1,
             temperature_q10=2.0,
             reference_temperature=20.0,
@@ -66,6 +65,13 @@ function _controlled_frankenlobster(grid; parameter_overrides=(;), kwargs...)
             bacterial_assimilation=reshape([0.25], 1, 1),
             bacterioplankton_mortality_rate=(H_1=0.0,),
         ), parameter_overrides),
+    )
+    return LOBSTER(
+        grid;
+        plankton,
+        nutrients=Nutrients(; nitrogen=NitrateAmmonia(; nitrification_rate=0.0)),
+        light_attenuation=_prescribed_light(),
+        detritus,
         kwargs...,
     )
 end
@@ -77,9 +83,8 @@ end
         inorganic_carbon=CarbonateSystem(),
         oxygen=Oxygen(),
     )
-    coupled, recipe = FrankenLOBSTER.construct_plus_recipe(;
+    plankton, recipe = FrankenLOBSTER.construct_plus_recipe(;
         grid,
-        coupling...,
         size_structure=(
             phytoplankton=(pico=[0.5], nano=[2.0]),
             zooplankton=(micro=[8.0], meso=[20.0]),
@@ -94,9 +99,10 @@ end
         sinking_tracers=(nano_1=0.1,),
         open_bottom=false,
     )
+    coupled = LOBSTER(grid; plankton, coupling...)
     decoded = Agate.Construction.decode_recipe(Agate.Construction.encode_recipe(recipe))
-    replayed = FrankenLOBSTER.construct_from_recipe(decoded; grid, coupling...)
-    plankton = coupled.underlying_biogeochemistry.plankton
+    replayed_plankton = FrankenLOBSTER.construct(decoded; grid)
+    replayed = LOBSTER(grid; plankton=replayed_plankton, coupling...)
 
     @test required_biogeochemical_tracers(plankton) ==
           (:nano_1, :pico_1, :meso_1, :micro_1, :heterotroph_1, :heterotroph_2)
@@ -105,7 +111,7 @@ end
     @test plankton.runtime.parameters.assimilation_matrix == fill(0.65, 2, 4)
     @test plankton.runtime.parameters.ammonium_half_saturation ≈
           0.5 .* plankton.runtime.parameters.nitrate_half_saturation
-    @test plankton.runtime.parameters.iron_half_saturation == fill(2e-4, 2)
+    @test !hasproperty(plankton.runtime.parameters, :iron_half_saturation)
     @test plankton.runtime.parameters.temperature_q10 == 1.88
     @test plankton.runtime.parameters.reference_temperature == 20.0
     @test plankton.runtime.parameters.phytoplankton_exudation_fraction == fill(0.05, 2)
@@ -126,19 +132,18 @@ end
     @test chlorophyll_field[1, 1, 1] ≈ 1.5 * 3.0
 
     tracers = required_biogeochemical_tracers(coupled)
-    @test all(t -> t in tracers, (:NO₃, :NH₄, :Fe, :T, :DOM, :sPOM, :bPOM, :DIC, :Alk, :O₂))
+    @test all(t -> t in tracers, (:NO₃, :NH₄, :T, :DOM, :sPOM, :bPOM, :DIC, :Alk, :O₂))
+    @test :Fe ∉ tracers
     groups = conserved_tracers(coupled)
     @test groups.nitrogen.nano_1 == groups.nitrogen.heterotroph_1 == 1.0
-    @test groups.iron.nano_1 == groups.iron.heterotroph_1 == 4.6375e-5
-    @test !hasproperty(groups.nitrogen, :T) && !hasproperty(groups.iron, :T)
+    @test !hasproperty(groups.nitrogen, :T)
     @test groups.carbon.nano_1 == groups.carbon.heterotroph_1 == groups.carbon.DOM == 6.56
     @test plankton.carbon_ratio == 6.56
     @test plankton.calcium_carbonate_rain_ratio == 0.2
     @test plankton.zooplankton_calcium_carbonate_dissolution == 0.3
 
-    replayed_plankton = replayed.underlying_biogeochemistry.plankton
     @test recipe.family === :FrankenLOBSTER
-    @test recipe.definition_version == v"0.11.0"
+    @test recipe.definition_version == v"0.12.0"
     @test decoded == recipe
     @test recipe.parameter_overrides.calcium_carbonate_rain_ratio == 0.2
     @test recipe.parameter_overrides.phytoplankton_chlorophyll_ratio == 1.5
@@ -150,22 +155,22 @@ end
     @test replayed_plankton.chlorophyll_ratio == plankton.chlorophyll_ratio
     @test replayed_plankton.calcium_carbonate_rain_ratio == plankton.calcium_carbonate_rain_ratio
     @test hasproperty(replayed_plankton.runtime.sinking_velocities, :nano_1)
+    @test_throws ArgumentError FrankenLOBSTER.construct(sinking_tracers=(P_1=0.1,))
 end
 
 @testset "FrankenLOBSTER default recipe replay" begin
     grid = RectilinearGrid(CPU(); size=(1, 1, 1), extent=(1, 1, 1))
-    coupling = (; light_attenuation=_prescribed_light(), inorganic_carbon=CarbonateSystem())
-    direct, recipe = FrankenLOBSTER.construct_plus_recipe(; grid, coupling...)
-    replayed = FrankenLOBSTER.construct_from_recipe(recipe; grid, coupling...)
+    direct, recipe = FrankenLOBSTER.construct_plus_recipe()
+    replayed = FrankenLOBSTER.construct(recipe)
+    direct_bgc = LOBSTER(grid; plankton=direct)
+    replayed_bgc = LOBSTER(grid; plankton=replayed)
 
-    direct_plankton = direct.underlying_biogeochemistry.plankton
-    replayed_plankton = replayed.underlying_biogeochemistry.plankton
     @test isempty(recipe.parameter_overrides)
-    @test required_biogeochemical_tracers(replayed) == required_biogeochemical_tracers(direct)
-    @test replayed_plankton.runtime.parameters == direct_plankton.runtime.parameters
-    @test replayed_plankton.carbon_ratio == direct_plankton.carbon_ratio == 6.56
-    @test replayed_plankton.calcium_carbonate_rain_ratio ==
-          direct_plankton.calcium_carbonate_rain_ratio == 0.1
+    @test required_biogeochemical_tracers(replayed_bgc) ==
+          required_biogeochemical_tracers(direct_bgc)
+    @test replayed.runtime.parameters == direct.runtime.parameters
+    @test replayed.carbon_ratio == direct.carbon_ratio == 6.56
+    @test replayed.calcium_carbonate_rain_ratio == direct.calcium_carbonate_rain_ratio == 0.1
 end
 
 @testset "FrankenLOBSTER coupled nutrient and DOM exchange" begin
@@ -184,8 +189,8 @@ end
     )
 
     light_scale = inv(sqrt(2.0))
-    nitrate_only = _frankenlobster_fields(; NO₃=1.0, NH₄=0.0, Fe=1e12, P_1=2.0)
-    ammonium_only = _frankenlobster_fields(; NO₃=0.0, NH₄=1.0, Fe=1e12, P_1=2.0)
+    nitrate_only = _frankenlobster_fields(; NO₃=1.0, NH₄=0.0, P_1=2.0)
+    ammonium_only = _frankenlobster_fields(; NO₃=0.0, NH₄=1.0, P_1=2.0)
     gross_nitrate_growth = uptake(:NO₃, nitrate_only)
     @test gross_nitrate_growth ≈ light_scale
     @test tendency(:P_1, nitrate_only) ≈ 0.95 * gross_nitrate_growth
@@ -200,19 +205,15 @@ end
     @test tendency(:P_1, ammonium_only) ≈ 0.95 * light_scale
     @test uptake(:NH₄, ammonium_only) ≈ light_scale
 
-    mixed = _frankenlobster_fields(; NO₃=10.0, NH₄=10.0, Fe=1e12, P_1=2.0)
+    mixed = _frankenlobster_fields(; NO₃=10.0, NH₄=10.0, P_1=2.0)
     @test tendency(:P_1, mixed) ≈ 0.95 * sqrt(2.0)
     mixed_uptake = uptake(:NO₃, mixed) + uptake(:NH₄, mixed)
     @test mixed_uptake ≈ total_uptake(mixed)
     @test mixed_uptake ≈ sqrt(2.0)
-    nitrate_without_ammonium = _frankenlobster_fields(; NO₃=10.0, NH₄=0.0, Fe=1e12, P_1=2.0)
+    nitrate_without_ammonium = _frankenlobster_fields(; NO₃=10.0, NH₄=0.0, P_1=2.0)
     @test uptake(:NO₃, mixed) < uptake(:NO₃, nitrate_without_ammonium)
 
-    iron_limited = _frankenlobster_fields(; NO₃=100.0, NH₄=0.0, Fe=1.0, P_1=2.0)
-    @test tendency(:P_1, iron_limited) ≈ 0.95 * light_scale
-    @test uptake(:Fe, iron_limited) ≈ light_scale * 4.6375e-5
-
-    warm = _frankenlobster_fields(; NO₃=1.0, NH₄=0.0, Fe=1e12, T=30.0, P_1=2.0)
+    warm = _frankenlobster_fields(; NO₃=1.0, NH₄=0.0, T=30.0, P_1=2.0)
     @test tendency(:P_1, warm) ≈ 2 * tendency(:P_1, nitrate_only)
 
     excretion_fields = _frankenlobster_fields(; Z_1=2.0)
@@ -245,7 +246,7 @@ end
     ]
     calcite_scale = 0.1 * 6.56
 
-    growth_fields = _frankenlobster_fields(; NO₃=1.0, NH₄=0.0, Fe=1e12, P_1=2.0)
+    growth_fields = _frankenlobster_fields(; NO₃=1.0, NH₄=0.0, P_1=2.0)
     explicit_carbon() = ExplicitCalciumCarbonate(
         grid;
         calcium_carbonate_dissolution_rate=0.0,
