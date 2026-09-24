@@ -24,6 +24,7 @@ using OrdinaryDiffEq: Tsit5, solve
 using SciMLBase: EnsembleProblem, EnsembleThreads, ODEProblem, remake
 using Statistics: mean
 
+using Agate.Library.Allometry: AllometricParam, SplitPowerLaw
 using OceanBioME: BoxModelGrid, PrescribedPhotosyntheticallyActiveRadiation
 using OceanBioME.Models.NutrientsPlanktonDetritusModels: LOBSTER
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
@@ -58,38 +59,24 @@ const H_TRACERS = ntuple(i -> Symbol("bacteria_$i"), N_SIZE_CLASSES)
 
 # FrankenLOBSTER's canonical P/H defaults are fitted to its small (<3 um) classes and therefore
 # use the positive V^0.28 branch throughout. Follett's size spectrum crosses 3 um, where maximum
-# growth changes to a negative size dependence. For this example only, preserve the existing
-# small-cell coefficients and make the relationship continuous at 3 um before switching to a
-# Darwin-style large-cell V^-0.15 branch. Other FrankenLOBSTER allometries retain their normal defaults.
-
-spherical_volume(diameter) = pi / 6 * diameter^3
-
-function unimodal_rate(
-    diameter,
-    small_prefactor;
-    breakpoint=FOLLETT_SIZE_BREAK,
-    small_exponent=0.28,
-    large_exponent=-0.15,
-)
-    volume = spherical_volume(diameter)
-    break_volume = spherical_volume(breakpoint)
-    if diameter <= breakpoint
-        return small_prefactor * volume^small_exponent
-    end
-    rate_at_break = small_prefactor * break_volume^small_exponent
-    return rate_at_break * (volume / break_volume)^large_exponent
-end
-
-named_values(names::Tuple, values) = NamedTuple{names}(Tuple(values))
+# growth changes to a negative size dependence. For this example only, use a continuous
+# `SplitPowerLaw`: retain the existing small-cell prefactor below 3 um and switch to a Darwin-style
+# V^-0.15 branch above it. Other FrankenLOBSTER allometries retain their normal defaults.
 
 const FOLLETT_PARAMETERS = (
-    maximum_growth_rate=named_values(
-        P_TRACERS,
-        (unimodal_rate(diameter, 1.2066 / day) for diameter in FOLLETT_PREY_SIZES),
+    maximum_growth_rate=AllometricParam(
+        SplitPowerLaw();
+        prefactor=1.2066 / day,
+        breakpoint=FOLLETT_SIZE_BREAK,
+        small_exponent=0.28,
+        large_exponent=-0.15,
     ),
-    bacterial_maximum_uptake_rate=named_values(
-        H_TRACERS,
-        (unimodal_rate(diameter, 1.836 / day) for diameter in FOLLETT_PREY_SIZES),
+    bacterial_maximum_uptake_rate=AllometricParam(
+        SplitPowerLaw();
+        prefactor=1.836 / day,
+        breakpoint=FOLLETT_SIZE_BREAK,
+        small_exponent=0.28,
+        large_exponent=-0.15,
     ),
 )
 

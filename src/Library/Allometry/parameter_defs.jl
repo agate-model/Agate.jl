@@ -78,6 +78,28 @@ Callable allometric power-law model using spherical cell volume.
 """
 struct PowerLaw end
 
+"""
+    SplitPowerLaw()
+
+Callable continuous two-regime power-law model using spherical cell volume.
+
+!!! formulation
+    ```math
+    p(d) = \\begin{cases}
+        a V(d)^{b_s}, & d \\le d_* \\\\
+        a V_*^{b_s} \\left(\\frac{V(d)}{V_*}\\right)^{b_l}, & d > d_*
+    \\end{cases},
+    \\qquad
+    V_* = V(d_*)
+    ```
+
+    The expected coefficient names are `prefactor` for ``a``, `breakpoint` for
+    the equivalent spherical diameter ``d_*``, `small_exponent` for ``b_s``,
+    and `large_exponent` for ``b_l``. The large-size branch is normalized at
+    the breakpoint so the relationship is continuous.
+"""
+struct SplitPowerLaw end
+
 function allometric_relationship_identifier(model)
     throw(
         ArgumentError(
@@ -87,12 +109,14 @@ function allometric_relationship_identifier(model)
 end
 
 allometric_relationship_identifier(::PowerLaw) = :power_law
+allometric_relationship_identifier(::SplitPowerLaw) = :split_power_law
 
 function allometric_relationship_from_identifier(::Val{id}) where {id}
     throw(ArgumentError("Unsupported allometric relationship identifier $(repr(id))."))
 end
 
 allometric_relationship_from_identifier(::Val{:power_law}) = PowerLaw()
+allometric_relationship_from_identifier(::Val{:split_power_law}) = SplitPowerLaw()
 
 """
     PowerLaw()(coeffs, diameter)
@@ -122,6 +146,28 @@ Evaluate a `PowerLaw` allometric model.
     # By construction we keep coefficients and diameter the same scalar type,
     # so this call never mixes Float32/Float64 (important for GPU use).
     return allometric_scaling_power(a, b, diameter)
+end
+
+"""Evaluate a continuous `SplitPowerLaw` at an equivalent spherical `diameter`."""
+@inline function (m::SplitPowerLaw)(coeffs::NamedTuple, diameter)
+    for name in (:prefactor, :breakpoint, :small_exponent, :large_exponent)
+        hasproperty(coeffs, name) ||
+            throw(ArgumentError("SplitPowerLaw requires coefficient `$(name)`"))
+    end
+
+    a = getproperty(coeffs, :prefactor)
+    breakpoint = getproperty(coeffs, :breakpoint)
+    small_exponent = getproperty(coeffs, :small_exponent)
+    large_exponent = getproperty(coeffs, :large_exponent)
+    breakpoint > zero(breakpoint) ||
+        throw(ArgumentError("SplitPowerLaw `breakpoint` must be positive"))
+
+    diameter <= breakpoint &&
+        return allometric_scaling_power(a, small_exponent, diameter)
+
+    value_at_breakpoint = allometric_scaling_power(a, small_exponent, breakpoint)
+    diameter_ratio = diameter / breakpoint
+    return value_at_breakpoint * diameter_ratio^(3 * large_exponent)
 end
 
 """

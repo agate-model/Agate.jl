@@ -3,8 +3,9 @@ using Test
 using ForwardDiff
 
 using Agate.Library.Allometry:
+    AllometricParam, SplitPowerLaw, allometric_scaling_power,
     consumer_assimilation_matrix_axes, palatability_matrix_allometric_axes,
-    resolve_diameter_indexed_vector
+    resolve_diameter_indexed_vector, resolve_param
 using Agate.Library.Nutrients:
     frank_tnorm, liebig_minimum, normalized_droop_limitation, quota_uptake_regulation
 using Agate.Library.Photosynthesis: geider_light_response, smith_light_limitation
@@ -34,6 +35,31 @@ end
     @test_throws ArgumentError consumer_assimilation_matrix_axes(
         Float64; assimilation_efficiency=[0.2, 0.8], consumer_indices=(2,), prey_indices=(3,)
     )
+end
+
+@testset "Split power-law allometry" begin
+    law = SplitPowerLaw()
+    coeffs = (
+        prefactor=1.2066,
+        breakpoint=3.0,
+        small_exponent=0.28,
+        large_exponent=-0.15,
+    )
+
+    small = 1.2
+    large = 6.0
+    at_break = allometric_scaling_power(
+        coeffs.prefactor, coeffs.small_exponent, coeffs.breakpoint
+    )
+
+    @test law(coeffs, small) ≈ allometric_scaling_power(
+        coeffs.prefactor, coeffs.small_exponent, small
+    )
+    @test law(coeffs, coeffs.breakpoint) ≈ at_break
+    @test law(coeffs, large) ≈ at_break *
+        (large / coeffs.breakpoint)^(3 * coeffs.large_exponent)
+    @test resolve_param(Float32, AllometricParam(law; coeffs...), large) isa Float32
+    @test_throws ArgumentError law(merge(coeffs, (breakpoint=0.0,)), large)
 end
 
 @testset "Library scalar genericity" begin

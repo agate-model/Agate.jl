@@ -1,5 +1,6 @@
 using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe
 using Agate.ModelFamilies: definition_version
+using Agate.Library.Allometry: AllometricParam, SplitPowerLaw
 using Agate.Models: NiPiZD
 using OceanBioME: BoxModelGrid
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers, biogeochemical_drift_velocity
@@ -91,6 +92,23 @@ end
     @test !recipe.open_bottom
     @test recipe.sinking_tracers == inputs.sinking_tracers
     @test decoded == recipe
+
+    split_law = AllometricParam(
+        SplitPowerLaw();
+        prefactor=1.2066 / 86400,
+        breakpoint=3.0,
+        small_exponent=0.28,
+        large_exponent=-0.15,
+    )
+    split_recipe = Agate.Construction.capture_model_recipe(
+        family;
+        plankton_pfts=(P=(P=[1.0, 4.0],), Z=(Z=[10.0],)),
+        parameter_overrides=(maximum_growth_rate=split_law,),
+    )
+    split_encoded = encode_recipe(split_recipe)
+    @test split_encoded["realization"]["parameter_overrides"]["maximum_growth_rate"]["law"] ==
+        "split_power_law"
+    @test decode_recipe(split_encoded) == split_recipe
 
     mapping_a = (P=(small=[2.0, 1.0], large=[3.0]), Z=(Z=[10.0],))
     mapping_b = (Z=(Z=[10.0],), P=(large=[3.0], small=[1.0, 2.0]))
