@@ -29,7 +29,8 @@ end
 const _CONTROLLED = (
     maximum_growth_rate=(P_1=1.0, P_2=1.0), nitrate_half_saturation=(P_1=1.0, P_2=1.0),
     ammonia_half_saturation=(P_1=1.0, P_2=1.0), nitrate_ammonia_inhibition=0.1,
-    light_half_saturation=(P_1=1.0, P_2=1.0), temperature_q10=2.0, reference_temperature=20.0,
+    light_half_saturation=(P_1=1.0, P_2=1.0),
+    temperature_q10=(P_1=2.0, P_2=2.0), reference_temperature=20.0,
     phytoplankton_mortality_rate=(P_1=0.0, P_2=0.0), maximum_predation_rate=(Z_1=0.0, Z_2=0.0),
     zooplankton_excretion_rate=(Z_1=1.0, Z_2=1.0), zooplankton_mortality_rate=(Z_1=0.0, Z_2=0.0),
     bacterial_maximum_uptake_rate=(H_1=2.0,), bacterial_dom_half_saturation=reshape([1.0], 1, 1),
@@ -91,6 +92,12 @@ end
           2 * (1 - exp(-1)) * (10 / 11 * exp(-1) + 10 / 11)
     @test [tendency(t, _fields(; Z_1=2.0)) for t in (:Z_1, :NH₄, :DOM)] ≈ [-2.0, 1.0, 1.0]
     @test [tendency(t, _fields(; DOM=3.0, H_1=2.0)) for t in (:DOM, :H_1, :NH₄)] ≈ [-3.0, 0.75, 2.25]
+
+    selective_temperature = _controlled(; parameters=(temperature_q10=(P_1=2.0, P_2=1.0),))
+    warm = _fields(; NO₃=1.0, T=30.0, P_1=1.0, P_2=1.0)
+    p1 = selective_temperature(1, 1, 1, _GRID, Val(:P_1), (; time=0.0), warm, aux)
+    p2 = selective_temperature(1, 1, 1, _GRID, Val(:P_2), (; time=0.0), warm, aux)
+    @test p1 ≈ 2 * p2
 end
 
 @testset "FrankenLOBSTER P-specific calcite" begin

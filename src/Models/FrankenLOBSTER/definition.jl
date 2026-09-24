@@ -11,7 +11,7 @@ import ...Construction: family_id, registered_family
 struct FrankenLOBSTERFamily <: AbstractModelFamily end
 family_id(::FrankenLOBSTERFamily) = :FrankenLOBSTER
 registered_family(::Val{:FrankenLOBSTER}) = FrankenLOBSTERFamily()
-definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.13.0"
+definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.14.0"
 
 const DEFAULT_SIZE_STRUCTURE = (
     phytoplankton=(P=(n=2, min_esd=0.6, max_esd=1.2, spacing=:linear),),
@@ -36,7 +36,7 @@ default_components(::FrankenLOBSTERFamily) = FRANKENLOBSTER_COMPONENTS
 const _P_GROWTH_FACTORS = (
     light=Light(ExponentialSaturation(); driver=:PAR, bindings=(half_saturation=:light_half_saturation,)),
     temperature=Temperature(
-        Q10(); component=:T,
+        Q10(:plankton); component=:T,
         bindings=(q10=:temperature_q10, reference_temperature=:reference_temperature),
     ),
 )

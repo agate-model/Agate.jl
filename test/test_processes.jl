@@ -200,7 +200,7 @@ end
 @testset "Built-in parameter domains" begin
     nodes = (
         FactorizedGrowth(), Smith(), Geider(), ExponentialSaturation(), Monod(),
-        InhibitedMonod(), NormalizedDroop(), QuotaRegulatedMonod(), FrankTNorm(), Q10(),
+        InhibitedMonod(), NormalizedDroop(), QuotaRegulatedMonod(), FrankTNorm(), Q10(:plankton),
         PreferentialGrazing(),
         HeterotrophicConsumption(), LinearMortality(), QuadraticMortality(),
         LinearRemineralization(), Products((a=:A, b=:B); fractions=(a=:fraction_a,)),

@@ -35,8 +35,9 @@ struct Liebig <: AbstractFormulation end
 """Differentiable Frank t-norm nutrient-combination formulation."""
 struct FrankTNorm <: AbstractFormulation end
 
-"""Q10 temperature-response formulation."""
-struct Q10 <: AbstractFormulation end
+"""Q10 temperature-response formulation indexed over the affected process participant role."""
+struct Q10{Axis} <: AbstractFormulation end
+Q10(axis::Symbol) = Q10{axis}()
 
 """Growth formulation with a base maximum rate and optional multiplicative factors."""
 struct FactorizedGrowth <: AbstractFormulation end

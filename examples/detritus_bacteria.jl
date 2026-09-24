@@ -40,7 +40,7 @@ processes = (
         ),
         factors=(
             temperature=Temperature(
-                Q10();
+                Q10(:consumer);
                 bindings=(
                     q10=:temperature_q10,
                     reference_temperature=:reference_temperature,
