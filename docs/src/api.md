@@ -93,7 +93,9 @@ identify a registered family and its version rather than serializing process or 
 Agate.Processes.AbstractFormulation
 Agate.Processes.Smith
 Agate.Processes.Geider
+Agate.Processes.ExponentialSaturation
 Agate.Processes.Monod
+Agate.Processes.InhibitedMonod
 Agate.Processes.NormalizedDroop
 Agate.Processes.QuotaRegulatedMonod
 Agate.Processes.Liebig

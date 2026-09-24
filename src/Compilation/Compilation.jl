@@ -11,7 +11,7 @@ using ..Components:
 using ..Processes:
     AbstractFactor,
     Growth,
-    Light,
+    Light, Smith, Geider,
     QuotaResponse,
     Consumption,
     Mortality,

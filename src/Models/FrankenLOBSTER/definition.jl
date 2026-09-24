@@ -6,7 +6,10 @@ using ...Processes:
     Consumption,
     Mortality,
     Products,
-    Smith,
+    ExponentialSaturation,
+    NutrientResponse,
+    Monod,
+    InhibitedMonod,
     Temperature,
     Q10,
     PreferentialGrazing,
@@ -22,7 +25,7 @@ struct FrankenLOBSTERFamily <: AbstractModelFamily end
 
 family_id(::FrankenLOBSTERFamily) = :FrankenLOBSTER
 registered_family(::Val{:FrankenLOBSTER}) = FrankenLOBSTERFamily()
-definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.12.0"
+definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.13.0"
 
 """LOBSTER3-like default living-community size structure."""
 const DEFAULT_SIZE_STRUCTURE = (
@@ -62,7 +65,11 @@ const FRANKENLOBSTER_COMPONENTS = (
 default_components(::FrankenLOBSTERFamily) = FRANKENLOBSTER_COMPONENTS
 
 const _P_GROWTH_FACTORS = (
-    light=Light(Smith(); driver=:PAR, bindings=(alpha=:alpha,)),
+    light=Light(
+        ExponentialSaturation();
+        driver=:PAR,
+        bindings=(half_saturation=:light_half_saturation,),
+    ),
     temperature=Temperature(
         Q10();
         component=:T,
@@ -70,16 +77,19 @@ const _P_GROWTH_FACTORS = (
     ),
 )
 
-function _nitrogen_source_factor(source)
-    return NitrogenSourceResponse(
-        source;
-        bindings=(
-            nitrate_half_saturation=:nitrate_half_saturation,
-            ammonium_half_saturation=:ammonium_half_saturation,
-            ammonium_inhibition=:ammonium_inhibition,
-        ),
-    )
-end
+const _NITRATE_RESPONSE = NutrientResponse(
+    InhibitedMonod();
+    resource=:NO₃,
+    inhibitor=:NH₄,
+    bindings=(
+        half_saturation=:nitrate_half_saturation,
+        inhibition=:nitrate_ammonia_inhibition,
+    ),
+)
+
+const _AMMONIA_RESPONSE = NutrientResponse(
+    Monod(); resource=:NH₄, bindings=(half_saturation=:ammonia_half_saturation,)
+)
 
 const FRANKENLOBSTER_PROCESSES = (
     nitrate_growth_P=Growth(;
@@ -89,20 +99,20 @@ const FRANKENLOBSTER_PROCESSES = (
             maximum_rate=:maximum_growth_rate,
             product_fraction=:phytoplankton_exudation_fraction,
         ),
-        factors=merge(_P_GROWTH_FACTORS, (nutrients=_nitrogen_source_factor(:NO₃),)),
+        factors=merge(_P_GROWTH_FACTORS, (nutrients=_NITRATE_RESPONSE,)),
         products=Products(
             (dissolved=:dissolved_waste, inorganic=:inorganic_waste);
             fractions=(inorganic=:ammonium_fraction_of_exudate,),
         ),
     ),
-    ammonium_growth_P=Growth(;
+    ammonia_growth_P=Growth(;
         plankton=:P,
         reference_resource=:NH₄,
         bindings=(
             maximum_rate=:maximum_growth_rate,
             product_fraction=:phytoplankton_exudation_fraction,
         ),
-        factors=merge(_P_GROWTH_FACTORS, (nutrients=_nitrogen_source_factor(:NH₄),)),
+        factors=merge(_P_GROWTH_FACTORS, (nutrients=_AMMONIA_RESPONSE,)),
         products=Products(
             (dissolved=:dissolved_waste, inorganic=:inorganic_waste);
             fractions=(inorganic=:ammonium_fraction_of_exudate,),

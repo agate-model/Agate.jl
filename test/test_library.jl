@@ -7,12 +7,16 @@ using Agate.Library.Allometry:
     consumer_assimilation_matrix_axes, palatability_matrix_allometric_axes,
     resolve_diameter_indexed_vector, resolve_param
 using Agate.Library.Nutrients:
-    frank_tnorm, liebig_minimum, normalized_droop_limitation, quota_uptake_regulation
-using Agate.Library.Photosynthesis: geider_light_response, smith_light_limitation
+    frank_tnorm, inhibited_monod_limitation, liebig_minimum, normalized_droop_limitation,
+    quota_uptake_regulation
+using Agate.Library.Photosynthesis:
+    exponential_light_limitation, geider_light_response, smith_light_limitation
 using Agate.Library.Predation: holling_type_ii
 
 @testset "Library" begin
     @test holling_type_ii(1.0, 1.0) == 0.5
+    @test exponential_light_limitation(33.0, 33.0) ≈ 1 - exp(-1)
+    @test inhibited_monod_limitation(1.0, 2.0, 1.0, 0.5) ≈ 0.5 * exp(-1)
 end
 
 @testset "Allometry accepts realized diameter tuples" begin
@@ -67,9 +71,11 @@ end
 
     @test Agate.Library.Allometry.allometric_scaling_power(T(1), T(-0.1), T(2)) isa T
     @test Agate.Library.Nutrients.monod_limitation(T(1), T(0.5)) isa T
+    @test inhibited_monod_limitation(T(1), T(0.5), T(0.5), T(2)) isa T
     @test frank_tnorm(T(0.2), T(0.4)) isa T
     @test frank_tnorm(T(0.2), T(0.4); sharpness=50.0) isa T
     @test smith_light_limitation(T(50), T(0.1), T(1)) isa T
+    @test exponential_light_limitation(T(50), T(33)) isa T
     @test Agate.Library.Mortality.linear_loss(T(1), T(0.1)) isa T
     @test Agate.Library.Predation.holling_type_ii(T(1), T(0.5)) isa T
     @test Agate.Library.Remineralization.linear_remineralization(T(1), T(0.1)) isa T

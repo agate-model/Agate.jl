@@ -19,16 +19,15 @@ const FRANKENLOBSTER_ZOOPLANKTON_CALCIUM_CARBONATE_DISSOLUTION = 0.3
 function parameter_definitions(::FrankenLOBSTERFamily)
     day = 86400
 
-    # For the canonical P diameters (< 3 um), the supplied LOBSTER3 implementation uses
-    # mu = 1.2066 * V^0.28 / day. Its nitrate half-saturation construction reduces to
-    # 0.028154 * V^0.65. The supplied Smith/analytical-light slope is 0.1953 / day.
+    # FrankenLOBSTER retains size-dependent growth and nutrient-affinity traits while using
+    # the LOBSTER functional forms for light, nitrate inhibition by ammonia, and ammonia uptake.
     maximum_growth = AllometricParam(
         PowerLaw(); prefactor=1.2066 / day, exponent=0.28
     )
     nitrate_half_saturation = AllometricParam(
         PowerLaw(); prefactor=0.028154, exponent=0.65
     )
-    ammonium_half_saturation = AllometricParam(
+    ammonia_half_saturation = AllometricParam(
         PowerLaw(); prefactor=0.5 * 0.028154, exponent=0.65
     )
 
@@ -49,13 +48,13 @@ function parameter_definitions(::FrankenLOBSTERFamily)
         nitrate_half_saturation=Parameter(
             DiameterIndexedVectorDefault(nitrate_half_saturation; default=0)
         ),
-        ammonium_half_saturation=Parameter(
-            DiameterIndexedVectorDefault(ammonium_half_saturation; default=0)
+        ammonia_half_saturation=Parameter(
+            DiameterIndexedVectorDefault(ammonia_half_saturation; default=0)
         ),
-        ammonium_inhibition=Parameter(3.0),
+        nitrate_ammonia_inhibition=Parameter(3.0),
+        light_half_saturation=Parameter(33.0),
         temperature_q10=Parameter(1.88),
         reference_temperature=Parameter(20.0),
-        alpha=Parameter(DiameterIndexedVectorDefault(0.1953 / day; default=0)),
         phytoplankton_exudation_fraction=Parameter(0.05),
         ammonium_fraction_of_exudate=Parameter(0.75),
         phytoplankton_mortality_rate=Parameter(5.8e-7),

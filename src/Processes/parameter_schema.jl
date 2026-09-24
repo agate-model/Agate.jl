@@ -55,8 +55,15 @@ parameter_slots(::Geider) = (
     ParameterSlot(:alpha, (:plankton,); domain=:nonnegative),
     ParameterSlot(:chlorophyll_to_carbon_ratio, (:plankton,); domain=:nonnegative),
 )
+parameter_slots(::ExponentialSaturation) = (
+    ParameterSlot(:half_saturation, (:plankton,); domain=:positive),
+)
 parameter_slots(::Monod) = (
     ParameterSlot(:half_saturation, (:plankton,); domain=:nonnegative),
+)
+parameter_slots(::InhibitedMonod) = (
+    ParameterSlot(:half_saturation, (:plankton,); domain=:nonnegative),
+    ParameterSlot(:inhibition; domain=:nonnegative),
 )
 parameter_slots(::NormalizedDroop) = (
     ParameterSlot(:minimum_quota, (:plankton,); domain=:positive),

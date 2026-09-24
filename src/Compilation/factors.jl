@@ -35,11 +35,11 @@ function _factor_inputs(factor::QuotaResponse, named::CanonicalProcess)
 end
 
 function _factor_process_operands(
-    ::Light,
+    ::Light{Formulation},
     context::CompileContext,
     named::CanonicalProcess,
     axis_positions::NamedTuple,
-)
+) where {Formulation<:Union{Smith,Geider}}
     ref = named.binding_refs.process.maximum_rate
     return (parameter_operand(ref, context, axis_positions),)
 end

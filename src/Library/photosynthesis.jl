@@ -1,7 +1,7 @@
 """Light-response kernels used by phytoplankton growth formulations."""
 module Photosynthesis
 
-export smith_light_limitation, geider_light_response
+export smith_light_limitation, geider_light_response, exponential_light_limitation
 
 """
     smith_light_limitation(PAR, alpha, maximum_rate)
@@ -22,6 +22,21 @@ slope, and `maximum_rate` is the enclosing growth-process rate scale.
     light_rate = alpha * PAR
     return light_rate / sqrt(maximum_rate * maximum_rate + light_rate * light_rate)
 end
+
+"""
+    exponential_light_limitation(PAR, half_saturation)
+
+Evaluate the saturating-exponential light-limitation factor used by LOBSTER.
+
+```math
+L_I(I) = 1 - \\exp\\left(-\\frac{I}{K_I}\\right)
+```
+
+`PAR` is photosynthetically active radiation and `half_saturation` is the LOBSTER
+light-response scale ``K_I``.
+"""
+@inline exponential_light_limitation(PAR, half_saturation) =
+    one(PAR + half_saturation) - exp(-PAR / half_saturation)
 
 """
     geider_light_response(PAR, alpha, maximum_rate, chlorophyll_to_carbon_ratio)

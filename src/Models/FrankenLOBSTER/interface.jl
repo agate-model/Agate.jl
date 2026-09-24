@@ -24,33 +24,29 @@ import OceanBioME.Models.NutrientsPlanktonDetritusModels.DetritusModels: grazing
 """OceanBioME plankton component backed by one compiled Agate FrankenLOBSTER runtime."""
 struct FrankenLOBSTERPlankton{
     Runtime,OwnedTracers,OwnedTracerType,ExchangeTracers,PhytoplanktonTracers,
-    ProcessDiagnostics,ChlorophyllRatio,CarbonRatio,RainRatio,GutDissolution
+    ProcessDiagnostics,T,
 }
     runtime::Runtime
     process_diagnostics::ProcessDiagnostics
-    chlorophyll_ratio::ChlorophyllRatio
-    carbon_ratio::CarbonRatio
-    calcium_carbonate_rain_ratio::RainRatio
-    zooplankton_calcium_carbonate_dissolution::GutDissolution
+    chlorophyll_ratio::T
+    carbon_ratio::T
+    calcium_carbonate_rain_ratio::T
+    zooplankton_calcium_carbonate_dissolution::T
 end
 
 function FrankenLOBSTERPlankton(
-    runtime, owned::Tuple, exchange::Tuple=();
-    phytoplankton_tracers,
-    process_diagnostics,
-    chlorophyll_ratio=1.31,
-    carbon_ratio=FRANKENLOBSTER_CARBON_RATIO,
-    calcium_carbonate_rain_ratio=FRANKENLOBSTER_CALCIUM_CARBONATE_RAIN_RATIO,
-    zooplankton_calcium_carbonate_dissolution=FRANKENLOBSTER_ZOOPLANKTON_CALCIUM_CARBONATE_DISSOLUTION,
+    runtime, owned::Tuple, exchange::Tuple;
+    phytoplankton_tracers, process_diagnostics, chlorophyll_ratio, carbon_ratio,
+    calcium_carbonate_rain_ratio, zooplankton_calcium_carbonate_dissolution,
 )
     owned_type = mapreduce(name -> typeof(Val(name)), (A, B) -> Union{A,B}, owned)
+    T = typeof(chlorophyll_ratio)
     return FrankenLOBSTERPlankton{
         typeof(runtime),owned,owned_type,exchange,phytoplankton_tracers,
-        typeof(process_diagnostics),typeof(chlorophyll_ratio),typeof(carbon_ratio),
-        typeof(calcium_carbonate_rain_ratio),typeof(zooplankton_calcium_carbonate_dissolution)
+        typeof(process_diagnostics),T,
     }(
         runtime, process_diagnostics, chlorophyll_ratio, carbon_ratio,
-        calcium_carbonate_rain_ratio, zooplankton_calcium_carbonate_dissolution
+        calcium_carbonate_rain_ratio, zooplankton_calcium_carbonate_dissolution,
     )
 end
 
@@ -158,14 +154,10 @@ end
 )
 
 @inline nutrient_uptake(
-    i, j, k, grid, ::Val{:NO₃}, plankton::FrankenLOBSTERPlankton,
-    bgc::NutrientsPlanktonDetritus, fields, auxiliary_fields,
-) = -_exchange_tendency(plankton, Val(:NO₃), i, j, k, grid, fields, auxiliary_fields)
-
-@inline nutrient_uptake(
-    i, j, k, grid, ::Val{:NH₄}, plankton::FrankenLOBSTERPlankton,
-    bgc::NutrientsPlanktonDetritus, fields, auxiliary_fields,
-) = -_exchange_tendency(plankton, Val(:NH₄), i, j, k, grid, fields, auxiliary_fields)
+    i, j, k, grid, nutrient::Union{Val{:NO₃},Val{:NH₄}},
+    plankton::FrankenLOBSTERPlankton, bgc::NutrientsPlanktonDetritus,
+    fields, auxiliary_fields,
+) = -_exchange_tendency(plankton, nutrient, i, j, k, grid, fields, auxiliary_fields)
 
 @inline nutrient_uptake(
     i, j, k, grid, plankton::FrankenLOBSTERPlankton,
@@ -231,7 +223,7 @@ end
             plankton, Val(:nitrate_growth_P), i, j, k, grid, fields, auxiliary_fields
         ) +
         _phytoplankton_process_tendency(
-            plankton, Val(:ammonium_growth_P), i, j, k, grid, fields, auxiliary_fields
+            plankton, Val(:ammonia_growth_P), i, j, k, grid, fields, auxiliary_fields
         )
     return plankton.calcium_carbonate_rain_ratio * plankton.carbon_ratio * retained_growth
 end

@@ -14,8 +14,14 @@ synthesize a prognostic non-elemental state such as `:chlorophyll`.
 """
 struct Geider <: AbstractFormulation end
 
+"""Saturating-exponential light limitation, ``1 - exp(-I / K_I)``."""
+struct ExponentialSaturation <: AbstractFormulation end
+
 """Monod single-resource limitation formulation."""
 struct Monod <: AbstractFormulation end
+
+"""Monod resource limitation multiplied by exponential inhibition."""
+struct InhibitedMonod <: AbstractFormulation end
 
 """Normalized Droop cellular-quota growth-limitation formulation."""
 struct NormalizedDroop <: AbstractFormulation end
@@ -143,14 +149,15 @@ function _canonical_participants(role::Symbol, values)
 end
 
 """Light-dependent multiplicative Growth factor using the Growth rate scale."""
-struct Light{Formulation<:Union{Smith,Geider}} <: AbstractFactor
+struct Light{Formulation<:Union{Smith,Geider,ExponentialSaturation}} <: AbstractFactor
     formulation::Formulation
     driver::Symbol
     bindings::NamedTuple
 end
 
 function Light(
-    formulation::Union{Smith,Geider}; driver::Symbol, bindings::NamedTuple=NamedTuple()
+    formulation::Union{Smith,Geider,ExponentialSaturation};
+    driver::Symbol, bindings::NamedTuple=NamedTuple(),
 )
     return Light(formulation, driver, _canonical_bindings(bindings))
 end
@@ -161,16 +168,26 @@ authored_parameter_bindings(factor::Light) = factor.bindings
 
 The factor reads an environmental Pool but does not define process material transfer.
 """
-struct NutrientResponse{Formulation<:Monod} <: AbstractFactor
+struct NutrientResponse{Formulation<:Union{Monod,InhibitedMonod},Inhibitor} <: AbstractFactor
     formulation::Formulation
     resource::Symbol
+    inhibitor::Inhibitor
     bindings::NamedTuple
 end
 
 function NutrientResponse(
     formulation::Monod; resource::Symbol, bindings::NamedTuple=NamedTuple()
 )
-    return NutrientResponse(formulation, resource, _canonical_bindings(bindings))
+    return NutrientResponse(formulation, resource, nothing, _canonical_bindings(bindings))
+end
+
+function NutrientResponse(
+    formulation::InhibitedMonod;
+    resource::Symbol, inhibitor::Symbol, bindings::NamedTuple=NamedTuple(),
+)
+    return NutrientResponse(
+        formulation, resource, inhibitor, _canonical_bindings(bindings)
+    )
 end
 
 authored_parameter_bindings(factor::NutrientResponse) = factor.bindings
@@ -293,7 +310,10 @@ factor_inputs(::AbstractFactor) = ()
 factor_inputs(factor::Light) = (FactorDriver(factor.driver),)
 factor_inputs(factor::Temperature) = isnothing(factor.component) ?
     (FactorDriver(factor.driver),) : (FactorComponent(factor.component),)
-factor_inputs(factor::NutrientResponse) = (FactorComponent(factor.resource),)
+factor_inputs(factor::NutrientResponse{<:Monod}) = (FactorComponent(factor.resource),)
+factor_inputs(factor::NutrientResponse{<:InhibitedMonod}) = (
+    FactorComponent(factor.resource), FactorComponent(factor.inhibitor),
+)
 factor_inputs(::QuotaResponse) = ()
 
 """Return named child factors composed by a factor."""

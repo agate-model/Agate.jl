@@ -18,8 +18,15 @@ function factor_value end
     ::Geider, light, maximum_rate, alpha, chlorophyll_to_carbon_ratio
 ) = geider_light_response(light, alpha, maximum_rate, chlorophyll_to_carbon_ratio)
 
+@inline factor_value(::ExponentialSaturation, light, half_saturation) =
+    exponential_light_limitation(light, half_saturation)
+
 @inline factor_value(::Monod, resource, half_saturation) =
     monod_limitation(resource, half_saturation)
+
+@inline factor_value(
+    ::InhibitedMonod, resource, inhibitor, half_saturation, inhibition
+) = inhibited_monod_limitation(resource, inhibitor, half_saturation, inhibition)
 
 @inline factor_value(
     ::NormalizedDroop, internal, reference, minimum_quota, maximum_quota
