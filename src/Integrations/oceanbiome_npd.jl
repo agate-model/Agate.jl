@@ -1,6 +1,9 @@
 using Adapt: adapt
 import Adapt: adapt_structure
 
+using ..ModelFamilies: AbstractModelFamily
+import ..Construction
+
 import OceanBioME: chlorophyll
 import Oceananigans.Biogeochemistry:
     biogeochemical_drift_velocity,
@@ -124,6 +127,120 @@ function NPDPlankton(
         phytoplankton,
         typeof(traits),
     }(runtime, traits, coupling)
+end
+
+"""Named process diagnostics required when an Agate family is wrapped as NPD plankton."""
+npd_diagnostic_processes(::AbstractModelFamily) = ()
+
+"""Return `NPDPlankton` keyword configuration for a realized family runtime.
+
+External model families extend this method to declare ownership, nutrient/exchange coupling,
+dependencies, traits, and optional family-specific coupling state.
+"""
+function npd_configuration(::AbstractModelFamily, runtime, parameter_overrides::NamedTuple)
+    throw(
+        ArgumentError(
+            "No `npd_configuration(family, runtime, parameter_overrides)` method is defined " *
+            "for this model family.",
+        ),
+    )
+end
+
+function _typed_npd_traits(traits::NamedTuple, ::Type{T}) where {T<:Real}
+    names = keys(traits)
+    values = map(value -> value isa Real ? convert(T, value) : value, Base.values(traits))
+    return NamedTuple{names}(values)
+end
+
+function _wrap_npd_runtime(
+    family::AbstractModelFamily, runtime, parameter_overrides::NamedTuple, ::Type{T}
+) where {T<:Real}
+    configuration = npd_configuration(family, runtime, parameter_overrides)
+    hasproperty(configuration, :traits) || throw(
+        ArgumentError("npd_configuration must define `traits`."),
+    )
+    configuration = merge(
+        configuration, (; traits=_typed_npd_traits(configuration.traits, T))
+    )
+    return NPDPlankton(runtime; configuration...)
+end
+
+_require_npd_grid(sinking_tracers, grid) =
+    !isnothing(sinking_tracers) && isnothing(grid) ?
+        throw(ArgumentError("grid is required when `sinking_tracers` are configured")) : nothing
+
+"""Construct a registered Agate family directly as an OceanBioME NPD plankton component."""
+function construct_npd_plankton(
+    family::AbstractModelFamily;
+    plankton_pfts::NamedTuple,
+    parameter_overrides::NamedTuple=(;),
+    sinking_tracers=nothing,
+    open_bottom::Bool=true,
+    grid=nothing,
+    arch=nothing,
+    scalar_type=nothing,
+)
+    _require_npd_grid(sinking_tracers, grid)
+    runtime_overrides = Construction.recipe_runtime_parameter_overrides(
+        family, parameter_overrides
+    )
+    runtime = Construction.construct(
+        family;
+        plankton_pfts,
+        parameter_overrides=runtime_overrides,
+        sinking_tracers,
+        open_bottom,
+        grid,
+        arch,
+        scalar_type,
+        diagnostic_processes=npd_diagnostic_processes(family),
+    )
+    T = Construction.resolve_construction_scalar_type(grid, scalar_type)
+    return _wrap_npd_runtime(family, runtime, parameter_overrides, T)
+end
+
+"""Construct an NPD plankton component and capture the canonical Agate family recipe."""
+function construct_npd_plankton_plus_recipe(
+    family::AbstractModelFamily;
+    plankton_pfts::NamedTuple,
+    parameter_overrides::NamedTuple=(;),
+    sinking_tracers=nothing,
+    open_bottom::Bool=true,
+    grid=nothing,
+    arch=nothing,
+    scalar_type=nothing,
+)
+    _require_npd_grid(sinking_tracers, grid)
+    runtime, recipe = Construction.construct_plus_recipe(
+        family;
+        plankton_pfts,
+        parameter_overrides,
+        sinking_tracers,
+        open_bottom,
+        grid,
+        arch,
+        scalar_type,
+        diagnostic_processes=npd_diagnostic_processes(family),
+    )
+    T = Construction.resolve_construction_scalar_type(grid, scalar_type)
+    return _wrap_npd_runtime(family, runtime, parameter_overrides, T), recipe
+end
+
+"""Replay a registered Agate family recipe directly as an OceanBioME NPD plankton component."""
+function construct_npd_plankton(
+    recipe::Construction.ModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
+)
+    family = Construction.replay_family(recipe)
+    _require_npd_grid(recipe.sinking_tracers, grid)
+    runtime = Construction.construct(
+        recipe;
+        grid,
+        arch,
+        scalar_type,
+        diagnostic_processes=npd_diagnostic_processes(family),
+    )
+    T = Construction.resolve_construction_scalar_type(grid, scalar_type)
+    return _wrap_npd_runtime(family, runtime, recipe.parameter_overrides, T)
 end
 
 @inline _owned_tracers(::NPDPlankton{C,R,O}) where {C,R,O} = O

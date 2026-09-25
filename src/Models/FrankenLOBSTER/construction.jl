@@ -1,5 +1,5 @@
 using ...Construction
-using ...Integrations: NPDPlankton
+import ...Integrations
 
 const _CALCITE_DIAGNOSTIC_PROCESSES = (
     :nitrate_growth_P, :ammonia_growth_P, :grazing_Z_on_living, :mortality_P,
@@ -30,15 +30,12 @@ function _traits(parameters::NamedTuple)
     return traits
 end
 
-_require_sinking_grid(sinking_tracers, grid) =
-    !isnothing(sinking_tracers) && isnothing(grid) ?
-        throw(ArgumentError("grid is required when `sinking_tracers` are configured")) : nothing
+Integrations.npd_diagnostic_processes(::FrankenLOBSTERFamily) = _CALCITE_DIAGNOSTIC_PROCESSES
 
-function _wrap_plankton(runtime, parameters, ::Type{T}) where T
-    traits = _traits(parameters)
-    typed_traits = NamedTuple{keys(traits)}(map(value -> convert(T, value), values(traits)))
-    return NPDPlankton(
-        runtime;
+function Integrations.npd_configuration(
+    ::FrankenLOBSTERFamily, runtime, parameters::NamedTuple
+)
+    return (;
         owned_components=(:P, :Z, :H),
         phytoplankton_components=(:P,),
         nutrient_tracers=(:NO₃, :NH₄),
@@ -47,42 +44,42 @@ function _wrap_plankton(runtime, parameters, ::Type{T}) where T
         ),
         consumed_detritus=(:DOM,),
         dependencies=(:NO₃, :NH₄, :DOM, :T),
-        traits=typed_traits,
+        traits=_traits(parameters),
         coupling=FrankenLOBSTERCoupling(runtime.metadata.process_diagnostics),
     )
 end
 
-function _construct_plankton(realization, parameters; grid=nothing, sinking_tracers=nothing, open_bottom=true)
-    _require_sinking_grid(sinking_tracers, grid)
-    runtime = Construction.construct(
-        FrankenLOBSTERFamily(); plankton_pfts=realization, grid,
-        parameter_overrides=_without_traits(parameters), sinking_tracers, open_bottom,
-        diagnostic_processes=_CALCITE_DIAGNOSTIC_PROCESSES,
+function _construction_inputs(;
+    size_structure=DEFAULT_SIZE_STRUCTURE,
+    parameters::NamedTuple=(;),
+    grid=nothing,
+    sinking_tracers=nothing,
+    open_bottom::Bool=true,
+)
+    family = FrankenLOBSTERFamily()
+    realization = (;
+        plankton_pfts=Construction.plankton_realization(family, size_structure),
+        parameter_overrides=parameters,
+        sinking_tracers,
+        open_bottom,
     )
-    return _wrap_plankton(runtime, parameters, isnothing(grid) ? Float64 : eltype(grid))
+    return (; family, realization, execution=(; grid))
 end
 
 """Construct the Agate plankton component for composition with OceanBioME `LOBSTER`."""
-function construct(; size_structure=DEFAULT_SIZE_STRUCTURE, parameters::NamedTuple=(;),
-                   grid=nothing, sinking_tracers=nothing, open_bottom::Bool=true)
-    return _construct_plankton(
-        Construction.plankton_realization(FrankenLOBSTERFamily(), size_structure), parameters;
-        grid, sinking_tracers, open_bottom
+function construct(; kwargs...)
+    inputs = _construction_inputs(; kwargs...)
+    return Integrations.construct_npd_plankton(
+        inputs.family; inputs.realization..., inputs.execution...
     )
 end
 
 """Construct FrankenLOBSTER plankton and capture its versioned Agate recipe."""
-function construct_plus_recipe(; size_structure=DEFAULT_SIZE_STRUCTURE, parameters::NamedTuple=(;),
-                               grid=nothing, sinking_tracers=nothing, open_bottom::Bool=true)
-    realization = Construction.plankton_realization(FrankenLOBSTERFamily(), size_structure)
-    _require_sinking_grid(sinking_tracers, grid)
-    runtime, recipe = Construction.construct_plus_recipe(
-        FrankenLOBSTERFamily(); plankton_pfts=realization, parameter_overrides=parameters,
-        sinking_tracers, open_bottom, grid, diagnostic_processes=_CALCITE_DIAGNOSTIC_PROCESSES,
+function construct_plus_recipe(; kwargs...)
+    inputs = _construction_inputs(; kwargs...)
+    return Integrations.construct_npd_plankton_plus_recipe(
+        inputs.family; inputs.realization..., inputs.execution...
     )
-    return _wrap_plankton(
-        runtime, parameters, isnothing(grid) ? Float64 : eltype(grid)
-    ), recipe
 end
 
 """Replay a FrankenLOBSTER recipe into the Agate plankton component."""
@@ -90,9 +87,5 @@ function construct(recipe::Construction.ModelRecipe; grid=nothing)
     recipe.family == :FrankenLOBSTER || throw(ArgumentError(
         "FrankenLOBSTER.construct requires a FrankenLOBSTER recipe; got $(recipe.family)"
     ))
-    _require_sinking_grid(recipe.sinking_tracers, grid)
-    runtime = Construction.construct(recipe; grid, diagnostic_processes=_CALCITE_DIAGNOSTIC_PROCESSES)
-    return _wrap_plankton(
-        runtime, recipe.parameter_overrides, isnothing(grid) ? Float64 : eltype(grid)
-    )
+    return Integrations.construct_npd_plankton(recipe; grid)
 end
