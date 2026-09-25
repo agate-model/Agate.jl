@@ -57,7 +57,7 @@ end
     )
     parameters = (
         assimilation_matrix=fill(0.65, 2, 4), maximum_growth_rate=(nano_1=1e-5,),
-        phytoplankton_chlorophyll_ratio=1.5, calcium_carbonate_rain_ratio=0.2,
+        chlorophyll_ratio=1.5, calcium_carbonate_rain_ratio=0.2,
     )
     plankton, recipe = FrankenLOBSTER.construct_plus_recipe(;
         grid=_GRID, size_structure, parameters, sinking_tracers=(nano_1=0.1,), open_bottom=false,

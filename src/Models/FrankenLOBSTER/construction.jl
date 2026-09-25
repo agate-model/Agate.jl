@@ -1,10 +1,11 @@
 using ...Construction
+using ...Integrations: NPDPlankton
 
 const _CALCITE_DIAGNOSTIC_PROCESSES = (
     :nitrate_growth_P, :ammonia_growth_P, :grazing_Z_on_living, :mortality_P,
 )
 const _TRAIT_DEFAULTS = (
-    phytoplankton_chlorophyll_ratio=FRANKENLOBSTER_CHLOROPHYLL_RATIO,
+    chlorophyll_ratio=FRANKENLOBSTER_CHLOROPHYLL_RATIO,
     carbon_ratio=FRANKENLOBSTER_CARBON_RATIO,
     calcium_carbonate_rain_ratio=FRANKENLOBSTER_CALCIUM_CARBONATE_RAIN_RATIO,
     zooplankton_calcium_carbonate_dissolution=FRANKENLOBSTER_ZOOPLANKTON_CALCIUM_CARBONATE_DISSOLUTION,
@@ -33,15 +34,21 @@ _require_sinking_grid(sinking_tracers, grid) =
     !isnothing(sinking_tracers) && isnothing(grid) ?
         throw(ArgumentError("grid is required when `sinking_tracers` are configured")) : nothing
 
-function _wrap_plankton(runtime, realization, parameters, ::Type{T}) where T
+function _wrap_plankton(runtime, parameters, ::Type{T}) where T
     traits = _traits(parameters)
     typed_traits = NamedTuple{keys(traits)}(map(value -> convert(T, value), values(traits)))
-    phytoplankton_tracers = Tuple(
-        tracer for pft in keys(realization.P) for tracer in getproperty(runtime.metadata.pft_entities, pft)
-    )
-    return FrankenLOBSTERPlankton(
-        runtime, runtime.metadata.plankton_tracers, (:solid_waste, :inorganic_waste, :dissolved_waste);
-        phytoplankton_tracers, process_diagnostics=runtime.metadata.process_diagnostics, traits=typed_traits,
+    return NPDPlankton(
+        runtime;
+        owned_components=(:P, :Z, :H),
+        phytoplankton_components=(:P,),
+        nutrient_tracers=(:NO₃, :NH₄),
+        exchange_tracers=(
+            solid=:solid_waste, dissolved=:dissolved_waste, inorganic=:inorganic_waste,
+        ),
+        consumed_detritus=(:DOM,),
+        dependencies=(:NO₃, :NH₄, :DOM, :T),
+        traits=typed_traits,
+        coupling=FrankenLOBSTERCoupling(runtime.metadata.process_diagnostics),
     )
 end
 
@@ -52,7 +59,7 @@ function _construct_plankton(realization, parameters; grid=nothing, sinking_trac
         parameter_overrides=_without_traits(parameters), sinking_tracers, open_bottom,
         diagnostic_processes=_CALCITE_DIAGNOSTIC_PROCESSES,
     )
-    return _wrap_plankton(runtime, realization, parameters, isnothing(grid) ? Float64 : eltype(grid))
+    return _wrap_plankton(runtime, parameters, isnothing(grid) ? Float64 : eltype(grid))
 end
 
 """Construct the Agate plankton component for composition with OceanBioME `LOBSTER`."""
@@ -74,7 +81,7 @@ function construct_plus_recipe(; size_structure=DEFAULT_SIZE_STRUCTURE, paramete
         sinking_tracers, open_bottom, grid, diagnostic_processes=_CALCITE_DIAGNOSTIC_PROCESSES,
     )
     return _wrap_plankton(
-        runtime, recipe.plankton_pfts, parameters, isnothing(grid) ? Float64 : eltype(grid)
+        runtime, parameters, isnothing(grid) ? Float64 : eltype(grid)
     ), recipe
 end
 
@@ -86,6 +93,6 @@ function construct(recipe::Construction.ModelRecipe; grid=nothing)
     _require_sinking_grid(recipe.sinking_tracers, grid)
     runtime = Construction.construct(recipe; grid, diagnostic_processes=_CALCITE_DIAGNOSTIC_PROCESSES)
     return _wrap_plankton(
-        runtime, recipe.plankton_pfts, recipe.parameter_overrides, isnothing(grid) ? Float64 : eltype(grid)
+        runtime, recipe.parameter_overrides, isnothing(grid) ? Float64 : eltype(grid)
     )
 end
