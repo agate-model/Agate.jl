@@ -1,3 +1,22 @@
+# Parameter-only FrankenLOBSTER approximation of the supplied LOBSTER3 model.
+#
+# FrankenLOBSTER defaults already match the LOBSTER3 3-D allometries for:
+#   P maximum growth, P nitrate affinity, H maximum uptake, H DOM affinity,
+#   P/Z/H mortality, Z/H assimilation, C:N, chlorophyll:N, PIC:C, and gut PIC dissolution.
+# Only deliberate departures from those defaults are specified below.
+#
+# Temperature experiments:
+#   :temperature_off => Q10(P1, P2) = (1.0, 1.0)
+#   :p1_temperature  => Q10(P1, P2) = (1.88, 1.0)
+#
+# Remaining functional-form approximations:
+# - LOBSTER3 mass-action grazing is approached with K_G >> prey and
+#   g_max(d) = K_G * 15.9 * V(d)^(-0.16) / day.
+# - The inactive LOBSTER3 NH4 growth branch is made negligible with a very
+#   large NH4 half-saturation.
+# - LOBSTER3 Monod light (K=55 W m^-2) is matched at its 50% point by the
+#   FrankenLOBSTER exponential-saturation light response.
+
 using Agate
 using OceanBioME
 using Oceananigans
@@ -7,14 +26,10 @@ using OceanBioME.Models.NutrientsPlanktonDetritusModels: DissolvedParticulate, L
 
 const FrankenLOBSTER = Agate.Models.FrankenLOBSTER
 
-# to make grazing linear in prey for total prey < 1 mmol N m^-3, we need to scale g_max with K_G
 const GRAZING_K = 100.0       # >99% of mass-action rate for total prey < 1 mmol N m^-3
 const NH4_OFF_K = 1.0e12
-
-# to convert from LOBSTER3's Monod(PAR; K=55) to FrankenLOBSTER's exponential saturation
 const LIGHT_K = 55 / log(2)   # exponential response = 0.5 at PAR = 55 W m^-2
 
-# temperature response on/off flag (1 = exponential of 0 for Q10, e.g. no temperature response )
 function temperature_q10(experiment::Symbol)
     experiment === :temperature_off && return (P_1=1.0, P_2=1.0)
     experiment === :p1_temperature && return (P_1=1.88, P_2=1.0)
@@ -34,7 +49,7 @@ const BASE_PARAMETERS = (
     zooplankton_excretion_rate=(Z_1=0.0, Z_2=0.0),
 
     # Z1 -> P1 + H1; Z2 -> P2. Scale g_max with K_G so the Holling response
-    # approaches LOBSTER3's g(d) * prey * predator formulation.
+    # approaches LOBSTER3's mass-action g(d) * prey * predator formulation.
     maximum_predation_rate=AllometricParam(
         PowerLaw(); prefactor=GRAZING_K * 15.9 / day, exponent=-0.16
     ),
@@ -48,13 +63,12 @@ lobster3_parameters(; temperature_experiment=:temperature_off) = merge(
 )
 
 function lobster3_like_bgc(grid; temperature_experiment=:temperature_off)
-    # Agate model passed to OceanBioME LOBSTER
     plankton = FrankenLOBSTER.construct(;
         grid,
         parameters=lobster3_parameters(; temperature_experiment),
     )
 
-    # There is no DOM remin in LOBSTER3 so this has to be redefined on the LOBSTER side:
+    # The only LOBSTER detritus default changed by the supplied LOBSTER3 setup.
     detritus = DissolvedParticulate(
         grid;
         dissolved_remineralisation_rate=0.0,
@@ -63,9 +77,7 @@ function lobster3_like_bgc(grid; temperature_experiment=:temperature_off)
     return LOBSTER(grid; plankton, detritus)
 end
 
-# Dummy example of model run:
+# Directly runnable one-cell setups for the two intended experiments.
 grid = RectilinearGrid(CPU(); size=(1, 1, 1), extent=(1, 1, 1))
-# with temperature off for both P1 and P2
 bgc_temperature_off = lobster3_like_bgc(grid; temperature_experiment=:temperature_off)
-# with temperature on for P1 and off for P2
 bgc_p1_temperature = lobster3_like_bgc(grid; temperature_experiment=:p1_temperature)

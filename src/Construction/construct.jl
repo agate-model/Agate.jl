@@ -6,7 +6,7 @@ import Oceananigans
 
 using Oceananigans.Architectures: architecture, CPU, GPU
 
-using ..ModelFamilies: AbstractModelFamily
+using ..ModelFamilies: AbstractModelFamily, default_components, plankton_roles
 
 using ..Components:
     canonicalize_plankton_realization, realize_model_layout, model_metadata
@@ -110,6 +110,28 @@ end
     keys(specification) == (:n,) || return specification
     n = specification.n
     return n isa Integer && !(n isa Bool) && n == 0 ? nothing : specification
+end
+
+"""Translate a family's user-facing plankton roles into canonical logical PFT realization."""
+function plankton_realization(family::AbstractModelFamily, size_structure)
+    size_structure isa NamedTuple || throw(ArgumentError("size_structure must be a NamedTuple"))
+    roles = plankton_roles(family)
+    role_names = keys(roles)
+    Set(keys(size_structure)) == Set(role_names) || throw(
+        ArgumentError("size_structure must define exactly $(collect(role_names))")
+    )
+
+    component_names = Tuple(values(roles))
+    component_values = ntuple(length(role_names)) do i
+        role = role_names[i]
+        pfts = getproperty(size_structure, role)
+        pfts isa NamedTuple || throw(
+            ArgumentError("size_structure.$role must be a NamedTuple")
+        )
+        NamedTuple{keys(pfts)}(Tuple(normalize_pft_size_structure(value) for value in values(pfts)))
+    end
+    authored = NamedTuple{component_names}(component_values)
+    return canonicalize_plankton_realization(default_components(family), authored)
 end
 
 
@@ -372,6 +394,25 @@ function construct(
 )
     bgc, _ = _construct_recipe(recipe; grid, arch, scalar_type, diagnostic_processes)
     return bgc
+end
+
+"""Construct a registered family and capture the canonical recipe used for construction."""
+function construct_plus_recipe(
+    family::AbstractModelFamily;
+    plankton_pfts::NamedTuple,
+    parameter_overrides::NamedTuple=(;),
+    sinking_tracers=nothing,
+    open_bottom::Bool=true,
+    grid=nothing,
+    arch=nothing,
+    scalar_type=nothing,
+    diagnostic_processes::Tuple=(),
+)
+    recipe = capture_model_recipe(
+        family; plankton_pfts, parameter_overrides, sinking_tracers, open_bottom
+    )
+    bgc = construct(recipe; grid, arch, scalar_type, diagnostic_processes)
+    return bgc, recipe
 end
 
 """Replay a versioned family recipe and return its resolved manifest."""

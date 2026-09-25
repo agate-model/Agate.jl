@@ -2,10 +2,10 @@
 module Construction
 
 import Oceananigans
-export construct, construct_plus_manifest
+export construct, construct_plus_manifest, construct_plus_recipe
 export ModelRecipe, ModelManifest
 export capture_model_recipe, recipe_schema
-export normalize_pft_size_structure
+export normalize_pft_size_structure, plankton_realization
 export encode_recipe, decode_recipe, export_recipe, import_recipe
 
 include("recipe.jl")

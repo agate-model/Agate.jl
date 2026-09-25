@@ -5,13 +5,16 @@ using ...Processes:
     NutrientResponse, Monod, InhibitedMonod, Temperature, Q10, PreferentialGrazing,
     HeterotrophicConsumption, LinearMortality, QuadraticMortality
 
-import ...ModelFamilies: default_components, default_processes, definition_version
+import ...ModelFamilies: default_components, default_processes, definition_version, plankton_roles
 import ...Construction: family_id, registered_family
 
 struct FrankenLOBSTERFamily <: AbstractModelFamily end
 family_id(::FrankenLOBSTERFamily) = :FrankenLOBSTER
 registered_family(::Val{:FrankenLOBSTER}) = FrankenLOBSTERFamily()
 definition_version(::FrankenLOBSTERFamily)::VersionNumber = v"0.14.0"
+plankton_roles(::FrankenLOBSTERFamily) = (
+    phytoplankton=:P, zooplankton=:Z, bacterioplankton=:H,
+)
 
 const DEFAULT_SIZE_STRUCTURE = (
     phytoplankton=(P=(n=2, min_esd=0.6, max_esd=1.2, spacing=:linear),),

@@ -1,6 +1,12 @@
 export default_components
 export default_processes
 export definition_version
+export plankton_roles
+
+"""Map user-facing plankton roles to logical components, e.g. `phytoplankton => :P`."""
+plankton_roles(::AbstractModelFamily) = throw(
+    ArgumentError("No method `plankton_roles(family)` is defined for this model family.")
+)
 
 """Canonical logical components for a named model family.
 
