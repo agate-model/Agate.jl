@@ -57,10 +57,11 @@ end
     )
     parameters = (
         assimilation_matrix=fill(0.65, 2, 4), maximum_growth_rate=(nano_1=1e-5,),
-        chlorophyll_ratio=1.5, calcium_carbonate_rain_ratio=0.2,
     )
+    settings = (chlorophyll_ratio=1.5, calcium_carbonate_rain_ratio=0.2)
     plankton, recipe = FrankenLOBSTER.construct_plus_recipe(;
-        grid=_GRID, size_structure, parameters, sinking_tracers=(nano_1=0.1,), open_bottom=false,
+        grid=_GRID, size_structure, parameters, settings,
+        sinking_tracers=(nano_1=0.1,), open_bottom=false,
     )
     replayed = FrankenLOBSTER.construct(
         Agate.Construction.decode_recipe(Agate.Construction.encode_recipe(recipe)); grid=_GRID,
@@ -72,7 +73,13 @@ end
     @test size(plankton.runtime.parameters.bacterial_dom_half_saturation) == (2, 1)
     @test all(t -> t in required_biogeochemical_tracers(bgc), (:NO₃, :NH₄, :DOM, :sPOM, :bPOM, :T))
     @test chlorophyll(plankton, (tracers=(nano_1=_cell(2.0), pico_1=_cell(1.0)),))[1, 1, 1] ≈ 4.5
+    @test recipe.setting_overrides == settings
+    @test Agate.Introspection.model_settings(plankton.runtime).chlorophyll_ratio == 1.5
     @test (replayed.runtime.parameters, replayed.traits) == (plankton.runtime.parameters, plankton.traits)
+    @test_throws ArgumentError FrankenLOBSTER.construct(settings=(unknown=1.0,))
+    @test_throws ArgumentError FrankenLOBSTER.construct(
+        settings=(zooplankton_calcium_carbonate_dissolution=1.1,),
+    )
     @test_throws ArgumentError FrankenLOBSTER.construct(sinking_tracers=(P_1=0.1,))
 end
 

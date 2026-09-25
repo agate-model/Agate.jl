@@ -1,14 +1,17 @@
 import ...Parameters:
     parameter_definitions, Parameter, ConstructionParameter, DerivedDefault,
     DiameterIndexedVectorDefault, ConsumerResourceFromConsumer
+import ...ModelFamilies: ModelSetting, setting_definitions
 
 using ...Library.Allometry: AllometricParam, PowerLaw
 using ...Parameters: AllometricPalatability
 
-const FRANKENLOBSTER_CHLOROPHYLL_RATIO = 1.31
-const FRANKENLOBSTER_CARBON_RATIO = 6.56
-const FRANKENLOBSTER_CALCIUM_CARBONATE_RAIN_RATIO = 0.1
-const FRANKENLOBSTER_ZOOPLANKTON_CALCIUM_CARBONATE_DISSOLUTION = 0.3
+setting_definitions(::FrankenLOBSTERFamily) = (
+    chlorophyll_ratio=ModelSetting(1.31; domain=:nonnegative),
+    carbon_ratio=ModelSetting(6.56; domain=:positive),
+    calcium_carbonate_rain_ratio=ModelSetting(0.1; domain=:nonnegative),
+    zooplankton_calcium_carbonate_dissolution=ModelSetting(0.3; domain=:unit_interval),
+)
 
 """LOBSTER3-like defaults expressed through Agate size-trait machinery."""
 function parameter_definitions(::FrankenLOBSTERFamily)

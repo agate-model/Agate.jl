@@ -9,6 +9,7 @@ export tracer_names
 export auxiliary_field_names
 export parameter_names
 export parameter_domains
+export model_settings
 export pfts
 export plankton_tracers
 export plankton_diameters
@@ -69,6 +70,16 @@ end
 function _model_metadata(bgc)
     hasproperty(bgc, :metadata) || return nothing
     return getproperty(bgc, :metadata)
+end
+
+"""    model_settings(bgc) -> NamedTuple
+
+Return resolved family-level scientific settings that are not process-bound parameters.
+"""
+function model_settings(bgc)
+    metadata = _model_metadata(bgc)
+    (metadata === nothing || !hasproperty(metadata, :model_settings)) && return NamedTuple()
+    return metadata.model_settings
 end
 
 """    pfts(bgc) -> NamedTuple

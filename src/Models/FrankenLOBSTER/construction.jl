@@ -4,36 +4,11 @@ import ...Integrations
 const _CALCITE_DIAGNOSTIC_PROCESSES = (
     :nitrate_growth_P, :ammonia_growth_P, :grazing_Z_on_living, :mortality_P,
 )
-const _TRAIT_DEFAULTS = (
-    chlorophyll_ratio=FRANKENLOBSTER_CHLOROPHYLL_RATIO,
-    carbon_ratio=FRANKENLOBSTER_CARBON_RATIO,
-    calcium_carbonate_rain_ratio=FRANKENLOBSTER_CALCIUM_CARBONATE_RAIN_RATIO,
-    zooplankton_calcium_carbonate_dissolution=FRANKENLOBSTER_ZOOPLANKTON_CALCIUM_CARBONATE_DISSOLUTION,
-)
-const _TRAIT_NAMES = keys(_TRAIT_DEFAULTS)
-
-function _without_traits(parameters::NamedTuple)
-    names = Tuple(name for name in keys(parameters) if !(name in _TRAIT_NAMES))
-    return NamedTuple{names}(Tuple(getproperty(parameters, name) for name in names))
-end
-Construction.recipe_runtime_parameter_overrides(::FrankenLOBSTERFamily, overrides::NamedTuple) =
-    _without_traits(overrides)
-
-function _traits(parameters::NamedTuple)
-    merged = merge(_TRAIT_DEFAULTS, parameters)
-    traits = NamedTuple{_TRAIT_NAMES}(Tuple(getproperty(merged, name) for name in _TRAIT_NAMES))
-    all(x -> x isa Real && !(x isa Bool) && isfinite(x) && x >= 0, values(traits)) ||
-        throw(ArgumentError("FrankenLOBSTER traits must be finite and nonnegative"))
-    traits.carbon_ratio > 0 || throw(ArgumentError("carbon_ratio must be > 0"))
-    traits.zooplankton_calcium_carbonate_dissolution <= 1 ||
-        throw(ArgumentError("zooplankton_calcium_carbonate_dissolution must be <= 1"))
-    return traits
-end
 
 Integrations.npd_diagnostic_processes(::FrankenLOBSTERFamily) = _CALCITE_DIAGNOSTIC_PROCESSES
 
 function Integrations.npd_configuration(
-    ::FrankenLOBSTERFamily, runtime, parameters::NamedTuple
+    ::FrankenLOBSTERFamily, runtime, settings::NamedTuple
 )
     return (;
         owned_components=(:P, :Z, :H),
@@ -44,7 +19,7 @@ function Integrations.npd_configuration(
         ),
         consumed_detritus=(:DOM,),
         dependencies=(:NO₃, :NH₄, :DOM, :T),
-        traits=_traits(parameters),
+        traits=settings,
         coupling=FrankenLOBSTERCoupling(runtime.metadata.process_diagnostics),
     )
 end
@@ -52,6 +27,7 @@ end
 function _construction_inputs(;
     size_structure=DEFAULT_SIZE_STRUCTURE,
     parameters::NamedTuple=(;),
+    settings::NamedTuple=(;),
     grid=nothing,
     sinking_tracers=nothing,
     open_bottom::Bool=true,
@@ -60,6 +36,7 @@ function _construction_inputs(;
     realization = (;
         plankton_pfts=Construction.plankton_realization(family, size_structure),
         parameter_overrides=parameters,
+        setting_overrides=settings,
         sinking_tracers,
         open_bottom,
     )

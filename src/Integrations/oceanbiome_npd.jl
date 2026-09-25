@@ -137,10 +137,10 @@ npd_diagnostic_processes(::AbstractModelFamily) = ()
 External model families extend this method to declare ownership, nutrient/exchange coupling,
 dependencies, traits, and optional family-specific coupling state.
 """
-function npd_configuration(::AbstractModelFamily, runtime, parameter_overrides::NamedTuple)
+function npd_configuration(::AbstractModelFamily, runtime, settings::NamedTuple)
     throw(
         ArgumentError(
-            "No `npd_configuration(family, runtime, parameter_overrides)` method is defined " *
+            "No `npd_configuration(family, runtime, settings)` method is defined " *
             "for this model family.",
         ),
     )
@@ -153,9 +153,9 @@ function _typed_npd_traits(traits::NamedTuple, ::Type{T}) where {T<:Real}
 end
 
 function _wrap_npd_runtime(
-    family::AbstractModelFamily, runtime, parameter_overrides::NamedTuple, ::Type{T}
+    family::AbstractModelFamily, runtime, ::Type{T}
 ) where {T<:Real}
-    configuration = npd_configuration(family, runtime, parameter_overrides)
+    configuration = npd_configuration(family, runtime, runtime.metadata.model_settings)
     hasproperty(configuration, :traits) || throw(
         ArgumentError("npd_configuration must define `traits`."),
     )
@@ -174,6 +174,7 @@ function construct_npd_plankton(
     family::AbstractModelFamily;
     plankton_pfts::NamedTuple,
     parameter_overrides::NamedTuple=(;),
+    setting_overrides::NamedTuple=(;),
     sinking_tracers=nothing,
     open_bottom::Bool=true,
     grid=nothing,
@@ -181,13 +182,11 @@ function construct_npd_plankton(
     scalar_type=nothing,
 )
     _require_npd_grid(sinking_tracers, grid)
-    runtime_overrides = Construction.recipe_runtime_parameter_overrides(
-        family, parameter_overrides
-    )
     runtime = Construction.construct(
         family;
         plankton_pfts,
-        parameter_overrides=runtime_overrides,
+        parameter_overrides,
+        setting_overrides,
         sinking_tracers,
         open_bottom,
         grid,
@@ -196,7 +195,7 @@ function construct_npd_plankton(
         diagnostic_processes=npd_diagnostic_processes(family),
     )
     T = Construction.resolve_construction_scalar_type(grid, scalar_type)
-    return _wrap_npd_runtime(family, runtime, parameter_overrides, T)
+    return _wrap_npd_runtime(family, runtime, T)
 end
 
 """Construct an NPD plankton component and capture the canonical Agate family recipe."""
@@ -204,6 +203,7 @@ function construct_npd_plankton_plus_recipe(
     family::AbstractModelFamily;
     plankton_pfts::NamedTuple,
     parameter_overrides::NamedTuple=(;),
+    setting_overrides::NamedTuple=(;),
     sinking_tracers=nothing,
     open_bottom::Bool=true,
     grid=nothing,
@@ -215,6 +215,7 @@ function construct_npd_plankton_plus_recipe(
         family;
         plankton_pfts,
         parameter_overrides,
+        setting_overrides,
         sinking_tracers,
         open_bottom,
         grid,
@@ -223,7 +224,7 @@ function construct_npd_plankton_plus_recipe(
         diagnostic_processes=npd_diagnostic_processes(family),
     )
     T = Construction.resolve_construction_scalar_type(grid, scalar_type)
-    return _wrap_npd_runtime(family, runtime, parameter_overrides, T), recipe
+    return _wrap_npd_runtime(family, runtime, T), recipe
 end
 
 """Replay a registered Agate family recipe directly as an OceanBioME NPD plankton component."""
@@ -240,7 +241,7 @@ function construct_npd_plankton(
         diagnostic_processes=npd_diagnostic_processes(family),
     )
     T = Construction.resolve_construction_scalar_type(grid, scalar_type)
-    return _wrap_npd_runtime(family, runtime, recipe.parameter_overrides, T)
+    return _wrap_npd_runtime(family, runtime, T)
 end
 
 @inline _owned_tracers(::NPDPlankton{C,R,O}) where {C,R,O} = O

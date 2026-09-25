@@ -16,7 +16,7 @@ function rehash!(document)
     family = Symbol(document["family"])
     version = VersionNumber(document["definition_version"])
     document["content_hash"] = Agate.Construction._recipe_hash(
-        family, version, document["realization"]
+        family, version, document["realization"]; schema=document["schema"]
     )
     return document
 end
@@ -64,12 +64,13 @@ end
         "provenance",
         "content_hash",
     ))
-    @test encoded["schema"] == Agate.Construction.recipe_schema() == "agate.model_recipe.v1"
+    @test encoded["schema"] == Agate.Construction.recipe_schema() == "agate.model_recipe.v2"
     @test encoded["family"] == "NiPiZD"
     @test encoded["definition_version"] == "0.2.0"
     @test Set(keys(encoded["realization"])) == Set((
         "plankton_pfts",
         "parameter_overrides",
+        "setting_overrides",
         "sinking_tracers",
         "open_bottom",
     ))
@@ -89,9 +90,16 @@ end
     @test recipe.parameter_overrides == merge(
         inputs.parameters, (palatability_matrix=inputs.palatability_matrix,)
     )
+    @test isempty(recipe.setting_overrides)
     @test !recipe.open_bottom
     @test recipe.sinking_tracers == inputs.sinking_tracers
     @test decoded == recipe
+
+    legacy = deepcopy(encoded)
+    legacy["schema"] = "agate.model_recipe.v1"
+    delete!(legacy["realization"], "setting_overrides")
+    rehash!(legacy)
+    @test isempty(decode_recipe(legacy).setting_overrides)
 
     split_recipe = Agate.Construction.capture_model_recipe(
         family; plankton_pfts=(P=(P=[1.0, 4.0],), Z=(Z=[10.0],)),
@@ -132,6 +140,7 @@ end
         microzoo=(:microzoo_1, :microzoo_2),
     )
     @test decoded_manifest == manifest
+    @test isempty(decoded_manifest.settings)
     @test decoded_manifest.sinking_tracers.D isa Float32
 
     unsized_recipe = Agate.Construction.ModelRecipe(
@@ -139,6 +148,7 @@ end
         recipe.definition_version,
         merge(recipe.plankton_pfts, (P=(diat=nothing,),)),
         recipe.parameter_overrides,
+        recipe.setting_overrides,
         recipe.sinking_tracers,
         recipe.open_bottom,
     )
@@ -219,6 +229,7 @@ end
         v"0.2.1",
         recipe.plankton_pfts,
         recipe.parameter_overrides,
+        recipe.setting_overrides,
         recipe.sinking_tracers,
         recipe.open_bottom,
     )
