@@ -310,8 +310,10 @@ end
     model = construct(Agate.Processes.ModelDefinition(; components, processes, parameters))
     args = food_web_args(model, (P_1=2.0, B_1=4.0, Z_1=3.0, D=0.0))
     p_loss, b_loss = 0.25 * 0.8 * 2.0 * 3.0, 0.25 * 0.5 * 4.0 * 3.0
-    @test (
+    actual = (
         model(Val(:P_1), args...), model(Val(:B_1), args...),
         model(Val(:Z_1), args...), model(Val(:D), args...),
-    ) ≈ (-p_loss, -b_loss, 0.7 * p_loss + 0.6 * b_loss, 0.3 * p_loss + 0.4 * b_loss)
+    )
+    expected = (-p_loss, -b_loss, 0.7 * p_loss + 0.6 * b_loss, 0.3 * p_loss + 0.4 * b_loss)
+    @test all(isapprox.(actual, expected))
 end
