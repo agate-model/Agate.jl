@@ -26,9 +26,10 @@ _nitrogen_plankton(size_structure) = Plankton(;
     states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure
 )
 
-# NO3, NH4, T, and DOM are external state; waste pools are NPD exchange accumulators.
+# NO3, NH4, and DOM are external material state; T is read as a physical driver.
+# Waste pools are NPD exchange accumulators.
 const FRANKENLOBSTER_COMPONENTS = (
-    NO₃=Pool(:nitrogen), NH₄=Pool(:nitrogen), T=Pool(:temperature), DOM=Pool(:nitrogen),
+    NO₃=Pool(:nitrogen), NH₄=Pool(:nitrogen), DOM=Pool(:nitrogen),
     solid_waste=Pool(:nitrogen), inorganic_waste=Pool(:nitrogen), dissolved_waste=Pool(:nitrogen),
     P=_nitrogen_plankton(DEFAULT_SIZE_STRUCTURE.phytoplankton.P),
     Z=_nitrogen_plankton(DEFAULT_SIZE_STRUCTURE.zooplankton.Z),
@@ -39,7 +40,7 @@ default_components(::FrankenLOBSTERFamily) = FRANKENLOBSTER_COMPONENTS
 const _P_GROWTH_FACTORS = (
     light=Light(ExponentialSaturation(); driver=:PAR, bindings=(half_saturation=:light_half_saturation,)),
     temperature=Temperature(
-        Q10(:plankton); component=:T,
+        Q10(:plankton); driver=:T,
         bindings=(q10=:temperature_q10, reference_temperature=:reference_temperature),
     ),
 )

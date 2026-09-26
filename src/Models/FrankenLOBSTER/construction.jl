@@ -2,7 +2,9 @@ using ...Construction
 import ...Integrations
 
 function Integrations.npd_configuration(::FrankenLOBSTERFamily, _runtime)
-    return (; nutrient_tracers=(:NO₃, :NH₄), consumed_detritus=(:DOM,))
+    return (;
+        nutrient_tracers=(:NO₃, :NH₄), consumed_detritus=(:DOM,), dependencies=(:T,),
+    )
 end
 
 function _construction_inputs(;

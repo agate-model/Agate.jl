@@ -80,7 +80,9 @@ end
 
 Wrap a compiled Agate runtime as an OceanBioME `NutrientsPlanktonDetritus` plankton component.
 Component names are resolved once from Agate runtime metadata; all cell-level coupling is then
-statically dispatched from the resulting tracer tuples.
+statically dispatched from the resulting tracer tuples. A dependency that also names a runtime
+auxiliary driver is read from the surrounding NPD tracer fields rather than requested as a
+separate auxiliary field.
 """
 function NPDPlankton(
     runtime;
@@ -136,8 +138,9 @@ end
 
 Ownership, phytoplankton identity, external dependencies, standard exchange channels, and
 resolved model settings are inferred from Agate metadata. External families only need to
-declare choices that cannot be inferred safely, such as nutrient uptake tracers or
-consumed detritus.
+declare choices that cannot be inferred safely, such as nutrient uptake tracers, consumed
+detritus, or physical-driver dependencies. Configured `dependencies` are appended to the
+inferred tracer dependencies.
 """
 npd_configuration(::AbstractModelFamily, _runtime) = (;)
 
@@ -180,11 +183,11 @@ end
 function _wrap_npd_runtime(family::AbstractModelFamily, runtime)
     overrides = npd_configuration(family, runtime)
     configuration = merge(_npd_default_configuration(family, runtime), overrides)
-    if !hasproperty(overrides, :dependencies)
-        configuration = merge(
-            configuration, (; dependencies=_npd_dependencies(runtime, configuration))
-        )
-    end
+    inferred = _npd_dependencies(runtime, configuration)
+    configured = hasproperty(overrides, :dependencies) ? overrides.dependencies : ()
+    configuration = merge(
+        configuration, (; dependencies=_append_unique(inferred, configured))
+    )
     return NPDPlankton(runtime; configuration...)
 end
 
@@ -269,8 +272,10 @@ end
 @inline phytoplankton_tracers(::NPDPlankton{R,O,OT,N,E,D,Deps,P}) where {R,O,OT,N,E,D,Deps,P} = P
 
 @inline required_biogeochemical_tracers(plankton::NPDPlankton) = _owned_tracers(plankton)
-@inline required_biogeochemical_auxiliary_fields(plankton::NPDPlankton) =
-    required_biogeochemical_auxiliary_fields(plankton.runtime)
+@inline required_biogeochemical_auxiliary_fields(plankton::NPDPlankton) = Tuple(
+    name for name in required_biogeochemical_auxiliary_fields(plankton.runtime)
+    if !(name in _dependencies(plankton))
+)
 @inline biogeochemical_drift_velocity(plankton::NPDPlankton, tracer::Val) =
     biogeochemical_drift_velocity(plankton.runtime, tracer)
 
@@ -321,10 +326,22 @@ end
     end
 end
 
-@inline function _runtime_auxiliary_values(plankton::NPDPlankton, i, j, k, auxiliary_fields)
+@inline function _runtime_auxiliary_value(
+    ::Val{Auxiliary}, plankton::NPDPlankton, i, j, k, fields, auxiliary_fields
+) where Auxiliary
+    Auxiliary in _dependencies(plankton) &&
+        return @inbounds getproperty(fields, Auxiliary)[i, j, k]
+    return @inbounds getproperty(auxiliary_fields, Auxiliary)[i, j, k]
+end
+
+@inline function _runtime_auxiliary_values(
+    plankton::NPDPlankton, i, j, k, fields, auxiliary_fields
+)
     auxiliaries = required_biogeochemical_auxiliary_fields(plankton.runtime)
     return ntuple(Val(length(auxiliaries))) do n
-        @inbounds getproperty(auxiliary_fields, auxiliaries[n])[i, j, k]
+        _runtime_auxiliary_value(
+            Val(auxiliaries[n]), plankton, i, j, k, fields, auxiliary_fields
+        )
     end
 end
 
@@ -332,7 +349,9 @@ end
     plankton::NPDPlankton, tracer::Val, i, j, k, t, fields, auxiliary_fields
 )
     tracer_values = _runtime_tracer_values(plankton, i, j, k, fields)
-    auxiliary_values = _runtime_auxiliary_values(plankton, i, j, k, auxiliary_fields)
+    auxiliary_values = _runtime_auxiliary_values(
+        plankton, i, j, k, fields, auxiliary_fields
+    )
     x = zero(t)
     return plankton.runtime(tracer, x, x, x, t, tracer_values..., auxiliary_values...)
 end

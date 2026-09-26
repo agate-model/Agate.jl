@@ -2,7 +2,8 @@ using Test
 using Oceananigans.Architectures: CPU
 using Oceananigans.Grids: RectilinearGrid
 using Oceananigans.Fields: ConstantField
-using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
+using Oceananigans.Biogeochemistry:
+    required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
 
 using OceanBioME: chlorophyll, PrescribedPhotosyntheticallyActiveRadiation
 using OceanBioME.Models.NutrientsPlanktonDetritusModels:
@@ -66,6 +67,9 @@ end
     @test required_biogeochemical_tracers(plankton) ==
           (:nano_1, :pico_1, :meso_1, :micro_1, :heterotroph_1, :heterotroph_2)
     @test size(plankton.runtime.parameters.bacterial_dom_half_saturation) == (2, 1)
+    @test :T ∉ required_biogeochemical_tracers(plankton.runtime)
+    @test required_biogeochemical_auxiliary_fields(plankton.runtime) == (:PAR, :T)
+    @test required_biogeochemical_auxiliary_fields(plankton) == (:PAR,)
     @test all(t -> t in required_biogeochemical_tracers(bgc), (:NO₃, :NH₄, :DOM, :sPOM, :bPOM, :T))
     @test chlorophyll(plankton, (tracers=(nano_1=_cell(2.0), pico_1=_cell(1.0)),))[1, 1, 1] ≈ 4.5
     @test recipe.setting_overrides == settings
