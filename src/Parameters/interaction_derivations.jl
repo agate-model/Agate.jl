@@ -1,7 +1,6 @@
 using ..Components: ModelLayout, diameter_metadata
 
-using ..Library.Allometry:
-    palatability_matrix_allometric_axes, consumer_assimilation_matrix_axes
+using ..Library.Allometry: palatability_matrix_allometric_axes
 
 """Return `v` when it uses the construction scalar type, otherwise throw an `ArgumentError`."""
 @inline function _require_scalar_vector(
@@ -18,9 +17,6 @@ end
 
 """Derive consumer-by-prey palatability from size traits, with optional prey protection."""
 struct AllometricPalatability end
-
-"""Derive consumer-by-prey assimilation from consumer-specific efficiency traits."""
-struct ConsumerAssimilation end
 
 """Broadcast a consumer-specific trait across a consumer-by-resource parameter matrix.
 
@@ -76,18 +72,6 @@ end
     )
 end
 
-@inline function _derive_assimilation(layout::ModelLayout, params, consumers, prey)
-    T = layout.scalar_type
-    return consumer_assimilation_matrix_axes(
-        T;
-        assimilation_efficiency=_require_scalar_vector(
-            T, params.assimilation_efficiency, :assimilation_efficiency
-        ),
-        consumer_indices=consumers,
-        prey_indices=prey,
-    )
-end
-
 @inline function _derive_parameter_default(
     ::AllometricPalatability,
     ::Any,
@@ -101,22 +85,6 @@ end
         params,
         _plankton_entity_indices(layout, consumer_labels, parameter.name, :consumer),
         _plankton_entity_indices(layout, prey_labels, parameter.name, :prey),
-    )
-end
-
-@inline function _derive_parameter_default(
-    ::ConsumerAssimilation,
-    ::Any,
-    layout::ModelLayout,
-    parameter,
-    params::NamedTuple,
-)
-    consumer_labels, resource_labels = parameter.storage_labels
-    return _derive_assimilation(
-        layout,
-        params,
-        _plankton_entity_indices(layout, consumer_labels, parameter.name, :consumer),
-        _plankton_entity_indices(layout, resource_labels, parameter.name, :resource),
     )
 end
 

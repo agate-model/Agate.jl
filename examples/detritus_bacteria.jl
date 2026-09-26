@@ -5,7 +5,7 @@
 # graze the living bacterial plankton. A Q10 factor modifies POM consumption.
 
 using Agate.Components: Plankton, Pool
-using Agate.Parameters: AllometricPalatability, ConsumerAssimilation, ConstructionParameter, DerivedDefault, Parameter
+using Agate.Parameters: AllometricPalatability, ConsumerResourceFromConsumer, ConstructionParameter, DerivedDefault, Parameter
 using Agate.Construction: construct
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
@@ -90,7 +90,7 @@ parameters = (
         )
     ),
     living_assimilation=Parameter(
-        DerivedDefault(ConsumerAssimilation(); deps=(:assimilation_efficiency,))
+        DerivedDefault(ConsumerResourceFromConsumer(); deps=(:assimilation_efficiency,))
     ),
 )
 

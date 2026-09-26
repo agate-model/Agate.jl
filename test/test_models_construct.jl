@@ -115,7 +115,7 @@ using Oceananigans.Biogeochemistry:
             :microzoo_2,
         )
         @test size(named.parameters.palatability_matrix) == (3, 5)
-        @test size(named.parameters.assimilation_matrix) == (3, 5)
+        @test named.parameters.assimilation_matrix == fill(Float32(0.32), 3, 5)
 
         invalid_size_structures = (
             1,

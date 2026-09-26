@@ -151,7 +151,7 @@ Agate.Parameters.derive_default
 Agate.Parameters.NoDefault
 Agate.Parameters.DiameterIndexedVectorDefault
 Agate.Parameters.AllometricPalatability
-Agate.Parameters.ConsumerAssimilation
+Agate.Parameters.ConsumerResourceFromConsumer
 ```
 
 ### Custom process and factor extension
