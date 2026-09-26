@@ -7,19 +7,10 @@ const _CALCITE_DIAGNOSTIC_PROCESSES = (
 
 Integrations.npd_diagnostic_processes(::FrankenLOBSTERFamily) = _CALCITE_DIAGNOSTIC_PROCESSES
 
-function Integrations.npd_configuration(
-    ::FrankenLOBSTERFamily, runtime, settings::NamedTuple
-)
+function Integrations.npd_configuration(::FrankenLOBSTERFamily, runtime)
     return (;
-        owned_components=(:P, :Z, :H),
-        phytoplankton_components=(:P,),
         nutrient_tracers=(:NO₃, :NH₄),
-        exchange_tracers=(
-            solid=:solid_waste, dissolved=:dissolved_waste, inorganic=:inorganic_waste,
-        ),
         consumed_detritus=(:DOM,),
-        dependencies=(:NO₃, :NH₄, :DOM, :T),
-        traits=settings,
         coupling=FrankenLOBSTERCoupling(runtime.metadata.process_diagnostics),
     )
 end

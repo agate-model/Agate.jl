@@ -1,14 +1,5 @@
 using ..ModelFamilies: AbstractModelFamily, ModelSetting, setting_definitions
-
-_setting_domain_valid(value, ::Val{:any}) = true
-_setting_domain_valid(value, ::Val{:finite}) =
-    value isa Real && !(value isa Bool) && isfinite(value)
-_setting_domain_valid(value, ::Val{:nonnegative}) =
-    _setting_domain_valid(value, Val(:finite)) && value >= zero(value)
-_setting_domain_valid(value, ::Val{:positive}) =
-    _setting_domain_valid(value, Val(:finite)) && value > zero(value)
-_setting_domain_valid(value, ::Val{:unit_interval}) =
-    _setting_domain_valid(value, Val(:finite)) && zero(value) <= value <= one(value)
+using ..Processes: parameter_domain_valid
 
 function _typed_setting(value, ::Type{T}) where {T<:Real}
     value isa Real && !(value isa Bool) && return convert(T, value)
@@ -34,7 +25,7 @@ function resolve_model_settings(
         )
         value = hasproperty(overrides, name) ? getproperty(overrides, name) : definition.default
         value = _typed_setting(value, T)
-        _setting_domain_valid(value, Val(definition.domain)) || throw(
+        parameter_domain_valid(value, definition.domain) || throw(
             ArgumentError(
                 "model setting :$name must satisfy domain :$(definition.domain); got $(repr(value))"
             ),

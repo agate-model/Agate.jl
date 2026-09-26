@@ -1,7 +1,7 @@
 using Adapt: adapt
 import Adapt: adapt_structure
 
-using ..ModelFamilies: AbstractModelFamily
+using ..ModelFamilies: AbstractModelFamily, plankton_roles
 import ..Construction
 
 import OceanBioME: chlorophyll
@@ -132,36 +132,60 @@ end
 """Named process diagnostics required when an Agate family is wrapped as NPD plankton."""
 npd_diagnostic_processes(::AbstractModelFamily) = ()
 
-"""Return `NPDPlankton` keyword configuration for a realized family runtime.
+"""Return family-specific `NPDPlankton` keyword overrides for a realized runtime.
 
-External model families extend this method to declare ownership, nutrient/exchange coupling,
-dependencies, traits, and optional family-specific coupling state.
+Ownership, phytoplankton identity, external dependencies, standard exchange channels, and
+resolved model settings are inferred from Agate metadata. External families only need to
+declare coupling choices that cannot be inferred safely, such as nutrient uptake tracers,
+consumed detritus, or optional family-specific coupling state.
 """
-function npd_configuration(::AbstractModelFamily, runtime, settings::NamedTuple)
-    throw(
-        ArgumentError(
-            "No `npd_configuration(family, runtime, settings)` method is defined " *
-            "for this model family.",
-        ),
+npd_configuration(::AbstractModelFamily, _runtime) = (;)
+
+function _standard_exchange_tracers(runtime)
+    tracers = required_biogeochemical_tracers(runtime)
+    present(name) = name in tracers ? name : nothing
+    return (
+        solid=present(:solid_waste),
+        dissolved=present(:dissolved_waste),
+        inorganic=present(:inorganic_waste),
     )
 end
 
-function _typed_npd_traits(traits::NamedTuple, ::Type{T}) where {T<:Real}
-    names = keys(traits)
-    values = map(value -> value isa Real ? convert(T, value) : value, Base.values(traits))
-    return NamedTuple{names}(values)
+function _npd_default_configuration(family::AbstractModelFamily, runtime)
+    roles = plankton_roles(family)
+    hasproperty(roles, :phytoplankton) || throw(
+        ArgumentError("NPD plankton families must define a :phytoplankton role."),
+    )
+    return (;
+        owned_components=Tuple(unique(values(roles))),
+        phytoplankton_components=(roles.phytoplankton,),
+        nutrient_tracers=(),
+        exchange_tracers=_standard_exchange_tracers(runtime),
+        consumed_detritus=(),
+        traits=runtime.metadata.model_settings,
+        coupling=nothing,
+    )
 end
 
-function _wrap_npd_runtime(
-    family::AbstractModelFamily, runtime, ::Type{T}
-) where {T<:Real}
-    configuration = npd_configuration(family, runtime, runtime.metadata.model_settings)
-    hasproperty(configuration, :traits) || throw(
-        ArgumentError("npd_configuration must define `traits`."),
+function _npd_dependencies(runtime, configuration)
+    owned = _component_tracers(runtime, configuration.owned_components)
+    exchanges = Tuple(
+        value for value in values(configuration.exchange_tracers) if value !== nothing
     )
-    configuration = merge(
-        configuration, (; traits=_typed_npd_traits(configuration.traits, T))
+    return Tuple(
+        tracer for tracer in required_biogeochemical_tracers(runtime)
+        if !(tracer in owned) && !(tracer in exchanges)
     )
+end
+
+function _wrap_npd_runtime(family::AbstractModelFamily, runtime)
+    overrides = npd_configuration(family, runtime)
+    configuration = merge(_npd_default_configuration(family, runtime), overrides)
+    if !hasproperty(overrides, :dependencies)
+        configuration = merge(
+            configuration, (; dependencies=_npd_dependencies(runtime, configuration))
+        )
+    end
     return NPDPlankton(runtime; configuration...)
 end
 
@@ -194,8 +218,7 @@ function construct_npd_plankton(
         scalar_type,
         diagnostic_processes=npd_diagnostic_processes(family),
     )
-    T = Construction.resolve_construction_scalar_type(grid, scalar_type)
-    return _wrap_npd_runtime(family, runtime, T)
+    return _wrap_npd_runtime(family, runtime)
 end
 
 """Construct an NPD plankton component and capture the canonical Agate family recipe."""
@@ -223,8 +246,7 @@ function construct_npd_plankton_plus_recipe(
         scalar_type,
         diagnostic_processes=npd_diagnostic_processes(family),
     )
-    T = Construction.resolve_construction_scalar_type(grid, scalar_type)
-    return _wrap_npd_runtime(family, runtime, T), recipe
+    return _wrap_npd_runtime(family, runtime), recipe
 end
 
 """Replay a registered Agate family recipe directly as an OceanBioME NPD plankton component."""
@@ -240,8 +262,7 @@ function construct_npd_plankton(
         scalar_type,
         diagnostic_processes=npd_diagnostic_processes(family),
     )
-    T = Construction.resolve_construction_scalar_type(grid, scalar_type)
-    return _wrap_npd_runtime(family, runtime, T)
+    return _wrap_npd_runtime(family, runtime)
 end
 
 @inline _owned_tracers(::NPDPlankton{C,R,O}) where {C,R,O} = O
