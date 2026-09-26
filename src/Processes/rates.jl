@@ -61,12 +61,12 @@ function factor_value end
            )
 end
 
-"""Evaluate one substrate uptake rate from a shared heterotrophic consumer capacity."""
 """Evaluate mass-action loss of one living prey state."""
 @inline process_rate(
     ::LinearGrazing, inventory, consumer, rate, palatability
 ) = linear_predation_loss(inventory, consumer, rate, palatability)
 
+"""Evaluate one substrate uptake rate from a shared heterotrophic consumer capacity."""
 @inline function process_rate(
     ::HeterotrophicConsumption,
     resource,
