@@ -28,6 +28,27 @@ function _consumption_rate(
 end
 
 function _consumption_rate(
+    formulation::LinearGrazing,
+    slots,
+    context::CompileContext,
+    named::CanonicalProcess,
+    inventory::Symbol,
+    _reference_resource::Symbol,
+    consumer::Symbol,
+    axis_positions::NamedTuple,
+    _shared_operands::Tuple,
+)
+    operands = (
+        input_operand(context.layout, inventory),
+        input_operand(context.layout, consumer),
+        parameter_operand(slots.rate, context, axis_positions),
+        parameter_operand(slots.palatability, context, axis_positions),
+    )
+    rate_factors = _factor_ops(context, named, axis_positions)
+    return RateOp(formulation, operands; factors=rate_factors)
+end
+
+function _consumption_rate(
     formulation::HeterotrophicConsumption,
     slots,
     context::CompileContext,
@@ -217,6 +238,13 @@ function process_fluxes(
                     shared_operands,
                 )
             end
+        end
+    elseif form isa LinearGrazing
+        for consumer in consumers, resource in resources
+            axis_positions = (consumer=consumer.position, resource=resource.position)
+            _living_consumption_fluxes!(
+                fluxes, named, context, consumer, resource, slots, axis_positions, ()
+            )
         end
     else
         for consumer in consumers

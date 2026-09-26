@@ -52,6 +52,7 @@ Agate.Processes.factor_value(
     @test formulation(response) isa Monod
     @test formulation(inhibited) isa InhibitedMonod
     @test formulation(Light(ExponentialSaturation(); driver=:PAR)) isa ExponentialSaturation
+    @test formulation(Light(Monod(); driver=:PAR)) isa Monod
 
     @test participants(growth) == (plankton=(:P,), resource=(:N,))
 
@@ -186,7 +187,6 @@ Agate.Processes.factor_value(
     @test_throws ArgumentError canonicalize_model(wrong_element)
 
     # Invalid built-in formulation combinations are rejected by their concrete objects or factor contract.
-    @test_throws MethodError Light(Monod(), :PAR, NamedTuple())
     @test_throws MethodError Mortality(Monod(), (:P,), nothing, NamedTuple())
     @test_throws ArgumentError canonicalize_model(ModelDefinition(;
         components=(

@@ -7,7 +7,7 @@ using Agate.Construction: construct
 using Agate.Parameters: Parameter, NoDefault
 using Agate.Processes:
     ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, Smith, Monod,
-    Q10, HeterotrophicConsumption, PreferentialGrazing, participants
+    Q10, HeterotrophicConsumption, PreferentialGrazing, LinearGrazing, participants
 
 function food_web_definition(; grazing=PreferentialGrazing())
     components = (
@@ -288,4 +288,30 @@ end
     zero_switching = grazing_model(PreferentialGrazing(; switching_exponent=2); half_saturation=0.0)
     @test prey_losses(zero_proportional, 0.0, 0.0) == (0.0, 0.0)
     @test prey_losses(zero_switching, 0.0, 0.0) == (0.0, 0.0)
+end
+
+@testset "Linear grazing is exact mass action" begin
+    components = (
+        P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
+        B=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.8]),
+        Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]),
+        D=Pool(:nitrogen),
+    )
+    processes = (grazing=Consumption(
+        LinearGrazing(); consumers=:Z, resources=(:P, :B),
+        bindings=(rate=:grazing_rate, palatability=:palatability, assimilation=:assimilation),
+        unassimilated_products=:D,
+    ),)
+    parameters = (
+        grazing_rate=Parameter(0.25),
+        palatability=Parameter([0.8 0.5]),
+        assimilation=Parameter([0.7 0.6]),
+    )
+    model = construct(Agate.Processes.ModelDefinition(; components, processes, parameters))
+    args = food_web_args(model, (P_1=2.0, B_1=4.0, Z_1=3.0, D=0.0))
+    p_loss, b_loss = 0.25 * 0.8 * 2.0 * 3.0, 0.25 * 0.5 * 4.0 * 3.0
+    @test (
+        model(Val(:P_1), args...), model(Val(:B_1), args...),
+        model(Val(:Z_1), args...), model(Val(:D), args...),
+    ) ≈ (-p_loss, -b_loss, 0.7 * p_loss + 0.6 * b_loss, 0.3 * p_loss + 0.4 * b_loss)
 end

@@ -17,7 +17,7 @@ struct Geider <: AbstractFormulation end
 """Saturating-exponential light limitation, ``1 - exp(-I / K_I)``."""
 struct ExponentialSaturation <: AbstractFormulation end
 
-"""Monod single-resource limitation formulation."""
+"""Monod saturation formulation, ``x / (K + x)``."""
 struct Monod <: AbstractFormulation end
 
 """Monod resource limitation multiplied by exponential inhibition."""
@@ -70,6 +70,13 @@ function PreferentialGrazing(; switching_exponent=1)
     )
     return PreferentialGrazing(switching_exponent)
 end
+
+"""Mass-action grazing with prey loss proportional to consumer and prey biomass.
+
+The `rate` parameter is consumer-indexed and has inverse-concentration inverse-time units.
+`palatability` scales individual consumer-resource links.
+"""
+struct LinearGrazing <: AbstractFormulation end
 
 """Heterotrophic consumption of substitutable substrates with shared consumer capacity.
 
@@ -150,14 +157,14 @@ function _canonical_participants(role::Symbol, values)
 end
 
 """Light-dependent multiplicative Growth factor using the Growth rate scale."""
-struct Light{Formulation<:Union{Smith,Geider,ExponentialSaturation}} <: AbstractFactor
+struct Light{Formulation<:Union{Smith,Geider,ExponentialSaturation,Monod}} <: AbstractFactor
     formulation::Formulation
     driver::Symbol
     bindings::NamedTuple
 end
 
 function Light(
-    formulation::Union{Smith,Geider,ExponentialSaturation};
+    formulation::Union{Smith,Geider,ExponentialSaturation,Monod};
     driver::Symbol, bindings::NamedTuple=NamedTuple(),
 )
     return Light(formulation, driver, _canonical_bindings(bindings))

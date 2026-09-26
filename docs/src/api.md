@@ -102,6 +102,7 @@ Agate.Processes.Liebig
 Agate.Processes.FrankTNorm
 Agate.Processes.Q10
 Agate.Processes.PreferentialGrazing
+Agate.Processes.LinearGrazing
 Agate.Processes.HeterotrophicConsumption
 Agate.Processes.LinearMortality
 Agate.Processes.QuadraticMortality

@@ -198,13 +198,14 @@ authored_parameter_bindings(process::NutrientUptake) = process.bindings
 """Consumer-resource process with optional factors and unassimilated products.
 
 For `PreferentialGrazing`, `maximum_rate` is one consumer-level ingestion capacity shared across
-all declared prey. For `HeterotrophicConsumption`, `maximum_rate` is likewise one consumer-level
-uptake capacity shared across substitutable substrates. When one living-prey consumption process
-routes multi-element unassimilated products from multiple resources, those resources currently
+all declared prey. `LinearGrazing` instead applies a consumer-level mass-action `rate`
+independently to each consumer-resource link. For `HeterotrophicConsumption`, `maximum_rate` is
+likewise one consumer-level uptake capacity shared across substitutable substrates. When one living-prey
+consumption process routes multi-element unassimilated products from multiple resources, those resources currently
 must expose the same prognostic Element set.
 """
 struct Consumption{
-    Formulation<:Union{PreferentialGrazing,HeterotrophicConsumption},
+    Formulation<:Union{PreferentialGrazing,LinearGrazing,HeterotrophicConsumption},
     Factors<:NamedTuple,
     ProductRouting,
 } <: AbstractProcess
@@ -217,7 +218,7 @@ struct Consumption{
 end
 
 function Consumption(
-    formulation::Union{PreferentialGrazing,HeterotrophicConsumption};
+    formulation::Union{PreferentialGrazing,LinearGrazing,HeterotrophicConsumption};
     consumers,
     resources,
     factors::NamedTuple=NamedTuple(),
@@ -304,6 +305,7 @@ product_path(::Consumption) = (:unassimilated_products,)
 """Whether a consumer-resource formulation uses living consumer-prey interaction matrices."""
 uses_living_interactions(::AbstractFormulation) = false
 uses_living_interactions(::PreferentialGrazing) = true
+uses_living_interactions(::LinearGrazing) = true
 
 """Return canonical participant roles for an authored scientific process."""
 function participants(process::Growth)

@@ -26,6 +26,7 @@ using ..Processes:
     CanonicalProcess,
     process_id,
     PreferentialGrazing,
+    LinearGrazing,
     Products,
     CanonicalModelDefinition,
     formulation,
