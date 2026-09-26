@@ -109,6 +109,13 @@ function NPDPlankton(
         ArgumentError("NPDPlankton must identify at least one phytoplankton tracer."),
     )
     owned_type = mapreduce(name -> typeof(Val(name)), (A, B) -> Union{A,B}, owned)
+    runtime_tracers = required_biogeochemical_tracers(runtime)
+    for (channel, tracer) in pairs(exchange_tracers)
+        tracer === nothing && continue
+        tracer in runtime_tracers || throw(ArgumentError(
+            "NPDPlankton exchange channel :$channel names unknown runtime tracer :$tracer.",
+        ))
+    end
     exchanges = Tuple(values(exchange_tracers))
     _validate_npd_traits(traits)
 

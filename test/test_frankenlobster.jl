@@ -55,12 +55,12 @@ end
     )
     settings = (chlorophyll_ratio=1.5,)
     plankton, recipe = FrankenLOBSTER.construct_plus_recipe(;
-        grid=_GRID, size_structure, parameters, settings,
+        grid=_GRID, arch=CPU(), scalar_type=Float32, size_structure, parameters, settings,
         sinking_tracers=(nano_1=0.1,), open_bottom=false,
     )
-    replayed = FrankenLOBSTER.construct(
-        Agate.Construction.decode_recipe(Agate.Construction.encode_recipe(recipe)); grid=_GRID,
-    )
+    decoded = Agate.Construction.decode_recipe(Agate.Construction.encode_recipe(recipe))
+    replayed = FrankenLOBSTER.construct(decoded; grid=_GRID, arch=CPU(), scalar_type=Float32)
+    direct32 = FrankenLOBSTER.construct(; arch=CPU(), scalar_type=Float32)
     bgc = LOBSTER(_GRID; plankton)
 
     @test required_biogeochemical_tracers(plankton) ==
@@ -69,8 +69,29 @@ end
     @test all(t -> t in required_biogeochemical_tracers(bgc), (:NO₃, :NH₄, :DOM, :sPOM, :bPOM, :T))
     @test chlorophyll(plankton, (tracers=(nano_1=_cell(2.0), pico_1=_cell(1.0)),))[1, 1, 1] ≈ 4.5
     @test recipe.setting_overrides == settings
-    @test Agate.Introspection.model_settings(plankton.runtime).chlorophyll_ratio == 1.5
+
+    I = Agate.Introspection
+    for inspect in (
+        I.model_settings, I.pfts, I.parameter_names, I.plankton_tracers,
+        I.plankton_diameters, I.model_summary,
+    )
+        @test inspect(plankton) == inspect(plankton.runtime)
+    end
+    @test I.parameter_domains(plankton, :assimilation_matrix) ==
+          I.parameter_domains(plankton.runtime, :assimilation_matrix)
+    @test I.interaction_matrix(plankton, :assimilation_matrix) ==
+          I.interaction_matrix(plankton.runtime, :assimilation_matrix)
+
     @test (replayed.runtime.parameters, replayed.traits) == (plankton.runtime.parameters, plankton.traits)
+    @test eltype(plankton.runtime.parameters.maximum_growth_rate) === Float32
+    @test eltype(direct32.runtime.parameters.maximum_growth_rate) === Float32
+    @test_throws ArgumentError Agate.Integrations.NPDPlankton(
+        plankton.runtime;
+        owned_components=(:P, :Z, :H),
+        phytoplankton_components=(:P,),
+        exchange_tracers=(solid=:solid_watse, dissolved=nothing, inorganic=nothing),
+        traits=plankton.traits,
+    )
     @test_throws ArgumentError FrankenLOBSTER.construct(settings=(unknown=1.0,))
     @test_throws ArgumentError FrankenLOBSTER.construct(sinking_tracers=(P_1=0.1,))
 end

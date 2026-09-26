@@ -10,6 +10,8 @@ function _construction_inputs(;
     parameters::NamedTuple=(;),
     settings::NamedTuple=(;),
     grid=nothing,
+    arch=nothing,
+    scalar_type=nothing,
     sinking_tracers=nothing,
     open_bottom::Bool=true,
 )
@@ -21,7 +23,7 @@ function _construction_inputs(;
         sinking_tracers,
         open_bottom,
     )
-    return (; family, realization, execution=(; grid))
+    return (; family, realization, execution=(; grid, arch, scalar_type))
 end
 
 """Construct the Agate plankton component for composition with OceanBioME `LOBSTER`."""
@@ -41,9 +43,11 @@ function construct_plus_recipe(; kwargs...)
 end
 
 """Replay a FrankenLOBSTER recipe into the Agate plankton component."""
-function construct(recipe::Construction.ModelRecipe; grid=nothing)
+function construct(
+    recipe::Construction.ModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
+)
     recipe.family == :FrankenLOBSTER || throw(ArgumentError(
         "FrankenLOBSTER.construct requires a FrankenLOBSTER recipe; got $(recipe.family)"
     ))
-    return Integrations.construct_npd_plankton(recipe; grid)
+    return Integrations.construct_npd_plankton(recipe; grid, arch, scalar_type)
 end
