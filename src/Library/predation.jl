@@ -1,7 +1,7 @@
 """Predation and grazing kernels."""
 module Predation
 
-export holling_type_ii, proportional_predation_loss, switching_predation_loss
+export holling_type_ii, linear_predation_loss, proportional_predation_loss, switching_predation_loss
 
 """
     holling_type_ii(P, K)
@@ -13,6 +13,15 @@ The indeterminate `P == K == 0` case returns zero.
     K == zero(K) && P == zero(P) && return zero(P)
     return P / (K + P)
 end
+
+"""
+    linear_predation_loss(inventory, consumer, grazing_rate, palatability)
+
+Return mass-action prey loss ``g p R Z`` for grazing coefficient `g`, palatability `p`,
+prey inventory `R`, and consumer biomass `Z`.
+"""
+@inline linear_predation_loss(inventory, consumer, grazing_rate, palatability) =
+    grazing_rate * palatability * inventory * consumer
 
 """
     proportional_predation_loss(

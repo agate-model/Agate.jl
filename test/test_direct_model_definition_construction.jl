@@ -3,7 +3,7 @@ using Oceananigans.Biogeochemistry:
 using Test
 
 using Agate.Components: Plankton, Pool
-using Agate.Parameters: AllometricPalatability, ConsumerAssimilation, ConstantDefault, ConstructionParameter, DerivedDefault, Parameter
+using Agate.Parameters: AllometricPalatability, ConsumerResourceFromConsumer, ConstantDefault, ConstructionParameter, DerivedDefault, Parameter
 using Agate.Construction: construct
 using Agate.Introspection: plankton_diameters
 using Agate.Processes:
@@ -71,7 +71,7 @@ function direct_npz_definition()
             )
         ),
         assimilation_matrix=Parameter(
-            DerivedDefault(ConsumerAssimilation(); deps=(:assimilation_efficiency,))
+            DerivedDefault(ConsumerResourceFromConsumer(); deps=(:assimilation_efficiency,))
         ),
     )
     return ModelDefinition(; components, processes, parameters)
@@ -114,7 +114,7 @@ end
     parameters = (
         maximum_predation_rate=Parameter(1.0), half_saturation=Parameter(1.0),
         palatability_shared=Parameter(0.5), assimilation_other=Parameter(0.5),
-        assimilation_local=Parameter(DerivedDefault(ConsumerAssimilation(); deps=(:assimilation_efficiency,))),
+        assimilation_local=Parameter(DerivedDefault(ConsumerResourceFromConsumer(); deps=(:assimilation_efficiency,))),
         assimilation_efficiency=ConstructionParameter(0.5; axes=:plankton),
     )
     bgc = construct(

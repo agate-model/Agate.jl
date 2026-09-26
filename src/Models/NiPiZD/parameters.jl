@@ -13,44 +13,23 @@ import ...Parameters:
 
 using ...Library.Allometry: AllometricParam, PowerLaw
 
-using ...Parameters: AllometricPalatability, ConsumerAssimilation
+using ...Parameters: AllometricPalatability, ConsumerResourceFromConsumer
 
 function parameter_definitions(::NiPiZDFamily)
     detritus_remin = 0.1213 / 86400
+    law(prefactor, exponent) = AllometricParam(PowerLaw(); prefactor, exponent)
+    diameter_default(value; default=0) = DiameterIndexedVectorDefault(value; default)
 
     return (
         detritus_remineralization=Parameter(detritus_remin),
         mortality_export_fraction=Parameter(0.2),
-        linear_mortality=Parameter(
-            DiameterIndexedVectorDefault(8e-7; default=0)
-        ),
-        quadratic_mortality=Parameter(
-            DiameterIndexedVectorDefault(1e-6; default=0)
-        ),
-        maximum_growth_rate=Parameter(
-            DiameterIndexedVectorDefault(
-                AllometricParam(PowerLaw(); prefactor=2 / 86400, exponent=-0.15);
-                default=0,
-            )
-        ),
-        nutrient_half_saturation=Parameter(
-            DiameterIndexedVectorDefault(
-                AllometricParam(PowerLaw(); prefactor=0.17, exponent=0.27);
-                default=0,
-            )
-        ),
-        alpha=Parameter(
-            DiameterIndexedVectorDefault(0.1953 / 86400; default=0)
-        ),
-        maximum_predation_rate=Parameter(
-            DiameterIndexedVectorDefault(
-                AllometricParam(PowerLaw(); prefactor=30.84 / 86400, exponent=-0.16);
-                default=0,
-            )
-        ),
-        holling_half_saturation=Parameter(
-            DiameterIndexedVectorDefault(5.0; default=0)
-        ),
+        linear_mortality=Parameter(diameter_default(8e-7)),
+        quadratic_mortality=Parameter(diameter_default(1e-6)),
+        maximum_growth_rate=Parameter(diameter_default(law(2 / 86400, -0.15))),
+        nutrient_half_saturation=Parameter(diameter_default(law(0.17, 0.27))),
+        alpha=Parameter(diameter_default(0.1953 / 86400)),
+        maximum_predation_rate=Parameter(diameter_default(law(30.84 / 86400, -0.16))),
+        holling_half_saturation=Parameter(diameter_default(5.0)),
         palatability_matrix=Parameter(
             DerivedDefault(
                 AllometricPalatability();
@@ -63,24 +42,20 @@ function parameter_definitions(::NiPiZDFamily)
         ),
         assimilation_matrix=Parameter(
             DerivedDefault(
-                ConsumerAssimilation(); deps=(:assimilation_efficiency,)
+                ConsumerResourceFromConsumer(); deps=(:assimilation_efficiency,)
             )
         ),
         optimum_predator_prey_ratio=ConstructionParameter(
-            DiameterIndexedVectorDefault(10.0; default=0);
-            axes=:plankton,
+            diameter_default(10.0); axes=:plankton,
         ),
         specificity=ConstructionParameter(
-            DiameterIndexedVectorDefault(0.3; default=0);
-            axes=:plankton,
+            diameter_default(0.3); axes=:plankton,
         ),
         protection=ConstructionParameter(
-            DiameterIndexedVectorDefault(0.0; default=1.0);
-            axes=:plankton,
+            diameter_default(0.0; default=1.0); axes=:plankton,
         ),
         assimilation_efficiency=ConstructionParameter(
-            DiameterIndexedVectorDefault(0.32; default=0);
-            axes=:plankton,
+            diameter_default(0.32); axes=:plankton,
         ),
     )
 end

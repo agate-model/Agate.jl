@@ -9,6 +9,7 @@ export tracer_names
 export auxiliary_field_names
 export parameter_names
 export parameter_domains
+export model_settings
 export pfts
 export plankton_tracers
 export plankton_diameters
@@ -20,6 +21,11 @@ export describe
 
 import Oceananigans.Biogeochemistry:
     required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
+
+using ..Integrations: NPDPlankton
+
+@inline _introspection_target(x) = x
+@inline _introspection_target(x::NPDPlankton) = x.runtime
 
 
 @inline function preview_list(xs; n::Int=12)
@@ -40,7 +46,9 @@ underlying tracer-name tuple as a `Vector{Symbol}`.
 
 The ordering matches Oceananigans / OceanBioME state-vector conventions.
 """
-@inline tracer_names(bgc)::Vector{Symbol} = collect(required_biogeochemical_tracers(bgc))
+@inline tracer_names(bgc)::Vector{Symbol} = collect(
+    required_biogeochemical_tracers(_introspection_target(bgc))
+)
 
 """    auxiliary_field_names(bgc) -> Vector{Symbol}
 
@@ -50,7 +58,7 @@ Auxiliary fields are non-tracer state fields (for example, light or temperature)
 that appear in tracer tendencies.
 """
 @inline auxiliary_field_names(bgc)::Vector{Symbol} = collect(
-    required_biogeochemical_auxiliary_fields(bgc)
+    required_biogeochemical_auxiliary_fields(_introspection_target(bgc))
 )
 
 """
@@ -62,13 +70,24 @@ This list describes the resolved parameter fields available on the constructed
 biogeochemistry instance.
 """
 function parameter_names(bgc)::Vector{Symbol}
-    params = getproperty(bgc, :parameters)
+    params = getproperty(_introspection_target(bgc), :parameters)
     return collect(propertynames(params))
 end
 
 function _model_metadata(bgc)
-    hasproperty(bgc, :metadata) || return nothing
-    return getproperty(bgc, :metadata)
+    target = _introspection_target(bgc)
+    hasproperty(target, :metadata) || return nothing
+    return getproperty(target, :metadata)
+end
+
+"""    model_settings(bgc) -> NamedTuple
+
+Return resolved family-level scientific settings that are not process-bound parameters.
+"""
+function model_settings(bgc)
+    metadata = _model_metadata(bgc)
+    (metadata === nothing || !hasproperty(metadata, :model_settings)) && return NamedTuple()
+    return metadata.model_settings
 end
 
 """    pfts(bgc) -> NamedTuple
@@ -152,18 +171,19 @@ function _interaction_parameter_names(bgc)
 end
 
 function _interaction_parameter_metadata(bgc, kind::Symbol)
-    available = _interaction_parameter_names(bgc)
+    target = _introspection_target(bgc)
+    available = _interaction_parameter_names(target)
     kind in available || begin
         available_text = isempty(available) ? "none" : join(string.(available), ", ")
         throw(ArgumentError(
             "Unknown interaction matrix parameter: $kind. Available parameters are: $available_text."
         ))
     end
-    metadata = getproperty(_model_metadata(bgc).parameter_axes, kind)
-    hasproperty(bgc.parameters, kind) || throw(
+    metadata = getproperty(_model_metadata(target).parameter_axes, kind)
+    hasproperty(target.parameters, kind) || throw(
         ArgumentError("Interaction parameter :$kind is missing from runtime parameters."),
     )
-    matrix = getproperty(bgc.parameters, kind)
+    matrix = getproperty(target.parameters, kind)
     applicable(size, matrix) && length(size(matrix)) == 2 || throw(
         ArgumentError("Interaction parameter :$kind is not stored as a matrix."),
     )
@@ -219,11 +239,12 @@ The returned `NamedTuple` contains:
 - `has_sinking_velocities::Bool`
 """
 function model_summary(bgc)
+    target = _introspection_target(bgc)
     return (
-        tracers=tracer_names(bgc),
-        auxiliary_fields=auxiliary_field_names(bgc),
-        parameters=parameter_names(bgc),
-        has_sinking_velocities=Base.hasproperty(bgc, :sinking_velocities) && getproperty(bgc, :sinking_velocities) !== nothing,
+        tracers=tracer_names(target),
+        auxiliary_fields=auxiliary_field_names(target),
+        parameters=parameter_names(target),
+        has_sinking_velocities=Base.hasproperty(target, :sinking_velocities) && getproperty(target, :sinking_velocities) !== nothing,
     )
 end
 

@@ -15,28 +15,32 @@ end
 """Versioned registered-family recipe captured before runtime realization.
 
 `ModelRecipe` stores only the registered family identity, its exact scientific
-`definition_version`, and canonical construction inputs. `==`, `isequal`, `hash`, and content
+`definition_version`, and canonical construction inputs, including separate process-parameter
+and model-setting overrides. `==`, `isequal`, `hash`, and content
 hashing share that scientific identity; named mapping insertion order is ignored. Components,
 processes, parameter definitions, runtime precision, host fields, and compiled equations are
 supplied by the loaded family implementation on replay.
 """
-struct ModelRecipe{PlanktonPFTs,ParameterOverrides,SinkingTracers}
+struct ModelRecipe{PlanktonPFTs,ParameterOverrides,SettingOverrides,SinkingTracers}
     family::Symbol
     definition_version::VersionNumber
     plankton_pfts::PlanktonPFTs
     parameter_overrides::ParameterOverrides
+    setting_overrides::SettingOverrides
     sinking_tracers::SinkingTracers
     open_bottom::Bool
 end
 
 """Resolved deterministic scientific state produced by model construction.
 
-`ModelManifest` records the fully materialized parameters, realized PFT entities and
-tracer ordering, interaction sources, sinking configuration, and scalar type. Equality and hashing use this
+`ModelManifest` records the fully materialized process parameters and model settings, realized
+PFT entities and tracer ordering, interaction sources, sinking configuration, and scalar type.
+Equality and hashing use this
 resolved scientific content; durable replay is defined by the corresponding recipe representation.
 """
 struct ModelManifest{
     Parameters,
+    Settings,
     PFTEntities,
     TracerOrder,
     AuxiliaryFields,
@@ -46,6 +50,7 @@ struct ModelManifest{
     ScalarType<:Real,
 }
     parameters::Parameters
+    settings::Settings
     pft_entities::PFTEntities
     tracer_order::TracerOrder
     auxiliary_fields::AuxiliaryFields
@@ -65,6 +70,7 @@ _recipe_identity(recipe::ModelRecipe) = _recipe_identity(
 
 _manifest_identity(manifest::ModelManifest) = (;
     parameters=manifest.parameters,
+    settings=manifest.settings,
     pft_entities=manifest.pft_entities,
     tracer_order=manifest.tracer_order,
     auxiliary_fields=manifest.auxiliary_fields,
@@ -96,6 +102,7 @@ function capture_model_recipe(
     family::AbstractModelFamily;
     plankton_pfts::NamedTuple,
     parameter_overrides::NamedTuple=(;),
+    setting_overrides::NamedTuple=(;),
     sinking_tracers=nothing,
     open_bottom::Bool=true,
 )
@@ -113,6 +120,7 @@ function capture_model_recipe(
         version,
         deepcopy(plankton_pfts),
         deepcopy(parameter_overrides),
+        deepcopy(setting_overrides),
         deepcopy(sinking_tracers),
         open_bottom,
     )
@@ -121,6 +129,7 @@ end
 _family_realization(recipe::ModelRecipe) = (;
     plankton_pfts=recipe.plankton_pfts,
     parameter_overrides=recipe.parameter_overrides,
+    setting_overrides=recipe.setting_overrides,
     sinking_tracers=recipe.sinking_tracers,
     open_bottom=recipe.open_bottom,
 )
@@ -152,6 +161,7 @@ replay_family(recipe::ModelRecipe) =
 function capture_model_manifest(
     family::AbstractModelFamily,
     parameters,
+    settings,
     layout::ModelLayout,
     parameter_plan;
     tracer_order::Tuple,
@@ -187,6 +197,7 @@ function capture_model_manifest(
 
     return ModelManifest(
         deepcopy(parameters),
+        deepcopy(settings),
         pft_entities,
         tracer_order,
         auxiliary_fields,

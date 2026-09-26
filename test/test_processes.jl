@@ -3,8 +3,9 @@ using Agate.Components: Plankton, Pool, PlanktonStateRef
 using Agate.ModelFamilies: default_components, default_processes
 using Agate.Parameters: ConstantDefault, DerivedDefault, ConstructionParameter, Parameter
 using Agate.Processes:
-    AbstractFactor, AbstractFormulation, FactorizedGrowth, Smith, Geider, Monod,
-    NormalizedDroop, QuotaRegulatedMonod, Liebig, FrankTNorm, Q10, Growth, Light,
+    AbstractFactor, AbstractFormulation, FactorizedGrowth, Smith, Geider,
+    ExponentialSaturation, Monod, InhibitedMonod, NormalizedDroop, QuotaRegulatedMonod,
+    Liebig, FrankTNorm, Q10, Growth, Light,
     NutrientLimitation, Temperature, NutrientResponse, QuotaResponse, NutrientUptake,
     FixedStoichiometry, Consumption, Mortality, Products, ModelDefinition,
     driver_identities, formulation, HeterotrophicConsumption, LinearMortality,
@@ -41,6 +42,7 @@ Agate.Processes.factor_value(
 
     light = Light(Smith(); driver=:PAR)
     response = NutrientResponse(Monod(); resource=:N)
+    inhibited = NutrientResponse(InhibitedMonod(); resource=:N, inhibitor=:A)
     growth = Growth(;
         plankton=:P,
         reference_resource=:N,
@@ -48,6 +50,9 @@ Agate.Processes.factor_value(
     )
     @test formulation(light) isa Smith
     @test formulation(response) isa Monod
+    @test formulation(inhibited) isa InhibitedMonod
+    @test formulation(Light(ExponentialSaturation(); driver=:PAR)) isa ExponentialSaturation
+    @test formulation(Light(Monod(); driver=:PAR)) isa Monod
 
     @test participants(growth) == (plankton=(:P,), resource=(:N,))
 
@@ -182,7 +187,6 @@ Agate.Processes.factor_value(
     @test_throws ArgumentError canonicalize_model(wrong_element)
 
     # Invalid built-in formulation combinations are rejected by their concrete objects or factor contract.
-    @test_throws MethodError Light(Monod(), :PAR, NamedTuple())
     @test_throws MethodError Mortality(Monod(), (:P,), nothing, NamedTuple())
     @test_throws ArgumentError canonicalize_model(ModelDefinition(;
         components=(
@@ -195,13 +199,14 @@ end
 
 @testset "Built-in parameter domains" begin
     nodes = (
-        FactorizedGrowth(), Smith(), Geider(), Monod(), NormalizedDroop(),
-        QuotaRegulatedMonod(), FrankTNorm(), Q10(), PreferentialGrazing(),
+        FactorizedGrowth(), Smith(), Geider(), ExponentialSaturation(), Monod(),
+        InhibitedMonod(), NormalizedDroop(), QuotaRegulatedMonod(), FrankTNorm(), Q10(:plankton),
+        PreferentialGrazing(),
         HeterotrophicConsumption(), LinearMortality(), QuadraticMortality(),
         LinearRemineralization(), Products((a=:A, b=:B); fractions=(a=:fraction_a,)),
         FixedStoichiometry(; reference_element=:carbon),
     )
-    expected(node, name) = node isa HeterotrophicConsumption && name === :half_saturation ? :positive :
+    expected(node, name) = (node isa HeterotrophicConsumption || node isa ExponentialSaturation) && name === :half_saturation ? :positive :
         name in (:minimum_quota, :maximum_quota, :hill, :sharpness, :q10) ? :positive :
         name === :reference_temperature ? :finite :
         name in (:assimilation, :fraction) ? :unit_interval : :nonnegative

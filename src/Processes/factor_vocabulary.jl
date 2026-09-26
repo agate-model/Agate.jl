@@ -14,8 +14,14 @@ synthesize a prognostic non-elemental state such as `:chlorophyll`.
 """
 struct Geider <: AbstractFormulation end
 
-"""Monod single-resource limitation formulation."""
+"""Saturating-exponential light limitation, ``1 - exp(-I / K_I)``."""
+struct ExponentialSaturation <: AbstractFormulation end
+
+"""Monod saturation formulation, ``x / (K + x)``."""
 struct Monod <: AbstractFormulation end
+
+"""Monod resource limitation multiplied by exponential inhibition."""
+struct InhibitedMonod <: AbstractFormulation end
 
 """Normalized Droop cellular-quota growth-limitation formulation."""
 struct NormalizedDroop <: AbstractFormulation end
@@ -29,8 +35,9 @@ struct Liebig <: AbstractFormulation end
 """Differentiable Frank t-norm nutrient-combination formulation."""
 struct FrankTNorm <: AbstractFormulation end
 
-"""Q10 temperature-response formulation."""
-struct Q10 <: AbstractFormulation end
+"""Q10 temperature-response formulation indexed over the affected process participant role."""
+struct Q10{Axis} <: AbstractFormulation end
+Q10(axis::Symbol) = Q10{axis}()
 
 """Growth formulation with a base maximum rate and optional multiplicative factors."""
 struct FactorizedGrowth <: AbstractFormulation end
@@ -64,10 +71,18 @@ function PreferentialGrazing(; switching_exponent=1)
     return PreferentialGrazing(switching_exponent)
 end
 
+"""Mass-action grazing with prey loss proportional to consumer and prey biomass.
+
+The `rate` parameter is consumer-indexed and has inverse-concentration inverse-time units.
+`palatability` scales individual consumer-resource links.
+"""
+struct LinearGrazing <: AbstractFormulation end
+
 """Heterotrophic consumption of substitutable substrates with shared consumer capacity.
 
 `maximum_rate` is one per-consumer uptake capacity shared across all declared substrates.
-`substrate_preference` controls the relative accessibility of each consumer-resource pair.
+`half_saturation` and `substrate_preference` are consumer-resource properties, allowing consumers
+to differ in affinity and relative accessibility for the same substrate.
 """
 struct HeterotrophicConsumption <: AbstractFormulation end
 
@@ -142,14 +157,15 @@ function _canonical_participants(role::Symbol, values)
 end
 
 """Light-dependent multiplicative Growth factor using the Growth rate scale."""
-struct Light{Formulation<:Union{Smith,Geider}} <: AbstractFactor
+struct Light{Formulation<:Union{Smith,Geider,ExponentialSaturation,Monod}} <: AbstractFactor
     formulation::Formulation
     driver::Symbol
     bindings::NamedTuple
 end
 
 function Light(
-    formulation::Union{Smith,Geider}; driver::Symbol, bindings::NamedTuple=NamedTuple()
+    formulation::Union{Smith,Geider,ExponentialSaturation,Monod};
+    driver::Symbol, bindings::NamedTuple=NamedTuple(),
 )
     return Light(formulation, driver, _canonical_bindings(bindings))
 end
@@ -160,16 +176,26 @@ authored_parameter_bindings(factor::Light) = factor.bindings
 
 The factor reads an environmental Pool but does not define process material transfer.
 """
-struct NutrientResponse{Formulation<:Monod} <: AbstractFactor
+struct NutrientResponse{Formulation<:Union{Monod,InhibitedMonod},Inhibitor} <: AbstractFactor
     formulation::Formulation
     resource::Symbol
+    inhibitor::Inhibitor
     bindings::NamedTuple
 end
 
 function NutrientResponse(
     formulation::Monod; resource::Symbol, bindings::NamedTuple=NamedTuple()
 )
-    return NutrientResponse(formulation, resource, _canonical_bindings(bindings))
+    return NutrientResponse(formulation, resource, nothing, _canonical_bindings(bindings))
+end
+
+function NutrientResponse(
+    formulation::InhibitedMonod;
+    resource::Symbol, inhibitor::Symbol, bindings::NamedTuple=NamedTuple(),
+)
+    return NutrientResponse(
+        formulation, resource, inhibitor, _canonical_bindings(bindings)
+    )
 end
 
 authored_parameter_bindings(factor::NutrientResponse) = factor.bindings
@@ -195,17 +221,29 @@ end
 
 authored_parameter_bindings(factor::QuotaResponse) = factor.bindings
 
-"""Temperature-dependent multiplicative process-rate factor."""
-struct Temperature{Formulation<:Q10} <: AbstractFactor
+"""Temperature-dependent multiplicative process-rate factor.
+
+By default temperature is read from an external driver named `:temperature`. Pass `component`
+instead to read a scalar model component such as an Oceananigans temperature tracer.
+"""
+struct Temperature{Formulation<:Q10,Driver,Component} <: AbstractFactor
     formulation::Formulation
-    driver::Symbol
+    driver::Driver
+    component::Component
     bindings::NamedTuple
 end
 
 function Temperature(
-    formulation::Q10; driver::Symbol=:temperature, bindings::NamedTuple=NamedTuple()
+    formulation::Q10;
+    driver::Union{Nothing,Symbol}=nothing,
+    component::Union{Nothing,Symbol}=nothing,
+    bindings::NamedTuple=NamedTuple(),
 )
-    return Temperature(formulation, driver, _canonical_bindings(bindings))
+    isnothing(driver) || isnothing(component) || throw(
+        ArgumentError("Temperature accepts either `driver` or `component`, not both"),
+    )
+    isnothing(driver) && isnothing(component) && (driver = :temperature)
+    return Temperature(formulation, driver, component, _canonical_bindings(bindings))
 end
 
 authored_parameter_bindings(factor::Temperature) = factor.bindings
@@ -278,8 +316,12 @@ end
 """Return the ordered semantic inputs read by a factor before its parameter slots."""
 factor_inputs(::AbstractFactor) = ()
 factor_inputs(factor::Light) = (FactorDriver(factor.driver),)
-factor_inputs(factor::Temperature) = (FactorDriver(factor.driver),)
-factor_inputs(factor::NutrientResponse) = (FactorComponent(factor.resource),)
+factor_inputs(factor::Temperature) = isnothing(factor.component) ?
+    (FactorDriver(factor.driver),) : (FactorComponent(factor.component),)
+factor_inputs(factor::NutrientResponse{<:Monod}) = (FactorComponent(factor.resource),)
+factor_inputs(factor::NutrientResponse{<:InhibitedMonod}) = (
+    FactorComponent(factor.resource), FactorComponent(factor.inhibitor),
+)
 factor_inputs(::QuotaResponse) = ()
 
 """Return named child factors composed by a factor."""

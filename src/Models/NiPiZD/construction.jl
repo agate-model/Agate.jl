@@ -2,57 +2,6 @@ using OceanBioME: BoxModelGrid
 
 import ...Construction
 
-
-function _canonicalize_size_structure(size_structure)
-    size_structure isa NamedTuple ||
-        throw(ArgumentError("size_structure must be a NamedTuple"))
-
-    required_roles = (:phytoplankton, :zooplankton)
-    missing_roles = [role for role in required_roles if !hasproperty(size_structure, role)]
-    extra_roles = [role for role in keys(size_structure) if !(role in required_roles)]
-    isempty(missing_roles) || throw(
-        ArgumentError("size_structure is missing roles: $(collect(missing_roles))")
-    )
-    isempty(extra_roles) ||
-        throw(ArgumentError("size_structure has unknown roles: $(collect(extra_roles))"))
-
-    phytoplankton = size_structure.phytoplankton
-    zooplankton = size_structure.zooplankton
-    phytoplankton isa NamedTuple ||
-        throw(ArgumentError("size_structure.phytoplankton must be a NamedTuple"))
-    zooplankton isa NamedTuple ||
-        throw(ArgumentError("size_structure.zooplankton must be a NamedTuple"))
-    isempty(phytoplankton) &&
-        throw(ArgumentError("size_structure.phytoplankton must define at least one PFT"))
-    isempty(zooplankton) &&
-        throw(ArgumentError("size_structure.zooplankton must define at least one PFT"))
-
-    producer_pfts = keys(phytoplankton)
-    consumer_pfts = keys(zooplankton)
-    duplicate_pfts = [pft for pft in producer_pfts if pft in consumer_pfts]
-    isempty(duplicate_pfts) || throw(
-        ArgumentError(
-            "plankton PFT names must be unique across roles; " *
-            "duplicated PFTs: $(collect(duplicate_pfts))",
-        ),
-    )
-
-    return (; phytoplankton, zooplankton)
-end
-
-function _plankton_realization(size_structure)
-    structure = _canonicalize_size_structure(size_structure)
-    phytoplankton = NamedTuple{keys(structure.phytoplankton)}(Tuple(
-        Construction.normalize_pft_size_structure(value)
-        for value in values(structure.phytoplankton)
-    ))
-    zooplankton = NamedTuple{keys(structure.zooplankton)}(Tuple(
-        Construction.normalize_pft_size_structure(value)
-        for value in values(structure.zooplankton)
-    ))
-    return (P=phytoplankton, Z=zooplankton)
-end
-
 function _construction_inputs(;
     size_structure=DEFAULT_SIZE_STRUCTURE,
     parameters::NamedTuple=(;),
@@ -65,7 +14,7 @@ function _construction_inputs(;
     open_bottom::Bool=true,
 )
     family = NiPiZDFamily()
-    plankton_realization = _plankton_realization(size_structure)
+    plankton_realization = Construction.plankton_realization(family, size_structure)
 
     parameter_overrides = parameters
     for (name, value) in ((:palatability_matrix, palatability_matrix),
@@ -187,7 +136,7 @@ when the recipe is realized.
 """
 function construct_plus_recipe(; kwargs...)
     inputs = _construction_inputs(; kwargs...)
-    recipe = Construction.capture_model_recipe(inputs.family; inputs.realization...)
-    bgc = Construction.construct(inputs.family; inputs.realization..., inputs.execution...)
-    return bgc, recipe
+    return Construction.construct_plus_recipe(
+        inputs.family; inputs.realization..., inputs.execution...
+    )
 end

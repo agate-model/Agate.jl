@@ -45,13 +45,25 @@ parameter_slots(::AbstractFormulation) = ()
 parameter_slots(::FactorizedGrowth) = (
     ParameterSlot(:maximum_rate, (:plankton,); domain=:nonnegative),
 )
+parameter_slots(process::Growth) = isnothing(process.products) ?
+    parameter_slots(FactorizedGrowth()) : (
+        parameter_slots(FactorizedGrowth())...,
+        ParameterSlot(:product_fraction, (:plankton,); domain=:unit_interval),
+    )
 parameter_slots(::Smith) = (ParameterSlot(:alpha, (:plankton,); domain=:nonnegative),)
 parameter_slots(::Geider) = (
     ParameterSlot(:alpha, (:plankton,); domain=:nonnegative),
     ParameterSlot(:chlorophyll_to_carbon_ratio, (:plankton,); domain=:nonnegative),
 )
+parameter_slots(::ExponentialSaturation) = (
+    ParameterSlot(:half_saturation, (:plankton,); domain=:positive),
+)
 parameter_slots(::Monod) = (
     ParameterSlot(:half_saturation, (:plankton,); domain=:nonnegative),
+)
+parameter_slots(::InhibitedMonod) = (
+    ParameterSlot(:half_saturation, (:plankton,); domain=:nonnegative),
+    ParameterSlot(:inhibition; domain=:nonnegative),
 )
 parameter_slots(::NormalizedDroop) = (
     ParameterSlot(:minimum_quota, (:plankton,); domain=:positive),
@@ -66,8 +78,8 @@ parameter_slots(::QuotaRegulatedMonod) = (
 )
 parameter_slots(::Liebig) = ()
 parameter_slots(::FrankTNorm) = (ParameterSlot(:sharpness; domain=:positive),)
-parameter_slots(::Q10) = (
-    ParameterSlot(:q10; domain=:positive),
+parameter_slots(::Q10{Axis}) where {Axis} = (
+    ParameterSlot(:q10, (Axis,); domain=:positive),
     ParameterSlot(:reference_temperature),
 )
 parameter_slots(::PreferentialGrazing) = (
@@ -76,9 +88,14 @@ parameter_slots(::PreferentialGrazing) = (
     ParameterSlot(:palatability, (:consumer, :resource); domain=:nonnegative),
     ParameterSlot(:assimilation, (:consumer, :resource); domain=:unit_interval),
 )
+parameter_slots(::LinearGrazing) = (
+    ParameterSlot(:rate, (:consumer,); domain=:nonnegative),
+    ParameterSlot(:palatability, (:consumer, :resource); domain=:nonnegative),
+    ParameterSlot(:assimilation, (:consumer, :resource); domain=:unit_interval),
+)
 parameter_slots(::HeterotrophicConsumption) = (
     ParameterSlot(:maximum_rate, (:consumer,); domain=:nonnegative),
-    ParameterSlot(:half_saturation, (:resource,); domain=:positive),
+    ParameterSlot(:half_saturation, (:consumer, :resource); domain=:positive),
     ParameterSlot(:substrate_preference, (:consumer, :resource); domain=:nonnegative),
     ParameterSlot(:assimilation, (:consumer, :resource); domain=:unit_interval),
 )
@@ -113,6 +130,8 @@ struct ParameterBinding{Axes,AxisComponents}
     domain::Symbol
 end
 
-_parameter_slot_source(node::Union{AbstractFormulation,AbstractStoichiometry,Products}) = node
+_parameter_slot_source(
+    node::Union{AbstractFormulation,AbstractStoichiometry,Products,Growth}
+) = node
 _parameter_slot_source(node) = formulation(node)
 

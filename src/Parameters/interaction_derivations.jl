@@ -1,7 +1,6 @@
 using ..Components: ModelLayout, diameter_metadata
 
-using ..Library.Allometry:
-    palatability_matrix_allometric_axes, consumer_assimilation_matrix_axes
+using ..Library.Allometry: palatability_matrix_allometric_axes
 
 """Return `v` when it uses the construction scalar type, otherwise throw an `ArgumentError`."""
 @inline function _require_scalar_vector(
@@ -16,11 +15,16 @@ using ..Library.Allometry:
     )
 end
 
-"""Derive consumer-by-prey palatability from allometric trait vectors."""
+"""Derive consumer-by-prey palatability from size traits, with optional prey protection."""
 struct AllometricPalatability end
 
-"""Derive consumer-by-prey assimilation from consumer-specific efficiency traits."""
-struct ConsumerAssimilation end
+"""Broadcast a consumer-specific trait across a consumer-by-resource parameter matrix.
+
+The single declared dependency must be a vector over realized plankton SizeClasses. This is
+useful when one physiological trait, such as substrate affinity, belongs to the consumer but
+the runtime formulation stores a value for each consumer-resource edge.
+"""
+struct ConsumerResourceFromConsumer end
 
 function _plankton_entity_indices(
     layout::ModelLayout, labels::Tuple, parameter_name::Symbol, axis_name::Symbol
@@ -52,6 +56,9 @@ end
 @inline function _derive_palatability(layout::ModelLayout, params, consumers, prey)
     _require_palatability_diameters(layout, consumers, prey)
     T = layout.scalar_type
+    protection = hasproperty(params, :protection) ?
+        _require_scalar_vector(T, params.protection, :protection) :
+        zeros(T, length(layout.size_classes))
     return palatability_matrix_allometric_axes(
         T,
         layout.size_class_diameters;
@@ -59,19 +66,7 @@ end
             T, params.optimum_predator_prey_ratio, :optimum_predator_prey_ratio
         ),
         specificity=_require_scalar_vector(T, params.specificity, :specificity),
-        protection=_require_scalar_vector(T, params.protection, :protection),
-        consumer_indices=consumers,
-        prey_indices=prey,
-    )
-end
-
-@inline function _derive_assimilation(layout::ModelLayout, params, consumers, prey)
-    T = layout.scalar_type
-    return consumer_assimilation_matrix_axes(
-        T;
-        assimilation_efficiency=_require_scalar_vector(
-            T, params.assimilation_efficiency, :assimilation_efficiency
-        ),
+        protection,
         consumer_indices=consumers,
         prey_indices=prey,
     )
@@ -94,17 +89,20 @@ end
 end
 
 @inline function _derive_parameter_default(
-    ::ConsumerAssimilation,
+    ::ConsumerResourceFromConsumer,
     ::Any,
     layout::ModelLayout,
     parameter,
     params::NamedTuple,
 )
+    length(params) == 1 || throw(ArgumentError(
+        "ConsumerResourceFromConsumer requires exactly one consumer-trait dependency",
+    ))
+    trait_name = first(keys(params))
+    trait = _require_scalar_vector(layout.scalar_type, first(values(params)), trait_name)
     consumer_labels, resource_labels = parameter.storage_labels
-    return _derive_assimilation(
-        layout,
-        params,
-        _plankton_entity_indices(layout, consumer_labels, parameter.name, :consumer),
-        _plankton_entity_indices(layout, resource_labels, parameter.name, :resource),
+    consumers = _plankton_entity_indices(
+        layout, consumer_labels, parameter.name, :consumer
     )
+    return [trait[i] for i in consumers, _ in resource_labels]
 end

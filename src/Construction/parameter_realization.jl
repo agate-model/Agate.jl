@@ -153,15 +153,16 @@ function materialize_parameter_default(
     provider::ConstantDefault, parameter, ::Type{T}
 ) where {T<:Real}
     value = provider.value
-    value = value isa Bool ? value : T(value)
     rank = parameter.rank
-    rank == 0 && return value
+    rank == 0 && return value isa Bool ? value : T(value)
 
     expected = parameter.storage_shape
     if rank == 1
-        return fill(value, only(expected))
+        value isa AbstractVector && return materialize_parameter_value(parameter, value, T)
+        return fill(value isa Bool ? value : T(value), only(expected))
     elseif rank == 2
-        return fill(value, expected...)
+        value isa AbstractMatrix && return materialize_parameter_value(parameter, value, T)
+        return fill(value isa Bool ? value : T(value), expected...)
     end
     throw(ArgumentError("parameter :$(parameter.name) has unsupported rank $rank"))
 end

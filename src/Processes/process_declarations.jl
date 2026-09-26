@@ -117,15 +117,21 @@ end
 `bindings.maximum_rate` names the model parameter that sets the growth-rate scale.
 `reference_resource` supplies the Element represented by the plankton `reference_state`.
 `additional_resources` maps additional Elements to external Pools consumed according to
-`FixedStoichiometry`. Factors modify growth rate only; independently prognostic elemental
-states are supplied through [`NutrientUptake`](@ref).
+`FixedStoichiometry`. Factors modify gross growth rate only. Optional `products` route the
+`product_fraction` of gross growth before biomass retention while resource uptake remains gross;
+the retained biomass fraction is the exact complement. For fixed-stoichiometry growth, routed
+products must account for every growth element using the same stoichiometric ratio bindings.
+Independently prognostic elemental states are supplied through [`NutrientUptake`](@ref).
 """
-struct Growth{Factors<:NamedTuple,AdditionalResources<:NamedTuple,Stoichiometry} <: AbstractProcess
+struct Growth{
+    Factors<:NamedTuple,AdditionalResources<:NamedTuple,Stoichiometry,ProductRouting
+} <: AbstractProcess
     plankton::Tuple
     factors::Factors
     reference_resource::Symbol
     additional_resources::AdditionalResources
     stoichiometry::Stoichiometry
+    products::ProductRouting
     bindings::NamedTuple
 end
 
@@ -135,6 +141,7 @@ function Growth(;
     factors::NamedTuple=NamedTuple(),
     additional_resources::NamedTuple=NamedTuple(),
     stoichiometry=nothing,
+    products=nothing,
     bindings::NamedTuple=NamedTuple(),
 )
     all(resource -> resource isa Symbol, values(additional_resources)) || throw(
@@ -149,6 +156,7 @@ function Growth(;
         reference_resource,
         _canonical_namedtuple(additional_resources),
         stoichiometry,
+        _canonical_products(products),
         _canonical_bindings(bindings),
     )
 end
@@ -190,13 +198,14 @@ authored_parameter_bindings(process::NutrientUptake) = process.bindings
 """Consumer-resource process with optional factors and unassimilated products.
 
 For `PreferentialGrazing`, `maximum_rate` is one consumer-level ingestion capacity shared across
-all declared prey. For `HeterotrophicConsumption`, `maximum_rate` is likewise one consumer-level
-uptake capacity shared across substitutable substrates. When one living-prey consumption process
-routes multi-element unassimilated products from multiple resources, those resources currently
+all declared prey. `LinearGrazing` instead applies a consumer-level mass-action `rate`
+independently to each consumer-resource link. For `HeterotrophicConsumption`, `maximum_rate` is
+likewise one consumer-level uptake capacity shared across substitutable substrates. When one living-prey
+consumption process routes multi-element unassimilated products from multiple resources, those resources currently
 must expose the same prognostic Element set.
 """
 struct Consumption{
-    Formulation<:Union{PreferentialGrazing,HeterotrophicConsumption},
+    Formulation<:Union{PreferentialGrazing,LinearGrazing,HeterotrophicConsumption},
     Factors<:NamedTuple,
     ProductRouting,
 } <: AbstractProcess
@@ -209,7 +218,7 @@ struct Consumption{
 end
 
 function Consumption(
-    formulation::Union{PreferentialGrazing,HeterotrophicConsumption};
+    formulation::Union{PreferentialGrazing,LinearGrazing,HeterotrophicConsumption};
     consumers,
     resources,
     factors::NamedTuple=NamedTuple(),
@@ -289,13 +298,14 @@ factors(::AbstractProcess) = NamedTuple()
 factors(process::Union{Growth,Consumption}) = process.factors
 
 process_products(::AbstractProcess) = nothing
-process_products(process::Union{Consumption,Mortality}) = process.products
-product_path(::Mortality) = (:products,)
+process_products(process::Union{Growth,Consumption,Mortality}) = process.products
+product_path(::Union{Growth,Mortality}) = (:products,)
 product_path(::Consumption) = (:unassimilated_products,)
 
 """Whether a consumer-resource formulation uses living consumer-prey interaction matrices."""
 uses_living_interactions(::AbstractFormulation) = false
 uses_living_interactions(::PreferentialGrazing) = true
+uses_living_interactions(::LinearGrazing) = true
 
 """Return canonical participant roles for an authored scientific process."""
 function participants(process::Growth)
