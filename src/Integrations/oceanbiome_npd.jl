@@ -27,7 +27,6 @@ Agate runtime owns the ecological equations; this wrapper maps their signed
 tracer tendencies onto OceanBioME's existing NPD plankton hooks.
 """
 struct NPDPlankton{
-    Coupling,
     Runtime,
     OwnedTracers,
     OwnedTracerType,
@@ -40,7 +39,6 @@ struct NPDPlankton{
 }
     runtime::Runtime
     traits::Traits
-    coupling::Coupling
 end
 
 function _component_tracers(runtime, components::Tuple)
@@ -78,7 +76,7 @@ end
     NPDPlankton(runtime; owned_components, phytoplankton_components=(), nutrient_tracers=(),
                 exchange_tracers=(solid=:solid_waste, dissolved=:dissolved_waste,
                                   inorganic=:inorganic_waste),
-                consumed_detritus=(), dependencies=(), traits, coupling=nothing)
+                consumed_detritus=(), dependencies=(), traits)
 
 Wrap a compiled Agate runtime as an OceanBioME `NutrientsPlanktonDetritus` plankton component.
 Component names are resolved once from Agate runtime metadata; all cell-level coupling is then
@@ -97,7 +95,6 @@ function NPDPlankton(
     consumed_detritus::Tuple=(),
     dependencies::Tuple=(),
     traits::NamedTuple,
-    coupling=nothing,
 )
     keys(exchange_tracers) == (:solid, :dissolved, :inorganic) || throw(
         ArgumentError("exchange_tracers must define (:solid, :dissolved, :inorganic)."),
@@ -116,7 +113,6 @@ function NPDPlankton(
     _validate_npd_traits(traits)
 
     return NPDPlankton{
-        typeof(coupling),
         typeof(runtime),
         owned,
         owned_type,
@@ -126,18 +122,15 @@ function NPDPlankton(
         dependencies,
         phytoplankton,
         typeof(traits),
-    }(runtime, traits, coupling)
+    }(runtime, traits)
 end
-
-"""Named process diagnostics required when an Agate family is wrapped as NPD plankton."""
-npd_diagnostic_processes(::AbstractModelFamily) = ()
 
 """Return family-specific `NPDPlankton` keyword overrides for a realized runtime.
 
 Ownership, phytoplankton identity, external dependencies, standard exchange channels, and
 resolved model settings are inferred from Agate metadata. External families only need to
-declare coupling choices that cannot be inferred safely, such as nutrient uptake tracers,
-consumed detritus, or optional family-specific coupling state.
+declare choices that cannot be inferred safely, such as nutrient uptake tracers or
+consumed detritus.
 """
 npd_configuration(::AbstractModelFamily, _runtime) = (;)
 
@@ -163,7 +156,6 @@ function _npd_default_configuration(family::AbstractModelFamily, runtime)
         exchange_tracers=_standard_exchange_tracers(runtime),
         consumed_detritus=(),
         traits=runtime.metadata.model_settings,
-        coupling=nothing,
     )
 end
 
@@ -216,7 +208,6 @@ function construct_npd_plankton(
         grid,
         arch,
         scalar_type,
-        diagnostic_processes=npd_diagnostic_processes(family),
     )
     return _wrap_npd_runtime(family, runtime)
 end
@@ -244,7 +235,6 @@ function construct_npd_plankton_plus_recipe(
         grid,
         arch,
         scalar_type,
-        diagnostic_processes=npd_diagnostic_processes(family),
     )
     return _wrap_npd_runtime(family, runtime), recipe
 end
@@ -260,17 +250,16 @@ function construct_npd_plankton(
         grid,
         arch,
         scalar_type,
-        diagnostic_processes=npd_diagnostic_processes(family),
     )
     return _wrap_npd_runtime(family, runtime)
 end
 
-@inline _owned_tracers(::NPDPlankton{C,R,O}) where {C,R,O} = O
-@inline _nutrient_tracers(::NPDPlankton{C,R,O,OT,N}) where {C,R,O,OT,N} = N
-@inline _exchange_tracers(::NPDPlankton{C,R,O,OT,N,E}) where {C,R,O,OT,N,E} = E
-@inline _consumed_detritus(::NPDPlankton{C,R,O,OT,N,E,D}) where {C,R,O,OT,N,E,D} = D
-@inline _dependencies(::NPDPlankton{C,R,O,OT,N,E,D,Deps}) where {C,R,O,OT,N,E,D,Deps} = Deps
-@inline phytoplankton_tracers(::NPDPlankton{C,R,O,OT,N,E,D,Deps,P}) where {C,R,O,OT,N,E,D,Deps,P} = P
+@inline _owned_tracers(::NPDPlankton{R,O}) where {R,O} = O
+@inline _nutrient_tracers(::NPDPlankton{R,O,OT,N}) where {R,O,OT,N} = N
+@inline _exchange_tracers(::NPDPlankton{R,O,OT,N,E}) where {R,O,OT,N,E} = E
+@inline _consumed_detritus(::NPDPlankton{R,O,OT,N,E,D}) where {R,O,OT,N,E,D} = D
+@inline _dependencies(::NPDPlankton{R,O,OT,N,E,D,Deps}) where {R,O,OT,N,E,D,Deps} = Deps
+@inline phytoplankton_tracers(::NPDPlankton{R,O,OT,N,E,D,Deps,P}) where {R,O,OT,N,E,D,Deps,P} = P
 
 @inline required_biogeochemical_tracers(plankton::NPDPlankton) = _owned_tracers(plankton)
 @inline required_biogeochemical_auxiliary_fields(plankton::NPDPlankton) =
@@ -284,13 +273,10 @@ end
 @inline chlorophyll(plankton::NPDPlankton, model) = plankton.traits.chlorophyll_ratio *
     mapreduce(name -> getproperty(model.tracers, name), +, phytoplankton_tracers(plankton))
 
-@inline function adapt_structure(to, plankton::NPDPlankton{C,R,O,OT,N,E,D,Deps,P,T}) where {C,R,O,OT,N,E,D,Deps,P,T}
+@inline function adapt_structure(to, plankton::NPDPlankton{R,O,OT,N,E,D,Deps,P,T}) where {R,O,OT,N,E,D,Deps,P,T}
     runtime = adapt(to, plankton.runtime)
     traits = adapt(to, plankton.traits)
-    coupling = adapt(to, plankton.coupling)
-    return NPDPlankton{typeof(coupling),typeof(runtime),O,OT,N,E,D,Deps,P,typeof(traits)}(
-        runtime, traits, coupling
-    )
+    return NPDPlankton{typeof(runtime),O,OT,N,E,D,Deps,P,typeof(traits)}(runtime, traits)
 end
 
 @inline function _append_unique(acc::Tuple, values::Tuple)
@@ -352,8 +338,8 @@ end
 @inline (bgc::NutrientsPlanktonDetritus{<:Any,<:Any,PLA})(
     i, j, k, grid, tracer::OwnedTracerType, clock, fields, auxiliary_fields
 ) where {
-    C,Runtime,OwnedTracers,OwnedTracerType,N,E,D,Deps,P,T,
-    PLA<:NPDPlankton{C,Runtime,OwnedTracers,OwnedTracerType,N,E,D,Deps,P,T},
+    Runtime,OwnedTracers,OwnedTracerType,N,E,D,Deps,P,T,
+    PLA<:NPDPlankton{Runtime,OwnedTracers,OwnedTracerType,N,E,D,Deps,P,T},
 } = _agate_tendency(
     bgc.plankton, tracer, i, j, k, clock.time, fields, auxiliary_fields
 )
@@ -418,25 +404,4 @@ end
 ) where Tracer
     Tracer in _consumed_detritus(plankton) || return zero(eltype(grid))
     return -_exchange_tendency(plankton, Val(Tracer), i, j, k, grid, fields, auxiliary_fields)
-end
-
-"""Evaluate one compiled Agate process diagnostic summed over selected tracers."""
-@inline function process_tendency(
-    plankton::NPDPlankton,
-    diagnostics,
-    tracers::Tuple,
-    ::Val{Process},
-    i, j, k, grid, fields, auxiliary_fields,
-) where Process
-    equations = getproperty(diagnostics, Process)
-    tracer_values = _runtime_tracer_values(plankton, i, j, k, fields)
-    auxiliary_values = _runtime_auxiliary_values(plankton, i, j, k, auxiliary_fields)
-    t = zero(eltype(grid))
-    return mapreduce(+, tracers; init=zero(t)) do tracer
-        hasfield(typeof(equations), tracer) || return zero(t)
-        x = zero(t)
-        getfield(equations, tracer)(
-            plankton.runtime, x, x, x, t, tracer_values..., auxiliary_values...
-        )
-    end
 end

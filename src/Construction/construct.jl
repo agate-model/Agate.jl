@@ -16,7 +16,7 @@ using ..Processes:
     runtime_parameter_values, parameter_plan_metadata, parameter_constraints,
     validate_realized_parameters
 
-using ..Compilation: CompileContext, compile_model_tendencies, compile_process_diagnostics
+using ..Compilation: CompileContext, compile_model_tendencies
 
 """Move `x` to the requested Oceananigans architecture."""
 function on_architecture(arch, x)
@@ -158,7 +158,6 @@ function _construct_process_definition(
     arch=nothing,
     scalar_type=nothing,
     build_manifest::Bool=false,
-    diagnostic_processes::Tuple=(),
     derivation_owner=nothing,
     manifest_family=nothing,
 )
@@ -227,14 +226,13 @@ function _construct_process_definition(
     runtime_parameters = runtime_parameter_values(parameter_plan, resolved_parameters)
     compile_context = CompileContext(canonical, layout, parameter_plan)
     equations = compile_model_tendencies(compile_context; target_order=tracer_names)
-    process_diagnostics = compile_process_diagnostics(compile_context, diagnostic_processes)
     metadata = merge(
         model_metadata(
             layout;
             parameter_axes=parameter_plan_metadata(canonical, parameter_plan),
             parameter_constraints=constraints,
         ),
-        (; process_diagnostics, model_settings),
+        (; model_settings),
     )
     sinking_velocities = isnothing(sinking_tracers) ? nothing :
         setup_velocity_fields(sinking_tracers, grid, open_bottom)
@@ -273,7 +271,6 @@ function _construct_registered_model(
     arch=nothing,
     scalar_type=nothing,
     build_manifest::Bool=false,
-    diagnostic_processes::Tuple=(),
 )
     T = resolve_construction_scalar_type(grid, scalar_type)
     model_settings = resolve_model_settings(family, realization.setting_overrides, T)
@@ -291,7 +288,6 @@ function _construct_registered_model(
         arch,
         scalar_type,
         build_manifest,
-        diagnostic_processes,
         derivation_owner=family,
         manifest_family=family,
     )
@@ -303,7 +299,6 @@ function _construct_recipe(
     arch=nothing,
     scalar_type=nothing,
     build_manifest::Bool=false,
-    diagnostic_processes::Tuple=(),
 )
     family = replay_family(recipe)
     realization = _family_realization(recipe)
@@ -314,7 +309,6 @@ function _construct_recipe(
         arch,
         scalar_type,
         build_manifest,
-        diagnostic_processes,
     )
 end
 
@@ -328,9 +322,8 @@ end
 Construct a registered model family from its resolved family realization. This is the
 supported construction seam for external family packages after their own user-facing
 constructor syntax has been translated into the nested `plankton_pfts` mapping, process
-parameter overrides, and family-level setting overrides. `diagnostic_processes` optionally retains compiled equations for selected
-named processes so coupled components can reuse process-specific fluxes without re-lowering them.
-Runtime grid, architecture, and scalar precision remain execution choices.
+parameter overrides, and family-level setting overrides. Runtime grid, architecture, and scalar
+precision remain execution choices.
 """
 function construct(
     family::AbstractModelFamily;
@@ -342,13 +335,12 @@ function construct(
     grid=nothing,
     arch=nothing,
     scalar_type=nothing,
-    diagnostic_processes::Tuple=(),
 )
     realization = (;
         plankton_pfts, parameter_overrides, setting_overrides, sinking_tracers, open_bottom
     )
     bgc, _ = _construct_registered_model(
-        family, realization; grid, arch, scalar_type, diagnostic_processes
+        family, realization; grid, arch, scalar_type
     )
     return bgc
 end
@@ -365,8 +357,7 @@ tracer equations are compiled during setup.
 `parameter_overrides` supplies concrete parameter values over the defaults declared in
 `definition.parameters`, including explicit axis-sized interaction matrices. Runtime grid,
 architecture, and scalar precision remain execution choices rather than part of the
-scientific definition. `diagnostic_processes` optionally retains compiled equations for selected
-named processes for setup-time coupling to process-specific diagnostics.
+scientific definition.
 """
 function construct(
     definition::ModelDefinition;
@@ -377,7 +368,6 @@ function construct(
     grid=nothing,
     arch=nothing,
     scalar_type=nothing,
-    diagnostic_processes::Tuple=(),
 )
     bgc, _ = _construct_process_definition(
         definition;
@@ -388,7 +378,6 @@ function construct(
         grid,
         arch,
         scalar_type,
-        diagnostic_processes,
     )
     return bgc
 end
@@ -400,9 +389,8 @@ function construct(
     grid=nothing,
     arch=nothing,
     scalar_type=nothing,
-    diagnostic_processes::Tuple=(),
 )
-    bgc, _ = _construct_recipe(recipe; grid, arch, scalar_type, diagnostic_processes)
+    bgc, _ = _construct_recipe(recipe; grid, arch, scalar_type)
     return bgc
 end
 
@@ -417,12 +405,11 @@ function construct_plus_recipe(
     grid=nothing,
     arch=nothing,
     scalar_type=nothing,
-    diagnostic_processes::Tuple=(),
 )
     recipe = capture_model_recipe(
         family; plankton_pfts, parameter_overrides, setting_overrides, sinking_tracers, open_bottom
     )
-    bgc = construct(recipe; grid, arch, scalar_type, diagnostic_processes)
+    bgc = construct(recipe; grid, arch, scalar_type)
     return bgc, recipe
 end
 

@@ -9,8 +9,6 @@ using ...Parameters: AllometricPalatability
 setting_definitions(::FrankenLOBSTERFamily) = (
     chlorophyll_ratio=ModelSetting(1.31; domain=:nonnegative),
     carbon_ratio=ModelSetting(6.56; domain=:positive),
-    calcium_carbonate_rain_ratio=ModelSetting(0.1; domain=:nonnegative),
-    zooplankton_calcium_carbonate_dissolution=ModelSetting(0.3; domain=:unit_interval),
 )
 
 """LOBSTER3-like defaults expressed through Agate size-trait machinery."""

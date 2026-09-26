@@ -5,6 +5,6 @@ include("oceanbiome_npd.jl")
 
 export NPDPlankton
 export construct_npd_plankton, construct_npd_plankton_plus_recipe
-export npd_configuration, npd_diagnostic_processes
+export npd_configuration
 
 end # module

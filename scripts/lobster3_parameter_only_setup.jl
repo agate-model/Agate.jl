@@ -2,7 +2,7 @@
 #
 # FrankenLOBSTER defaults already match the LOBSTER3 3-D allometries for:
 #   P maximum growth, P nitrate affinity, H maximum uptake, H DOM affinity,
-#   P/Z/H mortality, Z/H assimilation, C:N, chlorophyll:N, PIC:C, and gut PIC dissolution.
+#   P/Z/H mortality, Z/H assimilation, C:N, and chlorophyll:N.
 # Only deliberate departures from those defaults are specified below.
 #
 # Temperature experiments:

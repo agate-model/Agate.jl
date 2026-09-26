@@ -1,18 +1,8 @@
 using ...Construction
 import ...Integrations
 
-const _CALCITE_DIAGNOSTIC_PROCESSES = (
-    :nitrate_growth_P, :ammonia_growth_P, :grazing_Z_on_living, :mortality_P,
-)
-
-Integrations.npd_diagnostic_processes(::FrankenLOBSTERFamily) = _CALCITE_DIAGNOSTIC_PROCESSES
-
-function Integrations.npd_configuration(::FrankenLOBSTERFamily, runtime)
-    return (;
-        nutrient_tracers=(:NO₃, :NH₄),
-        consumed_detritus=(:DOM,),
-        coupling=FrankenLOBSTERCoupling(runtime.metadata.process_diagnostics),
-    )
+function Integrations.npd_configuration(::FrankenLOBSTERFamily, _runtime)
+    return (; nutrient_tracers=(:NO₃, :NH₄), consumed_detritus=(:DOM,))
 end
 
 function _construction_inputs(;
