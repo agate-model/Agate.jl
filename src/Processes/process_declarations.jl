@@ -119,8 +119,9 @@ end
 `additional_resources` maps additional Elements to external Pools consumed according to
 `FixedStoichiometry`. Factors modify gross growth rate only. Optional `products` route the
 `product_fraction` of gross growth before biomass retention while resource uptake remains gross;
-the retained biomass fraction is the exact complement. Independently prognostic elemental states
-are supplied through [`NutrientUptake`](@ref).
+the retained biomass fraction is the exact complement. For fixed-stoichiometry growth, routed
+products must account for every growth element using the same stoichiometric ratio bindings.
+Independently prognostic elemental states are supplied through [`NutrientUptake`](@ref).
 """
 struct Growth{
     Factors<:NamedTuple,AdditionalResources<:NamedTuple,Stoichiometry,ProductRouting
