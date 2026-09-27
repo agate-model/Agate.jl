@@ -7,16 +7,12 @@ using ..Library.Allometry:
     allometric_relationship_identifier,
     allometric_relationship_from_identifier
 
-const MODEL_RECIPE_SCHEMA = "agate.model_recipe.v2"
-const LEGACY_MODEL_RECIPE_SCHEMA = "agate.model_recipe.v1"
+const MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.2"
 
 """Return the durable model-recipe schema identifier supported by this Agate version."""
 recipe_schema() = MODEL_RECIPE_SCHEMA
 const _RECIPE_DOCUMENT_KEYS = (
     "schema", "family", "definition_version", "realization", "provenance", "content_hash"
-)
-const _REALIZATION_KEYS_V1 = (
-    "plankton_pfts", "parameter_overrides", "sinking_tracers", "open_bottom"
 )
 const _REALIZATION_KEYS = (
     "plankton_pfts", "parameter_overrides", "setting_overrides", "sinking_tracers", "open_bottom"
@@ -358,15 +354,15 @@ function _encode_realization(recipe::ModelRecipe)
     )
 end
 
-function _decode_realization(x, path; legacy::Bool=false)
-    realization = _complete_object(x, legacy ? _REALIZATION_KEYS_V1 : _REALIZATION_KEYS, path)
+function _decode_realization(x, path)
+    realization = _complete_object(x, _REALIZATION_KEYS, path)
     plankton_pfts = _decode_plankton_pfts(
         realization["plankton_pfts"], "$path.plankton_pfts"
     )
     parameter_overrides = _decode_parameter_overrides(
         realization["parameter_overrides"], "$path.parameter_overrides"
     )
-    setting_overrides = legacy ? (;) : _decode_parameter_overrides(
+    setting_overrides = _decode_parameter_overrides(
         realization["setting_overrides"], "$path.setting_overrides"
     )
     sinking_tracers = isnothing(realization["sinking_tracers"]) ? nothing :
@@ -394,30 +390,26 @@ end
 function decode_recipe(document::AbstractDict)
     document = _complete_object(document, _RECIPE_DOCUMENT_KEYS, "Recipe document")
     schema = _string(document["schema"], "Recipe document.schema")
-    legacy = schema == LEGACY_MODEL_RECIPE_SCHEMA
-    (legacy || schema == MODEL_RECIPE_SCHEMA) || throw(
+    schema == MODEL_RECIPE_SCHEMA || throw(
         ArgumentError(
-            "Unsupported Agate recipe schema $(repr(schema)); supported schemas are " *
-            "$(repr(LEGACY_MODEL_RECIPE_SCHEMA)) and $(repr(MODEL_RECIPE_SCHEMA))."
+            "Unsupported Agate recipe schema $(repr(schema)); supported schema is " *
+            "$(repr(MODEL_RECIPE_SCHEMA))."
         )
     )
 
     family_id_value = _symbol(document["family"], "Recipe document.family")
     version = _version(document["definition_version"], "Recipe document.definition_version")
     realization_data = _complete_object(
-        document["realization"], legacy ? _REALIZATION_KEYS_V1 : _REALIZATION_KEYS,
-        "Recipe document.realization"
+        document["realization"], _REALIZATION_KEYS, "Recipe document.realization"
     )
     recorded_hash = _string(document["content_hash"], "Recipe document.content_hash")
-    recorded_hash == _recipe_hash(family_id_value, version, realization_data; schema) || throw(
+    recorded_hash == _recipe_hash(family_id_value, version, realization_data) || throw(
         ArgumentError("Recipe document.content_hash does not match the serialized recipe content.")
     )
 
     family = _resolve_recipe_family(family_id_value, version)
 
-    realization = _decode_realization(
-        realization_data, "Recipe document.realization"; legacy
-    )
+    realization = _decode_realization(realization_data, "Recipe document.realization")
     plankton_pfts = _canonical_recipe_realization(family, realization.plankton_pfts)
     decoded = ModelRecipe(
         family_id_value,

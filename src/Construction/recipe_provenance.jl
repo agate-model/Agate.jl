@@ -71,12 +71,10 @@ function _canonical_json(x)
     return JSON.json(x)
 end
 
-function _recipe_hash(
-    family::Symbol, definition_version::VersionNumber, realization; schema=MODEL_RECIPE_SCHEMA
-)
+function _recipe_hash(family::Symbol, definition_version::VersionNumber, realization)
     identity = _recipe_identity(family, definition_version, realization)
     content = Dict{String,Any}(
-        "schema" => schema,
+        "schema" => MODEL_RECIPE_SCHEMA,
         "family" => String(identity.family),
         "definition_version" => string(identity.definition_version),
         "realization" => identity.realization,

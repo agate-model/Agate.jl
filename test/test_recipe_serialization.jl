@@ -16,7 +16,7 @@ function rehash!(document)
     family = Symbol(document["family"])
     version = VersionNumber(document["definition_version"])
     document["content_hash"] = Agate.Construction._recipe_hash(
-        family, version, document["realization"]; schema=document["schema"]
+        family, version, document["realization"]
     )
     return document
 end
@@ -64,7 +64,7 @@ end
         "provenance",
         "content_hash",
     ))
-    @test encoded["schema"] == Agate.Construction.recipe_schema() == "agate.model_recipe.v2"
+    @test encoded["schema"] == Agate.Construction.recipe_schema() == "agate.model_recipe.v0.2"
     @test encoded["family"] == "NiPiZD"
     @test encoded["definition_version"] == "0.2.0"
     @test Set(keys(encoded["realization"])) == Set((
@@ -94,12 +94,6 @@ end
     @test !recipe.open_bottom
     @test recipe.sinking_tracers == inputs.sinking_tracers
     @test decoded == recipe
-
-    legacy = deepcopy(encoded)
-    legacy["schema"] = "agate.model_recipe.v1"
-    delete!(legacy["realization"], "setting_overrides")
-    rehash!(legacy)
-    @test isempty(decode_recipe(legacy).setting_overrides)
 
     split_recipe = Agate.Construction.capture_model_recipe(
         family; plankton_pfts=(P=(P=[1.0, 4.0],), Z=(Z=[10.0],)),
@@ -239,7 +233,7 @@ end
           (:N, :D, :P_1, :P_2, :Z_1, :Z_2)
 
     invalid_schema = modified(encoded) do x
-        x["schema"] = "agate.model_recipe.invalid"
+        x["schema"] = "agate.model_recipe.v0.1"
     end
     invalid_realization = rehashed(encoded) do x
         pop!(x["realization"]["plankton_pfts"])
