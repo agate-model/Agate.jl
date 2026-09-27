@@ -56,7 +56,7 @@ parameter_slots(::Geider) = (
     ParameterSlot(:chlorophyll_to_carbon_ratio, (:plankton,); domain=:nonnegative),
 )
 parameter_slots(::ExponentialSaturation) = (
-    ParameterSlot(:half_saturation, (:plankton,); domain=:positive),
+    ParameterSlot(:light_scale, (:plankton,); domain=:positive),
 )
 parameter_slots(::Monod) = (
     ParameterSlot(:half_saturation, (:plankton,); domain=:nonnegative),

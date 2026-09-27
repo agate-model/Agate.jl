@@ -38,7 +38,7 @@ const FRANKENLOBSTER_COMPONENTS = (
 default_components(::FrankenLOBSTERFamily) = FRANKENLOBSTER_COMPONENTS
 
 const _P_GROWTH_FACTORS = (
-    light=Light(ExponentialSaturation(); driver=:PAR, bindings=(half_saturation=:light_half_saturation,)),
+    light=Light(ExponentialSaturation(); driver=:PAR, bindings=(light_scale=:light_half_saturation,)),
     temperature=Temperature(
         Q10(:plankton); driver=:T,
         bindings=(q10=:temperature_q10, reference_temperature=:reference_temperature),

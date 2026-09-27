@@ -80,9 +80,10 @@ end
 
 Wrap a compiled Agate runtime as an OceanBioME `NutrientsPlanktonDetritus` plankton component.
 Component names are resolved once from Agate runtime metadata; all cell-level coupling is then
-statically dispatched from the resulting tracer tuples. A dependency that also names a runtime
-auxiliary driver is read from the surrounding NPD tracer fields rather than requested as a
-separate auxiliary field.
+statically dispatched from the resulting tracer tuples. `nutrient_tracers` names runtime tracers
+exposed through OceanBioME's nutrient-uptake hooks; Agate does not impose a nutrient-name
+vocabulary. A dependency that also names a runtime auxiliary driver is read from the surrounding
+NPD tracer fields rather than requested as a separate auxiliary field.
 """
 function NPDPlankton(
     runtime;
@@ -101,9 +102,6 @@ function NPDPlankton(
     keys(exchange_tracers) == (:solid, :dissolved, :inorganic) || throw(
         ArgumentError("exchange_tracers must define (:solid, :dissolved, :inorganic)."),
     )
-    all(name -> name in (:NO₃, :NH₄), nutrient_tracers) || throw(
-        ArgumentError("NPDPlankton nutrient_tracers currently supports only :NO₃ and :NH₄."),
-    )
     owned = _component_tracers(runtime, owned_components)
     isempty(owned) && throw(ArgumentError("NPDPlankton must own at least one tracer."))
     phytoplankton = _component_tracers(runtime, phytoplankton_components)
@@ -112,6 +110,14 @@ function NPDPlankton(
     )
     owned_type = mapreduce(name -> typeof(Val(name)), (A, B) -> Union{A,B}, owned)
     runtime_tracers = required_biogeochemical_tracers(runtime)
+    for tracer in nutrient_tracers
+        tracer isa Symbol || throw(
+            ArgumentError("NPDPlankton nutrient_tracers must contain tracer names as Symbols."),
+        )
+        tracer in runtime_tracers || throw(
+            ArgumentError("NPDPlankton nutrient tracer :$tracer is not an Agate runtime tracer."),
+        )
+    end
     for (channel, tracer) in pairs(exchange_tracers)
         tracer === nothing && continue
         tracer in runtime_tracers || throw(ArgumentError(
@@ -264,12 +270,12 @@ function construct_npd_plankton(
     return _wrap_npd_runtime(family, runtime)
 end
 
-@inline _owned_tracers(::NPDPlankton{R,O}) where {R,O} = O
-@inline _nutrient_tracers(::NPDPlankton{R,O,OT,N}) where {R,O,OT,N} = N
-@inline _exchange_tracers(::NPDPlankton{R,O,OT,N,E}) where {R,O,OT,N,E} = E
-@inline _consumed_detritus(::NPDPlankton{R,O,OT,N,E,D}) where {R,O,OT,N,E,D} = D
-@inline _dependencies(::NPDPlankton{R,O,OT,N,E,D,Deps}) where {R,O,OT,N,E,D,Deps} = Deps
-@inline phytoplankton_tracers(::NPDPlankton{R,O,OT,N,E,D,Deps,P}) where {R,O,OT,N,E,D,Deps,P} = P
+@inline _owned_tracers(::NPDPlankton{<:Any,OwnedTracers}) where {OwnedTracers} = OwnedTracers
+@inline _nutrient_tracers(::NPDPlankton{<:Any,<:Any,<:Any,NutrientTracers}) where {NutrientTracers} = NutrientTracers
+@inline _exchange_tracers(::NPDPlankton{<:Any,<:Any,<:Any,<:Any,ExchangeTracers}) where {ExchangeTracers} = ExchangeTracers
+@inline _consumed_detritus(::NPDPlankton{<:Any,<:Any,<:Any,<:Any,<:Any,ConsumedDetritus}) where {ConsumedDetritus} = ConsumedDetritus
+@inline _dependencies(::NPDPlankton{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,Dependencies}) where {Dependencies} = Dependencies
+@inline phytoplankton_tracers(::NPDPlankton{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,PhytoplanktonTracers}) where {PhytoplanktonTracers} = PhytoplanktonTracers
 
 @inline required_biogeochemical_tracers(plankton::NPDPlankton) = _owned_tracers(plankton)
 @inline required_biogeochemical_auxiliary_fields(plankton::NPDPlankton) = Tuple(
@@ -280,15 +286,28 @@ end
     biogeochemical_drift_velocity(plankton.runtime, tracer)
 
 @inline chlorophyll_ratio(plankton::NPDPlankton) = plankton.traits.chlorophyll_ratio
-@inline carbon_ratio(plankton::NPDPlankton, ::NutrientsPlanktonDetritus{FT}) where FT =
-    convert(FT, plankton.traits.carbon_ratio)
+@inline carbon_ratio(
+    plankton::NPDPlankton, ::NutrientsPlanktonDetritus{FloatType}
+) where FloatType = convert(FloatType, plankton.traits.carbon_ratio)
 @inline chlorophyll(plankton::NPDPlankton, model) = plankton.traits.chlorophyll_ratio *
     mapreduce(name -> getproperty(model.tracers, name), +, phytoplankton_tracers(plankton))
 
-@inline function adapt_structure(to, plankton::NPDPlankton{R,O,OT,N,E,D,Deps,P,T}) where {R,O,OT,N,E,D,Deps,P,T}
+@inline function adapt_structure(
+    to,
+    plankton::NPDPlankton{
+        <:Any,OwnedTracers,OwnedTracerType,NutrientTracers,ExchangeTracers,
+        ConsumedDetritus,Dependencies,PhytoplanktonTracers,<:Any,
+    },
+) where {
+    OwnedTracers,OwnedTracerType,NutrientTracers,ExchangeTracers,
+    ConsumedDetritus,Dependencies,PhytoplanktonTracers,
+}
     runtime = adapt(to, plankton.runtime)
     traits = adapt(to, plankton.traits)
-    return NPDPlankton{typeof(runtime),O,OT,N,E,D,Deps,P,typeof(traits)}(runtime, traits)
+    return NPDPlankton{
+        typeof(runtime),OwnedTracers,OwnedTracerType,NutrientTracers,ExchangeTracers,
+        ConsumedDetritus,Dependencies,PhytoplanktonTracers,typeof(traits),
+    }(runtime, traits)
 end
 
 @inline function _append_unique(acc::Tuple, values::Tuple)
@@ -299,8 +318,8 @@ end
 end
 
 @inline function required_biogeochemical_tracers(
-    npd::NutrientsPlanktonDetritus{FT,NUT,PLA},
-) where {FT,NUT,PLA<:NPDPlankton}
+    npd::NutrientsPlanktonDetritus{<:Any,<:Any,PlanktonType},
+) where {PlanktonType<:NPDPlankton}
     tracers = (
         required_biogeochemical_tracers(npd.nutrients)...,
         required_biogeochemical_tracers(npd.plankton)...,
@@ -361,21 +380,20 @@ end
 
 # Restrict the NPD call overload to the Agate-owned living tracer union so OceanBioME
 # nutrient/detritus/carbon/oxygen tracers keep their native dispatch.
-@inline (bgc::NutrientsPlanktonDetritus{<:Any,<:Any,PLA})(
+@inline (bgc::NutrientsPlanktonDetritus{<:Any,<:Any,PlanktonType})(
     i, j, k, grid, tracer::OwnedTracerType, clock, fields, auxiliary_fields
 ) where {
-    Runtime,OwnedTracers,OwnedTracerType,N,E,D,Deps,P,T,
-    PLA<:NPDPlankton{Runtime,OwnedTracers,OwnedTracerType,N,E,D,Deps,P,T},
+    OwnedTracerType,
+    PlanktonType<:NPDPlankton{<:Any,<:Any,OwnedTracerType},
 } = _agate_tendency(
     bgc.plankton, tracer, i, j, k, clock.time, fields, auxiliary_fields
 )
 
 @inline function nutrient_uptake(
-    i, j, k, grid, nutrient::Union{Val{:NO₃},Val{:NH₄}}, plankton::NPDPlankton,
+    i, j, k, grid, nutrient::Val{Nutrient}, plankton::NPDPlankton,
     ::NutrientsPlanktonDetritus, fields, auxiliary_fields,
-)
-    name = nutrient isa Val{:NO₃} ? :NO₃ : :NH₄
-    name in _nutrient_tracers(plankton) || return zero(eltype(grid))
+) where Nutrient
+    Nutrient in _nutrient_tracers(plankton) || return zero(eltype(grid))
     return -_exchange_tendency(plankton, nutrient, i, j, k, grid, fields, auxiliary_fields)
 end
 

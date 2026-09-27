@@ -139,8 +139,8 @@ The keyed parameter block separates runtime process parameters from construction
 Scientific slots and realized process applicability determine `Parameter` vector or matrix storage
 automatically, so runtime parameters never restate axes. `ConstructionParameter` values exist only during
 construction to feed `DerivedDefault` calculations; shaped construction parameters use the global
-`axes=:plankton` construction domain. Family-level scientific values that do not derive process
-parameters use `ModelSetting` instead. Scientific slot-to-parameter relationships are authored
+`axes=:plankton` construction domain. Family-level scientific properties that affect the realized model but are not inputs to an
+individual process equation use `ModelSetting` instead. Scientific slot-to-parameter relationships are authored
 beside the process or factor through `bindings=`.
 
 ```@docs
@@ -188,7 +188,7 @@ Agate.Compilation.process_parameter_operands
 
 Named model families add stable code identity and durable recipe replay around the same definition-driven process compiler. `ModelRecipe` is the `agate.model_recipe.v0.2` family/version/realization document: it records the registered family, exact `definition_version`, canonical plankton/size realization, process parameter overrides, model-setting overrides, sinking choices, and bottom state. Named scientific mappings are serialized as mappings, so key insertion order does not change recipe equality or the scientific content hash. The loaded family supplies the canonical component/process definition and setting defaults on replay. `ModelManifest` records the resolved execution state, including fully resolved model settings.
 
-External family packages subtype `AbstractModelFamily`, provide `default_components`, `default_processes`, `definition_version`, and `parameter_definitions`, and register durable recipe identity through `family_id` and `registered_family`. Family-level scientific configuration that is not bound to process equations is declared separately with `setting_definitions` and `ModelSetting`. User-facing constructors translate family-specific keywords into `plankton_pfts`, process `parameter_overrides`, and optional `setting_overrides`, then call `Construction.construct(family; ...)`. `normalize_pft_size_structure` provides the shared named-family `(n=0,)` shorthand without weakening core size validation. Recipes are captured with `capture_model_recipe`, the durable schema identifier is available through `recipe_schema`, and replay uses `construct(recipe)` or `construct_plus_manifest(recipe)`.
+External family packages subtype `AbstractModelFamily`, provide `default_components`, `default_processes`, `definition_version`, and `parameter_definitions`, and register durable recipe identity through `family_id` and `registered_family`. Family-level scientific properties that are not inputs to an individual process equation are declared separately with `setting_definitions` and `ModelSetting`; examples include elemental or diagnostic ratios used by an integration layer. User-facing constructors translate family-specific keywords into `plankton_pfts`, process `parameter_overrides`, and optional `setting_overrides`, then call `Construction.construct(family; ...)`. `normalize_pft_size_structure` provides the shared named-family `(n=0,)` shorthand without weakening core size validation. Recipes are captured with `capture_model_recipe`, the durable schema identifier is available through `recipe_schema`, and replay uses `construct(recipe)` or `construct_plus_manifest(recipe)`.
 
 ```@docs
 Agate.ModelFamilies.ModelSetting

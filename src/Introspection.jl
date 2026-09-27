@@ -82,7 +82,7 @@ end
 
 """    model_settings(bgc) -> NamedTuple
 
-Return resolved family-level scientific settings that are not process-bound parameters.
+Return resolved model-family properties that are not inputs to an individual process equation.
 """
 function model_settings(bgc)
     metadata = _model_metadata(bgc)

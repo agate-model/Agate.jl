@@ -24,19 +24,22 @@ slope, and `maximum_rate` is the enclosing growth-process rate scale.
 end
 
 """
-    exponential_light_limitation(PAR, half_saturation)
+    exponential_light_limitation(PAR, light_scale)
 
-Evaluate the saturating-exponential light-limitation factor used by LOBSTER.
+Evaluate a saturating exponential light-response factor.
 
 ```math
 L_I(I) = 1 - \\exp\\left(-\\frac{I}{K_I}\\right)
 ```
 
-`PAR` is photosynthetically active radiation and `half_saturation` is the LOBSTER
-light-response scale ``K_I``.
+`PAR` is photosynthetically active radiation and `light_scale` is the positive
+irradiance scale ``K_I``. A documented ocean-biogeochemical use of this response is
+Lévy, Klein & Tréguier (2001), Eq. (A7), *Journal of Marine Research* 59, 535-565,
+doi:10.1357/002224001762842181.
 """
-@inline exponential_light_limitation(PAR, half_saturation) =
-    one(PAR + half_saturation) - exp(-PAR / half_saturation)
+@inline exponential_light_limitation(PAR, light_scale) =
+    one(PAR + light_scale) - exp(-PAR / light_scale)
+
 
 """
     geider_light_response(PAR, alpha, maximum_rate, chlorophyll_to_carbon_ratio)

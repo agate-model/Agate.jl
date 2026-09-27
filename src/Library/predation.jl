@@ -17,8 +17,9 @@ end
 """
     linear_predation_loss(inventory, consumer, grazing_rate, palatability)
 
-Return mass-action prey loss ``g p R Z`` for grazing coefficient `g`, palatability `p`,
-prey inventory `R`, and consumer biomass `Z`.
+Return the prey-biomass consumption rate ``g p R Z``, where `R` is prey biomass, `Z` is
+consumer biomass, `g` is the grazing coefficient, and `p` is prey palatability. Consumption
+therefore increases linearly with both prey and consumer biomass.
 """
 @inline linear_predation_loss(inventory, consumer, grazing_rate, palatability) =
     grazing_rate * palatability * inventory * consumer

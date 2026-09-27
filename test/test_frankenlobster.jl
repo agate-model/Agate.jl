@@ -96,6 +96,13 @@ end
         exchange_tracers=(solid=:solid_watse, dissolved=nothing, inorganic=nothing),
         traits=plankton.traits,
     )
+    @test Agate.Integrations.NPDPlankton(
+        plankton.runtime;
+        owned_components=(:P, :Z, :H),
+        phytoplankton_components=(:P,),
+        nutrient_tracers=(:DOM,),
+        traits=plankton.traits,
+    ) isa Agate.Integrations.NPDPlankton
     @test_throws ArgumentError FrankenLOBSTER.construct(settings=(unknown=1.0,))
     @test_throws ArgumentError FrankenLOBSTER.construct(sinking_tracers=(P_1=0.1,))
 end
@@ -105,6 +112,8 @@ end
     aux = (PAR=_cell(1.0),)
     tendency(tracer, fields) = bgc(1, 1, 1, _GRID, Val(tracer), (; time=0.0), fields, aux)
     uptake(tracer, fields) = nutrient_uptake(1, 1, 1, _GRID, Val(tracer), bgc.plankton, bgc, fields, aux)
+
+    @test uptake(:DOM, _fields()) == 0
 
     nitrate = _fields(; NO₃=1.0, P_1=2.0)
     gross = uptake(:NO₃, nitrate)

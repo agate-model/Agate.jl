@@ -206,7 +206,8 @@ end
         LinearRemineralization(), Products((a=:A, b=:B); fractions=(a=:fraction_a,)),
         FixedStoichiometry(; reference_element=:carbon),
     )
-    expected(node, name) = (node isa HeterotrophicConsumption || node isa ExponentialSaturation) && name === :half_saturation ? :positive :
+    expected(node, name) = node isa ExponentialSaturation && name === :light_scale ? :positive :
+        node isa HeterotrophicConsumption && name === :half_saturation ? :positive :
         name in (:minimum_quota, :maximum_quota, :hill, :sharpness, :q10) ? :positive :
         name === :reference_temperature ? :finite :
         name in (:assimilation, :fraction) ? :unit_interval : :nonnegative

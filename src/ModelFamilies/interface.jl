@@ -5,7 +5,12 @@ export plankton_roles
 export ModelSetting
 export setting_definitions
 
-"""One scientific model-family setting that is resolved at construction but not bound to a process slot."""
+"""A configurable scientific property of a model family.
+
+`ModelSetting` stores a default value and validation domain for model-level properties that
+affect the realized model but are not parameters of an individual biological process, such as
+carbon-to-nitrogen or chlorophyll-to-nitrogen ratios.
+"""
 struct ModelSetting{Default}
     default::Default
     domain::Symbol
@@ -22,7 +27,7 @@ end
 
 ModelSetting(default; domain::Symbol=:finite) = ModelSetting(default, domain)
 
-"""Scientific settings for a named model family that are not process-bound parameters."""
+"""Return configurable scientific properties defined by a model family."""
 setting_definitions(::AbstractModelFamily) = (;)
 
 """Map user-facing plankton roles to logical components, e.g. `phytoplankton => :P`."""

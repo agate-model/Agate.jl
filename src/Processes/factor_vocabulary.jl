@@ -71,7 +71,7 @@ function PreferentialGrazing(; switching_exponent=1)
     return PreferentialGrazing(switching_exponent)
 end
 
-"""Mass-action grazing with prey loss proportional to consumer and prey biomass.
+"""Linear grazing with prey consumption proportional to prey and consumer biomass.
 
 The `rate` parameter is consumer-indexed and has inverse-concentration inverse-time units.
 `palatability` scales individual consumer-resource links.
