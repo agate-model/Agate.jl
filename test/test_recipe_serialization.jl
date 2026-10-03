@@ -43,7 +43,7 @@ end
     family_constructed = Agate.Construction.construct(family;
         plankton_pfts=default_recipe.plankton_pfts,
         grid=BoxModelGrid(Float32))
-    replayed_default = NiPiZD.construct_from_recipe(default_recipe; grid=BoxModelGrid(Float32))
+    replayed_default = NiPiZD.construct(default_recipe; grid=BoxModelGrid(Float32))
     @test required_biogeochemical_tracers(direct) == required_biogeochemical_tracers(with_recipe)
     @test required_biogeochemical_tracers(replayed_default) == required_biogeochemical_tracers(direct)
     @test required_biogeochemical_tracers(family_constructed) == required_biogeochemical_tracers(direct)
@@ -87,9 +87,7 @@ end
     @test keys(recipe.plankton_pfts) == (:P, :Z)
     @test keys(recipe.plankton_pfts.P) == (:diat,)
     @test keys(recipe.plankton_pfts.Z) == (:microzoo,)
-    @test recipe.parameter_overrides == merge(
-        inputs.parameters, (palatability_matrix=inputs.palatability_matrix,)
-    )
+    @test recipe.parameter_overrides == inputs.parameters
     @test isempty(recipe.setting_overrides)
     @test !recipe.open_bottom
     @test recipe.sinking_tracers == inputs.sinking_tracers
@@ -156,7 +154,7 @@ end
     @test recipe.parameter_overrides.palatability_matrix[1, 1] == 0.8f0
     @test encode_recipe(recipe)["content_hash"] == recipe_hash
 
-    replayed = NiPiZD.construct_from_recipe(decoded; grid=BoxModelGrid(Float32))
+    replayed = NiPiZD.construct(decoded; grid=BoxModelGrid(Float32))
     @test all(
         getproperty(replayed.parameters, name) == getproperty(decoded_manifest.parameters, name)
         for name in keys(replayed.parameters)
@@ -228,7 +226,7 @@ end
         recipe.open_bottom,
     )
     @test encode_recipe(bumped_recipe)["content_hash"] != encoded["content_hash"]
-    @test_throws ArgumentError NiPiZD.construct_from_recipe(bumped_recipe)
+    @test_throws ArgumentError NiPiZD.construct(bumped_recipe)
     @test required_biogeochemical_tracers(NiPiZD.construct()) ==
           (:N, :D, :P_1, :P_2, :Z_1, :Z_2)
 

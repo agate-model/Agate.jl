@@ -74,8 +74,8 @@ using Oceananigans.Biogeochemistry:
                 maximum_growth_rate=(P=2 / day,),
                 nutrient_half_saturation=(P=0.2,),
                 maximum_predation_rate=(Z=1 / day,),
+                palatability_matrix=reshape(Float32[0.5], 1, 1),
             ),
-            palatability_matrix=reshape(Float32[0.5], 1, 1),
         )
         @test required_biogeochemical_tracers(unsized_bgc) == (:N, :D, :P, :Z)
         @test plankton_diameters(unsized_bgc) == [nothing, nothing]
@@ -89,8 +89,8 @@ using Oceananigans.Biogeochemistry:
             parameters=(;
                 maximum_growth_rate=(plain=2 / day,),
                 nutrient_half_saturation=(plain=0.2,),
+                palatability_matrix=reshape(Float32[0.5, 0.5], 1, 2),
             ),
-            palatability_matrix=reshape(Float32[0.5, 0.5], 1, 2),
         )
         @test required_biogeochemical_tracers(mixed_bgc) ==
               (:N, :D, :plain, :sized_1, :Z_1)
@@ -181,20 +181,14 @@ using Oceananigans.Biogeochemistry:
         explicit_interactions = NiPiZD.construct(;
             size_structure=named_size_structure,
             grid=dummy_grid(Float32),
-            palatability_matrix=palatability,
-            assimilation_matrix=assimilation,
+            parameters=(; palatability_matrix=palatability, assimilation_matrix=assimilation),
         )
         @test explicit_interactions.parameters.palatability_matrix == palatability
         @test explicit_interactions.parameters.assimilation_matrix == assimilation
         @test_throws ArgumentError NiPiZD.construct(;
-            size_structure=named_size_structure, parameters=(palatability_matrix=palatability,),
-            palatability_matrix=palatability,
-        )
-
-        @test_throws ArgumentError NiPiZD.construct(;
             size_structure=named_size_structure,
             grid=dummy_grid(Float32),
-            palatability_matrix=zeros(Float32, 4, 4),
+            parameters=(palatability_matrix=zeros(Float32, 4, 4),),
         )
     end
 
@@ -209,7 +203,8 @@ using Oceananigans.Biogeochemistry:
         rect = reshape(Float32.(1:(n_cons * n_prey)), n_cons, n_prey)
         assimilation = rect ./ (length(rect) + 1)
         bgc_rect = NiPiZD.construct(;
-            grid=dummy_grid(Float32), palatability_matrix=rect, assimilation_matrix=assimilation
+            grid=dummy_grid(Float32),
+            parameters=(; palatability_matrix=rect, assimilation_matrix=assimilation),
         )
         @test bgc_rect.parameters.palatability_matrix == rect
         @test bgc_rect.parameters.assimilation_matrix == assimilation
@@ -218,16 +213,14 @@ using Oceananigans.Biogeochemistry:
         full = zeros(Float32, n_total, n_total)
         @test_throws ArgumentError NiPiZD.construct(;
             grid=dummy_grid(Float32),
-            palatability_matrix=full,
-            assimilation_matrix=full,
+            parameters=(; palatability_matrix=full, assimilation_matrix=full),
         )
 
         # Provider/callable values are not parameter values.
         rect_provider(_) = fill(Float32(9), 1, 1)
         message = argument_error_message(() -> NiPiZD.construct(;
             grid=dummy_grid(Float32),
-            palatability_matrix=rect_provider,
-            assimilation_matrix=rect_provider,
+            parameters=(; palatability_matrix=rect_provider, assimilation_matrix=rect_provider),
         ))
         @test occursin("must be a matrix", message)
     end
@@ -250,8 +243,7 @@ using Oceananigans.Biogeochemistry:
         rect = fill(Float32(11), size(pal0))
         bgc2 = NiPiZD.construct(;
             grid=dummy_grid(Float32),
-            parameters=(; specificity=specificity),
-            palatability_matrix=rect,
+            parameters=(; specificity=specificity, palatability_matrix=rect),
         )
         @test all(bgc2.parameters.palatability_matrix .== rect)
     end
@@ -371,6 +363,7 @@ using Oceananigans.Biogeochemistry:
         @testset "GPU smoke test" begin
             @eval using CUDA
             @eval using OceanBioME: Biogeochemistry, PrescribedPhotosyntheticallyActiveRadiation
+            @eval using OceanBioME.Models.NutrientsPlanktonDetritusModels: LOBSTER
             @eval using Oceananigans: RectilinearGrid, NonhydrostaticModel, Clock, Center
             @eval using Oceananigans: set!, time_step!
             @eval using Oceananigans.Fields: FunctionField
@@ -422,6 +415,40 @@ using Oceananigans.Biogeochemistry:
                 )
                 time_step!(model, 60f0)
                 @test model.clock.iteration == 1
+
+                franken_plankton = Agate.Models.FrankenLOBSTER.construct(; grid)
+                @test franken_plankton.runtime.parameters.palatability_matrix isa
+                    array_type(GPU())
+                @test franken_plankton.runtime.parameters.maximum_growth_rate isa
+                    array_type(GPU())
+
+                franken_clock = Clock(; time=zero(grid))
+                franken_PAR = FunctionField{Center,Center,Center}(
+                    gpu_smoke_PAR, grid; clock=franken_clock
+                )
+                franken_light = PrescribedPhotosyntheticallyActiveRadiation(franken_PAR)
+                franken_bgc = LOBSTER(
+                    grid; plankton=franken_plankton, light_attenuation=franken_light
+                )
+                franken_model = NonhydrostaticModel(
+                    grid; clock=franken_clock, biogeochemistry=franken_bgc
+                )
+                set!(
+                    franken_model;
+                    NO₃=7f0,
+                    NH₄=0.1f0,
+                    DOM=0.1f0,
+                    sPOM=0.01f0,
+                    bPOM=0.01f0,
+                    T=20f0,
+                    P_1=0.01f0,
+                    P_2=0.01f0,
+                    Z_1=0.02f0,
+                    Z_2=0.02f0,
+                    H_1=0.01f0,
+                )
+                time_step!(franken_model, 60f0)
+                @test franken_model.clock.iteration == 1
             end
         end
     end

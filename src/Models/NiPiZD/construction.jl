@@ -5,8 +5,6 @@ import ...Construction
 function _construction_inputs(;
     size_structure=DEFAULT_SIZE_STRUCTURE,
     parameters::NamedTuple=(;),
-    palatability_matrix=nothing,
-    assimilation_matrix=nothing,
     grid=BoxModelGrid(),
     scalar_type=nothing,
     arch=nothing,
@@ -16,18 +14,9 @@ function _construction_inputs(;
     family = NiPiZDFamily()
     plankton_realization = Construction.plankton_realization(family, size_structure)
 
-    parameter_overrides = parameters
-    for (name, value) in ((:palatability_matrix, palatability_matrix),
-                          (:assimilation_matrix, assimilation_matrix))
-        value === nothing && continue
-        hasproperty(parameter_overrides, name) && throw(ArgumentError(
-            "parameter :$name cannot be supplied through both `parameters` and `$name`",
-        ))
-        parameter_overrides = merge(parameter_overrides, NamedTuple{(name,)}((value,)))
-    end
     realization = (;
         plankton_pfts=plankton_realization,
-        parameter_overrides,
+        parameter_overrides=parameters,
         sinking_tracers,
         open_bottom,
     )
@@ -47,9 +36,8 @@ detritus (`D`) cycling. The returned biogeochemistry instance includes a photosy
 active radiation (PAR) auxiliary field.
 
 During construction, plankton size (diameter) is used to resolve trait-based parameter
-vectors and interaction matrices (e.g. palatability and assimilation efficiency). You
-may override interaction matrices explicitly with `palatability_matrix` and/or
-`assimilation_matrix`.
+vectors and interaction matrices (e.g. palatability and assimilation efficiency). Interaction
+matrices may be overridden explicitly through `parameters`.
 
 Each PFT size structure may be a NamedTuple range, for example
 `(n=3, min_esd=1, max_esd=10, spacing=:log)`, or an explicit
@@ -66,10 +54,12 @@ Keywords
 - `size_structure`: phytoplankton and zooplankton PFTs, supplied as a NamedTuple with
   `phytoplankton` and `zooplankton` fields. Defaults to `P` and `Z` PFTs with two SizeClasses
   each.
-- `parameters=(;)`: parameter overrides (validated against the NiPiZD parameter set). Vector parameters may be supplied positionally, as partial NamedTuple overrides keyed by realized plankton SizeClass identity (for example `P_1`, `diat_1`, or `microzoo_1`), or as allometric definitions for diameter-indexed plankton vectors.
-- `palatability_matrix=nothing`: optional palatability matrix override. Must be an explicit rectangular matrix with rows ordered by realized zooplankton SizeClasses and columns ordered by realized phytoplankton SizeClasses.
-- `assimilation_matrix=nothing`: optional assimilation matrix override with the same consumer-by-prey SizeClass ordering as `palatability_matrix`.
-  Interaction matrices must be supplied either here or through `parameters`, not both.
+- `parameters=(;)`: parameter overrides validated against the NiPiZD parameter set. Vector
+  parameters may be supplied positionally, as partial NamedTuple overrides keyed by realized
+  plankton SizeClass identity (for example `P_1`, `diat_1`, or `microzoo_1`), or as allometric
+  definitions for diameter-indexed plankton vectors. Interaction matrices such as
+  `palatability_matrix` and `assimilation_matrix` are supplied here as explicit consumer-by-prey
+  matrices when overriding their derived defaults.
 - `grid=BoxModelGrid()`: grid used for architecture inference and default scalar-type selection
 - `scalar_type=nothing`: explicit runtime scalar type. When omitted, construction uses `eltype(grid)` or `Float64` if no grid is supplied
 - `arch=nothing`: override the architecture (usually inferred from `grid`)
@@ -109,17 +99,15 @@ function construct(; kwargs...)
 end
 
 """
-    construct_from_recipe(recipe; grid=BoxModelGrid(), arch=nothing, scalar_type=nothing) -> bgc
+    construct(recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing, scalar_type=nothing) -> bgc
 
 Replay a NiPiZD recipe in the supplied runtime environment.
 """
-function construct_from_recipe(
+function construct(
     recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing, scalar_type=nothing
 )
     recipe.family == :NiPiZD || throw(
-        ArgumentError(
-            "NiPiZD.construct_from_recipe requires a NiPiZD recipe; got family $(recipe.family)"
-        ),
+        ArgumentError("NiPiZD.construct requires a NiPiZD recipe; got family $(recipe.family)"),
     )
     return Construction.construct(recipe; grid, arch, scalar_type)
 end
