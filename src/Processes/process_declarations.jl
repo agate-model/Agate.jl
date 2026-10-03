@@ -198,9 +198,9 @@ authored_parameter_bindings(process::NutrientUptake) = process.bindings
 """Consumer-resource process with optional factors and unassimilated products.
 
 For `PreferentialGrazing`, `maximum_rate` is one consumer-level ingestion capacity shared across
-all declared prey. `LinearGrazing` instead applies a consumer-level mass-action `rate`
-independently to each consumer-resource link. For `HeterotrophicConsumption`, `maximum_rate` is
-likewise one consumer-level uptake capacity shared across substitutable substrates. When one living-prey
+all declared prey. `LinearGrazing` instead applies an independent linear grazing `rate` to each
+consumer-resource link. For `HeterotrophicConsumption`, `maximum_rate` is likewise one
+consumer-level uptake capacity shared across substitutable substrates. When one living-prey
 consumption process routes multi-element unassimilated products from multiple resources, those resources currently
 must expose the same prognostic Element set.
 """

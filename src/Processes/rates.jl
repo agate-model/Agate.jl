@@ -61,7 +61,7 @@ function factor_value end
            )
 end
 
-"""Evaluate mass-action loss of one living prey state."""
+"""Evaluate prey consumption for one linear grazing interaction."""
 @inline process_rate(
     ::LinearGrazing, inventory, consumer, rate, palatability
 ) = linear_predation_loss(inventory, consumer, rate, palatability)

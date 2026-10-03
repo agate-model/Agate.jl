@@ -189,94 +189,88 @@ function _heterotrophic_consumption_fluxes!(
     return nothing
 end
 
+function _shared_consumption_operands(
+    formulation::PreferentialGrazing, consumer, resources, slots, context::CompileContext
+)
+    layout = context.layout
+    reference_resources = Tuple(
+        input_operand(layout, resource.tracer) for resource in resources
+    )
+    palatabilities = Tuple(
+        parameter_operand(
+            slots.palatability,
+            context,
+            (consumer=consumer.position, resource=resource.position),
+        ) for resource in resources
+    )
+    # Keep consumer-level prey reductions as scalar IR nodes. Materializing the full
+    # evaluated prey/palatability tuples in every edge rate causes generated-code
+    # growth to become pathological for richer food webs.
+    total_palatable_biomass = ProductPowerSumOp{1}(reference_resources, palatabilities)
+    formulation.switching_exponent == 1 && return (total_palatable_biomass,)
+    switching_weight_sum = ProductPowerSumOp{formulation.switching_exponent}(
+        reference_resources, palatabilities
+    )
+    return (total_palatable_biomass, switching_weight_sum)
+end
+
+_shared_consumption_operands(
+    ::LinearGrazing, consumer, resources, slots, context::CompileContext
+) = ()
+
+function _shared_consumption_operands(
+    ::HeterotrophicConsumption, consumer, resources, slots, context::CompileContext
+)
+    layout = context.layout
+    resource_operands = Tuple(
+        input_operand(layout, resource.tracer) for resource in resources
+    )
+    substrate_affinities = Tuple(begin
+        axis_positions = (consumer=consumer.position, resource=resource.position)
+        QuotientOp(
+            parameter_operand(slots.substrate_preference, context, axis_positions),
+            parameter_operand(slots.half_saturation, context, axis_positions),
+        )
+    end for resource in resources)
+    total_substrate_availability = ProductPowerSumOp{1}(
+        resource_operands, substrate_affinities
+    )
+    return (total_substrate_availability,)
+end
+
+_consumption_flux_appender(::PreferentialGrazing) = _living_consumption_fluxes!
+_consumption_flux_appender(::LinearGrazing) = _living_consumption_fluxes!
+_consumption_flux_appender(::HeterotrophicConsumption) = _heterotrophic_consumption_fluxes!
+
 function process_fluxes(
     named::CanonicalProcess{Process}, context::CompileContext
 ) where {Process<:Consumption}
-    form = named.process.formulation
     layout = context.layout
+    formulation = named.process.formulation
     consumers = _realize_participants(named.semantic_facts.consumer_states, layout)
     resources = _realize_participants(named.semantic_facts.resources, layout)
     slots = named.binding_refs.process
+    append_fluxes! = _consumption_flux_appender(formulation)
     fluxes = Any[]
 
-    if form isa PreferentialGrazing
-        for consumer in consumers
-            reference_resources = Tuple(
-                input_operand(layout, resource.tracer) for resource in resources
-            )
-            palatabilities = Tuple(
-                parameter_operand(
-                    slots.palatability,
-                    context,
-                    (consumer=consumer.position, resource=resource.position),
-                ) for resource in resources
-            )
-            # Keep consumer-level prey reductions as scalar IR nodes. Materializing the full
-            # evaluated prey/palatability tuples in every edge rate causes generated-code
-            # growth to become pathological for richer food webs.
-            total_palatable_biomass = ProductPowerSumOp{1}(reference_resources, palatabilities)
-            switching_exponent = form.switching_exponent
-            shared_operands = if switching_exponent == 1
-                (total_palatable_biomass,)
-            else
-                switching_weight_sum = ProductPowerSumOp{switching_exponent}(
-                    reference_resources, palatabilities
-                )
-                (total_palatable_biomass, switching_weight_sum)
-            end
-
-            for resource in resources
-                axis_positions = (consumer=consumer.position, resource=resource.position)
-                _living_consumption_fluxes!(
-                    fluxes,
-                    named,
-                    context,
-                    consumer,
-                    resource,
-                    slots,
-                    axis_positions,
-                    shared_operands,
-                )
-            end
-        end
-    elseif form isa LinearGrazing
-        for consumer in consumers, resource in resources
+    for consumer in consumers
+        shared_operands = _shared_consumption_operands(
+            formulation, consumer, resources, slots, context
+        )
+        for resource in resources
             axis_positions = (consumer=consumer.position, resource=resource.position)
-            _living_consumption_fluxes!(
-                fluxes, named, context, consumer, resource, slots, axis_positions, ()
+            append_fluxes!(
+                fluxes,
+                named,
+                context,
+                consumer,
+                resource,
+                slots,
+                axis_positions,
+                shared_operands,
             )
-        end
-    else
-        for consumer in consumers
-            resource_operands = Tuple(
-                input_operand(layout, resource.tracer) for resource in resources
-            )
-            substrate_affinities = Tuple(begin
-                axis_positions = (consumer=consumer.position, resource=resource.position)
-                QuotientOp(
-                    parameter_operand(slots.substrate_preference, context, axis_positions),
-                    parameter_operand(slots.half_saturation, context, axis_positions),
-                )
-            end for resource in resources)
-            total_substrate_availability = ProductPowerSumOp{1}(
-                resource_operands, substrate_affinities
-            )
-            shared_operands = (total_substrate_availability,)
-
-            for resource in resources
-                axis_positions = (consumer=consumer.position, resource=resource.position)
-                _heterotrophic_consumption_fluxes!(
-                    fluxes,
-                    named,
-                    context,
-                    consumer,
-                    resource,
-                    slots,
-                    axis_positions,
-                    shared_operands,
-                )
-            end
         end
     end
+
     return Tuple(fluxes)
 end

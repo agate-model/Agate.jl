@@ -1,6 +1,6 @@
 import ...Parameters:
     parameter_definitions, Parameter, ConstructionParameter, DerivedDefault,
-    DiameterIndexedVectorDefault, ConsumerResourceFromConsumer
+    DiameterIndexedVectorDefault, BroadcastConsumerAcrossResources
 import ...ModelFamilies: ModelSetting, setting_definitions
 
 using ...Library.Allometry: AllometricParam, PowerLaw
@@ -40,7 +40,7 @@ function parameter_definitions(::FrankenLOBSTERFamily)
         zooplankton_mortality_rate=Parameter(2.31e-6),
         bacterial_maximum_uptake_rate=Parameter(diameter_default(bacterial_uptake)),
         bacterial_dom_half_saturation=Parameter(DerivedDefault(
-            ConsumerResourceFromConsumer(); deps=(:bacterial_dom_affinity_trait,)
+            BroadcastConsumerAcrossResources(); deps=(:bacterial_dom_affinity_trait,)
         )),
         bacterial_substrate_preference=Parameter(1.0),
         bacterial_assimilation=Parameter(0.1),

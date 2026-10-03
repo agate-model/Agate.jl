@@ -13,7 +13,7 @@ import ...Parameters:
 
 using ...Library.Allometry: AllometricParam, PowerLaw
 
-using ...Parameters: AllometricPalatability, ConsumerResourceFromConsumer
+using ...Parameters: AllometricPalatability, BroadcastConsumerAcrossResources
 
 function parameter_definitions(::NiPiZDFamily)
     detritus_remin = 0.1213 / 86400
@@ -42,7 +42,7 @@ function parameter_definitions(::NiPiZDFamily)
         ),
         assimilation_matrix=Parameter(
             DerivedDefault(
-                ConsumerResourceFromConsumer(); deps=(:assimilation_efficiency,)
+                BroadcastConsumerAcrossResources(); deps=(:assimilation_efficiency,)
             )
         ),
         optimum_predator_prey_ratio=ConstructionParameter(

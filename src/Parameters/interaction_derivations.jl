@@ -18,13 +18,12 @@ end
 """Derive consumer-by-prey palatability from size traits, with optional prey protection."""
 struct AllometricPalatability end
 
-"""Broadcast a consumer-specific trait across a consumer-by-resource parameter matrix.
+"""Broadcast one consumer-indexed value across every resource for that consumer.
 
-The single declared dependency must be a vector over realized plankton SizeClasses. This is
-useful when one physiological trait, such as substrate affinity, belongs to the consumer but
-the runtime formulation stores a value for each consumer-resource edge.
+The single declared dependency must be a vector over realized plankton SizeClasses. The
+result is a consumer-by-resource matrix whose rows repeat the corresponding consumer value.
 """
-struct ConsumerResourceFromConsumer end
+struct BroadcastConsumerAcrossResources end
 
 function _plankton_entity_indices(
     layout::ModelLayout, labels::Tuple, parameter_name::Symbol, axis_name::Symbol
@@ -89,14 +88,14 @@ end
 end
 
 @inline function _derive_parameter_default(
-    ::ConsumerResourceFromConsumer,
+    ::BroadcastConsumerAcrossResources,
     ::Any,
     layout::ModelLayout,
     parameter,
     params::NamedTuple,
 )
     length(params) == 1 || throw(ArgumentError(
-        "ConsumerResourceFromConsumer requires exactly one consumer-trait dependency",
+        "BroadcastConsumerAcrossResources requires exactly one consumer-indexed dependency",
     ))
     trait_name = first(keys(params))
     trait = _require_scalar_vector(layout.scalar_type, first(values(params)), trait_name)

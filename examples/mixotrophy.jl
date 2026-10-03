@@ -4,7 +4,7 @@
 # `Plankton` that participates in both growth and grazing.
 
 using Agate.Components: Plankton, Pool
-using Agate.Parameters: AllometricPalatability, ConsumerResourceFromConsumer, ConstructionParameter, DerivedDefault, Parameter
+using Agate.Parameters: AllometricPalatability, BroadcastConsumerAcrossResources, ConstructionParameter, DerivedDefault, Parameter
 using Agate.Construction: construct
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
@@ -69,7 +69,7 @@ parameters = (
         )
     ),
     assimilation_matrix=Parameter(
-        DerivedDefault(ConsumerResourceFromConsumer(); deps=(:assimilation_efficiency,))
+        DerivedDefault(BroadcastConsumerAcrossResources(); deps=(:assimilation_efficiency,))
     ),
 )
 
