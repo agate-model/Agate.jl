@@ -4,7 +4,7 @@ using Adapt: adapt
 
 import Oceananigans
 
-using Oceananigans.Architectures: architecture, CPU, GPU
+using Oceananigans.Architectures: architecture, child_architecture, CPU, GPU
 
 using ..ModelFamilies: AbstractModelFamily
 
@@ -45,8 +45,9 @@ end
 
 """Return the preferred array storage type for `arch`."""
 function architecture_array_type(arch)
-    arch isa CPU && return Array
-    arch isa GPU && return Oceananigans.Architectures.array_type(arch)
+    local_arch = child_architecture(arch)
+    local_arch isa CPU && return Array
+    local_arch isa GPU && return Oceananigans.Architectures.array_type(local_arch)
     return Array
 end
 

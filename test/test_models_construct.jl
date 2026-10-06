@@ -374,54 +374,63 @@ using Oceananigans.Biogeochemistry:
             @eval using Oceananigans: RectilinearGrid, NonhydrostaticModel, Clock, Center
             @eval using Oceananigans: set!, time_step!
             @eval using Oceananigans.Fields: FunctionField
-            @eval using Oceananigans.Architectures: GPU, array_type
+            @eval using Oceananigans.Architectures: GPU, array_type, child_architecture
+            @eval using Oceananigans.DistributedComputations: Distributed
             @eval using Oceananigans.Grids: Periodic, Bounded
 
             cuda_functional = CUDA.functional()
             @test cuda_functional
             if cuda_functional
                 bgc_cpu = NiPiZD.construct(; grid=dummy_grid(Float32))
-                bgc_gpu = NiPiZD.construct(; grid=dummy_grid(Float32; arch=GPU()))
-
-                @test required_biogeochemical_tracers(bgc_gpu) ==
-                    required_biogeochemical_tracers(bgc_cpu)
-                @test bgc_gpu.parameters.palatability_matrix isa array_type(GPU())
-                @test bgc_gpu.parameters.maximum_predation_rate isa array_type(GPU())
-
-                grid = RectilinearGrid(
-                    GPU(), Float32;
-                    topology=(Periodic, Periodic, Bounded),
-                    size=(2, 2, 4),
-                    x=(0f0, 2f0),
-                    y=(0f0, 2f0),
-                    z=(-4f0, 0f0),
-                )
                 sinking_rate = 2.5f0 / 86400f0
-                bgc_sinking = NiPiZD.construct(;
-                    grid, sinking_tracers=(D=sinking_rate,)
-                )
-                drift = biogeochemical_drift_velocity(bgc_sinking, Val(:D)).w
 
-                @test parent(drift) isa array_type(GPU())
-                @test any(==(-sinking_rate), Array(parent(drift)))
-                @test biogeochemical_drift_velocity(bgc_sinking, Val(:Z_1)).w == ZeroField()
-
-                clock = Clock(; time=zero(grid))
-                PAR = FunctionField{Center,Center,Center}(gpu_smoke_PAR, grid; clock)
-                light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
-                bgc_model = Biogeochemistry(bgc_sinking; light_attenuation)
-                model = NonhydrostaticModel(grid; clock, biogeochemistry=bgc_model)
-                set!(
-                    model;
-                    N=7f0,
-                    D=0.01f0,
-                    P_1=0.01f0,
-                    P_2=0.01f0,
-                    Z_1=0.05f0,
-                    Z_2=0.05f0,
+                gpu_architectures = (
+                    GPU(),
+                    Distributed(GPU()),
                 )
-                time_step!(model, 60f0)
-                @test model.clock.iteration == 1
+
+                for arch in gpu_architectures
+                    local_arch = child_architecture(arch)
+                    storage_type = array_type(local_arch)
+
+                    bgc_gpu = NiPiZD.construct(; grid=dummy_grid(Float32; arch))
+                    @test required_biogeochemical_tracers(bgc_gpu) ==
+                        required_biogeochemical_tracers(bgc_cpu)
+                    @test bgc_gpu.parameters.palatability_matrix isa storage_type
+                    @test bgc_gpu.parameters.maximum_predation_rate isa storage_type
+
+                    grid = RectilinearGrid(
+                        arch, Float32;
+                        topology=(Periodic, Periodic, Bounded),
+                        size=(2, 2, 4),
+                        x=(0f0, 2f0),
+                        y=(0f0, 2f0),
+                        z=(-4f0, 0f0),
+                    )
+                    bgc_sinking = NiPiZD.construct(; grid, sinking_tracers=(D=sinking_rate,))
+                    drift = biogeochemical_drift_velocity(bgc_sinking, Val(:D)).w
+
+                    @test parent(drift) isa storage_type
+                    @test any(==(-sinking_rate), Array(parent(drift)))
+                    @test biogeochemical_drift_velocity(bgc_sinking, Val(:Z_1)).w == ZeroField()
+
+                    clock = Clock(; time=zero(grid))
+                    PAR = FunctionField{Center,Center,Center}(gpu_smoke_PAR, grid; clock)
+                    light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
+                    bgc_model = Biogeochemistry(bgc_sinking; light_attenuation)
+                    model = NonhydrostaticModel(grid; clock, biogeochemistry=bgc_model)
+                    set!(
+                        model;
+                        N=7f0,
+                        D=0.01f0,
+                        P_1=0.01f0,
+                        P_2=0.01f0,
+                        Z_1=0.05f0,
+                        Z_2=0.05f0,
+                    )
+                    time_step!(model, 60f0)
+                    @test model.clock.iteration == 1
+                end
             end
         end
     end
