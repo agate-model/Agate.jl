@@ -27,6 +27,7 @@ examples = [
     "Comparing phytoplankton light strategies" => "named_pfts",
     "Allometric parameters" => "allometric_relationships",
     "Exporting a model definition" => "export_model_recipe",
+    "FrankenLOBSTER with OceanBioME" => "frankenlobster",
 ]
 
 if BUILD_COLUMN_EXAMPLE
@@ -81,7 +82,10 @@ differentiable_modelling_pages = [
 ]
 
 contributor_pages = ["Architecture" => "architecture_overview.md"]
-model_pages = ["NiPiZD" => "nipizd.md"]
+model_pages = [
+    "NiPiZD" => "nipizd.md",
+    "FrankenLOBSTER" => "frankenlobster.md",
+]
 
 makedocs(;
     sitename="Agate.jl",

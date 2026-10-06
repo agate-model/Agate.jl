@@ -1,5 +1,6 @@
 using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe
 using Agate.ModelFamilies: definition_version
+using Agate.Library.Allometry: AllometricParam, SplitPowerLaw
 using Agate.Models: NiPiZD
 using OceanBioME: BoxModelGrid
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers, biogeochemical_drift_velocity
@@ -42,7 +43,7 @@ end
     family_constructed = Agate.Construction.construct(family;
         plankton_pfts=default_recipe.plankton_pfts,
         grid=BoxModelGrid(Float32))
-    replayed_default = NiPiZD.construct_from_recipe(default_recipe; grid=BoxModelGrid(Float32))
+    replayed_default = NiPiZD.construct(default_recipe; grid=BoxModelGrid(Float32))
     @test required_biogeochemical_tracers(direct) == required_biogeochemical_tracers(with_recipe)
     @test required_biogeochemical_tracers(replayed_default) == required_biogeochemical_tracers(direct)
     @test required_biogeochemical_tracers(family_constructed) == required_biogeochemical_tracers(direct)
@@ -63,12 +64,13 @@ end
         "provenance",
         "content_hash",
     ))
-    @test encoded["schema"] == Agate.Construction.recipe_schema() == "agate.model_recipe.v1"
+    @test encoded["schema"] == Agate.Construction.recipe_schema() == "agate.model_recipe.v0.2"
     @test encoded["family"] == "NiPiZD"
     @test encoded["definition_version"] == "0.2.0"
     @test Set(keys(encoded["realization"])) == Set((
         "plankton_pfts",
         "parameter_overrides",
+        "setting_overrides",
         "sinking_tracers",
         "open_bottom",
     ))
@@ -85,12 +87,20 @@ end
     @test keys(recipe.plankton_pfts) == (:P, :Z)
     @test keys(recipe.plankton_pfts.P) == (:diat,)
     @test keys(recipe.plankton_pfts.Z) == (:microzoo,)
-    @test recipe.parameter_overrides == merge(
-        inputs.parameters, (palatability_matrix=inputs.palatability_matrix,)
-    )
+    @test recipe.parameter_overrides == inputs.parameters
+    @test isempty(recipe.setting_overrides)
     @test !recipe.open_bottom
     @test recipe.sinking_tracers == inputs.sinking_tracers
     @test decoded == recipe
+
+    split_recipe = Agate.Construction.capture_model_recipe(
+        family; plankton_pfts=(P=(P=[1.0, 4.0],), Z=(Z=[10.0],)),
+        parameter_overrides=(maximum_growth_rate=AllometricParam(
+            SplitPowerLaw(); prefactor=1.2066 / 86400, breakpoint=3.0,
+            small_exponent=0.28, large_exponent=-0.15,
+        ),),
+    )
+    @test decode_recipe(encode_recipe(split_recipe)) == split_recipe
 
     mapping_a = (P=(small=[2.0, 1.0], large=[3.0]), Z=(Z=[10.0],))
     mapping_b = (Z=(Z=[10.0],), P=(large=[3.0], small=[1.0, 2.0]))
@@ -122,6 +132,7 @@ end
         microzoo=(:microzoo_1, :microzoo_2),
     )
     @test decoded_manifest == manifest
+    @test isempty(decoded_manifest.settings)
     @test decoded_manifest.sinking_tracers.D isa Float32
 
     unsized_recipe = Agate.Construction.ModelRecipe(
@@ -129,6 +140,7 @@ end
         recipe.definition_version,
         merge(recipe.plankton_pfts, (P=(diat=nothing,),)),
         recipe.parameter_overrides,
+        recipe.setting_overrides,
         recipe.sinking_tracers,
         recipe.open_bottom,
     )
@@ -142,7 +154,7 @@ end
     @test recipe.parameter_overrides.palatability_matrix[1, 1] == 0.8f0
     @test encode_recipe(recipe)["content_hash"] == recipe_hash
 
-    replayed = NiPiZD.construct_from_recipe(decoded; grid=BoxModelGrid(Float32))
+    replayed = NiPiZD.construct(decoded; grid=BoxModelGrid(Float32))
     @test all(
         getproperty(replayed.parameters, name) == getproperty(decoded_manifest.parameters, name)
         for name in keys(replayed.parameters)
@@ -209,16 +221,17 @@ end
         v"0.2.1",
         recipe.plankton_pfts,
         recipe.parameter_overrides,
+        recipe.setting_overrides,
         recipe.sinking_tracers,
         recipe.open_bottom,
     )
     @test encode_recipe(bumped_recipe)["content_hash"] != encoded["content_hash"]
-    @test_throws ArgumentError NiPiZD.construct_from_recipe(bumped_recipe)
+    @test_throws ArgumentError NiPiZD.construct(bumped_recipe)
     @test required_biogeochemical_tracers(NiPiZD.construct()) ==
           (:N, :D, :P_1, :P_2, :Z_1, :Z_2)
 
     invalid_schema = modified(encoded) do x
-        x["schema"] = "agate.model_recipe.invalid"
+        x["schema"] = "agate.model_recipe.v0.1"
     end
     invalid_realization = rehashed(encoded) do x
         pop!(x["realization"]["plankton_pfts"])

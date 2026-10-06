@@ -2,7 +2,7 @@
 module Allometry
 
 export AbstractParamDef, ConstantParam, AllometricParam
-export PowerLaw
+export PowerLaw, SplitPowerLaw
 export PalatabilityPreyParameters, PalatabilityPredatorParameters
 export allometric_scaling_power
 export allometric_palatability_unimodal, allometric_palatability_unimodal_protection

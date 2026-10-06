@@ -6,17 +6,17 @@ using ..Components: Plankton, Pool, PlanktonStateRef, ModelLayout, element, stat
 using ..ModelFamilies: AbstractModelFamily, default_components, default_processes
 using ..Parameters: Parameter, ConstructionParameter, DerivedDefault, parameter_definitions
 using ..Library.Mortality: linear_loss
-using ..Library.Predation: proportional_predation_loss, switching_predation_loss
-using ..Library.Photosynthesis: geider_light_response, smith_light_limitation
+using ..Library.Predation: linear_predation_loss, proportional_predation_loss, switching_predation_loss
+using ..Library.Photosynthesis: exponential_light_limitation, geider_light_response, smith_light_limitation
 using ..Library.Nutrients:
-    frank_tnorm, liebig_minimum, monod_limitation, normalized_droop_limitation,
-    quota_uptake_regulation
+    frank_tnorm, inhibited_monod_limitation, liebig_minimum, monod_limitation,
+    normalized_droop_limitation, quota_uptake_regulation
 using ..Library.Temperature: q10_temperature_factor
 using ..Library.Remineralization: linear_remineralization
 
 export AbstractProcess, AbstractFormulation, AbstractFactor, AbstractStoichiometry
-export Smith, Geider, Monod, NormalizedDroop, QuotaRegulatedMonod, Liebig, FrankTNorm, Q10
-export PreferentialGrazing, HeterotrophicConsumption
+export Smith, Geider, ExponentialSaturation, Monod, InhibitedMonod, NormalizedDroop, QuotaRegulatedMonod, Liebig, FrankTNorm, Q10
+export PreferentialGrazing, LinearGrazing, HeterotrophicConsumption
 export LinearMortality, QuadraticMortality, LinearRemineralization
 export Light, NutrientLimitation, Temperature
 export FixedStoichiometry

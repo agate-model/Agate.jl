@@ -52,7 +52,26 @@ function process_fluxes(
 
     for participant in participants
         rate = _growth_rate(named, context, participant, scale_ref)
-        push!(fluxes, FluxSpec(participant.tracer, rate, Weight{1}()))
+        product_targets = named.semantic_facts.product_targets
+        if isnothing(product_targets)
+            push!(fluxes, FluxSpec(participant.tracer, rate, Weight{1}()))
+        else
+            axis_positions = (plankton=participant.position,)
+            product_fraction = parameter_operand(
+                named.binding_refs.process.product_fraction, context, axis_positions
+            )
+            retained_fraction = ComplementOp((product_fraction,))
+            push!(
+                fluxes,
+                FluxSpec(participant.tracer, rate, Weight{1}((retained_fraction,))),
+            )
+            append!(
+                fluxes,
+                _product_fluxes(
+                    named, product_targets, context, rate; suffix=(product_fraction,)
+                ),
+            )
+        end
         append!(fluxes, _growth_resource_fluxes(named, context, rate))
     end
     return Tuple(fluxes)

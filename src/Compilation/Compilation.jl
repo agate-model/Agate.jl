@@ -11,7 +11,7 @@ using ..Components:
 using ..Processes:
     AbstractFactor,
     Growth,
-    Light,
+    Light, Smith, Geider,
     QuotaResponse,
     Consumption,
     Mortality,
@@ -26,6 +26,7 @@ using ..Processes:
     CanonicalProcess,
     process_id,
     PreferentialGrazing,
+    LinearGrazing,
     Products,
     CanonicalModelDefinition,
     formulation,

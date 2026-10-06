@@ -98,6 +98,47 @@ using Agate.Processes:
         )
     end
 
+    @testset "fixed-stoichiometry growth products close every growth element" begin
+        components = (
+            P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
+            DIC=Pool(:carbon), DIN=Pool(:nitrogen), DOC=Pool(:carbon), DON=Pool(:nitrogen),
+        )
+        stoichiometry = FixedStoichiometry(;
+            reference_element=:carbon, bindings=(ratio=(nitrogen=:nitrogen_to_carbon,),)
+        )
+        growth(products) = Growth(;
+            plankton=:P, reference_resource=:DIC, additional_resources=(nitrogen=:DIN,),
+            stoichiometry, products,
+            bindings=(maximum_rate=:maximum_growth_rate, product_fraction=:exudation_fraction),
+        )
+        parameters = (
+            maximum_growth_rate=Parameter(0.5), nitrogen_to_carbon=Parameter(0.2),
+            exudation_fraction=Parameter(0.2),
+        )
+
+        products = Products((exudate=(carbon=:DOC, nitrogen=:DON),); stoichiometry)
+        model = Agate.Construction.construct(ModelDefinition(;
+            components, processes=(growth=growth(products),), parameters,
+        ))
+        test_tendencies(
+            model, (P=2.0, DIC=10.0, DIN=10.0, DOC=0.0, DON=0.0),
+            (P=0.8, DIC=-1.0, DIN=-0.2, DOC=0.2, DON=0.04),
+        )
+
+        mismatched = FixedStoichiometry(;
+            reference_element=:carbon, bindings=(ratio=(nitrogen=:other_nitrogen_to_carbon,),)
+        )
+        for invalid in (
+            Products(:DOC),
+            Products((exudate=(carbon=:DOC,),); stoichiometry),
+            Products((exudate=(carbon=:DOC, nitrogen=:DON),); stoichiometry=mismatched),
+        )
+            @test_throws ArgumentError Agate.Construction.construct(ModelDefinition(;
+                components, processes=(growth=growth(invalid),), parameters,
+            ))
+        end
+    end
+
     @testset "growth leaves independently prognostic elemental states unchanged" begin
         definition = ModelDefinition(;
             components=(

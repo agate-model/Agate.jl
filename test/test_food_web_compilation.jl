@@ -7,7 +7,7 @@ using Agate.Construction: construct
 using Agate.Parameters: Parameter, NoDefault
 using Agate.Processes:
     ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, Smith, Monod,
-    Q10, HeterotrophicConsumption, PreferentialGrazing, participants
+    Q10, HeterotrophicConsumption, PreferentialGrazing, LinearGrazing, participants
 
 function food_web_definition(; grazing=PreferentialGrazing())
     components = (
@@ -19,8 +19,13 @@ function food_web_definition(; grazing=PreferentialGrazing())
         M=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[2.0]),
         Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]),
     )
-    temperature = Temperature(
-        Q10(); bindings=(q10=:temperature_q10, reference_temperature=:reference_temperature)
+    plankton_temperature = Temperature(
+        Q10(:plankton);
+        bindings=(q10=:plankton_temperature_q10, reference_temperature=:reference_temperature),
+    )
+    consumer_temperature = Temperature(
+        Q10(:consumer);
+        bindings=(q10=:consumer_temperature_q10, reference_temperature=:reference_temperature),
     )
     processes = (
         growth_autotrophs=Growth(;
@@ -28,7 +33,7 @@ function food_web_definition(; grazing=PreferentialGrazing())
             reference_resource=:N,
             bindings=(maximum_rate=:maximum_growth_rate,),
             factors=(
-                temperature=temperature,
+                temperature=plankton_temperature,
                 nutrients=NutrientResponse(
                     Monod(); resource=:N,
                     bindings=(half_saturation=:nutrient_half_saturation,)
@@ -46,7 +51,7 @@ function food_web_definition(; grazing=PreferentialGrazing())
                 substrate_preference=:substrate_preference_matrix,
                 assimilation=:bacterial_assimilation,
             ),
-            factors=(temperature=temperature,),
+            factors=(temperature=consumer_temperature,),
             unassimilated_products=:D,
         ),
         grazing_living=Consumption(
@@ -67,7 +72,8 @@ function food_web_definition(; grazing=PreferentialGrazing())
         maximum_growth_rate=no_default(),
         alpha=no_default(),
         nutrient_half_saturation=no_default(),
-        temperature_q10=no_default(),
+        plankton_temperature_q10=no_default(),
+        consumer_temperature_q10=no_default(),
         reference_temperature=no_default(),
         maximum_consumption_rate=no_default(),
         pom_half_saturation=no_default(),
@@ -86,10 +92,11 @@ function food_web_parameter_overrides(::Type{T}=Float64) where {T<:Real}
         maximum_growth_rate=T[2e-5, 1.4e-5],
         alpha=T[2e-6, 1.6e-6],
         nutrient_half_saturation=T[0.2, 0.3],
-        temperature_q10=T(2),
+        plankton_temperature_q10=T[2, 2],
+        consumer_temperature_q10=T[2],
         reference_temperature=T(20),
         maximum_consumption_rate=T[1.5e-5],
-        pom_half_saturation=T[0.15],
+        pom_half_saturation=reshape(T[0.15], 1, 1),
         substrate_preference_matrix=reshape(T[1.0], 1, 1),
         bacterial_assimilation=reshape(T[0.65], 1, 1),
         maximum_predation_rate=T[6e-5, 9e-5],
@@ -120,7 +127,8 @@ end
         (:maximum_growth_rate, [NaN, 1.4e-5], :nonnegative, "NaN"),
         (:maximum_growth_rate, [-1.0, 1.4e-5], :nonnegative, "-1.0"),
         (:reference_temperature, Inf, :finite, "Inf"),
-        (:temperature_q10, 0.0, :positive, "0.0"),
+        (:plankton_temperature_q10, [0.0, 2.0], :positive, "0.0"),
+        (:consumer_temperature_q10, [0.0], :positive, "0.0"),
         (:living_palatability_matrix, [NaN 0.8; 0.7 0.9], :nonnegative, "NaN"),
         (:living_assimilation_matrix, [-0.1 0.5; 0.35 0.45], :unit_interval, "-0.1"),
         (:living_assimilation_matrix, [1.1 0.5; 0.35 0.45], :unit_interval, "1.1"),
@@ -171,7 +179,7 @@ end
     )
     @test process_compiler_isapprox(growth30, 2 * growth20)
     direct_growth20 = 0.05 * 2e-5 *
-        Agate.Processes.factor_value(Q10(), 20.0, 2.0, 20.0) *
+        Agate.Processes.factor_value(Q10(:plankton), 20.0, 2.0, 20.0) *
         Agate.Processes.factor_value(Monod(), 5.0, 0.2) *
         Agate.Processes.factor_value(Smith(), 100.0, 2e-5, 2e-6)
     @test process_compiler_isapprox(growth20, direct_growth20)
@@ -215,7 +223,7 @@ end
     definition = ModelDefinition(; components, processes, parameters)
     base_overrides = (
         maximum_consumption_rate=[2.0],
-        pom_half_saturation=[1.0, 3.0, 7.0],
+        pom_half_saturation=reshape([1.0, 3.0, 7.0], 1, 3),
         substrate_preference_matrix=ones(1, 3),
         bacterial_assimilation=reshape([0.2, 0.4, 0.8], 1, 3),
     )
@@ -280,4 +288,32 @@ end
     zero_switching = grazing_model(PreferentialGrazing(; switching_exponent=2); half_saturation=0.0)
     @test prey_losses(zero_proportional, 0.0, 0.0) == (0.0, 0.0)
     @test prey_losses(zero_switching, 0.0, 0.0) == (0.0, 0.0)
+end
+
+@testset "Linear grazing is exact mass action" begin
+    components = (
+        P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
+        B=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.8]),
+        Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]),
+        D=Pool(:nitrogen),
+    )
+    processes = (grazing=Consumption(
+        LinearGrazing(); consumers=:Z, resources=(:P, :B),
+        bindings=(rate=:grazing_rate, palatability=:palatability, assimilation=:assimilation),
+        unassimilated_products=:D,
+    ),)
+    parameters = (
+        grazing_rate=Parameter(0.25),
+        palatability=Parameter([0.8 0.5]),
+        assimilation=Parameter([0.7 0.6]),
+    )
+    model = construct(Agate.Processes.ModelDefinition(; components, processes, parameters))
+    args = food_web_args(model, (P_1=2.0, B_1=4.0, Z_1=3.0, D=0.0))
+    p_loss, b_loss = 0.25 * 0.8 * 2.0 * 3.0, 0.25 * 0.5 * 4.0 * 3.0
+    actual = (
+        model(Val(:P_1), args...), model(Val(:B_1), args...),
+        model(Val(:Z_1), args...), model(Val(:D), args...),
+    )
+    expected = (-p_loss, -b_loss, 0.7 * p_loss + 0.6 * b_loss, 0.3 * p_loss + 0.4 * b_loss)
+    @test all(isapprox.(actual, expected))
 end

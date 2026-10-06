@@ -2,7 +2,7 @@
 
 module Nutrients
 
-export monod_limitation, liebig_minimum, frank_tnorm
+export monod_limitation, inhibited_monod_limitation, liebig_minimum, frank_tnorm
 export normalized_droop_limitation, quota_uptake_regulation
 
 """
@@ -15,6 +15,15 @@ The indeterminate `R == K == 0` case returns zero.
     K == zero(K) && R == zero(R) && return zero(R)
     return R / (K + R)
 end
+
+"""
+    inhibited_monod_limitation(resource, inhibitor, half_saturation, inhibition)
+
+Return a Monod resource response multiplied by exponential inhibition,
+``R / (K + R) * exp(-psi I)``.
+"""
+@inline inhibited_monod_limitation(resource, inhibitor, half_saturation, inhibition) =
+    monod_limitation(resource, half_saturation) * exp(-inhibition * inhibitor)
 
 """
     liebig_minimum(a, b, rest...)

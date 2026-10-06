@@ -1,5 +1,5 @@
-"""Bundled NiPiZD model family."""
-module NiPiZD
+"""Canonical FrankenLOBSTER model family and OceanBioME plankton integration boundary."""
+module FrankenLOBSTER
 
 include("definition.jl")
 include("parameters.jl")

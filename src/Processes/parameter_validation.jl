@@ -1,4 +1,5 @@
 @inline function parameter_domain_valid(value, domain::Symbol)
+    domain === :any && return true
     value isa Real && !(value isa Bool) && isfinite(value) || return false
     domain === :finite && return true
     domain === :nonnegative && return value >= zero(value)

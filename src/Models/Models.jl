@@ -6,7 +6,9 @@ module Models
 # -----------------------------------------------------------------------------
 
 include("NiPiZD/NiPiZD.jl")
+include("FrankenLOBSTER/FrankenLOBSTER.jl")
 
 export NiPiZD
+export FrankenLOBSTER
 
 end # module
