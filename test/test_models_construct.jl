@@ -375,6 +375,7 @@ using Oceananigans.Biogeochemistry:
             @eval using Oceananigans: set!, time_step!
             @eval using Oceananigans.Fields: FunctionField
             @eval using Oceananigans.Architectures: GPU, array_type
+            @eval using Oceananigans.DistributedComputations: Distributed
             @eval using Oceananigans.Grids: Periodic, Bounded
 
             cuda_functional = CUDA.functional()
@@ -422,6 +423,13 @@ using Oceananigans.Biogeochemistry:
                 )
                 time_step!(model, 60f0)
                 @test model.clock.iteration == 1
+
+                distributed_arch = Distributed(GPU())
+                bgc_distributed = NiPiZD.construct(;
+                    grid=dummy_grid(Float32; arch=distributed_arch)
+                )
+                @test bgc_distributed.parameters.palatability_matrix isa array_type(GPU())
+                @test bgc_distributed.parameters.maximum_predation_rate isa array_type(GPU())
             end
         end
     end
