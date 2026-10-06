@@ -368,6 +368,7 @@ using Oceananigans.Biogeochemistry:
             @eval using Oceananigans: set!, time_step!
             @eval using Oceananigans.Fields: FunctionField
             @eval using Oceananigans.Architectures: GPU, array_type
+            @eval using Oceananigans.DistributedComputations: Distributed
             @eval using Oceananigans.Grids: Periodic, Bounded
 
             cuda_functional = CUDA.functional()
@@ -416,39 +417,12 @@ using Oceananigans.Biogeochemistry:
                 time_step!(model, 60f0)
                 @test model.clock.iteration == 1
 
-                franken_plankton = Agate.Models.FrankenLOBSTER.construct(; grid)
-                @test franken_plankton.runtime.parameters.palatability_matrix isa
-                    array_type(GPU())
-                @test franken_plankton.runtime.parameters.maximum_growth_rate isa
-                    array_type(GPU())
-
-                franken_clock = Clock(; time=zero(grid))
-                franken_PAR = FunctionField{Center,Center,Center}(
-                    gpu_smoke_PAR, grid; clock=franken_clock
+                distributed_arch = Distributed(GPU())
+                bgc_distributed = NiPiZD.construct(;
+                    grid=dummy_grid(Float32; arch=distributed_arch)
                 )
-                franken_light = PrescribedPhotosyntheticallyActiveRadiation(franken_PAR)
-                franken_bgc = LOBSTER(
-                    grid; plankton=franken_plankton, light_attenuation=franken_light
-                )
-                franken_model = NonhydrostaticModel(
-                    grid; clock=franken_clock, biogeochemistry=franken_bgc
-                )
-                set!(
-                    franken_model;
-                    NO₃=7f0,
-                    NH₄=0.1f0,
-                    DOM=0.1f0,
-                    sPOM=0.01f0,
-                    bPOM=0.01f0,
-                    T=20f0,
-                    P_1=0.01f0,
-                    P_2=0.01f0,
-                    Z_1=0.02f0,
-                    Z_2=0.02f0,
-                    H_1=0.01f0,
-                )
-                time_step!(franken_model, 60f0)
-                @test franken_model.clock.iteration == 1
+                @test bgc_distributed.parameters.palatability_matrix isa array_type(GPU())
+                @test bgc_distributed.parameters.maximum_predation_rate isa array_type(GPU())
             end
         end
     end
