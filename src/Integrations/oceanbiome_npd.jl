@@ -378,12 +378,13 @@ end
 @inline _exchange_tendency(plankton, tracer, i, j, k, grid, fields, auxiliary_fields) =
     _agate_tendency(plankton, tracer, i, j, k, zero(eltype(grid)), fields, auxiliary_fields)
 
-# Restrict the NPD call overload to the Agate-owned living tracer union so OceanBioME
-# nutrient/detritus/carbon/oxygen tracers keep their native dispatch.
+# Restrict this overload to Agate-owned living tracers. The Val bound makes it
+# more specific than OceanBioME's generic Val fallback, while native nutrient,
+# detritus, carbon, and oxygen tracer dispatch remains intact.
 @inline (bgc::NutrientsPlanktonDetritus{<:Any,<:Any,PlanktonType})(
     i, j, k, grid, tracer::OwnedTracerType, clock, fields, auxiliary_fields
 ) where {
-    OwnedTracerType,
+    OwnedTracerType<:Val,
     PlanktonType<:NPDPlankton{<:Any,<:Any,OwnedTracerType},
 } = _agate_tendency(
     bgc.plankton, tracer, i, j, k, clock.time, fields, auxiliary_fields

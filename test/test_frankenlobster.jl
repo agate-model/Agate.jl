@@ -115,6 +115,12 @@ end
 
     @test uptake(:DOM, _fields()) == 0
 
+    state = _fields(; NO₃=1.0, NH₄=1.0, DOM=1.0, P_1=1.0, Z_1=1.0)
+    @test all(
+        tracer -> isfinite(tendency(tracer, state)),
+        (:P_1, :P_2, :Z_1, :Z_2, :H_1, :NO₃, :NH₄, :DOM, :sPOM, :bPOM),
+    )
+
     nitrate = _fields(; NO₃=1.0, P_1=2.0)
     gross = uptake(:NO₃, nitrate)
     @test [gross, tendency(:P_1, nitrate), tendency(:NH₄, nitrate), tendency(:DOM, nitrate)] ≈
