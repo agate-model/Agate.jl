@@ -59,7 +59,8 @@ end
         grid=_GRID, arch=CPU(), scalar_type=Float32, size_structure, parameters, settings,
         sinking_tracers=(nano_1=0.1,), open_bottom=false,
     )
-    decoded = Agate.Construction.decode_recipe(Agate.Construction.encode_recipe(recipe))
+    encoded = Agate.Construction.encode_recipe(recipe)
+    decoded = Agate.Construction.decode_recipe(encoded)
     replayed = FrankenLOBSTER.construct(decoded; grid=_GRID, arch=CPU(), scalar_type=Float32)
     direct32 = FrankenLOBSTER.construct(; arch=CPU(), scalar_type=Float32)
     bgc = LOBSTER(_GRID; plankton)
@@ -73,6 +74,13 @@ end
     @test all(t -> t in required_biogeochemical_tracers(bgc), (:NO₃, :NH₄, :DOM, :sPOM, :bPOM, :T))
     @test chlorophyll(plankton, (tracers=(nano_1=_cell(2.0), pico_1=_cell(1.0)),))[1, 1, 1] ≈ 4.5
     @test recipe.setting_overrides == settings
+    @test encoded["family"] == "FrankenLOBSTER"
+    @test encoded["realization"]["setting_overrides"]["chlorophyll_ratio"] == 1.5
+    mktemp() do path, io
+        close(io)
+        Agate.Construction.export_recipe(path, recipe)
+        @test Agate.Construction.import_recipe(path) == recipe
+    end
 
     I = Agate.Introspection
     for inspect in (
