@@ -215,6 +215,20 @@ Agate.ModelFamilies.default_components
 Agate.ModelFamilies.default_processes
 ```
 
+## OceanBioME NPD integration
+
+`Agate.Integrations.NPDPlankton` adapts a compiled Agate plankton runtime to OceanBioME's
+`NutrientsPlanktonDetritus` interface. It maps Agate's living-tracer tendencies, nutrient
+uptake and detritus/waste exchanges onto OceanBioME's existing hooks. The
+[FrankenLOBSTER model](@ref FrankenLOBSTER) supplies a ready-to-use example.
+
+```@docs
+Agate.Integrations.NPDPlankton
+Agate.Integrations.construct_npd_plankton
+Agate.Integrations.construct_npd_plankton_plus_recipe
+Agate.Integrations.npd_configuration
+```
+
 ## Introspection
 
 ```@docs
