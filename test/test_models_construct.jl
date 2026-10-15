@@ -366,7 +366,7 @@ using Oceananigans.Biogeochemistry:
             @eval using OceanBioME.Models.NutrientsPlanktonDetritusModels: LOBSTER
             @eval using Oceananigans: RectilinearGrid, NonhydrostaticModel, Clock, Center
             @eval using Oceananigans: set!, time_step!
-            @eval using Oceananigans.Fields: FunctionField
+            @eval using Oceananigans.Fields: FunctionField, interior
             @eval using Oceananigans.Architectures: GPU, array_type
             @eval using Oceananigans.DistributedComputations: Distributed
             @eval using Oceananigans.Grids: Periodic, Bounded
@@ -416,6 +416,35 @@ using Oceananigans.Biogeochemistry:
                 )
                 time_step!(model, 60f0)
                 @test model.clock.iteration == 1
+
+                @testset "FrankenLOBSTER OceanBioME GPU coupling" begin
+                    plankton = Agate.Models.FrankenLOBSTER.construct(; grid, scalar_type=Float32)
+                    @test plankton.runtime.parameters.palatability_matrix isa array_type(GPU())
+                    @test plankton.runtime.parameters.bacterial_dom_half_saturation isa array_type(GPU())
+
+                    franken_clock = Clock(; time=zero(grid))
+                    franken_PAR = FunctionField{Center,Center,Center}(
+                        gpu_smoke_PAR, grid; clock=franken_clock
+                    )
+                    franken_bgc = LOBSTER(
+                        grid; plankton,
+                        light_attenuation=PrescribedPhotosyntheticallyActiveRadiation(franken_PAR),
+                    )
+                    franken_model = NonhydrostaticModel(
+                        grid; clock=franken_clock, biogeochemistry=franken_bgc
+                    )
+                    set!(
+                        franken_model;
+                        NO₃=2f0, NH₄=0.2f0, DOM=0.1f0, sPOM=0.1f0, bPOM=0.1f0,
+                        P_1=0.02f0, P_2=0.01f0, Z_1=0.005f0, Z_2=0.005f0,
+                        H_1=0.01f0, T=20f0,
+                    )
+                    time_step!(franken_model, 60f0)
+                    @test franken_model.clock.iteration == 1
+                    for tracer in (:P_1, :Z_1, :H_1, :NO₃, :NH₄, :DOM, :sPOM, :bPOM)
+                        @test all(isfinite, Array(interior(getproperty(franken_model.tracers, tracer))))
+                    end
+                end
 
                 distributed_arch = Distributed(GPU())
                 bgc_distributed = NiPiZD.construct(;
