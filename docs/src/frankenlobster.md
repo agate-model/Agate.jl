@@ -19,7 +19,8 @@ fluxes to OceanBioME's native pools.
 `LOBSTER`. The `size_structure` keyword controls the phytoplankton, zooplankton and
 bacterioplankton PFTs. Use `parameters` for biological rate and interaction overrides;
 use `settings` for model-level conversion factors such as `chlorophyll_ratio` (default
-`1.31`) and `carbon_ratio` (default `6.56`). 
+`1.31`) and `carbon_ratio` (default `6.56`). The resolved settings are available
+as `plankton.settings`. The package requires OceanBioME `0.19`.
 
 ```julia
 using Agate

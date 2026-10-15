@@ -24,7 +24,8 @@ import OceanBioME.Models.NutrientsPlanktonDetritusModels.DetritusModels: grazing
 
 `NPDPlankton` is an integration boundary, not a biological model. The compiled
 Agate runtime owns the ecological equations; this wrapper maps their signed
-tracer tendencies onto OceanBioME's existing NPD plankton hooks.
+tracer tendencies onto OceanBioME's existing NPD plankton hooks. Its `settings`
+field holds the resolved Agate model settings used by the coupling.
 """
 struct NPDPlankton{
     Runtime,
@@ -35,10 +36,10 @@ struct NPDPlankton{
     ConsumedDetritus,
     Dependencies,
     PhytoplanktonTracers,
-    Traits,
+    Settings,
 }
     runtime::Runtime
-    traits::Traits
+    settings::Settings
 end
 
 function _component_tracers(runtime, components::Tuple)
@@ -58,25 +59,25 @@ function _component_tracers(runtime, components::Tuple)
     )
 end
 
-function _validate_npd_traits(traits::NamedTuple)
+function _validate_npd_settings(settings::NamedTuple)
     for name in (:carbon_ratio, :chlorophyll_ratio)
-        hasproperty(traits, name) || throw(
-            ArgumentError("NPDPlankton traits must define :$name."),
+        hasproperty(settings, name) || throw(
+            ArgumentError("NPDPlankton settings must define :$name."),
         )
-        value = getproperty(traits, name)
+        value = getproperty(settings, name)
         value isa Real && !(value isa Bool) && isfinite(value) && value >= 0 || throw(
-            ArgumentError("NPDPlankton trait :$name must be finite and nonnegative."),
+            ArgumentError("NPDPlankton setting :$name must be finite and nonnegative."),
         )
     end
-    traits.carbon_ratio > 0 || throw(ArgumentError("NPDPlankton carbon_ratio must be > 0."))
-    return traits
+    settings.carbon_ratio > 0 || throw(ArgumentError("NPDPlankton carbon_ratio must be > 0."))
+    return settings
 end
 
 """
     NPDPlankton(runtime; owned_components, phytoplankton_components=(), nutrient_tracers=(),
                 exchange_tracers=(solid=:solid_waste, dissolved=:dissolved_waste,
                                   inorganic=:inorganic_waste),
-                consumed_detritus=(), dependencies=(), traits)
+                consumed_detritus=(), dependencies=(), settings)
 
 Wrap a compiled Agate runtime as an OceanBioME `NutrientsPlanktonDetritus` plankton component.
 Component names are resolved once from Agate runtime metadata; all cell-level coupling is then
@@ -97,7 +98,7 @@ function NPDPlankton(
     ),
     consumed_detritus::Tuple=(),
     dependencies::Tuple=(),
-    traits::NamedTuple,
+    settings::NamedTuple,
 )
     keys(exchange_tracers) == (:solid, :dissolved, :inorganic) || throw(
         ArgumentError("exchange_tracers must define (:solid, :dissolved, :inorganic)."),
@@ -150,7 +151,7 @@ function NPDPlankton(
         "NPDPlankton owned, nutrient, consumed-detritus and exchange tracers must not overlap.",
     ))
     owned_type = mapreduce(name -> typeof(Val(name)), (A, B) -> Union{A,B}, owned)
-    _validate_npd_traits(traits)
+    _validate_npd_settings(settings)
 
     return NPDPlankton{
         typeof(runtime),
@@ -161,8 +162,8 @@ function NPDPlankton(
         consumed_detritus,
         dependencies,
         phytoplankton,
-        typeof(traits),
-    }(runtime, traits)
+        typeof(settings),
+    }(runtime, settings)
 end
 
 """Return family-specific `NPDPlankton` keyword overrides for a realized runtime.
@@ -196,7 +197,7 @@ function _npd_default_configuration(family::AbstractModelFamily, runtime)
         nutrient_tracers=(),
         exchange_tracers=_standard_exchange_tracers(runtime),
         consumed_detritus=(),
-        traits=runtime.metadata.model_settings,
+        settings=runtime.metadata.model_settings,
     )
 end
 
@@ -310,11 +311,11 @@ end
 @inline biogeochemical_drift_velocity(plankton::NPDPlankton, tracer::Val) =
     biogeochemical_drift_velocity(plankton.runtime, tracer)
 
-@inline chlorophyll_ratio(plankton::NPDPlankton) = plankton.traits.chlorophyll_ratio
+@inline chlorophyll_ratio(plankton::NPDPlankton) = plankton.settings.chlorophyll_ratio
 @inline carbon_ratio(
     plankton::NPDPlankton, ::NutrientsPlanktonDetritus{FloatType}
-) where FloatType = convert(FloatType, plankton.traits.carbon_ratio)
-@inline chlorophyll(plankton::NPDPlankton, model) = plankton.traits.chlorophyll_ratio *
+) where FloatType = convert(FloatType, plankton.settings.carbon_ratio)
+@inline chlorophyll(plankton::NPDPlankton, model) = plankton.settings.chlorophyll_ratio *
     mapreduce(name -> getproperty(model.tracers, name), +, phytoplankton_tracers(plankton))
 
 @inline function adapt_structure(
@@ -328,11 +329,11 @@ end
     ConsumedDetritus,Dependencies,PhytoplanktonTracers,
 }
     runtime = adapt(to, plankton.runtime)
-    traits = adapt(to, plankton.traits)
+    settings = adapt(to, plankton.settings)
     return NPDPlankton{
         typeof(runtime),OwnedTracers,OwnedTracerType,NutrientTracers,ExchangeTracers,
-        ConsumedDetritus,Dependencies,PhytoplanktonTracers,typeof(traits),
-    }(runtime, traits)
+        ConsumedDetritus,Dependencies,PhytoplanktonTracers,typeof(settings),
+    }(runtime, settings)
 end
 
 @inline function _append_unique(acc::Tuple, values::Tuple)

@@ -89,12 +89,13 @@ end
     )
         @test inspect(plankton) == inspect(plankton.runtime)
     end
+    @test plankton.settings == I.model_settings(plankton)
     @test I.parameter_domains(plankton, :assimilation_matrix) ==
           I.parameter_domains(plankton.runtime, :assimilation_matrix)
     @test I.interaction_matrix(plankton, :assimilation_matrix) ==
           I.interaction_matrix(plankton.runtime, :assimilation_matrix)
 
-    @test (replayed.runtime.parameters, replayed.traits) == (plankton.runtime.parameters, plankton.traits)
+    @test (replayed.runtime.parameters, replayed.settings) == (plankton.runtime.parameters, plankton.settings)
     @test eltype(plankton.runtime.parameters.maximum_growth_rate) === Float32
     @test eltype(direct32.runtime.parameters.maximum_growth_rate) === Float32
     @test_throws ArgumentError Agate.Integrations.NPDPlankton(
@@ -102,19 +103,19 @@ end
         owned_components=(:P, :Z, :H),
         phytoplankton_components=(:P,),
         exchange_tracers=(solid=:solid_watse, dissolved=nothing, inorganic=nothing),
-        traits=plankton.traits,
+        settings=plankton.settings,
     )
     @test Agate.Integrations.NPDPlankton(
         plankton.runtime;
         owned_components=(:P, :Z, :H),
         phytoplankton_components=(:P,),
         nutrient_tracers=(:DOM,),
-        traits=plankton.traits,
+        settings=plankton.settings,
     ) isa Agate.Integrations.NPDPlankton
     base = (
         owned_components=(:P, :Z, :H),
         phytoplankton_components=(:P,),
-        traits=plankton.traits,
+        settings=plankton.settings,
     )
     for invalid in (
         (; owned_components=(:P, :P, :Z, :H)),
