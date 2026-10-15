@@ -108,23 +108,48 @@ function NPDPlankton(
     isempty(phytoplankton) && throw(
         ArgumentError("NPDPlankton must identify at least one phytoplankton tracer."),
     )
-    owned_type = mapreduce(name -> typeof(Val(name)), (A, B) -> Union{A,B}, owned)
     runtime_tracers = required_biogeochemical_tracers(runtime)
+    for (group, names) in (
+        (:owned, owned), (:phytoplankton, phytoplankton),
+        (:nutrient_tracers, nutrient_tracers), (:consumed_detritus, consumed_detritus),
+        (:dependencies, dependencies),
+    )
+        all(name -> name isa Symbol, names) || throw(ArgumentError(
+            "NPDPlankton $group must contain tracer names as Symbols.",
+        ))
+        length(unique(names)) == length(names) || throw(ArgumentError(
+            "NPDPlankton $group contains duplicate names.",
+        ))
+    end
+    all(name -> name in owned, phytoplankton) || throw(ArgumentError(
+        "NPDPlankton phytoplankton tracers must belong to owned_components.",
+    ))
     for tracer in nutrient_tracers
-        tracer isa Symbol || throw(
-            ArgumentError("NPDPlankton nutrient_tracers must contain tracer names as Symbols."),
-        )
-        tracer in runtime_tracers || throw(
-            ArgumentError("NPDPlankton nutrient tracer :$tracer is not an Agate runtime tracer."),
-        )
+        tracer in runtime_tracers || throw(ArgumentError(
+            "NPDPlankton nutrient tracer :$tracer is not an Agate runtime tracer.",
+        ))
+    end
+    for tracer in consumed_detritus
+        tracer in runtime_tracers || throw(ArgumentError(
+            "NPDPlankton consumed detritus :$tracer is not an Agate runtime tracer.",
+        ))
     end
     for (channel, tracer) in pairs(exchange_tracers)
         tracer === nothing && continue
-        tracer in runtime_tracers || throw(ArgumentError(
+        tracer isa Symbol && tracer in runtime_tracers || throw(ArgumentError(
             "NPDPlankton exchange channel :$channel names unknown runtime tracer :$tracer.",
         ))
     end
     exchanges = Tuple(values(exchange_tracers))
+    # Each external tendency reaches OceanBioME through exactly one hook.
+    routed = (
+        owned..., nutrient_tracers..., consumed_detritus...,
+        (name for name in exchanges if name !== nothing)...,
+    )
+    length(unique(routed)) == length(routed) || throw(ArgumentError(
+        "NPDPlankton owned, nutrient, consumed-detritus and exchange tracers must not overlap.",
+    ))
+    owned_type = mapreduce(name -> typeof(Val(name)), (A, B) -> Union{A,B}, owned)
     _validate_npd_traits(traits)
 
     return NPDPlankton{

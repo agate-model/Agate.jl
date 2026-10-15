@@ -24,8 +24,15 @@ podman run --rm --device=nvidia.com/gpu=all \
 
 ## Run the GPU test suite
 
-The default package tests do not load CUDA. To run the full suite including the
-GPU biological-execution and nonzero-sinking checks, set `AGATE_TEST_CUDA=1`:
+The default package tests do not load CUDA. From the repository root, the
+lightweight GPU-only smoke test (also used by Buildkite) is:
+
+```bash
+JULIA_PKG_PRECOMPILE_AUTO=0 julia --project=test/gpu -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
+julia --project=test/gpu test/gpu/smoke.jl
+```
+
+To run the full CPU/AD suite with the same GPU checks, set `AGATE_TEST_CUDA=1`:
 
 ```bash
 AGATE_TEST_CUDA=1 julia --project=. -e 'using Pkg; Pkg.test()'

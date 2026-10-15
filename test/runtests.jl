@@ -22,3 +22,8 @@ include("test_mass_balance.jl")
 include("test_nipizd_reference_trajectory.jl")
 include("test_introspection.jl")
 include("test_recipe_serialization.jl")
+
+# Optional full-suite GPU coverage for developers. Buildkite runs the smoke test alone.
+if lowercase(get(ENV, "AGATE_TEST_CUDA", "0")) in ("1", "true", "yes")
+    include("gpu/smoke.jl")
+end

@@ -12,8 +12,6 @@ using Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers, required_biogeochemical_auxiliary_fields,
     biogeochemical_drift_velocity
 
-@inline gpu_smoke_PAR(x, y, z, t) = 100f0 * exp(0.2f0 * z)
-
 @testset "Public model constructors" begin
 
     @testset "NiPiZD defaults" begin
@@ -354,105 +352,6 @@ using Oceananigans.Biogeochemistry:
 
         for invalid in ((not_a_tracer=1.0,), (D=-1.0,), (D=Inf,), (D=true,))
             @test_throws ArgumentError NiPiZD.construct(; sinking_tracers=invalid)
-        end
-    end
-
-    # Loading CUDA can fail hard in misconfigured environments, so GPU execution is
-    # an explicit opt-in test via AGATE_TEST_CUDA=1 rather than part of the default suite.
-    if lowercase(get(ENV, "AGATE_TEST_CUDA", "0")) in ("1", "true", "yes")
-        @testset "GPU smoke test" begin
-            @eval using CUDA
-            @eval using OceanBioME: Biogeochemistry, PrescribedPhotosyntheticallyActiveRadiation
-            @eval using OceanBioME.Models.NutrientsPlanktonDetritusModels: LOBSTER
-            @eval using Oceananigans: RectilinearGrid, NonhydrostaticModel, Clock, Center
-            @eval using Oceananigans: set!, time_step!
-            @eval using Oceananigans.Fields: FunctionField, interior
-            @eval using Oceananigans.Architectures: GPU, array_type
-            @eval using Oceananigans.DistributedComputations: Distributed
-            @eval using Oceananigans.Grids: Periodic, Bounded
-
-            cuda_functional = CUDA.functional()
-            @test cuda_functional
-            if cuda_functional
-                bgc_cpu = NiPiZD.construct(; grid=dummy_grid(Float32))
-                bgc_gpu = NiPiZD.construct(; grid=dummy_grid(Float32; arch=GPU()))
-
-                @test required_biogeochemical_tracers(bgc_gpu) ==
-                    required_biogeochemical_tracers(bgc_cpu)
-                @test bgc_gpu.parameters.palatability_matrix isa array_type(GPU())
-                @test bgc_gpu.parameters.maximum_predation_rate isa array_type(GPU())
-
-                grid = RectilinearGrid(
-                    GPU(), Float32;
-                    topology=(Periodic, Periodic, Bounded),
-                    size=(2, 2, 4),
-                    x=(0f0, 2f0),
-                    y=(0f0, 2f0),
-                    z=(-4f0, 0f0),
-                )
-                sinking_rate = 2.5f0 / 86400f0
-                bgc_sinking = NiPiZD.construct(;
-                    grid, sinking_tracers=(D=sinking_rate,)
-                )
-                drift = biogeochemical_drift_velocity(bgc_sinking, Val(:D)).w
-
-                @test parent(drift) isa array_type(GPU())
-                @test any(==(-sinking_rate), Array(parent(drift)))
-                @test biogeochemical_drift_velocity(bgc_sinking, Val(:Z_1)).w == ZeroField()
-
-                clock = Clock(; time=zero(grid))
-                PAR = FunctionField{Center,Center,Center}(gpu_smoke_PAR, grid; clock)
-                light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
-                bgc_model = Biogeochemistry(bgc_sinking; light_attenuation)
-                model = NonhydrostaticModel(grid; clock, biogeochemistry=bgc_model)
-                set!(
-                    model;
-                    N=7f0,
-                    D=0.01f0,
-                    P_1=0.01f0,
-                    P_2=0.01f0,
-                    Z_1=0.05f0,
-                    Z_2=0.05f0,
-                )
-                time_step!(model, 60f0)
-                @test model.clock.iteration == 1
-
-                @testset "FrankenLOBSTER OceanBioME GPU coupling" begin
-                    plankton = Agate.Models.FrankenLOBSTER.construct(; grid, scalar_type=Float32)
-                    @test plankton.runtime.parameters.palatability_matrix isa array_type(GPU())
-                    @test plankton.runtime.parameters.bacterial_dom_half_saturation isa array_type(GPU())
-
-                    franken_clock = Clock(; time=zero(grid))
-                    franken_PAR = FunctionField{Center,Center,Center}(
-                        gpu_smoke_PAR, grid; clock=franken_clock
-                    )
-                    franken_bgc = LOBSTER(
-                        grid; plankton,
-                        light_attenuation=PrescribedPhotosyntheticallyActiveRadiation(franken_PAR),
-                    )
-                    franken_model = NonhydrostaticModel(
-                        grid; clock=franken_clock, biogeochemistry=franken_bgc
-                    )
-                    set!(
-                        franken_model;
-                        NO₃=2f0, NH₄=0.2f0, DOM=0.1f0, sPOM=0.1f0, bPOM=0.1f0,
-                        P_1=0.02f0, P_2=0.01f0, Z_1=0.005f0, Z_2=0.005f0,
-                        H_1=0.01f0, T=20f0,
-                    )
-                    time_step!(franken_model, 60f0)
-                    @test franken_model.clock.iteration == 1
-                    for tracer in (:P_1, :Z_1, :H_1, :NO₃, :NH₄, :DOM, :sPOM, :bPOM)
-                        @test all(isfinite, Array(interior(getproperty(franken_model.tracers, tracer))))
-                    end
-                end
-
-                distributed_arch = Distributed(GPU())
-                bgc_distributed = NiPiZD.construct(;
-                    grid=dummy_grid(Float32; arch=distributed_arch)
-                )
-                @test bgc_distributed.parameters.palatability_matrix isa array_type(GPU())
-                @test bgc_distributed.parameters.maximum_predation_rate isa array_type(GPU())
-            end
         end
     end
 

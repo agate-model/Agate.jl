@@ -103,6 +103,26 @@ end
         nutrient_tracers=(:DOM,),
         traits=plankton.traits,
     ) isa Agate.Integrations.NPDPlankton
+    base = (
+        owned_components=(:P, :Z, :H),
+        phytoplankton_components=(:P,),
+        traits=plankton.traits,
+    )
+    for invalid in (
+        (; owned_components=(:P, :P, :Z, :H)),
+        (; owned_components=(:P, :Z), phytoplankton_components=(:H,)),
+        (; nutrient_tracers=(:nano_1,)),
+        (; nutrient_tracers=(:NO₃, :NO₃)),
+        (; consumed_detritus=(:missing,)),
+        (; consumed_detritus=(:DOM,), nutrient_tracers=(:DOM,)),
+        (; exchange_tracers=(solid=:nano_1, dissolved=nothing, inorganic=nothing)),
+        (; exchange_tracers=(solid=:solid_waste, dissolved=:solid_waste, inorganic=nothing)),
+        (; dependencies=(:T, :T)),
+    )
+        @test_throws ArgumentError Agate.Integrations.NPDPlankton(
+            plankton.runtime; merge(base, invalid)...
+        )
+    end
     @test_throws ArgumentError FrankenLOBSTER.construct(settings=(unknown=1.0,))
     @test_throws ArgumentError FrankenLOBSTER.construct(sinking_tracers=(P_1=0.1,))
 end
@@ -137,4 +157,24 @@ end
     p1 = selective_temperature(1, 1, 1, _GRID, Val(:P_1), (; time=0.0), warm, aux)
     p2 = selective_temperature(1, 1, 1, _GRID, Val(:P_2), (; time=0.0), warm, aux)
     @test p1 ≈ 2 * p2
+end
+
+@testset "FrankenLOBSTER closed nitrogen budget" begin
+    bgc = _controlled(; parameters=(
+        maximum_predation_rate=(Z_1=1.0, Z_2=0.5),
+        phytoplankton_mortality_rate=(P_1=0.01, P_2=0.02),
+        zooplankton_mortality_rate=(Z_1=0.01, Z_2=0.02),
+        bacterioplankton_mortality_rate=(H_1=0.01,),
+    ))
+    state = _fields(;
+        NO₃=2.0, NH₄=0.3, DOM=0.8, sPOM=0.2, bPOM=0.1,
+        P_1=0.12, P_2=0.05, Z_1=0.06, Z_2=0.02, H_1=0.08,
+    )
+    nitrogen_tracers = (:NO₃, :NH₄, :DOM, :sPOM, :bPOM, :P_1, :P_2, :Z_1, :Z_2, :H_1)
+    aux = (PAR=_cell(1.0),)
+    fluxes = map(nitrogen_tracers) do tracer
+        bgc(1, 1, 1, _GRID, Val(tracer), (; time=0.0), state, aux)
+    end
+    @test all(isfinite, fluxes)
+    @test isapprox(sum(fluxes), 0.0; atol=1e-12)
 end
