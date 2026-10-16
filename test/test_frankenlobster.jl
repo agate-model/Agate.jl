@@ -1,8 +1,9 @@
 using Test
 using Oceananigans.Architectures: CPU
 using Oceananigans.Grids: RectilinearGrid
-using Oceananigans.Fields: ConstantField
+using Oceananigans.Fields: ConstantField, ZeroField, interior
 using Oceananigans.Biogeochemistry:
+    biogeochemical_drift_velocity,
     required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
 
 using OceanBioME: chlorophyll, PrescribedPhotosyntheticallyActiveRadiation
@@ -64,6 +65,26 @@ end
     replayed = FrankenLOBSTER.construct(decoded; grid=_GRID, arch=CPU(), scalar_type=Float32)
     direct32 = FrankenLOBSTER.construct(; arch=CPU(), scalar_type=Float32)
     bgc = LOBSTER(_GRID; plankton)
+
+    # The NPD composite must forward plankton sinking to Agate, while native
+    # OceanBioME detritus drift retains its own dispatch.
+    npd = bgc.underlying_biogeochemistry
+    sinking = biogeochemical_drift_velocity(npd, Val(:nano_1)).w
+    @test sinking === biogeochemical_drift_velocity(plankton, Val(:nano_1)).w
+    @test sinking === biogeochemical_drift_velocity(bgc, Val(:nano_1)).w
+    @test biogeochemical_drift_velocity(npd, Val(:pico_1)).w == ZeroField()
+    @test biogeochemical_drift_velocity(npd, Val(:sPOM)).w ===
+          biogeochemical_drift_velocity(bgc, Val(:sPOM)).w
+
+    # The single-layer grid above has a closed bottom, which can suppress
+    # sinking at every face. Test nonzero transport in a resolved open column.
+    column_grid = RectilinearGrid(CPU(), Float32; size=(1, 1, 4), extent=(1f0, 1f0, 40f0))
+    column_plankton = FrankenLOBSTER.construct(;
+        grid=column_grid, sinking_tracers=(P_1=0.1f0,), open_bottom=true
+    )
+    column_npd = LOBSTER(column_grid; plankton=column_plankton).underlying_biogeochemistry
+    column_drift = biogeochemical_drift_velocity(column_npd, Val(:P_1)).w
+    @test any(v -> v < 0, Array(interior(column_drift)))
 
     @test required_biogeochemical_tracers(plankton) ==
           (:nano_1, :pico_1, :meso_1, :micro_1, :heterotroph_1, :heterotroph_2)

@@ -47,8 +47,12 @@ using Oceananigans.Grids: Periodic, Bounded
         @test model.clock.iteration == 1
         @test all(isfinite, Array(interior(model.tracers.P_1)))
 
-        # FrankenLOBSTER: the actual OceanBioME NPD coupling on GPU.
-        plankton = Agate.Models.FrankenLOBSTER.construct(; grid, scalar_type=Float32)
+        # FrankenLOBSTER: GPU sinking through the composed OceanBioME NPD model.
+        franken_sinking_rate = 0.2f0 / 86400f0
+        plankton = Agate.Models.FrankenLOBSTER.construct(;
+            grid, scalar_type=Float32,
+            sinking_tracers=(P_1=franken_sinking_rate,), open_bottom=true,
+        )
         @test plankton.runtime.parameters.palatability_matrix isa array_type(GPU())
         @test plankton.runtime.parameters.bacterial_dom_half_saturation isa array_type(GPU())
 
@@ -60,6 +64,12 @@ using Oceananigans.Grids: Periodic, Bounded
             grid; plankton,
             light_attenuation=PrescribedPhotosyntheticallyActiveRadiation(franken_PAR),
         )
+        franken_npd = franken_bgc.underlying_biogeochemistry
+        franken_drift = biogeochemical_drift_velocity(franken_npd, Val(:P_1)).w
+        @test parent(franken_drift) isa array_type(GPU())
+        @test any(v -> v < 0, Array(interior(franken_drift)))
+        @test biogeochemical_drift_velocity(franken_npd, Val(:Z_1)).w == ZeroField()
+
         franken_model = NonhydrostaticModel(
             grid; clock=franken_clock, biogeochemistry=franken_bgc
         )

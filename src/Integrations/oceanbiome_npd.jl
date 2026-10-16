@@ -311,6 +311,17 @@ end
 @inline biogeochemical_drift_velocity(plankton::NPDPlankton, tracer::Val) =
     biogeochemical_drift_velocity(plankton.runtime, tracer)
 
+# OceanBioME's NPD drift fallback only checks detritus and inorganic carbon.
+# Forward Agate-owned plankton tracers to the compiled runtime at the composed
+# NPD boundary; other tracers retain OceanBioME's native drift dispatch.
+@inline biogeochemical_drift_velocity(
+    bgc::NutrientsPlanktonDetritus{<:Any,<:Any,PlanktonType},
+    tracer::OwnedTracerType,
+) where {
+    OwnedTracerType<:Val,
+    PlanktonType<:NPDPlankton{<:Any,<:Any,OwnedTracerType},
+} = biogeochemical_drift_velocity(bgc.plankton, tracer)
+
 @inline chlorophyll_ratio(plankton::NPDPlankton) = plankton.settings.chlorophyll_ratio
 @inline carbon_ratio(
     plankton::NPDPlankton, ::NutrientsPlanktonDetritus{FloatType}
