@@ -2,6 +2,7 @@ using Adapt: adapt
 import Adapt: adapt_structure
 
 using ..ModelFamilies: AbstractModelFamily, plankton_roles
+using ..Compilation: StaticZeroEquation
 import ..Construction
 
 import OceanBioME: chlorophyll
@@ -13,6 +14,10 @@ import Oceananigans.Biogeochemistry:
 using OceanBioME.Models.NutrientsPlanktonDetritusModels: NutrientsPlanktonDetritus
 import OceanBioME.Models.NutrientsPlanktonDetritusModels:
     carbon_ratio,
+    nitrogen_ratio,
+    phosphate_ratio,
+    iron_ratio,
+    silicon_ratio,
     chlorophyll_ratio,
     dissolved_waste,
     inorganic_waste,
@@ -81,10 +86,12 @@ end
 
 Wrap a compiled Agate runtime as an OceanBioME `NutrientsPlanktonDetritus` plankton component.
 Component names are resolved once from Agate runtime metadata; all cell-level coupling is then
-statically dispatched from the resulting tracer tuples. `nutrient_tracers` names runtime tracers
-exposed through OceanBioME's nutrient-uptake hooks; Agate does not impose a nutrient-name
-vocabulary. A dependency that also names a runtime auxiliary driver is read from the surrounding
-NPD tracer fields rather than requested as a separate auxiliary field.
+statically dispatched from the resulting tracer tuples. Every nonzero runtime tendency
+must reach exactly one owned, nutrient, consumed-detritus or exchange hook. At NPD composition,
+`nutrient_tracers` must match the native nutrient tracers and `consumed_detritus` must belong
+to the native detritus component. Agate does not impose a nutrient-name vocabulary. A
+dependency that also names a runtime auxiliary driver is read from the surrounding NPD tracer
+fields rather than requested as a separate auxiliary field.
 """
 function NPDPlankton(
     runtime;
@@ -149,6 +156,15 @@ function NPDPlankton(
     )
     length(unique(routed)) == length(routed) || throw(ArgumentError(
         "NPDPlankton owned, nutrient, consumed-detritus and exchange tracers must not overlap.",
+    ))
+    # A nonzero Agate equation must have exactly one OceanBioME destination.
+    # Static-zero runtime tracers may remain passive physical inputs.
+    unrouted = Tuple(
+        name for (name, equation) in pairs(runtime.equations)
+        if !(equation isa StaticZeroEquation) && !(name in routed)
+    )
+    isempty(unrouted) || throw(ArgumentError(
+        "NPDPlankton nonzero tendencies have no OceanBioME route: $unrouted.",
     ))
     owned_type = mapreduce(name -> typeof(Val(name)), (A, B) -> Union{A,B}, owned)
     _validate_npd_settings(settings)
@@ -354,9 +370,39 @@ end
     return _append_unique(next, Base.tail(values))
 end
 
+# Validate the native component choices at the composed NPD boundary, where
+# OceanBioME's nutrient and detritus tracer identities are finally known.
+function _validate_npd_components(npd::NutrientsPlanktonDetritus, plankton::NPDPlankton)
+    configured = _nutrient_tracers(plankton)
+    nutrients = required_biogeochemical_tracers(npd.nutrients)
+    length(configured) == length(nutrients) &&
+        all(name -> name in nutrients, configured) &&
+        all(name -> name in configured, nutrients) || throw(ArgumentError(
+            "NPDPlankton nutrient_tracers $configured must match OceanBioME nutrient tracers $nutrients.",
+        ))
+
+    detritus = required_biogeochemical_tracers(npd.detritus)
+    missing = Tuple(name for name in _consumed_detritus(plankton) if !(name in detritus))
+    isempty(missing) || throw(ArgumentError(
+        "NPDPlankton consumed_detritus $missing are absent from OceanBioME detritus tracers $detritus.",
+    ))
+
+    native = (
+        nutrients..., detritus...,
+        required_biogeochemical_tracers(npd.inorganic_carbon)...,
+        required_biogeochemical_tracers(npd.oxygen)...,
+    )
+    collisions = Tuple(name for name in _owned_tracers(plankton) if name in native)
+    isempty(collisions) || throw(ArgumentError(
+        "NPDPlankton owned tracers $collisions also belong to native OceanBioME components.",
+    ))
+    return nothing
+end
+
 @inline function required_biogeochemical_tracers(
     npd::NutrientsPlanktonDetritus{<:Any,<:Any,PlanktonType},
 ) where {PlanktonType<:NPDPlankton}
+    _validate_npd_components(npd, npd.plankton)
     tracers = (
         required_biogeochemical_tracers(npd.nutrients)...,
         required_biogeochemical_tracers(npd.plankton)...,
@@ -427,12 +473,39 @@ end
     bgc.plankton, tracer, i, j, k, clock.time, fields, auxiliary_fields
 )
 
-@inline function nutrient_uptake(
+@inline function _npd_nutrient_uptake(
     i, j, k, grid, nutrient::Val{Nutrient}, plankton::NPDPlankton,
-    ::NutrientsPlanktonDetritus, fields, auxiliary_fields,
+    fields, auxiliary_fields,
 ) where Nutrient
     Nutrient in _nutrient_tracers(plankton) || return zero(eltype(grid))
     return -_exchange_tendency(plankton, nutrient, i, j, k, grid, fields, auxiliary_fields)
+end
+
+@inline nutrient_uptake(
+    i, j, k, grid, nutrient::Val{Nutrient}, plankton::NPDPlankton,
+    ::NutrientsPlanktonDetritus, fields, auxiliary_fields,
+) where Nutrient = _npd_nutrient_uptake(
+    i, j, k, grid, nutrient, plankton, fields, auxiliary_fields
+)
+
+# OceanBioME has Val-specific methods for elemental nutrients. Resolve their
+# intersection with NPDPlankton, preserving OceanBioME's stoichiometric fallback
+# when an element is not itself an Agate nutrient tracer (notably carbon).
+for (nutrient, ratio) in (
+    (:N, :nitrogen_ratio), (:PO₄, :phosphate_ratio), (:Fe, :iron_ratio),
+    (:Si, :silicon_ratio), (:C, :carbon_ratio),
+)
+    @eval @inline function nutrient_uptake(
+        i, j, k, grid, ::Val{$(QuoteNode(nutrient))}, plankton::NPDPlankton,
+        bgc::NutrientsPlanktonDetritus, fields, auxiliary_fields,
+    )
+        $(QuoteNode(nutrient)) in _nutrient_tracers(plankton) &&
+            return _npd_nutrient_uptake(
+                i, j, k, grid, Val($(QuoteNode(nutrient))), plankton, fields, auxiliary_fields
+            )
+        return $ratio(i, j, k, grid, plankton, bgc, fields) *
+            nutrient_uptake(i, j, k, grid, plankton, bgc, fields, auxiliary_fields)
+    end
 end
 
 @inline _sum_nutrient_uptake(

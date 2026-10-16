@@ -8,9 +8,9 @@ using Oceananigans.Biogeochemistry:
 
 using OceanBioME: chlorophyll, PrescribedPhotosyntheticallyActiveRadiation
 using OceanBioME.Models.NutrientsPlanktonDetritusModels:
-    DissolvedParticulate, LOBSTER, nutrient_uptake
+    DissolvedParticulate, LOBSTER, NutrientsPlanktonDetritus, nutrient_uptake
 using OceanBioME.Models.NutrientsPlanktonDetritusModels.NutrientsModels:
-    Nutrients, NitrateAmmonia
+    Nutrients, NitrateAmmonia, N, PO₄
 
 const FrankenLOBSTER = Agate.Models.FrankenLOBSTER
 const _GRID = RectilinearGrid(CPU(); size=(1, 1, 1), extent=(1, 1, 1))
@@ -126,30 +126,42 @@ end
         exchange_tracers=(solid=:solid_watse, dissolved=nothing, inorganic=nothing),
         settings=plankton.settings,
     )
-    @test Agate.Integrations.NPDPlankton(
-        plankton.runtime;
-        owned_components=(:P, :Z, :H),
-        phytoplankton_components=(:P,),
-        nutrient_tracers=(:DOM,),
-        settings=plankton.settings,
-    ) isa Agate.Integrations.NPDPlankton
+    # The direct adapter accepts arbitrary nutrient names, but every nonzero
+    # runtime equation must be owned or connected to exactly one external hook.
     base = (
         owned_components=(:P, :Z, :H),
         phytoplankton_components=(:P,),
+        nutrient_tracers=(:NO₃, :NH₄),
+        consumed_detritus=(:DOM,),
         settings=plankton.settings,
     )
-    for invalid in (
-        (; owned_components=(:P, :P, :Z, :H)),
-        (; owned_components=(:P, :Z), phytoplankton_components=(:H,)),
-        (; nutrient_tracers=(:nano_1,)),
-        (; nutrient_tracers=(:NO₃, :NO₃)),
-        (; consumed_detritus=(:missing,)),
-        (; consumed_detritus=(:DOM,), nutrient_tracers=(:DOM,)),
-        (; exchange_tracers=(solid=:nano_1, dissolved=nothing, inorganic=nothing)),
-        (; exchange_tracers=(solid=:solid_waste, dissolved=:solid_waste, inorganic=nothing)),
-        (; dependencies=(:T, :T)),
+    @test Agate.Integrations.NPDPlankton(
+        plankton.runtime;
+        merge(base, (; nutrient_tracers=(:NO₃, :NH₄, :DOM), consumed_detritus=()))...
+    ) isa Agate.Integrations.NPDPlankton
+    for missing_route in (
+        (; nutrient_tracers=(:NO₃,)),
+        (; consumed_detritus=()),
+        (; exchange_tracers=(solid=nothing, dissolved=:dissolved_waste,
+                              inorganic=:inorganic_waste)),
     )
-        @test_throws ArgumentError Agate.Integrations.NPDPlankton(
+        @test_throws "no OceanBioME route" Agate.Integrations.NPDPlankton(
+            plankton.runtime; merge(base, missing_route)...
+        )
+    end
+    for (invalid, message) in (
+        ((; owned_components=(:P, :P, :Z, :H)), "duplicate names"),
+        ((; owned_components=(:P, :Z), phytoplankton_components=(:H,)), "must belong"),
+        ((; nutrient_tracers=(:nano_1,)), "must not overlap"),
+        ((; nutrient_tracers=(:NO₃, :NO₃)), "duplicate names"),
+        ((; consumed_detritus=(:missing,)), "not an Agate runtime tracer"),
+        ((; consumed_detritus=(:DOM,), nutrient_tracers=(:DOM,)), "must not overlap"),
+        ((; exchange_tracers=(solid=:nano_1, dissolved=nothing, inorganic=nothing)), "must not overlap"),
+        ((; exchange_tracers=(solid=:solid_waste, dissolved=:solid_waste,
+                               inorganic=nothing)), "must not overlap"),
+        ((; dependencies=(:T, :T)), "duplicate names"),
+    )
+        @test_throws message Agate.Integrations.NPDPlankton(
             plankton.runtime; merge(base, invalid)...
         )
     end
@@ -159,11 +171,51 @@ end
 
 @testset "FrankenLOBSTER LOBSTER exchange" begin
     bgc = _controlled()
+    # Validate configured exchange routes against the native NPD component
+    # tracers before Oceananigans sets up its prognostic fields.
+    make_npd(; nutrients=bgc.nutrients, detritus=bgc.detritus, plankton=bgc.plankton) =
+        NutrientsPlanktonDetritus{Float64}(
+            nutrients, plankton, detritus, bgc.inorganic_carbon, bgc.oxygen
+        )
+    @test required_biogeochemical_tracers(make_npd()) == required_biogeochemical_tracers(bgc)
+    @test_throws "nutrient_tracers" required_biogeochemical_tracers(
+        make_npd(; nutrients=Nutrients(; nitrogen=N))
+    )
+    @test_throws "nutrient_tracers" required_biogeochemical_tracers(
+        make_npd(; nutrients=Nutrients(; nitrogen=NitrateAmmonia(), phosphate=PO₄))
+    )
+    @test_throws "consumed_detritus" required_biogeochemical_tracers(
+        make_npd(; detritus=nothing)
+    )
+    owns_dom = Agate.Integrations.NPDPlankton(
+        bgc.plankton.runtime;
+        owned_components=(:P, :Z, :H, :DOM),
+        phytoplankton_components=(:P,),
+        nutrient_tracers=(:NO₃, :NH₄),
+        exchange_tracers=(solid=:solid_waste, dissolved=:dissolved_waste,
+                          inorganic=:inorganic_waste),
+        settings=bgc.plankton.settings,
+    )
+    @test_throws "also belong to native" required_biogeochemical_tracers(
+        make_npd(; plankton=owns_dom)
+    )
     aux = (PAR=_cell(1.0),)
     tendency(tracer, fields) = bgc(1, 1, 1, _GRID, Val(tracer), (; time=0.0), fields, aux)
     uptake(tracer, fields) = nutrient_uptake(1, 1, 1, _GRID, Val(tracer), bgc.plankton, bgc, fields, aux)
 
     @test uptake(:DOM, _fields()) == 0
+    # OceanBioME's elemental Val methods must remain unambiguous and retain
+    # stoichiometric demand when the element lacks an explicit Agate equation.
+    fallback_state = _fields(; NO₃=1.0, P_1=2.0)
+    total_n_uptake = uptake(:NO₃, fallback_state) + uptake(:NH₄, fallback_state)
+    for (nutrient, ratio) in (
+        (:N, 1.0), (:PO₄, 1 / 16), (:Fe, 0.0032 / 16),
+        (:Si, 0.0), (:C, bgc.plankton.settings.carbon_ratio),
+    )
+        @test nutrient_uptake(
+            1, 1, 1, _GRID, Val(nutrient), bgc.plankton, bgc, fallback_state, aux
+        ) ≈ ratio * total_n_uptake
+    end
 
     state = _fields(; NO₃=1.0, NH₄=1.0, DOM=1.0, P_1=1.0, Z_1=1.0)
     @test all(
