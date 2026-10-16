@@ -5,12 +5,12 @@
 using Agate.Construction: export_recipe, import_recipe
 using Agate.Models: NiPiZD
 using OceanBioME: BoxModelGrid
-    
+
 nothing #hide
 
 # ## Construct and save
-# Instead of using `construct()` by using `construct_plus_recipe()`, we can generate a recipe alongside the model. 
-# The recipe can then be exported to JSON and later reloaded to reconstruct the model.
+# `construct_plus_recipe()` returns the model together with the authored scientific recipe.
+# The recipe can be exported to JSON and later reloaded to reconstruct the model.
 
 grid = BoxModelGrid()
 
@@ -37,7 +37,7 @@ nothing #hide
 # Runtime choices such as the grid are supplied again when the recipe is replayed.
 
 loaded = import_recipe(recipe_path)
-replayed = NiPiZD.construct_from_recipe(loaded; grid)
+replayed = NiPiZD.construct(loaded; grid)
 
 println("Recipe preserved: ", loaded == recipe)
 println("Parameters preserved: ", replayed.parameters == bgc.parameters)

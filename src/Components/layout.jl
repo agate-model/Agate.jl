@@ -373,6 +373,7 @@ function model_metadata(layout::ModelLayout; parameter_axes=(;), parameter_const
     )
     return (;
         pft_entities,
+        component_tracers=layout.component_tracers,
         plankton_tracers,
         plankton_diameters=Tuple(diameter_metadata(diameter) for diameter in layout.size_class_diameters),
         parameter_axes,

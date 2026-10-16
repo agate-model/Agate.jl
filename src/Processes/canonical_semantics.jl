@@ -165,7 +165,42 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
         end
     end
 
-    return (; plankton_states)
+    product_targets = if isnothing(process.products)
+        nothing
+    else
+        targets = _canonical_product_targets(
+            id, process.products, components, reference_element, "growth products"
+        )
+        _product_transfer_mode(
+            id,
+            process.products,
+            targets,
+            (reference_element,),
+            reference_element,
+            "growth products",
+        )
+        if has_stoichiometry
+            product_stoichiometry = process.products.stoichiometry
+            isnothing(product_stoichiometry) && throw(ArgumentError(
+                "process :$id fixed-stoichiometry growth products must use FixedStoichiometry " *
+                "so routed products account for every growth element",
+            ))
+            growth_elements = (reference_element, keys(process.additional_resources)...)
+            product_elements = Tuple(keys(first(values(targets))))
+            sort(collect(product_elements); by=String) == sort(collect(growth_elements); by=String) ||
+                throw(ArgumentError(
+                    "process :$id fixed-stoichiometry growth products must route elements " *
+                    "$growth_elements; got $product_elements",
+                ))
+            product_stoichiometry.bindings == process.stoichiometry.bindings || throw(ArgumentError(
+                "process :$id growth-product stoichiometry must use the same ratio bindings as " *
+                "growth stoichiometry",
+            ))
+        end
+        targets
+    end
+
+    return (; plankton_states, product_targets)
 end
 
 function process_facts(

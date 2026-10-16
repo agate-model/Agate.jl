@@ -175,8 +175,8 @@ function authored_nipizd_inputs(::Type{T}=Float32) where {T<:AbstractFloat}
                 PowerLaw(); prefactor=T(0.05 / day), exponent=T(-0.1)
             ),
             alpha=ConstantParam(T(0.2 / day)),
+            palatability_matrix=T[0.8 0.2; 0.3 0.7],
         ),
-        palatability_matrix=T[0.8 0.2; 0.3 0.7],
         sinking_tracers=(D=T(2.5 / day),),
         open_bottom=false,
     )

@@ -13,6 +13,7 @@ include("test_multistate_process_compilation.jl")
 include("test_food_web_compilation.jl")
 include("test_direct_model_definition_construction.jl")
 include("test_models_construct.jl")
+include("test_frankenlobster.jl")
 include("test_forwarddiff.jl")
 include("test_active_parameters.jl")
 include("test_enzyme.jl")
@@ -21,3 +22,8 @@ include("test_mass_balance.jl")
 include("test_nipizd_reference_trajectory.jl")
 include("test_introspection.jl")
 include("test_recipe_serialization.jl")
+
+# Optional full-suite GPU coverage for developers. Buildkite runs the smoke test alone.
+if lowercase(get(ENV, "AGATE_TEST_CUDA", "0")) in ("1", "true", "yes")
+    include("gpu/smoke.jl")
+end

@@ -3,15 +3,20 @@ using Test
 using ForwardDiff
 
 using Agate.Library.Allometry:
-    consumer_assimilation_matrix_axes, palatability_matrix_allometric_axes,
-    resolve_diameter_indexed_vector
+    AllometricParam, SplitPowerLaw, allometric_scaling_power,
+    palatability_matrix_allometric_axes,
+    resolve_diameter_indexed_vector, resolve_param
 using Agate.Library.Nutrients:
-    frank_tnorm, liebig_minimum, normalized_droop_limitation, quota_uptake_regulation
-using Agate.Library.Photosynthesis: geider_light_response, smith_light_limitation
+    frank_tnorm, inhibited_monod_limitation, liebig_minimum, normalized_droop_limitation,
+    quota_uptake_regulation
+using Agate.Library.Photosynthesis:
+    exponential_light_limitation, geider_light_response, smith_light_limitation
 using Agate.Library.Predation: holling_type_ii
 
 @testset "Library" begin
     @test holling_type_ii(1.0, 1.0) == 0.5
+    @test exponential_light_limitation(33.0, 33.0) ≈ 1 - exp(-1)
+    @test inhibited_monod_limitation(1.0, 2.0, 1.0, 0.5) ≈ 0.5 * exp(-1)
 end
 
 @testset "Allometry accepts realized diameter tuples" begin
@@ -25,15 +30,20 @@ end
         consumer_indices=(2,),
         prey_indices=(1, 2),
     ) == [1.0 0.5]
-    @test consumer_assimilation_matrix_axes(
-        Float64; assimilation_efficiency=[0.2, 0.8], consumer_indices=(2,), prey_indices=(1, 2)
-    ) == [0.8 0.8]
     @test_throws ArgumentError resolve_diameter_indexed_vector(
         Float64, diameters, (true,), 3.0; default=0.0
     )
-    @test_throws ArgumentError consumer_assimilation_matrix_axes(
-        Float64; assimilation_efficiency=[0.2, 0.8], consumer_indices=(2,), prey_indices=(3,)
-    )
+end
+
+@testset "Split power-law allometry" begin
+    law = SplitPowerLaw()
+    c = (prefactor=1.2066, breakpoint=3.0, small_exponent=0.28, large_exponent=-0.15)
+    at_break = allometric_scaling_power(c.prefactor, c.small_exponent, c.breakpoint)
+    @test law(c, 1.2) ≈ allometric_scaling_power(c.prefactor, c.small_exponent, 1.2)
+    @test law(c, c.breakpoint) ≈ at_break
+    @test law(c, 6.0) ≈ at_break * (6 / c.breakpoint)^(3 * c.large_exponent)
+    @test resolve_param(Float32, AllometricParam(law; c...), 6.0) isa Float32
+    @test_throws ArgumentError law(merge(c, (breakpoint=0.0,)), 6.0)
 end
 
 @testset "Library scalar genericity" begin
@@ -41,9 +51,11 @@ end
 
     @test Agate.Library.Allometry.allometric_scaling_power(T(1), T(-0.1), T(2)) isa T
     @test Agate.Library.Nutrients.monod_limitation(T(1), T(0.5)) isa T
+    @test inhibited_monod_limitation(T(1), T(0.5), T(0.5), T(2)) isa T
     @test frank_tnorm(T(0.2), T(0.4)) isa T
     @test frank_tnorm(T(0.2), T(0.4); sharpness=50.0) isa T
     @test smith_light_limitation(T(50), T(0.1), T(1)) isa T
+    @test exponential_light_limitation(T(50), T(33)) isa T
     @test Agate.Library.Mortality.linear_loss(T(1), T(0.1)) isa T
     @test Agate.Library.Predation.holling_type_ii(T(1), T(0.5)) isa T
     @test Agate.Library.Remineralization.linear_remineralization(T(1), T(0.1)) isa T

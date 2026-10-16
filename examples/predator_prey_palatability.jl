@@ -55,7 +55,7 @@ nothing #hide
 # rather than derived from size traits.
 
 custom_bgc = Agate.Models.NiPiZD.construct(;
-    palatability_matrix=[0.0 1.0; 1.0 0.0]
+    parameters=(palatability_matrix=[0.0 1.0; 1.0 0.0],)
 )
 custom_pal = interaction_matrix(custom_bgc, :palatability_matrix)
 

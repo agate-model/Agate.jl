@@ -1,4 +1,5 @@
 /Manifest.toml
+test/gpu/Manifest.toml
 
 # Documenter.jl
 docs/build/

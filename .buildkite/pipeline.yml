@@ -1,12 +1,16 @@
 steps:
-  - label: ":gpu: Julia 1.10 GPU tests"
+  - label: ":gpu: Julia 1.10 GPU smoke tests"
     key: "gpu-tests"
     agents:
       queue: "GPU"
     env:
-      AGATE_TEST_CUDA: "1"
+      # Avoid full-environment precompilation on the T4 runner.
+      JULIA_PKG_PRECOMPILE_AUTO: "0"
+      JULIA_NUM_PRECOMPILE_TASKS: "2"
     commands:
       - nvidia-smi
       - julia --version
-      - julia --project=. --color=yes -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
-    timeout_in_minutes: 30
+      # Julia 1.10 requires explicitly developing the local checkout into this project.
+      - julia --project=test/gpu --color=yes -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
+      - julia --project=test/gpu --color=yes test/gpu/smoke.jl
+    timeout_in_minutes: 60

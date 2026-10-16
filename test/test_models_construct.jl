@@ -12,8 +12,6 @@ using Oceananigans.Biogeochemistry:
     required_biogeochemical_tracers, required_biogeochemical_auxiliary_fields,
     biogeochemical_drift_velocity
 
-@inline gpu_smoke_PAR(x, y, z, t) = 100f0 * exp(0.2f0 * z)
-
 @testset "Public model constructors" begin
 
     @testset "NiPiZD defaults" begin
@@ -74,8 +72,8 @@ using Oceananigans.Biogeochemistry:
                 maximum_growth_rate=(P=2 / day,),
                 nutrient_half_saturation=(P=0.2,),
                 maximum_predation_rate=(Z=1 / day,),
+                palatability_matrix=reshape(Float32[0.5], 1, 1),
             ),
-            palatability_matrix=reshape(Float32[0.5], 1, 1),
         )
         @test required_biogeochemical_tracers(unsized_bgc) == (:N, :D, :P, :Z)
         @test plankton_diameters(unsized_bgc) == [nothing, nothing]
@@ -89,8 +87,8 @@ using Oceananigans.Biogeochemistry:
             parameters=(;
                 maximum_growth_rate=(plain=2 / day,),
                 nutrient_half_saturation=(plain=0.2,),
+                palatability_matrix=reshape(Float32[0.5, 0.5], 1, 2),
             ),
-            palatability_matrix=reshape(Float32[0.5, 0.5], 1, 2),
         )
         @test required_biogeochemical_tracers(mixed_bgc) ==
               (:N, :D, :plain, :sized_1, :Z_1)
@@ -115,7 +113,7 @@ using Oceananigans.Biogeochemistry:
             :microzoo_2,
         )
         @test size(named.parameters.palatability_matrix) == (3, 5)
-        @test size(named.parameters.assimilation_matrix) == (3, 5)
+        @test named.parameters.assimilation_matrix == fill(Float32(0.32), 3, 5)
 
         invalid_size_structures = (
             1,
@@ -181,20 +179,14 @@ using Oceananigans.Biogeochemistry:
         explicit_interactions = NiPiZD.construct(;
             size_structure=named_size_structure,
             grid=dummy_grid(Float32),
-            palatability_matrix=palatability,
-            assimilation_matrix=assimilation,
+            parameters=(; palatability_matrix=palatability, assimilation_matrix=assimilation),
         )
         @test explicit_interactions.parameters.palatability_matrix == palatability
         @test explicit_interactions.parameters.assimilation_matrix == assimilation
         @test_throws ArgumentError NiPiZD.construct(;
-            size_structure=named_size_structure, parameters=(palatability_matrix=palatability,),
-            palatability_matrix=palatability,
-        )
-
-        @test_throws ArgumentError NiPiZD.construct(;
             size_structure=named_size_structure,
             grid=dummy_grid(Float32),
-            palatability_matrix=zeros(Float32, 4, 4),
+            parameters=(palatability_matrix=zeros(Float32, 4, 4),),
         )
     end
 
@@ -209,7 +201,8 @@ using Oceananigans.Biogeochemistry:
         rect = reshape(Float32.(1:(n_cons * n_prey)), n_cons, n_prey)
         assimilation = rect ./ (length(rect) + 1)
         bgc_rect = NiPiZD.construct(;
-            grid=dummy_grid(Float32), palatability_matrix=rect, assimilation_matrix=assimilation
+            grid=dummy_grid(Float32),
+            parameters=(; palatability_matrix=rect, assimilation_matrix=assimilation),
         )
         @test bgc_rect.parameters.palatability_matrix == rect
         @test bgc_rect.parameters.assimilation_matrix == assimilation
@@ -218,16 +211,14 @@ using Oceananigans.Biogeochemistry:
         full = zeros(Float32, n_total, n_total)
         @test_throws ArgumentError NiPiZD.construct(;
             grid=dummy_grid(Float32),
-            palatability_matrix=full,
-            assimilation_matrix=full,
+            parameters=(; palatability_matrix=full, assimilation_matrix=full),
         )
 
         # Provider/callable values are not parameter values.
         rect_provider(_) = fill(Float32(9), 1, 1)
         message = argument_error_message(() -> NiPiZD.construct(;
             grid=dummy_grid(Float32),
-            palatability_matrix=rect_provider,
-            assimilation_matrix=rect_provider,
+            parameters=(; palatability_matrix=rect_provider, assimilation_matrix=rect_provider),
         ))
         @test occursin("must be a matrix", message)
     end
@@ -250,8 +241,7 @@ using Oceananigans.Biogeochemistry:
         rect = fill(Float32(11), size(pal0))
         bgc2 = NiPiZD.construct(;
             grid=dummy_grid(Float32),
-            parameters=(; specificity=specificity),
-            palatability_matrix=rect,
+            parameters=(; specificity=specificity, palatability_matrix=rect),
         )
         @test all(bgc2.parameters.palatability_matrix .== rect)
     end
@@ -362,75 +352,6 @@ using Oceananigans.Biogeochemistry:
 
         for invalid in ((not_a_tracer=1.0,), (D=-1.0,), (D=Inf,), (D=true,))
             @test_throws ArgumentError NiPiZD.construct(; sinking_tracers=invalid)
-        end
-    end
-
-    # Loading CUDA can fail hard in misconfigured environments, so GPU execution is
-    # an explicit opt-in test via AGATE_TEST_CUDA=1 rather than part of the default suite.
-    if lowercase(get(ENV, "AGATE_TEST_CUDA", "0")) in ("1", "true", "yes")
-        @testset "GPU smoke test" begin
-            @eval using CUDA
-            @eval using OceanBioME: Biogeochemistry, PrescribedPhotosyntheticallyActiveRadiation
-            @eval using Oceananigans: RectilinearGrid, NonhydrostaticModel, Clock, Center
-            @eval using Oceananigans: set!, time_step!
-            @eval using Oceananigans.Fields: FunctionField
-            @eval using Oceananigans.Architectures: GPU, array_type
-            @eval using Oceananigans.DistributedComputations: Distributed
-            @eval using Oceananigans.Grids: Periodic, Bounded
-
-            cuda_functional = CUDA.functional()
-            @test cuda_functional
-            if cuda_functional
-                bgc_cpu = NiPiZD.construct(; grid=dummy_grid(Float32))
-                bgc_gpu = NiPiZD.construct(; grid=dummy_grid(Float32; arch=GPU()))
-
-                @test required_biogeochemical_tracers(bgc_gpu) ==
-                    required_biogeochemical_tracers(bgc_cpu)
-                @test bgc_gpu.parameters.palatability_matrix isa array_type(GPU())
-                @test bgc_gpu.parameters.maximum_predation_rate isa array_type(GPU())
-
-                grid = RectilinearGrid(
-                    GPU(), Float32;
-                    topology=(Periodic, Periodic, Bounded),
-                    size=(2, 2, 4),
-                    x=(0f0, 2f0),
-                    y=(0f0, 2f0),
-                    z=(-4f0, 0f0),
-                )
-                sinking_rate = 2.5f0 / 86400f0
-                bgc_sinking = NiPiZD.construct(;
-                    grid, sinking_tracers=(D=sinking_rate,)
-                )
-                drift = biogeochemical_drift_velocity(bgc_sinking, Val(:D)).w
-
-                @test parent(drift) isa array_type(GPU())
-                @test any(==(-sinking_rate), Array(parent(drift)))
-                @test biogeochemical_drift_velocity(bgc_sinking, Val(:Z_1)).w == ZeroField()
-
-                clock = Clock(; time=zero(grid))
-                PAR = FunctionField{Center,Center,Center}(gpu_smoke_PAR, grid; clock)
-                light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
-                bgc_model = Biogeochemistry(bgc_sinking; light_attenuation)
-                model = NonhydrostaticModel(grid; clock, biogeochemistry=bgc_model)
-                set!(
-                    model;
-                    N=7f0,
-                    D=0.01f0,
-                    P_1=0.01f0,
-                    P_2=0.01f0,
-                    Z_1=0.05f0,
-                    Z_2=0.05f0,
-                )
-                time_step!(model, 60f0)
-                @test model.clock.iteration == 1
-
-                distributed_arch = Distributed(GPU())
-                bgc_distributed = NiPiZD.construct(;
-                    grid=dummy_grid(Float32; arch=distributed_arch)
-                )
-                @test bgc_distributed.parameters.palatability_matrix isa array_type(GPU())
-                @test bgc_distributed.parameters.maximum_predation_rate isa array_type(GPU())
-            end
         end
     end
 
