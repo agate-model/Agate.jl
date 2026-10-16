@@ -35,8 +35,14 @@ struct Liebig <: AbstractFormulation end
 """Differentiable Frank t-norm nutrient-combination formulation."""
 struct FrankTNorm <: AbstractFormulation end
 
-"""Q10 temperature-response formulation indexed over the affected process participant role."""
+"""Q10 temperature-response formulation.
+
+`Q10()` has one scalar `q10` coefficient, which may be shared across different processes.
+`Q10(:plankton)` or `Q10(:consumer)` instead indexes `q10` by the corresponding
+process participant. `reference_temperature` is scalar in both cases.
+"""
 struct Q10{Axis} <: AbstractFormulation end
+Q10() = Q10{nothing}()
 Q10(axis::Symbol) = Q10{axis}()
 
 """Growth formulation with a base maximum rate and optional multiplicative factors."""

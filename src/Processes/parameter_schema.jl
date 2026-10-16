@@ -78,6 +78,10 @@ parameter_slots(::QuotaRegulatedMonod) = (
 )
 parameter_slots(::Liebig) = ()
 parameter_slots(::FrankTNorm) = (ParameterSlot(:sharpness; domain=:positive),)
+parameter_slots(::Q10{nothing}) = (
+    ParameterSlot(:q10; domain=:positive),
+    ParameterSlot(:reference_temperature),
+)
 parameter_slots(::Q10{Axis}) where {Axis} = (
     ParameterSlot(:q10, (Axis,); domain=:positive),
     ParameterSlot(:reference_temperature),
