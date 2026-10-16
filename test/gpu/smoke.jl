@@ -67,7 +67,7 @@ using Oceananigans.Grids: Periodic, Bounded
         franken_npd = franken_bgc.underlying_biogeochemistry
         franken_drift = biogeochemical_drift_velocity(franken_npd, Val(:P_1)).w
         @test parent(franken_drift) isa array_type(GPU())
-        @test any(v -> v < 0, Array(interior(franken_drift)))
+        @test any(v -> v < 0, Array(parent(franken_drift)))
         @test biogeochemical_drift_velocity(franken_npd, Val(:Z_1)).w == ZeroField()
 
         franken_model = NonhydrostaticModel(
