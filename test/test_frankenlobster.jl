@@ -8,7 +8,8 @@ using Oceananigans.Biogeochemistry:
 
 using OceanBioME: chlorophyll, PrescribedPhotosyntheticallyActiveRadiation
 using OceanBioME.Models.NutrientsPlanktonDetritusModels:
-    DissolvedParticulate, LOBSTER, NutrientsPlanktonDetritus, nutrient_uptake
+    DissolvedParticulate, LOBSTER, NutrientsPlanktonDetritus, nutrient_uptake,
+    solid_waste, dissolved_waste, inorganic_waste
 using OceanBioME.Models.NutrientsPlanktonDetritusModels.NutrientsModels:
     Nutrients, NitrateAmmonia, N, PO₄
 
@@ -111,6 +112,7 @@ end
         @test inspect(plankton) == inspect(plankton.runtime)
     end
     @test plankton.settings == I.model_settings(plankton)
+    @test plankton.settings === plankton.runtime.metadata.model_settings
     @test I.parameter_domains(plankton, :assimilation_matrix) ==
           I.parameter_domains(plankton.runtime, :assimilation_matrix)
     @test I.interaction_matrix(plankton, :assimilation_matrix) ==
@@ -133,8 +135,45 @@ end
         phytoplankton_components=(:P,),
         nutrient_tracers=(:NO₃, :NH₄),
         consumed_detritus=(:DOM,),
-        settings=plankton.settings,
     )
+    default_settings = Agate.Integrations.NPDPlankton(plankton.runtime; base...)
+    @test default_settings.settings === plankton.runtime.metadata.model_settings
+    @test Agate.Integrations.NPDPlankton(
+        plankton.runtime; base..., settings=plankton.settings
+    ).settings === plankton.settings
+    @test I.model_settings(default_settings) == default_settings.settings
+    # The explicit low-level keyword remains valid, including Float64 inputs to
+    # a Float32 runtime, while incompatible ratios are rejected.
+    @test Agate.Integrations.NPDPlankton(
+        plankton.runtime;
+        merge(base, (; settings=(carbon_ratio=6.56, chlorophyll_ratio=1.5)))...
+    ).settings === plankton.settings
+    for ratios in (
+        (carbon_ratio=7.0, chlorophyll_ratio=1.5),
+        (carbon_ratio=6.56, chlorophyll_ratio=1.6),
+    )
+        @test_throws "must match runtime.metadata.model_settings" Agate.Integrations.NPDPlankton(
+            plankton.runtime; merge(base, (; settings=ratios))...
+        )
+    end
+    canonical = Agate.Integrations.NPDPlankton(plankton.runtime; base...)
+    reordered = Agate.Integrations.NPDPlankton(
+        plankton.runtime;
+        merge(base, (; exchange_tracers=(
+            inorganic=:inorganic_waste, solid=:solid_waste, dissolved=:dissolved_waste,
+        )))...
+    )
+    @test typeof(reordered) === typeof(canonical)
+    @test Agate.Integrations._exchange_tracers(reordered) ==
+          Agate.Integrations._exchange_tracers(canonical)
+    for channels in (
+        (solid=:solid_waste, dissolved=:dissolved_waste),
+        (solid=:solid_waste, dissolved=:dissolved_waste, inorganic=:inorganic_waste, extra=nothing),
+    )
+        @test_throws "must define exactly" Agate.Integrations.NPDPlankton(
+            plankton.runtime; merge(base, (; exchange_tracers=channels))...
+        )
+    end
     @test Agate.Integrations.NPDPlankton(
         plankton.runtime;
         merge(base, (; nutrient_tracers=(:NO₃, :NH₄, :DOM), consumed_detritus=()))...
@@ -167,6 +206,24 @@ end
     end
     @test_throws ArgumentError FrankenLOBSTER.construct(settings=(unknown=1.0,))
     @test_throws ArgumentError FrankenLOBSTER.construct(sinking_tracers=(P_1=0.1,))
+
+    # Generic Agate runtimes can still supply conversion ratios explicitly.
+    # Their absent waste channels default to `nothing` rather than unknown names.
+    nipizd = Agate.Models.NiPiZD.construct(; grid=_GRID)
+    generic = (
+        owned_components=(:P, :Z), phytoplankton_components=(:P,),
+        nutrient_tracers=(:N, :D),
+    )
+    @test isempty(nipizd.metadata.model_settings)
+    @test_throws "requires explicit settings" Agate.Integrations.NPDPlankton(
+        nipizd; generic...
+    )
+    generic_settings = (carbon_ratio=6.56, chlorophyll_ratio=1.31)
+    wrapper = Agate.Integrations.NPDPlankton(
+        nipizd; generic..., settings=generic_settings
+    )
+    @test wrapper.settings == generic_settings
+    @test Agate.Integrations._exchange_tracers(wrapper) == (nothing, nothing, nothing)
 end
 
 @testset "FrankenLOBSTER LOBSTER exchange" begin
@@ -178,6 +235,15 @@ end
             nutrients, plankton, detritus, bgc.inorganic_carbon, bgc.oxygen
         )
     @test required_biogeochemical_tracers(make_npd()) == required_biogeochemical_tracers(bgc)
+    reordered = Agate.Integrations.NPDPlankton(
+        bgc.plankton.runtime;
+        owned_components=(:P, :Z, :H), phytoplankton_components=(:P,),
+        nutrient_tracers=(:NO₃, :NH₄), consumed_detritus=(:DOM,),
+        exchange_tracers=(inorganic=:inorganic_waste,
+                          dissolved=:dissolved_waste, solid=:solid_waste),
+    )
+    @test required_biogeochemical_tracers(make_npd(; plankton=reordered)) ==
+          required_biogeochemical_tracers(make_npd())
     @test_throws "nutrient_tracers" required_biogeochemical_tracers(
         make_npd(; nutrients=Nutrients(; nitrogen=N))
     )
@@ -200,6 +266,11 @@ end
         make_npd(; plankton=owns_dom)
     )
     aux = (PAR=_cell(1.0),)
+    exchanged_state = _fields(; NO₃=1.0, DOM=0.3, P_1=2.0, Z_1=1.0)
+    for hook in (solid_waste, dissolved_waste, inorganic_waste)
+        @test hook(1, 1, 1, _GRID, reordered, make_npd(; plankton=reordered), exchanged_state, aux) ≈
+              hook(1, 1, 1, _GRID, bgc.plankton, bgc, exchanged_state, aux)
+    end
     tendency(tracer, fields) = bgc(1, 1, 1, _GRID, Val(tracer), (; time=0.0), fields, aux)
     uptake(tracer, fields) = nutrient_uptake(1, 1, 1, _GRID, Val(tracer), bgc.plankton, bgc, fields, aux)
 
