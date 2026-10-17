@@ -9,6 +9,5 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
 CUDA = "5.9.1, 6"
-OceanBioME = "0.19"
-Oceananigans = "0.113"
+# Agate's [compat] governs the supported OceanBioME and Oceananigans versions.
 julia = "1.10"
