@@ -17,7 +17,7 @@ jobs:
     name: Julia 1.10 - full suite
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v1
         with:
           version: '1.10'
@@ -30,7 +30,7 @@ jobs:
     name: Julia 1.11 - compatibility smoke
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v1
         with:
           version: '1.11'
@@ -51,7 +51,7 @@ jobs:
     name: Julia 1.12 - compatibility smoke
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v1
         with:
           version: '1.12'
