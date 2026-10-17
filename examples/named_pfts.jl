@@ -92,7 +92,7 @@ function run_light_treatment(bgc, PAR, filename)
         full_model.fields;
         filename,
         schedule=TimeInterval(1hour),
-        overwrite_existing=true,
+        overwrite_files=true,
     )
 
     run!(simulation)

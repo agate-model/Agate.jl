@@ -162,7 +162,7 @@ function run_growth_experiment(bgc, phytoplankton_tracers, filename)
         model.fields;
         filename,
         schedule=TimeInterval(1hour),
-        overwrite_existing=true,
+        overwrite_files=true,
     )
 
     run!(simulation)

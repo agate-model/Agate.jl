@@ -134,7 +134,7 @@ function run_box_model(bgc, filename)
         full_model.fields;
         filename,
         schedule=TimeInterval(1day),
-        overwrite_existing=true,
+        overwrite_files=true,
     )
 
     run!(simulation)
