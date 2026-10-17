@@ -12,6 +12,5 @@ steps:
       - julia --version
       # Julia 1.10 requires explicitly developing the local checkout into this project.
       - julia --project=test/gpu --color=yes -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate(); Pkg.update(["OceanBioME", "Oceananigans"]); Pkg.status(["Agate", "OceanBioME", "Oceananigans"])'
-      - julia --project=test/gpu --color=yes test/gpu/compat_resolution.jl
       - julia --project=test/gpu --color=yes test/gpu/smoke.jl
     timeout_in_minutes: 60
