@@ -239,6 +239,7 @@ end
         bgc.plankton.runtime;
         owned_components=(:P, :Z, :H), phytoplankton_components=(:P,),
         nutrient_tracers=(:NO₃, :NH₄), consumed_detritus=(:DOM,),
+        dependencies=(:T,),
         exchange_tracers=(inorganic=:inorganic_waste,
                           dissolved=:dissolved_waste, solid=:solid_waste),
     )
