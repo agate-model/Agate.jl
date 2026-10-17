@@ -64,25 +64,71 @@ function _component_tracers(runtime, components::Tuple)
     )
 end
 
-function _validate_npd_settings(settings::NamedTuple)
+function _validate_npd_settings(settings::NamedTuple; context="NPDPlankton settings")
     for name in (:carbon_ratio, :chlorophyll_ratio)
         hasproperty(settings, name) || throw(
-            ArgumentError("NPDPlankton settings must define :$name."),
+            ArgumentError("$context must define :$name."),
         )
         value = getproperty(settings, name)
         value isa Real && !(value isa Bool) && isfinite(value) && value >= 0 || throw(
-            ArgumentError("NPDPlankton setting :$name must be finite and nonnegative."),
+            ArgumentError("$context :$name must be finite and nonnegative."),
         )
     end
-    settings.carbon_ratio > 0 || throw(ArgumentError("NPDPlankton carbon_ratio must be > 0."))
+    settings.carbon_ratio > 0 || throw(ArgumentError("$context carbon_ratio must be > 0."))
     return settings
+end
+
+# Resolve settings once on the host before constructing the statically routed adapter.
+# Registered families carry resolved settings; standalone process definitions may not.
+function _resolve_npd_settings(runtime, supplied::Union{Nothing,NamedTuple})
+    resolved = runtime.metadata.model_settings
+    if isempty(resolved)
+        isnothing(supplied) && throw(ArgumentError(
+            "NPDPlankton requires explicit settings when runtime.metadata.model_settings is empty.",
+        ))
+        return _validate_npd_settings(supplied)
+    end
+
+    _validate_npd_settings(resolved; context="NPD family runtime.metadata.model_settings")
+    isnothing(supplied) && return resolved
+    _validate_npd_settings(supplied)
+    names = keys(resolved)
+    length(supplied) == length(resolved) &&
+        all(name -> hasproperty(supplied, name), names) || throw(ArgumentError(
+            "NPDPlankton settings keys must match runtime.metadata.model_settings keys $names.",
+        ))
+    for name in names
+        actual = getproperty(supplied, name)
+        expected = getproperty(resolved, name)
+        # A Float64 keyword can round to the same Float32 scientific setting.
+        equivalent = isequal(actual, expected) || (
+            actual isa AbstractFloat && expected isa AbstractFloat &&
+            isapprox(actual, expected;
+                     rtol=max(eps(typeof(actual)), eps(typeof(expected))), atol=0)
+        )
+        equivalent || throw(ArgumentError(
+            "NPDPlankton setting :$name must match runtime.metadata.model_settings (got $actual; expected $expected).",
+        ))
+    end
+    return resolved
+end
+
+function _canonical_exchange_tracers(exchanges::NamedTuple)
+    channels = (:solid, :dissolved, :inorganic)
+    length(exchanges) == length(channels) &&
+        all(channel -> hasproperty(exchanges, channel), channels) || throw(ArgumentError(
+            "exchange_tracers must define exactly $channels; got $(keys(exchanges)).",
+        ))
+    return (
+        solid=exchanges.solid,
+        dissolved=exchanges.dissolved,
+        inorganic=exchanges.inorganic,
+    )
 end
 
 """
     NPDPlankton(runtime; owned_components, phytoplankton_components=(), nutrient_tracers=(),
-                exchange_tracers=(solid=:solid_waste, dissolved=:dissolved_waste,
-                                  inorganic=:inorganic_waste),
-                consumed_detritus=(), dependencies=(), settings)
+                exchange_tracers=..., consumed_detritus=(), dependencies=(), settings=nothing)
 
 Wrap a compiled Agate runtime as an OceanBioME `NutrientsPlanktonDetritus` plankton component.
 Component names are resolved once from Agate runtime metadata; all cell-level coupling is then
@@ -91,25 +137,27 @@ must reach exactly one owned, nutrient, consumed-detritus or exchange hook. At N
 `nutrient_tracers` must match the native nutrient tracers and `consumed_detritus` must belong
 to the native detritus component. Agate does not impose a nutrient-name vocabulary. A
 dependency that also names a runtime auxiliary driver is read from the surrounding NPD tracer
-fields rather than requested as a separate auxiliary field.
+fields rather than requested as a separate auxiliary field. Resolved family settings are
+read from `runtime.metadata.model_settings`; any supplied `settings` must agree with them.
+Families used with NPD must define `carbon_ratio` and `chlorophyll_ratio` in their
+resolved model settings. Standalone runtimes without resolved settings require
+explicit conversion ratios. By default, exchange channels use their corresponding
+runtime waste pools, or `nothing` if a pool is absent. Exchange channel keys
+`:solid`, `:dissolved`, and `:inorganic` are required in any order for explicit maps;
+use `nothing` for a channel without a destination.
 """
 function NPDPlankton(
     runtime;
     owned_components::Tuple,
     phytoplankton_components::Tuple=(),
     nutrient_tracers::Tuple=(),
-    exchange_tracers::NamedTuple=(
-        solid=:solid_waste,
-        dissolved=:dissolved_waste,
-        inorganic=:inorganic_waste,
-    ),
+    exchange_tracers::NamedTuple=_standard_exchange_tracers(runtime),
     consumed_detritus::Tuple=(),
     dependencies::Tuple=(),
-    settings::NamedTuple,
+    settings::Union{Nothing,NamedTuple}=nothing,
 )
-    keys(exchange_tracers) == (:solid, :dissolved, :inorganic) || throw(
-        ArgumentError("exchange_tracers must define (:solid, :dissolved, :inorganic)."),
-    )
+    exchange_tracers = _canonical_exchange_tracers(exchange_tracers)
+    settings = _resolve_npd_settings(runtime, settings)
     owned = _component_tracers(runtime, owned_components)
     isempty(owned) && throw(ArgumentError("NPDPlankton must own at least one tracer."))
     phytoplankton = _component_tracers(runtime, phytoplankton_components)
@@ -167,7 +215,6 @@ function NPDPlankton(
         "NPDPlankton nonzero tendencies have no OceanBioME route: $unrouted.",
     ))
     owned_type = mapreduce(name -> typeof(Val(name)), (A, B) -> Union{A,B}, owned)
-    _validate_npd_settings(settings)
 
     return NPDPlankton{
         typeof(runtime),
@@ -213,7 +260,6 @@ function _npd_default_configuration(family::AbstractModelFamily, runtime)
         nutrient_tracers=(),
         exchange_tracers=_standard_exchange_tracers(runtime),
         consumed_detritus=(),
-        settings=runtime.metadata.model_settings,
     )
 end
 

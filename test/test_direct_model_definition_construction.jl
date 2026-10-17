@@ -174,6 +174,12 @@ end
     expected = (0.5e-6, 0.25e-6, 0.25e-6,
                 0.1e-6, 0.05e-6, 0.05e-6, -1e-6)
     @test all(process_compiler_isapprox.(actual, expected))
+    # Nitrogen held implicitly by carbon biomass closes at the declared N:C ratio.
+    @test isapprox(sum((tendency.P_1, tendency.DOC, tendency.POC, tendency.XOC)), 0; atol=1e-18)
+    @test isapprox(
+        bgc.parameters.nitrogen_to_carbon * tendency.P_1 +
+        sum((tendency.DON, tendency.PON, tendency.XON)), 0; atol=1e-18
+    )
     @test_throws ArgumentError construct(
         ModelDefinition(; components, processes, parameters); parameter_overrides=(POM_fraction=0.8, XOM_fraction=0.8))
 

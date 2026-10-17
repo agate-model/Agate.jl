@@ -94,7 +94,6 @@ Parameter slots are resolved once during canonicalization and own their scientif
 
 ```text
 src/
-|-- compat.jl           # package-level dependency compatibility
 |-- Components/         # component authoring, diameter specs, realized topology
 |-- Processes/             # authoring, canonicalization, parameter planning, authored validation, parameter validation
 |-- Compilation/           # runtime IR, process flux lowering, static compilation

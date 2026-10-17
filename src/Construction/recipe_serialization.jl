@@ -93,58 +93,65 @@ end
 
 # Narrow codec for authored parameter values. The durable recipe intentionally does not
 # serialize arbitrary Julia values or the component/process definition tree.
-_encode_parameter_value(x::Nothing) = nothing
-_encode_parameter_value(x::Bool) = x
-function _encode_parameter_value(x::Integer)
-    return Int(x)
+_encode_parameter_value(x::Nothing, ::AbstractString) = nothing
+_encode_parameter_value(x::Bool, ::AbstractString) = x
+_encode_parameter_value(x::Integer, ::AbstractString) = Int(x)
+function _encode_parameter_value(x::AbstractFloat, path::AbstractString)
+    isfinite(x) || throw(ArgumentError("$path must be finite; got $x."))
+    return Float64(x)
 end
-_encode_parameter_value(x::AbstractFloat) = _finite_float(x)
-_encode_parameter_value(x::Symbol) = Dict{String,Any}("kind" => "symbol", "value" => String(x))
+_encode_parameter_value(x::Symbol, ::AbstractString) =
+    Dict{String,Any}("kind" => "symbol", "value" => String(x))
 
-function _encode_named_parameter_values(values::NamedTuple)
-    return Dict{String,Any}(
-        String(name) => _encode_parameter_value(value) for (name, value) in pairs(values)
-    )
+function _encode_named_parameter_values(values::NamedTuple, path::AbstractString)
+    encoded = Dict{String,Any}()
+    for (name, value) in pairs(values)
+        encoded[String(name)] = _encode_parameter_value(value, "$path.$name")
+    end
+    return encoded
 end
 
-function _encode_parameter_value(x::NamedTuple)
+function _encode_parameter_value(x::NamedTuple, path::AbstractString)
     return Dict{String,Any}(
         "kind" => "named",
-        "values" => _encode_named_parameter_values(x),
+        "values" => _encode_named_parameter_values(x, path),
     )
 end
 
-function _encode_parameter_value(x::AbstractVector)
+function _encode_parameter_value(x::AbstractVector, path::AbstractString)
     all(value -> value isa Real && isfinite(value), x) || throw(
-        ArgumentError("Recipe parameter vectors must contain finite numeric values.")
+        ArgumentError("$path recipe parameter vectors must contain finite numeric values.")
     )
-    return Any[_encode_parameter_value(value) for value in x]
+    return Any[_encode_parameter_value(value, "$path[$i]") for (i, value) in pairs(x)]
 end
 
-function _encode_parameter_value(x::AbstractMatrix)
+function _encode_parameter_value(x::AbstractMatrix, path::AbstractString)
     all(value -> value isa Real && isfinite(value), x) || throw(
-        ArgumentError("Recipe parameter matrices must contain finite numeric values.")
+        ArgumentError("$path recipe parameter matrices must contain finite numeric values.")
     )
     return Any[
-        Any[_encode_parameter_value(x[i, j]) for j in axes(x, 2)] for i in axes(x, 1)
+        Any[_encode_parameter_value(x[i, j], "$path[$i,$j]") for j in axes(x, 2)]
+        for i in axes(x, 1)
     ]
 end
 
-function _encode_parameter_value(x::ConstantParam)
-    return Dict{String,Any}("law" => "constant", "value" => _encode_parameter_value(x.value))
+function _encode_parameter_value(x::ConstantParam, path::AbstractString)
+    return Dict{String,Any}(
+        "law" => "constant", "value" => _encode_parameter_value(x.value, "$path.value")
+    )
 end
 
-function _encode_parameter_value(x::AllometricParam)
+function _encode_parameter_value(x::AllometricParam, path::AbstractString)
     return Dict{String,Any}(
         "law" => _identifier_string(
             x.model, allometric_relationship_identifier, "allometric_relationship_identifier"
         ),
-        "coefficients" => _encode_parameter_value(x.coeffs),
+        "coefficients" => _encode_parameter_value(x.coeffs, "$path.coefficients"),
     )
 end
 
-function _encode_parameter_value(x)
-    throw(ArgumentError("Cannot serialize recipe parameter value of type $(typeof(x))."))
+function _encode_parameter_value(x, path::AbstractString)
+    throw(ArgumentError("$path has unsupported recipe parameter type $(typeof(x))."))
 end
 
 function _decoded_parameter_array(values, path)
@@ -226,8 +233,8 @@ function _decode_parameter_value(x, path)
     throw(ArgumentError("$path has unsupported parameter value kind $(repr(kind))."))
 end
 
-_encode_parameter_overrides(overrides::NamedTuple) =
-    _encode_named_parameter_values(overrides)
+_encode_parameter_overrides(overrides::NamedTuple, path::AbstractString) =
+    _encode_named_parameter_values(overrides, path)
 
 _decode_parameter_overrides(x, path) = _decode_named_parameter_values(x, path)
 
@@ -346,10 +353,16 @@ end
 function _encode_realization(recipe::ModelRecipe)
     return Dict{String,Any}(
         "plankton_pfts" => _encode_plankton_pfts(recipe.plankton_pfts),
-        "parameter_overrides" => _encode_parameter_overrides(recipe.parameter_overrides),
-        "setting_overrides" => _encode_parameter_overrides(recipe.setting_overrides),
+        "parameter_overrides" => _encode_parameter_overrides(
+            recipe.parameter_overrides, "Recipe document.realization.parameter_overrides"
+        ),
+        "setting_overrides" => _encode_parameter_overrides(
+            recipe.setting_overrides, "Recipe document.realization.setting_overrides"
+        ),
         "sinking_tracers" => isnothing(recipe.sinking_tracers) ? nothing :
-                             _encode_parameter_overrides(recipe.sinking_tracers),
+                             _encode_parameter_overrides(
+                                 recipe.sinking_tracers, "Recipe document.realization.sinking_tracers"
+                             ),
         "open_bottom" => recipe.open_bottom,
     )
 end

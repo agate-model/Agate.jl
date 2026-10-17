@@ -168,6 +168,12 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
     product_targets = if isnothing(process.products)
         nothing
     else
+        if !has_stoichiometry && !isnothing(process.products.stoichiometry)
+            throw(ArgumentError(
+                "process :$id growth products cannot use FixedStoichiometry unless growth " *
+                "also supplies those elements through FixedStoichiometry and additional_resources",
+            ))
+        end
         targets = _canonical_product_targets(
             id, process.products, components, reference_element, "growth products"
         )

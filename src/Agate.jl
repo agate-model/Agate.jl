@@ -1,7 +1,6 @@
 """Composable process-based plankton biogeochemistry for Oceananigans."""
 module Agate
 
-include("compat.jl")
 include("ModelFamilies/ModelFamilies.jl")
 include("Library/Library.jl")
 include("Components/Components.jl")

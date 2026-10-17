@@ -65,10 +65,12 @@ We follow the contributing guidelines developed by [The Turing Way](https://gith
 CUDA execution is opt-in because it requires a compatible GPU/toolkit setup.
 The lightweight Buildkite smoke test checks NiPiZD and FrankenLOBSTER biological
 execution, sinking, and OceanBioME coupling without running the CPU/AD suite.
+Buildkite updates OceanBioME and Oceananigans within Agate's `[compat]` bounds and
+prints their resolved versions before running the smoke test.
 From the repository root, run:
 
 ```bash
-JULIA_PKG_PRECOMPILE_AUTO=0 julia --project=test/gpu -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
+JULIA_PKG_PRECOMPILE_AUTO=0 julia --project=test/gpu -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate(); Pkg.update(["OceanBioME", "Oceananigans"]); Pkg.status(["Agate", "OceanBioME", "Oceananigans"])'
 julia --project=test/gpu test/gpu/smoke.jl
 ```
 

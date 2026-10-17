@@ -139,6 +139,60 @@ using Agate.Processes:
         end
     end
 
+    @testset "growth products require sourced elements" begin
+        products = Products(
+            (exudate=(nitrogen=:DON, carbon=:DOC),);
+            stoichiometry=FixedStoichiometry(;
+                reference_element=:nitrogen,
+                bindings=(ratio=(carbon=:carbon_to_nitrogen,),),
+            ),
+        )
+        parameters = (
+            maximum_growth_rate=Parameter(0.5),
+            product_fraction=Parameter(0.25),
+            carbon_to_nitrogen=Parameter(6.0),
+        )
+        growth(products) = Growth(;
+            plankton=:P, reference_resource=:DIN, products,
+            bindings=(maximum_rate=:maximum_growth_rate, product_fraction=:product_fraction),
+        )
+
+        for states in (
+            (nitrogen=:nitrogen,),
+            (nitrogen=:nitrogen, carbon=:carbon),
+        )
+            components = (
+                P=Plankton(; states, reference_state=:nitrogen),
+                DIN=Pool(:nitrogen), DON=Pool(:nitrogen), DOC=Pool(:carbon),
+            )
+            definition = ModelDefinition(;
+                components, processes=(growth=growth(products),), parameters,
+            )
+            message = canonicalization_error_message(definition)
+            @test occursin(
+                "process :growth growth products cannot use FixedStoichiometry", message
+            )
+        end
+
+        components = (
+            P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
+            DIN=Pool(:nitrogen), DON=Pool(:nitrogen),
+        )
+        definition = ModelDefinition(;
+            components,
+            processes=(growth=growth(Products((exudate=:DON,))),),
+            parameters=(
+                maximum_growth_rate=Parameter(0.5),
+                product_fraction=Parameter(0.25),
+            ),
+        )
+        model = Agate.Construction.construct(definition)
+        test_tendencies(
+            model, (P=2.0, DIN=10.0, DON=0.0),
+            (P=0.75, DIN=-1.0, DON=0.25),
+        )
+    end
+
     @testset "growth leaves independently prognostic elemental states unchanged" begin
         definition = ModelDefinition(;
             components=(

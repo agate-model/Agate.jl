@@ -115,7 +115,7 @@ simulation.output_writers[:profiles] = JLD2Writer(
     full_model.tracers;
     filename=filename,
     schedule=TimeInterval(1day),
-    overwrite_existing=true,
+    overwrite_files=true,
 )
 
 run!(simulation)

@@ -55,6 +55,7 @@ using Oceananigans.Grids: Periodic, Bounded
         )
         @test plankton.runtime.parameters.palatability_matrix isa array_type(GPU())
         @test plankton.runtime.parameters.bacterial_dom_half_saturation isa array_type(GPU())
+        @test plankton.settings == plankton.runtime.metadata.model_settings
 
         franken_clock = Clock(; time=zero(grid))
         franken_PAR = FunctionField{Center,Center,Center}(
