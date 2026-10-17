@@ -246,4 +246,11 @@ end
         @test_throws ArgumentError decode_recipe(document)
     end
     @test_throws ArgumentError decode_recipe("not a recipe document")
+
+    invalid_value = Agate.Construction.ModelRecipe(
+        recipe.family, recipe.definition_version, recipe.plankton_pfts,
+        (unsupported=Dict(:key => 1),), recipe.setting_overrides,
+        recipe.sinking_tracers, recipe.open_bottom,
+    )
+    @test_throws "Cannot serialize recipe value :unsupported" encode_recipe(invalid_value)
 end

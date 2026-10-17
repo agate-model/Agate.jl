@@ -102,9 +102,18 @@ _encode_parameter_value(x::AbstractFloat) = _finite_float(x)
 _encode_parameter_value(x::Symbol) = Dict{String,Any}("kind" => "symbol", "value" => String(x))
 
 function _encode_named_parameter_values(values::NamedTuple)
-    return Dict{String,Any}(
-        String(name) => _encode_parameter_value(value) for (name, value) in pairs(values)
-    )
+    encoded = Dict{String,Any}()
+    for (name, value) in pairs(values)
+        encoded[String(name)] = try
+            _encode_parameter_value(value)
+        catch err
+            err isa ArgumentError || rethrow()
+            throw(ArgumentError(
+                "Cannot serialize recipe value :$name: $(sprint(showerror, err))"
+            ))
+        end
+    end
+    return encoded
 end
 
 function _encode_parameter_value(x::NamedTuple)

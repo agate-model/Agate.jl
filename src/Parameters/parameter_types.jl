@@ -17,9 +17,9 @@ abstract type AbstractDefaultProvider end
 
 """A literal parameter default.
 
-Scalar parameters use the literal value directly after conversion to the construction
-scalar type. Vector and matrix parameters fill their resolved storage extent with the
-literal value.
+Scalar parameters use the literal value after conversion to the construction scalar
+type. For vector and matrix parameters, scalar defaults fill the resolved storage shape;
+array defaults are copied and converted to the construction scalar type.
 """
 struct ConstantDefault{Value} <: AbstractDefaultProvider
     value::Value

@@ -141,7 +141,8 @@ dependency that also names a runtime auxiliary driver is read from the surroundi
 fields rather than requested as a separate auxiliary field. Resolved family settings are
 read from `runtime.metadata.model_settings`; any supplied `settings` must agree with them.
 Standalone runtimes without resolved settings require explicit conversion ratios.
-Exchange channel names are order-independent; an omitted channel is represented by `nothing`.
+Exchange channel keys `:solid`, `:dissolved`, and `:inorganic` are required in any order;
+use `nothing` for a channel without a destination.
 """
 function NPDPlankton(
     runtime;

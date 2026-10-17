@@ -219,8 +219,15 @@ Agate.ModelFamilies.default_processes
 
 `Agate.Integrations.NPDPlankton` adapts a compiled Agate plankton runtime to OceanBioME's
 `NutrientsPlanktonDetritus` interface. It maps Agate's living-tracer tendencies, nutrient
-uptake and detritus/waste exchanges onto OceanBioME's existing hooks. The
-[FrankenLOBSTER model](@ref FrankenLOBSTER) supplies a ready-to-use example.
+uptake and detritus/waste exchanges onto OceanBioME's existing hooks. Its
+`owned_components` specify the living tracers contributed by Agate;
+`nutrient_tracers` and `consumed_detritus` identify native NPD components, and
+`exchange_tracers` names the three channels `:solid`, `:dissolved`, and
+`:inorganic` (use `nothing` for an unused channel). The constructor checks that
+all nonzero compiled tendencies have exactly one destination and that resolved
+family settings agree with the runtime. Native nutrient and detritus compatibility
+is checked when the composed NPD model's tracer set is requested.
+The [FrankenLOBSTER model](@ref FrankenLOBSTER) supplies a ready-to-use example.
 
 ```@docs
 Agate.Integrations.NPDPlankton

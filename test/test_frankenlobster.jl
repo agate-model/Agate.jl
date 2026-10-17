@@ -204,7 +204,9 @@ end
             plankton.runtime; merge(base, invalid)...
         )
     end
-    @test_throws ArgumentError FrankenLOBSTER.construct(settings=(unknown=1.0,))
+    @test_throws "Available settings: chlorophyll_ratio, carbon_ratio" FrankenLOBSTER.construct(
+        settings=(unknown=1.0,)
+    )
     @test_throws ArgumentError FrankenLOBSTER.construct(sinking_tracers=(P_1=0.1,))
 
     # Generic Agate runtimes can still supply conversion ratios explicitly.
