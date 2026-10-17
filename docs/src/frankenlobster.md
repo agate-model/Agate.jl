@@ -48,10 +48,13 @@ Agate owns the living plankton (`P_1`, `P_2`, `Z_1`, `Z_2`, `H_1` by default).
 `LOBSTER` supplies native nutrient (`NO₃`, `NH₄`) and detritus (`DOM`, `sPOM`,
 `bPOM`) components. Agate's nutrient routing must match the native nutrient
 tracers; consumed detritus must be present in the native detritus component.
-The adapter validates these at composition. The default exchange channels map
+The adapter validates these at composition. By default, the exchange channels map
 `:solid` to `:solid_waste`, `:dissolved` to `:dissolved_waste`, and `:inorganic`
-to `:inorganic_waste`. A custom low-level adapter specifies all three channel
-keys, in any order, with `nothing` for an unused channel.
+to `:inorganic_waste` when those runtime pools exist, or to `nothing` otherwise.
+A custom low-level adapter specifies all three channel keys, in any order, with
+`nothing` for an unused channel. NPD model families supply both conversion ratios
+in their resolved model settings; standalone runtimes can supply them through the
+`settings` keyword. Both are visible through `Agate.Introspection.model_settings`.
 
 `Agate.Introspection.tracer_names(plankton)` lists the compiled Agate runtime's
 tracers, including external nutrient and exchange-pool names. In contrast,

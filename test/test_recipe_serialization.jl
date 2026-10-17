@@ -247,10 +247,20 @@ end
     end
     @test_throws ArgumentError decode_recipe("not a recipe document")
 
-    invalid_value = Agate.Construction.ModelRecipe(
-        recipe.family, recipe.definition_version, recipe.plankton_pfts,
-        (unsupported=Dict(:key => 1),), recipe.setting_overrides,
-        recipe.sinking_tracers, recipe.open_bottom,
+    for (params, settings, sinking, path) in (
+        ((unsupported=Dict(:key => 1),), recipe.setting_overrides, recipe.sinking_tracers,
+         "parameter_overrides.unsupported"),
+        ((maximum_growth_rate=(P_1=Dict(:key => 1),),), recipe.setting_overrides,
+         recipe.sinking_tracers, "parameter_overrides.maximum_growth_rate.P_1"),
+        (recipe.parameter_overrides, (unexpected=Dict(:key => 1),), recipe.sinking_tracers,
+         "setting_overrides.unexpected"),
+        (recipe.parameter_overrides, recipe.setting_overrides, (P_1=Dict(:key => 1),),
+         "sinking_tracers.P_1"),
     )
-    @test_throws "Cannot serialize recipe value :unsupported" encode_recipe(invalid_value)
+        invalid = Agate.Construction.ModelRecipe(
+            recipe.family, recipe.definition_version, recipe.plankton_pfts,
+            params, settings, sinking, recipe.open_bottom,
+        )
+        @test_throws path encode_recipe(invalid)
+    end
 end

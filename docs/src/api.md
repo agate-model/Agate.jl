@@ -224,9 +224,9 @@ uptake and detritus/waste exchanges onto OceanBioME's existing hooks. Its
 `nutrient_tracers` and `consumed_detritus` identify native NPD components, and
 `exchange_tracers` names the three channels `:solid`, `:dissolved`, and
 `:inorganic` (use `nothing` for an unused channel). The constructor checks that
-all nonzero compiled tendencies have exactly one destination and that resolved
-family settings agree with the runtime. Native nutrient and detritus compatibility
-is checked when the composed NPD model's tracer set is requested.
+all nonzero compiled tendencies have exactly one destination and that supplied
+settings agree with the runtime's resolved family settings. Native nutrient and
+detritus compatibility is checked when the composed NPD model's tracer set is requested.
 The [FrankenLOBSTER model](@ref FrankenLOBSTER) supplies a ready-to-use example.
 
 ```@docs

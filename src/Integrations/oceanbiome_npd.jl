@@ -64,17 +64,17 @@ function _component_tracers(runtime, components::Tuple)
     )
 end
 
-function _validate_npd_settings(settings::NamedTuple)
+function _validate_npd_settings(settings::NamedTuple; context="NPDPlankton settings")
     for name in (:carbon_ratio, :chlorophyll_ratio)
         hasproperty(settings, name) || throw(
-            ArgumentError("NPDPlankton settings must define :$name."),
+            ArgumentError("$context must define :$name."),
         )
         value = getproperty(settings, name)
         value isa Real && !(value isa Bool) && isfinite(value) && value >= 0 || throw(
-            ArgumentError("NPDPlankton setting :$name must be finite and nonnegative."),
+            ArgumentError("$context :$name must be finite and nonnegative."),
         )
     end
-    settings.carbon_ratio > 0 || throw(ArgumentError("NPDPlankton carbon_ratio must be > 0."))
+    settings.carbon_ratio > 0 || throw(ArgumentError("$context carbon_ratio must be > 0."))
     return settings
 end
 
@@ -89,7 +89,7 @@ function _resolve_npd_settings(runtime, supplied::Union{Nothing,NamedTuple})
         return _validate_npd_settings(supplied)
     end
 
-    _validate_npd_settings(resolved)
+    _validate_npd_settings(resolved; context="NPD family runtime.metadata.model_settings")
     isnothing(supplied) && return resolved
     _validate_npd_settings(supplied)
     names = keys(resolved)
@@ -128,8 +128,7 @@ end
 
 """
     NPDPlankton(runtime; owned_components, phytoplankton_components=(), nutrient_tracers=(),
-                exchange_tracers=_standard_exchange_tracers(runtime),
-                consumed_detritus=(), dependencies=(), settings=nothing)
+                exchange_tracers=..., consumed_detritus=(), dependencies=(), settings=nothing)
 
 Wrap a compiled Agate runtime as an OceanBioME `NutrientsPlanktonDetritus` plankton component.
 Component names are resolved once from Agate runtime metadata; all cell-level coupling is then
@@ -140,8 +139,11 @@ to the native detritus component. Agate does not impose a nutrient-name vocabula
 dependency that also names a runtime auxiliary driver is read from the surrounding NPD tracer
 fields rather than requested as a separate auxiliary field. Resolved family settings are
 read from `runtime.metadata.model_settings`; any supplied `settings` must agree with them.
-Standalone runtimes without resolved settings require explicit conversion ratios.
-Exchange channel keys `:solid`, `:dissolved`, and `:inorganic` are required in any order;
+Families used with NPD must define `carbon_ratio` and `chlorophyll_ratio` in their
+resolved model settings. Standalone runtimes without resolved settings require
+explicit conversion ratios. By default, exchange channels use their corresponding
+runtime waste pools, or `nothing` if a pool is absent. Exchange channel keys
+`:solid`, `:dissolved`, and `:inorganic` are required in any order for explicit maps;
 use `nothing` for a channel without a destination.
 """
 function NPDPlankton(

@@ -82,13 +82,16 @@ end
 
 """    model_settings(bgc) -> NamedTuple
 
-Return resolved model-family properties that are not inputs to an individual process equation.
+Return resolved model-level settings. For an `NPDPlankton` adapter, return the
+settings used by the adapter, including explicitly supplied standalone-runtime ratios.
 """
 function model_settings(bgc)
     metadata = _model_metadata(bgc)
     (metadata === nothing || !hasproperty(metadata, :model_settings)) && return NamedTuple()
     return metadata.model_settings
 end
+
+@inline model_settings(plankton::NPDPlankton) = plankton.settings
 
 """    pfts(bgc) -> NamedTuple
 

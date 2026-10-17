@@ -225,6 +225,7 @@ end
         nipizd; generic..., settings=generic_settings
     )
     @test wrapper.settings == generic_settings
+    @test I.model_settings(wrapper) == generic_settings
     @test Agate.Integrations._exchange_tracers(wrapper) == (nothing, nothing, nothing)
 end
 
