@@ -1,3 +1,4 @@
+
 version: 2
 
 updates:
@@ -6,13 +7,6 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
-    groups:
-      ocean-models:
-        patterns:
-          - "OceanBioME"
-          - "Oceananigans"
-
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "monthly"
+    allow:
+      - dependency-name: "OceanBioME"
+      - dependency-name: "Oceananigans"
