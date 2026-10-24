@@ -75,20 +75,10 @@ function _check_product_elements(id, targets, represented, label)
     return nothing
 end
 
-function _matching_element_sets(
-    element_states::NamedTuple, id::Symbol, label::AbstractString
-)
-    isempty(element_states) && return ()
-    first_elements = Tuple(keys(first(values(element_states))))
-    for (name, states_for_element) in pairs(element_states)
-        elements = Tuple(keys(states_for_element))
-        sort(collect(elements); by=String) == sort(collect(first_elements); by=String) || throw(ArgumentError(
-            "process :$id $label :$name has elemental states $elements; expected $first_elements " *
-            "so one shared Products mapping can route every participant",
-        ))
-    end
-    return first_elements
-end
+"""Elements represented by any participant; products route only each participant's inventory."""
+_represented_elements(sources::NamedTuple) = Tuple(sort!(unique([
+    element for inventory in values(sources) for element in keys(inventory)
+]); by=String))
 
 """Attach setup-validated semantic facts to a process before compilation.
 
@@ -120,26 +110,15 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
         "growth reference resource :$(process.reference_resource)",
     )
 
-    for plankton_name in process.plankton
-        explicit = _plankton_element_states(components, plankton_name, id, "growth plankton")
-        for target_element in keys(process.additional_resources)
-            target_element in keys(explicit) || continue
-            throw(ArgumentError(
-                "process :$id growth additional resource :$target_element conflicts with " *
-                "explicit prognostic state :$(getproperty(explicit, target_element).state) " *
-                "for plankton :$plankton_name",
-            ))
-        end
-    end
     required = Set(keys(process.additional_resources))
+    implicit = Set{Symbol}()
     for plankton_name in process.plankton
-        plankton = getproperty(components, plankton_name)
-        implicit = Set(keys(composition(plankton)))
-        required == implicit || throw(ArgumentError(
-            "process :$id growth additional_resources $required must match " *
-            "Plankton :$plankton_name implicit composition elements $implicit",
-        ))
+        union!(implicit, keys(composition(getproperty(components, plankton_name))))
     end
+    required == implicit || throw(ArgumentError(
+        "process :$id growth additional_resources $required must match " *
+        "implicit composition elements $implicit across participating plankton",
+    ))
     for (target_element, resource_name) in pairs(process.additional_resources)
         resource = _resolve_pool(
             components, resource_name, id, "growth additional resource :$target_element"
@@ -163,7 +142,7 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
         targets
     end
 
-    return (; plankton_states, product_targets)
+    return (; plankton_states, reference_element, product_targets)
 end
 
 function process_facts(
@@ -243,9 +222,7 @@ function process_facts(process::Consumption, id::Symbol, components::NamedTuple)
         product_targets = if isnothing(process.products)
             nothing
         else
-            source_elements = _matching_element_sets(
-                resource_element_states, id, "living resource"
-            )
+            source_elements = _represented_elements(resource_element_states)
             targets = _canonical_product_targets(
                 id, process.products, components, reference_element, "unassimilated products"
             )
@@ -321,7 +298,7 @@ function process_facts(process::Mortality, id::Symbol, components::NamedTuple)
         _validate_state_elements(
             components, plankton_states, reference_element, id, "mortality reference state"
         )
-        source_elements = _matching_element_sets(material_sources, id, "mortality plankton")
+        source_elements = _represented_elements(material_sources)
         targets = _canonical_product_targets(
             id, process.products, components, reference_element, "mortality products"
         )

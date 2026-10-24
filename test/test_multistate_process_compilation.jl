@@ -333,3 +333,46 @@ using Agate.Processes:
         test_tendencies(model, state, expected)
     end
 end
+
+@testset "Grouped processes route heterogeneous elemental inventories" begin
+    components = (
+        P1=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
+        P2=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+            composition=(nitrogen=:p2_n2c,)),
+        Z=Plankton(; states=(carbon=:carbon, nitrogen=:nitrogen), reference_state=:carbon),
+        DIC=Pool(:carbon), DIN=Pool(:nitrogen), DOC=Pool(:carbon), DON=Pool(:nitrogen),
+    )
+    products = Products((organic=(carbon=:DOC, nitrogen=:DON),))
+    build(process, parameters) = Agate.Construction.construct(ModelDefinition(;
+        components, processes=(transfer=process,),
+        parameters=merge((p2_n2c=Parameter(0.2),), parameters),
+    ))
+    state = (P1=2.0, P2=3.0, Z_carbon=1.0, Z_nitrogen=0.1,
+        DIC=10.0, DIN=10.0, DOC=0.0, DON=0.0)
+
+    growth = Growth(; plankton=(:P1, :P2), reference_resource=:DIC,
+        additional_resources=(nitrogen=:DIN,), products,
+        bindings=(maximum_rate=:growth_rate, product_fraction=:product_fraction))
+    test_tendencies(build(growth, (growth_rate=Parameter(0.5), product_fraction=Parameter(0.2))),
+        state, (P1=0.8, P2=1.2, DIC=-2.5, DIN=-0.3, DOC=0.5, DON=0.06))
+
+    mortality = Mortality(LinearMortality(); plankton=(:P1, :P2), products,
+        bindings=(rate=:mortality_rate,))
+    test_tendencies(build(mortality, (mortality_rate=Parameter(0.1),)), state,
+        (P1=-0.2, P2=-0.3, DOC=0.5, DON=0.06))
+
+    grazing = Consumption(PreferentialGrazing(); consumers=:Z, resources=(:P1, :P2),
+        unassimilated_products=products)
+    test_tendencies(build(grazing, (
+        maximum_rate=Parameter(1.0), half_saturation=Parameter(1.0),
+        palatability=Parameter(1.0), assimilation=Parameter(0.5),
+    )), state, (P1=-1 / 3, P2=-1 / 2, Z_carbon=5 / 12, Z_nitrogen=0.05,
+        DOC=5 / 12, DON=0.05))
+
+    invalid = ModelDefinition(; components,
+        processes=(transfer=Mortality(LinearMortality(); plankton=(:P1, :P2),
+            products=Products((organic=(carbon=:DOC,),))),),
+        parameters=(p2_n2c=Parameter(0.2), mortality_rate=Parameter(0.1)),
+    )
+    @test occursin("product elements", canonicalization_error_message(invalid))
+end

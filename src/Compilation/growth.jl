@@ -30,6 +30,7 @@ function _growth_resource_fluxes(
     ]
     for (element, resource) in pairs(process.additional_resources)
         operands = _material_ratio_operand(context, participant.component, element, participant.position)
+        isempty(operands) && continue
         push!(fluxes, FluxSpec(
             _scalar_component_target(layout, resource), rate, Weight{-1}(operands),
         ))
@@ -65,6 +66,7 @@ function process_fluxes(
                 ratio = _material_ratio_operand(
                     context, participant.component, element, participant.position
                 )
+                element !== named.semantic_facts.reference_element && isempty(ratio) && continue
                 append!(fluxes, _product_fluxes_for_element(
                     named, product_targets, context, rate, element;
                     suffix=(product_fraction, ratio...),

@@ -93,8 +93,9 @@ end
 
 """Plankton growth with elemental resources and optional multiplicative factors.
 
-`additional_resources` supplies implicitly represented Elements declared on each
-`Plankton.composition`. The reference Element is supplied by `reference_resource`.
+`additional_resources` supplies implicitly represented Elements declared by participating
+`Plankton.composition` mappings. Each plankton consumes only its own implicit Elements;
+the reference Element is supplied by `reference_resource`.
 Explicit prognostic elemental states are updated by independent processes such as
 `NutrientUptake`. Products route gross uptake before biomass retention.
 """
@@ -170,8 +171,8 @@ For `PreferentialGrazing`, `maximum_rate` is one consumer-level ingestion capaci
 all declared prey. `LinearGrazing` instead applies an independent linear grazing `rate` to each
 consumer-resource link. For `HeterotrophicConsumption`, `maximum_rate` is likewise one
 consumer-level uptake capacity shared across substitutable substrates. When one living-prey
-consumption process routes multi-element unassimilated products from multiple resources, those resources currently
-must expose the same prognostic Element set.
+consumption process routes multi-element unassimilated products from multiple resources,
+its destinations cover the union of their represented Elements.
 """
 struct Consumption{
     Formulation<:Union{PreferentialGrazing,LinearGrazing,HeterotrophicConsumption},
@@ -207,8 +208,8 @@ authored_parameter_bindings(process::Consumption) = process.bindings
 
 """Plankton mortality process with optional products.
 
-When one mortality process routes multi-element products from multiple plankton, those
-plankton currently must expose the same prognostic Element set.
+When one mortality process routes multi-element products from multiple plankton, its
+destinations cover the union of their represented Elements.
 """
 struct Mortality{Formulation<:Union{LinearMortality,QuadraticMortality},ProductRouting} <: AbstractProcess
     formulation::Formulation

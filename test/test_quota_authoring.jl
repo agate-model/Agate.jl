@@ -79,7 +79,7 @@ using Agate.Processes:
         (definition_with((growth=unknown_state,)), ("no state :missing",)),
         (
             definition_with((growth=conflicting_growth,)),
-            ("additional resource :nitrogen conflicts", "explicit prognostic state :nitrogen"),
+            ("additional_resources", "implicit composition elements"),
         ),
         (
             definition_with((growth=reference_quota,)),
