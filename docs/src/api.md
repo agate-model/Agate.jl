@@ -72,7 +72,8 @@ Agate.Components.state_tracers
 Agate.Components.state_tracer
 ```
 
-A plankton component declares implicitly represented elements once with `composition=(nitrogen=:nitrogen_to_carbon,)`. Growth, mortality, and living-prey consumption then use the same binding at setup time. Plankton with explicit nitrogen or phosphorus states continue to evolve those inventories independently.
+Implicit composition is declared once on `Plankton`, e.g.
+`composition=(nitrogen=:nitrogen_to_carbon,)`; the parameter is plankton/size-class indexed.
 
 ### Processes and factors
 

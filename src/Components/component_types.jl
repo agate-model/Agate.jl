@@ -7,9 +7,9 @@ states. `reference_state` identifies the state used as the biological reference 
 For example, `states=(biomass=:carbon, chlorophyll=nothing)` declares a carbon inventory named
 `:biomass` plus a non-elemental chlorophyll state. Element identity is therefore independent of
 state spelling and is queried centrally through [`state_element`](@ref). Each conserved Element may
-currently be represented by at most one state. `composition` maps implicitly represented Elements
-to model parameter names giving their amount per unit reference-state Element; explicit states
-continue to represent independent, variable inventories.
+currently be represented by at most one state. `composition` binds implicitly represented
+Elements to nonnegative model parameters, measured per unit of the elemental reference state.
+These parameters are indexed by plankton entity (and therefore by size class when applicable).
 """
 struct Plankton{StateElements<:NamedTuple,SizeStructure,Composition<:NamedTuple}
     state_elements::StateElements
@@ -33,18 +33,15 @@ struct Plankton{StateElements<:NamedTuple,SizeStructure,Composition<:NamedTuple}
             ArgumentError("Plankton `reference_state` must be one of its declared states."),
         )
         reference_element = getproperty(state_elements, reference_state)
-        all(value -> value isa Symbol, values(composition)) || throw(
-            ArgumentError("Plankton `composition` must map Elements to parameter Symbols."),
-        )
-        isempty(composition) || reference_element isa Symbol || throw(
-            ArgumentError("Plankton with implicit composition requires an elemental reference state."),
-        )
+        all(value -> value isa Symbol, values(composition)) || throw(ArgumentError(
+            "Plankton `composition` must map Elements to parameter Symbols",
+        ))
+        isempty(composition) || reference_element isa Symbol || throw(ArgumentError(
+            "Plankton implicit composition requires an elemental reference state",
+        ))
         for element in keys(composition)
-            element === reference_element && throw(ArgumentError(
-                "Plankton `composition` cannot repeat its reference element :$element.",
-            ))
             element in elemental && throw(ArgumentError(
-                "Plankton `composition` element :$element already has a prognostic state.",
+                "Plankton implicit element :$element already has a prognostic state",
             ))
         end
         return new{StateElements,SizeStructure,Composition}(
@@ -61,11 +58,13 @@ function Plankton(; states, reference_state, size_structure=nothing, composition
         ArgumentError("Plankton `reference_state` must be a Symbol."),
     )
     composition isa NamedTuple || throw(ArgumentError(
-        "Plankton `composition` must be a NamedTuple mapping Elements to parameter Symbols.",
+        "Plankton `composition` must be a NamedTuple",
     ))
     names = Tuple(sort!(collect(keys(composition)); by=String))
-    canonical = NamedTuple{names}(Tuple(getproperty(composition, name) for name in names))
-    return Plankton(states, reference_state, size_structure, canonical)
+    return Plankton(
+        states, reference_state, size_structure,
+        NamedTuple{names}(Tuple(getproperty(composition, name) for name in names)),
+    )
 end
 
 """Scalar material-pool state described by its conserved Element."""
@@ -109,5 +108,5 @@ end
 """Return the intrinsic size-structure specification for `component`."""
 @inline size_structure(component::Plankton) = component.size_structure
 
-"""Implicit elemental ratios (amount per unit reference element), keyed by Element."""
+"""Implicit elemental ratios, keyed by Element."""
 @inline composition(component::Plankton) = component.composition

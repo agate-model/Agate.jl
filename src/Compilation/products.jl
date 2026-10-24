@@ -21,56 +21,21 @@ function _product_fraction_operand(
     return ComplementOp(operands)
 end
 
-function _product_ratio_ref(named::CanonicalProcess, products::Products, element::Symbol)
-    stoichiometry = products.stoichiometry
-    isnothing(stoichiometry) && return nothing
-    element === stoichiometry.reference_element && return nothing
-    return getproperty(named.binding_refs.products.stoichiometry, element).ratio
+"""Return the implicit material ratio operand for this plankton entity, if needed."""
+function _material_ratio_operand(context::CompileContext, plankton::Symbol, element::Symbol, position)
+    ratios = getproperty(context.definition.composition_refs, plankton)
+    hasproperty(ratios, element) || return ()
+    ref = getproperty(ratios, element)
+    return (parameter_operand(ref, context, (plankton=position,)),)
 end
+
 _product_operand_tuple(::Nothing) = ()
 _product_operand_tuple(operand) = (operand,)
 
-function _product_weight(
-    fraction,
-    ratio::Union{Nothing,Int},
-    context::CompileContext;
-    suffix::Tuple=(),
-)
-    ratio_operand = isnothing(ratio) ? nothing : parameter_operand(ratio, context)
-    operands = (
-        _product_operand_tuple(fraction)...,
-        _product_operand_tuple(ratio_operand)...,
-        suffix...,
-    )
+function _product_weight(fraction; suffix::Tuple=())
+    operands = (_product_operand_tuple(fraction)..., suffix...)
     return Weight{1}(operands)
 end
-
-function _product_fluxes(
-    named::CanonicalProcess,
-    product_targets::NamedTuple,
-    context::CompileContext,
-    rate::RateOp;
-    suffix::Tuple=(),
-)
-    products = process_products(named.process)
-    fluxes = Any[]
-    for (product, targets) in pairs(product_targets)
-        fraction = _product_fraction_operand(context, named, product)
-        for (element, component) in pairs(targets)
-            target = _scalar_component_target(context.layout, component)
-            ratio = _product_ratio_ref(named, products, element)
-            push!(
-                fluxes,
-                FluxSpec(
-                    target, rate,
-                    _product_weight(fraction, ratio, context; suffix),
-                ),
-            )
-        end
-    end
-    return Tuple(fluxes)
-end
-
 
 function _product_fluxes_for_element(
     named::CanonicalProcess,
@@ -80,14 +45,13 @@ function _product_fluxes_for_element(
     element::Symbol;
     suffix::Tuple=(),
 )
-    products = process_products(named.process)
     fluxes = Any[]
     for (product, targets) in pairs(product_targets)
         fraction = _product_fraction_operand(context, named, product)
         target = _scalar_component_target(context.layout, getproperty(targets, element))
         push!(
             fluxes,
-            FluxSpec(target, rate, _product_weight(fraction, nothing, context; suffix)),
+            FluxSpec(target, rate, _product_weight(fraction; suffix)),
         )
     end
     return Tuple(fluxes)

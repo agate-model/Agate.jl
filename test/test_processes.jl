@@ -166,10 +166,8 @@ Agate.Processes.factor_value(
 
     wrong_element = ModelDefinition(;
         components=(
-            P=Plankton(;
-                states=(carbon=:carbon,), reference_state=:carbon,
-                composition=(nitrogen=:n2c,),
-            ),
+            P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+                composition=(nitrogen=:nitrogen_to_carbon,)),
             DIC=Pool(:carbon),
             DIN=Pool(:phosphorus),
         ),
@@ -233,10 +231,8 @@ end
             factors=(light=light,),
         ),
         (
-            P=Plankton(;
-                states=(carbon=:carbon,), reference_state=:carbon,
-                composition=(nitrogen=:n2c,),
-            ),
+            P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+                composition=(nitrogen=:nitrogen_to_carbon,)),
             DIC=Pool(:carbon),
             N=Pool(:nitrogen),
         ),
@@ -244,26 +240,13 @@ end
 
     cases = (
         (
-            "Additional resources require matching composition",
+            "Growth resources require component composition",
             one_process(:growth, Growth(;
                 plankton=:P, reference_resource=:DIC,
                 additional_resources=(nitrogen=:N,), factors=(light=light,),
             ), (
                 P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
                 DIC=Pool(:carbon), N=Pool(:nitrogen),
-            )),
-            ("process :growth", "additional_resources", "implicit composition"),
-        ),
-        (
-            "Implicit composition requires sourced elements",
-            one_process(:growth, Growth(;
-                plankton=:P, reference_resource=:DIC, factors=(light=light,),
-            ), (
-                P=Plankton(;
-                    states=(carbon=:carbon,), reference_state=:carbon,
-                    composition=(nitrogen=:n2c,),
-                ),
-                DIC=Pool(:carbon),
             )),
             ("process :growth", "additional_resources", "implicit composition"),
         ),

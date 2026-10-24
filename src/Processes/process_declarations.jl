@@ -1,21 +1,13 @@
 # Product routing
 
-"""Conservative allocation of one process product flux among named destinations.
+"""Conservative allocation of one process flux among named destinations.
 
-Each product destination may be either one component Symbol or a named element-to-component
-mapping. Prognostic elemental states route directly. If a source Plankton declares implicit
-`composition`, canonicalization derives the necessary conversion from that component and
-every product must route the corresponding elements.
-
-For `N` products, specify `N - 1` named fractions. The omitted product receives the exact
-conservative remainder `1 - sum(supplied fractions)`. This removes one redundant routing
-degree of freedom while preserving exact closure by construction. A single product requires
-no fractions.
+An element-to-pool mapping routes each represented Element from a plankton component.
+For `N` products, declare `N - 1` fractions; the last receives the balance.
 """
-struct Products{Destinations,Fractions,Stoichiometry}
+struct Products{Destinations,Fractions}
     destinations::Destinations
     fractions::Fractions
-    stoichiometry::Stoichiometry
 end
 
 function _canonical_product_destination(destination)
@@ -78,7 +70,7 @@ function Products(
         ))
     end
 
-    return Products(canonical_destinations, canonical_fractions, nothing)
+    return Products(canonical_destinations, canonical_fractions)
 end
 
 Products(destination::Symbol) = Products((product=destination,))
@@ -99,26 +91,20 @@ end
 
 # Scientific processes
 
-"""Plankton growth process with explicit material inputs and optional multiplicative factors.
+"""Plankton growth with elemental resources and optional multiplicative factors.
 
-`bindings.maximum_rate` names the model parameter that sets the growth-rate scale.
-`reference_resource` supplies the Element represented by the plankton `reference_state`.
-`additional_resources` maps implicitly represented Elements to external Pools. Their ratios
-are declared once in the growing Plankton's `composition` and resolved at setup time. Factors
-modify gross growth rate only. Optional `products` route the `product_fraction` of gross
-growth before biomass retention while resource uptake remains gross; retained biomass is the
-exact complement. Product routing must cover the reference and all implicit Elements.
-Independently prognostic elemental states are supplied through explicit
-[`NutrientUptake`](@ref) processes.
+`additional_resources` supplies implicitly represented Elements declared on each
+`Plankton.composition`. The reference Element is supplied by `reference_resource`.
+Explicit prognostic elemental states are updated by independent processes such as
+`NutrientUptake`. Products route gross uptake before biomass retention.
 """
 struct Growth{
-    Factors<:NamedTuple,AdditionalResources<:NamedTuple,Stoichiometry,ProductRouting
+    Factors<:NamedTuple,AdditionalResources<:NamedTuple,ProductRouting
 } <: AbstractProcess
     plankton::Tuple
     factors::Factors
     reference_resource::Symbol
     additional_resources::AdditionalResources
-    stoichiometry::Stoichiometry
     products::ProductRouting
     bindings::NamedTuple
 end
@@ -139,7 +125,6 @@ function Growth(;
         _canonical_factors(factors),
         reference_resource,
         _canonical_namedtuple(additional_resources),
-        nothing,
         _canonical_products(products),
         _canonical_bindings(bindings),
     )

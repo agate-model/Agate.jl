@@ -71,28 +71,13 @@ function _consumption_rate(
 end
 
 function _append_unassimilated_products!(
-    fluxes,
-    named,
-    context,
-    rate,
-    assimilation,
-    element,
+    fluxes, named, context, rate, assimilation, element; ratio=(),
 )
     isnothing(named.semantic_facts.product_targets) && return nothing
-    suffix = (ComplementOp((assimilation,)),)
-    if named.semantic_facts.product_mode === :state
-        append!(
-            fluxes,
-            _product_fluxes_for_element(
-                named, named.semantic_facts.product_targets, context, rate, element; suffix
-            ),
-        )
-    else
-        append!(
-            fluxes,
-            _product_fluxes(named, named.semantic_facts.product_targets, context, rate; suffix),
-        )
-    end
+    append!(fluxes, _product_fluxes_for_element(
+        named, named.semantic_facts.product_targets, context, rate, element;
+        suffix=(ComplementOp((assimilation,)), ratio...),
+    ))
     return nothing
 end
 
@@ -108,7 +93,7 @@ function _living_consumption_fluxes!(
 )
     layout = context.layout
     state_refs = getproperty(named.semantic_facts.resource_state_sets, resource.component)
-    state_elements = getproperty(named.semantic_facts.resource_state_elements, resource.component)
+    source_materials = getproperty(named.semantic_facts.resource_element_states, resource.component)
     consumer_element_states = getproperty(
         named.semantic_facts.consumer_element_states, consumer.component
     )
@@ -129,19 +114,22 @@ function _living_consumption_fluxes!(
         )
         push!(fluxes, FluxSpec(resource_tracer, rate, Weight{-1}()))
 
-        state_element_value = getproperty(state_elements, state_ref.state)
-        isnothing(state_element_value) && continue
-        consumer_ref = getproperty(consumer_element_states, state_element_value)
-        consumer_tracer = state_tracer(layout, consumer_ref, consumer.component_index)
-        push!(fluxes, FluxSpec(consumer_tracer, rate, Weight{1}((assimilation,))))
-
-        if named.semantic_facts.product_mode === :stoichiometric &&
-           state_element_value !== named.semantic_facts.reference_element
-            continue
+        for (element, source) in pairs(source_materials)
+            source.state.state === state_ref.state || continue
+            ratio = _material_ratio_operand(
+                context, resource.component, element, resource.position
+            )
+            consumer_inventory = getproperty(consumer_element_states, element)
+            consumer_tracer = state_tracer(
+                layout, consumer_inventory.state, consumer.component_index
+            )
+            push!(fluxes, FluxSpec(
+                consumer_tracer, rate, Weight{1}((assimilation, ratio...)),
+            ))
+            _append_unassimilated_products!(
+                fluxes, named, context, rate, assimilation, element; ratio,
+            )
         end
-        _append_unassimilated_products!(
-            fluxes, named, context, rate, assimilation, state_element_value
-        )
     end
     return nothing
 end
@@ -171,8 +159,8 @@ function _heterotrophic_consumption_fluxes!(
     consumer_element_states = getproperty(
         named.semantic_facts.consumer_element_states, consumer.component
     )
-    consumer_ref = getproperty(consumer_element_states, named.semantic_facts.reference_element)
-    consumer_tracer = state_tracer(layout, consumer_ref, consumer.component_index)
+    consumer_inventory = getproperty(consumer_element_states, named.semantic_facts.reference_element)
+    consumer_tracer = state_tracer(layout, consumer_inventory.state, consumer.component_index)
     push!(
         fluxes,
         FluxSpec(resource.tracer, rate, Weight{-1}()),

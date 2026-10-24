@@ -76,7 +76,7 @@ end
     components = merge(quota_components(), (
         P=Agate.Components.Plankton(;
             states=(carbon=:carbon, nitrogen=:nitrogen), reference_state=:carbon,
-            composition=(phosphorus=:phosphorus_to_carbon,),
+            composition=(phosphorus=:phosphorus_to_carbon,)
         ),
     ))
     quota = quota_processes()

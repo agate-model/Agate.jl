@@ -1,89 +1,5 @@
 # Canonical process identity and drivers
 
-# Lower component-owned implicit composition into the existing process parameter slots.
-# This is a setup-time implementation detail: authored Growth and Products have no
-# independent stoichiometry declarations.
-function _shared_composition(components, names::Tuple, id::Symbol)
-    first_component = getproperty(components, first(names))
-    first_component isa Plankton || return (;)
-    ratios = composition(first_component)
-    for name in Base.tail(names)
-        other = getproperty(components, name)
-        other isa Plankton || continue
-        composition(other) == ratios || throw(ArgumentError(
-            "process :$id combines plankton with different implicit composition; " *
-            "declare separate processes for each composition",
-        ))
-    end
-    return ratios
-end
-
-function _internal_stoichiometry(component::Plankton)
-    ratios = composition(component)
-    isempty(ratios) && return nothing
-    element = state_element(component, reference_state(component))
-    return FixedStoichiometry(;
-        reference_element=element, bindings=(ratio=ratios,),
-    )
-end
-
-_internal_stoichiometry(::Any) = nothing
-
-function _composed_products(products::Nothing, _)
-    return nothing
-end
-function _composed_products(products::Products, stoichiometry)
-    isnothing(stoichiometry) && return products
-    return Products(products.destinations, products.fractions, stoichiometry)
-end
-
-function _lower_composition(process::Growth, components, id)
-    ratios = _shared_composition(components, process.plankton, id)
-    Set(keys(ratios)) == Set(keys(process.additional_resources)) || throw(ArgumentError(
-        "process :$id additional_resources must match the growing plankton's " *
-        "implicit composition elements $(keys(ratios))",
-    ))
-    stoichiometry = _internal_stoichiometry(getproperty(components, first(process.plankton)))
-    products = _composed_products(process.products, stoichiometry)
-    return Growth(
-        process.plankton, process.factors, process.reference_resource,
-        process.additional_resources, stoichiometry, products, process.bindings,
-    )
-end
-
-function _lower_composition(process::Mortality, components, id)
-    isnothing(process.products) && return process
-    _shared_composition(components, process.plankton, id)
-    stoichiometry = _internal_stoichiometry(getproperty(components, first(process.plankton)))
-    products = _composed_products(process.products, stoichiometry)
-    return Mortality(process.formulation, process.plankton, products, process.bindings)
-end
-
-function _lower_composition(process::Consumption, components, id)
-    consumer = _shared_composition(components, process.consumers, id)
-    if uses_living_interactions(process.formulation)
-        prey = _shared_composition(components, process.resources, id)
-        prey == consumer || throw(ArgumentError(
-            "process :$id living prey and consumers must have matching implicit " *
-            "composition; elemental side fluxes require explicit modeling",
-        ))
-    else
-        isempty(consumer) || throw(ArgumentError(
-            "process :$id heterotrophic substrates do not supply the consumer's " *
-            "implicit composition elements; model those transfers explicitly",
-        ))
-        return process
-    end
-    stoichiometry = _internal_stoichiometry(getproperty(components, first(process.resources)))
-    products = _composed_products(process.products, stoichiometry)
-    return Consumption(
-        process.formulation, process.consumers, process.resources, process.factors,
-        products, process.bindings,
-    )
-end
-
-_lower_composition(process::AbstractProcess, _, _) = process
-
 function _canonicalize_process(id::Symbol, process, components::NamedTuple)
     process isa AbstractProcess || throw(
         ArgumentError("process :$id must be an AbstractProcess; got $(typeof(process))"),
@@ -96,7 +12,6 @@ function _canonicalize_process(id::Symbol, process, components::NamedTuple)
     isempty(missing_names) || throw(
         ArgumentError("process :$id references unknown components $missing_names"),
     )
-    process = _lower_composition(process, components, id)
     semantic_facts = process_facts(process, id, components)
     for (name, factor) in pairs(factors(process))
         _validate_factor_for_process(id, process, factor, components, (:factors, name))
@@ -296,6 +211,27 @@ function _attach_binding_refs(processes::NamedTuple, refs::NamedTuple)
     ))
 end
 
+# Each implicit element is bound exactly once, independently of processes. Reuse the
+# same parameter plan as process-owned slots, including its plankton/size-class axis.
+function _component_composition_uses(components::NamedTuple, offset::Int)
+    uses = Any[]
+    names = keys(components)
+    refs = NamedTuple{names}(Tuple(begin
+        component = getproperty(components, name)
+        ratios = component isa Plankton ? composition(component) : NamedTuple()
+        NamedTuple{keys(ratios)}(Tuple(begin
+            push!(uses, (;
+                process=:components, path=(name, :composition), slot=element,
+                qualifier=nothing, axes=(:plankton,), axis_components=((name,),),
+                domain=:nonnegative, parameter=parameter, explicit=true,
+                binding_qualifiers=nothing,
+            ))
+            offset + length(uses)
+        end for (element, parameter) in pairs(ratios)))
+    end for name in names))
+    return Tuple(uses), refs
+end
+
 # Complete model canonicalization
 
 """Canonicalize process identity and resolve inline parameter bindings.
@@ -313,7 +249,10 @@ function canonicalize_model(definition::ModelDefinition)
     )
     parameters, dependency_names = _resolve_parameter_definitions(definition.parameters)
     uses, binding_refs = _collect_parameter_uses(canonical_processes)
-    bindings = _resolve_parameter_bindings(uses, parameters, dependency_names)
+    component_uses, composition_refs = _component_composition_uses(
+        definition.components, length(uses)
+    )
+    bindings = _resolve_parameter_bindings((uses..., component_uses...), parameters, dependency_names)
     bound_processes = _attach_binding_refs(canonical_processes, binding_refs)
     return CanonicalModelDefinition(
         definition.components,
@@ -321,5 +260,6 @@ function canonicalize_model(definition::ModelDefinition)
         parameters,
         _canonical_driver_identities(canonical_processes),
         bindings,
+        composition_refs,
     )
 end

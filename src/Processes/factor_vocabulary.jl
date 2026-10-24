@@ -101,9 +101,6 @@ struct QuadraticMortality <: AbstractFormulation end
 """Linear source-to-destination remineralization formulation."""
 struct LinearRemineralization <: AbstractFormulation end
 
-"""Abstract supertype for process stoichiometry mappings."""
-abstract type AbstractStoichiometry end
-
 # Shared authoring canonicalizers
 
 function _canonical_bindings(bindings::NamedTuple)
@@ -134,20 +131,6 @@ end
 
 """Return setup-only authored model-parameter bindings for one slot-owning node."""
 function authored_parameter_bindings end
-
-"""Fixed conversion from one reference element to process target elements.
-
-Each bound ratio is the amount of its target element per unit reference element.
-"""
-struct FixedStoichiometry <: AbstractStoichiometry
-    reference_element::Symbol
-    bindings::NamedTuple
-end
-
-FixedStoichiometry(; reference_element::Symbol, bindings::NamedTuple=NamedTuple()) =
-    FixedStoichiometry(reference_element, _canonical_bindings(bindings))
-
-authored_parameter_bindings(stoichiometry::FixedStoichiometry) = stoichiometry.bindings
 
 function _canonical_participants(role::Symbol, values)
     values isa Symbol && (values = (values,))

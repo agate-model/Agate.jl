@@ -1,7 +1,7 @@
 using Test
 using Agate.Components:
-    Plankton, Pool, element, states, reference_state, variable_states, state_element, composition,
-    size_structure, realize_model_layout, component_entities, component_state_tracers,
+    Plankton, Pool, element, states, reference_state, variable_states, state_element,
+    size_structure, composition, realize_model_layout, component_entities, component_state_tracers,
     component_tracers, state_tracers, component_diameters
 using Agate.ModelFamilies: default_components
 @testset "Component authoring" begin
@@ -31,6 +31,13 @@ using Agate.ModelFamilies: default_components
     @test isnothing(component_diameters(scalar_plankton_layout, :B))
 
     @test_throws ArgumentError Plankton(; states=nothing, reference_state=:carbon)
+    mixed = Plankton(; states=(carbon=:carbon, nitrogen=:nitrogen),
+        reference_state=:carbon, composition=(phosphorus=:phosphorus_to_carbon,))
+    @test composition(mixed) == (phosphorus=:phosphorus_to_carbon,)
+    @test_throws ArgumentError Plankton(; states=(carbon=:carbon,),
+        reference_state=:carbon, composition=(carbon=:carbon_ratio,))
+    @test_throws ArgumentError Plankton(; states=(carbon=:carbon,),
+        reference_state=:carbon, composition=(nitrogen=0.2,))
     @test_throws MethodError Pool(nothing)
     @test_throws ArgumentError realize_model_layout((P=plankton, P_1=Pool(:nitrogen)))
 end
@@ -86,21 +93,6 @@ end
 
     abundance = Plankton(; states=(abundance=nothing,), reference_state=:abundance)
     @test isnothing(state_element(abundance, reference_state(abundance)))
-
-    implicit = Plankton(;
-        states=(biomass=:carbon,), reference_state=:biomass,
-        composition=(phosphorus=:p2c, nitrogen=:n2c),
-    )
-    @test composition(implicit) == (nitrogen=:n2c, phosphorus=:p2c)
-    for kwargs in (
-        (states=(carbon=:carbon, nitrogen=:nitrogen), reference_state=:carbon,
-         composition=(nitrogen=:n2c,)),
-        (states=(carbon=:carbon,), reference_state=:carbon, composition=(carbon=:c2c,)),
-        (states=(abundance=nothing,), reference_state=:abundance, composition=(nitrogen=:n2c,)),
-        (states=(carbon=:carbon,), reference_state=:carbon, composition=(nitrogen=0.2,)),
-    )
-        @test_throws ArgumentError Plankton(; kwargs...)
-    end
 end
 
 @testset "NiPiZD component declaration" begin

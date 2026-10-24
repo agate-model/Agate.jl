@@ -114,9 +114,6 @@ parameter_slots(::LinearRemineralization) = (
 )
 parameter_slots(products::Products) = length(products.destinations) == 1 ? () :
     (ParameterSlot(:fraction; qualify=:product, domain=:unit_interval),)
-parameter_slots(::FixedStoichiometry) = (
-    ParameterSlot(:ratio; qualify=:element, domain=:nonnegative),
-)
 
 """Resolved setup-time mapping from one local parameter slot to model storage.
 
@@ -135,7 +132,7 @@ struct ParameterBinding{Axes,AxisComponents}
 end
 
 _parameter_slot_source(
-    node::Union{AbstractFormulation,AbstractStoichiometry,Products,Growth}
+    node::Union{AbstractFormulation,Products,Growth}
 ) = node
 _parameter_slot_source(node) = formulation(node)
 
