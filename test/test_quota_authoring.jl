@@ -2,7 +2,7 @@ using Test
 
 using Agate.Components: Plankton, Pool
 using Agate.Processes:
-    FixedStoichiometry, Growth, Liebig, ModelDefinition, Monod, NormalizedDroop,
+    Growth, Liebig, ModelDefinition, Monod, NormalizedDroop,
     NutrientResponse, NutrientLimitation, QuotaResponse
 
 
@@ -15,14 +15,11 @@ using Agate.Processes:
     valid_phosphorus = quota_response(
         :phosphorus, :minimum_phosphorus_quota, :maximum_phosphorus_quota
     )
-    growth_with(
-        responses; stoichiometry=nothing, additional_resources=NamedTuple()
-    ) = Growth(;
+    growth_with(responses; additional_resources=NamedTuple()) = Growth(;
         plankton=:P,
         reference_resource=:DIC,
         additional_resources=additional_resources,
         bindings=(maximum_rate=:maximum_growth_rate,),
-        stoichiometry=stoichiometry,
         factors=(light=light, nutrients=NutrientLimitation(Liebig(); responses=responses)),
     )
     definition_with(processes; components=components) = ModelDefinition(;
@@ -49,7 +46,6 @@ using Agate.Processes:
     conflicting_growth = growth_with(
         (nitrogen=valid_nitrogen, phosphorus=valid_phosphorus);
         additional_resources=(nitrogen=:DIN,),
-        stoichiometry=FixedStoichiometry(; reference_element=:carbon),
     )
     reference_quota = growth_with((
         carbon=QuotaResponse(
@@ -83,7 +79,7 @@ using Agate.Processes:
         (definition_with((growth=unknown_state,)), ("no state :missing",)),
         (
             definition_with((growth=conflicting_growth,)),
-            ("additional resource :nitrogen conflicts", "explicit prognostic state :nitrogen"),
+            ("additional_resources", "implicit composition elements"),
         ),
         (
             definition_with((growth=reference_quota,)),

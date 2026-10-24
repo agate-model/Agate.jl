@@ -24,7 +24,7 @@ function process_fluxes(
     for reference in named.semantic_facts.plankton_states
         slots = getproperty(named.binding_refs.process, reference.plankton)
         state_refs = getproperty(named.semantic_facts.state_sets, reference.plankton)
-        state_elements = getproperty(named.semantic_facts.state_elements, reference.plankton)
+        materials = getproperty(named.semantic_facts.material_sources, reference.plankton)
         for participant in _realize_participants((reference,), layout)
             for state_ref in state_refs
                 tracer = state_tracer(layout, state_ref, participant.component_index)
@@ -32,34 +32,19 @@ function process_fluxes(
                     formulation(process), slots.rate, context, participant, tracer
                 )
                 push!(fluxes, FluxSpec(tracer, rate, Weight{-1}()))
-
                 isnothing(named.semantic_facts.product_targets) && continue
-                state_element_value = getproperty(state_elements, state_ref.state)
-                isnothing(state_element_value) && continue
-                if named.semantic_facts.product_mode === :state
-                    append!(
-                        fluxes,
-                        _product_fluxes_for_element(
-                            named,
-                            named.semantic_facts.product_targets,
-                            context,
-                            rate,
-                            state_element_value,
-                        ),
+                for (element, source) in pairs(materials)
+                    source.state === state_ref.state || continue
+                    ratio = _material_ratio_operand(
+                        context, participant.component, element, participant.position
                     )
-                elseif state_element_value === _state_element_for_reference(named, reference)
-                    append!(
-                        fluxes,
-                        _product_fluxes(named, named.semantic_facts.product_targets, context, rate),
-                    )
+                    append!(fluxes, _product_fluxes_for_element(
+                        named, named.semantic_facts.product_targets, context, rate, element;
+                        suffix=ratio,
+                    ))
                 end
             end
         end
     end
     return Tuple(fluxes)
-end
-
-function _state_element_for_reference(named::CanonicalProcess, reference::PlanktonStateRef)
-    state_elements = getproperty(named.semantic_facts.state_elements, reference.plankton)
-    return getproperty(state_elements, reference.state)
 end

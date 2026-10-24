@@ -126,24 +126,7 @@ function _visit_product_slots!(
         for product in fraction_names
     ))
 
-    stoichiometry = products.stoichiometry
-    isnothing(stoichiometry) && return (; fractions, stoichiometry=NamedTuple())
-    elements = Tuple(
-        element for element in keys(first(values(products.destinations)))
-        if element !== stoichiometry.reference_element
-    )
-    ratios = NamedTuple{elements}(Tuple(
-        _emit_parameter_slots!(
-            uses,
-            seen,
-            named,
-            (path..., :stoichiometry),
-            stoichiometry;
-            context=(element=element,),
-        )
-        for element in elements
-    ))
-    return (; fractions, stoichiometry=ratios)
+    return (; fractions)
 end
 
 function _visit_process_slots!(uses::Vector{Any}, seen::Set{Any}, named::CanonicalProcess)
@@ -179,25 +162,5 @@ function _visit_process_slots!(uses::Vector{Any}, seen::Set{Any}, named::Canonic
     product_refs = isnothing(products) ? nothing :
         _visit_product_slots!(uses, seen, named, product_path(process), products)
 
-    stoichiometry_refs = NamedTuple()
-    if process isa Growth && !isnothing(process.stoichiometry)
-        elements = keys(process.additional_resources)
-        stoichiometry_refs = NamedTuple{elements}(Tuple(
-            _emit_parameter_slots!(
-                uses,
-                seen,
-                named,
-                (:stoichiometry,),
-                process.stoichiometry;
-                context=(element=element,),
-            )
-            for element in elements
-        ))
-    end
-    return (;
-        process=process_refs,
-        factors=factor_refs,
-        products=product_refs,
-        stoichiometry=stoichiometry_refs,
-    )
+    return (; process=process_refs, factors=factor_refs, products=product_refs)
 end

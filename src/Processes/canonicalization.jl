@@ -211,6 +211,27 @@ function _attach_binding_refs(processes::NamedTuple, refs::NamedTuple)
     ))
 end
 
+# Each implicit element is bound exactly once, independently of processes. Reuse the
+# same parameter plan as process-owned slots, including its plankton/size-class axis.
+function _component_composition_uses(components::NamedTuple, offset::Int)
+    uses = Any[]
+    names = keys(components)
+    refs = NamedTuple{names}(Tuple(begin
+        component = getproperty(components, name)
+        ratios = component isa Plankton ? composition(component) : NamedTuple()
+        NamedTuple{keys(ratios)}(Tuple(begin
+            push!(uses, (;
+                process=:components, path=(name, :composition), slot=element,
+                qualifier=nothing, axes=(:plankton,), axis_components=((name,),),
+                domain=:nonnegative, parameter=parameter, explicit=true,
+                binding_qualifiers=nothing,
+            ))
+            offset + length(uses)
+        end for (element, parameter) in pairs(ratios)))
+    end for name in names))
+    return Tuple(uses), refs
+end
+
 # Complete model canonicalization
 
 """Canonicalize process identity and resolve inline parameter bindings.
@@ -228,7 +249,10 @@ function canonicalize_model(definition::ModelDefinition)
     )
     parameters, dependency_names = _resolve_parameter_definitions(definition.parameters)
     uses, binding_refs = _collect_parameter_uses(canonical_processes)
-    bindings = _resolve_parameter_bindings(uses, parameters, dependency_names)
+    component_uses, composition_refs = _component_composition_uses(
+        definition.components, length(uses)
+    )
+    bindings = _resolve_parameter_bindings((uses..., component_uses...), parameters, dependency_names)
     bound_processes = _attach_binding_refs(canonical_processes, binding_refs)
     return CanonicalModelDefinition(
         definition.components,
@@ -236,5 +260,6 @@ function canonicalize_model(definition::ModelDefinition)
         parameters,
         _canonical_driver_identities(canonical_processes),
         bindings,
+        composition_refs,
     )
 end

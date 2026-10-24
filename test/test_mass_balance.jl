@@ -5,7 +5,7 @@ using Agate.Components: Plankton, Pool
 using Agate.Construction: construct
 using Agate.Parameters: ConstantDefault, Parameter
 using Agate.Processes:
-    FixedStoichiometry, Growth, Light, ModelDefinition, NutrientLimitation, NutrientResponse,
+    Growth, Light, ModelDefinition, NutrientLimitation, NutrientResponse,
     Geider, Liebig, FrankTNorm, Monod
 
 using OceanBioME
@@ -16,7 +16,8 @@ using Oceananigans.Units: day, minutes
 
 function multi_nutrient_test_model(grid; nutrient_formulation=Liebig())
     components = (
-        P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon, size_structure=[1.0]),
+        P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon, size_structure=[1.0],
+            composition=(nitrogen=:nitrogen_to_carbon, phosphorus=:phosphorus_to_carbon)),
         DIC=Pool(:carbon),
         DIN=Pool(:nitrogen),
         PO4=Pool(:phosphorus),
@@ -46,15 +47,6 @@ function multi_nutrient_test_model(grid; nutrient_formulation=Liebig())
                             Monod(); resource=:PO4,
                             bindings=(half_saturation=:half_saturation_PO4,)
                         ),
-                    ),
-                ),
-            ),
-            stoichiometry=FixedStoichiometry(;
-                reference_element=:carbon,
-                bindings=(
-                    ratio=(
-                        nitrogen=:nitrogen_to_carbon,
-                        phosphorus=:phosphorus_to_carbon,
                     ),
                 ),
             ),
@@ -162,8 +154,8 @@ end
                 box_model = build_box_model(bgc_instance, grid)
                 set!(box_model; DIC=2.0, DIN=7.0, PO4=3.0, P_1=0.01)
 
-                n2c = bgc_instance.parameters.nitrogen_to_carbon
-                p2c = bgc_instance.parameters.phosphorus_to_carbon
+                n2c = only(bgc_instance.parameters.nitrogen_to_carbon)
+                p2c = only(bgc_instance.parameters.phosphorus_to_carbon)
                 budgets = (
                     carbon=[:DIC => 1, :P_1 => 1],
                     nitrogen=[:DIN => 1, :P_1 => n2c],

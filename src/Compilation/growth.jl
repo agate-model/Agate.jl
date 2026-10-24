@@ -17,6 +17,7 @@ function _growth_resource_fluxes(
     named::CanonicalProcess,
     context::CompileContext,
     rate::RateOp,
+    participant,
 )
     process = named.process
     layout = context.layout
@@ -28,15 +29,11 @@ function _growth_resource_fluxes(
         ),
     ]
     for (element, resource) in pairs(process.additional_resources)
-        ratio_ref = getproperty(named.binding_refs.stoichiometry, element).ratio
-        push!(
-            fluxes,
-            FluxSpec(
-                _scalar_component_target(layout, resource),
-                rate,
-                Weight{-1}((parameter_operand(ratio_ref, context),)),
-            ),
-        )
+        operands = _material_ratio_operand(context, participant.component, element, participant.position)
+        isempty(operands) && continue
+        push!(fluxes, FluxSpec(
+            _scalar_component_target(layout, resource), rate, Weight{-1}(operands),
+        ))
     end
     return Tuple(fluxes)
 end
@@ -65,14 +62,18 @@ function process_fluxes(
                 fluxes,
                 FluxSpec(participant.tracer, rate, Weight{1}((retained_fraction,))),
             )
-            append!(
-                fluxes,
-                _product_fluxes(
-                    named, product_targets, context, rate; suffix=(product_fraction,)
-                ),
-            )
+            for element in keys(first(values(product_targets)))
+                ratio = _material_ratio_operand(
+                    context, participant.component, element, participant.position
+                )
+                element !== named.semantic_facts.reference_element && isempty(ratio) && continue
+                append!(fluxes, _product_fluxes_for_element(
+                    named, product_targets, context, rate, element;
+                    suffix=(product_fraction, ratio...),
+                ))
+            end
         end
-        append!(fluxes, _growth_resource_fluxes(named, context, rate))
+        append!(fluxes, _growth_resource_fluxes(named, context, rate, participant))
     end
     return Tuple(fluxes)
 end

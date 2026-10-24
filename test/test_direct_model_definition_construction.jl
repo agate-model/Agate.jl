@@ -7,7 +7,7 @@ using Agate.Parameters: AllometricPalatability, BroadcastConsumerAcrossResources
 using Agate.Construction: construct
 using Agate.Introspection: plankton_diameters
 using Agate.Processes:
-    Consumption, FixedStoichiometry, Growth, Light, LinearMortality, ModelDefinition, Mortality,
+    Consumption, Growth, Light, LinearMortality, ModelDefinition, Mortality,
     NutrientResponse, Products, Smith, Monod, PreferentialGrazing
 
 function direct_npz_definition()
@@ -133,13 +133,10 @@ end
 
 @testset "Multi-element products" begin
     components = (
-        P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon, size_structure=[1.0]),
+        P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon, size_structure=[1.0],
+            composition=(nitrogen=:nitrogen_to_carbon,)),
         DOC=Pool(:carbon), POC=Pool(:carbon), XOC=Pool(:carbon),
         DON=Pool(:nitrogen), PON=Pool(:nitrogen), XON=Pool(:nitrogen),
-    )
-    stoichiometry = FixedStoichiometry(;
-        reference_element=:carbon,
-        bindings=(ratio=(nitrogen=:nitrogen_to_carbon,),),
     )
     processes = (
         mortality_P=Mortality(
@@ -153,7 +150,6 @@ end
                     XOM=(carbon=:XOC, nitrogen=:XON),
                 );
                 fractions=(POM=:POM_fraction, XOM=:XOM_fraction),
-                stoichiometry,
             ),
         ),
     )
@@ -177,7 +173,7 @@ end
     # Nitrogen held implicitly by carbon biomass closes at the declared N:C ratio.
     @test isapprox(sum((tendency.P_1, tendency.DOC, tendency.POC, tendency.XOC)), 0; atol=1e-18)
     @test isapprox(
-        bgc.parameters.nitrogen_to_carbon * tendency.P_1 +
+        only(bgc.parameters.nitrogen_to_carbon) * tendency.P_1 +
         sum((tendency.DON, tendency.PON, tendency.XON)), 0; atol=1e-18
     )
     @test_throws ArgumentError construct(

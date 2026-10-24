@@ -1,21 +1,13 @@
 # Product routing
 
-"""Conservative allocation of one process product flux among named destinations.
+"""Conservative allocation of one process flux among named destinations.
 
-Each product destination may be either one component Symbol or a named element-to-component
-mapping. A multi-element mapping without `FixedStoichiometry` routes prognostic elemental
-states directly. `FixedStoichiometry` derives multi-element products from a one-element source;
-every product then declares the same elements and includes the stoichiometric reference element.
-
-For `N` products, specify `N - 1` named fractions. The omitted product receives the exact
-conservative remainder `1 - sum(supplied fractions)`. This removes one redundant routing
-degree of freedom while preserving exact closure by construction. A single product requires
-no fractions.
+An element-to-pool mapping routes each represented Element from a plankton component.
+For `N` products, declare `N - 1` fractions; the last receives the balance.
 """
-struct Products{Destinations,Fractions,Stoichiometry}
+struct Products{Destinations,Fractions}
     destinations::Destinations
     fractions::Fractions
-    stoichiometry::Stoichiometry
 end
 
 function _canonical_product_destination(destination)
@@ -34,7 +26,6 @@ end
 function Products(
     destinations::NamedTuple;
     fractions::NamedTuple=NamedTuple(),
-    stoichiometry=nothing,
 )
     isempty(destinations) && throw(ArgumentError("product destinations cannot be empty"))
 
@@ -53,18 +44,6 @@ function Products(
         all(destination -> keys(destination) == elements, canonical_destination_values) || throw(
             ArgumentError("multi-element products must declare the same elements"),
         )
-        if !isnothing(stoichiometry)
-            stoichiometry isa FixedStoichiometry || throw(
-                ArgumentError("product stoichiometry must be FixedStoichiometry"),
-            )
-            stoichiometry.reference_element in elements || throw(
-                ArgumentError(
-                    "multi-element products must include stoichiometric reference element :$(stoichiometry.reference_element)"
-                ),
-            )
-        end
-    elseif !isnothing(stoichiometry)
-        throw(ArgumentError("scalar product destinations do not take stoichiometry"))
     end
 
     fraction_names = sort!(collect(keys(fractions)); by=String)
@@ -91,7 +70,7 @@ function Products(
         ))
     end
 
-    return Products(canonical_destinations, canonical_fractions, stoichiometry)
+    return Products(canonical_destinations, canonical_fractions)
 end
 
 Products(destination::Symbol) = Products((product=destination,))
@@ -112,29 +91,21 @@ end
 
 # Scientific processes
 
-"""Plankton growth process with explicit material inputs and optional multiplicative factors.
+"""Plankton growth with elemental resources and optional multiplicative factors.
 
-`bindings.maximum_rate` names the model parameter that sets the growth-rate scale.
-`reference_resource` supplies the Element represented by the plankton `reference_state`.
-`additional_resources` maps additional Elements to external Pools consumed according to
-`FixedStoichiometry`. Factors modify gross growth rate only. Optional `products` route the
-`product_fraction` of gross growth before biomass retention while resource uptake remains gross;
-the retained biomass fraction is the exact complement. Without `FixedStoichiometry`, growth
-consumes only its reference Element and `products` can route only that Element. Multi-element
-`products` require growth `FixedStoichiometry` and `additional_resources` supplying those
-Elements; product routing must cover every growth element using the same stoichiometric
-ratio bindings.
-Independently prognostic elemental states are supplied through explicit
-[`NutrientUptake`](@ref) processes.
+`additional_resources` supplies implicitly represented Elements declared by participating
+`Plankton.composition` mappings. Each plankton consumes only its own implicit Elements;
+the reference Element is supplied by `reference_resource`.
+Explicit prognostic elemental states are updated by independent processes such as
+`NutrientUptake`. Products route gross uptake before biomass retention.
 """
 struct Growth{
-    Factors<:NamedTuple,AdditionalResources<:NamedTuple,Stoichiometry,ProductRouting
+    Factors<:NamedTuple,AdditionalResources<:NamedTuple,ProductRouting
 } <: AbstractProcess
     plankton::Tuple
     factors::Factors
     reference_resource::Symbol
     additional_resources::AdditionalResources
-    stoichiometry::Stoichiometry
     products::ProductRouting
     bindings::NamedTuple
 end
@@ -144,22 +115,17 @@ function Growth(;
     reference_resource::Symbol,
     factors::NamedTuple=NamedTuple(),
     additional_resources::NamedTuple=NamedTuple(),
-    stoichiometry=nothing,
     products=nothing,
     bindings::NamedTuple=NamedTuple(),
 )
     all(resource -> resource isa Symbol, values(additional_resources)) || throw(
         ArgumentError("growth `additional_resources` values must be Pool Symbols"),
     )
-    isnothing(stoichiometry) || stoichiometry isa FixedStoichiometry || throw(
-        ArgumentError("growth `stoichiometry` must be FixedStoichiometry"),
-    )
     return Growth(
         _canonical_participants(:plankton, plankton),
         _canonical_factors(factors),
         reference_resource,
         _canonical_namedtuple(additional_resources),
-        stoichiometry,
         _canonical_products(products),
         _canonical_bindings(bindings),
     )
@@ -205,8 +171,8 @@ For `PreferentialGrazing`, `maximum_rate` is one consumer-level ingestion capaci
 all declared prey. `LinearGrazing` instead applies an independent linear grazing `rate` to each
 consumer-resource link. For `HeterotrophicConsumption`, `maximum_rate` is likewise one
 consumer-level uptake capacity shared across substitutable substrates. When one living-prey
-consumption process routes multi-element unassimilated products from multiple resources, those resources currently
-must expose the same prognostic Element set.
+consumption process routes multi-element unassimilated products from multiple resources,
+its destinations cover the union of their represented Elements.
 """
 struct Consumption{
     Formulation<:Union{PreferentialGrazing,LinearGrazing,HeterotrophicConsumption},
@@ -242,8 +208,8 @@ authored_parameter_bindings(process::Consumption) = process.bindings
 
 """Plankton mortality process with optional products.
 
-When one mortality process routes multi-element products from multiple plankton, those
-plankton currently must expose the same prognostic Element set.
+When one mortality process routes multi-element products from multiple plankton, its
+destinations cover the union of their represented Elements.
 """
 struct Mortality{Formulation<:Union{LinearMortality,QuadraticMortality},ProductRouting} <: AbstractProcess
     formulation::Formulation

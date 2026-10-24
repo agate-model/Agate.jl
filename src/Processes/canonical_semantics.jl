@@ -7,13 +7,14 @@ processes carry dense references into this tuple so setup and lowering do not ma
 second path-key lookup representation.
 """
 struct CanonicalModelDefinition{
-    ComponentMap,ProcessMap,ParameterDefinitions,DriverIdentities,ParameterBindings
+    ComponentMap,ProcessMap,ParameterDefinitions,DriverIdentities,ParameterBindings,CompositionRefs
 }
     components::ComponentMap
     processes::ProcessMap
     parameters::ParameterDefinitions
     driver_identities::DriverIdentities
     parameter_bindings::ParameterBindings
+    composition_refs::CompositionRefs
 end
 
 """Return the canonical external-driver identities required by a canonical model."""
@@ -50,55 +51,32 @@ function _canonical_product_targets(id, products, components, reference_element,
     return targets
 end
 
-function _product_transfer_mode(
-    id::Symbol,
-    products::Products,
-    product_targets::NamedTuple,
-    source_elements::Tuple,
-    reference_element,
-    label::AbstractString,
-)
-    target_elements = Tuple(keys(first(values(product_targets))))
-    stoichiometry = products.stoichiometry
-    if isnothing(stoichiometry)
-        sort(collect(target_elements); by=String) == sort(collect(source_elements); by=String) ||
-            throw(ArgumentError(
-                "process :$id $label product elements $target_elements must match the source " *
-                "elemental states $source_elements when FixedStoichiometry is omitted",
-            ))
-        return :state
-    end
-
-    isnothing(reference_element) && throw(ArgumentError(
-        "process :$id $label cannot use FixedStoichiometry because its reference state has no element",
+"""Resolve represented elemental inventories to states and optional composition parameters."""
+function _material_sources(components, name::Symbol, id::Symbol, label::AbstractString)
+    plankton = _plankton_component(components, name, id, label)
+    explicit = _plankton_element_states(components, name, id, label)
+    implicit = composition(plankton)
+    names = Tuple(sort!(collect((keys(explicit)..., keys(implicit)...)); by=String))
+    reference = PlanktonStateRef(name, reference_state(plankton))
+    return NamedTuple{names}(Tuple(
+        hasproperty(explicit, element) ? getproperty(explicit, element) : reference
+        for element in names
     ))
-    _validate_element(
-        stoichiometry.reference_element,
-        reference_element,
-        id,
-        "$label stoichiometric reference",
-    )
-    source_elements == (reference_element,) || throw(ArgumentError(
-        "process :$id $label with multiple elemental states uses their prognostic inventories " *
-        "directly; omit FixedStoichiometry and route each source element explicitly",
-    ))
-    return :stoichiometric
 end
 
-function _matching_element_sets(
-    element_states::NamedTuple, id::Symbol, label::AbstractString
-)
-    isempty(element_states) && return ()
-    first_elements = Tuple(keys(first(values(element_states))))
-    for (name, states_for_element) in pairs(element_states)
-        elements = Tuple(keys(states_for_element))
-        sort(collect(elements); by=String) == sort(collect(first_elements); by=String) || throw(ArgumentError(
-            "process :$id $label :$name has elemental states $elements; expected $first_elements " *
-            "so one shared Products mapping can route every participant",
-        ))
-    end
-    return first_elements
+function _check_product_elements(id, targets, represented, label)
+    actual = Set(keys(first(values(targets))))
+    expected = Set(represented)
+    actual == expected || throw(ArgumentError(
+        "process :$id $label product elements $actual must match represented elements $expected",
+    ))
+    return nothing
 end
+
+"""Elements represented by any participant; products route only each participant's inventory."""
+_represented_elements(sources::NamedTuple) = Tuple(sort!(unique([
+    element for inventory in values(sources) for element in keys(inventory)
+]); by=String))
 
 """Attach setup-validated semantic facts to a process before compilation.
 
@@ -130,83 +108,39 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
         "growth reference resource :$(process.reference_resource)",
     )
 
-    has_stoichiometry = !isnothing(process.stoichiometry)
-    has_stoichiometry == !isempty(process.additional_resources) || throw(ArgumentError(
-        "process :$id `additional_resources` and FixedStoichiometry must be provided together",
+    required = Set(keys(process.additional_resources))
+    implicit = Set{Symbol}()
+    for plankton_name in process.plankton
+        union!(implicit, keys(composition(getproperty(components, plankton_name))))
+    end
+    required == implicit || throw(ArgumentError(
+        "process :$id growth additional_resources $required must match " *
+        "implicit composition elements $implicit across participating plankton",
     ))
-
-    if has_stoichiometry
-        _validate_element(
-            process.stoichiometry.reference_element, reference_element, id,
-            "growth stoichiometric reference",
+    for (target_element, resource_name) in pairs(process.additional_resources)
+        resource = _resolve_pool(
+            components, resource_name, id, "growth additional resource :$target_element"
         )
-        for (target_element, resource_name) in pairs(process.additional_resources)
-            target_element === reference_element && throw(ArgumentError(
-                "process :$id `additional_resources` must not repeat reference element :$reference_element",
-            ))
-            resource = _resolve_pool(
-                components, resource_name, id, "growth additional resource :$target_element"
-            )
-            _validate_element(
-                element(resource), target_element, id,
-                "growth additional resource :$target_element component :$resource_name",
-            )
-            for plankton_name in process.plankton
-                explicit_elements = _plankton_element_states(
-                    components, plankton_name, id, "growth plankton"
-                )
-                target_element in keys(explicit_elements) && throw(ArgumentError(
-                    "process :$id growth additional resource :$target_element conflicts with " *
-                    "explicit prognostic state :$(getproperty(explicit_elements, target_element).state) " *
-                    "for plankton :$plankton_name; explicit elemental states must be updated by " *
-                    "explicit state-changing processes",
-                ))
-            end
-        end
+        _validate_element(
+            element(resource), target_element, id,
+            "growth additional resource :$target_element component :$resource_name",
+        )
     end
 
     product_targets = if isnothing(process.products)
         nothing
     else
-        if !has_stoichiometry && !isnothing(process.products.stoichiometry)
-            throw(ArgumentError(
-                "process :$id growth products cannot use FixedStoichiometry unless growth " *
-                "also supplies those elements through FixedStoichiometry and additional_resources",
-            ))
-        end
         targets = _canonical_product_targets(
             id, process.products, components, reference_element, "growth products"
         )
-        _product_transfer_mode(
-            id,
-            process.products,
-            targets,
-            (reference_element,),
-            reference_element,
+        _check_product_elements(
+            id, targets, (reference_element, keys(process.additional_resources)...),
             "growth products",
         )
-        if has_stoichiometry
-            product_stoichiometry = process.products.stoichiometry
-            isnothing(product_stoichiometry) && throw(ArgumentError(
-                "process :$id fixed-stoichiometry growth products must use FixedStoichiometry " *
-                "so routed products account for every growth element",
-            ))
-            growth_elements = (reference_element, keys(process.additional_resources)...)
-            product_elements = Tuple(keys(first(values(targets))))
-            sort(collect(product_elements); by=String) == sort(collect(growth_elements); by=String) ||
-                throw(ArgumentError(
-                    "process :$id fixed-stoichiometry growth products must route elements " *
-                    "$growth_elements; got $product_elements",
-                ))
-            product_stoichiometry.bindings == process.stoichiometry.bindings || throw(ArgumentError(
-                "process :$id growth-product stoichiometry must use the same ratio bindings as " *
-                "growth stoichiometry",
-            ))
-        end
         targets
     end
 
-    return (; plankton_states, product_targets)
+    return (; plankton_states, reference_element, product_targets)
 end
 
 function process_facts(
@@ -247,7 +181,7 @@ function process_facts(process::Consumption, id::Symbol, components::NamedTuple)
         components, consumer_states, reference_element, id, "consumer reference state"
     )
     consumer_element_states = NamedTuple{process.consumers}(Tuple(
-        _plankton_element_states(components, consumer, id, "consumer")
+        _material_sources(components, consumer, id, "consumer")
         for consumer in process.consumers
     ))
 
@@ -263,56 +197,52 @@ function process_facts(process::Consumption, id::Symbol, components::NamedTuple)
             _plankton_state_refs(components, resource, id, "living resource")
             for resource in process.resources
         ))
-        resource_state_elements = NamedTuple{process.resources}(Tuple(
-            _plankton_state_elements(components, resource, id, "living resource")
-            for resource in process.resources
-        ))
         resource_element_states = NamedTuple{process.resources}(Tuple(
-            _plankton_element_states(components, resource, id, "living resource")
+            _material_sources(components, resource, id, "living resource")
             for resource in process.resources
         ))
 
-        for (resource, element_states) in pairs(resource_element_states)
-            for source_element in keys(element_states), (consumer, consumer_states) in pairs(consumer_element_states)
-                hasproperty(consumer_states, source_element) || throw(ArgumentError(
-                    "process :$id consumer :$consumer has no state for resource :$resource " *
-                    "element :$source_element required by elemental assimilation",
+        for consumer in process.consumers
+            isempty(composition(getproperty(components, consumer))) || throw(ArgumentError(
+                "process :$id consumer :$consumer requires balancing transfers for " *
+                "implicit elemental composition during grazing",
+            ))
+        end
+        for (resource, source) in pairs(resource_element_states)
+            for (consumer, destination) in pairs(consumer_element_states)
+                all(element -> hasproperty(destination, element), keys(source)) || throw(ArgumentError(
+                    "process :$id consumer :$consumer lacks an elemental state " *
+                    "required to assimilate prey :$resource",
                 ))
             end
         end
 
-        product_targets, product_mode = if isnothing(process.products)
-            nothing, nothing
+        product_targets = if isnothing(process.products)
+            nothing
         else
-            source_elements = _matching_element_sets(
-                resource_element_states, id, "living resource"
-            )
+            source_elements = _represented_elements(resource_element_states)
             targets = _canonical_product_targets(
                 id, process.products, components, reference_element, "unassimilated products"
             )
-            mode = _product_transfer_mode(
-                id,
-                process.products,
-                targets,
-                source_elements,
-                reference_element,
-                "unassimilated products",
-            )
-            targets, mode
+            _check_product_elements(id, targets, source_elements, "unassimilated products")
+            targets
         end
         return (;
             consumer_states,
             consumer_element_states,
             resources,
             resource_state_sets,
-            resource_state_elements,
             resource_element_states,
             reference_element,
             product_targets,
-            product_mode,
         )
     end
 
+    any(!isempty(composition(getproperty(components, consumer))) for consumer in process.consumers) &&
+        throw(ArgumentError(
+            "process :$id heterotrophic uptake requires elemental balancing transfers for " *
+            "consumers with implicit composition",
+        ))
     resources = process.resources
     for resource in resources
         pool = getproperty(components, resource)
@@ -323,32 +253,23 @@ function process_facts(process::Consumption, id::Symbol, components::NamedTuple)
             element(pool), reference_element, id, "heterotrophic resource :$resource"
         )
     end
-    product_targets, product_mode = if isnothing(process.products)
-        nothing, nothing
+    product_targets = if isnothing(process.products)
+        nothing
     else
         targets = _canonical_product_targets(
             id, process.products, components, reference_element, "unassimilated products"
         )
-        mode = _product_transfer_mode(
-            id,
-            process.products,
-            targets,
-            (reference_element,),
-            reference_element,
-            "unassimilated products",
-        )
-        targets, mode
+        _check_product_elements(id, targets, (reference_element,), "unassimilated products")
+        targets
     end
     return (;
         consumer_states,
         consumer_element_states,
         resources,
         resource_state_sets=NamedTuple(),
-        resource_state_elements=NamedTuple(),
         resource_element_states=NamedTuple(),
         reference_element,
         product_targets,
-        product_mode,
     )
 end
 
@@ -361,17 +282,12 @@ function process_facts(process::Mortality, id::Symbol, components::NamedTuple)
         _plankton_state_refs(components, plankton, id, "mortality plankton")
         for plankton in process.plankton
     ))
-    state_elements = NamedTuple{process.plankton}(Tuple(
-        _plankton_state_elements(components, plankton, id, "mortality plankton")
+    material_sources = NamedTuple{process.plankton}(Tuple(
+        _material_sources(components, plankton, id, "mortality plankton")
         for plankton in process.plankton
     ))
-    element_states = NamedTuple{process.plankton}(Tuple(
-        _plankton_element_states(components, plankton, id, "mortality plankton")
-        for plankton in process.plankton
-    ))
-
-    product_targets, product_mode = if isnothing(process.products)
-        nothing, nothing
+    product_targets = if isnothing(process.products)
+        nothing
     else
         reference_element = _state_element(components, first(plankton_states))
         isnothing(reference_element) && throw(ArgumentError(
@@ -380,27 +296,18 @@ function process_facts(process::Mortality, id::Symbol, components::NamedTuple)
         _validate_state_elements(
             components, plankton_states, reference_element, id, "mortality reference state"
         )
-        source_elements = _matching_element_sets(element_states, id, "mortality plankton")
+        source_elements = _represented_elements(material_sources)
         targets = _canonical_product_targets(
             id, process.products, components, reference_element, "mortality products"
         )
-        mode = _product_transfer_mode(
-            id,
-            process.products,
-            targets,
-            source_elements,
-            reference_element,
-            "mortality products",
-        )
-        targets, mode
+        _check_product_elements(id, targets, source_elements, "mortality products")
+        targets
     end
     return (;
         plankton_states,
         state_sets,
-        state_elements,
-        element_states,
+        material_sources,
         product_targets,
-        product_mode,
     )
 end
 
