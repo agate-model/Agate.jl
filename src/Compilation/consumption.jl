@@ -115,13 +115,13 @@ function _living_consumption_fluxes!(
         push!(fluxes, FluxSpec(resource_tracer, rate, Weight{-1}()))
 
         for (element, source) in pairs(source_materials)
-            source.state.state === state_ref.state || continue
+            source.state === state_ref.state || continue
             ratio = _material_ratio_operand(
                 context, resource.component, element, resource.position
             )
             consumer_inventory = getproperty(consumer_element_states, element)
             consumer_tracer = state_tracer(
-                layout, consumer_inventory.state, consumer.component_index
+                layout, consumer_inventory, consumer.component_index
             )
             push!(fluxes, FluxSpec(
                 consumer_tracer, rate, Weight{1}((assimilation, ratio...)),
@@ -160,7 +160,7 @@ function _heterotrophic_consumption_fluxes!(
         named.semantic_facts.consumer_element_states, consumer.component
     )
     consumer_inventory = getproperty(consumer_element_states, named.semantic_facts.reference_element)
-    consumer_tracer = state_tracer(layout, consumer_inventory.state, consumer.component_index)
+    consumer_tracer = state_tracer(layout, consumer_inventory, consumer.component_index)
     push!(
         fluxes,
         FluxSpec(resource.tracer, rate, Weight{-1}()),

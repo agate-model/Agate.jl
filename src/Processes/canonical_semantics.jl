@@ -59,9 +59,7 @@ function _material_sources(components, name::Symbol, id::Symbol, label::Abstract
     names = Tuple(sort!(collect((keys(explicit)..., keys(implicit)...)); by=String))
     reference = PlanktonStateRef(name, reference_state(plankton))
     return NamedTuple{names}(Tuple(
-        hasproperty(explicit, element) ?
-            (state=getproperty(explicit, element), ratio=nothing) :
-            (state=reference, ratio=getproperty(implicit, element))
+        hasproperty(explicit, element) ? getproperty(explicit, element) : reference
         for element in names
     ))
 end

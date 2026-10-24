@@ -147,12 +147,6 @@ function _plankton_state_refs(components, name::Symbol, id::Symbol, label::Abstr
     return Tuple(PlanktonStateRef(name, state) for state in states(plankton))
 end
 
-function _plankton_state_elements(components, name::Symbol, id::Symbol, label::AbstractString)
-    plankton = _plankton_component(components, name, id, label)
-    names = states(plankton)
-    return NamedTuple{names}(Tuple(state_element(plankton, state) for state in names))
-end
-
 function _plankton_element_states(components, name::Symbol, id::Symbol, label::AbstractString)
     plankton = _plankton_component(components, name, id, label)
     element_states = Tuple(

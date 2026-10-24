@@ -3,7 +3,7 @@ using Test
 using Agate.Components: Plankton, Pool
 using Agate.Parameters: Parameter
 using Agate.Processes:
-    Consumption, Growth, LinearMortality, Monod, Mortality, ModelDefinition,
+    Consumption, Growth, HeterotrophicConsumption, LinearMortality, Monod, Mortality, ModelDefinition,
     NutrientResponse, PreferentialGrazing, Products, QuadraticMortality
 
 @testset "Multi-state process semantics" begin
@@ -375,4 +375,22 @@ end
         parameters=(p2_n2c=Parameter(0.2), mortality_rate=Parameter(0.1)),
     )
     @test occursin("product elements", canonicalization_error_message(invalid))
+end
+
+@testset "Implicit consumers require balancing transfers" begin
+    components = (
+        P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
+        Z=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+            composition=(nitrogen=:n2c,)),
+        POM=Pool(:carbon),
+    )
+    for (formulation, resource) in (
+        (PreferentialGrazing(), :P),
+        (HeterotrophicConsumption(), :POM),
+    )
+        definition = ModelDefinition(; components,
+            processes=(uptake=Consumption(formulation; consumers=:Z, resources=resource),),
+            parameters=(n2c=Parameter(0.2),))
+        @test occursin("balancing transfers", canonicalization_error_message(definition))
+    end
 end

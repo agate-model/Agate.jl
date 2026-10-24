@@ -34,7 +34,7 @@ function process_fluxes(
                 push!(fluxes, FluxSpec(tracer, rate, Weight{-1}()))
                 isnothing(named.semantic_facts.product_targets) && continue
                 for (element, source) in pairs(materials)
-                    source.state.state === state_ref.state || continue
+                    source.state === state_ref.state || continue
                     ratio = _material_ratio_operand(
                         context, participant.component, element, participant.position
                     )
