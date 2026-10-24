@@ -3,9 +3,9 @@
 """Conservative allocation of one process product flux among named destinations.
 
 Each product destination may be either one component Symbol or a named element-to-component
-mapping. A multi-element mapping without `FixedStoichiometry` routes prognostic elemental
-states directly. `FixedStoichiometry` derives multi-element products from a one-element source;
-every product then declares the same elements and includes the stoichiometric reference element.
+mapping. Prognostic elemental states route directly. If a source Plankton declares implicit
+`composition`, canonicalization derives the necessary conversion from that component and
+every product must route the corresponding elements.
 
 For `N` products, specify `N - 1` named fractions. The omitted product receives the exact
 conservative remainder `1 - sum(supplied fractions)`. This removes one redundant routing
@@ -34,7 +34,6 @@ end
 function Products(
     destinations::NamedTuple;
     fractions::NamedTuple=NamedTuple(),
-    stoichiometry=nothing,
 )
     isempty(destinations) && throw(ArgumentError("product destinations cannot be empty"))
 
@@ -53,18 +52,6 @@ function Products(
         all(destination -> keys(destination) == elements, canonical_destination_values) || throw(
             ArgumentError("multi-element products must declare the same elements"),
         )
-        if !isnothing(stoichiometry)
-            stoichiometry isa FixedStoichiometry || throw(
-                ArgumentError("product stoichiometry must be FixedStoichiometry"),
-            )
-            stoichiometry.reference_element in elements || throw(
-                ArgumentError(
-                    "multi-element products must include stoichiometric reference element :$(stoichiometry.reference_element)"
-                ),
-            )
-        end
-    elseif !isnothing(stoichiometry)
-        throw(ArgumentError("scalar product destinations do not take stoichiometry"))
     end
 
     fraction_names = sort!(collect(keys(fractions)); by=String)
@@ -91,7 +78,7 @@ function Products(
         ))
     end
 
-    return Products(canonical_destinations, canonical_fractions, stoichiometry)
+    return Products(canonical_destinations, canonical_fractions, nothing)
 end
 
 Products(destination::Symbol) = Products((product=destination,))
@@ -116,14 +103,11 @@ end
 
 `bindings.maximum_rate` names the model parameter that sets the growth-rate scale.
 `reference_resource` supplies the Element represented by the plankton `reference_state`.
-`additional_resources` maps additional Elements to external Pools consumed according to
-`FixedStoichiometry`. Factors modify gross growth rate only. Optional `products` route the
-`product_fraction` of gross growth before biomass retention while resource uptake remains gross;
-the retained biomass fraction is the exact complement. Without `FixedStoichiometry`, growth
-consumes only its reference Element and `products` can route only that Element. Multi-element
-`products` require growth `FixedStoichiometry` and `additional_resources` supplying those
-Elements; product routing must cover every growth element using the same stoichiometric
-ratio bindings.
+`additional_resources` maps implicitly represented Elements to external Pools. Their ratios
+are declared once in the growing Plankton's `composition` and resolved at setup time. Factors
+modify gross growth rate only. Optional `products` route the `product_fraction` of gross
+growth before biomass retention while resource uptake remains gross; retained biomass is the
+exact complement. Product routing must cover the reference and all implicit Elements.
 Independently prognostic elemental states are supplied through explicit
 [`NutrientUptake`](@ref) processes.
 """
@@ -144,22 +128,18 @@ function Growth(;
     reference_resource::Symbol,
     factors::NamedTuple=NamedTuple(),
     additional_resources::NamedTuple=NamedTuple(),
-    stoichiometry=nothing,
     products=nothing,
     bindings::NamedTuple=NamedTuple(),
 )
     all(resource -> resource isa Symbol, values(additional_resources)) || throw(
         ArgumentError("growth `additional_resources` values must be Pool Symbols"),
     )
-    isnothing(stoichiometry) || stoichiometry isa FixedStoichiometry || throw(
-        ArgumentError("growth `stoichiometry` must be FixedStoichiometry"),
-    )
     return Growth(
         _canonical_participants(:plankton, plankton),
         _canonical_factors(factors),
         reference_resource,
         _canonical_namedtuple(additional_resources),
-        stoichiometry,
+        nothing,
         _canonical_products(products),
         _canonical_bindings(bindings),
     )

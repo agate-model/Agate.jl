@@ -3,7 +3,7 @@ using Test
 using Agate.Components: Plankton, Pool
 using Agate.Parameters: Parameter
 using Agate.Processes:
-    Consumption, FixedStoichiometry, Growth, LinearMortality, Monod, Mortality, ModelDefinition,
+    Consumption, Growth, LinearMortality, Monod, Mortality, ModelDefinition,
     NutrientResponse, PreferentialGrazing, Products, QuadraticMortality
 
 @testset "Multi-state process semantics" begin
@@ -60,10 +60,13 @@ using Agate.Processes:
         )
     end
 
-    @testset "fixed-stoichiometry transfer is process-owned" begin
+    @testset "implicit composition is component-owned" begin
         definition = ModelDefinition(;
             components=(
-                P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
+                P=Plankton(;
+                    states=(carbon=:carbon,), reference_state=:carbon,
+                    composition=(nitrogen=:nitrogen_to_carbon,),
+                ),
                 DIC=Pool(:carbon),
                 DIN=Pool(:nitrogen),
             ),
@@ -72,10 +75,6 @@ using Agate.Processes:
                     plankton=:P,
                     reference_resource=:DIC,
                     additional_resources=(nitrogen=:DIN,),
-                    stoichiometry=FixedStoichiometry(;
-                        reference_element=:carbon,
-                        bindings=(ratio=(nitrogen=:nitrogen_to_carbon,),),
-                    ),
                     bindings=(maximum_rate=:maximum_growth_rate,),
                     factors=(
                         carbon=NutrientResponse(
@@ -98,25 +97,24 @@ using Agate.Processes:
         )
     end
 
-    @testset "fixed-stoichiometry growth products close every growth element" begin
+    @testset "component composition closes growth and mortality products" begin
         components = (
-            P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
+            P=Plankton(;
+                states=(carbon=:carbon,), reference_state=:carbon,
+                composition=(nitrogen=:nitrogen_to_carbon,),
+            ),
             DIC=Pool(:carbon), DIN=Pool(:nitrogen), DOC=Pool(:carbon), DON=Pool(:nitrogen),
-        )
-        stoichiometry = FixedStoichiometry(;
-            reference_element=:carbon, bindings=(ratio=(nitrogen=:nitrogen_to_carbon,),)
         )
         growth(products) = Growth(;
             plankton=:P, reference_resource=:DIC, additional_resources=(nitrogen=:DIN,),
-            stoichiometry, products,
+            products,
             bindings=(maximum_rate=:maximum_growth_rate, product_fraction=:exudation_fraction),
         )
         parameters = (
             maximum_growth_rate=Parameter(0.5), nitrogen_to_carbon=Parameter(0.2),
             exudation_fraction=Parameter(0.2),
         )
-
-        products = Products((exudate=(carbon=:DOC, nitrogen=:DON),); stoichiometry)
+        products = Products((exudate=(carbon=:DOC, nitrogen=:DON),))
         model = Agate.Construction.construct(ModelDefinition(;
             components, processes=(growth=growth(products),), parameters,
         ))
@@ -124,33 +122,37 @@ using Agate.Processes:
             model, (P=2.0, DIC=10.0, DIN=10.0, DOC=0.0, DON=0.0),
             (P=0.8, DIC=-1.0, DIN=-0.2, DOC=0.2, DON=0.04),
         )
-
-        mismatched = FixedStoichiometry(;
-            reference_element=:carbon, bindings=(ratio=(nitrogen=:other_nitrogen_to_carbon,),)
-        )
-        for invalid in (
-            Products(:DOC),
-            Products((exudate=(carbon=:DOC,),); stoichiometry),
-            Products((exudate=(carbon=:DOC, nitrogen=:DON),); stoichiometry=mismatched),
-        )
+        for invalid in (Products(:DOC), Products((exudate=(carbon=:DOC,),)))
             @test_throws ArgumentError Agate.Construction.construct(ModelDefinition(;
                 components, processes=(growth=growth(invalid),), parameters,
             ))
         end
+
+        mortality = Mortality(
+            LinearMortality(); plankton=:P,
+            bindings=(rate=:mortality_rate,), products=products,
+        )
+        combined = Agate.Construction.construct(ModelDefinition(;
+            components, processes=(; growth=growth(products), mortality),
+            parameters=(; parameters..., mortality_rate=Parameter(0.1)),
+        ))
+        test_tendencies(
+            combined, (P=2.0, DIC=10.0, DIN=10.0, DOC=0.0, DON=0.0),
+            (P=0.6, DIC=-1.0, DIN=-0.2, DOC=0.4, DON=0.08),
+        )
+        @test_throws ArgumentError Agate.Construction.construct(ModelDefinition(;
+            components, processes=(mortality=Mortality(
+                LinearMortality(); plankton=:P, products=Products(:DOC),
+                bindings=(rate=:mortality_rate,),
+            ),), parameters=(nitrogen_to_carbon=Parameter(0.2), mortality_rate=Parameter(0.1)),
+        ))
     end
 
     @testset "growth products require sourced elements" begin
-        products = Products(
-            (exudate=(nitrogen=:DON, carbon=:DOC),);
-            stoichiometry=FixedStoichiometry(;
-                reference_element=:nitrogen,
-                bindings=(ratio=(carbon=:carbon_to_nitrogen,),),
-            ),
-        )
+        products = Products((exudate=(nitrogen=:DON, carbon=:DOC),))
         parameters = (
             maximum_growth_rate=Parameter(0.5),
             product_fraction=Parameter(0.25),
-            carbon_to_nitrogen=Parameter(6.0),
         )
         growth(products) = Growth(;
             plankton=:P, reference_resource=:DIN, products,
@@ -170,7 +172,7 @@ using Agate.Processes:
             )
             message = canonicalization_error_message(definition)
             @test occursin(
-                "process :growth growth products cannot use FixedStoichiometry", message
+                "product elements", message
             )
         end
 
@@ -260,6 +262,38 @@ using Agate.Processes:
             model = Agate.Construction.construct(definition)
             test_tendencies(model, state, expected)
         end
+    end
+
+    @testset "implicit elemental composition is conserved through grazing" begin
+        plankton(ratio) = Plankton(;
+            states=(carbon=:carbon,), reference_state=:carbon,
+            composition=(nitrogen=ratio,),
+        )
+        components = (
+            P=plankton(:n2c), Z=plankton(:n2c),
+            DOC=Pool(:carbon), DON=Pool(:nitrogen),
+        )
+        grazing = Consumption(
+            PreferentialGrazing(); consumers=:Z, resources=:P,
+            bindings=(maximum_rate=:rate, half_saturation=:half_saturation,
+                      palatability=:palatability, assimilation=:assimilation),
+            unassimilated_products=Products((organic=(carbon=:DOC, nitrogen=:DON),)),
+        )
+        parameters = (
+            rate=Parameter(1.0), half_saturation=Parameter(10.0),
+            palatability=Parameter(1.0), assimilation=Parameter(0.5), n2c=Parameter(0.2),
+        )
+        model = Agate.Construction.construct(ModelDefinition(;
+            components, processes=(; grazing), parameters,
+        ))
+        test_tendencies(
+            model, (P=10.0, Z=2.0, DOC=0.0, DON=0.0),
+            (P=-1.0, Z=0.5, DOC=0.5, DON=0.1),
+        )
+        invalid = merge(components, (Z=plankton(:other_n2c),))
+        @test_throws ArgumentError Agate.Processes.canonicalize_model(ModelDefinition(;
+            components=invalid, processes=(; grazing), parameters,
+        ))
     end
 
     @testset "grazing transfers elemental states and removes physiological states" begin

@@ -7,7 +7,7 @@ using Agate.Processes:
     ExponentialSaturation, Monod, InhibitedMonod, NormalizedDroop, QuotaRegulatedMonod,
     Liebig, FrankTNorm, Q10, Growth, Light,
     NutrientLimitation, Temperature, NutrientResponse, QuotaResponse, NutrientUptake,
-    FixedStoichiometry, Consumption, Mortality, Products, ModelDefinition,
+    Consumption, Mortality, Products, ModelDefinition,
     driver_identities, formulation, HeterotrophicConsumption, LinearMortality,
     QuadraticMortality, LinearRemineralization, canonicalize_model, participants,
     PreferentialGrazing, parameter_slots, FactorPlanktonState
@@ -166,7 +166,10 @@ Agate.Processes.factor_value(
 
     wrong_element = ModelDefinition(;
         components=(
-            P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
+            P=Plankton(;
+                states=(carbon=:carbon,), reference_state=:carbon,
+                composition=(nitrogen=:n2c,),
+            ),
             DIC=Pool(:carbon),
             DIN=Pool(:phosphorus),
         ),
@@ -181,7 +184,6 @@ Agate.Processes.factor_value(
                     responses=(nitrogen=NutrientResponse(Monod(); resource=:DIN),),
                 ),
             ),
-            stoichiometry=FixedStoichiometry(; reference_element=:carbon),
         ),),
     )
     @test_throws ArgumentError canonicalize_model(wrong_element)
@@ -204,7 +206,6 @@ end
         PreferentialGrazing(),
         HeterotrophicConsumption(), LinearMortality(), QuadraticMortality(),
         LinearRemineralization(), Products((a=:A, b=:B); fractions=(a=:fraction_a,)),
-        FixedStoichiometry(; reference_element=:carbon),
     )
     expected(node, name) = node isa ExponentialSaturation && name === :light_scale ? :positive :
         node isa HeterotrophicConsumption && name === :half_saturation ? :positive :
@@ -229,11 +230,13 @@ end
             plankton=:P,
             reference_resource=:DIC,
             additional_resources=(nitrogen=:N,),
-            stoichiometry=FixedStoichiometry(; reference_element=:carbon),
             factors=(light=light,),
         ),
         (
-            P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
+            P=Plankton(;
+                states=(carbon=:carbon,), reference_state=:carbon,
+                composition=(nitrogen=:n2c,),
+            ),
             DIC=Pool(:carbon),
             N=Pool(:nitrogen),
         ),
@@ -241,31 +244,28 @@ end
 
     cases = (
         (
-            "Growth additional resources require stoichiometry",
+            "Additional resources require matching composition",
             one_process(:growth, Growth(;
-                plankton=:P,
-                reference_resource=:DIC,
-                additional_resources=(nitrogen=:N,),
-                factors=(light=light,),
+                plankton=:P, reference_resource=:DIC,
+                additional_resources=(nitrogen=:N,), factors=(light=light,),
             ), (
                 P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
-                DIC=Pool(:carbon),
-                N=Pool(:nitrogen),
+                DIC=Pool(:carbon), N=Pool(:nitrogen),
             )),
-            ("process :growth", "additional_resources", "FixedStoichiometry", "together"),
+            ("process :growth", "additional_resources", "implicit composition"),
         ),
         (
-            "Growth stoichiometry requires additional resources",
+            "Implicit composition requires sourced elements",
             one_process(:growth, Growth(;
-                plankton=:P,
-                reference_resource=:DIC,
-                stoichiometry=FixedStoichiometry(; reference_element=:carbon),
-                factors=(light=light,),
+                plankton=:P, reference_resource=:DIC, factors=(light=light,),
             ), (
-                P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
+                P=Plankton(;
+                    states=(carbon=:carbon,), reference_state=:carbon,
+                    composition=(nitrogen=:n2c,),
+                ),
                 DIC=Pool(:carbon),
             )),
-            ("process :growth", "FixedStoichiometry", "additional_resources", "together"),
+            ("process :growth", "additional_resources", "implicit composition"),
         ),
         (
             "Light factor process compatibility",

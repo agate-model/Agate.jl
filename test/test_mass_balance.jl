@@ -5,7 +5,7 @@ using Agate.Components: Plankton, Pool
 using Agate.Construction: construct
 using Agate.Parameters: ConstantDefault, Parameter
 using Agate.Processes:
-    FixedStoichiometry, Growth, Light, ModelDefinition, NutrientLimitation, NutrientResponse,
+    Growth, Light, ModelDefinition, NutrientLimitation, NutrientResponse,
     Geider, Liebig, FrankTNorm, Monod
 
 using OceanBioME
@@ -16,7 +16,10 @@ using Oceananigans.Units: day, minutes
 
 function multi_nutrient_test_model(grid; nutrient_formulation=Liebig())
     components = (
-        P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon, size_structure=[1.0]),
+        P=Plankton(;
+            states=(carbon=:carbon,), reference_state=:carbon, size_structure=[1.0],
+            composition=(nitrogen=:nitrogen_to_carbon, phosphorus=:phosphorus_to_carbon),
+        ),
         DIC=Pool(:carbon),
         DIN=Pool(:nitrogen),
         PO4=Pool(:phosphorus),
@@ -46,15 +49,6 @@ function multi_nutrient_test_model(grid; nutrient_formulation=Liebig())
                             Monod(); resource=:PO4,
                             bindings=(half_saturation=:half_saturation_PO4,)
                         ),
-                    ),
-                ),
-            ),
-            stoichiometry=FixedStoichiometry(;
-                reference_element=:carbon,
-                bindings=(
-                    ratio=(
-                        nitrogen=:nitrogen_to_carbon,
-                        phosphorus=:phosphorus_to_carbon,
                     ),
                 ),
             ),

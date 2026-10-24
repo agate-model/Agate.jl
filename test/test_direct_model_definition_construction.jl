@@ -7,7 +7,7 @@ using Agate.Parameters: AllometricPalatability, BroadcastConsumerAcrossResources
 using Agate.Construction: construct
 using Agate.Introspection: plankton_diameters
 using Agate.Processes:
-    Consumption, FixedStoichiometry, Growth, Light, LinearMortality, ModelDefinition, Mortality,
+    Consumption, Growth, Light, LinearMortality, ModelDefinition, Mortality,
     NutrientResponse, Products, Smith, Monod, PreferentialGrazing
 
 function direct_npz_definition()
@@ -133,13 +133,12 @@ end
 
 @testset "Multi-element products" begin
     components = (
-        P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon, size_structure=[1.0]),
+        P=Plankton(;
+            states=(carbon=:carbon,), reference_state=:carbon, size_structure=[1.0],
+            composition=(nitrogen=:nitrogen_to_carbon,),
+        ),
         DOC=Pool(:carbon), POC=Pool(:carbon), XOC=Pool(:carbon),
         DON=Pool(:nitrogen), PON=Pool(:nitrogen), XON=Pool(:nitrogen),
-    )
-    stoichiometry = FixedStoichiometry(;
-        reference_element=:carbon,
-        bindings=(ratio=(nitrogen=:nitrogen_to_carbon,),),
     )
     processes = (
         mortality_P=Mortality(
@@ -153,7 +152,6 @@ end
                     XOM=(carbon=:XOC, nitrogen=:XON),
                 );
                 fractions=(POM=:POM_fraction, XOM=:XOM_fraction),
-                stoichiometry,
             ),
         ),
     )

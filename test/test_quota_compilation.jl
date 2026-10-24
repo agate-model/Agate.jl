@@ -75,7 +75,8 @@ end
 @testset "Hybrid explicit and implicit elemental growth" begin
     components = merge(quota_components(), (
         P=Agate.Components.Plankton(;
-            states=(carbon=:carbon, nitrogen=:nitrogen), reference_state=:carbon
+            states=(carbon=:carbon, nitrogen=:nitrogen), reference_state=:carbon,
+            composition=(phosphorus=:phosphorus_to_carbon,),
         ),
     ))
     quota = quota_processes()
@@ -83,10 +84,6 @@ end
         plankton=:P,
         reference_resource=:DIC,
         additional_resources=(phosphorus=:PO4,),
-        stoichiometry=Agate.Processes.FixedStoichiometry(;
-            reference_element=:carbon,
-            bindings=(ratio=(phosphorus=:phosphorus_to_carbon,),),
-        ),
         bindings=quota.growth.bindings,
         factors=(nutrients=Agate.Processes.NutrientLimitation(
             Agate.Processes.Liebig();

@@ -63,6 +63,7 @@ Agate.Components.reference_state
 Agate.Components.variable_states
 Agate.Components.state_element
 Agate.Components.size_structure
+Agate.Components.composition
 Agate.Components.component_entities
 Agate.Components.component_state_tracers
 Agate.Components.component_tracers
@@ -70,6 +71,8 @@ Agate.Components.component_diameters
 Agate.Components.state_tracers
 Agate.Components.state_tracer
 ```
+
+A plankton component declares implicitly represented elements once with `composition=(nitrogen=:nitrogen_to_carbon,)`. Growth, mortality, and living-prey consumption then use the same binding at setup time. Plankton with explicit nitrogen or phosphorus states continue to evolve those inventories independently.
 
 ### Processes and factors
 
@@ -114,7 +117,6 @@ Agate.Processes.LinearRemineralization
 ```@docs
 Agate.Processes.AbstractProcess
 Agate.Processes.AbstractFactor
-Agate.Processes.AbstractStoichiometry
 Agate.Processes.Growth
 Agate.Processes.Light
 Agate.Processes.NutrientResponse
@@ -125,7 +127,6 @@ Agate.Processes.NutrientUptake
 Agate.Processes.Consumption
 Agate.Processes.Mortality
 Agate.Processes.Products
-Agate.Processes.FixedStoichiometry
 Agate.Processes.Remineralization
 Agate.Processes.formulation
 Agate.Processes.factors

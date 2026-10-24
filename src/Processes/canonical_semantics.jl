@@ -61,26 +61,27 @@ function _product_transfer_mode(
     target_elements = Tuple(keys(first(values(product_targets))))
     stoichiometry = products.stoichiometry
     if isnothing(stoichiometry)
-        sort(collect(target_elements); by=String) == sort(collect(source_elements); by=String) ||
-            throw(ArgumentError(
-                "process :$id $label product elements $target_elements must match the source " *
-                "elemental states $source_elements when FixedStoichiometry is omitted",
-            ))
+        Set(target_elements) == Set(source_elements) || throw(ArgumentError(
+            "process :$id $label product elements $target_elements must match the " *
+            "source elemental states $source_elements",
+        ))
         return :state
     end
 
     isnothing(reference_element) && throw(ArgumentError(
-        "process :$id $label cannot use FixedStoichiometry because its reference state has no element",
+        "process :$id $label requires an elemental reference state for implicit composition",
     ))
     _validate_element(
-        stoichiometry.reference_element,
-        reference_element,
-        id,
-        "$label stoichiometric reference",
+        stoichiometry.reference_element, reference_element, id, "$label composition reference",
     )
     source_elements == (reference_element,) || throw(ArgumentError(
-        "process :$id $label with multiple elemental states uses their prognostic inventories " *
-        "directly; omit FixedStoichiometry and route each source element explicitly",
+        "process :$id $label combines implicit composition with prognostic elemental states; " *
+        "route those inventories using separate processes",
+    ))
+    required = (reference_element, keys(stoichiometry.bindings.ratio)...)
+    Set(target_elements) == Set(required) || throw(ArgumentError(
+        "process :$id $label product elements $target_elements must cover implicit composition " *
+        "elements $required",
     ))
     return :stoichiometric
 end
@@ -131,9 +132,6 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
     )
 
     has_stoichiometry = !isnothing(process.stoichiometry)
-    has_stoichiometry == !isempty(process.additional_resources) || throw(ArgumentError(
-        "process :$id `additional_resources` and FixedStoichiometry must be provided together",
-    ))
 
     if has_stoichiometry
         _validate_element(
@@ -168,12 +166,6 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
     product_targets = if isnothing(process.products)
         nothing
     else
-        if !has_stoichiometry && !isnothing(process.products.stoichiometry)
-            throw(ArgumentError(
-                "process :$id growth products cannot use FixedStoichiometry unless growth " *
-                "also supplies those elements through FixedStoichiometry and additional_resources",
-            ))
-        end
         targets = _canonical_product_targets(
             id, process.products, components, reference_element, "growth products"
         )
@@ -185,24 +177,6 @@ function process_facts(process::Growth, id::Symbol, components::NamedTuple)
             reference_element,
             "growth products",
         )
-        if has_stoichiometry
-            product_stoichiometry = process.products.stoichiometry
-            isnothing(product_stoichiometry) && throw(ArgumentError(
-                "process :$id fixed-stoichiometry growth products must use FixedStoichiometry " *
-                "so routed products account for every growth element",
-            ))
-            growth_elements = (reference_element, keys(process.additional_resources)...)
-            product_elements = Tuple(keys(first(values(targets))))
-            sort(collect(product_elements); by=String) == sort(collect(growth_elements); by=String) ||
-                throw(ArgumentError(
-                    "process :$id fixed-stoichiometry growth products must route elements " *
-                    "$growth_elements; got $product_elements",
-                ))
-            product_stoichiometry.bindings == process.stoichiometry.bindings || throw(ArgumentError(
-                "process :$id growth-product stoichiometry must use the same ratio bindings as " *
-                "growth stoichiometry",
-            ))
-        end
         targets
     end
 
