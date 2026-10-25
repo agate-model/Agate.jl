@@ -227,8 +227,10 @@ uptake and detritus/waste exchanges onto OceanBioME's existing hooks. Its
 `exchange_tracers` names the three channels `:solid`, `:dissolved`, and
 `:inorganic` (use `nothing` for an unused channel). The constructor checks that
 all nonzero compiled tendencies have exactly one destination and that supplied
-settings agree with the runtime's resolved family settings. Native nutrient and
-detritus compatibility is checked when the composed NPD model's tracer set is requested.
+settings agree with the runtime's resolved family settings. Agate nutrient tracers
+may be a subset of OceanBioME's native nutrients; unconfigured NO₃/NH₄ uptake
+is zero. Native nutrient and detritus compatibility is checked when the composed
+NPD model's tracer set is requested.
 The [FrankenLOBSTER model](@ref FrankenLOBSTER) supplies a ready-to-use example.
 
 ```@docs

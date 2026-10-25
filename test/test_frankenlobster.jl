@@ -248,10 +248,10 @@ end
     )
     @test required_biogeochemical_tracers(make_npd(; plankton=reordered)) ==
           required_biogeochemical_tracers(make_npd())
-    @test_throws "nutrient_tracers" required_biogeochemical_tracers(
+    @test_throws "must be a subset" required_biogeochemical_tracers(
         make_npd(; nutrients=Nutrients(; nitrogen=N))
     )
-    @test_throws "nutrient_tracers" required_biogeochemical_tracers(
+    @test :PO₄ in required_biogeochemical_tracers(
         make_npd(; nutrients=Nutrients(; nitrogen=NitrateAmmonia(), phosphate=PO₄))
     )
     @test_throws "consumed_detritus" required_biogeochemical_tracers(
@@ -314,6 +314,47 @@ end
     p1 = selective_temperature(1, 1, 1, _GRID, Val(:P_1), (; time=0.0), warm, aux)
     p2 = selective_temperature(1, 1, 1, _GRID, Val(:P_2), (; time=0.0), warm, aux)
     @test p1 ≈ 2 * p2
+end
+
+@testset "NPD nutrient subset coupling" begin
+    # A nitrate-only Agate runtime can use OceanBioME's NO₃/NH₄ nutrients.
+    definition = Agate.Processes.ModelDefinition(;
+        components=(
+            NO₃=Agate.Components.Pool(:nitrogen),
+            P=Agate.Components.Plankton(;
+                states=(nitrogen=:nitrogen,), reference_state=:nitrogen,
+                size_structure=[1.0],
+            ),
+        ),
+        processes=(growth=Agate.Processes.Growth(;
+            plankton=:P, reference_resource=:NO₃,
+            bindings=(maximum_rate=:maximum_growth_rate,),
+            factors=(nutrients=Agate.Processes.NutrientResponse(
+                Agate.Processes.Monod(); resource=:NO₃,
+                bindings=(half_saturation=:nitrate_half_saturation,),
+            ),),
+        ),),
+        parameters=(
+            maximum_growth_rate=Agate.Parameters.Parameter(1.0),
+            nitrate_half_saturation=Agate.Parameters.Parameter(1.0),
+        ),
+    )
+    runtime = Agate.Construction.construct(definition; grid=_GRID)
+    plankton = Agate.Integrations.NPDPlankton(runtime;
+        owned_components=(:P,), phytoplankton_components=(:P,),
+        nutrient_tracers=(:NO₃,),
+        settings=(carbon_ratio=6.56, chlorophyll_ratio=1.31),
+    )
+    bgc = LOBSTER(_GRID; plankton).underlying_biogeochemistry
+    @test :NH₄ in required_biogeochemical_tracers(bgc)
+
+    fields = _fields(; NO₃=1.0, NH₄=1.0, P_1=1.0)
+    uptake(nutrient) = nutrient_uptake(
+        1, 1, 1, _GRID, Val(nutrient), plankton, bgc, fields, NamedTuple()
+    )
+    @test uptake(:NO₃) ≈ 0.5
+    @test uptake(:NH₄) == 0
+    @test bgc(1, 1, 1, _GRID, Val(:P_1), (; time=0.0), fields, NamedTuple()) ≈ 0.5
 end
 
 @testset "FrankenLOBSTER closed nitrogen budget" begin

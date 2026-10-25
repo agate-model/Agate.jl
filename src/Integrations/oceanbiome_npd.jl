@@ -134,7 +134,7 @@ Wrap a compiled Agate runtime as an OceanBioME `NutrientsPlanktonDetritus` plank
 Component names are resolved once from Agate runtime metadata; all cell-level coupling is then
 statically dispatched from the resulting tracer tuples. Every nonzero runtime tendency
 must reach exactly one owned, nutrient, consumed-detritus or exchange hook. At NPD composition,
-`nutrient_tracers` must match the native nutrient tracers and `consumed_detritus` must belong
+`nutrient_tracers` must be a subset of the native nutrient tracers and `consumed_detritus` must belong
 to the native detritus component. Agate does not impose a nutrient-name vocabulary. A
 dependency that also names a runtime auxiliary driver is read from the surrounding NPD tracer
 fields rather than requested as a separate auxiliary field. Resolved family settings are
@@ -421,11 +421,9 @@ end
 function _validate_npd_components(npd::NutrientsPlanktonDetritus, plankton::NPDPlankton)
     configured = _nutrient_tracers(plankton)
     nutrients = required_biogeochemical_tracers(npd.nutrients)
-    length(configured) == length(nutrients) &&
-        all(name -> name in nutrients, configured) &&
-        all(name -> name in configured, nutrients) || throw(ArgumentError(
-            "NPDPlankton nutrient_tracers $configured must match OceanBioME nutrient tracers $nutrients.",
-        ))
+    all(name -> name in nutrients, configured) || throw(ArgumentError(
+        "NPDPlankton nutrient_tracers $configured must be a subset of OceanBioME nutrient tracers $nutrients.",
+    ))
 
     detritus = required_biogeochemical_tracers(npd.detritus)
     missing = Tuple(name for name in _consumed_detritus(plankton) if !(name in detritus))
