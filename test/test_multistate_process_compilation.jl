@@ -458,8 +458,12 @@ end
 
     # Realized ratios match across all four prey-consumer size-class combinations.
     state = (P_1=2.0, P_2=0.0, Z_1=1.0, Z_2=0.0)
-    test_tendencies(Agate.Construction.construct(definition), state,
-        (P_1=-2 / 3, Z_1=1 / 3))
+    model = Agate.Construction.construct(definition)
+    test_tendencies(model, state, (P_1=-2 / 3, Z_1=1 / 3))
+    active = Agate.Runtime.active_parameters(model; n2c=(:Z_2,))
+    @test occursin("consumer :Z_2", argument_error_message(() ->
+        Agate.Runtime.parameterized(model, [0.3]; active_parameters=active)
+    ))
     separately_bound = ModelDefinition(;
         components=merge(components, (Z=Plankton(; states=(carbon=:carbon,),
             reference_state=:carbon, size_structure=[3.0, 4.0],

@@ -46,8 +46,9 @@ such as `(maximum_growth_rate=(P_1=1e-5,),)` identify their target explicitly.
 
 Agate owns the living plankton (`P_1`, `P_2`, `Z_1`, `Z_2`, `H_1` by default).
 `LOBSTER` supplies native nutrient (`NO₃`, `NH₄`) and detritus (`DOM`, `sPOM`,
-`bPOM`) components. Agate's nutrient routing must match the native nutrient
-tracers; consumed detritus must be present in the native detritus component.
+`bPOM`) components. Agate's configured nutrient tracers must be a subset of
+native nutrient tracers; unconfigured native nutrients have zero Agate plankton
+uptake. Consumed detritus must be present in the native detritus component.
 The adapter validates these at composition. By default, the exchange channels map
 `:solid` to `:solid_waste`, `:dissolved` to `:dissolved_waste`, and `:inorganic`
 to `:inorganic_waste` when those runtime pools exist, or to `nothing` otherwise.
