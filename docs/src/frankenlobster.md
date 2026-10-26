@@ -82,9 +82,9 @@ equations.
 ## Recipes
 
 `construct_plus_recipe` returns the plankton component and a versioned `ModelRecipe`.
-The `agate.model_recipe.v0.2` document captures the family definition version, size
-structure, parameters, settings and sinking configuration. Export a recipe as JSON and
-reconstruct it with the execution grid of your choice:
+The `agate.model_recipe.v0.3` document captures the family definition version,
+ancestry, size structure, parameters, settings and sinking configuration. Export a
+recipe as JSON and reconstruct it with the execution grid of your choice:
 
 ```julia
 plankton, recipe = Agate.Models.FrankenLOBSTER.construct_plus_recipe(; grid)

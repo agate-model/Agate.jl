@@ -16,7 +16,7 @@ function rehash!(document)
     family = Symbol(document["family"])
     version = VersionNumber(document["definition_version"])
     document["content_hash"] = Agate.Construction._recipe_hash(
-        family, version, document["realization"]
+        family, version, document["lineage"], document["realization"]
     )
     return document
 end
@@ -42,6 +42,14 @@ end
 Agate.Construction.family_id(::AncestryFixture) = :AncestryFixture
 Agate.ModelFamilies.definition_version(::AncestryFixture) = v"0.3.0"
 Agate.ModelFamilies.parent_model(family::AncestryFixture) = family.parent
+const ANCESTRY_CHAIN = (
+    family=:Parent, definition_version=v"0.2.0",
+    parent=(family=:Original, definition_version=v"0.1.0"),
+)
+Agate.ModelFamilies.default_components(::AncestryFixture) =
+    Agate.ModelFamilies.default_components(NiPiZD.NiPiZDFamily())
+Agate.Construction.registered_family(::Val{:AncestryFixture}) =
+    AncestryFixture(ANCESTRY_CHAIN)
 
 @testset "Model family ancestry" begin
     ancestry(parent) = Agate.Construction._family_parent(AncestryFixture(parent))
@@ -79,6 +87,48 @@ Agate.ModelFamilies.parent_model(family::AncestryFixture) = family.parent
     )
 end
 
+@testset "Recipe lineage identity and replay" begin
+    family = Agate.Construction.registered_family(Val(:AncestryFixture))
+    recipe = Agate.Construction.capture_model_recipe(
+        family; plankton_pfts=(P=(diat=nothing,), Z=(microzoo=nothing,))
+    )
+    document = encode_recipe(recipe)
+    @test recipe.parent == Agate.Construction._family_parent(family)
+    @test document["lineage"]["parent"]["family"] == "Original"
+    @test document["lineage"]["parent"]["parent"] === nothing
+    @test decode_recipe(document) == recipe
+    @test Agate.Construction.replay_family(recipe) isa AncestryFixture
+
+    reordered_family = AncestryFixture((
+        definition_version=v"0.2.0", family=:Parent,
+        parent=(definition_version=v"0.1.0", family=:Original),
+    ))
+    @test encode_recipe(Agate.Construction.capture_model_recipe(
+        reordered_family; plankton_pfts=recipe.plankton_pfts
+    ))["content_hash"] == document["content_hash"]
+
+    changed = modified(document) do x
+        x["lineage"]["parent"]["family"] = "Other"
+    end
+    @test_throws ArgumentError decode_recipe(changed) # Hash protects ancestry.
+    rehash!(changed)
+    @test changed["content_hash"] != document["content_hash"]
+    @test_throws ArgumentError decode_recipe(changed) # Loaded family disagrees.
+
+    invalid = rehashed(document) do x
+        x["lineage"]["parent"]["family"] = "AncestryFixture"
+        x["lineage"]["parent"]["definition_version"] = "0.3.0"
+    end
+    @test_throws ArgumentError decode_recipe(invalid)
+
+    altered = Agate.Construction.ModelRecipe(
+        recipe.family, recipe.definition_version, nothing, recipe.plankton_pfts,
+        recipe.parameter_overrides, recipe.setting_overrides,
+        recipe.sinking_tracers, recipe.open_bottom,
+    )
+    @test_throws ArgumentError Agate.Construction.replay_family(altered)
+end
+
 @testset "NiPiZD versioned family recipes" begin
     family = NiPiZD.NiPiZDFamily()
     @test definition_version(family) == v"0.2.0"
@@ -104,13 +154,15 @@ end
         "schema",
         "family",
         "definition_version",
+        "lineage",
         "realization",
         "provenance",
         "content_hash",
     ))
-    @test encoded["schema"] == Agate.Construction.recipe_schema() == "agate.model_recipe.v0.2"
+    @test encoded["schema"] == Agate.Construction.recipe_schema() == "agate.model_recipe.v0.3"
     @test encoded["family"] == "NiPiZD"
     @test encoded["definition_version"] == "0.2.0"
+    @test encoded["lineage"] === recipe.parent === nothing
     @test Set(keys(encoded["realization"])) == Set((
         "plankton_pfts",
         "parameter_overrides",
@@ -182,6 +234,7 @@ end
     unsized_recipe = Agate.Construction.ModelRecipe(
         recipe.family,
         recipe.definition_version,
+        recipe.parent,
         merge(recipe.plankton_pfts, (P=(diat=nothing,),)),
         recipe.parameter_overrides,
         recipe.setting_overrides,
@@ -263,6 +316,7 @@ end
     bumped_recipe = Agate.Construction.ModelRecipe(
         recipe.family,
         v"0.2.1",
+        recipe.parent,
         recipe.plankton_pfts,
         recipe.parameter_overrides,
         recipe.setting_overrides,
@@ -275,7 +329,7 @@ end
           (:N, :D, :P_1, :P_2, :Z_1, :Z_2)
 
     invalid_schema = modified(encoded) do x
-        x["schema"] = "agate.model_recipe.v0.1"
+        x["schema"] = "agate.model_recipe.v0.2"
     end
     invalid_realization = rehashed(encoded) do x
         pop!(x["realization"]["plankton_pfts"])
@@ -302,7 +356,7 @@ end
          "sinking_tracers.P_1"),
     )
         invalid = Agate.Construction.ModelRecipe(
-            recipe.family, recipe.definition_version, recipe.plankton_pfts,
+            recipe.family, recipe.definition_version, recipe.parent, recipe.plankton_pfts,
             params, settings, sinking, recipe.open_bottom,
         )
         @test_throws path encode_recipe(invalid)
