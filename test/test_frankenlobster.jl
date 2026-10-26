@@ -248,12 +248,13 @@ end
     )
     @test required_biogeochemical_tracers(make_npd(; plankton=reordered)) ==
           required_biogeochemical_tracers(make_npd())
-    @test_throws "must be a subset" required_biogeochemical_tracers(
+    @test_throws ArgumentError required_biogeochemical_tracers(
         make_npd(; nutrients=Nutrients(; nitrogen=N))
     )
-    @test :PO₄ in required_biogeochemical_tracers(
-        make_npd(; nutrients=Nutrients(; nitrogen=NitrateAmmonia(), phosphate=PO₄))
+    phosphate_npd = make_npd(;
+        nutrients=Nutrients(; nitrogen=NitrateAmmonia(), phosphate=PO₄)
     )
+    @test :PO₄ in required_biogeochemical_tracers(phosphate_npd)
     @test_throws "consumed_detritus" required_biogeochemical_tracers(
         make_npd(; detritus=nothing)
     )
@@ -283,6 +284,10 @@ end
     # stoichiometric demand when the element lacks an explicit Agate equation.
     fallback_state = _fields(; NO₃=1.0, P_1=2.0)
     total_n_uptake = uptake(:NO₃, fallback_state) + uptake(:NH₄, fallback_state)
+    @test nutrient_uptake(
+        1, 1, 1, _GRID, Val(:PO₄), bgc.plankton, phosphate_npd,
+        merge(fallback_state, (PO₄=_cell(1.0),)), aux,
+    ) ≈ total_n_uptake / 16
     for (nutrient, ratio) in (
         (:N, 1.0), (:PO₄, 1 / 16), (:Fe, 0.0032 / 16),
         (:Si, 0.0), (:C, bgc.plankton.settings.carbon_ratio),

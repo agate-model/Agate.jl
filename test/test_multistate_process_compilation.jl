@@ -384,24 +384,18 @@ end
             composition=(nitrogen=:n2c,)),
         POM=Pool(:carbon),
     )
-    for (formulation, resource) in (
-        (PreferentialGrazing(), :P),
-        (HeterotrophicConsumption(), :POM),
+    for (formulation, resource, reason) in (
+        (PreferentialGrazing(), :P, "must have implicit :nitrogen"),
+        (HeterotrophicConsumption(), :POM, "balancing transfers"),
     )
         definition = ModelDefinition(; components,
             processes=(uptake=Consumption(formulation; consumers=:Z, resources=resource),),
             parameters=(
                 n2c=Parameter(0.2), maximum_rate=Parameter(1.0),
                 half_saturation=Parameter(1.0), palatability=Parameter(1.0),
-                assimilation=Parameter(0.5),
+                substrate_preference=Parameter(1.0), assimilation=Parameter(0.5),
             ))
-        message = formulation isa PreferentialGrazing ?
-            argument_error_message(() -> Agate.Construction.construct(definition)) :
-            canonicalization_error_message(definition)
-        @test occursin(
-            formulation isa PreferentialGrazing ? "must have implicit :nitrogen" : "balancing transfers",
-            message,
-        )
+        @test occursin(reason, argument_error_message(() -> Agate.Construction.construct(definition)))
     end
 end
 
@@ -464,6 +458,10 @@ end
     @test occursin("consumer :Z_2", argument_error_message(() ->
         Agate.Runtime.parameterized(model, [0.3]; active_parameters=active)
     ))
+    matched = Agate.Runtime.active_parameters(model; n2c=(:P_1, :P_2, :Z_1, :Z_2))
+    coordinated = Agate.Runtime.parameterized(model, fill(0.3, length(matched)); active_parameters=matched)
+    @test all(i -> coordinated.parameters.n2c[i] == 0.3, eachindex(model.parameters.n2c))
+    test_tendencies(coordinated, state, (P_1=-2 / 3, Z_1=1 / 3))
     separately_bound = ModelDefinition(;
         components=merge(components, (Z=Plankton(; states=(carbon=:carbon,),
             reference_state=:carbon, size_structure=[3.0, 4.0],

@@ -76,7 +76,9 @@ Implicit composition is declared once on `Plankton`, e.g.
 `composition=(nitrogen=:nitrogen_to_carbon,)`; the parameter is plankton/size-class indexed.
 Living-prey consumers with implicit composition assimilate conservatively when their realized
 ratios match every prey, including across size classes and active-parameter updates. Material-pool
-consumers currently use explicit elemental inventories.
+consumers currently use explicit elemental inventories. For inference, matching ratios must
+be derived from a shared fitted variable: identical parameter names still have separate
+entity-indexed entries. Direct ODE parameter updates must preserve this equality too.
 
 ### Processes and factors
 
