@@ -248,12 +248,13 @@ end
     )
     @test required_biogeochemical_tracers(make_npd(; plankton=reordered)) ==
           required_biogeochemical_tracers(make_npd())
-    @test_throws "nutrient_tracers" required_biogeochemical_tracers(
+    @test_throws ArgumentError required_biogeochemical_tracers(
         make_npd(; nutrients=Nutrients(; nitrogen=N))
     )
-    @test_throws "nutrient_tracers" required_biogeochemical_tracers(
-        make_npd(; nutrients=Nutrients(; nitrogen=NitrateAmmonia(), phosphate=PO₄))
+    phosphate_npd = make_npd(;
+        nutrients=Nutrients(; nitrogen=NitrateAmmonia(), phosphate=PO₄)
     )
+    @test :PO₄ in required_biogeochemical_tracers(phosphate_npd)
     @test_throws "consumed_detritus" required_biogeochemical_tracers(
         make_npd(; detritus=nothing)
     )
@@ -283,6 +284,10 @@ end
     # stoichiometric demand when the element lacks an explicit Agate equation.
     fallback_state = _fields(; NO₃=1.0, P_1=2.0)
     total_n_uptake = uptake(:NO₃, fallback_state) + uptake(:NH₄, fallback_state)
+    @test nutrient_uptake(
+        1, 1, 1, _GRID, Val(:PO₄), bgc.plankton, phosphate_npd,
+        merge(fallback_state, (PO₄=_cell(1.0),)), aux,
+    ) ≈ total_n_uptake / 16
     for (nutrient, ratio) in (
         (:N, 1.0), (:PO₄, 1 / 16), (:Fe, 0.0032 / 16),
         (:Si, 0.0), (:C, bgc.plankton.settings.carbon_ratio),
@@ -314,6 +319,34 @@ end
     p1 = selective_temperature(1, 1, 1, _GRID, Val(:P_1), (; time=0.0), warm, aux)
     p2 = selective_temperature(1, 1, 1, _GRID, Val(:P_2), (; time=0.0), warm, aux)
     @test p1 ≈ 2 * p2
+end
+
+@testset "NPD nutrient subset coupling" begin
+    definition = Agate.Processes.ModelDefinition(;
+        components=(
+            NO₃=Agate.Components.Pool(:nitrogen),
+            P=Agate.Components.Plankton(; states=(nitrogen=:nitrogen,),
+                reference_state=:nitrogen, size_structure=[1.0]),
+        ),
+        processes=(growth=Agate.Processes.Growth(;
+            plankton=:P, reference_resource=:NO₃,
+            bindings=(maximum_rate=:maximum_growth_rate,)),),
+        parameters=(maximum_growth_rate=Agate.Parameters.Parameter(1.0),),
+    )
+    runtime = Agate.Construction.construct(definition; grid=_GRID)
+    plankton = Agate.Integrations.NPDPlankton(runtime;
+        owned_components=(:P,), phytoplankton_components=(:P,),
+        nutrient_tracers=(:NO₃,),
+        settings=(carbon_ratio=6.56, chlorophyll_ratio=1.31),
+    )
+    bgc = LOBSTER(_GRID; plankton).underlying_biogeochemistry
+    @test :NH₄ in required_biogeochemical_tracers(bgc)
+    fields = _fields(; NO₃=1.0, NH₄=1.0, P_1=1.0)
+    uptake(nutrient) = nutrient_uptake(
+        1, 1, 1, _GRID, Val(nutrient), plankton, bgc, fields, NamedTuple())
+    @test uptake(:NO₃) ≈ 1.0
+    @test uptake(:NH₄) == 0
+    @test bgc(1, 1, 1, _GRID, Val(:P_1), (; time=0.0), fields, NamedTuple()) ≈ 1.0
 end
 
 @testset "FrankenLOBSTER closed nitrogen budget" begin

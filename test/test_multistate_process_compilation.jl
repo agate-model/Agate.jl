@@ -3,8 +3,8 @@ using Test
 using Agate.Components: Plankton, Pool
 using Agate.Parameters: Parameter
 using Agate.Processes:
-    Consumption, Growth, HeterotrophicConsumption, LinearMortality, Monod, Mortality, ModelDefinition,
-    NutrientResponse, PreferentialGrazing, Products, QuadraticMortality
+    Consumption, Growth, HeterotrophicConsumption, LinearGrazing, LinearMortality, Monod, Mortality,
+    ModelDefinition, NutrientResponse, PreferentialGrazing, Products, QuadraticMortality
 
 @testset "Multi-state process semantics" begin
     @testset "growth factors are optional" begin
@@ -377,20 +377,73 @@ end
     @test occursin("product elements", canonicalization_error_message(invalid))
 end
 
-@testset "Implicit consumers require balancing transfers" begin
+@testset "Implicit consumers require compatible source composition" begin
     components = (
         P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
         Z=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
             composition=(nitrogen=:n2c,)),
         POM=Pool(:carbon),
     )
-    for (formulation, resource) in (
-        (PreferentialGrazing(), :P),
-        (HeterotrophicConsumption(), :POM),
+    for (formulation, resource, preference, reason) in (
+        (PreferentialGrazing(), :P, (palatability=Parameter(1.0),),
+            "must have implicit :nitrogen"),
+        (HeterotrophicConsumption(), :POM, (substrate_preference=Parameter(1.0),),
+            "balancing transfers"),
     )
         definition = ModelDefinition(; components,
             processes=(uptake=Consumption(formulation; consumers=:Z, resources=resource),),
-            parameters=(n2c=Parameter(0.2),))
-        @test occursin("balancing transfers", canonicalization_error_message(definition))
+            parameters=merge((
+                n2c=Parameter(0.2), maximum_rate=Parameter(1.0),
+                half_saturation=Parameter(1.0), assimilation=Parameter(0.5),
+            ), preference))
+        @test occursin(reason, argument_error_message(() -> Agate.Construction.construct(definition)))
+    end
+end
+
+@testset "Matched implicit grazing conserves C/N/P across size classes" begin
+    components = (
+        P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+            size_structure=[1.0, 2.0], composition=(nitrogen=:prey_n2c, phosphorus=:prey_p2c,)),
+        Z=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+            size_structure=[3.0, 4.0], composition=(nitrogen=:zoo_n2c, phosphorus=:zoo_p2c,)),
+        DOC=Pool(:carbon), DON=Pool(:nitrogen), DOP=Pool(:phosphorus),
+    )
+    parameters = (
+        prey_n2c=Parameter(0.2), zoo_n2c=Parameter(0.2),
+        prey_p2c=Parameter(0.01), zoo_p2c=Parameter(0.01),
+        palatability=Parameter(1.0), assimilation=Parameter(0.5),
+    )
+    products = Products((organic=(carbon=:DOC, nitrogen=:DON, phosphorus=:DOP),))
+    state = (P_1=2.0, P_2=0.0, Z_1=1.0, Z_2=0.0, DOC=0.0, DON=0.0, DOP=0.0)
+
+    for (formulation, rates, ingestion) in (
+        (PreferentialGrazing(),
+            (maximum_rate=Parameter(1.0), half_saturation=Parameter(1.0)), 2 / 3),
+        (LinearGrazing(), (rate=Parameter(1.0),), 2.0),
+    )
+        definition = ModelDefinition(; components,
+            processes=(grazing=Consumption(formulation; consumers=:Z, resources=:P,
+                unassimilated_products=products),),
+            parameters=merge(parameters, rates),
+        )
+        model = Agate.Construction.construct(definition)
+        # Exact transfers check all represented elements and avoid double counting.
+        test_tendencies(model, state, (
+            P_1=-ingestion, Z_1=ingestion / 2, DOC=ingestion / 2,
+            DON=0.1 * ingestion, DOP=0.005 * ingestion,
+        ))
+
+        if formulation isa PreferentialGrazing
+            one = Agate.Runtime.active_parameters(model; zoo_n2c=(:Z_2,))
+            @test occursin("consumer :Z_2", argument_error_message(() ->
+                Agate.Runtime.parameterized(model, [0.3]; active_parameters=one)))
+            shared = Agate.Runtime.active_parameters(model;
+                prey_n2c=(:P_1, :P_2), zoo_n2c=(:Z_1, :Z_2))
+            coordinated = Agate.Runtime.parameterized(model, fill(0.3, length(shared));
+                active_parameters=shared)
+            test_tendencies(coordinated, state, (DON=0.15 * ingestion,))
+            @test_throws ArgumentError Agate.Construction.construct(definition;
+                parameter_overrides=(prey_n2c=(P_2=0.3,),))
+        end
     end
 end
