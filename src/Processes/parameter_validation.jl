@@ -48,6 +48,16 @@ struct ProductFractionConstraint{Terms}
     process::Symbol
 end
 
+"""One prey-consumer elemental-ratio equality on realized plankton entities."""
+struct MatchingCompositionConstraint{Prey,Consumer}
+    prey::Prey
+    consumer::Consumer
+    process::Symbol
+    prey_entity::Symbol
+    consumer_entity::Symbol
+    element::Symbol
+end
+
 @inline function _parameter_value(parameters, reference::ParameterValueRef{Parameter}) where {Parameter}
     value = getproperty(parameters, Parameter)
     isempty(reference.indices) && return value
@@ -72,6 +82,17 @@ function _validate_parameter_constraint(parameters, constraint::ProductFractionC
     throw(ArgumentError(
         "product fractions for process :$(constraint.process) sum to $total; expected a value " *
         "in [0, 1] so the omitted product receives a conservative remainder",
+    ))
+end
+
+function _validate_parameter_constraint(parameters, constraint::MatchingCompositionConstraint)
+    prey_ratio = _parameter_value(parameters, constraint.prey)
+    consumer_ratio = _parameter_value(parameters, constraint.consumer)
+    prey_ratio == consumer_ratio && return nothing
+    throw(ArgumentError(
+        "process :$(constraint.process) implicit :$(constraint.element) composition must " *
+        "match between prey :$(constraint.prey_entity) ($prey_ratio) and " *
+        "consumer :$(constraint.consumer_entity) ($consumer_ratio)",
     ))
 end
 
@@ -150,6 +171,43 @@ function _append_product_constraints!(constraints, definition, named)
     return nothing
 end
 
+"""Require each implicitly composed consumer to match every living prey entity.
+
+These constraints use the same realized parameter storage as compiled fluxes, including
+size classes, user overrides and active-parameter updates.
+"""
+function _append_matching_composition_constraints!(constraints, definition, layout, plan, named)
+    process = named.process
+    process isa Consumption && uses_living_interactions(process.formulation) || return nothing
+
+    for consumer in process.consumers
+        consumer_composition = composition(getproperty(definition.components, consumer))
+        for element in keys(consumer_composition), prey in process.resources
+            prey_composition = composition(getproperty(definition.components, prey))
+            hasproperty(prey_composition, element) || throw(ArgumentError(
+                "process :$(process_id(named)) prey :$prey must have implicit " *
+                ":$element composition to match consumer :$consumer",
+            ))
+            prey_parameter = getproperty(prey_composition, element)
+            consumer_parameter = getproperty(consumer_composition, element)
+            for consumer_entity in component_entities(layout, consumer)
+                consumer_ref = ParameterValueRef(consumer_parameter, (
+                    parameter_storage_index(plan, consumer_parameter, 1, consumer_entity),
+                ))
+                for prey_entity in component_entities(layout, prey)
+                    prey_ref = ParameterValueRef(prey_parameter, (
+                        parameter_storage_index(plan, prey_parameter, 1, prey_entity),
+                    ))
+                    push!(constraints, MatchingCompositionConstraint(
+                        prey_ref, consumer_ref, process_id(named), prey_entity, consumer_entity, element,
+                    ))
+                end
+            end
+        end
+    end
+    return nothing
+end
+
 """Build layout-resolved coupled scientific constraints once during model setup."""
 function parameter_constraints(
     definition::CanonicalModelDefinition, layout::ModelLayout, plan::ParameterPlan
@@ -172,6 +230,7 @@ function parameter_constraints(
             constraints, definition, layout, plan, named, (), named.binding_refs.process,
         )
         _append_product_constraints!(constraints, definition, named)
+        _append_matching_composition_constraints!(constraints, definition, layout, plan, named)
     end
     return Tuple(constraints)
 end

@@ -235,6 +235,16 @@ function process_fluxes(
 ) where {Process<:Consumption}
     layout = context.layout
     formulation = named.process.formulation
+    # A1.1 validates realized implicit ratios; A1.2 will lower their conservative transfers.
+    if uses_living_interactions(formulation) && any(
+        consumer -> !isempty(getproperty(context.definition.composition_refs, consumer)),
+        named.process.consumers,
+    )
+        throw(ArgumentError(
+            "process :$(process_id(named)) requires balancing transfers for " *
+            "implicit consumer composition during grazing",
+        ))
+    end
     consumers = _realize_participants(named.semantic_facts.consumer_states, layout)
     resources = _realize_participants(named.semantic_facts.resources, layout)
     slots = named.binding_refs.process

@@ -36,7 +36,8 @@ using ..Processes:
     ParameterPlan,
     parameter_storage_index,
     process_products,
-    process_rate
+    process_rate,
+    uses_living_interactions
 
 include("runtime_ir.jl")
 include("fluxes.jl")

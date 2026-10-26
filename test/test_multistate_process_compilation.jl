@@ -390,7 +390,49 @@ end
     )
         definition = ModelDefinition(; components,
             processes=(uptake=Consumption(formulation; consumers=:Z, resources=resource),),
-            parameters=(n2c=Parameter(0.2),))
-        @test occursin("balancing transfers", canonicalization_error_message(definition))
+            parameters=(
+                n2c=Parameter(0.2), maximum_rate=Parameter(1.0),
+                half_saturation=Parameter(1.0), palatability=Parameter(1.0),
+                assimilation=Parameter(0.5),
+            ))
+        message = formulation isa PreferentialGrazing ?
+            argument_error_message(() -> Agate.Construction.construct(definition)) :
+            canonicalization_error_message(definition)
+        @test occursin(
+            formulation isa PreferentialGrazing ? "must have implicit :nitrogen" : "balancing transfers",
+            message,
+        )
     end
+end
+
+@testset "Matching implicit composition uses realized prey and consumer ratios" begin
+    components = (
+        P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+            size_structure=[1.0, 2.0], composition=(nitrogen=:n2c,)),
+        Z=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+            size_structure=[3.0, 4.0], composition=(nitrogen=:n2c,)),
+    )
+    processes = (grazing=Consumption(PreferentialGrazing(); consumers=:Z, resources=:P),)
+    parameters = (
+        n2c=Parameter(0.2), maximum_rate=Parameter(1.0),
+        half_saturation=Parameter(1.0), palatability=Parameter(1.0),
+        assimilation=Parameter(0.5),
+    )
+    definition = ModelDefinition(; components, processes, parameters)
+    error(overrides=(;)) = argument_error_message(() ->
+        Agate.Construction.construct(definition; parameter_overrides=overrides))
+
+    # Identical realized ratios pass the matching check; conservative transfer
+    # lowering is added in A1.2.
+    @test occursin("balancing transfers", error())
+    separately_bound = ModelDefinition(;
+        components=merge(components, (Z=Plankton(; states=(carbon=:carbon,),
+            reference_state=:carbon, size_structure=[3.0, 4.0],
+            composition=(nitrogen=:z_n2c,)),)),
+        processes, parameters=merge(parameters, (z_n2c=Parameter(0.2),)),
+    )
+    @test occursin("balancing transfers", argument_error_message(() ->
+        Agate.Construction.construct(separately_bound)))
+    @test occursin("prey :P_2", error((n2c=(P_2=0.3,),)))
+    @test occursin("consumer :Z_2", error((n2c=(Z_2=0.3,),)))
 end

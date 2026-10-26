@@ -202,12 +202,6 @@ function process_facts(process::Consumption, id::Symbol, components::NamedTuple)
             for resource in process.resources
         ))
 
-        for consumer in process.consumers
-            isempty(composition(getproperty(components, consumer))) || throw(ArgumentError(
-                "process :$id consumer :$consumer requires balancing transfers for " *
-                "implicit elemental composition during grazing",
-            ))
-        end
         for (resource, source) in pairs(resource_element_states)
             for (consumer, destination) in pairs(consumer_element_states)
                 all(element -> hasproperty(destination, element), keys(source)) || throw(ArgumentError(
