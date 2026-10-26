@@ -1,5 +1,5 @@
 using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe
-using Agate.ModelFamilies: definition_version
+using Agate.ModelFamilies: AbstractModelFamily, definition_version, parent_model
 using Agate.Library.Allometry: AllometricParam, SplitPowerLaw
 using Agate.Models: NiPiZD
 using OceanBioME: BoxModelGrid
@@ -33,6 +33,50 @@ explicit_json_value(::Any) = false
     url = "https://user:token@example.com/org/repo.git?access_token=secret#fragment"
     sanitized = Agate.Construction._sanitize_repository_url(url)
     @test !any(secret -> occursin(secret, sanitized), ("user", "token", "secret"))
+end
+
+# Minimal fixture for author-declared ancestry, independent of model implementation.
+struct AncestryFixture{P} <: AbstractModelFamily
+    parent::P
+end
+Agate.Construction.family_id(::AncestryFixture) = :AncestryFixture
+Agate.ModelFamilies.definition_version(::AncestryFixture) = v"0.3.0"
+Agate.ModelFamilies.parent_model(family::AncestryFixture) = family.parent
+
+@testset "Model family ancestry" begin
+    ancestry(parent) = Agate.Construction._family_parent(AncestryFixture(parent))
+    @test parent_model(NiPiZD.NiPiZDFamily()) === nothing
+    @test ancestry(nothing) === nothing
+
+    declared = (
+        definition_version=v"0.2.0", family=:Parent,
+        parent=(definition_version=v"0.1.0", family=:Original),
+    )
+    @test ancestry(declared) == (
+        family=:Parent, definition_version=v"0.2.0",
+        parent=(family=:Original, definition_version=v"0.1.0", parent=nothing),
+    )
+    @test ancestry((family=:Parent, definition_version=v"0.2.0",
+        parent=(family=:Original, definition_version=v"0.1.0"))) == ancestry(declared)
+    @test ancestry((family=:AncestryFixture, definition_version=v"0.2.0")) == (
+        family=:AncestryFixture, definition_version=v"0.2.0", parent=nothing,
+    )
+
+    for invalid in (
+        (family=:Parent,),
+        (family=:Parent, definition_version="0.2.0"),
+        (:Parent, v"0.2.0"),
+        (family=:Parent, definition_version=v"0.2.0", unexpected=true),
+        (family=:Parent, definition_version=v"0.2.0",
+         parent=(family=:Parent, definition_version=v"0.2.0")),
+        (family=:AncestryFixture, definition_version=v"0.3.0"),
+    )
+        @test_throws ArgumentError ancestry(invalid)
+    end
+    @test_throws ArgumentError Agate.Construction.capture_model_recipe(
+        AncestryFixture((family=:AncestryFixture, definition_version=v"0.3.0"));
+        plankton_pfts=(;),
+    )
 end
 
 @testset "NiPiZD versioned family recipes" begin

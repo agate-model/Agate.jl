@@ -1,6 +1,7 @@
 export default_components
 export default_processes
 export definition_version
+export parent_model
 export plankton_roles
 export ModelSetting
 export setting_definitions
@@ -60,6 +61,15 @@ function default_processes(::AbstractModelFamily)
         ),
     )
 end
+
+"""Return the optional, versioned scientific parent of a model family.
+
+Return `nothing` for a root family or a named tuple such as
+`(family=:Parent, definition_version=v"1.0.0")`. An optional nested `parent`
+field records earlier ancestors without requiring their packages to be installed.
+Ancestry is validated when a model recipe is captured.
+"""
+parent_model(::AbstractModelFamily) = nothing
 
 """Scientific definition version for a named model family.
 

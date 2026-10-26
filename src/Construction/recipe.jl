@@ -1,4 +1,4 @@
-using ..ModelFamilies: AbstractModelFamily, definition_version, default_components
+using ..ModelFamilies: AbstractModelFamily, definition_version, default_components, parent_model
 using ..Parameters: DerivedDefault
 using ..Components: ModelLayout, canonicalize_plankton_realization, diameter_metadata
 
@@ -11,6 +11,33 @@ end
 function registered_family(::Val{Family}) where {Family}
     throw(ArgumentError("Unsupported recipe model family $(repr(String(Family)))."))
 end
+
+# Normalize authored ancestry to a single, pinned representation.
+function _canonical_model_parent(parent, ancestors::Tuple)
+    isnothing(parent) && return nothing
+    parent isa NamedTuple || throw(ArgumentError("Model parent must be a NamedTuple or nothing."))
+    allowed = (:family, :definition_version, :parent)
+    (:family in keys(parent) && :definition_version in keys(parent) &&
+     all(key -> key in allowed, keys(parent))) || throw(ArgumentError(
+        "Model parent requires :family, :definition_version, and optional :parent.",
+    ))
+    family, version = parent.family, parent.definition_version
+    (family isa Symbol && version isa VersionNumber) || throw(ArgumentError(
+        "Model parent family must be a Symbol and definition_version a VersionNumber.",
+    ))
+    (family, version) in ancestors && throw(ArgumentError(
+        "Model ancestry repeats family :$family at definition version $version.",
+    ))
+    previous = hasproperty(parent, :parent) ? parent.parent : nothing
+    return (;
+        family, definition_version=version,
+        parent=_canonical_model_parent(previous, (ancestors..., (family, version))),
+    )
+end
+
+_family_parent(family::AbstractModelFamily) = _canonical_model_parent(
+    parent_model(family), ((family_id(family), definition_version(family)),),
+)
 
 """Versioned registered-family recipe captured before runtime realization.
 
@@ -114,6 +141,7 @@ function capture_model_recipe(
     version isa VersionNumber || throw(
         ArgumentError("definition_version must return a VersionNumber; got $(typeof(version)).")
     )
+    _family_parent(family)
     plankton_pfts = _canonical_recipe_realization(family, plankton_pfts)
     return ModelRecipe(
         family_id_value,
