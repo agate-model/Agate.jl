@@ -97,6 +97,7 @@ function _living_consumption_fluxes!(
     consumer_element_states = getproperty(
         named.semantic_facts.consumer_element_states, consumer.component
     )
+    consumer_implicit = getproperty(context.definition.composition_refs, consumer.component)
     assimilation = parameter_operand(slots.assimilation, context, axis_positions)
 
     for state_ref in state_refs
@@ -119,13 +120,17 @@ function _living_consumption_fluxes!(
             ratio = _material_ratio_operand(
                 context, resource.component, element, resource.position
             )
-            consumer_inventory = getproperty(consumer_element_states, element)
-            consumer_tracer = state_tracer(
-                layout, consumer_inventory, consumer.component_index
-            )
-            push!(fluxes, FluxSpec(
-                consumer_tracer, rate, Weight{1}((assimilation, ratio...)),
-            ))
+            # Implicit consumer elements follow assimilation into its reference state;
+            # their realized ratios already match the prey through setup constraints.
+            if !hasproperty(consumer_implicit, element)
+                consumer_inventory = getproperty(consumer_element_states, element)
+                consumer_tracer = state_tracer(
+                    layout, consumer_inventory, consumer.component_index
+                )
+                push!(fluxes, FluxSpec(
+                    consumer_tracer, rate, Weight{1}((assimilation, ratio...)),
+                ))
+            end
             _append_unassimilated_products!(
                 fluxes, named, context, rate, assimilation, element; ratio,
             )
@@ -235,16 +240,6 @@ function process_fluxes(
 ) where {Process<:Consumption}
     layout = context.layout
     formulation = named.process.formulation
-    # A1.1 validates realized implicit ratios; A1.2 will lower their conservative transfers.
-    if uses_living_interactions(formulation) && any(
-        consumer -> !isempty(getproperty(context.definition.composition_refs, consumer)),
-        named.process.consumers,
-    )
-        throw(ArgumentError(
-            "process :$(process_id(named)) requires balancing transfers for " *
-            "implicit consumer composition during grazing",
-        ))
-    end
     consumers = _realize_participants(named.semantic_facts.consumer_states, layout)
     resources = _realize_participants(named.semantic_facts.resources, layout)
     slots = named.binding_refs.process

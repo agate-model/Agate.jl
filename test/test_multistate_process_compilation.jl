@@ -3,8 +3,8 @@ using Test
 using Agate.Components: Plankton, Pool
 using Agate.Parameters: Parameter
 using Agate.Processes:
-    Consumption, Growth, HeterotrophicConsumption, LinearMortality, Monod, Mortality, ModelDefinition,
-    NutrientResponse, PreferentialGrazing, Products, QuadraticMortality
+    Consumption, Growth, HeterotrophicConsumption, LinearGrazing, LinearMortality, Monod, Mortality,
+    ModelDefinition, NutrientResponse, PreferentialGrazing, Products, QuadraticMortality
 
 @testset "Multi-state process semantics" begin
     @testset "growth factors are optional" begin
@@ -377,7 +377,7 @@ end
     @test occursin("product elements", canonicalization_error_message(invalid))
 end
 
-@testset "Implicit consumers require balancing transfers" begin
+@testset "Implicit consumers require compatible source composition" begin
     components = (
         P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
         Z=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
@@ -405,6 +405,40 @@ end
     end
 end
 
+@testset "Matched implicit grazing conserves C/N/P" begin
+    components = (
+        P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+            composition=(nitrogen=:prey_n2c, phosphorus=:prey_p2c,)),
+        Z=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+            composition=(nitrogen=:zoo_n2c, phosphorus=:zoo_p2c,)),
+        DOC=Pool(:carbon), DON=Pool(:nitrogen), DOP=Pool(:phosphorus),
+    )
+    products = Products((organic=(carbon=:DOC, nitrogen=:DON, phosphorus=:DOP),))
+    composition_parameters = (
+        prey_n2c=Parameter(0.2), zoo_n2c=Parameter(0.2),
+        prey_p2c=Parameter(0.01), zoo_p2c=Parameter(0.01),
+        palatability=Parameter(1.0), assimilation=Parameter(0.5),
+    )
+    state = (P=2.0, Z=1.0, DOC=0.0, DON=0.0, DOP=0.0)
+
+    for (formulation, rate_parameters, ingestion) in (
+        (PreferentialGrazing(),
+            (maximum_rate=Parameter(1.0), half_saturation=Parameter(1.0)), 2 / 3),
+        (LinearGrazing(), (rate=Parameter(1.0),), 2.0),
+    )
+        processes = (grazing=Consumption(formulation; consumers=:Z, resources=:P,
+            unassimilated_products=products),)
+        model = Agate.Construction.construct(ModelDefinition(;
+            components, processes, parameters=merge(composition_parameters, rate_parameters),
+        ))
+        # Exact transfers verify C/N/P closure and avoid counting implicit inventories twice.
+        test_tendencies(model, state, (
+            P=-ingestion, Z=ingestion / 2, DOC=ingestion / 2,
+            DON=0.1 * ingestion, DOP=0.005 * ingestion,
+        ))
+    end
+end
+
 @testset "Matching implicit composition uses realized prey and consumer ratios" begin
     components = (
         P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
@@ -422,17 +456,18 @@ end
     error(overrides=(;)) = argument_error_message(() ->
         Agate.Construction.construct(definition; parameter_overrides=overrides))
 
-    # Identical realized ratios pass the matching check; conservative transfer
-    # lowering is added in A1.2.
-    @test occursin("balancing transfers", error())
+    # Realized ratios match across all four prey-consumer size-class combinations.
+    state = (P_1=2.0, P_2=0.0, Z_1=1.0, Z_2=0.0)
+    test_tendencies(Agate.Construction.construct(definition), state,
+        (P_1=-2 / 3, Z_1=1 / 3))
     separately_bound = ModelDefinition(;
         components=merge(components, (Z=Plankton(; states=(carbon=:carbon,),
             reference_state=:carbon, size_structure=[3.0, 4.0],
             composition=(nitrogen=:z_n2c,)),)),
         processes, parameters=merge(parameters, (z_n2c=Parameter(0.2),)),
     )
-    @test occursin("balancing transfers", argument_error_message(() ->
-        Agate.Construction.construct(separately_bound)))
+    test_tendencies(Agate.Construction.construct(separately_bound), state,
+        (P_1=-2 / 3, Z_1=1 / 3))
     @test occursin("prey :P_2", error((n2c=(P_2=0.3,),)))
     @test occursin("consumer :Z_2", error((n2c=(Z_2=0.3,),)))
 end
