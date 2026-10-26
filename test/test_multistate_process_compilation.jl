@@ -384,17 +384,18 @@ end
             composition=(nitrogen=:n2c,)),
         POM=Pool(:carbon),
     )
-    for (formulation, resource, reason) in (
-        (PreferentialGrazing(), :P, "must have implicit :nitrogen"),
-        (HeterotrophicConsumption(), :POM, "balancing transfers"),
+    for (formulation, resource, preference, reason) in (
+        (PreferentialGrazing(), :P, (palatability=Parameter(1.0),),
+            "must have implicit :nitrogen"),
+        (HeterotrophicConsumption(), :POM, (substrate_preference=Parameter(1.0),),
+            "balancing transfers"),
     )
         definition = ModelDefinition(; components,
             processes=(uptake=Consumption(formulation; consumers=:Z, resources=resource),),
-            parameters=(
+            parameters=merge((
                 n2c=Parameter(0.2), maximum_rate=Parameter(1.0),
-                half_saturation=Parameter(1.0), palatability=Parameter(1.0),
-                substrate_preference=Parameter(1.0), assimilation=Parameter(0.5),
-            ))
+                half_saturation=Parameter(1.0), assimilation=Parameter(0.5),
+            ), preference))
         @test occursin(reason, argument_error_message(() -> Agate.Construction.construct(definition)))
     end
 end
