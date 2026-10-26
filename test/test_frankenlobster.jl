@@ -322,27 +322,16 @@ end
 end
 
 @testset "NPD nutrient subset coupling" begin
-    # A nitrate-only Agate runtime can use OceanBioME's NO₃/NH₄ nutrients.
     definition = Agate.Processes.ModelDefinition(;
         components=(
             NO₃=Agate.Components.Pool(:nitrogen),
-            P=Agate.Components.Plankton(;
-                states=(nitrogen=:nitrogen,), reference_state=:nitrogen,
-                size_structure=[1.0],
-            ),
+            P=Agate.Components.Plankton(; states=(nitrogen=:nitrogen,),
+                reference_state=:nitrogen, size_structure=[1.0]),
         ),
         processes=(growth=Agate.Processes.Growth(;
             plankton=:P, reference_resource=:NO₃,
-            bindings=(maximum_rate=:maximum_growth_rate,),
-            factors=(nutrients=Agate.Processes.NutrientResponse(
-                Agate.Processes.Monod(); resource=:NO₃,
-                bindings=(half_saturation=:nitrate_half_saturation,),
-            ),),
-        ),),
-        parameters=(
-            maximum_growth_rate=Agate.Parameters.Parameter(1.0),
-            nitrate_half_saturation=Agate.Parameters.Parameter(1.0),
-        ),
+            bindings=(maximum_rate=:maximum_growth_rate,)),),
+        parameters=(maximum_growth_rate=Agate.Parameters.Parameter(1.0),),
     )
     runtime = Agate.Construction.construct(definition; grid=_GRID)
     plankton = Agate.Integrations.NPDPlankton(runtime;
@@ -352,14 +341,12 @@ end
     )
     bgc = LOBSTER(_GRID; plankton).underlying_biogeochemistry
     @test :NH₄ in required_biogeochemical_tracers(bgc)
-
     fields = _fields(; NO₃=1.0, NH₄=1.0, P_1=1.0)
     uptake(nutrient) = nutrient_uptake(
-        1, 1, 1, _GRID, Val(nutrient), plankton, bgc, fields, NamedTuple()
-    )
-    @test uptake(:NO₃) ≈ 0.5
+        1, 1, 1, _GRID, Val(nutrient), plankton, bgc, fields, NamedTuple())
+    @test uptake(:NO₃) ≈ 1.0
     @test uptake(:NH₄) == 0
-    @test bgc(1, 1, 1, _GRID, Val(:P_1), (; time=0.0), fields, NamedTuple()) ≈ 0.5
+    @test bgc(1, 1, 1, _GRID, Val(:P_1), (; time=0.0), fields, NamedTuple()) ≈ 1.0
 end
 
 @testset "FrankenLOBSTER closed nitrogen budget" begin
