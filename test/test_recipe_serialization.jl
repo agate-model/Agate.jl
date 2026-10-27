@@ -196,7 +196,7 @@ explicit_json_value(::Any) = false
     @test_throws r"Recipe family" NiPiZD.construct(decode_recipe(other_family))
     @test required_biogeochemical_tracers(
         Agate.Construction.construct(family, decoded; grid=BoxModelGrid(Float32))
-    ) == required_biogeochemical_tracers(replayed_default)
+    ) == required_biogeochemical_tracers(replayed)
     @test required_biogeochemical_tracers(NiPiZD.construct()) ==
           (:N, :D, :P_1, :P_2, :Z_1, :Z_2)
 
@@ -212,9 +212,13 @@ explicit_json_value(::Any) = false
     invalid_matrix = rehashed(encoded) do x
         x["realization"]["parameter_overrides"]["palatability_matrix"][2] = [0.3]
     end
-    for document in (invalid_schema, invalid_realization, invalid_law, invalid_matrix)
+    for document in (invalid_schema, invalid_law, invalid_matrix)
         @test_throws ArgumentError decode_recipe(document)
     end
+    incomplete_recipe = decode_recipe(invalid_realization)
+    @test_throws r"plankton_pfts must map exactly" Agate.Construction.construct(
+        family, incomplete_recipe
+    )
     @test_throws ArgumentError decode_recipe("not a recipe document")
 
     for (params, settings, sinking, path) in (
