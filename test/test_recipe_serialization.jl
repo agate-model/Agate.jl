@@ -27,6 +27,18 @@ explicit_json_value(x::Dict{String,Any}) = all(explicit_json_value, values(x))
 explicit_json_value(x::Vector{Any}) = all(explicit_json_value, x)
 explicit_json_value(::Any) = false
 
+# A second provider with the same family label but a different scientific default.
+struct AlternativeNiPiZDFamily <: Agate.ModelFamilies.AbstractModelFamily end
+Agate.Construction.family_id(::AlternativeNiPiZDFamily) = :NiPiZD
+Agate.ModelFamilies.default_components(::AlternativeNiPiZDFamily) =
+    Agate.ModelFamilies.default_components(NiPiZD.NiPiZDFamily())
+Agate.ModelFamilies.default_processes(::AlternativeNiPiZDFamily) =
+    Agate.ModelFamilies.default_processes(NiPiZD.NiPiZDFamily())
+Agate.Parameters.parameter_definitions(::AlternativeNiPiZDFamily) = merge(
+    Agate.Parameters.parameter_definitions(NiPiZD.NiPiZDFamily()),
+    (detritus_remineralization=Agate.Parameters.Parameter(1e-5),),
+)
+
 @testset "NiPiZD family recipes" begin
     family = NiPiZD.NiPiZDFamily()
     direct = NiPiZD.construct(; grid=BoxModelGrid(Float32))
@@ -39,6 +51,12 @@ explicit_json_value(::Any) = false
     @test required_biogeochemical_tracers(replayed_default) == required_biogeochemical_tracers(direct)
     @test required_biogeochemical_tracers(family_constructed) == required_biogeochemical_tracers(direct)
     @test family_constructed.parameters == with_recipe.parameters == direct.parameters == replayed_default.parameters
+    alternate = Agate.Construction.construct(
+        AlternativeNiPiZDFamily(), default_recipe; grid=BoxModelGrid(Float32)
+    )
+    @test alternate.parameters.detritus_remineralization == Float32(1e-5)
+    @test alternate.parameters.detritus_remineralization !=
+          replayed_default.parameters.detritus_remineralization
 
     inputs = authored_nipizd_inputs(Float32)
     bgc, recipe = NiPiZD.construct_plus_recipe(; inputs...)
@@ -95,6 +113,19 @@ explicit_json_value(::Any) = false
     @test recipe_a == recipe_b && isequal(recipe_a, recipe_b)
     @test Dict(recipe_a => :same)[recipe_b] === :same
     @test encode_recipe(recipe_a)["content_hash"] == encode_recipe(recipe_b)["content_hash"]
+
+    reordered = rehashed(encode_recipe(recipe_a)) do document
+        reverse!(document["realization"]["plankton_pfts"]["P"]["small"]["diameters"])
+    end
+    @test encode_recipe(decode_recipe(reordered)) == encode_recipe(recipe_a)
+    invalid_diameters = rehashed(encode_recipe(recipe_a)) do document
+        document["realization"]["plankton_pfts"]["P"]["small"]["diameters"][1] = 0.0
+    end
+    @test_throws r"positive" decode_recipe(invalid_diameters)
+    invalid_range = rehashed(encode_recipe(default_recipe)) do document
+        document["realization"]["plankton_pfts"]["P"]["P"]["n"] = 1
+    end
+    @test_throws r"n=1" decode_recipe(invalid_range)
 
     manifest_a, manifest_b = nipizd_manifest(recipe_a), nipizd_manifest(recipe_b)
     @test manifest_a == manifest_b && isequal(manifest_a, manifest_b)
@@ -194,9 +225,12 @@ explicit_json_value(::Any) = false
         family, decode_recipe(other_family)
     )
     @test_throws r"Recipe family" NiPiZD.construct(decode_recipe(other_family))
-    @test required_biogeochemical_tracers(
-        Agate.Construction.construct(family, decoded; grid=BoxModelGrid(Float32))
-    ) == required_biogeochemical_tracers(replayed)
+    generic_replayed = Agate.Construction.construct(
+        family, decoded; grid=BoxModelGrid(Float32)
+    )
+    @test required_biogeochemical_tracers(generic_replayed) ==
+          required_biogeochemical_tracers(replayed)
+    @test generic_replayed.parameters == replayed.parameters
     @test required_biogeochemical_tracers(NiPiZD.construct()) ==
           (:N, :D, :P_1, :P_2, :Z_1, :Z_2)
 

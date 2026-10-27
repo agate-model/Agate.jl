@@ -1,6 +1,6 @@
 using JSON
 
-using ..Components: DiameterListSpecification, DiameterRangeSpecification
+using ..Components: DiameterListSpecification, DiameterRangeSpecification, canonicalize_diameters
 using ..Library.Allometry:
     ConstantParam,
     AllometricParam,
@@ -260,7 +260,7 @@ function _decode_diameter_specification(x, path)
             )
             push!(diameters, _finite_float(float(value)))
         end
-        return DiameterListSpecification(diameters)
+        return canonicalize_diameters(diameters; path).specification
     elseif kind == "range"
         _complete_object(x, ("kind", "n", "min_esd", "max_esd", "spacing"), path)
         spacing = _symbol(x["spacing"], "$path.spacing")
@@ -273,12 +273,12 @@ function _decode_diameter_specification(x, path)
             throw(ArgumentError("$path.min_esd must be numeric."))
         max_esd isa Real && !(max_esd isa Bool) ||
             throw(ArgumentError("$path.max_esd must be numeric."))
-        return DiameterRangeSpecification(
+        return canonicalize_diameters(DiameterRangeSpecification(
             _count(x["n"], "$path.n"),
             _finite_float(float(min_esd)),
             _finite_float(float(max_esd)),
             spacing,
-        )
+        ); path).specification
     end
     throw(ArgumentError("$path has unsupported diameter kind $(repr(kind))."))
 end
