@@ -1,4 +1,4 @@
-using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe
+using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe, export_model_release
 using Agate.ModelFamilies: AbstractModelFamily, definition_version, parent_model
 using Agate.Library.Allometry: AllometricParam, SplitPowerLaw
 using Agate.Models: NiPiZD
@@ -50,6 +50,48 @@ Agate.ModelFamilies.default_components(::AncestryFixture) =
     Agate.ModelFamilies.default_components(NiPiZD.NiPiZDFamily())
 Agate.Construction.registered_family(::Val{:AncestryFixture}) =
     AncestryFixture(ANCESTRY_CHAIN)
+
+@testset "Portable model releases" begin
+    recipe = Agate.Construction.capture_model_recipe(
+        NiPiZD.NiPiZDFamily(); plankton_pfts=(P=(diat=nothing,), Z=(microzoo=nothing,))
+    )
+    uuid, version = string(Base.PkgId(Agate).uuid), string(Base.pkgversion(Agate))
+    project_content = "[deps]\nAgate = \"$uuid\"\n"
+    manifest_content = """
+    manifest_format = "2.0"
+    [[deps.Agate]]
+    uuid = "$uuid"
+    version = "$version"
+    git-tree-sha1 = "$(repeat("a", 40))"
+    """
+    mktempdir() do workspace
+        project = joinpath(workspace, "Project.toml")
+        manifest = joinpath(workspace, "Manifest.toml")
+        destination = joinpath(workspace, "release")
+        write(project, project_content)
+        write(manifest, manifest_content)
+        @test export_model_release(destination, recipe; project_path=project) == destination
+        @test sort(readdir(destination)) == ["Manifest.toml", "Project.toml", "recipe.json"]
+        @test import_recipe(joinpath(destination, "recipe.json")) == recipe
+        @test read(joinpath(destination, "Manifest.toml"), String) == manifest_content
+        @test_throws ArgumentError export_model_release(destination, recipe; project_path=project)
+
+        for (bad_project, bad_manifest, reason) in (
+            (project_content, manifest_content * "path = \"../Agate\"\n", "Agate"),
+            (project_content * "[sources]\nAgate = {path = \"../Agate\"}\n",
+             manifest_content, "Agate"),
+            (project_content, manifest_content * "repo-url = \"https://example.org/a.git\"\nrepo-rev = \"main\"\n", "Git"),
+            ("[deps]\n", manifest_content, "Agate"),
+            (project_content, replace(manifest_content, "git-tree-sha1" => "missing-sha"), "source tree"),
+            (project_content, replace(manifest_content, "version = \"$version\"" => "version = \"0.0.0\""), "version"),
+        )
+            write(project, bad_project)
+            write(manifest, bad_manifest)
+            @test occursin(reason, argument_error_message(() ->
+                export_model_release(joinpath(workspace, "invalid"), recipe; project_path=project)))
+        end
+    end
+end
 
 @testset "Model family ancestry" begin
     ancestry(parent) = Agate.Construction._family_parent(AncestryFixture(parent))

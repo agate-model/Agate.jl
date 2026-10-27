@@ -200,11 +200,12 @@ External family packages subtype `AbstractModelFamily`, provide `default_compone
 An optional `parent_model(family)` hook declares versioned scientific ancestry; root families
 return `nothing`, and derived families can supply nested parent references. The lineage is part
 of recipe identity and is checked against the registered family on replay. Historical parents
-need not be installed. A reproducible model release pairs the recipe JSON with the **consumer**
-Julia environment's `Project.toml` and `Manifest.toml` to pin Agate, any external model provider,
-and transitive dependencies. Recipes record package provenance, including Git commits for clean
-checkouts; path-based development dependencies should be replaced by registered releases or
-pinned Git revisions before sharing the environment. See the
+need not be installed. `export_model_release(directory, recipe)` saves the recipe JSON with the active Julia
+project's `Project.toml` and `Manifest.toml`. It checks that Agate and the external model
+provider are recorded at matching versions and that the environment uses portable package
+sources, rejecting local paths and Git dependencies without pinned commits. The exported
+files can be instantiated in a new Julia environment to verify dependency availability.
+See the
 [model recipe export example](@ref export_model_recipe).
 
 ```@docs
@@ -225,6 +226,7 @@ Agate.Construction.encode_recipe
 Agate.Construction.decode_recipe
 Agate.Construction.export_recipe
 Agate.Construction.import_recipe
+Agate.Construction.export_model_release
 Agate.ModelFamilies.AbstractModelFamily
 Agate.ModelFamilies.definition_version
 Agate.ModelFamilies.parent_model

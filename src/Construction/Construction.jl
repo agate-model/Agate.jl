@@ -7,12 +7,13 @@ export ModelRecipe, ModelManifest
 export capture_model_recipe, recipe_schema
 export normalize_pft_size_structure, plankton_realization
 export resolve_model_settings
-export encode_recipe, decode_recipe, export_recipe, import_recipe
+export encode_recipe, decode_recipe, export_recipe, import_recipe, export_model_release
 
 include("settings.jl")
 include("recipe.jl")
 include("recipe_serialization.jl")
 include("recipe_provenance.jl")
+include("recipe_release.jl")
 include("biogeochemistry.jl")
 include("parameter_realization.jl")
 include("construct.jl")
