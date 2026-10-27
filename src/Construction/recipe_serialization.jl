@@ -7,13 +7,11 @@ using ..Library.Allometry:
     allometric_relationship_identifier,
     allometric_relationship_from_identifier
 
-const MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.2"
+const MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.3"
 
 """Return the durable model-recipe schema identifier supported by this Agate version."""
 recipe_schema() = MODEL_RECIPE_SCHEMA
-const _RECIPE_DOCUMENT_KEYS = (
-    "schema", "family", "definition_version", "realization", "provenance", "content_hash"
-)
+const _RECIPE_DOCUMENT_KEYS = ("schema", "family", "realization", "content_hash")
 const _REALIZATION_KEYS = (
     "plankton_pfts", "parameter_overrides", "setting_overrides", "sinking_tracers", "open_bottom"
 )
@@ -57,15 +55,6 @@ function _count(x, path)
 end
 
 _symbol(x, path) = Symbol(_string(x, path))
-
-function _version(x, path)
-    text = _string(x, path)
-    try
-        return VersionNumber(text)
-    catch
-        throw(ArgumentError("$path must be a valid version number."))
-    end
-end
 
 function _finite_float(x::AbstractFloat)
     isfinite(x) || throw(
@@ -386,20 +375,25 @@ function _decode_realization(x, path)
     return (; plankton_pfts, parameter_overrides, setting_overrides, sinking_tracers, open_bottom)
 end
 
-"""Encode a versioned family recipe with a scientific content hash and package provenance."""
+"""Encode model configuration with a deterministic content hash.
+
+The hash does not identify model source code; reproducible execution additionally requires
+the provider package and its resolved Julia environment.
+"""
 function encode_recipe(recipe::ModelRecipe)
     realization = _encode_realization(recipe)
     return Dict{String,Any}(
         "schema" => MODEL_RECIPE_SCHEMA,
         "family" => String(recipe.family),
-        "definition_version" => string(recipe.definition_version),
         "realization" => realization,
-        "provenance" => _recipe_provenance(recipe),
-        "content_hash" => _recipe_hash(recipe.family, recipe.definition_version, realization),
+        "content_hash" => _recipe_hash(recipe.family, realization),
     )
 end
 
-"""Decode a recipe document, verifying its hash, family registration, and definition version."""
+"""Decode a recipe independently of provider registration, verifying its content hash.
+
+Select a model provider explicitly when constructing from the decoded recipe.
+"""
 function decode_recipe(document::AbstractDict)
     document = _complete_object(document, _RECIPE_DOCUMENT_KEYS, "Recipe document")
     schema = _string(document["schema"], "Recipe document.schema")
@@ -411,31 +405,23 @@ function decode_recipe(document::AbstractDict)
     )
 
     family_id_value = _symbol(document["family"], "Recipe document.family")
-    version = _version(document["definition_version"], "Recipe document.definition_version")
     realization_data = _complete_object(
         document["realization"], _REALIZATION_KEYS, "Recipe document.realization"
     )
     recorded_hash = _string(document["content_hash"], "Recipe document.content_hash")
-    recorded_hash == _recipe_hash(family_id_value, version, realization_data) || throw(
+    recorded_hash == _recipe_hash(family_id_value, realization_data) || throw(
         ArgumentError("Recipe document.content_hash does not match the serialized recipe content.")
     )
 
-    family = _resolve_recipe_family(family_id_value, version)
-
     realization = _decode_realization(realization_data, "Recipe document.realization")
-    plankton_pfts = _canonical_recipe_realization(family, realization.plankton_pfts)
-    decoded = ModelRecipe(
+    return ModelRecipe(
         family_id_value,
-        version,
-        plankton_pfts,
+        realization.plankton_pfts,
         realization.parameter_overrides,
         realization.setting_overrides,
         realization.sinking_tracers,
         realization.open_bottom,
     )
-    provenance = _decode_provenance(document["provenance"], "Recipe document.provenance")
-    _check_recipe_provenance(decoded, provenance)
-    return decoded
 end
 
 function decode_recipe(document)
@@ -444,8 +430,9 @@ end
 
 """Write a recipe document to `path` as pretty-printed JSON."""
 function export_recipe(path::AbstractString, recipe::ModelRecipe)
+    document = encode_recipe(recipe)
     open(path, "w") do io
-        JSON.json(io, encode_recipe(recipe); pretty=4, omit_empty=false)
+        JSON.json(io, document; pretty=4, omit_empty=false)
         println(io)
     end
     return path

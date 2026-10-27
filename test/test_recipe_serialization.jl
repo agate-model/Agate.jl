@@ -1,5 +1,4 @@
 using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe
-using Agate.ModelFamilies: definition_version
 using Agate.Library.Allometry: AllometricParam, SplitPowerLaw
 using Agate.Models: NiPiZD
 using OceanBioME: BoxModelGrid
@@ -14,9 +13,8 @@ end
 
 function rehash!(document)
     family = Symbol(document["family"])
-    version = VersionNumber(document["definition_version"])
     document["content_hash"] = Agate.Construction._recipe_hash(
-        family, version, document["realization"]
+        family, document["realization"]
     )
     return document
 end
@@ -29,15 +27,8 @@ explicit_json_value(x::Dict{String,Any}) = all(explicit_json_value, values(x))
 explicit_json_value(x::Vector{Any}) = all(explicit_json_value, x)
 explicit_json_value(::Any) = false
 
-@testset "Recipe provenance does not retain URL credentials" begin
-    url = "https://user:token@example.com/org/repo.git?access_token=secret#fragment"
-    sanitized = Agate.Construction._sanitize_repository_url(url)
-    @test !any(secret -> occursin(secret, sanitized), ("user", "token", "secret"))
-end
-
-@testset "NiPiZD versioned family recipes" begin
+@testset "NiPiZD family recipes" begin
     family = NiPiZD.NiPiZDFamily()
-    @test definition_version(family) == v"0.2.0"
     direct = NiPiZD.construct(; grid=BoxModelGrid(Float32))
     with_recipe, default_recipe = NiPiZD.construct_plus_recipe(; grid=BoxModelGrid(Float32))
     family_constructed = Agate.Construction.construct(family;
@@ -56,17 +47,9 @@ end
     decoded = decode_recipe(encoded)
     decoded_manifest = nipizd_manifest(decoded; scalar_type=Float32)
 
-    @test Set(keys(encoded)) == Set((
-        "schema",
-        "family",
-        "definition_version",
-        "realization",
-        "provenance",
-        "content_hash",
-    ))
-    @test encoded["schema"] == Agate.Construction.recipe_schema() == "agate.model_recipe.v0.2"
+    @test Set(keys(encoded)) == Set(("schema", "family", "realization", "content_hash"))
+    @test encoded["schema"] == Agate.Construction.recipe_schema() == "agate.model_recipe.v0.3"
     @test encoded["family"] == "NiPiZD"
-    @test encoded["definition_version"] == "0.2.0"
     @test Set(keys(encoded["realization"])) == Set((
         "plankton_pfts",
         "parameter_overrides",
@@ -74,16 +57,11 @@ end
         "sinking_tracers",
         "open_bottom",
     ))
-    @test !haskey(encoded, "model")
-    @test !haskey(encoded, "recipe")
     @test explicit_json_value(encoded)
     @test startswith(encoded["content_hash"], "sha256:")
     @test length(encoded["content_hash"]) == 71
-    @test encoded["provenance"]["agate"]["package"] == "Agate"
-    @test encoded["provenance"]["agate"]["version"] == string(Base.pkgversion(Agate))
 
     @test recipe.family === :NiPiZD
-    @test recipe.definition_version == definition_version(family)
     @test keys(recipe.plankton_pfts) == (:P, :Z)
     @test keys(recipe.plankton_pfts.P) == (:diat,)
     @test keys(recipe.plankton_pfts.Z) == (:microzoo,)
@@ -137,7 +115,6 @@ end
 
     unsized_recipe = Agate.Construction.ModelRecipe(
         recipe.family,
-        recipe.definition_version,
         merge(recipe.plankton_pfts, (P=(diat=nothing,),)),
         recipe.parameter_overrides,
         recipe.setting_overrides,
@@ -191,42 +168,35 @@ end
         @test import_recipe(path) == recipe
     end
 
-    version_warning = modified(encoded) do x
-        x["provenance"]["agate"]["version"] = "0.9.0"
-    end
-    @test_logs (:warn, r"Agate version differs") decode_recipe(version_warning)
-
     stale_hash = modified(encoded) do x
         x["realization"]["open_bottom"] = !x["realization"]["open_bottom"]
     end
     @test_throws ArgumentError decode_recipe(stale_hash)
 
-    unknown_family = rehashed(encoded) do x
-        x["family"] = "UnknownModel"
+    # A failed serialization must not truncate an existing recipe file.
+    mktemp() do path, io
+        write(io, "original")
+        close(io)
+        invalid = Agate.Construction.ModelRecipe(
+            recipe.family, recipe.plankton_pfts, (unsupported=Dict(:key => 1),),
+            recipe.setting_overrides, recipe.sinking_tracers, recipe.open_bottom,
+        )
+        @test_throws ArgumentError export_recipe(path, invalid)
+        @test read(path, String) == "original"
     end
-    @test_throws ArgumentError decode_recipe(unknown_family)
 
-    missing_version = modified(encoded) do x
-        delete!(x, "definition_version")
+    # Decoding needs no global family registration; the chosen provider verifies identity.
+    other_family = rehashed(encoded) do x
+        x["family"] = "OtherModel"
     end
-    @test_throws ArgumentError decode_recipe(missing_version)
-
-    mismatched_version = rehashed(encoded) do x
-        x["definition_version"] = "0.2.1"
-    end
-    @test_throws ArgumentError decode_recipe(mismatched_version)
-
-    bumped_recipe = Agate.Construction.ModelRecipe(
-        recipe.family,
-        v"0.2.1",
-        recipe.plankton_pfts,
-        recipe.parameter_overrides,
-        recipe.setting_overrides,
-        recipe.sinking_tracers,
-        recipe.open_bottom,
+    @test decode_recipe(other_family).family === :OtherModel
+    @test_throws r"Recipe family" Agate.Construction.construct(
+        family, decode_recipe(other_family)
     )
-    @test encode_recipe(bumped_recipe)["content_hash"] != encoded["content_hash"]
-    @test_throws ArgumentError NiPiZD.construct(bumped_recipe)
+    @test_throws r"Recipe family" NiPiZD.construct(decode_recipe(other_family))
+    @test required_biogeochemical_tracers(
+        Agate.Construction.construct(family, decoded; grid=BoxModelGrid(Float32))
+    ) == required_biogeochemical_tracers(replayed_default)
     @test required_biogeochemical_tracers(NiPiZD.construct()) ==
           (:N, :D, :P_1, :P_2, :Z_1, :Z_2)
 
@@ -258,7 +228,7 @@ end
          "sinking_tracers.P_1"),
     )
         invalid = Agate.Construction.ModelRecipe(
-            recipe.family, recipe.definition_version, recipe.plankton_pfts,
+            recipe.family, recipe.plankton_pfts,
             params, settings, sinking, recipe.open_bottom,
         )
         @test_throws path encode_recipe(invalid)

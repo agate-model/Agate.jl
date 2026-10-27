@@ -94,7 +94,8 @@ source-specific remineralization. Formulation and factor authoring is method-bas
 registry-based. Custom process topologies can extend Agate through the narrow
 `Processes.process_facts` and `Compilation.process_fluxes` hooks, keeping custom topology in the
 same validation, canonicalization, and construction pipeline as built-in processes. Durable recipes
-identify a registered family and its version rather than serializing process or formulation objects.
+record a model-family label and configuration rather than serializing process or formulation objects.
+The selected model provider and Julia environment identify the implementation.
 
 #### Formulations
 
@@ -193,9 +194,9 @@ Agate.Compilation.process_parameter_operands
 
 ## Named families, recipes, and replay
 
-Named model families add stable code identity and durable recipe replay around the same definition-driven process compiler. `ModelRecipe` is the `agate.model_recipe.v0.2` family/version/realization document: it records the registered family, exact `definition_version`, canonical plankton/size realization, process parameter overrides, model-setting overrides, sinking choices, and bottom state. Named scientific mappings are serialized as mappings, so key insertion order does not change recipe equality or the scientific content hash. The loaded family supplies the canonical component/process definition and setting defaults on replay. `ModelManifest` records the resolved execution state, including fully resolved model settings.
+Named model families support recipe replay around the same definition-driven process compiler. `ModelRecipe` is the `agate.model_recipe.v0.3` family/realization document: it records the family label, canonical plankton/size realization, process parameter overrides, model-setting overrides, sinking choices, and bottom state. Named scientific mappings are serialized as mappings, so key insertion order does not change recipe equality or the configuration content hash. The selected model provider supplies the canonical component/process definition and setting defaults on replay; the Julia environment identifies the exact implementation. `ModelManifest` records the resolved execution state, including fully resolved model settings.
 
-External family packages subtype `AbstractModelFamily`, provide `default_components`, `default_processes`, `definition_version`, and `parameter_definitions`, and register durable recipe identity through `family_id` and `registered_family`. Family-level scientific properties that are not inputs to an individual process equation are declared separately with `setting_definitions` and `ModelSetting`; examples include elemental or diagnostic ratios used by an integration layer. User-facing constructors translate family-specific keywords into `plankton_pfts`, process `parameter_overrides`, and optional `setting_overrides`, then call `Construction.construct(family; ...)`. `normalize_pft_size_structure` provides the shared named-family `(n=0,)` shorthand without weakening core size validation. Recipes are captured with `capture_model_recipe`, the durable schema identifier is available through `recipe_schema`, and replay uses `construct(recipe)` or `construct_plus_manifest(recipe)`.
+External family packages subtype `AbstractModelFamily`, provide `default_components`, `default_processes`, and `parameter_definitions`, and identify their recipes with `family_id`. No global model registration is required. Family-level scientific properties that are not inputs to an individual process equation are declared separately with `setting_definitions` and `ModelSetting`; examples include elemental or diagnostic ratios used by an integration layer. User-facing constructors translate family-specific keywords into `plankton_pfts`, process `parameter_overrides`, and optional `setting_overrides`, then call `Construction.construct(family; ...)`. `normalize_pft_size_structure` provides the shared named-family `(n=0,)` shorthand without weakening core size validation. Recipes are captured with `capture_model_recipe`, the durable schema identifier is available through `recipe_schema`, and replay explicitly selects the provider through `construct(family, recipe)` or `construct_plus_manifest(family, recipe)`. `import_recipe(path)` only decodes the configuration; it does not load or validate the implementation.
 
 ```@docs
 Agate.ModelFamilies.ModelSetting
@@ -206,17 +207,14 @@ Agate.Construction.construct_plus_manifest
 Agate.Construction.capture_model_recipe
 Agate.Construction.recipe_schema
 Agate.Construction.normalize_pft_size_structure
-Agate.Construction.replay_family
 Agate.Construction.resolve_construction_scalar_type
 Agate.Introspection.model_settings
 Agate.Construction.family_id
-Agate.Construction.registered_family
 Agate.Construction.encode_recipe
 Agate.Construction.decode_recipe
 Agate.Construction.export_recipe
 Agate.Construction.import_recipe
 Agate.ModelFamilies.AbstractModelFamily
-Agate.ModelFamilies.definition_version
 Agate.Parameters.parameter_definitions
 Agate.ModelFamilies.default_components
 Agate.ModelFamilies.default_processes

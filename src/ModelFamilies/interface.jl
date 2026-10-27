@@ -1,6 +1,5 @@
 export default_components
 export default_processes
-export definition_version
 export plankton_roles
 export ModelSetting
 export setting_definitions
@@ -59,13 +58,4 @@ function default_processes(::AbstractModelFamily)
             "No method `default_processes(family)` is defined for this model family."
         ),
     )
-end
-
-"""Scientific definition version for a named model family.
-
-Bump this version whenever family science, defaults, derivation algorithms, or canonical
-definition structure changes in a way that should invalidate durable recipe replay.
-"""
-function definition_version(::AbstractModelFamily)::VersionNumber
-    throw(ArgumentError("No method `definition_version(family)` is defined for this model family."))
 end

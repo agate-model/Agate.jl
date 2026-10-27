@@ -243,7 +243,7 @@ function _construct_process_definition(
 
     manifest = if build_manifest
         isnothing(manifest_family) && throw(
-            ArgumentError("a registered model family is required to capture a replay manifest")
+            ArgumentError("a model family is required to capture a replay manifest")
         )
         capture_model_manifest(
             manifest_family,
@@ -265,7 +265,7 @@ function _construct_process_definition(
     return on_architecture(arch, bgc), manifest
 end
 
-function _construct_registered_model(
+function _construct_family_model(
     family::AbstractModelFamily,
     realization::NamedTuple;
     grid=nothing,
@@ -295,15 +295,15 @@ function _construct_registered_model(
 end
 
 function _construct_recipe(
-    recipe::ModelRecipe;
+    family::AbstractModelFamily, recipe::ModelRecipe;
     grid=nothing,
     arch=nothing,
     scalar_type=nothing,
     build_manifest::Bool=false,
 )
-    family = replay_family(recipe)
+    _check_recipe_family(family, recipe)
     realization = _family_realization(recipe)
-    return _construct_registered_model(
+    return _construct_family_model(
         family,
         realization;
         grid,
@@ -320,7 +320,7 @@ end
               sinking_tracers=nothing, open_bottom=true, grid=nothing,
               arch=nothing, scalar_type=nothing) -> bgc
 
-Construct a registered model family from its resolved family realization. This is the
+Construct a model family from its resolved family realization. This is the
 supported construction seam for external family packages after their own user-facing
 constructor syntax has been translated into the nested `plankton_pfts` mapping, process
 parameter overrides, and family-level setting overrides. Runtime grid, architecture, and scalar
@@ -340,7 +340,7 @@ function construct(
     realization = (;
         plankton_pfts, parameter_overrides, setting_overrides, sinking_tracers, open_bottom
     )
-    bgc, _ = _construct_registered_model(
+    bgc, _ = _construct_family_model(
         family, realization; grid, arch, scalar_type
     )
     return bgc
@@ -351,7 +351,7 @@ end
 
 Construct a model directly from authored components, named processes, and parameter
 definitions. `plankton_pfts` optionally replaces each logical plankton component's intrinsic
-size structure with the same named PFT realization vocabulary used by registered families.
+size structure with the same named PFT realization vocabulary used by model families.
 Process participation determines interaction axes and required auxiliary drivers, and runtime
 tracer equations are compiled during setup.
 
@@ -384,18 +384,18 @@ function construct(
 end
 
 
-"""Replay a versioned family recipe in the supplied execution environment."""
+"""Replay a recipe using the explicitly selected model provider and family."""
 function construct(
-    recipe::ModelRecipe;
+    family::AbstractModelFamily, recipe::ModelRecipe;
     grid=nothing,
     arch=nothing,
     scalar_type=nothing,
 )
-    bgc, _ = _construct_recipe(recipe; grid, arch, scalar_type)
+    bgc, _ = _construct_recipe(family, recipe; grid, arch, scalar_type)
     return bgc
 end
 
-"""Construct a registered family and capture the canonical recipe used for construction."""
+"""Construct a family and capture the canonical recipe used for construction."""
 function construct_plus_recipe(
     family::AbstractModelFamily;
     plankton_pfts::NamedTuple,
@@ -410,13 +410,13 @@ function construct_plus_recipe(
     recipe = capture_model_recipe(
         family; plankton_pfts, parameter_overrides, setting_overrides, sinking_tracers, open_bottom
     )
-    bgc = construct(recipe; grid, arch, scalar_type)
+    bgc = construct(family, recipe; grid, arch, scalar_type)
     return bgc, recipe
 end
 
-"""Replay a versioned family recipe and return its resolved manifest."""
+"""Replay a recipe with an explicit family and return its resolved manifest."""
 function construct_plus_manifest(
-    recipe::ModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
+    family::AbstractModelFamily, recipe::ModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
 )
-    return _construct_recipe(recipe; grid, arch, scalar_type, build_manifest=true)
+    return _construct_recipe(family, recipe; grid, arch, scalar_type, build_manifest=true)
 end
