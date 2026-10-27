@@ -1,4 +1,4 @@
-using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe, export_model_release
+using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe
 using Agate.ModelFamilies: definition_version
 using Agate.Library.Allometry: AllometricParam, SplitPowerLaw
 using Agate.Models: NiPiZD
@@ -33,62 +33,6 @@ explicit_json_value(::Any) = false
     url = "https://user:token@example.com/org/repo.git?access_token=secret#fragment"
     sanitized = Agate.Construction._sanitize_repository_url(url)
     @test !any(secret -> occursin(secret, sanitized), ("user", "token", "secret"))
-end
-
-@testset "Portable model release validation" begin
-    recipe = Agate.Construction.capture_model_recipe(
-        NiPiZD.NiPiZDFamily(); plankton_pfts=(P=(diat=nothing,), Z=(microzoo=nothing,))
-    )
-    check_source(url) = Agate.Construction._check_release_source(url, "Example")
-    for url in ("https://github.com/example/model.git", "ssh://git@github.com/example/model.git",
-                "git@github.com:example/model.git")
-        @test isnothing(check_source(url))
-    end
-    for url in ("../MyModels", "./MyModels", "file:///tmp/MyModels",
-                raw"C:\work\MyModels", "https://user:token@github.com/example/model.git",
-                "https://github.com/example/model.git?token=secret")
-        @test_throws ArgumentError check_source(url)
-    end
-    for format in ("2.0", "2.1", "2.2")
-        @test isempty(Agate.Construction._release_dependencies(Dict(
-            "manifest_format" => format, "deps" => Dict{String,Any}()
-        )))
-    end
-    @test_throws ArgumentError Agate.Construction._release_dependencies(Dict(
-        "manifest_format" => "1.0", "deps" => Dict{String,Any}()
-    ))
-
-    mktempdir() do workspace
-        project = joinpath(workspace, "Project.toml")
-        generic = joinpath(workspace, "Manifest.toml")
-        versioned = joinpath(workspace, "Manifest-v$(VERSION.major).$(VERSION.minor).toml")
-        write(project, "[deps]\n")
-        write(generic, "manifest_format = \"2.0\"\n")
-        write(versioned, "manifest_format = \"2.1\"\n")
-        @test Agate.Construction._release_manifest_path(project) == versioned
-
-    end
-    mktempdir() do workspace
-        destination = joinpath(workspace, "invalid-release")
-        bad = Agate.Construction.ModelRecipe(
-            recipe.family, v"0.2.1", recipe.lineage, recipe.plankton_pfts,
-            recipe.parameter_overrides, recipe.setting_overrides,
-            recipe.sinking_tracers, recipe.open_bottom,
-        )
-        @test_throws "definition_version" export_model_release(destination, bad)
-        @test !ispath(destination)
-    end
-    mktemp() do path, io
-        write(io, "previous recipe")
-        flush(io)
-        invalid = Agate.Construction.ModelRecipe(
-            recipe.family, recipe.definition_version, recipe.lineage, recipe.plankton_pfts,
-            (unsupported=Dict(:unexpected => 1),), recipe.setting_overrides,
-            recipe.sinking_tracers, recipe.open_bottom,
-        )
-        @test_throws ArgumentError export_recipe(path, invalid)
-        @test read(path, String) == "previous recipe"
-    end
 end
 
 @testset "NiPiZD versioned family recipes" begin
@@ -246,6 +190,18 @@ end
         close(io)
         @test export_recipe(path, recipe) == path
         @test import_recipe(path) == recipe
+    end
+
+    mktemp() do path, io
+        write(io, "previous recipe")
+        flush(io)
+        invalid = Agate.Construction.ModelRecipe(
+            recipe.family, recipe.definition_version, recipe.lineage, recipe.plankton_pfts,
+            (unsupported=Dict(:unexpected => 1),), recipe.setting_overrides,
+            recipe.sinking_tracers, recipe.open_bottom,
+        )
+        @test_throws ArgumentError export_recipe(path, invalid)
+        @test read(path, String) == "previous recipe"
     end
 
     version_warning = modified(encoded) do x

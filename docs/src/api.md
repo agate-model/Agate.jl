@@ -202,12 +202,7 @@ return `()`, and derived families supply a tuple of pinned `:Family => v"1.0.0"`
 from immediate parent to oldest. The lineage is part
 of recipe identity and is checked against the registered family on replay. Historical parents
 need not be installed. Changing the declared ancestry requires a new scientific
-`definition_version`. `export_model_release(directory, recipe)` saves the recipe JSON with the active Julia
-project's `Project.toml` and the manifest selected by Julia. It checks that the recipe
-matches the loaded family, that Agate and the external provider are resolved from the
-active environment, and that dependencies use portable sources. Git sources must have
-recorded source-tree hashes. The files can be instantiated in a fresh Julia environment
-to check dependency availability.
+`definition_version`.
 See the
 [model recipe export example](@ref export_model_recipe).
 
@@ -229,7 +224,6 @@ Agate.Construction.encode_recipe
 Agate.Construction.decode_recipe
 Agate.Construction.export_recipe
 Agate.Construction.import_recipe
-Agate.Construction.export_model_release
 Agate.ModelFamilies.AbstractModelFamily
 Agate.ModelFamilies.definition_version
 Agate.ModelFamilies.model_lineage

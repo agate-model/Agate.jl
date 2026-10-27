@@ -2,7 +2,7 @@
 
 # Recipes record versioned family construction inputs for export and replay.
 
-using Agate.Construction: export_recipe, import_recipe, encode_recipe, export_model_release
+using Agate.Construction: export_recipe, import_recipe, encode_recipe
 using Agate.Models: NiPiZD
 using OceanBioME: BoxModelGrid
 
@@ -22,46 +22,16 @@ bgc, recipe = NiPiZD.construct_plus_recipe(;
     ),
 )
 
-release_dir = mktempdir()
-recipe_path = joinpath(release_dir, "recipe.json")
+recipe_path = tempname() * ".json"
 export_recipe(recipe_path, recipe)
 
-# The JSON records the family definition version, declared ancestry (or `null` for a root
+# The JSON records the family definition version, declared ancestry (or an empty array for a root
 # family), a SHA-256 content fingerprint, and package provenance.
 
 println("Recipe schema: ", encode_recipe(recipe)["schema"])
 println("Saved ", basename(recipe_path))
 
 nothing #hide
-
-# ## Export a reproducible model release
-# `export_model_release` saves the recipe together with the active Julia project's
-# `Project.toml` and the manifest selected by Julia. It first checks that the
-# recipe and loaded package sources match the active environment and that package
-# sources are portable (with source-tree hashes for Git dependencies).
-#
-# Run the following from a Julia project with Agate and your model package installed:
-#
-# ```julia
-# export_model_release("my-model-release", recipe)
-# ```
-#
-# This documentation example runs from a development checkout, so it demonstrates
-# recipe export and replay; the checked release export is for a portable Julia project.
-# A recipient starts a new Julia process in the exported environment:
-#
-# ```bash
-# julia --project=my-model-release -e 'using Pkg; Pkg.instantiate()'
-# ```
-#
-# Then loads Agate (and any external model-provider package) and reconstructs the model:
-#
-# ```julia
-# using Agate.Construction: import_recipe
-# using Agate.Models: NiPiZD
-# saved_recipe = import_recipe("my-model-release/recipe.json")
-# NiPiZD.construct(saved_recipe; grid=nothing)
-# ```
 
 # ## Reload and replay
 
