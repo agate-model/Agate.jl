@@ -50,7 +50,7 @@ not the materialized parameter values. The branches meet when `AgateBGC` is asse
 
 Canonicalization establishes scientific meaning. Model realization establishes named topology.
 Parameter planning establishes labelled storage. Runtime indices and array positions implement
-those named structures; they do not define scientific identity.
+those named structures.
 
 ### Components
 
@@ -83,19 +83,17 @@ entity-indexed entries. Direct ODE parameter updates must preserve this equality
 ### Processes and factors
 
 Formulations are authored as concrete scientific objects, for example `Light(Smith(); driver=:PAR)`
-and `Consumption(HeterotrophicConsumption(); ...)`. Numerical scientific parameters belong to
-the model parameter system rather than the formulation object; for example
+and `Consumption(HeterotrophicConsumption(); ...)`. Numerical scientific parameters are defined in
+the model parameter system; for example
 `NutrientLimitation(FrankTNorm(); ...)` uses the Frank t-norm's declared `sharpness` parameter slot.
 `FrankTNorm()` names the formulation; `Agate.Library.Nutrients.frank_tnorm` is the numerical
 kernel. Parameterized nodes bind their formulation-local slots directly to model-level parameter
 names with `bindings=(...)`. Omitted slots bind by the same name; a `Symbol` explicitly renames
 or shares one parameter, while a one-level qualifier map handles repeated slots such as
-source-specific remineralization. Formulation and factor authoring is method-based rather than
-registry-based. Custom process topologies can extend Agate through the narrow
+source-specific remineralization. Formulations and factors are extended through Julia methods. Custom process topologies can
+extend Agate through the narrow
 `Processes.process_facts` and `Compilation.process_fluxes` hooks, keeping custom topology in the
-same validation, canonicalization, and construction pipeline as built-in processes. Durable recipes
-record a model-family label and configuration rather than serializing process or formulation objects.
-The selected model provider and Julia environment identify the implementation.
+same validation, canonicalization, and construction pipeline as built-in processes.
 
 #### Formulations
 
@@ -194,9 +192,9 @@ Agate.Compilation.process_parameter_operands
 
 ## Named families, recipes, and replay
 
-Named model families support recipe replay around the same definition-driven process compiler. `ModelRecipe` is the `agate.model_recipe.v0.3` family/realization document: it records the family label, canonical plankton/size realization, process parameter overrides, model-setting overrides, sinking choices, and bottom state. Named scientific mappings are serialized as mappings, so key insertion order does not change recipe equality or the configuration content hash. The selected model provider supplies the canonical component/process definition and setting defaults on replay; the Julia environment identifies the exact implementation. `ModelManifest` records the resolved execution state, including fully resolved model settings.
+Named model families support recipe replay around the same definition-driven process compiler. `ModelRecipe` is the `agate.model_recipe.v0.3` family/realization document: it records the family label, canonical plankton/size realization, process parameter overrides, model-setting overrides, sinking choices, and bottom state. Named scientific mappings are canonicalized for recipe equality and content hashing. The selected model provider supplies the canonical component/process definition and setting defaults on replay; the Julia environment identifies the exact implementation. `ModelManifest` records the resolved execution state, including fully resolved model settings.
 
-External family packages subtype `AbstractModelFamily`, provide `default_components`, `default_processes`, and `parameter_definitions`, and identify their recipes with `family_id`. No global model registration is required. Family-level scientific properties that are not inputs to an individual process equation are declared separately with `setting_definitions` and `ModelSetting`; examples include elemental or diagnostic ratios used by an integration layer. User-facing constructors translate family-specific keywords into `plankton_pfts`, process `parameter_overrides`, and optional `setting_overrides`, then call `Construction.construct(family; ...)`. `normalize_pft_size_structure` provides the shared named-family `(n=0,)` shorthand without weakening core size validation. Recipes are captured with `capture_model_recipe`, the durable schema identifier is available through `recipe_schema`, and replay explicitly selects the provider through `construct(family, recipe)` or `construct_plus_manifest(family, recipe)`. `import_recipe(path)` only decodes the configuration; it does not load or validate the implementation.
+External family packages subtype `AbstractModelFamily`, provide `default_components`, `default_processes`, and `parameter_definitions`, and identify their recipes with `family_id`. Family-level scientific properties that are not inputs to an individual process equation are declared separately with `setting_definitions` and `ModelSetting`; examples include elemental or diagnostic ratios used by an integration layer. User-facing constructors translate family-specific keywords into `plankton_pfts`, process `parameter_overrides`, and optional `setting_overrides`, then call `Construction.construct(family; ...)`. `normalize_pft_size_structure` resolves the named-family `(n=0,)` shorthand before size validation. Recipes are captured with `capture_model_recipe`, the durable schema identifier is available through `recipe_schema`, and replay explicitly selects the provider through `construct(family, recipe)` or `construct_plus_manifest(family, recipe)`. `import_recipe(path)` reads a recipe configuration for replay with the selected family.
 
 ```@docs
 Agate.ModelFamilies.ModelSetting

@@ -80,8 +80,7 @@ function _decode_identifier(identifier::Symbol, decoder, path, kind)
     end
 end
 
-# Narrow codec for authored parameter values. The durable recipe intentionally does not
-# serialize arbitrary Julia values or the component/process definition tree.
+# Encode supported parameter-value types used in durable recipes.
 _encode_parameter_value(x::Nothing, ::AbstractString) = nothing
 _encode_parameter_value(x::Bool, ::AbstractString) = x
 _encode_parameter_value(x::Integer, ::AbstractString) = Int(x)
@@ -377,8 +376,8 @@ end
 
 """Encode model configuration with a deterministic content hash.
 
-The hash does not identify model source code; reproducible execution additionally requires
-the provider package and its resolved Julia environment.
+The hash identifies the configuration. Reproducible execution uses the selected model
+provider and its resolved Julia environment.
 """
 function encode_recipe(recipe::ModelRecipe)
     realization = _encode_realization(recipe)
@@ -390,7 +389,7 @@ function encode_recipe(recipe::ModelRecipe)
     )
 end
 
-"""Decode a recipe independently of provider registration, verifying its content hash.
+"""Decode recipe data and verify its configuration content hash.
 
 Select a model provider explicitly when constructing from the decoded recipe.
 """

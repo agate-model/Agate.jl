@@ -9,9 +9,9 @@ end
 
 """Canonical construction inputs for an explicitly selected model family.
 
-`ModelRecipe` records a family label and configuration, not the model implementation.
+`ModelRecipe` records the family label and canonical construction configuration.
 The selected provider and Julia environment determine the implementation on replay.
-Named mapping insertion order does not affect recipe equality or content hashing.
+Named mapping order is canonicalized for recipe equality and content hashing.
 """
 struct ModelRecipe{PlanktonPFTs,ParameterOverrides,SettingOverrides,SinkingTracers}
     family::Symbol
