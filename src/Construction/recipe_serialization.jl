@@ -14,7 +14,7 @@ recipe_schema() = MODEL_RECIPE_SCHEMA
 const _RECIPE_DOCUMENT_KEYS = (
     "schema", "family", "definition_version", "lineage", "realization", "provenance", "content_hash"
 )
-const _MODEL_PARENT_KEYS = ("family", "definition_version", "parent")
+const _MODEL_ANCESTOR_KEYS = ("family", "definition_version")
 const _REALIZATION_KEYS = (
     "plankton_pfts", "parameter_overrides", "setting_overrides", "sinking_tracers", "open_bottom"
 )
@@ -351,23 +351,20 @@ function _decode_plankton_pfts(x, path)
     return NamedTuple{Tuple(plankton_names)}(Tuple(plankton_values))
 end
 
-_encode_model_parent(::Nothing) = nothing
-function _encode_model_parent(parent::NamedTuple)
-    return Dict{String,Any}(
-        "family" => String(parent.family),
-        "definition_version" => string(parent.definition_version),
-        "parent" => _encode_model_parent(parent.parent),
-    )
-end
+_encode_model_lineage(lineage::Tuple) = Any[
+    Dict{String,Any}(
+        "family" => String(ancestor.first),
+        "definition_version" => string(ancestor.second),
+    ) for ancestor in lineage
+]
 
-function _decode_model_parent(x, path)
-    isnothing(x) && return nothing
-    x = _complete_object(x, _MODEL_PARENT_KEYS, path)
-    return (;
-        family=_symbol(x["family"], "$path.family"),
-        definition_version=_version(x["definition_version"], "$path.definition_version"),
-        parent=_decode_model_parent(x["parent"], "$path.parent"),
-    )
+function _decode_model_lineage(x, path)
+    x isa AbstractVector || throw(ArgumentError("$path must be an array."))
+    return Tuple(begin
+        item = _complete_object(ancestor, _MODEL_ANCESTOR_KEYS, "$path[$i]")
+        _symbol(item["family"], "$path[$i].family") =>
+            _version(item["definition_version"], "$path[$i].definition_version")
+    end for (i, ancestor) in pairs(x))
 end
 
 function _encode_realization(recipe::ModelRecipe)
@@ -409,7 +406,7 @@ end
 """Encode a versioned family recipe with a scientific content hash and package provenance."""
 function encode_recipe(recipe::ModelRecipe)
     realization = _encode_realization(recipe)
-    lineage = _encode_model_parent(recipe.parent)
+    lineage = _encode_model_lineage(recipe.lineage)
     return Dict{String,Any}(
         "schema" => MODEL_RECIPE_SCHEMA,
         "family" => String(recipe.family),
@@ -438,20 +435,19 @@ function decode_recipe(document::AbstractDict)
         document["realization"], _REALIZATION_KEYS, "Recipe document.realization"
     )
     recorded_hash = _string(document["content_hash"], "Recipe document.content_hash")
-    lineage_data = document["lineage"]
-    parent = _decode_model_parent(lineage_data, "Recipe document.lineage")
-    recorded_hash == _recipe_hash(family_id_value, version, _encode_model_parent(parent), realization_data) || throw(
+    lineage = _decode_model_lineage(document["lineage"], "Recipe document.lineage")
+    recorded_hash == _recipe_hash(family_id_value, version, _encode_model_lineage(lineage), realization_data) || throw(
         ArgumentError("Recipe document.content_hash does not match the serialized recipe content.")
     )
 
-    family = _resolve_recipe_family(family_id_value, version, parent)
+    family = _resolve_recipe_family(family_id_value, version, lineage)
 
     realization = _decode_realization(realization_data, "Recipe document.realization")
     plankton_pfts = _canonical_recipe_realization(family, realization.plankton_pfts)
     decoded = ModelRecipe(
         family_id_value,
         version,
-        parent,
+        lineage,
         plankton_pfts,
         realization.parameter_overrides,
         realization.setting_overrides,

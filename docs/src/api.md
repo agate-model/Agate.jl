@@ -197,8 +197,9 @@ Named model families add stable code identity and durable recipe replay around t
 
 External family packages subtype `AbstractModelFamily`, provide `default_components`, `default_processes`, `definition_version`, and `parameter_definitions`, and register durable recipe identity through `family_id` and `registered_family`. Family-level scientific properties that are not inputs to an individual process equation are declared separately with `setting_definitions` and `ModelSetting`; examples include elemental or diagnostic ratios used by an integration layer. User-facing constructors translate family-specific keywords into `plankton_pfts`, process `parameter_overrides`, and optional `setting_overrides`, then call `Construction.construct(family; ...)`. `normalize_pft_size_structure` provides the shared named-family `(n=0,)` shorthand without weakening core size validation. Recipes are captured with `capture_model_recipe`, the durable schema identifier is available through `recipe_schema`, and replay uses `construct(recipe)` or `construct_plus_manifest(recipe)`.
 
-An optional `parent_model(family)` hook declares versioned scientific ancestry; root families
-return `nothing`, and derived families can supply nested parent references. The lineage is part
+An optional `model_lineage(family)` hook declares versioned scientific ancestry; root families
+return `()`, and derived families supply a tuple of pinned `:Family => v"1.0.0"` ancestors,
+from immediate parent to oldest. The lineage is part
 of recipe identity and is checked against the registered family on replay. Historical parents
 need not be installed. Changing the declared ancestry requires a new scientific
 `definition_version`. `export_model_release(directory, recipe)` saves the recipe JSON with the active Julia
@@ -231,7 +232,7 @@ Agate.Construction.import_recipe
 Agate.Construction.export_model_release
 Agate.ModelFamilies.AbstractModelFamily
 Agate.ModelFamilies.definition_version
-Agate.ModelFamilies.parent_model
+Agate.ModelFamilies.model_lineage
 Agate.Parameters.parameter_definitions
 Agate.ModelFamilies.default_components
 Agate.ModelFamilies.default_processes

@@ -1,7 +1,7 @@
 export default_components
 export default_processes
 export definition_version
-export parent_model
+export model_lineage
 export plankton_roles
 export ModelSetting
 export setting_definitions
@@ -62,15 +62,14 @@ function default_processes(::AbstractModelFamily)
     )
 end
 
-"""Return the optional, versioned scientific parent of a model family.
+"""Return versioned scientific ancestors, from immediate parent to oldest ancestor.
 
-Return `nothing` for a root family or a named tuple such as
-`(family=:Parent, definition_version=v"1.0.0")`. An optional nested `parent`
-field records earlier ancestors without requiring their packages to be installed.
-Ancestry is validated when a model recipe is captured. Changing the declared
-parent changes recipe identity and requires a new `definition_version`.
+Root families return `()`. Derived families declare a tuple of pinned identities, e.g.
+`(:Parent => v"1.0.0", :Original => v"0.2.0")`. Historical ancestors need not
+be installed. Changing the lineage changes recipe identity and requires a new
+`definition_version`.
 """
-parent_model(::AbstractModelFamily) = nothing
+model_lineage(::AbstractModelFamily) = ()
 
 """Scientific definition version for a named model family.
 

@@ -1,5 +1,5 @@
 using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe, export_model_release
-using Agate.ModelFamilies: AbstractModelFamily, definition_version, parent_model
+using Agate.ModelFamilies: definition_version
 using Agate.Library.Allometry: AllometricParam, SplitPowerLaw
 using Agate.Models: NiPiZD
 using OceanBioME: BoxModelGrid
@@ -34,22 +34,6 @@ explicit_json_value(::Any) = false
     sanitized = Agate.Construction._sanitize_repository_url(url)
     @test !any(secret -> occursin(secret, sanitized), ("user", "token", "secret"))
 end
-
-# Minimal fixture for author-declared ancestry, independent of model implementation.
-struct AncestryFixture{P} <: AbstractModelFamily
-    parent::P
-end
-Agate.Construction.family_id(::AncestryFixture) = :AncestryFixture
-Agate.ModelFamilies.definition_version(::AncestryFixture) = v"0.3.0"
-Agate.ModelFamilies.parent_model(family::AncestryFixture) = family.parent
-const ANCESTRY_CHAIN = (
-    family=:Parent, definition_version=v"0.2.0",
-    parent=(family=:Original, definition_version=v"0.1.0"),
-)
-Agate.ModelFamilies.default_components(::AncestryFixture) =
-    Agate.ModelFamilies.default_components(NiPiZD.NiPiZDFamily())
-Agate.Construction.registered_family(::Val{:AncestryFixture}) =
-    AncestryFixture(ANCESTRY_CHAIN)
 
 @testset "Portable model release validation" begin
     recipe = Agate.Construction.capture_model_recipe(
@@ -87,7 +71,7 @@ Agate.Construction.registered_family(::Val{:AncestryFixture}) =
     mktempdir() do workspace
         destination = joinpath(workspace, "invalid-release")
         bad = Agate.Construction.ModelRecipe(
-            recipe.family, v"0.2.1", recipe.parent, recipe.plankton_pfts,
+            recipe.family, v"0.2.1", recipe.lineage, recipe.plankton_pfts,
             recipe.parameter_overrides, recipe.setting_overrides,
             recipe.sinking_tracers, recipe.open_bottom,
         )
@@ -98,94 +82,13 @@ Agate.Construction.registered_family(::Val{:AncestryFixture}) =
         write(io, "previous recipe")
         flush(io)
         invalid = Agate.Construction.ModelRecipe(
-            recipe.family, recipe.definition_version, recipe.parent, recipe.plankton_pfts,
+            recipe.family, recipe.definition_version, recipe.lineage, recipe.plankton_pfts,
             (unsupported=Dict(:unexpected => 1),), recipe.setting_overrides,
             recipe.sinking_tracers, recipe.open_bottom,
         )
         @test_throws ArgumentError export_recipe(path, invalid)
         @test read(path, String) == "previous recipe"
     end
-end
-
-@testset "Model family ancestry" begin
-    ancestry(parent) = Agate.Construction._family_parent(AncestryFixture(parent))
-    @test parent_model(NiPiZD.NiPiZDFamily()) === nothing
-    @test ancestry(nothing) === nothing
-
-    declared = (
-        definition_version=v"0.2.0", family=:Parent,
-        parent=(definition_version=v"0.1.0", family=:Original),
-    )
-    @test ancestry(declared) == (
-        family=:Parent, definition_version=v"0.2.0",
-        parent=(family=:Original, definition_version=v"0.1.0", parent=nothing),
-    )
-    @test ancestry((family=:AncestryFixture, definition_version=v"0.2.0")) == (
-        family=:AncestryFixture, definition_version=v"0.2.0", parent=nothing,
-    )
-
-    # Use valid PFTs so rejection establishes invalid ancestry, not an unrelated input error.
-    capture(parent) = Agate.Construction.capture_model_recipe(
-        AncestryFixture(parent); plankton_pfts=(P=(diat=nothing,), Z=(microzoo=nothing,))
-    )
-    for invalid in (
-        (family=:Parent,),
-        (family=:Parent, definition_version="0.2.0"),
-        (:Parent, v"0.2.0"),
-        (family=:Parent, definition_version=v"0.2.0", unexpected=true),
-        (family=:Parent, definition_version=v"0.2.0",
-         parent=(family=:Parent, definition_version=v"0.2.0")),
-        (family=:AncestryFixture, definition_version=v"0.3.0"),
-    )
-        @test_throws ArgumentError capture(invalid)
-    end
-    @test occursin("repeats family", argument_error_message(() ->
-        capture((family=:AncestryFixture, definition_version=v"0.3.0"))
-    ))
-end
-
-@testset "Recipe lineage identity and replay" begin
-    family = Agate.Construction.registered_family(Val(:AncestryFixture))
-    recipe = Agate.Construction.capture_model_recipe(
-        family; plankton_pfts=(P=(diat=nothing,), Z=(microzoo=nothing,))
-    )
-    document = encode_recipe(recipe)
-    @test recipe.parent == Agate.Construction._family_parent(family)
-    @test document["lineage"]["parent"]["family"] == "Original"
-    @test document["lineage"]["parent"]["parent"] === nothing
-    @test decode_recipe(document) == recipe
-    @test Agate.Construction.replay_family(recipe) isa AncestryFixture
-    mktemp() do path, io
-        close(io)
-        export_recipe(path, recipe)
-        @test import_recipe(path) == recipe # Non-null nested lineage survives real JSON I/O.
-    end
-
-    reordered_family = AncestryFixture((
-        definition_version=v"0.2.0", family=:Parent,
-        parent=(definition_version=v"0.1.0", family=:Original),
-    ))
-    @test encode_recipe(Agate.Construction.capture_model_recipe(
-        reordered_family; plankton_pfts=recipe.plankton_pfts
-    ))["content_hash"] == document["content_hash"]
-
-    changed = modified(document) do x
-        x["lineage"]["parent"]["family"] = "Other"
-    end
-    @test_throws "content_hash does not match" decode_recipe(changed)
-    noncanonical = rehashed(document) do x
-        x["lineage"]["definition_version"] = "0.2"
-    end
-    @test_throws "content_hash does not match" decode_recipe(noncanonical)
-    rehash!(changed)
-    @test_throws "lineage" decode_recipe(changed) # Valid hash, wrong loaded ancestry.
-
-    altered = Agate.Construction.ModelRecipe(
-        recipe.family, recipe.definition_version, nothing, recipe.plankton_pfts,
-        recipe.parameter_overrides, recipe.setting_overrides,
-        recipe.sinking_tracers, recipe.open_bottom,
-    )
-    @test_throws ArgumentError Agate.Construction.replay_family(altered)
 end
 
 @testset "NiPiZD versioned family recipes" begin
@@ -221,7 +124,7 @@ end
     @test encoded["schema"] == Agate.Construction.recipe_schema() == "agate.model_recipe.v0.3"
     @test encoded["family"] == "NiPiZD"
     @test encoded["definition_version"] == "0.2.0"
-    @test encoded["lineage"] === recipe.parent === nothing
+    @test encoded["lineage"] == Any[] && isempty(recipe.lineage)
     @test Set(keys(encoded["realization"])) == Set((
         "plankton_pfts",
         "parameter_overrides",
@@ -291,7 +194,7 @@ end
     unsized_recipe = Agate.Construction.ModelRecipe(
         recipe.family,
         recipe.definition_version,
-        recipe.parent,
+        recipe.lineage,
         merge(recipe.plankton_pfts, (P=(diat=nothing,),)),
         recipe.parameter_overrides,
         recipe.setting_overrides,
@@ -373,7 +276,7 @@ end
     bumped_recipe = Agate.Construction.ModelRecipe(
         recipe.family,
         v"0.2.1",
-        recipe.parent,
+        recipe.lineage,
         recipe.plankton_pfts,
         recipe.parameter_overrides,
         recipe.setting_overrides,
@@ -413,7 +316,7 @@ end
          "sinking_tracers.P_1"),
     )
         invalid = Agate.Construction.ModelRecipe(
-            recipe.family, recipe.definition_version, recipe.parent, recipe.plankton_pfts,
+            recipe.family, recipe.definition_version, recipe.lineage, recipe.plankton_pfts,
             params, settings, sinking, recipe.open_bottom,
         )
         @test_throws path encode_recipe(invalid)

@@ -1,4 +1,4 @@
-using ..ModelFamilies: AbstractModelFamily, definition_version, default_components, parent_model
+using ..ModelFamilies: AbstractModelFamily, definition_version, default_components, model_lineage
 using ..Parameters: DerivedDefault
 using ..Components: ModelLayout, canonicalize_plankton_realization, diameter_metadata
 
@@ -12,59 +12,41 @@ function registered_family(::Val{Family}) where {Family}
     throw(ArgumentError("Unsupported recipe model family $(repr(String(Family)))."))
 end
 
-# Normalize authored ancestry to a single, pinned representation.
-function _canonical_model_parent(parent, ancestors::Tuple)
-    isnothing(parent) && return nothing
-    parent isa NamedTuple || throw(ArgumentError("Model parent must be a NamedTuple or nothing."))
-    allowed = (:family, :definition_version, :parent)
-    (:family in keys(parent) && :definition_version in keys(parent) &&
-     all(key -> key in allowed, keys(parent))) || throw(ArgumentError(
-        "Model parent requires :family, :definition_version, and optional :parent.",
-    ))
-    family, version = parent.family, parent.definition_version
-    (family isa Symbol && version isa VersionNumber) || throw(ArgumentError(
-        "Model parent family must be a Symbol and definition_version a VersionNumber.",
-    ))
-    (family, version) in ancestors && throw(ArgumentError(
-        "Model ancestry repeats family :$family at definition version $version.",
-    ))
-    previous = hasproperty(parent, :parent) ? parent.parent : nothing
-    return (;
-        family, definition_version=version,
-        parent=_canonical_model_parent(previous, (ancestors..., (family, version))),
-    )
+function _check_model_lineage(family::Symbol, version::VersionNumber, lineage)
+    lineage isa Tuple && all(ancestor -> ancestor isa Pair{Symbol,VersionNumber}, lineage) ||
+        throw(ArgumentError("Model lineage must be a tuple of Symbol => VersionNumber pairs."))
+    identities = (family => version, lineage...)
+    length(unique(identities)) == length(identities) ||
+        throw(ArgumentError("Model lineage repeats a family and definition version."))
+    return lineage
 end
-
-_family_parent(family::AbstractModelFamily) = _canonical_model_parent(
-    parent_model(family), ((family_id(family), definition_version(family)),),
-)
 
 """Versioned registered-family recipe captured before runtime realization.
 
 `ModelRecipe` stores only the registered family identity, its exact scientific
-`definition_version`, author-declared ancestry, and canonical construction inputs,
+`definition_version`, author-declared lineage, and canonical construction inputs,
 including separate process-parameter and model-setting overrides. `==`, `isequal`, `hash`, and content
 hashing share that scientific identity; named mapping insertion order is ignored. Components,
 processes, parameter definitions, runtime precision, host fields, and compiled equations are
 supplied by the loaded family implementation on replay.
 """
-struct ModelRecipe{Parent,PlanktonPFTs,ParameterOverrides,SettingOverrides,SinkingTracers}
+struct ModelRecipe{Lineage,PlanktonPFTs,ParameterOverrides,SettingOverrides,SinkingTracers}
     family::Symbol
     definition_version::VersionNumber
-    parent::Parent
+    lineage::Lineage
     plankton_pfts::PlanktonPFTs
     parameter_overrides::ParameterOverrides
     setting_overrides::SettingOverrides
     sinking_tracers::SinkingTracers
     open_bottom::Bool
 
-    function ModelRecipe(family::Symbol, definition_version::VersionNumber, parent,
+    function ModelRecipe(family::Symbol, definition_version::VersionNumber, lineage,
                          plankton_pfts, parameter_overrides, setting_overrides,
                          sinking_tracers, open_bottom::Bool)
-        parent = _canonical_model_parent(parent, ((family, definition_version),))
-        return new{typeof(parent), typeof(plankton_pfts), typeof(parameter_overrides),
+        _check_model_lineage(family, definition_version, lineage)
+        return new{typeof(lineage), typeof(plankton_pfts), typeof(parameter_overrides),
                    typeof(setting_overrides), typeof(sinking_tracers)}(
-            family, definition_version, parent, plankton_pfts, parameter_overrides,
+            family, definition_version, lineage, plankton_pfts, parameter_overrides,
             setting_overrides, sinking_tracers, open_bottom,
         )
     end
@@ -105,7 +87,7 @@ _recipe_identity(family::Symbol, definition_version::VersionNumber, lineage, rea
 )
 _recipe_identity(recipe::ModelRecipe) = _recipe_identity(
     recipe.family, recipe.definition_version,
-    recipe.parent, _encode_realization(recipe)
+    recipe.lineage, _encode_realization(recipe)
 )
 
 _manifest_identity(manifest::ModelManifest) = (;
@@ -154,12 +136,12 @@ function capture_model_recipe(
     version isa VersionNumber || throw(
         ArgumentError("definition_version must return a VersionNumber; got $(typeof(version)).")
     )
-    parent = parent_model(family)
+    lineage = model_lineage(family)
     plankton_pfts = _canonical_recipe_realization(family, plankton_pfts)
     return ModelRecipe(
         family_id_value,
         version,
-        parent,
+        lineage,
         deepcopy(plankton_pfts),
         deepcopy(parameter_overrides),
         deepcopy(setting_overrides),
@@ -176,7 +158,7 @@ _family_realization(recipe::ModelRecipe) = (;
     open_bottom=recipe.open_bottom,
 )
 
-function _resolve_recipe_family(family_id_value::Symbol, version::VersionNumber, parent)
+function _resolve_recipe_family(family_id_value::Symbol, version::VersionNumber, lineage)
     family = registered_family(Val(family_id_value))
     loaded_family_id = family_id(family)
     loaded_family_id === family_id_value || throw(
@@ -192,16 +174,16 @@ function _resolve_recipe_family(family_id_value::Symbol, version::VersionNumber,
             "$family_id_value definition_version $loaded_version."
         )
     )
-    loaded_parent = _family_parent(family)
-    parent == loaded_parent || throw(ArgumentError(
-        "Recipe lineage $parent does not match loaded family :$family_id_value lineage $loaded_parent."
+    loaded_lineage = _check_model_lineage(family_id_value, loaded_version, model_lineage(family))
+    lineage == loaded_lineage || throw(ArgumentError(
+        "Recipe lineage $lineage does not match loaded family :$family_id_value lineage $loaded_lineage."
     ))
     return family
 end
 
 """Return the registered model family after checking scientific identity and ancestry."""
 replay_family(recipe::ModelRecipe) = _resolve_recipe_family(
-    recipe.family, recipe.definition_version, recipe.parent
+    recipe.family, recipe.definition_version, recipe.lineage
 )
 
 """Capture the resolved deterministic state of a constructed model."""
