@@ -1,4 +1,4 @@
-using ..ModelFamilies: AbstractModelFamily, definition_version, default_components
+using ..ModelFamilies: AbstractModelFamily, default_components
 using ..Parameters: DerivedDefault
 using ..Components: ModelLayout, canonicalize_plankton_realization, diameter_metadata
 
@@ -7,23 +7,14 @@ function family_id(family::AbstractModelFamily)
     throw(ArgumentError("Recipe support is not implemented for $(typeof(family))."))
 end
 
-"""Return the registered model-family token identified by `family`."""
-function registered_family(::Val{Family}) where {Family}
-    throw(ArgumentError("Unsupported recipe model family $(repr(String(Family)))."))
-end
+"""Canonical construction inputs for an explicitly selected model family.
 
-"""Versioned registered-family recipe captured before runtime realization.
-
-`ModelRecipe` stores only the registered family identity, its exact scientific
-`definition_version`, and canonical construction inputs, including separate process-parameter
-and model-setting overrides. `==`, `isequal`, `hash`, and content
-hashing share that scientific identity; named mapping insertion order is ignored. Components,
-processes, parameter definitions, runtime precision, host fields, and compiled equations are
-supplied by the loaded family implementation on replay.
+`ModelRecipe` records the family label and canonical construction configuration.
+The selected provider and Julia environment determine the implementation on replay.
+Named mapping order is canonicalized for recipe equality and content hashing.
 """
 struct ModelRecipe{PlanktonPFTs,ParameterOverrides,SettingOverrides,SinkingTracers}
     family::Symbol
-    definition_version::VersionNumber
     plankton_pfts::PlanktonPFTs
     parameter_overrides::ParameterOverrides
     setting_overrides::SettingOverrides
@@ -61,11 +52,9 @@ struct ModelManifest{
     scalar_type::Type{ScalarType}
 end
 
-_recipe_identity(family::Symbol, definition_version::VersionNumber, realization) = (;
-    family, definition_version, realization
-)
+_recipe_identity(family::Symbol, realization) = (; family, realization)
 _recipe_identity(recipe::ModelRecipe) = _recipe_identity(
-    recipe.family, recipe.definition_version, _encode_realization(recipe)
+    recipe.family, _encode_realization(recipe)
 )
 
 _manifest_identity(manifest::ModelManifest) = (;
@@ -110,14 +99,9 @@ function capture_model_recipe(
     family_id_value isa Symbol || throw(
         ArgumentError("family_id must return a Symbol; got $(typeof(family_id_value)).")
     )
-    version = definition_version(family)
-    version isa VersionNumber || throw(
-        ArgumentError("definition_version must return a VersionNumber; got $(typeof(version)).")
-    )
     plankton_pfts = _canonical_recipe_realization(family, plankton_pfts)
     return ModelRecipe(
         family_id_value,
-        version,
         deepcopy(plankton_pfts),
         deepcopy(parameter_overrides),
         deepcopy(setting_overrides),
@@ -134,28 +118,14 @@ _family_realization(recipe::ModelRecipe) = (;
     open_bottom=recipe.open_bottom,
 )
 
-function _resolve_recipe_family(family_id_value::Symbol, version::VersionNumber)
-    family = registered_family(Val(family_id_value))
-    loaded_family_id = family_id(family)
-    loaded_family_id === family_id_value || throw(
-        ArgumentError(
-            "Registered recipe family $(repr(family_id_value)) resolves to family id " *
-            "$(repr(loaded_family_id))."
-        )
-    )
-    loaded_version = definition_version(family)
-    version == loaded_version || throw(
-        ArgumentError(
-            "Recipe definition_version $version does not match loaded " *
-            "$family_id_value definition_version $loaded_version."
-        )
-    )
+"""Verify that a recipe belongs to the explicitly selected model family."""
+function _check_recipe_family(family::AbstractModelFamily, recipe::ModelRecipe)
+    selected = family_id(family)
+    selected === recipe.family || throw(ArgumentError(
+        "Recipe family $(repr(recipe.family)) does not match selected family $(repr(selected))."
+    ))
     return family
 end
-
-"""Return the registered model family used to replay `recipe` after identity/version checks."""
-replay_family(recipe::ModelRecipe) =
-    _resolve_recipe_family(recipe.family, recipe.definition_version)
 
 """Capture the resolved deterministic state of a constructed model."""
 function capture_model_manifest(

@@ -106,21 +106,17 @@ Replay a NiPiZD recipe in the supplied runtime environment.
 function construct(
     recipe::Construction.ModelRecipe; grid=BoxModelGrid(), arch=nothing, scalar_type=nothing
 )
-    recipe.family == :NiPiZD || throw(
-        ArgumentError("NiPiZD.construct requires a NiPiZD recipe; got family $(recipe.family)"),
-    )
-    return Construction.construct(recipe; grid, arch, scalar_type)
+    return Construction.construct(NiPiZDFamily(), recipe; grid, arch, scalar_type)
 end
 
 
 """
     construct_plus_recipe(; kw...) -> bgc, recipe
 
-Construct NiPiZD and return the model together with its versioned family recipe.
-The recipe records the registered family version, PFT size realization, authored
-parameter overrides, sinking configuration, and open-bottom state. Runtime grid,
-architecture, scalar precision, components, processes, and compiled equations are supplied
-when the recipe is realized.
+Construct NiPiZD and return the model together with its construction recipe.
+The recipe records PFT size realization, authored parameter overrides, sinking
+configuration, and open-bottom state. The selected family and Julia environment supply
+the model implementation on replay.
 """
 function construct_plus_recipe(; kwargs...)
     inputs = _construction_inputs(; kwargs...)

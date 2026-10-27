@@ -70,7 +70,7 @@ end
     construct_plus_recipe(; kwargs...) -> plankton, recipe
 
 Construct FrankenLOBSTER with the same keywords as `construct` and return its
-versioned `ModelRecipe`.
+`ModelRecipe`.
 The recipe records canonical PFT realization, biological parameter and model-setting
 overrides, and sinking configuration. Replay supplies the grid, architecture, and scalar
 type separately.
@@ -87,14 +87,13 @@ end
               scalar_type=nothing) -> NPDPlankton
 
 Replay a FrankenLOBSTER recipe into an OceanBioME-compatible plankton component.
-The recipe family and scientific definition version are verified before construction.
+The recipe family is checked against the explicitly selected model before construction.
 Provide a `grid` when the recipe configures sinking tracers.
 """
 function construct(
     recipe::Construction.ModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
 )
-    recipe.family == :FrankenLOBSTER || throw(ArgumentError(
-        "FrankenLOBSTER.construct requires a FrankenLOBSTER recipe; got $(recipe.family)"
-    ))
-    return Integrations.construct_npd_plankton(recipe; grid, arch, scalar_type)
+    return Integrations.construct_npd_plankton(
+        FrankenLOBSTERFamily(), recipe; grid, arch, scalar_type
+    )
 end

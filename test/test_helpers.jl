@@ -189,7 +189,7 @@ function nipizd_manifest(
     scalar_type=nothing,
 )
     _, manifest = Agate.Construction.construct_plus_manifest(
-        recipe; grid, arch, scalar_type
+        Agate.Models.NiPiZD.NiPiZDFamily(), recipe; grid, arch, scalar_type
     )
     return manifest
 end

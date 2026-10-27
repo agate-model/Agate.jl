@@ -1,4 +1,4 @@
-"""Model construction utilities for authored and registered biogeochemistry models."""
+"""Model construction utilities for authored and provided biogeochemistry models."""
 module Construction
 
 import Oceananigans
@@ -12,7 +12,7 @@ export encode_recipe, decode_recipe, export_recipe, import_recipe
 include("settings.jl")
 include("recipe.jl")
 include("recipe_serialization.jl")
-include("recipe_provenance.jl")
+include("recipe_hash.jl")
 include("biogeochemistry.jl")
 include("parameter_realization.jl")
 include("construct.jl")

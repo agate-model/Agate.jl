@@ -289,7 +289,7 @@ _require_npd_grid(sinking_tracers, grid) =
     !isnothing(sinking_tracers) && isnothing(grid) ?
         throw(ArgumentError("grid is required when `sinking_tracers` are configured")) : nothing
 
-"""Construct a registered Agate family directly as an OceanBioME NPD plankton component."""
+"""Construct an Agate model family directly as an OceanBioME NPD plankton component."""
 function construct_npd_plankton(
     family::AbstractModelFamily;
     plankton_pfts::NamedTuple,
@@ -343,18 +343,14 @@ function construct_npd_plankton_plus_recipe(
     return _wrap_npd_runtime(family, runtime), recipe
 end
 
-"""Replay a registered Agate family recipe directly as an OceanBioME NPD plankton component."""
+"""Replay an Agate recipe as an OceanBioME NPD component using an explicit family."""
 function construct_npd_plankton(
-    recipe::Construction.ModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
+    family::AbstractModelFamily, recipe::Construction.ModelRecipe;
+    grid=nothing, arch=nothing, scalar_type=nothing
 )
-    family = Construction.replay_family(recipe)
+    Construction._check_recipe_family(family, recipe)
     _require_npd_grid(recipe.sinking_tracers, grid)
-    runtime = Construction.construct(
-        recipe;
-        grid,
-        arch,
-        scalar_type,
-    )
+    runtime = Construction.construct(family, recipe; grid, arch, scalar_type)
     return _wrap_npd_runtime(family, runtime)
 end
 

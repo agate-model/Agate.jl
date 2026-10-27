@@ -5,15 +5,13 @@ using ...Processes:
     Smith, Monod, PreferentialGrazing, LinearMortality, QuadraticMortality,
     LinearRemineralization
 
-import ...ModelFamilies: default_components, default_processes, definition_version, plankton_roles
-import ...Construction: family_id, registered_family
+import ...ModelFamilies: default_components, default_processes, plankton_roles
+import ...Construction: family_id
 
 """Registered family for the size-structured NiPiZD model."""
 struct NiPiZDFamily <: AbstractModelFamily end
 
 family_id(::NiPiZDFamily) = :NiPiZD
-registered_family(::Val{:NiPiZD}) = NiPiZDFamily()
-definition_version(::NiPiZDFamily)::VersionNumber = v"0.2.0"
 plankton_roles(::NiPiZDFamily) = (phytoplankton=:P, zooplankton=:Z)
 
 const DEFAULT_SIZE_STRUCTURE = (

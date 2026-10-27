@@ -1,5 +1,4 @@
 using Agate.Construction: decode_recipe, encode_recipe, export_recipe, import_recipe
-using Agate.ModelFamilies: definition_version
 using Agate.Library.Allometry: AllometricParam, SplitPowerLaw
 using Agate.Models: NiPiZD
 using OceanBioME: BoxModelGrid
@@ -14,9 +13,8 @@ end
 
 function rehash!(document)
     family = Symbol(document["family"])
-    version = VersionNumber(document["definition_version"])
     document["content_hash"] = Agate.Construction._recipe_hash(
-        family, version, document["realization"]
+        family, document["realization"]
     )
     return document
 end
@@ -29,15 +27,20 @@ explicit_json_value(x::Dict{String,Any}) = all(explicit_json_value, values(x))
 explicit_json_value(x::Vector{Any}) = all(explicit_json_value, x)
 explicit_json_value(::Any) = false
 
-@testset "Recipe provenance does not retain URL credentials" begin
-    url = "https://user:token@example.com/org/repo.git?access_token=secret#fragment"
-    sanitized = Agate.Construction._sanitize_repository_url(url)
-    @test !any(secret -> occursin(secret, sanitized), ("user", "token", "secret"))
-end
+# A second provider with the same family label but a different scientific default.
+struct AlternativeNiPiZDFamily <: Agate.ModelFamilies.AbstractModelFamily end
+Agate.Construction.family_id(::AlternativeNiPiZDFamily) = :NiPiZD
+Agate.ModelFamilies.default_components(::AlternativeNiPiZDFamily) =
+    Agate.ModelFamilies.default_components(NiPiZD.NiPiZDFamily())
+Agate.ModelFamilies.default_processes(::AlternativeNiPiZDFamily) =
+    Agate.ModelFamilies.default_processes(NiPiZD.NiPiZDFamily())
+Agate.Parameters.parameter_definitions(::AlternativeNiPiZDFamily) = merge(
+    Agate.Parameters.parameter_definitions(NiPiZD.NiPiZDFamily()),
+    (detritus_remineralization=Agate.Parameters.Parameter(1e-5),),
+)
 
-@testset "NiPiZD versioned family recipes" begin
+@testset "NiPiZD family recipes" begin
     family = NiPiZD.NiPiZDFamily()
-    @test definition_version(family) == v"0.2.0"
     direct = NiPiZD.construct(; grid=BoxModelGrid(Float32))
     with_recipe, default_recipe = NiPiZD.construct_plus_recipe(; grid=BoxModelGrid(Float32))
     family_constructed = Agate.Construction.construct(family;
@@ -48,6 +51,12 @@ end
     @test required_biogeochemical_tracers(replayed_default) == required_biogeochemical_tracers(direct)
     @test required_biogeochemical_tracers(family_constructed) == required_biogeochemical_tracers(direct)
     @test family_constructed.parameters == with_recipe.parameters == direct.parameters == replayed_default.parameters
+    alternate = Agate.Construction.construct(
+        AlternativeNiPiZDFamily(), default_recipe; grid=BoxModelGrid(Float32)
+    )
+    @test alternate.parameters.detritus_remineralization == Float32(1e-5)
+    @test alternate.parameters.detritus_remineralization !=
+          replayed_default.parameters.detritus_remineralization
 
     inputs = authored_nipizd_inputs(Float32)
     bgc, recipe = NiPiZD.construct_plus_recipe(; inputs...)
@@ -56,17 +65,9 @@ end
     decoded = decode_recipe(encoded)
     decoded_manifest = nipizd_manifest(decoded; scalar_type=Float32)
 
-    @test Set(keys(encoded)) == Set((
-        "schema",
-        "family",
-        "definition_version",
-        "realization",
-        "provenance",
-        "content_hash",
-    ))
-    @test encoded["schema"] == Agate.Construction.recipe_schema() == "agate.model_recipe.v0.2"
+    @test Set(keys(encoded)) == Set(("schema", "family", "realization", "content_hash"))
+    @test encoded["schema"] == Agate.Construction.recipe_schema() == "agate.model_recipe.v0.3"
     @test encoded["family"] == "NiPiZD"
-    @test encoded["definition_version"] == "0.2.0"
     @test Set(keys(encoded["realization"])) == Set((
         "plankton_pfts",
         "parameter_overrides",
@@ -74,16 +75,11 @@ end
         "sinking_tracers",
         "open_bottom",
     ))
-    @test !haskey(encoded, "model")
-    @test !haskey(encoded, "recipe")
     @test explicit_json_value(encoded)
     @test startswith(encoded["content_hash"], "sha256:")
     @test length(encoded["content_hash"]) == 71
-    @test encoded["provenance"]["agate"]["package"] == "Agate"
-    @test encoded["provenance"]["agate"]["version"] == string(Base.pkgversion(Agate))
 
     @test recipe.family === :NiPiZD
-    @test recipe.definition_version == definition_version(family)
     @test keys(recipe.plankton_pfts) == (:P, :Z)
     @test keys(recipe.plankton_pfts.P) == (:diat,)
     @test keys(recipe.plankton_pfts.Z) == (:microzoo,)
@@ -118,6 +114,20 @@ end
     @test Dict(recipe_a => :same)[recipe_b] === :same
     @test encode_recipe(recipe_a)["content_hash"] == encode_recipe(recipe_b)["content_hash"]
 
+    reordered = modified(encode_recipe(recipe_a)) do document
+        reverse!(document["realization"]["plankton_pfts"]["P"]["small"]["diameters"])
+    end
+    @test encode_recipe(decode_recipe(reordered)) == encode_recipe(recipe_a)
+    @test_throws r"content_hash" decode_recipe(rehash!(reordered))
+    invalid_diameters = rehashed(encode_recipe(recipe_a)) do document
+        document["realization"]["plankton_pfts"]["P"]["small"]["diameters"][1] = 0.0
+    end
+    @test_throws r"positive" decode_recipe(invalid_diameters)
+    invalid_range = rehashed(encode_recipe(default_recipe)) do document
+        document["realization"]["plankton_pfts"]["P"]["P"]["n"] = 1
+    end
+    @test_throws r"n=1" decode_recipe(invalid_range)
+
     manifest_a, manifest_b = nipizd_manifest(recipe_a), nipizd_manifest(recipe_b)
     @test manifest_a == manifest_b && isequal(manifest_a, manifest_b)
     @test manifest_b in Set([manifest_a])
@@ -137,7 +147,6 @@ end
 
     unsized_recipe = Agate.Construction.ModelRecipe(
         recipe.family,
-        recipe.definition_version,
         merge(recipe.plankton_pfts, (P=(diat=nothing,),)),
         recipe.parameter_overrides,
         recipe.setting_overrides,
@@ -191,47 +200,44 @@ end
         @test import_recipe(path) == recipe
     end
 
-    version_warning = modified(encoded) do x
-        x["provenance"]["agate"]["version"] = "0.9.0"
-    end
-    @test_logs (:warn, r"Agate version differs") decode_recipe(version_warning)
-
     stale_hash = modified(encoded) do x
         x["realization"]["open_bottom"] = !x["realization"]["open_bottom"]
     end
     @test_throws ArgumentError decode_recipe(stale_hash)
 
-    unknown_family = rehashed(encoded) do x
-        x["family"] = "UnknownModel"
+    # A failed serialization must not truncate an existing recipe file.
+    mktemp() do path, io
+        write(io, "original")
+        close(io)
+        invalid = Agate.Construction.ModelRecipe(
+            recipe.family, recipe.plankton_pfts, (unsupported=Dict(:key => 1),),
+            recipe.setting_overrides, recipe.sinking_tracers, recipe.open_bottom,
+        )
+        @test_throws ArgumentError export_recipe(path, invalid)
+        @test read(path, String) == "original"
     end
-    @test_throws ArgumentError decode_recipe(unknown_family)
 
-    missing_version = modified(encoded) do x
-        delete!(x, "definition_version")
+    # Decoding needs no global family registration; the chosen provider verifies identity.
+    other_family = rehashed(encoded) do x
+        x["family"] = "OtherModel"
     end
-    @test_throws ArgumentError decode_recipe(missing_version)
-
-    mismatched_version = rehashed(encoded) do x
-        x["definition_version"] = "0.2.1"
-    end
-    @test_throws ArgumentError decode_recipe(mismatched_version)
-
-    bumped_recipe = Agate.Construction.ModelRecipe(
-        recipe.family,
-        v"0.2.1",
-        recipe.plankton_pfts,
-        recipe.parameter_overrides,
-        recipe.setting_overrides,
-        recipe.sinking_tracers,
-        recipe.open_bottom,
+    @test decode_recipe(other_family).family === :OtherModel
+    @test_throws r"Recipe family" Agate.Construction.construct(
+        family, decode_recipe(other_family)
     )
-    @test encode_recipe(bumped_recipe)["content_hash"] != encoded["content_hash"]
-    @test_throws ArgumentError NiPiZD.construct(bumped_recipe)
+    @test_throws r"Recipe family" NiPiZD.construct(decode_recipe(other_family))
+    generic_replayed = Agate.Construction.construct(
+        family, decoded; grid=BoxModelGrid(Float32)
+    )
+    @test required_biogeochemical_tracers(generic_replayed) ==
+          required_biogeochemical_tracers(replayed)
+    @test generic_replayed.parameters == replayed.parameters
     @test required_biogeochemical_tracers(NiPiZD.construct()) ==
           (:N, :D, :P_1, :P_2, :Z_1, :Z_2)
 
     invalid_schema = modified(encoded) do x
-        x["schema"] = "agate.model_recipe.v0.1"
+        x["schema"] = "agate.model_recipe.v0.2"
+        x["definition_version"] = "0.2.0"
     end
     invalid_realization = rehashed(encoded) do x
         pop!(x["realization"]["plankton_pfts"])
@@ -242,9 +248,14 @@ end
     invalid_matrix = rehashed(encoded) do x
         x["realization"]["parameter_overrides"]["palatability_matrix"][2] = [0.3]
     end
-    for document in (invalid_schema, invalid_realization, invalid_law, invalid_matrix)
+    @test_throws r"Unsupported Agate recipe schema" decode_recipe(invalid_schema)
+    for document in (invalid_law, invalid_matrix)
         @test_throws ArgumentError decode_recipe(document)
     end
+    incomplete_recipe = decode_recipe(invalid_realization)
+    @test_throws r"plankton_pfts must map exactly" Agate.Construction.construct(
+        family, incomplete_recipe
+    )
     @test_throws ArgumentError decode_recipe("not a recipe document")
 
     for (params, settings, sinking, path) in (
@@ -258,7 +269,7 @@ end
          "sinking_tracers.P_1"),
     )
         invalid = Agate.Construction.ModelRecipe(
-            recipe.family, recipe.definition_version, recipe.plankton_pfts,
+            recipe.family, recipe.plankton_pfts,
             params, settings, sinking, recipe.open_bottom,
         )
         @test_throws path encode_recipe(invalid)

@@ -1,19 +1,17 @@
 using JSON
 
-using ..Components: DiameterListSpecification, DiameterRangeSpecification
+using ..Components: DiameterListSpecification, DiameterRangeSpecification, canonicalize_diameters
 using ..Library.Allometry:
     ConstantParam,
     AllometricParam,
     allometric_relationship_identifier,
     allometric_relationship_from_identifier
 
-const MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.2"
+const MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.3"
 
 """Return the durable model-recipe schema identifier supported by this Agate version."""
 recipe_schema() = MODEL_RECIPE_SCHEMA
-const _RECIPE_DOCUMENT_KEYS = (
-    "schema", "family", "definition_version", "realization", "provenance", "content_hash"
-)
+const _RECIPE_DOCUMENT_KEYS = ("schema", "family", "realization", "content_hash")
 const _REALIZATION_KEYS = (
     "plankton_pfts", "parameter_overrides", "setting_overrides", "sinking_tracers", "open_bottom"
 )
@@ -58,15 +56,6 @@ end
 
 _symbol(x, path) = Symbol(_string(x, path))
 
-function _version(x, path)
-    text = _string(x, path)
-    try
-        return VersionNumber(text)
-    catch
-        throw(ArgumentError("$path must be a valid version number."))
-    end
-end
-
 function _finite_float(x::AbstractFloat)
     isfinite(x) || throw(
         ArgumentError("Recipe serialization supports finite floating-point values; got $x.")
@@ -91,8 +80,7 @@ function _decode_identifier(identifier::Symbol, decoder, path, kind)
     end
 end
 
-# Narrow codec for authored parameter values. The durable recipe intentionally does not
-# serialize arbitrary Julia values or the component/process definition tree.
+# Encode supported parameter-value types used in durable recipes.
 _encode_parameter_value(x::Nothing, ::AbstractString) = nothing
 _encode_parameter_value(x::Bool, ::AbstractString) = x
 _encode_parameter_value(x::Integer, ::AbstractString) = Int(x)
@@ -272,7 +260,7 @@ function _decode_diameter_specification(x, path)
             )
             push!(diameters, _finite_float(float(value)))
         end
-        return DiameterListSpecification(diameters)
+        return canonicalize_diameters(diameters; path).specification
     elseif kind == "range"
         _complete_object(x, ("kind", "n", "min_esd", "max_esd", "spacing"), path)
         spacing = _symbol(x["spacing"], "$path.spacing")
@@ -285,12 +273,12 @@ function _decode_diameter_specification(x, path)
             throw(ArgumentError("$path.min_esd must be numeric."))
         max_esd isa Real && !(max_esd isa Bool) ||
             throw(ArgumentError("$path.max_esd must be numeric."))
-        return DiameterRangeSpecification(
+        return canonicalize_diameters(DiameterRangeSpecification(
             _count(x["n"], "$path.n"),
             _finite_float(float(min_esd)),
             _finite_float(float(max_esd)),
             spacing,
-        )
+        ); path).specification
     end
     throw(ArgumentError("$path has unsupported diameter kind $(repr(kind))."))
 end
@@ -386,56 +374,49 @@ function _decode_realization(x, path)
     return (; plankton_pfts, parameter_overrides, setting_overrides, sinking_tracers, open_bottom)
 end
 
-"""Encode a versioned family recipe with a scientific content hash and package provenance."""
+"""Encode model configuration with a deterministic content hash.
+
+The hash identifies the recorded family label and construction inputs.
+Reproducible execution uses the selected model provider and its resolved Julia environment.
+"""
 function encode_recipe(recipe::ModelRecipe)
     realization = _encode_realization(recipe)
     return Dict{String,Any}(
         "schema" => MODEL_RECIPE_SCHEMA,
         "family" => String(recipe.family),
-        "definition_version" => string(recipe.definition_version),
         "realization" => realization,
-        "provenance" => _recipe_provenance(recipe),
-        "content_hash" => _recipe_hash(recipe.family, recipe.definition_version, realization),
+        "content_hash" => _recipe_hash(recipe.family, realization),
     )
 end
 
-"""Decode a recipe document, verifying its hash, family registration, and definition version."""
+"""Decode recipe data and verify its configuration content hash.
+
+Select a model provider explicitly when constructing from the decoded recipe.
+"""
 function decode_recipe(document::AbstractDict)
-    document = _complete_object(document, _RECIPE_DOCUMENT_KEYS, "Recipe document")
-    schema = _string(document["schema"], "Recipe document.schema")
+    schema = _string(_required(document, "schema", "Recipe document"), "Recipe document.schema")
     schema == MODEL_RECIPE_SCHEMA || throw(
         ArgumentError(
             "Unsupported Agate recipe schema $(repr(schema)); supported schema is " *
             "$(repr(MODEL_RECIPE_SCHEMA))."
         )
     )
-
+    document = _complete_object(document, _RECIPE_DOCUMENT_KEYS, "Recipe document")
     family_id_value = _symbol(document["family"], "Recipe document.family")
-    version = _version(document["definition_version"], "Recipe document.definition_version")
-    realization_data = _complete_object(
-        document["realization"], _REALIZATION_KEYS, "Recipe document.realization"
-    )
-    recorded_hash = _string(document["content_hash"], "Recipe document.content_hash")
-    recorded_hash == _recipe_hash(family_id_value, version, realization_data) || throw(
-        ArgumentError("Recipe document.content_hash does not match the serialized recipe content.")
-    )
-
-    family = _resolve_recipe_family(family_id_value, version)
-
-    realization = _decode_realization(realization_data, "Recipe document.realization")
-    plankton_pfts = _canonical_recipe_realization(family, realization.plankton_pfts)
-    decoded = ModelRecipe(
+    realization = _decode_realization(document["realization"], "Recipe document.realization")
+    recipe = ModelRecipe(
         family_id_value,
-        version,
-        plankton_pfts,
+        realization.plankton_pfts,
         realization.parameter_overrides,
         realization.setting_overrides,
         realization.sinking_tracers,
         realization.open_bottom,
     )
-    provenance = _decode_provenance(document["provenance"], "Recipe document.provenance")
-    _check_recipe_provenance(decoded, provenance)
-    return decoded
+    recorded_hash = _string(document["content_hash"], "Recipe document.content_hash")
+    recorded_hash == _recipe_hash(family_id_value, _encode_realization(recipe)) || throw(
+        ArgumentError("Recipe document.content_hash does not match the canonical recipe content.")
+    )
+    return recipe
 end
 
 function decode_recipe(document)
@@ -444,8 +425,9 @@ end
 
 """Write a recipe document to `path` as pretty-printed JSON."""
 function export_recipe(path::AbstractString, recipe::ModelRecipe)
+    document = encode_recipe(recipe)
     open(path, "w") do io
-        JSON.json(io, encode_recipe(recipe); pretty=4, omit_empty=false)
+        JSON.json(io, document; pretty=4, omit_empty=false)
         println(io)
     end
     return path

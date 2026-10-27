@@ -1,7 +1,6 @@
 # # [Model with mixotrophy] (@id mixotrophy)
 #
-# A mixotroph does not need a special component type. `M` is an ordinary
-# `Plankton` that participates in both growth and grazing.
+# A mixotroph is an ordinary `Plankton` that participates in both growth and grazing.
 
 using Agate.Components: Plankton, Pool
 using Agate.Parameters: AllometricPalatability, BroadcastConsumerAcrossResources, ConstructionParameter, DerivedDefault, Parameter
