@@ -83,9 +83,6 @@ Agate.Construction.registered_family(::Val{:AncestryFixture}) =
         write(versioned, "manifest_format = \"2.1\"\n")
         @test Agate.Construction._release_manifest_path(project) == versioned
 
-        destination = joinpath(workspace, "release")
-        @test_throws "active Julia project" export_model_release(destination, recipe; project_path=project)
-        @test !ispath(destination)
     end
     mktempdir() do workspace
         destination = joinpath(workspace, "invalid-release")

@@ -22,19 +22,12 @@ end
 _release_entries(entries::AbstractVector) = entries
 _release_entries(entry) = (entry,)
 
-function _release_project_path(project_path)
-    project_path isa AbstractString || throw(ArgumentError("Activate a Julia project before exporting a model release."))
-    path = String(project_path)
-    if isdir(path)
-        path = joinpath(path, "Project.toml")
-        isfile(path) || (path = joinpath(String(project_path), "JuliaProject.toml"))
-    end
-    isfile(path) || throw(ArgumentError("A model release requires an existing Julia Project.toml."))
-    active = Base.active_project()
-    !isnothing(active) && realpath(path) == realpath(active) || throw(ArgumentError(
-        "Model releases use the active Julia project. Restart Julia with --project=$(dirname(path)) before exporting."
+function _release_project_path()
+    project = Base.active_project()
+    !isnothing(project) && isfile(project) || throw(ArgumentError(
+        "Activate a Julia project with a Project.toml before exporting a model release."
     ))
-    return path
+    return project
 end
 
 function _release_manifest_path(project_path)
@@ -60,8 +53,8 @@ function _release_dependencies(manifest)
 end
 
 # Verify that the selected manifest describes the modules actually loaded in this session.
-function _release_environment(project_path, recipe::ModelRecipe, provenance)
-    project_path = _release_project_path(project_path)
+function _release_environment(recipe::ModelRecipe, provenance)
+    project_path = _release_project_path()
     manifest_path = _release_manifest_path(project_path)
     project, manifest = TOML.parsefile(project_path), TOML.parsefile(manifest_path)
     dependencies = _release_dependencies(manifest)
@@ -110,7 +103,8 @@ function _release_environment(project_path, recipe::ModelRecipe, provenance)
             "The release manifest does not resolve direct dependency $name ($uuid)."
         ))
     end
-    resolved = Pkg.dependencies() # Query the already-active environment, not a second resolver.
+    # Pkg resolves version, source tree, and source path from the selected manifest.
+    resolved = Pkg.dependencies()
     tracked_paths = sort!(String[info.name for info in values(resolved) if info.is_tracking_path])
     isempty(tracked_paths) || throw(ArgumentError(
         "Cannot export a portable model release: local source paths for " * join(tracked_paths, ", ") * "."
@@ -120,21 +114,15 @@ function _release_environment(project_path, recipe::ModelRecipe, provenance)
         label == "provider" && mod === Base.moduleroot(@__MODULE__) && continue
         package_id = Base.PkgId(mod)
         name = String(package_id.name)
-        haskey(project_deps, name) && string(package_id.uuid) == project_deps[name] || throw(ArgumentError(
+        get(project_deps, name, nothing) == string(package_id.uuid) || throw(ArgumentError(
             "The release environment must include the loaded $name package as a direct dependency."
         ))
         info = get(resolved, package_id.uuid, nothing)
         isnothing(info) && throw(ArgumentError("The release environment cannot resolve loaded package $name."))
-        entries = filter(entry -> get(entry, "uuid", nothing) == project_deps[name],
-                         collect(_release_entries(dependencies[name])))
-        entry = only(entries)
-        recorded_version = get(entry, "version", nothing)
-        loaded_version = Base.pkgversion(mod)
-        recorded_version == string(loaded_version) && info.version == loaded_version || throw(ArgumentError(
+        info.version == Base.pkgversion(mod) || throw(ArgumentError(
             "The release manifest does not match the loaded $name version."
         ))
-        tree = get(entry, "git-tree-sha1", nothing)
-        !isnothing(tree) && info.tree_hash == tree || throw(ArgumentError(
+        !isnothing(info.tree_hash) || throw(ArgumentError(
             "The release manifest does not pin the loaded $name source tree."
         ))
         loaded_source = Base.pkgdir(mod)
@@ -159,13 +147,10 @@ end
 The environment must be the active Julia project, with installed package sources matching
 those already loaded. The release contains the selected manifest, checked recipe, and project.
 """
-function export_model_release(directory::AbstractString, recipe::ModelRecipe;
-                              project_path=Base.active_project())
+function export_model_release(directory::AbstractString, recipe::ModelRecipe)
     document = encode_recipe(recipe)
-    decode_recipe(document) # Check the same scientific identity and input contract as import.
-    project, manifest, manifest_name = _release_environment(
-        project_path, recipe, document["provenance"]
-    )
+    decode_recipe(document) # Validate the same scientific contract as import.
+    project, manifest, manifest_name = _release_environment(recipe, document["provenance"])
     destination = abspath(directory)
     if ispath(destination)
         isdir(destination) && !islink(destination) && isempty(readdir(destination)) ||

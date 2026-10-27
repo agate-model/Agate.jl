@@ -57,6 +57,17 @@ struct ModelRecipe{Parent,PlanktonPFTs,ParameterOverrides,SettingOverrides,Sinki
     setting_overrides::SettingOverrides
     sinking_tracers::SinkingTracers
     open_bottom::Bool
+
+    function ModelRecipe(family::Symbol, definition_version::VersionNumber, parent,
+                         plankton_pfts, parameter_overrides, setting_overrides,
+                         sinking_tracers, open_bottom::Bool)
+        parent = _canonical_model_parent(parent, ((family, definition_version),))
+        return new{typeof(parent), typeof(plankton_pfts), typeof(parameter_overrides),
+                   typeof(setting_overrides), typeof(sinking_tracers)}(
+            family, definition_version, parent, plankton_pfts, parameter_overrides,
+            setting_overrides, sinking_tracers, open_bottom,
+        )
+    end
 end
 
 """Resolved deterministic scientific state produced by model construction.
@@ -89,16 +100,12 @@ struct ModelManifest{
     scalar_type::Type{ScalarType}
 end
 
-_canonical_recipe_parent(recipe::ModelRecipe) = _canonical_model_parent(
-    recipe.parent, ((recipe.family, recipe.definition_version),)
-)
-
 _recipe_identity(family::Symbol, definition_version::VersionNumber, lineage, realization) = (;
     family, definition_version, lineage, realization
 )
 _recipe_identity(recipe::ModelRecipe) = _recipe_identity(
     recipe.family, recipe.definition_version,
-    _encode_model_parent(_canonical_recipe_parent(recipe)), _encode_realization(recipe)
+    recipe.parent, _encode_realization(recipe)
 )
 
 _manifest_identity(manifest::ModelManifest) = (;
@@ -147,7 +154,7 @@ function capture_model_recipe(
     version isa VersionNumber || throw(
         ArgumentError("definition_version must return a VersionNumber; got $(typeof(version)).")
     )
-    parent = _family_parent(family)
+    parent = parent_model(family)
     plankton_pfts = _canonical_recipe_realization(family, plankton_pfts)
     return ModelRecipe(
         family_id_value,
@@ -169,7 +176,7 @@ _family_realization(recipe::ModelRecipe) = (;
     open_bottom=recipe.open_bottom,
 )
 
-function _resolve_recipe_family(family_id_value::Symbol, version::VersionNumber)
+function _resolve_recipe_family(family_id_value::Symbol, version::VersionNumber, parent)
     family = registered_family(Val(family_id_value))
     loaded_family_id = family_id(family)
     loaded_family_id === family_id_value || throw(
@@ -185,23 +192,17 @@ function _resolve_recipe_family(family_id_value::Symbol, version::VersionNumber)
             "$family_id_value definition_version $loaded_version."
         )
     )
+    loaded_parent = _family_parent(family)
+    parent == loaded_parent || throw(ArgumentError(
+        "Recipe lineage $parent does not match loaded family :$family_id_value lineage $loaded_parent."
+    ))
     return family
-end
-
-function _check_recipe_parent(parent, family::AbstractModelFamily)
-    _canonical_model_parent(parent, ((family_id(family), definition_version(family)),)) ==
-        _family_parent(family) || throw(ArgumentError(
-            "Recipe lineage does not match loaded family :$(family_id(family))."
-        ))
-    return nothing
 end
 
 """Return the registered model family after checking scientific identity and ancestry."""
-function replay_family(recipe::ModelRecipe)
-    family = _resolve_recipe_family(recipe.family, recipe.definition_version)
-    _check_recipe_parent(recipe.parent, family)
-    return family
-end
+replay_family(recipe::ModelRecipe) = _resolve_recipe_family(
+    recipe.family, recipe.definition_version, recipe.parent
+)
 
 """Capture the resolved deterministic state of a constructed model."""
 function capture_model_manifest(

@@ -409,7 +409,7 @@ end
 """Encode a versioned family recipe with a scientific content hash and package provenance."""
 function encode_recipe(recipe::ModelRecipe)
     realization = _encode_realization(recipe)
-    lineage = _encode_model_parent(_canonical_recipe_parent(recipe))
+    lineage = _encode_model_parent(recipe.parent)
     return Dict{String,Any}(
         "schema" => MODEL_RECIPE_SCHEMA,
         "family" => String(recipe.family),
@@ -444,8 +444,7 @@ function decode_recipe(document::AbstractDict)
     )
 
     parent = _decode_model_parent(lineage_data, "Recipe document.lineage")
-    family = _resolve_recipe_family(family_id_value, version)
-    _check_recipe_parent(parent, family)
+    family = _resolve_recipe_family(family_id_value, version, parent)
 
     realization = _decode_realization(realization_data, "Recipe document.realization")
     plankton_pfts = _canonical_recipe_realization(family, realization.plankton_pfts)
