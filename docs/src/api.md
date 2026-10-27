@@ -197,6 +197,16 @@ Named model families add stable code identity and durable recipe replay around t
 
 External family packages subtype `AbstractModelFamily`, provide `default_components`, `default_processes`, `definition_version`, and `parameter_definitions`, and register durable recipe identity through `family_id` and `registered_family`. Family-level scientific properties that are not inputs to an individual process equation are declared separately with `setting_definitions` and `ModelSetting`; examples include elemental or diagnostic ratios used by an integration layer. User-facing constructors translate family-specific keywords into `plankton_pfts`, process `parameter_overrides`, and optional `setting_overrides`, then call `Construction.construct(family; ...)`. `normalize_pft_size_structure` provides the shared named-family `(n=0,)` shorthand without weakening core size validation. Recipes are captured with `capture_model_recipe`, the durable schema identifier is available through `recipe_schema`, and replay uses `construct(recipe)` or `construct_plus_manifest(recipe)`.
 
+An optional `parent_model(family)` hook declares versioned scientific ancestry; root families
+return `nothing`, and derived families can supply nested parent references. The lineage is part
+of recipe identity and is checked against the registered family on replay. Historical parents
+need not be installed. A reproducible model release pairs the recipe JSON with the **consumer**
+Julia environment's `Project.toml` and `Manifest.toml` to pin Agate, any external model provider,
+and transitive dependencies. Recipes record package provenance, including Git commits for clean
+checkouts; path-based development dependencies should be replaced by registered releases or
+pinned Git revisions before sharing the environment. See the
+[model recipe export example](@ref export_model_recipe).
+
 ```@docs
 Agate.ModelFamilies.ModelSetting
 Agate.ModelFamilies.setting_definitions
@@ -217,6 +227,7 @@ Agate.Construction.export_recipe
 Agate.Construction.import_recipe
 Agate.ModelFamilies.AbstractModelFamily
 Agate.ModelFamilies.definition_version
+Agate.ModelFamilies.parent_model
 Agate.Parameters.parameter_definitions
 Agate.ModelFamilies.default_components
 Agate.ModelFamilies.default_processes

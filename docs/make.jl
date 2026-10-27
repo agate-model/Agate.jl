@@ -26,7 +26,7 @@ examples = [
     "Predator-prey palatability" => "predator_prey_palatability",
     "Comparing phytoplankton light strategies" => "named_pfts",
     "Allometric parameters" => "allometric_relationships",
-    "Exporting a model definition" => "export_model_recipe",
+    "Exporting a model recipe" => "export_model_recipe",
     "FrankenLOBSTER with OceanBioME" => "frankenlobster",
 ]
 

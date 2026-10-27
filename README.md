@@ -44,7 +44,7 @@ The documentation includes examples covering:
 * [Models with bacterioplankton and detritus consumption](https://agate-model.github.io/Agate.jl/dev/generated/detritus_bacteria/)
 * [Forward-mode automatic differentiation](https://agate-model.github.io/Agate.jl/dev/generated/forward_mode_ad_nipizd_sensitivity/)
 * [Reverse-mode automatic differentiation](https://agate-model.github.io/Agate.jl/dev/generated/reverse_mode_ad_nipizd_sensitivity/)
-* [Exporting and replaying model definitions](https://agate-model.github.io/Agate.jl/dev/generated/export_model_recipe/)
+* [Exporting and replaying model recipes](https://agate-model.github.io/Agate.jl/dev/generated/export_model_recipe/)
 
 ## Documentation
 

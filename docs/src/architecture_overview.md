@@ -20,9 +20,8 @@ A process-defined model moves through five stages:
    definition. Bundled families such as NiPiZD and external registered families such as
    DARWIN in AgateRegistry.jl use the same definition-driven core while adding durable
    recipe/replay identity. Recipes record a registered family, its exact scientific
-   definition version, and the
-   canonical realization inputs required by the family constructor; replay then follows the
-   normal family construction path.
+   definition version, optional versioned ancestry, and the canonical realization inputs
+   required by the family constructor; replay then follows the normal family construction path.
 
 5. **Runtime and inspection** (`Runtime/`, `Diagnostics/`, and `Introspection.jl`).
    Runtime kernels evaluate lean compiled terms with resolved tracer and parameter indices. Diagnostics and introspection expose the realized model without reinterpreting the model definition.
