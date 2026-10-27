@@ -348,6 +348,7 @@ function construct_npd_plankton(
     family::AbstractModelFamily, recipe::Construction.ModelRecipe;
     grid=nothing, arch=nothing, scalar_type=nothing
 )
+    Construction._check_recipe_family(family, recipe)
     _require_npd_grid(recipe.sinking_tracers, grid)
     runtime = Construction.construct(family, recipe; grid, arch, scalar_type)
     return _wrap_npd_runtime(family, runtime)

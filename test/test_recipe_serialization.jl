@@ -114,10 +114,11 @@ Agate.Parameters.parameter_definitions(::AlternativeNiPiZDFamily) = merge(
     @test Dict(recipe_a => :same)[recipe_b] === :same
     @test encode_recipe(recipe_a)["content_hash"] == encode_recipe(recipe_b)["content_hash"]
 
-    reordered = rehashed(encode_recipe(recipe_a)) do document
+    reordered = modified(encode_recipe(recipe_a)) do document
         reverse!(document["realization"]["plankton_pfts"]["P"]["small"]["diameters"])
     end
     @test encode_recipe(decode_recipe(reordered)) == encode_recipe(recipe_a)
+    @test_throws r"content_hash" decode_recipe(rehash!(reordered))
     invalid_diameters = rehashed(encode_recipe(recipe_a)) do document
         document["realization"]["plankton_pfts"]["P"]["small"]["diameters"][1] = 0.0
     end
@@ -235,7 +236,8 @@ Agate.Parameters.parameter_definitions(::AlternativeNiPiZDFamily) = merge(
           (:N, :D, :P_1, :P_2, :Z_1, :Z_2)
 
     invalid_schema = modified(encoded) do x
-        x["schema"] = "agate.model_recipe.v0.1"
+        x["schema"] = "agate.model_recipe.v0.2"
+        x["definition_version"] = "0.2.0"
     end
     invalid_realization = rehashed(encoded) do x
         pop!(x["realization"]["plankton_pfts"])
@@ -246,7 +248,8 @@ Agate.Parameters.parameter_definitions(::AlternativeNiPiZDFamily) = merge(
     invalid_matrix = rehashed(encoded) do x
         x["realization"]["parameter_overrides"]["palatability_matrix"][2] = [0.3]
     end
-    for document in (invalid_schema, invalid_law, invalid_matrix)
+    @test_throws r"Unsupported Agate recipe schema" decode_recipe(invalid_schema)
+    for document in (invalid_law, invalid_matrix)
         @test_throws ArgumentError decode_recipe(document)
     end
     incomplete_recipe = decode_recipe(invalid_realization)

@@ -376,8 +376,8 @@ end
 
 """Encode model configuration with a deterministic content hash.
 
-The hash identifies the configuration. Reproducible execution uses the selected model
-provider and its resolved Julia environment.
+The hash identifies the recorded family label and construction inputs.
+Reproducible execution uses the selected model provider and its resolved Julia environment.
 """
 function encode_recipe(recipe::ModelRecipe)
     realization = _encode_realization(recipe)
@@ -394,26 +394,17 @@ end
 Select a model provider explicitly when constructing from the decoded recipe.
 """
 function decode_recipe(document::AbstractDict)
-    document = _complete_object(document, _RECIPE_DOCUMENT_KEYS, "Recipe document")
-    schema = _string(document["schema"], "Recipe document.schema")
+    schema = _string(_required(document, "schema", "Recipe document"), "Recipe document.schema")
     schema == MODEL_RECIPE_SCHEMA || throw(
         ArgumentError(
             "Unsupported Agate recipe schema $(repr(schema)); supported schema is " *
             "$(repr(MODEL_RECIPE_SCHEMA))."
         )
     )
-
+    document = _complete_object(document, _RECIPE_DOCUMENT_KEYS, "Recipe document")
     family_id_value = _symbol(document["family"], "Recipe document.family")
-    realization_data = _complete_object(
-        document["realization"], _REALIZATION_KEYS, "Recipe document.realization"
-    )
-    recorded_hash = _string(document["content_hash"], "Recipe document.content_hash")
-    recorded_hash == _recipe_hash(family_id_value, realization_data) || throw(
-        ArgumentError("Recipe document.content_hash does not match the serialized recipe content.")
-    )
-
-    realization = _decode_realization(realization_data, "Recipe document.realization")
-    return ModelRecipe(
+    realization = _decode_realization(document["realization"], "Recipe document.realization")
+    recipe = ModelRecipe(
         family_id_value,
         realization.plankton_pfts,
         realization.parameter_overrides,
@@ -421,6 +412,11 @@ function decode_recipe(document::AbstractDict)
         realization.sinking_tracers,
         realization.open_bottom,
     )
+    recorded_hash = _string(document["content_hash"], "Recipe document.content_hash")
+    recorded_hash == _recipe_hash(family_id_value, _encode_realization(recipe)) || throw(
+        ArgumentError("Recipe document.content_hash does not match the canonical recipe content.")
+    )
+    return recipe
 end
 
 function decode_recipe(document)

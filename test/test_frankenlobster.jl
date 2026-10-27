@@ -64,6 +64,11 @@ end
     encoded = Agate.Construction.encode_recipe(recipe)
     decoded = Agate.Construction.decode_recipe(encoded)
     replayed = FrankenLOBSTER.construct(decoded; grid=_GRID, arch=CPU(), scalar_type=Float32)
+    wrong_family = Agate.Construction.ModelRecipe(
+        :Other, recipe.plankton_pfts, recipe.parameter_overrides, recipe.setting_overrides,
+        recipe.sinking_tracers, recipe.open_bottom,
+    )
+    @test_throws r"Recipe family" FrankenLOBSTER.construct(wrong_family)
     direct32 = FrankenLOBSTER.construct(; arch=CPU(), scalar_type=Float32)
     bgc = LOBSTER(_GRID; plankton)
 
