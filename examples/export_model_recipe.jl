@@ -36,9 +36,9 @@ nothing #hide
 
 # ## Export a reproducible model release
 # `export_model_release` saves the recipe together with the active Julia project's
-# `Project.toml` and `Manifest.toml`. It checks the environment first, giving a clear
-# error if Agate, the model provider, or any dependency relies on a local source path
-# or an unpinned Git reference.
+# `Project.toml` and the manifest selected by Julia. It first checks that the
+# recipe and loaded package sources match the active environment and that package
+# sources are portable (with source-tree hashes for Git dependencies).
 #
 # Run the following from a Julia project with Agate and your model package installed:
 #

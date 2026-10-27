@@ -201,10 +201,11 @@ An optional `parent_model(family)` hook declares versioned scientific ancestry; 
 return `nothing`, and derived families can supply nested parent references. The lineage is part
 of recipe identity and is checked against the registered family on replay. Historical parents
 need not be installed. `export_model_release(directory, recipe)` saves the recipe JSON with the active Julia
-project's `Project.toml` and `Manifest.toml`. It checks that Agate and the external model
-provider are recorded at matching versions and that the environment uses portable package
-sources, rejecting local paths and Git dependencies without pinned commits. The exported
-files can be instantiated in a new Julia environment to verify dependency availability.
+project's `Project.toml` and the manifest selected by Julia. It checks that the recipe
+matches the loaded family, that Agate and the external provider are resolved from the
+active environment, and that dependencies use portable sources. Git sources must have
+recorded source-tree hashes. The files can be instantiated in a fresh Julia environment
+to check dependency availability.
 See the
 [model recipe export example](@ref export_model_recipe).
 

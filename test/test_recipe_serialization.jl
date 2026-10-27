@@ -51,45 +51,62 @@ Agate.ModelFamilies.default_components(::AncestryFixture) =
 Agate.Construction.registered_family(::Val{:AncestryFixture}) =
     AncestryFixture(ANCESTRY_CHAIN)
 
-@testset "Portable model releases" begin
+@testset "Portable model release validation" begin
     recipe = Agate.Construction.capture_model_recipe(
         NiPiZD.NiPiZDFamily(); plankton_pfts=(P=(diat=nothing,), Z=(microzoo=nothing,))
     )
-    uuid, version = string(Base.PkgId(Agate).uuid), string(Base.pkgversion(Agate))
-    project_content = "[deps]\nAgate = \"$uuid\"\n"
-    manifest_content = """
-    manifest_format = "2.0"
-    [[deps.Agate]]
-    uuid = "$uuid"
-    version = "$version"
-    git-tree-sha1 = "$(repeat("a", 40))"
-    """
+    check_source(url) = Agate.Construction._check_release_source(url, "Example")
+    for url in ("https://github.com/example/model.git", "ssh://git@github.com/example/model.git",
+                "git@github.com:example/model.git")
+        @test isnothing(check_source(url))
+    end
+    for url in ("../MyModels", "./MyModels", "file:///tmp/MyModels",
+                raw"C:\work\MyModels", "https://user:token@github.com/example/model.git",
+                "https://github.com/example/model.git?token=secret")
+        @test_throws ArgumentError check_source(url)
+    end
+    for format in ("2.0", "2.1", "2.2")
+        @test isempty(Agate.Construction._release_dependencies(Dict(
+            "manifest_format" => format, "deps" => Dict{String,Any}()
+        )))
+    end
+    @test_throws ArgumentError Agate.Construction._release_dependencies(Dict(
+        "manifest_format" => "1.0", "deps" => Dict{String,Any}()
+    ))
+
     mktempdir() do workspace
         project = joinpath(workspace, "Project.toml")
-        manifest = joinpath(workspace, "Manifest.toml")
-        destination = joinpath(workspace, "release")
-        write(project, project_content)
-        write(manifest, manifest_content)
-        @test export_model_release(destination, recipe; project_path=project) == destination
-        @test sort(readdir(destination)) == ["Manifest.toml", "Project.toml", "recipe.json"]
-        @test import_recipe(joinpath(destination, "recipe.json")) == recipe
-        @test read(joinpath(destination, "Manifest.toml"), String) == manifest_content
-        @test_throws ArgumentError export_model_release(destination, recipe; project_path=project)
+        generic = joinpath(workspace, "Manifest.toml")
+        versioned = joinpath(workspace, "Manifest-v$(VERSION.major).$(VERSION.minor).toml")
+        write(project, "[deps]\n")
+        write(generic, "manifest_format = \"2.0\"\n")
+        write(versioned, "manifest_format = \"2.1\"\n")
+        @test Agate.Construction._release_manifest_path(project) == versioned
 
-        for (bad_project, bad_manifest, reason) in (
-            (project_content, manifest_content * "path = \"../Agate\"\n", "Agate"),
-            (project_content * "[sources]\nAgate = {path = \"../Agate\"}\n",
-             manifest_content, "Agate"),
-            (project_content, manifest_content * "repo-url = \"https://example.org/a.git\"\nrepo-rev = \"main\"\n", "Git"),
-            ("[deps]\n", manifest_content, "Agate"),
-            (project_content, replace(manifest_content, "git-tree-sha1" => "missing-sha"), "source tree"),
-            (project_content, replace(manifest_content, "version = \"$version\"" => "version = \"0.0.0\""), "version"),
+        destination = joinpath(workspace, "release")
+        @test_throws "active Julia project" export_model_release(destination, recipe; project_path=project)
+        @test !ispath(destination)
+    end
+    mktempdir() do workspace
+        destination = joinpath(workspace, "invalid-release")
+        bad = Agate.Construction.ModelRecipe(
+            recipe.family, v"0.2.1", recipe.parent, recipe.plankton_pfts,
+            recipe.parameter_overrides, recipe.setting_overrides,
+            recipe.sinking_tracers, recipe.open_bottom,
         )
-            write(project, bad_project)
-            write(manifest, bad_manifest)
-            @test occursin(reason, argument_error_message(() ->
-                export_model_release(joinpath(workspace, "invalid"), recipe; project_path=project)))
-        end
+        @test_throws ArgumentError export_model_release(destination, bad)
+        @test !ispath(destination)
+    end
+    mktemp() do path, io
+        write(io, "previous recipe")
+        flush(io)
+        invalid = Agate.Construction.ModelRecipe(
+            recipe.family, recipe.definition_version, recipe.parent, recipe.plankton_pfts,
+            (unsupported=Dict(:unexpected => 1),), recipe.setting_overrides,
+            recipe.sinking_tracers, recipe.open_bottom,
+        )
+        @test_throws ArgumentError export_recipe(path, invalid)
+        @test read(path, String) == "previous recipe"
     end
 end
 

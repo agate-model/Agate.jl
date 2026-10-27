@@ -470,8 +470,9 @@ end
 
 """Write a recipe document to `path` as pretty-printed JSON."""
 function export_recipe(path::AbstractString, recipe::ModelRecipe)
+    document = encode_recipe(recipe)
     open(path, "w") do io
-        JSON.json(io, encode_recipe(recipe); pretty=4, omit_empty=false)
+        JSON.json(io, document; pretty=4, omit_empty=false)
         println(io)
     end
     return path
