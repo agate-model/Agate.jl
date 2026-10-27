@@ -101,7 +101,23 @@ format(".")
 
 Your development environment is now ready!
 
+## Benchmarks
+
+To use the external Onyx provider in the grazing-scaling benchmark, from the
+repository root run:
+
+```bash
+julia --project=benchmark benchmark/setup.jl
+julia --project=benchmark benchmark/grazing_scaling.jl --quick
+```
+
+The setup develops the local Agate checkout and installs the Onyx Git commit
+recorded in `benchmark/setup.jl`.
+
 ## Documentation
+
+The documentation build uses the Onyx Git commit recorded in `docs/make.jl`.
+The docs CI builds from the same source revision.
 
 Now that you've made your awesome contribution, it's time to tell the world how to use it.
 Writing documentation strings is really important to make sure others use your functionality

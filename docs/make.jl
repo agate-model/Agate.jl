@@ -1,9 +1,9 @@
 # to build docs from terminal `julia --project=docs docs/make.jl`
 import Pkg
 Pkg.activate(@__DIR__)
-# Resolve the unregistered provider source before developing local Agate.
+# Pin the unregistered Onyx provider until its first General release.
 withenv("JULIA_PKG_PRECOMPILE_AUTO" => "0") do
-    Pkg.add(Pkg.PackageSpec(; url="https://github.com/agate-model/Onyx.jl", rev=get(ENV, "AGATE_ONYX_REV", "main")))
+    Pkg.add(Pkg.PackageSpec(; url="https://github.com/agate-model/Onyx.jl", rev="c22c460b862d2656c9f429ccbe790ddb165d67be"))
     Pkg.develop(Pkg.PackageSpec(; path=joinpath(@__DIR__, "..")))
 end
 Pkg.instantiate()
