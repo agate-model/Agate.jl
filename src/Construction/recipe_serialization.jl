@@ -439,11 +439,11 @@ function decode_recipe(document::AbstractDict)
     )
     recorded_hash = _string(document["content_hash"], "Recipe document.content_hash")
     lineage_data = document["lineage"]
-    recorded_hash == _recipe_hash(family_id_value, version, lineage_data, realization_data) || throw(
+    parent = _decode_model_parent(lineage_data, "Recipe document.lineage")
+    recorded_hash == _recipe_hash(family_id_value, version, _encode_model_parent(parent), realization_data) || throw(
         ArgumentError("Recipe document.content_hash does not match the serialized recipe content.")
     )
 
-    parent = _decode_model_parent(lineage_data, "Recipe document.lineage")
     family = _resolve_recipe_family(family_id_value, version, parent)
 
     realization = _decode_realization(realization_data, "Recipe document.realization")

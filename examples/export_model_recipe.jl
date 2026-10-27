@@ -48,6 +48,20 @@ nothing #hide
 #
 # This documentation example runs from a development checkout, so it demonstrates
 # recipe export and replay; the checked release export is for a portable Julia project.
+# A recipient starts a new Julia process in the exported environment:
+#
+# ```bash
+# julia --project=my-model-release -e 'using Pkg; Pkg.instantiate()'
+# ```
+#
+# Then loads Agate (and any external model-provider package) and reconstructs the model:
+#
+# ```julia
+# using Agate.Construction: import_recipe
+# using Agate.Models: NiPiZD
+# saved_recipe = import_recipe("my-model-release/recipe.json")
+# NiPiZD.construct(saved_recipe; grid=nothing)
+# ```
 
 # ## Reload and replay
 

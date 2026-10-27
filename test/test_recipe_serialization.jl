@@ -91,7 +91,7 @@ Agate.Construction.registered_family(::Val{:AncestryFixture}) =
             recipe.parameter_overrides, recipe.setting_overrides,
             recipe.sinking_tracers, recipe.open_bottom,
         )
-        @test_throws ArgumentError export_model_release(destination, bad)
+        @test_throws "definition_version" export_model_release(destination, bad)
         @test !ispath(destination)
     end
     mktemp() do path, io
@@ -120,12 +120,14 @@ end
         family=:Parent, definition_version=v"0.2.0",
         parent=(family=:Original, definition_version=v"0.1.0", parent=nothing),
     )
-    @test ancestry((family=:Parent, definition_version=v"0.2.0",
-        parent=(family=:Original, definition_version=v"0.1.0"))) == ancestry(declared)
     @test ancestry((family=:AncestryFixture, definition_version=v"0.2.0")) == (
         family=:AncestryFixture, definition_version=v"0.2.0", parent=nothing,
     )
 
+    # Use valid PFTs so rejection establishes invalid ancestry, not an unrelated input error.
+    capture(parent) = Agate.Construction.capture_model_recipe(
+        AncestryFixture(parent); plankton_pfts=(P=(diat=nothing,), Z=(microzoo=nothing,))
+    )
     for invalid in (
         (family=:Parent,),
         (family=:Parent, definition_version="0.2.0"),
@@ -135,12 +137,11 @@ end
          parent=(family=:Parent, definition_version=v"0.2.0")),
         (family=:AncestryFixture, definition_version=v"0.3.0"),
     )
-        @test_throws ArgumentError ancestry(invalid)
+        @test_throws ArgumentError capture(invalid)
     end
-    @test_throws ArgumentError Agate.Construction.capture_model_recipe(
-        AncestryFixture((family=:AncestryFixture, definition_version=v"0.3.0"));
-        plankton_pfts=(;),
-    )
+    @test occursin("repeats family", argument_error_message(() ->
+        capture((family=:AncestryFixture, definition_version=v"0.3.0"))
+    ))
 end
 
 @testset "Recipe lineage identity and replay" begin
@@ -154,6 +155,11 @@ end
     @test document["lineage"]["parent"]["parent"] === nothing
     @test decode_recipe(document) == recipe
     @test Agate.Construction.replay_family(recipe) isa AncestryFixture
+    mktemp() do path, io
+        close(io)
+        export_recipe(path, recipe)
+        @test import_recipe(path) == recipe # Non-null nested lineage survives real JSON I/O.
+    end
 
     reordered_family = AncestryFixture((
         definition_version=v"0.2.0", family=:Parent,
@@ -166,16 +172,13 @@ end
     changed = modified(document) do x
         x["lineage"]["parent"]["family"] = "Other"
     end
-    @test_throws ArgumentError decode_recipe(changed) # Hash protects ancestry.
-    rehash!(changed)
-    @test changed["content_hash"] != document["content_hash"]
-    @test_throws ArgumentError decode_recipe(changed) # Loaded family disagrees.
-
-    invalid = rehashed(document) do x
-        x["lineage"]["parent"]["family"] = "AncestryFixture"
-        x["lineage"]["parent"]["definition_version"] = "0.3.0"
+    @test_throws "content_hash does not match" decode_recipe(changed)
+    noncanonical = rehashed(document) do x
+        x["lineage"]["definition_version"] = "0.2"
     end
-    @test_throws ArgumentError decode_recipe(invalid)
+    @test_throws "content_hash does not match" decode_recipe(noncanonical)
+    rehash!(changed)
+    @test_throws "lineage" decode_recipe(changed) # Valid hash, wrong loaded ancestry.
 
     altered = Agate.Construction.ModelRecipe(
         recipe.family, recipe.definition_version, nothing, recipe.plankton_pfts,
@@ -226,8 +229,6 @@ end
         "sinking_tracers",
         "open_bottom",
     ))
-    @test !haskey(encoded, "model")
-    @test !haskey(encoded, "recipe")
     @test explicit_json_value(encoded)
     @test startswith(encoded["content_hash"], "sha256:")
     @test length(encoded["content_hash"]) == 71

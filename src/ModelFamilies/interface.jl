@@ -67,7 +67,8 @@ end
 Return `nothing` for a root family or a named tuple such as
 `(family=:Parent, definition_version=v"1.0.0")`. An optional nested `parent`
 field records earlier ancestors without requiring their packages to be installed.
-Ancestry is validated when a model recipe is captured.
+Ancestry is validated when a model recipe is captured. Changing the declared
+parent changes recipe identity and requires a new `definition_version`.
 """
 parent_model(::AbstractModelFamily) = nothing
 

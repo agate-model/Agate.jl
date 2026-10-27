@@ -200,7 +200,8 @@ External family packages subtype `AbstractModelFamily`, provide `default_compone
 An optional `parent_model(family)` hook declares versioned scientific ancestry; root families
 return `nothing`, and derived families can supply nested parent references. The lineage is part
 of recipe identity and is checked against the registered family on replay. Historical parents
-need not be installed. `export_model_release(directory, recipe)` saves the recipe JSON with the active Julia
+need not be installed. Changing the declared ancestry requires a new scientific
+`definition_version`. `export_model_release(directory, recipe)` saves the recipe JSON with the active Julia
 project's `Project.toml` and the manifest selected by Julia. It checks that the recipe
 matches the loaded family, that Agate and the external provider are resolved from the
 active environment, and that dependencies use portable sources. Git sources must have
