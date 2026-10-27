@@ -2,14 +2,13 @@ using Agate
 using Test
 using ForwardDiff
 
-const ForwardDiffNiPiZD = Agate.Models.NiPiZD
 
 using Oceananigans.Units: day
 
-@testset "ForwardDiff NiPiZD tendency smoke tests" begin
+@testset "ForwardDiff direct NPZ tendency smoke tests" begin
     function p_1_tendency_with_growth_rate(mu)
         T = typeof(mu)
-        bgc = ForwardDiffNiPiZD.construct(;
+        bgc = runtime_npz_model(;
             scalar_type=T,
             parameters=(; maximum_growth_rate=[mu, T(0.7 / day)]),
         )
@@ -27,7 +26,7 @@ using Oceananigans.Units: day
 
     mu0 = 0.7 / day
     T0 = typeof(mu0)
-    bgc0 = ForwardDiffNiPiZD.construct(;
+    bgc0 = runtime_npz_model(;
         scalar_type=T0,
         parameters=(; maximum_growth_rate=[mu0, T0(0.7 / day)]),
     )
@@ -43,13 +42,13 @@ using Oceananigans.Units: day
     @test isapprox(dP_1_dmu, fd; rtol=1e-4, atol=1e-10)
 end
 
-@testset "ForwardDiff NiPiZD ode_problem active parameter smoke test" begin
+@testset "ForwardDiff direct NPZ ode_problem active parameter smoke test" begin
     mu0 = 0.7 / day
-    base_bgc = nipizd_growth_fixture(; mu=mu0)
+    base_bgc = runtime_npz_growth_fixture(; mu=mu0)
 
     active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate=(:P_1,))
     p1_index = findfirst(==(:P_1), Agate.Introspection.tracer_names(base_bgc))
-    u0 = nipizd_u0()
+    u0 = runtime_npz_u0()
     problem = Agate.Runtime.ode_problem(
         base_bgc,
         u0,

@@ -3,7 +3,7 @@
 # Recipes record model construction inputs for export and replay.
 
 using Agate.Construction: export_recipe, import_recipe
-using Agate.Models: NiPiZD
+using Onyx
 using OceanBioME: BoxModelGrid
 
 nothing #hide
@@ -14,7 +14,7 @@ nothing #hide
 
 grid = BoxModelGrid()
 
-bgc, recipe = NiPiZD.construct_plus_recipe(;
+bgc, recipe = Onyx.construct_plus_recipe(;
     grid,
     size_structure=(;
         phytoplankton=(P=(n=3, min_esd=1.0, max_esd=10.0, spacing=:log),),
@@ -37,7 +37,7 @@ nothing #hide
 # Runtime choices such as the grid are supplied again when the recipe is replayed.
 
 loaded = import_recipe(recipe_path)
-replayed = NiPiZD.construct(loaded; grid)
+replayed = Onyx.construct(loaded; grid)
 
 println("Recipe preserved: ", loaded == recipe)
 println("Parameters preserved: ", replayed.parameters == bgc.parameters)

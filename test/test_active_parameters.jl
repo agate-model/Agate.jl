@@ -12,11 +12,10 @@ using Oceananigans.Biogeochemistry:
 using Oceananigans.Units: day
 using Oceananigans.Fields: ConstantField
 
-const ActiveParameterNiPiZD = Agate.Models.NiPiZD
 
 @testset "parameterized BGC" begin
     mu0 = 0.7 / day
-    base_bgc = nipizd_growth_fixture(; mu=mu0)
+    base_bgc = runtime_npz_growth_fixture(; mu=mu0)
 
     active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P_1,))
     p = [mu0]
@@ -26,7 +25,7 @@ const ActiveParameterNiPiZD = Agate.Models.NiPiZD
         active_parameters=active_growth,
     )
 
-    args = nipizd_runtime_args()
+    args = runtime_npz_args()
     base_tendency = base_bgc(Val(:P_1), args...)
     active_tendency = bgc_p(Val(:P_1), args...)
 
@@ -56,7 +55,7 @@ end
 @testset "parameterized BGC OceanBioME compatibility" begin
     grid = BoxModelGrid()
     mu0 = 0.7 / day
-    base_bgc = nipizd_growth_fixture(; mu=mu0, grid)
+    base_bgc = runtime_npz_growth_fixture(; mu=mu0, grid)
 
     active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P_1,))
     p = copy(active_growth.values)
@@ -73,9 +72,9 @@ end
 
 @testset "ODE problem active parameters" begin
     mu0 = 0.7 / day
-    base_bgc = nipizd_growth_fixture(; mu=mu0)
+    base_bgc = runtime_npz_growth_fixture(; mu=mu0)
 
-    u0 = nipizd_u0()
+    u0 = runtime_npz_u0()
     active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P_1,))
     p = [mu0]
 
@@ -166,7 +165,7 @@ end
 end
 
 @testset "active parameter selector validation" begin
-    base_bgc = ActiveParameterNiPiZD.construct()
+    base_bgc = runtime_npz_model()
     for name in (:specificity, :protection, :optimum_predator_prey_ratio, :assimilation_efficiency)
         @test !hasproperty(base_bgc.parameters, name)
     end
@@ -214,7 +213,7 @@ end
 
 
 @testset "active parameter set" begin
-    base_bgc = ActiveParameterNiPiZD.construct()
+    base_bgc = runtime_npz_model()
 
     active = Agate.Runtime.active_parameters(base_bgc;
         maximum_growth_rate = (:P_1, :P_2),
@@ -263,15 +262,15 @@ end
 end
 
 @testset "named-PFT runtime active parameters" begin
-    named_bgc = ActiveParameterNiPiZD.construct(;
-        size_structure=(;
-            phytoplankton=(diat=[2.0], dino=[10.0]),
-            zooplankton=(microzoo=[20.0], mesozoo=[100.0]),
+    named_bgc = runtime_npz_model(;
+        plankton_pfts=(;
+            P=(diat=[2.0], dino=[10.0]),
+            Z=(microzoo=[20.0], mesozoo=[100.0]),
         ),
     )
-    flat_bgc = ActiveParameterNiPiZD.construct(;
-        size_structure=(;
-            phytoplankton=(P=[2.0, 10.0],), zooplankton=(Z=[20.0, 100.0],)
+    flat_bgc = runtime_npz_model(;
+        plankton_pfts=(;
+            P=(P=[2.0, 10.0],), Z=(Z=[20.0, 100.0],)
         )
     )
 
@@ -303,7 +302,7 @@ end
     p[3] *= 0.8
     p[4] *= 0.9
 
-    args = nipizd_runtime_args()
+    args = runtime_npz_args()
     named_parameterized = Agate.Runtime.parameterized(
         named_bgc, p; active_parameters=named_active
     )
@@ -316,7 +315,7 @@ end
     named_to_flat = (
         N=:N, D=:D, diat_1=:P_1, dino_1=:P_2, microzoo_1=:Z_1, mesozoo_1=:Z_2,
     )
-    reference_state = nipizd_test_state()
+    reference_state = runtime_npz_test_state()
     function rhs(bgc, active, state_name=identity)
         tracers = Tuple(Agate.Introspection.tracer_names(bgc))
         u0 = [getproperty(reference_state, state_name(tracer)) for tracer in tracers]

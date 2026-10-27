@@ -3,7 +3,7 @@
 # Many plankton traits depend on organism size (allometry). Agate uses this to calculate the parameter
 # values of relevant parameters for each plankton size in the model.
 #
-# We will first look at the  default [Agate.jl-NiPiZD](@ref NiPiZD) relationship for maximum growth rate. We change
+# We will first look at the  default [Agate.jl-Onyx](@ref NiPiZD) relationship for maximum growth rate. We change
 # only its exponent, compare the growth rates that Agate assigns to each phytoplankton
 # size, and then run the two versions in the same simple box model. We then replace the
 # built-in relationship with one based on [Ward et al. (2017)](https://doi.org/10.1086/689992)
@@ -17,7 +17,7 @@
 
 # ## Loading dependencies
 
-using Agate.Models: NiPiZD
+using Onyx
 using Agate.Introspection: pfts
 using Agate.Library.Allometry: AllometricParam, PowerLaw
 using OceanBioME
@@ -60,7 +60,7 @@ nothing #hide
 # Pass the relationship through `parameters` when constructing NiPiZD. Agate then
 # calculates the corresponding `maximum_growth_rate` for each plankton size.
 
-default_bgc = NiPiZD.construct(;
+default_bgc = Onyx.construct(;
     size_structure,
     parameters=(; maximum_growth_rate=default_growth),
 )
@@ -87,7 +87,7 @@ shallower_growth = AllometricParam(
     exponent=-0.05,
 )
 
-shallower_bgc = NiPiZD.construct(;
+shallower_bgc = Onyx.construct(;
     size_structure,
     parameters=(; maximum_growth_rate=shallower_growth),
 )
@@ -318,7 +318,7 @@ ward_growth = AllometricParam(
     mu_infinity_exponent=-0.26,
 )
 
-ward_bgc = NiPiZD.construct(;
+ward_bgc = Onyx.construct(;
     size_structure,
     parameters=(; maximum_growth_rate=ward_growth),
 )

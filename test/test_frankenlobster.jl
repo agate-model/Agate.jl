@@ -216,18 +216,18 @@ end
 
     # Generic Agate runtimes can still supply conversion ratios explicitly.
     # Their absent waste channels default to `nothing` rather than unknown names.
-    nipizd = Agate.Models.NiPiZD.construct(; grid=_GRID)
+    generic_model = runtime_npz_model(; grid=_GRID)
     generic = (
         owned_components=(:P, :Z), phytoplankton_components=(:P,),
         nutrient_tracers=(:N, :D),
     )
-    @test isempty(nipizd.metadata.model_settings)
+    @test isempty(generic_model.metadata.model_settings)
     @test_throws "requires explicit settings" Agate.Integrations.NPDPlankton(
-        nipizd; generic...
+        generic_model; generic...
     )
     generic_settings = (carbon_ratio=6.56, chlorophyll_ratio=1.31)
     wrapper = Agate.Integrations.NPDPlankton(
-        nipizd; generic..., settings=generic_settings
+        generic_model; generic..., settings=generic_settings
     )
     @test wrapper.settings == generic_settings
     @test I.model_settings(wrapper) == generic_settings

@@ -1,6 +1,5 @@
 using Test
 using Agate.Components: Plankton, Pool, PlanktonStateRef
-using Agate.ModelFamilies: default_components, default_processes
 using Agate.Parameters: ConstantDefault, DerivedDefault, ConstructionParameter, Parameter
 using Agate.Processes:
     AbstractFactor, AbstractFormulation, FactorizedGrowth, Smith, Geider,
@@ -311,13 +310,15 @@ end
     end
 end
 
-@testset "NiPiZD parameter definition validation" begin
-    family = Agate.Models.NiPiZD.NiPiZDFamily()
+@testset "Missing parameter definitions" begin
+    components = (D=Pool(:nitrogen), N=Pool(:nitrogen))
+    processes = (remineralization=Agate.Processes.Remineralization(
+        Agate.Processes.LinearRemineralization();
+        sources=:D, destination=:N, bindings=(rate=:remineralization_rate,),
+    ),)
     for parameters in ((), (invalid=1,))
         @test_throws ArgumentError canonicalize_model(ModelDefinition(;
-            components=default_components(family),
-            processes=default_processes(family),
-            parameters,
+            components, processes, parameters,
         ))
     end
 end

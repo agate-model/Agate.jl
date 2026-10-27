@@ -4,7 +4,7 @@
 #     This example uses [Oceananigans.jl](https://clima.github.io/OceananigansDocumentation/stable/) and [OceanBioME.jl](https://oceanbiome.github.io/OceanBioME.jl/stable/).
 #     We recommend familiarizing yourself with their user interface if you intend to make changes to the physical model setup.
 
-# In this example we run a default [Agate.jl-NiPiZD](@ref NiPiZD) model inside a simple 1D water column model.
+# In this example we run a default [Agate.jl-Onyx](@ref NiPiZD) model inside a simple 1D water column model.
 # The physical model setup is based on an example provided in the OceanBioME.jl documentation and represents an idealized 200m deep North Atlantic time series.
 
 # ## Loading dependencies
@@ -12,6 +12,8 @@
 # CairoMakie is used for plotting.
 
 using Agate
+using Onyx
+
 using Agate.Introspection: tracer_groups
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -26,9 +28,9 @@ nothing #hide
 # ## Ecosystem model
 
 # First, we construct our ecosystem model.
-# Here, we use a default 2 phytoplankton, 2 zooplankton `Agate.jl-NiPiZD` ecosystem model.
+# Here, we use a default 2 phytoplankton, 2 zooplankton `Agate.jl-Onyx` ecosystem model.
 
-bgc = Agate.Models.NiPiZD.construct()
+bgc = Onyx.construct()
 groups = tracer_groups(bgc)
 nothing #hide
 

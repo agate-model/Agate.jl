@@ -6,8 +6,7 @@ import Agate.Parameters:
     DerivedDefault,
     ConstructionParameter,
     Parameter,
-    derive_default,
-    parameter_definitions
+    derive_default
 
 struct AddOneDefault end
 
@@ -31,10 +30,9 @@ function derived_default_definition()
 end
 
 @testset "Parameter definitions and derived defaults" begin
-    @testset "NiPiZD" begin
-        family = Agate.Models.NiPiZD.NiPiZDFamily()
-        definitions = parameter_definitions(family)
-        bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
+    @testset "Direct model" begin
+        definitions = runtime_npz_definition().parameters
+        bgc = runtime_npz_model(; grid=dummy_grid(Float32))
 
         @test all(name -> hasproperty(definitions, name), parameter_names(bgc))
     end

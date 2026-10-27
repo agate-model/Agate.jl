@@ -127,26 +127,60 @@ quota_runtime_args(;
 ) = (0, 0, 0, 0, DIC, DIN, PO4, P_1_carbon, P_1_nitrogen, P_1_phosphorus,
      P_2_carbon, P_2_nitrogen, P_2_phosphorus, PAR)
 
-nipizd_named_size_structure() = (;
-    phytoplankton=(diat=[2.0, 5.0, 10.0], dino=[8.0, 20.0]),
-    zooplankton=(microzoo=[30.0, 60.0], mesozoo=[100.0]),
+# Small process-defined model for Agate runtime and AD behavior tests.
+# It intentionally uses Agate's direct-construction API, not a provider package.
+function runtime_npz_definition()
+    base = direct_npz_definition()
+    nitrogen_plankton(diameters) = Agate.Components.Plankton(;
+        states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=diameters
+    )
+    components = (
+        N=base.components.N,
+        D=Agate.Components.Pool(:nitrogen),
+        P=nitrogen_plankton([2.0, 10.0]),
+        Z=nitrogen_plankton([20.0, 100.0]),
+    )
+    remineralization = Agate.Processes.Remineralization(
+        Agate.Processes.LinearRemineralization();
+        sources=:D, destination=:N, bindings=(rate=:detritus_remineralization,),
+    )
+    return Agate.ModelDefinition(;
+        components,
+        processes=merge(base.processes, (; remineralization)),
+        parameters=merge(base.parameters, (
+            detritus_remineralization=Agate.Parameters.Parameter(1e-5),
+        )),
+    )
+end
+
+function runtime_npz_model(;
+    plankton_pfts=nothing, parameters=(;), grid=nothing,
+    scalar_type=nothing, sinking_tracers=nothing, open_bottom=true,
+)
+    return Agate.Construction.construct(runtime_npz_definition();
+        plankton_pfts, parameter_overrides=parameters, grid, scalar_type,
+        sinking_tracers, open_bottom,
+    )
+end
+
+runtime_npz_named_pfts() = (
+    P=(diat=[2.0, 5.0, 10.0], dino=[8.0, 20.0]),
+    Z=(microzoo=[30.0, 60.0], mesozoo=[100.0]),
 )
 
-nipizd_test_state(::Type{T}=Float64) where {T<:AbstractFloat} = (;
+runtime_npz_test_state(::Type{T}=Float64) where {T<:AbstractFloat} = (;
     N=T(7), D=T(1), P_1=T(0.01), P_2=T(0.01), Z_1=T(0.05), Z_2=T(0.05),
 )
 
-nipizd_u0(::Type{T}=Float64) where {T<:AbstractFloat} = collect(values(nipizd_test_state(T)))
+runtime_npz_u0(::Type{T}=Float64) where {T<:AbstractFloat} =
+    collect(values(runtime_npz_test_state(T)))
 
-function nipizd_runtime_args(::Type{T}=Float64; PAR=100) where {T<:AbstractFloat}
-    return (0, 0, 0, 0, values(nipizd_test_state(T))..., T(PAR))
-end
+runtime_npz_args(::Type{T}=Float64; PAR=100) where {T<:AbstractFloat} =
+    (0, 0, 0, 0, values(runtime_npz_test_state(T))..., T(PAR))
 
-function nipizd_growth_fixture(; mu=0.7 / day, kwargs...)
-    return Agate.Models.NiPiZD.construct(;
-        parameters=(; maximum_growth_rate=(P_1=mu, P_2=mu)), kwargs...
-    )
-end
+runtime_npz_growth_fixture(; mu=0.7 / day, kwargs...) = runtime_npz_model(;
+    parameters=(maximum_growth_rate=(P_1=mu, P_2=mu),), kwargs...
+)
 
 function test_tendencies(model, state::NamedTuple, expected::NamedTuple)
     names = Agate.Introspection.tracer_names(model)
@@ -160,36 +194,3 @@ function model_tendencies(bgc, args; tracers=Tuple(Agate.Introspection.tracer_na
     return NamedTuple{tracers}(Tuple(bgc(Val(tracer), args...) for tracer in tracers))
 end
 
-function authored_nipizd_inputs(::Type{T}=Float32) where {T<:AbstractFloat}
-    return (;
-        size_structure=(;
-            phytoplankton=(diat=T[2, 8],),
-            zooplankton=(;
-                microzoo=(n=2, min_esd=T(30), max_esd=T(90), spacing=:log),
-            ),
-        ),
-        scalar_type=T,
-        parameters=(;
-            maximum_growth_rate=(diat_2=T(1.25 / day),),
-            linear_mortality=AllometricParam(
-                PowerLaw(); prefactor=T(0.05 / day), exponent=T(-0.1)
-            ),
-            alpha=ConstantParam(T(0.2 / day)),
-            palatability_matrix=T[0.8 0.2; 0.3 0.7],
-        ),
-        sinking_tracers=(D=T(2.5 / day),),
-        open_bottom=false,
-    )
-end
-
-function nipizd_manifest(
-    recipe::Agate.Construction.ModelRecipe;
-    grid=OceanBioME.BoxModelGrid(),
-    arch=nothing,
-    scalar_type=nothing,
-)
-    _, manifest = Agate.Construction.construct_plus_manifest(
-        Agate.Models.NiPiZD.NiPiZDFamily(), recipe; grid, arch, scalar_type
-    )
-    return manifest
-end

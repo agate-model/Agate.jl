@@ -3,7 +3,6 @@ using Agate.Components:
     Plankton, Pool, element, states, reference_state, variable_states, state_element,
     size_structure, composition, realize_model_layout, component_entities, component_state_tracers,
     component_tracers, state_tracers, component_diameters
-using Agate.ModelFamilies: default_components
 @testset "Component authoring" begin
     plankton = Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen,
         size_structure=(n=3, min_esd=1.0, max_esd=100.0, spacing=:log),
@@ -95,15 +94,3 @@ end
     @test isnothing(state_element(abundance, reference_state(abundance)))
 end
 
-@testset "NiPiZD component declaration" begin
-    family = Agate.Models.NiPiZD.NiPiZDFamily()
-    components = default_components(family)
-    @test keys(components) == (:P, :Z, :N, :D)
-    @test components.P isa Plankton
-    @test components.Z isa Plankton
-    @test all(
-        state_element(getproperty(components, name), reference_state(getproperty(components, name))) === :nitrogen
-        for name in (:P, :Z)
-    )
-    @test all(element(getproperty(components, name)) === :nitrogen for name in (:N, :D))
-end

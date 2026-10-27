@@ -10,7 +10,7 @@ using Oceananigans.Biogeochemistry:
 
 @testset "Enzyme parameterized tendency gradients" begin
     mu0 = 0.7 / day
-    base_bgc = nipizd_growth_fixture(; mu=mu0)
+    base_bgc = runtime_npz_growth_fixture(; mu=mu0)
 
     active = Agate.Runtime.active_parameters(base_bgc;
         maximum_growth_rate = (:P_1,),
@@ -19,7 +19,7 @@ using Oceananigans.Biogeochemistry:
         assimilation_matrix = ((:Z_1, :P_1),),
     )
 
-    args = nipizd_runtime_args()
+    args = runtime_npz_args()
 
     function diagnostic(p)
         bgc_p = Agate.Runtime.parameterized(base_bgc, p; active_parameters=active)

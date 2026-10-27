@@ -55,7 +55,7 @@ The full documentation is available at:
 Useful starting points include:
 
 * [Quick start](https://agate-model.github.io/Agate.jl/dev/quick_start/)
-* [Agate.jl-NiPiZD](https://agate-model.github.io/Agate.jl/dev/nipizd/)
+* [Agate.jl-Onyx](https://agate-model.github.io/Agate.jl/dev/nipizd/)
 * [Agate.jl-FrankenLOBSTER](https://agate-model.github.io/Agate.jl/dev/frankenlobster/)
 * [Defining a model with mixotrophy](https://agate-model.github.io/Agate.jl/dev/generated/mixotrophy/)
 * [API reference](https://agate-model.github.io/Agate.jl/dev/api/)

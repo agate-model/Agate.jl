@@ -45,7 +45,13 @@ jobs:
 
           using Agate
 
-          Agate.Models.NiPiZD.construct(grid=nothing)
+          components = (D=Agate.Components.Pool(:nitrogen), N=Agate.Components.Pool(:nitrogen))
+          processes = (remineralization=Agate.Processes.Remineralization(
+              Agate.Processes.LinearRemineralization();
+              sources=:D, destination=:N, bindings=(rate=:rate,),
+          ),)
+          parameters = (rate=Agate.Parameters.Parameter(1e-5),)
+          Agate.Construction.construct(Agate.ModelDefinition(; components, processes, parameters))
 
   compatibility-112:
     name: Julia 1.12 - compatibility smoke
@@ -66,4 +72,10 @@ jobs:
 
           using Agate
 
-          Agate.Models.NiPiZD.construct(grid=nothing)
+          components = (D=Agate.Components.Pool(:nitrogen), N=Agate.Components.Pool(:nitrogen))
+          processes = (remineralization=Agate.Processes.Remineralization(
+              Agate.Processes.LinearRemineralization();
+              sources=:D, destination=:N, bindings=(rate=:rate,),
+          ),)
+          parameters = (rate=Agate.Parameters.Parameter(1e-5),)
+          Agate.Construction.construct(Agate.ModelDefinition(; components, processes, parameters))

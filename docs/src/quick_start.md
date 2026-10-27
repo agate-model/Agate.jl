@@ -9,6 +9,7 @@
 ```@example quickstart
 
 using Agate
+using Onyx
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -21,11 +22,11 @@ using CairoMakie
 ### Model setup
 
 First, we construct our ecosystem model.
-Here, we use a default 2 phytoplankton, 2 zooplankton `Agate.jl-NiPiZD` ecosystem model.
+Here, we use a default 2 phytoplankton, 2 zooplankton `Agate.jl-Onyx` ecosystem model.
 
 ```@example quickstart
 
-bgc = Agate.Models.NiPiZD.construct()
+bgc = Onyx.construct()
 using Agate.Introspection: tracer_names
 nothing #hide
 
@@ -34,7 +35,7 @@ println(tracer_names(bgc))
 nothing #hide
 ```
 
-The bundled NiPiZD family is assembled from the same component/process compiler used by direct `ModelDefinition` construction. [Model with mixotrophy](@ref mixotrophy) introduces defining a model directly from components, named processes, and a keyed parameter block.
+The Onyx model is assembled from the same component/process compiler used by direct `ModelDefinition` construction. [Model with mixotrophy](@ref mixotrophy) introduces defining a model directly from components, named processes, and a keyed parameter block.
 
 Next, we define a light field using Oceananigans and wrap it with OceanBioME's
 prescribed-PAR interface. Here we use Agate's seasonal PAR helper at 10 m depth:

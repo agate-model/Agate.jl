@@ -15,7 +15,7 @@ using Test
 
 @testset "Public introspection helpers" begin
     @testset "Model-constructed instance" begin
-        bgc = Agate.Models.NiPiZD.construct(; grid=dummy_grid(Float32))
+        bgc = runtime_npz_model(; grid=dummy_grid(Float32))
 
         @test tracer_names(bgc) == [:N, :D, :P_1, :P_2, :Z_1, :Z_2]
 
@@ -31,7 +31,7 @@ using Test
         @test eltype(plankton_diameters(bgc)) === Float32
         @test nonplankton_tracers(bgc) == groups.nonplankton
         @test !model_summary(bgc).has_sinking_velocities
-        sinking_bgc = Agate.Models.NiPiZD.construct(; sinking_tracers=(D=1.0,))
+        sinking_bgc = runtime_npz_model(; sinking_tracers=(D=1.0,))
         @test model_summary(sinking_bgc).has_sinking_velocities
 
         pars = parameter_names(bgc)
@@ -65,16 +65,16 @@ using Test
 
         phyto_diameters = [2.0, sqrt(20.0), 10.0]
         zoo_diameters = [20.0, 100.0]
-        sized_bgc = Agate.Models.NiPiZD.construct(;
-            size_structure=(;
-                phytoplankton=(P=phyto_diameters,), zooplankton=(Z=zoo_diameters,)
+        sized_bgc = runtime_npz_model(;
+            plankton_pfts=(;
+                P=(P=phyto_diameters,), Z=(Z=zoo_diameters,)
             )
         )
         @test plankton_tracers(sized_bgc) == [:P_1, :P_2, :P_3, :Z_1, :Z_2]
         @test plankton_diameters(sized_bgc) ≈ [phyto_diameters; zoo_diameters]
 
-        named_bgc = Agate.Models.NiPiZD.construct(;
-            size_structure=nipizd_named_size_structure(), grid=dummy_grid(Float32)
+        named_bgc = runtime_npz_model(;
+            plankton_pfts=runtime_npz_named_pfts(), grid=dummy_grid(Float32)
         )
 
         named_pfts = pfts(named_bgc)

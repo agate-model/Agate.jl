@@ -1,7 +1,7 @@
 # # [Predator-prey palatability] (@id predator_prey_palatability_example)
 
 # This example compares two ways of configuring predator-prey palatability in
-# the [Agate.jl-NiPiZD](@ref NiPiZD) model. By default, the model computes the palatability matrix
+# the [Agate.jl-Onyx](@ref NiPiZD) model. By default, the model computes the palatability matrix
 # from allometric traits based on the preferred predator:prey size ratio
 # (`optimum_predator_prey_ratio`, abbreviated here as `Vopt`). We will change
 # this default value to use a different optimum. Additionally, we will show how
@@ -16,6 +16,8 @@
 # CairoMakie.jl is used for plotting.
 
 using Agate
+using Onyx
+
 using Agate.Introspection: interaction_matrix, tracer_names
 using Agate.Library.Light
 using OceanBioME
@@ -29,7 +31,7 @@ nothing #hide
 
 # ## Construct the ecosystem configurations
 
-default_bgc = Agate.Models.NiPiZD.construct()
+default_bgc = Onyx.construct()
 default_pal = interaction_matrix(default_bgc, :palatability_matrix)
 nothing #hide
 
@@ -44,7 +46,7 @@ nothing #hide
 # name, so only the relevant entries need to be supplied. Omitted entries are
 # filled from the model defaults.
 
-vopt_bgc = Agate.Models.NiPiZD.construct(;
+vopt_bgc = Onyx.construct(;
     parameters=(; optimum_predator_prey_ratio=(Z_1=5.0, Z_2=5.0))
 )
 vopt_pal = interaction_matrix(vopt_bgc, :palatability_matrix)
@@ -54,7 +56,7 @@ nothing #hide
 # for experiments where the intended interaction structure is known explicitly,
 # rather than derived from size traits.
 
-custom_bgc = Agate.Models.NiPiZD.construct(;
+custom_bgc = Onyx.construct(;
     parameters=(palatability_matrix=[0.0 1.0; 1.0 0.0],)
 )
 custom_pal = interaction_matrix(custom_bgc, :palatability_matrix)

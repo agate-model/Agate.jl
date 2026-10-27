@@ -1,12 +1,17 @@
 # to build docs from terminal `julia --project=docs docs/make.jl`
 import Pkg
 Pkg.activate(@__DIR__)
-Pkg.develop(Pkg.PackageSpec(; path=joinpath(@__DIR__, "..")))
+# Resolve the unregistered provider source before developing local Agate.
+withenv("JULIA_PKG_PRECOMPILE_AUTO" => "0") do
+    Pkg.add(Pkg.PackageSpec(; url="https://github.com/agate-model/Onyx.jl", rev=get(ENV, "AGATE_ONYX_REV", "main")))
+    Pkg.develop(Pkg.PackageSpec(; path=joinpath(@__DIR__, "..")))
+end
 Pkg.instantiate()
 
 push!(LOAD_PATH, "../src/")
 using Documenter, Literate
 using Agate
+using Onyx
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -83,7 +88,7 @@ differentiable_modelling_pages = [
 
 contributor_pages = ["Architecture" => "architecture_overview.md"]
 model_pages = [
-    "NiPiZD" => "nipizd.md",
+    "Onyx" => "nipizd.md",
     "FrankenLOBSTER" => "frankenlobster.md",
 ]
 

@@ -6,6 +6,7 @@
 # parameters, and predator-by-prey interaction matrix entries.
 
 using Agate
+using Onyx
 using Agate.Library.Light: CyclicalPAR
 using ADTypes: AutoEnzyme
 using CairoMakie
@@ -18,7 +19,6 @@ using SciMLSensitivity
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 using Oceananigans.Units: day
 
-const NiPiZD = Agate.Models.NiPiZD
 nothing #hide
 
 # ## Static model and active parameter map
@@ -30,7 +30,7 @@ nothing #hide
 # grazing preferences, and grazing efficiency. We then measure how changes in
 # each parameter affect the final total phytoplankton biomass.
 
-const BGC = NiPiZD.construct()
+const BGC = Onyx.construct()
 const TRACER_NAMES = Tuple(required_biogeochemical_tracers(BGC))
 const PLANKTON_PFTS = Agate.Introspection.pfts(BGC)
 

@@ -7,6 +7,7 @@
 # ForwardDiff.jl for the derivative, and CairoMakie.jl for plotting.
 
 using Agate
+using Onyx
 using ForwardDiff
 using OrdinaryDiffEq: Tsit5, solve
 using CairoMakie
@@ -15,7 +16,6 @@ using Printf
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
 using Oceananigans.Units: day
 
-const NiPiZD = Agate.Models.NiPiZD
 const TRACERS = (:N, :D, :P_1, :P_2, :Z_1, :Z_2)
 nothing #hide
 
@@ -26,7 +26,7 @@ nothing #hide
 # calls only this active entry becomes a dual number; the stored model parameters
 # remain ordinary floating-point values.
 
-const BGC = NiPiZD.construct()
+const BGC = Onyx.construct()
 const ACTIVE = Agate.Runtime.active_parameters(BGC; maximum_growth_rate=(:P_1,))
 
 # Here `theta[1]` is the maximum growth rate of `P_1`. The `P_2` growth rate and
