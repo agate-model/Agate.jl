@@ -8,7 +8,6 @@ Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 OceanBioME = "a49af516-9db8-4be4-be45-1dad61c5a376"
 OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
 Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
-Onyx = "f98661ca-1ecc-490c-adf0-675a3fe54d60"
 
 ADTypes = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
 DifferentiationInterface = "a0c0ee7d-e4b9-4e03-894e-1c5f64a51d63"
