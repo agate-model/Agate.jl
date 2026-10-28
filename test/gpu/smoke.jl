@@ -13,7 +13,7 @@ using Oceananigans.Grids: Periodic, Bounded
 
 @inline gpu_smoke_PAR(x, y, z, t) = 100f0 * exp(0.2f0 * z)
 
-@testset "CUDA smoke: direct Agate model and FrankenLOBSTER" begin
+@testset "CUDA smoke: direct Agate model and NPD coupling" begin
     functional = CUDA.functional()
     @test functional
     if functional
@@ -24,16 +24,16 @@ using Oceananigans.Grids: Periodic, Bounded
             x=(0f0, 2f0), y=(0f0, 2f0), z=(-4f0, 0f0),
         )
 
-        # A small directly authored model exercises the generic GPU compilation path.
+        # A small directly authored model exercises generic GPU compilation and NPD coupling.
         components = (
-            N=Agate.Components.Pool(:nitrogen),
+            NO₃=Agate.Components.Pool(:nitrogen),
             P=Agate.Components.Plankton(;
                 states=(nitrogen=:nitrogen,), reference_state=:nitrogen,
                 size_structure=[2.0],
             ),
         )
         processes = (growth=Agate.Processes.Growth(;
-            plankton=:P, reference_resource=:N,
+            plankton=:P, reference_resource=:NO₃,
             bindings=(maximum_rate=:maximum_growth_rate,),
             factors=(light=Agate.Processes.Light(Agate.Processes.Smith(); driver=:PAR),),
         ),)
@@ -50,56 +50,50 @@ using Oceananigans.Grids: Periodic, Bounded
         drift = biogeochemical_drift_velocity(direct, Val(:P_1)).w
         @test parent(drift) isa array_type(GPU())
         @test any(==(-sinking_rate), Array(parent(drift)))
-        @test biogeochemical_drift_velocity(direct, Val(:N)).w == ZeroField()
+        @test biogeochemical_drift_velocity(direct, Val(:NO₃)).w == ZeroField()
 
         clock = Clock(; time=zero(grid))
         PAR = FunctionField{Center,Center,Center}(gpu_smoke_PAR, grid; clock)
-        bgc = Biogeochemistry(
-            direct; light_attenuation=PrescribedPhotosyntheticallyActiveRadiation(PAR)
-        )
+        light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
+        bgc = Biogeochemistry(direct; light_attenuation)
         model = NonhydrostaticModel(grid; clock, biogeochemistry=bgc)
-        set!(model; N=7f0, P_1=0.01f0)
+        set!(model; NO₃=7f0, P_1=0.01f0)
         time_step!(model, 60f0)
         @test model.clock.iteration == 1
         @test all(isfinite, Array(interior(model.tracers.P_1)))
 
-        # FrankenLOBSTER: GPU sinking through the composed OceanBioME NPD model.
-        franken_sinking_rate = 0.2f0 / 86400f0
-        plankton = Agate.Models.FrankenLOBSTER.construct(;
-            grid, scalar_type=Float32,
-            sinking_tracers=(P_1=franken_sinking_rate,), open_bottom=true,
+        # The same direct model exercises sinking through the composed OceanBioME NPD adapter.
+        plankton = Agate.Integrations.NPDPlankton(
+            direct;
+            owned_components=(:P,), phytoplankton_components=(:P,),
+            nutrient_tracers=(:NO₃,),
+            settings=(carbon_ratio=6.56f0, chlorophyll_ratio=1.31f0),
         )
-        @test plankton.runtime.parameters.palatability_matrix isa array_type(GPU())
-        @test plankton.runtime.parameters.bacterial_dom_half_saturation isa array_type(GPU())
-        @test plankton.settings == plankton.runtime.metadata.model_settings
-
-        franken_clock = Clock(; time=zero(grid))
-        franken_PAR = FunctionField{Center,Center,Center}(
-            gpu_smoke_PAR, grid; clock=franken_clock
+        npd_clock = Clock(; time=zero(grid))
+        npd_PAR = FunctionField{Center,Center,Center}(
+            gpu_smoke_PAR, grid; clock=npd_clock
         )
-        franken_bgc = LOBSTER(
+        npd_bgc = LOBSTER(
             grid; plankton,
-            light_attenuation=PrescribedPhotosyntheticallyActiveRadiation(franken_PAR),
+            light_attenuation=PrescribedPhotosyntheticallyActiveRadiation(npd_PAR),
         )
-        franken_npd = franken_bgc.underlying_biogeochemistry
-        franken_drift = biogeochemical_drift_velocity(franken_npd, Val(:P_1)).w
-        @test parent(franken_drift) isa array_type(GPU())
-        @test any(v -> v < 0, Array(parent(franken_drift)))
-        @test biogeochemical_drift_velocity(franken_npd, Val(:Z_1)).w == ZeroField()
+        npd = npd_bgc.underlying_biogeochemistry
+        npd_drift = biogeochemical_drift_velocity(npd, Val(:P_1)).w
+        @test parent(npd_drift) isa array_type(GPU())
+        @test any(v -> v < 0, Array(parent(npd_drift)))
 
-        franken_model = NonhydrostaticModel(
-            grid; clock=franken_clock, biogeochemistry=franken_bgc
+        npd_model = NonhydrostaticModel(
+            grid; clock=npd_clock, biogeochemistry=npd_bgc
         )
         set!(
-            franken_model;
+            npd_model;
             NO₃=2f0, NH₄=0.2f0, DOM=0.1f0, sPOM=0.1f0, bPOM=0.1f0,
-            P_1=0.02f0, P_2=0.01f0, Z_1=0.005f0, Z_2=0.005f0,
-            H_1=0.01f0, T=20f0,
+            P_1=0.02f0, T=20f0,
         )
-        time_step!(franken_model, 60f0)
-        @test franken_model.clock.iteration == 1
-        for tracer in (:P_1, :Z_1, :H_1, :NO₃, :NH₄, :DOM, :sPOM, :bPOM)
-            @test all(isfinite, Array(interior(getproperty(franken_model.tracers, tracer))))
+        time_step!(npd_model, 60f0)
+        @test npd_model.clock.iteration == 1
+        for tracer in (:P_1, :NO₃, :NH₄, :DOM, :sPOM, :bPOM)
+            @test all(isfinite, Array(interior(getproperty(npd_model.tracers, tracer))))
         end
     end
 end

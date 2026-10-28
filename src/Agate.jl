@@ -11,13 +11,11 @@ include("Compilation/Compilation.jl")
 include("Diagnostics/Diagnostics.jl")
 include("Construction/Construction.jl")
 include("Integrations/Integrations.jl")
-include("Models/Models.jl")
 include("Introspection.jl")
 
 using .Processes: ModelDefinition
 
 export Library
-export Models
 export ModelFamilies
 export Parameters
 export Components

@@ -1,10 +1,11 @@
 # # [FrankenLOBSTER with OceanBioME] (@id frankenlobster_example)
 
-# FrankenLOBSTER is Agate's richer P/Z/H model-family example. Agate owns the living
+# FrankenLOBSTER is a richer P/Z/H model built with Agate. Agate represents the living
 # phytoplankton, zooplankton, and heterotrophic-bacterioplankton ecology; OceanBioME's
 # `LOBSTER` supplies the surrounding nutrient and detritus model.
 
 using Agate
+using FrankenLOBSTER
 using OceanBioME
 using OceanBioME.Models.NutrientsPlanktonDetritusModels: LOBSTER
 using Oceananigans
@@ -19,7 +20,7 @@ using Oceananigans.Units: minutes, hours
 # model-level conversion/diagnostic properties use `settings`.
 
 grid = RectilinearGrid(CPU(); size=(1, 1, 4), extent=(1, 1, 40))
-plankton = Agate.Models.FrankenLOBSTER.construct(; grid)
+plankton = FrankenLOBSTER.construct(; grid)
 
 # Constant PAR keeps this short example focused on biological composition rather than physical
 # forcing.
@@ -63,7 +64,7 @@ final_living
 
 # Recipe replay uses the same `construct` function. Julia dispatch distinguishes a new authored
 # construction from a replay based on the `ModelRecipe` argument.
-_, recipe = Agate.Models.FrankenLOBSTER.construct_plus_recipe(; grid)
-replayed = Agate.Models.FrankenLOBSTER.construct(recipe; grid)
+_, recipe = FrankenLOBSTER.construct_plus_recipe(; grid)
+replayed = FrankenLOBSTER.construct(recipe; grid)
 
 required_biogeochemical_tracers(replayed)
