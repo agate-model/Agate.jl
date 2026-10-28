@@ -99,7 +99,7 @@ makedocs(;
         size_threshold=1_000_000,
         size_threshold_warn=300_000,
     ),
-    modules=[Agate],
+    modules=[Agate, Onyx],
     checkdocs=:exports,
     warnonly=[:missing_docs],
     pages=[
