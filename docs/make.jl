@@ -100,6 +100,7 @@ makedocs(;
         size_threshold_warn=300_000,
     ),
     modules=[Agate, Onyx],
+    remotes=Dict(pkgdir(Onyx) => (Documenter.Remotes.GitHub("agate-model", "Onyx.jl"), "c22c460b862d2656c9f429ccbe790ddb165d67be")),
     checkdocs=:exports,
     warnonly=[:missing_docs],
     pages=[
