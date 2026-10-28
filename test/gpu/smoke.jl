@@ -62,11 +62,32 @@ using Oceananigans.Grids: Periodic, Bounded
         @test model.clock.iteration == 1
         @test all(isfinite, Array(interior(model.tracers.P_1)))
 
-        # The same direct model exercises sinking through the composed OceanBioME NPD adapter.
+        # A temperature-dependent variant exercises the composed OceanBioME NPD adapter.
+        npd_processes = (growth=Agate.Processes.Growth(;
+            plankton=:P, reference_resource=:NO₃,
+            bindings=(maximum_rate=:maximum_growth_rate,),
+            factors=(
+                light=Agate.Processes.Light(Agate.Processes.Smith(); driver=:PAR),
+                temperature=Agate.Processes.Temperature(
+                    Agate.Processes.Q10(:plankton); driver=:T,
+                    bindings=(q10=:temperature_q10, reference_temperature=:reference_temperature),
+                ),
+            ),
+        ),)
+        npd_parameters = merge(parameters, (
+            temperature_q10=Agate.Parameters.Parameter(2f0),
+            reference_temperature=Agate.Parameters.Parameter(20f0),
+        ))
+        npd_definition = Agate.ModelDefinition(;
+            components, processes=npd_processes, parameters=npd_parameters,
+        )
+        npd_runtime = Agate.Construction.construct(npd_definition;
+            grid, sinking_tracers=(P_1=sinking_rate,),
+        )
         plankton = Agate.Integrations.NPDPlankton(
-            direct;
+            npd_runtime;
             owned_components=(:P,), phytoplankton_components=(:P,),
-            nutrient_tracers=(:NO₃,),
+            nutrient_tracers=(:NO₃,), dependencies=(:T,),
             settings=(carbon_ratio=6.56f0, chlorophyll_ratio=1.31f0),
         )
         npd_clock = Clock(; time=zero(grid))
@@ -85,15 +106,21 @@ using Oceananigans.Grids: Periodic, Bounded
         npd_model = NonhydrostaticModel(
             grid; clock=npd_clock, biogeochemistry=npd_bgc
         )
-        set!(
-            npd_model;
+        initial = (
             NO₃=2f0, NH₄=0.2f0, DOM=0.1f0, sPOM=0.1f0, bPOM=0.1f0,
-            P_1=0.02f0, T=20f0,
+            P_1=0.02f0,
         )
+        set!(npd_model; initial..., T=20f0)
         time_step!(npd_model, 60f0)
         @test npd_model.clock.iteration == 1
-        for tracer in (:P_1, :NO₃, :NH₄, :DOM, :sPOM, :bPOM)
+        for tracer in (:P_1, :NO₃, :NH₄, :DOM, :sPOM, :bPOM, :T)
             @test all(isfinite, Array(interior(getproperty(npd_model.tracers, tracer))))
         end
+
+        P20 = Array(interior(npd_model.tracers.P_1))
+        set!(npd_model; initial..., T=30f0)
+        time_step!(npd_model, 60f0)
+        P30 = Array(interior(npd_model.tracers.P_1))
+        @test all(P30 .> P20)
     end
 end
