@@ -3,7 +3,7 @@
 # Many plankton traits depend on organism size (allometry). Agate uses this to calculate the parameter
 # values of relevant parameters for each plankton size in the model.
 #
-# We will first look at the  default [Agate.jl-Onyx](@ref NiPiZD) relationship for maximum growth rate. We change
+# We will first look at the  default [Agate.jl-Onyx](@ref Onyx) relationship for maximum growth rate. We change
 # only its exponent, compare the growth rates that Agate assigns to each phytoplankton
 # size, and then run the two versions in the same simple box model. We then replace the
 # built-in relationship with one based on [Ward et al. (2017)](https://doi.org/10.1086/689992)
@@ -42,11 +42,11 @@ size_structure = (;
 nothing #hide
 
 
-# NiPiZD already uses Agate's built-in `PowerLaw` for `maximum_growth_rate`. A power law
+# Onyx already uses Agate's built-in `PowerLaw` for `maximum_growth_rate`. A power law
 # has the form `prefactor × V^exponent`, where `V` is spherical cell volume calculated
 # from diameter. The prefactor sets the overall scale, while the exponent controls how
 # strongly the value changes with size.
-# NiPiZD's defaults are `2 / day` and `-0.15`. We write them explicitly here so that the
+# Onyx's defaults are `2 / day` and `-0.15`. We write them explicitly here so that the
 # change in the next section is easy to follow. `AllometricParam` combines the relationship
 # with its coefficients so that it can be supplied as a model parameter.
 
@@ -57,7 +57,7 @@ default_growth = AllometricParam(
 )
 nothing #hide
 
-# Pass the relationship through `parameters` when constructing NiPiZD. Agate then
+# Pass the relationship through `parameters` when constructing Onyx. Agate then
 # calculates the corresponding `maximum_growth_rate` for each plankton size.
 
 default_bgc = Onyx.construct(;

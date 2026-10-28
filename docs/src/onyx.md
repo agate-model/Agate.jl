@@ -1,4 +1,4 @@
-### [Agate.jl-Onyx model](@id NiPiZD)
+### [Agate.jl-Onyx model](@id Onyx)
 
 Onyx uses two phytoplankton SizeClasses (`2` and `10` μm) and two zooplankton SizeClasses
 (`20` and `100` μm) by default. The default predator:prey diameter ratio is `10`, and living-prey

@@ -45,8 +45,8 @@ defining_models_examples = [
 ]
 
 differentiable_modelling = [
-    "Forward-mode AD sensitivity" => "forward_mode_ad_nipizd_sensitivity",
-    "Reverse-mode AD sensitivity" => "reverse_mode_ad_nipizd_sensitivity",
+    "Forward-mode AD sensitivity" => "forward_mode_ad_onyx_sensitivity",
+    "Reverse-mode AD sensitivity" => "reverse_mode_ad_onyx_sensitivity",
 ]
 
 example_scripts = [
@@ -88,7 +88,7 @@ differentiable_modelling_pages = [
 
 contributor_pages = ["Architecture" => "architecture_overview.md"]
 model_pages = [
-    "Onyx" => "nipizd.md",
+    "Onyx" => "onyx.md",
     "FrankenLOBSTER" => "frankenlobster.md",
 ]
 

@@ -1,4 +1,4 @@
-# # [Forward-mode AD sensitivity] (@id forward_mode_ad_nipizd_sensitivity_example)
+# # [Forward-mode AD sensitivity] (@id forward_mode_ad_onyx_sensitivity_example)
 
 # In this example we use ForwardDiff.jl to compute the sensitivity of phytoplankton 1 (P_1) in an N2P2ZD model to P_1's maximum growth rate parameter.
 
@@ -42,11 +42,11 @@ end
 
 constant_PAR(::Type{T}) where {T} = T(100.0)
 
-function solve_nipizd(theta; saveat=range(0.0, 365day; length=366))
+function solve_onyx(theta; saveat=range(0.0, 365day; length=366))
     T = eltype(theta)
 
     required_biogeochemical_tracers(BGC) == TRACERS ||
-        error("Unexpected NiPiZD tracer order: $(required_biogeochemical_tracers(BGC))")
+        error("Unexpected Onyx tracer order: $(required_biogeochemical_tracers(BGC))")
 
     problem = Agate.Runtime.ode_problem(
         BGC,
@@ -65,13 +65,13 @@ nothing #hide
 # This is the function that ForwardDiff.jl differentiates.
 
 function p_1_trajectory(theta; saveat=range(0.0, 365day; length=366))
-    sol = solve_nipizd(theta; saveat=saveat)
+    sol = solve_onyx(theta; saveat=saveat)
     values = reduce(hcat, sol.u)
     return vec(values[3, :])
 end
 
 function p_1_solution(mu; saveat=range(0.0, 365day; length=366))
-    sol = solve_nipizd([mu]; saveat=saveat)
+    sol = solve_onyx([mu]; saveat=saveat)
     values = reduce(hcat, sol.u)
     return vec(values[3, :])
 end
@@ -113,7 +113,7 @@ time_days = saveat ./ day
 fig = Figure(; size=(900, 620), fontsize=14)
 
 ax1 = Axis(
-    fig[1, 1]; xlabel="time (days)", ylabel="P_1 concentration", title="NiPiZD P_1 biomass"
+    fig[1, 1]; xlabel="time (days)", ylabel="P_1 concentration", title="Onyx P_1 biomass"
 )
 lines!(ax1, time_days, baseline; label="P_1", linewidth=3)
 axislegend(ax1; position=:rb)
@@ -135,7 +135,7 @@ lines!(
 )
 axislegend(ax2; position=:rb)
 
-output_path = joinpath(@__DIR__, "forward_mode_ad_nipizd_sensitivity.png")
+output_path = joinpath(@__DIR__, "forward_mode_ad_onyx_sensitivity.png")
 save(output_path, fig)
 
 fig

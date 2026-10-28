@@ -1,7 +1,7 @@
-# # [Reverse-mode AD sensitivity] (@id reverse_mode_ad_nipizd_sensitivity_example)
+# # [Reverse-mode AD sensitivity] (@id reverse_mode_ad_onyx_sensitivity_example)
 
 # This example differentiates the final total phytoplankton biomass in the
-# default NiPiZD model with respect to several active parameters at once. The
+# default Onyx model with respect to several active parameters at once. The
 # active parameter vector includes a scalar parameter, plankton-axis vector
 # parameters, and predator-by-prey interaction matrix entries.
 
@@ -66,7 +66,7 @@ function initial_conditions(::Type{T}) where {T}
     return T[getproperty(INITIAL_CONCENTRATIONS, tracer) for tracer in TRACER_NAMES]
 end
 
-function nipizd_problem(theta)
+function onyx_problem(theta)
     T = eltype(theta)
 
     return Agate.Runtime.ode_problem(
@@ -79,7 +79,7 @@ function nipizd_problem(theta)
     )
 end
 
-const PROBLEM = nipizd_problem(θ_REFERENCE)
+const PROBLEM = onyx_problem(θ_REFERENCE)
 nothing #hide
 
 # ## Endpoint objective

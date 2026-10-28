@@ -1,7 +1,7 @@
 # # [Predator-prey palatability] (@id predator_prey_palatability_example)
 
 # This example compares two ways of configuring predator-prey palatability in
-# the [Agate.jl-Onyx](@ref NiPiZD) model. By default, the model computes the palatability matrix
+# the [Agate.jl-Onyx](@ref Onyx) model. By default, the model computes the palatability matrix
 # from allometric traits based on the preferred predator:prey size ratio
 # (`optimum_predator_prey_ratio`, abbreviated here as `Vopt`). We will change
 # this default value to use a different optimum. Additionally, we will show how
@@ -39,7 +39,7 @@ nothing #hide
 # By default, predators prefer prey that are 10 times smaller than themselves
 # (`Vopt = 10`). Palatability contributes to the consumer's total effective food
 # concentration and to allocation of its shared ingestion capacity among prey.
-# NiPiZD uses proportional allocation (`switching_exponent = 1`) by default.
+# Onyx uses proportional allocation (`switching_exponent = 1`) by default.
 #
 # Instead, we will change that optimum to `Vopt = 5` for the two
 # zooplankton consumers. Vector parameters can be overridden by plankton SizeClass

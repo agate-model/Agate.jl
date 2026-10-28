@@ -4,7 +4,7 @@
 #     This example uses [Oceananigans.jl](https://clima.github.io/OceananigansDocumentation/stable/) and [OceanBioME.jl](https://oceanbiome.github.io/OceanBioME.jl/stable/).
 #     We recommend familiarizing yourself with their user interface if you intend to make changes to the physical model setup.
 
-# This example changes the number of plankton and the size structure of the [Agate.jl-Onyx](@ref NiPiZD) model.
+# This example changes the number of plankton and the size structure of the [Agate.jl-Onyx](@ref Onyx) model.
 
 # ## Loading dependencies
 # The example uses Agate.jl, Oceananigans.jl, and OceanBioME.jl for the ecosystem simulation.
