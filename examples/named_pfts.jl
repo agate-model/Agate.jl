@@ -21,6 +21,8 @@
 # CairoMakie.jl is used for plotting.
 
 using Agate
+using Onyx
+
 using Agate.Introspection: tracer_names
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -53,7 +55,7 @@ parameters = (;
     alpha=(high_light_1=0.15 / day, low_light_1=0.30 / day),
 )
 
-bgc = Agate.Models.NiPiZD.construct(; size_structure, parameters)
+bgc = Onyx.construct(; size_structure, parameters)
 nothing #hide
 
 # The named PFTs are realized as deterministic tracer names.

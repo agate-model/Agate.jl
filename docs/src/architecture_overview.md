@@ -17,7 +17,7 @@ A process-defined model moves through five stages:
 
 4. **Construction and replay** (`Construction/`).
    Direct `ModelDefinition` construction resolves defaults and overrides from the model
-   definition. Bundled families such as NiPiZD and external model packages use the same
+   definition. External model packages such as Onyx use the same
    definition-driven core. Recipes record a family label and the canonical realization
    inputs required by the model constructor; replay selects the family explicitly and follows
    the normal construction path. Julia's package environment identifies the implementation.

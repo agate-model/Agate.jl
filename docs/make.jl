@@ -1,12 +1,17 @@
 # to build docs from terminal `julia --project=docs docs/make.jl`
 import Pkg
 Pkg.activate(@__DIR__)
-Pkg.develop(Pkg.PackageSpec(; path=joinpath(@__DIR__, "..")))
+# Pin the unregistered Onyx provider until its first General release.
+withenv("JULIA_PKG_PRECOMPILE_AUTO" => "0") do
+    Pkg.add(Pkg.PackageSpec(; url="https://github.com/agate-model/Onyx.jl", rev="c22c460b862d2656c9f429ccbe790ddb165d67be"))
+    Pkg.develop(Pkg.PackageSpec(; path=joinpath(@__DIR__, "..")))
+end
 Pkg.instantiate()
 
 push!(LOAD_PATH, "../src/")
 using Documenter, Literate
 using Agate
+using Onyx
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -40,8 +45,8 @@ defining_models_examples = [
 ]
 
 differentiable_modelling = [
-    "Forward-mode AD sensitivity" => "forward_mode_ad_nipizd_sensitivity",
-    "Reverse-mode AD sensitivity" => "reverse_mode_ad_nipizd_sensitivity",
+    "Forward-mode AD sensitivity" => "forward_mode_ad_onyx_sensitivity",
+    "Reverse-mode AD sensitivity" => "reverse_mode_ad_onyx_sensitivity",
 ]
 
 example_scripts = [
@@ -83,7 +88,7 @@ differentiable_modelling_pages = [
 
 contributor_pages = ["Architecture" => "architecture_overview.md"]
 model_pages = [
-    "NiPiZD" => "nipizd.md",
+    "Onyx" => "onyx.md",
     "FrankenLOBSTER" => "frankenlobster.md",
 ]
 
@@ -94,7 +99,8 @@ makedocs(;
         size_threshold=1_000_000,
         size_threshold_warn=300_000,
     ),
-    modules=[Agate],
+    modules=[Agate, Onyx],
+    remotes=Dict(pkgdir(Onyx) => (Documenter.Remotes.GitHub("agate-model", "Onyx.jl"), "c22c460b862d2656c9f429ccbe790ddb165d67be")),
     checkdocs=:exports,
     warnonly=[:missing_docs],
     pages=[

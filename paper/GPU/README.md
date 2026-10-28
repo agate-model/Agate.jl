@@ -11,6 +11,8 @@ Agate project into the image):
 podman build -f paper/GPU/cuda.Podmanfile -t agate-gpu .
 ```
 
+The image installs Onyx from the Git commit pinned in `cuda.Podmanfile`.
+
 ## Run a script
 
 Mount the repository into the container so outputs are written to your working

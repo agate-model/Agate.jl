@@ -1,6 +1,6 @@
 using Agate
 using Agate.Introspection: tracer_names
-using Agate.Models: NiPiZD
+using Onyx
 using OceanBioME
 using OceanBioME: Biogeochemistry
 using Oceananigans
@@ -39,7 +39,7 @@ grid = RectilinearGrid(GPU(); size=(1, 1, 50), extent=(20meters, 20meters, 200me
 
 # Construct a GPU-ready instance for embedding in Oceananigans / OceanBioME models.
 # The grid determines precision and architecture.
-bgc_instance = NiPiZD.construct(; grid)
+bgc_instance = Onyx.construct(; grid)
 
 tracer_syms = Tuple(tracer_names(bgc_instance))
 

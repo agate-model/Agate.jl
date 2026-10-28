@@ -13,7 +13,7 @@ using Oceananigans.Grids: Periodic, Bounded
 
 @inline gpu_smoke_PAR(x, y, z, t) = 100f0 * exp(0.2f0 * z)
 
-@testset "CUDA smoke: NiPiZD and FrankenLOBSTER" begin
+@testset "CUDA smoke: direct Agate model and FrankenLOBSTER" begin
     functional = CUDA.functional()
     @test functional
     if functional
@@ -24,25 +24,41 @@ using Oceananigans.Grids: Periodic, Bounded
             x=(0f0, 2f0), y=(0f0, 2f0), z=(-4f0, 0f0),
         )
 
-        # NiPiZD: GPU parameter adaptation, sinking, and one biological timestep.
-        sinking_rate = 2.5f0 / 86400f0
-        nipizd = Agate.Models.NiPiZD.construct(;
-            grid, sinking_tracers=(D=sinking_rate,)
+        # A small directly authored model exercises the generic GPU compilation path.
+        components = (
+            N=Agate.Components.Pool(:nitrogen),
+            P=Agate.Components.Plankton(;
+                states=(nitrogen=:nitrogen,), reference_state=:nitrogen,
+                size_structure=[2.0],
+            ),
         )
-        @test nipizd.parameters.palatability_matrix isa array_type(GPU())
-        @test nipizd.parameters.maximum_predation_rate isa array_type(GPU())
-        drift = biogeochemical_drift_velocity(nipizd, Val(:D)).w
+        processes = (growth=Agate.Processes.Growth(;
+            plankton=:P, reference_resource=:N,
+            bindings=(maximum_rate=:maximum_growth_rate,),
+            factors=(light=Agate.Processes.Light(Agate.Processes.Smith(); driver=:PAR),),
+        ),)
+        parameters = (
+            maximum_growth_rate=Agate.Parameters.Parameter(2e-5),
+            alpha=Agate.Parameters.Parameter(2e-6),
+        )
+        definition = Agate.ModelDefinition(; components, processes, parameters)
+        sinking_rate = 2.5f0 / 86400f0
+        direct = Agate.Construction.construct(definition;
+            grid, sinking_tracers=(P_1=sinking_rate,),
+        )
+        @test direct.parameters.maximum_growth_rate isa array_type(GPU())
+        drift = biogeochemical_drift_velocity(direct, Val(:P_1)).w
         @test parent(drift) isa array_type(GPU())
         @test any(==(-sinking_rate), Array(parent(drift)))
-        @test biogeochemical_drift_velocity(nipizd, Val(:Z_1)).w == ZeroField()
+        @test biogeochemical_drift_velocity(direct, Val(:N)).w == ZeroField()
 
         clock = Clock(; time=zero(grid))
         PAR = FunctionField{Center,Center,Center}(gpu_smoke_PAR, grid; clock)
         bgc = Biogeochemistry(
-            nipizd; light_attenuation=PrescribedPhotosyntheticallyActiveRadiation(PAR)
+            direct; light_attenuation=PrescribedPhotosyntheticallyActiveRadiation(PAR)
         )
         model = NonhydrostaticModel(grid; clock, biogeochemistry=bgc)
-        set!(model; N=7f0, D=0.01f0, P_1=0.01f0, P_2=0.01f0, Z_1=0.05f0, Z_2=0.05f0)
+        set!(model; N=7f0, P_1=0.01f0)
         time_step!(model, 60f0)
         @test model.clock.iteration == 1
         @test all(isfinite, Array(interior(model.tracers.P_1)))

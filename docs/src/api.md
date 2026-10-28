@@ -262,9 +262,10 @@ Agate.Introspection.interaction_matrix
 
 ```julia
 using Agate
+using Onyx
 using Agate.Introspection
 
-bgc = Agate.Models.NiPiZD.construct()
+bgc = Onyx.construct()
 pal = interaction_matrix(bgc, :palatability_matrix)
 
 pal.rows

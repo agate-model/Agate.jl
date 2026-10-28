@@ -4,13 +4,15 @@
 #     This example uses [Oceananigans.jl](https://clima.github.io/OceananigansDocumentation/stable/) and [OceanBioME.jl](https://oceanbiome.github.io/OceanBioME.jl/stable/).
 #     We recommend familiarizing yourself with their user interface if you intend to make changes to the physical model setup.
 
-# This example changes the number of plankton and the size structure of the [Agate.jl-NiPiZD](@ref NiPiZD) model.
+# This example changes the number of plankton and the size structure of the [Agate.jl-Onyx](@ref Onyx) model.
 
 # ## Loading dependencies
 # The example uses Agate.jl, Oceananigans.jl, and OceanBioME.jl for the ecosystem simulation.
 # CairoMakie.jl is used for plotting.
 
 using Agate
+using Onyx
+
 using Agate.Introspection: tracer_names, plankton_tracers, plankton_diameters
 using Agate.Library.Light
 using OceanBioME
@@ -39,7 +41,7 @@ size_structure = (;
     zooplankton=(Z=zoo_size_structure,),
 )
 
-bgc = Agate.Models.NiPiZD.construct(; size_structure)
+bgc = Onyx.construct(; size_structure)
 nothing #hide
 
 # We can inspect the tracer names required by the model.

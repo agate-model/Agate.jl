@@ -32,9 +32,12 @@ jobs:
       - uses: julia-actions/cache@v1
 
       - name: Install docs dependencies (use local Agate)
+        env:
+          JULIA_PKG_PRECOMPILE_AUTO: "0"
         run: |
           julia --project=docs -e '
             using Pkg
+            Pkg.add(PackageSpec(url="https://github.com/agate-model/Onyx.jl", rev=get(ENV, "AGATE_ONYX_REV", "main")))
             Pkg.develop(PackageSpec(path=pwd()))
             Pkg.instantiate()
             Pkg.precompile()

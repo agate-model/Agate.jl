@@ -63,7 +63,7 @@ We follow the contributing guidelines developed by [The Turing Way](https://gith
 ### GPU tests
 
 CUDA execution is opt-in because it requires a compatible GPU/toolkit setup.
-The lightweight Buildkite smoke test checks NiPiZD and FrankenLOBSTER biological
+The lightweight Buildkite smoke test checks generic Agate and FrankenLOBSTER biological
 execution, sinking, and OceanBioME coupling without running the CPU/AD suite.
 Buildkite updates OceanBioME and Oceananigans within Agate's `[compat]` bounds and
 prints their resolved versions before running the smoke test.
@@ -101,7 +101,23 @@ format(".")
 
 Your development environment is now ready!
 
+## Benchmarks
+
+To use the external Onyx provider in the grazing-scaling benchmark, from the
+repository root run:
+
+```bash
+julia --project=benchmark benchmark/setup.jl
+julia --project=benchmark benchmark/grazing_scaling.jl --quick
+```
+
+The setup develops the local Agate checkout and installs the Onyx Git commit
+recorded in `benchmark/setup.jl`.
+
 ## Documentation
+
+The documentation build uses the Onyx Git commit recorded in `docs/make.jl`.
+The docs CI builds from the same source revision.
 
 Now that you've made your awesome contribution, it's time to tell the world how to use it.
 Writing documentation strings is really important to make sure others use your functionality

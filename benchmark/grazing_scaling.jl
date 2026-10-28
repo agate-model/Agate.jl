@@ -1,4 +1,5 @@
 using Agate
+using Onyx
 using BenchmarkTools
 using OceanBioME: Biogeochemistry, PrescribedPhotosyntheticallyActiveRadiation
 using Oceananigans
@@ -6,7 +7,6 @@ using Oceananigans.Architectures: CPU, GPU
 using Oceananigans.Fields: FunctionField
 using Oceananigans.Grids: Periodic, Bounded
 
-const NiPiZD = Agate.Models.NiPiZD
 const USE_GPU = "--gpu" in ARGS
 const QUICK = "--quick" in ARGS
 const EXTENDED = "--extended" in ARGS
@@ -50,7 +50,7 @@ function build_model(n)
     clock = Clock(; time=zero(grid))
     PAR = FunctionField{Center,Center,Center}(benchmark_PAR, grid; clock)
     light_attenuation = PrescribedPhotosyntheticallyActiveRadiation(PAR)
-    bgc = NiPiZD.construct(; grid, size_structure=matched_size_structure(n))
+    bgc = Onyx.construct(; grid, size_structure=matched_size_structure(n))
     biogeochemistry = Biogeochemistry(bgc; light_attenuation)
 
     # Disable resolved advection so the scaling signal is dominated by tracer/BGC work.
@@ -91,7 +91,7 @@ end
 
 function main()
     backend_name = USE_GPU ? "GPU" : "CPU"
-    println("Agate NiPiZD grazing/PFT scaling benchmark ($backend_name)")
+    println("Agate-Onyx grazing/PFT scaling benchmark ($backend_name)")
     println("grid = ", size(benchmark_grid()), ", Float32, complete time_step!, advection=nothing")
     println("P/Z\tedges\tbuild+warm_s\tmedian_ms\trelative_to_2P2Z")
 
