@@ -18,7 +18,7 @@ SciMLBase = "2"
 julia = "1.10"
 CUDA = "5.9.1"
 Enzyme = "0.13.78"
-OceanBioME = "0.19, 0.20"
+OceanBioME = "0.19, 0.20, 0.21"
 Oceananigans = "0.113, 0.114"
 
 
