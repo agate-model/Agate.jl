@@ -101,7 +101,7 @@ src/
 |-- Library/               # scientific kernels, forcings, and allometric utilities
 |-- Runtime/               # active parameters and box-ODE utilities
 |-- Diagnostics/           # model checks and diagnostics
-|-- Models/                # bundled named model families
+|-- Integrations/          # OceanBioME NPD integration
 `-- Introspection.jl       # model inspection utilities
 
 examples/                  # runnable examples

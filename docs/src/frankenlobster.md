@@ -1,7 +1,8 @@
-### [Agate.jl-FrankenLOBSTER model](@id FrankenLOBSTER)
+### [FrankenLOBSTER model](@id FrankenLOBSTER)
 
-FrankenLOBSTER constructs a size-structured plankton community for composition with
-OceanBioME's `LOBSTER` nutrient and detritus model. Agate represents the living community,
+[FrankenLOBSTER.jl](https://github.com/agate-model/FrankenLOBSTER.jl) constructs a
+size-structured plankton community for composition with OceanBioME's `LOBSTER`
+nutrient and detritus model. Agate represents the living community,
 while `LOBSTER` supplies nitrate (`NO₃`), ammonium (`NH₄`), dissolved organic matter (`DOM`), 
 and small and large particulate organic matter (`sPOM`, `bPOM`).
 Photosynthetically active radiation (`PAR`) is supplied by the light-attenuation model.
@@ -25,11 +26,12 @@ They can be inspected with `plankton.settings` or
 
 ```julia
 using Agate
+using FrankenLOBSTER
 using OceanBioME.Models.NutrientsPlanktonDetritusModels: LOBSTER
 using Oceananigans
 
 grid = RectilinearGrid(CPU(); size=(1, 1, 4), extent=(1, 1, 40))
-plankton = Agate.Models.FrankenLOBSTER.construct(;
+plankton = FrankenLOBSTER.construct(;
     grid,
     parameters=(maximum_growth_rate=(P_1=1e-5,),),
     settings=(chlorophyll_ratio=1.5,),
@@ -87,9 +89,9 @@ structure, parameters, settings and sinking configuration. Export a recipe as JS
 reconstruct it with the execution grid of your choice:
 
 ```julia
-plankton, recipe = Agate.Models.FrankenLOBSTER.construct_plus_recipe(; grid)
+plankton, recipe = FrankenLOBSTER.construct_plus_recipe(; grid)
 Agate.Construction.export_recipe("frankenlobster.json", recipe)
-replayed = Agate.Models.FrankenLOBSTER.construct(
+replayed = FrankenLOBSTER.construct(
     Agate.Construction.import_recipe("frankenlobster.json"); grid
 )
 ```
@@ -97,6 +99,6 @@ replayed = Agate.Models.FrankenLOBSTER.construct(
 ## API
 
 ```@docs
-Agate.Models.FrankenLOBSTER.construct
-Agate.Models.FrankenLOBSTER.construct_plus_recipe
+FrankenLOBSTER.construct
+FrankenLOBSTER.construct_plus_recipe
 ```

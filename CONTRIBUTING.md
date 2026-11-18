@@ -63,8 +63,8 @@ We follow the contributing guidelines developed by [The Turing Way](https://gith
 ### GPU tests
 
 CUDA execution is opt-in because it requires a compatible GPU/toolkit setup.
-The lightweight Buildkite smoke test checks generic Agate and FrankenLOBSTER biological
-execution, sinking, and OceanBioME coupling without running the CPU/AD suite.
+The lightweight Buildkite smoke test checks generic Agate execution, sinking,
+and OceanBioME NPD coupling without running the CPU/AD suite.
 Buildkite updates OceanBioME and Oceananigans within Agate's `[compat]` bounds and
 prints their resolved versions before running the smoke test.
 From the repository root, run:
@@ -116,8 +116,8 @@ recorded in `benchmark/setup.jl`.
 
 ## Documentation
 
-The documentation build uses the Onyx Git commit recorded in `docs/make.jl`.
-The docs CI builds from the same source revision.
+The documentation build uses the Onyx and FrankenLOBSTER Git commits recorded in
+`docs/make.jl`. The docs CI builds from those same source revisions.
 
 Now that you've made your awesome contribution, it's time to tell the world how to use it.
 Writing documentation strings is really important to make sure others use your functionality

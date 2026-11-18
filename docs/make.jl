@@ -1,9 +1,12 @@
 # to build docs from terminal `julia --project=docs docs/make.jl`
 import Pkg
 Pkg.activate(@__DIR__)
-# Pin the unregistered Onyx provider until its first General release.
+# Pin the unregistered model providers until their first General releases.
 withenv("JULIA_PKG_PRECOMPILE_AUTO" => "0") do
-    Pkg.add(Pkg.PackageSpec(; url="https://github.com/agate-model/Onyx.jl", rev="c22c460b862d2656c9f429ccbe790ddb165d67be"))
+    Pkg.add([
+        Pkg.PackageSpec(; url="https://github.com/agate-model/Onyx.jl", rev="c22c460b862d2656c9f429ccbe790ddb165d67be"),
+        Pkg.PackageSpec(; url="https://github.com/agate-model/FrankenLOBSTER.jl", rev="c2e678f8a953ffc3e79c9f0e55d038391342f50a"),
+    ])
     Pkg.develop(Pkg.PackageSpec(; path=joinpath(@__DIR__, "..")))
 end
 Pkg.instantiate()
@@ -12,6 +15,7 @@ push!(LOAD_PATH, "../src/")
 using Documenter, Literate
 using Agate
 using Onyx
+using FrankenLOBSTER
 using Agate.Library.Light
 using OceanBioME
 using OceanBioME: Biogeochemistry
@@ -99,8 +103,11 @@ makedocs(;
         size_threshold=1_000_000,
         size_threshold_warn=300_000,
     ),
-    modules=[Agate, Onyx],
-    remotes=Dict(pkgdir(Onyx) => (Documenter.Remotes.GitHub("agate-model", "Onyx.jl"), "c22c460b862d2656c9f429ccbe790ddb165d67be")),
+    modules=[Agate, Onyx, FrankenLOBSTER],
+    remotes=Dict(
+        pkgdir(Onyx) => (Documenter.Remotes.GitHub("agate-model", "Onyx.jl"), "c22c460b862d2656c9f429ccbe790ddb165d67be"),
+        pkgdir(FrankenLOBSTER) => (Documenter.Remotes.GitHub("agate-model", "FrankenLOBSTER.jl"), "c2e678f8a953ffc3e79c9f0e55d038391342f50a"),
+    ),
     checkdocs=:exports,
     warnonly=[:missing_docs],
     pages=[
