@@ -3,11 +3,15 @@
 [deps]
 Agate = "41889b7c-c35c-4f16-abd7-94b299d9fd29"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
 OceanBioME = "a49af516-9db8-4be4-be45-1dad61c5a376"
 Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
+SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
-CUDA = "5.9.1, 6"
+CUDA = "6"
+DiffEqBase = "7.21.6"
+SciMLBase = "3"
 # Agate's [compat] governs the supported OceanBioME and Oceananigans versions.
 julia = "1.10"

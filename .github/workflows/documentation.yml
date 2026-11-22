@@ -37,8 +37,8 @@ jobs:
         run: |
           julia --project=docs -e '
             using Pkg
-            Pkg.add(PackageSpec(url="https://github.com/agate-model/Onyx.jl", rev=get(ENV, "AGATE_ONYX_REV", "main")))
             Pkg.develop(PackageSpec(path=pwd()))
+            Pkg.add(PackageSpec(url="https://github.com/agate-model/Onyx.jl", rev=get(ENV, "AGATE_ONYX_REV", "main")))
             Pkg.instantiate()
             Pkg.precompile()
           '

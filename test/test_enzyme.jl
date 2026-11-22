@@ -1,6 +1,11 @@
 using Agate
 using Enzyme
 using Test
+using ADTypes: AutoEnzyme
+import DifferentiationInterface
+import SciMLSensitivity
+using OrdinaryDiffEq: Tsit5, solve
+using SciMLBase: remake
 
 using Oceananigans.Units: day
 
@@ -60,4 +65,47 @@ end
         Enzyme.Duplicated(copy(active.values), gradient),
     )
     @test length(gradient) == 1 && isfinite(only(gradient)) && !iszero(only(gradient))
+end
+
+@testset "EnzymeVJP through a SciML ODE solve" begin
+    bgc = runtime_npz_growth_fixture()
+    active = Agate.Runtime.active_parameters(bgc; maximum_growth_rate=(:P_1,))
+    p0 = copy(active.values)
+    tspan = (0.0, 3day)
+    problem = Agate.Runtime.ode_problem(
+        bgc, runtime_npz_u0(), tspan;
+        p=p0, active_parameters=active, auxiliary=(; PAR=100.0),
+    )
+    p1_index = findfirst(==(:P_1), Agate.Introspection.tracer_names(bgc))
+    sensealg = SciMLSensitivity.GaussAdjoint(;
+        autojacvec=SciMLSensitivity.EnzymeVJP(),
+    )
+
+    function endpoint(p; sensealg=nothing)
+        prob = remake(problem; p)
+        kwargs = (; abstol=1e-8, reltol=1e-8,
+                  saveat=tspan[end], save_start=false, save_end=true,
+                  save_everystep=false)
+        sol = isnothing(sensealg) ? solve(prob, Tsit5(); kwargs...) :
+                                   solve(prob, Tsit5(); kwargs..., sensealg)
+        return Array(sol)[p1_index, end]
+    end
+
+    gradient = DifferentiationInterface.gradient(
+        p -> endpoint(p; sensealg),
+        AutoEnzyme(;
+            mode=Enzyme.set_runtime_activity(Enzyme.Reverse),
+            function_annotation=Enzyme.Const,
+        ),
+        copy(p0),
+    )
+    delta = p0[1] * 1e-3
+    p_plus, p_minus = copy(p0), copy(p0)
+    p_plus[1] += delta
+    p_minus[1] -= delta
+    fd = (endpoint(p_plus) - endpoint(p_minus)) / (2delta)
+
+    @test length(gradient) == 1 && all(isfinite, gradient)
+    @test !iszero(fd)
+    @test isapprox(only(gradient), fd; rtol=1e-2, atol=1e-6)
 end

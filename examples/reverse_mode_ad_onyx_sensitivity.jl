@@ -95,7 +95,7 @@ const SENSEALG = SciMLSensitivity.GaussAdjoint(
 function solve_values(theta; sensealg = nothing, saveat = SAVEAT,
                       save_start = true, save_end = true, save_everystep = false)
     problem = remake(PROBLEM; p = theta)
-    kwargs = (; abstol = 1e-8, reltol = 1e-8, verbose = false,
+    kwargs = (; abstol = 1e-8, reltol = 1e-8,
               saveat, save_start, save_end, save_everystep)
 
     sol = isnothing(sensealg) ? solve(problem, Tsit5(); kwargs...) :
