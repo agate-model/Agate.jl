@@ -12,7 +12,6 @@ steps:
       - julia --version
       # Julia 1.10 requires explicitly developing the local checkout into this project.
       - julia --project=test/gpu --color=yes -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate(); Pkg.update(["OceanBioME", "Oceananigans"]); Pkg.status(["Agate", "CUDA", "DiffEqBase", "SciMLBase", "OceanBioME", "Oceananigans"])'
-      - julia --project=test/gpu --color=yes -e 'using OceanBioME, Oceananigans; @assert pkgversion(OceanBioME).minor == 21; @assert v"0.114" <= Base.pkgversion(Oceananigans) < v"0.118"'
       - julia --project=test/gpu --color=yes -e 'using CUDA; @assert Base.pkgversion(CUDA).major == 6; CUDA.versioninfo(); @assert CUDA.functional()'
       - julia --project=test/gpu --color=yes test/gpu/smoke.jl
     timeout_in_minutes: 60

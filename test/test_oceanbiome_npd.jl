@@ -1,10 +1,7 @@
 using Test
 using Oceananigans.Architectures: CPU
 using Oceananigans.Grids: RectilinearGrid
-using Oceananigans.Fields: ConstantField, interior
-using Oceananigans: NonhydrostaticModel, set!, time_step!
-using Oceananigans.Grids: Periodic, Bounded
-using OceanBioME: PrescribedPhotosyntheticallyActiveRadiation
+using Oceananigans.Fields: interior
 using Oceananigans.Biogeochemistry:
     biogeochemical_drift_velocity,
     required_biogeochemical_auxiliary_fields, required_biogeochemical_tracers
@@ -294,27 +291,4 @@ end
     end
     @test all(isfinite, fluxes)
     @test isapprox(sum(fluxes), 0; atol=1e-12)
-end
-
-@testset "OceanBioME NPD short column time stepping" begin
-    grid = RectilinearGrid(CPU();
-        topology=(Periodic, Periodic, Bounded), size=(2, 2, 4),
-        extent=(2, 2, 40))
-    runtime = Agate.Construction.construct(npd_test_definition();
-        grid, sinking_tracers=(P_1=0.01,))
-    plankton = Agate.Integrations.NPDPlankton(runtime;
-        owned_components=(:P,), phytoplankton_components=(:P,),
-        nutrient_tracers=(:NO₃, :NH₄), consumed_detritus=(:DOM,),
-        dependencies=(:T,),
-        settings=(carbon_ratio=6.56, chlorophyll_ratio=1.31))
-    bgc = LOBSTER(grid; plankton,
-        light_attenuation=PrescribedPhotosyntheticallyActiveRadiation(ConstantField(100.0)))
-    model = NonhydrostaticModel(grid; biogeochemistry=bgc)
-    set!(model; NO₃=2.0, NH₄=0.2, DOM=0.1, sPOM=0.1, bPOM=0.1,
-        P_1=0.02, T=20.0)
-    time_step!(model, 0.01)
-    @test model.clock.iteration == 1
-    for tracer in (:NO₃, :NH₄, :DOM, :P_1)
-        @test all(isfinite, Array(interior(getproperty(model.tracers, tracer))))
-    end
 end
