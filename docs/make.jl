@@ -3,11 +3,11 @@ import Pkg
 Pkg.activate(@__DIR__)
 # Pin the unregistered model providers until their first General releases.
 withenv("JULIA_PKG_PRECOMPILE_AUTO" => "0") do
+    Pkg.develop(Pkg.PackageSpec(; path=joinpath(@__DIR__, "..")))
     Pkg.add([
         Pkg.PackageSpec(; url="https://github.com/agate-model/Onyx.jl", rev="c22c460b862d2656c9f429ccbe790ddb165d67be"),
         Pkg.PackageSpec(; url="https://github.com/agate-model/FrankenLOBSTER.jl", rev="c2e678f8a953ffc3e79c9f0e55d038391342f50a"),
     ])
-    Pkg.develop(Pkg.PackageSpec(; path=joinpath(@__DIR__, "..")))
 end
 Pkg.instantiate()
 
