@@ -14,10 +14,12 @@ function resolve_model_settings(
     unknown = Tuple(name for name in keys(overrides) if !hasproperty(definitions, name))
     if !isempty(unknown)
         available = isempty(definitions) ? "(none)" : join(string.(keys(definitions)), ", ")
-        throw(ArgumentError(
-            "unknown model setting override(s): $(join(string.(unknown), ", ")). " *
-            "Available settings: $available.",
-        ))
+        throw(
+            ArgumentError(
+                "unknown model setting override(s): $(join(string.(unknown), ", ")). " *
+                "Available settings: $available.",
+            ),
+        )
     end
 
     names = keys(definitions)
@@ -25,16 +27,17 @@ function resolve_model_settings(
         name = names[i]
         definition = getproperty(definitions, name)
         definition isa ModelSetting || throw(
-            ArgumentError("setting_definitions must contain only ModelSetting values"),
+            ArgumentError("setting_definitions must contain only ModelSetting values")
         )
-        value = hasproperty(overrides, name) ? getproperty(overrides, name) : definition.default
+        value =
+            hasproperty(overrides, name) ? getproperty(overrides, name) : definition.default
         value = _typed_setting(value, T)
         parameter_domain_valid(value, definition.domain) || throw(
             ArgumentError(
-                "model setting :$name must satisfy domain :$(definition.domain); got $(repr(value))"
+                "model setting :$name must satisfy domain :$(definition.domain); got $(repr(value))",
             ),
         )
-        value
+        return value
     end
     return NamedTuple{names}(values)
 end

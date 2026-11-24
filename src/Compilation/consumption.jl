@@ -71,13 +71,20 @@ function _consumption_rate(
 end
 
 function _append_unassimilated_products!(
-    fluxes, named, context, rate, assimilation, element; ratio=(),
+    fluxes, named, context, rate, assimilation, element; ratio=()
 )
     isnothing(named.semantic_facts.product_targets) && return nothing
-    append!(fluxes, _product_fluxes_for_element(
-        named, named.semantic_facts.product_targets, context, rate, element;
-        suffix=(ComplementOp((assimilation,)), ratio...),
-    ))
+    append!(
+        fluxes,
+        _product_fluxes_for_element(
+            named,
+            named.semantic_facts.product_targets,
+            context,
+            rate,
+            element;
+            suffix=(ComplementOp((assimilation,)), ratio...),
+        ),
+    )
     return nothing
 end
 
@@ -93,7 +100,9 @@ function _living_consumption_fluxes!(
 )
     layout = context.layout
     state_refs = getproperty(named.semantic_facts.resource_state_sets, resource.component)
-    source_materials = getproperty(named.semantic_facts.resource_element_states, resource.component)
+    source_materials = getproperty(
+        named.semantic_facts.resource_element_states, resource.component
+    )
     consumer_element_states = getproperty(
         named.semantic_facts.consumer_element_states, consumer.component
     )
@@ -127,12 +136,13 @@ function _living_consumption_fluxes!(
                 consumer_tracer = state_tracer(
                     layout, consumer_inventory, consumer.component_index
                 )
-                push!(fluxes, FluxSpec(
-                    consumer_tracer, rate, Weight{1}((assimilation, ratio...)),
-                ))
+                push!(
+                    fluxes,
+                    FluxSpec(consumer_tracer, rate, Weight{1}((assimilation, ratio...))),
+                )
             end
             _append_unassimilated_products!(
-                fluxes, named, context, rate, assimilation, element; ratio,
+                fluxes, named, context, rate, assimilation, element; ratio
             )
         end
     end
@@ -164,7 +174,9 @@ function _heterotrophic_consumption_fluxes!(
     consumer_element_states = getproperty(
         named.semantic_facts.consumer_element_states, consumer.component
     )
-    consumer_inventory = getproperty(consumer_element_states, named.semantic_facts.reference_element)
+    consumer_inventory = getproperty(
+        consumer_element_states, named.semantic_facts.reference_element
+    )
     consumer_tracer = state_tracer(layout, consumer_inventory, consumer.component_index)
     push!(
         fluxes,
@@ -172,12 +184,7 @@ function _heterotrophic_consumption_fluxes!(
         FluxSpec(consumer_tracer, rate, Weight{1}((assimilation,))),
     )
     _append_unassimilated_products!(
-        fluxes,
-        named,
-        context,
-        rate,
-        assimilation,
-        named.semantic_facts.reference_element,
+        fluxes, named, context, rate, assimilation, named.semantic_facts.reference_element
     )
     return nothing
 end
@@ -207,9 +214,11 @@ function _shared_consumption_operands(
     return (total_palatable_biomass, switching_weight_sum)
 end
 
-_shared_consumption_operands(
+function _shared_consumption_operands(
     ::LinearGrazing, consumer, resources, slots, context::CompileContext
-) = ()
+)
+    return ()
+end
 
 function _shared_consumption_operands(
     ::HeterotrophicConsumption, consumer, resources, slots, context::CompileContext
@@ -218,13 +227,15 @@ function _shared_consumption_operands(
     resource_operands = Tuple(
         input_operand(layout, resource.tracer) for resource in resources
     )
-    substrate_affinities = Tuple(begin
-        axis_positions = (consumer=consumer.position, resource=resource.position)
-        QuotientOp(
-            parameter_operand(slots.substrate_preference, context, axis_positions),
-            parameter_operand(slots.half_saturation, context, axis_positions),
-        )
-    end for resource in resources)
+    substrate_affinities = Tuple(
+        begin
+            axis_positions = (consumer=consumer.position, resource=resource.position)
+            QuotientOp(
+                parameter_operand(slots.substrate_preference, context, axis_positions),
+                parameter_operand(slots.half_saturation, context, axis_positions),
+            )
+        end for resource in resources
+    )
     total_substrate_availability = ProductPowerSumOp{1}(
         resource_operands, substrate_affinities
     )

@@ -3,7 +3,7 @@
 [FrankenLOBSTER.jl](https://github.com/agate-model/FrankenLOBSTER.jl) constructs a
 size-structured plankton community for composition with OceanBioME's `LOBSTER`
 nutrient and detritus model. Agate represents the living community,
-while `LOBSTER` supplies nitrate (`NO₃`), ammonium (`NH₄`), dissolved organic matter (`DOM`), 
+while `LOBSTER` supplies nitrate (`NO₃`), ammonium (`NH₄`), dissolved organic matter (`DOM`),
 and small and large particulate organic matter (`sPOM`, `bPOM`).
 Photosynthetically active radiation (`PAR`) is supplied by the light-attenuation model.
 
@@ -32,9 +32,7 @@ using Oceananigans
 
 grid = RectilinearGrid(CPU(); size=(1, 1, 4), extent=(1, 1, 40))
 plankton = FrankenLOBSTER.construct(;
-    grid,
-    parameters=(maximum_growth_rate=(P_1=1e-5,),),
-    settings=(chlorophyll_ratio=1.5,),
+    grid, parameters=(maximum_growth_rate=(P_1=1e-5,),), settings=(chlorophyll_ratio=1.5,)
 )
 bgc = LOBSTER(grid; plankton)
 ```

@@ -1,5 +1,7 @@
 """One model parameter after layout-dependent realization."""
-struct PlannedParameter{Definition,Axes,StorageShape,StorageLabels,StorageDiameters,Applicability}
+struct PlannedParameter{
+    Definition,Axes,StorageShape,StorageLabels,StorageDiameters,Applicability
+}
     name::Symbol
     definition::Definition
     rank::Int
@@ -16,17 +18,21 @@ struct ParameterPlan{Parameters}
     parameters::Parameters
 end
 
-_parameter_axis_entities(bindings::Tuple, binding_entities::Tuple, name::Symbol) = Tuple(
-    entities for (binding, entities) in zip(bindings, binding_entities)
-    if binding.parameter === name
-)
+function _parameter_axis_entities(bindings::Tuple, binding_entities::Tuple, name::Symbol)
+    return Tuple(
+        entities for
+        (binding, entities) in zip(bindings, binding_entities) if binding.parameter === name
+    )
+end
 
 function _layout_axis_entities(layout::ModelLayout, components::Tuple)
     entities = Symbol[]
     for component in components
-        hasproperty(layout.component_entities, component) || throw(ArgumentError(
-            "parameter applicability references unrealized component :$component",
-        ))
+        hasproperty(layout.component_entities, component) || throw(
+            ArgumentError(
+                "parameter applicability references unrealized component :$component"
+            ),
+        )
         append!(entities, component_entities(layout, component))
     end
     return Tuple(entities)
@@ -36,7 +42,9 @@ function _resolved_binding_axis_entities(
     definition::CanonicalModelDefinition, layout::ModelLayout
 )
     return map(definition.parameter_bindings) do binding
-        map(components -> _layout_axis_entities(layout, components), binding.axis_components)
+        return map(
+            components -> _layout_axis_entities(layout, components), binding.axis_components
+        )
     end
 end
 
@@ -51,29 +59,38 @@ function _layout_storage_order(layout::ModelLayout)
     return Tuple(labels)
 end
 
-function _union_storage_labels(layout::ModelLayout, name::Symbol, rank::Int, axis_entities::Tuple)
+function _union_storage_labels(
+    layout::ModelLayout, name::Symbol, rank::Int, axis_entities::Tuple
+)
     rank == 0 && return ()
-    isempty(axis_entities) && throw(ArgumentError(
-        "parameter :$name has slot-derived storage but no resolved process applicability",
-    ))
+    isempty(axis_entities) && throw(
+        ArgumentError(
+            "parameter :$name has slot-derived storage but no resolved process applicability",
+        ),
+    )
     order = _layout_storage_order(layout)
     return ntuple(rank) do dimension
         flat = Set(entity for entities in axis_entities for entity in entities[dimension])
         labels = Tuple(label for label in order if label in flat)
-        length(labels) == length(flat) || throw(ArgumentError(
-            "parameter :$name applicability contains entities outside the realized layout",
-        ))
-        labels
+        length(labels) == length(flat) || throw(
+            ArgumentError(
+                "parameter :$name applicability contains entities outside the realized layout",
+            ),
+        )
+        return labels
     end
 end
 
-_planned_parameter_axes(definition, name, parameter::ConstructionParameter) =
-    isnothing(parameter.axes) ? () : (parameter.axes,)
+function _planned_parameter_axes(definition, name, parameter::ConstructionParameter)
+    return isnothing(parameter.axes) ? () : (parameter.axes,)
+end
 function _planned_parameter_axes(definition, name, parameter::Parameter)
     index = findfirst(binding -> binding.parameter === name, definition.parameter_bindings)
-    isnothing(index) && throw(ArgumentError(
-        "Parameter :$name has no scientific slot binding after canonicalization",
-    ))
+    isnothing(index) && throw(
+        ArgumentError(
+            "Parameter :$name has no scientific slot binding after canonicalization"
+        ),
+    )
     return definition.parameter_bindings[index].axes
 end
 
@@ -81,9 +98,11 @@ function _parameter_storage_labels(layout, name, axes, axis_entities)
     rank = length(axes)
     rank == 0 && return ()
     if isempty(axis_entities)
-        axes == (:plankton,) || throw(ArgumentError(
-            "construction-only parameter :$name has unsupported explicit axes $axes",
-        ))
+        axes == (:plankton,) || throw(
+            ArgumentError(
+                "construction-only parameter :$name has unsupported explicit axes $axes"
+            ),
+        )
         return (layout.size_classes,)
     end
     return _union_storage_labels(layout, name, rank, axis_entities)
@@ -101,13 +120,14 @@ end
 
 function _diameter_by_entity(layout::ModelLayout)
     values = Dict{Symbol,Any}(
-        entity => diameter_metadata(diameter)
-        for (entity, diameter) in zip(layout.size_classes, layout.size_class_diameters)
+        entity => diameter_metadata(diameter) for
+        (entity, diameter) in zip(layout.size_classes, layout.size_class_diameters)
     )
     for component in keys(layout.component_entities)
         diameters = getproperty(layout.component_diameters, component)
         isnothing(diameters) && continue
-        for (entity, diameter) in zip(getproperty(layout.component_entities, component), diameters)
+        for (entity, diameter) in
+            zip(getproperty(layout.component_entities, component), diameters)
             values[entity] = diameter
         end
     end
@@ -121,8 +141,9 @@ function _storage_diameters(rank, labels, diameter_by_entity)
     return Tuple(diameter_by_entity[label] for label in axis)
 end
 
-
-function _planned_parameter(definition, layout, name, parameter, binding_entities, diameters)
+function _planned_parameter(
+    definition, layout, name, parameter, binding_entities, diameters
+)
     axis_entities = _parameter_axis_entities(
         definition.parameter_bindings, binding_entities, name
     )
@@ -148,38 +169,53 @@ function build_parameter_plan(definition::CanonicalModelDefinition, layout::Mode
     binding_entities = _resolved_binding_axis_entities(definition, layout)
     diameters = _diameter_by_entity(layout)
     names = keys(definitions)
-    parameters = NamedTuple{names}(ntuple(length(names)) do i
-        name = names[i]
-        _planned_parameter(
-            definition, layout, name, getproperty(definitions, name), binding_entities, diameters
-        )
-    end)
+    parameters = NamedTuple{names}(
+        ntuple(length(names)) do i
+            name = names[i]
+            return _planned_parameter(
+                definition,
+                layout,
+                name,
+                getproperty(definitions, name),
+                binding_entities,
+                diameters,
+            )
+        end,
+    )
     return ParameterPlan(parameters)
 end
 
-planned_parameter(plan::ParameterPlan, name::Symbol) =
-    hasproperty(plan.parameters, name) ? getproperty(plan.parameters, name) :
-    throw(ArgumentError("unknown parameter :$name"))
+function planned_parameter(plan::ParameterPlan, name::Symbol)
+    return if hasproperty(plan.parameters, name)
+        getproperty(plan.parameters, name)
+    else
+        throw(ArgumentError("unknown parameter :$name"))
+    end
+end
 
 """Resolve one realized entity directly to its realized parameter-storage index."""
 function parameter_storage_index(
     plan::ParameterPlan, name::Symbol, dimension::Int, entity::Symbol
 )
     parameter = planned_parameter(plan, name)
-    1 <= dimension <= parameter.rank || throw(ArgumentError(
-        "parameter :$name has no realized storage dimension $dimension",
-    ))
+    1 <= dimension <= parameter.rank || throw(
+        ArgumentError("parameter :$name has no realized storage dimension $dimension")
+    )
     labels = parameter.storage_labels[dimension]
     index = findfirst(==(entity), labels)
-    isnothing(index) && throw(ArgumentError(
-        "parameter :$name realized entity :$entity is not present on realized storage dimension $dimension",
-    ))
+    isnothing(index) && throw(
+        ArgumentError(
+            "parameter :$name realized entity :$entity is not present on realized storage dimension $dimension",
+        ),
+    )
     return index
 end
 
-_runtime_parameter_names(plan::ParameterPlan) = Tuple(
-    name for (name, parameter) in pairs(plan.parameters) if parameter.runtime_bound
-)
+function _runtime_parameter_names(plan::ParameterPlan)
+    return Tuple(
+        name for (name, parameter) in pairs(plan.parameters) if parameter.runtime_bound
+    )
+end
 
 """Return the fully realized values that compiled runtime slots actually read."""
 function runtime_parameter_values(plan::ParameterPlan, values::NamedTuple)
@@ -191,28 +227,31 @@ end
 function parameter_plan_metadata(definition::CanonicalModelDefinition, plan::ParameterPlan)
     names = keys(plan.parameters)
     runtime_parameter_names = _runtime_parameter_names(plan)
-    return NamedTuple{names}(ntuple(length(names)) do i
-        parameter = getproperty(plan.parameters, names[i])
-        derived_runtime_parameters = Tuple(
-            target for target in runtime_parameter_names
-            if begin
-                default = getproperty(plan.parameters, target).definition.default
-                default isa DerivedDefault && names[i] in default.deps
-            end
-        )
-        domains = Tuple(unique([
-            binding.domain for binding in definition.parameter_bindings
-            if binding.parameter === names[i]
-        ]))
-        (;
-            rank=parameter.rank,
-            axes=parameter.axes,
-            shape=parameter.storage_shape,
-            labels=parameter.storage_labels,
-            applicability=parameter.applicability,
-            domains,
-            runtime_bound=parameter.runtime_bound,
-            derived_runtime_parameters,
-        )
-    end)
+    return NamedTuple{names}(
+        ntuple(length(names)) do i
+            parameter = getproperty(plan.parameters, names[i])
+            derived_runtime_parameters = Tuple(
+                target for target in runtime_parameter_names if begin
+                    default = getproperty(plan.parameters, target).definition.default
+                    default isa DerivedDefault && names[i] in default.deps
+                end
+            )
+            domains = Tuple(
+                unique([
+                    binding.domain for binding in definition.parameter_bindings if
+                    binding.parameter === names[i]
+                ]),
+            )
+            return (;
+                rank=parameter.rank,
+                axes=parameter.axes,
+                shape=parameter.storage_shape,
+                labels=parameter.storage_labels,
+                applicability=parameter.applicability,
+                domains,
+                runtime_bound=parameter.runtime_bound,
+                derived_runtime_parameters,
+            )
+        end,
+    )
 end

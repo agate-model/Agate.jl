@@ -60,20 +60,17 @@ nonnegative interaction weight, not a probability.
 struct PreferentialGrazing{T<:Integer} <: AbstractFormulation
     switching_exponent::T
     function PreferentialGrazing(switching_exponent::T) where {T<:Integer}
-        switching_exponent isa Bool && throw(
-            ArgumentError("`switching_exponent` must be a positive integer"),
-        )
-        switching_exponent > zero(switching_exponent) || throw(
-            ArgumentError("`switching_exponent` must be a positive integer"),
-        )
+        switching_exponent isa Bool &&
+            throw(ArgumentError("`switching_exponent` must be a positive integer"))
+        switching_exponent > zero(switching_exponent) ||
+            throw(ArgumentError("`switching_exponent` must be a positive integer"))
         return new{T}(switching_exponent)
     end
 end
 
 function PreferentialGrazing(; switching_exponent=1)
-    switching_exponent isa Integer || throw(
-        ArgumentError("`switching_exponent` must be a positive integer"),
-    )
+    switching_exponent isa Integer ||
+        throw(ArgumentError("`switching_exponent` must be a positive integer"))
     return PreferentialGrazing(switching_exponent)
 end
 
@@ -106,26 +103,30 @@ struct LinearRemineralization <: AbstractFormulation end
 function _canonical_bindings(bindings::NamedTuple)
     names = sort!(collect(keys(bindings)); by=String)
     names_tuple = Tuple(names)
-    binding_values = Tuple(begin
-        value = getproperty(bindings, name)
-        if value isa Symbol
-            value
-        elseif value isa NamedTuple
-            all(entry -> entry isa Symbol, values(value)) || throw(
-                ArgumentError(
-                    "binding map for :$name must map qualifier values to parameter Symbols"
-                ),
-            )
-            qualifier_names = sort!(collect(keys(value)); by=String)
-            qualifier_names_tuple = Tuple(qualifier_names)
-            qualifier_values = Tuple(getproperty(value, key) for key in qualifier_names)
-            NamedTuple{qualifier_names_tuple}(qualifier_values)
-        else
-            throw(ArgumentError(
-                "binding :$name must be a parameter Symbol or one-level qualifier NamedTuple",
-            ))
-        end
-    end for name in names)
+    binding_values = Tuple(
+        begin
+            value = getproperty(bindings, name)
+            if value isa Symbol
+                value
+            elseif value isa NamedTuple
+                all(entry -> entry isa Symbol, values(value)) || throw(
+                    ArgumentError(
+                        "binding map for :$name must map qualifier values to parameter Symbols",
+                    ),
+                )
+                qualifier_names = sort!(collect(keys(value)); by=String)
+                qualifier_names_tuple = Tuple(qualifier_names)
+                qualifier_values = Tuple(getproperty(value, key) for key in qualifier_names)
+                NamedTuple{qualifier_names_tuple}(qualifier_values)
+            else
+                throw(
+                    ArgumentError(
+                        "binding :$name must be a parameter Symbol or one-level qualifier NamedTuple",
+                    ),
+                )
+            end
+        end for name in names
+    )
     return NamedTuple{names_tuple}(binding_values)
 end
 
@@ -134,14 +135,13 @@ function authored_parameter_bindings end
 
 function _canonical_participants(role::Symbol, values)
     values isa Symbol && (values = (values,))
-    values isa Tuple || throw(ArgumentError("participant `$role` must be a Symbol or tuple"))
+    values isa Tuple ||
+        throw(ArgumentError("participant `$role` must be a Symbol or tuple"))
     isempty(values) && throw(ArgumentError("participant `$role` cannot be empty"))
-    all(value -> value isa Symbol, values) || throw(
-        ArgumentError("participant `$role` must contain only Symbols"),
-    )
-    allunique(values) || throw(
-        ArgumentError("participant `$role` must not contain duplicates"),
-    )
+    all(value -> value isa Symbol, values) ||
+        throw(ArgumentError("participant `$role` must contain only Symbols"))
+    allunique(values) ||
+        throw(ArgumentError("participant `$role` must not contain duplicates"))
     return values
 end
 
@@ -154,7 +154,8 @@ end
 
 function Light(
     formulation::Union{Smith,Geider,ExponentialSaturation,Monod};
-    driver::Symbol, bindings::NamedTuple=NamedTuple(),
+    driver::Symbol,
+    bindings::NamedTuple=NamedTuple(),
 )
     return Light(formulation, driver, _canonical_bindings(bindings))
 end
@@ -165,7 +166,8 @@ authored_parameter_bindings(factor::Light) = factor.bindings
 
 The factor reads an environmental Pool but does not define process material transfer.
 """
-struct NutrientResponse{Formulation<:Union{Monod,InhibitedMonod},Inhibitor} <: AbstractFactor
+struct NutrientResponse{Formulation<:Union{Monod,InhibitedMonod},Inhibitor} <:
+       AbstractFactor
     formulation::Formulation
     resource::Symbol
     inhibitor::Inhibitor
@@ -180,11 +182,11 @@ end
 
 function NutrientResponse(
     formulation::InhibitedMonod;
-    resource::Symbol, inhibitor::Symbol, bindings::NamedTuple=NamedTuple(),
+    resource::Symbol,
+    inhibitor::Symbol,
+    bindings::NamedTuple=NamedTuple(),
 )
-    return NutrientResponse(
-        formulation, resource, inhibitor, _canonical_bindings(bindings)
-    )
+    return NutrientResponse(formulation, resource, inhibitor, _canonical_bindings(bindings))
 end
 
 authored_parameter_bindings(factor::NutrientResponse) = factor.bindings
@@ -201,9 +203,7 @@ struct QuotaResponse{Formulation<:NormalizedDroop} <: AbstractFactor
 end
 
 function QuotaResponse(
-    formulation::NormalizedDroop;
-    variable_state::Symbol,
-    bindings::NamedTuple=NamedTuple(),
+    formulation::NormalizedDroop; variable_state::Symbol, bindings::NamedTuple=NamedTuple()
 )
     return QuotaResponse(formulation, variable_state, _canonical_bindings(bindings))
 end
@@ -228,9 +228,9 @@ function Temperature(
     component::Union{Nothing,Symbol}=nothing,
     bindings::NamedTuple=NamedTuple(),
 )
-    isnothing(driver) || isnothing(component) || throw(
-        ArgumentError("Temperature accepts either `driver` or `component`, not both"),
-    )
+    isnothing(driver) ||
+        isnothing(component) ||
+        throw(ArgumentError("Temperature accepts either `driver` or `component`, not both"))
     isnothing(driver) && isnothing(component) && (driver = :temperature)
     return Temperature(formulation, driver, component, _canonical_bindings(bindings))
 end
@@ -250,9 +250,8 @@ identity represented by that response (for example, `nitrogen=...`). Both modify
 only; material transfer is owned by the process itself, so external and internal responses may
 be combined within one `NutrientLimitation` factor.
 """
-struct NutrientLimitation{
-    Formulation<:Union{Liebig,FrankTNorm},Responses<:NamedTuple
-} <: AbstractFactor
+struct NutrientLimitation{Formulation<:Union{Liebig,FrankTNorm},Responses<:NamedTuple} <:
+       AbstractFactor
     formulation::Formulation
     responses::Responses
     bindings::NamedTuple
@@ -262,10 +261,13 @@ struct NutrientLimitation{
     ) where {Formulation<:Union{Liebig,FrankTNorm},Responses<:NamedTuple}
         isempty(responses) && throw(ArgumentError("nutrient `responses` cannot be empty"))
         all(
-            response -> response isa Union{NutrientResponse,QuotaResponse}, values(responses)
-        ) || throw(ArgumentError(
-            "nutrient `responses` values must be NutrientResponse or QuotaResponse factors",
-        ))
+            response -> response isa Union{NutrientResponse,QuotaResponse},
+            values(responses),
+        ) || throw(
+            ArgumentError(
+                "nutrient `responses` values must be NutrientResponse or QuotaResponse factors",
+            ),
+        )
         return new{Formulation,Responses}(formulation, responses, bindings)
     end
 end
@@ -305,12 +307,17 @@ end
 """Return the ordered semantic inputs read by a factor before its parameter slots."""
 factor_inputs(::AbstractFactor) = ()
 factor_inputs(factor::Light) = (FactorDriver(factor.driver),)
-factor_inputs(factor::Temperature) = isnothing(factor.component) ?
-    (FactorDriver(factor.driver),) : (FactorComponent(factor.component),)
+function factor_inputs(factor::Temperature)
+    return if isnothing(factor.component)
+        (FactorDriver(factor.driver),)
+    else
+        (FactorComponent(factor.component),)
+    end
+end
 factor_inputs(factor::NutrientResponse{<:Monod}) = (FactorComponent(factor.resource),)
-factor_inputs(factor::NutrientResponse{<:InhibitedMonod}) = (
-    FactorComponent(factor.resource), FactorComponent(factor.inhibitor),
-)
+function factor_inputs(factor::NutrientResponse{<:InhibitedMonod})
+    return (FactorComponent(factor.resource), FactorComponent(factor.inhibitor))
+end
 factor_inputs(::QuotaResponse) = ()
 
 """Return named child factors composed by a factor."""
@@ -318,4 +325,6 @@ factor_subfactors(::AbstractFactor) = NamedTuple()
 factor_subfactors(factor::NutrientLimitation) = factor.responses
 
 factor_subfactor_path(path::Tuple, ::AbstractFactor, name::Symbol) = (path..., name)
-factor_subfactor_path(path::Tuple, ::NutrientLimitation, name::Symbol) = (path..., :responses, name)
+function factor_subfactor_path(path::Tuple, ::NutrientLimitation, name::Symbol)
+    return (path..., :responses, name)
+end

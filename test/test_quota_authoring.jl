@@ -2,9 +2,14 @@ using Test
 
 using Agate.Components: Plankton, Pool
 using Agate.Processes:
-    Growth, Liebig, ModelDefinition, Monod, NormalizedDroop,
-    NutrientResponse, NutrientLimitation, QuotaResponse
-
+    Growth,
+    Liebig,
+    ModelDefinition,
+    Monod,
+    NormalizedDroop,
+    NutrientResponse,
+    NutrientLimitation,
+    QuotaResponse
 
 @testset "Quota structural errors fail during canonicalization" begin
     components = quota_components()
@@ -37,8 +42,7 @@ using Agate.Processes:
             NormalizedDroop();
             variable_state=:missing,
             bindings=(
-                minimum_quota=:minimum_nitrogen_quota,
-                maximum_quota=:maximum_nitrogen_quota,
+                minimum_quota=:minimum_nitrogen_quota, maximum_quota=:maximum_nitrogen_quota
             ),
         ),
         phosphorus=valid_phosphorus,
@@ -52,8 +56,7 @@ using Agate.Processes:
             NormalizedDroop();
             variable_state=:carbon,
             bindings=(
-                minimum_quota=:minimum_nitrogen_quota,
-                maximum_quota=:maximum_nitrogen_quota,
+                minimum_quota=:minimum_nitrogen_quota, maximum_quota=:maximum_nitrogen_quota
             ),
         ),
     ))
@@ -71,9 +74,11 @@ using Agate.Processes:
         minimum_phosphorus_quota=Agate.Parameters.Parameter(0.005),
         maximum_phosphorus_quota=Agate.Parameters.Parameter(0.02),
     )
-    @test_nowarn Agate.Processes.canonicalize_model(ModelDefinition(;
-        components, processes=(growth=mixed,), parameters=mixed_parameters
-    ))
+    @test_nowarn Agate.Processes.canonicalize_model(
+        ModelDefinition(;
+            components, processes=(growth=mixed,), parameters=mixed_parameters
+        ),
+    )
 
     cases = (
         (definition_with((growth=unknown_state,)), ("no state :missing",)),
@@ -83,7 +88,10 @@ using Agate.Processes:
         ),
         (
             definition_with((growth=reference_quota,)),
-            ("quota response variable state :carbon", "must differ from reference state :carbon"),
+            (
+                "quota response variable state :carbon",
+                "must differ from reference state :carbon",
+            ),
         ),
         (definition_with((uptake=incomplete_uptake,)), ("requires explicit bindings",)),
         (
@@ -96,5 +104,4 @@ using Agate.Processes:
         message = canonicalization_error_message(definition)
         @test all(fragment -> occursin(fragment, message), fragments)
     end
-
 end

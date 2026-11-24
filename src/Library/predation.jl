@@ -1,7 +1,8 @@
 """Predation and grazing kernels."""
 module Predation
 
-export holling_type_ii, linear_predation_loss, proportional_predation_loss, switching_predation_loss
+export holling_type_ii,
+    linear_predation_loss, proportional_predation_loss, switching_predation_loss
 
 """
     holling_type_ii(P, K)
@@ -75,10 +76,10 @@ provided as scalar runtime-IR nodes so edge expressions stay compact as food-web
     saturation = holling_type_ii(total_palatable_biomass, half_saturation)
     switching_weight_sum == zero(switching_weight_sum) &&
         return zero(maximum_grazing_rate * inventory * consumer)
-    allocation = (palatability * reference_inventory)^switching_exponent / switching_weight_sum
-    return maximum_grazing_rate * consumer * saturation * allocation *
-           inventory / reference_inventory
+    allocation =
+        (palatability * reference_inventory)^switching_exponent / switching_weight_sum
+    return maximum_grazing_rate * consumer * saturation * allocation * inventory /
+           reference_inventory
 end
-
 
 end # module

@@ -1,10 +1,24 @@
 using Test
 using Agate.Components:
-    Plankton, Pool, element, states, reference_state, variable_states, state_element,
-    size_structure, composition, realize_model_layout, component_entities, component_state_tracers,
-    component_tracers, state_tracers, component_diameters
+    Plankton,
+    Pool,
+    element,
+    states,
+    reference_state,
+    variable_states,
+    state_element,
+    size_structure,
+    composition,
+    realize_model_layout,
+    component_entities,
+    component_state_tracers,
+    component_tracers,
+    state_tracers,
+    component_diameters
 @testset "Component authoring" begin
-    plankton = Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen,
+    plankton = Plankton(;
+        states=(nitrogen=:nitrogen,),
+        reference_state=:nitrogen,
         size_structure=(n=3, min_esd=1.0, max_esd=100.0, spacing=:log),
     )
     pool = Pool(:carbon)
@@ -30,13 +44,20 @@ using Agate.Components:
     @test isnothing(component_diameters(scalar_plankton_layout, :B))
 
     @test_throws ArgumentError Plankton(; states=nothing, reference_state=:carbon)
-    mixed = Plankton(; states=(carbon=:carbon, nitrogen=:nitrogen),
-        reference_state=:carbon, composition=(phosphorus=:phosphorus_to_carbon,))
+    mixed = Plankton(;
+        states=(carbon=:carbon, nitrogen=:nitrogen),
+        reference_state=:carbon,
+        composition=(phosphorus=:phosphorus_to_carbon,),
+    )
     @test composition(mixed) == (phosphorus=:phosphorus_to_carbon,)
-    @test_throws ArgumentError Plankton(; states=(carbon=:carbon,),
-        reference_state=:carbon, composition=(carbon=:carbon_ratio,))
-    @test_throws ArgumentError Plankton(; states=(carbon=:carbon,),
-        reference_state=:carbon, composition=(nitrogen=0.2,))
+    @test_throws ArgumentError Plankton(;
+        states=(carbon=:carbon,),
+        reference_state=:carbon,
+        composition=(carbon=:carbon_ratio,),
+    )
+    @test_throws ArgumentError Plankton(;
+        states=(carbon=:carbon,), reference_state=:carbon, composition=(nitrogen=0.2,)
+    )
     @test_throws MethodError Pool(nothing)
     @test_throws ArgumentError realize_model_layout((P=plankton, P_1=Pool(:nitrogen)))
 end
@@ -56,8 +77,12 @@ end
     layout = realize_model_layout((P=plankton, DIN=Pool(:nitrogen)); scalar_type=Float32)
     @test component_entities(layout, :P) == (:P_1, :P_2)
     @test component_tracers(layout, :P) == (
-        :P_1_biomass, :P_1_reserve_n, :P_1_reserve_p,
-        :P_2_biomass, :P_2_reserve_n, :P_2_reserve_p,
+        :P_1_biomass,
+        :P_1_reserve_n,
+        :P_1_reserve_p,
+        :P_2_biomass,
+        :P_2_reserve_n,
+        :P_2_reserve_p,
     )
     @test component_state_tracers(layout, :P) == (
         biomass=(:P_1_biomass, :P_2_biomass),
@@ -73,24 +98,27 @@ end
     )
     @test component_entities(explicit_pft_layout, :P) == component_entities(layout, :P)
     @test component_tracers(explicit_pft_layout, :P) == component_tracers(layout, :P)
-    @test component_state_tracers(explicit_pft_layout, :P) == component_state_tracers(layout, :P)
+    @test component_state_tracers(explicit_pft_layout, :P) ==
+        component_state_tracers(layout, :P)
     @test component_diameters(explicit_pft_layout, :P) == component_diameters(layout, :P)
 
     @test_throws ArgumentError Plankton(; states=(carbon=:carbon,), reference_state=nothing)
     @test_throws ArgumentError Plankton(; states=NamedTuple(), reference_state=:carbon)
     @test_throws ArgumentError Plankton(; states=(biomass=1,), reference_state=:biomass)
     @test_throws ArgumentError Plankton(; states=(a=:carbon, b=:carbon), reference_state=:a)
-    @test_throws ArgumentError Plankton(; states=(nitrogen=:nitrogen,), reference_state=:carbon)
+    @test_throws ArgumentError Plankton(;
+        states=(nitrogen=:nitrogen,), reference_state=:carbon
+    )
 
     photoacclimating = Plankton(;
         states=(carbon=:carbon, nitrogen=:nitrogen, chlorophyll=nothing),
         reference_state=:carbon,
     )
     @test variable_states(photoacclimating) == (:nitrogen, :chlorophyll)
-    @test Tuple(state_element(photoacclimating, state) for state in states(photoacclimating)) ==
-        (:carbon, :nitrogen, nothing)
+    @test Tuple(
+        state_element(photoacclimating, state) for state in states(photoacclimating)
+    ) == (:carbon, :nitrogen, nothing)
 
     abundance = Plankton(; states=(abundance=nothing,), reference_state=:abundance)
     @test isnothing(state_element(abundance, reference_state(abundance)))
 end
-

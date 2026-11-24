@@ -10,28 +10,32 @@ struct ExtensionTransfer <: Agate.Processes.AbstractProcess
 end
 struct ExtensionTransferRate <: Agate.Processes.AbstractFormulation end
 
-ExtensionTransfer(source::Symbol, destination::Symbol; bindings::NamedTuple) =
-    ExtensionTransfer(source, destination, bindings)
+function ExtensionTransfer(source::Symbol, destination::Symbol; bindings::NamedTuple)
+    return ExtensionTransfer(source, destination, bindings)
+end
 
 Agate.Processes.formulation(::ExtensionTransfer) = ExtensionTransferRate()
 Agate.Processes.authored_parameter_bindings(process::ExtensionTransfer) = process.bindings
-Agate.Processes.parameter_slots(::ExtensionTransferRate) =
-    (Agate.Processes.ParameterSlot(:rate; domain=:positive),)
-Agate.Processes.participants(process::ExtensionTransfer) = (
-    source=(process.source,), destination=(process.destination,)
-)
-Agate.Processes.process_facts(
-    process::ExtensionTransfer, ::Symbol, ::NamedTuple
-) = (; source=process.source, destination=process.destination)
+function Agate.Processes.parameter_slots(::ExtensionTransferRate)
+    return (Agate.Processes.ParameterSlot(:rate; domain=:positive),)
+end
+function Agate.Processes.participants(process::ExtensionTransfer)
+    return (source=(process.source,), destination=(process.destination,))
+end
+function Agate.Processes.process_facts(process::ExtensionTransfer, ::Symbol, ::NamedTuple)
+    return (; source=process.source, destination=process.destination)
+end
 Agate.Processes.process_rate(::ExtensionTransferRate, source, rate) = source * rate
 
 function Agate.Compilation.process_fluxes(
     named::Agate.Processes.CanonicalProcess{P}, context::CompileContext
 ) where {P<:ExtensionTransfer}
     source = only(component_tracers(context.layout, named.semantic_facts.source))
-    destination = Agate.Processes.process_id(named) === :invalid_transfer ?
-                  :not_a_realized_tracer :
-                  only(component_tracers(context.layout, named.semantic_facts.destination))
+    destination = if Agate.Processes.process_id(named) === :invalid_transfer
+        :not_a_realized_tracer
+    else
+        only(component_tracers(context.layout, named.semantic_facts.destination))
+    end
     parameters = process_parameter_operands(named, context)
     rate = Agate.Compilation.RateOp(
         ExtensionTransferRate(), (input_operand(context.layout, source), parameters.rate)
@@ -43,7 +47,9 @@ function Agate.Compilation.process_fluxes(
 end
 
 @testset "Custom process extension" begin
-    components = (source=Agate.Components.Pool(:carbon), sink=Agate.Components.Pool(:carbon))
+    components = (
+        source=Agate.Components.Pool(:carbon), sink=Agate.Components.Pool(:carbon)
+    )
     parameters = (transfer_rate=Parameter(0.5),)
     transfer = ExtensionTransfer(:source, :sink; bindings=(rate=:transfer_rate,))
 
@@ -65,14 +71,26 @@ end
 
 @testset "Growth product routing" begin
     components = (
-        N=Agate.Components.Pool(:nitrogen), DOM=Agate.Components.Pool(:nitrogen),
+        N=Agate.Components.Pool(:nitrogen),
+        DOM=Agate.Components.Pool(:nitrogen),
         NH4=Agate.Components.Pool(:nitrogen),
-        P=Agate.Components.Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
+        P=Agate.Components.Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]
+        ),
     )
-    process = Agate.Processes.Growth(; plankton=:P, reference_resource=:N,
+    process = Agate.Processes.Growth(;
+        plankton=:P,
+        reference_resource=:N,
         bindings=(maximum_rate=:mu, product_fraction=:exudation),
-        products=Agate.Processes.Products((dissolved=:DOM, inorganic=:NH4); fractions=(inorganic=:share,)))
+        products=Agate.Processes.Products(
+            (dissolved=:DOM, inorganic=:NH4); fractions=(inorganic=:share,)
+        ),
+    )
     parameters = (mu=Parameter(2.0), exudation=Parameter(0.2), share=Parameter(0.75))
-    bgc = Agate.Construction.construct(ModelDefinition(; components, processes=(growth=process,), parameters))
-    test_tendencies(bgc, (N=10.0, DOM=0.0, NH4=0.0, P_1=3.0), (N=-6.0, P_1=4.8, NH4=0.9, DOM=0.3))
+    bgc = Agate.Construction.construct(
+        ModelDefinition(; components, processes=(growth=process,), parameters)
+    )
+    test_tendencies(
+        bgc, (N=10.0, DOM=0.0, NH4=0.0, P_1=3.0), (N=-6.0, P_1=4.8, NH4=0.9, DOM=0.3)
+    )
 end

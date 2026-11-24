@@ -179,12 +179,16 @@ using Agate.Runtime: ode_problem
 
 # family and recipe specify the fixed scientific configuration;
 # u0, tspan and auxiliary specify the box-model experiment.
-traits = active_traits(family, recipe;
-    trait_selection=(specificity=(:Z_1,), optimum_predator_prey_ratio=(:Z_1,)))
+traits = active_traits(
+    family,
+    recipe;
+    trait_selection=(specificity=(:Z_1,), optimum_predator_prey_ratio=(:Z_1,)),
+)
 tau = copy(traits.values)
 p = realize_trait_parameters(traits, tau)
-prob = ode_problem(traits.bgc, u0, tspan;
-    p, active_parameters=traits.active_parameters, auxiliary)
+prob = ode_problem(
+    traits.bgc, u0, tspan; p, active_parameters=traits.active_parameters, auxiliary
+)
 ```
 
 For subsequent trait vectors, call `realize_trait_parameters(traits, tau)` before

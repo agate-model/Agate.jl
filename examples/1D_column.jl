@@ -93,7 +93,8 @@ nothing #hide
 bgc_model = Biogeochemistry(bgc; light_attenuation)
 nothing #hide
 
-full_model = NonhydrostaticModel(grid;
+full_model = NonhydrostaticModel(
+    grid;
     clock,
     timestepper=:QuasiAdamsBashforth2,
     closure=ScalarDiffusivity(
@@ -154,7 +155,7 @@ for (i, key) in enumerate(all_keys)
         ax,
         times,
         z_vals,
-        Float32.(interior(timeseries[key],1,1,:,:)');
+        Float32.(interior(timeseries[key], 1, 1, :, :)');
         colormap=:viridis,
         rasterize=true,
     )  # Rasterize for smaller output
