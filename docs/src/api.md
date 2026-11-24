@@ -197,6 +197,8 @@ the chain rule without recompiling model equations. Custom numerical derivers mu
 support the chosen differentiation backend and treat input parameters as read-only.
 The original configuration and recipe retain their baseline scientific meaning;
 updated trait vectors are independent inference inputs.
+See the [reverse-mode AD sensitivity example](@ref reverse_mode_ad_onyx_sensitivity_example)
+for an end-to-end Onyx construction-trait gradient and finite-difference comparison.
 
 ```@docs
 Agate.Construction.active_traits
