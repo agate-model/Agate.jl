@@ -240,7 +240,7 @@ function _construct_process_definition(
         nothing
     end
 
-    return on_architecture(arch, bgc), manifest
+    return on_architecture(arch, bgc), manifest, prepared
 end
 
 function _construct_family_model(
@@ -318,7 +318,7 @@ function construct(
     realization = (;
         plankton_pfts, parameter_overrides, setting_overrides, sinking_tracers, open_bottom
     )
-    bgc, _ = _construct_family_model(
+    bgc, _, _ = _construct_family_model(
         family, realization; grid, arch, scalar_type
     )
     return bgc
@@ -348,7 +348,7 @@ function construct(
     arch=nothing,
     scalar_type=nothing,
 )
-    bgc, _ = _construct_process_definition(
+    bgc, _, _ = _construct_process_definition(
         definition;
         plankton_pfts,
         parameter_overrides,
@@ -369,7 +369,7 @@ function construct(
     arch=nothing,
     scalar_type=nothing,
 )
-    bgc, _ = _construct_recipe(family, recipe; grid, arch, scalar_type)
+    bgc, _, _ = _construct_recipe(family, recipe; grid, arch, scalar_type)
     return bgc
 end
 
@@ -396,5 +396,6 @@ end
 function construct_plus_manifest(
     family::AbstractModelFamily, recipe::ModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
 )
-    return _construct_recipe(family, recipe; grid, arch, scalar_type, build_manifest=true)
+    bgc, manifest, _ = _construct_recipe(family, recipe; grid, arch, scalar_type, build_manifest=true)
+    return bgc, manifest
 end

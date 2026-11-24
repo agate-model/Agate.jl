@@ -41,6 +41,23 @@ end
     @test bgc.parameters == replayed.parameters == direct.parameters
     @test required_biogeochemical_tracers(bgc) == required_biogeochemical_tracers(replayed)
 
+    # The family and recipe routes share one preparation path. Selecting two
+    # traits of the same output collects its four entries just once.
+    trait_selection = (specificity=(:Z_2, :Z_1), optimum_predator_prey_ratio=(:Z_1,))
+    prepared = Agate.Construction.prepare_active_traits(family, default_recipe; trait_selection, grid)
+    configured = Agate.Construction.prepare_active_traits(family; plankton_pfts=pfts, trait_selection, grid)
+    @test prepared.labels == ("specificity.Z_2", "specificity.Z_1", "optimum_predator_prey_ratio.Z_1")
+    @test prepared.active_parameters.labels == configured.active_parameters.labels
+    @test length(prepared.active_parameters) == 4
+    tau = Float32[0.6, 0.4, 8.0]
+    expected = construct(family; plankton_pfts=pfts, grid,
+        parameter_overrides=(specificity=(Z_2=0.6, Z_1=0.4), optimum_predator_prey_ratio=(Z_1=8.0,)))
+    p = Agate.Construction.realize_trait_parameters(prepared, tau)
+    @test p == Agate.Construction.realize_trait_parameters(configured, tau)
+    @test p == Agate.Runtime.active_parameters(expected;
+        palatability_matrix=((:Z_1, :P_1), (:Z_1, :P_2), (:Z_2, :P_1), (:Z_2, :P_2))).values
+    @test prepared.bgc.parameters == bgc.parameters
+
     # Provider selection supplies scientific defaults; the recipe supplies configuration.
     other = construct(AlternativeTestNPZFamily(), default_recipe; grid)
     @test other.parameters.detritus_remineralization == Float32(2e-5)

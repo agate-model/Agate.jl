@@ -348,17 +348,9 @@ end
 
 _copy_parameter_value(x) = x isa AbstractArray ? copy(x) : x
 
-# Select whole materialized trait parameters with a fixed runtime active set.
-# Authoring-level entry selection is separate from this numerical preparation.
+# Retain only the affected numerical derivations. The public preparation path
+# has already validated the selected traits and discovered the active outputs.
 function _prepare_trait_realization(prepared, traits::Tuple, active)
-    T = prepared.layout.scalar_type
-    T <: AbstractFloat || throw(ArgumentError("trait realization requires floating-point parameters"))
-    allunique(traits) || throw(ArgumentError("duplicate construction traits"))
-    for name in traits
-        parameter = planned_parameter(prepared.plan, name)
-        parameter.runtime_bound && throw(ArgumentError("parameter :$name is not a construction trait"))
-        _validate_trait_input(getproperty(prepared.values, name), name)
-    end
     targets = Tuple(
         name for name in keys(prepared.derivations)
         if any(dep -> dep in traits, planned_parameter(prepared.plan, name).definition.default.deps)
@@ -367,7 +359,7 @@ function _prepare_trait_realization(prepared, traits::Tuple, active)
     # Explicit output overrides were excluded at preparation. Other derived
     # outputs retain their baseline values, even when traits are updated repeatedly.
     numerics = (; baseline=map(_copy_parameter_value, prepared.values), derivations)
-    return (; prepared, traits, numerics, active, gather=_prepare_runtime_gather(active))
+    return (; numerics, gather=_prepare_runtime_gather(active))
 end
 
 function _validate_trait_input(value, name)
@@ -402,34 +394,4 @@ end
 
 @inline function _gather_runtime_vector(::Type{T}, resolved, gather) where {T<:Real}
     return collect(T, map(ref -> _parameter_value(resolved, ref), gather))
-end
-
-@inline function _realize_trait_vector(::Type{T}, numerics, updates, gather) where {T<:Real}
-    return _gather_runtime_vector(T, _rematerialize_traits(numerics, updates), gather)
-end
-
-# Host-side checked realization accepts the ordinary named-vector override
-# vocabulary. Keep validation and authoring-input expansion outside Enzyme.
-function _realize_trait_parameters(selection, updates::NamedTuple)
-    prepared = selection.prepared
-    T = prepared.layout.scalar_type
-    Set(keys(updates)) == Set(selection.traits) || throw(
-        ArgumentError("updates must match the prepared construction traits $(selection.traits)")
-    )
-    for (name, value) in pairs(updates)
-        _validate_trait_input(value, name)
-    end
-    materialized = materialize_parameter_overrides(
-        prepared.plan, selection.numerics.baseline, updates, T
-    )
-    for (name, value) in pairs(materialized)
-        validate_parameter_value(planned_parameter(prepared.plan, name), value, T)
-        _validate_trait_input(value, name)
-    end
-    resolved = _rematerialize_traits(selection.numerics, materialized)
-    checked = _checked_parameter_values(
-        prepared.canonical, prepared.layout, prepared.plan, resolved,
-        selection.numerics.derivations, prepared.constraints
-    )
-    return map(_copy_parameter_value, runtime_parameter_values(prepared.plan, checked))
 end

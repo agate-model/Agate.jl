@@ -161,6 +161,45 @@ Agate.Parameters.AllometricPalatability
 Agate.Parameters.BroadcastConsumerAcrossResources
 ```
 
+### Differentiable construction traits
+
+Prepare a fixed CPU model once from a `ModelDefinition`, a family configuration, or a
+family and recipe. Construction traits are selected by name (`true` for scalars) or
+realized SizeClass symbols. The preparation discovers all applicable runtime entries
+of their declared `DerivedDefault` outputs, deduplicates shared outputs, and retains
+explicitly overridden outputs as fixed parameters. The trait labels follow the input
+selection order; the runtime labels follow the prepared runtime active set.
+
+```julia
+using Agate.Construction: prepare_active_traits, realize_trait_parameters
+using Agate.Runtime: ode_problem
+
+# family and recipe specify the fixed scientific configuration;
+# u0, tspan and auxiliary specify the box-model experiment.
+prepared = prepare_active_traits(family, recipe;
+    trait_selection=(specificity=(:Z_1,), optimum_predator_prey_ratio=(:Z_1,)))
+tau = copy(prepared.values)
+p = realize_trait_parameters(prepared, tau)
+prob = ode_problem(prepared.bgc, u0, tspan;
+    p, active_parameters=prepared.active_parameters, auxiliary)
+```
+
+For subsequent trait vectors, call `realize_trait_parameters(prepared, tau)` before
+remaking the ODE problem with the resulting `p`. Each call checks values and the
+realized scientific parameter constraints. For reverse-mode AD, `prepared.parameter_map`
+is the matching numerical map for an already checked trait vector. Recompute the
+runtime objective gradient at each current `p`, then differentiate the weighted sum
+of `parameter_map(tau)` with those runtime gradient weights held fixed. This applies
+the chain rule without recompiling model equations. Custom numerical derivers must
+support the chosen differentiation backend and treat input parameters as read-only.
+The prepared configuration and recipe retain their baseline scientific meaning;
+updated trait vectors are independent inference inputs.
+
+```@docs
+Agate.Construction.prepare_active_traits
+Agate.Construction.realize_trait_parameters
+```
+
 ### Custom process and factor extension
 
 Custom process implementations attach setup-validated semantic facts with

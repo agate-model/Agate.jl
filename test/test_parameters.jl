@@ -1,6 +1,7 @@
 using Agate
 using Enzyme
 using Agate.Introspection: parameter_names
+using Agate.Construction: prepare_active_traits, realize_trait_parameters
 using Test
 
 import Agate.Parameters:
@@ -15,17 +16,31 @@ derive_default(
     ::AddOneDefault, ::Agate.Processes.ModelDefinition, ::Any, params::NamedTuple
 ) = params.base + one(params.base)
 
+struct AddTraitsDefault end
+
+derive_default(
+    ::AddTraitsDefault, ::Agate.Processes.ModelDefinition, ::Any, params::NamedTuple
+) = params.base + params.shift
+
 function derived_default_definition()
-    components = (D=Agate.Components.Pool(:nitrogen), N=Agate.Components.Pool(:nitrogen))
+    components = (D=Agate.Components.Pool(:nitrogen), E=Agate.Components.Pool(:nitrogen),
+                  N=Agate.Components.Pool(:nitrogen))
     processes = (remineralization=Agate.Processes.Remineralization(
         Agate.Processes.LinearRemineralization();
         sources=:D,
         destination=:N,
         bindings=(rate=(D=:top,),),
-    ),)
+    ), other_remineralization=Agate.Processes.Remineralization(
+        Agate.Processes.LinearRemineralization();
+        sources=:E,
+        destination=:N,
+        bindings=(rate=(E=:other,),),
+    ))
     parameters = (
         base=ConstructionParameter(2.0),
+        shift=ConstructionParameter(1.0),
         top=Parameter(DerivedDefault(AddOneDefault(); deps=(:base,))),
+        other=Parameter(DerivedDefault(AddTraitsDefault(); deps=(:base, :shift))),
     )
     return Agate.Processes.ModelDefinition(; components, processes, parameters)
 end
@@ -55,50 +70,47 @@ end
     end
 end
 
-# Use the ordinary setup path to prepare the fixed numerical realization.
-function prepared_parameter_fixture(definition; scalar_type=Float64, parameter_overrides=(;))
-    canonical = Agate.Processes.canonicalize_model(definition)
-    layout = Agate.Construction._realize_process_definition(
-        canonical, scalar_type; auxiliary_fields=Agate.Processes.driver_identities(canonical)
-    )
-    plan = Agate.Processes.build_parameter_plan(canonical, layout)
-    return Agate.Construction._prepare_parameter_realization(
-        canonical, layout, plan, parameter_overrides; derivation_owner=definition
-    )
-end
-
+# One trait feeds two outputs; both selected traits feed :other. Reuse this
+# fixture to check input override semantics, output overrides and ordering.
 @testset "Prepared scalar trait realization" begin
     definition = derived_default_definition()
     for (T, overrides) in ((Float32, (;)), (Float64, (;)),
                            (Float64, (base=4.0,)), (Float32, (base=4.0, top=99.0)))
-        bgc = Agate.Construction.construct(definition; scalar_type=T, parameter_overrides=overrides)
-        prepared = prepared_parameter_fixture(definition; scalar_type=T, parameter_overrides=overrides)
-        active = Agate.Runtime.active_parameters(bgc; top=true)
-        selected = Agate.Construction._prepare_trait_realization(prepared, (:base,), active)
-        baseline = (; base=prepared.values.base)
-        updated = (; base=T(6))
-        expected = Agate.Construction.construct(
-            definition; scalar_type=T, parameter_overrides=merge(overrides, updated)
-        ).parameters
-        realize(updates) = Agate.Construction._realize_trait_parameters(selected, updates)
-        @test realize(baseline) == bgc.parameters
-        @test realize(updated) == expected
-        @test realize(baseline) == bgc.parameters
-        p = Agate.Construction._realize_trait_vector(T, selected.numerics, updated, selected.gather)
-        @test p == T[expected.top] && eltype(p) === T
-        @test keys(selected.numerics.derivations) == (hasproperty(overrides, :top) ? () : (:top,))
+        selected = prepare_active_traits(definition; scalar_type=T, parameter_overrides=overrides,
+                                         trait_selection=(shift=true, base=true))
+        active = selected.active_parameters
+        targets = hasproperty(overrides, :top) ? (:other,) : (:other, :top)
+        @test selected.labels == ("shift", "base")
+        @test active.labels == string.(targets)
+        @test selected.explicit_override_keys == keys(overrides)
+        tau0 = copy(selected.values)
+        @test tau0 == T[1, get(overrides, :base, 2.0)]
+        tau = T[2, 6]
+        expected = Agate.Construction.construct(definition; scalar_type=T,
+            parameter_overrides=merge(overrides, (base=tau[2], shift=tau[1])))
+        p = realize_trait_parameters(selected, tau)
+        @test p == T[getproperty(expected.parameters, name) for name in targets]
+        @test selected.parameter_map(tau) == p
+        @test realize_trait_parameters(selected, tau0) == active.values
+        @test selected.bgc.parameters == Agate.Construction.construct(definition;
+            scalar_type=T, parameter_overrides=overrides).parameters
+        @test eltype(p) === T
     end
+
+    for selection in ((;), (missing=true,), (top=true,), (base=false,), (base=(:D,),))
+        @test_throws ArgumentError prepare_active_traits(definition; trait_selection=selection)
+    end
+    @test_throws ArgumentError prepare_active_traits(definition; trait_selection=(base=true, shift=true),
+        parameter_overrides=(other=1.0,)) # :shift has no live output
+    @test_throws ArgumentError prepare_active_traits(definition; trait_selection=(base=true,),
+        parameter_overrides=(top=1.0, other=1.0))
 end
 
-# A weighted two-output map gives a cheap analytic oracle for the Enzyme VJP,
-# without compiling another ODE adjoint. The direct NPZ fixture is off-optimum.
-function weighted_prepared_traits(tau, numerics, gather, baseline)
-    updates = (;
-        specificity=[baseline[1], tau[1]],
-        assimilation_efficiency=[baseline[2], tau[2]],
-    )
-    p = Agate.Construction._realize_trait_vector(Float64, numerics, updates, gather)
-    return 2p[1] + 3p[2]
+# A weighted two-output map gives a cheap analytic oracle for the Enzyme VJP
+# through the public trait-entry selection, without compiling an ODE adjoint.
+function weighted_prepared_traits(tau, parameter_map)
+    p = parameter_map(tau)
+    return 3p[1] + 2p[2] # plan order: assimilation, palatability
 end
 
 @testset "Prepared named SizeClass traits" begin
@@ -110,53 +122,61 @@ end
     )
     for T in (Float32, Float64), fixed in ((;), (palatability_matrix=fill(0.25, 1, 1),))
         overrides = merge(initial, fixed)
-        bgc = Agate.Construction.construct(definition; scalar_type=T, parameter_overrides=overrides)
-        prepared = prepared_parameter_fixture(definition; scalar_type=T, parameter_overrides=overrides)
-        # Deliberately choose a different order from the canonical parameter names.
-        active = Agate.Runtime.active_parameters(bgc;
-            palatability_matrix=((:Z_1, :P_1),), assimilation_matrix=((:Z_1, :P_1),)
-        )
-        selected = Agate.Construction._prepare_trait_realization(
-            prepared, (:specificity, :assimilation_efficiency), active
-        )
-        baseline = (; specificity=initial.specificity, assimilation_efficiency=initial.assimilation_efficiency)
-        updated = (; specificity=(Z_1=0.6,), assimilation_efficiency=(Z_1=0.5,))
-        expected = Agate.Construction.construct(
-            definition; scalar_type=T, parameter_overrides=merge(overrides, updated)
-        ).parameters
-        realize(updates) = Agate.Construction._realize_trait_parameters(selected, updates)
-        @test realize(baseline) == bgc.parameters
-        actual = realize(updated)
-        @test actual == expected
-        @test all(eltype(getproperty(actual, name)) === T for name in (:palatability_matrix, :assimilation_matrix))
-        @test Agate.Construction._gather_runtime_vector(T, actual, selected.gather) ==
-              T[only(expected.palatability_matrix), only(expected.assimilation_matrix)]
-        @test keys(selected.numerics.derivations) ==
-              (isempty(fixed) ? (:assimilation_matrix, :palatability_matrix) : (:assimilation_matrix,))
-        # The checked result owns its arrays; neither trait updates nor callers
-        # modifying returned storage can change the prepared baseline.
-        actual.palatability_matrix .= 0
-        @test realize(baseline) == bgc.parameters
-        @test_throws ArgumentError realize(merge(updated, (assimilation_efficiency=(Z_1=1.1,),)))
-        @test_throws ArgumentError realize(merge(updated, (specificity=[T(0.3)],)))
+        selection = isempty(fixed) ? (specificity=(:Z_1,), assimilation_efficiency=(:Z_1,)) :
+                                     (assimilation_efficiency=(:Z_1,),)
+        prepared = prepare_active_traits(definition; scalar_type=T, parameter_overrides=overrides,
+                                         trait_selection=selection)
+        active = prepared.active_parameters
+        tau0 = copy(prepared.values)
+        @test tau0 == (isempty(fixed) ? T[0.4, 0.8] : T[0.8])
+        @test active.labels == (isempty(fixed) ? ("assimilation_matrix[Z_1, P_1]", "palatability_matrix[Z_1, P_1]") :
+                                                  ("assimilation_matrix[Z_1, P_1]",))
+        updates = isempty(fixed) ? (specificity=(Z_1=0.6,), assimilation_efficiency=(Z_1=0.5,)) :
+                                  (assimilation_efficiency=(Z_1=0.5,),)
+        expected = Agate.Construction.construct(definition; scalar_type=T,
+            parameter_overrides=merge(overrides, updates))
+        tau = isempty(fixed) ? T[0.6, 0.5] : T[0.5]
+        p = realize_trait_parameters(prepared, tau)
+        @test p == (isempty(fixed) ? T[only(expected.parameters.assimilation_matrix), only(expected.parameters.palatability_matrix)] :
+                                     T[only(expected.parameters.assimilation_matrix)])
+        @test eltype(p) === T
+        @test prepared.parameter_map(tau) == p
+        @test Agate.Runtime.parameterized(prepared.bgc, p; active_parameters=active).parameters.palatability_matrix[1, 1] ==
+              expected.parameters.palatability_matrix[1, 1]
+        p .= 0
+        @test realize_trait_parameters(prepared, tau0) == active.values
+        @test prepared.bgc.parameters == Agate.Construction.construct(definition; scalar_type=T,
+            parameter_overrides=overrides).parameters
+        invalid = copy(tau); invalid[end] = T(1.1)
+        @test_throws ArgumentError realize_trait_parameters(prepared, invalid)
+        @test_throws ArgumentError realize_trait_parameters(prepared, T[])
+        invalid[end] = T(NaN)
+        @test_throws ArgumentError realize_trait_parameters(prepared, invalid)
 
         if T === Float64 && isempty(fixed)
-            values = prepared.values
-            classes = only(prepared.plan.parameters.specificity.storage_labels)
-            @test classes == (:P_1, :Z_1)
-            # Check that unrelated derived outputs are retained as baseline values.
-            single = Agate.Construction._prepare_trait_realization(prepared, (:specificity,), active)
-            @test keys(single.numerics.derivations) == (:palatability_matrix,)
-            tau = [values.specificity[2], values.assimilation_efficiency[2]]
-            inactive = (values.specificity[1], values.assimilation_efficiency[1])
+            @test_throws ArgumentError realize_trait_parameters(prepared, Float32.(tau))
+            for selection in ((specificity=true,), (specificity=(:unknown,),),
+                              (specificity=(:Z_1, :Z_1),), (specificity=(),))
+                @test_throws ArgumentError prepare_active_traits(definition; trait_selection=selection)
+            end
             gradient = zeros(2)
             Enzyme.autodiff(
                 Enzyme.set_runtime_activity(Enzyme.Reverse),
                 Enzyme.Const(weighted_prepared_traits), Enzyme.Active,
-                Enzyme.Duplicated(copy(tau), gradient), Enzyme.Const(selected.numerics),
-                Enzyme.Const(selected.gather), Enzyme.Const(inactive),
+                Enzyme.Duplicated(copy(tau0), gradient), Enzyme.Const(prepared.parameter_map),
             )
-            @test gradient ≈ [-2log(5) * 5^(-tau[1]), 3.0]
+            @test gradient ≈ [-2log(5) * 5^(-tau0[1]), 3.0]
+
+            # Check the same runtime map against an independently rebuilt RHS.
+            u0 = [1.0, 0.1, 0.05]
+            p = realize_trait_parameters(prepared, tau)
+            prob = Agate.Runtime.ode_problem(prepared.bgc, u0, (0.0, 1.0);
+                p, active_parameters=active, auxiliary=(PAR=100.0,))
+            reference = Agate.Runtime.ode_problem(expected, u0, (0.0, 1.0); auxiliary=(PAR=100.0,))
+            du, du_ref = similar(u0), similar(u0)
+            prob.f(du, u0, p, 0.0)
+            reference.f(du_ref, u0, reference.p, 0.0)
+            @test du ≈ du_ref
         end
     end
 end
