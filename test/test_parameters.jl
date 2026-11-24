@@ -1,7 +1,7 @@
 using Agate
 using Enzyme
 using Agate.Introspection: parameter_names
-using Agate.Construction: prepare_active_traits, realize_trait_parameters
+using Agate.Construction: active_traits, realize_trait_parameters
 using Test
 
 import Agate.Parameters:
@@ -72,48 +72,48 @@ end
 
 # One trait feeds two outputs; both selected traits feed :other. Reuse this
 # fixture to check input override semantics, output overrides and ordering.
-@testset "Prepared scalar trait realization" begin
+@testset "Active scalar construction traits" begin
     definition = derived_default_definition()
     for (T, overrides) in ((Float32, (;)), (Float64, (;)),
                            (Float64, (base=4.0,)), (Float32, (base=4.0, top=99.0)))
-        selected = prepare_active_traits(definition; scalar_type=T, parameter_overrides=overrides,
-                                         trait_selection=(shift=true, base=true))
-        active = selected.active_parameters
+        traits = active_traits(definition; scalar_type=T, parameter_overrides=overrides,
+                               trait_selection=(shift=true, base=true))
+        active = traits.active_parameters
         targets = hasproperty(overrides, :top) ? (:other,) : (:other, :top)
-        @test selected.labels == ("shift", "base")
+        @test traits.labels == ("shift", "base")
         @test active.labels == string.(targets)
-        @test selected.explicit_override_keys == keys(overrides)
-        tau0 = copy(selected.values)
+        @test traits.explicit_override_keys == keys(overrides)
+        tau0 = copy(traits.values)
         @test tau0 == T[1, get(overrides, :base, 2.0)]
         tau = T[2, 6]
         expected = Agate.Construction.construct(definition; scalar_type=T,
             parameter_overrides=merge(overrides, (base=tau[2], shift=tau[1])))
-        p = realize_trait_parameters(selected, tau)
+        p = realize_trait_parameters(traits, tau)
         @test p == T[getproperty(expected.parameters, name) for name in targets]
-        @test selected.parameter_map(tau) == p
-        @test realize_trait_parameters(selected, tau0) == active.values
-        @test selected.bgc.parameters == Agate.Construction.construct(definition;
+        @test traits.parameter_map(tau) == p
+        @test realize_trait_parameters(traits, tau0) == active.values
+        @test traits.bgc.parameters == Agate.Construction.construct(definition;
             scalar_type=T, parameter_overrides=overrides).parameters
         @test eltype(p) === T
     end
 
     for selection in ((;), (missing=true,), (top=true,), (base=false,), (base=(:D,),))
-        @test_throws ArgumentError prepare_active_traits(definition; trait_selection=selection)
+        @test_throws ArgumentError active_traits(definition; trait_selection=selection)
     end
-    @test_throws ArgumentError prepare_active_traits(definition; trait_selection=(base=true, shift=true),
+    @test_throws ArgumentError active_traits(definition; trait_selection=(base=true, shift=true),
         parameter_overrides=(other=1.0,)) # :shift has no live output
-    @test_throws ArgumentError prepare_active_traits(definition; trait_selection=(base=true,),
+    @test_throws ArgumentError active_traits(definition; trait_selection=(base=true,),
         parameter_overrides=(top=1.0, other=1.0))
 end
 
 # A weighted two-output map gives a cheap analytic oracle for the Enzyme VJP
 # through the public trait-entry selection, without compiling an ODE adjoint.
-function weighted_prepared_traits(tau, parameter_map)
+function weighted_trait_parameters(tau, parameter_map)
     p = parameter_map(tau)
     return 3p[1] + 2p[2] # plan order: assimilation, palatability
 end
 
-@testset "Prepared named SizeClass traits" begin
+@testset "Active named SizeClass traits" begin
     definition = direct_npz_definition()
     initial = (;
         optimum_predator_prey_ratio=(Z_1=8.0,),
@@ -124,10 +124,10 @@ end
         overrides = merge(initial, fixed)
         selection = isempty(fixed) ? (specificity=(:Z_1,), assimilation_efficiency=(:Z_1,)) :
                                      (assimilation_efficiency=(:Z_1,),)
-        prepared = prepare_active_traits(definition; scalar_type=T, parameter_overrides=overrides,
-                                         trait_selection=selection)
-        active = prepared.active_parameters
-        tau0 = copy(prepared.values)
+        traits = active_traits(definition; scalar_type=T, parameter_overrides=overrides,
+                               trait_selection=selection)
+        active = traits.active_parameters
+        tau0 = copy(traits.values)
         @test tau0 == (isempty(fixed) ? T[0.4, 0.8] : T[0.8])
         @test active.labels == (isempty(fixed) ? ("assimilation_matrix[Z_1, P_1]", "palatability_matrix[Z_1, P_1]") :
                                                   ("assimilation_matrix[Z_1, P_1]",))
@@ -136,41 +136,41 @@ end
         expected = Agate.Construction.construct(definition; scalar_type=T,
             parameter_overrides=merge(overrides, updates))
         tau = isempty(fixed) ? T[0.6, 0.5] : T[0.5]
-        p = realize_trait_parameters(prepared, tau)
+        p = realize_trait_parameters(traits, tau)
         @test p == (isempty(fixed) ? T[only(expected.parameters.assimilation_matrix), only(expected.parameters.palatability_matrix)] :
                                      T[only(expected.parameters.assimilation_matrix)])
         @test eltype(p) === T
-        @test prepared.parameter_map(tau) == p
-        @test Agate.Runtime.parameterized(prepared.bgc, p; active_parameters=active).parameters.palatability_matrix[1, 1] ==
+        @test traits.parameter_map(tau) == p
+        @test Agate.Runtime.parameterized(traits.bgc, p; active_parameters=active).parameters.palatability_matrix[1, 1] ==
               expected.parameters.palatability_matrix[1, 1]
         p .= 0
-        @test realize_trait_parameters(prepared, tau0) == active.values
-        @test prepared.bgc.parameters == Agate.Construction.construct(definition; scalar_type=T,
+        @test realize_trait_parameters(traits, tau0) == active.values
+        @test traits.bgc.parameters == Agate.Construction.construct(definition; scalar_type=T,
             parameter_overrides=overrides).parameters
         invalid = copy(tau); invalid[end] = T(1.1)
-        @test_throws ArgumentError realize_trait_parameters(prepared, invalid)
-        @test_throws ArgumentError realize_trait_parameters(prepared, T[])
+        @test_throws ArgumentError realize_trait_parameters(traits, invalid)
+        @test_throws ArgumentError realize_trait_parameters(traits, T[])
         invalid[end] = T(NaN)
-        @test_throws ArgumentError realize_trait_parameters(prepared, invalid)
+        @test_throws ArgumentError realize_trait_parameters(traits, invalid)
 
         if T === Float64 && isempty(fixed)
-            @test_throws ArgumentError realize_trait_parameters(prepared, Float32.(tau))
+            @test_throws ArgumentError realize_trait_parameters(traits, Float32.(tau))
             for selection in ((specificity=true,), (specificity=(:unknown,),),
                               (specificity=(:Z_1, :Z_1),), (specificity=(),))
-                @test_throws ArgumentError prepare_active_traits(definition; trait_selection=selection)
+                @test_throws ArgumentError active_traits(definition; trait_selection=selection)
             end
             gradient = zeros(2)
             Enzyme.autodiff(
                 Enzyme.set_runtime_activity(Enzyme.Reverse),
-                Enzyme.Const(weighted_prepared_traits), Enzyme.Active,
-                Enzyme.Duplicated(copy(tau0), gradient), Enzyme.Const(prepared.parameter_map),
+                Enzyme.Const(weighted_trait_parameters), Enzyme.Active,
+                Enzyme.Duplicated(copy(tau0), gradient), Enzyme.Const(traits.parameter_map),
             )
             @test gradient ≈ [-2log(5) * 5^(-tau0[1]), 3.0]
 
             # Check the same runtime map against an independently rebuilt RHS.
             u0 = [1.0, 0.1, 0.05]
-            p = realize_trait_parameters(prepared, tau)
-            prob = Agate.Runtime.ode_problem(prepared.bgc, u0, (0.0, 1.0);
+            p = realize_trait_parameters(traits, tau)
+            prob = Agate.Runtime.ode_problem(traits.bgc, u0, (0.0, 1.0);
                 p, active_parameters=active, auxiliary=(PAR=100.0,))
             reference = Agate.Runtime.ode_problem(expected, u0, (0.0, 1.0); auxiliary=(PAR=100.0,))
             du, du_ref = similar(u0), similar(u0)

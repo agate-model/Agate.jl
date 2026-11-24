@@ -161,42 +161,46 @@ Agate.Parameters.AllometricPalatability
 Agate.Parameters.BroadcastConsumerAcrossResources
 ```
 
-### Differentiable construction traits
+### Construction-trait sensitivity
 
-Prepare a fixed CPU model once from a `ModelDefinition`, a family configuration, or a
-family and recipe. Construction traits are selected by name (`true` for scalars) or
-realized SizeClass symbols. The preparation discovers all applicable runtime entries
-of their declared `DerivedDefault` outputs, deduplicates shared outputs, and retains
-explicitly overridden outputs as fixed parameters. The trait labels follow the input
-selection order; the runtime labels follow the prepared runtime active set.
+Agate supports differentiation with respect to continuous construction traits,
+automatically propagating their influence through derived runtime parameters to model
+objectives. Select traits with `active_traits` from a `ModelDefinition`, a family
+configuration, or a family and recipe. Scalar traits are selected with `true` and
+vector traits with realized SizeClass symbols. The resulting trait set includes all
+applicable runtime entries of the declared `DerivedDefault` outputs, collects shared
+outputs once, and retains explicitly overridden outputs as fixed parameters. Trait
+labels follow input selection order; runtime labels follow the corresponding active
+parameter set. The model structure is fixed across trait evaluations.
 
 ```julia
-using Agate.Construction: prepare_active_traits, realize_trait_parameters
+using Agate.Construction: active_traits, realize_trait_parameters
 using Agate.Runtime: ode_problem
 
 # family and recipe specify the fixed scientific configuration;
 # u0, tspan and auxiliary specify the box-model experiment.
-prepared = prepare_active_traits(family, recipe;
+traits = active_traits(family, recipe;
     trait_selection=(specificity=(:Z_1,), optimum_predator_prey_ratio=(:Z_1,)))
-tau = copy(prepared.values)
-p = realize_trait_parameters(prepared, tau)
-prob = ode_problem(prepared.bgc, u0, tspan;
-    p, active_parameters=prepared.active_parameters, auxiliary)
+tau = copy(traits.values)
+p = realize_trait_parameters(traits, tau)
+prob = ode_problem(traits.bgc, u0, tspan;
+    p, active_parameters=traits.active_parameters, auxiliary)
 ```
 
-For subsequent trait vectors, call `realize_trait_parameters(prepared, tau)` before
+For subsequent trait vectors, call `realize_trait_parameters(traits, tau)` before
 remaking the ODE problem with the resulting `p`. Each call checks values and the
-realized scientific parameter constraints. For reverse-mode AD, `prepared.parameter_map`
+realized scientific parameter constraints. For reverse-mode AD, `traits.parameter_map`
 is the matching numerical map for an already checked trait vector. Recompute the
 runtime objective gradient at each current `p`, then differentiate the weighted sum
 of `parameter_map(tau)` with those runtime gradient weights held fixed. This applies
 the chain rule without recompiling model equations. Custom numerical derivers must
 support the chosen differentiation backend and treat input parameters as read-only.
-The prepared configuration and recipe retain their baseline scientific meaning;
+The original configuration and recipe retain their baseline scientific meaning;
 updated trait vectors are independent inference inputs.
 
 ```@docs
-Agate.Construction.prepare_active_traits
+Agate.Construction.active_traits
+Agate.Construction.ActiveTraitSet
 Agate.Construction.realize_trait_parameters
 ```
 

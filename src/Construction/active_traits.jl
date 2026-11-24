@@ -29,7 +29,12 @@ end
     return _gather_runtime_vector(T, _realized_trait_values(f, tau), f.gather)
 end
 
-struct PreparedActiveTraits{BGC,Active,Values,Labels,Selection,Overrides,Map,Realization}
+"""Selected continuous construction traits and their dependent runtime parameters.
+
+Returned by [`active_traits`](@ref). `labels` and `values` describe the flat trait
+vector; `active_parameters` describes the corresponding runtime parameter vector.
+"""
+struct ActiveTraitSet{BGC,Active,Values,Labels,Selection,Overrides,Map,Realization}
     bgc::BGC
     active_parameters::Active
     values::Values
@@ -105,7 +110,7 @@ function _trait_runtime_selection(prepared, traits)
     end)
 end
 
-function _prepare_active_traits(bgc, prepared, selection)
+function _active_trait_set(bgc, prepared, selection)
     slots, tau, labels = _trait_slots(prepared, selection)
     runtime_selection = _trait_runtime_selection(prepared, keys(selection))
     active = active_parameters(bgc; runtime_selection...)
@@ -114,36 +119,36 @@ function _prepare_active_traits(bgc, prepared, selection)
     f = TraitParameterMap{T,typeof(numerical.numerics),typeof(slots),typeof(numerical.gather)}(
         numerical.numerics, slots, numerical.gather
     )
-    return PreparedActiveTraits(bgc, active, tau, labels, selection,
-                                prepared.explicit_override_keys, f, prepared)
+    return ActiveTraitSet(bgc, active, tau, labels, selection,
+                          prepared.explicit_override_keys, f, prepared)
 end
 
 function _check_trait_architecture(grid, arch)
     (isnothing(arch) || arch isa CPU) && (isnothing(grid) || architecture(grid) isa CPU) ||
-        throw(ArgumentError("prepare_active_traits requires a CPU model; prepare trait maps on the host"))
+        throw(ArgumentError("active_traits requires a CPU model for construction-trait sensitivity"))
     return nothing
 end
 
 """
-    prepare_active_traits(definition::ModelDefinition; trait_selection, kwargs...)
-    prepare_active_traits(family::AbstractModelFamily; trait_selection, kwargs...)
-    prepare_active_traits(family::AbstractModelFamily, recipe::ModelRecipe; trait_selection, kwargs...)
+    active_traits(definition::ModelDefinition; trait_selection, kwargs...)
+    active_traits(family::AbstractModelFamily; trait_selection, kwargs...)
+    active_traits(family::AbstractModelFamily, recipe::ModelRecipe; trait_selection, kwargs...)
 
-Prepare a fixed CPU model for continuous construction-trait inference. Construction
-keywords match `construct` for the corresponding source. Select scalar traits with
-`true` and vector traits with tuples of realized SizeClass symbols, e.g.
+Select continuous construction traits for sensitivity analysis in a fixed CPU model.
+Construction keywords match `construct` for the corresponding source. Select scalar
+traits with `true` and vector traits with tuples of realized SizeClass symbols, e.g.
 `trait_selection=(specificity=(:Z_1,),)`. Trait labels and `values` follow selection
 order; `active_parameters` contains the union of all applicable runtime entries of
 live derived outputs in parameter-plan order. Explicit derived-output overrides stay fixed.
 
-The result exposes `bgc`, `labels`, `values`, `trait_selection`, `explicit_override_keys`,
-`active_parameters`, and `parameter_map`. Use [`realize_trait_parameters`](@ref) for checked
-primal evaluation. `parameter_map(tau)` is the numerical map for AD at a checked trait
+The returned [`ActiveTraitSet`](@ref) exposes `bgc`, `labels`, `values`,
+`trait_selection`, `explicit_override_keys`, `active_parameters`, and `parameter_map`.
+Use [`realize_trait_parameters`](@ref) for checked primal evaluation. `parameter_map(tau)` is the numerical map for AD at a checked trait
 vector: it expects the same length and floating-point element type as `values` and
-returns the same runtime vector, without repeating host-side validation. Treat prepared
-metadata and the base BGC as fixed; copy `values` before changing the trait vector.
+returns the same runtime vector, without repeating host-side validation. Treat the
+trait set metadata and base BGC as fixed; copy `values` before changing the trait vector.
 """
-function prepare_active_traits(
+function active_traits(
     definition::ModelDefinition; trait_selection::NamedTuple,
     plankton_pfts=nothing, parameter_overrides::NamedTuple=(;),
     sinking_tracers=nothing, open_bottom::Bool=true, grid=nothing, arch=nothing,
@@ -152,10 +157,10 @@ function prepare_active_traits(
     _check_trait_architecture(grid, arch)
     bgc, _, prepared = _construct_process_definition(definition;
         plankton_pfts, parameter_overrides, sinking_tracers, open_bottom, grid, arch, scalar_type)
-    return _prepare_active_traits(bgc, prepared, trait_selection)
+    return _active_trait_set(bgc, prepared, trait_selection)
 end
 
-function prepare_active_traits(
+function active_traits(
     family::AbstractModelFamily; trait_selection::NamedTuple, plankton_pfts::NamedTuple,
     parameter_overrides::NamedTuple=(;), setting_overrides::NamedTuple=(;),
     sinking_tracers=nothing, open_bottom::Bool=true, grid=nothing, arch=nothing,
@@ -164,33 +169,33 @@ function prepare_active_traits(
     _check_trait_architecture(grid, arch)
     realization = (; plankton_pfts, parameter_overrides, setting_overrides, sinking_tracers, open_bottom)
     bgc, _, prepared = _construct_family_model(family, realization; grid, arch, scalar_type)
-    return _prepare_active_traits(bgc, prepared, trait_selection)
+    return _active_trait_set(bgc, prepared, trait_selection)
 end
 
-function prepare_active_traits(
+function active_traits(
     family::AbstractModelFamily, recipe::ModelRecipe; trait_selection::NamedTuple,
     grid=nothing, arch=nothing, scalar_type=nothing,
 )
     _check_trait_architecture(grid, arch)
     bgc, _, prepared = _construct_recipe(family, recipe; grid, arch, scalar_type)
-    return _prepare_active_traits(bgc, prepared, trait_selection)
+    return _active_trait_set(bgc, prepared, trait_selection)
 end
 
 """
-    realize_trait_parameters(prepared, tau) -> p
+    realize_trait_parameters(traits, tau) -> p
 
 Validate a flat trait vector and realize its dependent runtime parameters in
-`prepared.active_parameters` order. Pass `p` and that active set to `Runtime.parameterized`
-or `Runtime.ode_problem`, using `prepared.bgc`. Each call checks the realized scientific
+`traits.active_parameters` order. Pass `p` and that active set to `Runtime.parameterized`
+or `Runtime.ode_problem`, using `traits.bgc`. Each call checks the realized scientific
 parameter domains and coupled constraints, and leaves the baseline unchanged.
 """
-function realize_trait_parameters(prepared::PreparedActiveTraits, tau::AbstractVector)
-    realization = prepared.realization
+function realize_trait_parameters(traits::ActiveTraitSet, tau::AbstractVector)
+    realization = traits.realization
     T = realization.layout.scalar_type
-    length(tau) == length(prepared.values) && eltype(tau) === T && all(isfinite, tau) ||
-        throw(ArgumentError("expected $(length(prepared.values)) finite trait values with eltype $T"))
+    length(tau) == length(traits.values) && eltype(tau) === T && all(isfinite, tau) ||
+        throw(ArgumentError("expected $(length(traits.values)) finite trait values with eltype $T"))
     Base.require_one_based_indexing(tau)
-    f = prepared.parameter_map
+    f = traits.parameter_map
     resolved = _realized_trait_values(f, tau)
     checked = _checked_parameter_values(realization.canonical, realization.layout, realization.plan,
         resolved, f.numerics.derivations, realization.constraints)
