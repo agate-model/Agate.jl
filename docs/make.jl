@@ -5,8 +5,8 @@ Pkg.activate(@__DIR__)
 withenv("JULIA_PKG_PRECOMPILE_AUTO" => "0") do
     Pkg.develop(Pkg.PackageSpec(; path=joinpath(@__DIR__, "..")))
     Pkg.add([
-        Pkg.PackageSpec(; url="https://github.com/agate-model/Onyx.jl", rev="c22c460b862d2656c9f429ccbe790ddb165d67be"),
-        Pkg.PackageSpec(; url="https://github.com/agate-model/FrankenLOBSTER.jl", rev="c2e678f8a953ffc3e79c9f0e55d038391342f50a"),
+        Pkg.PackageSpec(; url="https://github.com/agate-model/Onyx.jl", rev="e753aca9c458b0478def9f1c500f957157cd6d4f"),
+        Pkg.PackageSpec(; url="https://github.com/agate-model/FrankenLOBSTER.jl", rev="4234d370facaa3356a997adaee9a4b2c5646c8e7"),
     ])
 end
 Pkg.instantiate()
@@ -105,8 +105,8 @@ makedocs(;
     ),
     modules=[Agate, Onyx, FrankenLOBSTER],
     remotes=Dict(
-        pkgdir(Onyx) => (Documenter.Remotes.GitHub("agate-model", "Onyx.jl"), "c22c460b862d2656c9f429ccbe790ddb165d67be"),
-        pkgdir(FrankenLOBSTER) => (Documenter.Remotes.GitHub("agate-model", "FrankenLOBSTER.jl"), "c2e678f8a953ffc3e79c9f0e55d038391342f50a"),
+        pkgdir(Onyx) => (Documenter.Remotes.GitHub("agate-model", "Onyx.jl"), "e753aca9c458b0478def9f1c500f957157cd6d4f"),
+        pkgdir(FrankenLOBSTER) => (Documenter.Remotes.GitHub("agate-model", "FrankenLOBSTER.jl"), "4234d370facaa3356a997adaee9a4b2c5646c8e7"),
     ),
     checkdocs=:exports,
     warnonly=[:missing_docs],

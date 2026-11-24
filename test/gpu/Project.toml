@@ -13,5 +13,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 CUDA = "6"
 DiffEqBase = "7.21.6"
 SciMLBase = "3"
-# Agate's [compat] governs the supported OceanBioME and Oceananigans versions.
 julia = "1.10"
