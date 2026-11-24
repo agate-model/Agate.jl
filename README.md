@@ -36,15 +36,15 @@ using Agate
 
 The documentation includes examples covering:
 
-  - [Size-structured plankton communities](https://agate-model.github.io/Agate.jl/dev/generated/size_structure/)
-  - [Plankton functional types with different light strategies](https://agate-model.github.io/Agate.jl/dev/generated/named_pfts/)
-  - [Allometric parameter relationships](https://agate-model.github.io/Agate.jl/dev/generated/allometric_relationships/)
-  - [Predator-prey palatability](https://agate-model.github.io/Agate.jl/dev/generated/predator_prey_palatability/)
-  - [Models with mixotrophy](https://agate-model.github.io/Agate.jl/dev/generated/mixotrophy/)
-  - [Models with bacterioplankton and detritus consumption](https://agate-model.github.io/Agate.jl/dev/generated/detritus_bacteria/)
-  - [Forward-mode automatic differentiation](https://agate-model.github.io/Agate.jl/dev/generated/forward_mode_ad_onyx_sensitivity/)
-  - [Reverse-mode automatic differentiation](https://agate-model.github.io/Agate.jl/dev/generated/reverse_mode_ad_onyx_sensitivity/)
-  - [Exporting and replaying model definitions](https://agate-model.github.io/Agate.jl/dev/generated/export_model_recipe/)
+* [Size-structured plankton communities](https://agate-model.github.io/Agate.jl/dev/generated/size_structure/)
+* [Plankton functional types with different light strategies](https://agate-model.github.io/Agate.jl/dev/generated/named_pfts/)
+* [Allometric parameter relationships](https://agate-model.github.io/Agate.jl/dev/generated/allometric_relationships/)
+* [Predator-prey palatability](https://agate-model.github.io/Agate.jl/dev/generated/predator_prey_palatability/)
+* [Models with mixotrophy](https://agate-model.github.io/Agate.jl/dev/generated/mixotrophy/)
+* [Models with bacterioplankton and detritus consumption](https://agate-model.github.io/Agate.jl/dev/generated/detritus_bacteria/)
+* [Forward-mode automatic differentiation](https://agate-model.github.io/Agate.jl/dev/generated/forward_mode_ad_onyx_sensitivity/)
+* [Reverse-mode automatic differentiation](https://agate-model.github.io/Agate.jl/dev/generated/reverse_mode_ad_onyx_sensitivity/)
+* [Exporting and replaying model definitions](https://agate-model.github.io/Agate.jl/dev/generated/export_model_recipe/)
 
 ## Documentation
 
@@ -54,11 +54,11 @@ The full documentation is available at:
 
 Useful starting points include:
 
-  - [Quick start](https://agate-model.github.io/Agate.jl/dev/quick_start/)
-  - [Agate.jl-Onyx](https://agate-model.github.io/Agate.jl/dev/onyx/)
-  - [FrankenLOBSTER](https://agate-model.github.io/Agate.jl/dev/frankenlobster/)
-  - [Defining a model with mixotrophy](https://agate-model.github.io/Agate.jl/dev/generated/mixotrophy/)
-  - [API reference](https://agate-model.github.io/Agate.jl/dev/api/)
+* [Quick start](https://agate-model.github.io/Agate.jl/dev/quick_start/)
+* [Agate.jl-Onyx](https://agate-model.github.io/Agate.jl/dev/onyx/)
+* [FrankenLOBSTER](https://agate-model.github.io/Agate.jl/dev/frankenlobster/)
+* [Defining a model with mixotrophy](https://agate-model.github.io/Agate.jl/dev/generated/mixotrophy/)
+* [API reference](https://agate-model.github.io/Agate.jl/dev/api/)
 
 ## Development and contributing
 

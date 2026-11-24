@@ -46,7 +46,9 @@ nothing #hide
 # name, so only the relevant entries need to be supplied. Omitted entries are
 # filled from the model defaults.
 
-vopt_bgc = Onyx.construct(; parameters=(; optimum_predator_prey_ratio=(Z_1=5.0, Z_2=5.0)))
+vopt_bgc = Onyx.construct(;
+    parameters=(; optimum_predator_prey_ratio=(Z_1=5.0, Z_2=5.0))
+)
 vopt_pal = interaction_matrix(vopt_bgc, :palatability_matrix)
 nothing #hide
 
@@ -54,7 +56,9 @@ nothing #hide
 # for experiments where the intended interaction structure is known explicitly,
 # rather than derived from size traits.
 
-custom_bgc = Onyx.construct(; parameters=(palatability_matrix=[0.0 1.0; 1.0 0.0],))
+custom_bgc = Onyx.construct(;
+    parameters=(palatability_matrix=[0.0 1.0; 1.0 0.0],)
+)
 custom_pal = interaction_matrix(custom_bgc, :palatability_matrix)
 
 nothing #hide
@@ -191,10 +195,18 @@ for (idx, sym) in enumerate(tracer_syms)
         linewidth=2,
     )
     lines!(
-        ax, times / day, getproperty(vopt_timeseries, sym); label="Vopt = 5", linewidth=2
+        ax,
+        times / day,
+        getproperty(vopt_timeseries, sym);
+        label="Vopt = 5",
+        linewidth=2,
     )
     lines!(
-        ax, times / day, getproperty(custom_timeseries, sym); label="custom", linewidth=2
+        ax,
+        times / day,
+        getproperty(custom_timeseries, sym);
+        label="custom",
+        linewidth=2,
     )
     axislegend(ax; position=:rt)
 end

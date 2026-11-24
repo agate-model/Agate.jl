@@ -7,8 +7,7 @@ struct DiameterListSpecification{Diameters<:AbstractVector} <: AbstractDiameterS
 end
 
 """A canonical diameter specification defined by a SizeClass count, bounds, and spacing rule."""
-struct DiameterRangeSpecification{Count<:Integer,MinDiameter,MaxDiameter} <:
-       AbstractDiameterSpecification
+struct DiameterRangeSpecification{Count<:Integer,MinDiameter,MaxDiameter} <: AbstractDiameterSpecification
     n::Count
     min_diameter::MinDiameter
     max_diameter::MaxDiameter
@@ -21,8 +20,7 @@ function _validate_diameter_values(values, path::AbstractString)
         value isa Real && !(value isa Bool) ||
             throw(ArgumentError("$path[$i] must be a real number"))
         isfinite(value) || throw(ArgumentError("$path[$i] must be finite; got $value"))
-        value > zero(value) ||
-            throw(ArgumentError("$path[$i] must be positive; got $value"))
+        value > zero(value) || throw(ArgumentError("$path[$i] must be positive; got $value"))
     end
     return nothing
 end
@@ -40,9 +38,8 @@ function _canonicalize_diameter_list(diameters, path::AbstractString)
     return (; n=length(ordered), specification=DiameterListSpecification(ordered))
 end
 
-function canonicalize_diameters(diameters::AbstractVector; path::AbstractString="diameters")
-    return _canonicalize_diameter_list(diameters, path)
-end
+canonicalize_diameters(diameters::AbstractVector; path::AbstractString="diameters") =
+    _canonicalize_diameter_list(diameters, path)
 
 function canonicalize_diameters(spec::NamedTuple; path::AbstractString="diameters")
     required = (:n, :min_esd, :max_esd, :spacing)
@@ -68,11 +65,8 @@ function canonicalize_diameters(
     )
 end
 
-function canonicalize_diameters(spec; path::AbstractString="diameters")
-    return throw(
-        ArgumentError("$path has an unsupported diameter specification $(typeof(spec))")
-    )
-end
+canonicalize_diameters(spec; path::AbstractString="diameters") =
+    throw(ArgumentError("$path has an unsupported diameter specification $(typeof(spec))"))
 
 function _canonicalize_diameter_range(n, min_diameter, max_diameter, spacing; path)
     n isa Integer && !(n isa Bool) && n > 0 ||
@@ -81,28 +75,29 @@ function _canonicalize_diameter_range(n, min_diameter, max_diameter, spacing; pa
         throw(ArgumentError("$path.min_esd must be a real number"))
     max_diameter isa Real && !(max_diameter isa Bool) ||
         throw(ArgumentError("$path.max_esd must be a real number"))
-    isfinite(min_diameter) ||
-        throw(ArgumentError("$path.min_esd must be finite; got $min_diameter"))
-    isfinite(max_diameter) ||
-        throw(ArgumentError("$path.max_esd must be finite; got $max_diameter"))
-    min_diameter > zero(min_diameter) ||
-        throw(ArgumentError("$path.min_esd must be positive; got $min_diameter"))
-    max_diameter > zero(max_diameter) ||
-        throw(ArgumentError("$path.max_esd must be positive; got $max_diameter"))
+    isfinite(min_diameter) || throw(
+        ArgumentError("$path.min_esd must be finite; got $min_diameter")
+    )
+    isfinite(max_diameter) || throw(
+        ArgumentError("$path.max_esd must be finite; got $max_diameter")
+    )
+    min_diameter > zero(min_diameter) || throw(
+        ArgumentError("$path.min_esd must be positive; got $min_diameter")
+    )
+    max_diameter > zero(max_diameter) || throw(
+        ArgumentError("$path.max_esd must be positive; got $max_diameter")
+    )
     max_diameter >= min_diameter || throw(
+        ArgumentError("$path requires min_esd <= max_esd; got $min_diameter > $max_diameter")
+    )
+    n == 1 && max_diameter != min_diameter && throw(ArgumentError(
+        "$path with n=1 requires min_esd == max_esd; got $min_diameter and $max_diameter",
+    ))
+    spacing in (:log, :linear) || throw(
         ArgumentError(
-            "$path requires min_esd <= max_esd; got $min_diameter > $max_diameter"
+            "$path.spacing must be :log or :linear; got $(repr(spacing))",
         ),
     )
-    n == 1 &&
-        max_diameter != min_diameter &&
-        throw(
-            ArgumentError(
-                "$path with n=1 requires min_esd == max_esd; got $min_diameter and $max_diameter",
-            ),
-        )
-    spacing in (:log, :linear) ||
-        throw(ArgumentError("$path.spacing must be :log or :linear; got $(repr(spacing))"))
     return (;
         n=Int(n),
         specification=DiameterRangeSpecification(
@@ -111,11 +106,15 @@ function _canonicalize_diameter_range(n, min_diameter, max_diameter, spacing; pa
     )
 end
 
-function realize_diameters(::Type{T}, spec::DiameterListSpecification) where {T<:Real}
+function realize_diameters(
+    ::Type{T}, spec::DiameterListSpecification
+) where {T<:Real}
     return T[T(value) for value in spec.diameters]
 end
 
-function realize_diameters(::Type{T}, spec::DiameterRangeSpecification) where {T<:Real}
+function realize_diameters(
+    ::Type{T}, spec::DiameterRangeSpecification
+) where {T<:Real}
     n = Int(spec.n)
     min_d = T(spec.min_diameter)
     max_d = T(spec.max_diameter)

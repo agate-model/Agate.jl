@@ -13,55 +13,46 @@ end
 function _canonical_product_destination(destination)
     destination isa Symbol && return destination
     destination isa NamedTuple || throw(
-        ArgumentError(
-            "product destinations must be component Symbols or element-to-component mappings",
-        ),
+        ArgumentError("product destinations must be component Symbols or element-to-component mappings"),
     )
-    isempty(destination) &&
-        throw(ArgumentError("multi-element product destinations cannot be empty"))
+    isempty(destination) && throw(ArgumentError("multi-element product destinations cannot be empty"))
     all(component -> component isa Symbol, values(destination)) || throw(
-        ArgumentError(
-            "multi-element product destinations must map elements to component Symbols"
-        ),
+        ArgumentError("multi-element product destinations must map elements to component Symbols"),
     )
     names = sort!(collect(keys(destination)); by=String)
     return NamedTuple{Tuple(names)}(Tuple(getproperty(destination, name) for name in names))
 end
 
-function Products(destinations::NamedTuple; fractions::NamedTuple=NamedTuple())
+function Products(
+    destinations::NamedTuple;
+    fractions::NamedTuple=NamedTuple(),
+)
     isempty(destinations) && throw(ArgumentError("product destinations cannot be empty"))
 
     destination_names = sort!(collect(keys(destinations)); by=String)
     canonical_destination_values = Tuple(
-        _canonical_product_destination(getproperty(destinations, name)) for
-        name in destination_names
+        _canonical_product_destination(getproperty(destinations, name)) for name in destination_names
     )
-    canonical_destinations = NamedTuple{Tuple(destination_names)}(
-        canonical_destination_values
-    )
+    canonical_destinations = NamedTuple{Tuple(destination_names)}(canonical_destination_values)
 
     nested = first(canonical_destination_values) isa NamedTuple
-    all(
-        destination -> (destination isa NamedTuple) == nested, canonical_destination_values
-    ) || throw(
-        ArgumentError(
-            "product destinations cannot mix scalar and multi-element destinations"
-        ),
+    all(destination -> (destination isa NamedTuple) == nested, canonical_destination_values) || throw(
+        ArgumentError("product destinations cannot mix scalar and multi-element destinations"),
     )
     if nested
         elements = keys(first(canonical_destination_values))
-        all(destination -> keys(destination) == elements, canonical_destination_values) ||
-            throw(ArgumentError("multi-element products must declare the same elements"))
+        all(destination -> keys(destination) == elements, canonical_destination_values) || throw(
+            ArgumentError("multi-element products must declare the same elements"),
+        )
     end
 
     fraction_names = sort!(collect(keys(fractions)); by=String)
     all(name -> name in keys(canonical_destinations), fraction_names) || throw(
-        ArgumentError(
-            "product `fractions` must be keyed by product names declared in destinations",
-        ),
+        ArgumentError("product `fractions` must be keyed by product names declared in destinations"),
     )
-    all(value -> value isa Symbol, values(fractions)) ||
-        throw(ArgumentError("product `fractions` values must be parameter Symbols"))
+    all(value -> value isa Symbol, values(fractions)) || throw(
+        ArgumentError("product `fractions` values must be parameter Symbols"),
+    )
     canonical_fractions = NamedTuple{Tuple(fraction_names)}(
         Tuple(getproperty(fractions, name) for name in fraction_names)
     )
@@ -69,15 +60,14 @@ function Products(destinations::NamedTuple; fractions::NamedTuple=NamedTuple())
     nproducts = length(canonical_destinations)
     nfractions = length(canonical_fractions)
     if nproducts == 1
-        nfractions == 0 ||
-            throw(ArgumentError("single-product allocations do not take fractions"))
-    elseif nfractions != nproducts - 1
-        throw(
-            ArgumentError(
-                "products has $nproducts destinations but $nfractions fractions; specify exactly " *
-                "$(nproducts - 1) fractions so the omitted product receives the conservative balance",
-            ),
+        nfractions == 0 || throw(
+            ArgumentError("single-product allocations do not take fractions"),
         )
+    elseif nfractions != nproducts - 1
+        throw(ArgumentError(
+            "products has $nproducts destinations but $nfractions fractions; specify exactly " *
+            "$(nproducts - 1) fractions so the omitted product receives the conservative balance",
+        ))
     end
 
     return Products(canonical_destinations, canonical_fractions)
@@ -85,17 +75,17 @@ end
 
 Products(destination::Symbol) = Products((product=destination,))
 
-function authored_parameter_bindings(products::Products)
-    return isempty(products.fractions) ? NamedTuple() : (fraction=products.fractions,)
-end
+authored_parameter_bindings(products::Products) = isempty(products.fractions) ?
+    NamedTuple() : (fraction=products.fractions,)
 
 _canonical_products(::Nothing) = nothing
 _canonical_products(products::Products) = products
 _canonical_products(destination::Symbol) = Products(destination)
 
 function _canonical_factors(factors::NamedTuple)
-    all(factor -> factor isa AbstractFactor, values(factors)) ||
-        throw(ArgumentError("process `factors` values must be process factors"))
+    all(factor -> factor isa AbstractFactor, values(factors)) || throw(
+        ArgumentError("process `factors` values must be process factors"),
+    )
     return _canonical_namedtuple(factors)
 end
 
@@ -109,8 +99,9 @@ the reference Element is supplied by `reference_resource`.
 Explicit prognostic elemental states are updated by independent processes such as
 `NutrientUptake`. Products route gross uptake before biomass retention.
 """
-struct Growth{Factors<:NamedTuple,AdditionalResources<:NamedTuple,ProductRouting} <:
-       AbstractProcess
+struct Growth{
+    Factors<:NamedTuple,AdditionalResources<:NamedTuple,ProductRouting
+} <: AbstractProcess
     plankton::Tuple
     factors::Factors
     reference_resource::Symbol
@@ -127,8 +118,9 @@ function Growth(;
     products=nothing,
     bindings::NamedTuple=NamedTuple(),
 )
-    all(resource -> resource isa Symbol, values(additional_resources)) ||
-        throw(ArgumentError("growth `additional_resources` values must be Pool Symbols"))
+    all(resource -> resource isa Symbol, values(additional_resources)) || throw(
+        ArgumentError("growth `additional_resources` values must be Pool Symbols"),
+    )
     return Growth(
         _canonical_participants(:plankton, plankton),
         _canonical_factors(factors),
@@ -167,7 +159,7 @@ function NutrientUptake(
     bindings::NamedTuple,
 )
     return NutrientUptake(
-        formulation, plankton, target_state, resource, _canonical_bindings(bindings)
+        formulation, plankton, target_state, resource, _canonical_bindings(bindings),
     )
 end
 
@@ -208,12 +200,7 @@ function Consumption(
     canonical = _canonical_factors(factors)
     products = _canonical_products(unassimilated_products)
     return Consumption(
-        formulation,
-        consumer_refs,
-        resource_refs,
-        canonical,
-        products,
-        _canonical_bindings(bindings),
+        formulation, consumer_refs, resource_refs, canonical, products, _canonical_bindings(bindings)
     )
 end
 
@@ -224,8 +211,7 @@ authored_parameter_bindings(process::Consumption) = process.bindings
 When one mortality process routes multi-element products from multiple plankton, its
 destinations cover the union of their represented Elements.
 """
-struct Mortality{Formulation<:Union{LinearMortality,QuadraticMortality},ProductRouting} <:
-       AbstractProcess
+struct Mortality{Formulation<:Union{LinearMortality,QuadraticMortality},ProductRouting} <: AbstractProcess
     formulation::Formulation
     plankton::Tuple
     products::ProductRouting
@@ -262,8 +248,9 @@ function Remineralization(
     bindings::NamedTuple=NamedTuple(),
 )
     source_refs = _canonical_participants(:sources, sources)
-    destination isa Symbol ||
-        throw(ArgumentError("remineralization `destination` must be a Symbol"))
+    destination isa Symbol || throw(
+        ArgumentError("remineralization `destination` must be a Symbol"),
+    )
     return Remineralization(
         formulation, source_refs, destination, _canonical_bindings(bindings)
     )
@@ -295,16 +282,13 @@ function participants(process::Growth)
     resources = (process.reference_resource, Tuple(values(process.additional_resources))...)
     return (plankton=process.plankton, resource=resources)
 end
-function participants(process::NutrientUptake)
-    return (plankton=(process.plankton,), resource=(process.resource,))
-end
-function participants(process::Consumption)
-    return (consumer=process.consumers, resource=process.resources)
-end
+participants(process::NutrientUptake) = (
+    plankton=(process.plankton,), resource=(process.resource,)
+)
+participants(process::Consumption) = (consumer=process.consumers, resource=process.resources)
 participants(process::Mortality) = (plankton=process.plankton,)
-function participants(process::Remineralization)
-    return (source=process.sources, destination=(process.destination,))
-end
+participants(process::Remineralization) =
+    (source=process.sources, destination=(process.destination,))
 
 # Model definition
 
@@ -315,9 +299,7 @@ struct ModelDefinition{ComponentMap,ProcessMap,ParameterDefinitions}
     parameters::ParameterDefinitions
 end
 
-function ModelDefinition(;
-    components::NamedTuple, processes::NamedTuple, parameters=nothing
-)
+function ModelDefinition(; components::NamedTuple, processes::NamedTuple, parameters=nothing)
     return ModelDefinition(components, processes, parameters)
 end
 

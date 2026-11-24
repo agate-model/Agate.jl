@@ -25,7 +25,10 @@ end
 function matched_size_structure(n)
     phytoplankton = exp.(range(log(FLOAT(1)), log(FLOAT(20)); length=n))
     zooplankton = FLOAT(10) .* phytoplankton
-    return (; phytoplankton=(P=phytoplankton,), zooplankton=(Z=zooplankton,))
+    return (;
+        phytoplankton=(P=phytoplankton,),
+        zooplankton=(Z=zooplankton,),
+    )
 end
 
 function benchmark_grid()
@@ -33,8 +36,7 @@ function benchmark_grid()
     # keeping the benchmark light enough for routine developer/CI use.
     size = USE_GPU ? (32, 32, 16) : (8, 8, 8)
     return RectilinearGrid(
-        ARCH,
-        FLOAT;
+        ARCH, FLOAT;
         topology=(Periodic, Periodic, Bounded),
         size,
         x=(FLOAT(0), FLOAT(size[1])),
@@ -52,7 +54,12 @@ function build_model(n)
     biogeochemistry = Biogeochemistry(bgc; light_attenuation)
 
     # Disable resolved advection so the scaling signal is dominated by tracer/BGC work.
-    model = NonhydrostaticModel(grid; clock, biogeochemistry, advection=nothing)
+    model = NonhydrostaticModel(
+        grid;
+        clock,
+        biogeochemistry,
+        advection=nothing,
+    )
 
     plankton = merge(
         NamedTuple{Tuple(Symbol(:P_, i) for i in 1:n)}(ntuple(_ -> FLOAT(0.02), n)),
@@ -77,7 +84,7 @@ function benchmark_case(n)
     timed_step!(model)
     build_warm_seconds = (time_ns() - start_ns) * 1e-9
 
-    trial = @benchmark timed_step!($model) samples = (QUICK ? 5 : 10) evals = 1
+    trial = @benchmark timed_step!($model) samples=(QUICK ? 5 : 10) evals=1
     median_seconds = BenchmarkTools.median(trial).time * 1e-9
     return build_warm_seconds, median_seconds
 end
@@ -85,11 +92,7 @@ end
 function main()
     backend_name = USE_GPU ? "GPU" : "CPU"
     println("Agate-Onyx grazing/PFT scaling benchmark ($backend_name)")
-    println(
-        "grid = ",
-        size(benchmark_grid()),
-        ", Float32, complete time_step!, advection=nothing",
-    )
+    println("grid = ", size(benchmark_grid()), ", Float32, complete time_step!, advection=nothing")
     println("P/Z\tedges\tbuild+warm_s\tmedian_ms\trelative_to_2P2Z")
 
     base = nothing
@@ -97,16 +100,10 @@ function main()
         build_warm_seconds, seconds = benchmark_case(n)
         isnothing(base) && (base = seconds)
         println(
-            n,
-            "/",
-            n,
-            '\t',
-            n * n,
-            '\t',
-            round(build_warm_seconds; digits=3),
-            '\t',
-            round(1e3 * seconds; digits=4),
-            '\t',
+            n, "/", n, '\t',
+            n * n, '\t',
+            round(build_warm_seconds; digits=3), '\t',
+            round(1e3 * seconds; digits=4), '\t',
             round(seconds / base; digits=3),
         )
     end

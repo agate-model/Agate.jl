@@ -3,18 +3,8 @@ using Test
 using Agate.Components: Plankton, Pool
 using Agate.Parameters: Parameter
 using Agate.Processes:
-    Consumption,
-    Growth,
-    HeterotrophicConsumption,
-    LinearGrazing,
-    LinearMortality,
-    Monod,
-    Mortality,
-    ModelDefinition,
-    NutrientResponse,
-    PreferentialGrazing,
-    Products,
-    QuadraticMortality
+    Consumption, Growth, HeterotrophicConsumption, LinearGrazing, LinearMortality, Monod, Mortality,
+    ModelDefinition, NutrientResponse, PreferentialGrazing, Products, QuadraticMortality
 
 @testset "Multi-state process semantics" begin
     @testset "growth factors are optional" begin
@@ -51,14 +41,16 @@ using Agate.Processes:
                     bindings=(maximum_rate=:maximum_growth_rate,),
                     factors=(
                         nutrients=NutrientResponse(
-                            Monod();
-                            resource=:DIC,
+                            Monod(); resource=:DIC,
                             bindings=(half_saturation=:half_saturation,),
                         ),
                     ),
                 ),
             ),
-            parameters=(maximum_growth_rate=Parameter(0.5), half_saturation=Parameter(1.0)),
+            parameters=(
+                maximum_growth_rate=Parameter(0.5),
+                half_saturation=Parameter(1.0),
+            ),
         )
         model = Agate.Construction.construct(definition)
         test_tendencies(
@@ -71,12 +63,8 @@ using Agate.Processes:
     @testset "component composition drives elemental growth" begin
         definition = ModelDefinition(;
             components=(
-                P=Plankton(;
-                    states=(carbon=:carbon,),
-                    reference_state=:carbon,
-                    size_structure=[1.0, 2.0],
-                    composition=(nitrogen=:nitrogen_to_carbon,),
-                ),
+                P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+                    size_structure=[1.0, 2.0], composition=(nitrogen=:nitrogen_to_carbon,)),
                 DIC=Pool(:carbon),
                 DIN=Pool(:nitrogen),
             ),
@@ -88,9 +76,7 @@ using Agate.Processes:
                     bindings=(maximum_rate=:maximum_growth_rate,),
                     factors=(
                         carbon=NutrientResponse(
-                            Monod();
-                            resource=:DIC,
-                            bindings=(half_saturation=:half_saturation,),
+                            Monod(); resource=:DIC, bindings=(half_saturation=:half_saturation,)
                         ),
                     ),
                 ),
@@ -114,135 +100,90 @@ using Agate.Processes:
 
     @testset "growth products close every implicit element" begin
         components = (
-            P=Plankton(;
-                states=(carbon=:carbon,),
-                reference_state=:carbon,
-                composition=(nitrogen=:nitrogen_to_carbon,),
-            ),
-            DIC=Pool(:carbon),
-            DIN=Pool(:nitrogen),
-            DOC=Pool(:carbon),
-            DON=Pool(:nitrogen),
+            P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+                composition=(nitrogen=:nitrogen_to_carbon,)),
+            DIC=Pool(:carbon), DIN=Pool(:nitrogen), DOC=Pool(:carbon), DON=Pool(:nitrogen),
         )
         growth(products) = Growth(;
-            plankton=:P,
-            reference_resource=:DIC,
-            additional_resources=(nitrogen=:DIN,),
+            plankton=:P, reference_resource=:DIC, additional_resources=(nitrogen=:DIN,),
             products,
-            bindings=(
-                maximum_rate=:maximum_growth_rate, product_fraction=:exudation_fraction
-            ),
+            bindings=(maximum_rate=:maximum_growth_rate, product_fraction=:exudation_fraction),
         )
         parameters = (
-            maximum_growth_rate=Parameter(0.5),
-            nitrogen_to_carbon=Parameter(0.2),
+            maximum_growth_rate=Parameter(0.5), nitrogen_to_carbon=Parameter(0.2),
             exudation_fraction=Parameter(0.2),
         )
 
         products = Products((exudate=(carbon=:DOC, nitrogen=:DON),))
-        model = Agate.Construction.construct(
-            ModelDefinition(; components, processes=(growth=growth(products),), parameters)
-        )
+        model = Agate.Construction.construct(ModelDefinition(;
+            components, processes=(growth=growth(products),), parameters,
+        ))
         test_tendencies(
-            model,
-            (P=2.0, DIC=10.0, DIN=10.0, DOC=0.0, DON=0.0),
+            model, (P=2.0, DIC=10.0, DIN=10.0, DOC=0.0, DON=0.0),
             (P=0.8, DIC=-1.0, DIN=-0.2, DOC=0.2, DON=0.04),
         )
 
-        for invalid in (Products(:DOC), Products((exudate=(carbon=:DOC,),)))
-            @test_throws ArgumentError Agate.Construction.construct(
-                ModelDefinition(;
-                    components, processes=(growth=growth(invalid),), parameters
-                ),
-            )
+        for invalid in (
+            Products(:DOC),
+            Products((exudate=(carbon=:DOC,),)),
+        )
+            @test_throws ArgumentError Agate.Construction.construct(ModelDefinition(;
+                components, processes=(growth=growth(invalid),), parameters,
+            ))
         end
     end
 
     @testset "growth products require sourced elements" begin
         products = Products((exudate=(nitrogen=:DON, carbon=:DOC),))
         parameters = (maximum_growth_rate=Parameter(0.5), product_fraction=Parameter(0.25))
-        growth = Growth(;
-            plankton=:P,
-            reference_resource=:DIN,
-            products,
-            bindings=(
-                maximum_rate=:maximum_growth_rate, product_fraction=:product_fraction
-            ),
-        )
+        growth = Growth(; plankton=:P, reference_resource=:DIN, products,
+            bindings=(maximum_rate=:maximum_growth_rate, product_fraction=:product_fraction))
         for states in ((nitrogen=:nitrogen,), (nitrogen=:nitrogen, carbon=:carbon))
             components = (
                 P=Plankton(; states, reference_state=:nitrogen),
-                DIN=Pool(:nitrogen),
-                DON=Pool(:nitrogen),
-                DOC=Pool(:carbon),
+                DIN=Pool(:nitrogen), DON=Pool(:nitrogen), DOC=Pool(:carbon),
             )
-            message = canonicalization_error_message(
-                ModelDefinition(; components, processes=(; growth), parameters)
-            )
+            message = canonicalization_error_message(ModelDefinition(;
+                components, processes=(; growth), parameters,
+            ))
             @test occursin("growth products product elements", message)
         end
 
         components = (
             P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
-            DIN=Pool(:nitrogen),
-            DON=Pool(:nitrogen),
+            DIN=Pool(:nitrogen), DON=Pool(:nitrogen),
         )
         definition = ModelDefinition(;
             components,
-            processes=(
-                growth=Growth(;
-                    plankton=:P,
-                    reference_resource=:DIN,
-                    products=Products((exudate=:DON,)),
-                    bindings=(
-                        maximum_rate=:maximum_growth_rate,
-                        product_fraction=:product_fraction,
-                    ),
-                ),
-            ),
+            processes=(growth=Growth(; plankton=:P, reference_resource=:DIN,
+                products=Products((exudate=:DON,)),
+                bindings=(maximum_rate=:maximum_growth_rate, product_fraction=:product_fraction)),),
             parameters,
         )
         model = Agate.Construction.construct(definition)
-        test_tendencies(model, (P=2.0, DIN=10.0, DON=0.0), (P=0.75, DIN=-1.0, DON=0.25))
+        test_tendencies(model, (P=2.0, DIN=10.0, DON=0.0),
+            (P=0.75, DIN=-1.0, DON=0.25))
     end
 
     @testset "heterogeneous prey preserve shared grazing and elemental budgets" begin
         components = (
-            P1=Plankton(;
-                states=(carbon=:carbon,),
-                reference_state=:carbon,
-                composition=(nitrogen=:p1_n2c,),
-            ),
-            P2=Plankton(;
-                states=(carbon=:carbon,),
-                reference_state=:carbon,
-                composition=(nitrogen=:p2_n2c,),
-            ),
-            Z=Plankton(;
-                states=(carbon=:carbon, nitrogen=:nitrogen), reference_state=:carbon
-            ),
-            DOC=Pool(:carbon),
-            DON=Pool(:nitrogen),
+            P1=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+                composition=(nitrogen=:p1_n2c,)),
+            P2=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+                composition=(nitrogen=:p2_n2c,)),
+            Z=Plankton(; states=(carbon=:carbon, nitrogen=:nitrogen), reference_state=:carbon),
+            DOC=Pool(:carbon), DON=Pool(:nitrogen),
         )
-        processes = (
-            grazing=Consumption(
-                PreferentialGrazing();
-                consumers=:Z,
-                resources=(:P1, :P2),
-                unassimilated_products=Products((organic=(carbon=:DOC, nitrogen=:DON),)),
-            ),
-        )
+        processes = (grazing=Consumption(PreferentialGrazing();
+            consumers=:Z, resources=(:P1, :P2),
+            unassimilated_products=Products((organic=(carbon=:DOC, nitrogen=:DON),)),
+        ),)
         parameters = (
-            maximum_rate=Parameter(1.0),
-            half_saturation=Parameter(1.0),
-            palatability=Parameter(1.0),
-            assimilation=Parameter(0.5),
-            p1_n2c=Parameter(0.2),
-            p2_n2c=Parameter(0.4),
+            maximum_rate=Parameter(1.0), half_saturation=Parameter(1.0),
+            palatability=Parameter(1.0), assimilation=Parameter(0.5),
+            p1_n2c=Parameter(0.2), p2_n2c=Parameter(0.4),
         )
-        model = Agate.Construction.construct(
-            ModelDefinition(; components, processes, parameters)
-        )
+        model = Agate.Construction.construct(ModelDefinition(; components, processes, parameters))
         state = (P1=1.0, P2=1.0, Z_carbon=1.0, Z_nitrogen=0.1, DOC=0.0, DON=0.0)
         names = Agate.Introspection.tracer_names(model)
         args = (0, 0, 0, 0, (getproperty(state, name) for name in names)...)
@@ -254,40 +195,24 @@ using Agate.Processes:
 
     @testset "mortality routes mixed explicit and implicit elemental inventories" begin
         components = (
-            P=Plankton(;
-                states=(carbon=:carbon, nitrogen=:nitrogen),
-                reference_state=:carbon,
-                composition=(phosphorus=:p2c,),
-            ),
-            DOC=Pool(:carbon),
-            DON=Pool(:nitrogen),
-            DOP=Pool(:phosphorus),
+            P=Plankton(; states=(carbon=:carbon, nitrogen=:nitrogen),
+                reference_state=:carbon, composition=(phosphorus=:p2c,)),
+            DOC=Pool(:carbon), DON=Pool(:nitrogen), DOP=Pool(:phosphorus),
         )
-        processes = (
-            mortality=Mortality(
-                LinearMortality();
-                plankton=:P,
-                bindings=(rate=:mortality_rate,),
-                products=Products((organic=(carbon=:DOC, nitrogen=:DON, phosphorus=:DOP),)),
-            ),
-        )
+        processes = (mortality=Mortality(LinearMortality(); plankton=:P,
+            bindings=(rate=:mortality_rate,),
+            products=Products((organic=(carbon=:DOC, nitrogen=:DON, phosphorus=:DOP),))),)
         parameters = (mortality_rate=Parameter(0.1), p2c=Parameter(0.1))
-        model = Agate.Construction.construct(
-            ModelDefinition(; components, processes, parameters)
-        )
-        test_tendencies(
-            model,
+        model = Agate.Construction.construct(ModelDefinition(; components, processes, parameters))
+        test_tendencies(model,
             (P_carbon=10.0, P_nitrogen=2.0, DOC=0.0, DON=0.0, DOP=0.0),
-            (P_carbon=-1.0, P_nitrogen=-0.2, DOC=1.0, DON=0.2, DOP=0.1),
-        )
+            (P_carbon=-1.0, P_nitrogen=-0.2, DOC=1.0, DON=0.2, DOP=0.1))
     end
 
     @testset "growth leaves independently prognostic elemental states unchanged" begin
         definition = ModelDefinition(;
             components=(
-                P=Plankton(;
-                    states=(biomass=:carbon, reserve_n=:nitrogen), reference_state=:biomass
-                ),
+                P=Plankton(; states=(biomass=:carbon, reserve_n=:nitrogen), reference_state=:biomass),
                 DIC=Pool(:carbon),
             ),
             processes=(
@@ -297,14 +222,16 @@ using Agate.Processes:
                     bindings=(maximum_rate=:maximum_growth_rate,),
                     factors=(
                         carbon=NutrientResponse(
-                            Monod();
-                            resource=:DIC,
+                            Monod(); resource=:DIC,
                             bindings=(half_saturation=:half_saturation,),
                         ),
                     ),
                 ),
             ),
-            parameters=(maximum_growth_rate=Parameter(0.5), half_saturation=Parameter(0.0)),
+            parameters=(
+                maximum_growth_rate=Parameter(0.5),
+                half_saturation=Parameter(0.0),
+            ),
         )
         model = Agate.Construction.construct(definition)
         test_tendencies(
@@ -317,19 +244,24 @@ using Agate.Processes:
     @testset "mortality transfers every prognostic state" begin
         components = (
             P=Plankton(;
-                states=(carbon=:carbon, nitrogen=:nitrogen, chlorophyll=nothing),
-                reference_state=:carbon,
+                states=(carbon=:carbon, nitrogen=:nitrogen, chlorophyll=nothing), reference_state=:carbon
             ),
             DOC=Pool(:carbon),
             DON=Pool(:nitrogen),
         )
-        state = (P_carbon=10.0, P_nitrogen=2.0, P_chlorophyll=1.0, DOC=0.0, DON=0.0)
-        expected = (P_carbon=-1.0, P_nitrogen=-0.2, P_chlorophyll=-0.1, DOC=1.0, DON=0.2)
+        state = (
+            P_carbon=10.0, P_nitrogen=2.0, P_chlorophyll=1.0, DOC=0.0, DON=0.0,
+        )
+        expected = (
+            P_carbon=-1.0, P_nitrogen=-0.2, P_chlorophyll=-0.1, DOC=1.0, DON=0.2,
+        )
 
         # Match reference-state loss intensity (0.1). The quadratic case then
         # verifies that every state uses carbon intensity, not its own inventory squared.
-        for (formulation, mortality_rate) in
-            ((LinearMortality(), 0.1), (QuadraticMortality(), 0.01))
+        for (formulation, mortality_rate) in (
+            (LinearMortality(), 0.1),
+            (QuadraticMortality(), 0.01),
+        )
             mortality = Mortality(
                 formulation;
                 plankton=:P,
@@ -350,12 +282,9 @@ using Agate.Processes:
         definition = ModelDefinition(;
             components=(
                 P=Plankton(;
-                    states=(carbon=:carbon, nitrogen=:nitrogen, chlorophyll=nothing),
-                    reference_state=:carbon,
+                    states=(carbon=:carbon, nitrogen=:nitrogen, chlorophyll=nothing), reference_state=:carbon
                 ),
-                Z=Plankton(;
-                    states=(carbon=:carbon, nitrogen=:nitrogen), reference_state=:carbon
-                ),
+                Z=Plankton(; states=(carbon=:carbon, nitrogen=:nitrogen), reference_state=:carbon),
                 DOC=Pool(:carbon),
                 DON=Pool(:nitrogen),
             ),
@@ -408,80 +337,41 @@ end
 @testset "Grouped processes route heterogeneous elemental inventories" begin
     components = (
         P1=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
-        P2=Plankton(;
-            states=(carbon=:carbon,),
-            reference_state=:carbon,
-            composition=(nitrogen=:p2_n2c,),
-        ),
+        P2=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+            composition=(nitrogen=:p2_n2c,)),
         Z=Plankton(; states=(carbon=:carbon, nitrogen=:nitrogen), reference_state=:carbon),
-        DIC=Pool(:carbon),
-        DIN=Pool(:nitrogen),
-        DOC=Pool(:carbon),
-        DON=Pool(:nitrogen),
+        DIC=Pool(:carbon), DIN=Pool(:nitrogen), DOC=Pool(:carbon), DON=Pool(:nitrogen),
     )
     products = Products((organic=(carbon=:DOC, nitrogen=:DON),))
-    build(process, parameters) = Agate.Construction.construct(
-        ModelDefinition(;
-            components,
-            processes=(transfer=process,),
-            parameters=merge((p2_n2c=Parameter(0.2),), parameters),
-        ),
-    )
-    state = (
-        P1=2.0, P2=3.0, Z_carbon=1.0, Z_nitrogen=0.1, DIC=10.0, DIN=10.0, DOC=0.0, DON=0.0
-    )
+    build(process, parameters) = Agate.Construction.construct(ModelDefinition(;
+        components, processes=(transfer=process,),
+        parameters=merge((p2_n2c=Parameter(0.2),), parameters),
+    ))
+    state = (P1=2.0, P2=3.0, Z_carbon=1.0, Z_nitrogen=0.1,
+        DIC=10.0, DIN=10.0, DOC=0.0, DON=0.0)
 
-    growth = Growth(;
-        plankton=(:P1, :P2),
-        reference_resource=:DIC,
-        additional_resources=(nitrogen=:DIN,),
-        products,
-        bindings=(maximum_rate=:growth_rate, product_fraction=:product_fraction),
-    )
-    test_tendencies(
-        build(growth, (growth_rate=Parameter(0.5), product_fraction=Parameter(0.2))),
-        state,
-        (P1=0.8, P2=1.2, DIC=-2.5, DIN=-0.3, DOC=0.5, DON=0.06),
-    )
+    growth = Growth(; plankton=(:P1, :P2), reference_resource=:DIC,
+        additional_resources=(nitrogen=:DIN,), products,
+        bindings=(maximum_rate=:growth_rate, product_fraction=:product_fraction))
+    test_tendencies(build(growth, (growth_rate=Parameter(0.5), product_fraction=Parameter(0.2))),
+        state, (P1=0.8, P2=1.2, DIC=-2.5, DIN=-0.3, DOC=0.5, DON=0.06))
 
-    mortality = Mortality(
-        LinearMortality(); plankton=(:P1, :P2), products, bindings=(rate=:mortality_rate,)
-    )
-    test_tendencies(
-        build(mortality, (mortality_rate=Parameter(0.1),)),
-        state,
-        (P1=-0.2, P2=-0.3, DOC=0.5, DON=0.06),
-    )
+    mortality = Mortality(LinearMortality(); plankton=(:P1, :P2), products,
+        bindings=(rate=:mortality_rate,))
+    test_tendencies(build(mortality, (mortality_rate=Parameter(0.1),)), state,
+        (P1=-0.2, P2=-0.3, DOC=0.5, DON=0.06))
 
-    grazing = Consumption(
-        PreferentialGrazing();
-        consumers=:Z,
-        resources=(:P1, :P2),
-        unassimilated_products=products,
-    )
-    test_tendencies(
-        build(
-            grazing,
-            (
-                maximum_rate=Parameter(1.0),
-                half_saturation=Parameter(1.0),
-                palatability=Parameter(1.0),
-                assimilation=Parameter(0.5),
-            ),
-        ),
-        state,
-        (P1=-1 / 3, P2=-1 / 2, Z_carbon=5 / 12, Z_nitrogen=0.05, DOC=5 / 12, DON=0.05),
-    )
+    grazing = Consumption(PreferentialGrazing(); consumers=:Z, resources=(:P1, :P2),
+        unassimilated_products=products)
+    test_tendencies(build(grazing, (
+        maximum_rate=Parameter(1.0), half_saturation=Parameter(1.0),
+        palatability=Parameter(1.0), assimilation=Parameter(0.5),
+    )), state, (P1=-1 / 3, P2=-1 / 2, Z_carbon=5 / 12, Z_nitrogen=0.05,
+        DOC=5 / 12, DON=0.05))
 
-    invalid = ModelDefinition(;
-        components,
-        processes=(
-            transfer=Mortality(
-                LinearMortality();
-                plankton=(:P1, :P2),
-                products=Products((organic=(carbon=:DOC,),)),
-            ),
-        ),
+    invalid = ModelDefinition(; components,
+        processes=(transfer=Mortality(LinearMortality(); plankton=(:P1, :P2),
+            products=Products((organic=(carbon=:DOC,),))),),
         parameters=(p2_n2c=Parameter(0.2), mortality_rate=Parameter(0.1)),
     )
     @test occursin("product elements", canonicalization_error_message(invalid))
@@ -490,122 +380,70 @@ end
 @testset "Implicit consumers require compatible source composition" begin
     components = (
         P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
-        Z=Plankton(;
-            states=(carbon=:carbon,), reference_state=:carbon, composition=(nitrogen=:n2c,)
-        ),
+        Z=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+            composition=(nitrogen=:n2c,)),
         POM=Pool(:carbon),
     )
     for (formulation, resource, preference, reason) in (
-        (
-            PreferentialGrazing(),
-            :P,
-            (palatability=Parameter(1.0),),
-            "must have implicit :nitrogen",
-        ),
-        (
-            HeterotrophicConsumption(),
-            :POM,
-            (substrate_preference=Parameter(1.0),),
-            "balancing transfers",
-        ),
+        (PreferentialGrazing(), :P, (palatability=Parameter(1.0),),
+            "must have implicit :nitrogen"),
+        (HeterotrophicConsumption(), :POM, (substrate_preference=Parameter(1.0),),
+            "balancing transfers"),
     )
-        definition = ModelDefinition(;
-            components,
+        definition = ModelDefinition(; components,
             processes=(uptake=Consumption(formulation; consumers=:Z, resources=resource),),
-            parameters=merge(
-                (
-                    n2c=Parameter(0.2),
-                    maximum_rate=Parameter(1.0),
-                    half_saturation=Parameter(1.0),
-                    assimilation=Parameter(0.5),
-                ),
-                preference,
-            ),
-        )
-        @test occursin(
-            reason, argument_error_message(() -> Agate.Construction.construct(definition))
-        )
+            parameters=merge((
+                n2c=Parameter(0.2), maximum_rate=Parameter(1.0),
+                half_saturation=Parameter(1.0), assimilation=Parameter(0.5),
+            ), preference))
+        @test occursin(reason, argument_error_message(() -> Agate.Construction.construct(definition)))
     end
 end
 
 @testset "Matched implicit grazing conserves C/N/P across size classes" begin
     components = (
-        P=Plankton(;
-            states=(carbon=:carbon,),
-            reference_state=:carbon,
-            size_structure=[1.0, 2.0],
-            composition=(nitrogen=:prey_n2c, phosphorus=:prey_p2c),
-        ),
-        Z=Plankton(;
-            states=(carbon=:carbon,),
-            reference_state=:carbon,
-            size_structure=[3.0, 4.0],
-            composition=(nitrogen=:zoo_n2c, phosphorus=:zoo_p2c),
-        ),
-        DOC=Pool(:carbon),
-        DON=Pool(:nitrogen),
-        DOP=Pool(:phosphorus),
+        P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+            size_structure=[1.0, 2.0], composition=(nitrogen=:prey_n2c, phosphorus=:prey_p2c,)),
+        Z=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
+            size_structure=[3.0, 4.0], composition=(nitrogen=:zoo_n2c, phosphorus=:zoo_p2c,)),
+        DOC=Pool(:carbon), DON=Pool(:nitrogen), DOP=Pool(:phosphorus),
     )
     parameters = (
-        prey_n2c=Parameter(0.2),
-        zoo_n2c=Parameter(0.2),
-        prey_p2c=Parameter(0.01),
-        zoo_p2c=Parameter(0.01),
-        palatability=Parameter(1.0),
-        assimilation=Parameter(0.5),
+        prey_n2c=Parameter(0.2), zoo_n2c=Parameter(0.2),
+        prey_p2c=Parameter(0.01), zoo_p2c=Parameter(0.01),
+        palatability=Parameter(1.0), assimilation=Parameter(0.5),
     )
     products = Products((organic=(carbon=:DOC, nitrogen=:DON, phosphorus=:DOP),))
     state = (P_1=2.0, P_2=0.0, Z_1=1.0, Z_2=0.0, DOC=0.0, DON=0.0, DOP=0.0)
 
     for (formulation, rates, ingestion) in (
-        (
-            PreferentialGrazing(),
-            (maximum_rate=Parameter(1.0), half_saturation=Parameter(1.0)),
-            2 / 3,
-        ),
+        (PreferentialGrazing(),
+            (maximum_rate=Parameter(1.0), half_saturation=Parameter(1.0)), 2 / 3),
         (LinearGrazing(), (rate=Parameter(1.0),), 2.0),
     )
-        definition = ModelDefinition(;
-            components,
-            processes=(
-                grazing=Consumption(
-                    formulation; consumers=:Z, resources=:P, unassimilated_products=products
-                ),
-            ),
+        definition = ModelDefinition(; components,
+            processes=(grazing=Consumption(formulation; consumers=:Z, resources=:P,
+                unassimilated_products=products),),
             parameters=merge(parameters, rates),
         )
         model = Agate.Construction.construct(definition)
         # Exact transfers check all represented elements and avoid double counting.
-        test_tendencies(
-            model,
-            state,
-            (
-                P_1=-ingestion,
-                Z_1=ingestion / 2,
-                DOC=ingestion / 2,
-                DON=0.1 * ingestion,
-                DOP=0.005 * ingestion,
-            ),
-        )
+        test_tendencies(model, state, (
+            P_1=-ingestion, Z_1=ingestion / 2, DOC=ingestion / 2,
+            DON=0.1 * ingestion, DOP=0.005 * ingestion,
+        ))
 
         if formulation isa PreferentialGrazing
             one = Agate.Runtime.active_parameters(model; zoo_n2c=(:Z_2,))
-            @test occursin(
-                "consumer :Z_2",
-                argument_error_message(
-                    () -> Agate.Runtime.parameterized(model, [0.3]; active_parameters=one)
-                ),
-            )
-            shared = Agate.Runtime.active_parameters(
-                model; prey_n2c=(:P_1, :P_2), zoo_n2c=(:Z_1, :Z_2)
-            )
-            coordinated = Agate.Runtime.parameterized(
-                model, fill(0.3, length(shared)); active_parameters=shared
-            )
+            @test occursin("consumer :Z_2", argument_error_message(() ->
+                Agate.Runtime.parameterized(model, [0.3]; active_parameters=one)))
+            shared = Agate.Runtime.active_parameters(model;
+                prey_n2c=(:P_1, :P_2), zoo_n2c=(:Z_1, :Z_2))
+            coordinated = Agate.Runtime.parameterized(model, fill(0.3, length(shared));
+                active_parameters=shared)
             test_tendencies(coordinated, state, (DON=0.15 * ingestion,))
-            @test_throws ArgumentError Agate.Construction.construct(
-                definition; parameter_overrides=(prey_n2c=(P_2=0.3,),)
-            )
+            @test_throws ArgumentError Agate.Construction.construct(definition;
+                parameter_overrides=(prey_n2c=(P_2=0.3,),))
         end
     end
 end

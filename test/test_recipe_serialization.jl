@@ -1,12 +1,5 @@
-using Agate.Construction:
-    construct,
-    construct_plus_recipe,
-    construct_plus_manifest,
-    capture_model_recipe,
-    encode_recipe,
-    decode_recipe,
-    export_recipe,
-    import_recipe
+using Agate.Construction: construct, construct_plus_recipe, construct_plus_manifest,
+    capture_model_recipe, encode_recipe, decode_recipe, export_recipe, import_recipe
 using Agate.Library.Allometry: AllometricParam, SplitPowerLaw
 using OceanBioME: BoxModelGrid
 using Oceananigans.Biogeochemistry: required_biogeochemical_tracers
@@ -15,34 +8,24 @@ using Test
 # A model-family fixture defined entirely through Agate's public extension interface.
 struct TestNPZFamily <: Agate.ModelFamilies.AbstractModelFamily end
 Agate.Construction.family_id(::TestNPZFamily) = :TestNPZ
-function Agate.ModelFamilies.default_components(::TestNPZFamily)
-    return runtime_npz_definition().components
-end
+Agate.ModelFamilies.default_components(::TestNPZFamily) = runtime_npz_definition().components
 Agate.ModelFamilies.default_processes(::TestNPZFamily) = runtime_npz_definition().processes
-function Agate.Parameters.parameter_definitions(::TestNPZFamily)
-    return runtime_npz_definition().parameters
-end
+Agate.Parameters.parameter_definitions(::TestNPZFamily) = runtime_npz_definition().parameters
 
 struct AlternativeTestNPZFamily <: Agate.ModelFamilies.AbstractModelFamily end
 Agate.Construction.family_id(::AlternativeTestNPZFamily) = :TestNPZ
-function Agate.ModelFamilies.default_components(::AlternativeTestNPZFamily)
-    return runtime_npz_definition().components
-end
-function Agate.ModelFamilies.default_processes(::AlternativeTestNPZFamily)
-    return runtime_npz_definition().processes
-end
-function Agate.Parameters.parameter_definitions(::AlternativeTestNPZFamily)
-    return merge(
-        runtime_npz_definition().parameters,
-        (detritus_remineralization=Agate.Parameters.Parameter(2e-5),),
-    )
-end
+Agate.ModelFamilies.default_components(::AlternativeTestNPZFamily) = runtime_npz_definition().components
+Agate.ModelFamilies.default_processes(::AlternativeTestNPZFamily) = runtime_npz_definition().processes
+Agate.Parameters.parameter_definitions(::AlternativeTestNPZFamily) = merge(
+    runtime_npz_definition().parameters,
+    (detritus_remineralization=Agate.Parameters.Parameter(2e-5),),
+)
 
 modified(f::Function, x) = (copy=deepcopy(x); f(copy); copy)
 function rehashed(f::Function, x)
     return modified(x) do document
         f(document)
-        return document["content_hash"] = Agate.Construction._recipe_hash(
+        document["content_hash"] = Agate.Construction._recipe_hash(
             Symbol(document["family"]), document["realization"]
         )
     end
@@ -62,37 +45,28 @@ end
     # traits of the same output collects its four entries just once.
     trait_selection = (specificity=(:Z_2, :Z_1), optimum_predator_prey_ratio=(:Z_1,))
     traits = Agate.Construction.active_traits(family, default_recipe; trait_selection, grid)
-    configured = Agate.Construction.active_traits(
-        family; plankton_pfts=pfts, trait_selection, grid
-    )
-    @test traits.labels ==
-        ("specificity.Z_2", "specificity.Z_1", "optimum_predator_prey_ratio.Z_1")
+    configured = Agate.Construction.active_traits(family; plankton_pfts=pfts, trait_selection, grid)
+    @test traits.labels == ("specificity.Z_2", "specificity.Z_1", "optimum_predator_prey_ratio.Z_1")
     @test traits.active_parameters.labels == configured.active_parameters.labels
     @test length(traits.active_parameters) == 4
     tau = Float32[0.6, 0.4, 8.0]
-    expected = construct(
-        family;
-        plankton_pfts=pfts,
-        grid,
-        parameter_overrides=(
-            specificity=(Z_2=0.6, Z_1=0.4), optimum_predator_prey_ratio=(Z_1=8.0,)
-        ),
-    )
+    expected = construct(family; plankton_pfts=pfts, grid,
+        parameter_overrides=(specificity=(Z_2=0.6, Z_1=0.4), optimum_predator_prey_ratio=(Z_1=8.0,)))
     p = Agate.Construction.realize_trait_parameters(traits, tau)
     @test p == Agate.Construction.realize_trait_parameters(configured, tau)
-    @test p == Agate.Runtime.active_parameters(
-        expected;
-        palatability_matrix=((:Z_1, :P_1), (:Z_1, :P_2), (:Z_2, :P_1), (:Z_2, :P_2)),
-    ).values
+    @test p == Agate.Runtime.active_parameters(expected;
+        palatability_matrix=((:Z_1, :P_1), (:Z_1, :P_2), (:Z_2, :P_1), (:Z_2, :P_2))).values
     @test traits.bgc.parameters == bgc.parameters
 
     # Provider selection supplies scientific defaults; the recipe supplies configuration.
     other = construct(AlternativeTestNPZFamily(), default_recipe; grid)
     @test other.parameters.detritus_remineralization == Float32(2e-5)
-    @test other.parameters.detritus_remineralization !=
-        bgc.parameters.detritus_remineralization
+    @test other.parameters.detritus_remineralization != bgc.parameters.detritus_remineralization
 
-    pfts = (P=(diat=[2.0, 8.0],), Z=(microzoo=[30.0, 90.0],))
+    pfts = (
+        P=(diat=[2.0, 8.0],),
+        Z=(microzoo=[30.0, 90.0],),
+    )
     inputs = (;
         plankton_pfts=pfts,
         parameter_overrides=(;
@@ -107,17 +81,11 @@ end
     decoded = decode_recipe(encoded)
     @test recipe.family == :TestNPZ
     @test decoded == recipe
-    @test encoded["schema"] ==
-        Agate.Construction.recipe_schema() ==
-        "agate.model_recipe.v0.3"
+    @test encoded["schema"] == Agate.Construction.recipe_schema() == "agate.model_recipe.v0.3"
     @test encoded["family"] == "TestNPZ"
     @test Set(keys(encoded)) == Set(("schema", "family", "realization", "content_hash"))
     @test Set(keys(encoded["realization"])) == Set((
-        "plankton_pfts",
-        "parameter_overrides",
-        "setting_overrides",
-        "sinking_tracers",
-        "open_bottom",
+        "plankton_pfts", "parameter_overrides", "setting_overrides", "sinking_tracers", "open_bottom",
     ))
     @test startswith(encoded["content_hash"], "sha256:")
     @test length(encoded["content_hash"]) == 71
@@ -129,8 +97,7 @@ end
     reconstructed, manifest = construct_plus_manifest(family, decoded; grid)
     @test reconstructed.parameters == original.parameters
     @test manifest.tracer_order == required_biogeochemical_tracers(original)
-    @test manifest.pft_entities ==
-        (diat=(:diat_1, :diat_2), microzoo=(:microzoo_1, :microzoo_2))
+    @test manifest.pft_entities == (diat=(:diat_1, :diat_2), microzoo=(:microzoo_1, :microzoo_2))
     @test manifest.scalar_type == Float32
     @test manifest.sinking_tracers.D isa Float32
 
@@ -146,48 +113,28 @@ end
     pfts_b = (Z=(Z=[10.0],), P=(large=[3.0], small=[1.0, 2.0]))
     override_a = (maximum_growth_rate=(small_2=2e-5, large_1=1e-5),)
     override_b = (maximum_growth_rate=(large_1=1e-5, small_2=2e-5),)
-    recipe_a = capture_model_recipe(
-        family;
-        plankton_pfts=pfts_a,
-        parameter_overrides=override_a,
-        sinking_tracers=(D=2.0,),
-    )
-    recipe_b = capture_model_recipe(
-        family;
-        plankton_pfts=pfts_b,
-        parameter_overrides=override_b,
-        sinking_tracers=(D=2.0,),
-    )
+    recipe_a = capture_model_recipe(family;
+        plankton_pfts=pfts_a, parameter_overrides=override_a, sinking_tracers=(D=2.0,))
+    recipe_b = capture_model_recipe(family;
+        plankton_pfts=pfts_b, parameter_overrides=override_b, sinking_tracers=(D=2.0,))
     @test recipe_a == recipe_b && isequal(recipe_a, recipe_b)
     @test Dict(recipe_a => :same)[recipe_b] == :same
     @test encode_recipe(recipe_a)["content_hash"] == encode_recipe(recipe_b)["content_hash"]
     @test encode_recipe(decode_recipe(encode_recipe(recipe_a))) == encode_recipe(recipe_a)
 
-    allometric = capture_model_recipe(
-        family;
+    allometric = capture_model_recipe(family;
         plankton_pfts=pfts,
-        parameter_overrides=(
-            maximum_growth_rate=AllometricParam(
-                SplitPowerLaw();
-                prefactor=1.2e-5,
-                breakpoint=3.0,
-                small_exponent=0.28,
-                large_exponent=-0.15,
-            ),
-        ),
+        parameter_overrides=(maximum_growth_rate=AllometricParam(
+            SplitPowerLaw(); prefactor=1.2e-5, breakpoint=3.0,
+            small_exponent=0.28, large_exponent=-0.15,
+        ),),
     )
     @test decode_recipe(encode_recipe(allometric)) == allometric
 
-    _, float32_recipe = construct_plus_recipe(
-        family; plankton_pfts=pfts, grid=BoxModelGrid(Float32)
-    )
-    _, float64_recipe = construct_plus_recipe(
-        family; plankton_pfts=pfts, grid=BoxModelGrid(Float64)
-    )
+    _, float32_recipe = construct_plus_recipe(family; plankton_pfts=pfts, grid=BoxModelGrid(Float32))
+    _, float64_recipe = construct_plus_recipe(family; plankton_pfts=pfts, grid=BoxModelGrid(Float64))
     @test encode_recipe(float32_recipe) == encode_recipe(float64_recipe)
-    _, manifest64 = construct_plus_manifest(
-        family, float32_recipe; grid=BoxModelGrid(Float64)
-    )
+    _, manifest64 = construct_plus_manifest(family, float32_recipe; grid=BoxModelGrid(Float64))
     @test manifest64.scalar_type == Float64
 
     # Decode is independent of any global family registry; the chosen provider checks identity.
@@ -197,11 +144,9 @@ end
     @test decode_recipe(wrong_family).family == :OtherModel
     @test_throws r"Recipe family" construct(family, decode_recipe(wrong_family))
     @test_throws ArgumentError decode_recipe("not a recipe document")
-    @test_throws ArgumentError decode_recipe(
-        modified(encoded) do document
-            document["realization"]["open_bottom"] = true
-        end,
-    )
+    @test_throws ArgumentError decode_recipe(modified(encoded) do document
+        document["realization"]["open_bottom"] = true
+    end)
 
     invalid_schema = modified(encoded) do document
         document["schema"] = "agate.model_recipe.v0.2"
@@ -217,12 +162,8 @@ end
         write(io, "original")
         close(io)
         invalid = Agate.Construction.ModelRecipe(
-            recipe.family,
-            recipe.plankton_pfts,
-            (unsupported=Dict(:key => 1),),
-            recipe.setting_overrides,
-            recipe.sinking_tracers,
-            recipe.open_bottom,
+            recipe.family, recipe.plankton_pfts, (unsupported=Dict(:key => 1),),
+            recipe.setting_overrides, recipe.sinking_tracers, recipe.open_bottom,
         )
         @test_throws ArgumentError export_recipe(path, invalid)
         @test read(path, String) == "original"

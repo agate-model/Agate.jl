@@ -50,15 +50,20 @@ struct ConstructionParameter{Default<:AbstractDefaultProvider,Axes}
 end
 
 function ConstructionParameter(
-    default::Default; axes=nothing
+    default::Default;
+    axes=nothing,
 ) where {Default<:AbstractDefaultProvider}
-    (isnothing(axes) || axes === :plankton) ||
-        throw(ArgumentError("ConstructionParameter axes must be `nothing` or `:plankton`"))
+    (isnothing(axes) || axes === :plankton) || throw(
+        ArgumentError("ConstructionParameter axes must be `nothing` or `:plankton`"),
+    )
     return ConstructionParameter{Default,typeof(axes)}(default, axes)
 end
 
 """Define a construction-only parameter with a literal constant default."""
-function ConstructionParameter(default; axes=nothing)
+function ConstructionParameter(
+    default;
+    axes=nothing,
+)
     return ConstructionParameter(ConstantDefault(default); axes)
 end
 
@@ -77,10 +82,12 @@ end
 
 function DerivedDefault(deriver; deps=())
     deps isa Tuple || throw(ArgumentError("deps must be a tuple of Symbols."))
-    all(dep -> dep isa Symbol, deps) ||
-        throw(ArgumentError("deps must be a tuple of Symbols."))
-    length(Set(deps)) == length(deps) ||
-        throw(ArgumentError("deps must not contain duplicate parameter keys."))
+    all(dep -> dep isa Symbol, deps) || throw(
+        ArgumentError("deps must be a tuple of Symbols.")
+    )
+    length(Set(deps)) == length(deps) || throw(
+        ArgumentError("deps must not contain duplicate parameter keys.")
+    )
     return DerivedDefault{typeof(deriver),typeof(deps)}(deriver, deps)
 end
 
@@ -92,7 +99,7 @@ registered model family for named models and the authored `ModelDefinition` for 
 construction. Derivation runs on the host during model construction.
 """
 function derive_default(deriver, owner, context, params::NamedTuple)
-    return throw(ArgumentError("derive_default is not implemented for $(typeof(deriver))."))
+    throw(ArgumentError("derive_default is not implemented for $(typeof(deriver))."))
 end
 
 @inline _derive_parameter_default(deriver, owner, context, parameter, params::NamedTuple) =
@@ -100,9 +107,8 @@ end
 
 # Built-in context-sensitive derivations specialize preparation to resolve structural
 # indices once. Custom derivers retain the existing scientific extension hook.
-function _prepare_parameter_default(deriver, owner, context, parameter)
-    return params -> _derive_parameter_default(deriver, owner, context, parameter, params)
-end
+_prepare_parameter_default(deriver, owner, context, parameter) =
+    params -> _derive_parameter_default(deriver, owner, context, parameter, params)
 
 """Indicates that a parameter has no default value.
 

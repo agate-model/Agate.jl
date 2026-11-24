@@ -1,7 +1,6 @@
 using JSON
 
-using ..Components:
-    DiameterListSpecification, DiameterRangeSpecification, canonicalize_diameters
+using ..Components: DiameterListSpecification, DiameterRangeSpecification, canonicalize_diameters
 using ..Library.Allometry:
     ConstantParam,
     AllometricParam,
@@ -14,11 +13,7 @@ const MODEL_RECIPE_SCHEMA = "agate.model_recipe.v0.3"
 recipe_schema() = MODEL_RECIPE_SCHEMA
 const _RECIPE_DOCUMENT_KEYS = ("schema", "family", "realization", "content_hash")
 const _REALIZATION_KEYS = (
-    "plankton_pfts",
-    "parameter_overrides",
-    "setting_overrides",
-    "sinking_tracers",
-    "open_bottom",
+    "plankton_pfts", "parameter_overrides", "setting_overrides", "sinking_tracers", "open_bottom"
 )
 const _SUPPORTED_SPACING = (:linear, :log)
 
@@ -63,9 +58,7 @@ _symbol(x, path) = Symbol(_string(x, path))
 
 function _finite_float(x::AbstractFloat)
     isfinite(x) || throw(
-        ArgumentError(
-            "Recipe serialization supports finite floating-point values; got $x."
-        ),
+        ArgumentError("Recipe serialization supports finite floating-point values; got $x.")
     )
     return Float64(x)
 end
@@ -95,9 +88,8 @@ function _encode_parameter_value(x::AbstractFloat, path::AbstractString)
     isfinite(x) || throw(ArgumentError("$path must be finite; got $x."))
     return Float64(x)
 end
-function _encode_parameter_value(x::Symbol, ::AbstractString)
-    return Dict{String,Any}("kind" => "symbol", "value" => String(x))
-end
+_encode_parameter_value(x::Symbol, ::AbstractString) =
+    Dict{String,Any}("kind" => "symbol", "value" => String(x))
 
 function _encode_named_parameter_values(values::NamedTuple, path::AbstractString)
     encoded = Dict{String,Any}()
@@ -109,26 +101,25 @@ end
 
 function _encode_parameter_value(x::NamedTuple, path::AbstractString)
     return Dict{String,Any}(
-        "kind" => "named", "values" => _encode_named_parameter_values(x, path)
+        "kind" => "named",
+        "values" => _encode_named_parameter_values(x, path),
     )
 end
 
 function _encode_parameter_value(x::AbstractVector, path::AbstractString)
     all(value -> value isa Real && isfinite(value), x) || throw(
-        ArgumentError("$path recipe parameter vectors must contain finite numeric values."),
+        ArgumentError("$path recipe parameter vectors must contain finite numeric values.")
     )
     return Any[_encode_parameter_value(value, "$path[$i]") for (i, value) in pairs(x)]
 end
 
 function _encode_parameter_value(x::AbstractMatrix, path::AbstractString)
     all(value -> value isa Real && isfinite(value), x) || throw(
-        ArgumentError(
-            "$path recipe parameter matrices must contain finite numeric values."
-        ),
+        ArgumentError("$path recipe parameter matrices must contain finite numeric values.")
     )
     return Any[
-        Any[_encode_parameter_value(x[i, j], "$path[$i,$j]") for j in axes(x, 2)] for
-        i in axes(x, 1)
+        Any[_encode_parameter_value(x[i, j], "$path[$i,$j]") for j in axes(x, 2)]
+        for i in axes(x, 1)
     ]
 end
 
@@ -141,34 +132,31 @@ end
 function _encode_parameter_value(x::AllometricParam, path::AbstractString)
     return Dict{String,Any}(
         "law" => _identifier_string(
-            x.model,
-            allometric_relationship_identifier,
-            "allometric_relationship_identifier",
+            x.model, allometric_relationship_identifier, "allometric_relationship_identifier"
         ),
         "coefficients" => _encode_parameter_value(x.coeffs, "$path.coefficients"),
     )
 end
 
 function _encode_parameter_value(x, path::AbstractString)
-    return throw(ArgumentError("$path has unsupported recipe parameter type $(typeof(x))."))
+    throw(ArgumentError("$path has unsupported recipe parameter type $(typeof(x))."))
 end
 
 function _decoded_parameter_array(values, path)
-    decoded = Any[
-        _decode_parameter_value(value, "$path[$i]") for (i, value) in pairs(values)
-    ]
+    decoded = Any[_decode_parameter_value(value, "$path[$i]") for (i, value) in pairs(values)]
     isempty(decoded) && return Float64[]
     rows = map(value -> value isa AbstractVector, decoded)
-    any(rows) &&
-        !all(rows) &&
-        throw(ArgumentError("$path cannot mix scalar values and array rows."))
+    any(rows) && !all(rows) && throw(
+        ArgumentError("$path cannot mix scalar values and array rows.")
+    )
     if all(rows)
         ncols = length(first(decoded))
         all(row -> length(row) == ncols, decoded) ||
             throw(ArgumentError("$path must be rectangular."))
         T = promote_type(map(eltype, decoded)...)
-        T in (Float64, Int, Bool, Symbol) ||
-            throw(ArgumentError("$path has unsupported matrix element types."))
+        T in (Float64, Int, Bool, Symbol) || throw(
+            ArgumentError("$path has unsupported matrix element types.")
+        )
         out = Matrix{T}(undef, length(decoded), ncols)
         for i in eachindex(decoded), j in 1:ncols
             out[i, j] = decoded[i][j]
@@ -177,14 +165,17 @@ function _decoded_parameter_array(values, path)
     end
 
     T = promote_type(map(typeof, decoded)...)
-    T in (Float64, Int, Bool, Symbol) ||
-        throw(ArgumentError("$path has unsupported vector element types."))
+    T in (Float64, Int, Bool, Symbol) || throw(
+        ArgumentError("$path has unsupported vector element types.")
+    )
     return T[decoded...]
 end
 
 function _decode_named_parameter_values(mapping, path)
     mapping isa AbstractDict || throw(ArgumentError("$path must be an object."))
-    keys_sorted = sort!(String[_string(key, "$path key") for key in keys(mapping)])
+    keys_sorted = sort!(String[
+        _string(key, "$path key") for key in keys(mapping)
+    ])
     names = Tuple(Symbol(key) for key in keys_sorted)
     values = Tuple(
         _decode_parameter_value(mapping[key], "$path.$key") for key in keys_sorted
@@ -198,8 +189,9 @@ function _decode_parameter_value(x, path)
     x isa Integer && !(x isa Bool) && return Int(x)
     x isa AbstractFloat && return _finite_float(x)
     x isa AbstractVector && return _decoded_parameter_array(x, path)
-    x isa AbstractDict ||
-        throw(ArgumentError("$path has unsupported JSON value of type $(typeof(x))."))
+    x isa AbstractDict || throw(
+        ArgumentError("$path has unsupported JSON value of type $(typeof(x)).")
+    )
 
     if haskey(x, "law")
         law = _symbol(_required(x, "law", path), "$path.law")
@@ -209,14 +201,12 @@ function _decode_parameter_value(x, path)
         end
         _complete_object(x, ("law", "coefficients"), path)
         model = _decode_identifier(
-            law,
-            allometric_relationship_from_identifier,
-            "$path.law",
-            "allometric relationship",
+            law, allometric_relationship_from_identifier, "$path.law", "allometric relationship"
         )
         coefficients = _decode_parameter_value(x["coefficients"], "$path.coefficients")
-        coefficients isa NamedTuple ||
-            throw(ArgumentError("$path.coefficients must decode to a NamedTuple."))
+        coefficients isa NamedTuple || throw(
+            ArgumentError("$path.coefficients must decode to a NamedTuple.")
+        )
         return AllometricParam(model, coefficients)
     end
 
@@ -228,12 +218,11 @@ function _decode_parameter_value(x, path)
         _complete_object(x, ("kind", "values"), path)
         return _decode_named_parameter_values(x["values"], "$path.values")
     end
-    return throw(ArgumentError("$path has unsupported parameter value kind $(repr(kind))."))
+    throw(ArgumentError("$path has unsupported parameter value kind $(repr(kind))."))
 end
 
-function _encode_parameter_overrides(overrides::NamedTuple, path::AbstractString)
-    return _encode_named_parameter_values(overrides, path)
-end
+_encode_parameter_overrides(overrides::NamedTuple, path::AbstractString) =
+    _encode_named_parameter_values(overrides, path)
 
 _decode_parameter_overrides(x, path) = _decode_named_parameter_values(x, path)
 
@@ -263,12 +252,12 @@ function _decode_diameter_specification(x, path)
     if kind == "list"
         _complete_object(x, ("kind", "diameters"), path)
         values = x["diameters"]
-        values isa AbstractVector ||
-            throw(ArgumentError("$path.diameters must be an array."))
+        values isa AbstractVector || throw(ArgumentError("$path.diameters must be an array."))
         diameters = Float64[]
         for (i, value) in pairs(values)
-            value isa Real && !(value isa Bool) ||
-                throw(ArgumentError("$path.diameters[$i] must be numeric."))
+            value isa Real && !(value isa Bool) || throw(
+                ArgumentError("$path.diameters[$i] must be numeric.")
+            )
             push!(diameters, _finite_float(float(value)))
         end
         return canonicalize_diameters(diameters; path).specification
@@ -276,7 +265,7 @@ function _decode_diameter_specification(x, path)
         _complete_object(x, ("kind", "n", "min_esd", "max_esd", "spacing"), path)
         spacing = _symbol(x["spacing"], "$path.spacing")
         spacing in _SUPPORTED_SPACING || throw(
-            ArgumentError("$path.spacing has unsupported spacing method $(repr(spacing))."),
+            ArgumentError("$path.spacing has unsupported spacing method $(repr(spacing)).")
         )
         min_esd = x["min_esd"]
         max_esd = x["max_esd"]
@@ -284,43 +273,36 @@ function _decode_diameter_specification(x, path)
             throw(ArgumentError("$path.min_esd must be numeric."))
         max_esd isa Real && !(max_esd isa Bool) ||
             throw(ArgumentError("$path.max_esd must be numeric."))
-        return canonicalize_diameters(
-            DiameterRangeSpecification(
-                _count(x["n"], "$path.n"),
-                _finite_float(float(min_esd)),
-                _finite_float(float(max_esd)),
-                spacing,
-            );
-            path,
-        ).specification
+        return canonicalize_diameters(DiameterRangeSpecification(
+            _count(x["n"], "$path.n"),
+            _finite_float(float(min_esd)),
+            _finite_float(float(max_esd)),
+            spacing,
+        ); path).specification
     end
-    return throw(ArgumentError("$path has unsupported diameter kind $(repr(kind))."))
+    throw(ArgumentError("$path has unsupported diameter kind $(repr(kind))."))
 end
 
 function _encode_plankton_pfts(plankton_pfts::NamedTuple)
     assigned = Set{Symbol}()
     for (plankton, pfts) in pairs(plankton_pfts)
         pfts isa NamedTuple || throw(
-            ArgumentError(
-                "Recipe plankton :$plankton PFT realization must be a NamedTuple."
-            ),
+            ArgumentError("Recipe plankton :$plankton PFT realization must be a NamedTuple.")
         )
-        isempty(pfts) &&
-            throw(ArgumentError("Recipe plankton :$plankton must define a PFT."))
+        isempty(pfts) && throw(ArgumentError("Recipe plankton :$plankton must define a PFT."))
         for pft in keys(pfts)
             pft in assigned && throw(
-                ArgumentError(
-                    "Recipe plankton realization assigns PFT :$pft more than once."
-                ),
+                ArgumentError("Recipe plankton realization assigns PFT :$pft more than once.")
             )
             push!(assigned, pft)
         end
     end
     return Dict{String,Any}(
         String(plankton) => Dict{String,Any}(
-            String(pft) => _encode_diameter_specification(specification) for
-            (pft, specification) in pairs(pfts)
-        ) for (plankton, pfts) in pairs(plankton_pfts)
+            String(pft) => _encode_diameter_specification(specification)
+            for (pft, specification) in pairs(pfts)
+        )
+        for (plankton, pfts) in pairs(plankton_pfts)
     )
 end
 
@@ -331,23 +313,23 @@ function _decode_plankton_pfts(x, path)
     assigned = Set{Symbol}()
     for (plankton_key, pfts_raw) in pairs(x)
         plankton = Symbol(plankton_key)
-        pfts_raw isa AbstractDict ||
-            throw(ArgumentError("$path.$plankton_key must be an object."))
+        pfts_raw isa AbstractDict || throw(
+            ArgumentError("$path.$plankton_key must be an object.")
+        )
         isempty(pfts_raw) && throw(ArgumentError("$path.$plankton_key cannot be empty."))
 
         pft_names = Symbol[]
         specifications = Any[]
         for (pft_key, specification) in pairs(pfts_raw)
             pft = Symbol(pft_key)
-            pft in assigned &&
-                throw(ArgumentError("$path assigns PFT $(repr(pft)) more than once."))
+            pft in assigned && throw(
+                ArgumentError("$path assigns PFT $(repr(pft)) more than once.")
+            )
             push!(assigned, pft)
             push!(pft_names, pft)
             push!(
                 specifications,
-                _decode_diameter_specification(
-                    specification, "$path.$plankton_key.$pft_key"
-                ),
+                _decode_diameter_specification(specification, "$path.$plankton_key.$pft_key"),
             )
         end
         push!(plankton_names, plankton)
@@ -360,19 +342,15 @@ function _encode_realization(recipe::ModelRecipe)
     return Dict{String,Any}(
         "plankton_pfts" => _encode_plankton_pfts(recipe.plankton_pfts),
         "parameter_overrides" => _encode_parameter_overrides(
-            recipe.parameter_overrides,
-            "Recipe document.realization.parameter_overrides",
+            recipe.parameter_overrides, "Recipe document.realization.parameter_overrides"
         ),
         "setting_overrides" => _encode_parameter_overrides(
             recipe.setting_overrides, "Recipe document.realization.setting_overrides"
         ),
-        "sinking_tracers" => if isnothing(recipe.sinking_tracers)
-            nothing
-        else
-            _encode_parameter_overrides(
-            recipe.sinking_tracers, "Recipe document.realization.sinking_tracers"
-        )
-        end,
+        "sinking_tracers" => isnothing(recipe.sinking_tracers) ? nothing :
+                             _encode_parameter_overrides(
+                                 recipe.sinking_tracers, "Recipe document.realization.sinking_tracers"
+                             ),
         "open_bottom" => recipe.open_bottom,
     )
 end
@@ -388,15 +366,12 @@ function _decode_realization(x, path)
     setting_overrides = _decode_parameter_overrides(
         realization["setting_overrides"], "$path.setting_overrides"
     )
-    sinking_tracers = if isnothing(realization["sinking_tracers"])
-        nothing
-    else
-        _decode_parameter_overrides(realization["sinking_tracers"], "$path.sinking_tracers")
-    end
+    sinking_tracers = isnothing(realization["sinking_tracers"]) ? nothing :
+                      _decode_parameter_overrides(
+                          realization["sinking_tracers"], "$path.sinking_tracers"
+                      )
     open_bottom = _boolean(realization["open_bottom"], "$path.open_bottom")
-    return (;
-        plankton_pfts, parameter_overrides, setting_overrides, sinking_tracers, open_bottom
-    )
+    return (; plankton_pfts, parameter_overrides, setting_overrides, sinking_tracers, open_bottom)
 end
 
 """Encode model configuration with a deterministic content hash.
@@ -419,20 +394,16 @@ end
 Select a model provider explicitly when constructing from the decoded recipe.
 """
 function decode_recipe(document::AbstractDict)
-    schema = _string(
-        _required(document, "schema", "Recipe document"), "Recipe document.schema"
-    )
+    schema = _string(_required(document, "schema", "Recipe document"), "Recipe document.schema")
     schema == MODEL_RECIPE_SCHEMA || throw(
         ArgumentError(
             "Unsupported Agate recipe schema $(repr(schema)); supported schema is " *
-            "$(repr(MODEL_RECIPE_SCHEMA)).",
-        ),
+            "$(repr(MODEL_RECIPE_SCHEMA))."
+        )
     )
     document = _complete_object(document, _RECIPE_DOCUMENT_KEYS, "Recipe document")
     family_id_value = _symbol(document["family"], "Recipe document.family")
-    realization = _decode_realization(
-        document["realization"], "Recipe document.realization"
-    )
+    realization = _decode_realization(document["realization"], "Recipe document.realization")
     recipe = ModelRecipe(
         family_id_value,
         realization.plankton_pfts,
@@ -443,17 +414,13 @@ function decode_recipe(document::AbstractDict)
     )
     recorded_hash = _string(document["content_hash"], "Recipe document.content_hash")
     recorded_hash == _recipe_hash(family_id_value, _encode_realization(recipe)) || throw(
-        ArgumentError(
-            "Recipe document.content_hash does not match the canonical recipe content."
-        ),
+        ArgumentError("Recipe document.content_hash does not match the canonical recipe content.")
     )
     return recipe
 end
 
 function decode_recipe(document)
-    return throw(
-        ArgumentError("Expected an Agate recipe dictionary, got $(typeof(document)).")
-    )
+    throw(ArgumentError("Expected an Agate recipe dictionary, got $(typeof(document))."))
 end
 
 """Write a recipe document to `path` as pretty-printed JSON."""
@@ -461,7 +428,7 @@ function export_recipe(path::AbstractString, recipe::ModelRecipe)
     document = encode_recipe(recipe)
     open(path, "w") do io
         JSON.json(io, document; pretty=4, omit_empty=false)
-        return println(io)
+        println(io)
     end
     return path
 end

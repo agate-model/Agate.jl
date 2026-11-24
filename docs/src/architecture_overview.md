@@ -6,24 +6,24 @@ Agate separates scientific model definition from setup-time compilation and runt
 
 A process-defined model moves through five stages:
 
- 1. **Definition** (`Components/`, `Processes/`, and `Parameters/`).
-    `Plankton` describes prognostic state identity and structural realization, while `Pool` describes one scalar elemental material inventory. A plankton realizes PFTs, each with one or more SizeClasses, and carries one or more aligned prognostic states per realized SizeClass. Named processes describe scientific transformations and bind formulation-local parameter slots directly to stable model-parameter names. The keyed parameter block owns each parameter's default and storage policy.
+1. **Definition** (`Components/`, `Processes/`, and `Parameters/`).
+   `Plankton` describes prognostic state identity and structural realization, while `Pool` describes one scalar elemental material inventory. A plankton realizes PFTs, each with one or more SizeClasses, and carries one or more aligned prognostic states per realized SizeClass. Named processes describe scientific transformations and bind formulation-local parameter slots directly to stable model-parameter names. The keyed parameter block owns each parameter's default and storage policy.
 
- 2. **Validation, canonicalization, and realization** (`Processes/` and `Components/`).
-    Agate validates scientific references and structural compatibility, canonicalizes process identity and factor order, canonicalizes intrinsic or family plankton realization once before layout construction, realizes each PFT into one or more SizeClasses separately from concrete prognostic tracers, discovers process drivers, and resolves process-local participant axes.
+2. **Validation, canonicalization, and realization** (`Processes/` and `Components/`).
+   Agate validates scientific references and structural compatibility, canonicalizes process identity and factor order, canonicalizes intrinsic or family plankton realization once before layout construction, realizes each PFT into one or more SizeClasses separately from concrete prognostic tracers, discovers process drivers, and resolves process-local participant axes.
 
- 3. **Flux compilation** (`Compilation/`).
-    A setup-time compile context carries the canonical definition, realized layout, and parameter plan through lowering. Parameter operands resolve realized entity identity directly against storage labels during setup, so only final static indices enter runtime terms. Participant states and one-tracer-per-entity components are realized through one shared tracer + entity-position traversal, which is reused by one-axis and two-axis process lowering. Growth authoring uses `reference_resource` and element-keyed `additional_resources` to specify material transfer explicitly. Growth may have zero or more multiplicative factors; with none, its rate is simply the maximum-rate scale times biomass. Additional stoichiometric draws are valid only for Elements that the Growth plankton does not already carry as explicit prognostic States. `NutrientLimitation` may therefore mix external `NutrientResponse` and internal `QuotaResponse` subfactors while material transfer remains process-owned. Growth also owns its maximum-rate binding; Smith and Geider light factors consume that resolved process scale rather than declaring a second parameter slot, while light formulations that do not depend on the growth scale use only their own inputs and parameters. Each named process produces generic target + rate + weight flux specifications, which are grouped by target tracer and lowered into static compiled equations with no target symbols or process metadata in runtime terms.
+3. **Flux compilation** (`Compilation/`).
+   A setup-time compile context carries the canonical definition, realized layout, and parameter plan through lowering. Parameter operands resolve realized entity identity directly against storage labels during setup, so only final static indices enter runtime terms. Participant states and one-tracer-per-entity components are realized through one shared tracer + entity-position traversal, which is reused by one-axis and two-axis process lowering. Growth authoring uses `reference_resource` and element-keyed `additional_resources` to specify material transfer explicitly. Growth may have zero or more multiplicative factors; with none, its rate is simply the maximum-rate scale times biomass. Additional stoichiometric draws are valid only for Elements that the Growth plankton does not already carry as explicit prognostic States. `NutrientLimitation` may therefore mix external `NutrientResponse` and internal `QuotaResponse` subfactors while material transfer remains process-owned. Growth also owns its maximum-rate binding; Smith and Geider light factors consume that resolved process scale rather than declaring a second parameter slot, while light formulations that do not depend on the growth scale use only their own inputs and parameters. Each named process produces generic target + rate + weight flux specifications, which are grouped by target tracer and lowered into static compiled equations with no target symbols or process metadata in runtime terms.
 
- 4. **Construction and replay** (`Construction/`).
-    Direct `ModelDefinition` construction resolves defaults and overrides from the model
-    definition. External model packages such as Onyx use the same
-    definition-driven core. Recipes record a family label and the canonical realization
-    inputs required by the model constructor; replay selects the family explicitly and follows
-    the normal construction path. Julia's package environment identifies the implementation.
+4. **Construction and replay** (`Construction/`).
+   Direct `ModelDefinition` construction resolves defaults and overrides from the model
+   definition. External model packages such as Onyx use the same
+   definition-driven core. Recipes record a family label and the canonical realization
+   inputs required by the model constructor; replay selects the family explicitly and follows
+   the normal construction path. Julia's package environment identifies the implementation.
 
- 5. **Runtime and inspection** (`Runtime/`, `Diagnostics/`, and `Introspection.jl`).
-    Runtime kernels evaluate lean compiled terms with resolved tracer and parameter indices. Diagnostics and introspection expose the realized model without reinterpreting the model definition.
+5. **Runtime and inspection** (`Runtime/`, `Diagnostics/`, and `Introspection.jl`).
+   Runtime kernels evaluate lean compiled terms with resolved tracer and parameter indices. Diagnostics and introspection expose the realized model without reinterpreting the model definition.
 
 The central data flow is:
 

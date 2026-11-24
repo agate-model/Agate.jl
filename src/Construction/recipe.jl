@@ -4,7 +4,7 @@ using ..Components: ModelLayout, canonicalize_plankton_realization, diameter_met
 
 """Return the stable recipe-family identifier for a model family."""
 function family_id(family::AbstractModelFamily)
-    return throw(ArgumentError("Recipe support is not implemented for $(typeof(family))."))
+    throw(ArgumentError("Recipe support is not implemented for $(typeof(family))."))
 end
 
 """Canonical construction inputs for an explicitly selected model family.
@@ -53,46 +53,38 @@ struct ModelManifest{
 end
 
 _recipe_identity(family::Symbol, realization) = (; family, realization)
-function _recipe_identity(recipe::ModelRecipe)
-    return _recipe_identity(recipe.family, _encode_realization(recipe))
-end
+_recipe_identity(recipe::ModelRecipe) = _recipe_identity(
+    recipe.family, _encode_realization(recipe)
+)
 
-function _manifest_identity(manifest::ModelManifest)
-    return (;
-        parameters=manifest.parameters,
-        settings=manifest.settings,
-        pft_entities=manifest.pft_entities,
-        tracer_order=manifest.tracer_order,
-        auxiliary_fields=manifest.auxiliary_fields,
-        plankton_diameters=manifest.plankton_diameters,
-        interaction_matrix_sources=manifest.interaction_matrix_sources,
-        sinking_tracers=manifest.sinking_tracers,
-        open_bottom=manifest.open_bottom,
-        scalar_type=manifest.scalar_type,
-    )
-end
+_manifest_identity(manifest::ModelManifest) = (;
+    parameters=manifest.parameters,
+    settings=manifest.settings,
+    pft_entities=manifest.pft_entities,
+    tracer_order=manifest.tracer_order,
+    auxiliary_fields=manifest.auxiliary_fields,
+    plankton_diameters=manifest.plankton_diameters,
+    interaction_matrix_sources=manifest.interaction_matrix_sources,
+    sinking_tracers=manifest.sinking_tracers,
+    open_bottom=manifest.open_bottom,
+    scalar_type=manifest.scalar_type,
+)
 
-function Base.:(==)(a::ModelRecipe, b::ModelRecipe)
-    return isequal(_recipe_identity(a), _recipe_identity(b))
-end
-function Base.isequal(a::ModelRecipe, b::ModelRecipe)
-    return isequal(_recipe_identity(a), _recipe_identity(b))
-end
+Base.:(==)(a::ModelRecipe, b::ModelRecipe) = isequal(_recipe_identity(a), _recipe_identity(b))
+Base.isequal(a::ModelRecipe, b::ModelRecipe) = isequal(_recipe_identity(a), _recipe_identity(b))
 Base.hash(recipe::ModelRecipe, h::UInt) = hash(_recipe_identity(recipe), h)
 
-function Base.:(==)(a::ModelManifest, b::ModelManifest)
-    return isequal(_manifest_identity(a), _manifest_identity(b))
-end
-function Base.isequal(a::ModelManifest, b::ModelManifest)
-    return isequal(_manifest_identity(a), _manifest_identity(b))
-end
+Base.:(==)(a::ModelManifest, b::ModelManifest) = isequal(_manifest_identity(a), _manifest_identity(b))
+Base.isequal(a::ModelManifest, b::ModelManifest) = isequal(_manifest_identity(a), _manifest_identity(b))
 Base.hash(manifest::ModelManifest, h::UInt) = hash(_manifest_identity(manifest), h)
 
 function _canonical_recipe_realization(
-    family::AbstractModelFamily, plankton_pfts::NamedTuple
+    family::AbstractModelFamily,
+    plankton_pfts::NamedTuple,
 )
     return canonicalize_plankton_realization(default_components(family), plankton_pfts)
 end
+
 
 """Capture canonical family construction inputs for durable replay."""
 function capture_model_recipe(
@@ -118,24 +110,20 @@ function capture_model_recipe(
     )
 end
 
-function _family_realization(recipe::ModelRecipe)
-    return (;
-        plankton_pfts=recipe.plankton_pfts,
-        parameter_overrides=recipe.parameter_overrides,
-        setting_overrides=recipe.setting_overrides,
-        sinking_tracers=recipe.sinking_tracers,
-        open_bottom=recipe.open_bottom,
-    )
-end
+_family_realization(recipe::ModelRecipe) = (;
+    plankton_pfts=recipe.plankton_pfts,
+    parameter_overrides=recipe.parameter_overrides,
+    setting_overrides=recipe.setting_overrides,
+    sinking_tracers=recipe.sinking_tracers,
+    open_bottom=recipe.open_bottom,
+)
 
 """Verify that a recipe belongs to the explicitly selected model family."""
 function _check_recipe_family(family::AbstractModelFamily, recipe::ModelRecipe)
     selected = family_id(family)
-    selected === recipe.family || throw(
-        ArgumentError(
-            "Recipe family $(repr(recipe.family)) does not match selected family $(repr(selected)).",
-        ),
-    )
+    selected === recipe.family || throw(ArgumentError(
+        "Recipe family $(repr(recipe.family)) does not match selected family $(repr(selected))."
+    ))
     return family
 end
 
@@ -162,21 +150,19 @@ function capture_model_manifest(
     pft_entities = NamedTuple{pft_order}(pft_values)
 
     interaction_names = Tuple(
-        name for (name, parameter) in pairs(parameter_plan.parameters) if
-        parameter.runtime_bound && parameter.axes == (:consumer, :resource)
+        name for (name, parameter) in pairs(parameter_plan.parameters)
+        if parameter.runtime_bound && parameter.axes == (:consumer, :resource)
     )
     derived_interaction_names = Tuple(
         name for name in interaction_names if
         getproperty(parameter_plan.parameters, name).definition.default isa DerivedDefault
     )
     interaction_matrix_sources = NamedTuple{interaction_names}(
-        Tuple(if name in explicit_override_keys
-            :explicit
-        elseif name in derived_interaction_names
-            :derived
-        else
-            :default
-        end for name in interaction_names)
+        Tuple(
+            name in explicit_override_keys ? :explicit :
+            name in derived_interaction_names ? :derived : :default
+            for name in interaction_names
+        ),
     )
 
     return ModelManifest(

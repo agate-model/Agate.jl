@@ -36,9 +36,10 @@ Return the minimum of the supplied limitation factors while preserving NaN propa
     return ifelse(isnan(a) | isnan(b), a + b, minimum_value)
 end
 
-@inline liebig_minimum(a, b, c, rest...) = liebig_minimum(liebig_minimum(a, b), c, rest...)
+@inline liebig_minimum(a, b, c, rest...) =
+    liebig_minimum(liebig_minimum(a, b), c, rest...)
 
-@inline function liebig_minimum(values::Tuple{Vararg{Any,N}}) where {N}
+@inline function liebig_minimum(values::Tuple{Vararg{Any,N}}) where N
     result = values[1]
     @inbounds for i in 2:N
         result = liebig_minimum(result, values[i])
@@ -105,7 +106,7 @@ identity is represented separately by the process-authoring layer.
 
 @inline function frank_tnorm(
     values::Tuple{Vararg{Any,N}}; sharpness=DEFAULT_FRANK_SHARPNESS
-) where {N}
+) where N
     result = values[1]
     @inbounds for i in 2:N
         result = _frank_tnorm_pair(result, values[i], sharpness)
@@ -129,8 +130,8 @@ bounds, the classical Droop response `1 - minimum_quota / quota` is normalized s
     quota = internal / reference
     quota > minimum_quota || return zero(quota)
     quota >= maximum_quota && return one(quota)
-    response =
-        (one(quota) - minimum_quota / quota) / (one(quota) - minimum_quota / maximum_quota)
+    response = (one(quota) - minimum_quota / quota) /
+               (one(quota) - minimum_quota / maximum_quota)
     return min(one(response), max(zero(response), response))
 end
 

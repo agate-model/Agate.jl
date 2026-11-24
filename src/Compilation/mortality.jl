@@ -1,5 +1,9 @@
 function _mortality_rate(
-    formulation, rate_ref::Int, context::CompileContext, participant, tracer::Symbol
+    formulation,
+    rate_ref::Int,
+    context::CompileContext,
+    participant,
+    tracer::Symbol,
 )
     axis_positions = (plankton=participant.position,)
     operands = (
@@ -34,17 +38,10 @@ function process_fluxes(
                     ratio = _material_ratio_operand(
                         context, participant.component, element, participant.position
                     )
-                    append!(
-                        fluxes,
-                        _product_fluxes_for_element(
-                            named,
-                            named.semantic_facts.product_targets,
-                            context,
-                            rate,
-                            element;
-                            suffix=ratio,
-                        ),
-                    )
+                    append!(fluxes, _product_fluxes_for_element(
+                        named, named.semantic_facts.product_targets, context, rate, element;
+                        suffix=ratio,
+                    ))
                 end
             end
         end

@@ -16,9 +16,7 @@ end
 @inline Base.axes(a::ActiveParameterArray) = axes(a.base)
 @inline Base.eachindex(a::ActiveParameterArray) = eachindex(a.base)
 
-@inline function Base.eltype(
-    ::Type{<:ActiveParameterArray{BaseArray,ActiveVector}}
-) where {BaseArray,ActiveVector}
+@inline function Base.eltype(::Type{<:ActiveParameterArray{BaseArray,ActiveVector}}) where {BaseArray,ActiveVector}
     return promote_type(eltype(BaseArray), eltype(ActiveVector))
 end
 
@@ -75,16 +73,15 @@ end
     return getproperty(getfield(bgc_p, :bgc), name)
 end
 
-@inline Adapt.adapt_structure(to, a::ActiveParameterArray) = ActiveParameterArray(
-    Adapt.adapt(to, a.base), Adapt.adapt(to, a.p), Adapt.adapt(to, a.slots)
-)
+@inline Adapt.adapt_structure(to, a::ActiveParameterArray) =
+    ActiveParameterArray(Adapt.adapt(to, a.base), Adapt.adapt(to, a.p), Adapt.adapt(to, a.slots))
 
-@inline Adapt.adapt_structure(to, ap::ActiveParameters) = ActiveParameters(
-    Adapt.adapt(to, ap.base), Adapt.adapt(to, ap.p), Adapt.adapt(to, ap.map)
-)
+@inline Adapt.adapt_structure(to, ap::ActiveParameters) =
+    ActiveParameters(Adapt.adapt(to, ap.base), Adapt.adapt(to, ap.p), Adapt.adapt(to, ap.map))
 
 @inline Adapt.adapt_structure(to, bgc_p::ParameterizedBGC) =
     ParameterizedBGC(Adapt.adapt(to, bgc_p.bgc), Adapt.adapt(to, bgc_p.parameters))
+
 
 @inline function evaluate_tendency(
     bgc_p::ParameterizedBGC, ::Val{Tracer}, x, y, z, t, args...
@@ -119,6 +116,7 @@ end
 Base.length(active::ActiveParameterSet) = length(active.values)
 Base.isempty(active::ActiveParameterSet) = isempty(active.values)
 
+
 """Return selected BGC parameters as a labelled flat-vector parameter set.
 
 The keyword arguments follow the structure of `bgc.parameters`. Scalar
@@ -141,9 +139,7 @@ function active_parameters(bgc; kwargs...)
     active_index = Ref(1)
     labels = String[]
     values = Any[]
-    active_map = active_parameter_map!(
-        labels, values, bgc, (), bgc.parameters, (; kwargs...), active_index
-    )
+    active_map = active_parameter_map!(labels, values, bgc, (), bgc.parameters, (; kwargs...), active_index)
     active_values = isempty(values) ? Float64[] : collect(promote(values...))
     names = keys(active_map)
     domains = NamedTuple{names}(map(name -> _parameter_metadata(bgc, name).domains, names))
@@ -172,122 +168,91 @@ function validate_active_parameters(bgc, p, active_parameters)
     nactive = active_parameters === nothing ? 0 : length(active_parameters)
 
     if p === nothing
-        nactive == 0 || throw(
-            ArgumentError(
-                "`p` must be provided when `active_parameters` selects $nactive parameter$(nactive == 1 ? "" : "s").",
-            ),
-        )
+        nactive == 0 || throw(ArgumentError(
+            "`p` must be provided when `active_parameters` selects $nactive parameter$(nactive == 1 ? "" : "s")."
+        ))
         return nothing
     end
 
-    p isa AbstractVector ||
-        throw(ArgumentError("`p` must be a flat AbstractVector; got $(typeof(p))."))
+    p isa AbstractVector || throw(ArgumentError(
+        "`p` must be a flat AbstractVector; got $(typeof(p))."
+    ))
     if nactive == 0
-        isempty(p) ||
-            throw(ArgumentError("`p` is non-empty but no active parameters were selected."))
+        isempty(p) || throw(ArgumentError(
+            "`p` is non-empty but no active parameters were selected."
+        ))
     elseif length(p) != nactive
-        throw(
-            ArgumentError(
-                "`p` has length $(length(p)); expected $nactive active parameter$(nactive == 1 ? "" : "s").",
-            ),
-        )
+        throw(ArgumentError(
+            "`p` has length $(length(p)); expected $nactive active parameter$(nactive == 1 ? "" : "s")."
+        ))
     end
 
     isnothing(active_parameters) && return nothing
     checked = p isa Array ? p : collect(p)
     for (name, selection) in pairs(active_parameters.map)
         domains = getproperty(active_parameters.domains, name)
-        indices = if selection isa Integer
-            (selection,)
-        else
-            Tuple(slot.active_index for slot in selection)
-        end
+        indices = selection isa Integer ? (selection,) : Tuple(slot.active_index for slot in selection)
         for index in indices, domain in domains
             parameter_domain_valid(checked[index], domain) && continue
-            throw(
-                ArgumentError(
-                    "active parameter $(active_parameters.labels[index]) must satisfy " *
-                    "domain :$domain; got $(checked[index])",
-                ),
-            )
+            throw(ArgumentError(
+                "active parameter $(active_parameters.labels[index]) must satisfy " *
+                "domain :$domain; got $(checked[index])",
+            ))
         end
     end
 
     metadata = getproperty(bgc, :metadata)
-    constraints =
-        hasproperty(metadata, :parameter_constraints) ? metadata.parameter_constraints : ()
+    constraints = hasproperty(metadata, :parameter_constraints) ? metadata.parameter_constraints : ()
     parameters = ActiveParameters(bgc.parameters, checked, active_parameters.map)
     validate_parameter_constraints(parameters, constraints)
     return nothing
 end
 
-function active_parameter_map!(
-    labels, values, bgc, path::Tuple, container, selections::NamedTuple, active_index
-)
-    entries = Pair{Symbol,Any}[]
+function active_parameter_map!(labels, values, bgc, path::Tuple, container, selections::NamedTuple, active_index)
+    entries = Pair{Symbol, Any}[]
 
     for (name, selection) in pairs(selections)
         entry_path = (path..., name)
         validate_runtime_active_parameter(bgc, entry_path)
-        hasproperty(container, name) || throw(
-            ArgumentError(
-                "Runtime parameter storage is missing $(path_label(entry_path))."
-            ),
-        )
+        hasproperty(container, name) || throw(ArgumentError(
+            "Runtime parameter storage is missing $(path_label(entry_path))."
+        ))
         value = getproperty(container, name)
-        slots = active_parameter_entry!(
-            labels, values, bgc, entry_path, value, selection, active_index
-        )
+        slots = active_parameter_entry!(labels, values, bgc, entry_path, value, selection, active_index)
         push!(entries, name => slots)
     end
 
     return (; entries...)
 end
 
-function active_parameter_entry!(
-    labels, values, bgc, path::Tuple, value, selected::Bool, active_index
-)
+function active_parameter_entry!(labels, values, bgc, path::Tuple, value, selected::Bool, active_index)
     selected || throw(ArgumentError("Boolean active parameter selections must be true."))
-    value isa Number || throw(
-        ArgumentError(
-            "Scalar active selector for $(path_label(path)) is not supported because the stored parameter is not scalar.",
-        ),
-    )
+    value isa Number || throw(ArgumentError(
+        "Scalar active selector for $(path_label(path)) is not supported because the stored parameter is not scalar."
+    ))
     return push_active_value!(labels, values, active_index, path_label(path), value)
 end
 
-function active_parameter_entry!(
-    labels, values, bgc, path::Tuple, value, selection::NamedTuple, active_index
-)
-    return throw(
-        ArgumentError(
-            "Nested active-parameter selections are not supported for $(path_label(path)); " *
-            "select the flat runtime parameter directly.",
-        ),
-    )
+function active_parameter_entry!(labels, values, bgc, path::Tuple, value, selection::NamedTuple, active_index)
+    throw(ArgumentError(
+        "Nested active-parameter selections are not supported for $(path_label(path)); " *
+        "select the flat runtime parameter directly.",
+    ))
 end
 
-function active_parameter_entry!(
-    labels, values, bgc, path::Tuple, value, selection::Tuple, active_index
-)
+function active_parameter_entry!(labels, values, bgc, path::Tuple, value, selection::Tuple, active_index)
     isempty(selection) && return ()
 
     if all(item -> item isa Symbol, selection)
-        return vector_active_parameter_entry!(
-            labels, values, bgc, path, value, selection, active_index
-        )
+        return vector_active_parameter_entry!(labels, values, bgc, path, value, selection, active_index)
     elseif all(is_pair_selection, selection)
-        return matrix_active_parameter_entry!(
-            labels, values, bgc, path, value, selection, active_index
-        )
+        return matrix_active_parameter_entry!(labels, values, bgc, path, value, selection, active_index)
     end
 
-    return throw(
-        ArgumentError(
-            "Active parameter tuple selections must contain tracer symbols, such as (:P_1, :P_2), " *
-            "or row-column tracer pairs, such as ((:Z_1, :P_1), (:Z_1, :P_2)).",
-        ),
-    )
+    throw(ArgumentError(
+        "Active parameter tuple selections must contain tracer symbols, such as (:P_1, :P_2), " *
+        "or row-column tracer pairs, such as ((:Z_1, :P_1), (:Z_1, :P_2))."
+    ))
 end
 
 function push_active_value!(labels, values, active_index, label, value)
@@ -304,77 +269,42 @@ function push_active_slot!(entries, labels, values, active_index, label, value, 
     return nothing
 end
 
-function is_pair_selection(item)
-    return item isa Tuple && length(item) == 2 && item[1] isa Symbol && item[2] isa Symbol
-end
+is_pair_selection(item) = item isa Tuple && length(item) == 2 && item[1] isa Symbol && item[2] isa Symbol
 path_label(path::Tuple) = join(string.(path), ".")
 
-function vector_active_parameter_entry!(
-    labels, values, bgc, path::Tuple, value, selection::Tuple, active_index
-)
-    allunique(selection) || throw(
-        ArgumentError(
-            "Vector active selector for $(path_label(path)) contains duplicate entities.",
-        ),
-    )
-    value isa AbstractVector || throw(
-        ArgumentError(
-            "Vector active selector for $(path_label(path)) is not supported because the stored parameter is not a vector.",
-        ),
-    )
+function vector_active_parameter_entry!(labels, values, bgc, path::Tuple, value, selection::Tuple, active_index)
+    allunique(selection) || throw(ArgumentError(
+        "Vector active selector for $(path_label(path)) contains duplicate entities."
+    ))
+    value isa AbstractVector || throw(ArgumentError(
+        "Vector active selector for $(path_label(path)) is not supported because the stored parameter is not a vector."
+    ))
 
     entries = []
     for tracer in selection
         index = parameter_label_index(bgc, only(path), 1, tracer)
-        push_active_slot!(
-            entries,
-            labels,
-            values,
-            active_index,
-            "$(path_label(path)).$(tracer)",
-            value[index],
-            (index,),
-        )
+        push_active_slot!(entries, labels, values, active_index, "$(path_label(path)).$(tracer)", value[index], (index,))
     end
 
     return Tuple(entries)
 end
 
-function matrix_active_parameter_entry!(
-    labels, values, bgc, path::Tuple, value, selection::Tuple, active_index
-)
-    allunique(selection) || throw(
-        ArgumentError(
-            "Matrix active selector for $(path_label(path)) contains duplicate row-column pairs.",
-        ),
-    )
-    value isa AbstractMatrix || throw(
-        ArgumentError(
-            "Matrix active selector for $(path_label(path)) is not supported because the stored parameter is not a matrix.",
-        ),
-    )
+function matrix_active_parameter_entry!(labels, values, bgc, path::Tuple, value, selection::Tuple, active_index)
+    allunique(selection) || throw(ArgumentError(
+        "Matrix active selector for $(path_label(path)) contains duplicate row-column pairs."
+    ))
+    value isa AbstractMatrix || throw(ArgumentError(
+        "Matrix active selector for $(path_label(path)) is not supported because the stored parameter is not a matrix."
+    ))
 
     entries = []
     metadata = _parameter_metadata(bgc, only(path))
     for (row, column) in selection
-        (row, column) in metadata.applicability || throw(
-            ArgumentError(
-                "Interaction ($row, $column) is not modeled for parameter :$(only(path)).",
-            ),
-        )
-        indices = (
-            parameter_label_index(bgc, only(path), 1, row),
-            parameter_label_index(bgc, only(path), 2, column),
-        )
-        push_active_slot!(
-            entries,
-            labels,
-            values,
-            active_index,
-            "$(path_label(path))[$row, $column]",
-            value[indices...],
-            indices,
-        )
+        (row, column) in metadata.applicability || throw(ArgumentError(
+            "Interaction ($row, $column) is not modeled for parameter :$(only(path))."
+        ))
+        indices = (parameter_label_index(bgc, only(path), 1, row), parameter_label_index(bgc, only(path), 2, column))
+        push_active_slot!(entries, labels, values, active_index, "$(path_label(path))[$row, $column]", value[indices...], indices)
     end
 
     return Tuple(entries)
@@ -384,47 +314,38 @@ function _parameter_metadata(bgc, name::Symbol)
     metadata = getproperty(bgc, :metadata)
     metadata === nothing && throw(ArgumentError("Model has no parameter metadata."))
     axes = metadata.parameter_axes
-    hasproperty(axes, name) || throw(ArgumentError("Unknown active parameter path: $name."))
+    hasproperty(axes, name) || throw(
+        ArgumentError("Unknown active parameter path: $name."),
+    )
     return getproperty(axes, name)
 end
 
 function validate_runtime_active_parameter(bgc, path::Tuple)
-    length(path) == 1 || throw(
-        ArgumentError(
-            "Nested active-parameter paths are not supported; runtime parameter storage is flat.",
-        ),
-    )
+    length(path) == 1 || throw(ArgumentError(
+        "Nested active-parameter paths are not supported; runtime parameter storage is flat.",
+    ))
     name = only(path)
     metadata = _parameter_metadata(bgc, name)
     metadata.runtime_bound && return nothing
 
     targets = metadata.derived_runtime_parameters
-    detail = if isempty(targets)
-        ""
-    else
-        " It is used to derive runtime parameter" *
-        (length(targets) == 1 ? " " : "s ") *
-        join(":" .* string.(targets), ", ") *
-        "."
-    end
-    return throw(
-        ArgumentError(
-            "Active parameter :$name is construction-only and is not stored in the runtime BGC." *
-            detail,
-        ),
-    )
+    detail = isempty(targets) ? "" :
+        " It is used to derive runtime parameter" * (length(targets) == 1 ? " " : "s ") *
+        join(":" .* string.(targets), ", ") * "."
+    throw(ArgumentError(
+        "Active parameter :$name is construction-only and is not stored in the runtime BGC." * detail,
+    ))
 end
 
 function parameter_label_index(bgc, parameter::Symbol, dimension::Int, label::Symbol)
     metadata = _parameter_metadata(bgc, parameter)
-    1 <= dimension <= length(metadata.labels) ||
-        throw(ArgumentError("parameter :$parameter has no storage dimension $dimension"))
+    1 <= dimension <= length(metadata.labels) || throw(ArgumentError(
+        "parameter :$parameter has no storage dimension $dimension",
+    ))
     labels = metadata.labels[dimension]
     index = findfirst(==(label), labels)
-    index === nothing && throw(
-        ArgumentError(
-            "Unknown realized entity :$label for parameter :$parameter; expected one of $(labels).",
-        ),
-    )
+    index === nothing && throw(ArgumentError(
+        "Unknown realized entity :$label for parameter :$parameter; expected one of $(labels).",
+    ))
     return index
 end

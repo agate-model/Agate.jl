@@ -17,7 +17,7 @@ struct ModelSetting{Default}
     function ModelSetting(default::Default, domain::Symbol) where {Default}
         domain in (:any, :finite, :nonnegative, :positive, :unit_interval) || throw(
             ArgumentError(
-                "ModelSetting domain must be :any, :finite, :nonnegative, :positive, or :unit_interval",
+                "ModelSetting domain must be :any, :finite, :nonnegative, :positive, or :unit_interval"
             ),
         )
         return new{Default}(default, domain)
@@ -30,13 +30,9 @@ ModelSetting(default; domain::Symbol=:finite) = ModelSetting(default, domain)
 setting_definitions(::AbstractModelFamily) = (;)
 
 """Map user-facing plankton roles to logical components, e.g. `phytoplankton => :P`."""
-function plankton_roles(::AbstractModelFamily)
-    return throw(
-        ArgumentError(
-            "No method `plankton_roles(family)` is defined for this model family."
-        ),
-    )
-end
+plankton_roles(::AbstractModelFamily) = throw(
+    ArgumentError("No method `plankton_roles(family)` is defined for this model family.")
+)
 
 """Canonical logical components for a named model family.
 
@@ -44,7 +40,7 @@ Returns a named collection whose keys are stable model component identities and
 whose values describe intrinsic component structure.
 """
 function default_components(::AbstractModelFamily)
-    return throw(
+    throw(
         ArgumentError(
             "No method `default_components(family)` is defined for this model family."
         ),
@@ -57,7 +53,7 @@ The keys are stable process-instance identities. Process declarations describe
 scientific topology and are canonicalized before runtime realization.
 """
 function default_processes(::AbstractModelFamily)
-    return throw(
+    throw(
         ArgumentError(
             "No method `default_processes(family)` is defined for this model family."
         ),

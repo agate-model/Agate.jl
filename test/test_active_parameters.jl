@@ -12,13 +12,18 @@ using Oceananigans.Biogeochemistry:
 using Oceananigans.Units: day
 using Oceananigans.Fields: ConstantField
 
+
 @testset "parameterized BGC" begin
     mu0 = 0.7 / day
     base_bgc = runtime_npz_growth_fixture(; mu=mu0)
 
-    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate=(:P_1,))
+    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P_1,))
     p = [mu0]
-    bgc_p = Agate.Runtime.parameterized(base_bgc, p; active_parameters=active_growth)
+    bgc_p = Agate.Runtime.parameterized(
+        base_bgc,
+        p;
+        active_parameters=active_growth,
+    )
 
     args = runtime_npz_args()
     base_tendency = base_bgc(Val(:P_1), args...)
@@ -27,24 +32,21 @@ using Oceananigans.Fields: ConstantField
     @test active_tendency ≈ base_tendency
     @test iszero(bgc_p(Val(:T), args...))
     @test bgc_p.parameters.maximum_growth_rate[1] == p[1]
-    @test bgc_p.parameters.maximum_growth_rate[2] ==
-        base_bgc.parameters.maximum_growth_rate[2]
+    @test bgc_p.parameters.maximum_growth_rate[2] == base_bgc.parameters.maximum_growth_rate[2]
 
     p_fast = [2mu0]
     fast_bgc = Agate.Runtime.parameterized(
-        base_bgc, p_fast; active_parameters=active_growth
+        base_bgc,
+        p_fast;
+        active_parameters=active_growth,
     )
     fast_tendency = fast_bgc(Val(:P_1), args...)
 
     @test fast_tendency != base_tendency
-    @test required_biogeochemical_tracers(fast_bgc) ==
-        required_biogeochemical_tracers(base_bgc)
-    @test required_biogeochemical_auxiliary_fields(fast_bgc) ==
-        required_biogeochemical_auxiliary_fields(base_bgc)
-    @test biogeochemical_drift_velocity(fast_bgc, Val(:P_1)) ==
-        biogeochemical_drift_velocity(base_bgc, Val(:P_1))
-    @test Agate.Introspection.tracer_groups(fast_bgc) ==
-        Agate.Introspection.tracer_groups(base_bgc)
+    @test required_biogeochemical_tracers(fast_bgc) == required_biogeochemical_tracers(base_bgc)
+    @test required_biogeochemical_auxiliary_fields(fast_bgc) == required_biogeochemical_auxiliary_fields(base_bgc)
+    @test biogeochemical_drift_velocity(fast_bgc, Val(:P_1)) == biogeochemical_drift_velocity(base_bgc, Val(:P_1))
+    @test Agate.Introspection.tracer_groups(fast_bgc) == Agate.Introspection.tracer_groups(base_bgc)
 
     adapted_bgc = Adapt.adapt(identity, fast_bgc)
     @test adapted_bgc(Val(:P_1), args...) ≈ fast_tendency
@@ -55,7 +57,7 @@ end
     mu0 = 0.7 / day
     base_bgc = runtime_npz_growth_fixture(; mu=mu0, grid)
 
-    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate=(:P_1,))
+    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P_1,))
     p = copy(active_growth.values)
     bgc_p = Agate.Runtime.parameterized(base_bgc, p; active_parameters=active_growth)
 
@@ -67,12 +69,13 @@ end
     @test !isnothing(box_model)
 end
 
+
 @testset "ODE problem active parameters" begin
     mu0 = 0.7 / day
     base_bgc = runtime_npz_growth_fixture(; mu=mu0)
 
     u0 = runtime_npz_u0()
-    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate=(:P_1,))
+    active_growth = Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = (:P_1,))
     p = [mu0]
 
     problem = Agate.Runtime.ode_problem(
@@ -91,9 +94,11 @@ end
     du = similar(u0)
     problem.f(du, u0, p, 0.0)
 
-    expected = Agate.Runtime.parameterized(base_bgc, p; active_parameters=active_growth)(
-        Val(:P_1), 0, 0, 0, 0.0, u0..., 100.0
-    )
+    expected = Agate.Runtime.parameterized(
+        base_bgc,
+        p;
+        active_parameters=active_growth,
+    )(Val(:P_1), 0, 0, 0, 0.0, u0..., 100.0)
 
     @test du[p1_index] ≈ expected
 
@@ -104,8 +109,9 @@ end
     @test du_fast[p1_index] != du[p1_index]
 
     p_scalar = [mu0, 2base_bgc.parameters.detritus_remineralization]
-    active_scalar = Agate.Runtime.active_parameters(
-        base_bgc; maximum_growth_rate=(:P_1,), detritus_remineralization=true
+    active_scalar = Agate.Runtime.active_parameters(base_bgc;
+        maximum_growth_rate = (:P_1,),
+        detritus_remineralization = true,
     )
     problem_scalar = Agate.Runtime.ode_problem(
         base_bgc,
@@ -120,15 +126,16 @@ end
     problem_scalar.f(du_scalar, u0, p_scalar, 0.0)
 
     expected_scalar = Agate.Runtime.parameterized(
-        base_bgc, p_scalar; active_parameters=active_scalar
-    )(
-        Val(:N), 0, 0, 0, 0.0, u0..., 100.0
-    )
+        base_bgc,
+        p_scalar;
+        active_parameters=active_scalar,
+    )(Val(:N), 0, 0, 0, 0.0, u0..., 100.0)
 
     @test du_scalar[n_index] ≈ expected_scalar
 
-    active_matrix = Agate.Runtime.active_parameters(
-        base_bgc; maximum_growth_rate=(:P_1,), palatability_matrix=((:Z_1, :P_1),)
+    active_matrix = Agate.Runtime.active_parameters(base_bgc;
+        maximum_growth_rate = (:P_1,),
+        palatability_matrix = ((:Z_1, :P_1),),
     )
     p_matrix = [mu0, 3base_bgc.parameters.palatability_matrix[1, 1]]
     problem_matrix = Agate.Runtime.ode_problem(
@@ -144,54 +151,44 @@ end
     problem_matrix.f(du_matrix, u0, p_matrix, 0.0)
 
     expected_matrix = Agate.Runtime.parameterized(
-        base_bgc, p_matrix; active_parameters=active_matrix
-    )(
-        Val(:P_1), 0, 0, 0, 0.0, u0..., 100.0
-    )
+        base_bgc,
+        p_matrix;
+        active_parameters=active_matrix,
+    )(Val(:P_1), 0, 0, 0, 0.0, u0..., 100.0)
 
     @test du_matrix[p1_index] ≈ expected_matrix
     @test du_matrix[p1_index] != du[p1_index]
 
     @test_throws ArgumentError Agate.Runtime.ode_problem(
-        base_bgc, u0[1:(end - 1)], (0.0, day); auxiliary=(; PAR=100.0)
+        base_bgc, u0[1:end-1], (0.0, day); auxiliary=(; PAR=100.0)
     )
 end
 
 @testset "active parameter selector validation" begin
     base_bgc = runtime_npz_model()
-    for name in
-        (:specificity, :protection, :optimum_predator_prey_ratio, :assimilation_efficiency)
+    for name in (:specificity, :protection, :optimum_predator_prey_ratio, :assimilation_efficiency)
         @test !hasproperty(base_bgc.parameters, name)
     end
 
     palatability_selectors = (
-        () -> Agate.Runtime.active_parameters(base_bgc; specificity=(:Z_1,)),
-        () -> Agate.Runtime.active_parameters(base_bgc; protection=(:P_1,)),
-        () ->
-            Agate.Runtime.active_parameters(base_bgc; optimum_predator_prey_ratio=(:Z_1,)),
+        () -> Agate.Runtime.active_parameters(base_bgc; specificity = (:Z_1,)),
+        () -> Agate.Runtime.active_parameters(base_bgc; protection = (:P_1,)),
+        () -> Agate.Runtime.active_parameters(base_bgc; optimum_predator_prey_ratio = (:Z_1,)),
     )
 
     for selector in palatability_selectors
         @test occursin(":palatability_matrix", argument_error_message(selector))
     end
 
-    assimilation_message = argument_error_message(
-        () -> Agate.Runtime.active_parameters(base_bgc; assimilation_efficiency=(:Z_1,))
+    assimilation_message = argument_error_message(() ->
+        Agate.Runtime.active_parameters(base_bgc; assimilation_efficiency = (:Z_1,))
     )
     @test occursin(":assimilation_matrix", assimilation_message)
 
-    @test_throws ArgumentError Agate.Runtime.active_parameters(
-        base_bgc; palatability_matrix=true
-    )
-    @test_throws ArgumentError Agate.Runtime.active_parameters(
-        base_bgc; maximum_growth_rate=((:P_1, :P_2, :extra),)
-    )
-    @test_throws ArgumentError Agate.Runtime.active_parameters(
-        base_bgc; detritus_remineralization=false
-    )
-    @test_throws ArgumentError Agate.Runtime.active_parameters(
-        base_bgc; not_a_parameter=true
-    )
+    @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; palatability_matrix = true)
+    @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate = ((:P_1, :P_2, :extra),))
+    @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; detritus_remineralization = false)
+    @test_throws ArgumentError Agate.Runtime.active_parameters(base_bgc; not_a_parameter = true)
     @test_throws ArgumentError Agate.Runtime.active_parameters(
         base_bgc; maximum_growth_rate=(:P_1, :P_1)
     )
@@ -208,21 +205,21 @@ end
         base_bgc, [-1.0]; active_parameters=active_growth
     )
 
-    nested_message = argument_error_message(
-        () -> Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate=(P_1=true,))
+    nested_message = argument_error_message(() ->
+        Agate.Runtime.active_parameters(base_bgc; maximum_growth_rate=(P_1=true,))
     )
     @test occursin("Nested active-parameter selections are not supported", nested_message)
 end
 
+
 @testset "active parameter set" begin
     base_bgc = runtime_npz_model()
 
-    active = Agate.Runtime.active_parameters(
-        base_bgc;
-        maximum_growth_rate=(:P_1, :P_2),
-        detritus_remineralization=true,
-        palatability_matrix=((:Z_1, :P_1), (:Z_1, :P_2), (:Z_2, :P_1)),
-        assimilation_matrix=((:Z_1, :P_1),),
+    active = Agate.Runtime.active_parameters(base_bgc;
+        maximum_growth_rate = (:P_1, :P_2),
+        detritus_remineralization = true,
+        palatability_matrix = ((:Z_1, :P_1), (:Z_1, :P_2), (:Z_2, :P_1)),
+        assimilation_matrix = ((:Z_1, :P_1),),
     )
 
     @test active.labels == (
@@ -253,38 +250,43 @@ end
     p[4] *= 3
     p[7] = 0.8
 
-    bgc_p = Agate.Runtime.parameterized(base_bgc, p; active_parameters=active)
+    bgc_p = Agate.Runtime.parameterized(base_bgc, p; active_parameters = active)
 
     @test selected_values(bgc_p) == p
 
-    @test bgc_p.parameters.palatability_matrix[2, 2] ==
-        base_bgc.parameters.palatability_matrix[2, 2]
+    @test bgc_p.parameters.palatability_matrix[2, 2] == base_bgc.parameters.palatability_matrix[2, 2]
     active_interaction = Agate.Introspection.interaction_matrix(bgc_p, :palatability_matrix)
     @test (active_interaction.rows, active_interaction.columns) ==
-        ([:Z_1, :Z_2], [:P_1, :P_2])
+          ([:Z_1, :Z_2], [:P_1, :P_2])
     @test active_interaction.matrix[1, 1] == p[4]
 end
 
 @testset "named-PFT runtime active parameters" begin
     named_bgc = runtime_npz_model(;
-        plankton_pfts=(; P=(diat=[2.0], dino=[10.0]), Z=(microzoo=[20.0], mesozoo=[100.0]))
+        plankton_pfts=(;
+            P=(diat=[2.0], dino=[10.0]),
+            Z=(microzoo=[20.0], mesozoo=[100.0]),
+        ),
     )
     flat_bgc = runtime_npz_model(;
-        plankton_pfts=(; P=(P=[2.0, 10.0],), Z=(Z=[20.0, 100.0],))
+        plankton_pfts=(;
+            P=(P=[2.0, 10.0],), Z=(Z=[20.0, 100.0],)
+        )
     )
 
     function runtime_active(bgc, producers, consumers)
         producer_1, producer_2 = producers
         consumer_1, consumer_2 = consumers
-        return Agate.Runtime.active_parameters(
-            bgc;
+        return Agate.Runtime.active_parameters(bgc;
             maximum_growth_rate=(producer_1, producer_2),
             palatability_matrix=((consumer_1, producer_1),),
             assimilation_matrix=((consumer_2, producer_2),),
         )
     end
 
-    named_active = runtime_active(named_bgc, (:diat_1, :dino_1), (:microzoo_1, :mesozoo_1))
+    named_active = runtime_active(
+        named_bgc, (:diat_1, :dino_1), (:microzoo_1, :mesozoo_1)
+    )
     flat_active = runtime_active(flat_bgc, (:P_1, :P_2), (:Z_1, :Z_2))
 
     @test named_active.labels == (
@@ -308,15 +310,22 @@ end
         flat_bgc, p; active_parameters=flat_active
     )
     @test named_parameterized(Val(:diat_1), args...) ≈
-        flat_parameterized(Val(:P_1), args...)
+          flat_parameterized(Val(:P_1), args...)
 
-    named_to_flat = (N=:N, D=:D, diat_1=:P_1, dino_1=:P_2, microzoo_1=:Z_1, mesozoo_1=:Z_2)
+    named_to_flat = (
+        N=:N, D=:D, diat_1=:P_1, dino_1=:P_2, microzoo_1=:Z_1, mesozoo_1=:Z_2,
+    )
     reference_state = runtime_npz_test_state()
     function rhs(bgc, active, state_name=identity)
         tracers = Tuple(Agate.Introspection.tracer_names(bgc))
         u0 = [getproperty(reference_state, state_name(tracer)) for tracer in tracers]
         problem = Agate.Runtime.ode_problem(
-            bgc, u0, (0.0, day); p, active_parameters=active, auxiliary=(; PAR=100.0)
+            bgc,
+            u0,
+            (0.0, day);
+            p,
+            active_parameters=active,
+            auxiliary=(; PAR=100.0),
         )
         du = similar(u0)
         problem.f(du, u0, p, 0.0)

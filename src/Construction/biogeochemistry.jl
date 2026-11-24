@@ -4,32 +4,24 @@ using ..Runtime: ParameterizedBGC, evaluate_tendency
 using Oceananigans.Biogeochemistry: AbstractContinuousFormBiogeochemistry
 using Oceananigans.Fields: ZeroField
 
+
 import Oceananigans.Biogeochemistry:
     biogeochemical_drift_velocity,
     required_biogeochemical_auxiliary_fields,
     required_biogeochemical_tracers
 
 """Concrete Oceananigans biogeochemistry built from static compiled equations."""
-struct AgateBGC{Parameters,Equations,SinkingVelocities,Metadata,AuxiliaryFields} <:
-       AbstractContinuousFormBiogeochemistry
+struct AgateBGC{Parameters,Equations,SinkingVelocities,Metadata,AuxiliaryFields} <: AbstractContinuousFormBiogeochemistry
     parameters::Parameters
     equations::Equations
     sinking_velocities::SinkingVelocities
     metadata::Metadata
 end
 
-function AgateBGC(
-    parameters, equations::NamedTuple, auxiliary_fields::Tuple, sinking_velocities, metadata
-)
+function AgateBGC(parameters, equations::NamedTuple, auxiliary_fields::Tuple, sinking_velocities, metadata)
     return AgateBGC{
-        typeof(parameters),
-        typeof(equations),
-        typeof(sinking_velocities),
-        typeof(metadata),
-        auxiliary_fields,
-    }(
-        parameters, equations, sinking_velocities, metadata
-    )
+        typeof(parameters), typeof(equations), typeof(sinking_velocities), typeof(metadata), auxiliary_fields,
+    }(parameters, equations, sinking_velocities, metadata)
 end
 
 @inline function Adapt.adapt_structure(

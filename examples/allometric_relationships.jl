@@ -36,9 +36,11 @@ using CairoMakie
 # starts at zero so that the first few days mainly show phytoplankton growth.
 
 size_structure = (;
-    phytoplankton=(P=[0.8, 2.0, 6.0, 20.0, 60.0],), zooplankton=(Z=[100.0],)
+    phytoplankton=(P=[0.8, 2.0, 6.0, 20.0, 60.0],),
+    zooplankton=(Z=[100.0],),
 )
 nothing #hide
+
 
 # Onyx already uses Agate's built-in `PowerLaw` for `maximum_growth_rate`. A power law
 # has the form `prefactor × V^exponent`, where `V` is spherical cell volume calculated
@@ -48,16 +50,22 @@ nothing #hide
 # change in the next section is easy to follow. `AllometricParam` combines the relationship
 # with its coefficients so that it can be supplied as a model parameter.
 
-default_growth = AllometricParam(PowerLaw(); prefactor=2 / day, exponent=-0.15)
+default_growth = AllometricParam(
+    PowerLaw();
+    prefactor=2 / day,
+    exponent=-0.15,
+)
 nothing #hide
 
 # Pass the relationship through `parameters` when constructing Onyx. Agate then
 # calculates the corresponding `maximum_growth_rate` for each plankton size.
 
 default_bgc = Onyx.construct(;
-    size_structure, parameters=(; maximum_growth_rate=default_growth)
+    size_structure,
+    parameters=(; maximum_growth_rate=default_growth),
 )
 nothing #hide
+
 
 # The growth process applies only to phytoplankton, so its realized parameter storage
 # contains exactly the phytoplankton SizeClasses.
@@ -73,10 +81,15 @@ nothing #hide
 # the default prefactor and change only the exponent from `-0.15` to `-0.05`. When the
 # model is constructed, Agate evaluates this relationship for every phytoplankton size.
 
-shallower_growth = AllometricParam(PowerLaw(); prefactor=2 / day, exponent=-0.05)
+shallower_growth = AllometricParam(
+    PowerLaw();
+    prefactor=2 / day,
+    exponent=-0.05,
+)
 
 shallower_bgc = Onyx.construct(;
-    size_structure, parameters=(; maximum_growth_rate=shallower_growth)
+    size_structure,
+    parameters=(; maximum_growth_rate=shallower_growth),
 )
 nothing #hide
 shallower_growth_rates = shallower_bgc.parameters.maximum_growth_rate
@@ -137,12 +150,19 @@ function run_growth_experiment(bgc, phytoplankton_tracers, filename)
     phytoplankton_initial_conditions = (;
         (tracer => 0.01 for tracer in phytoplankton_tracers)...
     )
-    initial_conditions = merge((; N=20.0, D=0.0, Z_1=0.0), phytoplankton_initial_conditions)
+    initial_conditions = merge(
+        (; N=20.0, D=0.0, Z_1=0.0),
+        phytoplankton_initial_conditions,
+    )
     set!(model; initial_conditions...)
 
     simulation = Simulation(model; Δt=60minutes, stop_time=3days)
     simulation.output_writers[:fields] = JLD2Writer(
-        model, model.fields; filename, schedule=TimeInterval(1hour), overwrite_files=true
+        model,
+        model.fields;
+        filename,
+        schedule=TimeInterval(1hour),
+        overwrite_files=true,
     )
 
     run!(simulation)
@@ -150,10 +170,14 @@ function run_growth_experiment(bgc, phytoplankton_tracers, filename)
 end
 
 default_filename = run_growth_experiment(
-    default_bgc, phytoplankton_tracers, "allometry_default_growth.jld2"
+    default_bgc,
+    phytoplankton_tracers,
+    "allometry_default_growth.jld2",
 )
 shallower_filename = run_growth_experiment(
-    shallower_bgc, phytoplankton_tracers, "allometry_shallower_growth.jld2"
+    shallower_bgc,
+    phytoplankton_tracers,
+    "allometry_shallower_growth.jld2",
 )
 
 nothing #hide
@@ -164,10 +188,7 @@ nothing #hide
 
 function load_growth_experiment(filename, phytoplankton_tracers)
     series = (;
-        (
-            tracer => FieldTimeSeries(filename, string(tracer))[1, 1, 1, :] for
-            tracer in phytoplankton_tracers
-        )...
+        (tracer => FieldTimeSeries(filename, string(tracer))[1, 1, 1, :] for tracer in phytoplankton_tracers)...
     )
     times = FieldTimeSeries(filename, string(first(phytoplankton_tracers))).times
     return times, series
@@ -196,8 +217,7 @@ function plot_growth_comparison(
     fig = Figure(; size=(850, 760), fontsize=13)
     Label(fig[0, 1:2], title; fontsize=20)
 
-    for (idx, (tracer, diameter)) in
-        enumerate(zip(phytoplankton_tracers, phytoplankton_diameters))
+    for (idx, (tracer, diameter)) in enumerate(zip(phytoplankton_tracers, phytoplankton_diameters))
         row = 1 + div(idx - 1, 2)
         col = 1 + mod(idx - 1, 2)
         ax = Axis(
@@ -298,7 +318,10 @@ ward_growth = AllometricParam(
     mu_infinity_exponent=-0.26,
 )
 
-ward_bgc = Onyx.construct(; size_structure, parameters=(; maximum_growth_rate=ward_growth))
+ward_bgc = Onyx.construct(;
+    size_structure,
+    parameters=(; maximum_growth_rate=ward_growth),
+)
 
 ward_growth_rates = ward_bgc.parameters.maximum_growth_rate
 nothing #hide
@@ -345,7 +368,9 @@ ward_fig
 # #### Run the simulation
 
 ward_filename = run_growth_experiment(
-    ward_bgc, phytoplankton_tracers, "allometry_ward_growth.jld2"
+    ward_bgc,
+    phytoplankton_tracers,
+    "allometry_ward_growth.jld2",
 )
 
 nothing #hide

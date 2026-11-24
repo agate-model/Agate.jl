@@ -145,11 +145,8 @@ function palatability_matrix_allometric_axes(
     palatability_fn=allometric_palatability_unimodal_protection,
 ) where {T<:Real}
     n = length(diameters)
-    for (name, values) in (
-        (:optimum_predator_prey_ratio, optimum_predator_prey_ratio),
-        (:specificity, specificity),
-        (:protection, protection),
-    )
+    for (name, values) in ((:optimum_predator_prey_ratio, optimum_predator_prey_ratio),
+                           (:specificity, specificity), (:protection, protection))
         length(values) == n || throw(ArgumentError("$name must match diameters length $n"))
     end
     _validate_indices(consumer_indices, n, :consumer_indices)

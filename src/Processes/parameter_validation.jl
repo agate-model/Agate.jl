@@ -18,12 +18,10 @@ function _validate_parameter_domains(
         value = getproperty(parameter_values, binding.parameter)
         for entry in _parameter_entries(value)
             parameter_domain_valid(entry, binding.domain) && continue
-            throw(
-                ArgumentError(
-                    "process :$(binding.process) path $(binding.path) slot :$(binding.slot) " *
-                    "parameter :$(binding.parameter) must satisfy domain :$(binding.domain); got $entry",
-                ),
-            )
+            throw(ArgumentError(
+                "process :$(binding.process) path $(binding.path) slot :$(binding.slot) " *
+                "parameter :$(binding.parameter) must satisfy domain :$(binding.domain); got $entry",
+            ))
         end
     end
     return nothing
@@ -34,9 +32,7 @@ struct ParameterValueRef{Parameter,Indices}
     indices::Indices
 end
 
-function ParameterValueRef(parameter::Symbol, indices)
-    return ParameterValueRef{parameter,typeof(indices)}(indices)
-end
+ParameterValueRef(parameter::Symbol, indices) = ParameterValueRef{parameter,typeof(indices)}(indices)
 _parameter_name(::ParameterValueRef{Parameter}) where {Parameter} = Parameter
 
 struct OrderedParameterConstraint{Lower,Upper,Path}
@@ -62,9 +58,7 @@ struct MatchingCompositionConstraint{Prey,Consumer}
     element::Symbol
 end
 
-@inline function _parameter_value(
-    parameters, reference::ParameterValueRef{Parameter}
-) where {Parameter}
+@inline function _parameter_value(parameters, reference::ParameterValueRef{Parameter}) where {Parameter}
     value = getproperty(parameters, Parameter)
     isempty(reference.indices) && return value
     return value[reference.indices...]
@@ -74,40 +68,32 @@ function _validate_parameter_constraint(parameters, constraint::OrderedParameter
     minimum = _parameter_value(parameters, constraint.lower)
     maximum = _parameter_value(parameters, constraint.upper)
     maximum > minimum && return nothing
-    return throw(
-        ArgumentError(
-            "process :$(constraint.process) path $(constraint.path) entity :$(constraint.entity) " *
-            "parameter :$(_parameter_name(constraint.upper)) must be greater than " *
-            ":$(_parameter_name(constraint.lower))=$minimum; got $maximum",
-        ),
-    )
+    throw(ArgumentError(
+        "process :$(constraint.process) path $(constraint.path) entity :$(constraint.entity) " *
+        "parameter :$(_parameter_name(constraint.upper)) must be greater than " *
+        ":$(_parameter_name(constraint.lower))=$minimum; got $maximum",
+    ))
 end
 
 function _validate_parameter_constraint(parameters, constraint::ProductFractionConstraint)
     fractions = map(reference -> _parameter_value(parameters, reference), constraint.terms)
     total = sum(fractions)
     zero(total) <= total <= one(total) && return nothing
-    return throw(
-        ArgumentError(
-            "product fractions for process :$(constraint.process) sum to $total; expected a value " *
-            "in [0, 1] so the omitted product receives a conservative remainder",
-        ),
-    )
+    throw(ArgumentError(
+        "product fractions for process :$(constraint.process) sum to $total; expected a value " *
+        "in [0, 1] so the omitted product receives a conservative remainder",
+    ))
 end
 
-function _validate_parameter_constraint(
-    parameters, constraint::MatchingCompositionConstraint
-)
+function _validate_parameter_constraint(parameters, constraint::MatchingCompositionConstraint)
     prey_ratio = _parameter_value(parameters, constraint.prey)
     consumer_ratio = _parameter_value(parameters, constraint.consumer)
     prey_ratio == consumer_ratio && return nothing
-    return throw(
-        ArgumentError(
-            "process :$(constraint.process) implicit :$(constraint.element) composition must " *
-            "match between prey :$(constraint.prey_entity) ($prey_ratio) and " *
-            "consumer :$(constraint.consumer_entity) ($consumer_ratio)",
-        ),
-    )
+    throw(ArgumentError(
+        "process :$(constraint.process) implicit :$(constraint.element) composition must " *
+        "match between prey :$(constraint.prey_entity) ($prey_ratio) and " *
+        "consumer :$(constraint.consumer_entity) ($consumer_ratio)",
+    ))
 end
 
 """Validate coupled formulation constraints against any runtime-compatible parameter container."""
@@ -132,11 +118,9 @@ function _append_quota_constraints!(
     maximum_binding = slots.maximum_quota
     minimum_entities = _layout_axis_entities(layout, only(minimum_binding.axis_components))
     maximum_entities = _layout_axis_entities(layout, only(maximum_binding.axis_components))
-    minimum_entities == maximum_entities || throw(
-        ArgumentError(
-            "quota bounds for process :$(process_id(named)) path $path resolve to different plankton entities",
-        ),
-    )
+    minimum_entities == maximum_entities || throw(ArgumentError(
+        "quota bounds for process :$(process_id(named)) path $path resolve to different plankton entities",
+    ))
 
     for entity in minimum_entities
         minimum = ParameterValueRef(
@@ -147,10 +131,9 @@ function _append_quota_constraints!(
             maximum_binding.parameter,
             (parameter_storage_index(plan, maximum_binding.parameter, 1, entity),),
         )
-        push!(
-            constraints,
-            OrderedParameterConstraint(minimum, maximum, process_id(named), path, entity),
-        )
+        push!(constraints, OrderedParameterConstraint(
+            minimum, maximum, process_id(named), path, entity,
+        ))
     end
     return nothing
 end
@@ -159,7 +142,7 @@ function _append_quota_factor_constraints!(
     constraints, definition, layout, plan, named, path, factor, refs
 )
     factor isa QuotaResponse && _append_quota_constraints!(
-        constraints, definition, layout, plan, named, path, refs.slots
+        constraints, definition, layout, plan, named, path, refs.slots,
     )
     for (name, subfactor) in pairs(factor_subfactors(factor))
         _append_quota_factor_constraints!(
@@ -179,13 +162,11 @@ end
 function _append_product_constraints!(constraints, definition, named)
     products = process_products(named.process)
     (isnothing(products) || length(products.destinations) == 1) && return nothing
-    terms = Tuple(
-        begin
-            refs = getproperty(named.binding_refs.products.fractions, product)
-            binding = _resolved_slot_bindings(definition, refs).fraction
-            ParameterValueRef(binding.parameter, ())
-        end for product in keys(products.fractions)
-    )
+    terms = Tuple(begin
+        refs = getproperty(named.binding_refs.products.fractions, product)
+        binding = _resolved_slot_bindings(definition, refs).fraction
+        ParameterValueRef(binding.parameter, ())
+    end for product in keys(products.fractions))
     push!(constraints, ProductFractionConstraint(terms, process_id(named)))
     return nothing
 end
@@ -195,50 +176,31 @@ end
 These constraints use the same realized parameter storage as compiled fluxes, including
 size classes, user overrides and active-parameter updates.
 """
-function _append_matching_composition_constraints!(
-    constraints, definition, layout, plan, named
-)
+function _append_matching_composition_constraints!(constraints, definition, layout, plan, named)
     process = named.process
-    process isa Consumption && uses_living_interactions(process.formulation) ||
-        return nothing
+    process isa Consumption && uses_living_interactions(process.formulation) || return nothing
 
     for consumer in process.consumers
         consumer_composition = composition(getproperty(definition.components, consumer))
         for element in keys(consumer_composition), prey in process.resources
             prey_composition = composition(getproperty(definition.components, prey))
-            hasproperty(prey_composition, element) || throw(
-                ArgumentError(
-                    "process :$(process_id(named)) prey :$prey must have implicit " *
-                    ":$element composition to match consumer :$consumer",
-                ),
-            )
+            hasproperty(prey_composition, element) || throw(ArgumentError(
+                "process :$(process_id(named)) prey :$prey must have implicit " *
+                ":$element composition to match consumer :$consumer",
+            ))
             prey_parameter = getproperty(prey_composition, element)
             consumer_parameter = getproperty(consumer_composition, element)
             for consumer_entity in component_entities(layout, consumer)
-                consumer_ref = ParameterValueRef(
-                    consumer_parameter,
-                    (
-                        parameter_storage_index(
-                            plan, consumer_parameter, 1, consumer_entity
-                        ),
-                    ),
-                )
+                consumer_ref = ParameterValueRef(consumer_parameter, (
+                    parameter_storage_index(plan, consumer_parameter, 1, consumer_entity),
+                ))
                 for prey_entity in component_entities(layout, prey)
-                    prey_ref = ParameterValueRef(
-                        prey_parameter,
-                        (parameter_storage_index(plan, prey_parameter, 1, prey_entity),),
-                    )
-                    push!(
-                        constraints,
-                        MatchingCompositionConstraint(
-                            prey_ref,
-                            consumer_ref,
-                            process_id(named),
-                            prey_entity,
-                            consumer_entity,
-                            element,
-                        ),
-                    )
+                    prey_ref = ParameterValueRef(prey_parameter, (
+                        parameter_storage_index(plan, prey_parameter, 1, prey_entity),
+                    ))
+                    push!(constraints, MatchingCompositionConstraint(
+                        prey_ref, consumer_ref, process_id(named), prey_entity, consumer_entity, element,
+                    ))
                 end
             end
         end
@@ -265,12 +227,10 @@ function parameter_constraints(
             )
         end
         named.process isa NutrientUptake && _append_quota_constraints!(
-            constraints, definition, layout, plan, named, (), named.binding_refs.process
+            constraints, definition, layout, plan, named, (), named.binding_refs.process,
         )
         _append_product_constraints!(constraints, definition, named)
-        _append_matching_composition_constraints!(
-            constraints, definition, layout, plan, named
-        )
+        _append_matching_composition_constraints!(constraints, definition, layout, plan, named)
     end
     return Tuple(constraints)
 end

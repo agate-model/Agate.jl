@@ -14,8 +14,9 @@ abstract type AbstractParamDef end
 
 @inline function _validate_indices(indices, n::Integer, name::Symbol=:indices)
     for index in indices
-        index isa Integer && !(index isa Bool) && 1 <= index <= n ||
-            throw(ArgumentError("$name must contain indices in 1:$n; got $index"))
+        index isa Integer && !(index isa Bool) && 1 <= index <= n || throw(
+            ArgumentError("$name must contain indices in 1:$n; got $index"),
+        )
     end
     return nothing
 end
@@ -100,7 +101,7 @@ Callable continuous two-regime power-law model using spherical cell volume.
 struct SplitPowerLaw end
 
 function allometric_relationship_identifier(model)
-    return throw(
+    throw(
         ArgumentError(
             "No identifier is defined for allometric relationship $(typeof(model))."
         ),
@@ -111,9 +112,7 @@ allometric_relationship_identifier(::PowerLaw) = :power_law
 allometric_relationship_identifier(::SplitPowerLaw) = :split_power_law
 
 function allometric_relationship_from_identifier(::Val{id}) where {id}
-    return throw(
-        ArgumentError("Unsupported allometric relationship identifier $(repr(id)).")
-    )
+    throw(ArgumentError("Unsupported allometric relationship identifier $(repr(id))."))
 end
 
 allometric_relationship_from_identifier(::Val{:power_law}) = PowerLaw()
@@ -163,7 +162,8 @@ end
     breakpoint > zero(breakpoint) ||
         throw(ArgumentError("SplitPowerLaw `breakpoint` must be positive"))
 
-    diameter <= breakpoint && return allometric_scaling_power(a, small_exponent, diameter)
+    diameter <= breakpoint &&
+        return allometric_scaling_power(a, small_exponent, diameter)
 
     value_at_breakpoint = allometric_scaling_power(a, small_exponent, breakpoint)
     diameter_ratio = diameter / breakpoint
@@ -205,7 +205,7 @@ Resolve a scalar, boolean, or explicit parameter definition at one diameter.
 
     applicable(p.model, coeffs, d) || throw(
         ArgumentError(
-            "AllometricParam relationship must be callable as relationship(coeffs, diameter)",
+            "AllometricParam relationship must be callable as relationship(coeffs, diameter)"
         ),
     )
 
@@ -264,7 +264,11 @@ Resolve a scalar or parameter definition over a subset of diameters.
 - `default`: value assigned outside `indices`.
 """
 function resolve_diameter_indexed_vector(
-    ::Type{T}, diameters, indices, value; default::T
+    ::Type{T},
+    diameters,
+    indices,
+    value;
+    default::T,
 ) where {T<:Real}
     n = length(diameters)
     _validate_indices(indices, n)
