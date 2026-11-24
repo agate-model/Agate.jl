@@ -108,9 +108,13 @@ end
 
 # A weighted two-output map gives a cheap analytic oracle for the Enzyme VJP
 # through the public trait-entry selection, without compiling an ODE adjoint.
-function weighted_trait_parameters(tau, parameter_map)
+function weighted_trait_parameters(tau, parameter_map, weights)
     p = parameter_map(tau)
-    return 3p[1] + 2p[2] # plan order: assimilation, palatability
+    total = zero(eltype(tau))
+    for i in eachindex(p, weights)
+        total += p[i] * weights[i]
+    end
+    return total
 end
 
 @testset "Active named SizeClass traits" begin
@@ -164,6 +168,7 @@ end
                 Enzyme.set_runtime_activity(Enzyme.Reverse),
                 Enzyme.Const(weighted_trait_parameters), Enzyme.Active,
                 Enzyme.Duplicated(copy(tau0), gradient), Enzyme.Const(traits.parameter_map),
+                Enzyme.Const([3.0, 2.0]), # plan order: assimilation, palatability
             )
             @test gradient ≈ [-2log(5) * 5^(-tau0[1]), 3.0]
 
@@ -179,4 +184,40 @@ end
             @test du ≈ du_ref
         end
     end
+end
+
+# Onyx exposed a compiler failure with two selected vector traits sharing a
+# matrix output and a baseline containing both scalar and array parameters.
+@testset "Enzyme trait map with mixed parameter storage" begin
+    npz, scalar = direct_npz_definition(), derived_default_definition()
+    definition = Agate.Processes.ModelDefinition(;
+        components=merge(npz.components, scalar.components),
+        processes=merge(npz.processes, scalar.processes),
+        parameters=merge(npz.parameters, scalar.parameters),
+    )
+    traits = active_traits(definition;
+        plankton_pfts=(P=(P=[1.0, 2.0],), Z=(Z=[10.0, 20.0],)),
+        parameter_overrides=(optimum_predator_prey_ratio=(Z_1=8.0,),),
+        trait_selection=(specificity=(:Z_1,), optimum_predator_prey_ratio=(:Z_1,)),
+    )
+    tau = copy(traits.values)
+    f = traits.parameter_map
+    @test f(tau) == realize_trait_parameters(traits, tau) == traits.active_parameters.values
+    @test length(traits.active_parameters) == 4
+    weights = [1.0, 2.0, 3.0, 4.0]
+    gradient = zeros(length(tau))
+    Enzyme.autodiff(
+        Enzyme.set_runtime_activity(Enzyme.Reverse),
+        Enzyme.Const(weighted_trait_parameters), Enzyme.Active,
+        Enzyme.Duplicated(copy(tau), gradient), Enzyme.Const(f), Enzyme.Const(weights),
+    )
+    fd = map(eachindex(tau)) do i
+        plus, minus = copy(tau), copy(tau)
+        h = 1e-5
+        plus[i] += h
+        minus[i] -= h
+        (weighted_trait_parameters(plus, f, weights) - weighted_trait_parameters(minus, f, weights)) / (2h)
+    end
+    @test all(abs.(fd) .> 1e-5)
+    @test isapprox(gradient, fd; rtol=1e-6, atol=1e-8)
 end

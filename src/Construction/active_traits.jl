@@ -15,9 +15,12 @@ end
 ]
 
 @inline function _trait_updates(tau, baseline, slots::NamedTuple{Names}) where {Names}
-    return NamedTuple{Names}(map(Names, values(slots)) do name, indices
-        _trait_update(tau, getproperty(baseline, name), indices)
-    end)
+    # Select the fixed fields before mapping over values. A runtime Symbol
+    # lookup on a mixed scalar/array NamedTuple introduces boxed unions in AD.
+    selected = NamedTuple{Names}(baseline)
+    return NamedTuple{Names}(map(
+        (base, indices) -> _trait_update(tau, base, indices), values(selected), values(slots)
+    ))
 end
 
 @inline function _realized_trait_values(f::TraitParameterMap, tau)

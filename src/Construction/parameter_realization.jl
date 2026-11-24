@@ -290,7 +290,7 @@ end
 
 # A dependency tuple is fixed during preparation, rather than discovered inside AD.
 function _derived_evaluator(kernel, ::Val{Deps}) where {Deps}
-    return inputs -> kernel(NamedTuple{Deps}(map(dep -> getproperty(inputs, dep), Deps)))
+    return inputs -> kernel(NamedTuple{Deps}(inputs))
 end
 
 function _prepare_derived_defaults(plan, layout, inputs; derivation_owner)
