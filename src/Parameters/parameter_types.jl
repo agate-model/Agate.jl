@@ -105,6 +105,11 @@ end
 @inline _derive_parameter_default(deriver, owner, context, parameter, params::NamedTuple) =
     derive_default(deriver, owner, context, params)
 
+# Built-in context-sensitive derivations specialize preparation to resolve structural
+# indices once. Custom derivers retain the existing scientific extension hook.
+_prepare_parameter_default(deriver, owner, context, parameter) =
+    params -> _derive_parameter_default(deriver, owner, context, parameter, params)
+
 """Indicates that a parameter has no default value.
 
 The parameter must be supplied by an override before construction can complete.

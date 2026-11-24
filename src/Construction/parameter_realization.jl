@@ -3,9 +3,11 @@ using ..Parameters:
     DerivedDefault,
     NoDefault,
     DiameterIndexedVectorDefault,
-    _derive_parameter_default
+    _prepare_parameter_default
 
-using ..Processes: planned_parameter
+using ..Processes:
+    planned_parameter, runtime_parameter_values, parameter_constraints,
+    validate_realized_parameters, ParameterValueRef, _parameter_value
 
 using ..Library.Allometry: AbstractParamDef, AllometricParam, resolve_diameter_indexed_vector
 
@@ -286,34 +288,148 @@ function materialize_parameter_overrides(
     return (; entries...)
 end
 
-"""Resolve one-level `DerivedDefault` values from already-materialized parameters."""
-function resolve_derived_parameter_defaults(
-    plan,
-    layout,
-    params::NamedTuple;
-    derivation_owner,
-)
-    resolved = params
-    T = layout.scalar_type
+# A dependency tuple is fixed during preparation, rather than discovered inside AD.
+function _derived_evaluator(kernel, ::Val{Deps}) where {Deps}
+    return inputs -> kernel(NamedTuple{Deps}(map(dep -> getproperty(inputs, dep), Deps)))
+end
 
-    for (key, parameter) in pairs(plan.parameters)
+function _prepare_derived_defaults(plan, layout, inputs; derivation_owner)
+    names = Tuple(
+        name for (name, parameter) in pairs(plan.parameters)
+        if parameter.definition.default isa DerivedDefault && !hasproperty(inputs, name)
+    )
+    return NamedTuple{names}(map(names) do name
+        parameter = planned_parameter(plan, name)
         provider = parameter.definition.default
-        provider isa DerivedDefault || continue
-        hasproperty(resolved, key) && continue
-
-        missing_deps = Tuple(dep for dep in provider.deps if !hasproperty(params, dep))
+        missing_deps = Tuple(dep for dep in provider.deps if !hasproperty(inputs, dep))
         isempty(missing_deps) || throw(ArgumentError(
-            "derived default :$key is missing dependencies: " * join(string.(missing_deps), ", "),
+            "derived default :$name is missing dependencies: " * join(string.(missing_deps), ", "),
         ))
-        dependencies = NamedTuple{provider.deps}(
-            Tuple(getproperty(params, dep) for dep in provider.deps)
-        )
+        kernel = _prepare_parameter_default(provider.deriver, derivation_owner, layout, parameter)
+        _derived_evaluator(kernel, Val(provider.deps))
+    end)
+end
 
-        value = _derive_parameter_default(
-            provider.deriver, derivation_owner, layout, parameter, dependencies
-        )
-        validate_parameter_value(parameter, value, T; derived=true)
-        resolved = merge(resolved, NamedTuple{(key,)}((value,)))
+@inline function _evaluate_derived_defaults(inputs, derivations)
+    return merge(inputs, map(evaluate -> evaluate(inputs), derivations))
+end
+
+function _checked_parameter_values(canonical, layout, plan, resolved, derivations, constraints)
+    T = layout.scalar_type
+    for name in keys(derivations)
+        validate_parameter_value(planned_parameter(plan, name), getproperty(resolved, name), T;
+                                 derived=true)
     end
-    return resolved
+    required = keys(plan.parameters)
+    missing_names = Tuple(name for name in required if !hasproperty(resolved, name))
+    isempty(missing_names) || throw(
+        ArgumentError("missing required parameters: $(join(string.(missing_names), ", "))")
+    )
+    ordered = NamedTuple{required}(map(name -> getproperty(resolved, name), required))
+    reject_missing_parameter_values(ordered)
+    validate_parameter_storage(plan, ordered, T)
+    validate_realized_parameters(canonical, ordered, constraints)
+    return ordered
+end
+
+"""Prepare ordinary parameter realization, retaining the numerical derivations and override provenance."""
+function _prepare_parameter_realization(canonical, layout, plan, overrides; derivation_owner)
+    T = layout.scalar_type
+    validate_override_keys(plan, overrides)
+    defaults = materialize_parameter_defaults(plan, T, overrides)
+    inputs = merge(defaults, materialize_parameter_overrides(plan, defaults, overrides, T))
+    derivations = _prepare_derived_defaults(plan, layout, inputs; derivation_owner)
+    constraints = parameter_constraints(canonical, layout, plan)
+    resolved = _evaluate_derived_defaults(inputs, derivations)
+    values = _checked_parameter_values(canonical, layout, plan, resolved, derivations, constraints)
+    return (; canonical, layout, plan, constraints, values, derivations, derivation_owner,
+            explicit_override_keys=keys(overrides))
+end
+
+_copy_parameter_value(x) = x isa AbstractArray ? copy(x) : x
+
+# Select whole materialized trait parameters with a fixed runtime active set.
+# Authoring-level entry selection is separate from this numerical preparation.
+function _prepare_trait_realization(prepared, traits::Tuple, active)
+    T = prepared.layout.scalar_type
+    T <: AbstractFloat || throw(ArgumentError("trait realization requires floating-point parameters"))
+    allunique(traits) || throw(ArgumentError("duplicate construction traits"))
+    for name in traits
+        parameter = planned_parameter(prepared.plan, name)
+        parameter.runtime_bound && throw(ArgumentError("parameter :$name is not a construction trait"))
+        _validate_trait_input(getproperty(prepared.values, name), name)
+    end
+    targets = Tuple(
+        name for name in keys(prepared.derivations)
+        if any(dep -> dep in traits, planned_parameter(prepared.plan, name).definition.default.deps)
+    )
+    derivations = NamedTuple{targets}(map(name -> getproperty(prepared.derivations, name), targets))
+    # Explicit output overrides were excluded at preparation. Other derived
+    # outputs retain their baseline values, even when traits are updated repeatedly.
+    numerics = (; baseline=map(_copy_parameter_value, prepared.values), derivations)
+    return (; prepared, traits, numerics, active, gather=_prepare_runtime_gather(active))
+end
+
+function _validate_trait_input(value, name)
+    entries = value isa Real ? (value,) : value
+    entries isa Union{Tuple,NamedTuple,AbstractVector} &&
+        all(v -> v isa Real && !(v isa Bool) && isfinite(v), entries) && return nothing
+    throw(ArgumentError("construction trait :$name must contain finite real values"))
+end
+
+# Reuse the layout-resolved references used by coupled parameter constraints.
+# The runtime active indices, not NamedTuple or matrix storage order, define p.
+function _prepare_runtime_gather(active)
+    refs = Vector{Any}(undef, length(active))
+    for (name, selection) in pairs(active.map)
+        if selection isa Integer
+            refs[selection] = ParameterValueRef(name, ())
+        else
+            for slot in selection
+                refs[slot.active_index] = ParameterValueRef(name, slot.indices)
+            end
+        end
+    end
+    return Tuple(refs)
+end
+
+# Numerical functions accept already-materialized updates, and only evaluate
+# prepared derivations. The inputs and baseline are read-only during evaluation.
+@inline function _rematerialize_traits(numerics, updates::NamedTuple)
+    inputs = merge(numerics.baseline, updates)
+    return _evaluate_derived_defaults(inputs, numerics.derivations)
+end
+
+@inline function _gather_runtime_vector(::Type{T}, resolved, gather) where {T<:Real}
+    return collect(T, map(ref -> _parameter_value(resolved, ref), gather))
+end
+
+@inline function _realize_trait_vector(::Type{T}, numerics, updates, gather) where {T<:Real}
+    return _gather_runtime_vector(T, _rematerialize_traits(numerics, updates), gather)
+end
+
+# Host-side checked realization accepts the ordinary named-vector override
+# vocabulary. Keep validation and authoring-input expansion outside Enzyme.
+function _realize_trait_parameters(selection, updates::NamedTuple)
+    prepared = selection.prepared
+    T = prepared.layout.scalar_type
+    Set(keys(updates)) == Set(selection.traits) || throw(
+        ArgumentError("updates must match the prepared construction traits $(selection.traits)")
+    )
+    for (name, value) in pairs(updates)
+        _validate_trait_input(value, name)
+    end
+    materialized = materialize_parameter_overrides(
+        prepared.plan, selection.numerics.baseline, updates, T
+    )
+    for (name, value) in pairs(materialized)
+        validate_parameter_value(planned_parameter(prepared.plan, name), value, T)
+        _validate_trait_input(value, name)
+    end
+    resolved = _rematerialize_traits(selection.numerics, materialized)
+    checked = _checked_parameter_values(
+        prepared.canonical, prepared.layout, prepared.plan, resolved,
+        selection.numerics.derivations, prepared.constraints
+    )
+    return map(_copy_parameter_value, runtime_parameter_values(prepared.plan, checked))
 end

@@ -13,8 +13,7 @@ using ..Components:
 
 using ..Processes:
     ModelDefinition, canonicalize_model, driver_identities, build_parameter_plan,
-    runtime_parameter_values, parameter_plan_metadata, parameter_constraints,
-    validate_realized_parameters
+    parameter_plan_metadata
 
 using ..Compilation: CompileContext, compile_model_tendencies
 
@@ -196,33 +195,12 @@ function _construct_process_definition(
     validate_sinking_tracers(sinking_tracers, layout)
     tracer_names = layout.tracer_order
     parameter_plan = build_parameter_plan(canonical, layout)
-    required = Tuple(keys(parameter_plan.parameters))
-    validate_override_keys(parameter_plan, parameter_overrides)
-
-    parameter_defaults = materialize_parameter_defaults(
-        parameter_plan, T, parameter_overrides
+    prepared = _prepare_parameter_realization(
+        canonical, layout, parameter_plan, parameter_overrides; derivation_owner
     )
-    materialized_overrides = materialize_parameter_overrides(
-        parameter_plan, parameter_defaults, parameter_overrides, T
-    )
-    explicit_override_keys = Tuple(keys(parameter_overrides))
-    resolved = resolve_derived_parameter_defaults(
-        parameter_plan,
-        layout,
-        merge(parameter_defaults, materialized_overrides);
-        derivation_owner,
-    )
-    missing_names = Symbol[key for key in required if !hasproperty(resolved, key)]
-    isempty(missing_names) || throw(
-        ArgumentError("missing required parameters: $(join(string.(missing_names), ", "))")
-    )
-    resolved_parameters = NamedTuple{required}(
-        Tuple(getproperty(resolved, key) for key in required)
-    )
-    reject_missing_parameter_values(resolved_parameters)
-    validate_parameter_storage(parameter_plan, resolved_parameters, T)
-    constraints = parameter_constraints(canonical, layout, parameter_plan)
-    validate_realized_parameters(canonical, resolved_parameters, constraints)
+    resolved_parameters = prepared.values
+    constraints = prepared.constraints
+    explicit_override_keys = prepared.explicit_override_keys
 
     runtime_parameters = runtime_parameter_values(parameter_plan, resolved_parameters)
     compile_context = CompileContext(canonical, layout, parameter_plan)
