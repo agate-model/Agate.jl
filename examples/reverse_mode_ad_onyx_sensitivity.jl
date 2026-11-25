@@ -123,19 +123,6 @@ end
 
 solve_values(theta; kwargs...) = solve_problem_values(remake(PROBLEM; p=theta); kwargs...)
 
-function solve_final_values(theta; sensealg=nothing)
-    values = solve_values(
-        theta;
-        sensealg,
-        saveat=TSPAN[end],
-        save_start=false,
-        save_end=true,
-        save_everystep=false,
-    )
-
-    return values[:, end]
-end
-
 function total_phytoplankton(values)
     total = zero(eltype(values))
 
@@ -147,7 +134,8 @@ function total_phytoplankton(values)
 end
 
 function final_total_phytoplankton(theta; sensealg=nothing)
-    return total_phytoplankton(solve_final_values(theta; sensealg))
+    values = solve_values(theta; sensealg, saveat=TSPAN[end], save_start=false)
+    return total_phytoplankton(values[:, end])
 end
 
 function final_total_phytoplankton_adjoint(theta)
@@ -257,7 +245,6 @@ end
 
 function trait_gradient(tau)
     theta = trait_runtime_parameters(tau)
-    @assert isfinite(final_total_phytoplankton(theta))
     weights = enzyme_gradient(theta)[TRAIT_PARAMETER_INDICES]
     @assert all(isfinite, weights)
     g = zeros(eltype(tau), length(tau))
@@ -314,14 +301,7 @@ function ordinary_trait_endpoint(tau)
     values = solve_problem_values(
         ordinary_trait_problem(tau); saveat=TSPAN[end], save_start=false, tol=1e-10
     )
-    endpoint = total_phytoplankton(values[:, end])
-    @assert isapprox(
-        endpoint,
-        final_total_phytoplankton(trait_runtime_parameters(tau));
-        rtol=1e-6,
-        atol=1e-8,
-    )
-    return endpoint
+    return total_phytoplankton(values[:, end])
 end
 
 function finite_difference_trait_gradient(tau)
@@ -347,6 +327,9 @@ end
 
 τ_changed = 1.1 .* τ_REFERENCE
 trait_gradients = map((τ_REFERENCE, τ_changed)) do tau
+    endpoint = final_total_phytoplankton(trait_runtime_parameters(tau))
+    @assert isfinite(endpoint)
+    @assert isapprox(ordinary_trait_endpoint(tau), endpoint; rtol=1e-6, atol=1e-8)
     g = trait_gradient(tau)
     fd = finite_difference_trait_gradient(tau)
     @assert all(isfinite, g) "Nonfinite trait gradient at $tau: $g"

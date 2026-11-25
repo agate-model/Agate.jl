@@ -143,8 +143,9 @@ Agate.Processes.authored_parameter_bindings
 
 The keyed parameter block separates runtime process parameters from construction-only inputs.
 Scientific slots and realized process applicability determine `Parameter` vector or matrix storage
-automatically, so runtime parameters never restate axes. `ConstructionParameter` values exist only during
-construction to feed `DerivedDefault` calculations; shaped construction parameters use the global
+automatically, so runtime parameters never restate axes. `ConstructionParameter` values feed
+`DerivedDefault` calculations during construction and subsequent trait evaluations;
+shaped construction parameters use the global
 `axes=:plankton` construction domain. Family-level scientific properties that affect the realized model but are not inputs to an
 individual process equation use `ModelSetting` instead. Scientific slot-to-parameter relationships are authored
 beside the process or factor through `bindings=`.
@@ -193,12 +194,14 @@ prob = ode_problem(
 
 For subsequent trait vectors, call `realize_trait_parameters(traits, tau)` before
 remaking the ODE problem with the resulting `p`. Each call checks values and the
-realized scientific parameter constraints. For reverse-mode AD, `traits.parameter_map`
-is the matching numerical map for an already checked trait vector. Recompute the
+realized scientific parameter constraints. The supported AD path uses Enzyme with
+`set_runtime_activity(Reverse)`. `traits.parameter_map` is the numerical map for an
+already checked trait vector, with the same floating-point element type as
+`traits.values`. Recompute the
 runtime objective gradient at each current `p`, then differentiate the weighted sum
 of `parameter_map(tau)` with those runtime gradient weights held fixed. This applies
 the chain rule without recompiling model equations. Custom numerical derivers must
-support the chosen differentiation backend and treat input parameters as read-only.
+support Enzyme differentiation and treat dependency values and retained context as read-only.
 The original configuration and recipe retain their baseline scientific meaning;
 updated trait vectors are independent inference inputs.
 See the [reverse-mode AD sensitivity example](@ref reverse_mode_ad_onyx_sensitivity_example)

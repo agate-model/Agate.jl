@@ -7,6 +7,8 @@ struct TraitParameterMap{T,Numerics,Slots,Gather}
     numerics::Numerics
     slots::Slots
     gather::Gather
+    ntraits::Int
+    nruntime::Int
 end
 
 @inline _trait_update(tau, baseline, index::Int) = tau[index]
@@ -28,11 +30,15 @@ end
 
 @inline function _realized_trait_values(f::TraitParameterMap, tau)
     updates = _trait_updates(tau, f.numerics.baseline, f.slots)
-    return _rematerialize_traits(f.numerics, updates)
+    inputs = merge(f.numerics.baseline, updates)
+    return _evaluate_derived_defaults(inputs, f.numerics.derivations)
 end
 
 @inline function (f::TraitParameterMap{T})(tau::AbstractVector{T}) where {T}
-    return _gather_runtime_vector(T, _realized_trait_values(f, tau), f.gather)
+    length(tau) == f.ntraits ||
+        throw(DimensionMismatch("expected $(f.ntraits) trait values; got $(length(tau))"))
+    Base.require_one_based_indexing(tau)
+    return _gather_runtime_vector(T, _realized_trait_values(f, tau), f.gather, f.nruntime)
 end
 
 """Selected continuous construction traits and their dependent runtime parameters.
@@ -40,7 +46,7 @@ end
 Returned by [`active_traits`](@ref). `labels` and `values` describe the flat trait
 vector; `active_parameters` describes the corresponding runtime parameter vector.
 """
-struct ActiveTraitSet{BGC,Active,Values,Labels,Selection,Overrides,Map,Realization}
+struct ActiveTraitSet{BGC,Active,Values,Labels,Selection,Overrides,Map,Construction}
     bgc::BGC
     active_parameters::Active
     values::Values
@@ -48,7 +54,7 @@ struct ActiveTraitSet{BGC,Active,Values,Labels,Selection,Overrides,Map,Realizati
     trait_selection::Selection
     explicit_override_keys::Overrides
     parameter_map::Map
-    realization::Realization
+    construction::Construction
 end
 
 function _trait_slots(prepared, selection)
@@ -152,7 +158,7 @@ function _active_trait_set(bgc, prepared, selection)
     f = TraitParameterMap{
         T,typeof(numerical.numerics),typeof(slots),typeof(numerical.gather)
     }(
-        numerical.numerics, slots, numerical.gather
+        numerical.numerics, slots, numerical.gather, length(tau), length(active)
     )
     return ActiveTraitSet(
         bgc, active, tau, labels, selection, prepared.explicit_override_keys, f, prepared
@@ -183,53 +189,34 @@ live derived outputs in parameter-plan order. Explicit derived-output overrides 
 
 The returned [`ActiveTraitSet`](@ref) exposes `bgc`, `labels`, `values`,
 `trait_selection`, `explicit_override_keys`, `active_parameters`, and `parameter_map`.
-Use [`realize_trait_parameters`](@ref) for checked primal evaluation. `parameter_map(tau)` is the numerical map for AD at a checked trait
-vector: it expects the same length and floating-point element type as `values` and
-returns the same runtime vector, without repeating host-side validation. Treat the
-trait set metadata and base BGC as fixed; copy `values` before changing the trait vector.
+Use [`realize_trait_parameters`](@ref) for checked primal evaluation. The numerical
+`parameter_map(tau)` checks vector length and indexing; scientific validation belongs
+to the checked primal call. It retains the floating-point element type of `values`.
+The supported AD path uses Enzyme with `set_runtime_activity(Reverse)`, as shown in
+the reverse-mode example. Treat the trait set metadata and base BGC as fixed; copy
+`values` before changing the trait vector.
 """
 function active_traits(
     definition::ModelDefinition;
     trait_selection::NamedTuple,
-    plankton_pfts=nothing,
-    parameter_overrides::NamedTuple=(;),
-    sinking_tracers=nothing,
-    open_bottom::Bool=true,
     grid=nothing,
     arch=nothing,
-    scalar_type=nothing,
+    kwargs...,
 )
     _check_trait_architecture(grid, arch)
-    bgc, _, prepared = _construct_process_definition(
-        definition;
-        plankton_pfts,
-        parameter_overrides,
-        sinking_tracers,
-        open_bottom,
-        grid,
-        arch,
-        scalar_type,
-    )
+    bgc, _, prepared = _construct_process_definition(definition; grid, arch, kwargs...)
     return _active_trait_set(bgc, prepared, trait_selection)
 end
 
 function active_traits(
     family::AbstractModelFamily;
     trait_selection::NamedTuple,
-    plankton_pfts::NamedTuple,
-    parameter_overrides::NamedTuple=(;),
-    setting_overrides::NamedTuple=(;),
-    sinking_tracers=nothing,
-    open_bottom::Bool=true,
     grid=nothing,
     arch=nothing,
-    scalar_type=nothing,
+    kwargs...,
 )
     _check_trait_architecture(grid, arch)
-    realization = (;
-        plankton_pfts, parameter_overrides, setting_overrides, sinking_tracers, open_bottom
-    )
-    bgc, _, prepared = _construct_family_model(family, realization; grid, arch, scalar_type)
+    bgc, _, prepared = _construct_family_model(family; grid, arch, kwargs...)
     return _active_trait_set(bgc, prepared, trait_selection)
 end
 
@@ -239,10 +226,10 @@ function active_traits(
     trait_selection::NamedTuple,
     grid=nothing,
     arch=nothing,
-    scalar_type=nothing,
+    kwargs...,
 )
     _check_trait_architecture(grid, arch)
-    bgc, _, prepared = _construct_recipe(family, recipe; grid, arch, scalar_type)
+    bgc, _, prepared = _construct_recipe(family, recipe; grid, arch, kwargs...)
     return _active_trait_set(bgc, prepared, trait_selection)
 end
 
@@ -255,8 +242,8 @@ or `Runtime.ode_problem`, using `traits.bgc`. Each call checks the realized scie
 parameter domains and coupled constraints, and leaves the baseline unchanged.
 """
 function realize_trait_parameters(traits::ActiveTraitSet, tau::AbstractVector)
-    realization = traits.realization
-    T = realization.layout.scalar_type
+    construction = traits.construction
+    T = construction.layout.scalar_type
     length(tau) == length(traits.values) && eltype(tau) === T && all(isfinite, tau) ||
         throw(
             ArgumentError(
@@ -267,14 +254,14 @@ function realize_trait_parameters(traits::ActiveTraitSet, tau::AbstractVector)
     f = traits.parameter_map
     resolved = _realized_trait_values(f, tau)
     checked = _checked_parameter_values(
-        realization.canonical,
-        realization.layout,
-        realization.plan,
+        construction.canonical,
+        construction.layout,
+        construction.plan,
         resolved,
         f.numerics.derivations,
-        realization.constraints,
+        construction.constraints,
     )
-    p = _gather_runtime_vector(T, checked, f.gather)
+    p = _gather_runtime_vector(T, checked, f.gather, f.nruntime)
     all(isfinite, p) ||
         throw(ArgumentError("realized runtime parameter vector must be finite"))
     return p

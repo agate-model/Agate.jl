@@ -9,9 +9,7 @@ using ..Processes:
     planned_parameter,
     runtime_parameter_values,
     parameter_constraints,
-    validate_realized_parameters,
-    ParameterValueRef,
-    _parameter_value
+    validate_realized_parameters
 
 using ..Library.Allometry:
     AbstractParamDef, AllometricParam, resolve_diameter_indexed_vector
@@ -70,10 +68,15 @@ function validate_parameter_value(
     return throw(ArgumentError("parameter :$name has unsupported rank $rank"))
 end
 
-function validate_parameter_storage(plan, values::NamedTuple, ::Type{T}) where {T<:Real}
+function validate_parameter_storage(
+    plan, values::NamedTuple, ::Type{T}; derived=()
+) where {T<:Real}
     for name in keys(plan.parameters)
         validate_parameter_value(
-            getproperty(plan.parameters, name), getproperty(values, name), T
+            getproperty(plan.parameters, name),
+            getproperty(values, name),
+            T;
+            derived=name in derived,
         )
     end
     return nothing
@@ -351,19 +354,14 @@ function _checked_parameter_values(
     canonical, layout, plan, resolved, derivations, constraints
 )
     T = layout.scalar_type
-    for name in keys(derivations)
-        validate_parameter_value(
-            planned_parameter(plan, name), getproperty(resolved, name), T; derived=true
-        )
-    end
     required = keys(plan.parameters)
     missing_names = Tuple(name for name in required if !hasproperty(resolved, name))
     isempty(missing_names) || throw(
         ArgumentError("missing required parameters: $(join(string.(missing_names), ", "))"),
     )
-    ordered = NamedTuple{required}(map(name -> getproperty(resolved, name), required))
+    ordered = NamedTuple{required}(resolved)
     reject_missing_parameter_values(ordered)
-    validate_parameter_storage(plan, ordered, T)
+    validate_parameter_storage(plan, ordered, T; derived=keys(derivations))
     validate_realized_parameters(canonical, ordered, constraints)
     return ordered
 end
@@ -389,7 +387,6 @@ function _prepare_parameter_realization(
         constraints,
         values,
         derivations,
-        derivation_owner,
         explicit_override_keys=keys(overrides),
     )
 end
@@ -405,9 +402,7 @@ function _prepare_trait_realization(prepared, traits::Tuple, active)
             planned_parameter(prepared.plan, name).definition.default.deps,
         )
     )
-    derivations = NamedTuple{targets}(
-        map(name -> getproperty(prepared.derivations, name), targets)
-    )
+    derivations = NamedTuple{targets}(prepared.derivations)
     # Explicit output overrides were excluded at preparation. Other derived
     # outputs retain their baseline values, even when traits are updated repeatedly.
     numerics = (; baseline=map(_copy_parameter_value, prepared.values), derivations)
@@ -422,29 +417,35 @@ function _validate_trait_input(value, name)
     return throw(ArgumentError("construction trait :$name must contain finite real values"))
 end
 
-# Reuse the layout-resolved references used by coupled parameter constraints.
-# The runtime active indices, not NamedTuple or matrix storage order, define p.
+# Keep one typed slot vector per output parameter. A tuple per runtime entry
+# would reach Julia's boxed tuple-map fallback as soon as a matrix grows to 6×6.
 function _prepare_runtime_gather(active)
-    refs = Vector{Any}(undef, length(active))
-    for (name, selection) in pairs(active.map)
-        if selection isa Integer
-            refs[selection] = ParameterValueRef(name, ())
-        else
-            for slot in selection
-                refs[slot.active_index] = ParameterValueRef(name, slot.indices)
-            end
-        end
+    return map(
+        selection -> selection isa Integer ? selection : collect(selection), active.map
+    )
+end
+
+@inline _gather_parameter!(p, value, index::Int) = (p[index]=value; nothing)
+
+@inline function _gather_parameter!(p, value, slots::AbstractVector)
+    for slot in slots
+        p[slot.active_index] = value[slot.indices...]
     end
-    return Tuple(refs)
+    return nothing
 end
 
-# Numerical functions accept already-materialized updates, and only evaluate
-# prepared derivations. The inputs and baseline are read-only during evaluation.
-@inline function _rematerialize_traits(numerics, updates::NamedTuple)
-    inputs = merge(numerics.baseline, updates)
-    return _evaluate_derived_defaults(inputs, numerics.derivations)
+# Dispatch separately for each output's scalar or array storage.
+@inline _gather_parameters!(p, ::Tuple{}, ::Tuple{}) = nothing
+@inline function _gather_parameters!(p, parameters::Tuple, selections::Tuple)
+    _gather_parameter!(p, first(parameters), first(selections))
+    return _gather_parameters!(p, Base.tail(parameters), Base.tail(selections))
 end
 
-@inline function _gather_runtime_vector(::Type{T}, resolved, gather) where {T<:Real}
-    return collect(T, map(ref -> _parameter_value(resolved, ref), gather))
+@inline function _gather_runtime_vector(
+    ::Type{T}, resolved, gather::NamedTuple{Names}, n
+) where {T<:Real,Names}
+    p = Vector{T}(undef, n)
+    selected = NamedTuple{Names}(resolved)
+    _gather_parameters!(p, values(selected), values(gather))
+    return p
 end

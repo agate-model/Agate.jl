@@ -299,19 +299,7 @@ function _construct_recipe(
     )
 end
 
-"""
-    construct(family::AbstractModelFamily;
-              plankton_pfts, parameter_overrides=(;), setting_overrides=(;),
-              sinking_tracers=nothing, open_bottom=true, grid=nothing,
-              arch=nothing, scalar_type=nothing) -> bgc
-
-Construct a model family from its resolved family realization. This is the
-supported construction seam for external family packages after their own user-facing
-constructor syntax has been translated into the nested `plankton_pfts` mapping, process
-parameter overrides, and family-level setting overrides. Runtime grid, architecture, and scalar
-precision remain execution choices.
-"""
-function construct(
+function _construct_family_model(
     family::AbstractModelFamily;
     plankton_pfts::NamedTuple,
     parameter_overrides::NamedTuple=(;),
@@ -325,7 +313,23 @@ function construct(
     realization = (;
         plankton_pfts, parameter_overrides, setting_overrides, sinking_tracers, open_bottom
     )
-    bgc, _, _ = _construct_family_model(family, realization; grid, arch, scalar_type)
+    return _construct_family_model(family, realization; grid, arch, scalar_type)
+end
+
+"""
+    construct(family::AbstractModelFamily;
+              plankton_pfts, parameter_overrides=(;), setting_overrides=(;),
+              sinking_tracers=nothing, open_bottom=true, grid=nothing,
+              arch=nothing, scalar_type=nothing) -> bgc
+
+Construct a model family from its resolved family realization. This is the
+supported construction seam for external family packages after their own user-facing
+constructor syntax has been translated into the nested `plankton_pfts` mapping, process
+parameter overrides, and family-level setting overrides. Runtime grid, architecture, and scalar
+precision remain execution choices.
+"""
+function construct(family::AbstractModelFamily; kwargs...)
+    bgc, _, _ = _construct_family_model(family; kwargs...)
     return bgc
 end
 

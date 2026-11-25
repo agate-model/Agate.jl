@@ -3,6 +3,7 @@ using Enzyme
 using Agate.Introspection: parameter_names
 using Agate.Construction: active_traits, realize_trait_parameters
 using Test
+using Oceananigans.Architectures: GPU
 
 import Agate.Parameters: DerivedDefault, ConstructionParameter, Parameter, derive_default
 
@@ -73,16 +74,35 @@ end
     end
 end
 
+# Differentiate a weighted runtime vector without compiling an ODE adjoint.
+function weighted_trait_parameters(tau, parameter_map, weights)
+    p = parameter_map(tau)
+    total = zero(eltype(tau))
+    for i in eachindex(p, weights)
+        total += p[i] * weights[i]
+    end
+    return total
+end
+
+function trait_map_gradient(tau, parameter_map, weights)
+    gradient = zeros(eltype(tau), length(tau))
+    Enzyme.autodiff(
+        Enzyme.set_runtime_activity(Enzyme.Reverse),
+        Enzyme.Const(weighted_trait_parameters),
+        Enzyme.Active,
+        Enzyme.Duplicated(copy(tau), gradient),
+        Enzyme.Const(parameter_map),
+        Enzyme.Const(weights),
+    )
+    return gradient
+end
+
 # One trait feeds two outputs; both selected traits feed :other. Reuse this
 # fixture to check input override semantics, output overrides and ordering.
 @testset "Active scalar construction traits" begin
     definition = derived_default_definition()
-    for (T, overrides) in (
-        (Float32, (;)),
-        (Float64, (;)),
-        (Float64, (base=4.0,)),
-        (Float32, (base=4.0, top=99.0)),
-    )
+    for (T, overrides) in
+        ((Float32, (;)), (Float64, (base=4.0,)), (Float32, (base=4.0, top=99.0)))
         traits = active_traits(
             definition;
             scalar_type=T,
@@ -110,8 +130,22 @@ end
             definition; scalar_type=T, parameter_overrides=overrides
         ).parameters
         @test eltype(p) === T
+        if T === Float64
+            # tau = (shift, base); output order = (other, top).
+            @test trait_map_gradient(tau, traits.parameter_map, [3.0, 2.0]) ≈ [3.0, 5.0]
+            for invalid in (tau[1:1], [tau; 0.0])
+                @test_throws DimensionMismatch traits.parameter_map(invalid)
+            end
+        end
     end
 
+    # The architecture guard runs before allocating any device storage.
+    arch = GPU(nothing)
+    for options in ((; arch), (; grid=dummy_grid(Float64; arch)))
+        @test_throws ArgumentError active_traits(
+            definition; trait_selection=(base=true,), options...
+        )
+    end
     for selection in ((;), (missing=true,), (top=true,), (base=false,), (base=(:D,),))
         @test_throws ArgumentError active_traits(definition; trait_selection=selection)
     end
@@ -123,17 +157,6 @@ end
     @test_throws ArgumentError active_traits(
         definition; trait_selection=(base=true,), parameter_overrides=(top=1.0, other=1.0)
     )
-end
-
-# A weighted two-output map gives a cheap analytic oracle for the Enzyme VJP
-# through the public trait-entry selection, without compiling an ODE adjoint.
-function weighted_trait_parameters(tau, parameter_map, weights)
-    p = parameter_map(tau)
-    total = zero(eltype(tau))
-    for i in eachindex(p, weights)
-        total += p[i] * weights[i]
-    end
-    return total
 end
 
 @testset "Active named SizeClass traits" begin
@@ -157,15 +180,15 @@ end
             trait_selection=selection,
         )
         active = traits.active_parameters
+        baseline = deepcopy(traits.bgc.parameters)
         tau0 = copy(traits.values)
         @test tau0 == (isempty(fixed) ? T[0.4, 0.8] : T[0.8])
-        @test active.labels == (
-            if isempty(fixed)
-                ("assimilation_matrix[Z_1, P_1]", "palatability_matrix[Z_1, P_1]")
-            else
-                ("assimilation_matrix[Z_1, P_1]",)
-            end
-        )
+        targets = if isempty(fixed)
+            (:assimilation_matrix, :palatability_matrix)
+        else
+            (:assimilation_matrix,)
+        end
+        @test active.labels == map(name -> "$(name)[Z_1, P_1]", targets)
         updates = if isempty(fixed)
             (specificity=(Z_1=0.6,), assimilation_efficiency=(Z_1=0.5,))
         else
@@ -176,16 +199,7 @@ end
         )
         tau = isempty(fixed) ? T[0.6, 0.5] : T[0.5]
         p = realize_trait_parameters(traits, tau)
-        @test p == (
-            if isempty(fixed)
-                T[
-                only(expected.parameters.assimilation_matrix),
-                only(expected.parameters.palatability_matrix),
-            ]
-            else
-                T[only(expected.parameters.assimilation_matrix)]
-            end
-        )
+        @test p == T[only(getproperty(expected.parameters, name)) for name in targets]
         @test eltype(p) === T
         @test traits.parameter_map(tau) == p
         @test Agate.Runtime.parameterized(traits.bgc, p; active_parameters=active).parameters.palatability_matrix[
@@ -193,18 +207,12 @@ end
         ] == expected.parameters.palatability_matrix[1, 1]
         p .= 0
         @test realize_trait_parameters(traits, tau0) == active.values
-        @test traits.bgc.parameters == Agate.Construction.construct(
-            definition; scalar_type=T, parameter_overrides=overrides
-        ).parameters
-        invalid = copy(tau)
-        invalid[end] = T(1.1)
-        @test_throws ArgumentError realize_trait_parameters(traits, invalid)
-        @test_throws ArgumentError realize_trait_parameters(traits, T[])
-        invalid[end] = T(NaN)
-        @test_throws ArgumentError realize_trait_parameters(traits, invalid)
+        @test traits.bgc.parameters == baseline
 
         if T === Float64 && isempty(fixed)
-            @test_throws ArgumentError realize_trait_parameters(traits, Float32.(tau))
+            for invalid in (Float32.(tau), Float64[], [tau[1], 1.1], [tau[1], NaN])
+                @test_throws ArgumentError realize_trait_parameters(traits, invalid)
+            end
             for selection in (
                 (specificity=true,),
                 (specificity=(:unknown,),),
@@ -215,15 +223,8 @@ end
                     definition; trait_selection=selection
                 )
             end
-            gradient = zeros(2)
-            Enzyme.autodiff(
-                Enzyme.set_runtime_activity(Enzyme.Reverse),
-                Enzyme.Const(weighted_trait_parameters),
-                Enzyme.Active,
-                Enzyme.Duplicated(copy(tau0), gradient),
-                Enzyme.Const(traits.parameter_map),
-                Enzyme.Const([3.0, 2.0]), # plan order: assimilation, palatability
-            )
+            # Plan order: assimilation, palatability.
+            gradient = trait_map_gradient(tau0, traits.parameter_map, [3.0, 2.0])
             @test gradient ≈ [-2log(5) * 5^(-tau0[1]), 3.0]
 
             # Check the same runtime map against an independently rebuilt RHS.
@@ -248,8 +249,8 @@ end
     end
 end
 
-# Onyx exposed a compiler failure with two selected vector traits sharing a
-# matrix output and a baseline containing both scalar and array parameters.
+# Exercise mixed scalar/matrix outputs and enough runtime entries to expose
+# boxing from a long tuple map; two selected traits share the matrix output.
 @testset "Enzyme trait map with mixed parameter storage" begin
     npz, scalar = direct_npz_definition(), derived_default_definition()
     definition = Agate.Processes.ModelDefinition(;
@@ -259,24 +260,21 @@ end
     )
     traits = active_traits(
         definition;
-        plankton_pfts=(P=(P=[1.0, 2.0],), Z=(Z=[10.0, 20.0],)),
+        plankton_pfts=(
+            P=(P=[1.0, 1.5, 2.0, 3.0, 4.0, 6.0],),
+            Z=(Z=[10.0, 15.0, 20.0, 30.0, 40.0, 60.0],),
+        ),
         parameter_overrides=(optimum_predator_prey_ratio=(Z_1=8.0,),),
-        trait_selection=(specificity=(:Z_1,), optimum_predator_prey_ratio=(:Z_1,)),
+        trait_selection=(
+            base=true, specificity=(:Z_1,), optimum_predator_prey_ratio=(:Z_1,)
+        ),
     )
     tau = copy(traits.values)
     f = traits.parameter_map
     @test f(tau) == realize_trait_parameters(traits, tau) == traits.active_parameters.values
-    @test length(traits.active_parameters) == 4
-    weights = [1.0, 2.0, 3.0, 4.0]
-    gradient = zeros(length(tau))
-    Enzyme.autodiff(
-        Enzyme.set_runtime_activity(Enzyme.Reverse),
-        Enzyme.Const(weighted_trait_parameters),
-        Enzyme.Active,
-        Enzyme.Duplicated(copy(tau), gradient),
-        Enzyme.Const(f),
-        Enzyme.Const(weights),
-    )
+    @test length(traits.active_parameters) == 38 # two scalars and a 6×6 matrix
+    weights = collect(range(1.0, 2.0; length=length(traits.active_parameters)))
+    gradient = trait_map_gradient(tau, f, weights)
     fd = map(eachindex(tau)) do i
         plus, minus = copy(tau), copy(tau)
         h = 1e-5
