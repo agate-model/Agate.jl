@@ -19,7 +19,9 @@ using Agate.Library.Nutrients: monod_limitation, quota_uptake_regulation
         (:DIN, (:P_1_nitrogen, :P_2_nitrogen)),
         (:PO4, (:P_1_phosphorus, :P_2_phosphorus)),
     )
-        transfer_values = (getproperty(tendency, external), (getproperty(tendency, s) for s in states)...)
+        transfer_values = (
+            getproperty(tendency, external), (getproperty(tendency, s) for s in states)...
+        )
         @test sum(transfer_values) == 0
         @test first(transfer_values) == -transfer_values[2]
     end
@@ -29,8 +31,11 @@ using Agate.Library.Nutrients: monod_limitation, quota_uptake_regulation
         (:P_1_nitrogen, 0.1, 0.1, 0.2, 0.05, 0.2),
         (:P_1_phosphorus, 0.01, 0.01, 0.02, 0.005, 0.02),
     )
-        expected = maximum_rate * reference * monod_limitation(1.0, half_saturation) *
-                   quota_uptake_regulation(internal, reference, minimum, maximum, 2.0)
+        expected =
+            maximum_rate *
+            reference *
+            monod_limitation(1.0, half_saturation) *
+            quota_uptake_regulation(internal, reference, minimum, maximum, 2.0)
         @test isapprox(getproperty(tendency, state), expected)
     end
 
@@ -41,7 +46,8 @@ using Agate.Library.Nutrients: monod_limitation, quota_uptake_regulation
         ((P_1_nitrogen=0.05, P_1_phosphorus=0.015), :P_1_carbon),
         ((P_1_nitrogen=0.2,), :P_1_nitrogen),
     )
-        @test getproperty(model_tendencies(bgc, quota_runtime_args(; kwargs...)), state) == 0
+        @test getproperty(model_tendencies(bgc, quota_runtime_args(; kwargs...)), state) ==
+            0
     end
 
     function expected_growth(nitrogen, phosphorus)
@@ -60,41 +66,48 @@ using Agate.Library.Nutrients: monod_limitation, quota_uptake_regulation
         @test isapprox(actual, expected_growth(nitrogen, phosphorus))
     end
 
-    zero_biomass = model_tendencies(bgc, quota_runtime_args(;
-        P_1_carbon=0.0, P_1_nitrogen=0.1, P_1_phosphorus=0.01,
-    ))
+    zero_biomass = model_tendencies(
+        bgc, quota_runtime_args(; P_1_carbon=0.0, P_1_nitrogen=0.1, P_1_phosphorus=0.01)
+    )
     @test all(isfinite, values(zero_biomass)) && all(iszero, values(zero_biomass))
-    carbon_growth(nitrogen) = bgc(Val(:P_1_carbon), quota_runtime_args(;
-        P_1_nitrogen=nitrogen, P_1_phosphorus=0.018,
-    )...)
+    carbon_growth(nitrogen) = bgc(
+        Val(:P_1_carbon),
+        quota_runtime_args(; P_1_nitrogen=nitrogen, P_1_phosphorus=0.018)...,
+    )
     derivative = ForwardDiff.derivative(carbon_growth, 0.075)
     @test isfinite(derivative) && derivative > 0
 end
 
-
 @testset "Hybrid explicit and implicit elemental growth" begin
-    components = merge(quota_components(), (
-        P=Agate.Components.Plankton(;
-            states=(carbon=:carbon, nitrogen=:nitrogen), reference_state=:carbon,
-            composition=(phosphorus=:phosphorus_to_carbon,)
+    components = merge(
+        quota_components(),
+        (
+            P=Agate.Components.Plankton(;
+                states=(carbon=:carbon, nitrogen=:nitrogen),
+                reference_state=:carbon,
+                composition=(phosphorus=:phosphorus_to_carbon,),
+            ),
         ),
-    ))
+    )
     quota = quota_processes()
     growth = Agate.Processes.Growth(;
         plankton=:P,
         reference_resource=:DIC,
         additional_resources=(phosphorus=:PO4,),
         bindings=quota.growth.bindings,
-        factors=(nutrients=Agate.Processes.NutrientLimitation(
-            Agate.Processes.Liebig();
-            responses=(
-                nitrogen=quota.growth.factors.nutrients.responses.nitrogen,
-                phosphorus=Agate.Processes.NutrientResponse(
-                    Agate.Processes.Monod(); resource=:PO4,
-                    bindings=(half_saturation=:phosphorus_half_saturation,),
+        factors=(
+            nutrients=Agate.Processes.NutrientLimitation(
+                Agate.Processes.Liebig();
+                responses=(
+                    nitrogen=quota.growth.factors.nutrients.responses.nitrogen,
+                    phosphorus=Agate.Processes.NutrientResponse(
+                        Agate.Processes.Monod();
+                        resource=:PO4,
+                        bindings=(half_saturation=:phosphorus_half_saturation,),
+                    ),
                 ),
             ),
-        ),),
+        ),
     )
     parameters = (
         maximum_growth_rate=Agate.Parameters.Parameter(0.5),
@@ -106,45 +119,75 @@ end
         nitrogen_half_saturation=Agate.Parameters.Parameter(0.0),
         nitrogen_uptake_hill=Agate.Parameters.Parameter(1.0),
     )
-    bgc = construct(Agate.Processes.ModelDefinition(;
-        components, processes=(growth=growth, nitrogen_uptake=quota.nitrogen_uptake), parameters
-    ))
+    bgc = construct(
+        Agate.Processes.ModelDefinition(;
+            components,
+            processes=(growth=growth, nitrogen_uptake=quota.nitrogen_uptake),
+            parameters,
+        ),
+    )
 
     growth_rate, uptake_rate = 2 / 3, 0.2
     test_tendencies(
         bgc,
         (DIC=10.0, DIN=10.0, PO4=10.0, P_carbon=2.0, P_nitrogen=0.3),
         (
-            DIC=-growth_rate, DIN=-uptake_rate, PO4=-0.1 * growth_rate,
-            P_carbon=growth_rate, P_nitrogen=uptake_rate,
+            DIC=-growth_rate,
+            DIN=-uptake_rate,
+            PO4=-0.1 * growth_rate,
+            P_carbon=growth_rate,
+            P_nitrogen=uptake_rate,
         ),
     )
 end
 
 @testset "Realized quota ordering" begin
-    message = argument_error_message(() -> construct(
-        quota_definition(); parameter_overrides=(maximum_nitrogen_quota=[0.04, 0.2],)
-    ))
-    @test all(occursin(fragment, message) for fragment in
-        ("process :growth", "maximum_nitrogen_quota", "minimum_nitrogen_quota", "0.04"))
+    message = argument_error_message(
+        () -> construct(
+            quota_definition();
+            parameter_overrides=(maximum_nitrogen_quota=[0.04, 0.2],),
+        ),
+    )
+    @test all(
+        occursin(fragment, message) for fragment in
+        ("process :growth", "maximum_nitrogen_quota", "minimum_nitrogen_quota", "0.04")
+    )
 
     plankton(d) = Agate.Components.Plankton(;
-        states=(carbon=:carbon, nitrogen=:nitrogen), reference_state=:carbon, size_structure=[d])
+        states=(carbon=:carbon, nitrogen=:nitrogen),
+        reference_state=:carbon,
+        size_structure=[d],
+    )
     components = (DIN=Agate.Components.Pool(:nitrogen), P1=plankton(1.0), P2=plankton(2.0))
-    common = (maximum_rate=:rate, half_saturation=:half_saturation,
-              minimum_quota=:minimum_quota, hill=:hill)
-    uptake(P, maximum) = quota_uptake(:nitrogen, :DIN, (; common..., maximum_quota=maximum); plankton=P)
+    common = (
+        maximum_rate=:rate,
+        half_saturation=:half_saturation,
+        minimum_quota=:minimum_quota,
+        hill=:hill,
+    )
+    uptake(P, maximum) =
+        quota_uptake(:nitrogen, :DIN, (; common..., maximum_quota=maximum); plankton=P)
     definition = Agate.Processes.ModelDefinition(;
         components,
         processes=(P1=uptake(:P1, :maximum_P1), P2=uptake(:P2, :maximum_P2)),
-        parameters=(rate=Agate.Parameters.Parameter(1.0), half_saturation=Agate.Parameters.Parameter(1.0),
-                    minimum_quota=Agate.Parameters.Parameter(0.1), maximum_P1=Agate.Parameters.Parameter(0.2),
-                    maximum_P2=Agate.Parameters.Parameter(0.4), hill=Agate.Parameters.Parameter(1.0)),
+        parameters=(
+            rate=Agate.Parameters.Parameter(1.0),
+            half_saturation=Agate.Parameters.Parameter(1.0),
+            minimum_quota=Agate.Parameters.Parameter(0.1),
+            maximum_P1=Agate.Parameters.Parameter(0.2),
+            maximum_P2=Agate.Parameters.Parameter(0.4),
+            hill=Agate.Parameters.Parameter(1.0),
+        ),
     )
     valid = (minimum_quota=[0.1, 0.3], maximum_P1=[0.2], maximum_P2=[0.4])
     bgc = construct(definition; parameter_overrides=valid)
     @test_throws ArgumentError construct(
-        definition; parameter_overrides=merge(valid, (maximum_P2=[0.2],)))
-    active = Agate.Runtime.active_parameters(bgc; minimum_quota=(:P2_1,), maximum_P2=(:P2_1,))
-    @test_throws ArgumentError Agate.Runtime.parameterized(bgc, [0.5, 0.4]; active_parameters=active)
+        definition; parameter_overrides=merge(valid, (maximum_P2=[0.2],))
+    )
+    active = Agate.Runtime.active_parameters(
+        bgc; minimum_quota=(:P2_1,), maximum_P2=(:P2_1,)
+    )
+    @test_throws ArgumentError Agate.Runtime.parameterized(
+        bgc, [0.5, 0.4]; active_parameters=active
+    )
 end

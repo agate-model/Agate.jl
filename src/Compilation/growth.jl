@@ -1,8 +1,5 @@
 function _growth_rate(
-    named::CanonicalProcess,
-    context::CompileContext,
-    participant,
-    scale_ref::Int,
+    named::CanonicalProcess, context::CompileContext, participant, scale_ref::Int
 )
     axis_positions = (plankton=participant.position,)
     rate_factors = _factor_ops(context, named, axis_positions)
@@ -14,26 +11,24 @@ function _growth_rate(
 end
 
 function _growth_resource_fluxes(
-    named::CanonicalProcess,
-    context::CompileContext,
-    rate::RateOp,
-    participant,
+    named::CanonicalProcess, context::CompileContext, rate::RateOp, participant
 )
     process = named.process
     layout = context.layout
-    fluxes = Any[
-        FluxSpec(
-            _scalar_component_target(layout, process.reference_resource),
-            rate,
-            Weight{-1}(),
-        ),
-    ]
+    fluxes = Any[FluxSpec(
+        _scalar_component_target(layout, process.reference_resource), rate, Weight{-1}()
+    ),]
     for (element, resource) in pairs(process.additional_resources)
-        operands = _material_ratio_operand(context, participant.component, element, participant.position)
+        operands = _material_ratio_operand(
+            context, participant.component, element, participant.position
+        )
         isempty(operands) && continue
-        push!(fluxes, FluxSpec(
-            _scalar_component_target(layout, resource), rate, Weight{-1}(operands),
-        ))
+        push!(
+            fluxes,
+            FluxSpec(
+                _scalar_component_target(layout, resource), rate, Weight{-1}(operands)
+            ),
+        )
     end
     return Tuple(fluxes)
 end
@@ -59,18 +54,26 @@ function process_fluxes(
             )
             retained_fraction = ComplementOp((product_fraction,))
             push!(
-                fluxes,
-                FluxSpec(participant.tracer, rate, Weight{1}((retained_fraction,))),
+                fluxes, FluxSpec(participant.tracer, rate, Weight{1}((retained_fraction,)))
             )
             for element in keys(first(values(product_targets)))
                 ratio = _material_ratio_operand(
                     context, participant.component, element, participant.position
                 )
-                element !== named.semantic_facts.reference_element && isempty(ratio) && continue
-                append!(fluxes, _product_fluxes_for_element(
-                    named, product_targets, context, rate, element;
-                    suffix=(product_fraction, ratio...),
-                ))
+                element !== named.semantic_facts.reference_element &&
+                    isempty(ratio) &&
+                    continue
+                append!(
+                    fluxes,
+                    _product_fluxes_for_element(
+                        named,
+                        product_targets,
+                        context,
+                        rate,
+                        element;
+                        suffix=(product_fraction, ratio...),
+                    ),
+                )
             end
         end
         append!(fluxes, _growth_resource_fluxes(named, context, rate, participant))

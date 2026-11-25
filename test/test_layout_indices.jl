@@ -22,7 +22,6 @@ using Agate.Components:
     @test component_diameters(layout, :Z) == (20.0, 100.0)
     @test collect(component_diameters(layout, :P)) ≈ [2.0, sqrt(20.0), 10.0]
 
-
     unsized = realize_model_layout(
         (P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),);
         plankton_pfts=(P=(small=nothing, large=nothing),),
@@ -51,7 +50,10 @@ using Agate.Components:
 
     bad_path = "plankton PFT :P size_structure"
     for invalid in (
-        Float64[], [1.0, 0.0], [1.0, Inf], [true],
+        Float64[],
+        [1.0, 0.0],
+        [1.0, Inf],
+        [true],
         (n=0, min_esd=1.0, max_esd=2.0, spacing=:log),
         (n=true, min_esd=1.0, max_esd=2.0, spacing=:log),
         (n=2, min_esd=0.0, max_esd=2.0, spacing=:log),
@@ -60,11 +62,12 @@ using Agate.Components:
         (n=1, min_esd=1.0, max_esd=2.0, spacing=:log),
         (n=2, min_esd=1.0, max_esd=2.0, spacing=:log, extra=true),
     )
-        message = argument_error_message(() -> realize_model_layout(
-            (P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),);
-            plankton_pfts=(P=(P=invalid,),),
-        ))
+        message = argument_error_message(
+            () -> realize_model_layout(
+                (P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),);
+                plankton_pfts=(P=(P=invalid,),),
+            ),
+        )
         @test occursin(bad_path, message)
     end
-
 end

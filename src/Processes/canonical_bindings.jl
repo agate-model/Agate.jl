@@ -11,12 +11,14 @@ struct CanonicalProcess{Process<:AbstractProcess,SemanticFacts,BindingRefs}
     binding_refs::BindingRefs
 end
 
-CanonicalProcess(id::Symbol, process::Process) where {Process<:AbstractProcess} =
-    CanonicalProcess(id, process, NamedTuple(), NamedTuple())
-CanonicalProcess(
+function CanonicalProcess(id::Symbol, process::Process) where {Process<:AbstractProcess}
+    return CanonicalProcess(id, process, NamedTuple(), NamedTuple())
+end
+function CanonicalProcess(
     id::Symbol, process::Process, semantic_facts::SemanticFacts
-) where {Process<:AbstractProcess,SemanticFacts} =
-    CanonicalProcess(id, process, semantic_facts, NamedTuple())
+) where {Process<:AbstractProcess,SemanticFacts}
+    return CanonicalProcess(id, process, semantic_facts, NamedTuple())
+end
 
 """Return the stable identity of a canonical process."""
 process_id(process::CanonicalProcess) = process.id
@@ -36,24 +38,21 @@ function _resolve_slot_qualifier(slot::ParameterSlot, context::NamedTuple)
     return Qualifier(slot.qualify, value)
 end
 
-function _binding_axis_components(
-    named::CanonicalProcess, axes::Tuple, qualifier
-)
+function _binding_axis_components(named::CanonicalProcess, axes::Tuple, qualifier)
     process_participants = participants(named)
     return map(axes) do axis
         qualifier isa Qualifier && qualifier.axis === axis && return (qualifier.value,)
-        hasproperty(process_participants, axis) || throw(ArgumentError(
-            "parameter applicability axis :$axis is not a participant role of process :$(process_id(named))",
-        ))
-        getproperty(process_participants, axis)
+        hasproperty(process_participants, axis) || throw(
+            ArgumentError(
+                "parameter applicability axis :$axis is not a participant role of process :$(process_id(named))",
+            ),
+        )
+        return getproperty(process_participants, axis)
     end
 end
 
 function _parameter_slot_metadata(
-    named::CanonicalProcess,
-    path::Tuple,
-    slot::ParameterSlot,
-    qualifier,
+    named::CanonicalProcess, path::Tuple, slot::ParameterSlot, qualifier
 )
     return (;
         process=process_id(named),
@@ -85,10 +84,14 @@ function _emit_parameter_slots!(
         qualifier_key = isnothing(qualifier) ? nothing : (qualifier.axis, qualifier.value)
         identity = (metadata.process, metadata.path, metadata.slot, qualifier_key)
         identity in seen && throw(
-            ArgumentError("canonical processes declare duplicate parameter binding key $identity"),
+            ArgumentError(
+                "canonical processes declare duplicate parameter binding key $identity"
+            ),
         )
         push!(seen, identity)
-        parameter, explicit, binding_qualifiers = _resolve_binding_value(bindings, slot, qualifier)
+        parameter, explicit, binding_qualifiers = _resolve_binding_value(
+            bindings, slot, qualifier
+        )
         push!(uses, (; metadata..., parameter, explicit, binding_qualifiers))
         refs[i] = length(uses)
     end
@@ -96,35 +99,40 @@ function _emit_parameter_slots!(
 end
 
 function _visit_factor_slots!(
-    uses::Vector{Any}, seen::Set{Any}, named::CanonicalProcess, path::Tuple, factor::AbstractFactor
+    uses::Vector{Any},
+    seen::Set{Any},
+    named::CanonicalProcess,
+    path::Tuple,
+    factor::AbstractFactor,
 )
     slots = _emit_parameter_slots!(uses, seen, named, path, factor)
     subfactors = _resolve_factor_subfactors(factor)
     names = keys(subfactors)
-    subfactor_refs = NamedTuple{names}(Tuple(
-        _visit_factor_slots!(
-            uses, seen, named, factor_subfactor_path(path, factor, name), subfactor
-        )
-        for (name, subfactor) in pairs(subfactors)
-    ))
+    subfactor_refs = NamedTuple{names}(
+        Tuple(
+            _visit_factor_slots!(
+                uses, seen, named, factor_subfactor_path(path, factor, name), subfactor
+            ) for (name, subfactor) in pairs(subfactors)
+        ),
+    )
     return (; slots, subfactors=subfactor_refs)
 end
 
 function _visit_product_slots!(
-    uses::Vector{Any}, seen::Set{Any}, named::CanonicalProcess, path::Tuple, products::Products
+    uses::Vector{Any},
+    seen::Set{Any},
+    named::CanonicalProcess,
+    path::Tuple,
+    products::Products,
 )
     fraction_names = keys(products.fractions)
-    fractions = NamedTuple{fraction_names}(Tuple(
-        _emit_parameter_slots!(
-            uses,
-            seen,
-            named,
-            path,
-            products;
-            context=(product=product,),
-        )
-        for product in fraction_names
-    ))
+    fractions = NamedTuple{fraction_names}(
+        Tuple(
+            _emit_parameter_slots!(
+                uses, seen, named, path, products; context=(product=product,)
+            ) for product in fraction_names
+        ),
+    )
 
     return (; fractions)
 end
@@ -133,34 +141,41 @@ function _visit_process_slots!(uses::Vector{Any}, seen::Set{Any}, named::Canonic
     process = named.process
     process_refs = if process isa Mortality
         names = process.plankton
-        NamedTuple{names}(Tuple(
-            _emit_parameter_slots!(
-                uses, seen, named, (), process; context=(plankton=plankton,)
-            )
-            for plankton in names
-        ))
+        NamedTuple{names}(
+            Tuple(
+                _emit_parameter_slots!(
+                    uses, seen, named, (), process; context=(plankton=plankton,)
+                ) for plankton in names
+            ),
+        )
     elseif process isa Remineralization
         names = process.sources
-        NamedTuple{names}(Tuple(
-            _emit_parameter_slots!(
-                uses, seen, named, (), process; context=(source=source,)
-            )
-            for source in names
-        ))
+        NamedTuple{names}(
+            Tuple(
+                _emit_parameter_slots!(
+                    uses, seen, named, (), process; context=(source=source,)
+                ) for source in names
+            ),
+        )
     else
         _emit_parameter_slots!(uses, seen, named, (), process)
     end
 
     process_factors = factors(process)
     factor_names = keys(process_factors)
-    factor_refs = NamedTuple{factor_names}(Tuple(
-        _visit_factor_slots!(uses, seen, named, (:factors, name), factor)
-        for (name, factor) in pairs(process_factors)
-    ))
+    factor_refs = NamedTuple{factor_names}(
+        Tuple(
+            _visit_factor_slots!(uses, seen, named, (:factors, name), factor) for
+            (name, factor) in pairs(process_factors)
+        ),
+    )
 
     products = process_products(process)
-    product_refs = isnothing(products) ? nothing :
+    product_refs = if isnothing(products)
+        nothing
+    else
         _visit_product_slots!(uses, seen, named, product_path(process), products)
+    end
 
     return (; process=process_refs, factors=factor_refs, products=product_refs)
 end

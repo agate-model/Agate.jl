@@ -37,8 +37,7 @@ nothing #hide
 zoo_size_structure = [10.0, 32.0, 100.0]
 
 size_structure = (;
-    phytoplankton=(P=phyto_size_structure,),
-    zooplankton=(Z=zoo_size_structure,),
+    phytoplankton=(P=phyto_size_structure,), zooplankton=(Z=zoo_size_structure,)
 )
 
 bgc = Onyx.construct(; size_structure)

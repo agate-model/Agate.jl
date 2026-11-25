@@ -28,12 +28,16 @@ struct ModelLayout{
     size_class_diameters::SizeClassDiameters
 end
 
-_plankton_names(components::NamedTuple) = Tuple(
-    name for name in keys(components) if getproperty(components, name) isa Plankton
-)
-_pool_names(components::NamedTuple) = Tuple(
-    name for name in keys(components) if getproperty(components, name) isa Pool
-)
+function _plankton_names(components::NamedTuple)
+    return Tuple(
+        name for name in keys(components) if getproperty(components, name) isa Plankton
+    )
+end
+function _pool_names(components::NamedTuple)
+    return Tuple(
+        name for name in keys(components) if getproperty(components, name) isa Pool
+    )
+end
 
 @inline _missing_diameter_sentinel(::Type{FT}) where {FT<:AbstractFloat} = FT(NaN)
 @inline _missing_diameter_sentinel(::Type{T}) where {T<:Real} = zero(T)
@@ -51,31 +55,33 @@ function _component_value(layout::ModelLayout, field::Symbol, component::Symbol)
 end
 
 """Return realized entity identities for one logical component."""
-component_entities(layout::ModelLayout, component::Symbol) =
-    _component_value(layout, :component_entities, component)
+function component_entities(layout::ModelLayout, component::Symbol)
+    return _component_value(layout, :component_entities, component)
+end
 
 """Return the state-to-tracer mapping for a plankton, or `nothing` for a pool."""
-component_state_tracers(layout::ModelLayout, component::Symbol) =
-    _component_value(layout, :component_state_tracers, component)
+function component_state_tracers(layout::ModelLayout, component::Symbol)
+    return _component_value(layout, :component_state_tracers, component)
+end
 
 """Return flattened concrete tracer identities realized by one logical component."""
-component_tracers(layout::ModelLayout, component::Symbol) =
-    _component_value(layout, :component_tracers, component)
+function component_tracers(layout::ModelLayout, component::Symbol)
+    return _component_value(layout, :component_tracers, component)
+end
 
 """Return concrete tracers for one plankton state."""
 function state_tracers(layout::ModelLayout, component::Symbol, state::Symbol)
     mapping = component_state_tracers(layout, component)
-    mapping isa NamedTuple || throw(
-        ArgumentError("component :$component does not expose plankton states"),
-    )
-    hasproperty(mapping, state) || throw(
-        ArgumentError("component :$component has no realized state :$state"),
-    )
+    mapping isa NamedTuple ||
+        throw(ArgumentError("component :$component does not expose plankton states"))
+    hasproperty(mapping, state) ||
+        throw(ArgumentError("component :$component has no realized state :$state"))
     return getproperty(mapping, state)
 end
 
-state_tracers(layout::ModelLayout, reference::PlanktonStateRef) =
-    state_tracers(layout, reference.plankton, reference.state)
+function state_tracers(layout::ModelLayout, reference::PlanktonStateRef)
+    return state_tracers(layout, reference.plankton, reference.state)
+end
 
 """Return one concrete tracer for a plankton state and local realized-entity index."""
 function state_tracer(
@@ -95,13 +101,11 @@ end
 Every PFT contributes at least one SizeClass. Implicit singleton SizeClasses have no diameter
 metadata; returns `nothing` when all classes are implicit.
 """
-component_diameters(layout::ModelLayout, component::Symbol) =
-    _component_value(layout, :component_diameters, component)
+function component_diameters(layout::ModelLayout, component::Symbol)
+    return _component_value(layout, :component_diameters, component)
+end
 
-function canonicalize_plankton_realization(
-    components::NamedTuple,
-    plankton_pfts=nothing,
-)
+function canonicalize_plankton_realization(components::NamedTuple, plankton_pfts=nothing)
     plankton_names = _plankton_names(components)
 
     if isnothing(plankton_pfts)
@@ -111,18 +115,15 @@ function canonicalize_plankton_realization(
             specification = if isnothing(structure)
                 nothing
             else
-                canonicalize_diameters(
-                    structure; path="component :$plankton size_structure"
-                ).specification
+                canonicalize_diameters(structure; path="component :$plankton size_structure").specification
             end
-            NamedTuple{(plankton,)}((specification,))
+            return NamedTuple{(plankton,)}((specification,))
         end
         return NamedTuple{plankton_names}(values)
     end
 
-    plankton_pfts isa NamedTuple || throw(
-        ArgumentError("plankton_pfts must be a NamedTuple"),
-    )
+    plankton_pfts isa NamedTuple ||
+        throw(ArgumentError("plankton_pfts must be a NamedTuple"))
     Set(keys(plankton_pfts)) == Set(plankton_names) || throw(
         ArgumentError(
             "plankton_pfts must map exactly the logical plankton components $(plankton_names)",
@@ -134,19 +135,20 @@ function canonicalize_plankton_realization(
         plankton = plankton_names[i]
         authored = getproperty(plankton_pfts, plankton)
         authored isa NamedTuple || throw(
-            ArgumentError("plankton component :$plankton PFT realization must be a NamedTuple"),
+            ArgumentError(
+                "plankton component :$plankton PFT realization must be a NamedTuple"
+            ),
         )
         isempty(authored) && throw(
-            ArgumentError("plankton component :$plankton must realize at least one PFT"),
+            ArgumentError("plankton component :$plankton must realize at least one PFT")
         )
 
         # PFT identity, not authored mapping order, determines canonical realization order.
         pfts = Tuple(sort!(collect(keys(authored)); by=String))
         specifications = ntuple(length(pfts)) do j
             pft = pfts[j]
-            pft in assigned && throw(
-                ArgumentError("plankton PFT :$pft is assigned more than once"),
-            )
+            pft in assigned &&
+                throw(ArgumentError("plankton PFT :$pft is assigned more than once"))
             push!(assigned, pft)
             structure = getproperty(authored, pft)
             isnothing(structure) && return nothing
@@ -161,12 +163,10 @@ function canonicalize_plankton_realization(
 end
 
 function _validate_auxiliary_fields(auxiliary_fields::Tuple, tracer_order::Tuple)
-    all(field -> field isa Symbol, auxiliary_fields) || throw(
-        ArgumentError("auxiliary_fields entries must be Symbols"),
-    )
-    length(unique(auxiliary_fields)) == length(auxiliary_fields) || throw(
-        ArgumentError("auxiliary_fields contains duplicate entries"),
-    )
+    all(field -> field isa Symbol, auxiliary_fields) ||
+        throw(ArgumentError("auxiliary_fields entries must be Symbols"))
+    length(unique(auxiliary_fields)) == length(auxiliary_fields) ||
+        throw(ArgumentError("auxiliary_fields contains duplicate entries"))
     conflicts = Tuple(field for field in auxiliary_fields if field in tracer_order)
     isempty(conflicts) || throw(
         ArgumentError("auxiliary fields conflict with tracer names: $(collect(conflicts))"),
@@ -175,11 +175,7 @@ function _validate_auxiliary_fields(auxiliary_fields::Tuple, tracer_order::Tuple
 end
 
 function _check_new_identities!(
-    name::Symbol,
-    entities,
-    tracers,
-    prior_entities::Set{Symbol},
-    prior_tracers::Set{Symbol},
+    name::Symbol, entities, tracers, prior_entities::Set{Symbol}, prior_tracers::Set{Symbol}
 )
     conflicts = Symbol[]
     for entity in entities
@@ -189,7 +185,9 @@ function _check_new_identities!(
         (tracer in prior_entities || tracer in prior_tracers) && push!(conflicts, tracer)
     end
     isempty(conflicts) || throw(
-        ArgumentError("component/PFT :$name realizes duplicate entity/tracer identities $(unique(conflicts))"),
+        ArgumentError(
+            "component/PFT :$name realizes duplicate entity/tracer identities $(unique(conflicts))",
+        ),
     )
     union!(prior_entities, entities)
     union!(prior_tracers, tracers)
@@ -203,18 +201,23 @@ function realize_model_layout(
     scalar_type::Type{T}=Float64,
     auxiliary_fields::Tuple=(),
 ) where {T<:Real}
-    all(component -> component isa Union{Plankton,Pool}, values(components)) || throw(
-        ArgumentError("all model components must be Plankton or Pool values"),
-    )
+    all(component -> component isa Union{Plankton,Pool}, values(components)) ||
+        throw(ArgumentError("all model components must be Plankton or Pool values"))
 
     component_names = keys(components)
     plankton_names = _plankton_names(components)
     pool_names = _pool_names(components)
 
-    entities_by_component = Dict{Symbol,Vector{Symbol}}(name => Symbol[] for name in component_names)
-    tracers_by_component = Dict{Symbol,Vector{Symbol}}(name => Symbol[] for name in component_names)
+    entities_by_component = Dict{Symbol,Vector{Symbol}}(
+        name => Symbol[] for name in component_names
+    )
+    tracers_by_component = Dict{Symbol,Vector{Symbol}}(
+        name => Symbol[] for name in component_names
+    )
     diameters_by_component = Dict{Symbol,Any}(name => nothing for name in component_names)
-    state_tracers_by_component = Dict{Symbol,Any}(name => nothing for name in component_names)
+    state_tracers_by_component = Dict{Symbol,Any}(
+        name => nothing for name in component_names
+    )
 
     state_tracer_vectors = Dict{Symbol,Dict{Symbol,Vector{Symbol}}}()
 
@@ -242,7 +245,8 @@ function realize_model_layout(
     size_classes = Symbol[]
     size_class_diameters = T[]
     pft_names = Tuple(
-        pft for plankton in plankton_names for pft in keys(getproperty(plankton_pfts, plankton))
+        pft for plankton in plankton_names for
+        pft in keys(getproperty(plankton_pfts, plankton))
     )
     pft_index_values = Vector{Any}(undef, length(pft_names))
     pft_position = 0
@@ -258,8 +262,11 @@ function realize_model_layout(
             end
             nsizeclasses = length(realized_diameters)
             # Even without diameter metadata, every PFT contributes one implicit SizeClass.
-            realized_size_classes = specification === nothing ?
-                (pft,) : ntuple(i -> Symbol(string(pft), "_", i), nsizeclasses)
+            realized_size_classes = if specification === nothing
+                (pft,)
+            else
+                ntuple(i -> Symbol(string(pft), "_", i), nsizeclasses)
+            end
             state_names = states(component)
             nstates = length(state_names)
             pft_global_indices = Int[]
@@ -267,7 +274,8 @@ function realize_model_layout(
             for pft_local in eachindex(realized_size_classes)
                 size_class = realized_size_classes[pft_local]
                 physical_tracers = Tuple(
-                    _plankton_state_tracer(size_class, state, nstates) for state in state_names
+                    _plankton_state_tracer(size_class, state, nstates) for
+                    state in state_names
                 )
                 _check_new_identities!(
                     pft, (size_class,), physical_tracers, seen_entities, seen_tracers
@@ -348,21 +356,18 @@ function realize_model_layout(
     auxiliary_fields::Tuple=(),
 ) where {T<:Real}
     plankton_pfts = canonicalize_plankton_realization(components, plankton_pfts)
-    return realize_model_layout(
-        components,
-        plankton_pfts;
-        scalar_type=T,
-        auxiliary_fields,
-    )
+    return realize_model_layout(components, plankton_pfts; scalar_type=T, auxiliary_fields)
 end
 
 """Return compact host-side metadata derived from one authoritative `ModelLayout`."""
 function model_metadata(layout::ModelLayout; parameter_axes=(;), parameter_constraints=())
     pft_names = keys(layout.pft_indices)
-    pft_entities = NamedTuple{pft_names}(ntuple(length(pft_names)) do i
-        indices = getproperty(layout.pft_indices, pft_names[i])
-        Tuple(layout.size_classes[index] for index in indices)
-    end)
+    pft_entities = NamedTuple{pft_names}(
+        ntuple(length(pft_names)) do i
+            indices = getproperty(layout.pft_indices, pft_names[i])
+            return Tuple(layout.size_classes[index] for index in indices)
+        end,
+    )
     plankton_tracer_set = Set{Symbol}()
     for name in keys(layout.component_state_tracers)
         getproperty(layout.component_state_tracers, name) isa NamedTuple || continue
@@ -375,7 +380,9 @@ function model_metadata(layout::ModelLayout; parameter_axes=(;), parameter_const
         pft_entities,
         component_tracers=layout.component_tracers,
         plankton_tracers,
-        plankton_diameters=Tuple(diameter_metadata(diameter) for diameter in layout.size_class_diameters),
+        plankton_diameters=Tuple(
+            diameter_metadata(diameter) for diameter in layout.size_class_diameters
+        ),
         parameter_axes,
         parameter_constraints,
     )

@@ -3,19 +3,36 @@
 # A mixotroph is an ordinary `Plankton` that participates in both growth and grazing.
 
 using Agate.Components: Plankton, Pool
-using Agate.Parameters: AllometricPalatability, BroadcastConsumerAcrossResources, ConstructionParameter, DerivedDefault, Parameter
+using Agate.Parameters:
+    AllometricPalatability,
+    BroadcastConsumerAcrossResources,
+    ConstructionParameter,
+    DerivedDefault,
+    Parameter
 using Agate.Construction: construct
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
-    Consumption, Growth, Light, ModelDefinition, NutrientResponse, Smith, Monod, PreferentialGrazing, participants
+    Consumption,
+    Growth,
+    Light,
+    ModelDefinition,
+    NutrientResponse,
+    Smith,
+    Monod,
+    PreferentialGrazing,
+    participants
 using Oceananigans.Units: day
 
 nothing #hide
 
 components = (
     N=Pool(:nitrogen),
-    P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
-    M=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[4.0]),
+    P=Plankton(;
+        states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]
+    ),
+    M=Plankton(;
+        states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[4.0]
+    ),
 )
 
 processes = (
@@ -65,7 +82,7 @@ parameters = (
         DerivedDefault(
             AllometricPalatability();
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
-        )
+        ),
     ),
     assimilation_matrix=Parameter(
         DerivedDefault(BroadcastConsumerAcrossResources(); deps=(:assimilation_efficiency,))

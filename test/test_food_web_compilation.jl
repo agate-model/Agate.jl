@@ -6,26 +6,49 @@ using Agate.Components: Plankton, Pool
 using Agate.Construction: construct
 using Agate.Parameters: Parameter, NoDefault
 using Agate.Processes:
-    ModelDefinition, Growth, Light, NutrientResponse, Temperature, Consumption, Smith, Monod,
-    Q10, HeterotrophicConsumption, PreferentialGrazing, LinearGrazing, participants
+    ModelDefinition,
+    Growth,
+    Light,
+    NutrientResponse,
+    Temperature,
+    Consumption,
+    Smith,
+    Monod,
+    Q10,
+    HeterotrophicConsumption,
+    PreferentialGrazing,
+    LinearGrazing,
+    participants
 
 function food_web_definition(; grazing=PreferentialGrazing())
     components = (
         N=Pool(:nitrogen),
         D=Pool(:nitrogen),
         POM=Pool(:nitrogen),
-        P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
-        B=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.8]),
-        M=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[2.0]),
-        Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]),
+        P=Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]
+        ),
+        B=Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.8]
+        ),
+        M=Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[2.0]
+        ),
+        Z=Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]
+        ),
     )
     plankton_temperature = Temperature(
         Q10(:plankton);
-        bindings=(q10=:plankton_temperature_q10, reference_temperature=:reference_temperature),
+        bindings=(
+            q10=:plankton_temperature_q10, reference_temperature=:reference_temperature
+        ),
     )
     consumer_temperature = Temperature(
         Q10(:consumer);
-        bindings=(q10=:consumer_temperature_q10, reference_temperature=:reference_temperature),
+        bindings=(
+            q10=:consumer_temperature_q10, reference_temperature=:reference_temperature
+        ),
     )
     processes = (
         growth_autotrophs=Growth(;
@@ -35,8 +58,9 @@ function food_web_definition(; grazing=PreferentialGrazing())
             factors=(
                 temperature=plankton_temperature,
                 nutrients=NutrientResponse(
-                    Monod(); resource=:N,
-                    bindings=(half_saturation=:nutrient_half_saturation,)
+                    Monod();
+                    resource=:N,
+                    bindings=(half_saturation=:nutrient_half_saturation,),
                 ),
                 light=Light(Smith(); driver=:PAR),
             ),
@@ -112,10 +136,13 @@ function food_web_args(bgc, state::NamedTuple; PAR=0.0, temperature=20.0)
         hasproperty(state, tracer) ? getproperty(state, tracer) : 0.0 for tracer in tracers
     )
     auxiliary_values = Tuple(
-        auxiliary === :PAR ? PAR :
-        auxiliary === :temperature ? temperature :
-        error("unknown test auxiliary field :$auxiliary")
-        for auxiliary in required_biogeochemical_auxiliary_fields(bgc)
+        if auxiliary === :PAR
+            PAR
+        elseif auxiliary === :temperature
+            temperature
+        else
+            error("unknown test auxiliary field :$auxiliary")
+        end for auxiliary in required_biogeochemical_auxiliary_fields(bgc)
     )
     return (0.0, 0.0, 0.0, 0.0, tracer_values..., auxiliary_values...)
 end
@@ -134,26 +161,26 @@ end
         (:living_assimilation_matrix, [1.1 0.5; 0.35 0.45], :unit_interval, "1.1"),
     )
         overrides = merge(valid, NamedTuple{(name,)}((value,)))
-        message = argument_error_message(() -> construct(definition; parameter_overrides=overrides))
-        @test all(occursin(fragment, message) for fragment in
-            ("process :", "parameter :$name", "domain :$domain", shown))
+        message = argument_error_message(
+            () -> construct(definition; parameter_overrides=overrides)
+        )
+        @test all(
+            occursin(fragment, message) for
+            fragment in ("process :", "parameter :$name", "domain :$domain", shown)
+        )
     end
 
     bgc = construct(definition; parameter_overrides=food_web_parameter_overrides())
 
-    @test participants(definition.processes.consume_POM) == (
-        consumer=(:B,), resource=(:POM,)
-    )
+    @test participants(definition.processes.consume_POM) ==
+        (consumer=(:B,), resource=(:POM,))
     @test participants(definition.processes.grazing_living).resource == (:P, :B)
     @test :POM ∉ participants(definition.processes.grazing_living).resource
     @test :M ∈ participants(definition.processes.growth_autotrophs).plankton
     @test :M ∈ participants(definition.processes.grazing_living).consumer
     @test required_biogeochemical_auxiliary_fields(bgc) == (:PAR, :temperature)
 
-    state = (
-        N=5.0, D=0.1, POM=0.5,
-        P_1=0.05, B_1=0.03, M_1=0.02, Z_1=0.04,
-    )
+    state = (N=5.0, D=0.1, POM=0.5, P_1=0.05, B_1=0.03, M_1=0.02, Z_1=0.04)
     args = food_web_args(bgc, state; PAR=100.0, temperature=25.0)
     tendencies = values(model_tendencies(bgc, args))
     @test isapprox(sum(tendencies), 0; atol=10 * eps(sum(abs, tendencies)))
@@ -166,8 +193,7 @@ end
         Val(:POM), food_web_args(bgc, consumption_state; temperature=30.0)...
     )
     @test process_compiler_isapprox(consumption30, 2 * consumption20)
-    direct_consumption20 = -1.5e-5 * 0.03 *
-        Agate.Processes.factor_value(Monod(), 0.5, 0.15)
+    direct_consumption20 = -1.5e-5 * 0.03 * Agate.Processes.factor_value(Monod(), 0.5, 0.15)
     @test process_compiler_isapprox(consumption20, direct_consumption20)
 
     growth_state = (N=5.0, P_1=0.05)
@@ -178,7 +204,9 @@ end
         Val(:P_1), food_web_args(bgc, growth_state; PAR=100.0, temperature=30.0)...
     )
     @test process_compiler_isapprox(growth30, 2 * growth20)
-    direct_growth20 = 0.05 * 2e-5 *
+    direct_growth20 =
+        0.05 *
+        2e-5 *
         Agate.Processes.factor_value(Q10(:plankton), 20.0, 2.0, 20.0) *
         Agate.Processes.factor_value(Monod(), 5.0, 0.2) *
         Agate.Processes.factor_value(Smith(), 100.0, 2e-5, 2e-6)
@@ -198,7 +226,9 @@ end
         POM_1=Pool(:nitrogen),
         POM_2=Pool(:nitrogen),
         POM_3=Pool(:nitrogen),
-        B=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.8]),
+        B=Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.8]
+        ),
     )
     processes = (
         consume_POM=Consumption(
@@ -244,16 +274,21 @@ end
     preferred = construct(
         definition;
         parameter_overrides=merge(
-            base_overrides,
-            (substrate_preference_matrix=reshape([1.0, 3.0, 7.0], 1, 3),),
+            base_overrides, (substrate_preference_matrix=reshape([1.0, 3.0, 7.0], 1, 3),)
         ),
     )
-    preferred_losses = Tuple(-preferred(Val(name), args...) for name in (:POM_1, :POM_2, :POM_3))
+    preferred_losses = Tuple(
+        -preferred(Val(name), args...) for name in (:POM_1, :POM_2, :POM_3)
+    )
     @test all(isapprox.(preferred_losses, (0.5, 0.5, 0.5)))
 
     zero_state = (N=0.0, POM_1=0.0, POM_2=0.0, POM_3=0.0, B_1=1.0)
-    zero_args = (0.0, 0.0, 0.0, 0.0, Tuple(getproperty(zero_state, name) for name in names)...)
-    @test all(iszero(bgc(Val(name), zero_args...)) for name in (:POM_1, :POM_2, :POM_3, :B_1, :N))
+    zero_args = (
+        0.0, 0.0, 0.0, 0.0, Tuple(getproperty(zero_state, name) for name in names)...
+    )
+    @test all(
+        iszero(bgc(Val(name), zero_args...)) for name in (:POM_1, :POM_2, :POM_3, :B_1, :N)
+    )
 end
 
 @testset "Preferential grazing shares consumer capacity across prey" begin
@@ -267,12 +302,15 @@ end
                 living_assimilation_matrix=ones(2, 2),
             ),
         )
-        return construct(food_web_definition(; grazing=formulation); parameter_overrides=overrides)
+        return construct(
+            food_web_definition(; grazing=formulation); parameter_overrides=overrides
+        )
     end
-    prey_losses = (model, p, b) -> begin
-        args = food_web_args(model, (P_1=p, B_1=b, Z_1=1.0))
-        return (-model(Val(:P_1), args...), -model(Val(:B_1), args...))
-    end
+    prey_losses =
+        (model, p, b) -> begin
+            args = food_web_args(model, (P_1=p, B_1=b, Z_1=1.0))
+            return (-model(Val(:P_1), args...), -model(Val(:B_1), args...))
+        end
 
     expected_total = 0.8 / (1.0 + 0.8)
     proportional = grazing_model(PreferentialGrazing())
@@ -285,23 +323,37 @@ end
     @test switched[1] / switched[2] ≈ 9.0
 
     zero_proportional = grazing_model(PreferentialGrazing(); half_saturation=0.0)
-    zero_switching = grazing_model(PreferentialGrazing(; switching_exponent=2); half_saturation=0.0)
+    zero_switching = grazing_model(
+        PreferentialGrazing(; switching_exponent=2); half_saturation=0.0
+    )
     @test prey_losses(zero_proportional, 0.0, 0.0) == (0.0, 0.0)
     @test prey_losses(zero_switching, 0.0, 0.0) == (0.0, 0.0)
 end
 
 @testset "Linear grazing is exact mass action" begin
     components = (
-        P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
-        B=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.8]),
-        Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]),
+        P=Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]
+        ),
+        B=Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.8]
+        ),
+        Z=Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]
+        ),
         D=Pool(:nitrogen),
     )
-    processes = (grazing=Consumption(
-        LinearGrazing(); consumers=:Z, resources=(:P, :B),
-        bindings=(rate=:grazing_rate, palatability=:palatability, assimilation=:assimilation),
-        unassimilated_products=:D,
-    ),)
+    processes = (
+        grazing=Consumption(
+            LinearGrazing();
+            consumers=:Z,
+            resources=(:P, :B),
+            bindings=(
+                rate=:grazing_rate, palatability=:palatability, assimilation=:assimilation
+            ),
+            unassimilated_products=:D,
+        ),
+    )
     parameters = (
         grazing_rate=Parameter(0.25),
         palatability=Parameter([0.8 0.5]),
@@ -311,8 +363,10 @@ end
     args = food_web_args(model, (P_1=2.0, B_1=4.0, Z_1=3.0, D=0.0))
     p_loss, b_loss = 0.25 * 0.8 * 2.0 * 3.0, 0.25 * 0.5 * 4.0 * 3.0
     actual = (
-        model(Val(:P_1), args...), model(Val(:B_1), args...),
-        model(Val(:Z_1), args...), model(Val(:D), args...),
+        model(Val(:P_1), args...),
+        model(Val(:B_1), args...),
+        model(Val(:Z_1), args...),
+        model(Val(:D), args...),
     )
     expected = (-p_loss, -b_loss, 0.7 * p_loss + 0.6 * b_loss, 0.3 * p_loss + 0.4 * b_loss)
     @test all(isapprox.(actual, expected))

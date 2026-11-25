@@ -69,19 +69,20 @@ We follow the contributing guidelines developed by [The Turing Way](https://gith
 ### Code formatting
 
 We follow the [Blue](https://github.com/JuliaDiff/BlueStyle) style guide for Julia.
-The formatting CI uses [JuliaFormatter](https://github.com/JuliaEditorSupport/JuliaFormatter.jl) with the repository's `.JuliaFormatter.toml` configuration.
 
-Install JuliaFormatter once in your default Julia environment (`Pkg.activate()` selects this environment):
+Install JuliaFormatter 2.14.12, the version used by CI, in your default Julia environment:
 
 ```bash
-julia -e 'using Pkg; Pkg.activate(); Pkg.add("JuliaFormatter")'
+julia -e 'using Pkg; Pkg.activate(); Pkg.add(PackageSpec(name="JuliaFormatter", version=v"2.14.12"))'
 ```
 
-Before submitting a pull request, run the formatter from the repository root:
+From the repository root, format the code and Markdown using the repository's `.JuliaFormatter.toml`:
 
 ```bash
 julia -e 'using Pkg; Pkg.activate(); using JuliaFormatter; format("."; verbose=true)'
 ```
+
+The formatting check in CI requires the entire repository to be formatted.
 
 ### GPU tests
 

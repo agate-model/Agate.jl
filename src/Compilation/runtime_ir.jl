@@ -31,8 +31,9 @@ struct ProductPowerSumOp{Exponent,Values,Weights}
     weights::Weights
 end
 
-ProductPowerSumOp{Exponent}(values::Tuple, weights::Tuple) where {Exponent} =
-    ProductPowerSumOp{Exponent,typeof(values),typeof(weights)}(values, weights)
+function ProductPowerSumOp{Exponent}(values::Tuple, weights::Tuple) where {Exponent}
+    return ProductPowerSumOp{Exponent,typeof(values),typeof(weights)}(values, weights)
+end
 
 """Static operand that divides one child operand by another."""
 struct QuotientOp{Numerator,Denominator}
@@ -41,7 +42,8 @@ struct QuotientOp{Numerator,Denominator}
 end
 
 @inline operand_value(::InputOp{Index}, bgc, args) where {Index} = @inbounds args[Index]
-@inline operand_value(::ParameterOp{Name,()}, bgc, args) where {Name} = getproperty(bgc.parameters, Name)
+@inline operand_value(::ParameterOp{Name,()}, bgc, args) where {Name} =
+    getproperty(bgc.parameters, Name)
 @inline operand_value(::ParameterOp{Name,Indices}, bgc, args) where {Name,Indices} =
     @inbounds getproperty(bgc.parameters, Name)[Indices...]
 
@@ -49,8 +51,11 @@ end
     return operand_value(first(operands), bgc, args)
 end
 
-@inline function _operand_sum(operands::Tuple{T1,T2,Vararg{Any,N}}, bgc, args) where {T1,T2,N}
-    return operand_value(first(operands), bgc, args) + _operand_sum(Base.tail(operands), bgc, args)
+@inline function _operand_sum(
+    operands::Tuple{T1,T2,Vararg{Any,N}}, bgc, args
+) where {T1,T2,N}
+    return operand_value(first(operands), bgc, args) +
+           _operand_sum(Base.tail(operands), bgc, args)
 end
 
 @inline function operand_value(op::ComplementOp, bgc, args)
@@ -85,9 +90,8 @@ end
         operand_value(first(weights), bgc, args),
         exponent,
     )
-    return current + _product_power_sum(
-        Base.tail(values), Base.tail(weights), bgc, args, exponent
-    )
+    return current +
+           _product_power_sum(Base.tail(values), Base.tail(weights), bgc, args, exponent)
 end
 
 Base.@noinline function operand_value(
@@ -101,7 +105,10 @@ end
 
 @inline operand_values(::Tuple{}, bgc, args) = ()
 @inline function operand_values(operands::Tuple, bgc, args)
-    return (operand_value(first(operands), bgc, args), operand_values(Base.tail(operands), bgc, args)...)
+    return (
+        operand_value(first(operands), bgc, args),
+        operand_values(Base.tail(operands), bgc, args)...,
+    )
 end
 
 """One multiplicative factor attached to a canonical process rate."""
@@ -115,8 +122,7 @@ end
     return factor_value(factor.formulation, values...)
 end
 
-@inline operand_value(factor::FactorOp, bgc, args) =
-    factor_op_value(factor, bgc, args)
+@inline operand_value(factor::FactorOp, bgc, args) = factor_op_value(factor, bgc, args)
 
 @inline apply_rate_factors(::Tuple{}, bgc, args, rate) = rate
 @inline function apply_rate_factors(factors::Tuple, bgc, args, rate)
@@ -131,8 +137,11 @@ struct RateOp{Formulation,Operands,Factors}
     factors::Factors
 end
 
-RateOp(formulation, operands::Tuple; factors=()) =
-    RateOp{typeof(formulation),typeof(operands),typeof(factors)}(formulation, operands, factors)
+function RateOp(formulation, operands::Tuple; factors=())
+    return RateOp{typeof(formulation),typeof(operands),typeof(factors)}(
+        formulation, operands, factors
+    )
+end
 
 @inline function (rate::RateOp)(bgc, args)
     values = operand_values(rate.operands, bgc, args)
@@ -151,14 +160,19 @@ Weight{Sign}(operands::Tuple=()) where {Sign} = Weight{Sign,typeof(operands)}(op
     return operand_value(first(operands), bgc, args)
 end
 
-@inline function weight_product(operands::Tuple{T1,T2,Vararg{Any,N}}, bgc, args) where {T1,T2,N}
-    return operand_value(first(operands), bgc, args) * weight_product(Base.tail(operands), bgc, args)
+@inline function weight_product(
+    operands::Tuple{T1,T2,Vararg{Any,N}}, bgc, args
+) where {T1,T2,N}
+    return operand_value(first(operands), bgc, args) *
+           weight_product(Base.tail(operands), bgc, args)
 end
 
 @inline apply_weight(::Weight{1,Tuple{}}, bgc, args, rate) = rate
 @inline apply_weight(::Weight{-1,Tuple{}}, bgc, args, rate) = -rate
-@inline apply_weight(weight::Weight{1}, bgc, args, rate) = weight_product(weight.operands, bgc, args) * rate
-@inline apply_weight(weight::Weight{-1}, bgc, args, rate) = -weight_product(weight.operands, bgc, args) * rate
+@inline apply_weight(weight::Weight{1}, bgc, args, rate) =
+    weight_product(weight.operands, bgc, args) * rate
+@inline apply_weight(weight::Weight{-1}, bgc, args, rate) =
+    -weight_product(weight.operands, bgc, args) * rate
 
 """Lean runtime flux term containing only its scientific rate and weight."""
 struct FluxTerm{Rate,FluxWeight}
@@ -190,4 +204,3 @@ end
 @inline function (equation::StaticFluxEquation)(bgc, x, y, z, t, args...)
     return _sum_fluxes(equation.terms, bgc, args)
 end
-

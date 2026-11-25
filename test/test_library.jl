@@ -3,11 +3,17 @@ using Test
 using ForwardDiff
 
 using Agate.Library.Allometry:
-    AllometricParam, SplitPowerLaw, allometric_scaling_power,
+    AllometricParam,
+    SplitPowerLaw,
+    allometric_scaling_power,
     palatability_matrix_allometric_axes,
-    resolve_diameter_indexed_vector, resolve_param
+    resolve_diameter_indexed_vector,
+    resolve_param
 using Agate.Library.Nutrients:
-    frank_tnorm, inhibited_monod_limitation, liebig_minimum, normalized_droop_limitation,
+    frank_tnorm,
+    inhibited_monod_limitation,
+    liebig_minimum,
+    normalized_droop_limitation,
     quota_uptake_regulation
 using Agate.Library.Photosynthesis:
     exponential_light_limitation, geider_light_response, smith_light_limitation
@@ -21,9 +27,11 @@ end
 
 @testset "Allometry accepts realized diameter tuples" begin
     diameters = (1.0, 2.0)
-    @test resolve_diameter_indexed_vector(Float64, diameters, (2,), 3.0; default=0.0) == [0.0, 3.0]
+    @test resolve_diameter_indexed_vector(Float64, diameters, (2,), 3.0; default=0.0) ==
+        [0.0, 3.0]
     @test palatability_matrix_allometric_axes(
-        Float64, diameters;
+        Float64,
+        diameters;
         optimum_predator_prey_ratio=[0.0, 2.0],
         specificity=[0.0, 1.0],
         protection=[0.0, 0.0],
