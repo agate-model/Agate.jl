@@ -370,8 +370,8 @@ function _encode_realization(recipe::ModelRecipe)
             nothing
         else
             _encode_parameter_overrides(
-            recipe.sinking_tracers, "Recipe document.realization.sinking_tracers"
-        )
+                recipe.sinking_tracers, "Recipe document.realization.sinking_tracers"
+            )
         end,
         "open_bottom" => recipe.open_bottom,
     )

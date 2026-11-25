@@ -50,9 +50,9 @@ function parameter_slots(process::Growth)
         parameter_slots(FactorizedGrowth())
     else
         (
-        parameter_slots(FactorizedGrowth())...,
-        ParameterSlot(:product_fraction, (:plankton,); domain=:unit_interval),
-    )
+            parameter_slots(FactorizedGrowth())...,
+            ParameterSlot(:product_fraction, (:plankton,); domain=:unit_interval),
+        )
     end
 end
 parameter_slots(::Smith) = (ParameterSlot(:alpha, (:plankton,); domain=:nonnegative),)
