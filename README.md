@@ -3,6 +3,7 @@
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/agate-model/Agate.jl/blob/main/LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://agate-model.github.io/Agate.jl/dev/)
 [![Build Status](https://github.com/agate-model/Agate.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/agate-model/Agate.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Formatting](https://github.com/agate-model/Agate.jl/actions/workflows/Format.yml/badge.svg?branch=main)](https://github.com/agate-model/Agate.jl/actions/workflows/Format.yml?query=branch%3Amain)
 
 ## Aquatic GCM-Agnostic Tunable Ecosystems
 

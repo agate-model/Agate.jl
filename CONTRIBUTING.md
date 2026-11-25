@@ -66,6 +66,24 @@ We follow the contributing guidelines developed by [The Turing Way](https://gith
   - You can test to make sure Agate works by typing in `] test`. Doing so will run all
     the tests (and this can take a while).
 
+### Code formatting
+
+We follow the [Blue](https://github.com/JuliaDiff/BlueStyle) style guide for Julia.
+
+Install JuliaFormatter 2.14.12, the version used by CI, in your default Julia environment:
+
+```bash
+julia -e 'using Pkg; Pkg.activate(); Pkg.add(PackageSpec(name="JuliaFormatter", version=v"2.14.12"))'
+```
+
+From the repository root, format the code and Markdown using the repository's `.JuliaFormatter.toml`:
+
+```bash
+julia -e 'using Pkg; Pkg.activate(); using JuliaFormatter; format("."; verbose=true)'
+```
+
+The formatting check in CI requires the entire repository to be formatted.
+
 ### GPU tests
 
 CUDA execution is opt-in because it requires a compatible GPU/toolkit setup.
@@ -87,8 +105,6 @@ the same GPU checks, use:
 AGATE_TEST_CUDA=1 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-We follow the [Blue](https://github.com/JuliaDiff/BlueStyle) style guide for Julia.
-
 ### Type-parameter naming
 
 Use semantic type-parameter names on persistent domain/runtime structs (for example
@@ -96,14 +112,6 @@ Use semantic type-parameter names on persistent domain/runtime structs (for exam
 type, `T1`, `T2`, ... when generic types differ only by position, and `N` for counts or
 arities. Reserve `FT` for parameters constrained to floating-point types. Name compile-time
 value parameters by their role, such as `Name`, `Index`, or `Sign`.
-
-To automatically format all Julia files in the project you can use the JuliaFormatter. Once you have installed it (`add JuliaFormatter`) run:
-
-```Julia
-using JuliaFormatter
-
-format(".")
-```
 
 Your development environment is now ready!
 
