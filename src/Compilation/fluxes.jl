@@ -12,9 +12,11 @@ end
 Custom process implementations may extend this hook through `CanonicalProcess{Process}` for a concrete process type.
 """
 function process_fluxes(named::CanonicalProcess, context::CompileContext)
-    throw(ArgumentError(
-        "no compiler lowering is defined for process type $(typeof(named.process))",
-    ))
+    return throw(
+        ArgumentError(
+            "no compiler lowering is defined for process type $(typeof(named.process))"
+        ),
+    )
 end
 
 """Setup-time description of one flux into one concrete tracer."""
@@ -35,14 +37,23 @@ function _realize_participants(items::Tuple, layout::ModelLayout)
     for item in items
         is_state_reference = item isa PlanktonStateRef
         component = is_state_reference ? item.plankton : item
-        tracers = is_state_reference ? state_tracers(layout, item) : component_tracers(layout, item)
+        tracers = if is_state_reference
+            state_tracers(layout, item)
+        else
+            component_tracers(layout, item)
+        end
         entities = component_entities(layout, component)
-        length(tracers) == length(entities) || throw(ArgumentError(
-            "participant $item must realize exactly one tracer per realized entity",
-        ))
+        length(tracers) == length(entities) || throw(
+            ArgumentError(
+                "participant $item must realize exactly one tracer per realized entity"
+            ),
+        )
         for component_index in eachindex(entities)
             position = _axis_position(entities[component_index], component, component_index)
-            push!(participants, (; tracer=tracers[component_index], component, component_index, position))
+            push!(
+                participants,
+                (; tracer=tracers[component_index], component, component_index, position),
+            )
         end
     end
     return Tuple(participants)
@@ -50,36 +61,32 @@ end
 
 """Resolve one tracer or auxiliary identity to its final positional runtime input."""
 function input_operand(layout::ModelLayout, identity::Symbol)
-    hasproperty(layout.input_indices, identity) || throw(
-        ArgumentError("unknown realized tracer or auxiliary input :$identity"),
-    )
+    hasproperty(layout.input_indices, identity) ||
+        throw(ArgumentError("unknown realized tracer or auxiliary input :$identity"))
     return InputOp{getproperty(layout.input_indices, identity)}()
 end
 
 """Resolve one canonical parameter slot directly from realized entity identity."""
 function parameter_operand(
-    binding::ParameterBinding,
-    plan::ParameterPlan,
-    axis_positions::NamedTuple=NamedTuple(),
+    binding::ParameterBinding, plan::ParameterPlan, axis_positions::NamedTuple=NamedTuple()
 )
     rank = length(binding.axes)
     indices = ntuple(rank) do dimension
         axis = binding.axes[dimension]
-        hasproperty(axis_positions, axis) || throw(ArgumentError(
-            "parameter :$(binding.parameter) axis :$axis has no realized runtime position",
-        ))
+        hasproperty(axis_positions, axis) || throw(
+            ArgumentError(
+                "parameter :$(binding.parameter) axis :$axis has no realized runtime position",
+            ),
+        )
         position = getproperty(axis_positions, axis)
-        parameter_storage_index(plan, binding.parameter, dimension, position.entity)
+        return parameter_storage_index(plan, binding.parameter, dimension, position.entity)
     end
     return ParameterOp{binding.parameter,indices}()
 end
 
-
 """Resolve one dense canonical binding reference to its static runtime parameter operand."""
 function parameter_operand(
-    ref::Int,
-    context::CompileContext,
-    axis_positions::NamedTuple=NamedTuple(),
+    ref::Int, context::CompileContext, axis_positions::NamedTuple=NamedTuple()
 )
     binding = context.definition.parameter_bindings[ref]
     return parameter_operand(binding, context.plan, axis_positions)
@@ -96,20 +103,24 @@ function process_parameter_operands(
     axis_positions::NamedTuple=NamedTuple(),
 )
     refs = named.binding_refs.process
-    all(ref -> ref isa Int, values(refs)) || throw(ArgumentError(
-        "process :$(process_id(named)) has qualifier-specific parameter slots; custom lowering must resolve its semantic facts explicitly",
-    ))
+    all(ref -> ref isa Int, values(refs)) || throw(
+        ArgumentError(
+            "process :$(process_id(named)) has qualifier-specific parameter slots; custom lowering must resolve its semantic facts explicitly",
+        ),
+    )
     names = keys(refs)
-    return NamedTuple{names}(Tuple(
-        parameter_operand(ref, context, axis_positions) for ref in values(refs)
-    ))
+    return NamedTuple{names}(
+        Tuple(parameter_operand(ref, context, axis_positions) for ref in values(refs))
+    )
 end
 
 function _scalar_component_target(layout::ModelLayout, component::Symbol)
     tracers = getproperty(layout.component_tracers, component)
-    length(tracers) == 1 || throw(ArgumentError(
-        "component :$component must realize exactly one tracer; got $(length(tracers))",
-    ))
+    length(tracers) == 1 || throw(
+        ArgumentError(
+            "component :$component must realize exactly one tracer; got $(length(tracers))",
+        ),
+    )
     return only(tracers)
 end
 
@@ -127,14 +138,16 @@ function group_fluxes(fluxes::Tuple; target_order=nothing)
     targets = isnothing(target_order) ? _target_order(fluxes) : Tuple(target_order)
     if !isnothing(target_order)
         unknown = Tuple(target for target in _target_order(fluxes) if !(target in targets))
-        isempty(unknown) || throw(ArgumentError(
-            "process lowering produced fluxes for unrealized targets $unknown; " *
-            "targets must be concrete tracers in the realized layout",
-        ))
+        isempty(unknown) || throw(
+            ArgumentError(
+                "process lowering produced fluxes for unrealized targets $unknown; " *
+                "targets must be concrete tracers in the realized layout",
+            ),
+        )
     end
     grouped = ntuple(length(targets)) do i
         target = targets[i]
-        Tuple(flux for flux in fluxes if flux_target(flux) === target)
+        return Tuple(flux for flux in fluxes if flux_target(flux) === target)
     end
     return NamedTuple{targets}(grouped)
 end

@@ -27,7 +27,6 @@ using ..Integrations: NPDPlankton
 @inline _introspection_target(x) = x
 @inline _introspection_target(x::NPDPlankton) = x.runtime
 
-
 @inline function preview_list(xs; n::Int=12)
     m = length(xs)
     if m <= n
@@ -46,9 +45,8 @@ underlying tracer-name tuple as a `Vector{Symbol}`.
 
 The ordering matches Oceananigans / OceanBioME state-vector conventions.
 """
-@inline tracer_names(bgc)::Vector{Symbol} = collect(
-    required_biogeochemical_tracers(_introspection_target(bgc))
-)
+@inline tracer_names(bgc)::Vector{Symbol} =
+    collect(required_biogeochemical_tracers(_introspection_target(bgc)))
 
 """    auxiliary_field_names(bgc) -> Vector{Symbol}
 
@@ -57,9 +55,8 @@ Return the ordered auxiliary field symbols required by `bgc`.
 Auxiliary fields are non-tracer state fields (for example, light or temperature)
 that appear in tracer tendencies.
 """
-@inline auxiliary_field_names(bgc)::Vector{Symbol} = collect(
-    required_biogeochemical_auxiliary_fields(_introspection_target(bgc))
-)
+@inline auxiliary_field_names(bgc)::Vector{Symbol} =
+    collect(required_biogeochemical_auxiliary_fields(_introspection_target(bgc)))
 
 """
     parameter_names(bgc) -> Vector{Symbol}
@@ -160,7 +157,8 @@ end
 function parameter_domains(bgc, name::Symbol)
     metadata = _model_metadata(bgc)
     metadata === nothing && throw(ArgumentError("Model has no parameter metadata."))
-    hasproperty(metadata.parameter_axes, name) || throw(ArgumentError("Unknown parameter :$name."))
+    hasproperty(metadata.parameter_axes, name) ||
+        throw(ArgumentError("Unknown parameter :$name."))
     return getproperty(metadata.parameter_axes, name).domains
 end
 
@@ -168,8 +166,8 @@ function _interaction_parameter_names(bgc)
     metadata = _model_metadata(bgc)
     metadata === nothing && return ()
     return Tuple(
-        name for (name, parameter) in pairs(metadata.parameter_axes)
-        if parameter.runtime_bound && parameter.axes == (:consumer, :resource)
+        name for (name, parameter) in pairs(metadata.parameter_axes) if
+        parameter.runtime_bound && parameter.axes == (:consumer, :resource)
     )
 end
 
@@ -178,18 +176,19 @@ function _interaction_parameter_metadata(bgc, kind::Symbol)
     available = _interaction_parameter_names(target)
     kind in available || begin
         available_text = isempty(available) ? "none" : join(string.(available), ", ")
-        throw(ArgumentError(
-            "Unknown interaction matrix parameter: $kind. Available parameters are: $available_text."
-        ))
+        throw(
+            ArgumentError(
+                "Unknown interaction matrix parameter: $kind. Available parameters are: $available_text.",
+            ),
+        )
     end
     metadata = getproperty(_model_metadata(target).parameter_axes, kind)
     hasproperty(target.parameters, kind) || throw(
         ArgumentError("Interaction parameter :$kind is missing from runtime parameters."),
     )
     matrix = getproperty(target.parameters, kind)
-    applicable(size, matrix) && length(size(matrix)) == 2 || throw(
-        ArgumentError("Interaction parameter :$kind is not stored as a matrix."),
-    )
+    applicable(size, matrix) && length(size(matrix)) == 2 ||
+        throw(ArgumentError("Interaction parameter :$kind is not stored as a matrix."))
     return matrix, metadata
 end
 
@@ -197,7 +196,7 @@ function _require_interaction_shape(matrix, rows, columns, kind::Symbol)
     expected = (length(rows), length(columns))
     size(matrix) == expected && return nothing
 
-    throw(
+    return throw(
         ArgumentError(
             "Interaction matrix $kind has size $(size(matrix)); expected $expected from labelled interaction axes.",
         ),
@@ -247,7 +246,8 @@ function model_summary(bgc)
         tracers=tracer_names(target),
         auxiliary_fields=auxiliary_field_names(target),
         parameters=parameter_names(target),
-        has_sinking_velocities=Base.hasproperty(target, :sinking_velocities) && getproperty(target, :sinking_velocities) !== nothing,
+        has_sinking_velocities=Base.hasproperty(target, :sinking_velocities) &&
+                               getproperty(target, :sinking_velocities) !== nothing,
     )
 end
 

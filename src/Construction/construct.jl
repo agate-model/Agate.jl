@@ -8,12 +8,16 @@ using Oceananigans.Architectures: architecture, child_architecture, CPU, GPU
 
 using ..ModelFamilies: AbstractModelFamily, default_components, plankton_roles
 
-using ..Components:
-    canonicalize_plankton_realization, realize_model_layout, model_metadata
+using ..Components: canonicalize_plankton_realization, realize_model_layout, model_metadata
 
 using ..Processes:
-    ModelDefinition, canonicalize_model, driver_identities, build_parameter_plan,
-    runtime_parameter_values, parameter_plan_metadata, parameter_constraints,
+    ModelDefinition,
+    canonicalize_model,
+    driver_identities,
+    build_parameter_plan,
+    runtime_parameter_values,
+    parameter_plan_metadata,
+    parameter_constraints,
     validate_realized_parameters
 
 using ..Compilation: CompileContext, compile_model_tendencies
@@ -83,24 +87,32 @@ end
 
 function validate_sinking_tracers(sinking_tracers, layout)
     isnothing(sinking_tracers) && return nothing
-    sinking_tracers isa NamedTuple || throw(ArgumentError(
-        "sinking_tracers must be a NamedTuple mapping realized tracer names to nonnegative finite speeds."
-    ))
+    sinking_tracers isa NamedTuple || throw(
+        ArgumentError(
+            "sinking_tracers must be a NamedTuple mapping realized tracer names to nonnegative finite speeds.",
+        ),
+    )
 
     realized = Set(layout.tracer_order)
     for (tracer, speed) in pairs(sinking_tracers)
-        tracer in realized || throw(ArgumentError(
-            "Unknown sinking tracer :$tracer; expected a realized tracer in $(layout.tracer_order)."
-        ))
-        speed isa Real && !(speed isa Bool) || throw(ArgumentError(
-            "Sinking speed for :$tracer must be a real number; got $(repr(speed))."
-        ))
-        isfinite(speed) || throw(ArgumentError(
-            "Sinking speed for :$tracer must be finite; got $(repr(speed))."
-        ))
-        speed >= zero(speed) || throw(ArgumentError(
-            "Sinking speed for :$tracer must be nonnegative; got $(repr(speed))."
-        ))
+        tracer in realized || throw(
+            ArgumentError(
+                "Unknown sinking tracer :$tracer; expected a realized tracer in $(layout.tracer_order).",
+            ),
+        )
+        speed isa Real && !(speed isa Bool) || throw(
+            ArgumentError(
+                "Sinking speed for :$tracer must be a real number; got $(repr(speed))."
+            ),
+        )
+        isfinite(speed) || throw(
+            ArgumentError("Sinking speed for :$tracer must be finite; got $(repr(speed))."),
+        )
+        speed >= zero(speed) || throw(
+            ArgumentError(
+                "Sinking speed for :$tracer must be nonnegative; got $(repr(speed))."
+            ),
+        )
     end
     return nothing
 end
@@ -115,32 +127,29 @@ end
 
 """Translate a family's user-facing plankton roles into canonical logical PFT realization."""
 function plankton_realization(family::AbstractModelFamily, size_structure)
-    size_structure isa NamedTuple || throw(ArgumentError("size_structure must be a NamedTuple"))
+    size_structure isa NamedTuple ||
+        throw(ArgumentError("size_structure must be a NamedTuple"))
     roles = plankton_roles(family)
     role_names = keys(roles)
-    Set(keys(size_structure)) == Set(role_names) || throw(
-        ArgumentError("size_structure must define exactly $(collect(role_names))")
-    )
+    Set(keys(size_structure)) == Set(role_names) ||
+        throw(ArgumentError("size_structure must define exactly $(collect(role_names))"))
 
     component_names = Tuple(values(roles))
     component_values = ntuple(length(role_names)) do i
         role = role_names[i]
         pfts = getproperty(size_structure, role)
-        pfts isa NamedTuple || throw(
-            ArgumentError("size_structure.$role must be a NamedTuple")
+        pfts isa NamedTuple ||
+            throw(ArgumentError("size_structure.$role must be a NamedTuple"))
+        return NamedTuple{keys(pfts)}(
+            Tuple(normalize_pft_size_structure(value) for value in values(pfts))
         )
-        NamedTuple{keys(pfts)}(Tuple(normalize_pft_size_structure(value) for value in values(pfts)))
     end
     authored = NamedTuple{component_names}(component_values)
     return canonicalize_plankton_realization(default_components(family), authored)
 end
 
-
 function _realize_process_definition(
-    definition,
-    ::Type{T};
-    plankton_pfts=nothing,
-    auxiliary_fields::Tuple=(),
+    definition, ::Type{T}; plankton_pfts=nothing, auxiliary_fields::Tuple=()
 ) where {T<:Real}
     plankton_pfts = canonicalize_plankton_realization(definition.components, plankton_pfts)
     return realize_model_layout(
@@ -172,9 +181,11 @@ function _construct_process_definition(
         if isnothing(arch)
             arch = arch_grid
         elseif typeof(arch) !== typeof(arch_grid)
-            throw(ArgumentError(
-                "arch=$arch does not match architecture(grid)=$arch_grid. Architecture is determined by the grid."
-            ))
+            throw(
+                ArgumentError(
+                    "arch=$arch does not match architecture(grid)=$arch_grid. Architecture is determined by the grid.",
+                ),
+            )
         end
     else
         isnothing(arch) && (arch = CPU())
@@ -182,15 +193,15 @@ function _construct_process_definition(
 
     canonical = canonicalize_model(definition)
     isnothing(derivation_owner) && (derivation_owner = definition)
-    isnothing(definition.parameters) && !isempty(canonical.parameter_bindings) && throw(
-        ArgumentError(
-            "construct(definition) requires ModelDefinition.parameters for the declared process parameter slots."
-        ),
-    )
+    isnothing(definition.parameters) &&
+        !isempty(canonical.parameter_bindings) &&
+        throw(
+            ArgumentError(
+                "construct(definition) requires ModelDefinition.parameters for the declared process parameter slots.",
+            ),
+        )
     auxiliary_fields = driver_identities(canonical)
-    layout = _realize_process_definition(
-        canonical, T; plankton_pfts, auxiliary_fields
-    )
+    layout = _realize_process_definition(canonical, T; plankton_pfts, auxiliary_fields)
     validate_sinking_tracers(sinking_tracers, layout)
     sinking_tracers = convert_sinking_tracers(T, sinking_tracers)
     validate_sinking_tracers(sinking_tracers, layout)
@@ -214,7 +225,7 @@ function _construct_process_definition(
     )
     missing_names = Symbol[key for key in required if !hasproperty(resolved, key)]
     isempty(missing_names) || throw(
-        ArgumentError("missing required parameters: $(join(string.(missing_names), ", "))")
+        ArgumentError("missing required parameters: $(join(string.(missing_names), ", "))"),
     )
     resolved_parameters = NamedTuple{required}(
         Tuple(getproperty(resolved, key) for key in required)
@@ -235,8 +246,11 @@ function _construct_process_definition(
         ),
         (; model_settings),
     )
-    sinking_velocities = isnothing(sinking_tracers) ? nothing :
+    sinking_velocities = if isnothing(sinking_tracers)
+        nothing
+    else
         setup_velocity_fields(sinking_tracers, grid, open_bottom)
+    end
     bgc = AgateBGC(
         runtime_parameters, equations, auxiliary_fields, sinking_velocities, metadata
     )
@@ -295,7 +309,8 @@ function _construct_family_model(
 end
 
 function _construct_recipe(
-    family::AbstractModelFamily, recipe::ModelRecipe;
+    family::AbstractModelFamily,
+    recipe::ModelRecipe;
     grid=nothing,
     arch=nothing,
     scalar_type=nothing,
@@ -304,15 +319,9 @@ function _construct_recipe(
     _check_recipe_family(family, recipe)
     realization = _family_realization(recipe)
     return _construct_family_model(
-        family,
-        realization;
-        grid,
-        arch,
-        scalar_type,
-        build_manifest,
+        family, realization; grid, arch, scalar_type, build_manifest
     )
 end
-
 
 """
     construct(family::AbstractModelFamily;
@@ -340,9 +349,7 @@ function construct(
     realization = (;
         plankton_pfts, parameter_overrides, setting_overrides, sinking_tracers, open_bottom
     )
-    bgc, _ = _construct_family_model(
-        family, realization; grid, arch, scalar_type
-    )
+    bgc, _ = _construct_family_model(family, realization; grid, arch, scalar_type)
     return bgc
 end
 
@@ -383,10 +390,10 @@ function construct(
     return bgc
 end
 
-
 """Replay a recipe using the explicitly selected model provider and family."""
 function construct(
-    family::AbstractModelFamily, recipe::ModelRecipe;
+    family::AbstractModelFamily,
+    recipe::ModelRecipe;
     grid=nothing,
     arch=nothing,
     scalar_type=nothing,
@@ -408,7 +415,12 @@ function construct_plus_recipe(
     scalar_type=nothing,
 )
     recipe = capture_model_recipe(
-        family; plankton_pfts, parameter_overrides, setting_overrides, sinking_tracers, open_bottom
+        family;
+        plankton_pfts,
+        parameter_overrides,
+        setting_overrides,
+        sinking_tracers,
+        open_bottom,
     )
     bgc = construct(family, recipe; grid, arch, scalar_type)
     return bgc, recipe
@@ -416,7 +428,11 @@ end
 
 """Replay a recipe with an explicit family and return its resolved manifest."""
 function construct_plus_manifest(
-    family::AbstractModelFamily, recipe::ModelRecipe; grid=nothing, arch=nothing, scalar_type=nothing
+    family::AbstractModelFamily,
+    recipe::ModelRecipe;
+    grid=nothing,
+    arch=nothing,
+    scalar_type=nothing,
 )
     return _construct_recipe(family, recipe; grid, arch, scalar_type, build_manifest=true)
 end

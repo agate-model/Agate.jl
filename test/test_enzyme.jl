@@ -9,16 +9,16 @@ using SciMLBase: remake
 
 using Oceananigans.Units: day
 
-
 @testset "Enzyme parameterized tendency gradients" begin
     mu0 = 0.7 / day
     base_bgc = runtime_npz_growth_fixture(; mu=mu0)
 
-    active = Agate.Runtime.active_parameters(base_bgc;
-        maximum_growth_rate = (:P_1,),
-        detritus_remineralization = true,
-        palatability_matrix = ((:Z_1, :P_1),),
-        assimilation_matrix = ((:Z_1, :P_1),),
+    active = Agate.Runtime.active_parameters(
+        base_bgc;
+        maximum_growth_rate=(:P_1,),
+        detritus_remineralization=true,
+        palatability_matrix=((:Z_1, :P_1),),
+        assimilation_matrix=((:Z_1, :P_1),),
     )
 
     args = runtime_npz_args()
@@ -33,10 +33,12 @@ using Oceananigans.Units: day
 
     p0 = copy(active.values)
     grad = zeros(length(p0))
-    Enzyme.autodiff(Enzyme.set_runtime_activity(Enzyme.Reverse),
-                    Enzyme.Const(diagnostic),
-                    Enzyme.Active,
-                    Enzyme.Duplicated(p0, grad))
+    Enzyme.autodiff(
+        Enzyme.set_runtime_activity(Enzyme.Reverse),
+        Enzyme.Const(diagnostic),
+        Enzyme.Active,
+        Enzyme.Duplicated(p0, grad),
+    )
 
     @test length(grad) == length(active)
     @test all(isfinite, grad)
@@ -56,12 +58,14 @@ end
     bgc = Agate.Construction.construct(quota_definition())
     active = Agate.Runtime.active_parameters(bgc; maximum_nitrogen_uptake=(:P_1,))
     args = quota_runtime_args()
-    diagnostic(p) = Agate.Runtime.parameterized(
-        bgc, p; active_parameters=active
-    )(Val(:P_1_nitrogen), args...)
+    diagnostic(p) = Agate.Runtime.parameterized(bgc, p; active_parameters=active)(
+        Val(:P_1_nitrogen), args...
+    )
     gradient = zeros(length(active.values))
     Enzyme.autodiff(
-        Enzyme.set_runtime_activity(Enzyme.Reverse), Enzyme.Const(diagnostic), Enzyme.Active,
+        Enzyme.set_runtime_activity(Enzyme.Reverse),
+        Enzyme.Const(diagnostic),
+        Enzyme.Active,
         Enzyme.Duplicated(copy(active.values), gradient),
     )
     @test length(gradient) == 1 && isfinite(only(gradient)) && !iszero(only(gradient))
@@ -73,21 +77,31 @@ end
     p0 = copy(active.values)
     tspan = (0.0, 3day)
     problem = Agate.Runtime.ode_problem(
-        bgc, runtime_npz_u0(), tspan;
-        p=p0, active_parameters=active, auxiliary=(; PAR=100.0),
+        bgc,
+        runtime_npz_u0(),
+        tspan;
+        p=p0,
+        active_parameters=active,
+        auxiliary=(; PAR=100.0),
     )
     p1_index = findfirst(==(:P_1), Agate.Introspection.tracer_names(bgc))
-    sensealg = SciMLSensitivity.GaussAdjoint(;
-        autojacvec=SciMLSensitivity.EnzymeVJP(),
-    )
+    sensealg = SciMLSensitivity.GaussAdjoint(; autojacvec=SciMLSensitivity.EnzymeVJP())
 
     function endpoint(p; sensealg=nothing)
         prob = remake(problem; p)
-        kwargs = (; abstol=1e-8, reltol=1e-8,
-                  saveat=tspan[end], save_start=false, save_end=true,
-                  save_everystep=false)
-        sol = isnothing(sensealg) ? solve(prob, Tsit5(); kwargs...) :
-                                   solve(prob, Tsit5(); kwargs..., sensealg)
+        kwargs = (;
+            abstol=1e-8,
+            reltol=1e-8,
+            saveat=tspan[end],
+            save_start=false,
+            save_end=true,
+            save_everystep=false,
+        )
+        sol = if isnothing(sensealg)
+            solve(prob, Tsit5(); kwargs...)
+        else
+            solve(prob, Tsit5(); kwargs..., sensealg)
+        end
         return Array(sol)[p1_index, end]
     end
 

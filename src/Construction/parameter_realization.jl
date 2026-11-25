@@ -7,66 +7,76 @@ using ..Parameters:
 
 using ..Processes: planned_parameter
 
-using ..Library.Allometry: AbstractParamDef, AllometricParam, resolve_diameter_indexed_vector
+using ..Library.Allometry:
+    AbstractParamDef, AllometricParam, resolve_diameter_indexed_vector
 
-function validate_parameter_value(parameter, value, ::Type{T}; derived::Bool=false) where {T<:Real}
+function validate_parameter_value(
+    parameter, value, ::Type{T}; derived::Bool=false
+) where {T<:Real}
     rank = parameter.rank
     name = parameter.name
     shape = parameter.storage_shape
 
     if rank == 0
         value isa Bool && return nothing
-        value isa Number || throw(ArgumentError(
-            "parameter :$name must be scalar; got $(typeof(value)).",
-        ))
+        value isa Number ||
+            throw(ArgumentError("parameter :$name must be scalar; got $(typeof(value))."))
         if derived && typeof(value) !== T
-            throw(ArgumentError(
-                "derived default :$name must have type $(T); got $(typeof(value)). No implicit casting is performed.",
-            ))
+            throw(
+                ArgumentError(
+                    "derived default :$name must have type $(T); got $(typeof(value)). No implicit casting is performed.",
+                ),
+            )
         end
         return nothing
     elseif rank == 1
-        value isa AbstractVector || throw(ArgumentError(
-            "parameter :$name must be a vector; got $(typeof(value)).",
-        ))
-        length(value) == only(shape) || throw(ArgumentError(
-            "parameter :$name must have length $(only(shape)) (got $(length(value))).",
-        ))
+        value isa AbstractVector ||
+            throw(ArgumentError("parameter :$name must be a vector; got $(typeof(value))."))
+        length(value) == only(shape) || throw(
+            ArgumentError(
+                "parameter :$name must have length $(only(shape)) (got $(length(value))).",
+            ),
+        )
         if derived && eltype(value) !== T
-            throw(ArgumentError(
-                "derived default :$name must have eltype $(T); got eltype $(eltype(value)). No implicit casting is performed.",
-            ))
+            throw(
+                ArgumentError(
+                    "derived default :$name must have eltype $(T); got eltype $(eltype(value)). No implicit casting is performed.",
+                ),
+            )
         end
         return nothing
     elseif rank == 2
-        value isa AbstractMatrix || throw(ArgumentError(
-            "parameter :$name must be a matrix; got $(typeof(value)).",
-        ))
-        size(value) == shape || throw(ArgumentError(
-            "parameter :$name must have size $shape (got $(size(value))).",
-        ))
+        value isa AbstractMatrix ||
+            throw(ArgumentError("parameter :$name must be a matrix; got $(typeof(value))."))
+        size(value) == shape || throw(
+            ArgumentError("parameter :$name must have size $shape (got $(size(value)))."),
+        )
         if derived && eltype(value) !== T
-            throw(ArgumentError(
-                "derived default :$name must have eltype $(T); got eltype $(eltype(value)). No implicit casting is performed.",
-            ))
+            throw(
+                ArgumentError(
+                    "derived default :$name must have eltype $(T); got eltype $(eltype(value)). No implicit casting is performed.",
+                ),
+            )
         end
         return nothing
     end
 
-    throw(ArgumentError("parameter :$name has unsupported rank $rank"))
+    return throw(ArgumentError("parameter :$name has unsupported rank $rank"))
 end
 
 function validate_parameter_storage(plan, values::NamedTuple, ::Type{T}) where {T<:Real}
     for name in keys(plan.parameters)
-        validate_parameter_value(getproperty(plan.parameters, name), getproperty(values, name), T)
+        validate_parameter_value(
+            getproperty(plan.parameters, name), getproperty(values, name), T
+        )
     end
     return nothing
 end
 
 function parameter_axis_names(parameter)
-    parameter.rank == 1 || throw(ArgumentError(
-        "parameter :$(parameter.name) does not have one vector storage axis",
-    ))
+    parameter.rank == 1 || throw(
+        ArgumentError("parameter :$(parameter.name) does not have one vector storage axis"),
+    )
     return only(parameter.storage_labels)
 end
 
@@ -75,18 +85,22 @@ function expand_named_vector_override(
 ) where {T<:Real}
     name = parameter.name
     names = parameter_axis_names(parameter)
-    length(default_value) == length(names) || throw(ArgumentError(
-        "parameter :$name default length $(length(default_value)) does not match its planned axis length $(length(names)).",
-    ))
+    length(default_value) == length(names) || throw(
+        ArgumentError(
+            "parameter :$name default length $(length(default_value)) does not match its planned axis length $(length(names)).",
+        ),
+    )
 
     expanded = copy(default_value)
     for (key, value) in pairs(user_value)
         idx = findfirst(==(key), names)
         if idx === nothing
             expected = join(string.(names), ", ")
-            throw(ArgumentError(
-                "Unknown key `$(key)` for parameter `$name`. Expected one of: $(expected).",
-            ))
+            throw(
+                ArgumentError(
+                    "Unknown key `$(key)` for parameter `$name`. Expected one of: $(expected).",
+                ),
+            )
         end
         expanded[idx] = value isa Bool ? value : T(value)
     end
@@ -110,17 +124,15 @@ function materialize_parameter_value(parameter, value, ::Type{T}) where {T<:Real
         copyto!(out, value)
         return out
     end
-    throw(ArgumentError("parameter :$(parameter.name) has unsupported rank $rank"))
+    return throw(ArgumentError("parameter :$(parameter.name) has unsupported rank $rank"))
 end
 
 function validate_override_keys(plan, overrides::NamedTuple)
     for (key, value) in pairs(overrides)
-        hasproperty(plan.parameters, key) || throw(
-            ArgumentError("parameters: unknown parameter key :$key."),
-        )
-        value === nothing && throw(
-            ArgumentError("parameter :$key cannot be overridden with `nothing`."),
-        )
+        hasproperty(plan.parameters, key) ||
+            throw(ArgumentError("parameters: unknown parameter key :$key."))
+        value === nothing &&
+            throw(ArgumentError("parameter :$key cannot be overridden with `nothing`."))
     end
     return nothing
 end
@@ -164,22 +176,24 @@ function materialize_parameter_default(
         value isa AbstractMatrix && return materialize_parameter_value(parameter, value, T)
         return fill(value isa Bool ? value : T(value), expected...)
     end
-    throw(ArgumentError("parameter :$(parameter.name) has unsupported rank $rank"))
+    return throw(ArgumentError("parameter :$(parameter.name) has unsupported rank $rank"))
 end
 
 function _require_allometric_diameters(parameter, diameters, value, indices)
     value isa AllometricParam || return nothing
     labels = only(parameter.storage_labels)
     missing_labels = Tuple(
-        labels[i] for i in indices
-        if !(
-            diameters[i] isa Real && isfinite(diameters[i]) &&
+        labels[i] for i in indices if !(
+            diameters[i] isa Real &&
+            isfinite(diameters[i]) &&
             diameters[i] > zero(diameters[i])
         )
     )
-    isempty(missing_labels) || throw(ArgumentError(
-        "parameter :$(parameter.name) uses an allometric definition but has no diameter metadata for SizeClasses $missing_labels; provide an explicit size structure or explicit values for those SizeClasses",
-    ))
+    isempty(missing_labels) || throw(
+        ArgumentError(
+            "parameter :$(parameter.name) uses an allometric definition but has no diameter metadata for SizeClasses $missing_labels; provide an explicit size structure or explicit values for those SizeClasses",
+        ),
+    )
     return nothing
 end
 
@@ -190,12 +204,14 @@ function materialize_parameter_default(
     overridden_labels::Tuple=(),
 ) where {T<:Real}
     parameter.rank == 1 || throw(
-        ArgumentError("DiameterIndexedVectorDefault requires vector parameter storage."),
+        ArgumentError("DiameterIndexedVectorDefault requires vector parameter storage.")
     )
     diameters = parameter.storage_diameters
-    diameters === nothing && throw(ArgumentError(
-        "parameter :$(parameter.name) has no realized diameter axis for DiameterIndexedVectorDefault",
-    ))
+    diameters === nothing && throw(
+        ArgumentError(
+            "parameter :$(parameter.name) has no realized diameter axis for DiameterIndexedVectorDefault",
+        ),
+    )
     labels = only(parameter.storage_labels)
     indices = Tuple(i for i in eachindex(labels) if labels[i] ∉ overridden_labels)
     _require_allometric_diameters(parameter, diameters, provider.value, indices)
@@ -215,9 +231,11 @@ function materialize_parameter_defaults(
         if provider isa DiameterIndexedVectorDefault && override isa NamedTuple
             labels = parameter_axis_names(parameter)
             for key in keys(override)
-                key in labels || throw(ArgumentError(
-                    "Unknown key `$(key)` for parameter `$name`. Expected one of: $(join(string.(labels), ", ")).",
-                ))
+                key in labels || throw(
+                    ArgumentError(
+                        "Unknown key `$(key)` for parameter `$name`. Expected one of: $(join(string.(labels), ", ")).",
+                    ),
+                )
             end
             value = materialize_parameter_default(
                 provider, parameter, T; overridden_labels=Tuple(keys(override))
@@ -234,51 +252,55 @@ function materialize_parameter_law_override(
     parameter, value::AbstractParamDef, ::Type{T}
 ) where {T<:Real}
     provider = parameter.definition.default
-    provider isa DiameterIndexedVectorDefault || throw(ArgumentError(
-        "parameter :$(parameter.name) only supports parameter-law overrides with a diameter-indexed vector default provider (DiameterIndexedVectorDefault).",
-    ))
-    parameter.rank == 1 || throw(ArgumentError(
-        "parameter :$(parameter.name) diameter-indexed override requires vector storage",
-    ))
+    provider isa DiameterIndexedVectorDefault || throw(
+        ArgumentError(
+            "parameter :$(parameter.name) only supports parameter-law overrides with a diameter-indexed vector default provider (DiameterIndexedVectorDefault).",
+        ),
+    )
+    parameter.rank == 1 || throw(
+        ArgumentError(
+            "parameter :$(parameter.name) diameter-indexed override requires vector storage",
+        ),
+    )
     diameters = parameter.storage_diameters
-    diameters === nothing && throw(ArgumentError(
-        "parameter :$(parameter.name) has no realized diameter axis for a diameter-indexed override",
-    ))
+    diameters === nothing && throw(
+        ArgumentError(
+            "parameter :$(parameter.name) has no realized diameter axis for a diameter-indexed override",
+        ),
+    )
     indices = Tuple(eachindex(diameters))
     _require_allometric_diameters(parameter, diameters, value, indices)
     return resolve_diameter_indexed_vector(
-        T,
-        diameters,
-        indices,
-        value;
-        default=T(provider.default),
+        T, diameters, indices, value; default=T(provider.default)
     )
 end
 
 function materialize_parameter_overrides(
-    plan,
-    defaults::NamedTuple,
-    overrides::NamedTuple,
-    ::Type{T},
+    plan, defaults::NamedTuple, overrides::NamedTuple, ::Type{T}
 ) where {T<:Real}
     isempty(overrides) && return overrides
     entries = Pair{Symbol,Any}[]
     for (key, value) in pairs(overrides)
         parameter = planned_parameter(plan, key)
         if value isa AbstractParamDef
-            push!(entries, key => materialize_parameter_law_override(
-                parameter, value, T
-            ))
+            push!(entries, key => materialize_parameter_law_override(parameter, value, T))
         elseif value isa NamedTuple
-            parameter.rank == 1 || throw(ArgumentError(
-                "parameter :$key does not support NamedTuple overrides because it is not vector-valued.",
-            ))
-            hasproperty(defaults, key) || throw(ArgumentError(
-                "parameter :$key has no direct default for partial overrides.",
-            ))
-            push!(entries, key => expand_named_vector_override(
-                parameter, getproperty(defaults, key), value, T
-            ))
+            parameter.rank == 1 || throw(
+                ArgumentError(
+                    "parameter :$key does not support NamedTuple overrides because it is not vector-valued.",
+                ),
+            )
+            hasproperty(defaults, key) || throw(
+                ArgumentError(
+                    "parameter :$key has no direct default for partial overrides."
+                ),
+            )
+            push!(
+                entries,
+                key => expand_named_vector_override(
+                    parameter, getproperty(defaults, key), value, T
+                ),
+            )
         else
             push!(entries, key => materialize_parameter_value(parameter, value, T))
         end
@@ -288,10 +310,7 @@ end
 
 """Resolve one-level `DerivedDefault` values from already-materialized parameters."""
 function resolve_derived_parameter_defaults(
-    plan,
-    layout,
-    params::NamedTuple;
-    derivation_owner,
+    plan, layout, params::NamedTuple; derivation_owner
 )
     resolved = params
     T = layout.scalar_type
@@ -302,9 +321,12 @@ function resolve_derived_parameter_defaults(
         hasproperty(resolved, key) && continue
 
         missing_deps = Tuple(dep for dep in provider.deps if !hasproperty(params, dep))
-        isempty(missing_deps) || throw(ArgumentError(
-            "derived default :$key is missing dependencies: " * join(string.(missing_deps), ", "),
-        ))
+        isempty(missing_deps) || throw(
+            ArgumentError(
+                "derived default :$key is missing dependencies: " *
+                join(string.(missing_deps), ", "),
+            ),
+        )
         dependencies = NamedTuple{provider.deps}(
             Tuple(getproperty(params, dep) for dep in provider.deps)
         )

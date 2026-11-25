@@ -3,18 +3,37 @@ using Oceananigans.Biogeochemistry:
 using Test
 
 using Agate.Components: Plankton, Pool
-using Agate.Parameters: AllometricPalatability, BroadcastConsumerAcrossResources, ConstantDefault, ConstructionParameter, DerivedDefault, Parameter
+using Agate.Parameters:
+    AllometricPalatability,
+    BroadcastConsumerAcrossResources,
+    ConstantDefault,
+    ConstructionParameter,
+    DerivedDefault,
+    Parameter
 using Agate.Construction: construct
 using Agate.Introspection: plankton_diameters
 using Agate.Processes:
-    Consumption, Growth, Light, LinearMortality, ModelDefinition, Mortality,
-    NutrientResponse, Products, Smith, Monod, PreferentialGrazing
+    Consumption,
+    Growth,
+    Light,
+    LinearMortality,
+    ModelDefinition,
+    Mortality,
+    NutrientResponse,
+    Products,
+    Smith,
+    Monod,
+    PreferentialGrazing
 
 function direct_npz_definition()
     components = (
         N=Pool(:nitrogen),
-        P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
-        Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]),
+        P=Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]
+        ),
+        Z=Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]
+        ),
     )
     processes = (
         growth_P=Growth(;
@@ -24,8 +43,9 @@ function direct_npz_definition()
             factors=(
                 light=Light(Smith(); driver=:PAR),
                 nutrients=NutrientResponse(
-                    Monod(); resource=:N,
-                    bindings=(half_saturation=:nutrient_half_saturation,)
+                    Monod();
+                    resource=:N,
+                    bindings=(half_saturation=:nutrient_half_saturation,),
                 ),
             ),
         ),
@@ -49,29 +69,21 @@ function direct_npz_definition()
         maximum_predation_rate=Parameter(ConstantDefault(5e-5)),
         holling_half_saturation=Parameter(ConstantDefault(0.1)),
         optimum_predator_prey_ratio=ConstructionParameter(
-            ConstantDefault(10.0);
-            axes=:plankton,
+            ConstantDefault(10.0); axes=:plankton
         ),
-        specificity=ConstructionParameter(
-            ConstantDefault(0.3);
-            axes=:plankton,
-        ),
-        protection=ConstructionParameter(
-            ConstantDefault(0.0);
-            axes=:plankton,
-        ),
-        assimilation_efficiency=ConstructionParameter(
-            ConstantDefault(0.7);
-            axes=:plankton,
-        ),
+        specificity=ConstructionParameter(ConstantDefault(0.3); axes=:plankton),
+        protection=ConstructionParameter(ConstantDefault(0.0); axes=:plankton),
+        assimilation_efficiency=ConstructionParameter(ConstantDefault(0.7); axes=:plankton),
         palatability_matrix=Parameter(
             DerivedDefault(
                 AllometricPalatability();
                 deps=(:optimum_predator_prey_ratio, :specificity, :protection),
-            )
+            ),
         ),
         assimilation_matrix=Parameter(
-            DerivedDefault(BroadcastConsumerAcrossResources(); deps=(:assimilation_efficiency,))
+            DerivedDefault(
+                BroadcastConsumerAcrossResources(); deps=(:assimilation_efficiency,)
+            ),
         ),
     )
     return ModelDefinition(; components, processes, parameters)
@@ -92,7 +104,8 @@ end
     @test bgc.parameters.maximum_predation_rate == [5e-5]
     @test plankton_diameters(bgc) == [1.0, 10.0]
     @test size(bgc.parameters.palatability_matrix) ==
-          size(bgc.parameters.assimilation_matrix) == (1, 1)
+        size(bgc.parameters.assimilation_matrix) ==
+        (1, 1)
     args = (0.0, 0.0, 0.0, 0.0, 1.0, 0.1, 0.05, 100.0)
     tendencies = values(model_tendencies(bgc, args))
     @test all(isfinite, tendencies)
@@ -101,20 +114,48 @@ end
 
 @testset "Process-local interaction defaults and modeled edges" begin
     components = (
-        P1=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
-        P2=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[4.0]),
-        Z1=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]),
-        Z2=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[20.0]),
+        P1=Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]
+        ),
+        P2=Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[4.0]
+        ),
+        Z1=Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]
+        ),
+        Z2=Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[20.0]
+        ),
     )
-    common = (maximum_rate=:maximum_predation_rate, half_saturation=:half_saturation, palatability=:palatability_shared)
+    common = (
+        maximum_rate=:maximum_predation_rate,
+        half_saturation=:half_saturation,
+        palatability=:palatability_shared,
+    )
     processes = (
-        a=Consumption(PreferentialGrazing(); consumers=:Z1, resources=:P1, bindings=(; common..., assimilation=:assimilation_other)),
-        b=Consumption(PreferentialGrazing(); consumers=:Z2, resources=:P2, bindings=(; common..., assimilation=:assimilation_local)),
+        a=Consumption(
+            PreferentialGrazing();
+            consumers=:Z1,
+            resources=:P1,
+            bindings=(; common..., assimilation=:assimilation_other),
+        ),
+        b=Consumption(
+            PreferentialGrazing();
+            consumers=:Z2,
+            resources=:P2,
+            bindings=(; common..., assimilation=:assimilation_local),
+        ),
     )
     parameters = (
-        maximum_predation_rate=Parameter(1.0), half_saturation=Parameter(1.0),
-        palatability_shared=Parameter(0.5), assimilation_other=Parameter(0.5),
-        assimilation_local=Parameter(DerivedDefault(BroadcastConsumerAcrossResources(); deps=(:assimilation_efficiency,))),
+        maximum_predation_rate=Parameter(1.0),
+        half_saturation=Parameter(1.0),
+        palatability_shared=Parameter(0.5),
+        assimilation_other=Parameter(0.5),
+        assimilation_local=Parameter(
+            DerivedDefault(
+                BroadcastConsumerAcrossResources(); deps=(:assimilation_efficiency,)
+            ),
+        ),
         assimilation_efficiency=ConstructionParameter(0.5; axes=:plankton),
     )
     bgc = construct(
@@ -128,15 +169,22 @@ end
     @test_throws ArgumentError Agate.Runtime.active_parameters(
         bgc; palatability_shared=((:Z1_1, :P2_1),)
     )
-
 end
 
 @testset "Multi-element products" begin
     components = (
-        P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon, size_structure=[1.0],
-            composition=(nitrogen=:nitrogen_to_carbon,)),
-        DOC=Pool(:carbon), POC=Pool(:carbon), XOC=Pool(:carbon),
-        DON=Pool(:nitrogen), PON=Pool(:nitrogen), XON=Pool(:nitrogen),
+        P=Plankton(;
+            states=(carbon=:carbon,),
+            reference_state=:carbon,
+            size_structure=[1.0],
+            composition=(nitrogen=:nitrogen_to_carbon,),
+        ),
+        DOC=Pool(:carbon),
+        POC=Pool(:carbon),
+        XOC=Pool(:carbon),
+        DON=Pool(:nitrogen),
+        PON=Pool(:nitrogen),
+        XON=Pool(:nitrogen),
     )
     processes = (
         mortality_P=Mortality(
@@ -159,27 +207,42 @@ end
         XOM_fraction=Parameter(ConstantDefault(0.25)),
         nitrogen_to_carbon=Parameter(ConstantDefault(0.2)),
     )
-    bgc = construct(ModelDefinition(; components, processes, parameters); grid=dummy_grid(Float64))
+    bgc = construct(
+        ModelDefinition(; components, processes, parameters); grid=dummy_grid(Float64)
+    )
 
     tracers = required_biogeochemical_tracers(bgc)
     state = Dict(tracer => (tracer === :P_1 ? 1.0 : 0.0) for tracer in tracers)
     args = (0.0, 0.0, 0.0, 0.0, (state[tracer] for tracer in tracers)...)
     tendency = model_tendencies(bgc, args; tracers)
-    actual = (tendency.DOC, tendency.POC, tendency.XOC,
-              tendency.DON, tendency.PON, tendency.XON, tendency.P_1)
-    expected = (0.5e-6, 0.25e-6, 0.25e-6,
-                0.1e-6, 0.05e-6, 0.05e-6, -1e-6)
+    actual = (
+        tendency.DOC,
+        tendency.POC,
+        tendency.XOC,
+        tendency.DON,
+        tendency.PON,
+        tendency.XON,
+        tendency.P_1,
+    )
+    expected = (0.5e-6, 0.25e-6, 0.25e-6, 0.1e-6, 0.05e-6, 0.05e-6, -1e-6)
     @test all(process_compiler_isapprox.(actual, expected))
     # Nitrogen held implicitly by carbon biomass closes at the declared N:C ratio.
-    @test isapprox(sum((tendency.P_1, tendency.DOC, tendency.POC, tendency.XOC)), 0; atol=1e-18)
+    @test isapprox(
+        sum((tendency.P_1, tendency.DOC, tendency.POC, tendency.XOC)), 0; atol=1e-18
+    )
     @test isapprox(
         only(bgc.parameters.nitrogen_to_carbon) * tendency.P_1 +
-        sum((tendency.DON, tendency.PON, tendency.XON)), 0; atol=1e-18
+        sum((tendency.DON, tendency.PON, tendency.XON)),
+        0;
+        atol=1e-18,
     )
     @test_throws ArgumentError construct(
-        ModelDefinition(; components, processes, parameters); parameter_overrides=(POM_fraction=0.8, XOM_fraction=0.8))
+        ModelDefinition(; components, processes, parameters);
+        parameter_overrides=(POM_fraction=0.8, XOM_fraction=0.8),
+    )
 
     active = Agate.Runtime.active_parameters(bgc; POM_fraction=true, XOM_fraction=true)
     @test_throws ArgumentError Agate.Runtime.parameterized(
-        bgc, [0.8, 0.8]; active_parameters=active)
+        bgc, [0.8, 0.8]; active_parameters=active
+    )
 end

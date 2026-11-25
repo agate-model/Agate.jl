@@ -14,9 +14,8 @@ function factor_value end
 @inline factor_value(::Smith, light, maximum_rate, alpha) =
     smith_light_limitation(light, alpha, maximum_rate)
 
-@inline factor_value(
-    ::Geider, light, maximum_rate, alpha, chlorophyll_to_carbon_ratio
-) = geider_light_response(light, alpha, maximum_rate, chlorophyll_to_carbon_ratio)
+@inline factor_value(::Geider, light, maximum_rate, alpha, chlorophyll_to_carbon_ratio) =
+    geider_light_response(light, alpha, maximum_rate, chlorophyll_to_carbon_ratio)
 
 @inline factor_value(::ExponentialSaturation, light, light_scale) =
     exponential_light_limitation(light, light_scale)
@@ -24,13 +23,11 @@ function factor_value end
 @inline factor_value(::Monod, resource, half_saturation) =
     monod_limitation(resource, half_saturation)
 
-@inline factor_value(
-    ::InhibitedMonod, resource, inhibitor, half_saturation, inhibition
-) = inhibited_monod_limitation(resource, inhibitor, half_saturation, inhibition)
+@inline factor_value(::InhibitedMonod, resource, inhibitor, half_saturation, inhibition) =
+    inhibited_monod_limitation(resource, inhibitor, half_saturation, inhibition)
 
-@inline factor_value(
-    ::NormalizedDroop, internal, reference, minimum_quota, maximum_quota
-) = normalized_droop_limitation(internal, reference, minimum_quota, maximum_quota)
+@inline factor_value(::NormalizedDroop, internal, reference, minimum_quota, maximum_quota) =
+    normalized_droop_limitation(internal, reference, minimum_quota, maximum_quota)
 
 @inline factor_value(::Liebig, limitations::Tuple) = liebig_minimum(limitations)
 @inline factor_value(::FrankTNorm, limitations::Tuple, sharpness) =
@@ -40,8 +37,7 @@ function factor_value end
     q10_temperature_factor(temperature, q10, reference_temperature)
 
 """Evaluate the unmodified plankton-growth scale before sibling factors."""
-@inline process_rate(::FactorizedGrowth, biomass, maximum_rate) =
-    maximum_rate * biomass
+@inline process_rate(::FactorizedGrowth, biomass, maximum_rate) = maximum_rate * biomass
 
 """Evaluate one quota-regulated external nutrient uptake rate."""
 @inline function process_rate(
@@ -55,16 +51,15 @@ function factor_value end
     maximum_quota,
     hill,
 )
-    return maximum_rate * reference * monod_limitation(resource, half_saturation) *
-           quota_uptake_regulation(
-               internal, reference, minimum_quota, maximum_quota, hill
-           )
+    return maximum_rate *
+           reference *
+           monod_limitation(resource, half_saturation) *
+           quota_uptake_regulation(internal, reference, minimum_quota, maximum_quota, hill)
 end
 
 """Evaluate prey consumption for one linear grazing interaction."""
-@inline process_rate(
-    ::LinearGrazing, inventory, consumer, rate, palatability
-) = linear_predation_loss(inventory, consumer, rate, palatability)
+@inline process_rate(::LinearGrazing, inventory, consumer, rate, palatability) =
+    linear_predation_loss(inventory, consumer, rate, palatability)
 
 """Evaluate one substrate uptake rate from a shared heterotrophic consumer capacity."""
 @inline function process_rate(

@@ -18,51 +18,60 @@ struct Plankton{StateElements<:NamedTuple,SizeStructure,Composition<:NamedTuple}
     composition::Composition
 
     function Plankton(
-        state_elements::StateElements, reference_state::Symbol, size_structure::SizeStructure,
+        state_elements::StateElements,
+        reference_state::Symbol,
+        size_structure::SizeStructure,
         composition::Composition,
     ) where {StateElements<:NamedTuple,SizeStructure,Composition<:NamedTuple}
-        isempty(state_elements) && throw(ArgumentError("Plankton must define at least one state."))
-        all(value -> isnothing(value) || value isa Symbol, values(state_elements)) || throw(
-            ArgumentError("Plankton state Elements must be Symbols or `nothing`."),
-        )
+        isempty(state_elements) &&
+            throw(ArgumentError("Plankton must define at least one state."))
+        all(value -> isnothing(value) || value isa Symbol, values(state_elements)) ||
+            throw(ArgumentError("Plankton state Elements must be Symbols or `nothing`."))
         elemental = Tuple(value for value in values(state_elements) if !isnothing(value))
-        length(unique(elemental)) == length(elemental) || throw(
-            ArgumentError("Plankton states must represent distinct Elements."),
-        )
+        length(unique(elemental)) == length(elemental) ||
+            throw(ArgumentError("Plankton states must represent distinct Elements."))
         reference_state in keys(state_elements) || throw(
             ArgumentError("Plankton `reference_state` must be one of its declared states."),
         )
         reference_element = getproperty(state_elements, reference_state)
-        all(value -> value isa Symbol, values(composition)) || throw(ArgumentError(
-            "Plankton `composition` must map Elements to parameter Symbols",
-        ))
-        isempty(composition) || reference_element isa Symbol || throw(ArgumentError(
-            "Plankton implicit composition requires an elemental reference state",
-        ))
+        all(value -> value isa Symbol, values(composition)) || throw(
+            ArgumentError("Plankton `composition` must map Elements to parameter Symbols"),
+        )
+        isempty(composition) ||
+            reference_element isa Symbol ||
+            throw(
+                ArgumentError(
+                    "Plankton implicit composition requires an elemental reference state"
+                ),
+            )
         for element in keys(composition)
-            element in elemental && throw(ArgumentError(
-                "Plankton implicit element :$element already has a prognostic state",
-            ))
+            element in elemental && throw(
+                ArgumentError(
+                    "Plankton implicit element :$element already has a prognostic state"
+                ),
+            )
         end
         return new{StateElements,SizeStructure,Composition}(
-            state_elements, reference_state, size_structure, composition,
+            state_elements, reference_state, size_structure, composition
         )
     end
 end
 
 function Plankton(; states, reference_state, size_structure=nothing, composition=(;))
-    states isa NamedTuple || throw(ArgumentError(
-        "Plankton `states` must be a NamedTuple mapping state names to Elements or `nothing`.",
-    ))
-    reference_state isa Symbol || throw(
-        ArgumentError("Plankton `reference_state` must be a Symbol."),
+    states isa NamedTuple || throw(
+        ArgumentError(
+            "Plankton `states` must be a NamedTuple mapping state names to Elements or `nothing`.",
+        ),
     )
-    composition isa NamedTuple || throw(ArgumentError(
-        "Plankton `composition` must be a NamedTuple",
-    ))
+    reference_state isa Symbol ||
+        throw(ArgumentError("Plankton `reference_state` must be a Symbol."))
+    composition isa NamedTuple ||
+        throw(ArgumentError("Plankton `composition` must be a NamedTuple"))
     names = Tuple(sort!(collect(keys(composition)); by=String))
     return Plankton(
-        states, reference_state, size_structure,
+        states,
+        reference_state,
+        size_structure,
         NamedTuple{names}(Tuple(getproperty(composition, name) for name in names)),
     )
 end
@@ -85,9 +94,8 @@ end
 @inline reference_state(component::Plankton) = component.reference_state
 
 """Return all prognostic plankton states other than the reference state."""
-@inline variable_states(component::Plankton) = Tuple(
-    state for state in states(component) if state !== component.reference_state
-)
+@inline variable_states(component::Plankton) =
+    Tuple(state for state in states(component) if state !== component.reference_state)
 
 """Return the conserved Element represented by `state`, or `nothing` for a non-elemental state.
 
@@ -96,9 +104,8 @@ not the chemical composition of the represented material. State identity and Ele
 independent: any declared state name may map explicitly to an Element Symbol.
 """
 function state_element(component::Plankton, state::Symbol)
-    hasproperty(component.state_elements, state) || throw(
-        ArgumentError("Plankton has no state :$state."),
-    )
+    hasproperty(component.state_elements, state) ||
+        throw(ArgumentError("Plankton has no state :$state."))
     return getproperty(component.state_elements, state)
 end
 

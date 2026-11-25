@@ -27,93 +27,118 @@ function ParameterSlot(
     qualify::Union{Nothing,Symbol}=nothing,
     domain::Symbol=:finite,
 )
-    length(axes) <= 2 || throw(
-        ArgumentError("parameter slot axes support at most two dimensions"),
-    )
-    all(axis -> axis isa Symbol, axes) || throw(
-        ArgumentError("parameter slot axes must contain only Symbols"),
-    )
+    length(axes) <= 2 ||
+        throw(ArgumentError("parameter slot axes support at most two dimensions"))
+    all(axis -> axis isa Symbol, axes) ||
+        throw(ArgumentError("parameter slot axes must contain only Symbols"))
     allunique(axes) || throw(ArgumentError("parameter slot axes must be unique"))
     domain in (:finite, :nonnegative, :positive, :unit_interval) || throw(
-        ArgumentError("parameter slot domain must be :finite, :nonnegative, :positive, or :unit_interval"),
+        ArgumentError(
+            "parameter slot domain must be :finite, :nonnegative, :positive, or :unit_interval",
+        ),
     )
     return ParameterSlot(name, axes, qualify, domain)
 end
 
 """Return semantic parameter slots declared by a slot-owning scientific node."""
 parameter_slots(::AbstractFormulation) = ()
-parameter_slots(::FactorizedGrowth) = (
-    ParameterSlot(:maximum_rate, (:plankton,); domain=:nonnegative),
-)
-parameter_slots(process::Growth) = isnothing(process.products) ?
-    parameter_slots(FactorizedGrowth()) : (
+function parameter_slots(::FactorizedGrowth)
+    return (ParameterSlot(:maximum_rate, (:plankton,); domain=:nonnegative),)
+end
+function parameter_slots(process::Growth)
+    return if isnothing(process.products)
+        parameter_slots(FactorizedGrowth())
+    else
+        (
         parameter_slots(FactorizedGrowth())...,
         ParameterSlot(:product_fraction, (:plankton,); domain=:unit_interval),
     )
+    end
+end
 parameter_slots(::Smith) = (ParameterSlot(:alpha, (:plankton,); domain=:nonnegative),)
-parameter_slots(::Geider) = (
-    ParameterSlot(:alpha, (:plankton,); domain=:nonnegative),
-    ParameterSlot(:chlorophyll_to_carbon_ratio, (:plankton,); domain=:nonnegative),
-)
-parameter_slots(::ExponentialSaturation) = (
-    ParameterSlot(:light_scale, (:plankton,); domain=:positive),
-)
-parameter_slots(::Monod) = (
-    ParameterSlot(:half_saturation, (:plankton,); domain=:nonnegative),
-)
-parameter_slots(::InhibitedMonod) = (
-    ParameterSlot(:half_saturation, (:plankton,); domain=:nonnegative),
-    ParameterSlot(:inhibition; domain=:nonnegative),
-)
-parameter_slots(::NormalizedDroop) = (
-    ParameterSlot(:minimum_quota, (:plankton,); domain=:positive),
-    ParameterSlot(:maximum_quota, (:plankton,); domain=:positive),
-)
-parameter_slots(::QuotaRegulatedMonod) = (
-    ParameterSlot(:maximum_rate, (:plankton,); domain=:nonnegative),
-    ParameterSlot(:half_saturation, (:plankton,); domain=:nonnegative),
-    ParameterSlot(:minimum_quota, (:plankton,); domain=:positive),
-    ParameterSlot(:maximum_quota, (:plankton,); domain=:positive),
-    ParameterSlot(:hill, (:plankton,); domain=:positive),
-)
+function parameter_slots(::Geider)
+    return (
+        ParameterSlot(:alpha, (:plankton,); domain=:nonnegative),
+        ParameterSlot(:chlorophyll_to_carbon_ratio, (:plankton,); domain=:nonnegative),
+    )
+end
+function parameter_slots(::ExponentialSaturation)
+    return (ParameterSlot(:light_scale, (:plankton,); domain=:positive),)
+end
+function parameter_slots(::Monod)
+    return (ParameterSlot(:half_saturation, (:plankton,); domain=:nonnegative),)
+end
+function parameter_slots(::InhibitedMonod)
+    return (
+        ParameterSlot(:half_saturation, (:plankton,); domain=:nonnegative),
+        ParameterSlot(:inhibition; domain=:nonnegative),
+    )
+end
+function parameter_slots(::NormalizedDroop)
+    return (
+        ParameterSlot(:minimum_quota, (:plankton,); domain=:positive),
+        ParameterSlot(:maximum_quota, (:plankton,); domain=:positive),
+    )
+end
+function parameter_slots(::QuotaRegulatedMonod)
+    return (
+        ParameterSlot(:maximum_rate, (:plankton,); domain=:nonnegative),
+        ParameterSlot(:half_saturation, (:plankton,); domain=:nonnegative),
+        ParameterSlot(:minimum_quota, (:plankton,); domain=:positive),
+        ParameterSlot(:maximum_quota, (:plankton,); domain=:positive),
+        ParameterSlot(:hill, (:plankton,); domain=:positive),
+    )
+end
 parameter_slots(::Liebig) = ()
 parameter_slots(::FrankTNorm) = (ParameterSlot(:sharpness; domain=:positive),)
-parameter_slots(::Q10{nothing}) = (
-    ParameterSlot(:q10; domain=:positive),
-    ParameterSlot(:reference_temperature),
-)
-parameter_slots(::Q10{Axis}) where {Axis} = (
-    ParameterSlot(:q10, (Axis,); domain=:positive),
-    ParameterSlot(:reference_temperature),
-)
-parameter_slots(::PreferentialGrazing) = (
-    ParameterSlot(:maximum_rate, (:consumer,); domain=:nonnegative),
-    ParameterSlot(:half_saturation, (:consumer,); domain=:nonnegative),
-    ParameterSlot(:palatability, (:consumer, :resource); domain=:nonnegative),
-    ParameterSlot(:assimilation, (:consumer, :resource); domain=:unit_interval),
-)
-parameter_slots(::LinearGrazing) = (
-    ParameterSlot(:rate, (:consumer,); domain=:nonnegative),
-    ParameterSlot(:palatability, (:consumer, :resource); domain=:nonnegative),
-    ParameterSlot(:assimilation, (:consumer, :resource); domain=:unit_interval),
-)
-parameter_slots(::HeterotrophicConsumption) = (
-    ParameterSlot(:maximum_rate, (:consumer,); domain=:nonnegative),
-    ParameterSlot(:half_saturation, (:consumer, :resource); domain=:positive),
-    ParameterSlot(:substrate_preference, (:consumer, :resource); domain=:nonnegative),
-    ParameterSlot(:assimilation, (:consumer, :resource); domain=:unit_interval),
-)
-parameter_slots(::LinearMortality) = (
-    ParameterSlot(:rate, (:plankton,); qualify=:plankton, domain=:nonnegative),
-)
-parameter_slots(::QuadraticMortality) = (
-    ParameterSlot(:rate, (:plankton,); qualify=:plankton, domain=:nonnegative),
-)
-parameter_slots(::LinearRemineralization) = (
-    ParameterSlot(:rate; qualify=:source, domain=:nonnegative),
-)
-parameter_slots(products::Products) = length(products.destinations) == 1 ? () :
-    (ParameterSlot(:fraction; qualify=:product, domain=:unit_interval),)
+function parameter_slots(::Q10{nothing})
+    return (ParameterSlot(:q10; domain=:positive), ParameterSlot(:reference_temperature))
+end
+function parameter_slots(::Q10{Axis}) where {Axis}
+    return (
+        ParameterSlot(:q10, (Axis,); domain=:positive),
+        ParameterSlot(:reference_temperature),
+    )
+end
+function parameter_slots(::PreferentialGrazing)
+    return (
+        ParameterSlot(:maximum_rate, (:consumer,); domain=:nonnegative),
+        ParameterSlot(:half_saturation, (:consumer,); domain=:nonnegative),
+        ParameterSlot(:palatability, (:consumer, :resource); domain=:nonnegative),
+        ParameterSlot(:assimilation, (:consumer, :resource); domain=:unit_interval),
+    )
+end
+function parameter_slots(::LinearGrazing)
+    return (
+        ParameterSlot(:rate, (:consumer,); domain=:nonnegative),
+        ParameterSlot(:palatability, (:consumer, :resource); domain=:nonnegative),
+        ParameterSlot(:assimilation, (:consumer, :resource); domain=:unit_interval),
+    )
+end
+function parameter_slots(::HeterotrophicConsumption)
+    return (
+        ParameterSlot(:maximum_rate, (:consumer,); domain=:nonnegative),
+        ParameterSlot(:half_saturation, (:consumer, :resource); domain=:positive),
+        ParameterSlot(:substrate_preference, (:consumer, :resource); domain=:nonnegative),
+        ParameterSlot(:assimilation, (:consumer, :resource); domain=:unit_interval),
+    )
+end
+function parameter_slots(::LinearMortality)
+    return (ParameterSlot(:rate, (:plankton,); qualify=:plankton, domain=:nonnegative),)
+end
+function parameter_slots(::QuadraticMortality)
+    return (ParameterSlot(:rate, (:plankton,); qualify=:plankton, domain=:nonnegative),)
+end
+function parameter_slots(::LinearRemineralization)
+    return (ParameterSlot(:rate; qualify=:source, domain=:nonnegative),)
+end
+function parameter_slots(products::Products)
+    return if length(products.destinations) == 1
+        ()
+    else
+        (ParameterSlot(:fraction; qualify=:product, domain=:unit_interval),)
+    end
+end
 
 """Resolved setup-time mapping from one local parameter slot to model storage.
 
@@ -131,8 +156,5 @@ struct ParameterBinding{Axes,AxisComponents}
     domain::Symbol
 end
 
-_parameter_slot_source(
-    node::Union{AbstractFormulation,Products,Growth}
-) = node
+_parameter_slot_source(node::Union{AbstractFormulation,Products,Growth}) = node
 _parameter_slot_source(node) = formulation(node)
-
