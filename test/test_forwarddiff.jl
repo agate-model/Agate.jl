@@ -2,15 +2,13 @@ using Agate
 using Test
 using ForwardDiff
 
-
 using Oceananigans.Units: day
 
 @testset "ForwardDiff direct NPZ tendency smoke tests" begin
     function p_1_tendency_with_growth_rate(mu)
         T = typeof(mu)
         bgc = runtime_npz_model(;
-            scalar_type=T,
-            parameters=(; maximum_growth_rate=[mu, T(0.7 / day)]),
+            scalar_type=T, parameters=(; maximum_growth_rate=[mu, T(0.7 / day)])
         )
 
         N = T(7.0)
@@ -27,8 +25,7 @@ using Oceananigans.Units: day
     mu0 = 0.7 / day
     T0 = typeof(mu0)
     bgc0 = runtime_npz_model(;
-        scalar_type=T0,
-        parameters=(; maximum_growth_rate=[mu0, T0(0.7 / day)]),
+        scalar_type=T0, parameters=(; maximum_growth_rate=[mu0, T0(0.7 / day)])
     )
     @test eltype(bgc0.parameters.maximum_growth_rate) === T0
 
@@ -70,9 +67,10 @@ end
     @test isfinite(dP_1_dmu)
 
     δ = mu0 * 1e-6
-    fd = (
-        p_1_tendency_with_active_growth_rate(mu0 + δ) -
-        p_1_tendency_with_active_growth_rate(mu0 - δ)
-    ) / (2δ)
+    fd =
+        (
+            p_1_tendency_with_active_growth_rate(mu0 + δ) -
+            p_1_tendency_with_active_growth_rate(mu0 - δ)
+        ) / (2δ)
     @test isapprox(dP_1_dmu, fd; rtol=1e-4, atol=1e-10)
 end

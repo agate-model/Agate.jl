@@ -4,9 +4,15 @@ Pkg.activate(@__DIR__)
 # Pin the unregistered model providers until their first General releases.
 withenv("JULIA_PKG_PRECOMPILE_AUTO" => "0") do
     Pkg.develop(Pkg.PackageSpec(; path=joinpath(@__DIR__, "..")))
-    Pkg.add([
-        Pkg.PackageSpec(; url="https://github.com/agate-model/Onyx.jl", rev="e753aca9c458b0478def9f1c500f957157cd6d4f"),
-        Pkg.PackageSpec(; url="https://github.com/agate-model/FrankenLOBSTER.jl", rev="4234d370facaa3356a997adaee9a4b2c5646c8e7"),
+    return Pkg.add([
+        Pkg.PackageSpec(;
+            url="https://github.com/agate-model/Onyx.jl",
+            rev="e753aca9c458b0478def9f1c500f957157cd6d4f",
+        ),
+        Pkg.PackageSpec(;
+            url="https://github.com/agate-model/FrankenLOBSTER.jl",
+            rev="4234d370facaa3356a997adaee9a4b2c5646c8e7",
+        ),
     ])
 end
 Pkg.instantiate()
@@ -28,7 +34,13 @@ using CairoMakie
 const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR = joinpath(@__DIR__, "src/generated")
 
-const BUILD_COLUMN_EXAMPLE = lowercase(get(ENV, "AGATE_DOCS_BUILD_COLUMN", get(ENV, "CI", "false") == "true" ? "false" : "true")) in ("1", "true", "yes")
+const BUILD_COLUMN_EXAMPLE = lowercase(
+    get(
+        ENV,
+        "AGATE_DOCS_BUILD_COLUMN",
+        get(ENV, "CI", "false") == "true" ? "false" : "true",
+    ),
+) in ("1", "true", "yes")
 
 examples = [
     "Size structure" => "size_structure",
@@ -54,8 +66,8 @@ differentiable_modelling = [
 ]
 
 example_scripts = [
-    filename * ".jl" for (title, filename) in
-    vcat(examples, defining_models_examples, differentiable_modelling)
+    filename * ".jl" for
+    (title, filename) in vcat(examples, defining_models_examples, differentiable_modelling)
 ]
 
 function replace_silly_warning(content)
@@ -69,7 +81,7 @@ for example in example_scripts
     example_filepath = joinpath(EXAMPLES_DIR, example)
 
     withenv("JULIA_DEBUG" => "Literate") do
-        Literate.markdown(
+        return Literate.markdown(
             example_filepath,
             OUTPUT_DIR;
             flavor=Literate.DocumenterFlavor(),
@@ -91,10 +103,7 @@ differentiable_modelling_pages = [
 ]
 
 contributor_pages = ["Architecture" => "architecture_overview.md"]
-model_pages = [
-    "Onyx" => "onyx.md",
-    "FrankenLOBSTER" => "frankenlobster.md",
-]
+model_pages = ["Onyx" => "onyx.md", "FrankenLOBSTER" => "frankenlobster.md"]
 
 makedocs(;
     sitename="Agate.jl",
@@ -105,8 +114,14 @@ makedocs(;
     ),
     modules=[Agate, Onyx, FrankenLOBSTER],
     remotes=Dict(
-        pkgdir(Onyx) => (Documenter.Remotes.GitHub("agate-model", "Onyx.jl"), "e753aca9c458b0478def9f1c500f957157cd6d4f"),
-        pkgdir(FrankenLOBSTER) => (Documenter.Remotes.GitHub("agate-model", "FrankenLOBSTER.jl"), "4234d370facaa3356a997adaee9a4b2c5646c8e7"),
+        pkgdir(Onyx) => (
+            Documenter.Remotes.GitHub("agate-model", "Onyx.jl"),
+            "e753aca9c458b0478def9f1c500f957157cd6d4f",
+        ),
+        pkgdir(FrankenLOBSTER) => (
+            Documenter.Remotes.GitHub("agate-model", "FrankenLOBSTER.jl"),
+            "4234d370facaa3356a997adaee9a4b2c5646c8e7",
+        ),
     ),
     checkdocs=:exports,
     warnonly=[:missing_docs],

@@ -40,8 +40,7 @@ nothing #hide
 # overrides rather than from size-dependent defaults.
 
 size_structure = (;
-    phytoplankton=(high_light=[0.7], low_light=[0.7]),
-    zooplankton=(grazer=[30.0],),
+    phytoplankton=(high_light=[0.7], low_light=[0.7]), zooplankton=(grazer=[30.0],)
 )
 nothing #hide
 
@@ -78,14 +77,7 @@ function run_light_treatment(bgc, PAR, filename)
     bgc_model = Biogeochemistry(bgc; light_attenuation)
     full_model = BoxModel(; grid, biogeochemistry=bgc_model)
 
-    set!(
-        full_model;
-        N=20.0,
-        D=0.0,
-        grazer_1=0.0,
-        high_light_1=0.01,
-        low_light_1=0.01,
-    )
+    set!(full_model; N=20.0, D=0.0, grazer_1=0.0, high_light_1=0.01, low_light_1=0.01)
 
     simulation = Simulation(full_model; Δt=60minutes, stop_time=3days)
 
@@ -136,20 +128,8 @@ for (column, treatment, PAR) in ((1, low, low_PAR), (2, high, high_PAR))
         title="PAR = $(PAR)",
     )
 
-    lines!(
-        ax,
-        treatment.times / day,
-        treatment.high_light;
-        label="high_light",
-        linewidth=2,
-    )
-    lines!(
-        ax,
-        treatment.times / day,
-        treatment.low_light;
-        label="low_light",
-        linewidth=2,
-    )
+    lines!(ax, treatment.times / day, treatment.high_light; label="high_light", linewidth=2)
+    lines!(ax, treatment.times / day, treatment.low_light; label="low_light", linewidth=2)
     axislegend(ax; position=:lt)
 end
 

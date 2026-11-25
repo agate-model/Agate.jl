@@ -22,7 +22,9 @@ Particularly useful issues for us are bug reports:
   - Provide an explicit code snippet --- not just a link --- that reproduces the bug in the latest tagged version of Agate. This is sometimes called the ["minimal working example"](https://en.wikipedia.org/wiki/Minimal_working_example). Reducing bug-producing code to a minimal example can dramatically decrease the time it takes to resolve an issue.
 
   - Paste the _entire_ error received when running the code snippet, even if it's unbelievably long.
+
   - Use triple backticks (e.g., `some_code; and_some_more_code;`) to enclose code snippets, and other [markdown formatting syntax](https://docs.github.com/en/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax) to make your issue easy and quick to read.
+
   - Report the Agate version, Julia version, machine and any other possibly useful details of the computational environment in which the bug was created.
 
 Discussions are recommended for asking questions about (for example) the user interface, implementation details, science, and life in general.
@@ -45,20 +47,42 @@ We follow the contributing guidelines developed by [The Turing Way](https://gith
 
   - Install `git` on your system if it is not already there (install XCode command line tools on
     a Mac or `git bash` on Windows).
+
   - Login to your GitHub account and make a fork of the
     [Agate repository](https://github.com/agate-model/Agate.jl) by
     clicking the "Fork" button.
+
   - Clone your fork of the Agate repository (in terminal on Mac/Linux or git shell/
     GUI on Windows) in the location you'd like to keep it.
-    
+
     ```
     git clone https://github.com/<your-user-name>/Agate.jl.git
     ```
+
   - Create the development environment by opening Julia via `julia --project` then
     typing in `] instantiate`. This will install all the dependencies in the Project.toml
     file.
+
   - You can test to make sure Agate works by typing in `] test`. Doing so will run all
     the tests (and this can take a while).
+
+### Code formatting
+
+We follow the [Blue](https://github.com/JuliaDiff/BlueStyle) style guide for Julia.
+
+Install JuliaFormatter 2.14.12, the version used by CI, in your default Julia environment:
+
+```bash
+julia -e 'using Pkg; Pkg.activate(); Pkg.add(PackageSpec(name="JuliaFormatter", version=v"2.14.12"))'
+```
+
+From the repository root, format the code and Markdown using the repository's `.JuliaFormatter.toml`:
+
+```bash
+julia -e 'using Pkg; Pkg.activate(); using JuliaFormatter; format("."; verbose=true)'
+```
+
+The formatting check in CI requires the entire repository to be formatted.
 
 ### GPU tests
 
@@ -81,8 +105,6 @@ the same GPU checks, use:
 AGATE_TEST_CUDA=1 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-We follow the [Blue](https://github.com/JuliaDiff/BlueStyle) style guide for Julia.
-
 ### Type-parameter naming
 
 Use semantic type-parameter names on persistent domain/runtime structs (for example
@@ -90,14 +112,6 @@ Use semantic type-parameter names on persistent domain/runtime structs (for exam
 type, `T1`, `T2`, ... when generic types differ only by position, and `N` for counts or
 arities. Reserve `FT` for parameters constrained to floating-point types. Name compile-time
 value parameters by their role, such as `Name`, `Index`, or `Sign`.
-
-To automatically format all Julia files in the project you can use the JuliaFormatter. Once you have installed it (`add JuliaFormatter`) run:
-
-```Julia
-using JuliaFormatter
-
-format(".")
-```
 
 Your development environment is now ready!
 

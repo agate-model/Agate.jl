@@ -2,14 +2,41 @@ using Test
 using Agate.Components: Plankton, Pool, PlanktonStateRef
 using Agate.Parameters: ConstantDefault, DerivedDefault, ConstructionParameter, Parameter
 using Agate.Processes:
-    AbstractFactor, AbstractFormulation, FactorizedGrowth, Smith, Geider,
-    ExponentialSaturation, Monod, InhibitedMonod, NormalizedDroop, QuotaRegulatedMonod,
-    Liebig, FrankTNorm, Q10, Growth, Light,
-    NutrientLimitation, Temperature, NutrientResponse, QuotaResponse, NutrientUptake,
-    Consumption, Mortality, Products, ModelDefinition,
-    driver_identities, formulation, HeterotrophicConsumption, LinearMortality,
-    QuadraticMortality, LinearRemineralization, canonicalize_model, participants,
-    PreferentialGrazing, parameter_slots, FactorPlanktonState
+    AbstractFactor,
+    AbstractFormulation,
+    FactorizedGrowth,
+    Smith,
+    Geider,
+    ExponentialSaturation,
+    Monod,
+    InhibitedMonod,
+    NormalizedDroop,
+    QuotaRegulatedMonod,
+    Liebig,
+    FrankTNorm,
+    Q10,
+    Growth,
+    Light,
+    NutrientLimitation,
+    Temperature,
+    NutrientResponse,
+    QuotaResponse,
+    NutrientUptake,
+    Consumption,
+    Mortality,
+    Products,
+    ModelDefinition,
+    driver_identities,
+    formulation,
+    HeterotrophicConsumption,
+    LinearMortality,
+    QuadraticMortality,
+    LinearRemineralization,
+    canonicalize_model,
+    participants,
+    PreferentialGrazing,
+    parameter_slots,
+    FactorPlanktonState
 
 import Agate.Processes: factor_inputs
 
@@ -21,20 +48,26 @@ struct MultiDriverTestFactor{F<:AbstractFormulation} <: AbstractFactor
     state_plankton::Symbol
     bindings::NamedTuple
 end
-MultiDriverTestFactor(formulation; state_plankton=:P) =
-    MultiDriverTestFactor(formulation, state_plankton, (scale=:environment_scale,))
+function MultiDriverTestFactor(formulation; state_plankton=:P)
+    return MultiDriverTestFactor(formulation, state_plankton, (scale=:environment_scale,))
+end
 Agate.Processes.authored_parameter_bindings(factor::MultiDriverTestFactor) = factor.bindings
-Agate.Processes.parameter_slots(::ExternalTestFormulation) =
-    (Agate.Processes.ParameterSlot(:scale; domain=:positive),)
-factor_inputs(factor::MultiDriverTestFactor) = (
-    Agate.Processes.FactorDriver(:wind),
-    Agate.Processes.FactorDriver(:temperature),
-    Agate.Processes.FactorComponent(:P),
-    FactorPlanktonState(PlanktonStateRef(factor.state_plankton, :nitrogen)),
-)
-Agate.Processes.factor_value(
+function Agate.Processes.parameter_slots(::ExternalTestFormulation)
+    return (Agate.Processes.ParameterSlot(:scale; domain=:positive),)
+end
+function factor_inputs(factor::MultiDriverTestFactor)
+    return (
+        Agate.Processes.FactorDriver(:wind),
+        Agate.Processes.FactorDriver(:temperature),
+        Agate.Processes.FactorComponent(:P),
+        FactorPlanktonState(PlanktonStateRef(factor.state_plankton, :nitrogen)),
+    )
+end
+function Agate.Processes.factor_value(
     ::ExternalTestFormulation, wind, temperature, biomass, state, scale
-) = scale * (wind + 2temperature + 2biomass + state)
+)
+    return scale * (wind + 2temperature + 2biomass + state)
+end
 
 @testset "Process authoring and canonicalization" begin
     @test Agate.ModelDefinition === ModelDefinition
@@ -43,9 +76,7 @@ Agate.Processes.factor_value(
     response = NutrientResponse(Monod(); resource=:N)
     inhibited = NutrientResponse(InhibitedMonod(); resource=:N, inhibitor=:A)
     growth = Growth(;
-        plankton=:P,
-        reference_resource=:N,
-        factors=(light=light, nutrients=response),
+        plankton=:P, reference_resource=:N, factors=(light=light, nutrients=response)
     )
     @test formulation(light) isa Smith
     @test formulation(response) isa Monod
@@ -56,10 +87,7 @@ Agate.Processes.factor_value(
     @test participants(growth) == (plankton=(:P,), resource=(:N,))
 
     grazing = Consumption(
-        PreferentialGrazing();
-        consumers=:Z,
-        resources=(:P, :B),
-        unassimilated_products=:D,
+        PreferentialGrazing(); consumers=:Z, resources=(:P, :B), unassimilated_products=:D
     )
     @test participants(grazing) == (consumer=(:Z,), resource=(:P, :B))
 
@@ -93,11 +121,21 @@ Agate.Processes.factor_value(
     @test driver_identities(shared_driver_model) == (:PAR,)
 
     multi_driver_definition = ModelDefinition(;
-        components=(P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]), N=Pool(:nitrogen)),
-        processes=(growth=Growth(;
-            plankton=:P, reference_resource=:N,
-            factors=(environment=MultiDriverTestFactor(ExternalTestFormulation()),),
-        ),),
+        components=(
+            P=Plankton(;
+                states=(nitrogen=:nitrogen,),
+                reference_state=:nitrogen,
+                size_structure=[1.0],
+            ),
+            N=Pool(:nitrogen),
+        ),
+        processes=(
+            growth=Growth(;
+                plankton=:P,
+                reference_resource=:N,
+                factors=(environment=MultiDriverTestFactor(ExternalTestFormulation()),),
+            ),
+        ),
         parameters=(maximum_rate=Parameter(1.0), environment_scale=Parameter(0.5)),
     )
     multi_driver_model = canonicalize_model(multi_driver_definition)
@@ -105,25 +143,36 @@ Agate.Processes.factor_value(
     multi_driver_bgc = Agate.Construction.construct(multi_driver_definition)
     @test multi_driver_bgc(Val(:P_1), 0, 0, 0, 0, 2.0, 1.0, 2.0, 3.0) == 5.0
 
-    @test_throws ArgumentError Agate.Construction.construct(ModelDefinition(;
-        components=shared_driver_model.components,
-        processes=(growth=Growth(;
-            plankton=:P, reference_resource=:N,
-            factors=(environment=MultiDriverTestFactor(ExternalTestFormulation(); state_plankton=:Z),),
-        ),),
-        parameters=multi_driver_definition.parameters,
-    ))
+    @test_throws ArgumentError Agate.Construction.construct(
+        ModelDefinition(;
+            components=shared_driver_model.components,
+            processes=(
+                growth=Growth(;
+                    plankton=:P,
+                    reference_resource=:N,
+                    factors=(
+                        environment=MultiDriverTestFactor(
+                            ExternalTestFormulation(); state_plankton=:Z
+                        ),
+                    ),
+                ),
+            ),
+            parameters=multi_driver_definition.parameters,
+        ),
+    )
 
     invalid_growth = ModelDefinition(;
         components=(
             P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
             N=Pool(:nitrogen),
         ),
-        processes=(growth=Growth(;
-            plankton=:P,
-            reference_resource=:N,
-            factors=(nutrients=NutrientResponse(Monod(); resource=:missing),),
-        ),),
+        processes=(
+            growth=Growth(;
+                plankton=:P,
+                reference_resource=:N,
+                factors=(nutrients=NutrientResponse(Monod(); resource=:missing),),
+            ),
+        ),
     )
     @test_throws ArgumentError canonicalize_model(invalid_growth)
 
@@ -131,18 +180,20 @@ Agate.Processes.factor_value(
     @test_throws ArgumentError Growth(;
         plankton=(), reference_resource=:N, factors=(light=Light(Smith(); driver=:PAR),)
     )
-    @test_throws ArgumentError Consumption(PreferentialGrazing(); consumers=(), resources=:P)
-    @test_throws ArgumentError Consumption(PreferentialGrazing(); consumers=:Z, resources=(:P, 1))
+    @test_throws ArgumentError Consumption(
+        PreferentialGrazing(); consumers=(), resources=:P
+    )
+    @test_throws ArgumentError Consumption(
+        PreferentialGrazing(); consumers=:Z, resources=(:P, 1)
+    )
 
     for build_process in (
         () -> Growth(;
             plankton=(:P, :P),
             reference_resource=:N,
-            factors=(light=Light(Smith(); driver=:PAR),)
+            factors=(light=Light(Smith(); driver=:PAR),),
         ),
-        () -> Consumption(
-            PreferentialGrazing(); consumers=(:Z, :Z), resources=:P
-        ),
+        () -> Consumption(PreferentialGrazing(); consumers=(:Z, :Z), resources=:P),
         () -> Mortality(Agate.Processes.LinearMortality(); plankton=(:P, :P)),
         () -> Agate.Processes.Remineralization(
             Agate.Processes.LinearRemineralization(); sources=(:D, :D), destination=:N
@@ -151,65 +202,106 @@ Agate.Processes.factor_value(
         @test_throws ArgumentError build_process()
     end
 
-    @test_nowarn canonicalize_model(ModelDefinition(;
-        components=(
-            P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
-            N=Pool(:nitrogen),
+    @test_nowarn canonicalize_model(
+        ModelDefinition(;
+            components=(
+                P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
+                N=Pool(:nitrogen),
+            ),
+            processes=(
+                growth=Growth(;
+                    plankton=:P,
+                    reference_resource=:N,
+                    factors=(light=Light(Smith(); driver=:PAR),),
+                ),
+            ),
         ),
-        processes=(growth=Growth(;
-            plankton=:P,
-            reference_resource=:N,
-            factors=(light=Light(Smith(); driver=:PAR),),
-        ),),
-    ))
+    )
 
     wrong_element = ModelDefinition(;
         components=(
-            P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
-                composition=(nitrogen=:nitrogen_to_carbon,)),
+            P=Plankton(;
+                states=(carbon=:carbon,),
+                reference_state=:carbon,
+                composition=(nitrogen=:nitrogen_to_carbon,),
+            ),
             DIC=Pool(:carbon),
             DIN=Pool(:phosphorus),
         ),
-        processes=(growth=Growth(;
-            plankton=:P,
-            reference_resource=:DIC,
-            additional_resources=(nitrogen=:DIN,),
-            factors=(
-                light=Light(Geider(); driver=:PAR),
-                nutrients=NutrientLimitation(
-                    Liebig();
-                    responses=(nitrogen=NutrientResponse(Monod(); resource=:DIN),),
+        processes=(
+            growth=Growth(;
+                plankton=:P,
+                reference_resource=:DIC,
+                additional_resources=(nitrogen=:DIN,),
+                factors=(
+                    light=Light(Geider(); driver=:PAR),
+                    nutrients=NutrientLimitation(
+                        Liebig();
+                        responses=(nitrogen=NutrientResponse(Monod(); resource=:DIN),),
+                    ),
                 ),
             ),
-        ),),
+        ),
     )
     @test_throws ArgumentError canonicalize_model(wrong_element)
 
     # Invalid built-in formulation combinations are rejected by their concrete objects or factor contract.
     @test_throws MethodError Mortality(Monod(), (:P,), nothing, NamedTuple())
-    @test_throws ArgumentError canonicalize_model(ModelDefinition(;
-        components=(
-            P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
-            Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
+    @test_throws ArgumentError canonicalize_model(
+        ModelDefinition(;
+            components=(
+                P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
+                Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen),
+            ),
+            processes=(
+                grazing=Consumption(
+                    PreferentialGrazing();
+                    consumers=:Z,
+                    resources=:P,
+                    factors=(light=Light(Smith(); driver=:PAR),),
+                ),
+            ),
         ),
-        processes=(grazing=Consumption(PreferentialGrazing(); consumers=:Z, resources=:P, factors=(light=Light(Smith(); driver=:PAR),)),),
-    ))
+    )
 end
 
 @testset "Built-in parameter domains" begin
     nodes = (
-        FactorizedGrowth(), Smith(), Geider(), ExponentialSaturation(), Monod(),
-        InhibitedMonod(), NormalizedDroop(), QuotaRegulatedMonod(), FrankTNorm(), Q10(:plankton),
+        FactorizedGrowth(),
+        Smith(),
+        Geider(),
+        ExponentialSaturation(),
+        Monod(),
+        InhibitedMonod(),
+        NormalizedDroop(),
+        QuotaRegulatedMonod(),
+        FrankTNorm(),
+        Q10(:plankton),
         PreferentialGrazing(),
-        HeterotrophicConsumption(), LinearMortality(), QuadraticMortality(),
-        LinearRemineralization(), Products((a=:A, b=:B); fractions=(a=:fraction_a,)),
+        HeterotrophicConsumption(),
+        LinearMortality(),
+        QuadraticMortality(),
+        LinearRemineralization(),
+        Products((a=:A, b=:B); fractions=(a=:fraction_a,)),
     )
-    expected(node, name) = node isa ExponentialSaturation && name === :light_scale ? :positive :
-        node isa HeterotrophicConsumption && name === :half_saturation ? :positive :
-        name in (:minimum_quota, :maximum_quota, :hill, :sharpness, :q10) ? :positive :
-        name === :reference_temperature ? :finite :
-        name in (:assimilation, :fraction) ? :unit_interval : :nonnegative
-    @test all(slot.domain === expected(node, slot.name) for node in nodes for slot in parameter_slots(node))
+    expected(node, name) =
+        if node isa ExponentialSaturation && name === :light_scale
+            :positive
+        elseif node isa HeterotrophicConsumption && name === :half_saturation
+            :positive
+        elseif name in (:minimum_quota, :maximum_quota, :hill, :sharpness, :q10)
+            :positive
+        elseif name === :reference_temperature
+            :finite
+        elseif name in (:assimilation, :fraction)
+            :unit_interval
+        else
+            :nonnegative
+        end
+    @test all(
+        slot.domain === expected(node, slot.name) for node in nodes for
+        slot in parameter_slots(node)
+    )
     @test_throws ArgumentError Products((a=:A, b=:B); fractions=(a=:fa, b=:fb))
     @test_throws ArgumentError Agate.Processes.ParameterSlot(:x, (:consumer, :consumer))
 end
@@ -217,36 +309,47 @@ end
 @testset "Canonicalization owns authored structure" begin
     single = Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen)
     light = Light(Smith(); driver=:PAR)
-    one_process(id, process, components) = ModelDefinition(;
-        components, processes=NamedTuple{(id,)}((process,))
-    )
+    one_process(id, process, components) =
+        ModelDefinition(; components, processes=NamedTuple{(id,)}((process,)))
 
-    @test_nowarn canonicalize_model(one_process(
-        :growth,
-        Growth(;
-            plankton=:P,
-            reference_resource=:DIC,
-            additional_resources=(nitrogen=:N,),
-            factors=(light=light,),
+    @test_nowarn canonicalize_model(
+        one_process(
+            :growth,
+            Growth(;
+                plankton=:P,
+                reference_resource=:DIC,
+                additional_resources=(nitrogen=:N,),
+                factors=(light=light,),
+            ),
+            (
+                P=Plankton(;
+                    states=(carbon=:carbon,),
+                    reference_state=:carbon,
+                    composition=(nitrogen=:nitrogen_to_carbon,),
+                ),
+                DIC=Pool(:carbon),
+                N=Pool(:nitrogen),
+            ),
         ),
-        (
-            P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon,
-                composition=(nitrogen=:nitrogen_to_carbon,)),
-            DIC=Pool(:carbon),
-            N=Pool(:nitrogen),
-        ),
-    ))
+    )
 
     cases = (
         (
             "Growth resources require component composition",
-            one_process(:growth, Growth(;
-                plankton=:P, reference_resource=:DIC,
-                additional_resources=(nitrogen=:N,), factors=(light=light,),
-            ), (
-                P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
-                DIC=Pool(:carbon), N=Pool(:nitrogen),
-            )),
+            one_process(
+                :growth,
+                Growth(;
+                    plankton=:P,
+                    reference_resource=:DIC,
+                    additional_resources=(nitrogen=:N,),
+                    factors=(light=light,),
+                ),
+                (
+                    P=Plankton(; states=(carbon=:carbon,), reference_state=:carbon),
+                    DIC=Pool(:carbon),
+                    N=Pool(:nitrogen),
+                ),
+            ),
             ("process :growth", "additional_resources", "implicit composition"),
         ),
         (
@@ -255,7 +358,9 @@ end
                 :consume,
                 Consumption(
                     PreferentialGrazing();
-                    consumers=:Z, resources=:P, factors=(light=light,),
+                    consumers=:Z,
+                    resources=:P,
+                    factors=(light=light,),
                 ),
                 (Z=single, P=single),
             ),
@@ -263,16 +368,22 @@ end
         ),
         (
             "Mortality participant type",
-            one_process(:mortality, Mortality(
-                Agate.Processes.LinearMortality(); plankton=:D
-            ), (D=Pool(:nitrogen),)),
+            one_process(
+                :mortality,
+                Mortality(Agate.Processes.LinearMortality(); plankton=:D),
+                (D=Pool(:nitrogen),),
+            ),
             ("process :mortality", "must be a Plankton"),
         ),
         (
             "Remineralization element",
-            one_process(:remineralization, Agate.Processes.Remineralization(
-                Agate.Processes.LinearRemineralization(); sources=:D, destination=:N
-            ), (D=Pool(:nitrogen), N=Pool(:phosphorus))),
+            one_process(
+                :remineralization,
+                Agate.Processes.Remineralization(
+                    Agate.Processes.LinearRemineralization(); sources=:D, destination=:N
+                ),
+                (D=Pool(:nitrogen), N=Pool(:phosphorus)),
+            ),
             ("process :remineralization", "remineralization source :D", "element"),
         ),
     )
@@ -302,9 +413,11 @@ end
     )
     for (label, parameters, fragment) in parameter_cases
         @testset "$label" begin
-            message = canonicalization_error_message(ModelDefinition(;
-                components=NamedTuple(), processes=NamedTuple(), parameters
-            ))
+            message = canonicalization_error_message(
+                ModelDefinition(;
+                    components=NamedTuple(), processes=NamedTuple(), parameters
+                ),
+            )
             @test occursin(fragment, message)
         end
     end
@@ -312,21 +425,29 @@ end
 
 @testset "Missing parameter definitions" begin
     components = (D=Pool(:nitrogen), N=Pool(:nitrogen))
-    processes = (remineralization=Agate.Processes.Remineralization(
-        Agate.Processes.LinearRemineralization();
-        sources=:D, destination=:N, bindings=(rate=:remineralization_rate,),
-    ),)
+    processes = (
+        remineralization=Agate.Processes.Remineralization(
+            Agate.Processes.LinearRemineralization();
+            sources=:D,
+            destination=:N,
+            bindings=(rate=:remineralization_rate,),
+        ),
+    )
     for parameters in ((), (invalid=1,))
-        @test_throws ArgumentError canonicalize_model(ModelDefinition(;
-            components, processes, parameters,
-        ))
+        @test_throws ArgumentError canonicalize_model(
+            ModelDefinition(; components, processes, parameters)
+        )
     end
 end
 
 @testset "Parameter binding behavior and validation" begin
     components = (
-        P=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]),
-        Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]),
+        P=Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[1.0]
+        ),
+        Z=Plankton(;
+            states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]
+        ),
         D=Pool(:nitrogen),
         E=Pool(:nitrogen),
         R=Pool(:nitrogen),
@@ -338,14 +459,18 @@ end
         destination=:R,
         bindings=(rate=(D=:D_rate, E=:E_rate),),
     )
-    qualified_model = Agate.Construction.construct(ModelDefinition(;
-        components=(D=components.D, E=components.E, R=components.R),
-        processes=(remineralization=qualified,),
-        parameters=(D_rate=Parameter(0.1), E_rate=Parameter(0.2)),
-    ))
+    qualified_model = Agate.Construction.construct(
+        ModelDefinition(;
+            components=(D=components.D, E=components.E, R=components.R),
+            processes=(remineralization=qualified,),
+            parameters=(D_rate=Parameter(0.1), E_rate=Parameter(0.2)),
+        ),
+    )
     tracer_order = Agate.Introspection.tracer_names(qualified_model)
     state = (D=2.0, E=3.0, R=0.0)
-    args = (0.0, 0.0, 0.0, 0.0, Tuple(getproperty(state, tracer) for tracer in tracer_order)...)
+    args = (
+        0.0, 0.0, 0.0, 0.0, Tuple(getproperty(state, tracer) for tracer in tracer_order)...
+    )
     @test qualified_model(Val(:D), args...) ≈ -0.2
     @test qualified_model(Val(:E), args...) ≈ -0.6
     @test qualified_model(Val(:R), args...) ≈ 0.8
@@ -358,48 +483,69 @@ end
     @test_throws MethodError Parameter(ConstantDefault(0.1); axes=:plankton)
     @test_throws ArgumentError ConstructionParameter(ConstantDefault(0.1); axes=:consumer)
 
-    construction_bound_error = canonicalization_error_message(ModelDefinition(;
-        components=(P=components.P, Z=components.Z),
-        processes=(mortality=shared,),
-        parameters=(shared_mortality=ConstructionParameter(ConstantDefault(0.1); axes=:plankton),),
-    ))
-    @test occursin("construction-only and cannot bind to a process slot", construction_bound_error)
-
-    incompatible_axes_error = canonicalization_error_message(ModelDefinition(;
-        components=(P=components.P, Z=components.Z, D=components.D),
-        processes=(
-            mortality=shared,
-            grazing=Consumption(
-                PreferentialGrazing();
-                consumers=:Z,
-                resources=:P,
-                bindings=(maximum_rate=:shared_mortality,),
-                unassimilated_products=:D,
+    construction_bound_error = canonicalization_error_message(
+        ModelDefinition(;
+            components=(P=components.P, Z=components.Z),
+            processes=(mortality=shared,),
+            parameters=(
+                shared_mortality=ConstructionParameter(
+                    ConstantDefault(0.1); axes=:plankton
+                ),
             ),
         ),
-        parameters=(
-            shared_mortality=Parameter(0.1),
-            half_saturation=Parameter(0.1),
-            palatability=Parameter(1.0),
-            assimilation=Parameter(0.7),
+    )
+    @test occursin(
+        "construction-only and cannot bind to a process slot", construction_bound_error
+    )
+
+    incompatible_axes_error = canonicalization_error_message(
+        ModelDefinition(;
+            components=(P=components.P, Z=components.Z, D=components.D),
+            processes=(
+                mortality=shared,
+                grazing=Consumption(
+                    PreferentialGrazing();
+                    consumers=:Z,
+                    resources=:P,
+                    bindings=(maximum_rate=:shared_mortality,),
+                    unassimilated_products=:D,
+                ),
+            ),
+            parameters=(
+                shared_mortality=Parameter(0.1),
+                half_saturation=Parameter(0.1),
+                palatability=Parameter(1.0),
+                assimilation=Parameter(0.7),
+            ),
         ),
-    ))
+    )
     @test occursin("incompatible semantic axes", incompatible_axes_error)
 
-    @test_throws ArgumentError canonicalize_model(ModelDefinition(;
-        components=(P=components.P, Z=components.Z),
-        processes=(grazing=Consumption(PreferentialGrazing(); consumers=:Z, resources=:P,
-            bindings=(palatability=:shared_interaction, assimilation=:shared_interaction)),),
-        parameters=(maximum_rate=Parameter(0.1), half_saturation=Parameter(0.1),
-                    shared_interaction=Parameter(0.7)),
-    ))
+    @test_throws ArgumentError canonicalize_model(
+        ModelDefinition(;
+            components=(P=components.P, Z=components.Z),
+            processes=(
+                grazing=Consumption(
+                    PreferentialGrazing();
+                    consumers=:Z,
+                    resources=:P,
+                    bindings=(
+                        palatability=:shared_interaction, assimilation=:shared_interaction
+                    ),
+                ),
+            ),
+            parameters=(
+                maximum_rate=Parameter(0.1),
+                half_saturation=Parameter(0.1),
+                shared_interaction=Parameter(0.7),
+            ),
+        ),
+    )
 
     accidental = ModelDefinition(;
         components=(P=components.P, Z=components.Z),
         processes=(
-            mortality=Mortality(
-                Agate.Processes.LinearMortality(); plankton=(:P, :Z)
-            ),
+            mortality=Mortality(Agate.Processes.LinearMortality(); plankton=(:P, :Z)),
         ),
         parameters=(rate=Parameter(ConstantDefault(0.1)),),
     )
@@ -418,14 +564,20 @@ end
         parameters=(remineralization_rate=Parameter(ConstantDefault(0.2)),),
     )
     @test_throws ArgumentError canonicalize_model(missing_qualifier)
-    @test_throws ArgumentError canonicalize_model(ModelDefinition(;
-        components=(D=components.D, E=components.E, R=components.R),
-        processes=(remineralization=Agate.Processes.Remineralization(
-            Agate.Processes.LinearRemineralization(); sources=(:D, :E), destination=:R,
-            bindings=(rate=(D=:D_rate, E=:E_rate, extra=:D_rate),),
-        ),),
-        parameters=(D_rate=Parameter(0.1), E_rate=Parameter(0.2)),
-    ))
+    @test_throws ArgumentError canonicalize_model(
+        ModelDefinition(;
+            components=(D=components.D, E=components.E, R=components.R),
+            processes=(
+                remineralization=Agate.Processes.Remineralization(
+                    Agate.Processes.LinearRemineralization();
+                    sources=(:D, :E),
+                    destination=:R,
+                    bindings=(rate=(D=:D_rate, E=:E_rate, extra=:D_rate),),
+                ),
+            ),
+            parameters=(D_rate=Parameter(0.1), E_rate=Parameter(0.2)),
+        ),
+    )
 
     unknown = ModelDefinition(;
         components=(P=components.P,),
@@ -461,9 +613,7 @@ end
     @test_throws ArgumentError canonicalize_model(unknown_zero_slot)
 
     single_mortality = Mortality(
-        Agate.Processes.LinearMortality();
-        plankton=:P,
-        bindings=(rate=:x,),
+        Agate.Processes.LinearMortality(); plankton=:P, bindings=(rate=:x,)
     )
     lifecycle_cases = (
         (
@@ -476,11 +626,13 @@ end
         ),
     )
     for (parameters, fragment) in lifecycle_cases
-        message = canonicalization_error_message(ModelDefinition(;
-            components=(P=components.P,),
-            processes=(mortality=single_mortality,),
-            parameters,
-        ))
+        message = canonicalization_error_message(
+            ModelDefinition(;
+                components=(P=components.P,),
+                processes=(mortality=single_mortality,),
+                parameters,
+            ),
+        )
         @test occursin(fragment, message)
     end
 end

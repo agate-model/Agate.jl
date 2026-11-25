@@ -40,7 +40,6 @@ doi:10.1357/002224001762842181.
 @inline exponential_light_limitation(PAR, light_scale) =
     one(PAR + light_scale) - exp(-PAR / light_scale)
 
-
 """
     geider_light_response(PAR, alpha, maximum_rate, chlorophyll_to_carbon_ratio)
 
@@ -59,9 +58,8 @@ the enclosing growth-process rate scale. Multiplying the returned factor by
     PAR, alpha, maximum_rate, chlorophyll_to_carbon_ratio
 )
     maximum_rate == zero(maximum_rate) && return zero(maximum_rate)
-    return one(maximum_rate) - exp(
-        (-alpha * chlorophyll_to_carbon_ratio * PAR) / maximum_rate
-    )
+    return one(maximum_rate) -
+           exp((-alpha * chlorophyll_to_carbon_ratio * PAR) / maximum_rate)
 end
 
 end # module

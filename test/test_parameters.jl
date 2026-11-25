@@ -2,26 +2,26 @@ using Agate
 using Agate.Introspection: parameter_names
 using Test
 
-import Agate.Parameters:
-    DerivedDefault,
-    ConstructionParameter,
-    Parameter,
-    derive_default
+import Agate.Parameters: DerivedDefault, ConstructionParameter, Parameter, derive_default
 
 struct AddOneDefault end
 
-derive_default(
+function derive_default(
     ::AddOneDefault, ::Agate.Processes.ModelDefinition, ::Any, params::NamedTuple
-) = params.base + one(params.base)
+)
+    return params.base + one(params.base)
+end
 
 function derived_default_definition()
     components = (D=Agate.Components.Pool(:nitrogen), N=Agate.Components.Pool(:nitrogen))
-    processes = (remineralization=Agate.Processes.Remineralization(
-        Agate.Processes.LinearRemineralization();
-        sources=:D,
-        destination=:N,
-        bindings=(rate=(D=:top,),),
-    ),)
+    processes = (
+        remineralization=Agate.Processes.Remineralization(
+            Agate.Processes.LinearRemineralization();
+            sources=:D,
+            destination=:N,
+            bindings=(rate=(D=:top,),),
+        ),
+    )
     parameters = (
         base=ConstructionParameter(2.0),
         top=Parameter(DerivedDefault(AddOneDefault(); deps=(:base,))),
@@ -39,17 +39,14 @@ end
 
     @testset "Derived default dependency resolution" begin
         definition = derived_default_definition()
-        resolved_top(overrides=(;)) = Agate.Construction.construct(
-            definition; parameter_overrides=overrides
-        ).parameters.top
+        resolved_top(overrides=(;)) =
+            Agate.Construction.construct(definition; parameter_overrides=overrides).parameters.top
 
         @test resolved_top() == 3.0
         @test resolved_top((base=4.0,)) == 5.0
         @test resolved_top((top=99.0,)) == 99.0
         @test resolved_top((base=4.0, top=99.0)) == 99.0
         @test_throws ArgumentError resolved_top((top=nothing,))
-        @test !hasproperty(
-            Agate.Construction.construct(definition).parameters, :base
-        )
+        @test !hasproperty(Agate.Construction.construct(definition).parameters, :base)
     end
 end

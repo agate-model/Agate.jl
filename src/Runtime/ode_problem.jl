@@ -16,16 +16,20 @@ function ode_problem(
     aux_names = required_biogeochemical_auxiliary_fields(bgc)
     aux_source = ode_auxiliary_source(aux_names, auxiliary)
     tracer_names = required_biogeochemical_tracers(bgc)
-    length(u0) == length(tracer_names) || throw(ArgumentError(
-        "`u0` has length $(length(u0)); expected $(length(tracer_names)) values for tracers $(tracer_names)."
-    ))
+    length(u0) == length(tracer_names) || throw(
+        ArgumentError(
+            "`u0` has length $(length(u0)); expected $(length(tracer_names)) values for tracers $(tracer_names).",
+        ),
+    )
 
     if isempty(active_map)
         parameterized_bgc = ParameterizedBGC(bgc, bgc.parameters)
 
         rhs! = function (du, u, parameters_vector, t)
             aux_values = ode_auxiliary_values(aux_source, t)
-            ode_tendencies!(du, parameterized_bgc, tracer_names, coordinates, u, aux_values, t)
+            ode_tendencies!(
+                du, parameterized_bgc, tracer_names, coordinates, u, aux_values, t
+            )
             return nothing
         end
     else
@@ -33,7 +37,9 @@ function ode_problem(
             parameters = ActiveParameters(bgc.parameters, parameters_vector, active_map)
             parameterized_bgc = ParameterizedBGC(bgc, parameters)
             aux_values = ode_auxiliary_values(aux_source, t)
-            ode_tendencies!(du, parameterized_bgc, tracer_names, coordinates, u, aux_values, t)
+            ode_tendencies!(
+                du, parameterized_bgc, tracer_names, coordinates, u, aux_values, t
+            )
             return nothing
         end
     end
@@ -57,7 +63,8 @@ end
 
 function ode_auxiliary_source(aux_names, auxiliary::NamedTuple)
     values = map(aux_names) do name
-        hasproperty(auxiliary, name) || throw(ArgumentError("Missing auxiliary value :$name."))
+        hasproperty(auxiliary, name) ||
+            throw(ArgumentError("Missing auxiliary value :$name."))
         return getproperty(auxiliary, name)
     end
     return ODEAuxiliarySource(values)

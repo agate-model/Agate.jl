@@ -30,11 +30,13 @@ function _plankton_entity_indices(
 )
     return map(labels) do label
         index = findfirst(==(label), layout.size_classes)
-        isnothing(index) && throw(ArgumentError(
-            "derived default :$parameter_name $axis_name entity :$label is not a " *
-            "realized plankton entity",
-        ))
-        index
+        isnothing(index) && throw(
+            ArgumentError(
+                "derived default :$parameter_name $axis_name entity :$label is not a " *
+                "realized plankton entity",
+            ),
+        )
+        return index
     end
 end
 
@@ -45,9 +47,11 @@ function _require_palatability_diameters(layout::ModelLayout, consumers, prey)
         push!(seen, index)
         diameter_metadata(layout.size_class_diameters[index]) === nothing || continue
         entity = layout.size_classes[index]
-        throw(ArgumentError(
-            "AllometricPalatability requires diameter metadata for SizeClass :$entity; provide an explicit size structure or an explicit palatability matrix",
-        ))
+        throw(
+            ArgumentError(
+                "AllometricPalatability requires diameter metadata for SizeClass :$entity; provide an explicit size structure or an explicit palatability matrix",
+            ),
+        )
     end
     return nothing
 end
@@ -55,9 +59,11 @@ end
 @inline function _derive_palatability(layout::ModelLayout, params, consumers, prey)
     _require_palatability_diameters(layout, consumers, prey)
     T = layout.scalar_type
-    protection = hasproperty(params, :protection) ?
-        _require_scalar_vector(T, params.protection, :protection) :
+    protection = if hasproperty(params, :protection)
+        _require_scalar_vector(T, params.protection, :protection)
+    else
         zeros(T, length(layout.size_classes))
+    end
     return palatability_matrix_allometric_axes(
         T,
         layout.size_class_diameters;
@@ -72,11 +78,7 @@ end
 end
 
 @inline function _derive_parameter_default(
-    ::AllometricPalatability,
-    ::Any,
-    layout::ModelLayout,
-    parameter,
-    params::NamedTuple,
+    ::AllometricPalatability, ::Any, layout::ModelLayout, parameter, params::NamedTuple
 )
     consumer_labels, prey_labels = parameter.storage_labels
     return _derive_palatability(
@@ -94,14 +96,14 @@ end
     parameter,
     params::NamedTuple,
 )
-    length(params) == 1 || throw(ArgumentError(
-        "BroadcastConsumerAcrossResources requires exactly one consumer-indexed dependency",
-    ))
+    length(params) == 1 || throw(
+        ArgumentError(
+            "BroadcastConsumerAcrossResources requires exactly one consumer-indexed dependency",
+        ),
+    )
     trait_name = first(keys(params))
     trait = _require_scalar_vector(layout.scalar_type, first(values(params)), trait_name)
     consumer_labels, resource_labels = parameter.storage_labels
-    consumers = _plankton_entity_indices(
-        layout, consumer_labels, parameter.name, :consumer
-    )
+    consumers = _plankton_entity_indices(layout, consumer_labels, parameter.name, :consumer)
     return [trait[i] for i in consumers, _ in resource_labels]
 end

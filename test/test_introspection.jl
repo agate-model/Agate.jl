@@ -12,7 +12,6 @@ using Agate.Introspection:
     model_summary
 using Test
 
-
 @testset "Public introspection helpers" begin
     @testset "Model-constructed instance" begin
         bgc = runtime_npz_model(; grid=dummy_grid(Float32))
@@ -66,9 +65,7 @@ using Test
         phyto_diameters = [2.0, sqrt(20.0), 10.0]
         zoo_diameters = [20.0, 100.0]
         sized_bgc = runtime_npz_model(;
-            plankton_pfts=(;
-                P=(P=phyto_diameters,), Z=(Z=zoo_diameters,)
-            )
+            plankton_pfts=(; P=(P=phyto_diameters,), Z=(Z=zoo_diameters,))
         )
         @test plankton_tracers(sized_bgc) == [:P_1, :P_2, :P_3, :Z_1, :Z_2]
         @test plankton_diameters(sized_bgc) ≈ [phyto_diameters; zoo_diameters]
@@ -83,28 +80,34 @@ using Test
         @test named_pfts.mesozoo == [:mesozoo_1]
         @test named_pfts.diat == [:diat_1, :diat_2, :diat_3]
         @test named_pfts.dino == [:dino_1, :dino_2]
-        @test plankton_diameters(named_bgc) ≈
-            [2.0, 5.0, 10.0, 8.0, 20.0, 100.0, 30.0, 60.0]
+        @test plankton_diameters(named_bgc) ≈ [2.0, 5.0, 10.0, 8.0, 20.0, 100.0, 30.0, 60.0]
 
         named_pal = interaction_matrix(named_bgc, :palatability_matrix)
         @test named_pal.rows == [:mesozoo_1, :microzoo_1, :microzoo_2]
         @test named_pal.columns == [:diat_1, :diat_2, :diat_3, :dino_1, :dino_2]
-
     end
 
     @testset "Authored model without plankton PFTs" begin
         components = (X=Agate.Components.Pool(:carbon), Y=Agate.Components.Pool(:carbon))
-        processes = (transfer=Agate.Processes.Remineralization(
-            Agate.Processes.LinearRemineralization();
-            sources=:X, destination=:Y, bindings=(rate=(X=:rate,),),
-        ),)
-        parameters = (rate=Agate.Parameters.Parameter(Agate.Parameters.ConstantDefault(1.0)),)
-        model = Agate.Construction.construct(Agate.Processes.ModelDefinition(; components, processes, parameters))
+        processes = (
+            transfer=Agate.Processes.Remineralization(
+                Agate.Processes.LinearRemineralization();
+                sources=:X,
+                destination=:Y,
+                bindings=(rate=(X=:rate,),),
+            ),
+        )
+        parameters = (
+            rate=Agate.Parameters.Parameter(Agate.Parameters.ConstantDefault(1.0)),
+        )
+        model = Agate.Construction.construct(
+            Agate.Processes.ModelDefinition(; components, processes, parameters)
+        )
         groups = tracer_groups(model)
 
         @test tracer_names(model) == [:X, :Y]
         @test (groups.all, groups.plankton, groups.nonplankton, groups.entities_by_pft) ==
-              ([:X, :Y], Symbol[], [:X, :Y], NamedTuple())
+            ([:X, :Y], Symbol[], [:X, :Y], NamedTuple())
         @test pfts(model) == NamedTuple()
         @test isempty(plankton_diameters(model))
         @test parameter_names(model) == [:rate]

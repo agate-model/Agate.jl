@@ -5,12 +5,22 @@
 # graze the living bacterial plankton. A Q10 factor modifies POM consumption.
 
 using Agate.Components: Plankton, Pool
-using Agate.Parameters: AllometricPalatability, BroadcastConsumerAcrossResources, ConstructionParameter, DerivedDefault, Parameter
+using Agate.Parameters:
+    AllometricPalatability,
+    BroadcastConsumerAcrossResources,
+    ConstructionParameter,
+    DerivedDefault,
+    Parameter
 using Agate.Construction: construct
 using Agate.Introspection: auxiliary_field_names, tracer_names
 using Agate.Processes:
-    Consumption, ModelDefinition, Temperature, Q10,
-    HeterotrophicConsumption, PreferentialGrazing, participants
+    Consumption,
+    ModelDefinition,
+    Temperature,
+    Q10,
+    HeterotrophicConsumption,
+    PreferentialGrazing,
+    participants
 using Oceananigans.Units: day
 
 nothing #hide
@@ -23,8 +33,12 @@ nothing #hide
 components = (
     N=Pool(:nitrogen),
     POM=Pool(:nitrogen),
-    B=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.8]),
-    Z=Plankton(; states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]),
+    B=Plankton(;
+        states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[0.8]
+    ),
+    Z=Plankton(;
+        states=(nitrogen=:nitrogen,), reference_state=:nitrogen, size_structure=[10.0]
+    ),
 )
 
 processes = (
@@ -42,8 +56,7 @@ processes = (
             temperature=Temperature(
                 Q10(:consumer);
                 bindings=(
-                    q10=:temperature_q10,
-                    reference_temperature=:reference_temperature,
+                    q10=:temperature_q10, reference_temperature=:reference_temperature
                 ),
             ),
         ),
@@ -87,7 +100,7 @@ parameters = (
         DerivedDefault(
             AllometricPalatability();
             deps=(:optimum_predator_prey_ratio, :specificity, :protection),
-        )
+        ),
     ),
     living_assimilation=Parameter(
         DerivedDefault(BroadcastConsumerAcrossResources(); deps=(:assimilation_efficiency,))
