@@ -56,54 +56,59 @@ function _require_palatability_diameters(layout::ModelLayout, consumers, prey)
     return nothing
 end
 
-@inline function _derive_palatability(layout::ModelLayout, params, consumers, prey)
-    _require_palatability_diameters(layout, consumers, prey)
-    T = layout.scalar_type
-    protection = if hasproperty(params, :protection)
-        _require_scalar_vector(T, params.protection, :protection)
-    else
-        zeros(T, length(layout.size_classes))
+# Prepare the fixed numeric context once; both construction and trait evaluation
+# invoke the same allometric matrix kernel.
+function _prepare_palatability(::Type{T}, diameters, consumers, prey) where {T<:Real}
+    return function (params)
+        protection = if hasproperty(params, :protection)
+            _require_scalar_vector(T, params.protection, :protection)
+        else
+            zeros(T, length(diameters))
+        end
+        return palatability_matrix_allometric_axes(
+            T,
+            diameters;
+            optimum_predator_prey_ratio=_require_scalar_vector(
+                T, params.optimum_predator_prey_ratio, :optimum_predator_prey_ratio
+            ),
+            specificity=_require_scalar_vector(T, params.specificity, :specificity),
+            protection,
+            consumer_indices=consumers,
+            prey_indices=prey,
+        )
     end
-    return palatability_matrix_allometric_axes(
-        T,
-        layout.size_class_diameters;
-        optimum_predator_prey_ratio=_require_scalar_vector(
-            T, params.optimum_predator_prey_ratio, :optimum_predator_prey_ratio
-        ),
-        specificity=_require_scalar_vector(T, params.specificity, :specificity),
-        protection,
-        consumer_indices=consumers,
-        prey_indices=prey,
-    )
 end
 
-@inline function _derive_parameter_default(
-    ::AllometricPalatability, ::Any, layout::ModelLayout, parameter, params::NamedTuple
+function _prepare_parameter_default(
+    ::AllometricPalatability, ::Any, layout::ModelLayout, parameter
 )
     consumer_labels, prey_labels = parameter.storage_labels
-    return _derive_palatability(
-        layout,
-        params,
-        _plankton_entity_indices(layout, consumer_labels, parameter.name, :consumer),
-        _plankton_entity_indices(layout, prey_labels, parameter.name, :prey),
+    consumers = _plankton_entity_indices(layout, consumer_labels, parameter.name, :consumer)
+    prey = _plankton_entity_indices(layout, prey_labels, parameter.name, :prey)
+    _require_palatability_diameters(layout, consumers, prey)
+    return _prepare_palatability(
+        layout.scalar_type, layout.size_class_diameters, consumers, prey
     )
 end
 
-@inline function _derive_parameter_default(
-    ::BroadcastConsumerAcrossResources,
-    ::Any,
-    layout::ModelLayout,
-    parameter,
-    params::NamedTuple,
+function _prepare_consumer_broadcast(::Type{T}, consumers, nresources) where {T<:Real}
+    return function (params)
+        length(params) == 1 || throw(
+            ArgumentError(
+                "BroadcastConsumerAcrossResources requires exactly one consumer-indexed dependency",
+            ),
+        )
+        trait = _require_scalar_vector(T, first(values(params)), first(keys(params)))
+        return [trait[i] for i in consumers, _ in 1:nresources]
+    end
+end
+
+function _prepare_parameter_default(
+    ::BroadcastConsumerAcrossResources, ::Any, layout::ModelLayout, parameter
 )
-    length(params) == 1 || throw(
-        ArgumentError(
-            "BroadcastConsumerAcrossResources requires exactly one consumer-indexed dependency",
-        ),
-    )
-    trait_name = first(keys(params))
-    trait = _require_scalar_vector(layout.scalar_type, first(values(params)), trait_name)
     consumer_labels, resource_labels = parameter.storage_labels
     consumers = _plankton_entity_indices(layout, consumer_labels, parameter.name, :consumer)
-    return [trait[i] for i in consumers, _ in resource_labels]
+    return _prepare_consumer_broadcast(
+        layout.scalar_type, consumers, length(resource_labels)
+    )
 end

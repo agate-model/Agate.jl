@@ -9,9 +9,9 @@ export derive_default
 
 """Abstract supertype for construction-time default providers.
 
-Default providers are evaluated on the host during model construction.
-They must produce concrete numeric values (scalars, vectors, matrices) that can
-later be moved to a GPU architecture via `Adapt`.
+Default providers produce concrete numeric values (scalars, vectors, matrices)
+on the host during construction. Derived defaults also support subsequent CPU
+trait evaluations; constructed parameter storage can be moved to a GPU via `Adapt`.
 """
 abstract type AbstractDefaultProvider end
 
@@ -62,13 +62,14 @@ function ConstructionParameter(default; axes=nothing)
     return ConstructionParameter(ConstantDefault(default); axes)
 end
 
-"""Derive a parameter default from other resolved parameters during construction.
+"""Derive a parameter default from other resolved parameters.
 
 `deriver` is a setup-time strategy object. Custom derivers implement [`derive_default`](@ref);
 built-in context-sensitive providers may also use realized parameter metadata. `deps` names ordinary
 runtime parameters and/or construction-only [`ConstructionParameter`](@ref)
-values available to the derivation. Derived defaults are evaluated once after direct
-defaults and explicit overrides are materialized.
+values available to the derivation. Evaluation follows materialization of direct
+defaults and explicit overrides. Construction-trait evaluation recomputes affected
+derived defaults at fixed model structure; explicitly overridden outputs stay fixed.
 """
 struct DerivedDefault{Deriver,Dependencies<:Tuple} <: AbstractDefaultProvider
     deriver::Deriver
@@ -89,7 +90,10 @@ end
 Concrete derivers receive the owning model source, construction context, and a
 `NamedTuple` containing exactly the dependencies declared by `deps`. The owner is a
 registered model family for named models and the authored `ModelDefinition` for direct
-construction. Derivation runs on the host during model construction.
+construction. Derivation runs on the host at construction and may run again for
+updated construction traits. Treat dependency values and retained context as read-only.
+Derivers used in trait sensitivity must support Enzyme
+differentiation of their numerical operations.
 """
 function derive_default(deriver, owner, context, params::NamedTuple)
     return throw(ArgumentError("derive_default is not implemented for $(typeof(deriver))."))
@@ -97,6 +101,12 @@ end
 
 @inline _derive_parameter_default(deriver, owner, context, parameter, params::NamedTuple) =
     derive_default(deriver, owner, context, params)
+
+# Built-in context-sensitive derivations specialize preparation to resolve structural
+# indices once. Custom derivers retain the existing scientific extension hook.
+function _prepare_parameter_default(deriver, owner, context, parameter)
+    return params -> _derive_parameter_default(deriver, owner, context, parameter, params)
+end
 
 """Indicates that a parameter has no default value.
 

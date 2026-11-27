@@ -143,8 +143,9 @@ Agate.Processes.authored_parameter_bindings
 
 The keyed parameter block separates runtime process parameters from construction-only inputs.
 Scientific slots and realized process applicability determine `Parameter` vector or matrix storage
-automatically, so runtime parameters never restate axes. `ConstructionParameter` values exist only during
-construction to feed `DerivedDefault` calculations; shaped construction parameters use the global
+automatically, so runtime parameters never restate axes. `ConstructionParameter` values feed
+`DerivedDefault` calculations during construction and subsequent trait evaluations;
+shaped construction parameters use the global
 `axes=:plankton` construction domain. Family-level scientific properties that affect the realized model but are not inputs to an
 individual process equation use `ModelSetting` instead. Scientific slot-to-parameter relationships are authored
 beside the process or factor through `bindings=`.
@@ -159,6 +160,57 @@ Agate.Parameters.NoDefault
 Agate.Parameters.DiameterIndexedVectorDefault
 Agate.Parameters.AllometricPalatability
 Agate.Parameters.BroadcastConsumerAcrossResources
+```
+
+### Construction-trait sensitivity
+
+Agate supports differentiation with respect to continuous construction traits,
+automatically propagating their influence through derived runtime parameters to model
+objectives. Select traits with `active_traits` from a `ModelDefinition`, a family
+configuration, or a family and recipe. Scalar traits are selected with `true` and
+vector traits with realized SizeClass symbols. The resulting trait set includes all
+applicable runtime entries of the declared `DerivedDefault` outputs, collects shared
+outputs once, and retains explicitly overridden outputs as fixed parameters. Trait
+labels follow input selection order; runtime labels follow the corresponding active
+parameter set. The model structure is fixed across trait evaluations.
+
+```julia
+using Agate.Construction: active_traits, realize_trait_parameters
+using Agate.Runtime: ode_problem
+
+# family and recipe specify the fixed scientific configuration;
+# u0, tspan and auxiliary specify the box-model experiment.
+traits = active_traits(
+    family,
+    recipe;
+    trait_selection=(specificity=(:Z_1,), optimum_predator_prey_ratio=(:Z_1,)),
+)
+tau = copy(traits.values)
+p = realize_trait_parameters(traits, tau)
+prob = ode_problem(
+    traits.bgc, u0, tspan; p, active_parameters=traits.active_parameters, auxiliary
+)
+```
+
+For subsequent trait vectors, call `realize_trait_parameters(traits, tau)` before
+remaking the ODE problem with the resulting `p`. Each call checks values and the
+realized scientific parameter constraints. The supported AD path uses Enzyme with
+`set_runtime_activity(Reverse)`. `traits.parameter_map` is the numerical map for an
+already checked trait vector, with the same floating-point element type as
+`traits.values`. Recompute the
+runtime objective gradient at each current `p`, then differentiate the weighted sum
+of `parameter_map(tau)` with those runtime gradient weights held fixed. This applies
+the chain rule without recompiling model equations. Custom numerical derivers must
+support Enzyme differentiation and treat dependency values and retained context as read-only.
+The original configuration and recipe retain their baseline scientific meaning;
+updated trait vectors are independent inference inputs.
+See the [reverse-mode AD sensitivity example](@ref reverse_mode_ad_onyx_sensitivity_example)
+for an end-to-end Onyx construction-trait gradient and finite-difference comparison.
+
+```@docs
+Agate.Construction.active_traits
+Agate.Construction.ActiveTraitSet
+Agate.Construction.realize_trait_parameters
 ```
 
 ### Custom process and factor extension

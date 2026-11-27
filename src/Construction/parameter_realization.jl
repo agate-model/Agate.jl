@@ -3,9 +3,13 @@ using ..Parameters:
     DerivedDefault,
     NoDefault,
     DiameterIndexedVectorDefault,
-    _derive_parameter_default
+    _prepare_parameter_default
 
-using ..Processes: planned_parameter
+using ..Processes:
+    planned_parameter,
+    runtime_parameter_values,
+    parameter_constraints,
+    validate_realized_parameters
 
 using ..Library.Allometry:
     AbstractParamDef, AllometricParam, resolve_diameter_indexed_vector
@@ -64,10 +68,15 @@ function validate_parameter_value(
     return throw(ArgumentError("parameter :$name has unsupported rank $rank"))
 end
 
-function validate_parameter_storage(plan, values::NamedTuple, ::Type{T}) where {T<:Real}
+function validate_parameter_storage(
+    plan, values::NamedTuple, ::Type{T}; derived=()
+) where {T<:Real}
     for name in keys(plan.parameters)
         validate_parameter_value(
-            getproperty(plan.parameters, name), getproperty(values, name), T
+            getproperty(plan.parameters, name),
+            getproperty(values, name),
+            T;
+            derived=name in derived,
         )
     end
     return nothing
@@ -308,34 +317,135 @@ function materialize_parameter_overrides(
     return (; entries...)
 end
 
-"""Resolve one-level `DerivedDefault` values from already-materialized parameters."""
-function resolve_derived_parameter_defaults(
-    plan, layout, params::NamedTuple; derivation_owner
+# A dependency tuple is fixed during preparation, rather than discovered inside AD.
+function _derived_evaluator(kernel, ::Val{Deps}) where {Deps}
+    return inputs -> kernel(NamedTuple{Deps}(inputs))
+end
+
+function _prepare_derived_defaults(plan, layout, inputs; derivation_owner)
+    names = Tuple(
+        name for (name, parameter) in pairs(plan.parameters) if
+        parameter.definition.default isa DerivedDefault && !hasproperty(inputs, name)
+    )
+    return NamedTuple{names}(
+        map(names) do name
+            parameter = planned_parameter(plan, name)
+            provider = parameter.definition.default
+            missing_deps = Tuple(dep for dep in provider.deps if !hasproperty(inputs, dep))
+            isempty(missing_deps) || throw(
+                ArgumentError(
+                    "derived default :$name is missing dependencies: " *
+                    join(string.(missing_deps), ", "),
+                ),
+            )
+            kernel = _prepare_parameter_default(
+                provider.deriver, derivation_owner, layout, parameter
+            )
+            return _derived_evaluator(kernel, Val(provider.deps))
+        end,
+    )
+end
+
+@inline function _evaluate_derived_defaults(inputs, derivations)
+    return merge(inputs, map(evaluate -> evaluate(inputs), derivations))
+end
+
+function _checked_parameter_values(
+    canonical, layout, plan, resolved, derivations, constraints
 )
-    resolved = params
     T = layout.scalar_type
+    required = keys(plan.parameters)
+    missing_names = Tuple(name for name in required if !hasproperty(resolved, name))
+    isempty(missing_names) || throw(
+        ArgumentError("missing required parameters: $(join(string.(missing_names), ", "))"),
+    )
+    ordered = NamedTuple{required}(resolved)
+    reject_missing_parameter_values(ordered)
+    validate_parameter_storage(plan, ordered, T; derived=keys(derivations))
+    validate_realized_parameters(canonical, ordered, constraints)
+    return ordered
+end
 
-    for (key, parameter) in pairs(plan.parameters)
-        provider = parameter.definition.default
-        provider isa DerivedDefault || continue
-        hasproperty(resolved, key) && continue
+"""Prepare ordinary parameter realization, retaining the numerical derivations and override provenance."""
+function _prepare_parameter_realization(
+    canonical, layout, plan, overrides; derivation_owner
+)
+    T = layout.scalar_type
+    validate_override_keys(plan, overrides)
+    defaults = materialize_parameter_defaults(plan, T, overrides)
+    inputs = merge(defaults, materialize_parameter_overrides(plan, defaults, overrides, T))
+    derivations = _prepare_derived_defaults(plan, layout, inputs; derivation_owner)
+    constraints = parameter_constraints(canonical, layout, plan)
+    resolved = _evaluate_derived_defaults(inputs, derivations)
+    values = _checked_parameter_values(
+        canonical, layout, plan, resolved, derivations, constraints
+    )
+    return (;
+        canonical,
+        layout,
+        plan,
+        constraints,
+        values,
+        derivations,
+        explicit_override_keys=keys(overrides),
+    )
+end
 
-        missing_deps = Tuple(dep for dep in provider.deps if !hasproperty(params, dep))
-        isempty(missing_deps) || throw(
-            ArgumentError(
-                "derived default :$key is missing dependencies: " *
-                join(string.(missing_deps), ", "),
-            ),
-        )
-        dependencies = NamedTuple{provider.deps}(
-            Tuple(getproperty(params, dep) for dep in provider.deps)
-        )
+_copy_parameter_value(x) = x isa AbstractArray ? copy(x) : x
 
-        value = _derive_parameter_default(
-            provider.deriver, derivation_owner, layout, parameter, dependencies
+# Retain only the affected numerical derivations. The public preparation path
+# has already validated the selected traits and discovered the active outputs.
+function _prepare_trait_realization(prepared, traits::Tuple, active)
+    targets = Tuple(
+        name for name in keys(prepared.derivations) if any(
+            dep -> dep in traits,
+            planned_parameter(prepared.plan, name).definition.default.deps,
         )
-        validate_parameter_value(parameter, value, T; derived=true)
-        resolved = merge(resolved, NamedTuple{(key,)}((value,)))
+    )
+    derivations = NamedTuple{targets}(prepared.derivations)
+    # Explicit output overrides were excluded at preparation. Other derived
+    # outputs retain their baseline values, even when traits are updated repeatedly.
+    numerics = (; baseline=map(_copy_parameter_value, prepared.values), derivations)
+    return (; numerics, gather=_prepare_runtime_gather(active))
+end
+
+function _validate_trait_input(value, name)
+    entries = value isa Real ? (value,) : value
+    entries isa Union{Tuple,NamedTuple,AbstractVector} &&
+        all(v -> v isa Real && !(v isa Bool) && isfinite(v), entries) &&
+        return nothing
+    return throw(ArgumentError("construction trait :$name must contain finite real values"))
+end
+
+# Keep one typed slot vector per output parameter. A tuple per runtime entry
+# would reach Julia's boxed tuple-map fallback as soon as a matrix grows to 6×6.
+function _prepare_runtime_gather(active)
+    return map(
+        selection -> selection isa Integer ? selection : collect(selection), active.map
+    )
+end
+
+@inline _gather_parameter!(p, value, index::Int) = (p[index]=value; nothing)
+
+@inline function _gather_parameter!(p, value, slots::AbstractVector)
+    for slot in slots
+        p[slot.active_index] = value[slot.indices...]
     end
-    return resolved
+    return nothing
+end
+
+# Dispatch separately for each output's scalar or array storage.
+@inline _gather_parameters!(p, ::Tuple{}, ::Tuple{}) = nothing
+@inline function _gather_parameters!(p, parameters::Tuple, selections::Tuple)
+    _gather_parameter!(p, first(parameters), first(selections))
+    return _gather_parameters!(p, Base.tail(parameters), Base.tail(selections))
+end
+
+@inline function _gather_runtime_vector(
+    ::Type{T}, resolved, gather::NamedTuple{Names}, n
+) where {T<:Real,Names}
+    p = Vector{T}(undef, n)
+    selected = NamedTuple{Names}(resolved)
+    _gather_parameters!(p, values(selected), values(gather))
+    return p
 end

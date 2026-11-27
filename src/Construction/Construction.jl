@@ -3,6 +3,7 @@ module Construction
 
 import Oceananigans
 export construct, construct_plus_manifest, construct_plus_recipe
+export active_traits, realize_trait_parameters
 export ModelRecipe, ModelManifest
 export capture_model_recipe, recipe_schema
 export normalize_pft_size_structure, plankton_realization
@@ -16,5 +17,6 @@ include("recipe_hash.jl")
 include("biogeochemistry.jl")
 include("parameter_realization.jl")
 include("construct.jl")
+include("active_traits.jl")
 
 end

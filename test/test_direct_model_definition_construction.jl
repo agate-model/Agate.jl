@@ -169,6 +169,30 @@ end
     @test_throws ArgumentError Agate.Runtime.active_parameters(
         bgc; palatability_shared=((:Z1_1, :P2_1),)
     )
+
+    # A derived matrix can have a rectangular storage shape with only some
+    # entries used by the equations. A shared trait feeds both live outputs.
+    derived = merge(
+        parameters,
+        (
+            palatability_shared=Parameter(
+                DerivedDefault(
+                    BroadcastConsumerAcrossResources(); deps=(:assimilation_efficiency,)
+                ),
+            ),
+        ),
+    )
+    traits = Agate.Construction.active_traits(
+        ModelDefinition(; components, processes, parameters=derived);
+        parameter_overrides=(assimilation_efficiency=[0.0, 0.0, 0.6, 0.7],),
+        trait_selection=(assimilation_efficiency=(:Z2_1,),),
+    )
+    @test traits.active_parameters.labels == (
+        "assimilation_local[Z2_1, P2_1]",
+        "palatability_shared[Z1_1, P1_1]",
+        "palatability_shared[Z2_1, P2_1]",
+    )
+    @test Agate.Construction.realize_trait_parameters(traits, [0.4]) == [0.4, 0.6, 0.4]
 end
 
 @testset "Multi-element products" begin
